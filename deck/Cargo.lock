@@ -1182,6 +1182,7 @@ dependencies = [
  "deck-events",
  "deck-kit",
  "deck-link",
+ "deck-media-hw",
  "deck-native",
  "deck-outlet",
  "deck-show",
@@ -1294,7 +1295,17 @@ dependencies = [
  "re_mp4",
  "snap",
  "symphonia",
+ "tracing",
  "wasmtime",
+]
+
+[[package]]
+name = "deck-media-hw"
+version = "0.1.0"
+dependencies = [
+ "deck-media",
+ "tracing",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -1360,6 +1371,7 @@ dependencies = [
  "deck-engine",
  "deck-events",
  "deck-link",
+ "deck-media-hw",
  "deck-module-host",
  "deck-outlet",
  "deck-outputs",
@@ -1456,6 +1468,7 @@ dependencies = [
  "deck-kit",
  "deck-link",
  "deck-media",
+ "deck-media-hw",
  "deck-module",
  "deck-outlet",
  "deck-ui",

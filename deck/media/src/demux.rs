@@ -23,6 +23,7 @@ pub enum Codec {
     Av1,
     Hap(Hap),
     H264,
+    Hevc,
     Vp9,
     Aac,
     Vorbis,
@@ -41,6 +42,7 @@ impl Codec {
             "HapY" => Codec::Hap(Hap::Q),
             "HapM" | "HapA" | "Hap7" => Codec::Hap(Hap::Other),
             "avc1" | "avc3" => Codec::H264,
+            "hvc1" | "hev1" => Codec::Hevc,
             "vp09" => Codec::Vp9,
             "mp4a" => Codec::Aac,
             "fLaC" => Codec::Flac,
@@ -54,6 +56,7 @@ impl Codec {
             "V_AV1" => Codec::Av1,
             "V_VP9" => Codec::Vp9,
             "V_MPEG4/ISO/AVC" => Codec::H264,
+            "V_MPEGH/ISO/HEVC" => Codec::Hevc,
             "A_VORBIS" => Codec::Vorbis,
             "A_OPUS" => Codec::Opus,
             "A_FLAC" => Codec::Flac,
@@ -63,7 +66,7 @@ impl Codec {
     }
 
     pub fn is_video(&self) -> bool {
-        matches!(self, Codec::Av1 | Codec::Hap(_) | Codec::H264 | Codec::Vp9)
+        matches!(self, Codec::Av1 | Codec::Hap(_) | Codec::H264 | Codec::Hevc | Codec::Vp9)
     }
 }
 
@@ -87,10 +90,12 @@ pub struct Track {
     pub timescale: u32,
     /// the track's length in ticks
     pub duration: i64,
-    /// the decoder's configuration record (AV1's `av1C`), when the container has one
+    /// the decoder's configuration record (AV1's `av1C`, H.264's `avcC`, HEVC's `hvcC`), when the container has one
     pub config: Vec<u8>,
     /// in presentation order
     pub samples: Vec<Sample>,
+    /// the samples in decode order, as indices into `samples` (B-frames are decoded before they show)
+    pub decode: Vec<u32>,
 }
 
 impl Track {
@@ -105,6 +110,18 @@ impl Track {
     /// the last sample shown at `ticks` (the first one before the start)
     pub fn at(&self, ticks: i64) -> usize {
         self.samples.partition_point(|s| s.pts <= ticks).saturating_sub(1)
+    }
+
+    /// `samples` in presentation order and `decode`, from samples in decode order (the file's)
+    pub fn ordered(mut samples: Vec<Sample>) -> (Vec<Sample>, Vec<u32>) {
+        let mut by_pts: Vec<u32> = (0..samples.len() as u32).collect();
+        by_pts.sort_by_key(|&i| samples[i as usize].pts);
+        let mut decode = vec![0u32; samples.len()];
+        for (shown, &d) in by_pts.iter().enumerate() {
+            decode[d as usize] = shown as u32;
+        }
+        samples.sort_by_key(|s| s.pts);
+        (samples, decode)
     }
 
     /// the nearest key sample at or before sample `i`
@@ -156,7 +173,7 @@ fn mp4(bytes: Arc<[u8]>) -> Result<Clip, Error> {
             other => other.codec_string().unwrap_or_default().split('.').next().unwrap_or_default().to_string(),
         };
         let codec = Codec::of_fourcc(&fourcc);
-        let mut samples: Vec<Sample> = t
+        let samples: Vec<Sample> = t
             .samples
             .iter()
             .map(|s| Sample { pts: s.composition_timestamp, key: s.is_sync, at: s.offset as usize, len: s.size as usize })
@@ -164,7 +181,10 @@ fn mp4(bytes: Arc<[u8]>) -> Result<Clip, Error> {
         if samples.iter().any(|s| s.at + s.len > bytes.len()) {
             return err("MP4: a sample lies past the end of the file");
         }
-        samples.sort_by_key(|s| s.pts);
+        // B-frames delay the first picture (a muxer's edit list says so): the track starts at its first picture
+        let first = samples.iter().map(|s| s.pts).min().unwrap_or(0);
+        let (mut samples, decode) = Track::ordered(samples);
+        samples.iter_mut().for_each(|s| s.pts -= first);
         let track = Track {
             width: u32::from(t.width),
             height: u32::from(t.height),
@@ -172,6 +192,7 @@ fn mp4(bytes: Arc<[u8]>) -> Result<Clip, Error> {
             duration: t.duration as i64,
             config: t.raw_codec_config(&file).unwrap_or_default(),
             samples,
+            decode,
             codec,
         };
         let slot = if track.codec.is_video() || matches!(t.kind, Some(re_mp4::TrackKind::Video)) { &mut video } else { &mut audio };
@@ -211,15 +232,15 @@ fn matroska(bytes: Arc<[u8]>) -> Result<Clip, Error> {
     // a track starts at 0 (a muxer's offset goes) and lasts to its last sample's end
     let track = |t: Option<Picked>, mut samples: Vec<Sample>| {
         t.map(|(_, id, private, size)| {
-            samples.sort_by_key(|s| s.pts);
-            let first = samples.first().map_or(0, |s| s.pts);
+            let first = samples.iter().map(|s| s.pts).min().unwrap_or(0);
             samples.iter_mut().for_each(|s| s.pts -= first);
+            let (samples, decode) = Track::ordered(samples);
             let last = samples.last().map_or(0, |s| s.pts);
             // the mean spacing: millisecond ticks round each frame's time
             let n = samples.len();
             let (w, h) = size.unwrap_or((0, 0));
             let duration = if n > 1 { last + (last as f64 / (n - 1) as f64).round() as i64 } else { duration };
-            Track { codec: Codec::of_matroska(&id), width: w as u32, height: h as u32, timescale, duration, config: private.unwrap_or_default(), samples }
+            Track { codec: Codec::of_matroska(&id), width: w as u32, height: h as u32, timescale, duration, config: private.unwrap_or_default(), samples, decode }
         })
     };
     Ok(Clip { video: track(v, vs), audio: track(a, as_), data: arena.into(), container: Container::Matroska })

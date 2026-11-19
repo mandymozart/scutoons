@@ -76,6 +76,9 @@ rqrr = { version = "0.10", default-features = false }
 deck-events = { path = "../events" }
 # #485: examples/ui-frames.rs waits for the GPU without a window
 pollster = "0.4"
+# examples/video-decode.rs: the hardware decoders measured against software
+deck-media = { path = "../media" }
+deck-media-hw = { path = "../media/hw" }
 
 # #485: frames of the deck's menu and panel drawn by the real path (deck-kit's egui screen, egui-wgpu in the stage's
 # pass), offscreen through wgpu, as PNG files
@@ -86,6 +89,11 @@ required-features = ["gpu", "native"]
 # a video frame's way to the GPU, before and after the planes went up as they are (ms per frame)
 [[example]]
 name = "video-upload"
+required-features = ["gpu", "media"]
+
+# a video frame from packet to the GPU per decode backend (software, hardware), and whether it keeps real time
+[[example]]
+name = "video-decode"
 required-features = ["gpu", "media"]
 
 [[bin]]

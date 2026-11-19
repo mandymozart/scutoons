@@ -1,6 +1,7 @@
 //! Which of an asset's derivatives this deck plays: GPU-texture frames (HAP) where the GPU samples BC, else a codec a
-//! hardware decoder takes, else one the software backend decodes; of those the tallest that fits the deck's height, else
-//! the smallest. TODO(#325): the derivatives come with the scene's asset manifest; until then a host passes the one file
+//! hardware decoder takes (`backend::hardware_codecs`, the adapter's capability query), else one the software backend
+//! decodes (rav1d's AV1, the floor); of those the tallest that fits the deck's height, else the smallest; at one height
+//! the codec with the smaller file. TODO(#325): the derivatives come with the scene's asset manifest; until then a host passes the one file
 //! it has (`Derivative::only`).
 use crate::backend::Software;
 use crate::demux::{Codec, Hap};
@@ -34,6 +35,11 @@ pub struct Device {
 }
 
 impl Device {
+    /// this deck: its GPU's BC sampling, its height, and the codecs its hardware decoders take
+    pub fn here(bc: bool, max_height: u32) -> Device {
+        Device { bc, hardware: crate::backend::hardware_codecs(), max_height }
+    }
+
     fn rank(&self, d: &Derivative) -> Option<u8> {
         match &d.codec {
             Codec::Hap(Hap::Other) => None,
@@ -46,12 +52,23 @@ impl Device {
     }
 }
 
+/// at one height, the codec that makes the smaller file for the same picture first
+fn thrift(c: &Codec) -> u8 {
+    match c {
+        Codec::Av1 => 0,
+        Codec::Hevc => 1,
+        Codec::Vp9 => 2,
+        Codec::H264 => 3,
+        _ => 4,
+    }
+}
+
 /// The derivative to play on `device`; None: nothing it can play.
 pub fn choose<'a>(list: &'a [Derivative], device: &Device) -> Option<&'a Derivative> {
     let best = list.iter().filter_map(|d| device.rank(d)).min()?;
     let class: Vec<&Derivative> = list.iter().filter(|d| device.rank(d) == Some(best)).collect();
-    let fits = class.iter().filter(|d| d.height <= device.max_height).max_by_key(|d| d.height);
-    fits.or_else(|| class.iter().min_by_key(|d| d.height)).copied()
+    let fits = class.iter().filter(|d| d.height <= device.max_height).max_by_key(|d| (d.height, std::cmp::Reverse(thrift(&d.codec))));
+    fits.or_else(|| class.iter().min_by_key(|d| (d.height, thrift(&d.codec)))).copied()
 }
 
 #[cfg(test)]
@@ -76,6 +93,23 @@ mod tests {
             assert_eq!(choose(&list, &tiny).unwrap().path, "540", "nothing fits: the smallest");
         }
         assert!(choose(&[d(Codec::Other("xyz".into()), 720)], &x1).is_none());
+    }
+
+    #[test]
+    fn without_hardware_av1_the_codec_the_gpu_decodes() {
+        // the PC (RTX 2070 SUPER: H.264, HEVC, VP9) and the X1 (UHD 620: the same) decode no AV1 in hardware
+        let list = [d(Codec::Av1, 1080), d(Codec::Hevc, 1080), d(Codec::H264, 1080), d(Codec::H264, 720)];
+        let pc = Device { bc: false, hardware: vec![Codec::H264, Codec::Hevc, Codec::Vp9], max_height: 1440 };
+        assert_eq!(choose(&list, &pc).unwrap().codec, Codec::Hevc, "HEVC: hardware, and smaller than H.264");
+        let h264_only = Device { bc: false, hardware: vec![Codec::H264], max_height: 1080 };
+        let got = choose(&list, &h264_only).unwrap();
+        assert_eq!((&got.codec, got.height), (&Codec::H264, 1080));
+        let newer = Device { bc: false, hardware: vec![Codec::Av1, Codec::Hevc], max_height: 1080 };
+        assert_eq!(choose(&list, &newer).unwrap().codec, Codec::Av1, "AV1 where the GPU has it");
+        if crate::AV1 {
+            let none = Device { bc: false, hardware: vec![], max_height: 1080 };
+            assert_eq!(choose(&list, &none).unwrap().codec, Codec::Av1, "software: rav1d's AV1, the floor");
+        }
     }
 
     #[test]

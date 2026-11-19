@@ -1,5 +1,5 @@
 //! A video's frames on the GPU: each frame written into the textures that are there (made again only when the size or
-//! the format changes); AV1's planes and HAP Q's YCoCg blocks turned into RGB by a pass (shaders/video.wgsl), HAP's
+//! the format changes); AV1's planes, a hardware decoder's NV12 and HAP Q's YCoCg blocks turned into RGB by a pass (shaders/video.wgsl), HAP's
 //! BC1 / BC3 blocks sampled as they are where the device samples BC; a frame smaller than its place upscaled by FSR 1
 //! (EASU, then RCAS) when the caller asks for a size.
 use deck_media::{Format, Picture};
@@ -12,6 +12,7 @@ const SHARPNESS_STOPS: f32 = 0.2;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Stage {
     Yuv,
+    Nv12,
     YCoCg,
     Easu,
     Rcas,
@@ -21,6 +22,7 @@ impl Stage {
     fn entry(self) -> &'static str {
         match self {
             Stage::Yuv => "fs_yuv",
+            Stage::Nv12 => "fs_nv12",
             Stage::YCoCg => "fs_ycocg",
             Stage::Easu => "fs_easu",
             Stage::Rcas => "fs_rcas",
@@ -159,6 +161,7 @@ fn sources(key: &Key) -> (Vec<Made>, Option<Stage>) {
             let c = (w.div_ceil(2), h.div_ceil(2));
             (vec![(T::R8Unorm, (w, h)), (T::R8Unorm, c), (T::R8Unorm, c)], Some(Stage::Yuv))
         }
+        (Format::Nv12 { .. }, _) => (vec![(T::R8Unorm, (w, h)), (T::Rg8Unorm, (w.div_ceil(2), h.div_ceil(2)))], Some(Stage::Nv12)),
         (Format::Bc3YCoCg, true) => (vec![(T::Bc3RgbaUnorm, (w, h))], Some(Stage::YCoCg)),
         (Format::Bc1, true) => (vec![(if direct && key.srgb { T::Bc1RgbaUnormSrgb } else { T::Bc1RgbaUnorm }, (w, h))], None),
         (Format::Bc3, true) => (vec![(if direct && key.srgb { T::Bc3RgbaUnormSrgb } else { T::Bc3RgbaUnorm }, (w, h))], None),
@@ -185,7 +188,7 @@ impl Texture {
             let format = if end { last } else { T::Rgba8Unorm };
             let target = make(device, stage.entry(), size, format, true);
             let mut u = [0f32; 12];
-            if let Format::Yuv420 { matrix, full } = key.format {
+            if let Format::Yuv420 { matrix, full } | Format::Nv12 { matrix, full } = key.format {
                 let ([a, rv, gu, gv, bu], black) = matrix.coefficients(full);
                 u[..6].copy_from_slice(&[a as f32 / 256.0, rv as f32 / 256.0, gu as f32 / 256.0, gv as f32 / 256.0, bu as f32 / 256.0, black as f32]);
             }
@@ -235,8 +238,8 @@ pub fn upload(device: &wgpu::Device, queue: &wgpu::Queue, conv: &mut Converter, 
     };
     match (pic.planes(), pic.compressed() && bc) {
         (Some(planes), _) => {
-            for (tex, (data, w, h)) in t.sources.iter().zip(planes) {
-                write(tex, data, w, h);
+            for (tex, p) in t.sources.iter().zip(planes) {
+                write(tex, p.data, p.width * p.texel, p.height);
             }
         }
         (None, true) => write(&t.sources[0], &pic.data, pic.width / 4 * if pic.format == Format::Bc1 { 8 } else { 16 }, pic.height / 4),
@@ -310,6 +313,17 @@ mod tests {
             let got = read(&device, &queue, slot.as_ref().unwrap());
             assert!(worst(&got, &pic.to_rgba().data) <= 1, "{matrix:?} full {full}");
             assert!(!upload(&device, &queue, &mut conv, &pic, false, None, &mut slot), "the next frame into the same textures");
+        }
+        // the same picture as NV12 (a hardware decoder's): the same RGB as its planes
+        for (matrix, full) in [(Matrix::Bt709, false), (Matrix::Bt601, true)] {
+            let uv: Vec<u8> = u.iter().zip(&v).flat_map(|(a, b)| [*a, *b]).collect();
+            let pic = Picture { width: w, height: h, format: Format::Nv12 { matrix, full }, data: [&y[..], &uv].concat() };
+            let planar = Picture { format: Format::Yuv420 { matrix, full }, data: [&y[..], &u, &v].concat(), ..pic.clone() };
+            assert_eq!(pic.to_rgba(), planar.to_rgba(), "the CPU reads both alike");
+            let mut slot = None;
+            upload(&device, &queue, &mut conv, &pic, false, None, &mut slot);
+            let got = read(&device, &queue, slot.as_ref().unwrap());
+            assert!(worst(&got, &pic.to_rgba().data) <= 1, "NV12 {matrix:?} full {full}");
         }
         // the AV1 fixture's frame: close to the CPU's (chroma interpolated, not picked)
         let pic = first("av1.mp4");
