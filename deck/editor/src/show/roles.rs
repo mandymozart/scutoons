@@ -59,6 +59,8 @@ pub enum Ask {
     RemoveRow(String),
     /// kick this client
     Kick(String),
+    /// Go live while this other show is live: it ends first (live.rs)
+    EndLive(String),
 }
 
 impl Host {
@@ -78,6 +80,9 @@ impl Host {
     /// The shown document after an edit: the conductor this editor runs takes it (its session hears the roles at once); a
     /// sub conductor's document shown here changes only here.
     pub(super) fn changed(&mut self, show: deck_show::Show) {
+        if self.locked {
+            return self.refuse(super::live::LOCKED.into());
+        }
         if self.path.is_empty() {
             let out = self.sub.edited(show);
             self.send(out);
@@ -112,6 +117,7 @@ impl Host {
                     self.status = said;
                     self.send(out);
                 }
+                Some(Ask::EndLive(_)) => self.live_asked = true,
                 None => {}
             },
             Hit::AskNo => self.asking = None,
@@ -179,6 +185,7 @@ impl Host {
             }
             Ask::RemoveRow(id) => Some(deck_show::rows::remove_prompt(self.shown(), id)),
             Ask::Kick(client) => Some(deck_show::roles::kick_prompt(&self.sub, client)),
+            Ask::EndLive(other) => Some(super::live::end_prompt(other, &self.sub.conductor().show().id)),
         }
     }
 }

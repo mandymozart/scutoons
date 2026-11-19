@@ -230,7 +230,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
     let mut bx = x;
     for (word, hit) in [("Copy link", Hit::SessionCopy), ("Open here", Hit::SessionOpen)] {
         let r = Rect { x: bx, y, w: d.advance(font * 1.3) * word.chars().count() as f32 + 2.0 * pad, h: row };
-        super::perform::button(d, t, r, word, t.color.control, ink);
+        super::live::button(d, t, r, word, t.color.control, ink);
         if p.has_link() {
             host.hits.push((r, hit));
         }

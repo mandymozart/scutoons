@@ -610,13 +610,13 @@ mod tests {
         // Tab goes on from the focus in reading order, shift + Tab back
         let order: Vec<String> = host.nodes.order.iter().map(|&i| host.nodes.drawn[i].0.clone()).collect();
         let at = order.iter().position(|x| x == "clock").unwrap();
-        assert!(host.key(&Key::Named(NamedKey::Tab), false, true));
+        assert!(host.key(&Key::Named(NamedKey::Tab), false));
         assert_eq!(host.nodes.focus.as_deref(), Some(order[(at + 1) % order.len()].as_str()));
         assert_eq!(host.nodes.selected.len(), 1);
         host.nodes.shift = true;
-        host.key(&Key::Named(NamedKey::Tab), false, true);
+        host.key(&Key::Named(NamedKey::Tab), false);
         assert_eq!(host.nodes.focus.as_deref(), Some("clock"));
-        assert!(host.key(&Key::Named(NamedKey::Escape), false, true));
+        assert!(host.key(&Key::Named(NamedKey::Escape), false));
         assert!(host.nodes.selected.is_empty());
     }
 
@@ -644,7 +644,7 @@ mod tests {
         }
         let n = host.nodes.drawn.len();
         host.cursor = (host.nodes.canvas.x + 5.0, host.nodes.canvas.y + 5.0);
-        assert!(host.key(&Key::Character("g".into()), true, true), "ctrl+G over the canvas groups the selection");
+        assert!(host.key(&Key::Character("g".into()), true), "ctrl+G over the canvas groups the selection");
         let grp = host.shown().rows[host.row].nodes.groups[0].clone();
         assert_eq!(grp.nodes, ["reader", "clock"]);
         let d = frame(&mut host);
@@ -668,9 +668,9 @@ mod tests {
         host.press(Hit::Nodes(NodeHit::Note));
         assert!(matches!(&host.typing, Some((Typing::Note(_), _))), "the note opens for typing");
         for c in ["l", "o", "u", "d"] {
-            host.key(&Key::Character(c.into()), false, true);
+            host.key(&Key::Character(c.into()), false);
         }
-        host.key(&Key::Named(NamedKey::Enter), false, true);
+        host.key(&Key::Named(NamedKey::Enter), false);
         let note = host.shown().rows[host.row].nodes.notes[0].clone();
         assert_eq!((note.text.as_str(), note.node.as_deref()), ("loud", Some("row")));
         let d = frame(&mut host);

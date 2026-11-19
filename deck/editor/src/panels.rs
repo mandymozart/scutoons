@@ -36,14 +36,19 @@ pub const BUILD: [Spec; 10] = [
     SETTINGS_PANEL,
 ];
 
-pub const SHOW: [Spec; 10] = [
+/// a Show tab's: authoring and running at once – the rows band is the cue matrix (a row's ▶ fires it, a cell's ▶ launches
+/// it by hand); Next, Stage now and Session are the optional panels of a running show
+pub const SHOW: [Spec; 13] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
-    spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
+    spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, the session, the vote, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
     spec("nodes", "Nodes", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
     spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens it as a tab.", Place::at(BR, 0.0, 0.0)),
-    spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell.", Place::at(BL, 0.0, 0.0)).essential(),
+    spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell; a row's ▶ fires it, a cell's ▶ launches it.", Place::at(BL, 0.0, 0.0)).essential(),
+    spec("session", "Session", "activity", "This conductor, its seats, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0).closed()),
+    spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 320.0, 0.0).closed()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 440.0, 0.0).folded()),
+    spec("next", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 360.0, 0.0).closed()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 380.0, 0.0)).inline(),
     LOG,
     SETTINGS_PANEL,
@@ -59,17 +64,8 @@ pub const MODULE: [Spec; 7] = [
     SETTINGS_PANEL,
 ];
 
-pub const PERFORM: [Spec; 9] = [
-    spec("rail", "Session", "nodes", "This conductor, its seats, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0)),
-    spec("side", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 0.0, 0.0)).essential(),
-    spec("sheet", "Show runner", "layers", "The show runner's sheet open: the session for linked readers, or the vote.", Place::at(TL, 300.0, 0.0)).essential(),
-    spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 300.0, 0.0)),
-    spec("matrix", "Cues", "list", "Rows × outlets: the row's play fires it, a cell's play launches it by hand.", Place::at(BL, 0.0, 0.0)).essential(),
-    spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 120.0, 0.0).folded()),
-    spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 360.0, 0.0)).inline(),
-    LOG,
-    SETTINGS_PANEL,
-];
+/// a running show's panels in a Show tab: closed until the show goes live (or the panel list opens one)
+pub const OPTIONAL: [&str; 3] = ["session", "now", "next"];
 
 /// Home's: only what every view has
 pub const HOME: [Spec; 2] = [LOG, SETTINGS_PANEL];
@@ -219,7 +215,7 @@ mod tests {
     use super::*;
 
     fn workspaces() -> [(&'static str, &'static [Spec]); 4] {
-        [("build", &BUILD), ("module", &MODULE), ("show", &SHOW), ("perform", &PERFORM)]
+        [("build", &BUILD), ("module", &MODULE), ("show", &SHOW), ("live", &SHOW)]
     }
 
     /// what each workspace's panels ask for on a typical frame (the sheet and its twin are never shown together)
@@ -228,7 +224,8 @@ mod tests {
             "build" => vec![("tree", 220.0, Some(200.0)), ("library", 412.0, Some(300.0)), ("inspector", 280.0, Some(900.0)), ("audio", 300.0, Some(500.0)), ("info", 260.0, Some(100.0)), ("mixer", 560.0, Some(112.0))],
             "module" => vec![("library", 412.0, Some(400.0)), ("module", 360.0, Some(700.0)), ("problems", 700.0, Some(200.0)), ("info", 260.0, Some(100.0))],
             "show" => vec![("outline", 280.0, Some(500.0)), ("inspector", 320.0, Some(1200.0)), ("nodes", 760.0, Some(360.0)), ("library", 412.0, Some(220.0)), ("rows", 900.0, Some(160.0)), ("info", 260.0, Some(100.0))],
-            _ => vec![("rail", 220.0, Some(400.0)), ("side", 300.0, Some(300.0)), ("now", 700.0, Some(90.0)), ("matrix", 1000.0, Some(200.0)), ("info", 260.0, Some(100.0))],
+            // a running show with its optional panels open (the node view gives them its room)
+            _ => vec![("outline", 280.0, Some(300.0)), ("inspector", 320.0, Some(600.0)), ("rows", 1000.0, Some(200.0)), ("session", 220.0, Some(400.0)), ("now", 700.0, Some(90.0)), ("info", 260.0, Some(100.0)), ("next", 320.0, Some(300.0))],
         }
     }
 
@@ -255,6 +252,9 @@ mod tests {
                 let mut p = Panels::new(specs);
                 p.tools = Some((8.0 * t.size.row, t.size.row));
                 p.floats.reopen(crate::log::PANEL);
+                for id in OPTIONAL.iter().filter(|_| name == "live") {
+                    p.floats.reopen(id);
+                }
                 let mut shown = typical(name);
                 p.layout(&d, &t, (size, 52.0), &[], &shown);
                 shown.extend([("tools", 0.0, None), (crate::log::PANEL, 0.0, None)]);
@@ -296,7 +296,6 @@ mod tests {
         assert_eq!(essentials(&BUILD), ["inspector", "tools"]);
         assert_eq!(essentials(&MODULE), ["module"]);
         assert_eq!(essentials(&SHOW), ["inspector", "sheet", "rows"]);
-        assert_eq!(essentials(&PERFORM), ["side", "sheet", "matrix"]);
         for (name, specs) in workspaces() {
             let p = Panels::new(specs);
             let listed = p.listed();
@@ -318,7 +317,11 @@ mod tests {
                     assert!(!open, "{name}: the Log starts closed, the status bar opens it");
                     continue;
                 }
-                assert!(open, "{name}: {id} starts open");
+                if matches!(name, "show" | "live") && OPTIONAL.contains(&id) {
+                    assert!(!open, "{name}: {id} is a running show's, it starts closed");
+                    p.flip(id);
+                }
+                assert!(p.listed().iter().any(|(i, _, open)| *i == id && *open), "{name}: {id} open");
                 p.flip(id);
                 p.layout(&d, &t, ((1600.0, 900.0), 52.0), &[], &shown);
                 assert!(p.floats.view(id).is_none(), "{name}: {id} closed");

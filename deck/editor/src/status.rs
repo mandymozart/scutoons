@@ -45,7 +45,7 @@ impl App {
                     words.push((self.stage.audio.clone(), None));
                 }
             }
-            show::Workspace::Show | show::Workspace::Perform => {
+            show::Workspace::Show => {
                 words.push((self.show.link_line(), None));
                 let problems = self.show.problems();
                 if !problems.is_empty() {

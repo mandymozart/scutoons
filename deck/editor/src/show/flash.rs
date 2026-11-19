@@ -3,7 +3,7 @@
 //! filters, the typed filter and a hand set the ticks; "Flash …" opens the prompt, and only its confirm sends. The list, the
 //! filters, the prompt's words and what the flash names are deck-show's choose.rs; this file lays them out and hands the
 //! presses and the typed filter in (RULES A1, A2).
-use super::perform::button;
+use super::live::button;
 use super::{now, Hit, Host, Sheet};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;

@@ -141,7 +141,6 @@ pub fn groups(ws: Workspace) -> &'static [Group] {
     match ws {
         Workspace::Stage => &[Group::Tool, Group::Look, Group::Grid, Group::Frame],
         Workspace::Show => &[Group::View, Group::Look, Group::Frame],
-        Workspace::Perform => &[Group::View, Group::Look],
         Workspace::Module => &[Group::Frame],
         Workspace::Home => &[],
     }
@@ -485,7 +484,7 @@ mod tests {
     /// with a stage; it folds into a menu like the other groups
     #[test]
     fn the_camera_switcher_holds_free_primary_and_the_shots() {
-        for ws in [Workspace::Stage, Workspace::Show, Workspace::Perform] {
+        for ws in [Workspace::Stage, Workspace::Show] {
             assert!(groups(ws).contains(&Group::Look), "{ws:?}");
         }
         let shots: Vec<String> = ["wide", "close", "iso"].map(String::from).to_vec();

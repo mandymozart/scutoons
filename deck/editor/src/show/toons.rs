@@ -230,9 +230,9 @@ mod tests {
         host.press(Hit::Sheet(Sheet::NewShow));
         assert_eq!(host.sheet, Some(Sheet::NewShow));
         host.typing = None;
-        press(&mut host, false, |h| *h == Hit::ToonPick(1));
+        press(&mut host, |h| *h == Hit::ToonPick(1));
         assert_eq!((host.status.as_str(), host.sheet), ("a new show needs a name", Some(Sheet::NewShow)));
-        press(&mut host, false, |h| *h == Hit::NewName);
+        press(&mut host, |h| *h == Hit::NewName);
         typed(&mut host, "Top Toy Opening");
         typed(&mut host, "feil");
         assert_eq!(host.status, "new show top-toy-opening · toon feilchen");
@@ -260,9 +260,9 @@ mod tests {
     fn the_session_sheets_toon_sets_a_show_without_one_and_starts_at_the_shows() {
         let mut host = host(&["catpope", "feilchen"]);
         host.sheet = Some(Sheet::Session);
-        press(&mut host, true, |h| *h == Hit::SessionToon(1));
+        press(&mut host, |h| *h == Hit::SessionToon(1));
         assert_eq!((host.show_toon(), host.session.place.toon.as_str()), (Some("feilchen"), "feilchen"));
-        press(&mut host, true, |h| *h == Hit::SessionToon(0));
+        press(&mut host, |h| *h == Hit::SessionToon(0));
         assert_eq!((host.show_toon(), host.session.place.toon.as_str()), (Some("feilchen"), "catpope"), "the reader's place only, once the show has one");
         host.session.place = Default::default();
         host.session_open();

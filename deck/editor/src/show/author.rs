@@ -1,11 +1,11 @@
-//! The Show workspace (#91, the owner's draft m1-show), floating panels over the stage: the outline (this deck's
-//! conductor, its seats – a seat enters its sub conductor, the toolbar's path leads back –, the roles, the rows of the
-//! document shown); the node view of the selected row (nodes.rs) or the
-//! sheet open; the rows band; the scene list; the inspector of the row with save and load; the info. The sheets' pills
-//! sit in the toolbar, the 2D / 3D switch in the tools pill. The words are deck-show's view.rs; this file lays them out and names the
-//! places (`Hit`).
-use super::perform::button;
-use super::{Hit, Host, Sheet, Workspace};
+//! A Show tab (#91, the owner's draft m1-show), floating panels over the stage: the outline (this deck's conductor, its
+//! seats – a seat enters its sub conductor, the toolbar's path leads back –, the roles, the rows of the document shown);
+//! the node view of the selected row (nodes.rs) or the sheet open; the rows band, which is the cue matrix too; the scene
+//! list; the inspector of the row with save and load; the info; a running show's optional panels (live.rs). The sheets'
+//! pills sit in the toolbar, the 2D / 3D switch in the tools pill. The words are deck-show's view.rs; this file lays them
+//! out and names the places (`Hit`).
+use super::live::button;
+use super::{Hit, Host, Sheet};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
@@ -15,18 +15,16 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-/// the sheets the Show workspace offers over its stage (the flash list opens from Flash, not from a pill; the show runner's
-/// sheets are Perform's)
-pub const SHEETS: [(&str, Sheet); 4] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Demos", Sheet::Demos)];
+/// the sheets a Show tab offers over its stage (the flash list opens from Flash, not from a pill)
+pub const SHEETS: [(&str, Sheet); 6] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Session", Sheet::Session), ("Vote", Sheet::Vote), ("Demos", Sheet::Demos)];
 
 fn view_names(sheets: &[(&'static str, Sheet)]) -> Vec<&'static str> {
     sheets.iter().map(|(n, _)| *n).collect()
 }
 
-/// the toolbar's room for a workspace's view switch
-pub fn view_width(d: &DrawList, t: &Tokens, _host: &Host, ws: Workspace) -> f32 {
-    let sheets: &[(&str, Sheet)] = if ws == Workspace::Perform { &super::perform::SHEETS } else { &SHEETS };
-    view_names(sheets).iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0
+/// the toolbar's room for the view switch
+pub fn view_width(d: &DrawList, t: &Tokens) -> f32 {
+    view_names(&SHEETS).iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0
 }
 
 /// a pill per sheet the workspace offers (`sheets`), in the toolbar's slot (a test frame without a toolbar: left of the
@@ -72,7 +70,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     // document shown here runs elsewhere)
     let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
     view_switch(d, t, host, w, &SHEETS);
-    let sheet = host.sheet.filter(|s| !s.in_perform());
+    let sheet = host.sheet;
 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
     let band_size = super::band::table(t, &band, true).size();
@@ -84,7 +82,10 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     }
     // the library: drawn by the editor over these panels (scenes.rs `panel`)
     shown.extend([(crate::library::PANEL, crate::library::WIDTH, super::scenes::note_height(t, host)), ("rows", band_size.0, Some(band_size.1)), ("info", 260.0, Some(small * 1.4 * 6.0))]);
+    shown.extend(super::live::shown(t, host));
     host.show_panels.layout(d, t, ((w, h), crate::bar::bottom(t)), &[], &shown);
+    // a running show's panels: what plays now, the session, GO (the top's conductor runs; a sub's document only shows)
+    super::live::draw(d, t, host, &view::matrix_at(&host.sub, super::now()), pointer);
 
     // the outline: the conductors (the top, then the seats of the document shown), the roles, the rows
     if let Some(o) = host.show_panels.open(d, t, "outline", pointer, host.hits.len()) {
@@ -133,9 +134,9 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     }
 
     if let Some(o) = host.show_panels.open(d, t, "rows", pointer, host.hits.len()) {
-        let laid = super::band::draw(d, t, host, o.area, (&band, super::band::Mode { perform: false, runs }), host.show_scroll, pointer);
+        let laid = super::band::draw(d, t, host, o.area, (&band, runs), host.show_scroll, pointer);
         host.show_scroll = laid.scroll;
-        host.drew_band(false, laid);
+        host.drew_band(laid);
         host.show_panels.close(d, o, &mut host.hits);
     }
 

@@ -103,8 +103,6 @@ pub struct Tab<K> {
     pub kept: Option<K>,
     /// it has changes the server has not got (said when it went behind; the front one's is read live)
     pub dirty: bool,
-    /// a Show tab performs (Perform's panels) rather than authoring
-    pub perform: bool,
 }
 
 /// a recent item: its address and name
@@ -187,7 +185,7 @@ impl<K> Tabs<K> {
             return Vec::new();
         }
         let kind = Kind::of(key).unwrap_or(Kind::Media);
-        self.list.push(Tab { key: key.to_string(), kind, name: name.to_string(), kept: None, dirty: false, perform: false });
+        self.list.push(Tab { key: key.to_string(), kind, name: name.to_string(), kept: None, dirty: false });
         self.set_front(self.list.len() - 1);
         let mut gone = Vec::new();
         while self.list.len() > self.cap {

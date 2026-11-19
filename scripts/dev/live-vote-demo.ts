@@ -6,7 +6,7 @@
 //
 //   phones  per group (balkon, parkett, rang) – bots that vote on every vote that opens, evenly
 // Start a relay first: `cargo run -p relay` in deck/ (listens on 127.0.0.1:7700), then open votes in the deck editor:
-// `cargo run -p deck-editor -- --workspace perform --relay ws://127.0.0.1:7700/live/DEMO`, the Vote sheet.
+// `cargo run -p deck-editor -- --workspace show --relay ws://127.0.0.1:7700/live/DEMO`, the Vote sheet.
 import { GROUPS, changesMind, pickOption, voteDelay } from '../../viewer/src/lib/live-vote-demo.ts';
 import { readFileSync } from 'node:fs';
 import { loadRelay } from '../../shared/live-deck/src/client.ts';

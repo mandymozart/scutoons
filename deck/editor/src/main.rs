@@ -23,6 +23,7 @@ mod grid;
 mod home;
 mod idle;
 mod library;
+mod live_tabs;
 mod log;
 mod logo;
 mod mixer;
@@ -172,6 +173,9 @@ struct Args {
     settings: bool,
     /// a check run's panic pill, pressed at the start
     panic: bool,
+    /// a check run's Go live, pressed on each of these shows' tabs in turn (live_tabs.rs); then the lock
+    go_live: Vec<String>,
+    lock: bool,
     /// a check run shows the save pill in this state: saving, offline or conflict (its screenshots)
     save_state: Option<String>,
     /// a check run's tools pill folded at the start
@@ -202,7 +206,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -225,6 +229,8 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--go-live" => a.go_live = val()?.split(',').map(str::to_string).collect(),
+            "--lock" => a.lock = true,
             "--colour" => a.colour = Some(val()?),
             "--library-drag" => {
                 let v = val()?;
@@ -278,7 +284,7 @@ fn args() -> Result<Args> {
                     None => a.front = Some(v),
                 },
             },
-            "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace scene | asset | module | show | perform | home")?,
+            "--workspace" => a.workspace = show::Workspace::parse(&val()?).context("--workspace scene | asset | module | show | home")?,
             "--show" => match val()? {
                 v if v.ends_with(".json") => a.show_file = Some(PathBuf::from(v)),
                 v => a.show_id = Some(v),
@@ -486,8 +492,8 @@ enum Hit {
     Body(usize),
     /// the view gizmo: an axis (0 1 2 = +x +y +z, 3 4 5 = the minus sides), or its ball
     Axis(Option<usize>),
-    /// a Show tab's switch: Show or Perform
-    Workspace(show::Workspace),
+    /// a Show tab's live switch: Go live, End, Lock (live_tabs.rs)
+    Live(live_tabs::Press),
     /// the toolbar's Home, a tab (its close), the tab list; a press on Home's page
     Home,
     TabFront(usize),
@@ -711,7 +717,7 @@ struct App {
     edit: Option<ValueEdit>,
     /// the last press on a field: for a double click
     last_field: Option<(Editing, Instant)>,
-    /// #91: Build, Show or Perform; the show's conductor and what the show workspaces show
+    /// #91: what the front tab draws with; the show's conductor and what a Show tab shows
     workspace: show::Workspace,
     show: show::Host,
     /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
@@ -850,29 +856,26 @@ fn run() -> Result<i32> {
     if let Some(p) = remembered.get("show") {
         app_show.show_panels.floats.restore(p);
     }
-    if let Some(p) = remembered.get("perform") {
-        app_show.perform_panels.floats.restore(p);
-    }
     if args.audio {
         build.floats.reopen("audio");
     }
     if args.tools_folded {
-        for p in [&mut build.floats, &mut app_module.panels.floats, &mut app_show.show_panels.floats, &mut app_show.perform_panels.floats] {
+        for p in [&mut build.floats, &mut app_module.panels.floats, &mut app_show.show_panels.floats] {
             p.set_collapsed("tools", true);
         }
     }
     if args.settings {
-        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.reopen(panels::SETTINGS);
         }
     }
     if args.log {
-        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.reopen(log::PANEL);
         }
     }
     for id in &args.closed {
-        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels, &mut app_show.perform_panels] {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.close(id);
         }
     }
@@ -1041,7 +1044,6 @@ impl App {
             show::Workspace::Stage => &self.build,
             show::Workspace::Module => &self.module.panels,
             show::Workspace::Show => &self.show.show_panels,
-            show::Workspace::Perform => &self.show.perform_panels,
             show::Workspace::Home => &self.home_panels,
         }
     }
@@ -1051,7 +1053,6 @@ impl App {
             show::Workspace::Stage => &mut self.build,
             show::Workspace::Module => &mut self.module.panels,
             show::Workspace::Show => &mut self.show.show_panels,
-            show::Workspace::Perform => &mut self.show.perform_panels,
             show::Workspace::Home => &mut self.home_panels,
         }
     }
@@ -1063,7 +1064,6 @@ impl App {
         all.insert("build".into(), self.build.floats.places());
         all.insert("module".into(), self.module.panels.floats.places());
         all.insert("show".into(), self.show.show_panels.floats.places());
-        all.insert("perform".into(), self.show.perform_panels.floats.places());
         all.insert("home".into(), self.home_panels.floats.places());
         panels::save(file, &all);
     }
@@ -1072,7 +1072,6 @@ impl App {
     fn menu_why_not(&self, a: bar::Action) -> Option<&'static str> {
         use bar::Action as A;
         match a {
-            A::Open if self.workspace == show::Workspace::Perform => Some("Perform runs the show open: open another from Home or in Show."),
             A::Open if self.workspace == show::Workspace::Module => Some(module::draw::PICK),
             A::Audio if self.workspace != show::Workspace::Stage && !self.tabs.list.iter().any(|t| matches!(t.kind, tabs::Kind::Scene | tabs::Kind::Character)) => Some("The Audio panel is a Scene's or a character's: open one."),
             A::Open | A::Audio | A::Settings | A::New => None,
@@ -1276,7 +1275,9 @@ impl App {
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
             Hit::Ground => return None,
-            Hit::Workspace(_) => Help::new("Show · Perform", "Show: the show's rows, cells and seats, saved through /api/shows. Perform: the same show played – the matrix, GO, the session and the vote."),
+            Hit::Live(live_tabs::Press::Go) => Help::new("Go live", "This show joins the relay: its decks, the readers and the vote. Only one show is live; another live show is asked to end first."),
+            Hit::Live(live_tabs::Press::End) => Help::new("End", "The show leaves the relay, its decks and readers with it. The tab stays open; the lock comes off."),
+            Hit::Live(live_tabs::Press::Lock) => Help::new(if self.show.locked { "Unlock" } else { "Lock" }, "Against edits during a live night: launching, GO, the session and the vote stay; every edit of the show is refused until unlocked."),
             Hit::Home => Help::new("Home", "Recent, the library, New and the deck's state. The tabs stay open behind it."),
             Hit::TabFront(i) if self.tabs.front == Some(i) => Help::new(self.tabs.list.get(i)?.name.clone(), "In front: it runs on the stage. Click to go back to its top."),
             Hit::TabFront(i) => {
@@ -1571,7 +1572,7 @@ impl App {
             return;
         }
         match self.hit(x, y) {
-            Hit::Workspace(w) => self.show_mode(w),
+            Hit::Live(p) => self.live_press(p),
             Hit::Home => self.home(),
             Hit::TabFront(i) if self.tabs.front == Some(i) => self.tab_top(),
             Hit::TabFront(i) => self.activate(i),
@@ -2698,7 +2699,9 @@ impl App {
         }
         if self.frames == 0 {
             self.script_save_state();
+            self.script_live();
         }
+        self.follow_live();
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
         }
@@ -2808,7 +2811,7 @@ impl App {
         let open = Some((t.size.rem(22.0), settings::height(t)));
         self.tools.shots = self.stage.space.dop.camera.shots.iter().map(|s| s.id.clone()).collect();
         let shots = &self.tools.shots;
-        for (p, ws) in [(&mut self.build, show::Workspace::Stage), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.show.perform_panels, show::Workspace::Perform), (&mut self.home_panels, show::Workspace::Home)] {
+        for (p, ws) in [(&mut self.build, show::Workspace::Stage), (&mut self.module.panels, show::Workspace::Module), (&mut self.show.show_panels, show::Workspace::Show), (&mut self.home_panels, show::Workspace::Home)] {
             p.settings = open;
             p.tools = Some(tools::size(t, ws, shots));
         }
@@ -2819,7 +2822,7 @@ impl App {
         // the stage at its viewport's size in pixels
         let [r, g, b, _] = t.color.stage;
         self.stage.space.set_ground([r, g, b]);
-        let show_bg = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform).then(|| self.show.sub.conductor().show().background.clone()).flatten();
+        let show_bg = matches!(self.workspace, show::Workspace::Show).then(|| self.show.sub.conductor().show().background.clone()).flatten();
         self.stage.wear(show_bg.as_ref());
         self.stage.ask_pixel(self.colour.dropper.map(|_| ((self.cursor.0 * scale) as u32, (self.cursor.1 * scale) as u32)));
         let tempo_now = self.stage.controls.tempo;
@@ -2848,16 +2851,18 @@ impl App {
         // the toolbar: the tabs, the front one's path inside it (the state words are the status bar's)
         let build = self.workspace == show::Workspace::Stage;
         let tab_pills: Vec<bar::TabPill> = pills.iter().map(|(name, icon, dirty, mark)| bar::TabPill { icon, name, dirty: *dirty, mark: *mark }).collect();
-        let shows = matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform);
-        let modes: [&str; 2] = if build { ["Edit", "Play"] } else { ["Show", "Perform"] };
-        let slot = if shows { show::author::view_width(ui, t, &self.show, self.workspace) } else { 0.0 };
+        let shows = matches!(self.workspace, show::Workspace::Show);
+        // a Scene or Asset tab's Edit · Play; a Show tab's Go live, or End and Lock
+        let (live_words, live_on, live_presses) = live_tabs::switch(self.show.live(), self.show.locked);
+        let modes: &[&str] = if build { &["Edit", "Play"] } else { live_words };
+        let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
         let spec = bar::Bar {
             tabs: &tab_pills,
             front: self.tabs.front,
             path: &path,
-            modes: if build { Some((&modes[..], usize::from(self.play.playing()))) } else { shows.then_some((&modes[..], usize::from(self.workspace == show::Workspace::Perform))) },
+            modes: if build { Some((modes, usize::from(self.play.playing()))) } else { shows.then_some((modes, live_on)) },
             play: None,
             beat: self.stage.beat,
             clock: bar::Clock::Int,
@@ -2884,7 +2889,7 @@ impl App {
             self.panel.hits.push((r, Hit::Meters));
         }
         self.panel.hits.push((placed.home, Hit::Home));
-        let mode_hits = if build { [Hit::Mode(true), Hit::Mode(false)] } else { [Hit::Workspace(show::Workspace::Show), Hit::Workspace(show::Workspace::Perform)] };
+        let mode_hits: Vec<Hit> = if build { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
         for (r, h) in placed.modes.iter().zip(mode_hits) {
             self.panel.hits.push((*r, h));
         }
@@ -2919,7 +2924,7 @@ impl App {
                         }
                     }
                 }
-                _ => show::perform::draw(ui, t, &mut self.show, wf, hf, self.cursor),
+                show::Workspace::Stage => {}
             }
             break 'build;
         }
@@ -3455,7 +3460,7 @@ impl App {
                         None => self.library.browser.hits.clear(),
                     }
                 }
-                show::Workspace::Perform | show::Workspace::Home => self.library.browser.hits.clear(),
+                show::Workspace::Home => self.library.browser.hits.clear(),
             }
         }
         // the tools pill, over the workspace's panels
@@ -3467,7 +3472,6 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Perform => &mut self.show.perform_panels,
                 show::Workspace::Home => &mut self.home_panels,
             };
             let mut places = Vec::new();
@@ -3487,7 +3491,6 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Perform => &mut self.show.perform_panels,
                 show::Workspace::Home => &mut self.home_panels,
             };
             if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
@@ -3503,7 +3506,6 @@ impl App {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
                 show::Workspace::Show => &mut self.show.show_panels,
-                show::Workspace::Perform => &mut self.show.perform_panels,
                 show::Workspace::Home => &mut self.home_panels,
             };
             (self.log_hits, self.opens_log) = status::draw(ui, t, (wf, hf), &self.log, ws, (typing.as_deref(), &words), self.cursor);
@@ -3519,7 +3521,6 @@ impl App {
                 show::Workspace::Stage => &self.build,
                 show::Workspace::Module => &self.module.panels,
                 show::Workspace::Show => &self.show.show_panels,
-                show::Workspace::Perform => &self.show.perform_panels,
                 show::Workspace::Home => &self.home_panels,
             }
             .listed();
@@ -3760,7 +3761,7 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } if self.workspace == show::Workspace::Show && event.logical_key == Key::Named(NamedKey::Space) && !self.panel.field.focused && self.show.nodes_space(event.state == ElementState::Pressed) => {}
             // #471: the flash list's typed filter has the keys while it is focused
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && matches!(self.workspace, show::Workspace::Show | show::Workspace::Perform) && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key(), self.workspace == show::Workspace::Show) => {}
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && self.workspace == show::Workspace::Show && self.show.key(&event.logical_key, self.mods.control_key() || self.mods.super_key()) => {}
             // #609: F9 – the stage instead of the editor, on this session and show (deck-native handoff.rs)
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::F9) => {
                 self.to_deck = true;

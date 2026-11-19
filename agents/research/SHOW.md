@@ -42,7 +42,7 @@ Builds on LIVE.md B.5 (show, outlets, cells), LIVE-LENSES.md, and the decisions 
 | Show core (new, Rust) | The show document, triggers, auto / suggest / hand, resolving cells, the conductor tree. Recursive from the start. Editor, conductor and web only draw it (RULE A1) |
 | Editor: **Build** | Rigs, instruments, modules, scenes. What exists now |
 | Editor: **Show** | Rows, cells, links, triggers, outlets, venues |
-| Editor: **Perform** | The same matrix locked: GO, suggestions, readiness, panic, votes, the event log |
+| Editor: **Show, running** (#634: no Perform workspace) | The same tab: Go live / End (one live show at a time), the optional panels Next (GO, suggestions), Stage now and Session, the Session and Vote sheets, panic, the log; an optional lock against edits |
 | Deck | Plays. Carries no editor code (research/EXTERNAL-EDITOR.md §5) |
 
 If running the whole editor at a show proves too heavy, a conductor-only app reuses the same matrix and core.
@@ -183,7 +183,7 @@ A cell is a piece and its values. A piece is a scene, rig or module; the current
 | Conductors | Main conductor and sub conductors on the owner's own decks: own rows, own operator, own clock | Sub conductors of other members |
 | Relay | A tree: rows, cells, events and the clock pass down, values, readiness and events up (today it is flat) | |
 | Parent and child | The child treats its parent like a reader: follow, suggest, free. Local GO always works | |
-| Show and Perform | Both workspaces in deck-editor: matrix, rows, cells as a piece plus values, entering a sub conductor, the 2D overlay | |
+| Show | The Show tab in deck-editor (Perform's panels optional in it since #634): matrix, rows, cells as a piece plus values, entering a sub conductor, the 2D overlay | |
 | Launching | Row ▶, single cell ▶ by hand, GO, moments | |
 | Triggers | Reader events firing rows: auto, suggest, hand; the log | |
 | Addressing | Kind and id, `character:yellowmouse > dance:samba`, silent and logged | Down to module and parameter over the wire |

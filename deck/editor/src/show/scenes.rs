@@ -174,7 +174,7 @@ pub(in crate::show) mod tests {
         drag(&mut host, &mut lib, "scene:nave", "crossroads", "left");
         assert!(host.status.starts_with("not changed: "), "an ask cell takes no piece: {}", host.status);
         assert_eq!(host.shown(), &before);
-        press(&mut host, false, |h| *h == Hit::RowAdd);
+        press(&mut host, |h| *h == Hit::RowAdd);
         assert_eq!(host.refused, None, "the next press clears it");
     }
 }
