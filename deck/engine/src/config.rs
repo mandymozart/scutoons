@@ -43,6 +43,9 @@ pub struct DeckConfig {
     pub layouts: Vec<Layout>,
     #[serde(default)]
     pub fold: Fold,
+    /// every outlet plays by its group: a scene's pinned device channels (`first`, `channels`) are set aside (a preview, `folded`)
+    #[serde(default)]
+    pub unpinned: bool,
 }
 
 /// the most device channels (the engine's channel limit, plan 2.6)
@@ -62,7 +65,7 @@ impl DeckConfig {
 
     /// a device with `channels` channels (what its backend reports), nothing configured: `main` plays on its first channels
     pub fn device(channels: usize) -> DeckConfig {
-        DeckConfig { name: format!("{channels}-channel device"), channels: channels.clamp(1, MAX_DEVICE_CHANNELS), names: Vec::new(), outlets: Vec::new(), layouts: Vec::new(), fold: Fold::Speakers }
+        DeckConfig { name: format!("{channels}-channel device"), channels: channels.clamp(1, MAX_DEVICE_CHANNELS), names: Vec::new(), outlets: Vec::new(), layouts: Vec::new(), fold: Fold::Speakers, unpinned: false }
     }
 
     /// the group plays on these device channels (counted from 1)
@@ -70,6 +73,13 @@ impl DeckConfig {
         self.outlets.retain(|o| o.group != group);
         self.outlets.push(OutletMap { group: group.to_string(), channels: channels.to_vec() });
         self
+    }
+
+    /// A preview's device (cue.rs): two channels that every one of `groups` plays on, folded by the speaker tables, pins set
+    /// aside – a scene of any width as one stereo pair.
+    pub fn folded(groups: &[String]) -> DeckConfig {
+        let deck = groups.iter().fold(DeckConfig::device(2), |d, g| d.with_outlet(g, &[1, 2]));
+        DeckConfig { name: "the cue's stereo fold".into(), unpinned: true, ..deck }
     }
 
     pub fn with_layout(mut self, layout: Layout) -> DeckConfig {

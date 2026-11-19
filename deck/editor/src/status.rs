@@ -57,6 +57,9 @@ impl App {
         if let Some(p) = self.save_pill() {
             words.push((p, None));
         }
+        if let Some((note, warn)) = crate::live_tabs::cue_note(self.stage.live, self.stage.cue_heard(), self.stage.prelisten.as_ref().map(|p| p.label.as_str())) {
+            words.push((note, warn.then_some(Level::Warn)));
+        }
         let glitches = self.stage.glitches();
         if glitches > 0 {
             words.push((format!("{glitches} glitch{}", if glitches == 1 { "" } else { "es" }), Some(Level::Warn)));

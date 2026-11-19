@@ -158,6 +158,12 @@ A live tool may not crackle unnoticed, and should not crackle at all:
   machine's deck.toml binds them, counted from 1, after its plain keys: `[[audio_outlet]]` / `group = "cue"` / `channels = [3, 4]`.
   `main` without an entry plays on 1.., any other group without one is silent. The log prints each outlet's device channels
   ("audio: outlet 'cue' (cue): device channels [3, 4]"). Who assigns this at a venue: #330.
+  **The cue while a show is live** (#630, deck-engine `cue.rs`): every engine can carry a second, small engine summed onto
+  the `cue` pair after its limiters – a preview built on `DeckConfig::folded` (every group, pins set aside, folded onto one
+  stereo pair). The cue mix blends the device's main pair (the show) with it, 0 = show, 1 = preview. A cue that is not
+  mapped, or shares a channel with another group, is no cue: the preview is rendered for its meters and heard nowhere. In
+  the editor, while a show is live, the stage's graph is that preview beside an empty engine on the outlets (its clock held
+  to the show's, no MIDI clock out); a pre-listened cell takes the same place.
   **The editor's Audio tab** (deck/editor `routing.rs`, #565) sets all of this on the machine it runs on – host, device, buffer,
   the open rig's groups (and `main`) on the device's channels, a test tone per channel and per group on the settings shown,
   saved or not – and Apply writes them into deck.toml (`audio/deck_toml.rs`: the other keys and comments stay) and restarts the

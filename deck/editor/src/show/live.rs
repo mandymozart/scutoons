@@ -22,7 +22,7 @@ pub const LOCKED: &str = "locked for the live night: Unlock in the toolbar to ed
 pub fn edits(hit: Hit) -> bool {
     match hit {
         Hit::Nodes(n) => !matches!(n, NodeHit::Canvas | NodeHit::Node(_) | NodeHit::NodeAlso(_)),
-        Hit::Knob(k) => !matches!(k, KnobHit::Build),
+        Hit::Knob(k) => !matches!(k, KnobHit::Build | KnobHit::Prelisten),
         Hit::Sheet(s) => matches!(s, Sheet::Scene | Sheet::NewShow | Sheet::Demos | Sheet::Event),
         _ => matches!(
             hit,
@@ -188,6 +188,8 @@ fn session(d: &mut DrawList, t: &Tokens, host: &mut Host, m: &Matrix, pointer: (
         d.text(a.x + 16.0, y, font, &o.id, t.color.text);
         y += t.size.tree_row;
     }
+    y += pad;
+    super::cue::rail(d, t, host, a.x, y, a.w);
     host.show_panels.close(d, o, &mut host.hits);
 }
 
@@ -294,7 +296,7 @@ mod tests {
         for h in [Hit::RowAdd, Hit::CellPiece, Hit::Port(0, 0, true, 0), Hit::Knob(KnobHit::Turn(0)), Hit::Load, Hit::Sheet(Sheet::NewShow), Hit::Nodes(NodeHit::Group)] {
             assert!(edits(h), "{h:?}");
         }
-        for h in [Hit::Fire(0), Hit::Launch(0, 0), Hit::Go, Hit::Drop, Hit::Stop(0), Hit::Row(0), Hit::Cell(0, 0), Hit::Sheet(Sheet::Vote), Hit::Sheet(Sheet::Session), Hit::Knob(KnobHit::Build), Hit::Nodes(NodeHit::Node(0))] {
+        for h in [Hit::Fire(0), Hit::Launch(0, 0), Hit::Go, Hit::Drop, Hit::Stop(0), Hit::Row(0), Hit::Cell(0, 0), Hit::Sheet(Sheet::Vote), Hit::Sheet(Sheet::Session), Hit::Knob(KnobHit::Build), Hit::Knob(KnobHit::Prelisten), Hit::CueMix, Hit::Nodes(NodeHit::Node(0))] {
             assert!(!edits(h), "{h:?}");
         }
     }
