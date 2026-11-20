@@ -39,10 +39,13 @@
 			.slice(0, 60)
 	);
 
+	let asked = 0;
 	async function load() {
 		error = null;
+		const mine = ++asked;
 		try {
-			histories = await Promise.all(shown.map(loadFile));
+			const next = await Promise.all(shown.map(loadFile));
+			if (mine === asked) histories = next;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
