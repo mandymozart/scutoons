@@ -113,9 +113,9 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.125rem;
-		padding: 0.25rem 0;
+		padding: 0.25rem 0; /* control-ok: a two-line tile (portrait over label), not a single-line control */
 		cursor: pointer;
-		font-size: 0.6875rem;
+		font-size: var(--type-caption-size);
 		text-align: center;
 	}
 	.faces button span:last-child {

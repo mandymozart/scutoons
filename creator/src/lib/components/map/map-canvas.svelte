@@ -1012,7 +1012,7 @@
 		border-width: 0.0625rem;
 		background: var(--ink);
 		color: var(--paper);
-		font-size: 0.55rem;
+		font-size: var(--type-caption-size);
 	}
 	/* a free point: a small dot */
 	.handle.free {
