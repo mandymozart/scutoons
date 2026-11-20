@@ -13,9 +13,9 @@
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
-	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
+	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import type { HelpPage } from '$lib/components/page/page-help.svelte';
-	import { fileLabel } from '$lib/labels.ts';
 	import { flowWidth } from '$lib/nav.svelte.ts';
 	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
 
@@ -89,11 +89,10 @@
 	const dockSize = flowWidth();
 
 	const main = $derived(docs[0]);
-	/** undo/redo act on the most recently edited doc */
-	const undoDoc = $derived(docs.filter((d) => d.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
-	const redoDoc = $derived(docs.filter((d) => d.canRedo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
-	let historyPath = $state<string | null>(null);
-	const historyDoc = $derived(docs.find((d) => d.entity === historyPath) ?? main);
+	const creator = getCreatorSession();
+	/** ↶ ↷: unsaved edits first, then the person's saved changes of this session (lib/editor/history.svelte.ts) */
+	const undo = () => void pageUndo(docs, creator.user?.email ?? '');
+	const redo = () => void pageRedo(docs);
 	const loaded = $derived(docs.every((d) => !d.loading));
 	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
 	const anyDirty = $derived(session.anyDirty);
@@ -135,8 +134,8 @@
 	/** a page entry or a selection's action as a button (a group gives its actions) */
 	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
-	// the shell's bar shows the save state; the Document panel holds Publish · Problems · History
-	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, save: () => session.saveDraft(), publish: publishTab, problems: problemsTab, history: historyTab }));
+	// the shell's bar shows the save state and ↶ ↷; the Document panel holds Publish · Problems, the shell's History these docs
+	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, save: () => session.saveDraft(), publish: publishTab, problems: problemsTab, docs, undo, redo }));
 
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
@@ -151,7 +150,7 @@
 	});
 
 	/** Ctrl+S saves (with the note dialog); undo / redo outside a field (lib/editor/editor-keys.ts) */
-	const onKeydown = (event: KeyboardEvent) => editorKeys(event, { save: () => session.saveDraft(), undo: () => undoDoc?.undo(), redo: () => redoDoc?.redo() });
+	const onKeydown = (event: KeyboardEvent) => editorKeys(event, { save: () => session.saveDraft(), undo, redo });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -179,10 +178,6 @@
 				<Icon name="upload-cloud" />{publishLabel(toon)}{#if unpublished}<span class="dot" aria-hidden="true"></span>{/if}
 			</button>
 		</div>
-		<div class="row">
-			<button type="button" class="ghost" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo"><Icon name="rotate-ccw" />{m['creator.undo']()}</button>
-			<button type="button" class="ghost" disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo"><Icon name="rotate-cw" />{m['creator.redo']()}</button>
-		</div>
 		{#if errorCount || warningCount}
 			<p class="counts"><span class:bad={errorCount > 0}>{m['creator.problems_errors']({ count: errorCount })}</span> · {m['creator.problems_warnings']({ count: warningCount })}</p>
 		{/if}
@@ -207,21 +202,6 @@
 
 {#snippet problemsTab()}
 	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} bare /></div>
-{/snippet}
-
-{#snippet historyTab()}
-	<div class="side-panel">
-		{#if historyDoc}
-			{#if docs.length > 1}
-				<p class="history-files">
-					{#each docs as d (d.entity)}
-						<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.entity)}>{fileLabel(d.entity)}</button>
-					{/each}
-				</p>
-			{/if}
-			{#key historyDoc}<HistoryPanel doc={historyDoc} bare />{/key}
-		{/if}
-	</div>
 {/snippet}
 
 <style>
@@ -257,12 +237,6 @@
 		min-height: 0;
 		padding: 0;
 		max-width: none;
-	}
-	.history-files {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		margin: 0 0 0.5rem;
 	}
 	.side-panel {
 		box-sizing: border-box;

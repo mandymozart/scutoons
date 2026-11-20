@@ -11,6 +11,7 @@
 	import { page, updated } from '$app/state';
 	import DesktopNotice from '$lib/components/shell/desktop-notice.svelte';
 	import CoreUnitsProvider from '$lib/components/fields/core-units-provider.svelte';
+	import CoreHistoryProvider from '$lib/components/page/core-history-provider.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -37,6 +38,7 @@
 {#if started || !away}
 	<div class="page" class:away><CoreUnitsProvider>{@render children()}</CoreUnitsProvider></div>
 {/if}
+<CoreHistoryProvider />
 {#if away}<DesktopNotice />{/if}
 
 <style>

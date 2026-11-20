@@ -56,3 +56,4 @@ export * from './map-docs.ts';
 export * from './character-docs.ts';
 export * from './cover.ts';
 export * from './expr/index.ts';
+export * from './version-history.ts';

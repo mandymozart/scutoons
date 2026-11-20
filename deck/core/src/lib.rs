@@ -20,6 +20,7 @@ pub mod asset_edit;
 pub mod devices;
 pub mod dsp;
 pub mod fit;
+pub mod history;
 pub mod lanes;
 pub mod lead;
 pub mod limiter;

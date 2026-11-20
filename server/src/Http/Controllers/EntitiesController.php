@@ -38,6 +38,8 @@ use stdClass;
  *                                                when it adds placements over a catalog item's `placements`)
  *   GET  /api/entities/<key>/versions?limit=     history, newest first
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
+ *   POST /api/entities/<key>/revert { version, content, base } · /revert-to { version, base }   the History (#687): one
+ *                                                change undone (the core's revert as content) / back to a version – a new draft
  *   GET  /api/catalog/items/<id>/placements      where a catalog item is placed in every toon + its limits and owners
  *                                                (ItemPlacements, BACKLOG 10.39) – 404 unknown_item
  *   GET  /api/catalog/docs/<kind>                every catalog entry of a kind as a document (CatalogDocs::list)
@@ -92,23 +94,46 @@ final class EntitiesController
         $key = EntityKey::parse($args['key']);
         $user = $this->creator($request, $args['key']);
         $body = $this->body($request);
-        if (property_exists($body, 'content') && $key->isCatalog()) {
-            $this->docs->guardSave($key, $body->content);
-        } elseif (property_exists($body, 'content')) {
-            $this->schemas->guard($key, $body->content);
-            // where a reader could get stuck (a question whose choices can all be hidden, a divert / jump into nothing)
-            $this->flow->guard($key, $body->content);
-            // an item placed more often than its catalog limit allows, counted over every toon (BACKLOG 10.39)
-            $this->placements->guard($key, $body->content);
-            // a route through a place that is not on the map / a place taken off a route's way (owner D7)
-            $this->mapRefs->guard([(string) $key => $body->content]);
-        }
+        if (property_exists($body, 'content')) $this->guardContent($key, $body->content);
         // an AI connection signs its saves with its name (the History shows who – and through what – saved)
         $ai = CurrentSession::of($request)->apiToken();
         if ($ai !== null) $body->message = mb_substr(trim((is_string($body->message ?? null) ? $body->message : '') . " (AI: {$ai['name']})"), 0, 255);
         $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
         return Json::response($response, 200, $result);
+    }
+
+    /**
+     * POST /api/entities/<key>/revert { version, content, base } · /revert-to { version, base } (#687): a revert is a new
+     * draft, never a rewrite; `revert`'s content is checked like a save
+     * @param array{key: string, action: string} $args
+     */
+    public function revert(Request $request, Response $response, array $args): Response
+    {
+        $key = EntityKey::parse($args['key']);
+        $user = $this->creator($request, $args['key']);
+        $body = $this->body($request);
+        if ($key->isCatalog()) $this->docs->guardFactory($key);
+        if ($args['action'] === 'revert' && property_exists($body, 'content')) $this->guardContent($key, $body->content);
+        $result = $args['action'] === 'revert' ? $this->store->revert($user, $key, $body) : $this->store->revertTo($user, $key, $body);
+        $this->usages->reindexEntity((string) $key);
+        return Json::response($response, 200, $result);
+    }
+
+    /** a document is checked before it is stored: its type, the reader's flow, item limits, the map's references */
+    private function guardContent(EntityKey $key, mixed $content): void
+    {
+        if ($key->isCatalog()) {
+            $this->docs->guardSave($key, $content);
+            return;
+        }
+        $this->schemas->guard($key, $content);
+        // where a reader could get stuck (a question whose choices can all be hidden, a divert / jump into nothing)
+        $this->flow->guard($key, $content);
+        // an item placed more often than its catalog limit allows, counted over every toon (BACKLOG 10.39)
+        $this->placements->guard($key, $content);
+        // a route through a place that is not on the map / a place taken off a route's way (owner D7)
+        $this->mapRefs->guard([(string) $key => $content]);
     }
 
     /** POST /api/entities/batch – several saves in one transaction (each document checked like a PUT) */

@@ -11,8 +11,8 @@
 
 	/**
 	 * The top bar, styled and ordered like the deck editor's (deck/editor/src/bar.rs; research/redesign/PLAN.md §2.4):
-	 * pills in one row over the stage – ☰ · ⌂ Home · the open items' tabs (＋ = the Library) on the left; the save state,
-	 * the text language (the one switch, RULES H1), the account and the version on the right. No workspace switch: the
+	 * pills in one row over the stage – ☰ · ⌂ Home · the open items' tabs (＋ = the Library) on the left; ↶ ↷ (unsaved
+	 * edits, then the saved changes of this session), the save state, the text language (the one switch, RULES H1), the account and the version on the right. No workspace switch: the
 	 * tab is the workspace.
 	 */
 	let { path, languages, source, reader, page }: { path: Crumb[]; languages: string[]; source: string; reader: string | null; page?: import('svelte').Snippet } = $props();
@@ -39,6 +39,10 @@
 	<TabStrip {path} />
 	{#if page}<span class="page-tools">{@render page()}</span>{/if}
 	<span class="spacer"></span>
+	{#if doc}
+		<button type="button" class="round" onclick={() => doc?.undo()} aria-label={m['history.undo']()} title={m['history.undo_hint']()} data-testid="bar-undo"><Icon name="rotate-ccw" size="1rem" /></button>
+		<button type="button" class="round" onclick={() => doc?.redo()} aria-label={m['history.redo']()} title={m['history.redo_hint']()} data-testid="bar-redo"><Icon name="rotate-cw" size="1rem" /></button>
+	{/if}
 	{#if saveWord}
 		<button type="button" class="pill state" class:dirty={doc?.dirty} disabled={doc?.saving} onclick={() => doc?.save()} title={m['creator.save_draft']()} data-testid="save-state">
 			<span class="dot" aria-hidden="true"></span>{saveWord}
