@@ -24,8 +24,7 @@
 //     MusicXML, both pieces – CDN-root paths, their bars, the preset }, the presets document `colorations` the
 //     tombstone; Publish lists "Collage presets" (cancelled), the item's catalog page's Publish too; a reload shows them
 //     at their bars; an unsaved preset's local copy is offered at load next to the item's (Discarded); the keys on the live
-//     region only (the focus on a sidebar link: Backspace / Delete / Esc leave the piece); Delete + Ctrl+Z; Esc;
-//   - 375 × 812: the side region below the stage; the preset grid previews every look, five touch-sized tiles a row.
+//     region only (the focus on a sidebar link: Backspace / Delete / Esc leave the piece); Delete + Ctrl+Z; Esc.
 // Afterwards the saved versions are deleted again (by their note; an interrupted run's are swept first) – the item's
 // and the presets' documents as before. Refuses to run while the item or `colorations` has an unpublished draft
 // (someone's work in progress).
@@ -301,7 +300,7 @@ try {
 
 	// ── the catalog editor: Collage on a score item ──
 	check(await go(`/catalog/items?id=${ITEM}`, `!!document.querySelector('[data-testid="catalog-detail"] input')`), `catalog editor: ${ITEM} opens in its form${before ? '' : ' (no document yet: the table\'s entry)'}`);
-	await click(tid('phone-bar-more'));
+	await click(tid('group-bar-more'));
 	const collageButton = await until(`!!${q('catalog-collage')}`, 5000);
 	check(collageButton, 'a score item has "Collage" under More');
 	if (collageButton) await click(tid('catalog-collage'));
@@ -639,20 +638,6 @@ try {
 	await click(tid(`collage-select-${figure}`));
 	await press('Escape');
 	check(!(await js(`!!${q('piece-inspector')}`)), 'Esc lets the piece go (no inspector)');
-
-	// ── a phone-sized creator: the side region below the stage ──
-	await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
-	await go(`/catalog/items/${ITEM}/collage`, `!!document.querySelector('${FRAME} .leaf svg')`);
-	const narrow = await js(`(() => { const s = ${q('score-stage')}.querySelector('.main').getBoundingClientRect(); const a = ${q('score-stage-side')}.getBoundingClientRect(); const f = document.querySelector('${FRAME}').getBoundingClientRect(); return { mainBottom: Math.round(s.bottom), sideTop: Math.round(a.top), frame: Math.round(f.width), scroll: document.documentElement.scrollWidth }; })()`);
-	check(narrow.sideTop >= narrow.mainBottom - 1 && narrow.frame > 50 && narrow.scroll <= 376, '375 × 812: the score screen on top, the side region below it, no sideways scroll', JSON.stringify(narrow));
-	await shot('narrow');
-	// the preset grid on the phone: every look previewed on the piece, five tiles a row, touch-sized; the line in its row
-	await click(tid(`collage-select-${shape}`));
-	await until(`!!${q('piece-looks')}`, 5000);
-	const phoneTiles = await lookTiles();
-	const phone = await js(`(() => { const g = ${q('piece-looks')}; const i = ${q('piece-inspector')}.getBoundingClientRect(); const l = ${q('preset-line')}?.getBoundingClientRect(); return { cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, inside: g.getBoundingClientRect().right <= i.right + 0.5 && (!l || l.right <= i.right + 0.5), scroll: document.documentElement.scrollWidth }; })()`);
-	check(phoneTiles.length >= 12 && phoneTiles.every((t) => fileOf(t.file) === shapeFile && t.h >= 44) && phone.cols === 5 && phone.inside && phone.scroll <= 376, `375 px: the preset grid previews all ${phoneTiles.length} looks on the piece, ${phone.cols} tiles a row, each ≥ 44 px tall; grid and line inside the inspector`, JSON.stringify({ phone, tiles: phoneTiles.map((t) => [t.id, Math.round(t.h)]) }));
-	await shot('narrow-presets');
 
 	if (errors.length) check(false, `page errors: ${errors.length}`, errors.slice(0, 3).join(' | '));
 } catch (e) {

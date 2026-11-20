@@ -226,7 +226,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div
-	class="creator sc-tool"
+	class="creator sc-tool sc-desktop-only"
 	style:--ws-left="{shell.insets.left}rem"
 	style:--ws-right="{shell.insets.right}rem"
 	data-testid="creator"

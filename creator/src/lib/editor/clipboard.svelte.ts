@@ -3,7 +3,7 @@
 // registers a handler under its region name (`useClipHandler`); the DOM copy / cut / paste events (no permission
 // prompt) carry the clip as JSON on the system clipboard (clip.ts). Shift+V (Ctrl/Cmd+Shift+V) pastes the settings
 // only onto the selection. In a text field, or with page text selected, the keys stay the browser's.
-// A paste is ONE doc.edit (one undo step), saved by the normal PUT. The menu (phones, right-click – clip-menu.svelte)
+// A paste is ONE doc.edit (one undo step), saved by the normal PUT. The menu (right-click – clip-menu.svelte)
 // calls `clipboard.copy / paste` directly: copy writes the system clipboard too, paste reads it when the browser
 // allows, else the clip copied last in this tab.
 import { liveRegion } from '@scutoons/ui';

@@ -6,15 +6,11 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The clipboard's menu (BACKLOG 10.39 step 8 + phones): a right-click – on a phone the long-press, which the browser
-	 * reports as the same `contextmenu` – inside a region that can copy (the slice canvas + inspector, the slice list,
-	 * the chapter tree, a group's VN events) opens Copy · Cut · Paste · Paste settings at the pointer, acting on that
-	 * (now live) region like Cmd/Ctrl+C / X / V / Shift+V. In a text field, on a sort grip or with page text selected the
-	 * browser's own menu stays. `bar`: the same four as square buttons in one group – the ActionBar's "More" on phones,
-	 * where no keys exist (DESIGN.md "Copy / paste").
+	 * The clipboard's menu: a right-click inside a region that can copy (the slice canvas + inspector, the slice list, the
+	 * chapter tree, a group's VN events) opens Copy · Cut · Paste · Paste settings at the pointer, acting on that (now live)
+	 * region like Cmd/Ctrl+C / X / V / Shift+V. In a text field, on a sort grip or with page text selected the browser's own
+	 * menu stays (DESIGN.md "Copy / paste").
 	 */
-	let { bar = false }: { bar?: boolean } = $props();
-
 	let at = $state<{ x: number; y: number } | null>(null);
 	let menu = $state<HTMLElement | null>(null);
 
@@ -24,7 +20,7 @@
 	};
 
 	async function onContextMenu(event: MouseEvent) {
-		if (bar || event.defaultPrevented) return;
+		if (event.defaultPrevented) return;
 		const target = event.target as Element | null;
 		if (!target || isField(target) || target.closest('[data-sort-grip], a') || textSelected()) return;
 		const region = target.closest<HTMLElement>('[data-sc-region]')?.dataset.scRegion;
@@ -74,18 +70,12 @@
 
 <svelte:window oncontextmenu={onContextMenu} onkeydown={onKeydown} onpointerdown={onPointerDown} onscroll={close} onresize={close} />
 
-{#snippet items()}
-	<button type="button" onclick={() => run('copy')} data-testid="clip-copy"><Icon name="copy" /> {m['creator.clip_copy']()}</button>
-	<button type="button" onclick={() => run('cut')} data-testid="clip-cut"><Icon name="scissors" /> {m['creator.clip_cut_action']()}</button>
-	<button type="button" onclick={() => run('paste')} data-testid="clip-paste"><Icon name="clipboard" /> {m['creator.clip_paste']()}</button>
-	<button type="button" onclick={() => run('settings')} data-testid="clip-paste-settings">{m['creator.clip_paste_settings']()}</button>
-{/snippet}
-
-{#if bar}
-	<span class="clip-bar sc-seg" role="group" aria-label={m['creator.clip_menu']()} data-testid="clip-bar">{@render items()}</span>
-{:else if at}
+{#if at}
 	<div class="clip-menu" role="menu" aria-label={m['creator.clip_menu']()} bind:this={menu} style:left="{at.x / rem()}rem" style:top="{at.y / rem()}rem" data-testid="clip-menu">
-		{@render items()}
+		<button type="button" onclick={() => run('copy')} data-testid="clip-copy"><Icon name="copy" /> {m['creator.clip_copy']()}</button>
+		<button type="button" onclick={() => run('cut')} data-testid="clip-cut"><Icon name="scissors" /> {m['creator.clip_cut_action']()}</button>
+		<button type="button" onclick={() => run('paste')} data-testid="clip-paste"><Icon name="clipboard" /> {m['creator.clip_paste']()}</button>
+		<button type="button" onclick={() => run('settings')} data-testid="clip-paste-settings">{m['creator.clip_paste_settings']()}</button>
 	</div>
 {/if}
 
@@ -122,9 +112,5 @@
 	.clip-menu button:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-focus));
-	}
-	.clip-bar {
-		display: inline-flex;
-		flex-wrap: wrap;
 	}
 </style>

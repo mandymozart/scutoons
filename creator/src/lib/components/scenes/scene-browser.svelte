@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ActionBar, Badge, PhoneBar, confirmDialog, region, type PhoneBarItem } from '@scutoons/ui';
+	import { ActionBar, Badge, GroupBar, confirmDialog, region, type GroupBarItem } from '@scutoons/ui';
 	import type { ContentVersion, SceneDocument, WrappedContent } from '@scutoons/api';
 	import { scenesApi } from '$lib/api.ts';
 	import { NO_TOON, filterRows, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons, type PublishOutcome, type SceneFilter, type SceneRow } from '$lib/editor/scenes.ts';
@@ -102,7 +102,7 @@
 		await Promise.all([reload(), load(sceneId)]);
 	}
 
-	const items = $derived<PhoneBarItem[]>([
+	const items = $derived<GroupBarItem[]>([
 		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), primary: canPublish, disabled: !canPublish, run: () => void publish(), testid: 'scene-publish' }
 	]);
 	const states = $derived([
@@ -165,8 +165,8 @@
 		{/if}
 	</main>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet phone()}
-			<PhoneBar {items} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
+		{#snippet groups()}
+			<GroupBar {items} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 	</ActionBar>
 </div>

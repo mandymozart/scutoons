@@ -108,14 +108,9 @@
 		});
 	});
 
-	/** the first entry opened by itself (no ?id yet) – on phones the list stays until one is tapped */
-	let autoOpened = $state(false);
-	/** phones (owner 2026-10-12, the list lay over the form): an entry the reader opened replaces the list – the crumb goes back */
-	const picked = $derived(!!page.url.searchParams.get('id') && !autoOpened);
 
 	function open(id: string, replace = false) {
 		selected = id;
-		autoOpened = replace;
 		const next = neutralDoc(catalogKey(kind, id));
 		doc = next;
 		const known = (docs[kind] ?? []).some((e) => e.id === id);
@@ -277,7 +272,7 @@
 	<Tabs tabs={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k]() }))} bind:value={tab} label={m['creator.catalog']()}>
 		{#snippet children()}
 			{#if loadError}<p class="error" role="alert">{loadError}</p>{/if}
-			<div class="layout" class:picked>
+			<div class="layout">
 				<aside class="list" data-testid="catalog-list">
 					<div class="filters">
 						<input type="search" bind:value={query} placeholder={m['creator.catalog_search']()} data-testid="catalog-search" />
@@ -355,13 +350,6 @@
 		.list {
 			position: static;
 			max-height: none;
-		}
-	}
-	/* phones: the list or the opened entry (like the characters) */
-	@media (max-width: 767px) {
-		.layout.picked .list,
-		.layout:not(.picked) .detail {
-			display: none;
 		}
 	}
 	.list {

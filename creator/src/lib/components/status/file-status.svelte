@@ -7,7 +7,7 @@
 		doc.source[l] === 'store' && doc.base[l] === doc.published[l] && !doc.dirtyLocales.includes(l);
 	/** the file has something to show (not every language live) – the status row only then (owner 2026-10-03) */
 	export const hasStatus = (doc: ContentDoc) => !doc.loading && doc.locales.some((l) => !isLive(doc, l));
-	/** what keeps a language from being live, the worst first (the ActionBar's chip shows the worst – live-chip.svelte) */
+	/** what keeps a language from being live, the worst first */
 	export const STATES = ['missing', 'unsaved', 'draft'] as const;
 	export type NotLive = (typeof STATES)[number];
 	export const notLive = (doc: ContentDoc, l: string): NotLive | null =>

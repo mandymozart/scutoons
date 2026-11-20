@@ -20,10 +20,8 @@
 	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
 	 * user closes it.
 	 *
-	 * With `phone` the bar is that snippet – the page's PhoneBar (grouped actions; on phones also the selection's actions,
-	 * like CapCut): on phones alone and full width (< 768px, UI-CONCEPTS E.10, owner 2026-10-11), at every other width too
-	 * with the Info toggle left of it (owner 2026-10-12: the phone grouping on the desktop); `start` / `secondary` / `end`
-	 * are then not shown (the page puts what it needs into its PhoneBar). Without it, More (narrow screens) is the ⋯ icon.
+	 * With `groups` the bar is that snippet – the page's GroupBar (the creator's grouped actions), with the Info toggle left
+	 * of it; `start` / `secondary` / `end` are then not shown. Without it, More (narrow screens) is the ⋯ icon.
 	 */
 	let {
 		start,
@@ -38,10 +36,10 @@
 		infoHref,
 		infoLabels = {},
 		infoKey = 'sc-info-open',
-		phone
+		groups
 	}: {
-		/** phones (< 768px): the whole bar – the page's PhoneBar */
-		phone?: Snippet;
+		/** the whole bar – the page's GroupBar */
+		groups?: Snippet;
 		start?: Snippet;
 		secondary?: Snippet;
 		end?: Snippet;
@@ -64,7 +62,6 @@
 	} = $props();
 
 	let narrow = $state(false);
-	let phoneWide = $state(false);
 	let moreOpen = $state(false);
 	const uid = $props.id();
 
@@ -78,15 +75,8 @@
 		query.addEventListener('change', change);
 		return () => query.removeEventListener('change', change);
 	});
-	$effect(() => {
-		const query = window.matchMedia('(max-width: 767px)');
-		phoneWide = query.matches;
-		const change = (event: MediaQueryListEvent) => (phoneWide = event.matches);
-		query.addEventListener('change', change);
-		return () => query.removeEventListener('change', change);
-	});
-	/** the grouped bar (a page with `phone` actions – every width since 2026-10-12) */
-	const compact = $derived(!!phone);
+	/** the grouped bar (the creator's pages) */
+	const compact = $derived(!!groups);
 
 	const hasMore = $derived(!!start || !!secondary);
 
@@ -163,8 +153,8 @@
 
 <div class="sc-action-bar" class:compact role="region" aria-label={label}>
 	{#if compact}
-		{#if info && !phoneWide}{@render infoToggle()}{/if}
-		{@render phone?.()}
+		{#if info}{@render infoToggle()}{/if}
+		{@render groups?.()}
 	{:else if narrow}
 		{#if info}{@render infoToggle()}{/if}
 		{#if hasMore}
@@ -351,12 +341,6 @@
 			width: auto;
 			margin: 0;
 			border-width: var(--border-width-regular) 0;
-		}
-	}
-	/* phones with a PhoneBar: the bar is that row, edge to edge */
-	@media (max-width: 767px) {
-		.compact {
-			padding: 0;
 		}
 	}
 	.more-start,

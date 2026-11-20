@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, PhoneBar, confirmDialog, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, GroupBar, confirmDialog, shellDock, useDock, type GroupBarItem } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -296,7 +296,7 @@
 	}
 
 	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Save · Publish; New chapter is the list's last row
-	const phoneItems = $derived<PhoneBarItem[]>([
+	const phoneItems = $derived<GroupBarItem[]>([
 		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: busy || !anyDirty, run: saveAll, testid: 'save-draft' },
 		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: busy, run: publishAll, testid: 'publish' }
 	]);
@@ -389,8 +389,8 @@
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet phone()}
-			<PhoneBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
+		{#snippet groups()}
+			<GroupBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 	</ActionBar>
 </div>

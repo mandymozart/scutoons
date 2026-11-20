@@ -49,8 +49,7 @@ export { BulkRun, chunk, type BulkReport, type BulkState } from './bulk-run.svel
 export { default as BulkProgress } from './bulk-progress.svelte';
 export { default as ActionBar } from './action-bar.svelte';
 export { default as StickyActions } from './sticky-actions.svelte';
-export { default as BarTabs } from './bar-tabs.svelte';
-export { default as PhoneBar, type PhoneBarItem } from './phone-bar.svelte';
+export { default as GroupBar, type GroupBarItem } from './group-bar.svelte';
 export { default as InfoPanel } from './info-panel.svelte';
 export { default as AppShell } from './app-shell.svelte';
 export { default as ToonAvatar } from './toon-avatar.svelte';

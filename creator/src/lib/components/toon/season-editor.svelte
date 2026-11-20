@@ -231,12 +231,6 @@
 	.hint {
 		margin: 0;
 	}
-	/* the field grid (tools.css .sc-fields): one column below 600px */
-	@media (max-width: 600px) {
-		.sc-fields[data-cols] {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
 	.media {
 		display: flex;
 		flex-wrap: wrap;

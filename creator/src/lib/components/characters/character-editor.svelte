@@ -22,7 +22,6 @@
 	import { addLook, addPersona, characterLanguages, edit, editCharacter, isKnownMissing, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { lookEdits } from '$lib/editor/look-edit.ts';
-	import { SheetDrag } from '$lib/editor/sheet-drag.svelte.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -39,11 +38,10 @@
 	/**
 	 * One character (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the head (= the character level), the personas
 	 * and the looks as face rows, the stage (one picture: persona › look › mood · view; the grid square = every mood to
-	 * fill), and the inspector beside it (desktop: a right region with its Divider; phones: a sheet from below whose head
-	 * drags it, opened from the bar). The inspector follows the level picked on the page – a tap on the head, a persona,
+	 * fill), and the inspector beside it (a right region with its Divider). The inspector follows the level picked on the page – a tap on the head, a persona,
 	 * a look – which the page rings. Each level ends in its Kanon text square (K3, #82): it opens that level's text in the
 	 * inspector (no tab of its own). Replaces character-detail.svelte (one long page).
-	 * Over 400 lines (RULES "Code"): the page's one layout – head, rows, stage, inspector region and phone sheet – in one
+	 * Over 400 lines (RULES "Code"): the page's one layout – head, rows, stage and inspector region – in one
 	 * place; its parts (FaceRow, CharacterStage, CharacterInspector, KanonSquare) are components.
 	 */
 	let {
@@ -56,7 +54,6 @@
 		look = $bindable(''),
 		tab = $bindable<InspectorTab>('profile'),
 		grid = $bindable(false),
-		sheet = $bindable(false),
 		toons,
 		casts,
 		people,
@@ -72,8 +69,6 @@
 		look?: string;
 		tab?: InspectorTab;
 		grid?: boolean;
-		/** phones: the inspector sheet is open (the bar's tab squares open it) */
-		sheet?: boolean;
 		toons: ToonInfo[];
 		casts: Record<string, ToonCast | null>;
 		people: CreditPerson[];
@@ -132,7 +127,7 @@
 		persona = REGULAR_PERSONA;
 		level = 'persona';
 	}
-	/** also the phone bar's Delete (characters-editor.svelte, the selection's row) */
+	/** also the Publish panel's Delete (characters-editor.svelte, the selection's actions) */
 	export async function remove() {
 		if (!character) return;
 		const used = appearsIn.length ? m['creator.characters_remove_used']({ toons: appearsIn.join(', ') }) : '';
@@ -147,26 +142,15 @@
 	function openKanon(l: Level) {
 		level = l;
 		tab = 'kanon';
-		sheet = true;
 	}
 	$effect(() => {
 		if (tab === 'kanon') kanon.open(kanonSubject, languages, source);
 	});
 
-	// ── the inspector: desktop = a right region (Divider, remembered width); phones = a sheet from below ──
+	// ── the inspector: a right region (Divider, remembered width) ──
 	let editorEl = $state<HTMLElement>();
-	let sheetEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:character-inspector', 22, () => editorEl?.getBoundingClientRect().right ?? window.innerWidth);
 	inspectorSize.room = () => (editorEl?.clientWidth ?? window.innerWidth) / 2;
-	const drag = new SheetDrag(() => sheetEl);
-	// the bar opens / closes the sheet (`sheet`); a drag closes it by itself
-	$effect(() => {
-		if (sheet && !drag.open) drag.open = true;
-		if (!sheet && drag.open) drag.close();
-	});
-	$effect(() => {
-		if (!drag.open && sheet) sheet = false;
-	});
 	const TABS: { id: InspectorTab; icon: string; label: () => string }[] = [
 		{ id: 'profile', icon: 'user', label: () => m['creator.characters_tab_profile']() },
 		{ id: 'model', icon: 'box', label: () => m['creator.characters_tab_model']() },
@@ -197,7 +181,7 @@
 				</div>
 				<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust compact />
 				<a class="sq" href={editHref(`rig:character.${character.id}`, { w: 'sound' })} title={m['creator.characters_sound_design']()} aria-label={m['creator.characters_sound_design']()} data-testid="character-sound-design"><Icon name="music" /></a>
-				<button type="button" class="sq desktop-only" onclick={remove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
+				<button type="button" class="sq" onclick={remove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
 				<KanonSquare state={kanon.state(subjectOf('character'))} open={tab === 'kanon' && level === 'character'} label={m['creator.kanon']()} onclick={() => openKanon('character')} testid="kanon-character" />
 			</header>
 			<div class="level-row">
@@ -239,7 +223,7 @@
 			{/if}
 		</div>
 		<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="character-inspector" />
-		<aside class="side" id="character-inspector" class:open={drag.open} class:dragging={drag.dragging} bind:this={sheetEl} style:--sheet-height={drag.rem !== null ? `${drag.rem}rem` : null} aria-label={m['creator.inspector']()}>
+		<aside class="side" id="character-inspector" aria-label={m['creator.inspector']()}>
 			<div class="insp-tabs">
 				<Tabs variant="grid" label={m['creator.inspector']()} value={currentTab} onchange={setTab} tabs={TABS.map((t) => ({ id: t.id, label: t.label(), testid: `inspector-tab-${t.id}` }))}>
 					{#snippet tab(t)}
@@ -247,8 +231,6 @@
 					{/snippet}
 				</Tabs>
 			</div>
-			<!-- phones: the head drags the sheet (it follows the finger, let go low = closed) -->
-			<div class="drag" onpointerdown={drag.down} onpointermove={drag.move} onpointerup={drag.up} onpointercancel={drag.cancel} role="presentation"><span class="grab"></span></div>
 			<CharacterInspector
 				{tab}
 				{level}
@@ -394,65 +376,5 @@
 	.insp-tabs :global([aria-selected='true'] .b3d) {
 		background: var(--paper);
 		color: var(--ink);
-	}
-	.drag {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		.desktop-only {
-			display: none;
-		}
-		.char-editor {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.main {
-			border-right: 0;
-		}
-		/* the inspector = a sheet from below, over the stage; closed it is gone (the bar's squares open it) */
-		.side {
-			position: absolute;
-			z-index: 4;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			/* as tall as its content (at most 60 %) until dragged: then exactly the dragged height */
-			height: var(--sheet-height, auto);
-			max-height: var(--sheet-height, 60%);
-			border-top: var(--border-width-regular) solid var(--ink);
-			transform: translateY(100%);
-			visibility: hidden;
-			transition: transform 0.2s ease, visibility 0.2s;
-		}
-		.side.open {
-			transform: none;
-			visibility: visible;
-		}
-		.side.dragging {
-			transition: none;
-		}
-		/* the bar holds the tabs on a phone */
-		.insp-tabs {
-			display: none;
-		}
-		.drag {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			height: 1.75rem;
-			touch-action: none;
-			flex: none;
-		}
-		.grab {
-			width: 2.5rem;
-			height: 0.25rem;
-			background: var(--border-muted);
-		}
-		.head {
-			padding: var(--space-05) var(--space-1);
-		}
-		.avatar {
-			width: 2.75rem;
-			height: 2.75rem;
-		}
 	}
 </style>

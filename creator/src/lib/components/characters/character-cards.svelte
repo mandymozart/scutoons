@@ -119,12 +119,6 @@
 		gap: var(--space-1);
 		grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
 	}
-	@media (max-width: 767px) {
-		.cards {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: var(--space-05);
-		}
-	}
 	.card {
 		all: unset;
 		box-sizing: border-box;

@@ -1,5 +1,5 @@
 // Copy / cut / paste of a chapter's groups (BACKLOG 10.39 step 5) as one handler for every place that picks groups: the
-// chapter tree (region 'tree') and the phone's group list (the selection bar, owner 2026-10-12). The picked groups (else
+// chapter tree (region 'tree'). The picked groups (else
 // the open one); a paste goes after the last picked / the open group (else at the end), fresh ids, unique labels, media of another toon referenced; Shift+V
 // puts the copied group's renderer, end and `continues` onto every picked group of the chapter.
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';

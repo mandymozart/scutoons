@@ -42,7 +42,7 @@ export class CreatorNav {
 	sidebar = $state<Snippet | null>(null);
 	/** the page's own round buttons in the top bar, left of the Ask button (the chapter editor: Flow) */
 	actions = $state<Snippet | null>(null);
-	/** phones: a page control at the right end of the crumb row (the map builder's toon filter, UI-CONCEPTS E.10) */
+	/** a page control at the right end of the crumb row (the map builder's toon filter) */
 	crumbEnd = $state<Snippet | null>(null);
 	/** the page asks for the menu as its rail (the editor's workspaces: the room is theirs); the menu's own fold button still opens it for the visit, the remembered fold is not touched */
 	rail = $state(false);

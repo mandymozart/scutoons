@@ -27,7 +27,7 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { CloseIcon, Icon, type PhoneBarItem } from '@scutoons/ui';
+	import { CloseIcon, Icon, type GroupBarItem } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -279,43 +279,32 @@
 			if ((nextId ?? '') !== selected && (nextId !== null || nextTab === 'characters')) selected = nextId ?? '';
 		});
 	});
-	// phones: an open character is the selection – its row in the bar (owner 2026-10-12: "das Zurück unten in der
-	// Auswahl-Leiste", UI-CONCEPTS E.10; #44: one row of icon squares with ‹): the inspector's tabs open its sheet, the
-	// grid square every mood, Delete; ‹ back to the cards
+	// an open character is the selection: its inspector tabs, every mood, Delete in the Publish panel
 	let detail = $state<ReturnType<typeof CharacterEditor>>();
 	let inspectorTab = $state<InspectorTab>('profile');
-	let sheet = $state(false);
 	let grid = $state(false);
 	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
-	function openTab(t: InspectorTab) {
-		if (sheet && inspectorTab === t) sheet = false;
-		else {
-			inspectorTab = t;
-			sheet = true;
-		}
-	}
-	const phoneSelection = $derived(
+	const tabItem = (id: InspectorTab, icon: string, label: string): GroupBarItem => ({ id, icon, label, active: inspectorTab === id, run: () => (inspectorTab = id), testid: `sel-${id}` });
+	const selectionActions = $derived(
 		selectedCharacter
 			? {
 					label: shownCharacterName(selectedCharacter) || selectedCharacter.id,
-					onback: () => ((selected = ''), (sheet = false)),
 					items: [
-						{ id: 'profile', icon: 'user', label: m['creator.characters_tab_profile'](), active: sheet && inspectorTab === 'profile', run: () => openTab('profile'), testid: 'phone-sel-profile' },
-						// the picked level's Kanon text (CHARACTER-PAGE §3a: the phone's sheet, e-kanon-390: right after Profile)
-						{ id: 'kanon', icon: 'file-text', label: m['creator.kanon'](), active: sheet && inspectorTab === 'kanon', run: () => openTab('kanon'), testid: 'phone-sel-kanon' },
-						{ id: 'model', icon: 'box', label: m['creator.characters_tab_model'](), active: sheet && inspectorTab === 'model', run: () => openTab('model'), testid: 'phone-sel-model' },
-						{ id: 'wanted', icon: 'inbox', label: m['creator.characters_wanted'](), active: sheet && inspectorTab === 'wanted', run: () => openTab('wanted'), testid: 'phone-sel-wanted' },
-						{ id: 'prompts', icon: 'sparkles', label: m['creator.prompts_title'](), active: sheet && inspectorTab === 'prompts', run: () => openTab('prompts'), testid: 'phone-sel-prompts' },
-						{ id: 'grid', icon: 'grid', label: m['creator.characters_all_moods'](), active: grid, run: () => ((grid = !grid), (sheet = false)), testid: 'phone-sel-grid' },
-						{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'phone-sel-delete' }
-					] satisfies PhoneBarItem[]
+						tabItem('profile', 'user', m['creator.characters_tab_profile']()),
+						tabItem('kanon', 'file-text', m['creator.kanon']()),
+						tabItem('model', 'box', m['creator.characters_tab_model']()),
+						tabItem('wanted', 'inbox', m['creator.characters_wanted']()),
+						tabItem('prompts', 'sparkles', m['creator.prompts_title']()),
+						{ id: 'grid', icon: 'grid', label: m['creator.characters_all_moods'](), active: grid, run: () => (grid = !grid), testid: 'sel-grid' },
+						{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'sel-delete' }
+					]
 				}
 			: null
 	);
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters" {phoneSelection}>
+<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters" selection={selectionActions}>
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
@@ -340,7 +329,6 @@
 					bind:look
 					bind:tab={inspectorTab}
 					bind:grid
-					bind:sheet
 					{toons}
 					{casts}
 					people={peopleListOf(people)}
@@ -390,11 +378,5 @@
 		gap: 0.3rem;
 		max-width: 40rem;
 		padding-top: var(--space-1);
-	}
-	/* phones: an open character is the whole page (the bar's ‹ goes back to the cards) */
-	@media (max-width: 767px) {
-		.area.open .tabs-row {
-			display: none;
-		}
 	}
 </style>

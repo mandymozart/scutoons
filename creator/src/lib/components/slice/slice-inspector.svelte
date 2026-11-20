@@ -58,8 +58,7 @@
 		groupTab,
 		groupPath,
 		boxOf,
-		onpick,
-		onlongpress
+		onpick
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -98,8 +97,6 @@
 		boxOf: (slice: number) => DrawnBox | null;
 		/** a Layers row of any slice picked: that slice opens, the entry is selected */
 		onpick: (slice: number, selection: CanvasSelection) => void;
-		/** a finger held on a Layers row (the phone's context, E3) */
-		onlongpress?: (slice: number, selection: CanvasSelection, box: DOMRect) => void;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
@@ -135,7 +132,7 @@
 		{@render groupTab()}
 	{:else if view.inspectorTab === 'layers'}
 		<!-- the slice's ONE layer stack (BACKLOG 10.43) + its collage pieces under it (COLLAGE.md §3), the top row in front -->
-		<LayerList {view} {doc} {groupPath} open={view.sliceIndex} {boxOf} {onpick} {onlongpress} {toon} {locale} registry={choices?.registry} {moods} />
+		<LayerList {view} {doc} {groupPath} open={view.sliceIndex} {boxOf} {onpick} {toon} {locale} registry={choices?.registry} {moods} />
 		<div class="adds">
 			<button type="button" class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 			<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
