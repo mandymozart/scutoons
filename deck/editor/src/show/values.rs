@@ -188,6 +188,7 @@ impl Host {
         self.nodes_release();
         self.wire_release();
         self.mix_release();
+        self.edge_release();
         let Some(d) = self.knob_drag.take() else { return };
         if d.v == d.v0 {
             return;

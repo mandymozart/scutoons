@@ -73,7 +73,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     let sheet = host.sheet;
 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
-    let band_size = super::band::table(t, &band, true).size();
+    let band_size = super::band::table(t, &band, true, &host.view_sizes()).size();
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
     if sheet.is_some() {
         shown.push(("sheet", 640.0, Some(440.0)));
@@ -134,9 +134,9 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     }
 
     if let Some(o) = host.show_panels.open(d, t, "rows", pointer, host.hits.len()) {
-        let laid = super::band::draw(d, t, host, o.area, (&band, runs), host.show_scroll, pointer);
+        let (laid, fits) = super::band::draw(d, t, host, o.area, (&band, runs), host.show_scroll, pointer);
         host.show_scroll = laid.scroll;
-        host.drew_band(laid);
+        host.drew_band(laid, fits);
         host.show_panels.close(d, o, &mut host.hits);
     }
 

@@ -144,7 +144,9 @@ impl Host {
                     }
                     Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
                     Typing::RowName(id) => {
-                        self.edit_rows(&deck_show::rows::Edit::Rename { id, to: text });
+                        let at = self.shown().rows.iter().position(|r| r.id == id);
+                        self.edit_rows(&deck_show::rows::Edit::Rename { id: id.clone(), to: text });
+                        self.row_renamed(at, &id);
                     }
                     Typing::ColumnName(_) | Typing::GroupName(_) => self.name_typed(&what, &text),
                     Typing::Event => self.event_typed(&text),
