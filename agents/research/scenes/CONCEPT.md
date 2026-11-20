@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answer (§0): no renaming, the containers stay specific to their medium; what is left to unify is what travels between them (assets, sets, events, addresses). §0 holds the narrowed proposal and its three questions; nothing built and nothing to build until the owner says it is clear (#703, epic #626). §1 and §2 stay valid (the idea, the map from the code). §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q1 events in the address book (§0.1), Q2 sets on groups and XR scenes. Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -21,15 +21,38 @@ What that leaves to unify, from the map in §2:
 
 What is **dropped**: the shared sequence core (S2, S3, S4, S8 as a core), the general words (S0), the lanes as a model, the loading window as one rule. Each player keeps its own `next` and its own preload.
 
-What **stays as an idea, not a merge**: S5, a chapter group naming a deck scene that a linked reader's decks play without a show (the owner's 2026-11-11 thought). It is an attachment through an address, not one container inside another. And the strip look (S6): the chapter tree, the storyboard groups, the show band and OSCT's panel look alike; a shared **drawing** in the editor kits is possible without a shared model.
+**Dropped too (owner, second answer 2026-11-20):** S5, a chapter group naming a deck scene that a linked reader's decks play without a show. Its only case would be a private session, and testing a show already gives that; a linked reader's story events already reach a scene's listeners (`joinScene` / `leaveScene` …, #517) and fire rows. The 2026-11-11 thought is outdated.
+
+**Kept:** the strip look (S6). The chapter tree, the storyboard groups, the show band and OSCT's panel share a **drawing** in the editor kits, not a model (owner: "makes sense"). Needs a draft first (G1).
+
+### 0.1 Events and the address book, as they are today (read from the code)
+
+Two grammars exist, on purpose:
+- **An address says where:** a place `<kind>:<id>` (`scene:nave`, `character:catpope`, `deck:left`) and the ladder below it (`deck/space/src/rig/address.rs`, SHOW.md §8). The **address book** (#477, `server/schema/api/address-book.schema.json`) lists what exists per toon, with the kinds character, persona, look, location, item, chapter, group, variable, season, toon, product, region, scene. **It has no `event` kind.**
+- **An event name says what happened:** `<domain>.<name>` with a dot (`story.fx`, `music.note`, `relay.cue`, `deck.mood`), from the name dictionary (`deck/events/src/names.rs`, EVENTS.md). A receiver subscribes to a name or a whole domain (`route.rs`). Story events carry the creator's stable event id (#539); a scene's listener matches type + id (#517); a show row's `fire` names an event id (`ch3.yellowmouse-enters` in the editor's tests).
+
+So the "event list per toon" is **not** the address book yet. It would be the address book gaining a kind `event`: every event id a toon's chapters, shows and (later) XR scenes declare, so the typeahead offers them and a row, a listener or an XR rule picks from one list.
+
+**Global events (`all:enter_mainstage`):** there is no `all:` place, and none is needed. Reach comes from where an event is sent, not from its name:
+- Pushed down the conductor tree, an event reaches **every** receiver below (SHOW.md §8 "who picks up goes down"); a wildcard (`location:*`) is "all of a kind".
+- A place in front **narrows** it: `/deck:foyer/location:* > close_doors`.
+- So `enter_mainstage` is an ordinary event in a domain (e.g. `stage.enter_mainstage` or the toon's own story id), sent at the top of the session's tree. "All" is the default reach, not a prefix.
+
+Proposed two tiers for the event list:
+| Tier | Who defines it | Where it lives | Examples |
+|---|---|---|---|
+| **Platform domains** | code | the name dictionary (`names.rs`) | `deck.*`, `relay.*`, `music.*`, `clock.*` |
+| **A toon's events** | the creator (chapters, shows, XR) | the address book, kind `event`, per toon | `ch3.yellowmouse-enters`, `enter_mainstage` |
+
+A toon's event is never global across toons; it is global within the session that plays it.
 
 **Three questions for the owner** (replacing §8):
 
-1. **Events: one list per toon**, emitted and heard by reader, deck and XR alike? *Recommended:* yes; this is the thread that already exists (#517, #518) and the one chaining needs.
+1. **Events: the address book gains a kind `event`** (a toon's event ids from chapters, shows and XR), next to the platform domains in the name dictionary; no `all:` prefix, reach by where it is sent (§0.1)? *Recommended:* yes.
 2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one.
-3. **Addresses: stable ids for chapter groups**, so a jump or an `end` can name any container's unit? *Recommended:* yes; it is a migration, `label` stays the reader's jump name.
+3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
-Draft tickets if the answers are yes (unfiled): `decide` "One event list per toon across reader, deck and XR" (area:content, S) · feature "Chapter groups get stable ids" (area:content, M) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M) · later, after a draft (G1): "A linked reader's group plays a named deck scene" (area:deck, M).
+Draft tickets left (unfiled): feature "The address book lists a toon's events (kind `event`)" (area:content, M, with #477) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
