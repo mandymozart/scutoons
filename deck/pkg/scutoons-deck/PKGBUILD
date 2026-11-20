@@ -15,7 +15,9 @@ license=('custom:UNLICENSED')
 depends=('cage' 'chromium' 'pipewire' 'wireplumber' 'rtkit' 'realtime-privileges' 'networkmanager' 'iwd'
          'vulkan-icd-loader' 'libxkbcommon' 'vulkan-tools' 'libva-utils' 'alsa-lib' 'curl' 'gptfdisk' 'squashfs-tools'
          'arch-install-scripts' 'plymouth')
+depends_x86_64=('libva' 'mesa')   # VA-API video decoding (deck-media-hw): libva + libgbm
 makedepends=('cargo' 'alsa-lib' 'pipewire' 'clang' 'librsvg')
+makedepends_x86_64=('libva' 'mesa' 'libdrm')
 backup=('etc/pipewire/pipewire.conf.d/10-deck-rt.conf'
         'etc/NetworkManager/conf.d/deck.conf'
         'etc/NetworkManager/system-connections/deck-hotspot.nmconnection')
@@ -24,6 +26,9 @@ options=('!lto')   # the workspace profile sets lto itself
 # (`git+https://github.com/mandymozart/scutoons.git`) replaces this once the repository is public to the build host.
 source=()
 sha256sums=()
+# cros-libva 0.0.12 does not compile against libva >= 2.23's headers: its bindings come from libva 2.22's (same ABI)
+source_x86_64=("libva-2.22.0-headers.pkg.tar.zst::https://archive.archlinux.org/packages/l/libva/libva-2.22.0-1-x86_64.pkg.tar.zst")
+sha256sums_x86_64=('ad3083a252bbac119d405ebeea7d86f9fc8e79cc27759303300e55ac9f6ffbda')
 
 _deck="$(cd "$startdir/../.." && pwd)"
 
@@ -39,8 +44,11 @@ _tool() { CARGO_TARGET_DIR="$srcdir/target" cargo run -q --release --locked -p d
 _features() { _tool --profile os/profiles.toml "$_class" native/scenes; }
 _apps() { _tool --apps os/profiles.toml "$_class" | tr ',' ' '; }
 
+_va_headers() { if [ "$CARCH" = x86_64 ]; then export CROS_LIBVA_H_PATH="$srcdir/usr/include"; fi; }
+
 build() {
   cd "$_deck"
+  _va_headers
   local features apps; features=$(_features); apps=$(_apps)
   # three cargo lines: --no-default-features applies to every -p, and an app beside the deck must not add features to it
   CARGO_TARGET_DIR="$srcdir/target" cargo build --release --locked -p relay -p bridge -p deck-check -p deck-link -p deck-update
@@ -52,6 +60,7 @@ build() {
 
 check() {
   cd "$_deck"
+  _va_headers
   CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-check -p bridge -p relay -p deck-link -p deck-update
   CARGO_TARGET_DIR="$srcdir/target" cargo test --release --locked -p deck-native --no-default-features --features "$(_features)"
 }

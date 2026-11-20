@@ -17,10 +17,20 @@ RELENG=/usr/share/archiso/configs/releng
 echo "== packages (host tools)"
 pacman-key --init >/dev/null 2>&1 || true
 # pipewire + clang: the stage's PipeWire backend (pipewire-sys runs bindgen against libpipewire's headers);
+# libva + mesa (libgbm) + libdrm: hardware video decoding (deck-media-hw; cros-libva runs bindgen against libva's headers);
 # librsvg + imagemagick: the logo's PNGs (plymouth, the BIOS menu) from the SVG
-pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire clang librsvg imagemagick >/dev/null
+pacman -Syu --noconfirm --needed archiso rust base-devel alsa-lib git pipewire clang libva mesa libdrm librsvg imagemagick >/dev/null
 echo "   archiso $(pacman -Q archiso | cut -d' ' -f2), rust $(rustc --version | cut -d' ' -f2), kernel package: $KERNEL"
 pacman -Si "$KERNEL" >/dev/null 2>&1 || { echo "no package '$KERNEL' in the repos – set DECK_KERNEL=linux"; exit 1; }
+# cros-libva 0.0.12 (deck-media-hw) does not compile against libva >= 2.23's headers (new VP9 encode fields): its
+# bindings come from libva 2.22's headers, pinned by hash (the ABI is the same; the binaries link the system's libva)
+VA_H=$WORK/libva-2.22.0-headers
+if [ ! -f "$VA_H/usr/include/va/va_version.h" ]; then
+  curl -fsSL -o /tmp/libva-h.pkg.tar.zst https://archive.archlinux.org/packages/l/libva/libva-2.22.0-1-x86_64.pkg.tar.zst
+  echo "ad3083a252bbac119d405ebeea7d86f9fc8e79cc27759303300e55ac9f6ffbda  /tmp/libva-h.pkg.tar.zst" | sha256sum -c --quiet
+  mkdir -p "$VA_H" && bsdtar -xf /tmp/libva-h.pkg.tar.zst -C "$VA_H" usr/include
+fi
+export CROS_LIBVA_H_PATH=$VA_H/usr/include
 
 CLASS=${DECK_PROFILE:-full}
 cargo_in_src() { (cd "$SRC" && CARGO_TARGET_DIR=$WORK/target CARGO_HOME=$WORK/cargo-home cargo "$@"); }
