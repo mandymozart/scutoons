@@ -197,6 +197,30 @@ final class AssetRegistry
         ]);
     }
 
+    /** The measured time map of a rendition (agents/ASSETS.md "Time maps"); null, null = not measured */
+    public function setTimeMap(int $id, ?float $offset, ?float $fps): void
+    {
+        $this->db->run('UPDATE asset_renditions SET time_offset = ?, frame_rate = ? WHERE id = ?', [$offset, $fps, $id]);
+    }
+
+    /**
+     * Video renditions without a time map, by id after $after (the cursor of assets:timemaps)
+     * @return list<array<string, mixed>> id, path, version_id, source (the version's source file)
+     */
+    public function withoutTimeMap(int $after, int $limit): array
+    {
+        return $this->db->all("SELECT r.id, r.path, r.version_id, v.path AS source FROM asset_renditions r
+            JOIN asset_versions v ON v.id = r.version_id JOIN assets a ON a.id = r.asset_id
+            WHERE r.id > ? AND r.time_offset IS NULL AND r.frame_rate IS NULL AND r.mime LIKE 'video/%' AND a.status <> 'deleted'
+            ORDER BY r.id LIMIT " . max(1, $limit), [$after]);
+    }
+
+    public function countWithoutTimeMap(int $after = 0): int
+    {
+        return (int) $this->db->value("SELECT COUNT(*) FROM asset_renditions r JOIN assets a ON a.id = r.asset_id
+            WHERE r.id > ? AND r.time_offset IS NULL AND r.frame_rate IS NULL AND r.mime LIKE 'video/%' AND a.status <> 'deleted'", [$after]);
+    }
+
     public function removeRendition(int $id): void
     {
         $this->db->run('DELETE FROM asset_renditions WHERE id = ?', [$id]);
