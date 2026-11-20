@@ -22,18 +22,22 @@ export interface UnitRefs {
 	/** the reference a length is a part of, in pixels and in metres */
 	pixels?: number;
 	metres?: number;
+	/** the pixels are a web reference at 1x: pt and rem are offered */
+	web?: boolean;
+	/** the reference is a font size: em is offered in place of % */
+	em?: boolean;
 }
 
 /** the core's wire form of `refs` (deck-core `Refs::from_wire`) */
-export const unitRefs = (r: UnitRefs = {}) => Float64Array.from([r.fps, r.bpm, r.perBar, r.pixels, r.metres].map((v) => v ?? NaN));
+export const unitRefs = (r: UnitRefs = {}) => Float64Array.from([r.fps, r.bpm, r.perBar, r.pixels, r.metres, r.web ? 1 : undefined, r.em ? 1 : undefined].map((v) => v ?? NaN));
 
 /** A value of `dimension` stored in the unit `stored`: the units the core offers for it, the choice remembered per `kind`
- *  (ScrubNumber), `fallback` (default: the stored unit) when nothing is chosen. */
-export function coreUnits(core: UnitConversions, o: { kind: string; dimension: string; stored: string; fallback?: string; refs?: UnitRefs }): Units {
+ *  (ScrubNumber), `labels` the words a field shows instead of the core's (line height: ×), `fallback` (default: the stored unit) when nothing is chosen. */
+export function coreUnits(core: UnitConversions, o: { kind: string; dimension: string; stored: string; fallback?: string; refs?: UnitRefs; labels?: Record<string, string> }): Units {
 	const refs = unitRefs(o.refs);
 	const options: UnitOption[] = core.offered(o.dimension, refs).map((id) => ({
 		id,
-		label: core.word(id),
+		label: o.labels?.[id] ?? core.word(id),
 		step: core.step(id),
 		decimals: core.decimals(id),
 		toShown: (v: number) => core.convert(v, o.stored, id, refs),

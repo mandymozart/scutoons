@@ -5,6 +5,7 @@
 	import AnchorField from '$lib/components/fields/anchor-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { sliceLength } from '$lib/editor/length-units.ts';
+	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 
 	/**
 	 * Where a piece sits (research/COLLAGE.md §7): on a slice the anchor point (the 3×3 picker) at X / Y in % of the
@@ -15,6 +16,8 @@
 	 * itself (the score stage keeps the piece where it is – it has the page's geometry); without it only the flag changes.
 	 * A re-click of the chosen Bar / Page or Over / Behind changes nothing (no empty undo step, redo kept).
 	 */
+	const coreUnits = useCoreUnits();
+
 	let {
 		doc,
 		path,
@@ -36,7 +39,7 @@
 	const onPage = $derived(host === 'score' && !!piece.at?.page);
 	/** the unit of y and the width: % on a slice and a page, staff spaces on the music */
 	const sp = $derived(host === 'score' && !onPage ? m['creator.piece_unit_sp']() : '%');
-	const units = $derived(slicePx ? { x: sliceLength('position', slicePx.width), y: sliceLength('position', slicePx.height), w: sliceLength('size', slicePx.width) } : null);
+	const units = $derived(slicePx ? { x: sliceLength(coreUnits.core, 'position', slicePx.width), y: sliceLength(coreUnits.core, 'position', slicePx.height), w: sliceLength(coreUnits.core, 'size', slicePx.width) } : null);
 </script>
 
 <PropRow label={m['creator.prop_position']()} testid="piece-position">

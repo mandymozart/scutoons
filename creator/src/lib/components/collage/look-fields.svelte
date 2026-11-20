@@ -7,6 +7,7 @@
 	import PointsField from '$lib/components/collage/points-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { sliceLength } from '$lib/editor/length-units.ts';
+	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 
 	/**
 	 * A piece's colouration fields (research/COLLAGE.md §7): opacity + blend, fill (none / colour / gradient), outline,
@@ -17,6 +18,8 @@
 	 * field never clears the fill (only the kind None does). Lengths are % of the piece's width (the same look at every
 	 * size).
 	 */
+	const coreUnits = useCoreUnits();
+
 	let {
 		piece,
 		presets,
@@ -32,7 +35,7 @@
 	} = $props();
 
 	/** outline (kind `stroke`) and shadow / blur (kind `effect`): % of the piece's width, px by default */
-	const units = $derived(widthPx ? { stroke: sliceLength('stroke', widthPx, 'px'), effect: sliceLength('effect', widthPx, 'px') } : null);
+	const units = $derived(widthPx ? { stroke: sliceLength(coreUnits.core, 'stroke', widthPx, 'px'), effect: sliceLength(coreUnits.core, 'effect', widthPx, 'px') } : null);
 
 	const style = $derived(pieceStyle(piece, presets));
 	/** the look's values alone (the plain fields' placeholders) */

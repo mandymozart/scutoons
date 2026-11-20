@@ -25,8 +25,13 @@ describe('coreUnits', () => {
 		expect(asked).toEqual(['ms>s', 's>ms']);
 	});
 
+	it('marks a web or font reference on the wire and shows a field's own word', () => {
+		expect(Array.from(unitRefs({ pixels: 390, web: true, em: true })).map((v) => (Number.isNaN(v) ? null : v))).toEqual([null, null, null, 390, null, 1, 1]);
+		expect(coreUnits(core, { kind: 'line-height', dimension: 'time', stored: 's', labels: { s: '×' } }).options[0].label).toBe('×');
+	});
+
 	it('hands the core what is known and leaves the rest NaN', () => {
-		expect(Array.from(unitRefs({ fps: 25, pixels: 1920 })).map((v) => (Number.isNaN(v) ? null : v))).toEqual([25, null, null, 1920, null]);
+		expect(Array.from(unitRefs({ fps: 25, pixels: 1920 })).map((v) => (Number.isNaN(v) ? null : v))).toEqual([25, null, null, 1920, null, null, null]);
 		expect(coreUnits(core, { kind: 'trim', dimension: 'time', stored: 's', refs: { fps: 25 } }).options.map((o) => o.id)).toEqual(['s', 'ms', 'frames']);
 	});
 });

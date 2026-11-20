@@ -5,6 +5,7 @@
 	import { Icon, PropRow, ScrubNumber } from '@scutoons/ui';
 	import { DEFAULT_SLICE } from '@scutoons/content';
 	import { sliceLength } from '$lib/editor/length-units.ts';
+	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 	import RepeatsField from '$lib/components/fields/repeats-field.svelte';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
@@ -21,6 +22,8 @@
 	 * handles on the canvas) and what a tap does (`action`, the creator's choice: nothing, pick up, or VN events run like
 	 * a click trigger's).
 	 */
+	const coreUnits = useCoreUnits();
+
 	let {
 		doc,
 		path,
@@ -106,11 +109,11 @@
 		     unit per field (owner 2026-10-18) -->
 		<PropRow label={m['creator.prop_position']()} testid="item-position">
 			<AnchorField {doc} {path} bare />
-			<ScrubNumber tag="X" label={m['creator.field_x']()} units={sliceLength('position', sliceWidth)} value={placed.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="item-x" />
-			<ScrubNumber tag="Y" label={m['creator.field_y']()} units={sliceLength('position', sliceHeight)} value={placed.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="item-y" />
+			<ScrubNumber tag="X" label={m['creator.field_x']()} units={sliceLength(coreUnits.core, 'position', sliceWidth)} value={placed.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="item-x" />
+			<ScrubNumber tag="Y" label={m['creator.field_y']()} units={sliceLength(coreUnits.core, 'position', sliceHeight)} value={placed.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="item-y" />
 		</PropRow>
 		<PropRow label={m['creator.prop_dimensions']()} testid="item-size">
-			<ScrubNumber tag="W" label={m['creator.field_width']()} units={sliceLength('size', sliceWidth)} min={0.1} value={placed.rect?.width} onchange={(v) => doc.set(p('rect', 'width'), v ?? 1)} required testid="item-width" />
+			<ScrubNumber tag="W" label={m['creator.field_width']()} units={sliceLength(coreUnits.core, 'size', sliceWidth)} min={0.1} value={placed.rect?.width} onchange={(v) => doc.set(p('rect', 'width'), v ?? 1)} required testid="item-width" />
 			<ScrubNumber icon="rotate-cw" label={m['creator.field_rotation']()} unit="°" step={1} value={placed.rotation} placeholder="0" onchange={(v) => doc.set(p('rotation'), v)} testid="item-rotation" />
 		</PropRow>
 

@@ -77,7 +77,7 @@
 	let editing = $state(false);
 
 	// ── the unit: stored ⟷ shown ──
-	const chosen = $derived(units ? (units.options.find((o) => o.id === unitPrefs.get(units.kind, units.fallback)) ?? units.options[0]) : null);
+	const chosen = $derived(units ? (units.options.find((o) => o.id === unitPrefs.get(units.kind, units.fallback)) ?? units.options.find((o) => o.id === units.fallback) ?? units.options[0]) : null);
 	const toShown = (v: number) => (chosen ? roundTo(chosen.toShown(v), chosen.decimals) : v);
 	const shownStep = $derived(chosen ? chosen.step : step);
 	const unitLabel = $derived(chosen ? chosen.label : unit);

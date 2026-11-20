@@ -100,8 +100,8 @@
 	{#if box}<p class="hint">{m['creator.reveal_box_hint']()}</p>{/if}
 	<div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 		<PropField {doc} path={[...path, 'params', 'effect']} label={m['creator.reveal_effect']()} type="select" options={effectOptions()} placeholder={m['creator.reveal_effect_none']()} />
-		<PropField {doc} path={[...path, 'params', 'duration']} label={m['creator.field_duration']()} type="number" step={100} placeholder="2000" />
-		<PropField {doc} path={[...path, 'params', 'delay']} label={m['creator.field_delay']()} type="number" step={100} placeholder="0" />
+		<PropField {doc} path={[...path, 'params', 'duration']} label={m['creator.field_duration']()} type="number" unit={{ kind: 'duration', dimension: 'time', stored: 'ms' }} step={100} placeholder="2000" />
+		<PropField {doc} path={[...path, 'params', 'delay']} label={m['creator.field_delay']()} type="number" unit={{ kind: 'duration', dimension: 'time', stored: 'ms' }} step={100} placeholder="0" />
 		<PropField {doc} path={[...path, 'params', 'mode']} label={m['creator.field_mode']()} type="select" options={Object.values(TriggerMode)} placeholder="poly" />
 		<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
 		<PropField

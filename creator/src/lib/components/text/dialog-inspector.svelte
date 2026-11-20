@@ -4,6 +4,7 @@
 	import { DEFAULT_SLICE, dialogFit, getAt, round2, type DialogFit, type Path } from '@scutoons/content';
 	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { fontLength, fontPx, sliceLength } from '$lib/editor/length-units.ts';
+	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { alignLabel } from '$lib/editor/cover-words.ts';
@@ -12,6 +13,8 @@
 	import AnchorField from '$lib/components/fields/anchor-field.svelte';
 	import TailField from '$lib/components/text/tail-field.svelte';
 	import { drawnBox } from '$lib/editor/tail-edit.ts';
+
+	const coreUnits = useCoreUnits();
 
 	let {
 		doc,
@@ -46,14 +49,14 @@
 	const sliceHeight = $derived(slice?.width && slice?.height ? (sliceWidth * slice.height) / slice.width : (sliceWidth * DEFAULT_SLICE.height) / DEFAULT_SLICE.width);
 	const textPx = $derived(fontPx(dialog?.size, sliceWidth));
 	const units = $derived({
-		x: sliceLength('position', sliceWidth),
-		y: sliceLength('position', sliceHeight),
-		w: sliceLength('size', sliceWidth),
-		h: sliceLength('size', sliceHeight),
-		size: sliceLength('text-size', sliceWidth, 'rem'),
-		stroke: fontLength('stroke', textPx, 'px'),
-		spacing: fontLength('letter-spacing', textPx),
-		line: fontLength('line-height', textPx, 'em', '×', 0.05)
+		x: sliceLength(coreUnits.core, 'position', sliceWidth),
+		y: sliceLength(coreUnits.core, 'position', sliceHeight),
+		w: sliceLength(coreUnits.core, 'size', sliceWidth),
+		h: sliceLength(coreUnits.core, 'size', sliceHeight),
+		size: sliceLength(coreUnits.core, 'text-size', sliceWidth, 'rem'),
+		stroke: fontLength(coreUnits.core, 'stroke', textPx, 'px'),
+		spacing: fontLength(coreUnits.core, 'letter-spacing', textPx),
+		line: fontLength(coreUnits.core, 'line-height', textPx, 'em', '×')
 	});
 
 	/**
