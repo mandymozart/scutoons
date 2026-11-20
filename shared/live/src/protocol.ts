@@ -590,6 +590,8 @@ export interface ShowRole {
 /** #478: conductor → relay: the roles of its show (the relay keeps them for the session); relay → client: the roles it may take, with how many are in each – when it joins and whenever that changes (the conductor gets every one). */
 export interface Roles {
 	roles: ShowRole[];
+	/** relay → a deck or phone: whether a conductor is in the session now (a rejoining deck whose conductor is gone waits); missing from a conductor */
+	conductor?: boolean;
 }
 
 /** #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above. */

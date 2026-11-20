@@ -86,6 +86,12 @@ pub fn cached(cache: &Path) -> Vec<(SceneRef, String)> {
     out
 }
 
+/// the published scenes this deck keeps, as Play lists them (the core reads each file: deck-space `published::kept`)
+pub fn kept(cache: &Path) -> Vec<deck_ui::start::Listed> {
+    let files = std::fs::read_dir(cache.join("scenes")).into_iter().flatten().flatten().map(|e| e.path());
+    files.filter(|p| p.extension().is_some_and(|x| x == "json")).filter_map(|p| deck_space::published::kept(&std::fs::read_to_string(p).ok()?)).collect()
+}
+
 /// GET `<api><path>` → (status, body); 0 = the network is gone
 #[cfg(feature = "sync")]
 fn get(api: &str, path: &str) -> (u16, String) {

@@ -3,7 +3,7 @@
 //! full screen the stage lays over the scene (deck-space `Stage::set_menu`, #485). Sizes are logical pixels (a cell of the pixel face): the
 //! HUD's scale makes 16 px glyphs on a 1080p screen, 40 columns; on a phone (narrow, upright) the rows are a finger's –
 //! 20 high, 40 px at 16 px glyphs, a value under its label. What can be pressed is kept for the pointer (`places`).
-use super::{rows, words, Facts, Hit, Menu, Page, Pair};
+use super::{rows_of, words, Facts, Hit, Menu, Page, Pair};
 use deck_kit::base::draw::{DrawList, Rect};
 pub use deck_kit::base::screen::Layer;
 use deck_kit::base::tokens::Tokens;
@@ -28,8 +28,8 @@ pub fn finger(lw: f32, lh: f32) -> bool {
     lw < COLUMNS + 20.0 || lh > lw * 1.2
 }
 
-/// what was drawn: the pages, the cursor, the facts, the screen (`Menu::drawn`)
-pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32));
+/// what was drawn: the pages, the cursor, the facts, the screen, the show waited for (`Menu::drawn`)
+pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String);
 
 /// the parts of a page's body that can be pressed, and where the body is
 struct Body<'a> {
@@ -75,6 +75,8 @@ fn title(page: Page) -> &'static str {
         Page::Avatar => "AVATAR",
         Page::Equip => "EQUIP",
         Page::Mappings => "MAPPINGS",
+        Page::Start | Page::Waiting => "SCUTOONS DECK",
+        Page::Play => "PLAY",
     }
 }
 
@@ -84,7 +86,7 @@ impl Menu {
     /// layer, painted through egui: deck-space `Stage::set_menu`).
     pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Layer>> {
         let show = self.top().filter(|_| self.own(f).is_none());
-        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h)));
+        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone()));
         let was: Option<Drawn> = self.drawn.take();
         if now == was {
             self.drawn = was;
@@ -129,16 +131,12 @@ impl Menu {
         let y0 = y;
         let mut y = y;
         match top {
-            Page::Main => {
+            Page::Main | Page::Start => {
                 y += b.head(y, title(top), if f.native { "ESC CLOSE" } else { "M CLOSE" });
-                y += b.line(y, f.session.as_deref().unwrap_or("NO SESSION"), "", true);
+                let under = if top == Page::Start { format!("{} · {}", f.pair.word(), f.session.as_deref().unwrap_or("NO SESSION")) } else { f.session.clone().unwrap_or("NO SESSION".into()) };
+                y += b.line(y, &under, "", true);
                 y += b.rule(y);
-                for (i, row) in rows(f).into_iter().enumerate() {
-                    let (label, value, dim) = words(row, f);
-                    let at = look::item(b.d, b.t, (b.x, y, b.w), Item { label, value: &value, chosen: i == self.cursor, dim }, b.finger);
-                    b.places.push((at, Hit::Row(i)));
-                    y += at.h;
-                }
+                y += self.items(b, top, f, y);
                 y += b.rule(y);
                 if b.finger {
                     y += b.foot_back(y, f);
@@ -147,6 +145,34 @@ impl Menu {
                     if f.native {
                         y += b.line(y, "F4 SETTINGS F5 SCENES F6 LIVE", "", true);
                     }
+                }
+            }
+            Page::Play => {
+                y += b.head(y, title(top), "ESC BACK");
+                y += b.line(y, "DEMOS FIRST, THEN THE PUBLISHED SCENES", "", true);
+                y += b.rule(y);
+                if f.play.is_empty() {
+                    y += b.line(y, "NOTHING TO PLAY: OFFLINE AND NO SCENE KEPT", "", true);
+                } else {
+                    y += self.items(b, top, f, y);
+                }
+                y += b.rule(y);
+                if b.finger {
+                    y += b.foot_back(y, f);
+                } else {
+                    y += b.line(y, "UP DOWN CHOOSE  ENTER PLAY", "", true);
+                }
+            }
+            Page::Waiting => {
+                y += b.head(y, title(top), "");
+                y += b.rule(y);
+                y += b.line(y, &crate::start::waiting_line(&self.waiting).to_uppercase(), "", false);
+                y += b.line(y, "THE CONDUCTOR IS NOT IN THE SESSION", "", true);
+                y += b.rule(y);
+                y += self.items(b, top, f, y);
+                y += b.rule(y);
+                if !b.finger {
+                    y += b.line(y, "ENTER LEAVE  ESC CLOSE", "", true);
                 }
             }
             Page::Pair => {
@@ -174,6 +200,24 @@ impl Menu {
             }
         }
         y - y0
+    }
+}
+
+impl Menu {
+    /// A list page's rows from `y` (Play's by the scene's name), each a place to press; their height.
+    fn items(&self, b: &mut Body, top: Page, f: &Facts, y: f32) -> f32 {
+        let mut h = 0.0;
+        for (i, row) in rows_of(top, f).into_iter().enumerate() {
+            let (label, value, dim) = words(row, f);
+            let name = match row {
+                super::Row::Pick(n) => f.play.get(n).map(|p| p.label.to_uppercase()).unwrap_or_default(),
+                _ => label.to_string(),
+            };
+            let at = look::item(b.d, b.t, (b.x, y + h, b.w), Item { label: &name, value: &value, chosen: i == self.cursor, dim }, b.finger);
+            b.places.push((at, Hit::Row(i)));
+            h += at.h;
+        }
+        h
     }
 }
 
@@ -235,7 +279,7 @@ fn splash(d: &mut DrawList, t: &Tokens, f: &Facts, (lw, lh): (f32, f32)) {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Input, Qr};
+    use super::super::{Answer, Input, Qr};
     use super::*;
     use deck_kit::base::draw::Prim;
 
@@ -272,6 +316,29 @@ mod tests {
         m.input(Input::Press((rows[1].x + 4.0) * 2.0, (rows[1].y + 4.0) * 2.0), &f);
         assert_eq!(m.own(&f), Some(Page::Live));
         assert_eq!(m.paint(&f, (1920.0, 1080.0)), Some(None));
+    }
+
+    /// the start menu and the wait are painted with their rows; a press on PLAY opens Play, on LEAVE leaves
+    #[test]
+    fn the_start_menu_and_the_wait_are_painted_and_pressed() {
+        use crate::start::{Playable, Stand};
+        let text = |layer: &Layer, want: &str| layer.list.prims().iter().any(|p| matches!(*p, Prim::Text { start, end, .. } if layer.list.text_of(start, end) == want));
+        let f = Facts { play: vec![Playable { value: "scene:sandy-dunes".into(), label: "Dunes".into(), demo: true }], ..native() };
+        let mut m = Menu::default();
+        m.follow(&Stand::Menu);
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the start menu");
+        assert!(text(&layer, "PLAY") && text(&layer, "JOIN A SHOW") && text(&layer, "1 SCENES"));
+        let rows: Vec<Rect> = m.places.iter().filter(|(_, h)| matches!(h, Hit::Row(_))).map(|(r, _)| *r).collect();
+        assert_eq!(rows.len(), 4, "play, join, settings, quit");
+        m.input(Input::Press((rows[0].x + 4.0) * 2.0, (rows[0].y + 4.0) * 2.0), &f);
+        assert_eq!(m.top(), Some(Page::Play));
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("play");
+        assert!(text(&layer, "DUNES") && text(&layer, "DEMO"));
+        m.follow(&Stand::Waiting("CHOIR".into()));
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the wait");
+        assert!(text(&layer, "WAITING FOR CHOIR") && text(&layer, "LEAVE"));
+        let (leave, _) = *m.places.iter().find(|(_, h)| *h == Hit::Row(0)).expect("leave");
+        assert_eq!(m.input(Input::Press((leave.x + 4.0) * 2.0, (leave.y + 4.0) * 2.0), &f), Answer::Leave);
     }
 
     #[test]

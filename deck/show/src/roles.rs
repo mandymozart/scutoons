@@ -399,7 +399,7 @@ mod tests {
         assert_eq!(names.len(), 4, "the lamps are no role");
         assert!(roles(&show, Some(&sub)).iter().all(|r| r.here.is_none()), "no count before the relay's");
         let counted = |id: &str, n| ShowRole { id: id.into(), label: None, r#for: None, here: Some(n) };
-        sub.on_wire(&Envelope::new("relay", Message::Roles(Roles { roles: vec![counted("tenor", 2), counted("click", 1)] })), 0);
+        sub.on_wire(&Envelope::new("relay", Message::Roles(Roles { roles: vec![counted("tenor", 2), counted("click", 1)], conductor: None })), 0);
         let here: Vec<String> = roles(&show, Some(&sub)).iter().map(|r| here_text(r.here)).collect();
         assert_eq!(here, ["2", "", "1", ""]);
     }

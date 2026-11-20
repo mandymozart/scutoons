@@ -1110,6 +1110,9 @@ pub struct ShowRole {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Roles {
 	pub roles: Vec<ShowRole>,
+	/// relay → a deck or phone: whether a conductor is in the session now (a rejoining deck whose conductor is gone waits); missing from a conductor
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub conductor: Option<bool>,
 }
 
 /// #478: one client as presence tells the conductor: its role (group; none = no role), its name, its device, its proven account fact, a lock from above.

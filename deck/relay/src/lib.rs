@@ -691,7 +691,7 @@ mod tests {
             role("click", Admits { account: Some(vec![Account::Live]), ..Default::default() }),
             role("stage", Admits { approved: Some(true), ..Default::default() }),
         ];
-        relay.with_session("P", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles })), now_ms(), 50));
+        relay.with_session("P", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles, conductor: None })), now_ms(), 50));
 
         let guest = join(Role::Output, None, None, None);
         let member = join(Role::Output, None, None, Some(proof(vec![Account::Member], false, "P", now + 60)));
@@ -742,7 +742,7 @@ mod tests {
         let cond_token = token::sign(&secret, &token::Claims { session: "R".into(), role: Role::Conductor, exp: now + 60, show: None });
         let (cond, _) = relay.admit(Some(&hello(Role::Conductor, None, Some(cond_token), None, None)), Join::default(), Outbox::new()).unwrap();
         let soprano = ShowRole { id: "soprano".into(), label: None, r#for: Some(Admits { account: Some(vec![Account::Member]), ..Default::default() }), here: None };
-        relay.with_session("R", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![soprano] })), now_ms(), 50));
+        relay.with_session("R", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![soprano], conductor: None })), now_ms(), 50));
 
         let first = Outbox::new();
         let (id, _) = relay.admit(Some(&hello(Role::Output, Some("soprano"), None, None, None)), Join::default(), first.clone()).unwrap();
@@ -772,7 +772,7 @@ mod tests {
         let hello = Hello { code: "V".into(), role: Role::Conductor, group: None, nick: None, device: None, token: Some(cond_token), proof: None, resume: None };
         let (cond, _) = relay.admit(Some(&serde_json::to_string(&Envelope::new("", Message::Hello(hello))).unwrap()), Join::default(), Outbox::new()).unwrap();
         let left = ShowRole { id: "left".into(), label: None, r#for: None, here: None };
-        relay.with_session("V", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![left] })), now_ms(), 50));
+        relay.with_session("V", |s| s.handle(&cond, Envelope::new("", Message::Roles(Roles { roles: vec![left], conductor: None })), now_ms(), 50));
 
         // what the client asks to send: its texts
         let sends = |a: &mut Audience| a.take(1.0).into_iter().filter_map(|o| if let Out::Send(text) = o { Some(text) } else { None }).collect::<Vec<_>>();

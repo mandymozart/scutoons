@@ -8,8 +8,13 @@
 //! #556: the ballot of a vote this deck may cast in (deck-ui `ballot.rs`, the layer under the menu) gets the inputs the
 //! menu leaves – the arrows, Enter, a click, a touch, the pad's d-pad and A – while no page of the deck is open; its
 //! cast goes to the Live outlet's relay client.
+//! the deck's start (the rules are deck-ui `start.rs`): what the deck hears – the conductor's push or cell, the
+//! relay's clock, a MIDI clock in – and whether its conductor is in, read every frame; the menu follows the stand. Play's
+//! list: the API's listing of the published scenes (a thread, once) and the copies this deck keeps.
 use crate::App;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
+use deck_ui::start::{self, Begin, Clock, Heard, Listed, Playable};
+use std::sync::{Arc, Mutex};
 use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
@@ -26,13 +31,27 @@ pub struct Native {
     at: (f32, f32),
     pair: Pair,
     pair_at: f32,
+    /// how the deck came up, whether the person at it left its session (LEAVE), the API's listing (filled by a
+    /// thread), what Play lists now
+    begin: Begin,
+    left: bool,
+    listing: Arc<Mutex<Vec<Listed>>>,
+    play: Vec<Playable>,
 }
 
 impl Native {
-    /// The menu at the start: the splash waits for START only when the deck is in no session (no outlet told) – a check
-    /// run (`--frames`) never waits for a key.
+    /// The menu at the start: nothing open – the first frame's stand opens the start menu of an independent deck;
+    /// a check run (`--frames`) counts as a named scene unless `DECK_START` is set.
     pub fn new(args: &crate::Args) -> Native {
-        let session = deck_native::live::config::configured(crate::outlet_settings(args)) || args.frames.is_some();
+        use deck_native::live::config::{deck_toml, Settings};
+        let settings = Settings::read(&deck_toml()).merged(crate::outlet_settings(args));
+        let session = settings.config().and_then(Result::ok).map(|c| c.code);
+        let check = args.frames.is_some() && std::env::var_os("DECK_START").is_none();
+        let begin = Begin::of(session.as_deref(), args.scene.is_some() || check);
+        let listing = Arc::new(Mutex::new(Vec::new()));
+        if !check {
+            fetch_listing(args.api.clone(), listing.clone());
+        }
         let keys = std::env::var("DECK_BALLOT_KEYS").unwrap_or_default();
         let keys = keys.split(',').filter_map(|k| match k.trim() {
             "up" => Some(Input::Up),
@@ -40,8 +59,39 @@ impl Native {
             "enter" => Some(Input::Enter),
             _ => None,
         });
-        Native { menu: Menu::new(session), ballot: Default::default(), keys: keys.collect(), key_at: None, at: (0.0, 0.0), pair: Pair::Off, pair_at: -10.0 }
+        Native {
+            menu: Menu::default(),
+            ballot: Default::default(),
+            keys: keys.collect(),
+            key_at: None,
+            at: (0.0, 0.0),
+            pair: Pair::Off,
+            pair_at: -10.0,
+            begin,
+            left: false,
+            listing,
+            play: Vec::new(),
+        }
     }
+}
+
+/// the API's published scenes for Play, once, on a thread (offline: none – Play lists the kept copies)
+fn fetch_listing(api: String, into: Arc<Mutex<Vec<Listed>>>) {
+    #[cfg(feature = "sync")]
+    std::thread::Builder::new()
+        .name("play-listing".into())
+        .spawn(move || {
+            let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(5)).timeout_read(std::time::Duration::from_secs(20)).build();
+            let (status, body) = deck_native::published::get_with(&agent, &api, "/scenes", deck_link::TokenSource::from_env().get());
+            let listed = if status == 200 { deck_space::published::catalog(&body) } else { vec![] };
+            tracing::info!("play: {} published scenes listed ({status})", listed.len());
+            if let Ok(mut l) = into.lock() {
+                *l = listed;
+            }
+        })
+        .ok();
+    #[cfg(not(feature = "sync"))]
+    let _ = (api, into);
 }
 
 impl App {
@@ -64,6 +114,47 @@ impl App {
             loading: self.loading(),
             density: h / 1080.0,
             top: 0.0,
+            play: self.menu.play.clone(),
+        }
+    }
+
+    /// what the deck hears from a conductor now: its push (`scene.sync`) or a cell for the outlet, the relay's clock
+    /// when this deck follows it, a MIDI clock in
+    fn heard(&self) -> Heard {
+        #[cfg(feature = "sync")]
+        let pushed = self.show.sync.as_ref().is_some_and(|s| s.push_line().is_some());
+        #[cfg(not(feature = "sync"))]
+        let pushed = false;
+        #[cfg(feature = "live")]
+        let cell = self.show.live.as_ref().is_some_and(|l| l.status.lock().is_ok_and(|s| !s.cell.is_empty()));
+        #[cfg(not(feature = "live"))]
+        let cell = false;
+        let scene = pushed || cell;
+        #[cfg(all(feature = "live", feature = "space"))]
+        let relay = self.show.show_link.heard() && !self.show.tempo.leading();
+        #[cfg(not(all(feature = "live", feature = "space")))]
+        let relay = false;
+        let clock = match self.show.tempo.source() {
+            crate::tempo::Source::Midi => Clock::Midi,
+            crate::tempo::Source::Relay if relay => Clock::Conductor,
+            _ => Clock::Own,
+        };
+        Heard { scene, clock }
+    }
+
+    /// the menu follows the start's stand (once a frame); Play's list while a start page shows (every 2 s)
+    fn start_frame(&mut self, refresh: bool) {
+        let conductor = crate::pages::session(&self.show).conductor;
+        let stand = start::stand(&self.menu.begin, &self.heard(), conductor, self.menu.left);
+        let was = self.menu.menu.top();
+        self.menu.menu.follow(&stand);
+        if refresh && self.menu.menu.top().is_some_and(Page::start) {
+            let cache = self.args.cache.clone().unwrap_or_else(crate::cache::default_dir);
+            let listed = self.menu.listing.lock().map(|l| l.clone()).unwrap_or_default();
+            self.menu.play = start::play_list(&listed, &deck_native::published::kept(&cache));
+        }
+        if self.menu.menu.top() != was {
+            self.menu_sync(&self.menu_facts());
         }
     }
 
@@ -77,6 +168,16 @@ impl App {
             Answer::No => return self.ballot_input(i),
             Answer::Quit => el.exit(),
             Answer::Creator => self.open_creator(el),
+            Answer::Play(n) => {
+                if let Some(p) = facts.play.get(n) {
+                    self.switch(&p.value.clone());
+                }
+            }
+            // out of the session: the idle scene without the outlet; the stand is the start menu's again
+            Answer::Leave => {
+                self.menu.left = true;
+                self.switch("idle");
+            }
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
@@ -160,11 +261,13 @@ impl App {
     /// Once a frame: deck-link's pairing state (every 2 s), the pad's buttons, the menu's page to the stage (only when
     /// it changed; a layer of deck-kit's egui screen, #485).
     pub(crate) fn menu_frame(&mut self, el: &ActiveEventLoop, time: f32) {
-        if time - self.menu.pair_at >= 2.0 || time < self.menu.pair_at {
+        let refresh = time - self.menu.pair_at >= 2.0 || time < self.menu.pair_at;
+        if refresh {
             self.menu.pair_at = time;
             let state = deck_link::pairing::read_state(&deck_link::pairing::run_dir());
             self.menu.pair = deck_native::pairing::of(state.as_ref(), &deck_link::pairing::app_url());
         }
+        self.start_frame(refresh);
         #[cfg(feature = "gamepad")]
         {
             // while the ballot shows, the d-pad and A are its own as they are the open menu's

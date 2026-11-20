@@ -251,7 +251,7 @@ impl Subtree {
 
     /// #478: the roles this conductor gives out, for its session (sent when it joins and with every new show)
     fn roles(&self) -> Envelope {
-        message(Message::Roles(protocol::Roles { roles: self.conductor.show().roles() }), None)
+        message(Message::Roles(protocol::Roles { roles: self.conductor.show().roles(), conductor: None }), None)
     }
 
     /// #478: who is here as `role: name` (owner 2026-11-10: "Rolle, Doppelpunkt, eingetragener Name"), by role then name;

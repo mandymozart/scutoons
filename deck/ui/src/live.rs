@@ -28,6 +28,8 @@ pub struct Session {
     pub name: String,
     /// the conductor put it there with a lock from above: it cannot leave
     pub locked: bool,
+    /// whether a conductor is in the session, as the relay last said (none: not said yet)
+    pub conductor: Option<bool>,
 }
 
 impl Session {
@@ -249,6 +251,7 @@ mod tests {
             role: Some("tenor".into()),
             name: "Anna".into(),
             locked: false,
+            conductor: Some(true),
         }
     }
 

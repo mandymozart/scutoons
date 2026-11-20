@@ -233,8 +233,12 @@ fn only_the_conductor_pushes() {
     };
     let next = |ws: &mut tungstenite::WebSocket<_>| -> Envelope {
         loop {
+            // the relay's word whether a conductor is in comes to every deck; not this test's
             if let Ws::Text(t) = ws.read().unwrap() {
-                return serde_json::from_str(&t).unwrap();
+                let e: Envelope = serde_json::from_str(&t).unwrap();
+                if !matches!(e.message, Message::Roles(_)) {
+                    return e;
+                }
             }
         }
     };

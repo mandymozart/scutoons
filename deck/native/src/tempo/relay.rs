@@ -14,6 +14,8 @@ pub struct ShowLink {
     inbox: Mutex<Vec<Event>>,
     ping: AtomicBool,
     out: Mutex<Option<Anchor>>,
+    /// an anchor came from the relay (the start counts the conductor's clock as driving the deck)
+    heard: AtomicBool,
 }
 
 /// the wire's anchor as deck-core's (None without a moment – the relay always sets one)
@@ -43,8 +45,14 @@ impl ShowLink {
     /// the link thread: the relay's `tempo` (or the welcome snapshot's)
     pub fn tempo(&self, t: &protocol::Tempo) {
         if let Some(a) = anchor_of(t) {
+            self.heard.store(true, Ordering::Relaxed);
             self.push(What::Tempo(a));
         }
+    }
+
+    /// whether the relay ever sent an anchor
+    pub fn heard(&self) -> bool {
+        self.heard.load(Ordering::Relaxed)
     }
 
     /// the link thread: joined (again) – the clock's filter starts over, a leader sends again

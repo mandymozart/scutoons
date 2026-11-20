@@ -18,6 +18,11 @@ pub fn takes_roles(role: Role) -> bool {
     matches!(role, Role::Output | Role::Performer | Role::Musician | Role::Audience)
 }
 
+/// the decks among them – they are told whether a conductor is in (the phones are not)
+pub fn is_deck(role: Role) -> bool {
+    matches!(role, Role::Output | Role::Performer | Role::Musician)
+}
+
 /// May `c` take a role with this filter? None: a guest may, anyone with the code. Any one fact admits. The account ladder
 /// is the one filter's (#546, protocol `filter::counts_as`).
 pub fn admits(a: Option<&Admits>, c: &Client) -> bool {
