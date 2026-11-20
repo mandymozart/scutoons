@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, Sheet } from '@scutoons/ui';
+	import { Badge, Icon, Sheet } from '@scutoons/ui';
 	import type { AssetRequest } from '@scutoons/content';
 	import { imageExists } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -16,7 +16,8 @@
 		convention,
 		request,
 		onset,
-		onrequest
+		onrequest,
+		onlibrary
 	}: {
 		open?: boolean;
 		/** e.g. "Katzenpapst · Mensch · default · happy (portrait)" */
@@ -28,6 +29,8 @@
 		request?: AssetRequest;
 		onset: (path: string) => void;
 		onrequest: (note: string) => void;
+		/** pick the file in the Library instead (the slot on top, only what fits) */
+		onlibrary?: () => void;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -77,7 +80,10 @@
 					{/if}
 				</div>
 			</div>
-			<button type="button" onclick={save} disabled={!value.trim()} data-testid="asset-save-path">{m['creator.characters_save_path']()}</button>
+			<span class="buttons">
+				<button type="button" onclick={save} disabled={!value.trim()} data-testid="asset-save-path">{m['creator.characters_save_path']()}</button>
+				{#if onlibrary}<button type="button" class="secondary" onclick={() => ((open = false), onlibrary())} data-testid="asset-library"><Icon name="grid" size="0.9rem" /> {m['library.title']()}</button>{/if}
+			</span>
 			{#if status === 'missing'}<p class="hint">{m['creator.characters_path_missing_hint']()}</p>{/if}
 		</section>
 		<section>
@@ -98,6 +104,10 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 1.25rem;
 		min-width: min(44rem, 88vw);
+	}
+	.buttons {
+		display: flex;
+		gap: 0.4rem;
 	}
 	section {
 		display: flex;

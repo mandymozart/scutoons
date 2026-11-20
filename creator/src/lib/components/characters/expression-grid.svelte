@@ -23,6 +23,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
+	import { library } from '$lib/editor/library.svelte.ts';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
@@ -114,6 +115,18 @@
 	function openDialog(mood: string, view: string) {
 		dialog = { mood, view };
 		dialogOpen = true;
+	}
+
+	/** the cell's file from the Library: the slot on top, only square pictures pickable, Upload to the convention path */
+	function pickInLibrary(mood: string, view: string) {
+		const c = cell(mood, view);
+		library.startPick({
+			label: `${look.id} · ${moodLabel(mood, locale, moods)}${view === AUTHORED_VIEW ? '' : ` (${view})`}`,
+			kinds: ['image'],
+			square: view !== 'full',
+			path: c.convention,
+			onpick: (path) => onset(mood, view, path)
+		});
 	}
 
 	function addMood() {
@@ -215,6 +228,7 @@
 			request={requestFor(dialog.mood, dialog.view)}
 			onset={(path) => dialog && onset(dialog.mood, dialog.view, path)}
 			onrequest={(note) => dialog && onrequest(dialog.mood, dialog.view, note)}
+			onlibrary={() => dialog && pickInLibrary(dialog.mood, dialog.view)}
 		/>
 	{/key}
 {/if}

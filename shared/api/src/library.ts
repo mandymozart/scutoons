@@ -2,6 +2,8 @@
 // from the content store, one request per toon page / chapter, ETag + a 60 s cache. Public answers through a header-free
 // client (simple GET, no CORS preflight); `draft: true` (creators' preview) needs the session client.
 import type { ApiClient } from './client.ts';
+import type { ListParams } from './admin.ts';
+import type { AssetsApi, AssetSummary } from './assets.ts';
 import {
 	resolveCast,
 	type Chapter,
@@ -117,5 +119,40 @@ export function createLibraryApi({ publicClient, sessionClient, cacheMs = 0 }: L
 			const query = params.toString();
 			return get<ReaderMap>(`/library/map${query ? `?${query}` : ''}`, options);
 		}
+	};
+}
+
+/** The tools' Library: every asset of the registry with its files and use counts */
+export interface AssetLibraryPage {
+	items: AssetSummary[];
+	total: number;
+	/** the public media base (thumbnails) */
+	cdn: string;
+}
+
+export type AssetLibrary = ReturnType<typeof createAssetLibrary>;
+
+/**
+ * The asset side of the Library over the asset registry (`/assets/*`, agents/ASSETS.md): the whole list for the panel's
+ * client-side scopes, filters and counts (a few thousand rows, 500 per request), the detail with its uses and versions.
+ * TODO(#690): per-asset credits and the wanted (blank) assets.
+ */
+export function createAssetLibrary(assets: AssetsApi, pageSize = 500) {
+	return {
+		/** every active asset (map tiles left out unless `tiles: 'all'`), page by page */
+		async all(params: ListParams = {}): Promise<AssetLibraryPage> {
+			const items: AssetSummary[] = [];
+			let cdn = '';
+			let total = 0;
+			for (let page = 1; ; page++) {
+				const res = await assets.list({ ...params, page, page_size: pageSize });
+				items.push(...res.items);
+				cdn = res.cdn;
+				total = res.pagination.total;
+				if (!res.items.length || items.length >= total) break;
+			}
+			return { items, total, cdn };
+		},
+		detail: (id: string) => assets.get(id)
 	};
 }
