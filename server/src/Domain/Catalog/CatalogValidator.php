@@ -51,7 +51,7 @@ final class CatalogValidator
     /** an instrument's id */
     public const INSTRUMENT_ID = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /** a factory preset: dot-separated slugs (`cathedral_voice.bright`), ≤ 100 characters */
-    /** a device preset's id (deck-space device_preset.rs `valid_id`) */
+    /** a device preset's or a rig preset's id (deck-space device_preset.rs `valid_id`) */
     public const DEVICE_PRESET_ID = '#^[a-z0-9][a-z0-9_.-]{0,63}$#';
     public const PRESET_ID = '#^(?=.{1,100}$)[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*){0,3}$#';
     /** a rig's id = its subject (KANON's form): `character.<id>[.<persona>]` or `item.<id>` */
@@ -81,7 +81,7 @@ final class CatalogValidator
             'modules' => ModuleSource::ID_PATTERN,
             'presets' => self::PRESET_ID,
             'rigs' => self::SUBJECT,
-            'device-presets' => self::DEVICE_PRESET_ID,
+            'device-presets', 'rig-presets' => self::DEVICE_PRESET_ID,
             default => self::ID_PATTERN,
         };
         if (!preg_match($pattern, $id)) $p[] = "id \"$id\" is not a valid $kind id";
@@ -112,6 +112,7 @@ final class CatalogValidator
             'meta' => self::meta($id, $data),
             'modules' => self::module($data),
             'device-presets' => $this->devicePreset($id, $data, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
+            'rig-presets' => $core ? $this->core->problems('rig-presets', $id, self::rigData($raw ?? json_decode((string) json_encode($data))), [], []) : [],
             'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
             default => [],
         };

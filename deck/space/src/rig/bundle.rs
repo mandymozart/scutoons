@@ -31,6 +31,9 @@ pub struct Bundle {
     /// the modules it plays: a code rig's policy (#408), a track's module (#430) – the `module:<id>` documents' descriptors
     #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<deck_catalog::Descriptor>,
+    /// the rig's presets (`rig-preset:<id>` documents): what a scene's holder may play it on
+    #[serde(default, rename = "rig_preset", skip_serializing_if = "Vec::is_empty")]
+    pub rig_presets: Vec<super::RigPreset>,
 }
 
 /// A code rig's `@preset` target (#408): the policy's output (`policy.<out>`, streamed) chooses the track's preset by
@@ -321,7 +324,7 @@ impl Bundle {
     /// track is added
     pub fn empty(subject: &str) -> Bundle {
         let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
-        Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new() }
+        Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new(), rig_presets: Vec::new() }
     }
 
     /// How a rig with no track yet shows its character on the stage: its 2D picture (a card) – none is drawn for a

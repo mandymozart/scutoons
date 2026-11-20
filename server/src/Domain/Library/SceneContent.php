@@ -77,7 +77,7 @@ final class SceneContent
             }
         }
         $answer = self::compose($sets, fn(string $id) => $this->catalog->get('home-scenes', $id), $characters, is_array($registry) ? $registry : [], $locations, fn(string $id) => $places[$id] ?? null);
-        $answer = self::withRigs($answer, $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets);
+        $answer = self::withRigs($answer, $items, fn(string $kind, string $id) => $this->stored($kind, $id), $presets, fn(string $subject) => $this->rigPresets($subject));
         $answer = self::withItemPictures($answer, $items, fn(string $id) => $this->item($id));
         $sizes = $this->registry->available() ? $this->registry->sizesOf(self::paths($answer)) : [];
         return self::withSizes($answer, $sizes);
@@ -158,17 +158,39 @@ final class SceneContent
     }
 
     /**
+     * a rig's presets in the catalog (`rig-preset:<id>` published, deck-space RigPreset), by id; none – or no table yet
+     * @return list<stdClass>
+     */
+    private function rigPresets(string $subject): array
+    {
+        try {
+            $rows = $this->catalog->rows('rig-presets');
+        } catch (\Throwable) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $data = CatalogStore::reader($row['data'], false);
+            if ($data instanceof stdClass && ($data->rig ?? null) === $subject) $out[] = $data;
+        }
+        return $out;
+    }
+
+    /**
      * The answer with the rigs (pure – SceneContentRigsTest): `characters.<id>.rig`, `items`, `instruments`, `presets`
-     * (+ the asked `$presets` with their ancestors, #270), `missing.items`, `missing.presets`.
+     * (+ the asked `$presets` with their ancestors, #270), `missing.items`, `missing.presets`. A rig with presets of its own
+     * (#677) carries them as `rig_presets` (the documents), and its `version` covers them.
      *
      * @param array{sets: array<string, mixed>, locations?: array<string, array{set: ?string}>, characters: array<string, mixed>, missing: array{sets: list<string>, locations?: list<string>, characters: list<string>}} $answer
      * @param list<string> $items
      * @param callable(string, string): ?string $stored (kind instruments | presets | rigs, id) → the stored JSON
      * @param list<string> $presets
+     * @param ?callable(string): list<stdClass> $rigPresets a rig's subject → its presets' documents
      * @return array<string, mixed>
      */
-    public static function withRigs(array $answer, array $items, callable $stored, array $presets = []): array
+    public static function withRigs(array $answer, array $items, callable $stored, array $presets = [], ?callable $rigPresets = null): array
     {
+        $rigPresets ??= fn(string $subject): array => [];
         $out = ['instruments' => [], 'presets' => []];
         // a preset and its ancestors, root first (a loop or a missing parent stops the walk – the catalog refuses both);
         // their instruments come along. [] when the preset itself is unknown
@@ -183,7 +205,7 @@ final class SceneContent
             }
             return array_reverse($chain);
         };
-        $rig = function (string $subject) use ($stored, &$out, $lineage): ?array {
+        $rig = function (string $subject) use ($stored, &$out, $lineage, $rigPresets): ?array {
             $json = $stored('rigs', $subject);
             $data = $json !== null ? CatalogStore::reader($json, false) : null;
             if (!$data instanceof stdClass) return null;
@@ -206,13 +228,15 @@ final class SceneContent
             $instruments = array_values(array_unique($instruments));
             foreach ($instruments as $i) self::entry($stored, 'instruments', $i, $out);
             $have = fn(string $kind) => fn(string $id) => isset($out[$kind][$id]);
+            $own = $rigPresets($subject);
+            usort($own, fn(stdClass $a, stdClass $b) => strcmp((string) ($a->id ?? ''), (string) ($b->id ?? '')));
             return [
                 'id' => $subject,
-                'version' => self::version((string) $json),
+                'version' => self::version($own === [] ? (string) $json : $json . json_encode($own, CatalogStore::JSON_FLAGS)),
                 'data' => $data,
                 'instruments' => array_values(array_filter($instruments, $have('instruments'))),
                 'presets' => array_values(array_filter(array_values(array_unique($presets)), $have('presets'))),
-            ] + ($modules === [] ? [] : ['modules' => $modules]);
+            ] + ($modules === [] ? [] : ['modules' => $modules]) + ($own === [] ? [] : ['rig_presets' => $own]);
         };
         foreach ($answer['characters'] as $id => $c) {
             $persona = is_string($c['persona'] ?? null) ? $c['persona'] : 'regular';

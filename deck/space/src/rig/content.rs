@@ -32,6 +32,9 @@ pub struct Entry {
     /// a code rig's policy module (#414): the id of its entry in the answer's `modules` – absent for a declarative rig
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<String>,
+    /// the rig's presets (`RigPreset` documents), absent when it has none
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rig_presets: Vec<Value>,
 }
 
 /// a character or item of the answer: only its rig matters here (portraits, look … are the caller's)
@@ -113,6 +116,7 @@ pub fn bundle_of(
         "instrument": pick("instrument", &entry.instruments, &instrument)?,
         "preset": pick("preset", &entry.presets, &preset)?,
         "module": pick("module", &entry.modules, &module)?,
+        "rig_preset": entry.rig_presets,
     });
     let b: Bundle = serde_json::from_value(doc).with_context(|| format!("rig '{}' is not a valid bundle", entry.id))?;
     if b.rig.subject != entry.id {

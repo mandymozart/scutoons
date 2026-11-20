@@ -277,3 +277,10 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   Checked by the core on publish (`/validate` kind `device-presets`); `factory` is refused – the factory presets ship with every deck
   (`deck/space/presets/device-presets.toml`, compiled in, offline) and are curated there. Decks read the published ones with
   `GET /api/library/device-presets`; deck.toml names one (`audio_preset`, `audio_preset_version`) and keeps only what differs.
+- **Rig presets** (#677, provisional per [deck-editor], migration `2026-11-20-rig-presets`): the kind `rig-presets` (`catalog_rig_presets`
+  + column `rig`, documents `rig-preset:<id>`, ids `[a-z0-9][a-z0-9_.-]{0,63}`, a saved one's `<subject>.<slug>`) = deck-space
+  `rig/rig_preset.rs` `RigPreset` { id, rig, name, factory?, origin?, values: `<track>:<node>.<port>` → number } – every knob of one
+  rig. Checked by the core on publish (`/validate` kind `rig-presets`). The deck editor saves drafts (Save as preset; Save over your
+  own; a `factory` one is never changed – Save makes a derived one naming it in `origin`); publishing is the creator's. scene-content
+  serves a rig's published presets inline as `rig_presets` (its `version` covers them); a scene holder's `preset` plays its rig on one,
+  its `values` single knobs over it (holders without `preset` read as before).

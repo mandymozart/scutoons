@@ -38,6 +38,8 @@ final class CatalogStore
         'modules' => ['table' => 'catalog_modules', 'columns' => [], 'label' => 'module', 'data_id' => true],
         // a machine's audio settings and the hardware they are for (migration 2026-11-19-device-presets): deck-space's DevicePreset
         'device-presets' => ['table' => 'catalog_device_presets', 'columns' => [], 'label' => 'device-preset', 'data_id' => true],
+        // a named set of every knob of one rig (migration 2026-11-20-rig-presets): deck-space's RigPreset; `rig` = its subject
+        'rig-presets' => ['table' => 'catalog_rig_presets', 'columns' => ['rig' => 'rig'], 'label' => 'rig-preset', 'data_id' => true],
         'products' => ['table' => 'catalog_products', 'columns' => ['toon' => 'toon', 'item_id' => 'item_id', 'edition_id' => 'edition_id'], 'label' => 'product', 'data_id' => true],
         'editions' => ['table' => 'catalog_editions', 'columns' => ['toon' => 'toon'], 'label' => 'edition', 'data_id' => true],
         'featured' => ['table' => 'catalog_featured', 'columns' => ['product_id' => 'product', 'variant_id' => 'variant'], 'label' => 'featured', 'data_id' => false],

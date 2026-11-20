@@ -85,6 +85,26 @@ final class SceneContentRigsTest extends TestCase
         self::assertSame(['x.a', 'x.b', 'x.c'], array_keys($a['presets']));
     }
 
+    /** #677: a rig with presets of its own carries them, by id; its version covers them; one without has none */
+    public function testARigCarriesItsOwnPresets(): void
+    {
+        $rows = [
+            'rigs' => ['character.catpope' => '{"subject":"character.catpope","track":[{"id":"v","instrument":"x"}]}'],
+            'instruments' => ['x' => '{"id":"x","kind":"pad","node":[],"out":"o"}'],
+        ];
+        $stored = fn(string $kind, string $id) => $rows[$kind][$id] ?? null;
+        $soft = CatalogStore::reader('{"id":"character.catpope.soft","rig":"character.catpope","name":"Soft","values":{"v:osc.freq":220.0}}', false);
+        $dirty = CatalogStore::reader('{"id":"character.catpope.dirty","rig":"character.catpope","name":"Dirty","factory":true}', false);
+        $answer = SceneContent::compose([], fn() => null, ['catpope'], self::registry());
+        $bare = json_decode(SceneContent::json(SceneContent::withRigs($answer, [], $stored)), true)['characters']['catpope']['rig'];
+        $json = SceneContent::json(SceneContent::withRigs($answer, [], $stored, [], fn(string $s) => $s === 'character.catpope' ? [$soft, $dirty] : []));
+        $rig = json_decode($json, true)['characters']['catpope']['rig'];
+        self::assertArrayNotHasKey('rig_presets', $bare);
+        self::assertSame(['character.catpope.dirty', 'character.catpope.soft'], array_column($rig['rig_presets'], 'id'));
+        self::assertNotSame($bare['version'], $rig['version'], 'a changed preset is a new version of what the deck caches');
+        self::assertStringContainsString('"v:osc.freq":220.0', $json, '1.0 stays 1.0');
+    }
+
     /**
      * #414: a code rig (catpope's mood switching as a policy) is served with its policy module's descriptor – in the
      * top-level `modules`, never the module's sources – and the presets the policy chooses from with their ancestors.
