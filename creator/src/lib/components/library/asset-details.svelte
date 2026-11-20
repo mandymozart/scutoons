@@ -157,7 +157,8 @@
 		position: sticky;
 		bottom: 0;
 		z-index: 1;
-		max-height: 55%;
+		/* the panel's body has no set height, so a % would never bite: the drawer keeps the grid two rows at least */
+		max-height: min(40vh, 22rem);
 		margin: 0 calc(-1 * var(--editor-pad));
 		border-left: 0;
 		border-top: var(--editor-edge) solid var(--editor-line);
@@ -170,6 +171,7 @@
 		z-index: 1;
 	}
 	.preview {
+		position: relative;
 		display: grid;
 		place-items: center;
 		aspect-ratio: 16 / 10;
@@ -178,10 +180,14 @@
 		overflow: hidden;
 	}
 	.drawer .preview {
-		aspect-ratio: 16 / 7;
+		aspect-ratio: auto;
+		height: 7rem;
 	}
+	/* out of the grid's flow: a % height there doesn't resolve and a tall picture showed only its top strip */
 	.preview img,
 	.preview video {
+		position: absolute;
+		inset: 0;
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
