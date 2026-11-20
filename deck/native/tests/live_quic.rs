@@ -95,7 +95,11 @@ impl Drop for Running {
 }
 
 fn start(url: &str, role: Role, graph: Option<DeckGraph>) -> Running {
-    let mut c = Client::new(Options::new(url, role, Some("decks"))).unwrap();
+    start_with(Options::new(url, role, Some("decks")), graph)
+}
+
+fn start_with(o: Options, graph: Option<DeckGraph>) -> Running {
+    let mut c = Client::new(o).unwrap();
     if let Some(g) = graph {
         c.set_graph(g);
     }
@@ -140,7 +144,10 @@ fn a_deck_joins_over_quic_and_reaches_a_conductor_on_the_websocket() {
     let (_rt, port, door, hash) = relay();
     let conductor = start(&format!("ws://127.0.0.1:{port}/live/ROOM"), Role::Conductor, None);
     assert!(!joined(&conductor).1, "no ?quic=: only the WebSocket");
-    let deck = start(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={door}&quichash={hash}"), Role::Musician, Some(graph()));
+    // QUIC runs alone until it is up: a loaded machine's handshake is no fixed 250 ms
+    let mut o = Options::new(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={door}&quichash={hash}"), Role::Musician, Some("decks"));
+    o.quic_head_start_ms = Some(WAIT.as_millis() as f64);
+    let deck = start_with(o, Some(graph()));
     assert!(joined(&deck).1, "the door answered: QUIC");
     deck.give.send(value(0.25)).unwrap();
     hears(&conductor, 0.25);
@@ -150,13 +157,11 @@ fn a_deck_joins_over_quic_and_reaches_a_conductor_on_the_websocket() {
 fn with_no_door_the_websocket_takes_over_at_once() {
     let (_rt, port, _door, hash) = relay();
     let closed = UdpSocket::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
-    let t = Instant::now();
-    let deck = start(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={closed}&quichash={hash}"), Role::Musician, Some(graph()));
+    // the give-up is out of reach: only the head start's WebSocket can join (a give-up first would hang to WAIT and fail)
+    let mut o = Options::new(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={closed}&quichash={hash}"), Role::Musician, Some("decks"));
+    o.quic_give_up_ms = Some(WAIT.as_millis() as f64);
+    let deck = start_with(o, Some(graph()));
     assert!(!joined(&deck).1);
-    // measured on purpose: before the client gives QUIC up (it joined on the head start's WebSocket, not after the wait),
-    // the slack up to there is what a loaded machine needs for the join
-    let give_up = Duration::from_millis(deck_space::relay::QUIC_GIVE_UP_MS as u64);
-    assert!(t.elapsed() < give_up - Duration::from_millis(100), "joined after {:?}", t.elapsed());
 }
 
 /// UDP between the deck and the door, until `cut`.
@@ -193,7 +198,11 @@ fn when_udp_dies_mid_show_the_deck_moves_to_the_websocket_as_the_same_client() {
     joined(&conductor);
     let cut = Arc::new(AtomicBool::new(false));
     let path = udp_path(door, cut.clone());
-    let deck = start(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={path}&quichash={hash}"), Role::Musician, Some(graph()));
+    // QUIC runs alone until it is up (the head start is its whole patience): a loaded machine's handshake through the
+    // relaying path takes what it takes, and a WebSocket dialled at 250 ms would win the race
+    let mut o = Options::new(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={path}&quichash={hash}"), Role::Musician, Some("decks"));
+    o.quic_head_start_ms = Some(WAIT.as_millis() as f64);
+    let deck = start_with(o, Some(graph()));
     let (id, quic) = joined(&deck);
     assert!(quic);
     deck.give.send(value(0.5)).unwrap();

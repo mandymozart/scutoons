@@ -8,7 +8,7 @@
 //! (`Glitches`, read by the frame thread, which feeds deck-core's `Monitor`); each glitch's numbers go into a lock-free
 //! ring (rtrb, preallocated) that the frame thread drains into the log – the callback never allocates, never locks,
 //! never logs.
-use crate::clock::now_ns;
+use super::time::Time;
 pub use deck_core::monitor::Cause;
 use deck_core::monitor::{self, classify, load_bin, AudioWindow, Histogram, Report, Timing, BINS, LOAD_FLOOR};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -211,6 +211,9 @@ pub struct Monitor {
     pub deadline: Deadline,
     /// the callback renders the engine (false: a render thread does, and notes its own blocks' loads)
     pub renders: bool,
+    /// the clock a callback measures itself on: the real one in a deck, a virtual one in the tests (a callback's real
+    /// duration on a loaded machine is no glitch of the code under test)
+    pub time: Time,
 }
 
 /// glitches the log ring holds until the frame thread drains it (more in a burst are counted, not logged)
@@ -220,7 +223,7 @@ impl Monitor {
     pub fn new(rate: f32) -> (Monitor, Arc<Glitches>, rtrb::Consumer<Event>) {
         let shared = Arc::new(Glitches::default());
         let (log, rx) = rtrb::RingBuffer::new(LOG);
-        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, settle: SETTLE_NS, check_late: true, deadline: Deadline::Period, renders: true };
+        let m = Monitor { shared: shared.clone(), log, rate: rate as f64, last_start: None, last_frames: 0, settle_until: None, settle: SETTLE_NS, check_late: true, deadline: Deadline::Period, renders: true, time: Time::Real };
         (m, shared, rx)
     }
 
@@ -236,15 +239,15 @@ impl Monitor {
         self.deadline = deadline;
     }
 
-    /// now_ns – what a callback calls first
+    /// the clock's now – what a callback calls first
     pub fn begin(&self) -> u64 {
-        now_ns()
+        self.time.now_ns()
     }
 
     /// A callback of `frames` that started at `start` (its `begin`) ends now; `underrun` = the device ran dry. Returns
     /// the glitch's cause, if it was one. Never allocates.
     pub fn end(&mut self, start: u64, frames: usize, underrun: bool) -> Option<Cause> {
-        self.measure(start, now_ns(), frames, underrun)
+        self.measure(start, self.time.now_ns(), frames, underrun)
     }
 
     /// `end` with the end given (the tests' synthetic timings)

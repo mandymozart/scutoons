@@ -94,16 +94,21 @@ impl Host {
 
     /// A press on an edge: it is taken in the hand; the second of a double click fits it to its content.
     pub(super) fn edge_press(&mut self, edge: Edge) {
+        self.edge_press_at(edge, Instant::now());
+    }
+
+    /// `edge_press` at `now` (the tests say when the second press comes: a loaded machine's real gap is no double click's)
+    pub(super) fn edge_press_at(&mut self, edge: Edge, now: Instant) {
         let Some(laid) = self.band.as_ref() else { return };
         let start = laid.edge_size(edge);
         if self.edge_names(edge).is_none() {
             return;
         }
-        if self.last_edge.is_some_and(|(e, at)| e == edge && at.elapsed() < DOUBLE) {
+        if self.last_edge.is_some_and(|(e, at)| e == edge && now.saturating_duration_since(at) < DOUBLE) {
             self.last_edge = None;
             return self.fit_edge(edge);
         }
-        self.last_edge = Some((edge, Instant::now()));
+        self.last_edge = Some((edge, now));
         self.resizing = Some(Resize { edge, from: self.cursor, start, now: start });
     }
 
@@ -315,7 +320,9 @@ mod tests {
         host.pointer(r.x + 1.0, r.y + 10.0);
         host.press(Hit::Edge(Edge::Column(1)));
         host.release();
-        host.press(Hit::Edge(Edge::Column(1)));
+        // the second press 100 ms after the first on the host's own clock, whatever the machine's load made of the real gap
+        let first = host.last_edge.expect("the first press is kept").1;
+        host.edge_press_at(Edge::Column(1), first + std::time::Duration::from_millis(100));
         host.release();
         let fitted = host.view_sizes().column("right");
         assert!(fitted > CELL.0, "the long scene name asks for more: {fitted}");

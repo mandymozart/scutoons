@@ -251,12 +251,16 @@ mod tests {
     #[test]
     fn the_callback_copies_across_the_wrap_and_counts_frames() {
         let (mut feed, mut r) = halves();
+        // the callbacks are timed on a virtual clock, 10 ms apart and instant: a loaded machine's real stalls are no glitch
+        let clock = super::super::time::virtual_clock::Virtual::new();
+        feed.mon.time = super::super::time::Time::Virtual(clock.clone());
         let mut out = vec![0.0f32; 480 * 2];
         let mut first = None;
         // 200 callbacks of 480 frames = 96 000 frames through a 16 384-frame ring: it wraps several times
         for k in 0..200u64 {
             r.fill(k * 10_000_000);
             feed.play(&mut out, 2, 1_000_000_000 + k * 10_000_000, |x| x);
+            clock.advance(std::time::Duration::from_millis(10));
             first.get_or_insert(out[2 * deck_core::limiter::LOOK + 40]);
             assert!(out.iter().any(|x| *x != 0.0), "callback {k}: sound");
         }
