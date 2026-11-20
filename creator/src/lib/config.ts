@@ -29,6 +29,11 @@ export const LIVE_URL: string = trim(import.meta.env.VITE_LIVE_URL || 'wss://liv
 /** #438: its QUIC door under another name (`host:port`, `VITE_LIVE_QUIC`); unset: the relay's own */
 export const LIVE_QUIC: string | undefined = import.meta.env.VITE_LIVE_QUIC || undefined;
 
+/** The embassy: the main menu's Go to (`VITE_EMBASSY_URL`; dev: shared/dev-ports.json). */
+export const EMBASSY_URL: string = trim(
+	import.meta.env.VITE_EMBASSY_URL || (import.meta.env.PROD ? 'https://embassy.scutoons.com' : `http://localhost:${ports.embassy}`)
+);
+
 /** The admin: links to codes / batches from the catalog's editions (`VITE_ADMIN_URL`; dev: shared/dev-ports.json). */
 export const ADMIN_URL: string = trim(
 	import.meta.env.VITE_ADMIN_URL || (import.meta.env.PROD ? 'https://admin.scutoons.com' : `http://localhost:${ports.admin}`)

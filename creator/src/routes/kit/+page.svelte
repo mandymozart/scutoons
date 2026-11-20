@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ScrubNumber } from '@scutoons/ui';
+	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
 	import { at, Floats, FloatingPanels, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
 	// Dev only: the editor kit over a stage – drag a panel by its grip, a tab into another panel or out onto the stage,
@@ -33,7 +34,15 @@
 
 	let workspace = $state<(typeof WORKSPACES)[number]>('Scene');
 	const floats = $derived(new Floats(`kit-${workspace.toLowerCase()}`, PANELS, TABS));
+	// Day / Night only in the creator's Settings (Look): the demo follows what they keep in this browser
 	let day = $state(false);
+	$effect(() => {
+		try {
+			day = readSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null')).theme === 'day';
+		} catch {
+			day = false;
+		}
+	});
 
 	let tool = $state('move');
 	let pick = $state<string[]>(['entities']);
@@ -58,7 +67,6 @@
 		{/each}
 		<span class="spacer"></span>
 		<button type="button" class="pill" onclick={() => floats.reset()}>Reset layout</button>
-		<Toggle on={day} label="Day" words={['Night', 'Day']} onchange={(on) => (day = on)} />
 	</header>
 	<main class="room">
 		{#key floats}

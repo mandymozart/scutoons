@@ -15,7 +15,8 @@
 	 * made of many documents (the world map, the characters – CollectionDoc) shows the SELECTED entry's history (owner
 	 * D5: "what is selected gets a history"; `place:<id>`, `character:<id>`), else its anchor's.
 	 */
-	let { doc, onclose }: { doc: ContentDoc; onclose?: () => void } = $props();
+	/** `bare`: in a floating panel – its head is the panel's (no fold or close of its own) */
+	let { doc, onclose, bare = false }: { doc: ContentDoc; onclose?: () => void; bare?: boolean } = $props();
 
 	const collection = $derived(doc instanceof CollectionDoc ? doc : null);
 	/** the stored key a locale's history is of */
@@ -104,9 +105,11 @@
 
 <div class="history" data-testid="history-panel">
 	<header>
-		<h2>{m['creator.history']()} · {title}</h2>
-		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
+		<h2>{bare ? title : `${m['creator.history']()} · ${title}`}</h2>
+		{#if !bare}
+			<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
+			{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
+		{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}

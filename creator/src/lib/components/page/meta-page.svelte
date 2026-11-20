@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
-	import { ActionBar, Icon, PhoneBar, shellDock, useDock, type DockContent, type PhoneBarItem } from '@scutoons/ui';
+	import { Icon, useDock, type DockContent, type PhoneBarItem } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -12,21 +12,21 @@
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
+	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
-	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
+	import type { HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
-	import { dockWidth, flowWidth } from '$lib/nav.svelte.ts';
-	import { MediaQuery } from 'svelte/reactivity';
+	import { flowWidth } from '$lib/nav.svelte.ts';
+	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
 
 	/**
-	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
-	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars (only the blocking ones stay in the flow – E.1), the
-	 * leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs` are validated, saved and published; `companions()` are
-	 * files that follow them (the chapter files whose status mirrors the season) – saved when dirty, published with the
-	 * docs; `along()` are files edited here along with them (a score's custom collage presets) – companions that also keep
-	 * a local copy while dirty and offer it back on the next load. Save / publish / conflict:
-	 * lib/editor/doc-session.svelte.ts; the bars: DocNotices.
+	 * The frame of a page's documents (season, toon settings, characters, the map …): it hands the shell its save state
+	 * and its Publish · Problems · History as the Document panel's tabs (lib/shell), autosave + recover, missing-locale
+	 * bars (only the blocking ones stay in the flow – E.1), the leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs`
+	 * are validated, saved and published; `companions()` are files that follow them (the chapter files whose status
+	 * mirrors the season) – saved when dirty, published with the docs; `along()` are files edited here along with them (a
+	 * score's custom collage presets) – companions that also keep a local copy while dirty and offer it back on the next
+	 * load. Save / publish / conflict: lib/editor/doc-session.svelte.ts; the bars: DocNotices.
 	 */
 	let {
 		toon,
@@ -53,9 +53,9 @@
 		ongoto?: (problem: Problem) => void;
 		/** the page's level in the tree: Publish lists every file below it with a draft (BACKLOG 10.60, publish-tree.ts) */
 		tree?: () => { scope: PublishScope; title: string } | null;
-		/** phones: the page's own entries in the bar's "More" group (the map builder's Import) */
+		/** the page's own entries in the Publish panel (the map builder's Import) */
 		phoneMore?: PhoneBarItem[];
-		/** phones: the selected object's own row in the bar (UI-CONCEPTS E.10, like CapCut's clip toolbar) */
+		/** the selected object's own actions in the Publish panel */
 		phoneSelection?: { label: string; items: PhoneBarItem[]; onback: () => void } | null;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
@@ -71,23 +71,21 @@
 		wide?: boolean;
 		/** the content fills the page's height without padding (a canvas: the map builder; with `usePageNav({ fill })`) */
 		fill?: boolean;
-		/** extra items at the start of the ActionBar (page-level actions, e.g. "New character") */
+		/** page-level actions in the Publish panel (e.g. "New character") */
 		actions?: Snippet;
-		/** the page's help in the ActionBar's Info panel */
+		/** the page's help (Info) */
 		help: HelpPage;
 		children: Snippet;
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
 		/**
-		 * the page's Flow (the season's `FlowDock` + its props), docked where Problems / History are: shown while `dockOpen`;
-		 * next to Problems / History (10.57) – the page makes room for every open one. Mounted by the shell (`kind:
-		 * 'flow'`): the next page's Flow takes it over (UI-CONCEPTS E.3 b)
+		 * the page's Flow (the season's `FlowDock` + its props), docked in the page host's dock while `dockOpen`; mounted by
+		 * the host (`kind: 'flow'`): the next page's Flow takes it over (UI-CONCEPTS E.3 b)
 		 */
 		dock?: DockContent;
 		dockOpen?: boolean;
 	} = $props();
 
-	const panelSize = dockWidth('meta', 24);
 	const dockSize = flowWidth();
 
 	const main = $derived(docs[0]);
@@ -100,22 +98,7 @@
 	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
-	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); Problems, History
-	// and the page's Flow can be open together (10.57), each its own panel side by side
-	const open = $state({ problems: shellDock.has('problems'), history: false });
-	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
-	// Flow and Problems are mounted by the shell: the next page of the same kind takes them over
-	const problemsProps = () => ({ problems, docs, home: main?.entity, ongoto, onclose: () => (open.problems = false) });
 	useDock(() => (dockOpen && dock ? { kind: 'flow', content: dock, size: dockSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (dockOpen = false) } : null));
-	useDock(() =>
-		open.problems
-			? { kind: 'problems', content: { component: ProblemsDock, props: problemsProps }, size: panelSize, title: m['creator.problems'](), icon: 'alert-triangle', close: () => (open.problems = false) }
-			: null
-	);
-	useDock(() => (open.history ? { kind: 'history', panel: sidePanel, size: panelSize, title: m['creator.history'](), icon: 'clock', close: () => (open.history = false) } : null));
-	function togglePanel(next: 'problems' | 'history') {
-		open[next] = !open[next];
-	}
 
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
@@ -148,49 +131,12 @@
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
+	const unpublished = $derived(docs.some((d) => d.unpublished.length));
+	/** a page entry or a selection's action as a button (a group gives its actions) */
+	const flat = (items: PhoneBarItem[]): PhoneBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
-	/**
-	 * The bar (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut; every width since 2026-10-12 – "phone grouping"): Save ·
-	 * History (undo, redo, versions) · Publish · More (problems, the page's own entries, the note, the page's actions);
-	 * on a desktop Problems leads the row (its count as the badge) and the More group drops it
-	 */
-	const phoneWidth = new MediaQuery('max-width: 767px', false);
-	const problemsItem = $derived<PhoneBarItem>({
-		id: 'problems',
-		icon: 'alert-triangle',
-		label: m['creator.problems'](),
-		badge: errorCount + warningCount || undefined,
-		active: open.problems,
-		run: () => togglePanel('problems'),
-		testid: 'problems-toggle'
-	});
-	const phoneItems = $derived<PhoneBarItem[]>([
-		...(phoneWidth.current ? [] : [problemsItem]),
-		{ id: 'save', icon: 'save', label: anySaving ? m['creator.saving']() : m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: anySaving, run: () => session.saveDraft(), testid: 'save-draft' },
-		{
-			id: 'history',
-			icon: 'clock',
-			label: m['creator.history'](),
-			items: [
-				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc?.canUndo, run: () => undoDoc?.undo(), stay: true, testid: 'undo' },
-				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc?.canRedo, run: () => redoDoc?.redo(), stay: true, testid: 'redo' },
-				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history'), testid: 'history-versions' }
-			]
-		},
-		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: docs.some((d) => d.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'publish' },
-		{
-			id: 'more',
-			icon: 'more-horizontal',
-			label: m['creator.more'](),
-			badge: errorCount || undefined,
-			items: [
-				...(phoneWidth.current ? [problemsItem] : []),
-				...phoneMore,
-				...(actions ? [{ id: 'actions', label: m['creator.page_actions'](), content: actions }] : [])
-			]
-		}
-	]);
+	// the shell's bar shows the save state; the Document panel holds Publish · Problems · History
+	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, save: () => session.saveDraft(), publish: publishTab, problems: problemsTab, history: historyTab }));
 
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
@@ -211,31 +157,61 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="meta-page" class:wide class:fill>
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet phone()}
-			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-	</ActionBar>
-
 	{#if !loaded}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
-		<!-- the page's own status line (the script's rules link + cursor); the files' status is the ActionBar's chip (E.1) -->
+		<!-- the page's own status line (the script's rules link + cursor) -->
 		{#if status}<div class="files" data-testid="page-status"><span class="status-end">{@render status()}</span></div>{/if}
 		<DocNotices {session} docs={[...docs, ...along()]} />
 		<main class="content">
 			{@render children()}
 		</main>
 	{/if}
-
 </div>
 
+{#snippet publishTab()}
+	<div class="publish" data-testid="publish-panel">
+		<div class="row">
+			<button type="button" class:secondary={!anyDirty} disabled={anySaving} onclick={() => session.saveDraft()} data-testid="save-draft">
+				<Icon name="save" />{anySaving ? m['creator.saving']() : m['creator.save_short']()}{#if anyDirty}<span class="dot" aria-hidden="true"></span>{/if}
+			</button>
+			<button type="button" class="secondary" disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish">
+				<Icon name="upload-cloud" />{publishLabel(toon)}{#if unpublished}<span class="dot" aria-hidden="true"></span>{/if}
+			</button>
+		</div>
+		<div class="row">
+			<button type="button" class="ghost" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo"><Icon name="rotate-ccw" />{m['creator.undo']()}</button>
+			<button type="button" class="ghost" disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo"><Icon name="rotate-cw" />{m['creator.redo']()}</button>
+		</div>
+		{#if errorCount || warningCount}
+			<p class="counts"><span class:bad={errorCount > 0}>{m['creator.problems_errors']({ count: errorCount })}</span> · {m['creator.problems_warnings']({ count: warningCount })}</p>
+		{/if}
+		{#if phoneSelection}
+			<p class="label">{phoneSelection.label}</p>
+			<div class="row wrap">
+				{#each flat(phoneSelection.items) as item (item.id)}
+					<button type="button" class="ghost" class:active={item.active} disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
+				{/each}
+			</div>
+		{/if}
+		{#if phoneMore.length || actions}
+			<div class="row wrap">
+				{#each flat(phoneMore) as item (item.id)}
+					<button type="button" class="ghost" disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
+				{/each}
+				{#if actions}{@render actions()}{/if}
+			</div>
+		{/if}
+	</div>
+{/snippet}
 
+{#snippet problemsTab()}
+	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} bare /></div>
+{/snippet}
 
-<!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
-{#snippet sidePanel()}
+{#snippet historyTab()}
 	<div class="side-panel">
-		{#if open.history && historyDoc}
+		{#if historyDoc}
 			{#if docs.length > 1}
 				<p class="history-files">
 					{#each docs as d (d.entity)}
@@ -243,13 +219,12 @@
 					{/each}
 				</p>
 			{/if}
-			{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (open.history = false)} />{/key}
+			{#key historyDoc}<HistoryPanel doc={historyDoc} bare />{/key}
 		{/if}
 	</div>
 {/snippet}
+
 <style>
-	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
-	   --top (the top bar's height) comes from the layout */
 	.status-end {
 		margin-left: auto;
 		display: flex;
@@ -289,11 +264,36 @@
 		gap: 0.25rem;
 		margin: 0 0 0.5rem;
 	}
-	/* the open page panel (in the shell's right dock: it sizes and places it) */
 	.side-panel {
 		box-sizing: border-box;
-		overflow: auto;
-		padding: var(--space-1) var(--space-1) var(--space-3);
+		padding: 0 var(--space-1) var(--space-1);
+	}
+	.publish {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+		padding: 0 var(--space-1) var(--space-1);
+	}
+	.row {
+		display: flex;
+		gap: var(--space-05);
+	}
+	.row.wrap {
+		flex-wrap: wrap;
+	}
+	.dot {
+		width: 0.45rem;
+		height: 0.45rem;
+		border-radius: 50%;
+		background: var(--warn);
+	}
+	.counts,
+	.label {
+		margin: 0;
+		color: var(--muted);
+	}
+	.bad {
+		color: var(--error);
 	}
 	.pad {
 		padding: 1rem;

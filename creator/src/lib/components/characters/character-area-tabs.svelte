@@ -3,7 +3,7 @@
 
 	/**
 	 * The Characters area's pages as tabs (research/CHARACTER-PAGE.md §2: "the area's own tabs", the same row as a toon's
-	 * – toon-tabs.svelte): Characters · Moods · Wanted images, each with its count. Links (`?tab=`), so back / forward and
+	 *): Characters · Moods · Wanted images, each with its count. Links (`?tab=`), so back / forward and
 	 * the menu's Characters entry work; the page follows the URL.
 	 */
 	let { tab, counts }: { tab: string; counts: { characters: number; moods: number; wanted: number } } = $props();
@@ -22,7 +22,7 @@
 </nav>
 
 <style>
-	/* the toon tabs' look (toon-tabs.svelte): words, the current one underlined by a thick ink line */
+	/* the toon tabs' look: words, the current one underlined by a thick ink line */
 	.area-tabs {
 		display: flex;
 		overflow-x: auto;
