@@ -222,6 +222,27 @@ impl Api {
         }
     }
 
+    /// the asset a file belongs to (`GET /api/assets/lookup`, an editor's): its detail – `asset` (with its `edits`) and
+    /// `versions` (each file's time map); none when the registry does not know the file
+    pub fn asset_of(&self, path: &str) -> Result<Option<serde_json::Value>, String> {
+        let url = format!("{}/assets/lookup", self.base);
+        match self.auth(Self::agent().get(&url)).query("path", path).call() {
+            Ok(r) => r.into_json::<serde_json::Value>().map(|v| Some(v["asset"].clone()).filter(|a| a.is_object())).map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words("the asset", code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// The asset's edit list onto it (`PUT /api/assets/{id}` `edits`: deck-space `asset_edits::to_json`, null = none)
+    pub fn save_asset_edits(&self, id: &str, edits: &serde_json::Value) -> Result<(), String> {
+        let url = format!("{}/assets/{id}", self.base);
+        match self.auth(Self::agent().put(&url)).send_json(serde_json::json!({ "edits": edits })) {
+            Ok(_) => Ok(()),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words("the asset's edits", code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
     /// The file at `url` (a module's build on the CDN, up to a few MB)
     pub fn bytes(&self, url: &str) -> Result<Vec<u8>, String> {
         Self::bytes_of(url)

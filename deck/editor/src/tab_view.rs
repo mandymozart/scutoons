@@ -261,7 +261,7 @@ impl crate::App {
                 self.idle_stage();
                 self.show.open_scene(key);
             }
-            Kind::Media => self.media_load(key, None, deck_media::Trim::WHOLE),
+            Kind::Media => self.media_load(key, None, deck_core::trim::Trim::WHOLE),
             Kind::Item | Kind::Emotion => {
                 self.workspace = Workspace::Stage;
                 self.refuse(format!("{key}: no Asset view for a {} yet", kind.word()), x, y);
@@ -375,7 +375,7 @@ impl crate::App {
 
     /// A medium's trim onto its use: the scene's `video` node `start` / `end` in that scene's tab (behind the medium's),
     /// sent with the scene when it saves. Err: the scene is not open, or the node has gone.
-    pub(crate) fn trim_use(&mut self, used: &crate::media::Use, trim: deck_media::Trim) -> Result<(), String> {
+    pub(crate) fn trim_use(&mut self, used: &crate::media::Use, trim: deck_core::trim::Trim) -> Result<(), String> {
         let Some(i) = self.tabs.find(&used.scene) else { return Err(format!("{} is not open: open it to trim its video", used.scene)) };
         let Some(Kept::Scene(s)) = self.tabs.list[i].kept.as_mut() else { return Err(format!("{} is still loading", used.scene)) };
         let e = &mut s.view.edit;

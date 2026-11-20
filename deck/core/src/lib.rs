@@ -15,6 +15,7 @@
 //!
 //! Platform-free on purpose: the same code runs in deck/native (native) and in deck-engine's wasm32 builds.
 
+pub mod asset_edit;
 pub mod devices;
 pub mod dsp;
 pub mod fit;
@@ -28,6 +29,7 @@ pub mod monitor;
 pub mod smooth;
 pub mod sound_preview;
 pub mod stage;
+pub mod trim;
 pub mod ui_tone;
 
 #[cfg(feature = "analysis")]

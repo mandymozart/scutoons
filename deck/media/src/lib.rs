@@ -15,7 +15,7 @@ pub mod dxt;
 pub mod hap;
 pub mod player;
 pub mod rfc6381;
-pub mod trim;
+pub mod timemap;
 pub mod yuv;
 
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
@@ -23,8 +23,8 @@ pub mod av1;
 
 pub use backend::{Auto, Caps, DecodeBackend, Decoded, Hardware, Packet, Software};
 pub use demux::{Clip, Codec, Hap, Sample, Track};
-pub use player::{Frame, Frames, Player};
-pub use trim::Trim;
+pub use player::{Frame, Frames, Player, Span};
+pub use timemap::TimeMap;
 
 /// whether this build decodes AV1 in software
 pub const AV1: bool = cfg!(not(all(target_arch = "wasm32", target_os = "unknown")));

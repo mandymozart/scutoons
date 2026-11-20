@@ -132,6 +132,24 @@ final class AssetsApiTest extends TestCase
         $meta = self::json($this->request('PUT', "/api/assets/$id", $creator + ['Content-Type' => 'application/json'], '{"title":"The clip","tags":["prologue"]}'));
         self::assertSame(['The clip', ['prologue']], [$meta['asset']['title'], $meta['asset']['tags']]);
 
+        // #651: the edit list as the deck's core wrote it, a file's time map as it measured it; the list and the detail carry them
+        $json = $creator + ['Content-Type' => 'application/json'];
+        $edits = ['start' => 1.5, 'speed' => 2.0, 'crop' => ['left' => 0.1, 'top' => 0.0, 'right' => 0.0, 'bottom' => 0.0]];
+        $set = $this->request('PUT', "/api/assets/$id", $json, (string) json_encode(['edits' => $edits, 'times' => ['catpope/videos/clip.480p.mp4' => ['offset' => 0.5, 'fps' => 24]]]));
+        self::assertSame(200, $set->getStatusCode(), (string) $set->getBody());
+        $detail = self::json($this->request('GET', "/api/assets/$id", $creator));
+        self::assertEquals($edits, $detail['asset']['edits'], 'the numbers as sent (2.0 reads back as 2)');
+        $files = array_column($detail['versions'][0]['renditions'], null, 'path');
+        self::assertEquals(['offset' => 0.5, 'fps' => 24.0], $files['catpope/videos/clip.480p.mp4']['time']);
+        self::assertArrayNotHasKey('time', $files['catpope/videos/clip.720p.mp4'], 'not measured: no map');
+        self::assertEquals($edits, self::json($this->request('GET', '/api/assets?kind=video', $creator))['items'][0]['edits']);
+        foreach (['{"edits":"fast"}', '{"edits":[1]}', '{"edits":{"speed":"2"}}', '{"edits":{"crop":[0.1]}}', '{"times":{"x.mp4":{"offset":1}}}'] as $bad) {
+            self::assertSame(422, $this->request('PUT', "/api/assets/$id", $json, $bad)->getStatusCode(), $bad);
+        }
+        $none = self::json($this->request('PUT', "/api/assets/$id", $json, '{"edits":null}'));
+        self::assertNull($none['asset']['edits'] ?? null);
+        self::assertArrayNotHasKey('edits', self::json($this->request('GET', "/api/assets/$id", $creator))['asset']);
+
         // the vector library (agents/research/VECTORS.md "The API"): an SVG + its shape row; kind=shape lists only those
         $svg = '<svg width="296" height="1422" viewBox="0 0 296 1422" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z" fill="#FF0000"/></svg>';
         $shapeUp = $this->request('PUT', '/api/assets/upload?path=catpope/vectors/crescent-chain.svg&tags=band,crescent', $creator + ['Content-Type' => 'image/svg+xml'], $svg);

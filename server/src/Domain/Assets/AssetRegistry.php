@@ -59,6 +59,22 @@ final class AssetRegistry
         return $this->shapes;
     }
 
+    private ?bool $edits = null;
+
+    /** The edit list and time map columns (migration 2026-11-20-asset-edits) – until it runs, assets have no edits */
+    public function editsAvailable(): bool
+    {
+        if ($this->edits === null) {
+            try {
+                $this->db->value('SELECT COUNT(edits) FROM assets WHERE 1 = 0');
+                $this->edits = true;
+            } catch (Throwable) {
+                $this->edits = false;
+            }
+        }
+        return $this->edits;
+    }
+
     // ── Reads ─────────────────────────────────────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed>|null */
@@ -208,9 +224,63 @@ final class AssetRegistry
             foreach ($body['tags'] as $tag) if (is_scalar($tag)) $tags[] = (string) $tag;
         }
         $shape = array_key_exists('shape', $body) ? self::shapeInput($body['shape']) : false;
+        $edits = array_key_exists('edits', $body) ? self::editsInput($body['edits']) : false;
+        $times = array_key_exists('times', $body) ? self::timesInput($body['times']) : [];
+        if (($edits !== false || $times) && !$this->editsAvailable()) throw new ApiError(503, 'not_available', 'Asset edits are not set up yet (migration 2026-11-20-asset-edits).');
         $this->db->run('UPDATE assets SET title = ?, tags = ?, updated_at = ? WHERE id = ?', [$title, self::encodeTags($tags), $this->clock->utc(), $id]);
         if ($shape !== false) $this->saveShape($id, $shape);
+        if ($edits !== false) $this->db->run('UPDATE assets SET edits = ? WHERE id = ?', [$edits, $id]);
+        foreach ($times as $path => [$offset, $fps]) {
+            $this->db->run("UPDATE asset_renditions r JOIN asset_versions v ON v.id = r.version_id SET r.time_offset = ?, r.frame_rate = ?
+                WHERE r.asset_id = ? AND r.path = ? AND v.status = 'current'", [$offset, $fps, $id, $path]);
+        }
         return $this->asset($id) ?? [];
+    }
+
+    // ── Edits (#651: the deck's core reads, cleans and writes them; the server keeps what it was sent) ──────
+
+    /**
+     * The `edits` of a PUT /assets/{id} body: null = none, else an object of numbers (and `crop`, an object of numbers),
+     * stored as sent – what the numbers mean is the deck's (deck-core asset_edit, deck-space asset_edits.rs)
+     */
+    public static function editsInput(mixed $edits): ?string
+    {
+        if ($edits === null || $edits === []) return null;
+        $numbers = fn(array $o) => array_filter($o, fn($v, $k) => is_string($k) && (is_int($v) || is_float($v)), ARRAY_FILTER_USE_BOTH) === $o;
+        if (!is_array($edits) || array_is_list($edits)) throw new ApiError(422, 'invalid_edits', 'edits must be an object or null.');
+        $crop = $edits['crop'] ?? null;
+        unset($edits['crop']);
+        $cropOk = $crop === null || (is_array($crop) && $crop !== [] && !array_is_list($crop) && $numbers($crop));
+        if (!$numbers($edits) || !$cropOk) throw new ApiError(422, 'invalid_edits', 'edits holds numbers (and crop, an object of numbers).');
+        $json = (string) json_encode($crop !== null ? $edits + ['crop' => $crop] : $edits, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if (strlen($json) > 2000) throw new ApiError(422, 'invalid_edits', 'edits is too long.');
+        return $json;
+    }
+
+    /**
+     * The `times` of a PUT /assets/{id} body: a current file's time map as the deck measured it, by path
+     * @return array<string, array{0: float, 1: float}>
+     */
+    public static function timesInput(mixed $times): array
+    {
+        if (!is_array($times) || ($times !== [] && array_is_list($times))) throw new ApiError(422, 'invalid_times', 'times is an object: { path: { offset, fps } }.');
+        $out = [];
+        foreach ($times as $path => $t) {
+            $ok = is_array($t) && is_numeric($t['offset'] ?? null) && is_numeric($t['fps'] ?? null) && is_finite((float) $t['offset']) && is_finite((float) $t['fps']);
+            if (!$ok) throw new ApiError(422, 'invalid_times', "times.$path needs a finite offset and fps.");
+            $out[(string) $path] = [(float) $t['offset'], (float) $t['fps']];
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>|null
+     */
+    public static function edits(array $row): ?array
+    {
+        $edits = json_decode((string) ($row['edits'] ?? ''), true);
+        return is_array($edits) && $edits !== [] ? $edits : null;
     }
 
     // ── Shapes (the vector library, agents/research/VECTORS.md) ───────────────────────────────────────────
@@ -456,7 +526,7 @@ final class AssetRegistry
             'usages' => (int) $row['usages'],
             'updated_at' => Time::iso($row['updated_at']),
             'renditions' => array_map(fn(array $r) => self::rendition($r) + ['usages' => (int) $r['usages']], $renditions),
-        ] + (($shape = self::shapeOf($row)) !== null ? ['shape' => $shape] : []);
+        ] + (($shape = self::shapeOf($row)) !== null ? ['shape' => $shape] : []) + (($edits = self::edits($row)) !== null ? ['edits' => $edits] : []);
     }
 
     /**
@@ -476,7 +546,7 @@ final class AssetRegistry
             'height' => $r['height'] !== null ? (int) $r['height'] : null,
             'duration' => $r['duration'] !== null ? (float) $r['duration'] : null,
             'origin' => $r['origin'],
-        ];
+        ] + (isset($r['time_offset']) ? ['time' => ['offset' => (float) $r['time_offset'], 'fps' => (float) ($r['frame_rate'] ?? 0)]] : []);
     }
 
     /**
@@ -516,7 +586,7 @@ final class AssetRegistry
             'asset' => [
                 'id' => $asset['id'], 'slug' => $asset['slug'], 'kind' => $asset['kind'], 'folder' => $asset['folder'], 'title' => $asset['title'],
                 'tags' => self::tags($asset), 'status' => $asset['status'], 'created_at' => Time::iso($asset['created_at']), 'updated_at' => Time::iso($asset['updated_at']),
-            ] + ($shape !== null ? ['shape' => $shape] : []),
+            ] + ($shape !== null ? ['shape' => $shape] : []) + (($edits = self::edits($asset)) !== null ? ['edits' => $edits] : []),
             'versions' => $versions,
             'usages' => $this->usagesOf($paths),
             'jobs' => array_map(fn(array $j) => ['id' => (int) $j['id'], 'kind' => $j['kind'], 'status' => $j['status'], 'created_at' => Time::iso($j['created_at']), 'finished_at' => Time::iso($j['finished_at'])], $jobs),

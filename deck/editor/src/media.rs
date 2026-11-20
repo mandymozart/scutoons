@@ -1,11 +1,14 @@
 //! A medium in an Asset tab (decisions/deck.md [workspaces]): a video, an image, a sound or a 3D set on a stage of
 //! its own, with Play. A video plays on the deck's own playback (deck-space `Movie`, deck-media), a sound shows its
-//! waveform. Trimming is the use's, never the file's ([delegated]): opened from a scene's `video` node, the tab moves
-//! that node's `start` / `end` (deck-media `Trim`); opened from the library it has no use and the file plays whole. A
-//! sound's Play is heard through the engine's preview voice (deck-core `sound_preview`) on a small engine of its own.
+//! waveform. The asset's edits ([media]: trim, crop, fades, speed, loudness – deck-core `asset_edit`) are the asset's,
+//! applied while playing, and saved onto it (`PUT /api/assets/{id}`); a use's trim cuts inside them: opened from a scene's
+//! `video` node, the handles move that node's `start` / `end`, opened from the library they move the asset's trim. Times
+//! on the timeline are the source's; the file plays them through its time map. A sound's Play is heard through the
+//! engine's preview voice (deck-core `sound_preview`) on a small engine of its own.
+use deck_core::asset_edit::{Crop, Edits, Playback};
 use deck_core::sound_preview::Clip;
+use deck_core::trim::Trim;
 use deck_kit::editor::controls::Rect;
-use deck_media::Trim;
 use deck_space::video::{Converter, Movie, Texture};
 use std::io::Read;
 use std::sync::mpsc::{channel, Receiver};
@@ -104,6 +107,105 @@ pub enum Body {
     Failed(String),
 }
 
+/// an edit dragged on its field
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Field {
+    FadeIn,
+    FadeOut,
+    Speed,
+    Gain,
+    CropLeft,
+    CropTop,
+    CropRight,
+    CropBottom,
+}
+
+impl Field {
+    pub const ALL: [Field; 8] = [Field::FadeIn, Field::FadeOut, Field::Speed, Field::Gain, Field::CropLeft, Field::CropTop, Field::CropRight, Field::CropBottom];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Field::FadeIn => "fade in",
+            Field::FadeOut => "fade out",
+            Field::Speed => "speed",
+            Field::Gain => "loudness",
+            Field::CropLeft => "crop left",
+            Field::CropTop => "crop top",
+            Field::CropRight => "crop right",
+            Field::CropBottom => "crop bottom",
+        }
+    }
+
+    /// what a picture-less sound has no use for
+    pub fn picture(self) -> bool {
+        matches!(self, Field::CropLeft | Field::CropTop | Field::CropRight | Field::CropBottom)
+    }
+
+    /// its field's range (the core's) and whether it is dragged on a log scale
+    pub fn range(self) -> (f64, f64, bool) {
+        use deck_core::asset_edit::{CROP_KEEPS, FADE, GAIN_DB, SPEED};
+        match self {
+            Field::FadeIn | Field::FadeOut => (0.0, FADE, false),
+            Field::Speed => (SPEED.0, SPEED.1, true),
+            Field::Gain => (GAIN_DB.0, GAIN_DB.1, false),
+            _ => (0.0, f64::from(1.0 - CROP_KEEPS), false),
+        }
+    }
+
+    pub fn get(self, e: &Edits) -> f64 {
+        match self {
+            Field::FadeIn => e.fade_in,
+            Field::FadeOut => e.fade_out,
+            Field::Speed => e.speed,
+            Field::Gain => e.gain_db,
+            Field::CropLeft => f64::from(e.crop.left),
+            Field::CropTop => f64::from(e.crop.top),
+            Field::CropRight => f64::from(e.crop.right),
+            Field::CropBottom => f64::from(e.crop.bottom),
+        }
+    }
+
+    /// `e` with this field at `v` (the core cleans it into its range)
+    pub fn set(self, e: &Edits, v: f64) -> Edits {
+        let c = e.crop;
+        let (mut fin, mut fout, mut speed, mut gain) = (e.fade_in, e.fade_out, e.speed, e.gain_db);
+        let mut crop = [c.left, c.top, c.right, c.bottom];
+        match self {
+            Field::FadeIn => fin = v,
+            Field::FadeOut => fout = v,
+            Field::Speed => speed = v,
+            Field::Gain => gain = v,
+            Field::CropLeft => crop[0] = v as f32,
+            Field::CropTop => crop[1] = v as f32,
+            Field::CropRight => crop[2] = v as f32,
+            Field::CropBottom => crop[3] = v as f32,
+        }
+        Edits::new(e.trim, Crop::new(crop[0], crop[1], crop[2], crop[3]), fin, fout, speed, gain)
+    }
+
+    /// the value at `fraction` (0..1) across its field (the inverse of `crate::fraction`)
+    pub fn at(self, fraction: f64) -> f64 {
+        let (lo, hi, log) = self.range();
+        let f = fraction.clamp(0.0, 1.0);
+        if log && lo > 0.0 {
+            lo * (hi / lo).powf(f)
+        } else {
+            lo + f * (hi - lo)
+        }
+    }
+
+    /// the value as read on its field
+    pub fn shown(self, e: &Edits) -> String {
+        let v = self.get(e);
+        match self {
+            Field::FadeIn | Field::FadeOut => format!("{v:.2} s"),
+            Field::Speed => format!("{v:.2} ×"),
+            Field::Gain => format!("{v:+.1} dB"),
+            _ => format!("{:.0} %", v * 100.0),
+        }
+    }
+}
+
 /// what can be pressed in the view
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Hit {
@@ -112,7 +214,19 @@ pub enum Hit {
     /// the in point's handle, the out point's
     Start,
     End,
+    /// an edit's field
+    Edit(Field),
 }
+
+/// what a moved point became: the use's trim (written onto its scene node) or the asset's (saved onto the asset)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Point {
+    Use(Trim),
+    Asset(Trim),
+}
+
+/// the asset a medium's file belongs to, as the API answered
+type Found = Result<Option<serde_json::Value>, String>;
 
 /// the medium open in the front Asset tab
 pub struct Open {
@@ -122,6 +236,14 @@ pub struct Open {
     pub path: String,
     pub used: Option<Use>,
     pub trim: Trim,
+    /// the asset's edits (in source time) and where the source's time is at this file's 0 (its time map)
+    pub edits: Edits,
+    pub offset: f64,
+    /// the asset's id once the registry answered (none: a file it does not know – its edits cannot be saved)
+    pub asset: Option<String>,
+    /// what the registry said that is worth a line (no time map measured, not reachable)
+    pub note: Option<String>,
+    found: Option<Receiver<Found>>,
     pub body: Body,
     rx: Option<Receiver<Result<Got, String>>>,
     /// seconds since the use started (Play runs it; Stop goes back to 0)
@@ -137,8 +259,12 @@ pub struct Media {
     pub open: Option<Open>,
     conv: Option<Converter>,
     pub hits: Vec<(Rect, Hit)>,
-    /// a handle or the playhead held by the pointer
+    /// a handle, the playhead or an edit's field held by the pointer
     pub drag: Option<Hit>,
+    /// the held field's place on screen
+    pub field: Option<Rect>,
+    /// the asset's edits on their way to the API
+    pub saved: Option<Receiver<Result<(), String>>>,
     /// the timeline's place on screen (for a drag)
     pub line: Option<Rect>,
     /// the stretch of the file the timeline shows, s
@@ -204,8 +330,9 @@ fn load(sort: Sort, bytes: Vec<u8>) -> Result<Got, String> {
 }
 
 impl Open {
-    /// `key` (`video:<path>`, …) asked on a thread; `used` = the scene node it was opened from, with its trim
-    pub fn new(key: &str, cdn: &str, used: Option<Use>, trim: Trim) -> Option<Open> {
+    /// `key` (`video:<path>`, …) asked on a thread, and its asset from the registry at `api` (none: no edits to load);
+    /// `used` = the scene node it was opened from, with its trim
+    pub fn new(key: &str, cdn: &str, api: Option<crate::show::api::Api>, used: Option<Use>, trim: Trim) -> Option<Open> {
         let sort = Sort::of(key)?;
         let path = key.split_once(':').map_or("", |(_, p)| p).to_string();
         let (tx, rx) = channel();
@@ -213,7 +340,30 @@ impl Open {
         std::thread::spawn(move || {
             let _ = tx.send(fetch(&p, &c).and_then(|b| load(sort, b)));
         });
-        Some(Open { key: key.to_string(), sort, path, used, trim, body: Body::Loading, rx: Some(rx), clock: 0.0, playing: false, tex: None, shown: false })
+        let found = api.filter(|_| !std::path::Path::new(&path).is_file()).map(|api| {
+            let (tx, rx) = channel();
+            let p = path.clone();
+            std::thread::spawn(move || {
+                let _ = tx.send(api.asset_of(&p));
+            });
+            rx
+        });
+        let edits = Edits::NONE;
+        Some(Open { key: key.to_string(), sort, path, used, trim, edits, offset: 0.0, asset: None, note: None, found, body: Body::Loading, rx: Some(rx), clock: 0.0, playing: false, tex: None, shown: false })
+    }
+
+    /// the registry's answer: the asset's id, its edits and this file's time map
+    pub fn take_asset(&mut self, found: Found) {
+        match found {
+            Ok(Some(detail)) => {
+                let (edits, offset, warn) = deck_space::asset_edits::for_file(&detail, &self.path);
+                (self.edits, self.offset, self.note) = (edits, offset, warn);
+                self.asset = detail["asset"]["id"].as_str().map(str::to_string);
+                self.apply();
+            }
+            Ok(None) => self.note = Some("not in the asset registry: its edits cannot be kept".into()),
+            Err(why) => self.note = Some(format!("its edits: {why}")),
+        }
     }
 
     /// the file's length, s (an image: none)
@@ -225,37 +375,68 @@ impl Open {
         }
     }
 
-    /// where on the file the use is now, s
+    /// the source's length as far as this file shows it, s
+    pub fn source_length(&self) -> Option<f64> {
+        self.length().map(|l| l + self.offset)
+    }
+
+    /// what plays: the asset's edits, the use's trim on top, through the file's time map
+    pub fn playback(&self) -> Option<Playback> {
+        self.source_length().map(|l| self.edits.playback(self.trim, l, self.offset))
+    }
+
+    /// the span played, source s
+    pub fn span(&self) -> Option<(f64, f64)> {
+        self.source_length().map(|l| self.edits.span(self.trim, l))
+    }
+
+    /// where in the source the use is now, s
     pub fn at(&self) -> f64 {
-        self.length().map_or(0.0, |l| self.trim.at(self.clock, l))
+        self.playback().map_or(0.0, |p| p.file_at(self.clock) + self.offset)
     }
 
-    /// the in or out point to `seconds` on the file; the other stays. Err: no file length yet, or no use to keep it.
-    pub fn set_point(&mut self, which: Hit, seconds: f64) -> Result<Trim, String> {
-        let length = self.length().ok_or("not loaded yet")?;
-        if self.used.is_none() {
-            return Err("trimming is a use's: open the video from a scene's video node to trim it there".into());
-        }
-        let s = seconds.clamp(0.0, length);
-        let (a, b) = self.trim.span(length);
-        self.trim = match which {
-            Hit::Start => Trim::new(s.min(b - deck_media::trim::SHORTEST).max(0.0), self.trim.end),
-            Hit::End if s >= length - 1e-3 => Trim::new(a, 0.0),
-            Hit::End => Trim::new(a, s.max(a + deck_media::trim::SHORTEST)),
-            Hit::Seek => return Ok(self.trim),
-        };
+    /// the playback onto what plays it
+    fn apply(&mut self) {
+        let Some(play) = self.playback() else { return };
         if let Body::Video(m) = &mut self.body {
-            m.set_trim(self.trim);
+            m.set_playback(play);
         }
-        self.clock = 0.0;
-        Ok(self.trim)
     }
 
-    /// the playhead to `seconds` on the file (inside the span)
+    /// The in or out point to `seconds` (source): the use's trim when it was opened from a use, else the asset's; the
+    /// other point stays. Err: no file length yet.
+    pub fn set_point(&mut self, which: Hit, seconds: f64) -> Result<Point, String> {
+        use deck_core::trim::SHORTEST;
+        let length = self.source_length().ok_or("not loaded yet")?;
+        let s = seconds.clamp(0.0, length);
+        let moved = |t: Trim, (a, b): (f64, f64)| match which {
+            Hit::Start => Trim::new(s.min(b - SHORTEST).max(0.0), t.end),
+            Hit::End if s >= length - 1e-3 => Trim::new(a, 0.0),
+            Hit::End => Trim::new(a, s.max(a + SHORTEST)),
+            Hit::Seek | Hit::Edit(_) => t,
+        };
+        let point = if self.used.is_some() {
+            self.trim = moved(self.trim, self.edits.span(self.trim, length));
+            Point::Use(self.trim)
+        } else {
+            self.edits.trim = moved(self.edits.trim, self.edits.trim.span(length));
+            Point::Asset(self.edits.trim)
+        };
+        self.apply();
+        self.clock = 0.0;
+        Ok(point)
+    }
+
+    /// an edit's field to `v` (cleaned by the core), applied at once
+    pub fn set_edit(&mut self, field: Field, v: f64) {
+        self.edits = field.set(&self.edits, v);
+        self.apply();
+    }
+
+    /// the playhead to `seconds` (source, inside the span)
     pub fn seek(&mut self, seconds: f64) {
-        if let Some(l) = self.length() {
-            let (a, b) = self.trim.span(l);
-            self.clock = seconds.clamp(a, b) - a;
+        if let Some(p) = self.playback() {
+            self.clock = p.clock_at(seconds - self.offset);
         }
     }
 }
@@ -283,10 +464,10 @@ impl Media {
     /// `live`, else main; anything else → it stops. Ok(Some(note)): live without a cue of its own (heard nowhere).
     pub fn sound(&mut self, volume: f32, live: bool) -> Result<Option<String>, String> {
         let playing = self.open.as_ref().filter(|o| o.playing).and_then(|o| match &o.body {
-            Body::Audio(w) => Some((o.key.clone(), w.clip.clone(), o.at(), o.trim.span(w.seconds))),
+            Body::Audio(w) => Some((o.key.clone(), w.clip.clone(), o.at() - o.offset, o.playback()?)),
             _ => None,
         });
-        let Some((key, clip, at, span)) = playing else {
+        let Some((key, clip, at, play)) = playing else {
             if let Some(out) = self.out.as_mut() {
                 out.sounds.stop();
             }
@@ -300,7 +481,7 @@ impl Media {
         }
         let out = self.out.as_mut().expect("started");
         out.live = live;
-        if !out.sounds.play(clip, at, span, live) {
+        if !out.sounds.play(clip, at, play, live) {
             return Err("the sound device did not take it".into());
         }
         Ok((live && !out.cue).then(|| "live: this device has no cue of its own – the sound is heard nowhere".into()))
@@ -339,10 +520,7 @@ impl Media {
             o.rx = None;
             o.body = match got {
                 Ok(Got::Bytes(b)) if o.sort == Sort::Video => match Movie::spawn(b, &o.key) {
-                    Ok(mut m) => {
-                        m.set_trim(o.trim);
-                        Body::Video(Box::new(m))
-                    }
+                    Ok(m) => Body::Video(Box::new(m)),
                     Err(e) => Body::Failed(e),
                 },
                 Ok(Got::Bytes(_)) => Body::Model,
@@ -350,6 +528,11 @@ impl Media {
                 Ok(Got::Wave(w)) => Body::Audio(w),
                 Err(e) => Body::Failed(e),
             };
+            o.apply();
+        }
+        if let Some(found) = o.found.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            o.found = None;
+            o.take_asset(found);
         }
         if o.playing {
             o.clock += f64::from(dt);
@@ -405,7 +588,7 @@ mod tests {
     }
 
     fn opened(used: bool) -> Open {
-        let mut o = Open::new("audio:nowhere.wav", "", used.then(|| Use { scene: "scene:nave".into(), node: "v".into() }), Trim::WHOLE).unwrap();
+        let mut o = Open::new("audio:nowhere.wav", "", None, used.then(|| Use { scene: "scene:nave".into(), node: "v".into() }), Trim::WHOLE).unwrap();
         o.body = Body::Audio(Wave { peaks: Vec::new(), seconds: 10.0, clip: Arc::new(Clip::default()) });
         o
     }
@@ -413,19 +596,42 @@ mod tests {
     #[test]
     fn the_trim_moves_the_uses_points_and_the_file_stays() {
         let mut o = opened(true);
-        assert_eq!(o.set_point(Hit::Start, 2.0), Ok(Trim::new(2.0, 0.0)));
-        assert_eq!(o.set_point(Hit::End, 5.0), Ok(Trim::new(2.0, 5.0)));
-        assert_eq!(o.set_point(Hit::Start, 9.0), Ok(Trim::new(5.0 - deck_media::trim::SHORTEST, 5.0)), "the in point stays before the out point");
-        assert_eq!(o.set_point(Hit::End, 10.0), Ok(Trim::new(5.0 - deck_media::trim::SHORTEST, 0.0)), "the file's end is no out point");
+        assert_eq!(o.set_point(Hit::Start, 2.0), Ok(Point::Use(Trim::new(2.0, 0.0))));
+        assert_eq!(o.set_point(Hit::End, 5.0), Ok(Point::Use(Trim::new(2.0, 5.0))));
+        assert_eq!(o.set_point(Hit::Start, 9.0), Ok(Point::Use(Trim::new(5.0 - deck_core::trim::SHORTEST, 5.0))), "the in point stays before the out point");
+        assert_eq!(o.set_point(Hit::End, 10.0), Ok(Point::Use(Trim::new(5.0 - deck_core::trim::SHORTEST, 0.0))), "the file's end is no out point");
         assert_eq!(o.length(), Some(10.0));
         o.seek(7.0);
         assert!((o.at() - 7.0).abs() < 1e-9);
+        assert!(o.edits.none(), "the asset is untouched");
     }
 
     #[test]
-    fn without_a_use_there_is_nothing_to_trim() {
+    fn without_a_use_the_handles_move_the_assets_trim_and_a_use_cuts_inside_it() {
         let mut o = opened(false);
-        assert!(o.set_point(Hit::Start, 2.0).is_err());
-        assert_eq!(o.trim, Trim::WHOLE);
+        assert_eq!(o.set_point(Hit::Start, 2.0), Ok(Point::Asset(Trim::new(2.0, 0.0))));
+        assert_eq!(o.set_point(Hit::End, 6.0), Ok(Point::Asset(Trim::new(2.0, 6.0))));
+        assert_eq!(o.trim, Trim::WHOLE, "no use: its trim stays whole");
+        assert_eq!(o.span(), Some((2.0, 6.0)));
+        o.used = Some(Use { scene: "scene:nave".into(), node: "v".into() });
+        o.set_point(Hit::Start, 1.0).unwrap();
+        assert_eq!(o.span(), Some((2.0, 6.0)), "a use's in point before the asset's: the asset's");
+        o.set_point(Hit::End, 4.0).unwrap();
+        assert_eq!(o.span(), Some((2.0, 4.0)));
+    }
+
+    #[test]
+    fn an_edits_field_sets_its_value_through_the_core() {
+        let mut o = opened(false);
+        o.set_edit(Field::Speed, Field::Speed.at(1.0));
+        assert_eq!(o.edits.speed, deck_core::asset_edit::SPEED.1, "the far end of the field: the fastest");
+        o.set_edit(Field::Speed, Field::Speed.at(0.5));
+        assert!((o.edits.speed - 1.0).abs() < 1e-9, "log: the middle of 0.25–4 is 1");
+        o.set_edit(Field::CropLeft, 0.9);
+        o.set_edit(Field::CropRight, 0.9);
+        assert!((o.edits.crop.rect()[2] - deck_core::asset_edit::CROP_KEEPS).abs() < 1e-6, "a crop always leaves a part");
+        assert_eq!(Field::Gain.shown(&deck_core::asset_edit::Edits { gain_db: -3.0, ..o.edits }), "-3.0 dB");
+        let play = o.playback().unwrap();
+        assert!((play.lap() - 10.0).abs() < 1e-9, "at speed 1 a lap is the file");
     }
 }

@@ -31,7 +31,7 @@ impl Posters {
     /// Each frame: the scene's `video` nodes (id, file, the use's trim) – a card opens its file once and keeps it while
     /// the file stays; its frame for the time since it opened, inside the trim, goes into its texture. The cards of nodes
     /// gone are dropped.
-    pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, nodes: &[(String, String, deck_media::Trim)]) -> Vec<(String, Frame<'_>)> {
+    pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, nodes: &[(String, String, deck_core::trim::Trim)]) -> Vec<(String, Frame<'_>)> {
         if self.conv.is_none() {
             deck_media_hw::install();
         }

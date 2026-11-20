@@ -1,7 +1,10 @@
 //! A video on the deck's own playback (deck-media): a clip's player and its frame queue. Where there are threads
 //! (`native`) the player decodes ahead on one of its own and the frame's thread only picks; else both happen on the
-//! frame's thread. The stage's clock gives the heard time, the queue the frame for it.
-use deck_media::{Clip, Frames, Picture, Player, Trim};
+//! frame's thread. The stage's clock gives the heard time, the queue the frame for it. What plays is a `Playback` (an
+//! asset's edits and a use's trim, deck-core `asset_edit`): its span looped on the player's laps, at its speed.
+use deck_core::asset_edit::{Edits, Playback};
+use deck_core::trim::Trim;
+use deck_media::{Clip, Frames, Picture, Player, Span};
 use std::sync::Arc;
 
 /// how many decoded frames wait at most, and how far ahead of the heard time they reach (s)
@@ -19,8 +22,8 @@ pub struct Movie {
     height: u32,
     /// the file's length, s
     length: f64,
-    /// the use's in and out points: the heard time runs inside them (deck-media `Trim`)
-    trim: Trim,
+    /// what plays: the span, its speed, the fades, the gain, the crop
+    play: Playback,
     /// the shown frame's place in the stream; none yet: −1
     shown: i64,
     inner: Inner,
@@ -45,14 +48,14 @@ impl Movie {
     /// the clip in `bytes`, decoded on the caller's thread
     pub fn open(bytes: Vec<u8>) -> Result<Movie, String> {
         let (p, width, height, length) = player(bytes)?;
-        Ok(Movie { width, height, length, trim: Trim::WHOLE, shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
+        Ok(Movie { width, height, length, play: Playback::whole(length), shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
     }
 
     /// the clip in `bytes`, decoded ahead on a thread of its own
     #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
     pub fn spawn(bytes: Vec<u8>, name: &str) -> Result<Movie, String> {
         let (p, width, height, length) = player(bytes)?;
-        Ok(Movie { width, height, length, trim: Trim::WHOLE, shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
+        Ok(Movie { width, height, length, play: Playback::whole(length), shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
     }
 
     /// width over height
@@ -65,20 +68,36 @@ impl Movie {
         self.length
     }
 
-    pub fn trim(&self) -> Trim {
-        self.trim
+    pub fn playback(&self) -> Playback {
+        self.play
     }
 
-    /// the use's in and out points from now on
+    /// what plays from now on (the span from its in point again)
+    pub fn set_playback(&mut self, play: Playback) {
+        if play == self.play {
+            return;
+        }
+        self.play = play;
+        self.shown = -1;
+        let span = Span { start: play.start, end: play.end, speed: play.speed };
+        match &mut self.inner {
+            Inner::Here(p, frames) => {
+                p.set_span(span);
+                frames.clear();
+            }
+            #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
+            Inner::Thread(a) => a.set_span(span),
+        }
+    }
+
+    /// a use's in and out points on the file, the asset as it is
     pub fn set_trim(&mut self, trim: Trim) {
-        self.trim = trim;
+        self.set_playback(Edits::NONE.playback(trim, self.length, 0.0));
     }
 
-    /// The picture for `heard` s since the use started (inside its trim, looped) when it is another than the one shown.
-    /// The whole file loops on the player's own laps (decoded ahead across the end); a trimmed span seeks back to its in
-    /// point.
+    /// The picture for `heard` s since the use started (its span looped at its speed: the player decodes the next lap
+    /// ahead across the out point) when it is another than the one shown.
     pub fn next_picture(&mut self, heard: f64) -> Option<Arc<Picture>> {
-        let heard = if self.trim.whole() { heard } else { self.trim.at(heard, self.length) };
         let (pos, pic) = match &mut self.inner {
             Inner::Here(p, frames) => {
                 if let Err(e) = p.fill(heard, frames) {
@@ -103,24 +122,30 @@ pub use gpu::{install_held, upload, upscale_to, Converter, CopyHeld, Texture};
 
 #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
 mod threaded {
-    use deck_media::{Frames, Picture, Player};
+    use deck_media::{Frames, Picture, Player, Span};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    /// the frames the thread has, and a span asked for that it has not taken yet (its frames are not shown)
+    struct Shared {
+        frames: Frames,
+        span: Option<Span>,
+    }
+
     /// The decoding thread and what it shares: the heard time it decodes for, the frames it has, its last error.
     pub struct Ahead {
         heard: Arc<AtomicU64>,
-        frames: Arc<Mutex<Frames>>,
+        shared: Arc<Mutex<Shared>>,
         stop: Arc<AtomicBool>,
     }
 
     impl Ahead {
         pub fn start(mut player: Player, name: &str) -> Ahead {
             let heard = Arc::new(AtomicU64::new(0f64.to_bits()));
-            let frames = Arc::new(Mutex::new(Frames::new(super::QUEUE)));
+            let shared = Arc::new(Mutex::new(Shared { frames: Frames::new(super::QUEUE), span: None }));
             let stop = Arc::new(AtomicBool::new(false));
-            let (h, shared, s) = (heard.clone(), frames.clone(), stop.clone());
+            let (h, both, s) = (heard.clone(), shared.clone(), stop.clone());
             let label = name.to_string();
             std::thread::Builder::new()
                 .name(format!("video {name}"))
@@ -128,10 +153,19 @@ mod threaded {
                     let mut mine = Frames::new(super::QUEUE);
                     let mut failed = false;
                     while !s.load(Ordering::Relaxed) {
+                        if let Some(span) = both.lock().unwrap().span.take() {
+                            player.set_span(span);
+                            mine.clear();
+                        }
                         let t = f64::from_bits(h.load(Ordering::Relaxed));
                         match player.fill(t, &mut mine) {
                             Ok(0) => std::thread::sleep(Duration::from_millis(4)),
-                            Ok(_) => *shared.lock().unwrap() = mine.clone(),
+                            Ok(_) => {
+                                let mut b = both.lock().unwrap();
+                                if b.span.is_none() {
+                                    b.frames = mine.clone();
+                                }
+                            }
                             Err(e) if !failed => {
                                 failed = true;
                                 tracing::warn!("video {label}: {e}");
@@ -141,13 +175,20 @@ mod threaded {
                     }
                 })
                 .expect("a thread");
-            Ahead { heard, frames, stop }
+            Ahead { heard, shared, stop }
         }
 
         pub fn frame_for(&mut self, heard: f64) -> Option<(i64, Arc<Picture>)> {
             self.heard.store(heard.to_bits(), Ordering::Relaxed);
-            let mut f = self.frames.lock().unwrap();
-            f.frame_for(heard).map(|f| (f.pos, f.picture.clone()))
+            let mut b = self.shared.lock().unwrap();
+            b.frames.frame_for(heard).map(|f| (f.pos, f.picture.clone()))
+        }
+
+        /// the span from now on: the frames of the last one go at once
+        pub fn set_span(&mut self, span: Span) {
+            let mut b = self.shared.lock().unwrap();
+            b.frames.clear();
+            b.span = Some(span);
         }
     }
 
