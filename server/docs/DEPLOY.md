@@ -52,9 +52,9 @@ with a shell `php bin/console roles grant <email> admin`.
 
 The shared host has no shell, no ffmpeg and no Rust: the asset jobs (`bin/console assets:jobs`) and the backfill
 (`bin/console assets:timemaps`) run on the owner's machine, against the production database and the bunny.net storage. That
-machine needs the core's measuring tool next to ffmpeg – built from this repository, never re-implemented in PHP:
+machine needs the core's measuring tool next to ffmpeg – built from this repository, never re-implemented in PHP (it uses the machine's hardware decoders for H.264 / VP9 / HEVC):
 
-    cd deck && cargo build --release -p deck-media --bin deck-asset-timemap     # deck/target/release/deck-asset-timemap(.exe)
+    cd deck && cargo build --release -p deck-media-hw --bin deck-asset-timemap     # deck/target/release/deck-asset-timemap(.exe)
 
 Put it on the PATH, or set `TIMEMAP_PATH` (`QR_TIMEMAP_PATH` in the environment) to its file. Without it every measurement is
 logged as "time map not measured" and the columns stay NULL – a job never fails because of it. Once, for the files that exist:

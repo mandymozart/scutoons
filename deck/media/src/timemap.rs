@@ -4,7 +4,7 @@
 //! derivative's first frames against the source's, which holds for any encoder, a cut start or another frame rate.
 use crate::demux::{Clip, Track};
 use crate::player::{Frames, Player};
-use crate::{err, Error, Picture, Software};
+use crate::{err, Error, Picture};
 
 /// how far into the source a derivative's start is looked for, s
 pub const WINDOW: f64 = 5.0;
@@ -92,7 +92,7 @@ pub fn unlike(a: &[f32], b: &[f32]) -> f32 {
 /// a clip's frames from its start up to `until` s, as (time, thumbnail)
 pub fn thumbnails(clip: &Clip, until: f64) -> Result<Vec<(f64, Vec<f32>)>, Error> {
     let Some(track) = clip.video.clone() else { return err("the clip has no video") };
-    let mut player = Player::new(clip, Box::new(Software::default()))?;
+    let mut player = Player::open(clip)?;
     player.looping = false;
     let mut queue = Frames::new(4);
     let mut out = Vec::new();
@@ -116,7 +116,7 @@ fn shown_at(frames: &[(f64, Vec<f32>)], t: f64) -> Option<&[f32]> {
 
 /// The map of `derivative` against `source`, by pictures: the derivative's first second against each of the source's
 /// frames in its first `WINDOW` s as a start; the start where they differ least wins (the earliest of equals: a still
-/// opening measures 0). Decoded in software. Err: either has no video or does not decode here.
+/// opening measures 0). Decoded through `Player::open`: the hardware the host installed, else software. Err: either has no video or does not decode here.
 pub fn measure(source: &Clip, derivative: &Clip) -> Result<TimeMap, Error> {
     let theirs = thumbnails(derivative, COMPARED)?;
     let ours = thumbnails(source, WINDOW + COMPARED)?;
