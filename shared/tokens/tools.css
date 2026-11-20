@@ -1,36 +1,86 @@
 /*
- * @scutoons/tokens: the brutalist tool base (agents/DESIGN.md "Brutalist tools", owner 2026-10-01).
- * Opt-in: an app root with the class `sc-tool` (creator, admin, embassy). Without it nothing here applies, so the
- * reader and the shop keep their own look.
+ * @scutoons/tokens: the tools' base in the editor style (deck-kit's editor tokens, editor.css; RULES H9). Opt-in: an
+ * app root with the class `sc-tool` (creator, admin, embassy, the live deck's tool parts). Without it nothing here
+ * applies, so the reader and the shop keep their own look.
  *
- * - Type = the reader's: the fluid root of base.css (14px < 480px, 16px, 24px ≥ 768px), body 1rem, the smallest text
- *   is caption (0.75rem). No px font sizes, no app-level root override.
- * - Hard ink on paper: 2px ink frames on panels, tables; text inputs / textareas a thin grey frame (1px border-muted)
- *   that turns ink on focus; selects look like secondary buttons (2px border-muted → ink on hover, a Feather chevron)
- *   (owner 2026-10-03: tells fields apart from selects and buttons).
- * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
- * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
- * - Selected = inverted (ink bg, paper text; `.sc-selected`); the LIVE selection (in the region clicked / focused last,
- *   what the keys act on: `[data-live] .sc-selected`) = cyan tint, 2px inset primary border, dark blue text. Toggles,
- *   tabs, segments, pressed = inverted. Hover is never inverted. Badges are filled (--badge-*).
+ * - Night first: `.sc-tool` points the shared tokens (--ink, --paper, --border-*, --surface-*, --text-muted, --radius-none,
+ *   --control-height …) at the editor tokens, so every component built on them follows. `data-theme="day"` on <html>
+ *   or on the tool root is the day variant (editor.css), never on an element inside it (the remap is read at the root).
+ * - Type: 1rem = deck-kit's base (14px) on desktop, ABC Areal / Noto Sans for text, the mono face for values; labels
+ *   are regular caps with the deck's letter spacing; the smallest text is caption (0.75rem). No px font sizes.
+ * - Lines instead of filled grounds: 1px frames in the line colour, controls on the control ground, rounded corners
+ *   (--editor-radius). Sizes in rem, one control height (--editor-row). Focus = a 2px accent outline.
+ * - Pressed (segments, toggles, an open menu) = the pressed ground; selected = the selected ground, in the live region
+ *   (what the keys act on: `[data-live] .sc-selected`) with an inset accent line. Hover = the hover ground or a muted
+ *   frame, never inverted. Badges are filled (--badge-*).
  *
  * Element rules use :where() (specificity 0): any component or app rule still wins. The utility classes (`sc-*`) are
  * the vocabulary for components that need the type styles without their own rules.
  */
 .sc-tool {
-	font-family: var(--font-mono);
+	/* the shared tokens, pointed at the editor style (a custom property resolves where it is set: every derived token of
+	   tokens.css the tools use is set here again) */
+	--ink: var(--editor-text);
+	--paper: var(--editor-surface);
+	--primary-cyan: var(--editor-accent);
+	--primary-color: var(--editor-accent);
+	--border-subtle: var(--editor-line);
+	--border-muted: var(--editor-line);
+	--border-hover: var(--editor-muted);
+	--surface-hover: var(--editor-hover);
+	--surface-panel: var(--editor-surface-head);
+	--surface-tint-cyan: var(--editor-within);
+	--select-live-bg: var(--editor-selected);
+	--select-live-border: var(--editor-accent);
+	--select-live-text: var(--editor-text);
+	--text-muted: var(--editor-muted);
+	--state-error: var(--editor-stop);
+	--state-warning: var(--editor-warn);
+	--badge-neutral: var(--editor-pressed);
+	--badge-neutral-text: var(--editor-pressed-text);
+	--badge-draft: var(--editor-selected);
+	--badge-draft-text: var(--editor-text);
+	--radius-none: var(--editor-radius);
+	--border-width-regular: var(--editor-edge);
+	--border-width-focus: 2px;
+	--focus-offset: 1px;
+	--font-sans: var(--editor-sans);
+	--type-body-line: 1.35;
+	--type-title-size: var(--editor-title);
+	--tracking-label: var(--editor-label-spacing);
+	--tracking-label-bold: var(--editor-label-spacing);
+	--control-height: var(--editor-row);
+	--tool-bar-height: var(--editor-top);
+	--tool-sidebar-width: var(--editor-tree);
+	--tool-panel-width: var(--editor-inspector);
+	--select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a7af9b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	color-scheme: dark;
+	font-family: var(--editor-sans);
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
 	color: var(--ink);
 	background: var(--paper);
 }
+:is([data-theme='day'] .sc-tool, .sc-tool[data-theme='day']) {
+	--select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f5747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	color-scheme: light;
+}
+/* touch screens keep the 44px touch-target floor */
+@media (pointer: coarse) {
+	.sc-tool {
+		--control-height: max(44px, var(--editor-row));
+	}
+}
+/* the page around a tool (overscroll, a sheet's backdrop) */
+html:has(.sc-tool) body {
+	background: var(--editor-surface);
+}
 
-/* The tools' desktop root: 70 % of the reader's 24px (owner 2026-10-11: "we can just scale to 70 percent and it will
-   be quite nice. I do that already on my laptop always in the browser"). Everything is rem, so the whole tool scales;
-   phones / tablets keep the reader's root. 768px / 24px: keep in sync with base.css. */
+/* The tools' desktop root: deck-kit's base (14px); everything is rem, so the whole tool follows. Phones / tablets keep
+   the reader's root. 768px: keep in sync with base.css. */
 @media (min-width: 768px) {
 	html:has(.sc-tool) {
-		font-size: calc(24px * 0.7);
+		font-size: var(--editor-base);
 	}
 }
 
@@ -64,7 +114,7 @@
 	width: 100%;
 	margin: var(--space-1) 0;
 	border: 0;
-	border-top: var(--border-width-regular) solid var(--ink);
+	border-top: var(--border-width-regular) solid var(--editor-line);
 }
 :where(.sc-tool) :where(code, kbd) {
 	font-size: inherit;
@@ -81,9 +131,9 @@
 	min-height: var(--control-height);
 	margin: 0;
 	padding: 0 var(--space-05);
-	border: var(--border-width-regular) solid var(--ink);
+	border: var(--border-width-regular) solid var(--editor-line);
 	border-radius: var(--radius-none);
-	background: var(--paper);
+	background: var(--editor-control);
 	color: var(--ink);
 	font: inherit;
 	font-size: var(--type-body-size);
@@ -97,18 +147,18 @@
 }
 :where(.sc-tool)
 	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea):focus {
-	border-color: var(--ink);
+	border-color: var(--editor-accent);
 }
 /* selects look like secondary buttons (owner 2026-10-03): 2px border-muted, ink on hover / focus, a chevron */
 :where(.sc-tool) :where(select:not([multiple], [size])) {
 	appearance: none;
 	border-color: var(--border-muted);
 	padding-right: calc(var(--space-05) + 1.25em);
-	background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right var(--space-05) center / 1em;
+	background: var(--editor-control) var(--select-chevron) no-repeat right var(--space-05) center / 1em;
 	cursor: pointer;
 }
 :where(.sc-tool) :where(select:not([multiple], [size])):is(:hover, :focus):not(:disabled) {
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 /* One control height (owner 2026-10-02, DESIGN.md "One control height"): every single-line field is exactly
    --control-height (2rem + the 2px frame; ≥ 44px on touch), the text centred by the box, no vertical padding */
@@ -135,7 +185,7 @@
 	width: 1.25rem;
 	height: 1.25rem;
 	margin: 0;
-	accent-color: var(--ink);
+	accent-color: var(--editor-accent);
 }
 /* checkboxes are square switches (owner 2026-10-04: the native boxes looked odd): off = paper track, 2px border-muted
    frame, a grey knob left; on = ink track, paper knob right. Hover / focus frame ink, like the secondary buttons.
@@ -150,7 +200,7 @@
 	margin: 0;
 	border: var(--border-width-regular) solid var(--border-muted);
 	border-radius: var(--radius-none);
-	background: var(--paper) linear-gradient(var(--text-muted), var(--text-muted)) no-repeat left 0.125rem center /
+	background: var(--editor-control) linear-gradient(var(--text-muted), var(--text-muted)) no-repeat left 0.125rem center /
 		var(--switch-knob) var(--switch-knob);
 	vertical-align: middle;
 	cursor: pointer;
@@ -160,12 +210,12 @@
 		border-color var(--duration-fast);
 }
 :where(.sc-tool) :where(input[type='checkbox']):is(:hover, :focus-visible):not(:disabled) {
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 :where(.sc-tool) :where(input[type='checkbox']):checked {
-	border-color: var(--ink);
-	background-color: var(--ink);
-	background-image: linear-gradient(var(--paper), var(--paper));
+	border-color: var(--editor-pressed);
+	background-color: var(--editor-pressed);
+	background-image: linear-gradient(var(--editor-pressed-text), var(--editor-pressed-text));
 	background-position: right 0.125rem center;
 }
 :where(.sc-tool) :where(input[type='checkbox']):indeterminate {
@@ -173,7 +223,7 @@
 }
 :where(.sc-tool) :where(input[type='checkbox']):disabled {
 	border-color: var(--border-muted);
-	background-color: var(--paper);
+	background-color: var(--editor-control);
 	background-image: linear-gradient(var(--border-muted), var(--border-muted));
 	cursor: not-allowed;
 }
@@ -182,7 +232,7 @@
 	width: var(--control-height);
 	min-height: var(--control-height);
 	padding: 0;
-	border: var(--border-width-regular) solid var(--ink);
+	border: var(--border-width-regular) solid var(--editor-line);
 	border-radius: var(--radius-none);
 	background: var(--paper);
 }
@@ -212,14 +262,14 @@
 
 /* ── Focus: one thick ink outline everywhere ─────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 	outline-offset: var(--focus-offset);
 }
 /* the ring itself wins over a component's `all: unset` / `outline: none` (UI-CONCEPTS E.8: rows without a visible
    focus); the offset stays the component's. A control that draws its own focus (the Divider's line) is a separator or
    carries data-focus-own */
 .sc-tool :is(a, button, summary, [tabindex]):not([role='separator'], [data-focus-own]):focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 }
 
 /* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
@@ -295,10 +345,10 @@
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
-	border-bottom: var(--border-width-regular) solid var(--ink);
+	border-bottom: var(--border-width-regular) solid var(--editor-line);
 }
 :where(.sc-tool) :where(td) {
-	border-bottom: var(--border-width-hairline) solid var(--ink);
+	border-bottom: var(--border-width-hairline) solid var(--editor-line);
 }
 
 /* ── Vocabulary (utility classes) ────────────────────────────────────────────────────────────────────────────────── */
@@ -309,7 +359,7 @@
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
-	color: var(--ink);
+	color: var(--text-muted);
 }
 /* a page section (owner 2026-10-14: on long pages "it is hard to differentiate where what ends"): one stack; the next
    section starts after a clear gap, a 2px ink rule (the structure line) and the same gap again – DESIGN.md "Page sections" */
@@ -322,7 +372,7 @@
 .sc-section + .sc-section {
 	margin-top: var(--space-15);
 	padding-top: var(--space-15);
-	border-top: var(--border-width-regular) solid var(--ink);
+	border-top: var(--border-width-regular) solid var(--editor-line);
 }
 /* section heading: 1rem regular uppercase (bold only rarely, owner 2026-10-02) */
 .sc-heading {
@@ -422,7 +472,7 @@
 }
 /* a chip that shows its words on keyboard focus (the tool tooltip) */
 .sc-chip[tabindex]:focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 	outline-offset: 1px;
 }
 /* a custom single-line control (a framed label around an invisible native select, a link that is a button): one
@@ -446,9 +496,9 @@
 	height: var(--control-height);
 	margin: 0;
 	padding: 0 0 0 var(--space-05);
-	border: var(--border-width-regular) solid var(--ink);
+	border: var(--border-width-regular) solid var(--editor-line);
 	border-radius: var(--radius-none);
-	background: var(--paper);
+	background: var(--editor-control);
 	color: var(--ink);
 	font-size: var(--type-body-size);
 	line-height: var(--type-button-line);
@@ -471,7 +521,7 @@
 	line-height: var(--type-button-line);
 }
 .sc-chip-control :where(button:hover:not(:disabled)) {
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 .sc-chip-control :where(button:last-child) {
 	margin-right: calc(-1 * var(--border-width-regular));
@@ -501,7 +551,7 @@
 	color: inherit;
 }
 .sc-chip-control.is-filled :where(button:hover:not(:disabled)) {
-	border-color: var(--paper);
+	border-color: currentColor;
 }
 .sc-chip-control.is-error :where(button:first-child) {
 	color: var(--state-error);
@@ -538,18 +588,17 @@
 	cursor: pointer;
 }
 .sc-nav-item:hover {
-	outline: var(--border-width-regular) solid var(--ink);
-	outline-offset: calc(-1 * var(--border-width-regular));
+	background: var(--surface-hover);
 }
 .sc-nav-item:focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 	outline-offset: calc(-1 * var(--border-width-focus));
 }
 .sc-nav-item[aria-current='page'],
 .sc-nav-item[aria-current='true'],
 .sc-nav-item.is-current {
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--editor-selected);
+	color: var(--ink);
 }
 
 /* ── Selection (owner 2026-10-07, agents/DESIGN.md "Selection", UI-CONCEPTS E.8) – the ONLY selection rules ─────────
@@ -562,8 +611,8 @@
    live look only when it is also the live selection (both classes). */
 /* [class]: one step above a component's own single-class rule (e.g. a row's `all: unset`) */
 .sc-tool .sc-selected[class] {
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--editor-selected);
+	color: var(--ink);
 	--text-muted: currentColor;
 	--muted: currentColor;
 }
@@ -600,8 +649,8 @@
 /* a region inside the live one that is not live itself (the slice list inside the chapter tree): its selection stays
    inverted */
 .sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) .sc-selected {
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--editor-selected);
+	color: var(--ink);
 	box-shadow: none;
 }
 .sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) tr.sc-selected > :is(td, th) {
@@ -667,8 +716,9 @@
 .sc-seg {
 	display: inline-flex;
 	box-sizing: border-box;
-	border: var(--border-width-regular) solid var(--ink);
-	background: var(--paper);
+	border: var(--border-width-regular) solid var(--editor-line);
+	border-radius: var(--radius-none);
+	background: var(--editor-control);
 }
 .sc-seg.is-column {
 	flex-direction: column;
@@ -691,9 +741,9 @@
 }
 .sc-seg > button[aria-pressed='true'],
 .sc-seg > button[aria-checked='true'] {
-	background: var(--ink);
-	color: var(--paper);
-	border-color: var(--ink);
+	background: var(--editor-pressed);
+	color: var(--editor-pressed-text);
+	border-color: var(--editor-pressed);
 }
 /* an option that can't be chosen now (its tooltip says why): the buttons' disabled look */
 .sc-seg > button:disabled {
@@ -718,7 +768,7 @@
 	padding: 0;
 }
 .sc-seg > button.is-fallback {
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 
 /* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
@@ -767,10 +817,10 @@
 	cursor: pointer;
 }
 .sc-card:hover:not(:disabled) {
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 .sc-card:focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 	outline-offset: var(--focus-offset);
 }
 /* the field's current file: the card's own border in cyan (owner 2026-10-16: no thick bar on the left, "just color it") */
@@ -787,7 +837,7 @@
 }
 .sc-card.is-missing {
 	border-style: dashed;
-	border-color: var(--ink);
+	border-color: var(--border-hover);
 }
 .sc-card:disabled {
 	opacity: 0.5;
@@ -826,12 +876,12 @@
 	align-items: center;
 	gap: var(--space-05);
 	padding: var(--space-05) var(--space-1);
-	border-bottom: var(--border-width-regular) solid var(--ink);
-	border-left: 0.5rem solid var(--ink);
+	border-bottom: var(--border-width-regular) solid var(--editor-line);
+	border-left: 0.5rem solid var(--editor-line);
 }
 .sc-bar.is-dirty {
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--editor-pressed);
+	color: var(--editor-pressed-text);
 }
 .sc-bar.is-warning {
 	border-left-color: var(--state-warning);
@@ -847,7 +897,7 @@
 .sc-frame {
 	box-sizing: border-box;
 	padding: var(--space-1);
-	border: var(--border-width-regular) solid var(--ink);
+	border: var(--border-width-regular) solid var(--editor-line);
 	background: var(--paper);
 }
 
@@ -883,25 +933,24 @@
 	height: var(--control-height);
 	min-height: var(--control-height);
 	padding: 0;
-	border: var(--border-width-regular) solid var(--ink);
+	border: var(--border-width-regular) solid var(--editor-line);
 	border-radius: 50%;
-	background: var(--paper);
+	background: transparent;
 	color: var(--ink);
 	line-height: 1;
 	cursor: pointer;
 }
 :where(.sc-tool) .sc-round:hover:not(:disabled) {
-	outline: var(--border-width-regular) solid var(--ink);
-	outline-offset: 0;
+	background: var(--surface-hover);
 }
 :where(.sc-tool) .sc-round:focus-visible {
-	outline: var(--border-width-focus) solid var(--ink);
+	outline: var(--border-width-focus) solid var(--editor-accent);
 	outline-offset: var(--focus-offset);
 }
 :where(.sc-tool) .sc-round[aria-pressed='true'],
 :where(.sc-tool) .sc-round[aria-expanded='true'][data-menu] {
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--editor-pressed);
+	color: var(--editor-pressed-text);
 }
 /* quiet: the regions' fold / unfold buttons (FoldButton, Rail – owner 2026-10-20: "fold buttons across the app are a
    bit weird anyhow, taking a lot of visual focus"): a borderless muted square; ink + the nav outline on hover */

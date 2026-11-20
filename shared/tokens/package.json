@@ -11,6 +11,7 @@
 		".": "./index.css",
 		"./index.css": "./index.css",
 		"./tokens.css": "./tokens.css",
+		"./editor.css": "./editor.css",
 		"./fonts.css": "./fonts.css",
 		"./base.css": "./base.css",
 		"./tools.css": "./tools.css",
@@ -26,6 +27,7 @@
 		"vite.js"
 	],
 	"scripts": {
-		"check": "node scripts/check.js"
+		"check": "node scripts/check.js && node --experimental-transform-types --no-warnings scripts/editor-tokens.ts --check && node --experimental-transform-types --no-warnings --test scripts/editor-tokens.test.ts",
+		"editor-tokens": "node --experimental-transform-types --no-warnings scripts/editor-tokens.ts"
 	}
 }
