@@ -783,7 +783,7 @@ struct App {
     show: show::Host,
     /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
     book: book::Loader,
-    book_key: (Option<String>, bool),
+    book_key: (Vec<String>, bool),
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
@@ -909,8 +909,9 @@ fn run() -> Result<i32> {
     if let Some(name) = &args.demo {
         app_show.open_demo(name).map_err(anyhow::Error::msg)?;
     }
-    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
-    let book_key = (args.toon.clone(), auth.token().is_some());
+    let forced: Vec<String> = args.toon.iter().cloned().collect();
+    let app_book = book::Loader::new(&args.api, &forced, args.book.as_deref(), auth.token(), &cache);
+    let book_key = (forced, auth.token().is_some());
     let mut app_module = module::Module::new(&args.api, &cache, args.module.clone());
     app_module.autosaves = args.frames.is_none();
     let mut app_library = library::Library::new(cache.clone());
@@ -2218,7 +2219,7 @@ impl App {
             return typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
         };
         let kinds = deck_space::world::FAR_HOLDERS;
-        let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
+        let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }, r.toon.map(|t| format!(" · {t}")).unwrap_or_default()) });
         let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
         let found = book.clone();
         let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
@@ -2240,11 +2241,11 @@ impl App {
         }
         self.rig_toon.poll();
         let build = self.workspace == show::Workspace::Stage;
-        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.show_toon());
+        let toons = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), &self.show.shown().toons);
         let token = self.auth.token();
-        let key = (toon, token.is_some());
+        let key = (toons, token.is_some());
         if key != self.book_key {
-            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &cache_dir());
+            self.book = book::Loader::new(&self.args.api, &key.0, None, token, &cache_dir());
             self.book_key = key;
         }
     }
@@ -2364,7 +2365,7 @@ impl App {
     /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
     fn open_rigs(&mut self, x: f32, y: f32) {
         let registry = std::fs::read_to_string(toon::kept(&cache_dir())).unwrap_or_default();
-        let (items, note) = self.rigs.items(self.book_key.0.as_deref(), &registry, &self.auth.line(&deck_link::pairing::app_url()));
+        let (items, note) = self.rigs.items(self.book_key.0.first().map(String::as_str), &registry, &self.auth.line(&deck_link::pairing::app_url()));
         let mut ta = typeahead::Typeahead::new(items, x, y);
         if let Some(n) = note {
             ta = ta.with_note(n);
@@ -2816,7 +2817,7 @@ impl App {
         self.follow_tabs();
         self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
-            self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &cache_dir());
+            self.book = book::Loader::new(&self.args.api, &[], Some(&f), None, &cache_dir());
             self.args.book = Some(f);
         }
         self.book.poll();

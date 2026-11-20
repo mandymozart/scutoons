@@ -36,6 +36,8 @@ pub struct StoryEvent {
     /// the group's label (none: unlabelled)
     pub group: Option<String>,
     pub chapter: u64,
+    /// #708: whose it is, in the list of a show of several toons (none: the home's)
+    pub toon: Option<String>,
 }
 
 /// `GET <api>/creator/story-events` – every toon's story events (the editor's token; role creator, admin or live)
@@ -87,7 +89,7 @@ pub fn read(json: &str, toon: &str) -> Result<Story, String> {
         for e in c.get("events").and_then(Value::as_array).into_iter().flatten() {
             let characters = e.get("characters").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect();
             let id = text(e, "id").filter(|id| !id.is_empty());
-            out.events.push(StoryEvent { id, kind: text(e, "type").unwrap_or_default(), characters, excerpt: text(e, "excerpt"), group: text(e, "group"), chapter });
+            out.events.push(StoryEvent { id, kind: text(e, "type").unwrap_or_default(), characters, excerpt: text(e, "excerpt"), group: text(e, "group"), chapter, toon: None });
         }
         for q in c.get("choices").and_then(Value::as_array).into_iter().flatten() {
             let options = q.get("options").and_then(Value::as_array).into_iter().flatten().map(option).collect();
@@ -95,6 +97,17 @@ pub fn read(json: &str, toon: &str) -> Result<Story, String> {
             let version = q.get("version").and_then(Value::as_u64).unwrap_or_default();
             out.choices.push(StoryChoice { event, group: text(q, "group"), chapter, options, version });
         }
+    }
+    Ok(out)
+}
+
+/// #708: the story events of a show's toons from the API's answer – the home's (the first) with its questions, then each
+/// other toon's events, each marked with its toon. The questions stay the home's: a vote snapshots one toon's choice.
+pub fn read_toons(json: &str, toons: &[String]) -> Result<Story, String> {
+    let Some((home, others)) = toons.split_first() else { return read(json, "") };
+    let mut out = read(json, home)?;
+    for toon in others {
+        out.events.extend(read(json, toon)?.events.into_iter().map(|e| StoryEvent { toon: Some(toon.clone()), ..e }));
     }
     Ok(out)
 }
@@ -146,7 +159,8 @@ pub fn lines(show: &Show, row: &str, events: &[StoryEvent], query: &str) -> Vec<
         out.push(EventView { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), can: true });
     }
     for e in events {
-        let mut words = vec![format!("ch {}", e.chapter)];
+        let mut words: Vec<String> = e.toon.iter().cloned().collect();
+        words.push(format!("ch {}", e.chapter));
         words.extend(e.group.clone());
         words.push(e.kind.clone());
         if !e.characters.is_empty() {
@@ -343,12 +357,28 @@ mod tests {
         show(include_str!("../fixtures/top-toy.show.json")).unwrap()
     }
 
+    /// #708: a show of two toons lists both toons' events, the other's marked with its toon (and found by it); the questions
+    /// stay the home's
+    #[test]
+    fn a_show_of_several_toons_lists_each_toons_events_marked() {
+        let toons = ["catpope".to_string(), "toptoy".to_string()];
+        let story = read_toons(EVENTS, &toons).unwrap();
+        assert_eq!(story.events.len(), 6);
+        assert_eq!((story.events[5].id.as_deref(), story.events[5].toon.as_deref()), (Some("set1"), Some("toptoy")));
+        assert!(story.events[..5].iter().all(|e| e.toon.is_none()), "the home's unmarked");
+        assert_eq!(story.choices, read(EVENTS, "catpope").unwrap().choices);
+        let found = lines(&top_toy(), "dialog", &story.events, "toptoy");
+        assert_eq!(found.iter().map(|l| l.label.as_str()).collect::<Vec<_>>(), ["set1"]);
+        assert!(found[0].detail.starts_with("toptoy · ch 1"), "{}", found[0].detail);
+        assert_eq!(read_toons(EVENTS, &toons[..1]).unwrap(), read(EVENTS, "catpope").unwrap(), "one toon: as before");
+    }
+
     /// #539's done-when, the core's half: the API's answer read for the toon, its lines, a pick through `rows::edit`
     #[test]
     fn the_toons_story_events_are_read_and_a_rows_event_is_picked_from_them() {
         let events = parse(EVENTS, "catpope").unwrap();
         assert_eq!(events.len(), 5, "toptoy's are not catpope's");
-        assert_eq!(events[0], StoryEvent { id: Some("ch3.dialog-start".into()), kind: "showMessage".into(), characters: vec!["catpope".into()], excerpt: Some("Miau, Freunde!".into()), group: Some("nave".into()), chapter: 3 });
+        assert_eq!(events[0], StoryEvent { id: Some("ch3.dialog-start".into()), kind: "showMessage".into(), characters: vec!["catpope".into()], excerpt: Some("Miau, Freunde!".into()), group: Some("nave".into()), chapter: 3, toon: None });
         assert_eq!(events[1].id, None);
         assert!(parse(EVENTS, "nobody").unwrap().is_empty());
         assert!(parse("{}", "catpope").is_err());

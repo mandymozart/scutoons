@@ -22,6 +22,15 @@ impl Host {
         self.toon.clone().or_else(|| self.book.as_ref().map(|b| b.toon().to_string())).filter(|t| !t.is_empty())
     }
 
+    /// whose story events are listed: `--toon`, else the book's toons, the home first (#708)
+    fn story_toons(&self) -> Vec<String> {
+        match (&self.toon, &self.book) {
+            (Some(t), _) if !t.is_empty() => vec![t.clone()],
+            (_, Some(b)) => b.toons().into_iter().filter(|t| !t.is_empty()).map(str::to_string).collect(),
+            _ => Vec::new(),
+        }
+    }
+
     /// the same, for the problems list (mod.rs)
     pub(super) fn toon_now(&self) -> Option<String> {
         self.story_toon()
@@ -30,10 +39,11 @@ impl Host {
     /// the toon's story events and questions (#550: one answer), asked once – or why there are none
     pub(super) fn story_load(&mut self) {
         if self.story.is_none() {
-            self.story = Some(match self.story_toon() {
-                None => Err(story::no_toon()),
-                Some(toon) => match self.api.story_events() {
-                    Ok(text) => story::read(&text, &toon),
+            let toons = self.story_toons();
+            self.story = Some(match toons.is_empty() {
+                true => Err(story::no_toon()),
+                false => match self.api.story_events() {
+                    Ok(text) => story::read_toons(&text, &toons),
                     Err((status, detail)) => Err(story::refused(status, &detail)),
                 },
             });
@@ -51,8 +61,8 @@ impl Host {
 
     /// a check run's list from a file (`--story-events FILE`, the API's answer) in place of the API's
     pub fn story_from_file(&mut self, file: &Path) {
-        let toon = self.story_toon().unwrap_or_default();
-        self.story = Some(std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display())).and_then(|t| story::read(&t, &toon)));
+        let toons = self.story_toons();
+        self.story = Some(std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display())).and_then(|t| story::read_toons(&t, &toons)));
     }
 
     pub(super) fn events_press(&mut self, hit: Hit) {

@@ -22,8 +22,8 @@ pub fn listing(body: &str) -> Vec<Listed> {
     rows(body)
         .into_iter()
         .map(|(id, doc)| {
-            let toon = doc.get("toon").and_then(Value::as_str).unwrap_or_default().to_string();
-            Listed { name: id.clone(), id, toons: vec![toon], version: None, show: true }
+            let toons = crate::document::toons_of(&doc);
+            Listed { name: id.clone(), id, toons: if toons.is_empty() { vec![String::new()] } else { toons }, version: None, show: true }
         })
         .collect()
 }

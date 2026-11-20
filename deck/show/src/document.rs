@@ -13,10 +13,11 @@ pub type Values = serde_json::Map<String, serde_json::Value>;
 pub struct Show {
     pub id: String,
     pub version: u32,
-    /// the toon whose scenes, story events and address book the show uses; required – a document without one opens
-    /// with the problem, so its toon can be picked
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub toon: String,
+    /// the toons whose scenes, story events and address books the show uses, the first its home (where it is listed, whose
+    /// source language labels it); at least one – a document without one opens with the problem, so a toon can be picked.
+    /// A document saved before #708 names one `toon`: read as the list of it
+    #[serde(default, alias = "toon", deserialize_with = "one_or_more", skip_serializing_if = "Vec::is_empty")]
+    pub toons: Vec<String>,
     pub outlets: Vec<Outlet>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub seats: Vec<Seat>,
@@ -37,7 +38,38 @@ pub struct Show {
     pub background: Option<deck_space::Background>,
 }
 
+/// `toons` as a list, or the one `toon` of an older document (empty: none)
+fn one_or_more<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Toons {
+        One(String),
+        More(Vec<String>),
+    }
+    Ok(match Toons::deserialize(d)? {
+        Toons::One(t) if t.trim().is_empty() => Vec::new(),
+        Toons::One(t) => vec![t],
+        Toons::More(list) => list,
+    })
+}
+
+/// The toons a show document as JSON names (`toons`, or the one `toon` of an older one), home first; none when it names none
+/// or is no object
+pub fn toons_of(doc: &serde_json::Value) -> Vec<String> {
+    #[derive(Deserialize)]
+    struct Named {
+        #[serde(default, alias = "toon", deserialize_with = "one_or_more")]
+        toons: Vec<String>,
+    }
+    Named::deserialize(doc).map(|n| n.toons).unwrap_or_default()
+}
+
 impl Show {
+    /// the home toon: the first (empty: none)
+    pub fn home(&self) -> &str {
+        self.toons.first().map_or("", String::as_str)
+    }
+
     pub fn question(&self, id: &str) -> Option<&Question> {
         self.questions.iter().find(|q| q.id == id)
     }
@@ -450,7 +482,7 @@ pub fn new_show(name: &str, toon: &str) -> Result<Show, String> {
     if id.is_empty() {
         return Err("a new show needs a name".into());
     }
-    let doc = serde_json::json!({ "id": id, "version": 1, "toon": toon.trim(), "outlets": [{ "id": "left" }], "rows": [] });
+    let doc = serde_json::json!({ "id": id, "version": 1, "toons": Some(toon.trim()).filter(|t| !t.is_empty()).into_iter().collect::<Vec<_>>(), "outlets": [{ "id": "left" }], "rows": [] });
     parse(&doc.to_string()).map_err(|e| e.to_string())
 }
 
@@ -470,12 +502,30 @@ mod tests {
     #[test]
     fn a_new_show_is_named_and_has_its_toon() {
         let s = super::new_show(" Top Toy: Opening ", "catpope").unwrap();
-        assert_eq!((s.id.as_str(), s.toon.as_str(), s.version, s.outlets.len(), s.rows.len()), ("top-toy-opening", "catpope", 1, 1, 0));
+        assert_eq!((s.id.as_str(), s.home(), s.version, s.outlets.len(), s.rows.len()), ("top-toy-opening", "catpope", 1, 1, 0));
         assert_eq!(super::new_show(" – ", "catpope").unwrap_err(), "a new show needs a name");
         assert_eq!(super::new_show("Opening", " ").unwrap_err(), "invalid show: show: it names no toon – pick the show's toon");
         let toons = ["catpope".to_string(), "feilchen".to_string()];
         assert_eq!(super::toons_found(&toons, "FEIL"), [&toons[1]]);
         assert_eq!(super::toons_found(&toons, "").len(), 2);
+    }
+
+    /// #708: a show names its toons, the first its home; a document saved with one `toon` reads as the list of it and is
+    /// written back as `toons`
+    #[test]
+    fn both_shapes_read_and_the_list_is_written() {
+        let old = super::parse(r#"{ "id": "x", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!((old.toons.as_slice(), old.home()), (&["catpope".to_string()][..], "catpope"));
+        let written = serde_json::to_value(&old).unwrap();
+        assert_eq!((&written["toons"], written.get("toon")), (&serde_json::json!(["catpope"]), None));
+        let new = super::parse(r#"{ "id": "x", "version": 1, "toons": ["catpope", "yellowmouse"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!((new.toons.len(), new.home()), (2, "catpope"));
+        assert_eq!(super::parse(&serde_json::to_string(&new).unwrap()).unwrap(), new, "round trip");
+        let none = super::open(r#"{ "id": "x", "version": 1, "toon": "", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!((none.toons.len(), none.home()), (0, ""));
+        assert!(super::open(r#"{ "id": "x", "version": 1, "toon": "a", "toons": ["b"], "outlets": [{ "id": "left" }], "rows": [] }"#).is_err(), "not both");
+        let twice = super::open(r#"{ "id": "x", "version": 1, "toons": ["catpope", "catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert!(crate::validate(&twice).iter().any(|p| p.to_string().contains("twice")));
     }
 
     #[test]

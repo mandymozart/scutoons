@@ -73,3 +73,25 @@ export interface AddressBook {
 	/** parents before their children; characters, locations, regions, items, seasons, chapters (each followed by its groups), products, toons (this one first), scenes (published, by id), variables */
 	entries: AddressEntry[];
 }
+
+/** One toon's part of several books (#708): the entries only that toon's book has, under its source language. */
+export interface AddressBookSection {
+	toon: string;
+	/** the toon's source language: the second step of the locale order for this section's entries */
+	source: string;
+	/** in the book's order, without the shared entries */
+	entries: AddressEntry[];
+}
+
+/** Several toons' books in one answer (#708, GET /api/addresses?toons=a,b: a show that mixes toons): one scan of the newest versions; what every one of these books holds alike (regions, toons, templates, variables, the shared items and products) once in `shared`, as the home toon's book writes it, then a section per toon in the asked order (the first is the home). */
+export interface AddressBooks {
+	/** the entries' format, the same as one book's */
+	address_book: 2;
+	/** as asked, the home first */
+	toons: string[];
+	/** one version over every version the books were built from (the response's ETag) */
+	version: string;
+	/** the entries every one of these books holds, under the home toon's source language */
+	shared: AddressEntry[];
+	books: AddressBookSection[];
+}

@@ -63,6 +63,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/decks/lan-cert` | a deck token | the venue certificate for `deck-tls` – see "The venue certificate" |
 | GET | `/decks/media?path=live/<toon>/<file>` | a deck token or a sign-in | a show medium as a short signed link (#470, #484) – see "Decks" |
 | GET | `/addresses/<toon>` | creator, admin, live; a deck token | the toon's address book (#477): the document of `server/schema/api/address-book.schema.json` itself, `ETag` = its `version`, `If-None-Match` → 304; `404 unknown_toon` (Domain\Addresses\AddressBook); a scene entry carries its `placeholders` (#504), a template (a scene with no toon, the core's `is_template`) is in every book |
+| GET | `/addresses?toons=<a>,<b>` | the same | several toons' books in one answer (#708, `AddressBooks` of the same schema): one scan, what every one holds alike (regions, toons, templates, variables, shared items and products) once in `shared` as the home writes it, a section per toon in the asked order (the first is the home), one `ETag` over all; `400 invalid_toons` (none, more than 8, a bad id) · `404 unknown_toon` |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -790,7 +791,7 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 `show:<id>` in entity_versions; `/api/entities` refuses `show:` keys (403, `role: live`) – creator and admin do not imply `live`.
 - `GET /api/shows` every show with its newest draft · `GET /api/shows/<id>[?draft=1]` published / newest, wrapped ·
   `GET /api/shows/<id>?v=<n>` the document at the version a seat pins (404 `unknown_version`) · `GET /api/shows/<id>/versions`
-- `GET /api/shows/published[?toon=<toon>]` → `{ shows: [{ key, content }] }`: the published shows, public like the published
+- `GET /api/shows/published[?toon=<toon>]` → `{ shows: [{ key, content }] }`: the published shows (with `?toon=` those whose home – the first of `toons`, #708 – it is), public like the published
   scenes (a deck's Play lists them and plays one on its own, #686); never a draft, no `live` role needed
 - `PUT /api/shows/<id> { content, base?, message? }` a new draft; `content.id` must be `<id>` (422); the server stamps
   `content.version` (1, then +1 on every change; an unchanged document keeps its number)
