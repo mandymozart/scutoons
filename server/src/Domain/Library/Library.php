@@ -289,7 +289,7 @@ final class Library
     }
 
     /**
-     * GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes }; `toon` = the
+     * GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[] }; `toon` = the
      * locale's settings with the language-neutral ones of the index entry merged in, `entry` = the index entry without them
      */
     public function toon(string $toon, ?string $locale, bool $draft): Answer
@@ -298,27 +298,15 @@ final class Library
         $locale ??= $ctx->source;
         return $this->answer("toon:$toon:$locale", $ctx->snapshot, function () use ($ctx, $locale): array {
             [$served, $toonDoc] = $this->visibleToon($ctx, $locale);
-            $toon = $ctx->toon;
             $seasons = [];
             foreach ($this->seasonNumbers($ctx) as $number) {
                 $overview = $this->seasonOverview($ctx, $number, $locale);
                 if ($overview !== null) $seasons[] = $overview;
             }
-            // the map: computed from the world map (entity `map`) in the old per-toon shape for older viewer builds; the
-            // old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents only while no world map is stored
-            $world = WorldMapDocs::fromSnapshot($ctx->snapshot);
-            if ($world instanceof stdClass) {
-                [$locations, $routes] = self::legacyMapLists($world, $toon, $locale);
-            } else {
-                $locations = $ctx->pick("locations:$toon", $locale)[1] ?? [];
-                $routes = $ctx->pick("routes:$toon", $locale)[1] ?? [];
-            }
             return [[
                 'entry' => $ctx->entry !== null ? self::indexEntry($ctx->entry) : null,
-                'toon' => self::withLegacyMap(self::withNeutralSettings($toonDoc, $ctx->entry), $world instanceof stdClass ? $world : null, $toon),
+                'toon' => self::withNeutralSettings($toonDoc, $ctx->entry),
                 'seasons' => $seasons,
-                'locations' => $locations,
-                'routes' => $routes,
             ], $served];
         }, $ctx);
     }
@@ -618,69 +606,6 @@ final class Library
         }
         if ($xs === [] || $ys === []) return ['x' => ($world->width ?? 0) / 2, 'y' => ($world->height ?? 0) / 2];
         return ['x' => (min($xs) + max($xs)) / 2, 'y' => (min($ys) + max($ys)) / 2];
-    }
-
-    /**
-     * The toon's places and routes in the shape of the old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents, for
-     * older viewer builds (one release, then dropped; @scutoons/content `legacyToonMap`): every place / route whose `toons`
-     * has the toon, hidden ones too (old viewers have no unlock state and always showed every place); a route lists its
-     * place waypoints (free points did not exist), unknown ids included, as before.
-     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
-     */
-    private static function legacyMapLists(stdClass $world, string $toon, string $locale): array
-    {
-        $has = fn(mixed $item) => $item instanceof stdClass && in_array($toon, is_array($item->toons ?? null) ? $item->toons : [], true);
-        $locations = [];
-        foreach (is_array($world->locations ?? null) ? $world->locations : [] as $place) {
-            if (!$has($place)) continue;
-            $location = [
-                'id' => $place->id ?? '',
-                'label' => self::mapName($place->name ?? null, $locale)[0],
-                'toonId' => $toon,
-                'type' => 'chapter',
-            ];
-            $location['image'] = ($place->image ?? null) instanceof stdClass && is_string($place->image->src ?? null) ? $place->image->src : '';
-            $location['coordinates'] = ['x' => $place->x ?? 0, 'y' => $place->y ?? 0];
-            $locations[] = $location;
-        }
-        $routes = [];
-        foreach (is_array($world->routes ?? null) ? $world->routes : [] as $route) {
-            if (!$has($route)) continue;
-            $ids = [];
-            foreach (is_array($route->waypoints ?? null) ? $route->waypoints : [] as $w) {
-                if ($w instanceof stdClass && is_string($w->location ?? null)) $ids[] = $w->location;
-            }
-            $routes[] = ['id' => $route->id ?? '', 'title' => self::mapName($route->name ?? null, $locale)[0], 'locations' => $ids];
-        }
-        return [$locations, $routes];
-    }
-
-    /**
-     * The old `toon.map` ({ layers: { terrain }, width, height, center }) for older viewer builds: the world's size and
-     * terrain (path relative to the toon's folder, as before) + the toon's start view; only when the toon has one (the
-     * entry's `map`). An entry stored before the world map (with `layers`) is passed through unchanged.
-     */
-    private static function withLegacyMap(stdClass $toonDoc, ?stdClass $world, string $toon): stdClass
-    {
-        $view = $toonDoc->map ?? null;
-        if ($world === null || !$view instanceof stdClass || property_exists($view, 'layers')) return $toonDoc;
-        $terrain = '';
-        foreach (is_array($world->layers ?? null) ? $world->layers : [] as $layer) {
-            if ($layer instanceof stdClass && is_string($layer->image ?? null) && ($terrain === '' || ($layer->id ?? null) === 'terrain')) {
-                $terrain = $layer->image;
-                if (($layer->id ?? null) === 'terrain') break;
-            }
-        }
-        if ($terrain !== '') $terrain = str_starts_with($terrain, "$toon/") ? substr($terrain, strlen($toon) + 1) : "../$terrain";
-        $center = $view->center ?? null;
-        $toonDoc = clone $toonDoc;
-        $toonDoc->map = [
-            'layers' => ['terrain' => $terrain],
-            'width' => $world->width ?? 0,
-            'height' => $world->height ?? 0,
-            'center' => $center instanceof stdClass && isset($center->x, $center->y) ? ['x' => $center->x, 'y' => $center->y] : self::centerOfPlaces($world, $toon),
-        ];
-        return $toonDoc;
     }
 
     // ── Composition ───────────────────────────────────────────────────────────────────────────────────────

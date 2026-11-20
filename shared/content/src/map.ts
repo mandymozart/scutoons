@@ -1,11 +1,8 @@
 // The SCUTOONS world map (agents/MAP.md): ONE map for the whole universe (entity `map`, platform-wide, language-neutral,
 // names as `{ de, en }` inside), the reader's map state (unlocked places, revealed routes, positions – world-wide game
-// state under the reserved id `scutoons`), the old per-toon answer shape for older viewer builds, the migration from
-// catpope's `locations.json` / `routes.json`, and the validation. Pure: no Svelte, no DOM.
+// state under the reserved id `scutoons`) and the validation. Pure: no Svelte, no DOM.
 import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
-import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
-import { toonAsset } from './paths.ts';
 import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type MediaQuality, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
@@ -1313,94 +1310,6 @@ export function routeDrawnTo(route: RouteLike, state: MapState, visible: (placeI
 		if (isPlaceWaypoint(w) && visible(w.location)) last = i;
 	});
 	return last;
-}
-
-// ── The old per-toon answer (older viewer builds: `ToonBundle.locations` / `.routes`, `toon.map`) ──────────────────────
-
-/**
- * The toon's places and routes in the shape of the old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents (one release,
- * then dropped). Every place and route of the toon, hidden ones too (old viewers showed every place; they have no unlock
- * state); a route lists its place waypoints only (free points did not exist), unknown ids included, as before. The server computes the same
- * (`Library::legacyMap`); this one is for tests and tools.
- */
-export function legacyToonMap(map: WorldMap, toon: string, locale: string): { locations: MapLocation[]; routes: MapRoute[] } {
-	const locations: MapLocation[] = (map.locations ?? [])
-		.filter((p) => p.toons?.includes(toon))
-		.map((p) => ({
-			id: p.id,
-			label: mapName(p.name, locale),
-			toonId: toon,
-			type: 'chapter',
-			image: p.image?.src ?? '',
-			coordinates: { x: p.x, y: p.y }
-		}));
-	const routes: MapRoute[] = (map.routes ?? [])
-		.filter((r) => r.toons?.includes(toon))
-		.map((r) => ({ id: r.id, title: mapName(r.name, locale), locations: (r.waypoints ?? []).filter(isPlaceWaypoint).map((w) => w.location) }));
-	return { locations, routes };
-}
-
-/** A CDN-root path relative to a toon's folder (the old `toon.map.layers.terrain` was toon-relative) */
-export function mapPathInToonFolder(path: string, toon: string): string {
-	return path.startsWith(`${toon}/`) ? path.slice(toon.length + 1) : `../${path}`;
-}
-
-/** The old `toon.map` (`{ layers: { terrain }, width, height, center }`) from the world map + the toon's start view */
-export function legacyToonMapSettings(map: WorldMap, toon: string, view: ToonMapView | null | undefined): LegacyToonMap {
-	const terrain = (map.layers ?? []).find((l) => l.id === 'terrain') ?? map.layers?.[0];
-	const center = view?.center ?? centerOf((map.locations ?? []).filter((p) => p.toons?.includes(toon))) ?? { x: map.width / 2, y: map.height / 2 };
-	return { layers: { terrain: terrain ? mapPathInToonFolder(terrain.image, toon) : '' }, width: map.width, height: map.height, center: { x: center.x, y: center.y } };
-}
-
-// ── Migration (agents/MAP.md §2.6) ─────────────────────────────────────────────────────────────────────────────────
-
-/** A route of the old `routes.json` (the en file spelled `titel`) */
-export interface LegacyRouteFile {
-	id: string;
-	title?: string;
-	titel?: string;
-	locations: string[];
-}
-
-/**
- * The world map from one toon's old map files: `toonMap` = its old `toon.map` (layers.terrain toon-relative, width, height,
- * center), `locations` / `routes` = the per-locale files (`{ de: [...], en: [...] }`). Every value survives: ids,
- * coordinates, labels → `name` per locale (verbatim), `toonId` → `toons`, route
- * `title ?? titel` → `name`, `locations` → place waypoints in order (unknown ids kept – the validation reports them).
- * Returns the world map and the toon's start view (`{ center }`).
- */
-export function migrateLegacyMap(input: {
-	toon: string;
-	toonMap: LegacyToonMap;
-	locations: Record<string, MapLocation[]>;
-	routes: Record<string, LegacyRouteFile[]>;
-	source: string;
-}): { map: WorldMap; view: ToonMapView } {
-	const { toon, toonMap, source } = input;
-	const locales = [source, ...Object.keys(input.locations).filter((l) => l !== source)];
-	const terrain = toonMap.layers?.terrain ?? '';
-	const image = toonAsset(toon, terrain);
-	const map: WorldMap = { width: toonMap.width, height: toonMap.height, layers: terrain ? [{ id: 'terrain', image }] : [], locations: [], routes: [] };
-	for (const loc of input.locations[source] ?? []) {
-		const name: LocaleText = {};
-		for (const l of locales) {
-			const label = (input.locations[l] ?? []).find((x) => x.id === loc.id)?.label;
-			if (typeof label === 'string') name[l] = label;
-		}
-		const place: MapPlace = { id: loc.id, name, x: loc.coordinates.x, y: loc.coordinates.y, toons: [loc.toonId || toon] };
-		if (loc.image) place.image = { src: loc.image };
-		map.locations.push(place);
-	}
-	for (const route of input.routes[source] ?? []) {
-		const name: LocaleText = {};
-		for (const l of [source, ...Object.keys(input.routes).filter((x) => x !== source)]) {
-			const r = (input.routes[l] ?? []).find((x) => x.id === route.id);
-			const title = r?.title ?? r?.titel;
-			if (typeof title === 'string') name[l] = title;
-		}
-		map.routes.push({ id: route.id, name, toons: [toon], waypoints: (route.locations ?? []).map((location) => ({ location })) });
-	}
-	return { map, view: { center: { x: toonMap.center.x, y: toonMap.center.y } } };
 }
 
 // ── Wanted images: every place without an image (agents/MAP.md §5, owner 2026-10-01) ─────────────────────────────────

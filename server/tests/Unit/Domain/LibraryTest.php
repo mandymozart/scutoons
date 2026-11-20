@@ -126,7 +126,6 @@ final class LibraryTest extends TestCase
             $this->doc('t', $l, 'chapter1.json', ['title' => "Eins $l", 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'status' => 'published',
                 'audio' => ['volume' => 1.0], 'groups' => [['label' => "scene $l", 'events' => [['type' => 'joinScene', 'params' => ['character' => 'plf']]], 'params' => new \stdClass()], ['label' => 'inline', 'slices' => []]]]);
             $this->doc('t', $l, 'chapter2.json', ['title' => "Zwei $l", 'number' => 2, 'groups' => []]);
-            $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
         }
         $this->doc('t', 'de', 'chapter3.json', ['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'groups' => [['label' => 'secret']]]);
     }
@@ -138,10 +137,8 @@ final class LibraryTest extends TestCase
         $data = self::decode($answer->body);
         self::assertSame('en', $answer->locale);
         self::assertTrue($answer->fallback, 'chapter 3 exists in de only');
-        self::assertSame(['entry', 'toon', 'seasons', 'locations', 'routes'], array_keys($data));
+        self::assertSame(['entry', 'toon', 'seasons'], array_keys($data), 'no old per-toon map lists');
         self::assertSame('T en', $data['toon']['title']);
-        self::assertSame([['id' => 'loc-en']], $data['locations']);
-        self::assertSame([], $data['routes'], 'missing lists are empty');
         $chapters = $data['seasons'][0]['chapters'];
         self::assertSame([1, 3], array_column($chapters, 'number'), 'the draft chapter is not listed, coming-soon is');
         self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'language' => 'en', 'status' => 'published'], $chapters[0],
@@ -291,14 +288,14 @@ final class LibraryTest extends TestCase
     /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
     public function testToonBundleMergesTheNeutralSettings(): void
     {
-        $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
+        $map = ['center' => ['x' => 1320, 'y' => 440], 'zoom' => 1.5];
         $this->seedToon(['authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
         // a stale per-language document (legacy) is not read once the entry has texts
         $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T old', 'status' => 'published', 'map' => ['width' => 0]]);
         foreach (['de', 'en'] as $l) {
             $data = self::decode($this->library()->toon('t', $l, false)->body);
             self::assertSame("T $l", $data['toon']['title']);
-            self::assertSame($map, $data['toon']['map'], "$l: the map of the index entry");
+            self::assertSame($map, $data['toon']['map'], "$l: the start view of the index entry");
             self::assertSame(['A'], $data['toon']['authors']);
             self::assertSame(5, $data['toon']['chapters']);
             self::assertSame('th.webp', $data['toon']['thumbnail']);
@@ -667,20 +664,6 @@ final class LibraryTest extends TestCase
         }
     }
 
-    /** Older viewer builds: the bundle's `locations` / `routes` / `toon.map` in the old shape, computed from the world map */
-    public function testToonBundleComputesTheOldMapFromTheWorld(): void
-    {
-        $this->seedWorldMap();
-        $data = self::decode($this->library()->toon('t', 'en', false)->body);
-        self::assertSame([
-            ['id' => 'home', 'label' => 'Home', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 90, 'y' => 40]],
-            ['id' => 'tower', 'label' => 'Turm', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 120, 'y' => 60]],
-        ], $data['locations'], 'the old documents (locations:t:*) are no longer read once the world map exists');
-        self::assertSame([['id' => 'way', 'title' => 'Way', 'locations' => ['home', 'tower', 'gone']]], $data['routes']);
-        self::assertSame(['layers' => ['terrain' => 'images/map/terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 100, 'y' => 50]], $data['toon']['map']);
-        self::assertArrayNotHasKey('map', $data['entry']);
-    }
-
     /**
      * The world map as documents (agents/MAP-DOCUMENTS.md): place:<id> / route:<id> on their own – a newer draft of one
      * place only in draft mode, a removed place (tombstone) is gone once published, a new place joins at the end
@@ -838,8 +821,8 @@ final class LibraryTest extends TestCase
         file_put_contents("$root/t/de/chapter1/scene-1.json", '{"params":{}}');
         $keys = array_column(ContentFiles::sources($root), 0);
         self::assertSame(['toon:b', 'toon:a', 'events', 'chapter:t:2', 'season:t:2', 'chapter:t:1:de',
-            'locations:t:de', 'routes:t:de', 'season:t:1:de', 'toon-settings:t:de'], $keys,
-            'toons.json split in order, events, the map; legacy characters/credits.json, the removed collectables and scene files (chapter<N>/<name>.json, gone 2026-10-19) are not store files');
+            'season:t:1:de', 'toon-settings:t:de'], $keys,
+            'toons.json split in order, events; legacy characters/credits.json, the old map lists, the removed collectables and scene files (chapter<N>/<name>.json, gone 2026-10-19) are not store files');
 
         $tester = new \Symfony\Component\Console\Tester\CommandTester($this->get(ImportContentCommand::class));
         self::assertSame(0, $tester->execute(['root' => $root]));

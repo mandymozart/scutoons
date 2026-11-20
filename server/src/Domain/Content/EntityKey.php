@@ -15,7 +15,6 @@ use Scutoons\Domain\ApiError;
  *                                        one language-neutral document each, texts as locale maps (NeutralDoc, agents/NEUTRAL.md)
  *   season:<toon>:<n>:<l>  chapter:<toon>:<n>:<l>
  *                                        the legacy per-locale documents: read while the entity has no neutral document
- *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   season-script:<toon>:<n>:<l>  chapter-script:<toon>:<n>:<l>
  *                                        a season's / a chapter's screenplay per locale (creator material, CREATOR_ONLY_KINDS;
@@ -34,7 +33,7 @@ use Scutoons\Domain\ApiError;
  *   scene:<id>                                                     one deck scene (#243, research/SCENES.md §3; through /api/scenes, the
  *                                                                  content editors; `scene:` = the deck scene only, never a chapter group – SCENES §8.2)
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
- *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
+ *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs)
  *
  *   item:<id>  recipe:<id>  album:<id>  product:<id>  edition:<id>
  *                                        a catalog entry as its own versioned document (agents/CATALOG-IN-CREATOR.md):
@@ -56,8 +55,6 @@ final class EntityKey
         'toon-settings' => [true, false, true],
         'season' => [true, true, true],
         'chapter' => [true, true, true],
-        'locations' => [true, false, true],
-        'routes' => [true, false, true],
         'cast' => [true, false, false],
         'credits' => [true, false, false],
         'season-script' => [true, true, true],

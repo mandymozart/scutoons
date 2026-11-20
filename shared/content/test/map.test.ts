@@ -1,5 +1,4 @@
-// Unit tests of the world map (agents/MAP.md): migration (every value survives), the old answer, the state merge, the
-// progress-based unlocks, labels, validation.   npm test -w @scutoons/content
+// Unit tests of the world map (agents/MAP.md): the state merge, the progress-based unlocks, labels, validation.   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,7 +15,6 @@ import {
 	placeImagePath,
 	markPlacesSeen,
 	mergeMapState,
-	migrateLegacyMap,
 	resolveWorldMap,
 	revealRoute,
 	routeDrawnTo,
@@ -25,7 +23,6 @@ import {
 	placeView,
 	PLACE_ZOOM,
 	visibleLabels,
-	type MapLocation,
 	type MapState,
 	type WorldMap
 } from '../src/index.ts';
@@ -33,19 +30,14 @@ import {
 const seed = new URL('../../../server/tests/fixtures/content/', import.meta.url);
 const json = (path: string) => JSON.parse(readFileSync(new URL(path, seed), 'utf8'));
 
-test('migrateLegacyMap: names per locale, the en `titel` typo, unknown route places kept', () => {
-	const loc = (id: string, label: string) => ({ id, label, toonId: 't', type: 'chapter', chapterNumber: '2', image: '', coordinates: { x: 1, y: 2 } });
-	const { map, view } = migrateLegacyMap({
-		toon: 't',
-		toonMap: { layers: { terrain: 'images/map.svg' }, width: 10, height: 20, center: { x: 3, y: 4 } },
-		source: 'de',
-		locations: { de: [loc('a', 'Ah')], en: [loc('a', 'Ay')] },
-		routes: { de: [{ id: 'r', title: 'Weg', locations: ['a', 'gone'] }], en: [{ id: 'r', titel: 'Way', locations: ['a', 'gone'] }] }
-	});
-	assert.deepEqual(map.layers, [{ id: 'terrain', image: 't/images/map.svg' }]);
-	assert.deepEqual(map.locations, [{ id: 'a', name: { de: 'Ah', en: 'Ay' }, x: 1, y: 2, toons: ['t'] }]);
-	assert.deepEqual(map.routes, [{ id: 'r', name: { de: 'Weg', en: 'Way' }, toons: ['t'], waypoints: [{ location: 'a' }, { location: 'gone' }] }]);
-	assert.deepEqual(view, { center: { x: 3, y: 4 } });
+test('checkWorldMap: a route waypoint naming an unknown place is reported', () => {
+	const map: WorldMap = {
+		width: 10,
+		height: 20,
+		layers: [{ id: 'terrain', image: 't/images/map.svg' }],
+		locations: [{ id: 'a', name: { de: 'Ah', en: 'Ay' }, x: 1, y: 2, toons: ['t'] }],
+		routes: [{ id: 'r', name: { de: 'Weg', en: 'Way' }, toons: ['t'], waypoints: [{ location: 'a' }, { location: 'gone' }] }]
+	};
 	assert.deepEqual(
 		checkWorldMap(map).map((p) => `${p.level} ${p.path.join('.')}`),
 		['error routes.0.waypoints.1'],
