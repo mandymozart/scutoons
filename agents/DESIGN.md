@@ -112,7 +112,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   never with the absolute #N next to it: the chapter page's tab title ("<toon> · <label>: <title>"), the coming-soon
   heading, the end actions in the box, the start button's "S2 K1", the list's "#1". The toon page's list is grouped
   by season, each under its heading `#season-S` (one season: as before). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
-  and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
+  and simple; the data went too, 2026-11-21, #709).
 - **Coming-soon page** (owner 2026-10-05): with a key visual the page is a fullscreen teaser (`chapter-teaser.svelte`):
   the key visual video fills the window and starts **with sound, once** – no loop; at the end "Nochmal ansehen" in the
   centre (reduced motion: "Abspielen" before it starts) (owner 2026-10-08); a tap anywhere on the playing video toggles

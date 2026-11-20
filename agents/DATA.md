@@ -64,8 +64,8 @@ Segments are `:`-separated; numbers are digits without leading zeros – seasons
 from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`; `EntityKey::CHAPTER_NUMBER_PATTERN`, `parseEntityKey`); the locale is the last segment of localized kinds; an *entity* is a key without its
 locale (`chapter:catpope:2`), which is what the creator edits across languages. `kind`, `toon`, `locale` are stored as
 columns for filtering (NULL = platform-wide / language-neutral). A chapter holds its groups ("scenes") inline – no
-scene documents, no `ref` groups since 2026-10-19 (research/TEXT-ACROSS-SLICES.md §5 step 3). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
-endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
+scene documents, no `ref` groups since 2026-10-19 (research/TEXT-ACROSS-SLICES.md §5 step 3). The chapter's `featuring` went 2026-11-21 (#709, ITEMS.md "Cast & featuring"); the `/cast` answer always has the toon's
+star in every season, `/cast?chapter=N` the characters the chapter's scenes use.
 
 **Language-neutral chapters, scenes, seasons (2026-10-06, agents/archive/NEUTRAL.md):** one document per entity, stored under
 the entity itself (`chapter:catpope:2`, `EntityKey::NEUTRAL_DOC_KINDS` / `NEUTRAL_DOC_KINDS`, `isNeutralDocKey`;
