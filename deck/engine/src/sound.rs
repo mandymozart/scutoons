@@ -2,11 +2,12 @@
 //! thread asks Play / Stop / PANIC, the engine plays the clip on top of what goes out, under the master gain – on the
 //! cue while a show is live (scaled by the cue mix, as a preview is), else on main.
 use super::{DeckConfig, QUANTUM};
+use deck_core::asset_edit::Playback;
 use deck_core::sound_preview::{self, Clip, Voice};
 use std::sync::Arc;
 
 enum Ask {
-    Play { clip: Arc<Clip>, from: f64, span: (f64, f64), live: bool },
+    Play { clip: Arc<Clip>, from: f64, edit: Playback, live: bool },
     Stop,
     Panic,
 }
@@ -23,10 +24,10 @@ impl Sounds {
         self.asks.push(a).is_ok()
     }
 
-    /// `clip` from `from` s on, looped inside `span` (s); `live`: a show is live, it goes to the cue. False: the ring is
-    /// full (the audio thread is not running).
-    pub fn play(&mut self, clip: Arc<Clip>, from: f64, span: (f64, f64), live: bool) -> bool {
-        self.ask(Ask::Play { clip, from, span, live })
+    /// `clip` from `from` s on, looped inside the playback's span at its speed, gain and fades; `live`: a show is live, it
+    /// goes to the cue. False: the ring is full (the audio thread is not running).
+    pub fn play(&mut self, clip: Arc<Clip>, from: f64, edit: Playback, live: bool) -> bool {
+        self.ask(Ask::Play { clip, from, edit, live })
     }
 
     /// it fades out and ends
@@ -69,9 +70,9 @@ impl Side {
     pub(crate) fn quantum(&mut self, dev: &mut super::Buf, n: usize, master: f32, mix: f32) {
         while let Ok(a) = self.asks.pop() {
             let old = match a {
-                Ask::Play { clip, from, span, live } => {
+                Ask::Play { clip, from, edit, live } => {
                     self.live = live;
-                    self.voice.play(clip, from, span)
+                    self.voice.play(clip, from, edit)
                 }
                 Ask::Stop => {
                     self.voice.stop();
@@ -136,7 +137,7 @@ mod tests {
         let mut s = h.sound.take().unwrap();
         assert_eq!(peaks(&mut e), [0.0; 4], "silent until Play");
         // the span is the second half only: every sample played is −0.5
-        assert!(s.play(clip(), 0.6, (0.5, 1.0), false));
+        assert!(s.play(clip(), 0.6, Playback { start: 0.5, end: 1.0, ..Playback::whole(1.0) }, false));
         let ch = e.device_channels();
         let mut buf = vec![0.0f32; 48_000 * ch];
         e.render(&mut buf, ch, |x| x);
@@ -146,7 +147,7 @@ mod tests {
         assert!(s.stop());
         peaks(&mut e);
         assert_eq!(peaks(&mut e), [0.0; 4], "Stop: it fades and ends");
-        assert!(s.play(clip(), 0.0, (0.0, 1.0), false));
+        assert!(s.play(clip(), 0.0, Playback { start: 0.0, end: 1.0, ..Playback::whole(1.0) }, false));
         assert!(peaks(&mut e)[0] > 0.4);
         assert!(s.panic());
         assert_eq!(peaks(&mut e), [0.0; 4], "PANIC: silent from the next quantum");
@@ -157,14 +158,14 @@ mod tests {
     fn while_live_it_goes_to_the_cue() {
         let (mut e, mut h) = engine(rack());
         let mut s = h.sound.take().unwrap();
-        s.play(clip(), 0.0, (0.0, 1.0), true);
+        s.play(clip(), 0.0, Playback { start: 0.0, end: 1.0, ..Playback::whole(1.0) }, true);
         let p = peaks(&mut e);
         assert!(p[0] == 0.0 && p[1] == 0.0 && p[2] > 0.4 && p[3] > 0.4, "{p:?}");
         h.cue.as_ref().unwrap().set_mix(0.0);
         peaks(&mut e);
         assert_eq!(peaks(&mut e), [0.0; 4], "the cue mix at the show: the preview is out of it");
         let (mut e, mut h) = engine(DeckConfig::device(2));
-        h.sound.take().unwrap().play(clip(), 0.0, (0.0, 1.0), true);
+        h.sound.take().unwrap().play(clip(), 0.0, Playback { start: 0.0, end: 1.0, ..Playback::whole(1.0) }, true);
         assert_eq!(peaks(&mut e), [0.0; 2], "no cue of its own: nowhere");
     }
 }

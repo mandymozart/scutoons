@@ -169,6 +169,19 @@ struct VideoNode {
     /// the use's in and out points on its file, s (`start`, `end`; 0 = none): the file stays whole
     #[cfg(feature = "media")]
     trim: (f32, f32),
+    /// its asset's edits and the time map offset of the file played (the host sets them: `set_video_edits`)
+    #[cfg(feature = "media")]
+    edits: (deck_core::asset_edit::Edits, f64),
+}
+
+#[cfg(feature = "media")]
+impl VideoNode {
+    /// what the use plays of its file: the asset's edits, the use's trim on top, through the file's time map
+    fn playback(&self, length: f64) -> deck_core::asset_edit::Playback {
+        let (edits, offset) = self.edits;
+        let used = deck_core::trim::Trim::new(f64::from(self.trim.0), f64::from(self.trim.1));
+        edits.playback(used, length + offset, offset)
+    }
 }
 
 /// the outlet node's planes (#186, live/): the composer's channel, the current and previous plane, their crossfade
@@ -338,6 +351,8 @@ impl Stage {
                         heard: None,
                         #[cfg(feature = "media")]
                         trim: (node.f32("start", 0.0), node.f32("end", 0.0)),
+                        #[cfg(feature = "media")]
+                        edits: (deck_core::asset_edit::Edits::NONE, 0.0),
                     });
                     builtin("video").unwrap().to_string()
                 }
@@ -429,9 +444,24 @@ impl Stage {
     pub fn set_video(&mut self, node: usize, mut movie: crate::video::Movie) {
         if let Some(v) = self.videos.iter_mut().find(|v| v.node == node) {
             v.aspect = movie.aspect();
-            movie.set_trim(deck_media::Trim::new(f64::from(v.trim.0), f64::from(v.trim.1)));
+            movie.set_playback(v.playback(movie.length()));
             v.movie = Some(movie);
             (v.clock, v.heard) = (0.0, None);
+        }
+    }
+
+    /// video node `node`'s asset edits and the time map offset of the file its host opened (s of the source at the
+    /// file's 0); they apply while it plays, the use's trim on top
+    #[cfg(feature = "media")]
+    pub fn set_video_edits(&mut self, node: usize, edits: deck_core::asset_edit::Edits, offset: f64) {
+        if let Some(v) = self.videos.iter_mut().find(|v| v.node == node) {
+            v.edits = (edits, offset);
+            if let Some(length) = v.movie.as_ref().map(|m| m.length()) {
+                let play = v.playback(length);
+                if let Some(m) = v.movie.as_mut() {
+                    m.set_playback(play);
+                }
+            }
         }
     }
 
@@ -662,12 +692,15 @@ impl Stage {
             Kind::Video => {
                 let Some(v) = self.videos.iter().find(|v| v.node == p.node) else { return };
                 let (w, h) = self.render_size();
+                // the asset's fades darken it (p0.y multiplies the picture), its crop is the part the cover fit takes
                 #[cfg(feature = "media")]
-                let shown = v.tex.is_some();
+                let (shown, play) = (v.tex.is_some(), v.movie.as_ref().map(|m| m.playback()));
+                #[cfg(feature = "media")]
+                let (level, crop) = play.map_or((1.0, deck_core::asset_edit::Crop::NONE), |p| (p.level(v.clock), p.crop));
                 #[cfg(not(feature = "media"))]
-                let shown = false;
-                out[1] = if shown { 1.0 } else { 0.0 };
-                out[4..8].copy_from_slice(&deck_core::fit::cover((v.aspect, 1.0), (w as f32, h as f32)));
+                let (shown, level, crop) = (false, 1.0, deck_core::asset_edit::Crop::NONE);
+                out[1] = if shown { level } else { 0.0 };
+                out[4..8].copy_from_slice(&crop.within(deck_core::fit::cover((crop.aspect(v.aspect), 1.0), (w as f32, h as f32))));
             }
             Kind::Overlay => {
                 let top = p.inputs[1];

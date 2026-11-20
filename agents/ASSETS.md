@@ -36,9 +36,9 @@ way we could even migrate in the future or run various systems behind it. Long-t
 
 | Table | What | Key columns |
 |---|---|---|
-| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `status` active / deleted, created/updated/by |
+| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
 | `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, created/by |
-| `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `origin` imported / uploaded / generated |
+| `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_shapes` | the vector library (migration `2026-10-17-asset-shapes`) | `asset_id` (1:1), `tile` x / y / null, `mask`, `colors` (JSON, measured), `source` / `derived` (JSON, provenance) – an asset with a row is a shape: `GET /api/assets?kind=shape`, each row + `shape: { tile, mask, colors }` (research/VECTORS.md §5a) |
 | `asset_jobs` | optimization jobs | `kind` video-renditions / image-webp / poster, `status` queued / running / done / failed, `params`, `log` |
@@ -88,6 +88,18 @@ Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice i
 3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
 slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (owner 2026-10-07: keep `../` –
 the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, from the CDN root).
+
+## Edits (#651, migration `2026-11-20-asset-edits`)
+
+An asset's edit list – trim, crop, fade in / out, speed, loudness (owner 2026-11-19 [media]: nothing more for now) – is the
+asset's, in the source's time, applied while playing: no derivative is baked. `assets.edits` holds what the deck's core
+wrote (`{ start?, end?, crop?: { left, top, right, bottom }, fade_in?, fade_out?, speed?, gain_db? }`, deck-space
+`asset_edits.rs`); the core cleans the numbers when it reads them (deck-core `asset_edit`), the server only checks the shape
+(`PUT /api/assets/{id}` `edits`, null = none; `times: { path: { offset, fps } }` stores measured time maps). A use's trim
+(a scene `video` node's `start` / `end`) cuts inside the asset's span. Each rendition's time map (`time_offset`: the source's
+second at the file's 0, `frame_rate`) is measured by pictures (deck-media `timemap::measure`); a file without one plays as
+offset 0 with a warning. The player is frame-exact: a lap decodes from the key frame before the in point and drops to it, the
+next lap is decoded ahead across the out point (deck-media `Player::set_span`). Edited in the editor's Asset tab.
 
 ## Operations (`AssetService`, API + CLI)
 
