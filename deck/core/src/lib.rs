@@ -28,6 +28,7 @@ pub mod math;
 pub mod meters;
 pub mod monitor;
 pub mod smooth;
+pub mod solo;
 pub mod sound_preview;
 pub mod stage;
 pub mod trim;
