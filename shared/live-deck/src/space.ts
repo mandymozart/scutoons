@@ -193,8 +193,8 @@ export interface SpaceModule {
 	rig_catalog_bundle(request: string): string;
 	rig_face(bundle: string): string; rig_policy_template(request: string): string;
 	rig_module_instrument(request: string): string;
-	/** asks the browser which codecs it decodes and offers those decoders to the deck's playback; once per page */
-	video_install(prefer: 'prefer-hardware' | 'prefer-software'): Promise<string[]>;
+	/** asks the browser which codecs it decodes (hardware, software) and offers those decoders to the deck's playback; once per page */
+	video_install(): Promise<string[]>;
 }
 
 /** a scene's video nodes: the files its core asks for (node, media path, …) and the answers */
@@ -225,7 +225,7 @@ export function spaceModule(base: string): Promise<SpaceModule> {
 		m = (async () => {
 			const mod = (await import(/* @vite-ignore */ `${base}space_web.js`)) as SpaceModule;
 			await mod.default({ module_or_path: `${base}space_web_bg.wasm` });
-			await mod.video_install('prefer-hardware');
+			await mod.video_install();
 			return mod;
 		})();
 		modules.set(base, m);
