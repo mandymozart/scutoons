@@ -351,7 +351,7 @@ fn a_deck_takes_a_role_and_no_role_at_runtime() {
     let mut cond = Conductor::join(port, "T478");
     cond.wait("welcome", |m| matches!(m, Message::Welcome(_)).then_some(()));
     let role = |id: &str| ShowRole { id: id.into(), label: Some(id.to_uppercase()), r#for: None, here: None };
-    cond.send(Message::Roles(Roles { roles: vec![role("left"), role("tenor")] }));
+    cond.send(Message::Roles(Roles { roles: vec![role("left"), role("tenor")], conductor: None }));
     cond.send(Message::Cell(CellChange { outlet: "tenor".into(), cell: sermon_cell() }));
 
     let live = deck.start("T478", "offline://api");

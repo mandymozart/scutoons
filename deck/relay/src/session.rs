@@ -79,6 +79,8 @@ pub struct Client {
     pub locked: bool,
     /// #478: the roles it was last told it may take (a change is told again)
     offered: Option<Vec<ShowRole>>,
+    /// whether a conductor is in, as it was last told (a deck only; a change is told again)
+    told_conductor: Option<bool>,
     /// the cameras it was last told (a change is told again)
     told_cameras: Option<Vec<protocol::LiveCamera>>,
 }
@@ -92,7 +94,7 @@ impl Client {
             _ => Bucket { tokens: VALUES_BURST, at: now, rate: VALUES_RATE, burst: VALUES_BURST },
         };
         let came = group.clone();
-        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, facts: Facts::default(), locked: false, offered: None, told_cameras: None }
+        Client { role, group, nick, ready: false, outbox, key: String::new(), up: false, bucket, values, pose_t: None, device: None, came, facts: Facts::default(), locked: false, offered: None, told_conductor: None, told_cameras: None }
     }
 }
 
@@ -396,19 +398,25 @@ impl Session {
         &self.roles
     }
 
-    /// #478: every client the roles it may take, with how many are in each – only when that changed for it
+    /// #478: every client the roles it may take, with how many are in each – only when that changed for it; a deck
+    /// also whether a conductor is in, when that changed for it (a rejoining deck whose conductor is gone waits)
     pub fn tell_roles(&mut self) {
+        let here = self.clients.values().any(|c| matches!(c.role, Role::Conductor | Role::Uplink));
         let mut tell = vec![];
         for (id, c) in &self.clients {
-            if let Some(offer) = roles::offer(self, c).filter(|o| c.offered.as_ref() != Some(o) && !(c.offered.is_none() && o.is_empty())) {
-                tell.push((id.clone(), offer));
+            let Some(offer) = roles::offer(self, c) else { continue };
+            let conductor = roles::is_deck(c.role).then_some(here);
+            let new_offer = c.offered.as_ref() != Some(&offer) && !(c.offered.is_none() && offer.is_empty());
+            if new_offer || (conductor.is_some() && c.told_conductor != conductor) {
+                tell.push((id.clone(), offer, conductor));
             }
         }
-        for (id, offer) in tell {
+        for (id, offer, conductor) in tell {
             if let Some(c) = self.clients.get_mut(&id) {
                 c.offered = Some(offer.clone());
+                c.told_conductor = conductor;
             }
-            self.send_to(&id, Message::Roles(Roles { roles: offer }));
+            self.send_to(&id, Message::Roles(Roles { roles: offer, conductor }));
         }
     }
 
@@ -1521,6 +1529,25 @@ mod tests {
         r
     }
 
+    /// a deck is told whether a conductor is in – when it joins, when the conductor leaves and comes back; the phones are not
+    #[test]
+    fn decks_hear_whether_a_conductor_is_in() {
+        let told = |r: &mut Room, id: &str| r.inbox(id).into_iter().filter_map(|e| if let Message::Roles(x) = e.message { Some(x.conductor) } else { None }).collect::<Vec<_>>();
+        let mut r = room();
+        r.s.tell_roles();
+        assert_eq!(told(&mut r, "outL"), [Some(true)]);
+        assert_eq!(told(&mut r, "outR"), [Some(true)]);
+        assert_eq!(told(&mut r, "a1"), Vec::<Option<bool>>::new(), "a phone hears nothing of it");
+        assert_eq!(told(&mut r, "cond"), Vec::<Option<bool>>::new());
+        r.s.tell_roles();
+        assert_eq!(told(&mut r, "outL"), Vec::<Option<bool>>::new(), "only a change is told");
+        r.s.leave("cond", 5);
+        assert_eq!(told(&mut r, "outR"), [Some(false)], "the conductor is gone");
+        r.add("cond2", Role::Conductor, None);
+        r.s.tell_roles();
+        assert_eq!(told(&mut r, "outR"), [Some(true)], "a conductor is back");
+    }
+
     /// the cameras each client was last told, by client id
     fn cams(r: &mut Room, id: &str) -> Vec<Vec<protocol::LiveCamera>> {
         r.inbox(id).into_iter().filter_map(|e| if let Message::Cameras(c) = e.message { Some(c.cameras) } else { None }).collect()
@@ -2516,7 +2543,7 @@ mod tests {
         let phones = Admits { device: Some(vec!["phone".into()]), ..Default::default() };
         let members = Admits { account: Some(vec![Account::Member]), approved: Some(true), ..Default::default() };
         let roles = vec![role("tenor", None), role("click", Some(phones)), role("baritone", Some(members))];
-        r.send("cond", Message::Roles(Roles { roles }), 0);
+        r.send("cond", Message::Roles(Roles { roles, conductor: None }), 0);
         fn offered(r: &mut Room, id: &str) -> Vec<(String, i64)> {
             let mut told = r.inbox(id).into_iter().filter_map(|e| match e.message {
                 Message::Roles(x) => Some(x.roles.into_iter().map(|o| (o.id, o.here.map_or(-1, |h| h as i64))).collect::<Vec<_>>()),
@@ -2573,7 +2600,7 @@ mod tests {
         r.add("tenor2", Role::Output, Some("tenor"));
         assert_eq!((r.s.clients["late"].group.as_deref(), r.s.clients["tenor2"].group.as_deref()), (None, Some("tenor")));
         // only the conductor says the roles
-        r.send("deck", Message::Roles(Roles { roles: vec![] }), 9);
+        r.send("deck", Message::Roles(Roles { roles: vec![], conductor: None }), 9);
         assert_eq!(codes(&mut r, "deck"), ["authority"]);
         assert_eq!(r.s.roles().len(), 3);
     }

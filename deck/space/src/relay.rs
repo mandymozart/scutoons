@@ -522,6 +522,8 @@ pub struct Client {
     /// #478: the roles the relay says this client may take (with how many are in each), and whether the conductor locked it
     roles: Vec<ShowRole>,
     locked: bool,
+    /// whether a conductor is in the session, as the relay last said (None: not said yet)
+    conductor: Option<bool>,
     /// #478: the first dial waits for the proof's answer (`wait_proof`): until this ms (None: it does not wait); the answer
     /// came (`proof_answered`)
     proof_hold: Option<f64>,
@@ -585,6 +587,7 @@ impl Client {
             hands: Default::default(),
             roles: Vec::new(),
             locked: false,
+            conductor: None,
             proof_hold: None,
             proof_heard: false,
             seat,
@@ -674,6 +677,7 @@ impl Client {
             role: self.o.group.clone(),
             name: self.o.nick.clone().unwrap_or_default(),
             locked: self.locked,
+            conductor: self.conductor,
         }
     }
 
@@ -1568,7 +1572,10 @@ impl Client {
             }
             Message::HandView(v) => self.out.push(Out::HandView(v)),
             // #478: the roles it may take; a move (the conductor's or its own) is its group – a rejoin says it – and the lock
-            Message::Roles(r) => self.roles = r.roles,
+            Message::Roles(r) => {
+                self.roles = r.roles;
+                self.conductor = r.conductor.or(self.conductor);
+            }
             Message::Assign(a) if a.client == self.client => {
                 self.o.group = (!a.group.is_empty()).then_some(a.group);
                 self.locked = a.lock == Some(true);
@@ -2275,6 +2282,22 @@ mod tests {
         assert_eq!(hello["p"]["proof"], "p.s");
         c.tick(1_900_000.0);
         assert!(c.take().iter().any(|o| matches!(o, Out::AskProof { .. })), "asked again at half its life");
+    }
+
+    /// a deck's Live session says whether its conductor is in, as the relay last told it (roles without the word keep it)
+    #[test]
+    fn a_deck_knows_whether_its_conductor_is_in() {
+        let mut deck = Client::new(Options::new(RELAY, Role::Output, Some("left"))).unwrap();
+        deck.start(0.0);
+        deck.opened(1.0);
+        deck.text(2.0, &stamped(welcome("c2", json!({}))).to_string());
+        assert_eq!(deck.live().conductor, None, "not told yet");
+        deck.text(3.0, &stamped(json!({ "kind": "roles", "p": { "roles": [], "conductor": true } })).to_string());
+        assert_eq!(deck.live().conductor, Some(true));
+        deck.text(4.0, &stamped(json!({ "kind": "roles", "p": { "roles": [{ "id": "left" }] } })).to_string());
+        assert_eq!(deck.live().conductor, Some(true), "a roles word without it keeps it");
+        deck.text(5.0, &stamped(json!({ "kind": "roles", "p": { "roles": [], "conductor": false } })).to_string());
+        assert_eq!(deck.live().conductor, Some(false), "the conductor is gone");
     }
 
     /// a deck hears a camera's holder from the relay's list and that phone's stream as the camera's (`In::Held`); another

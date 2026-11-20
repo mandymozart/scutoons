@@ -64,6 +64,14 @@ with a white fill – `assets/SCUTOONS-logo-white.svg`, rendered with resvg) at 
 the top. The window's first frame is the splash (before the scene's shaders compile); it fades once every chapter
 node shows a slice and every music track is loaded (or failed), at the latest after 30 s.
 
+**The start** (#642, the rules in deck-ui `start.rs`): a deck with no session and no named scene starts on the start menu
+over the idle scene – PLAY (the sandbox toon's published scenes as demos, then the other published scenes: the API's
+`GET /scenes` once on a thread, plus the copies the deck keeps), JOIN A SHOW (the Live page, F6), SETTINGS, OPEN CREATOR,
+QUIT. A conductor's push or cell, or the relay's clock while the deck follows it, drives the deck and the start menu
+gives way; a MIDI clock in does not. A deck with relay + outlet rejoins its session at the start; when the relay says no
+conductor is in (`roles.conductor`), it shows "waiting for <session>" with LEAVE (the idle scene, out of the session,
+the start menu). F4 / F5 / F6 stay. A check run (`--frames`) skips the start unless `DECK_START=1`.
+
 **Pairing** (#180, CYBERDECKS.md §9): while deck-link's daemon says the deck waits for a member
 (`/run/deck-link/state` = `pending <code>`, read every 2 s – `DECK_LINK_DIR` elsewhere), a card in the lower right
 corner – over the splash and the scene – shows the code (`K7Q-42M`) and the QR of

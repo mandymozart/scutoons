@@ -193,6 +193,15 @@ impl Tempo {
         ctl.frame(m, &mut host)
     }
 
+    /// the clock's source now and whether this deck leads (the start's `Heard`)
+    pub fn source(&self) -> Source {
+        self.ctl.source
+    }
+
+    pub fn leading(&self) -> bool {
+        self.ctl.leading()
+    }
+
     /// the source's state for the HUD ("" = fine)
     pub fn status(&self) -> String {
         if let Some(e) = &self.io.error {

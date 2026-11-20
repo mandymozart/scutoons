@@ -20,7 +20,8 @@ async fn start() -> u16 {
     port
 }
 
-/// The next message that is not `presence` (the relay tells the conductor about every join / leave / ready).
+/// The next message that is not `presence` (the relay tells the conductor about every join / leave / ready) or `roles`
+/// (a deck hears whether a conductor is in).
 async fn recv(ws: &mut Socket) -> Envelope {
     loop {
         let frame = tokio::time::timeout(Duration::from_secs(3), ws.next()).await.expect("a message").unwrap().unwrap();
@@ -29,13 +30,13 @@ async fn recv(ws: &mut Socket) -> Envelope {
         }
         let Ws::Text(text) = frame else { panic!("text expected, got {frame:?}") };
         let e: Envelope = serde_json::from_str(&text).unwrap();
-        if !matches!(e.message, Message::Presence(_)) {
+        if !matches!(e.message, Message::Presence(_) | Message::Roles(_)) {
             return e;
         }
     }
 }
 
-/// No message other than `presence` within 300 ms.
+/// No message other than `presence` or `roles` within 300 ms.
 async fn nothing(ws: &mut Socket) {
     let deadline = tokio::time::Instant::now() + Duration::from_millis(300);
     while let Ok(frame) = tokio::time::timeout_at(deadline, ws.next()).await {
@@ -44,7 +45,7 @@ async fn nothing(ws: &mut Socket) {
         }
         let Some(Ok(Ws::Text(text))) = frame else { return };
         let e: Envelope = serde_json::from_str(&text).unwrap();
-        assert!(matches!(e.message, Message::Presence(_)), "no message expected, got {e:?}");
+        assert!(matches!(e.message, Message::Presence(_) | Message::Roles(_)), "no message expected, got {e:?}");
     }
 }
 

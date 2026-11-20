@@ -660,7 +660,10 @@
     "Roles": {
       "description": "#478: conductor → relay: the roles of its show (the relay keeps them for the session); relay → client: the roles it may take, with how many are in each – when it joins and whenever that changes (the conductor gets every one).",
       "type": "object",
-      "properties": { "roles": { "type": "array", "items": { "$ref": "#/definitions/ShowRole" } } },
+      "properties": {
+        "roles": { "type": "array", "items": { "$ref": "#/definitions/ShowRole" } },
+        "conductor": { "type": "boolean", "description": "relay → a deck or phone: whether a conductor is in the session now (a rejoining deck whose conductor is gone waits); missing from a conductor" }
+      },
       "required": ["roles"],
       "additionalProperties": false
     },

@@ -113,6 +113,32 @@ pub fn listed(cached: &str) -> Option<(SceneRef, String)> {
     Some((SceneRef { id: k.scene, version: Some(k.version) }, name))
 }
 
+/// a host's cache file as Play lists it (deck-ui start.rs): the kept version, the stage's name, the toons.
+pub fn kept(cached: &str) -> Option<deck_ui::start::Listed> {
+    let k = serde_json::from_str::<Kept>(cached).ok().filter(|k| safe_id(&k.scene))?;
+    let (r, name) = listed(cached)?;
+    Some(deck_ui::start::Listed { id: r.id, name, toons: toons(&k.document), version: r.version })
+}
+
+/// the API's listing of the published scenes (`GET /scenes`: `{ scenes: [{ key: "scene:<id>", content }] }`) as Play
+/// lists it; a body that is not one: none.
+pub fn catalog(body: &str) -> Vec<deck_ui::start::Listed> {
+    let Ok(v) = serde_json::from_str::<Value>(body) else { return vec![] };
+    let rows = v.get("scenes").and_then(Value::as_array).cloned().unwrap_or_default();
+    rows.iter()
+        .filter_map(|r| {
+            let id = r.get("key")?.as_str()?.strip_prefix("scene:")?.to_string();
+            let doc = r.get("content").filter(|c| !c.is_null())?;
+            let name = doc.pointer("/stage/name").and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty()).unwrap_or(&id).to_string();
+            safe_id(&id).then(|| deck_ui::start::Listed { name, toons: toons(doc), id, version: None })
+        })
+        .collect()
+}
+
+fn toons(doc: &Value) -> Vec<String> {
+    doc.get("toons").and_then(Value::as_array).map(|t| t.iter().filter_map(Value::as_str).map(str::to_owned).collect()).unwrap_or_default()
+}
+
 /// What an editor opens of a host's cache file (a published copy or a draft's): the document as kept and scene-content's
 /// rigs and sets beside it, as the loader resolves them.
 #[derive(Debug, Clone)]
@@ -604,6 +630,26 @@ mod tests {
             "holder": [{ "id": "pope", "ref": "character:catpope" }],
             "stage": { "name": "Vigil" }, "node": [{ "id": "space", "kind": "space" }] })
         .to_string()
+    }
+
+    /// Play's rows from the API's listing (a draft-only row has no content for a reader) and from a kept copy
+    #[test]
+    fn play_reads_the_listing_and_the_kept_copies() {
+        let nave: Value = serde_json::from_str(NAVE).unwrap();
+        let dunes = serde_json::json!({ "format": 2, "id": "sandy-dunes", "toons": ["sandbox"], "stage": { "name": "Dunes" }, "node": [] });
+        let body = serde_json::json!({ "status": "success", "scenes": [
+            { "key": "scene:nave", "content": nave }, { "key": "scene:sandy-dunes", "content": dunes },
+            { "key": "scene:draft", "content": null }, { "key": "scene:../x", "content": {} } ] })
+        .to_string();
+        let got = catalog(&body);
+        let ids: Vec<(&str, &str, &[String])> = got.iter().map(|l| (l.id.as_str(), l.name.as_str(), l.toons.as_slice())).collect();
+        assert_eq!(ids, [("nave", "Nave", &["catpope".to_string()][..]), ("sandy-dunes", "Dunes", &["sandbox".to_string()][..])]);
+        assert!(catalog("<html>").is_empty() && catalog("{}").is_empty(), "not a listing: nothing");
+        let file = serde_json::json!({ "scene": "nave", "version": 3, "document": nave }).to_string();
+        let k = kept(&file).expect("a kept copy");
+        assert_eq!((k.id.as_str(), k.version, k.toons.clone()), ("nave", Some(3), vec!["catpope".to_string()]));
+        let play = deck_ui::start::play_list(&got, &[k]);
+        assert_eq!(play.iter().map(|p| p.value.as_str()).collect::<Vec<_>>(), ["scene:sandy-dunes", "scene:nave"], "the demo first, the listing's nave once");
     }
 
     /// #568: Build opens a scene's cast – each member's rig and the prefix of its slots in the scene
