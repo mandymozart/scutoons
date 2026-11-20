@@ -8,7 +8,7 @@ use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
-use deck_catalog::library::shelf::{Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, View};
+use deck_catalog::library::shelf::{Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, View};
 use std::collections::HashMap;
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
@@ -29,6 +29,27 @@ pub enum Mode {
     List,
 }
 
+/// a place among the toon's files beyond the scope (the shelf's specials)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Place {
+    /// added within the last week
+    Recent,
+    /// no credits line
+    Credits,
+    /// lacking a version its kind and place should have (on demand only: no count, no warning)
+    Missing,
+}
+
+impl Place {
+    fn special(self) -> Special {
+        match self {
+            Place::Recent => Special::Recent,
+            Place::Credits => Special::Credits,
+            Place::Missing => Special::Missing,
+        }
+    }
+}
+
 /// what a place in the browser does when pressed
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hit {
@@ -42,6 +63,8 @@ pub enum Hit {
     Scope(Scope),
     /// a group's heading, by its place among the groups drawn
     Fold(usize),
+    /// a place, or back to all of the scope
+    Place(Place),
     /// the next grouping: by use, by kind, none
     Grouping,
     /// the next order: name, newest, biggest, most used
@@ -124,6 +147,7 @@ pub struct Browser {
     pub scope: Scope,
     pub grouping: Grouping,
     pub sort: Sort,
+    pub place: Option<Place>,
     /// the groups the viewer folded or opened, by key (a search opens them all)
     pub folds: HashMap<String, bool>,
     /// the groups drawn: key and whether folded (a heading's press)
@@ -134,7 +158,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, place: None, folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -202,6 +226,10 @@ impl Browser {
             Hit::Action => Did::Action,
             Hit::Scope(scope) => {
                 self.scope = scope;
+                Did::Taken
+            }
+            Hit::Place(p) => {
+                self.place = if self.place == Some(p) { None } else { Some(p) };
                 Did::Taken
             }
             Hit::Grouping => {
@@ -354,7 +382,7 @@ impl Browser {
             self.view = None;
             return Vec::new();
         }
-        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.place.map(Place::special), query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
         if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
             self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
         }
@@ -378,13 +406,23 @@ impl Browser {
             .collect()
     }
 
-    /// the shelf's chips after the kinds: its scopes with their counts, the grouping and the order
+    /// the shelf's chips after the kinds: its scopes with their counts, the places, the grouping and the order
     fn shelf_chips(&self) -> Vec<(String, bool, Hit)> {
         let Some((_, _, v)) = &self.view else { return Vec::new() };
         let mut out = Vec::new();
         for (scope, word, n) in [(Scope::Context, "in use", v.scopes.context), (Scope::All, "all files", v.scopes.all), (Scope::Unused, "unused", v.scopes.unused)] {
             if n > 0 || self.scope == scope || scope == Scope::All {
                 out.push((format!("{word} {n}"), self.scope == scope, Hit::Scope(scope)));
+            }
+        }
+        let places = [
+            (Place::Recent, format!("this week {}", v.specials.recent), v.specials.recent > 0),
+            (Place::Credits, format!("no credits {}", v.specials.credits.unwrap_or(0)), v.specials.credits.is_some_and(|n| n > 0)),
+            (Place::Missing, "missing versions".to_string(), v.specials.missing > 0),
+        ];
+        for (place, word, there) in places {
+            if there || self.place == Some(place) {
+                out.push((word, self.place == Some(place), Hit::Place(place)));
             }
         }
         let grouping = match self.grouping {
@@ -731,5 +769,34 @@ mod tests {
         b.press(x, y, 4.0);
         draw_src(&mut b, &src);
         assert_eq!(names(&b).last().map(String::as_str), Some("bells"), "most used first: the unused last");
+    }
+
+    #[test]
+    fn places_show_the_files_added_this_week_without_credits_or_missing_versions() {
+        let shelf = shelf();
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let now = deck_catalog::library::shelf::epoch_ms("2026-11-20 10:00:00").unwrap();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: now };
+        let mut b = Browser::default();
+        b.grouping = Grouping::None;
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().iter().any(|s| *s == "this week 1") && d.texts().iter().any(|s| *s == "no credits 1"), "{:?}", d.texts());
+        let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
+        let (x, y) = at(&b, Hit::Place(Place::Recent));
+        b.press(x, y, 0.0);
+        draw_src(&mut b, &src);
+        assert_eq!(names(&b), ["hills"]);
+        let (x, y) = at(&b, Hit::Place(Place::Credits));
+        b.press(x, y, 1.0);
+        draw_src(&mut b, &src);
+        assert_eq!(names(&b), ["sky"]);
+        let (x, y) = at(&b, Hit::Place(Place::Missing));
+        b.press(x, y, 2.0);
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().iter().any(|s| *s == "missing versions"), "on demand, without a count");
+        assert!(names(&b).contains(&"bells".to_string()), "an audio lacking its levels: {:?}", names(&b));
+        b.press(x, y, 3.0);
+        draw_src(&mut b, &src);
+        assert_eq!((b.place, names(&b).len()), (None, 3), "the same place again: all of the scope");
     }
 }
