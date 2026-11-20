@@ -59,9 +59,45 @@ on Stop (deck rule).
 
 ### 2.4 The top bar
 
-Logo + ☰ (main menu: workspaces, panels menu, settings, help, account) · the workspace switch · the tabs of this
+☰ (main menu §2.5) · ⌂ Home · the workspace switch · the tabs of this
 workspace (kind icon, name, ✕, ＋ opens through the Library) · save state · Edit / Play where it runs · the text language
 (the one switch, RULES H1).
+
+### 2.5 Main menu and Settings – analog to the deck editor (owner 2026-11-20: *"create a settings menu and main menu analog to deck editor with additionally the stuff needed for the creator"*)
+
+The deck's model (`deck/editor/src/bar.rs` MENU, `settings.rs`): ☰ at the row's left, then Home, then the tabs; the menu's
+lines top down, then the open workspace's panels that can close (ticked); nothing to save (everything saves itself); a line
+that leaves for the browser is marked ↗. Settings open as a floating panel, this machine's / this member's.
+
+**Main menu** – deck lines kept, creator lines added (＋), proposal for the owner to check:
+
+| Line | Deck | Creator |
+|---|---|---|
+| Open… | ✓ | opens the Library unfiltered (any kind, `kind:id` search) |
+| New… | ✓ | ＋ new toon · season · chapter · character · item · place · scene · experience (poster first) – asks name and id first (#652) |
+| Publish | "Publish in the creator" ↗ | ＋ **Publish…** – the open item's publish / problems / history (today meta-page's Save · Publish · History · Problems) |
+| Settings… | ✓ | the panel below |
+| Audio & inputs | ✓ | only where the sound workspace / deck stage runs; else hidden |
+| ＋ Text language | – | the content language switch (RULES H1), also in the bar |
+| ＋ Help | – | Guide (style guide + script rules, today `/guide`), Docs (`/docs`) ↗, keyboard shortcuts |
+| ＋ Go to | – | Reader ↗ (the toon / chapter as readers see it), Embassy ↗, Admin ↗ (by role), the deck (open in the deck app ↗) |
+| Account | ↗ | ＋ the member, role, org; sign out |
+| Quit to stage F9 | ✓ | – (no stage to quit to; Home is the ⌂ pill) |
+| *panels of this workspace* | ✓ | ✓ the same list, ticked = open |
+
+**Settings** – deck sections kept, creator sections added:
+- **Look** (deck): Day / Night (night default), **UI size** (1rem − / +).
+- **Motion & feedback** (deck): the deck's switches that apply in the browser (hover reveal, focus flash, panel transitions,
+  live previews, reduce motion); signal flow on wires where a node graph runs.
+- **Sound** (deck): UI sounds, volume.
+- ＋ **Language:** the UI language (inlang) – separate from the text language.
+- ＋ **Local folder:** the member's local files for generations / the storyboard (today called "workspace folder" – §9.7, rename
+  here, e.g. "Local folder").
+- ＋ **AI & generation:** the member's own Claude via MCP (status, how to connect – law.md [mcp-byo-ai]), which providers the
+  generation nodes may use (the back's choice shown, the member's keys if any), the default for manual vs AI nodes.
+- ＋ **Notifications:** push opt-in (today `/notifications`; goes with the PWA decision #672).
+- ＋ **Layout:** reset this workspace's panels / all workspaces' layouts; restore last tabs on start (on / off).
+Stored like the deck's: look, motion, sound, layout in the browser per machine; language, AI and notifications per member (server).
 
 ## 3. Panels – defined once
 
