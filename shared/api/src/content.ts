@@ -168,6 +168,14 @@ export function createContentApi(client: ApiClient) {
 		restoreVersion: (key: string, id: number, message?: string) =>
 			client.post<{ status: string; version: ContentVersion }>(`${at(key)}/restore`, { id, message }),
 
+		/** The History (#687): one change undone – `content` is the core's revert of version `version`'s step – as a new draft (409 when `base` is stale) */
+		revertChange: (key: string, version: number, content: unknown, base: number) =>
+			client.post<{ status: string; unchanged: boolean; version: ContentVersion }>(`${at(key)}/revert`, { version, content, base }),
+
+		/** The History (#687): back to version `version` – its document as a new draft (409 when `base` is stale) */
+		revertTo: (key: string, version: number, base: number) =>
+			client.post<{ status: string; unchanged: boolean; version: ContentVersion }>(`${at(key)}/revert-to`, { version, base }),
+
 		listVersions: (key: string) => client.get<{ status: string; versions: ContentVersion[] }>(`${at(key)}/versions`),
 
 		/** Review before publish: this account's rules, the open submits it reviews, its own submits */

@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { Floats, FloatingPanels } from '@scutoons/ui/editor';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import { panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import SettingsPanel from '$lib/components/shell/settings-panel.svelte';
@@ -106,7 +107,7 @@
 					{:else if id === 'problems'}
 						{@render shell.doc?.problems()}
 					{:else if id === 'history'}
-						{@render shell.doc?.history()}
+						{#if shell.doc}<HistoryPanel docs={shell.doc.docs} bare />{/if}
 					{:else if id === 'library'}
 						<LibraryPanel />
 					{:else if id === 'settings'}

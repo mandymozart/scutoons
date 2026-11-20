@@ -1,4 +1,5 @@
 import type { Snippet } from 'svelte';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings } from './settings.ts';
@@ -21,8 +22,8 @@ function writeJson(key: string, value: unknown): void {
 }
 
 /**
- * What the open item's page hands the shell (meta-page): its save state for the bar and its Publish · Problems · History
- * as panel tabs.
+ * What the open item's page hands the shell (meta-page): its save state and ↶ ↷ for the bar, its Publish · Problems as
+ * panel tabs and its documents for the one History panel (#687).
  */
 export interface PageDoc {
 	dirty: boolean;
@@ -32,7 +33,9 @@ export interface PageDoc {
 	save: () => void;
 	publish: Snippet;
 	problems: Snippet;
-	history: Snippet;
+	docs: ContentDoc[];
+	undo: () => void;
+	redo: () => void;
 }
 
 /**
