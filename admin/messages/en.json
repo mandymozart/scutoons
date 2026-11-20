@@ -1429,6 +1429,7 @@
 		"more": "… and {count} more places",
 		"conflict": "Someone saved in the meantime – the history is reloaded, try again.",
 		"title": "History",
+		"close": "Close",
 		"current": "current",
 		"published": "published",
 		"import": "import",

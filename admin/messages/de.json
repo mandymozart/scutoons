@@ -1429,6 +1429,7 @@
 		"more": "… und {count} weitere Stellen",
 		"conflict": "Jemand hat inzwischen gespeichert – die History lädt neu, versuch es noch einmal.",
 		"title": "History",
+		"close": "Schließen",
 		"current": "aktuell",
 		"published": "veröffentlicht",
 		"import": "Import",
