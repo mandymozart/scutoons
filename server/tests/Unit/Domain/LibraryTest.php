@@ -599,7 +599,7 @@ final class LibraryTest extends TestCase
             'width' => 2048, 'height' => 1046,
             'layers' => [['id' => 'terrain', 'image' => 't/images/map/terrain.svg']],
             'locations' => [
-                ['id' => 'home', 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 90, 'y' => 40, 'toons' => ['t'], 'chapter' => ['toon' => 't', 'number' => 1]],
+                ['id' => 'home', 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 90, 'y' => 40, 'toons' => ['t']],
                 ['id' => 'tower', 'name' => ['de' => 'Turm'], 'x' => 120, 'y' => 60, 'toons' => ['t'], 'hidden' => true, 'unlock' => ['toon' => 't', 'chapter' => 1, 'at' => 0.5]],
                 ['id' => 'stage', 'name' => ['de' => 'Bühne', 'en' => 'Stage'], 'x' => 500, 'y' => 500, 'toons' => ['d']],
                 ['id' => 'pond', 'name' => ['de' => 'Teich', 'en' => 'Pond'], 'x' => 700, 'y' => 600, 'toons' => ['sandbox']],
@@ -673,7 +673,7 @@ final class LibraryTest extends TestCase
         $this->seedWorldMap();
         $data = self::decode($this->library()->toon('t', 'en', false)->body);
         self::assertSame([
-            ['id' => 'home', 'label' => 'Home', 'toonId' => 't', 'type' => 'chapter', 'chapterNumber' => '1', 'image' => '', 'coordinates' => ['x' => 90, 'y' => 40]],
+            ['id' => 'home', 'label' => 'Home', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 90, 'y' => 40]],
             ['id' => 'tower', 'label' => 'Turm', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 120, 'y' => 60]],
         ], $data['locations'], 'the old documents (locations:t:*) are no longer read once the world map exists');
         self::assertSame([['id' => 'way', 'title' => 'Way', 'locations' => ['home', 'tower', 'gone']]], $data['routes']);

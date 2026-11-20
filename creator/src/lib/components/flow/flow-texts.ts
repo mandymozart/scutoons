@@ -157,8 +157,6 @@ export function boxText(n: FlowNode, ctx: FlowTextContext = {}): BoxText {
 			if (n.dead) parts.push(m['creator.flow_dead_groups']({ count: n.dead }));
 			return { title, meta: parts.join(' · ') };
 		}
-		case 'place':
-			return { title: m['creator.flow_places']({ list: list(n.places, 2) }) };
 		case 'toon':
 			return { title: n.name ?? n.toon ?? '', meta: [n.state ? (ctx.status?.(n.state) ?? n.state) : '', m['creator.flow_toon_meta']({ seasons: n.seasons?.length ?? 0, count: n.count ?? 0 })].filter(Boolean).join(' · ') };
 	}

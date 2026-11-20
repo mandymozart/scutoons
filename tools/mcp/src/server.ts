@@ -532,7 +532,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'read_map_places',
 		{
 			description:
-				'Places of the SCUTOONS world map – each place is its own document `place:<id>` (routes `route:<id>`, the size / layers of the map are `map`; read_entity / save_draft / validate work on those keys, the document of a place is the place without its id). Here: id, key, name, position, which toons use it, hidden, linked chapter, whether a newer draft waits or it is removed (a tombstone: `removed: true` – the id stays taken).',
+				'Places of the SCUTOONS world map – each place is its own document `place:<id>` (routes `route:<id>`, the size / layers of the map are `map`; read_entity / save_draft / validate work on those keys, the document of a place is the place without its id). Here: id, key, name, position, which toons use it, hidden, whether a newer draft waits or it is removed (a tombstone: `removed: true` – the id stays taken).',
 			inputSchema: z.object({
 				toon: z.string().optional().describe('only places this toon uses'),
 				published: z.boolean().optional().describe('what readers see (default: the newest drafts)')
@@ -548,8 +548,8 @@ export function registerContentTools(server: McpServer, config: Config, options:
 					.filter((p) => !toon || p.doc.toons?.includes(toon))
 					.map(({ id, doc }) => {
 						const e = meta.get(`place:${id}`);
-						const { name, x, y, toons, hidden, chapter, removed } = doc;
-						return { id, key: `place:${id}`, name, x, y, toons, hidden, chapter, ...(removed ? { removed } : {}), draft: !!e && e.latest !== e.published };
+						const { name, x, y, toons, hidden, removed } = doc;
+						return { id, key: `place:${id}`, name, x, y, toons, hidden, ...(removed ? { removed } : {}), draft: !!e && e.latest !== e.published };
 					})
 			);
 		})

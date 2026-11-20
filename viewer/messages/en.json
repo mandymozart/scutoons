@@ -690,8 +690,6 @@
 		"places": "Places ({count})",
 		"places_title": "Discovered places",
 		"places_empty": "No places discovered yet – keep reading to find them.",
-		"read_chapter": "Read chapter {number}",
-		"read_prologue": "Watch the prologue",
 		"you_are_here": "You are here · {name}",
 		"new_place": "New",
 		"new_badge": "New on the map",

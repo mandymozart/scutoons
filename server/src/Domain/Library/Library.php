@@ -633,14 +633,12 @@ final class Library
         $locations = [];
         foreach (is_array($world->locations ?? null) ? $world->locations : [] as $place) {
             if (!$has($place)) continue;
-            $chapter = $place->chapter ?? null;
             $location = [
                 'id' => $place->id ?? '',
                 'label' => self::mapName($place->name ?? null, $locale)[0],
-                'toonId' => $chapter instanceof stdClass && is_string($chapter->toon ?? null) ? $chapter->toon : $toon,
+                'toonId' => $toon,
                 'type' => 'chapter',
             ];
-            if ($chapter instanceof stdClass && isset($chapter->number)) $location['chapterNumber'] = (string) $chapter->number;
             $location['image'] = ($place->image ?? null) instanceof stdClass && is_string($place->image->src ?? null) ? $place->image->src : '';
             $location['coordinates'] = ['x' => $place->x ?? 0, 'y' => $place->y ?? 0];
             $locations[] = $location;

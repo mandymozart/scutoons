@@ -7,7 +7,7 @@
 //     boxes) collapsed into runs between the key points, its triggers, where the reader comes from and goes on to;
 //   - slice (`sliceFlow`): one slice – its triggers, item taps, the script events that reveal its text boxes, their targets;
 //   - season / toon (`toonFlow`): one box per chapter (status, reach in the toon, dead groups), the season order, jumps
-//     and ends between chapters (the toon adds map places and the other seasons); `toonReach` = what the season order or
+//     and ends between chapters (the toon adds the other seasons); `toonReach` = what the season order or
 //     any jump in the toon reaches;
 //   - SCUTOONS (`universeFlow`): one box per toon, the jumps between toons (to a toon's page or a chapter + label of
 //     another toon – `target.toon`) and to products / XR (from the server's flow index; `incomingJumps` = what other
@@ -58,8 +58,6 @@ export type FlowNodeKind =
 	| 'slice'
 	/** season / toon level: a chapter */
 	| 'chapter'
-	/** toon level: the map places that lead into a chapter */
-	| 'place'
 	/** SCUTOONS level: a toon */
 	| 'toon';
 
@@ -157,8 +155,7 @@ export interface FlowNode {
 	state?: string;
 	/** chapter: groups nothing reaches */
 	dead?: number;
-	/** place: the places' names; toon: its id */
-	places?: string[];
+	/** toon: its id */
 	toon?: string;
 	/** toon: its seasons' numbers */
 	seasons?: number[];
@@ -173,7 +170,7 @@ export interface FlowNode {
 	faces?: FlowFace[];
 	/** group: how its slices read */
 	layout?: FlowLayout;
-	/** group: an entry point – a jump, an end, a random list or a map place from outside leads to its label (`?label=`) */
+	/** group: an entry point – a jump, an end or a random list from outside leads to its label (`?label=`) */
 	entry?: boolean;
 	/** trigger (an item tap): the catalog item */
 	item?: string;
@@ -199,9 +196,7 @@ export type FlowEdgeKind =
 	/** slice level: a script event reveals one of the slice's text boxes */
 	| 'reveal'
 	/** season / toon level: the next chapter of the season (the follow-up bar) */
-	| 'order'
-	/** toon level: a map place leads into a chapter */
-	| 'place';
+	| 'order';
 
 export interface FlowEdge {
 	id: string;
@@ -832,21 +827,13 @@ export interface FlowSeason {
 	number: number;
 	chapters: number[];
 }
-/** a map place that leads into a chapter of this toon (hidden = unlocked by reading, not an entry by itself) */
-export interface FlowPlace {
-	id: string;
-	name: string;
-	chapter: number;
-	hidden?: boolean;
-}
 export interface ToonFlowInput {
 	toon: string;
 	chapters: readonly FlowChapter[];
 	seasons: readonly FlowSeason[];
 	/** the toon's facts (`toonFacts` over its documents + the map) */
 	facts?: ToonFacts;
-	places?: readonly FlowPlace[];
-	/** chapters of this toon other toons jump into (`incomingJumps` over the server's flow index): entries like a map place */
+	/** chapters of this toon other toons jump into (`incomingJumps` over the server's flow index): entries */
 	incoming?: readonly number[];
 	/** a text (a choice's label) as shown */
 	text?: (value: unknown) => string;
@@ -892,7 +879,7 @@ export interface ToonChapterReach {
 
 /**
  * A toon's reach over its chapters (owner 2026-10-06): entries are every season's first chapter, the published chapters
- * (readable from the toon page's list) and chapters a visible map place opens; from a reached chapter its follow-up bar
+ * (readable from the toon page's list) and chapters other toons jump into; from a reached chapter its follow-up bar
  * leads to the next chapter of the season (when the chapter can get there), its jumps / ends to other chapters, a season
  * (its first chapter) or the toon page (every season's start). Iterative, cycles are harmless.
  */
@@ -920,7 +907,6 @@ export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
 	};
 	const entries = new Set<number>(starts);
 	for (const c of input.chapters) if (c.status === 'published') entries.add(c.number);
-	for (const p of input.places ?? []) if (!p.hidden) entries.add(p.chapter);
 	for (const n of input.incoming ?? []) entries.add(n);
 	const walk = (withConditions: boolean): Set<number> => {
 		const reached = new Set<number>();
@@ -942,8 +928,8 @@ export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
 }
 
 /**
- * The season level (`season` given: its chapters as boxes, the others as exits) or the toon level (every chapter, the
- * map places): chapter boxes with their status and reach, the season order, jumps / ends between chapters (parallel ways
+ * The season level (`season` given: its chapters as boxes, the others as exits) or the toon level (every chapter):
+ * chapter boxes with their status and reach, the season order, jumps / ends between chapters (parallel ways
  * merged, their texts on the edge) and exits to other seasons / toons / products.
  */
 export function toonFlow(input: ToonFlowInput, options: { season?: number; reach?: Map<number, ToonChapterReach> } = {}): { nodes: FlowNode[]; edges: FlowEdge[]; reach: Map<number, ToonChapterReach> } {
@@ -1020,15 +1006,6 @@ export function toonFlow(input: ToonFlowInput, options: { season?: number; reach
 				to = start !== undefined && shown(start) ? `c${start}` : exitNode(t);
 			} else to = exitNode(t);
 			link(from, to, x.kind, fromStatus(x.status), label);
-		}
-	}
-	// the toon level: map places as entries (one box per chapter)
-	if (options.season === undefined) {
-		const byChapter = new Map<number, FlowPlace[]>();
-		for (const p of input.places ?? []) if (shown(p.chapter)) byChapter.set(p.chapter, [...(byChapter.get(p.chapter) ?? []), p]);
-		for (const [n, list] of byChapter) {
-			const id = add({ id: `p${n}`, kind: 'place', status: list.some((p) => !p.hidden) ? 'reachable' : 'conditional', chapter: n, places: list.map((p) => p.name) });
-			link(id, `c${n}`, 'place', byId.get(id)!.status as Reach);
 		}
 	}
 	// an exit is as reachable as the best way into it

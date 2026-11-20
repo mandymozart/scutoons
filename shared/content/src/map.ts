@@ -121,8 +121,6 @@ export interface MapPlace {
 	 * are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)
 	 */
 	hidden?: boolean;
-	/** the chapter the place's card links to */
-	chapter?: { toon: string; number: number };
 	/** its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`) */
 	size?: number;
 	/**
@@ -1331,9 +1329,8 @@ export function legacyToonMap(map: WorldMap, toon: string, locale: string): { lo
 		.map((p) => ({
 			id: p.id,
 			label: mapName(p.name, locale),
-			toonId: p.chapter?.toon ?? toon,
+			toonId: toon,
 			type: 'chapter',
-			...(p.chapter ? { chapterNumber: String(p.chapter.number) } : {}),
 			image: p.image?.src ?? '',
 			coordinates: { x: p.x, y: p.y }
 		}));
@@ -1368,7 +1365,7 @@ export interface LegacyRouteFile {
 /**
  * The world map from one toon's old map files: `toonMap` = its old `toon.map` (layers.terrain toon-relative, width, height,
  * center), `locations` / `routes` = the per-locale files (`{ de: [...], en: [...] }`). Every value survives: ids,
- * coordinates, labels → `name` per locale (verbatim), `toonId` → `toons`, `chapterNumber` → `chapter`, route
+ * coordinates, labels → `name` per locale (verbatim), `toonId` → `toons`, route
  * `title ?? titel` → `name`, `locations` → place waypoints in order (unknown ids kept – the validation reports them).
  * Returns the world map and the toon's start view (`{ center }`).
  */
@@ -1391,7 +1388,6 @@ export function migrateLegacyMap(input: {
 			if (typeof label === 'string') name[l] = label;
 		}
 		const place: MapPlace = { id: loc.id, name, x: loc.coordinates.x, y: loc.coordinates.y, toons: [loc.toonId || toon] };
-		if (loc.type === 'chapter' && loc.chapterNumber !== undefined && loc.chapterNumber !== '') place.chapter = { toon: loc.toonId || toon, number: Number(loc.chapterNumber) };
 		if (loc.image) place.image = { src: loc.image };
 		map.locations.push(place);
 	}
@@ -1632,11 +1628,6 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		// the old slice / chapter link (owner 2026-10-11: places are unlocked by the unlockLocation event only)
 		if (p.unlock !== undefined) add('error', [...path, 'unlock'], `${what}: \`unlock\` is gone – an unlockLocation event on a slice or in a script unlocks the place (migration 2026-10-11-unlock-location-events)`);
 		if (p.size !== undefined && (!isNum(p.size) || p.size < PLACE_SIZE_MIN || p.size > PLACE_SIZE_MAX)) add('error', [...path, 'size'], `${what}: the size is ${PLACE_SIZE_MIN}–${PLACE_SIZE_MAX} world units`);
-		if (p.chapter !== undefined) {
-			if (!isObj(p.chapter) || typeof p.chapter.toon !== 'string' || !Number.isInteger(p.chapter.number) || p.chapter.number < 0)
-				add('error', [...path, 'chapter'], `${what}: the chapter link must be { toon, number }`);
-			else if (Array.isArray(p.toons) && !p.toons.includes(p.chapter.toon)) add('warning', [...path, 'chapter'], `${what}: links a chapter of ${p.chapter.toon}, which is not in its toons`);
-		}
 		if (p.view !== undefined) {
 			const v = p.view;
 			if (!isObj(v)) add('error', [...path, 'view'], `${what}: the view must be { zoom?, offset? }`);
