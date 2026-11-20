@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: a spot on a chapter group (§0.3, the owner leans to a spot within a location); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: a spot on a chapter group (§0.3, the owner leans to a spot within a location) and on a single slice (§0.4, where a place shows today); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -89,6 +89,42 @@ The owner's lean: a group names a **spot within a location** (`location:cathedra
 - One spot per group, or several ("both")?
 - The reference form: `location:cathedral.altar`, or a spot id of its own?
 - XR: the geo-anchor's engine and precision (§0.2).
+
+### 0.4 A place on a single slice, and where a place shows today (owner 2026-11-20, thought aloud, **not decided**)
+
+> "But also a single slice can have that same location thingy. At the moment this is relational since only way to tell which group or slice is where is by goto links. And labels. Please investigate"
+
+**Read from the code (main @1d064d30):** neither a chapter group nor a slice has a place field (`shared/content/src/content.ts` `Group`, `Slice`). Where a group or a slice "is" can only be inferred today, from six sources, and only the first one is a real "this happens here":
+
+| Source | Where | What it says | Granularity | Exact or inferred |
+|---|---|---|---|---|
+| **Storyboard locations** | `storyboard/types.ts`: `StoryboardDoc.locations[] = { ref, place (MAP.md place id) or new, time }`, each `Shot.location` = a `ref` | **this shot happens at this map place** (+ time / weather); prompts, the schematic and Luma use it | per **shot** | exact, but only in the storyboard |
+| Storyboard → chapter | `scripts/storyboard/compile.mjs`: one shot → one slice, `slice.shot = shot.id` | the slice keeps its shot's id, so slice → shot → location → place can be followed | per **slice** | exact for compiled slices; lost for hand-made slices and hand edits; the place itself is **not copied** into the chapter |
+| **Map events** | MAP.md §3: `unlockLocation`, `setPosition`, `travel`, `setAvatarLocation`, `focusMap`, in a group's VN script or on a slice (`trigger: intersect`) | the reader's map state changes here ("you are here" moves) | group or slice | inferred: unlocking a place is not standing in it |
+| Map place → chapter | the world map's place: `chapter?: { toon, number }`, `toons[]` | the place's card links to a chapter ("read chapter 1") | **chapter** | inferred, one chapter per place, no group or slice |
+| `placeUnlocks` | `FlowIndex::placeUnlocks`: place id → the documents whose events unlock it | which chapter unlocks a place (the map builder warns about a hidden place nothing unlocks) | **document** (chapter), not group or slice | inferred |
+| Goto links and labels | `FlowIndex` edges `{ source: { toon, chapter, group: label }, target, kind: jump }`; the group's `label` | how groups connect; a label may *name* a place ("cathedral-altar") by convention | group | a naming habit, not data |
+
+The address book lists **locations** (`location:<place>`, places whose `toons` hold the toon) and **groups** (`chapter:<n>.<label>`), but no link between them; it has no spots (sets are "not in it yet").
+
+**What can be read today, without a change:** for compiled chapters, a slice's place by `slice.shot` → the storyboard's shot → `location` → map place. Nothing for hand-made groups or slices; and map events say what the reader learns or where the avatar is put, not where the scene plays.
+
+**Where a slice-level place would fit, next to the others (a sketch for the owner, not a proposal to build):**
+
+| Level | What it would name | Inherits | Who uses it |
+|---|---|---|---|
+| **Chapter group** | a location, optionally a spot of it (`cathedral`, `cathedral` + `altar`) (§0.3) | — | a linked deck (what to stage), the map ("where this part plays"), the address book (groups by place) |
+| **Slice** | its own location / spot when it differs from the group's (a cut to the confessional inside an altar group) | the group's place when it has none | the same, finer; the storyboard's shot already has it |
+| **XR scene** | a geo-anchor on the floor (§0.2) | — | the XR viewer only |
+| **Deck scene** | a set + spot today, location + spot later (SCENES.md §8) | — | the deck |
+
+The natural source would be the storyboard: its shot already carries the place, and compile could copy it into the slice (and a group's place could follow when all its slices share one), so the place is authored once.
+
+**Open (no ticket until the owner decides):**
+- Group, slice, or both (slice overriding the group)?
+- Copy the place at compile, or keep following `slice.shot` to the storyboard (one truth, but hand-made slices get none)?
+- A place is a map place (MAP.md `location`) and the spot a named point inside it: the same vocabulary as the deck scene's spot (`set` + `spot` → `location` + `spot`)?
+- Is a map event (`setPosition`) ever the same thing as "this plays here", or always separate (the owner: today it is "relational")?
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
