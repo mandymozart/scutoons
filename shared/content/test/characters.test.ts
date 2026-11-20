@@ -223,14 +223,13 @@ test('validation: default looks, neutral anchor, casts, VN scripts', () => {
 });
 
 test('wanted images and asset requests', async () => {
-	const { wantedImages, wantedImagesCsv, closeFulfilledRequests, defaultMoodVocabulary, validateAssetRequests } = await import('../src/index.ts');
+	const { wantedImages, closeFulfilledRequests, defaultMoodVocabulary, validateAssetRequests } = await import('../src/index.ts');
 	const registry: CharacterRegistry = { characters: [structuredClone(catpope)] };
 	const wanted = wantedImages(registry, { moods: defaultMoodVocabulary() });
 	// the human persona has no images: all 17 standard moods are wanted, with the convention path
 	const human = wanted.filter((w) => w.persona === 'human');
 	assert.equal(human.length, 17);
 	assert.equal(human[0].path, 'characters/catpope-human/catpope-human_portrait-neutral.webp');
-	assert.ok(wantedImagesCsv(human).startsWith('character,persona,look,mood,view,file,path,note\ncatpope,human,default,neutral,portrait,catpope-human_portrait-neutral.webp'));
 	// a request for a non-standard mood is wanted too; setting the path closes it
 	const requests = {
 		requests: [{ id: 'r1', character: 'catpope', persona: 'biker', look: 'helmet', mood: 'grumpy', view: 'portrait', path: 'characters/catpope-biker/catpope-biker_helmet_portrait-grumpy.png', requested_at: '2026-09-30T00:00:00Z', status: 'open' as const }]

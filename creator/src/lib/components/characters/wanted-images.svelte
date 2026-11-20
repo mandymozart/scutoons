@@ -10,7 +10,6 @@
 		mediaRequestsText,
 		moodLabel,
 		wantedImages,
-		wantedImagesCsv,
 		wantedImagesText,
 		type AssetRequests,
 		type CharacterRegistry,
@@ -22,7 +21,7 @@
 
 	/**
 	 * "Wanted images": every missing portrait of the standard set (+ open asset requests), grouped by character / persona /
-	 * look with the convention file name – copy as plain text or CSV to brief the image supplier. Interim until the CDN
+	 * look with the convention file name – copy as plain text to brief the image supplier. Interim until the CDN
 	 * upload exists. Below them the open media requests (`view: 'media'`: covers, key visuals … of a toon, no character),
 	 * unless the list is for one character – including every place of the world map without an illustration ("Map places",
 	 * derived from the map each time, never stored: `mapMediaRequests`).
@@ -54,7 +53,7 @@
 	} = $props();
 
 	let requestedOnly = $state(false);
-	let copied = $state('');
+	let copied = $state(false);
 	let fallbackText = $state('');
 
 	const index = $derived(characterIndex(registry));
@@ -73,18 +72,13 @@
 		return out;
 	});
 
-	const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-
-	async function copy(kind: 'text' | 'csv') {
-		const text =
-			kind === 'csv'
-				? [wantedImagesCsv(wanted), ...media.map((r) => ['', '', '', '', 'media', r.path.split('/').pop() ?? '', r.path, [r.size, r.note].filter(Boolean).join(' – ')].map(csvCell).join(','))].join('\n')
-				: [wantedImagesText(wanted), mediaRequestsText(media)].filter(Boolean).join('\n\n');
+	async function copy() {
+		const text = [wantedImagesText(wanted), mediaRequestsText(media)].filter(Boolean).join('\n\n');
 		try {
 			await navigator.clipboard.writeText(text);
-			copied = kind;
+			copied = true;
 			fallbackText = '';
-			setTimeout(() => (copied = ''), 2000);
+			setTimeout(() => (copied = false), 2000);
 		} catch {
 			// no clipboard permission: show the text to copy by hand
 			fallbackText = text;
@@ -97,8 +91,7 @@
 		<span>{m['creator.characters_wanted_count']({ count: wanted.length + media.length })}</span>
 		<label class="check"><input type="checkbox" bind:checked={requestedOnly} /> {m['creator.characters_requested_only']()}</label>
 		<span class="actions">
-			<button type="button" class="secondary" onclick={() => copy('text')} disabled={!wanted.length && !media.length} data-testid="copy-wanted-text">{copied === 'text' ? '✓' : ''} {m['creator.characters_copy_list']()}</button>
-			<button type="button" class="secondary" onclick={() => copy('csv')} disabled={!wanted.length && !media.length} data-testid="copy-wanted-csv">{copied === 'csv' ? '✓' : ''} {m['creator.characters_copy_csv']()}</button>
+			<button type="button" class="secondary" onclick={copy} disabled={!wanted.length && !media.length} data-testid="copy-wanted-text">{copied ? '✓' : ''} {m['creator.characters_copy_list']()}</button>
 		</span>
 	</header>
 	{#if fallbackText}<textarea rows="8" readonly value={fallbackText}></textarea>{/if}

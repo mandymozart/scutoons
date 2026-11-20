@@ -1277,13 +1277,6 @@ export function characterMoodsBrief(character: RegistryCharacter, persona: strin
 	].join('\n');
 }
 
-/** CSV: character,persona,look,mood,view,file,path,note */
-export function wantedImagesCsv(wanted: WantedImage[]): string {
-	const q = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-	const rows = wanted.map((w) => [w.character, w.persona, w.look, w.mood, w.view, w.path.split('/').pop() ?? '', w.path, w.request?.note ?? ''].map(q).join(','));
-	return ['character,persona,look,mood,view,file,path,note', ...rows].join('\n');
-}
-
 /**
  * Marks open requests done whose cell now has an image path (or whose file exists at the convention path, when
  * `exists` says so). Returns the number of requests closed.
