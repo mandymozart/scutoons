@@ -478,11 +478,12 @@ final class EntityStore
     /**
      * POST <key>/revert { version, content, base } → { status, unchanged, version } – one change undone (#687): `content`
      * is the core's revert of `version`'s step on the newest document, stored as a new draft "revert #<version>" (409
-     * conflict when `base` is not the newest; 422 when `version` is the document's first – nothing before it)
+     * conflict when `base` is not the newest; 422 when `version` is the document's first – nothing before it); `$stamped`
+     * names a document whose `version` the server stamps (saveStamped: a deck scene, a show)
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
-    public function revert(array $user, EntityKey $key, stdClass $body): array
+    public function revert(array $user, EntityKey $key, stdClass $body, string $stamped = ''): array
     {
         $changed = $this->changeOf((string) $key, $body);
         if (!property_exists($body, 'content')) throw new ApiError(400, 'missing_content', 'content is required.');
@@ -492,7 +493,7 @@ final class EntityStore
         $save->content = $body->content;
         $save->base = $body->base;
         $save->message = 'revert #' . $changed['id'];
-        return $this->save($user, $key, $save);
+        return $stamped === '' ? $this->save($user, $key, $save) : $this->saveStamped($user, $key, $save, $stamped);
     }
 
     /**
@@ -501,14 +502,14 @@ final class EntityStore
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
-    public function revertTo(array $user, EntityKey $key, stdClass $body): array
+    public function revertTo(array $user, EntityKey $key, stdClass $body, string $stamped = ''): array
     {
         $point = $this->changeOf((string) $key, $body);
         $save = new stdClass();
         $save->content = json_decode((string) $point['json']);
         $save->base = $body->base;
         $save->message = 'back to #' . $point['id'];
-        return $this->save($user, $key, $save);
+        return $stamped === '' ? $this->save($user, $key, $save) : $this->saveStamped($user, $key, $save, $stamped);
     }
 
     /**

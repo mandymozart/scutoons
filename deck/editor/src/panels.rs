@@ -18,12 +18,13 @@ const BR: Corner = Corner::BottomRight;
 
 // the panels every view has alike, defined once
 const LOG: Spec = spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed());
+const HISTORY: Spec = spec(crate::history_panel::PANEL, "History", "clock", "The open rig's, scene's or show's saved steps: who, when, what changed; revert one or go back to a point, always asked first.", Place::at(TR, 0.0, 0.0).closed());
 const SETTINGS_PANEL: Spec = spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed());
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
 // scrolls well come first and the ones of a fixed size last.
 /// the stage editor's: a Scene tab and a character's Asset tab
-pub const BUILD: [Spec; 10] = [
+pub const BUILD: [Spec; 11] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
     spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
@@ -32,13 +33,14 @@ pub const BUILD: [Spec; 10] = [
     spec("mixer", "Mixer", "sliders", "One strip per track at the level of the tree shown; inside a track its gains.", Place::at(BR, 0.0, 0.0)),
     spec("dop", "Camera tools", "dop-camera", "The scene's camera: its lens, its shots, the moves between them and the trolley track.", Place::at(TL, 340.0, 0.0)),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 360.0, 0.0)).inline().essential(),
+    HISTORY,
     LOG,
     SETTINGS_PANEL,
 ];
 
 /// a Show tab's: authoring and running at once – the rows band is the cue matrix (a row's ▶ fires it, a cell's ▶ launches
 /// it by hand); Next, Stage now and Session are the optional panels of a running show
-pub const SHOW: [Spec; 13] = [
+pub const SHOW: [Spec; 14] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, the session, the vote, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
@@ -50,6 +52,7 @@ pub const SHOW: [Spec; 13] = [
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 440.0, 0.0).folded()),
     spec("next", "Next", "play", "The suggestion with GO and Drop, else GO; the seats.", Place::at(TR, 360.0, 0.0).closed()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 380.0, 0.0)).inline(),
+    HISTORY,
     LOG,
     SETTINGS_PANEL,
 ];
@@ -131,7 +134,7 @@ impl Panels {
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
         let m = Metrics::of(t, d);
         self.floats.measure_names(|name| d.sans_width(t.size.font, name));
-        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h))).into_iter().chain(self.tools.map(|(w, h)| ("tools", w, Some(h)))).chain([(crate::log::PANEL, crate::log::WIDTH, None)]);
+        let extra = self.settings.map(|(w, h)| (SETTINGS, w, Some(h))).into_iter().chain(self.tools.map(|(w, h)| ("tools", w, Some(h)))).chain([(crate::log::PANEL, crate::log::WIDTH, None), (HISTORY.id, crate::history_panel::WIDTH, None)]);
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
@@ -314,8 +317,8 @@ mod tests {
             let mut p = Panels::new(specs);
             let shown = typical(name);
             for (id, _, open) in p.listed() {
-                if id == crate::log::PANEL {
-                    assert!(!open, "{name}: the Log starts closed, the status bar opens it");
+                if id == crate::log::PANEL || id == HISTORY.id {
+                    assert!(!open, "{name}: {id} starts closed");
                     continue;
                 }
                 if matches!(name, "show" | "live") && OPTIONAL.contains(&id) {

@@ -88,6 +88,11 @@ impl SceneView {
         Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None, posters: Vec::new(), poster_rects: Vec::new(), presets: Vec::new() }, resolved.scene, notes))
     }
 
+    /// what this editor keeps of the scene (its rigs as scene-content gave them), for opening its newest again
+    pub fn kept(&self) -> Option<deck_space::published::Opened> {
+        self.kept.clone()
+    }
+
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
     pub fn refresh(&mut self) -> Result<(), String> {
         let (cat, k) = (self.catalog.as_deref(), self.kept.as_ref());

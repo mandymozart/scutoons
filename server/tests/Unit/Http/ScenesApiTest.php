@@ -145,6 +145,33 @@ final class ScenesApiTest extends TestCase
         self::assertSame([3, 'Nave'], [$draft['version'], $draft['stage']['name']]);
     }
 
+    /** #687: the History's reverts – a new draft, stamped anew and checked like a save; a stored version read by its id */
+    public function testARevertIsANewStampedDraftCheckedLikeASave(): void
+    {
+        $creator = $this->session([Roles::CREATOR], 'revert@example.test');
+        $ids = [];
+        $base = null;
+        foreach (['Nave', 'The nave'] as $name) {
+            $doc = self::nave();
+            $doc['stage']['name'] = $name;
+            $base = self::json($this->request('PUT', '/api/scenes/nave', $creator, ['content' => $doc, 'base' => $base]))['version']['id'];
+            $ids[] = $base;
+        }
+        self::assertSame('Nave', self::json($this->request('GET', "/api/scenes/nave?draft=1&at=$ids[0]", $creator))['content']['stage']['name']);
+
+        $done = self::json($this->request('POST', '/api/scenes/nave/revert', $creator, ['version' => $ids[1], 'content' => self::nave(), 'base' => $ids[1]]));
+        self::assertSame("revert #$ids[1]", $done['version']['message']);
+        $now = self::json($this->request('GET', '/api/scenes/nave?draft=1', $creator))['content'];
+        self::assertSame(['Nave', 3], [$now['stage']['name'], $now['version']]);
+        self::assertSame(422, $this->request('POST', '/api/scenes/nave/revert', $creator, ['version' => $ids[1], 'content' => ['id' => 'nave'], 'base' => $done['version']['id']])->getStatusCode());
+
+        $back = self::json($this->request('POST', '/api/scenes/nave/revert-to', $creator, ['version' => $ids[1], 'base' => $done['version']['id']]));
+        self::assertSame("back to #$ids[1]", $back['version']['message']);
+        $now = self::json($this->request('GET', '/api/scenes/nave?draft=1', $creator))['content'];
+        self::assertSame(['The nave', 4], [$now['stage']['name'], $now['version']]);
+        self::assertSame(409, $this->request('POST', '/api/scenes/nave/revert-to', $creator, ['version' => $ids[0], 'base' => $ids[1]])->getStatusCode());
+    }
+
     public function testTheShapeIsCheckedOnSave(): void
     {
         $creator = $this->session([Roles::CREATOR], 'shape@example.test');

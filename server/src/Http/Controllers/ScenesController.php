@@ -24,13 +24,16 @@ use stdClass;
  *   GET  /api/scenes                         the published scenes (public); a content editor: every scene, its newest draft
  *   GET  /api/scenes/<id>                    the published one { status, scene } (public)
  *   GET  /api/scenes/<id>?v=<n>              the document at version <n> { status, scene } – public only the published one
- *   GET  /api/scenes/<id>?draft=1            the newest, wrapped { status, version, published, content } (content editors)
+ *   GET  /api/scenes/<id>?draft=1[&at=<id>]  the newest – or the stored version <id> – wrapped { status, version, published,
+ *                                            content } (content editors)
  *   GET  /api/scenes/<id>/versions?limit=    the history (content editors)
  *   PUT  /api/scenes/<id> { content, base?, message? }   a new draft (422 invalid_content: not the scene's shape); the
  *                                            server stamps `version`
  *   POST /api/scenes/<id>/publish { version? }   after the core's check (422 invalid_scene { problems }); never with an
  *                                            AI connection's token (ApiTokenScope, RULES G2)
  *   POST /api/scenes/<id>/restore { id, message? }   an older version as the newest draft
+ *   POST /api/scenes/<id>/revert { version, content, base } · /revert-to { version, base }   the History (#687), as the
+ *                                            entities' (EntityStore::revert / revertTo), stamped
  */
 final class ScenesController
 {
@@ -56,7 +59,7 @@ final class ScenesController
         $query = $request->getQueryParams();
         if (($query['draft'] ?? '') === '1') {
             $this->requireEditor($request);
-            return Json::response($response, 200, $this->store->wrapped($this->store->read((string) $key, true, 0)));
+            return Json::response($response, 200, $this->store->wrapped($this->store->read((string) $key, true, (int) ($query['at'] ?? 0))));
         }
         $published = $this->scenes->published((string) $key->id);
         if (isset($query['v'])) {
@@ -102,6 +105,17 @@ final class ScenesController
     {
         $user = $this->requireEditor($request);
         return Json::response($response, 200, $this->scenes->restore($user, $this->key($args['id']), $this->body($request)));
+    }
+
+    /** @param array{id: string, action: string} $args */
+    public function revert(Request $request, Response $response, array $args): Response
+    {
+        $user = $this->requireEditor($request);
+        $key = $this->key($args['id']);
+        $body = $this->body($request);
+        if ($args['action'] === 'revert' && property_exists($body, 'content')) $this->schemas->guard($key, $body->content);
+        $result = $args['action'] === 'revert' ? $this->store->revert($user, $key, $body, 'scene') : $this->store->revertTo($user, $key, $body, 'scene');
+        return Json::response($response, 200, $result);
     }
 
     private function key(string $id): EntityKey
