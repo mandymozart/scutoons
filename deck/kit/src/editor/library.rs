@@ -164,6 +164,8 @@ pub struct Browser {
     pub items_open: bool,
     /// the items listed, in their order (an item row's press)
     items: Vec<String>,
+    /// the cards the last drop let go of, in the order shown (several when a chosen card was dragged)
+    dropped: Vec<usize>,
     /// the cards chosen (by address) and the one a Shift run starts from
     pub chosen: Vec<String>,
     anchor: Option<String>,
@@ -181,7 +183,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, item: None, items_open: false, items: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, item: None, items_open: false, items: Vec::new(), dropped: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -300,7 +302,9 @@ impl Browser {
             }
             Hit::Card(i) => {
                 let (shift, toggle) = self.keys;
-                if let Some(id) = self.order.iter().find(|(j, _)| *j == i).map(|(_, a)| a.clone()) {
+                // a plain press on one of several chosen cards keeps them: it may drag them all (a click narrows on release)
+                let keep = |b: &Browser, id: &str| !shift && !toggle && b.chosen.len() > 1 && b.chosen.iter().any(|c| c == id);
+                if let Some(id) = self.order.iter().find(|(j, _)| *j == i).map(|(_, a)| a.clone()).filter(|id| !keep(self, id)) {
                     let order: Vec<String> = self.order.iter().map(|(_, a)| a.clone()).collect();
                     (self.chosen, self.anchor) = select(&self.chosen, self.anchor.as_deref(), &id, &order, shift, toggle);
                 }
@@ -331,10 +335,41 @@ impl Browser {
         self.held.filter(|h| h.dragging).map(|h| h.entry)
     }
 
-    /// The button let go: a dragged card is dropped where the pointer is (its owner decides what takes it).
+    /// The cards in the hand: every chosen card in the order shown when the one held is among several chosen, else the
+    /// one held.
+    pub fn carried(&self) -> Vec<usize> {
+        let Some(h) = self.held else { return Vec::new() };
+        let address = self.order.iter().find(|(i, _)| *i == h.entry).map(|(_, a)| a.as_str());
+        if self.chosen.len() < 2 || !address.is_some_and(|a| self.chosen.iter().any(|c| c == a)) {
+            return vec![h.entry];
+        }
+        let mut out: Vec<usize> = Vec::new();
+        for (i, a) in &self.order {
+            if self.chosen.contains(a) && !out.contains(i) {
+                out.push(*i);
+            }
+        }
+        out
+    }
+
+    /// the cards the last drop let go of (`Did::Drop` names the one under the pointer)
+    pub fn dropped(&self) -> &[usize] {
+        &self.dropped
+    }
+
+    /// The button let go: dragged cards are dropped where the pointer is (its owner decides what takes them); a press on
+    /// one of several chosen cards that did not move chooses that one.
     pub fn release(&mut self, x: f32, y: f32) -> Option<Did> {
+        self.dropped = self.carried();
         let h = self.held.take()?;
-        Some(if h.dragging { Did::Drop { entry: h.entry, at: (x, y) } } else { Did::Click(h.entry) })
+        if h.dragging {
+            return Some(Did::Drop { entry: h.entry, at: (x, y) });
+        }
+        self.dropped.clear();
+        if let Some(id) = self.order.iter().find(|(i, _)| *i == h.entry).map(|(_, a)| a.clone()).filter(|_| self.chosen.len() > 1) {
+            (self.chosen, self.anchor) = (vec![id.clone()], Some(id));
+        }
+        Some(Did::Click(h.entry))
     }
 
     /// The browser in `a`: the find field, the chips, the cards – the owner's entries, then the toon's files in the
@@ -1076,6 +1111,45 @@ mod tests {
         b.press(x, y, 4.0);
         draw_src(&mut b, &src);
         assert_eq!((b.item.as_deref(), b.place, cards(&b).len()), (None, None, 3), "the same item again: all of the scope");
+    }
+
+    /// several chosen cards go into the hand together when one of them is dragged; a click on one narrows to it
+    #[test]
+    fn a_drag_of_a_chosen_card_carries_every_chosen_card() {
+        let e = list();
+        let mut b = Browser::default();
+        drawn(&mut b, &e, &|_| None);
+        let pick = |b: &mut Browser, i: usize, keys: (bool, bool)| {
+            let (x, y) = at(b, Hit::Card(i));
+            b.keys = keys;
+            b.press(x, y, 0.0);
+            b.release(x, y);
+        };
+        pick(&mut b, 0, (false, false));
+        pick(&mut b, 2, (false, true));
+        pick(&mut b, 3, (false, true));
+        assert_eq!(b.chosen.len(), 3);
+        b.keys = (false, false);
+        let (x, y) = at(&b, Hit::Card(3));
+        b.press(x, y, 100.0);
+        assert_eq!(b.chosen.len(), 3, "a plain press on a chosen card keeps the others");
+        b.drag_to(x + 200.0, y + 100.0);
+        assert_eq!(b.carried(), [0, 2, 3], "every chosen card, in the order shown");
+        assert_eq!(b.release(x + 200.0, y + 100.0), Some(Did::Drop { entry: 3, at: (x + 200.0, y + 100.0) }));
+        assert_eq!(b.dropped(), [0, 2, 3]);
+        let (x1, y1) = at(&b, Hit::Card(1));
+        b.press(x1, y1, 200.0);
+        b.drag_to(x1 + 200.0, y1);
+        assert_eq!(b.carried(), [1], "a card not chosen: only itself, the choice starts again");
+        b.release(x1 + 200.0, y1);
+        assert_eq!(b.dropped(), [1]);
+        pick(&mut b, 0, (false, true));
+        assert_eq!(b.chosen, ["module:torso", "module:walk"]);
+        let (x, y) = at(&b, Hit::Card(0));
+        b.keys = (false, false);
+        b.press(x, y, 300.0);
+        assert_eq!(b.release(x, y), Some(Did::Click(0)));
+        assert_eq!((b.chosen.as_slice(), b.dropped()), (["module:walk".to_string()].as_slice(), [].as_slice()), "a click without a move narrows to that card");
     }
 
     #[test]

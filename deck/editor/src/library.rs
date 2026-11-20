@@ -441,6 +441,9 @@ pub fn of_show(scenes: Vec<deck_show::rows::PieceView>, book: Option<&deck_space
 /// a check run's drag: the card's address, where it is let go (none: the stage's middle), kept in the hand
 pub type ScriptDrag = (String, Option<(f32, f32)>, bool);
 
+/// several cards dropped at once land this far apart, down and to the right
+const DROP_STEP: f32 = 28.0;
+
 /// seconds since the editor started: the browser's clock for a second press
 pub fn now() -> f64 {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
@@ -585,7 +588,9 @@ impl crate::App {
         self.library.browser.drag_to(x, y);
         if self.carry.is_none() {
             if let Some(e) = self.library.browser.dragging().and_then(|i| self.library.entries.get(i)) {
-                self.carry = Some(deck_kit::editor::carry::Carry::new(&e.address, &e.label));
+                let more = self.library.browser.carried().len().saturating_sub(1);
+                let label = if more > 0 { format!("{} + {more}", e.label) } else { e.label.clone() };
+                self.carry = Some(deck_kit::editor::carry::Carry::new(&e.address, &label));
             }
         }
     }
@@ -600,20 +605,36 @@ impl crate::App {
         }
     }
 
-    /// a card let go at `at`: Build's stage takes a module or an instrument as a track, Show's cell a piece
+    /// Cards let go at `at` (several when chosen cards were dragged): what this workspace takes lands, one after the
+    /// other a little apart (Show: one cell down each); what it does not take is said once.
     fn library_drop(&mut self, entry: usize, at: (f32, f32)) {
-        let Some(e) = self.library.entries.get(entry).cloned() else { return };
         if self.library.browser.hit(at.0, at.1).is_some() {
             return;
         }
-        if let Err(why) = self.library.takes(&e) {
+        let mut list: Vec<Entry> = self.library.browser.dropped().iter().filter_map(|&i| self.library.entries.get(i).cloned()).collect();
+        if list.is_empty() {
+            list.extend(self.library.entries.get(entry).cloned());
+        }
+        let (fit, refused): (Vec<Entry>, Vec<Entry>) = list.into_iter().partition(|e| self.library.takes(e).is_ok());
+        if let Some(why) = refused.first().and_then(|e| self.library.takes(e).err()) {
+            let why = if fit.is_empty() && refused.len() == 1 { why } else { format!("{} of {} not dropped: {why}", refused.len(), refused.len() + fit.len()) };
             self.refuse(why, at.0, at.1);
+        }
+        if self.workspace == crate::show::Workspace::Show {
+            let pieces: Vec<String> = fit.iter().map(|e| e.address.clone()).collect();
+            self.show.drop_pieces(&pieces, at.0, at.1);
             return;
         }
+        for (k, e) in fit.iter().enumerate() {
+            let step = DROP_STEP * k as f32;
+            self.library_drop_one(e, (at.0 + step, at.1 + step));
+        }
+    }
+
+    /// one card that fits let go at `at`: Build's stage takes a module or an instrument as a track, a scene its slots'
+    /// and layers' pieces
+    fn library_drop_one(&mut self, e: &Entry, at: (f32, f32)) {
         match self.workspace {
-            crate::show::Workspace::Show => {
-                self.show.drop_piece(&e.address, at.0, at.1);
-            }
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
@@ -667,6 +688,7 @@ impl crate::App {
             if let Some(q) = self.args.library_find.clone() {
                 self.library.browser.filter.query = q;
             }
+            self.library.browser.chosen = self.args.library_choose.clone();
             if self.args.library_list {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }

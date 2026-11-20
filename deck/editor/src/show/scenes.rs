@@ -39,12 +39,22 @@ impl Host {
     /// A piece let go at (x, y): on a cell it selects the cell and becomes its piece, or the core says why not, there.
     /// False = no cell there.
     pub fn drop_piece(&mut self, piece: &str, x: f32, y: f32) -> bool {
+        self.drop_pieces(&[piece.to_string()], x, y)
+    }
+
+    /// Several pieces let go at (x, y): the first on the cell there, each next one on the cell below (as far as the rows
+    /// go); the last cell landed on stays selected. False = no cell there.
+    pub fn drop_pieces(&mut self, pieces: &[String], x: f32, y: f32) -> bool {
         let Some((r, c)) = self.drop_target(x, y) else { return false };
         let plan = view::plan(self.shown());
-        let (Some(row), Some(column)) = (plan.rows.get(r).map(|x| x.id.clone()), plan.columns.get(c).map(|x| x.id.clone())) else { return true };
-        self.select_cell(r, c, false);
-        if !self.edit_rows(&Edit::Piece { row, column, piece: piece.to_string() }) {
-            self.refused = Some((x, y));
+        let Some(column) = plan.columns.get(c).map(|x| x.id.clone()) else { return true };
+        let rows: Vec<String> = plan.rows.iter().skip(r).take(pieces.len()).map(|x| x.id.clone()).collect();
+        for (k, (row, piece)) in rows.into_iter().zip(pieces).enumerate() {
+            self.select_cell(r + k, c, false);
+            if !self.edit_rows(&Edit::Piece { row, column: column.clone(), piece: piece.clone() }) {
+                self.refused = Some((x, y));
+                break;
+            }
         }
         true
     }
@@ -160,6 +170,19 @@ pub(in crate::show) mod tests {
         let before = host.shown().clone();
         assert!(!host.drop_piece("scene:nave", 1.0, 1.0), "let go over nothing: nothing changes");
         assert_eq!(host.shown(), &before);
+    }
+
+    #[test]
+    fn several_scenes_dropped_fill_the_cell_and_the_ones_below() {
+        let mut host = with_book(VOTE);
+        let mut lib = Library::new(std::env::temp_dir().join("deck-editor-show-library"));
+        frame(&mut host, &mut lib);
+        let at = cell_at(&host, "opening", "middle");
+        assert!(host.drop_pieces(&["scene:vigil".into(), "scene:nave".into()], at.0, at.1));
+        let doc = serde_json::to_value(host.shown()).unwrap();
+        let piece = |r: usize| doc["rows"][r]["cells"]["middle"]["piece"].as_str().map(str::to_string);
+        assert_eq!((piece(0).as_deref(), piece(1).as_deref()), (Some("scene:vigil"), Some("scene:nave")), "one cell down each");
+        assert_eq!((host.row, host.refused), (1, None), "the last cell landed on is selected");
     }
 
     #[test]
