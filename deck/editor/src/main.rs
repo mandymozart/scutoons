@@ -137,6 +137,8 @@ struct Args {
     f9_at: Option<u64>,
     /// `--asset NODE[,play]`: the scene's video node opened in its Asset tab (its use), played at once with `,play`
     asset: Option<(String, bool)>,
+    /// `--asset-edits JSON`: the open medium's asset edits as if the registry had answered them (deck-space asset_edits)
+    asset_edits: Option<String>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -213,7 +215,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -303,6 +305,7 @@ fn args() -> Result<Args> {
                 let v = val()?;
                 a.asset = Some(v.strip_suffix(",play").map_or((v.clone(), false), |n| (n.to_string(), true)));
             }
+            "--asset-edits" => a.asset_edits = Some(val()?),
             "--api" => a.api = val()?,
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
@@ -2523,6 +2526,7 @@ impl App {
         self.script_dop();
         self.script_slots();
         self.script_media();
+        self.media_saved();
         const START: u64 = 60;
         if self.args.pull {
             let s = self.scale();
@@ -3002,7 +3006,7 @@ impl App {
         if let Some(view) = self.scene.as_mut() {
             // the `video` nodes with a file: their live frames on their cards
             let doc = &view.edit.doc;
-            let nodes: Vec<(String, String, deck_media::Trim)> = view.edit.videos().into_iter().filter(|&v| doc.nodes[v].kind == "video").filter_map(|v| Some((doc.nodes[v].id.clone(), view.edit.video_src(v)?.to_string(), view.edit.video_trim(v)))).collect();
+            let nodes: Vec<(String, String, deck_core::trim::Trim)> = view.edit.videos().into_iter().filter(|&v| doc.nodes[v].kind == "video").filter_map(|v| Some((doc.nodes[v].id.clone(), view.edit.video_src(v)?.to_string(), view.edit.video_trim(v)))).collect();
             let index = |id: &str| doc.nodes.iter().position(|n| n.id == id);
             let mut posters = Vec::new();
             for (id, f) in self.posters.frame(&gpu.device, &gpu.queue, &nodes) {
