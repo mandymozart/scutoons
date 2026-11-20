@@ -8,7 +8,7 @@
 // unfolded); the script outline folds to its rail and drags on its Divider (remembered); the
 // slice inspector is a region beside the canvas (at most half the area, below it under 1280px); maximize
 // (owner 2026-10-06): the Flow / the slice inspector fill the space right of the sidebar's rail by their button, Esc, Ctrl+Space (the main stays mounted: its unsaved edit, scroll and widths survive), a Flow box click
-// restores and navigates, another panel takes the maximize over, closing ends it; on a phone the dock covers the page.
+// restores and navigates, another panel takes the maximize over, closing ends it; below 744px only the desktop notice.
 // 10.57 (owner 2026-10-07): maximize = fold everything else to its rail (main, other panels; the ActionBar stays);
 // several panels: the room running out folds the least recently used first (a squeezed rail's click brings it back,
 // the next folds), Ctrl+Shift+\ folds the main; every rail's button at one height (±1 px). Admin + embassy (Info, SplitView): check:tools-dock.
@@ -478,14 +478,12 @@ try {
 	await shot('1200-slice-inspector');
 	await size(1920);
 
-	// phones: the dock covers the page
-	await size(390, 844);
-	await go('/catpope?flow=1', `!!document.querySelector('.sc-shell-dock')`);
-	await sleep(500);
-	g = await layout();
-	check(g.dock && g.dock.r <= 390 && g.dock.l >= 0 && g.dock.h > 600, 'phone: the dock covers the page within the screen', JSON.stringify(g));
-	await shot('390-toon-flow');
-	check(await js(`(() => { const b = ${q('dock-maximize')}; return !b || getComputedStyle(b).display === 'none'; })()`), 'phone: no maximize button');
+	// below the minimum width (744px): the notice only, no creator
+	await size(600, 900);
+	await go('/catpope', `!!${q('desktop-notice')}`);
+	check(await js(`!!${q('desktop-notice')} && !document.querySelector('[data-testid="creator"]')`), '600: only the desktop notice');
+	await shot('600-desktop-notice');
+	await size(1920);
 
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } finally {

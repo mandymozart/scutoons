@@ -236,8 +236,8 @@
 		flex-direction: column;
 		gap: 0.4rem;
 	}
-	/* a cast card (research/CHARACTER-PAGE.md, #104 – owner 2026-10-21 "those two pages are fucked up" on phones):
-	   desktop one row grip · avatar · who · role · ✕; phones (below) the head row, then the role across the card */
+	/* a cast card (research/CHARACTER-PAGE.md, #104): one row grip · avatar · who · role · ✕; narrower (below) the head
+	   row, then the role across the card */
 	.member {
 		display: grid;
 		grid-template-columns: auto 3.2rem minmax(12rem, 18rem) minmax(0, 1fr) auto;

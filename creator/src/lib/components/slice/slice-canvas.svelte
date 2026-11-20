@@ -52,9 +52,7 @@
 		oncreate,
 		strip = null,
 		open = true,
-		tapPlaces = false,
-		ondrop,
-		onlongpress
+		ondrop
 	}: {
 		doc: ContentDoc;
 		slicePath: Path;
@@ -77,7 +75,7 @@
 		live?: boolean;
 		/**
 		 * a factor of the slice's 1x width (UI-CONCEPTS E.4: 50–300 %, the area scrolls); null = fit – the area's height, at
-		 * most 2x (on a phone its width). No CSS transform: the canvas is laid out at its size, so handles, snapping and the
+		 * most 2x. No CSS transform: the canvas is laid out at its size, so handles, snapping and the
 		 * pointer stay in slice coordinates (%)
 		 */
 		zoom?: number | null;
@@ -100,13 +98,6 @@
 		strip?: 'vertical' | 'horizontal' | null;
 		/** the open slice of the strip: it carries the test ids (the others are its neighbours) */
 		open?: boolean;
-		/**
-		 * a finger held still on a box (500 ms): the phone's context – copy · cut · delete · edit (E3); the box is selected,
-		 * no drag. `box` = the box on screen
-		 */
-		onlongpress?: (item: { kind: ItemKind; index: number }, box: DOMRect) => void;
-		/** a tap on free canvas with the text tool places a text (the phone, E3 – on a desktop a click only lets go) */
-		tapPlaces?: boolean;
 		/** a text box / placed item was moved by the pointer and let go (the strip re-anchors it when it left the slice) */
 		ondrop?: (item: { kind: 'dialog' | 'item'; index: number }) => void;
 	} = $props();
@@ -422,18 +413,11 @@
 		return doc.present;
 	}
 
-	/** the long press on a box (a finger, not moved): its timer */
-	let holding: ReturnType<typeof setTimeout> | null = null;
-	const stopHold = () => {
-		if (holding) clearTimeout(holding);
-		holding = null;
-	};
 	/**
 	 * a second finger came down (the page's pinch zoom, chapter-editor.svelte): the one-finger drag / draw it started is
 	 * dropped – a moved box goes back to where it was
 	 */
 	export function cancelGesture() {
-		stopHold();
 		if (!drag) return;
 		if (drag.mode === 'edit' && drag.moved && drag.item && drag.handle !== 'rotate' && drag.handle !== 'scale') {
 			for (const [l, start] of Object.entries(drag.startRects)) {
@@ -452,25 +436,10 @@
 		guides = { x: false, y: false };
 		checkpointed = false;
 	}
-	/** the in-place editor on box `index` (the phone's pencil / tap; a desktop's double click) */
-	export function editText(index: number) {
-		editingText = index;
-	}
-
 	function beginEdit(event: PointerEvent, item: Item, handle: Handle) {
 		releaseField();
 		event.stopPropagation();
 		event.preventDefault();
-		stopHold();
-		if (onlongpress && handle === 'move' && event.pointerType === 'touch') {
-			const target = event.currentTarget as HTMLElement;
-			holding = setTimeout(() => {
-				holding = null;
-				if (!drag || drag.moved) return;
-				drag = null;
-				onlongpress?.({ kind: item.kind, index: item.index }, target.getBoundingClientRect());
-			}, 500);
-		}
 		onselect?.({ kind: item.kind, index: item.index });
 		const startRects: Record<string, Rect> = {};
 		const storedWidths: Record<string, number | undefined> = {};
@@ -582,7 +551,6 @@
 		const dy = p.y - drag.start.y;
 		if (!drag.moved && Math.abs(dx) < 0.3 && Math.abs(dy) < 0.3) return;
 		drag.moved = true;
-		stopHold();
 		if (drag.mode === 'draw') {
 			const x2 = snapX(p.x);
 			const y2 = snapY(p.y);
@@ -651,7 +619,6 @@
 	}
 
 	function onPointerUp(event: PointerEvent) {
-		stopHold();
 		if (!drag) return;
 		try {
 			overlay?.releasePointerCapture(event.pointerId);
@@ -661,15 +628,13 @@
 		if (drag.mode === 'draw' && drag.draw && drag.draw.width >= 2 && drag.draw.height >= 1) {
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
-		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event' || (tool === 'text' && tapPlaces)) && !drag.moved) {
+		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'piece' || tool === 'event') && !drag.moved) {
 			// a click is enough: the item / piece tool places one there; the event tool makes a whole-slice event (no area).
 			// A finger's tap: its click would land on the picker that opens here (swallowTapClick)
 			swallowTapClick(event);
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		const dropped = drag.mode === 'edit' && drag.handle === 'move' && drag.moved && (drag.item?.kind === 'dialog' || drag.item?.kind === 'item') ? drag.item : null;
-		// the phone (E3): a tap on a text box edits its words in place – a single click on a desktop selects (and drags)
-		if (tapPlaces && event.pointerType === 'touch' && drag.mode === 'edit' && drag.handle === 'move' && !drag.moved && drag.item?.kind === 'dialog') editingText = drag.item.index;
 		drag = null;
 		if (dropped) ondrop?.({ kind: dropped.kind as 'dialog' | 'item', index: dropped.index });
 		guides = { x: false, y: false };
@@ -707,7 +672,7 @@
 </script>
 
 <!-- one resolution in the whole app (owner 2026-09-30): the slice's 1x size (its own px – content, not a UI size) is the
-     unit; fit = the area's height (a phone: its width), at most 2x (E.4); zoomed = 1x × the factor, the area scrolls -->
+     unit; fit = the area's height, at most 2x (E.4); zoomed = 1x × the factor, the area scrolls -->
 <div
 	class="canvas-wrap"
 	class:fit={zoom === null}
@@ -751,7 +716,6 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
-		oncontextmenu={(e) => onlongpress && e.preventDefault()}
 			ondblclick={() => {
 				// the dblclick lands on the overlay (it holds the pointer capture): the box the double click selected
 				if (selection?.kind === 'dialog') editingText = selection.index;
@@ -794,7 +758,7 @@
 				>
 					{#if item.kind === 'dialog' && editingText === item.index}
 						{@const d = slice?.dialog?.[item.index]}
-						<CanvasTextEdit {doc} path={item.path.slice(0, -1)} {locale} dialog={d} boxed={BOXED.includes(d?.variant)} bar={tapPlaces} onclose={() => (editingText = null)} />
+						<CanvasTextEdit {doc} path={item.path.slice(0, -1)} {locale} dialog={d} boxed={BOXED.includes(d?.variant)} onclose={() => (editingText = null)} />
 					{/if}
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
@@ -803,8 +767,7 @@
 					{#if anchorHint && drag?.item?.kind === item.kind && drag.item.index === item.index}
 						<span class="tag anchor-hint" data-testid="anchor-hint">{m['creator.anchor_suggest']({ anchor: m[`creator.anchor_${anchorHint}`]() })}</span>
 					{/if}
-					<!-- no handles while its words are edited: they covered the text, and a phone's tap landed on one instead of
-					     the text field (the keyboard then stayed closed) -->
+					<!-- no handles while its words are edited: they covered the text -->
 					{#if selected && live && !(item.kind === 'dialog' && editingText === item.index)}
 						{#each handlesOf(item) as h}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -853,14 +816,7 @@
 		width: 100%;
 		max-width: min(calc(2 * var(--slice-w)), var(--fit-h));
 	}
-	/* a phone: fit = the full width (the area scrolls down – the owner's phone draft) */
-	@media (max-width: 767px) {
-		.canvas-wrap.fit {
-			max-width: calc(2 * var(--slice-w));
-		}
-	}
-	/* the strip (TEXT-ACROSS-SLICES.md §4): vertical = the reading width (the slice's 1x width, at most the area's – a phone:
-	   its full width), the slices stacked without a gap; horizontal = the area's height, side by side */
+	/* the strip (TEXT-ACROSS-SLICES.md §4): vertical = the reading width (the slice's 1x width, at most the area's), the slices stacked without a gap; horizontal = the area's height, side by side */
 	.canvas-wrap.strip-v.fit {
 		max-width: var(--slice-w);
 	}
@@ -870,11 +826,6 @@
 	.canvas-wrap.strip-h.fit {
 		width: var(--fit-h);
 		max-width: none;
-	}
-	@media (max-width: 767px) {
-		.canvas-wrap.strip-v.fit {
-			max-width: none;
-		}
 	}
 	/* no container and no stacking context here or on the overlay (TEXT-ACROSS-SLICES.md §7): a box crossing into the next
 	   slice of the strip must paint – and take the pointer – over that slice's picture and overlay, also where an old

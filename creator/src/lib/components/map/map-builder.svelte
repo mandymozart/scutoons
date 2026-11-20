@@ -37,7 +37,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { BarTabs, Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, type PhoneBarItem, choiceDialog } from '@scutoons/ui';
+	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, type GroupBarItem, choiceDialog } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -538,7 +538,7 @@
 	});
 	const sortedPlaces = $derived([...(map?.locations ?? [])].sort((a, b) => (mapName(a.name, locale) || a.id).localeCompare(mapName(b.name, locale) || b.id)));
 	const fitAll = () => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5));
-	/** the crosshair on phones: the selected place's reader view, else the toon's start view */
+	/** the crosshair: the selected place's reader view, else the toon's start view */
 	function gotoView() {
 		if (placeFrame) view.centerOn(placeFrame.center, placeFrame.zoom);
 		else gotoStartView();
@@ -553,108 +553,15 @@
 		return Math.abs(view.zoom / viewTarget.zoom - 1) < 0.02 && Math.hypot(at.x - view.width / 2, at.y - view.height / 2) < 4;
 	});
 
-	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
-	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
-	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'route' | 'layer' | 'region';
-	let sheetOpen = $state(false);
-	let sheetTab = $state<SheetTab>('map');
-	let mapDragging = $state(false);
-	const sheetTabs = $derived.by<{ id: SheetTab; icon: string; label: string }[]>(() => {
-		if (selection?.kind === 'place')
-			return [
-				{ id: 'place', icon: 'info', label: m['creator.map_sheet_place']() },
-				{ id: 'image', icon: 'image', label: m['creator.map_image']() },
-				{ id: 'view', icon: 'crosshair', label: m['creator.map_place_view']() }
-			];
-		// a route / layer: one tab like a place's – its name is the crumb at the top; the bar is no picker (owner 2026-10-12:
-		// "the route name selector can only be the active route")
-		if (selection?.kind === 'route') return [{ id: 'route', icon: 'share-2', label: m['creator.map_sheet_route']() }];
-		if (selection?.kind === 'region') return [{ id: 'region', icon: 'hexagon', label: m['creator.map_sheet_region']() }];
-		if (selection) return [{ id: 'layer', icon: 'layers', label: m['creator.map_sheet_layer']() }];
-		return [
-			{ id: 'map', icon: 'map', label: m['creator.map']() },
-			// Problems: once, in the bar's More (the page's Problems panel) – not a sheet tab too (owner 2026-10-11)
-			...(toonFilter ? [{ id: 'start' as const, icon: 'flag', label: m['creator.map_sheet_start']() }] : [])
-		];
-	});
-	$effect(() => {
-		const tabs = sheetTabs;
-		untrack(() => {
-			if (tabs.length && !tabs.some((t) => t.id === sheetTab)) sheetTab = tabs[0].id;
-		});
-	});
-	function pickTab(id: SheetTab) {
-		if (swallowTap) return;
-		if (sheetTab === id && sheetOpen) sheetOpen = false;
-		else {
-			sheetTab = id;
-			sheetOpen = true;
-		}
-	}
-	function openSheet(id: SheetTab) {
-		sheetTab = id;
-		sheetOpen = true;
-	}
 	// the properties panel on the right (owner 2026-10-14: "not our standard rail panel – can't scale it"): the standard
 	// right region like the slice inspector (agents/DOCKING.md) – its Divider drags it from 16rem up to half the builder,
 	// remembered; with nothing to show (no selection, no toon's start view) it steps aside instead of standing empty
 	let builderEl = $state<HTMLElement>();
 	const sideSize = panelWidth('sc-panel-width:map-props', 16, () => builderEl?.getBoundingClientRect().right ?? window.innerWidth);
 	sideSize.room = () => (builderEl?.clientWidth ?? window.innerWidth) / 2;
-	/** phones (< 768px): the sheet's Map tab lists the layers, places and routes (the drawer's lists) */
-	let phone = $state(false);
-	const sideEmpty = $derived(!phone && !selection && !toonFilter);
-	$effect(() => {
-		const query = window.matchMedia('(max-width: 767px)');
-		phone = query.matches;
-		const change = (e: MediaQueryListEvent) => (phone = e.matches);
-		query.addEventListener('change', change);
-		return () => query.removeEventListener('change', change);
-	});
-	/**
-	 * the tab row drags the sheet (owner 2026-10-11: "warum ist das Sheet nicht mehr klein ziehbar"): up = taller / open,
-	 * down = lower; let go low = closed. A drag never counts as a tap on the tab under it.
-	 */
-	let sheetRem = $state<number | null>(null);
-	let sheetEl = $state<HTMLElement>();
-	let drag: { id: number; y: number; start: number; moved: boolean } | null = null;
-	let swallowTap = false;
-	let dragging = $state(false);
-	const rootRem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-	function headDown(e: PointerEvent) {
-		drag = { id: e.pointerId, y: e.clientY, start: sheetOpen && sheetEl ? sheetEl.getBoundingClientRect().height / rootRem() : 2.75, moved: false };
-	}
-	function headMove(e: PointerEvent) {
-		if (!drag || drag.id !== e.pointerId) return;
-		const dy = e.clientY - drag.y;
-		if (!drag.moved && Math.abs(dy) < 8) return;
-		if (!drag.moved) try {
-			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-		} catch {
-			/* a pointer that is gone */
-		}
-		drag.moved = true;
-		dragging = true;
-		sheetOpen = true;
-		sheetRem = Math.max(2.75, Math.min((window.innerHeight * 0.8) / rootRem(), drag.start - dy / rootRem()));
-	}
-	function headUp(e: PointerEvent) {
-		if (!drag || drag.id !== e.pointerId) return;
-		const moved = drag.moved;
-		drag = null;
-		dragging = false;
-		if (!moved) return;
-		swallowTap = true;
-		setTimeout(() => (swallowTap = false), 50);
-		if ((sheetRem ?? 0) < 6) {
-			sheetOpen = false;
-			sheetRem = null;
-		}
-	}
-
-	// ── the phone bar (UI-CONCEPTS E.10): More holds Import; a selection brings its own actions (like CapCut) ──
-	const phoneMore = $derived<PhoneBarItem[]>([
+	const sideEmpty = $derived(!selection && !toonFilter);
+	// the Publish panel: Import, and the selection's own actions
+	const more = $derived<GroupBarItem[]>([
 		{ id: 'import', icon: 'upload', label: m['creator.characters_import'](), disabled: !!importing, run: () => importInput?.click() }
 	]);
 	/** the selected place's reader view = the canvas's view now (as the place form's "Use the current view") */
@@ -764,24 +671,19 @@
 		regionBrush.region = id;
 	}
 
-	const phoneSelection = $derived.by(() => {
+	const selectionActions = $derived.by(() => {
 		const s = selection;
 		if (!s || !map) return null;
-		const onback = () => (selection = null);
-		const edit = (tab: SheetTab): PhoneBarItem => ({ id: 'edit', icon: 'edit-2', label: m['creator.bar_edit'](), active: sheetOpen, run: () => openSheet(tab) });
 		if (s.kind === 'place') {
 			const place = map.locations.find((p) => p.id === s.id);
 			if (!place) return null;
 			const used = routesThrough(map, s.id);
 			return {
 				label: selectionName,
-				onback,
 				items: [
-					edit('place'),
-					{ id: 'image', icon: 'image', label: m['creator.map_image'](), run: () => openSheet('image') },
-					{ id: 'use-view', icon: 'crosshair', label: m['creator.bar_view'](), run: () => useViewFor(s.id), testid: 'phone-place-use-view' },
+					{ id: 'use-view', icon: 'crosshair', label: m['creator.bar_view'](), run: () => useViewFor(s.id), testid: 'place-use-view' },
 					{ id: 'show', icon: 'eye', label: m['creator.bar_show'](), run: () => placeFrame && view.centerOn(placeFrame.center, placeFrame.zoom) },
-					{ id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: placeBrush.place === s.id, run: () => placeBrush.toggle(s.id), testid: 'phone-place-cells' },
+					{ id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: placeBrush.place === s.id, run: () => placeBrush.toggle(s.id), testid: 'place-cells' },
 					{ id: 'hidden', icon: place.hidden ? 'eye-off' : 'eye', label: m['creator.bar_hidden'](), active: !!place.hidden, run: () => editPlace(doc, s.id, (p) => { if (p.hidden) delete p.hidden; else p.hidden = true; }) },
 					{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), disabled: used.length > 0, run: () => deletePlace(s.id) }
 				]
@@ -790,20 +692,14 @@
 		if (s.kind === 'route')
 			return {
 				label: selectionName,
-				onback,
-				items: [edit('place'), { id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => deleteRoute(s.id) }]
+				items: [{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => deleteRoute(s.id) }]
 			};
 		if (s.kind === 'region')
 			return {
 				label: selectionName,
-				onback,
-				items: [edit('region'), { id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: regionBrush.region === s.id, run: () => regionBrush.toggle(s.id), testid: 'phone-region-cells' }]
+				items: [{ id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: regionBrush.region === s.id, run: () => regionBrush.toggle(s.id), testid: 'region-cells' }]
 			};
-		return {
-			label: selectionName,
-			onback,
-			items: [edit('place')]
-		};
+		return null;
 	});
 </script>
 
@@ -917,9 +813,9 @@
 	</span>
 {/snippet}
 
-<svelte:window onkeydown={onKeydown} onpointerup={() => (mapDragging = false)} onpointercancel={() => (mapDragging = false)} />
+<svelte:window onkeydown={onKeydown} />
 
-<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" {phoneMore} {phoneSelection}>
+<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" {more} selection={selectionActions}>
 	{#if map}
 		<div class="builder" class:side-empty={sideEmpty} bind:this={builderEl} style:--map-side-width={sideSize.css} data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<!-- the tools are strips on the canvas at every width (owner 2026-10-11: "in Desktop platzeffizienter – Toons und
@@ -927,8 +823,7 @@
 			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
 			{#if importSummary}<p class="sc-caption import-summary" role="status">{importSummary}</p>{/if}
 			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
+			<div class="stage">
 				<MapCanvas
 					bind:this={canvas}
 					brush={regionBrushTarget ?? brushTarget}
@@ -969,7 +864,7 @@
 					onendpoint={onEndpoint}
 				/>
 				<!-- UI-CONCEPTS E.10, on every width since 2026-10-11: tools left, fit + go to the view right (zoom: wheel / two fingers) -->
-				<div class="strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
+				<div class="strip tools" role="toolbar" aria-label={m['creator.map']()}>
 					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer', 'V'], ['place', m['creator.map_tool_place'](), 'map-pin', 'P'], ['route', m['creator.map_tool_route'](), 'share-2', 'R']] as [id, label, icon, key] (id)}
 						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label="{label} ({key})" title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}"><Icon name={icon} /></button>
 					{/each}
@@ -978,32 +873,22 @@
 					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame"><Icon name="smartphone" /></button>
 				</div>
 				{#if !allOnScreen || !atViewTarget}
-					<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
+					<div class="strip zooms" role="group" aria-label={m['creator.field_map_zoom']()}>
 						{#if !allOnScreen}<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()} data-testid="map-fit"><Icon name="maximize" /></button>{/if}
 						{#if !atViewTarget}<button type="button" onclick={gotoView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()} data-testid="map-go-view"><Icon name="crosshair" /></button>{/if}
 					</div>
 				{/if}
 			</div>
 			{#if !sideEmpty}<Divider size={sideSize} edge="left" at="var(--map-side-width, 16rem)" label={m['creator.resize_panel']()} controls="map-sheet" class="side-resize" />{/if}
-			<aside class="side" id="map-sheet" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="phone-only sheet-head" onpointerdown={headDown} onpointermove={headMove} onpointerup={headUp} onpointercancel={() => ((drag = null), (dragging = false))}>
-					{#if sheetTabs.length}
-						<BarTabs label={m['creator.map']()} value={sheetOpen ? sheetTab : ''} tabs={sheetTabs} onchange={(id) => pickTab(id as SheetTab)} />
-					{:else}
-						<button type="button" class="sheet-toggle" aria-expanded={sheetOpen} onclick={() => !swallowTap && (sheetOpen = !sheetOpen)} data-testid="sheet-toggle"><Icon name={sheetOpen ? 'chevron-down' : 'chevron-up'} /> {selectionName}</button>
-					{/if}
-				</div>
+			<aside class="side" id="map-sheet" data-testid="map-sheet">
 				{#if selection}
 					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} characters={characterOptions} onselect={(s) => select(s, true)} />
 				{:else}
-					<div class="tab" data-tab="map">
+					<div class="group">
 						<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
-						<!-- phones: the Map tab = the lists (layers, places, routes) – a pick selects on the map -->
-						{#if phone}<div class="sheet-lists">{@render mapNav()}</div>{/if}
 					</div>
 					{#if toonFilter}
-						<section class="tab start-tab" data-tab="start" data-testid="start-view">
+						<section class="start-tab" data-testid="start-view">
 							<h3>{m['creator.map_sheet_start']()}</h3>
 							<p class="hint">
 								{startView
@@ -1134,79 +1019,11 @@
 		margin: 0;
 		padding: 0.25rem 0.75rem;
 	}
-	/* ── phones (UI-CONCEPTS E.10): the canvas gets the screen, the properties are a sheet from below ── */
-	.phone-only {
-		display: none;
-	}
-	.tab {
+	.group {
 		display: contents;
 	}
-	@media (max-width: 767px) {
-		.builder {
-			grid-template-rows: minmax(0, 1fr) auto;
-			min-height: 0;
-		}
-		.phone-only {
-			display: flex;
-		}
-		.stage {
-			border-bottom: 0;
-		}
-		.side {
-			max-height: 2.75rem;
-			overflow: hidden;
-			border-top: 2px solid var(--ink);
-			background: var(--paper);
-			transition: max-height 0.2s ease;
-		}
-		.side.open {
-			max-height: var(--sheet-max, 60dvh);
-			overflow: auto;
-		}
-		.side.dragging {
-			transition: none;
-		}
-		/* the floating strips step aside while the sheet is open */
-		.strip.sheet-up {
-			display: none;
-		}
-		.sheet-head {
-			touch-action: none;
-		}
-		.sheet-head {
-			position: sticky;
-			top: 0;
-			z-index: 1;
-			flex-direction: column;
-			background: var(--paper);
-			border-bottom: 1px solid var(--border-subtle);
-		}
-		.sheet-toggle {
-			all: unset;
-			box-sizing: border-box;
-			display: flex;
-			align-items: center;
-			gap: 0.4rem;
-			width: 100%;
-			height: 2.75rem;
-			padding: 0 0.75rem;
-			cursor: pointer;
-		}
-		/* closed: only the tab row shows */
-		.side:not(.open) > :not(.sheet-head) {
-			visibility: hidden;
-		}
-		/* one tab at a time: the groups carry data-tab (place-props.svelte; the map / start view / problems here) */
-		.side[data-sheet-tab='place'] :global([data-tab]:not([data-tab='place'])),
-		.side[data-sheet-tab='image'] :global([data-tab]:not([data-tab='image'])),
-		.side[data-sheet-tab='view'] :global([data-tab]:not([data-tab='view'])),
-		.side[data-sheet-tab='map'] :global([data-tab]:not([data-tab='map'])),
-		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])) {
-			display: none;
-		}
-	}
 
-	/* the toon filter in the crumb row (phones; a single thing = round, DESIGN.md "Round vs square") */
+	/* the toon filter in the crumb row (a single thing = round, DESIGN.md "Round vs square") */
 	.toon-chip {
 		position: relative;
 		display: inline-flex;

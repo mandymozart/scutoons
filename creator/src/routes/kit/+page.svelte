@@ -59,7 +59,7 @@
 
 <svelte:head><title>Editor kit</title></svelte:head>
 
-<div class="kit sc-tool" data-theme={day ? 'day' : 'night'}>
+<div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'}>
 	<header class="bar">
 		<span class="name">Editor kit</span>
 		{#each WORKSPACES as w (w)}

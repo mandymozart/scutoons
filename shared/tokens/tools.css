@@ -84,6 +84,12 @@ html:has(.sc-tool) body {
 		font-size: calc(var(--editor-base) * var(--ui-scale, 1));
 	}
 }
+/* The creator is desktop-only from 744px (RULES H9; below it only a notice): its desktop root starts there */
+@media (min-width: 744px) {
+	html:has(.sc-tool.sc-desktop-only) {
+		font-size: calc(var(--editor-base) * var(--ui-scale, 1));
+	}
+}
 
 /* ── Headings: one bold page title, then regular uppercase labels (no heading scale; bold only rarely, owner
    2026-10-02). `.sc-tool` (0,1,0) beats base.css's h1–h6 rule; a component's own class still wins ── */

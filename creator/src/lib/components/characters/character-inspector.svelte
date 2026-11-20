@@ -32,7 +32,7 @@
 	 * fields + its transitions / the look's label, default, remove. Model: the persona's GLB + body / the look's own GLB
 	 * and its A-pose. Wanted images: what this level lacks. Prompts: for a generator or an artist, from the persona + look.
 	 * Kanon (the level's text square, no tab): the level's Kanon text filling the panel, its state in the title.
-	 * The tab row is the page's (desktop: above the panel; phones: the bar opens the sheet).
+	 * The tab row is the page's (above the panel).
 	 */
 	let {
 		tab,

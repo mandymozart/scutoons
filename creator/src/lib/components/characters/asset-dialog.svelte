@@ -99,11 +99,6 @@
 		gap: 1.25rem;
 		min-width: min(44rem, 88vw);
 	}
-	@media (max-width: 700px) {
-		.asset {
-			grid-template-columns: 1fr;
-		}
-	}
 	section {
 		display: flex;
 		flex-direction: column;

@@ -202,19 +202,13 @@
 		gap: var(--space-05);
 		align-self: flex-start;
 	}
-	/* phones: touch targets ≥ 2.75rem (owner's phone draft) */
-	@media (max-width: 767px) {
-		.slice-tools {
-			--strip: max(2.75rem, var(--control-height));
-		}
-	}
 	.slice-tools :global(.sc-seg > button) {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		box-sizing: border-box;
 		min-width: var(--strip);
-		min-height: var(--strip); /* control-ok: --control-height, on a phone at least 2.75rem (touch) */
+		min-height: var(--strip); /* control-ok: --control-height */
 		padding: 0;
 	}
 	.slice-tools :global(.sc-seg > button[aria-expanded='true']) {

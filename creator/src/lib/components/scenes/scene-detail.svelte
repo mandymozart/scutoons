@@ -201,13 +201,4 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	@media (max-width: 767px) {
-		.facts {
-			grid-template-columns: 1fr;
-			gap: 0.15rem;
-		}
-		dd {
-			margin-bottom: 0.5rem;
-		}
-	}
 </style>

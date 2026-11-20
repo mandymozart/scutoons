@@ -63,7 +63,7 @@
 </script>
 
 <h2>{mapName(region.name, locale) || region.id}</h2>
-<div class="tab" data-tab="region">
+<div class="group">
 	<label class="field">
 		<span>{m['creator.map_id']()}</span>
 		<input type="text" value={region.id} disabled={locked} title={locked ? m['creator.map_id_locked']() : undefined} onchange={(e) => onselect({ kind: 'region', id: renameRegion(doc, region.id, e.currentTarget.value) })} data-testid="region-id" />
@@ -97,7 +97,7 @@
 	</label>
 </div>
 
-<div class="tab" data-tab="region">
+<div class="group">
 	<!-- the welcome (agents/MAP.md §8.10): the sign behind, the representative (or the narrator) says the greeting -->
 	<MediaSlot toon="" value={region.sign?.src || undefined} label={m['creator.region_sign']()} place={`catpope/map/regions/${region.id}/`} webp onchange={(path) => set('sign', path ? { src: path } : undefined)} testid="region-sign" />
 	<LocaleMapField value={region.greeting ?? {}} {languages} label={m['creator.region_greeting']()} multiline testid="region-greeting" onchange={(v) => set('greeting', v)} />

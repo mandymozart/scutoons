@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
-	import { Icon, useDock, type DockContent, type PhoneBarItem } from '@scutoons/ui';
+	import { Icon, useDock, type DockContent, type GroupBarItem } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -44,8 +44,8 @@
 		status,
 		dock,
 		dockOpen = $bindable(false),
-		phoneMore = [],
-		phoneSelection = null,
+		more = [],
+		selection = null,
 		tree,
 		ongoto
 	}: {
@@ -54,9 +54,9 @@
 		/** the page's level in the tree: Publish lists every file below it with a draft (BACKLOG 10.60, publish-tree.ts) */
 		tree?: () => { scope: PublishScope; title: string } | null;
 		/** the page's own entries in the Publish panel (the map builder's Import) */
-		phoneMore?: PhoneBarItem[];
+		more?: GroupBarItem[];
 		/** the selected object's own actions in the Publish panel */
-		phoneSelection?: { label: string; items: PhoneBarItem[]; onback: () => void } | null;
+		selection?: { label: string; items: GroupBarItem[] } | null;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
 		title: string;
@@ -133,7 +133,7 @@
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 	const unpublished = $derived(docs.some((d) => d.unpublished.length));
 	/** a page entry or a selection's action as a button (a group gives its actions) */
-	const flat = (items: PhoneBarItem[]): PhoneBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
+	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
 	// the shell's bar shows the save state; the Document panel holds Publish · Problems · History
 	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, save: () => session.saveDraft(), publish: publishTab, problems: problemsTab, history: historyTab }));
@@ -186,17 +186,17 @@
 		{#if errorCount || warningCount}
 			<p class="counts"><span class:bad={errorCount > 0}>{m['creator.problems_errors']({ count: errorCount })}</span> · {m['creator.problems_warnings']({ count: warningCount })}</p>
 		{/if}
-		{#if phoneSelection}
-			<p class="label">{phoneSelection.label}</p>
+		{#if selection}
+			<p class="label">{selection.label}</p>
 			<div class="row wrap">
-				{#each flat(phoneSelection.items) as item (item.id)}
+				{#each flat(selection.items) as item (item.id)}
 					<button type="button" class="ghost" class:active={item.active} disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
 				{/each}
 			</div>
 		{/if}
-		{#if phoneMore.length || actions}
+		{#if more.length || actions}
 			<div class="row wrap">
-				{#each flat(phoneMore) as item (item.id)}
+				{#each flat(more) as item (item.id)}
 					<button type="button" class="ghost" disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
 				{/each}
 				{#if actions}{@render actions()}{/if}

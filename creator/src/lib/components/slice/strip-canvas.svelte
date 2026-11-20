@@ -10,7 +10,6 @@
 	 * across the art with `seams` (the View toggle).
 	 */
 	import { tick, untrack } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { DEFAULT_SLICE, groupAxis, type CollagePiece, type Path, type PresetList } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
@@ -36,8 +35,7 @@
 		onshown,
 		onselect,
 		oncreate,
-		oncentre,
-		onlongpress
+		oncentre
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
@@ -62,8 +60,6 @@
 		oncreate?: (index: number, tool: Tool, rect: Required<Rect>) => void;
 		/** slice `index` lies in the view's centre (scrolled there) */
 		oncentre?: (index: number) => void;
-		/** a finger held on a box of slice `index` (the phone's context, E3) */
-		onlongpress?: (index: number, item: CanvasSelection, box: DOMRect) => void;
 	} = $props();
 
 	const group = $derived<any>(doc.get(doc.primary, groupPath));
@@ -73,8 +69,6 @@
 	const sliceW = $derived(slices[0]?.width > 0 ? slices[0].width : DEFAULT_SLICE.width);
 
 	let strip = $state<HTMLDivElement | null>(null);
-	/** the phone: a tap with the text tool places one (E3) */
-	const phone = new MediaQuery('max-width: 767px', false);
 	const slots: HTMLElement[] = [];
 	/** the slices mounted (within a screen of the view) */
 	let near = $state<Set<number>>(new Set());
@@ -85,10 +79,6 @@
 	let reported = -1;
 
 	const canvases: (SliceCanvas | undefined)[] = $state([]);
-	/** the open slice's in-place text editor on its text box `index` */
-	export function editText(index: number) {
-		canvases[active]?.editText(index);
-	}
 	/** a pinch began (two fingers): every canvas drops the one-finger drag the first finger started */
 	export function cancelGesture() {
 		for (const c of canvases) c?.cancelGesture();
@@ -99,7 +89,7 @@
 	}
 
 	/**
-	 * the element that scrolls the strip (the slice area on a desktop, the page column on a phone): the observers' root –
+	 * the element that scrolls the strip (the slice area): the observers' root –
 	 * a scroller clips what the viewport would see, so a root margin on the viewport never reaches past it
 	 */
 	function scrollerOf(el: HTMLElement): HTMLElement | null {
@@ -326,7 +316,6 @@
 					{presets}
 					strip={axis}
 					open={i === active}
-					tapPlaces={phone.current}
 					onshown={i === active ? onshown : undefined}
 					onselect={(next) => {
 						take(i);
@@ -337,13 +326,6 @@
 						oncreate?.(i, t, rect);
 					}}
 					ondrop={(item) => dropped(i, item)}
-					onlongpress={onlongpress && phone.current
-						? (item, box) => {
-								take(i);
-								onselect?.(i, item);
-								onlongpress?.(i, item, box);
-							}
-						: undefined}
 				/>
 			{:else}
 				<div class="placeholder" style:--ratio={ratioOf(i)}></div>
@@ -353,7 +335,7 @@
 </div>
 
 <style>
-	/* vertical: one column at the reading width (zoomed: the slice's 1x width × the zoom), centred; a phone: full width */
+	/* vertical: one column at the reading width (zoomed: the slice's 1x width × the zoom), centred */
 	.strip.axis-vertical {
 		display: flex;
 		flex-direction: column;
@@ -363,11 +345,6 @@
 	}
 	.strip.axis-vertical.zoomed {
 		width: calc(var(--slice-w) * var(--zoom));
-	}
-	@media (max-width: 767px) {
-		.strip.axis-vertical:not(.zoomed) {
-			width: 100%;
-		}
 	}
 	/* horizontal / endless: side by side, the area's height */
 	.strip.axis-horizontal {
@@ -416,14 +393,6 @@
 		left: var(--space-025);
 		top: var(--space-025);
 		z-index: 5;
-	}
-	@media (max-width: 767px) {
-		.axis-vertical .number {
-			right: auto;
-			left: var(--space-025);
-			top: var(--space-025);
-			z-index: 5;
-		}
 	}
 	/* the seam as a hairline across the art (the View toggle), over the lettering, never in the pointer's way */
 	.seam {

@@ -112,7 +112,7 @@
 </script>
 
 <h2>{mapName(place.name, locale) || place.id}</h2>
-<div class="tab" data-tab="place">
+<div class="group">
 <label class="field">
 	<span>{m['creator.map_id']()}</span>
 	<input type="text" value={place.id} disabled={locked} title={locked ? m['creator.map_id_locked']() : undefined} onchange={(e) => changeId(e.currentTarget.value)} data-testid="place-id" />
@@ -155,12 +155,12 @@
 </fieldset>
 </div>
 
-<div class="tab" data-tab="place">
+<div class="group">
 <label class="check"><input type="checkbox" checked={!!place.hidden} onchange={(e) => editPlace(doc, place.id, (p) => { if (e.currentTarget.checked) p.hidden = true; else delete p.hidden; })} data-testid="place-hidden" /> {m['creator.map_hidden']()}</label>
 {#if place.hidden}<p class="hint">{m['creator.map_hidden_by_event']()}</p>{/if}
 </div>
 
-<div class="tab" data-tab="place">
+<div class="group">
 <fieldset>
 	<legend>{m['creator.map_chapter_link']()}</legend>
 	<div class="row">
@@ -175,7 +175,7 @@
 </fieldset>
 </div>
 
-<div class="tab" data-tab="place">
+<div class="group">
 <!-- where routes run into and out of the diorama (BACKLOG 10.66 (4), owner 2026-10-12: "the computed ones first, then
      adjustable"): computed toward the neighbouring waypoints; dragging a gate's handle on the canvas sets it -->
 <fieldset data-testid="place-gates">
@@ -187,7 +187,7 @@
 </fieldset>
 </div>
 
-<div class="tab" data-tab="view">
+<div class="group">
 <fieldset data-testid="place-view">
 	<legend>{m['creator.map_place_view']()}</legend>
 	<p class="hint">{m['creator.map_place_view_hint']()}</p>
@@ -204,11 +204,11 @@
 </fieldset>
 </div>
 
-<div class="tab" data-tab="image">
+<div class="group">
 <PlaceImage {doc} {place} {bust} />
 </div>
 
-<div class="tab" data-tab="place">
+<div class="group">
 <fieldset>
 	<legend>{m['creator.map_used_in']()}</legend>
 	{#if usedBy.length}<p>{m['creator.map_used_in_routes']({ routes: usedBy.join(', ') })}</p>{/if}
@@ -219,8 +219,7 @@
 </div>
 
 <style>
-	/* the phone sheet's tabs (map-builder.svelte, UI-CONCEPTS E.10) show one group; elsewhere the wrappers are invisible */
-	.tab {
+	.group {
 		display: contents;
 	}
 	.kanon-link {

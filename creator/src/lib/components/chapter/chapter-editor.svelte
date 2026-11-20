@@ -2,8 +2,7 @@
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
-	import { ActionBar, BarTabs, PhoneBar, type PhoneBarItem, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, GroupBar, type GroupBarItem, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -40,10 +39,7 @@
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import { type Tool } from '$lib/components/slice/slice-canvas.svelte';
 	import StripCanvas from '$lib/components/slice/strip-canvas.svelte';
-	import PhoneKinds from '$lib/components/slice/phone-kinds.svelte';
-	import LongPressMenu from '$lib/components/slice/long-press-menu.svelte';
 	import { TEXT_PRESETS } from '$lib/editor/text-presets.ts';
-	import { Menu } from '@scutoons/ui';
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
@@ -53,9 +49,6 @@
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
 	import { clipboard, clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
-	import { slicesClipHandler } from '$lib/editor/slices-clip.svelte.ts';
-	import { groupsClipHandler } from '$lib/editor/groups-clip.svelte.ts';
-	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
 	import { setClipContext } from '$lib/editor/clip-context.ts';
 	import { countPlacements } from '$lib/editor/clip.ts';
@@ -80,7 +73,6 @@
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import ReaderDock from '$lib/components/reader/reader-dock.svelte';
-	import { toonUrl } from '$lib/utils/cdn.ts';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -102,45 +94,6 @@
 	// maximized (owner 2026-10-06, agents/DOCKING.md "Maximize"): the inspector fills the editor's columns and the shell
 	// gives the content the dock's room too; the canvas is only hidden (its edits, scroll and size stay)
 	const INSPECTOR = 'slice-inspector';
-	/**
-	 * phones (BACKLOG 10.50 e): the inspector is a sheet below the canvas – its grab handle drags it taller / lower (rem,
-	 * not remembered), a tap switches between the normal height (45 %) and tall (80 %); arrows step it
-	 */
-	let sheetRem = $state<number | null>(null);
-	let sheetDrag: { id: number; y: number; moved: boolean } | null = null;
-	const rootRem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-	function sheetLimits() {
-		const h = (columnsEl?.clientHeight ?? window.innerHeight) / rootRem();
-		return { min: 3.5, max: Math.max(3.5, h - 6), h };
-	}
-	function setSheet(rem: number) {
-		const { min, max } = sheetLimits();
-		sheetRem = Math.round(Math.min(max, Math.max(min, rem)) * 4) / 4;
-	}
-	function sheetDown(event: PointerEvent) {
-		sheetDrag = { id: event.pointerId, y: event.clientY, moved: false };
-		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-	}
-	function sheetMove(event: PointerEvent) {
-		if (!sheetDrag || sheetDrag.id !== event.pointerId || !columnsEl) return;
-		if (!sheetDrag.moved && Math.abs(event.clientY - sheetDrag.y) < 6) return;
-		sheetDrag.moved = true;
-		setSheet((columnsEl.getBoundingClientRect().bottom - event.clientY) / rootRem());
-	}
-	function sheetUp(event: PointerEvent) {
-		if (!sheetDrag || sheetDrag.id !== event.pointerId) return;
-		const tap = !sheetDrag.moved;
-		sheetDrag = null;
-		if (!tap) return;
-		const { h } = sheetLimits();
-		setSheet(sheetRem !== null && sheetRem > h * 0.6 ? h * 0.45 : h * 0.8);
-	}
-	function sheetKey(event: KeyboardEvent) {
-		const step = event.key === 'ArrowUp' ? 2 : event.key === 'ArrowDown' ? -2 : 0;
-		if (!step) return;
-		event.preventDefault();
-		setSheet((sheetRem ?? sheetLimits().h * 0.45) + step);
-	}
 	const inspectorMax = $derived(shellDock.maximized === INSPECTOR);
 	$effect(() => () => {
 		if (shellDock.maximized === INSPECTOR) shellDock.restore();
@@ -463,7 +416,7 @@
 		let pinch: { d0: number; z0: number } | null = null;
 		const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
 		const centre = (t: TouchList) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
-		/** the element that scrolls vertically (the area on a desktop, the page column on a phone) */
+		/** the element that scrolls vertically */
 		const vScroller = () => {
 			for (let el: HTMLElement | null = area; el; el = el.parentElement) {
 				const o = getComputedStyle(el).overflowY;
@@ -574,7 +527,6 @@
 	usePageNav({
 		sidebar: tree,
 		actions: flowToggle,
-		crumbEnd: phoneTop,
 		fill: true,
 		extra: () => {
 			if (view.section !== 'group' && view.section !== 'slice') return [];
@@ -850,7 +802,7 @@
 	}
 	/** what a tool makes of a click / a drawn rect on the canvas (a click: width 0) */
 	const CREATE: Record<Tool, (rect: { x: number; y: number; width: number; height: number }) => void> = {
-		// a tap (no rect – the phone, E3): the picked preset at its size, centred on the tap
+		// a click (no rect): the picked preset at its size, centred on the click
 		text: (rect) => {
 			if (rect.width >= 2) return addDialog(rect);
 			const preset = TEXT_PRESETS.find((p) => p.id === view.textPreset) ?? TEXT_PRESETS[0];
@@ -871,79 +823,6 @@
 		view.selection = null;
 	}
 
-	// ── phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut) ──────────────────────────────────────────────────
-	/** the inspector sheet, variant C: closed it is its tab row only; a tab opens it there, the open tab closes it */
-	let sheetOpen = $state(false);
-	/**
-	 * the tab row drags the sheet (owner 2026-10-11): up = taller / open, down = lower, let go low = closed; a drag is no
-	 * tap. The drag starts from the height the sheet is drawn at (open: it may fill the room a short slice leaves; closed:
-	 * the tab row) and then sets exactly the dragged height (`sheet-sized`), so the sheet follows the finger (owner
-	 * 2026-10-18: the sheet "jumps" and "can't be moved"). Move / up are followed on the window: a pointer that leaves the
-	 * row before the drag counts (a fast flick, a mouse) is still the drag; the row captures it once it moves.
-	 */
-	let tabDrag: { id: number; y: number; start: number; moved: boolean; row: HTMLElement } | null = null;
-	let swallowTap = false;
-	function tabsDown(event: PointerEvent) {
-		if (tabDrag || (event.pointerType === 'mouse' && event.button !== 0)) return;
-		swallowTap = false; // a new press: its tap counts (only the click a drag ends with is swallowed)
-		const row = event.currentTarget as HTMLElement;
-		const drawn = (sheetOpen ? document.getElementById(INSPECTOR) : row)?.getBoundingClientRect().height;
-		tabDrag = { id: event.pointerId, y: event.clientY, start: drawn ? drawn / rootRem() : 2.75, moved: false, row };
-		window.addEventListener('pointermove', tabsMove);
-		window.addEventListener('pointerup', tabsUp);
-		window.addEventListener('pointercancel', tabsUp);
-	}
-	function closeSheet() {
-		sheetOpen = false;
-		sheetRem = null;
-	}
-	function tabsMove(event: PointerEvent) {
-		if (!tabDrag || tabDrag.id !== event.pointerId) return;
-		const dy = event.clientY - tabDrag.y;
-		if (!tabDrag.moved && Math.abs(dy) < 8) return;
-		if (!tabDrag.moved) try {
-			tabDrag.row.setPointerCapture(event.pointerId);
-		} catch {
-			/* a pointer that is gone */
-		}
-		tabDrag.moved = true;
-		sheetOpen = true;
-		setSheet(tabDrag.start - dy / rootRem());
-	}
-	function tabsUp(event: PointerEvent) {
-		if (!tabDrag || tabDrag.id !== event.pointerId) return;
-		const moved = tabDrag.moved;
-		tabDrag = null;
-		window.removeEventListener('pointermove', tabsMove);
-		window.removeEventListener('pointerup', tabsUp);
-		window.removeEventListener('pointercancel', tabsUp);
-		if (!moved) return;
-		swallowTap = true;
-		setTimeout(() => (swallowTap = false), 300);
-		if ((sheetRem ?? 99) < 6) closeSheet();
-	}
-	$effect(() => () => {
-		window.removeEventListener('pointermove', tabsMove);
-		window.removeEventListener('pointerup', tabsUp);
-		window.removeEventListener('pointercancel', tabsUp);
-	});
-	function pickSheetTab(id: InspectorTab) {
-		if (swallowTap) return;
-		if (view.inspectorTab === id && sheetOpen) closeSheet();
-		else {
-			view.setTab(id);
-			sheetOpen = true;
-		}
-	}
-	/** the phone's long-press context (E3): on a box of the strip or a Layers row – the selection is already made */
-	let longMenu = $state<DOMRect | null>(null);
-	/** Edit (the pencil): a text box in place, anything else its inspector */
-	function editSelected() {
-		const sel = view.selection;
-		if (!sel) return;
-		if (sel.kind === 'dialog') return canvas?.editText(sel.index);
-		pickSheetTab(sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers');
-	}
 	/** copy / cut / paste on the slice (the live region), as the clipboard menu */
 	async function clip(action: 'copy' | 'cut' | 'paste' | 'duplicate') {
 		liveRegion.set(SLICE_REGION);
@@ -951,15 +830,11 @@
 		await clipboard.copyFromMenu(action === 'cut');
 		if (action === 'duplicate') await clipboard.pasteFromMenu(false);
 	}
-	/**
-	 * the bar (UI-CONCEPTS E.10; every width since 2026-10-12, owner: "phone grouping"): Save · History (undo, redo,
-	 * versions) · Publish · More; on a desktop Problems and the slice stepper lead the row (More drops them)
-	 */
-	const phoneWidth = new MediaQuery('max-width: 767px', false);
-	const problemsItem = $derived<PhoneBarItem>({ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems'), testid: 'problems-toggle' });
+	/** the bar: Problems and the slice stepper, then Save · History (undo, redo, versions) · Publish · More */
 	const stepping = $derived(view.section === 'slice' && !!activeGroup?.slices?.length);
-	const phoneItems = $derived<PhoneBarItem[]>([
-		...(phoneWidth.current ? [] : [problemsItem, ...(stepping ? [{ id: 'slices', label: m['creator.slice_navigation'](), content: deskSliceNav }] : [])]),
+	const barItems = $derived<GroupBarItem[]>([
+		{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems'), testid: 'problems-toggle' },
+		...(stepping ? [{ id: 'slices', label: m['creator.slice_navigation'](), content: deskSliceNav }] : []),
 		{ id: 'save', icon: 'save', label: anySaving ? m['creator.saving']() : m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: !anyDirty || anySaving, run: () => session.saveDraft(), testid: 'save-draft' },
 		{
 			id: 'history',
@@ -971,143 +846,10 @@
 				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history'), testid: 'history-versions' }
 			]
 		},
-		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
+		// a dot while saved drafts are not live yet
 		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: liveFiles.some((f) => f.doc.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'publish' },
-		{
-			id: 'more',
-			icon: 'more-horizontal',
-			label: m['creator.more'](),
-			badge: errorCount || undefined,
-			items: [
-				...(phoneWidth.current ? [problemsItem] : []),
-				{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') },
-				...(phoneWidth.current && stepping && activeGroup
-					? [
-							{ id: 'prev-slice', icon: 'chevron-left', label: m['creator.bar_prev_slice'](), disabled: view.sliceIndex <= 0, run: () => view.selectSlice(view.sliceIndex - 1), stay: true },
-							{ id: 'next-slice', icon: 'chevron-right', label: m['creator.bar_next_slice'](), disabled: view.sliceIndex >= activeGroup.slices.length - 1, run: () => view.selectSlice(view.sliceIndex + 1), stay: true }
-						]
-					: [])
-			]
-		}
+		{ id: 'more', icon: 'more-horizontal', label: m['creator.more'](), badge: errorCount || undefined, items: [{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') }] }
 	]);
-	// ── phones: picking slices in the group's grid and groups in the chapter's list (owner 2026-10-12: "das Zurück unten
-	// in der Auswahl-Leiste … brutal einführen" – chapter editor slices / groups). A long press picks one, then taps add /
-	// remove; a tap without picks still opens it (BACKLOG 10.50 h). The picks are a selection: the bar shows their row
-	// (copy / cut / paste through the same handlers as the tree's lists), ‹ drops them ──
-	const PHONE_SLICES = 'phone-slices';
-	const PHONE_GROUPS = 'phone-groups';
-	let phonePicks = $state<number[]>([]);
-	let phoneGroupPicks = $state<number[]>([]);
-	$effect(() => {
-		void view.groupIndex;
-		void view.section;
-		untrack(() => {
-			phonePicks = [];
-			phoneGroupPicks = [];
-		});
-	});
-	const phoneSliceClip = slicesClipHandler({
-		doc: () => activeDoc!,
-		groupPath: () => groupPath,
-		slices: () => activeGroup?.slices ?? [],
-		picked: () => phonePicks,
-		pick: (next) => (phonePicks = next),
-		onselect: () => {}
-	});
-	useClipHandler(() => (view.section === 'group' && activeDoc ? PHONE_SLICES : null), phoneSliceClip);
-	const phoneGroupClip = groupsClipHandler({
-		chapter: () => chapter,
-		groups: () => groups,
-		chapterNumber: () => chapterNumber,
-		picked: () => phoneGroupPicks,
-		pick: (next) => (phoneGroupPicks = next),
-		onremove: () => {},
-		onpaste: () => {}
-	});
-	useClipHandler(() => (view.section === 'meta' ? PHONE_GROUPS : null), phoneGroupClip);
-	/** a long press (450 ms without moving) picks; the tap that ends it does nothing else */
-	let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null = null;
-	function pressStart(event: PointerEvent, fire: () => void) {
-		press = { x: event.clientX, y: event.clientY, fired: false, timer: setTimeout(() => press && ((press.fired = true), fire()), 450) };
-	}
-	function pressMove(event: PointerEvent) {
-		if (press && !press.fired && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8) pressEnd();
-	}
-	function pressEnd() {
-		if (press && !press.fired) {
-			clearTimeout(press.timer);
-			press = null;
-		}
-	}
-	/** a tap: false when it only ended a long press */
-	function pressTap(): boolean {
-		const ended = !!press?.fired;
-		press = null;
-		return !ended;
-	}
-	const addPick = (picks: number[], index: number) => (picks.includes(index) ? picks : [...picks, index].sort((a, b) => a - b));
-	const togglePick = (picks: number[], index: number) => (picks.includes(index) ? picks.filter((i) => i !== index) : addPick(picks, index));
-	function sliceTap(index: number) {
-		if (!pressTap()) return;
-		if (!phonePicks.length) return view.selectSlice(index);
-		phonePicks = togglePick(phonePicks, index);
-	}
-	function groupTap(index: number) {
-		if (!pressTap()) return;
-		if (!phoneGroupPicks.length) return view.selectGroup(index);
-		phoneGroupPicks = togglePick(phoneGroupPicks, index);
-	}
-	async function pickedClip(region: string, action: 'copy' | 'cut' | 'duplicate' | 'delete', what: string) {
-		liveRegion.set(region);
-		if (action === 'delete') {
-			if (await confirmRemove(m['creator.remove_confirm']({ what }))) clipboard.handler?.remove();
-			return;
-		}
-		if (action === 'duplicate') {
-			const copied = clipboard.copy();
-			if (copied) clipboard.paste(copied);
-			return;
-		}
-		await clipboard.copyFromMenu(action === 'cut');
-	}
-	/** the bar's row for picked slices / groups */
-	function picksRow(kind: 'slices' | 'groups', picks: number[], clear: () => void, open: (index: number) => void) {
-		const region = kind === 'slices' ? PHONE_SLICES : PHONE_GROUPS;
-		const what = kind === 'slices' ? m['creator.clip_what_slices']({ count: picks.length }) : m['creator.clip_what_groups']({ count: picks.length });
-		const run = (action: 'copy' | 'cut' | 'duplicate' | 'delete') => () => pickedClip(region, action, what);
-		return {
-			label: what,
-			onback: clear,
-			items: [
-				...(picks.length === 1 ? [{ id: 'open', icon: 'edit-2', label: m['creator.bar_edit'](), run: () => open(picks[0]), testid: `phone-${kind}-open` }] : []),
-				{ id: 'duplicate', icon: 'copy', label: m['creator.bar_duplicate'](), run: run('duplicate'), testid: `phone-${kind}-duplicate` },
-				{ id: 'copy', icon: 'clipboard', label: m['creator.clip_copy'](), run: run('copy'), testid: `phone-${kind}-copy` },
-				{ id: 'cut', icon: 'scissors', label: m['creator.clip_cut_action'](), run: run('cut'), testid: `phone-${kind}-cut` },
-				{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: run('delete'), testid: `phone-${kind}-delete` }
-			] satisfies PhoneBarItem[]
-		};
-	}
-
-	/** the selected text box / item / area: its own actions (‹ deselects) */
-	const phoneSelection = $derived.by(() => {
-		if (view.section === 'group' && phonePicks.length) return picksRow('slices', phonePicks, () => (phonePicks = []), (i) => view.selectSlice(i));
-		if (view.section === 'meta' && phoneGroupPicks.length) return picksRow('groups', phoneGroupPicks, () => (phoneGroupPicks = []), (i) => view.selectGroup(i));
-		const sel = view.selection;
-		if (!sel || view.section !== 'slice') return null;
-		const tab: InspectorTab = sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers';
-		const label = { dialog: m['creator.bar_sel_text'](), item: m['creator.bar_sel_item'](), piece: m['creator.bar_sel_piece'](), event: m['creator.bar_sel_event'](), sample: m['creator.bar_sel_sample']() }[sel.kind];
-		return {
-			label,
-			onback: () => (view.selection = null),
-			items: [
-				{ id: 'edit', icon: 'edit-2', label: m['creator.bar_edit'](), active: sheetOpen && view.inspectorTab === tab, run: () => ((sheetOpen = true), view.setTab(tab)), testid: 'phone-sel-edit' },
-				{ id: 'duplicate', icon: 'copy', label: m['creator.bar_duplicate'](), run: () => clip('duplicate'), testid: 'phone-sel-duplicate' },
-				{ id: 'copy', icon: 'clipboard', label: m['creator.clip_copy'](), run: () => clip('copy') },
-				{ id: 'cut', icon: 'scissors', label: m['creator.clip_cut_action'](), run: () => clip('cut') },
-				{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: removeSelected, testid: 'phone-sel-delete' }
-			] satisfies PhoneBarItem[]
-		};
-	});
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
 	// unsaved changes: leaving asks in-page; lib/editor/ask.ts
@@ -1233,30 +975,11 @@
 {/snippet}
 
 <svelte:window onkeydown={onKeydown} />
-<!-- right-click / long-press in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
+<!-- right-click in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
 <ClipMenu />
 
 <!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06); the Reader next to it
      (BACKLOG 10.49) -->
-<!-- phones, the strip editor (TEXT-ACROSS-SLICES.md §4.1 E3): the crumb row is the top bar – ⚠ · Save · Publish · •••
-     (versions, paste, snap, seams); the bottom row is the kinds (PhoneKinds) -->
-{#snippet phoneTop()}
-	{#if phoneWidth.current && view.section === 'slice' && activeSlice}
-		<span class="phone-top" data-testid="phone-top">
-			<button type="button" class="sq" title={m['creator.problems']()} aria-label={m['creator.problems']()} aria-pressed={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle"><Icon name="alert-triangle" />{#if errorCount + warningCount}<span class="badge">{errorCount + warningCount}</span>{/if}</button>
-			<button type="button" class="sq" title={anySaving ? m['creator.saving']() : m['creator.save_short']()} aria-label={m['creator.save_short']()} disabled={!anyDirty || anySaving} onclick={() => session.saveDraft()} data-testid="save-draft"><Icon name="save" />{#if anyDirty}<span class="dot">•</span>{/if}</button>
-			<button type="button" class="sq" title={publishLabel(toon)} aria-label={publishLabel(toon)} disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{#if liveFiles.some((f) => f.doc.unpublished.length)}<span class="dot">•</span>{/if}</button>
-			<Menu label={m['creator.more']()} align="end">
-				{#snippet trigger()}<span data-testid="phone-bar-more"><Icon name="more-horizontal" label={m['creator.more']()} /></span>{/snippet}
-				<button type="button" onclick={() => togglePanel('history')} data-testid="history-versions">{m['creator.bar_versions']()}</button>
-				<button type="button" onclick={() => clip('paste')} data-testid="paste">{m['creator.clip_paste']()}</button>
-				<button type="button" aria-pressed={view.snap} onclick={() => (view.snap = !view.snap)} data-testid="phone-snap">{m['creator.canvas_snap']()}</button>
-				<button type="button" aria-pressed={view.seams} onclick={() => (view.seams = !view.seams)} data-testid="phone-seams">{m['creator.canvas_seams']()}</button>
-			</Menu>
-		</span>
-	{/if}
-{/snippet}
-
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={open.reader} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
 	<button type="button" class="sc-round" aria-pressed={open.flow} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
@@ -1269,20 +992,12 @@
 <div class="editor">
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
-	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet phone()}
-			{#if phoneWidth.current && view.section === 'slice' && activeSlice}
-				<PhoneKinds {view} canUndo={!!undoDoc} canRedo={!!redoDoc} onundo={undoLast} onredo={redoLast} oninspector={pickSheetTab} />
-			{:else}
-				<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-			{/if}
+		{#snippet groups()}
+			<GroupBar items={barItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 	</ActionBar>
 
-	{#if longMenu}
-		<LongPressMenu at={longMenu} oncopy={() => clip('copy')} oncut={() => clip('cut')} ondelete={removeSelected} onedit={editSelected} onclose={() => (longMenu = null)} />
-	{/if}
 	{#if chapter.loading}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else if chapter.error}
@@ -1291,32 +1006,10 @@
 		<DocNotices {session} docs={noticeDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
-		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} class:sheet-closed={!sheetOpen} class:sheet-sized={sheetOpen && sheetRem !== null} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
-					<!-- phones (BACKLOG 10.50 h): the chapter leads with its groups – the tree is in the drawer there -->
-					<nav class="phone-only phone-groups" aria-label={m['creator.groups']()} data-testid="phone-groups">
-						<p class="sc-nav-head">{m['creator.groups']()}</p>
-						{#each groups as g, gi (gi)}
-							<button
-								type="button"
-								class="sc-nav-item phone-group"
-								class:sc-selected={phoneGroupPicks.includes(gi)}
-								aria-pressed={phoneGroupPicks.length ? phoneGroupPicks.includes(gi) : undefined}
-								onpointerdown={(e) => pressStart(e, () => (phoneGroupPicks = addPick(phoneGroupPicks, gi)))}
-								onpointermove={pressMove}
-								onpointerup={pressEnd}
-								onpointercancel={pressEnd}
-								oncontextmenu={(e) => e.preventDefault()}
-								onclick={() => groupTap(gi)}
-								data-testid="phone-group-{gi}"
-							>
-								<span class="phone-name">{groupName(groups[gi], gi)}</span>
-								<span class="phone-hint">{#if g?.events}<Icon name="zap" size="0.875rem" label={m['creator.events']()} />{/if}{g?.slices?.length ?? 0}</span>
-							</button>
-						{/each}
-					</nav>
 					{#if legacyTexts}
 						<div class="sc-bar is-note" data-testid="legacy-texts">
 							<span>{m['creator.legacy_texts']({ count: legacyTexts })}</span>
@@ -1343,27 +1036,6 @@
 					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
-						<!-- phones (BACKLOG 10.50 h): the group's slices first – a tap opens the slice editor -->
-						{#if activeGroup?.slices?.length}
-							<nav class="phone-only phone-slices" aria-label={m['creator.slices']()} data-testid="phone-slices">
-								{#each activeGroup.slices as s, si (si)}
-									<button
-										type="button"
-										class="phone-slice"
-										class:sc-selected={phonePicks.includes(si)}
-										aria-pressed={phonePicks.length ? phonePicks.includes(si) : undefined}
-										onpointerdown={(e) => pressStart(e, () => (phonePicks = addPick(phonePicks, si)))}
-										onpointermove={pressMove}
-										onpointerup={pressEnd}
-										onpointercancel={pressEnd}
-										oncontextmenu={(e) => e.preventDefault()}
-										onclick={() => sliceTap(si)} aria-label={m['creator.slice_n']({ number: si + 1 })} title={m['creator.slice_n']({ number: si + 1 })} data-control-exempt="slice thumbnail" data-testid="phone-slice-{si}">
-										<img src={toonUrl(activeDoc.toon, s?.image)} alt="" loading="lazy" draggable="false" />
-										<span>{si + 1}</span>
-									</button>
-								{/each}
-							</nav>
-						{/if}
 						{@render groupBody()}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>
@@ -1401,7 +1073,6 @@
 								CREATE[t](rect);
 							}}
 							oncentre={(i) => !view.selection && view.focusSlice(i)}
-							onlongpress={(_i, _item, box) => (longMenu = box)}
 						/>
 					</div>
 					</div>
@@ -1414,38 +1085,6 @@
 			{#if view.section === 'slice' && activeDoc && activeSlice}
 				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="slice-inspector" class="inspector-resize" />
 				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region" data-sc-maximize={INSPECTOR}>
-				<!-- phones: the sheet's grab handle (BACKLOG 10.50 e) – a separator like the Divider -->
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-				<div
-					class="sheet-handle"
-					role="separator"
-					aria-orientation="horizontal"
-					aria-label={m['creator.resize_panel']()}
-					title={m['creator.resize_panel']()}
-					tabindex="0"
-					data-focus-own
-					data-testid="sheet-handle"
-					onpointerdown={sheetDown}
-					onpointermove={sheetMove}
-					onpointerup={sheetUp}
-					onpointercancel={() => (sheetDrag = null)}
-					onkeydown={sheetKey}
-				><span></span></div>
-				<!-- phones (E.10, variant C): the sheet's head = its tabs; closed, only this row shows -->
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="sheet-tabs" onpointerdown={tabsDown}>
-					<BarTabs
-						label={m['creator.slice_tab']()}
-						value={sheetOpen ? view.inspectorTab : ''}
-						onchange={(id) => pickSheetTab(id as InspectorTab)}
-						tabs={[
-							{ id: 'layers', icon: 'layers', label: m['creator.layers'](), testid: 'sheet-tab-layers' },
-							{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'sheet-tab-audio' },
-							{ id: 'events', icon: 'zap', label: m['creator.events'](), count: activeSlice.events?.length ?? 0, testid: 'sheet-tab-events' },
-							{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'sheet-tab-slice' }
-						]}
-					/>
-				</div>
 				<SliceInspector
 					{view}
 					groupTab={groupBody}
@@ -1454,11 +1093,6 @@
 					onpick={(i, next) => {
 						view.focusSlice(i);
 						view.select(next);
-					}}
-					onlongpress={(i, next, box) => {
-						view.focusSlice(i);
-						view.select(next);
-						longMenu = box;
 					}}
 					doc={activeDoc}
 					slice={activeSlice}
@@ -1488,8 +1122,6 @@
 			{/if}
 		</div>
 		{#if view.section === 'slice' && activeSlice}
-			<!-- the item and piece pickers live outside the inspector: on a phone its sheet is display:none while closed, and a
-			     modal <dialog> opened in there is an invisible 0×0 modal that makes the page inert (the item / piece tool's tap) -->
 			<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
 			<CollagePickerSheet bind:open={view.pickingPiece} {toon} registry={choices?.registry ?? null} moods={choices?.moods ?? defaultMoodVocabulary()} cast={choices?.cast} toons={choices?.toons} onpick={addPiece} />
 		{/if}
@@ -1544,89 +1176,6 @@
 		gap: var(--space-025);
 		white-space: nowrap;
 	}
-	/* phones (BACKLOG 10.50 h): the content first – the chapter's groups, a group's slices */
-	.phone-only {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		.phone-only {
-			display: block;
-		}
-	}
-	.phone-groups {
-		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) var(--space-15);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	.phone-groups .sc-nav-item {
-		justify-content: space-between;
-	}
-	.phone-name {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.phone-hint {
-		flex: none;
-		color: var(--muted);
-	}
-	@media (max-width: 767px) {
-		.phone-slices {
-			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
-			gap: var(--space-05);
-			margin-bottom: var(--space-15);
-		}
-	}
-	.phone-slice {
-		position: relative;
-		display: block;
-		width: 100%;
-		aspect-ratio: 3 / 4;
-		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		overflow: hidden;
-	}
-	/* a long press picks (no system menu, no drag ghost); a picked one: a thick frame, its number inverted */
-	.phone-slice {
-		-webkit-touch-callout: none;
-		user-select: none;
-	}
-	.phone-group {
-		-webkit-touch-callout: none;
-		user-select: none;
-	}
-	.phone-slice.sc-selected {
-		outline: var(--border-width-focus) solid var(--ink);
-		outline-offset: var(--border-width-regular);
-	}
-	.phone-slice.sc-selected span {
-		background: var(--primary-cyan);
-		color: var(--ink);
-	}
-	.phone-slice img {
-		display: block;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.phone-slice span {
-		position: absolute;
-		left: 0;
-		top: 0;
-		padding: 0 0.25rem;
-		background: var(--ink);
-		color: var(--paper);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	@media (max-width: 767px) {
-		/* the inspector sheet's tabs are in the bottom bar (UI-CONCEPTS E.10) */
-		.columns :global(.inspector > .sc-tabs) {
-			display: none;
-		}
-	}
 	/* status bars: ink on paper with a thick state rule (no tinted fills); unsaved = inverted */
 	.columns {
 		position: relative;
@@ -1660,100 +1209,6 @@
 			display: none;
 		}
 	}
-	/* phones: the inspector is a sheet below the canvas with a grab handle (BACKLOG 10.50 e); its head = the tabs (E.10) */
-	.sheet-handle,
-	.sheet-tabs {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		/* open: the canvas row is as tall as the slice (at most the rest), the sheet starts right under it and takes the
-		   free space, at least 45 % (owner 2026-10-18: "a straight cut after the line") */
-		.columns.has-inspector {
-			grid-template-rows: fit-content(100%) minmax(45%, 1fr);
-		}
-		/* dragged (and while dragging): exactly the dragged height, so it follows the finger – the canvas area gets the rest */
-		.columns.has-inspector.sheet-sized {
-			grid-template-rows: minmax(0, 1fr) minmax(0, var(--sheet-height));
-		}
-		.columns .main.fit {
-			padding-bottom: 0;
-		}
-		/* inline-size, not size: the room's height follows the canvas (a phone's fit is the width, no cqh needed) */
-		.columns .main.fit .canvas-scroll {
-			container-type: inline-size;
-		}
-		.sheet-handle {
-			position: sticky;
-			top: 0;
-			z-index: 2;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			height: 1.5rem;
-			background: var(--paper);
-			cursor: ns-resize;
-			touch-action: none;
-		}
-		.sheet-handle span {
-			width: 3rem;
-			height: 0.3125rem;
-			border-radius: 0.25rem;
-			background: var(--ink);
-		}
-		.sheet-handle:focus-visible {
-			outline: var(--border-width-focus) solid var(--ink);
-			outline-offset: calc(-1 * var(--border-width-focus));
-		}
-		.inspector-region :global(.inspector) {
-			padding-top: 0;
-		}
-		.sheet-tabs {
-			touch-action: none;
-			position: sticky;
-			top: 0;
-			z-index: 2;
-			display: flex;
-			background: var(--paper);
-			border-bottom: var(--border-width-regular) solid var(--ink);
-		}
-		/* variant C: no grab handle – the tabs open and close the sheet */
-		.sheet-handle {
-			display: none;
-		}
-		/* closed (variant C): the tab row only, on the bottom bar; the free space goes to the canvas area (owner
-		   2026-10-18: a closed sheet must not look open and empty) */
-		.columns.has-inspector.sheet-closed {
-			grid-template-rows: minmax(0, 1fr) auto;
-		}
-		.sheet-closed .inspector-region {
-			overflow: hidden;
-		}
-		/* closed, the tab row sits on the bottom bar: its rule is the bar's */
-		.sheet-closed .sheet-tabs {
-			border-bottom: 0;
-		}
-		/* :global – the inspector is SliceInspector's root, scoped CSS here would miss it (the sheet then grew with it) */
-		.sheet-closed .inspector-region > :global(:not(.sheet-tabs)) {
-			display: none;
-		}
-		/* the strip editor, E3: the tools are the bottom row (PhoneKinds) – no tool strip left of the canvas, no tab row on
-		   the sheet; the sheet opens from the row, its grab handle drags it, closed it takes no room */
-		.slice-room :global(.slice-tools) {
-			display: none;
-		}
-		.sheet-tabs {
-			display: none;
-		}
-		.columns.has-inspector:not(.sheet-closed) .sheet-handle {
-			display: flex;
-		}
-		.columns.has-inspector.sheet-closed {
-			grid-template-rows: minmax(0, 1fr) 0;
-		}
-		.sheet-closed .inspector-region {
-			border-top: 0;
-		}
-	}
 	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
 	.columns.inspector-max .main {
 		grid-area: 1 / 1;
@@ -1772,42 +1227,6 @@
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		min-width: 0;
-	}
-	/* the phone's top bar in the crumb row (E3): equal squares, borderless */
-	.phone-top {
-		display: flex;
-		align-items: center;
-	}
-	.phone-top .sq,
-	.phone-top :global(.trigger) {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--control-height);
-		height: var(--control-height);
-		min-width: 0;
-		padding: 0;
-		border: 0;
-		background: transparent;
-		color: var(--ink);
-	}
-	.phone-top .sq[aria-pressed='true'] {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.phone-top .badge,
-	.phone-top .dot {
-		position: absolute;
-		top: var(--space-025);
-		right: var(--space-025);
-		font-size: var(--type-caption-size);
-		line-height: 1;
-	}
-	.phone-top .badge {
-		padding: 0 var(--space-025);
-		background: var(--state-warning);
-		color: var(--ink);
 	}
 	.canvas-scroll {
 		overflow: auto;
