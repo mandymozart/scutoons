@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q2 sets on groups and XR scenes, where in XR a spot is a physical place (§0.2, readings a / b). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: a spot on a chapter group (§0.3, the owner leans to a spot within a location); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -49,7 +49,7 @@ A toon's event is never global across toons; it is global within the session tha
 **Three questions for the owner** (replacing §8):
 
 1. ~~Events~~ **Decided: the story events and the choice questions join the address book as a kind `event`** (owner 2026-11-20: "choice questions seem to be the same concept. Lets do that.") → #707. No `all:` prefix, reach by where it is sent (§0.1). Shows mixing toons (Catpope + Yellow Mouse, soon) need several books at once → #708.
-2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one. **In XR a spot is physical** (§0.2): the shared thing is the spot's *name*; each medium resolves where it is.
+2. **Spots on chapter groups and XR scenes: open, not decided** (§0.3). The owner leans toward a group naming a **spot within a location** (the cathedral's altar, its confessional), not a whole set; an XR scene's spot is a geo-anchor on the floor (§0.2).
 
 ### 0.2 A spot inside an XR scene is a physical place (owner 2026-11-20)
 
@@ -71,7 +71,24 @@ So the owner's addition has two readings, and they need different things:
 - **(a) A spot is a target's physical place:** "this spot = where poster 3 hangs". Works with the image tracking planned for #482; a spot names a target (or a group of targets in one room).
 - **(b) A spot is where the device itself stands:** the phone's own position (room / GPS / SLAM) picks or places the spot. Needs world tracking or geolocation, which the current XR plan rules out (licence, WebXR limits). That makes it a new capability, not a field.
 
-Question for the owner: **(a), (b), or (a) now and (b) later?** *Recommended:* (a) now, it is buildable with #482's engine; (b) as its own research when an exhibition or a venue asks for it.
+**The owner's answer (2026-11-20, thought aloud):** *"Xr spot is a geolocation on the floor level. So basically a anker in IRL this way we can anker XR scene to the real world."* So reading **(b)**, made concrete: an XR spot is a **geo-anchor**: a geolocation, placed on the floor (the ground plane), that ties an XR scene to a place in the real world.
+
+What it needs, which today's XR plan does not have (XR.md "Not there"):
+- **A position:** the device's geolocation. Browser GPS is metres off, too coarse to stand content at an altar by itself; a fine fix needs a visual localisation (VPS) or a known marker near the spot to correct it.
+- **The floor:** plane detection (where the ground is), which is world tracking: ruled out for the planned 8th Wall image engine by the SLAM licence; WebXR `immersive-ar` has it but only on Android Chrome, and it stops image tracking.
+- So the geo-anchor is a **new XR capability** (research, then a decision on the engine / platform; maybe the native wrapper the owner keeps for "when hardware needs it"), not a field on #482's first build.
+
+### 0.3 A spot on a chapter group (owner 2026-11-20, thought aloud, **not decided**)
+
+> "Set on groups in dont know since a group could play out in a specific spot of a location ... so for example cathedral altar or cathedral confession both"
+
+The owner's lean: a group names a **spot within a location** (`location:cathedral` + `altar` / `confession`), not a whole set. That matches where SCENES.md §8 already points deck scenes ("v1: `set` + `spot`; later `location` + `spot`, the set following from the location"). Two groups of one chapter could then play at two spots of the same cathedral.
+
+**Still open (no ticket until the owner decides):**
+- Does a chapter group carry a spot at all, and what does it do there (the reader shows no position: is it only for a linked deck, for XR, for the map)?
+- One spot per group, or several ("both")?
+- The reference form: `location:cathedral.altar`, or a spot id of its own?
+- XR: the geo-anchor's engine and precision (§0.2).
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
