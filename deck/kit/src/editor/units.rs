@@ -107,7 +107,7 @@ crop = \"px\"");
         assert_eq!(segs.iter().map(|(_, u)| *u).collect::<Vec<_>>(), [Unit::Pixels, Unit::Percent]);
         let last = segs.last().unwrap().0;
         assert!((last.x + last.w - 300.0).abs() < 1e-3 && field.x + field.w < segs[0].0.x, "the switch at the end, beside the field");
-        assert!(d.texts().iter().any(|s| *s == "192 px"));
+        assert!(d.texts().contains(&"192 px"));
         let (field, segs) = scrub(&mut d, &t, at, "crop left", 10.0, Unit::Percent, &[Unit::Percent], 0.1, false);
         assert!(segs.is_empty() && field.x + field.w > 299.0, "one unit: no switch, the field takes the row");
     }
