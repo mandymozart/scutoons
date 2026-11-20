@@ -29,7 +29,7 @@ pub fn finger(lw: f32, lh: f32) -> bool {
 }
 
 /// what was drawn: the pages, the cursor, the facts, the screen, the show waited for (`Menu::drawn`)
-pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String);
+pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String, crate::join::Join);
 
 /// the parts of a page's body that can be pressed, and where the body is
 struct Body<'a> {
@@ -78,6 +78,7 @@ fn title(page: Page) -> &'static str {
         Page::Start | Page::Waiting => "SCUTOONS DECK",
         Page::Play => "PLAY",
         Page::Show => "SHOW",
+        Page::Join => "JOIN A SHOW",
     }
 }
 
@@ -87,7 +88,7 @@ impl Menu {
     /// layer, painted through egui: deck-space `Stage::set_menu`).
     pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Layer>> {
         let show = self.top().filter(|_| self.own(f).is_none());
-        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone()));
+        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone(), self.join.clone()));
         let was: Option<Drawn> = self.drawn.take();
         if now == was {
             self.drawn = was;
@@ -162,6 +163,15 @@ impl Menu {
                     y += b.foot_back(y, f);
                 } else {
                     y += b.line(y, "UP DOWN CHOOSE  ENTER PLAY", "", true);
+                }
+            }
+            Page::Join => {
+                y += b.head(y, title(top), "ESC BACK");
+                y += b.line(y, "CODE FROM THE CONDUCTOR'S SESSION SHEET", "", true);
+                y += b.rule(y);
+                y += self.join.draw(b.d, b.t, (b.x, y, b.w), b.finger, &mut b.places);
+                if b.finger {
+                    y += b.foot_back(y, f);
                 }
             }
             Page::Waiting => {

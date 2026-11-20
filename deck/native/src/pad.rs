@@ -34,6 +34,8 @@ pub struct Pad {
     axes: [f32; 4],
     buttons: [bool; 4],
     changed: bool,
+    /// the left stick as the menu's d-pad: pushed left / right, up / down (-1, 0, 1)
+    pushed: [i8; 2],
 }
 
 impl Pad {
@@ -54,7 +56,7 @@ impl Pad {
     /// The pad's state without a reader: the being's knobs. Tests build it this way (no hardware).
     fn with_paths(_graph: &Graph, space: &Space) -> Pad {
         let paths = space.hand_paths();
-        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, hand: space.picked(), axes: [0.0; 4], buttons: [false; 4], changed: false }
+        Pad { gilrs: None, sticks: Sticks::new(paths.as_slice()), paths, hand: space.picked(), axes: [0.0; 4], buttons: [false; 4], changed: false, pushed: [0; 2] }
     }
 
     /// This frame's pad events into the pad's state, then the frame; what the deck's menu gets (#386: Start, the d-pad,
@@ -63,6 +65,20 @@ impl Pad {
         let mut to_menu = Vec::new();
         let Some(mut reader) = self.gilrs.take() else { return to_menu };
         while let Some(event) = reader.next_event() {
+            // an open menu has the left stick for its arrows (a push is one step); the scene does not hear it then
+            if menu {
+                if let gilrs::EventType::AxisChanged(axis, value, _) = event.event {
+                    let slot = match axis {
+                        gilrs::Axis::LeftStickX => Some(0),
+                        gilrs::Axis::LeftStickY => Some(1),
+                        _ => None,
+                    };
+                    if let Some(slot) = slot {
+                        to_menu.extend(stick_step(&mut self.pushed[slot], value, slot == 0));
+                        continue;
+                    }
+                }
+            }
             if let Some(i) = menu_input(&event.event) {
                 to_menu.push(i);
                 if menu {
@@ -166,6 +182,27 @@ pub fn menu_input(event: &gilrs::EventType) -> Option<deck_ui::menu::Input> {
     })
 }
 
+/// a left-stick axis as one menu step per push: past 0.6 it steps (right, up), past -0.6 the other way, and the stick has
+/// to come back under 0.3 before it steps again; `x` = the horizontal axis (gilrs says y up)
+pub fn stick_step(pushed: &mut i8, value: f32, x: bool) -> Option<deck_ui::menu::Input> {
+    use deck_ui::menu::Input;
+    if value.abs() < 0.3 {
+        *pushed = 0;
+        return None;
+    }
+    let now = if value >= 0.6 { 1 } else if value <= -0.6 { -1 } else { return None };
+    if *pushed == now {
+        return None;
+    }
+    *pushed = now;
+    Some(match (x, now) {
+        (true, 1) => Input::Right,
+        (true, _) => Input::Left,
+        (false, 1) => Input::Up,
+        (false, _) => Input::Down,
+    })
+}
+
 /// a stick axis (gilrs: y up) as the standard mapping's (y down)
 pub fn axis_input(axis: gilrs::Axis, value: f32) -> Option<Input> {
     let (index, sign) = match axis {
@@ -209,6 +246,21 @@ mod tests {
         space.set_view(1280.0, 720.0);
         space.update(0.016, 0.0, &mut ctl, &Now::default(), &|_, _| 0.0);
         (g, space, ctl)
+    }
+
+    /// an open menu's left stick: one step per push, up (gilrs: y up) and right positive, and back under 0.3 to step again
+    #[test]
+    fn the_left_stick_steps_the_menu_once_per_push() {
+        use deck_ui::menu::Input;
+        let mut held = 0;
+        assert_eq!(stick_step(&mut held, 0.4, true), None, "not far enough");
+        assert_eq!(stick_step(&mut held, 0.9, true), Some(Input::Right));
+        assert_eq!(stick_step(&mut held, 1.0, true), None, "still pushed: no second step");
+        assert_eq!(stick_step(&mut held, 0.5, true), None, "not back to rest yet");
+        assert_eq!(stick_step(&mut held, 0.1, true), None);
+        assert_eq!(stick_step(&mut held, -0.9, true), Some(Input::Left));
+        let mut y = 0;
+        assert_eq!((stick_step(&mut y, 0.9, false), stick_step(&mut y, 0.0, false), stick_step(&mut y, -0.9, false)), (Some(Input::Up), None, Some(Input::Down)));
     }
 
     /// the gamepad's layout: the sticks' axes (y flipped to the mapping's), the buttons that cycle, and nothing else

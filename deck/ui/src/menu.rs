@@ -39,6 +39,8 @@ pub enum Page {
     Waiting,
     /// the show this deck plays as its own conductor: GO, LEAVE
     Show,
+    /// JOIN A SHOW: the session code (join.rs)
+    Join,
 }
 
 impl Page {
@@ -49,7 +51,7 @@ impl Page {
 
     /// a page of the start, which gives way when a conductor drives the deck
     pub fn start(self) -> bool {
-        matches!(self, Page::Start | Page::Play | Page::Waiting | Page::Show)
+        matches!(self, Page::Start | Page::Play | Page::Waiting | Page::Show | Page::Join)
     }
 }
 
@@ -127,7 +129,7 @@ pub fn session_line(outlet: &str, s: &crate::live::Session) -> Option<String> {
 }
 
 /// What an input was.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Answer {
     /// not the menu's: the adapter passes it on (to its own open page, the stage)
     No,
@@ -145,6 +147,8 @@ pub enum Answer {
     Leave,
     /// GO: the show this deck plays on its own fires its next row
     Go,
+    /// JOIN A SHOW's code: join that session on the relay
+    Join(String),
 }
 
 /// One row of the main menu.
@@ -230,7 +234,7 @@ pub fn words(row: Row, f: &Facts) -> (&'static str, String, bool) {
         Row::Open(_) => ("", String::new(), true),
         Row::Play if f.play.is_empty() => ("PLAY", "NOTHING YET".into(), false),
         Row::Play => ("PLAY", crate::start::play_count(&f.play), false),
-        Row::Join => ("JOIN A SHOW", f.session.as_ref().map_or("NO SESSION".into(), |_| f.who.to_uppercase()), !f.live_page),
+        Row::Join => ("JOIN A SHOW", f.session.as_ref().map_or("NO SESSION".into(), |_| f.who.to_uppercase()), false),
         Row::Pick(i) => match f.play.get(i) {
             Some(p) => ("", [p.demo.then_some("DEMO"), p.show.then_some("SHOW")].into_iter().flatten().collect::<Vec<_>>().join(" "), false),
             None => ("", String::new(), true),
@@ -256,6 +260,7 @@ pub struct Menu {
     /// the cursor of the page under Play, while Play is open; the show waited for; the stand followed last
     under: usize,
     waiting: String,
+    join: crate::join::Join,
     stand: Option<crate::start::Stand>,
     pub(crate) places: Vec<(deck_kit::base::draw::Rect, Hit)>,
     /// device pixels per logical one, as drawn
@@ -325,6 +330,51 @@ impl Menu {
         }
     }
 
+    /// the code page's keys: its place under the pointer is what a move or a press is on
+    fn join_input(&mut self, i: Input) -> Answer {
+        use crate::join::Step;
+        let on = match i {
+            Input::Point(x, y) | Input::Press(x, y) => {
+                let s = self.scale.max(1.0);
+                self.places.iter().find(|(at, _)| at.has(x / s, y / s)).map(|(_, h)| *h)
+            }
+            _ => None,
+        };
+        match self.join.input(i, on) {
+            Step::Stay => Answer::Yes,
+            Step::Join(code) => Answer::Join(code),
+            Step::Back { joining } => {
+                self.back();
+                if joining { Answer::Leave } else { Answer::Yes }
+            }
+        }
+    }
+
+    /// a key of a keyboard for the code page; whether the page took it (it is not on top: no)
+    pub fn typed(&mut self, t: crate::join::Typed) -> bool {
+        self.top() == Some(Page::Join) && self.join.typed(t)
+    }
+
+    /// the relay's answer while a join is under way (`now` in seconds): done = the page closes with the others of the
+    /// start; a failure stays on the page, said
+    pub fn settle(&mut self, now: f32, reply: &crate::join::Reply) -> crate::join::Outcome {
+        let outcome = self.join.settle(now, reply);
+        if matches!(outcome, crate::join::Outcome::In(_)) {
+            self.stack.retain(|p| *p != Page::Join);
+        }
+        outcome
+    }
+
+    /// the join could not even start: the page says why and is typed in again
+    pub fn join_failed(&mut self, why: String) {
+        self.join.fail(why);
+    }
+
+    /// whether the code page waits for the relay
+    pub fn joining(&self) -> bool {
+        self.join.joining()
+    }
+
     /// the stage was made anew: what shows is painted again with the next `paint`
     pub fn again(&mut self) {
         self.drawn = None;
@@ -354,7 +404,10 @@ impl Menu {
                 (self.under, self.cursor) = (self.cursor, 0);
                 self.stack.push(Page::Play);
             }
-            Row::Join => self.stack.push(Page::Live),
+            Row::Join => {
+                self.join.open();
+                self.stack.push(Page::Join);
+            }
             Row::Pick(i) => {
                 self.close();
                 return Answer::Play(i);
@@ -399,6 +452,7 @@ impl Menu {
             }
             (Page::Splash, Input::Point(..)) => Answer::No,
             (Page::Splash, _) => Answer::Yes,
+            (Page::Join, i) => self.join_input(i),
             // the deck's own page has its keys and its pointer; back and the menu's key are the menu's
             (p, Input::Back | Input::Secondary) if p.own() && has(f, p) => {
                 self.back();
@@ -610,7 +664,7 @@ mod tests {
         assert_eq!(words(Row::Join, &f), ("JOIN A SHOW", "NO SESSION".into(), false));
         assert_eq!(m.input(Input::Down, &f), Answer::Yes);
         assert_eq!(m.input(Input::Enter, &f), Answer::Yes);
-        assert_eq!(m.own(&f), Some(Page::Live), "JOIN A SHOW opens the Live page");
+        assert_eq!((m.top(), m.own(&f)), (Some(Page::Join), None), "JOIN A SHOW opens the code page");
         m.input(Input::Back, &f);
         assert_eq!((m.top(), m.cursor()), (Some(Page::Start), 1));
         m.input(Input::Up, &f);
@@ -709,5 +763,52 @@ mod tests {
         assert_eq!(words(Row::Open(Page::Scenes), &f), ("SCENES", "FIREFLIES".into(), false));
         assert_eq!(words(Row::Open(Page::Pair), &f).1, "SIGNED IN");
         assert_eq!(session_line("", &crate::live::Session::default()), None);
+    }
+
+    /// JOIN A SHOW: a typed code joins, a refusal is said on the page, Esc returns to the start menu
+    #[test]
+    fn join_a_show_asks_for_a_code_and_says_what_the_relay_answered() {
+        use crate::join::{Outcome, Reply, Typed};
+        use crate::start::Stand;
+        let f = native();
+        let mut m = Menu::default();
+        m.follow(&Stand::Menu);
+        m.input(Input::Down, &f);
+        m.input(Input::Enter, &f);
+        assert_eq!(m.top(), Some(Page::Join));
+        assert!(m.typed(Typed::Char('c')) && m.typed(Typed::Char('7')));
+        assert_eq!(m.input(Input::Enter, &f), Answer::Join("C7".into()), "the typed code is asked for");
+        assert!(m.joining());
+        let refused = Reply { refused: Some("full: session full".into()), ..Reply::default() };
+        assert_eq!(m.settle(1.0, &refused), Outcome::Failed("THE RELAY SAYS FULL: SESSION FULL".into()));
+        assert_eq!(m.top(), Some(Page::Join), "the reason is on the page");
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the code page");
+        let said = |want: &str| layer.list.prims().iter().any(|p| matches!(*p, deck_kit::base::draw::Prim::Text { start, end, .. } if layer.list.text_of(start, end) == want));
+        assert!(said("THE RELAY SAYS FULL: SESSION FULL") && said("CODE  C7_"));
+        assert_eq!(m.input(Input::Back, &f), Answer::Yes);
+        assert_eq!((m.top(), m.cursor()), (Some(Page::Start), 1), "Esc returns to the start menu");
+        assert!(!m.typed(Typed::Char('x')), "typing off the page is nobody's");
+    }
+
+    #[test]
+    fn the_welcome_closes_the_code_page_and_esc_while_joining_gives_it_up() {
+        use crate::join::{Outcome, Reply, Typed};
+        use crate::start::Stand;
+        let f = native();
+        let mut m = Menu::default();
+        m.follow(&Stand::Menu);
+        m.input(Input::Down, &f);
+        m.input(Input::Enter, &f);
+        m.typed(Typed::Char('a'));
+        m.input(Input::Enter, &f);
+        assert_eq!(m.input(Input::Back, &f), Answer::Leave, "the deck leaves what it began to join");
+        assert_eq!(m.top(), Some(Page::Start));
+        m.input(Input::Enter, &f);
+        m.typed(Typed::Char('a'));
+        m.input(Input::Enter, &f);
+        assert_eq!(m.settle(2.0, &Reply { code: "A".into(), joined: true, ..Reply::default() }), Outcome::In("A".into()));
+        assert_eq!(m.top(), Some(Page::Start), "joined: the page is gone, the stand takes the rest");
+        m.follow(&Stand::Joined);
+        assert!(!m.open());
     }
 }

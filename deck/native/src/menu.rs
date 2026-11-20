@@ -8,12 +8,15 @@
 //! #556: the ballot of a vote this deck may cast in (deck-ui `ballot.rs`, the layer under the menu) gets the inputs the
 //! menu leaves – the arrows, Enter, a click, a touch, the pad's d-pad and A – while no page of the deck is open; its
 //! cast goes to the Live outlet's relay client.
+//! JOIN A SHOW (deck-ui `join.rs`): the code page asks, `join_session` reloads the deck on the outlet scene of that session
+//! (the configured relay or the hosted one, the deck's role), `start_frame` hands the relay client's answer to the page.
 //! the deck's start (the rules are deck-ui `start.rs`): what the deck hears – the conductor's push or cell, the
 //! relay's clock, a MIDI clock in – and whether its conductor is in, read every frame; the menu follows the stand. Play's
 //! list: the API's listing of the published scenes and the sandbox's published shows (a thread, once) and the copies this
 //! deck keeps. A show picked there plays on this deck as its own conductor (deck-show alone.rs): its scenes fetched
 //! first (a thread), then its rows' cells go to the piece side; the show page's GO fires the next row, LEAVE ends it.
 use crate::App;
+use deck_ui::join::Typed;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
 use deck_ui::start::{self, Begin, Clock, Heard, Listed, Playable};
 use std::sync::{Arc, Mutex};
@@ -29,6 +32,9 @@ pub struct Native {
     /// once it shows, one every 0.4 s, through the menu's input as a keyboard's; and when the next is due
     keys: std::collections::VecDeque<Input>,
     key_at: Option<f32>,
+    /// a check run's keys for the menu (`DECK_MENU_KEYS=down,enter,type:A7K2`), one every 0.4 s once the start menu shows
+    script: std::collections::VecDeque<Result<Input, char>>,
+    script_at: Option<f32>,
     /// where the pointer is (winit says it on a move, a press has no place)
     at: (f32, f32),
     pair: Pair,
@@ -39,9 +45,8 @@ pub struct Native {
     left: bool,
     listing: Arc<Mutex<Vec<Listed>>>,
     play: Vec<Playable>,
-    /// a check run (`DECK_MENU_KEYS=enter,down`): the keys the start menu gets once it shows, one every 0.4 s
-    menu_keys: std::collections::VecDeque<Input>,
-    menu_key_at: Option<f32>,
+    /// JOIN A SHOW under way: the relay, outlet and scene the deck had before (given back when the join fails)
+    before: Option<(Option<String>, Option<String>, Option<std::path::PathBuf>)>,
     /// the show this deck conducts itself
     #[cfg(feature = "live")]
     own: Own,
@@ -106,6 +111,8 @@ impl Native {
             ballot: Default::default(),
             keys: keys_of("DECK_BALLOT_KEYS"),
             key_at: None,
+            script: menu_script(&std::env::var("DECK_MENU_KEYS").unwrap_or_default()),
+            script_at: None,
             at: (0.0, 0.0),
             pair: Pair::Off,
             pair_at: -10.0,
@@ -113,8 +120,7 @@ impl Native {
             left: false,
             listing,
             play: Vec::new(),
-            menu_keys: keys_of("DECK_MENU_KEYS"),
-            menu_key_at: None,
+            before: None,
             #[cfg(feature = "live")]
             own,
         }
@@ -154,6 +160,24 @@ fn fetch_shows(api: String, into: Arc<Mutex<String>>) {
         .ok();
     #[cfg(not(feature = "sync"))]
     let _ = (api, into);
+}
+
+/// a check run's menu keys: up, down, left, right, enter, back, open, and `type:TEXT` (each character of it, a typed one)
+fn menu_script(text: &str) -> std::collections::VecDeque<Result<Input, char>> {
+    let mut out = std::collections::VecDeque::new();
+    for k in text.split(',').map(str::trim) {
+        match k {
+            "up" => out.push_back(Ok(Input::Up)),
+            "down" => out.push_back(Ok(Input::Down)),
+            "left" => out.push_back(Ok(Input::Left)),
+            "right" => out.push_back(Ok(Input::Right)),
+            "enter" => out.push_back(Ok(Input::Enter)),
+            "back" => out.push_back(Ok(Input::Back)),
+            "open" => out.push_back(Ok(Input::Open)),
+            _ => out.extend(k.strip_prefix("type:").into_iter().flat_map(str::chars).map(Err)),
+        }
+    }
+    out
 }
 
 /// the API's published scenes for Play, once, on a thread (offline: none – Play lists the kept copies)
@@ -227,8 +251,80 @@ impl App {
         Heard { scene, clock }
     }
 
+    /// JOIN A SHOW: this deck's outlet scene in session `code` – the relay as configured (else the hosted one), the role it
+    /// has (none: no role); the page waits for the relay's answer (`join_answer`)
+    fn join_session(&mut self, code: &str) {
+        use deck_native::live::config::{deck_toml, Choice, Settings, HOSTED_RELAY};
+        let file = deck_toml();
+        let set = Settings::read(&file).merged(crate::outlet_settings(&self.args));
+        let relay = deck_ui::join::relay_url(set.relay.as_deref().unwrap_or(HOSTED_RELAY), code);
+        let choice = Choice::read(&file);
+        let role = set.outlet.clone().or_else(|| choice.role.clone().filter(|r| !r.is_empty()));
+        if choice.role.is_none() {
+            // a deck with no role says so (an empty role is none, live/mod.rs `start_outlet`)
+            let _ = Choice::keep(&file, "role", "");
+        }
+        let before = (self.args.relay.clone(), self.args.outlet.clone(), self.args.scene.clone());
+        self.args.relay = Some(relay);
+        self.args.outlet = Some(role.unwrap_or_else(|| "-".into()));
+        self.args.scene = None;
+        let old = self.error.take();
+        self.reload();
+        match self.error.take() {
+            Some(e) => {
+                (self.args.relay, self.args.outlet, self.args.scene) = before;
+                self.error = old;
+                self.menu.menu.join_failed(format!("NOT JOINED: {}", e.to_uppercase()));
+            }
+            None => {
+                self.error = old;
+                self.menu.before = Some(before);
+            }
+        }
+    }
+
+    /// the relay client's word on the join under way, to the code page: welcomed – the deck is in that session (kept in
+    /// deck.toml for its next start); refused or silent – the page says why and the deck goes back to where it was
+    fn join_answer(&mut self, time: f32) {
+        use deck_ui::join::{Outcome, Reply};
+        let s = crate::pages::session(&self.show);
+        #[cfg(feature = "live")]
+        let refused = self.show.live.as_ref().and_then(|l| l.status.lock().ok()?.problems_relay.clone()).map(|r| r.trim_start_matches("RELAY ").to_string());
+        #[cfg(not(feature = "live"))]
+        let refused = None;
+        match self.menu.menu.settle(time, &Reply { code: s.code, joined: s.joined, refused, link: s.link }) {
+            Outcome::Waiting => {}
+            Outcome::In(code) => {
+                self.menu.before = None;
+                self.menu.begin = Begin::Rejoin(code);
+                self.menu.left = false;
+                let file = deck_native::live::config::deck_toml();
+                for (key, value) in [("relay", self.args.relay.clone()), ("outlet", self.args.outlet.clone())] {
+                    if let Some(v) = value {
+                        let _ = deck_native::live::config::Choice::keep(&file, key, &v);
+                    }
+                }
+            }
+            Outcome::Failed(_) => {
+                self.give_back_join();
+                self.menu.left = true;
+                self.switch("idle");
+            }
+        }
+    }
+
+    /// the relay, outlet and scene the deck had before a join that did not hold
+    fn give_back_join(&mut self) {
+        if let Some((relay, outlet, scene)) = self.menu.before.take() {
+            (self.args.relay, self.args.outlet, self.args.scene) = (relay, outlet, scene);
+        }
+    }
+
     /// the menu follows the start's stand (once a frame); Play's list while a start page shows (every 2 s)
-    fn start_frame(&mut self, refresh: bool) {
+    fn start_frame(&mut self, refresh: bool, time: f32) {
+        if self.menu.menu.joining() {
+            self.join_answer(time);
+        }
         let conductor = crate::pages::session(&self.show).conductor;
         let stand = start::stand(&self.menu.begin, &self.heard(), conductor, self.menu.left);
         let was = self.menu.menu.top();
@@ -264,10 +360,12 @@ impl App {
             Answer::Go => self.show_go(),
             // out of its own show, or out of the session: the idle scene without the outlet; the start menu again
             Answer::Leave => {
+                self.give_back_join();
                 self.menu.left = true;
                 self.stop_show();
                 self.switch("idle");
             }
+            Answer::Join(code) => self.join_session(&code),
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
@@ -399,6 +497,9 @@ impl App {
                     self.menu_sync(&self.menu_facts());
                     return true;
                 }
+                // the code page: typed characters and Backspace are the code's (Esc goes back)
+                Key::Named(NamedKey::Backspace) if self.menu.menu.top() == Some(Page::Join) => return self.menu.menu.typed(Typed::Delete),
+                Key::Character(c) if self.menu.menu.top() == Some(Page::Join) && !self.mods.control_key() => return c.chars().fold(false, |_, c| self.menu.menu.typed(Typed::Char(c))),
                 // Backspace is the Live page's while it shows (a name is typed there)
                 Key::Named(NamedKey::Backspace) if drawn => Input::Back,
                 Key::Named(NamedKey::ArrowUp) => Input::Up,
@@ -433,18 +534,8 @@ impl App {
             let state = deck_link::pairing::read_state(&deck_link::pairing::run_dir());
             self.menu.pair = deck_native::pairing::of(state.as_ref(), &deck_link::pairing::app_url());
         }
-        self.start_frame(refresh);
+        self.start_frame(refresh, time);
         self.own_frame();
-        // a check run's keys, from the moment the start menu shows
-        if self.menu.menu.top().is_some_and(Page::start) || self.menu.menu_key_at.is_some() {
-            let due = *self.menu.menu_key_at.get_or_insert(time + 0.4);
-            if time >= due && !self.menu.menu_keys.is_empty() {
-                self.menu.menu_key_at = Some(time + 0.4);
-                if let Some(i) = self.menu.menu_keys.pop_front() {
-                    self.menu_input(el, i);
-                }
-            }
-        }
         #[cfg(feature = "gamepad")]
         {
             // while the ballot shows, the d-pad and A are its own as they are the open menu's
@@ -468,6 +559,22 @@ impl App {
         let view = crate::pages::ballot(&self.show);
         if let Some(layer) = self.menu.ballot.paint(view.as_ref(), r.size(), deck_outlet::text::mono_per_px()) {
             r.set_vote(layer);
+        }
+        // a check run's menu keys
+        if self.menu.script_at.is_none() && self.menu.menu.top().is_some_and(Page::start) {
+            self.menu.script_at = Some(time + 0.4);
+        }
+        if !self.menu.script.is_empty() && self.menu.script_at.is_some_and(|at| time >= at) {
+            self.menu.script_at = Some(time + 0.4);
+            match self.menu.script.pop_front() {
+                Some(Ok(i)) => {
+                    self.menu_input(el, i);
+                }
+                Some(Err(c)) => {
+                    self.menu.menu.typed(Typed::Char(c));
+                }
+                None => {}
+            }
         }
         // a check run's keys, once the ballot shows
         if view.is_some() && !self.menu.keys.is_empty() && time >= *self.menu.key_at.get_or_insert(time + 0.4) {
