@@ -126,6 +126,17 @@ The natural source would be the storyboard: its shot already carries the place, 
 - A place is a map place (MAP.md `location`) and the spot a named point inside it: the same vocabulary as the deck scene's spot (`set` + `spot` → `location` + `spot`)?
 - Is a map event (`setPosition`) ever the same thing as "this plays here", or always separate (the owner: today it is "relational")?
 
+**The owner adds (2026-11-20, thought aloud, not decided):** *"Since the webtoon is more of a story rather than a map or actual place. I assume"*
+
+So "place" has two readings, kept apart here:
+
+| Reading | What a place is | Where it lives today | Belongs to |
+|---|---|---|---|
+| **Story place** | where something happens **in the story**: a part of the tale, told by labels and goto links (and the storyboard's scene heading) | relational: group labels, jump edges, the storyboard's `locations` per shot | the webtoon (chapter groups, slices) |
+| **Real place** | a point in the real world, a geo-anchor on the floor (§0.2) | nowhere yet | XR only |
+
+The world map sits between them: its places are story places drawn on a map (`location:<place>`, unlocked by story events), not real coordinates. Read this way, a group's or slice's place (§0.3, §0.4) would be a **story place**, never a real one, and the sketch's "Level" table should not suggest that a webtoon group and an XR scene name the same kind of place: they share at most the story place's id (an XR scene in the cathedral story place, anchored at a real spot), not its meaning. Open: whether a story place needs a field at all, or stays relational (labels, links) as the owner's "I assume" suggests.
+
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
 Draft tickets left (unfiled): feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
