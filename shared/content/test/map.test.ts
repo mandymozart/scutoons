@@ -277,14 +277,14 @@ test('regions: covers as row runs, the region at a point, validation, residences
 	assert.deepEqual(errs({ id: 'x', name: { de: 'X' }, cells: [[1, 3, 1]] }), ['regions.0.cells'], 'q0 > q1');
 	assert.deepEqual(errs({ id: 'x', name: { de: 'X' }, cells: [], colour: 'red' }), ['regions.0.colour']);
 	assert.deepEqual(resolveRegion({ id: 'x', name: { de: 'Erzberge' }, claim: { de: 'Steil!' }, greeting: { de: '' }, cells: [] }, 'en'), { id: 'x', name: 'Erzberge', claim: 'Steil!', cells: [] }, 'German falls back, empty texts drop');
-	// residences: the newer move wins, a reset does not touch them, a character without one lives in its registry residence
+	// residences: the newer move wins, a reset does not touch them
 	const s1 = emptyMapState();
 	assert.equal(moveResident(s1, READER_RESIDENT, 'alps', 100), true);
 	assert.equal(moveResident(s1, READER_RESIDENT, 'alps', 200), false, 'already there');
 	const s2 = { ...emptyMapState(), resetAt: 500, residences: { [READER_RESIDENT]: { region: 'dunes', at: 300 }, boy: { region: 'jungle', at: 50 } } };
 	const m = mergeMapState(s1, s2);
 	assert.deepEqual(m.residences, { [READER_RESIDENT]: { region: 'dunes', at: 300 }, boy: { region: 'jungle', at: 50 } });
-	assert.equal(residenceOf(m, 'nobody', 'highlands'), 'highlands');
+	assert.equal(residenceOf(m, 'nobody'), undefined);
 	assert.equal(mergeMapState(emptyMapState(), emptyMapState()).residences, undefined, 'left out while empty');
 	// the outline from the runs = the outline from the cells (a blob with holes and a ragged edge)
 	const { runsOutline, cellsOutline, runsPaths } = await import('../src/map.ts');

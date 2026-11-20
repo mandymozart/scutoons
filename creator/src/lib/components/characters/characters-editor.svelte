@@ -39,8 +39,6 @@
 		loadToons,
 		moodsDoc,
 		moodsOf,
-		peopleDoc,
-		peopleListOf,
 		registryDoc,
 		registryOf,
 		requestsDoc,
@@ -60,24 +58,20 @@
 	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
-	import { mapDoc, mapOf, mapPlaces, mapRegions } from '$lib/editor/map.ts';
+	import { mapDoc, mapOf, mapPlaces } from '$lib/editor/map.ts';
 
 	/**
 	 * The global Characters page (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the area's tabs Characters ·
 	 * Moods · Wanted images; Characters = the registry (entity `characters`) as cards (search, toon filter, missing
 	 * images) – a card opens the character's editor (CharacterEditor: face rows, stage, inspector). Casts of every toon
-	 * are read for "appears in", the filters and the validation; people for "voiced by".
+	 * are read for "appears in", the filters and the validation.
 	 */
 	const registry = registryDoc();
 	const moods = moodsDoc();
 	const requests = requestsDoc();
-	const people = peopleDoc();
-	// the map's region ids (origin / residence – agents/MAP.md §8.10); undefined until loaded (no false warnings)
-	let regionIds = $state<string[] | undefined>(undefined);
 	// the Kanon texts of the characters, personas and looks (K3, #82): opened from their squares, saved with this page
 	const kanon = new KanonDocs();
 	onMount(() => void kanon.refresh());
-	onMount(() => void mapRegions().then((list) => (regionIds = list.length ? list.map((r) => r.id) : undefined)));
 	// the homes' places (research/CAVE.md D1): an unknown one warns – add it in the map builder
 	let placeIds = $state<string[] | undefined>(undefined);
 	onMount(() => void mapPlaces().then((list) => (placeIds = list.length ? list.map((p) => p.id) : undefined)));
@@ -106,7 +100,7 @@
 	let nameInput = $state<HTMLInputElement>();
 
 	onMount(async () => {
-		await Promise.all([registry.load(), moods.load(), requests.load(), people.load(), worldMap.load()]);
+		await Promise.all([registry.load(), moods.load(), requests.load(), worldMap.load()]);
 		toons = await loadToons(getLocale());
 		const loaded: Record<string, ContentDoc> = {};
 		await Promise.all(
@@ -224,9 +218,7 @@
 			out.push(
 				...validateCharacters(file, {
 					languages: (c) => characterLanguages(c, toons, castsOf(c.id, casts)).languages as string[],
-					people: people.loading ? undefined : peopleListOf(people).map((p) => p.id),
 					toons: toons.length ? toons.map((t) => t.id) : undefined,
-					regions: regionIds,
 					places: placeIds,
 					moods: vocabulary,
 					file: registryFile
@@ -331,7 +323,6 @@
 					bind:grid
 					{toons}
 					{casts}
-					people={peopleListOf(people)}
 					{kanon}
 					onselect={(id) => select(id)}
 				/>

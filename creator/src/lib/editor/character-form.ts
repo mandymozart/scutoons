@@ -1,13 +1,12 @@
 // The character page's pure / store helpers (COMPONENTS.md step 9: character-detail in sections): colours for the
-// native picker, empty texts, story points, a look's A-pose, closing answered image requests.
+// native picker, empty texts, a look's A-pose, closing answered image requests.
 import {
 	APOSE_VIEW,
 	newLook,
 	type AssetRequests,
 	type CharacterFileSlot,
 	type LocaleText,
-	type RegistryCharacter,
-	type StoryPoint
+	type RegistryCharacter
 } from '@scutoons/content';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { edit } from '$lib/editor/characters.ts';
@@ -26,15 +25,6 @@ export function toHex(color: string | undefined): string {
 
 /** a text per language, or nothing when every language is empty */
 export const cleanText = (text: LocaleText) => (Object.values(text).some((t) => t?.trim()) ? text : undefined);
-
-/** a story point with one part changed (toon / season / chapter); no toon = no point */
-export function setPoint(p: StoryPoint | undefined, key: 'toon' | 'season' | 'chapter', raw: string): StoryPoint | undefined {
-	const next: StoryPoint = { ...(p ?? { toon: '' }) };
-	if (key === 'toon') next.toon = raw;
-	else if (raw.trim() === '') delete next[key];
-	else next[key] = Math.max(1, Math.round(Number(raw)) || 1);
-	return next.toon ? next : undefined;
-}
 
 /**
  * A look's A-pose file (owner 2026-10-12: per look): a path sets it (an import may name a look the persona lacks – it is

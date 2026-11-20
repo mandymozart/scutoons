@@ -451,10 +451,13 @@ final class LibraryTest extends TestCase
         self::assertSame([true, null], [$list[0]['announced'] ?? null, $list[1]['announced'] ?? null]);
     }
 
-    public function testCastHasTheStarAndTheChapterFeaturing(): void
+    public function testCastHasTheStarAndTheChapterCharacters(): void
     {
         $this->seedToon();
-        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => [], 'featuring' => ['star', 'crows']]);
+        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => [['label' => 'g', 'events' => [
+            ['type' => 'showMessage', 'params' => ['character' => 'star', 'text' => ['de' => 'Hi']]],
+            ['type' => 'showMessage', 'params' => ['character' => 'crows', 'text' => ['de' => 'Kra']]],
+        ]]]]);
         $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => [['character' => 'boy', 'personas' => ['regular']], ['character' => 'crows', 'personas' => ['regular']]], '2' => [['character' => 'star', 'personas' => ['regular', 'x']]]]]);
         $this->doc(Library::PLATFORM, '_', 'characters.json', ['characters' => [['id' => 'star', 'own_toon' => 't'], ['id' => 'boy'], ['id' => 'crows'], ['id' => 'other', 'own_toon' => 'u']]]);
         $all = self::decode($this->library()->cast('t', null, false)->body);
@@ -462,9 +465,7 @@ final class LibraryTest extends TestCase
         self::assertSame([['character' => 'star', 'personas' => ['regular', 'x']]], $all['cast']['seasons']['2'], 'a season with the star stays as it is');
         self::assertSame(['star', 'boy', 'crows'], array_column($all['registry']['characters'], 'id'));
         $chapter = self::decode($this->library()->cast('t', 2, true)->body);
-        self::assertSame(['star', 'crows'], array_column($chapter['registry']['characters'], 'id'), 'a chapter: its featuring');
-        $bundle = self::decode($this->library()->toon('t', 'de', true)->body);
-        self::assertSame(['star', 'crows'], $bundle['seasons'][0]['chapters'][1]['featuring'], 'the season overview passes featuring through');
+        self::assertSame(['star', 'crows'], array_column($chapter['registry']['characters'], 'id'), 'a chapter: the characters its scenes use');
     }
 
     public function testSeasonDownloadAndSupportersPassThrough(): void
@@ -746,7 +747,7 @@ final class LibraryTest extends TestCase
             ['number' => 3, 'status' => ['de' => 'coming-soon']],
         ]]);
         $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'N Eins', 'en' => 'N One'], 'number' => 1, 'release' => ['de' => '2025-10-04', 'en' => '2025-11-01'],
-            'description' => ['de' => 'Beschreibung'], 'thumbnail' => 'x.webp', 'featuring' => ['catpope'], 'audio' => ['volume' => 1.0],
+            'description' => ['de' => 'Beschreibung'], 'thumbnail' => 'x.webp', 'audio' => ['volume' => 1.0],
             'groups' => [['label' => 'N scene', 'events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'character' => 'plf']]]],
                 ['label' => 'inline', 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1,
                 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => ['de' => 'Hallo', 'en' => 'Hello']]]]]]]]);
@@ -807,14 +808,14 @@ final class LibraryTest extends TestCase
         $season = $de['seasons'][0];
         self::assertSame(['NS de', 'de'], [$season['season']['title'], $season['season']['language']]);
         self::assertSame([1, 3], array_column($season['chapters'], 'number'));
-        self::assertSame(['title' => 'N Eins', 'number' => 1, 'release' => '2025-10-04', 'description' => 'Beschreibung', 'thumbnail' => 'x.webp', 'featuring' => ['catpope'],
+        self::assertSame(['title' => 'N Eins', 'number' => 1, 'release' => '2025-10-04', 'description' => 'Beschreibung', 'thumbnail' => 'x.webp',
             'language' => 'de', 'status' => 'published'], $season['chapters'][0], 'summary of the neutral chapter: no groups / audio');
         self::assertSame('Drei', $season['chapters'][1]['title'], 'chapter 3 stays per locale');
         $en = self::decode($this->library()->toon('t', 'en', false)->body)['seasons'][0];
         self::assertSame(['NS en', 'coming-soon', 'N One', '2025-11-01'], [$en['season']['title'], $en['chapters'][0]['status'], $en['chapters'][0]['title'], $en['chapters'][0]['release']]);
         self::assertSame('coming-soon', $en['season']['sequence'][2]['status'], "a status missing in en → the source's");
         self::assertSame('published', self::decode($this->library()->season('t', 1, 'de', false)->body)['chapters'][0]['status']);
-        // cast?chapter= reads the neutral chapter (its featuring + its groups' characters)
+        // cast?chapter= reads the neutral chapter (its groups' characters)
         $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => []]]);
         $this->doc('scutoons', '_', 'characters.json', ['characters' => [['id' => 'catpope'], ['id' => 'other']]]);
         $cast = self::decode($this->library()->cast('t', 1, false)->body);

@@ -12,7 +12,6 @@
 		pickText,
 		type CharacterRegistry,
 		type CharacterView,
-		type CreditPerson,
 		type MoodVocabulary,
 		type RegistryCharacter,
 		type ToonCast
@@ -57,7 +56,6 @@
 		grid = $bindable(false),
 		toons,
 		casts,
-		people,
 		kanon,
 		onselect
 	}: {
@@ -72,7 +70,6 @@
 		grid?: boolean;
 		toons: ToonInfo[];
 		casts: Record<string, ToonCast | null>;
-		people: CreditPerson[];
 		/** the page's Kanon texts (saved with the page) */
 		kanon: KanonDocs;
 		onselect: (id: string) => void;
@@ -246,7 +243,6 @@
 				{languages}
 				{source}
 				{toons}
-				{people}
 				{edits}
 				{bust}
 				personaName={shownCharacterName(character, personaId)}

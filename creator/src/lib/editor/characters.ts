@@ -29,7 +29,6 @@ import {
 	type CharacterRegistry,
 	type LocaleText,
 	type MoodVocabulary,
-	type PeopleRegistry,
 	type RegistryCharacter,
 	type ToonCast,
 	type ToonIndex,
@@ -45,13 +44,11 @@ const N = NEUTRAL_LOCALE;
 /** the character registry: one editable registry, stored as `characters` + one `character:<id>` each (agents/MAP-DOCUMENTS.md) */
 export const registryDoc = () => new CharacterRegistryDoc();
 export const castDoc = (toon: string) => neutralDoc(entities.cast(toon));
-export const peopleDoc = () => neutralDoc(entities.people);
 export const moodsDoc = () => neutralDoc(entities.moods);
 export const requestsDoc = () => neutralDoc(entities.assetRequests);
 
 export const registryOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as CharacterRegistry | null;
 export const castOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as ToonCast | null;
-export const peopleListOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as PeopleRegistry | null)?.people ?? [];
 /** the stored vocabulary, else the built-in seed (17 standard + dizzy, tripping) */
 export const moodsOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as MoodVocabulary | null) ?? defaultMoodVocabulary();
 export const requestsOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as AssetRequests | null;

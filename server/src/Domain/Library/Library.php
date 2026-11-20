@@ -392,10 +392,6 @@ final class Library
                 $doc = $ctx->pick("chapter:$ctx->toon:$chapter", $ctx->source);
                 if ($doc === null || !$doc[1] instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $chapter of $ctx->toon not found.");
                 $ids = self::referencedCharacters($doc[1]);
-                // the chapter's `featuring` (reader: avatars at the chapter start)
-                foreach (is_array($doc[1]->featuring ?? null) ? $doc[1]->featuring : [] as $id) {
-                    if (is_string($id)) $ids[$id] = true;
-                }
             } else {
                 $ids = [];
                 foreach ((array) ($cast->seasons ?? []) as $entries) {

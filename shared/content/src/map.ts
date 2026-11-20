@@ -33,11 +33,11 @@ export interface WorldMap extends AcceptedWarnings {
 /**
  * A region of the world map (agents/MAP.md §8.10, owner 2026-10-12: "hexagonal area covers … not as locations, not as
  * layers but as regions"): its cover is a set of the map's hex cells (`HEX_CELL`, the places' grid), stored as row runs;
- * a character comes from one (`origin`) and lives in one (`residence`); the event `migrate` moves the reader or a
- * character there and plays the welcome (the sign, the representative – or the narrator – saying the greeting).
+ * the event `migrate` moves the reader or a character there and plays the welcome (the sign, the representative – or
+ * the narrator – saying the greeting).
  */
 export interface MapRegion {
-	/** slug, stable forever (events and characters reference it) */
+	/** slug, stable forever (events reference it) */
 	id: string;
 	name: LocaleText;
 	/** the slogan on the welcome sign ("Geizig! Garstig! Steil!") */
@@ -1139,7 +1139,7 @@ export interface MapState {
 	resetAt?: number;
 	/**
 	 * who lives where (agents/MAP.md §8.10): `reader` (the reader's avatar) or a character id → its region, `at` = when it
-	 * moved (ms; the newer move wins in the merge). A character without an entry lives in its `residence` (registry).
+	 * moved (ms; the newer move wins in the merge).
 	 * Not touched by a map reset – the reader's registration is no unlock animation. Left out while empty.
 	 */
 	residences?: Record<string, MapResidence>;
@@ -1261,8 +1261,8 @@ export function moveResident(state: MapState, who: string, region: string, now: 
 	state.residences = { ...(state.residences ?? {}), [who]: { region, at: now } };
 	return true;
 }
-/** where the reader or a character lives: the save game's last move, else the character's registry `residence` */
-export const residenceOf = (state: Pick<MapState, 'residences'>, who: string, fallback?: string): string | undefined => state.residences?.[who]?.region ?? fallback;
+/** where the reader or a character lives: the save game's last move */
+export const residenceOf = (state: Pick<MapState, 'residences'>, who: string): string | undefined => state.residences?.[who]?.region;
 
 export function setPosition(state: MapState, toon: string, position: Omit<MapPosition, 'at'>, now: number): void {
 	state.positions[toon] = { ...position, at: now } as MapPosition;

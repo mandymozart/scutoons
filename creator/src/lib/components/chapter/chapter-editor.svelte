@@ -18,7 +18,7 @@
 	import { onLibrarySet, shareUses } from '$lib/editor/library-hook.svelte.ts';
 	import { toonAssetRef } from '@scutoons/content';
 	import { defaultMoodVocabulary, entities, getAt, deleteAt, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
-	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
+	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, sceneCastSuggestions, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
 		castDoc,
@@ -64,8 +64,6 @@
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
-	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
-	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
@@ -172,8 +170,6 @@
 
 	const chapterData = $derived(chapter.data[chapter.primary]);
 	const groups = $derived<any[]>(chapterData?.groups ?? []);
-	/** the toon's star (always in the cast, first in the suggested featuring) */
-	const star = $derived(toonStar(registryOf(registry), toon));
 	/**
 	 * A slice sample picked as files (asset picker / upload; `src` = the 128k default, `variants` = its levels): its
 	 * sample-library id. An entry with that file gets the levels; a file not in the chapter's library yet is added to it
@@ -636,8 +632,8 @@
 			out.push({ level: 'error', file: at.file, locale: null, path: at.path, message: m['creator.clip_limit_problem']({ item: itemName(item, id), count: total, limit: c.limit, where: placesText(c.others) }) });
 		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
-		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
-		if (!chapter.loading && hasCast) out.push(...featuringSuggestions(chapterData?.featuring, chapterSceneCharacters(groups), castIndex(castOf(cast), SEASON), chapter.entity));
+		// suggestions from the VN usage (info): who the scenes use but the season cast lacks
+		if (!chapter.loading && hasCast) out.push(...sceneCastSuggestions(chapterSceneCharacters(groups), castIndex(castOf(cast), SEASON), chapter.entity));
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
@@ -1011,22 +1007,7 @@
 							<button class="secondary" onclick={convertLegacyTexts} data-testid="convert-presets">{m['creator.legacy_texts_convert']()}</button>
 						</div>
 					{/if}
-					<MetaPanel doc={chapter} {season} number={chapterNumber} {images}>
-						{#snippet featuring()}
-							{#if !cast.loading && !registry.loading}
-								<FeaturingField
-									doc={chapter}
-									cast={seasonCast}
-									registry={registryOf(registry)}
-									{star}
-									groups={() => groups}
-									addToCast={(id) => ensureCast(id, REGULAR_PERSONA)}
-								/>
-							{/if}
-							<!-- the chapter's related items (catalog ids, the same in every language); the reader does not show them yet -->
-							<RelatedItemsField doc={chapter} hint={m['creator.related_items_hint_chapter']()} testid="chapter-related-items" />
-						{/snippet}
-					</MetaPanel>
+					<MetaPanel doc={chapter} {season} number={chapterNumber} {images} />
 				{:else if view.section === 'audio'}
 					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}

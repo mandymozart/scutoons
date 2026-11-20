@@ -29,9 +29,6 @@
 		"audio": {
 			"volume": 1
 		},
-		"featuring": [
-			"catpope"
-		],
 		"groups": [
 			{
 				"ref": {
@@ -169,9 +166,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {
@@ -297,9 +291,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {
@@ -422,9 +413,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {

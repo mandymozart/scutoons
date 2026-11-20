@@ -458,8 +458,6 @@ export interface Slice extends SensitiveFlag {
 	 */
 	pieces?: CollagePiece[];
 	events?: Array<VNSliceEvent>;
-	_type?: string;
-	_label?: string;
 }
 
 /**
@@ -543,17 +541,6 @@ export interface Chapter extends AcceptedWarnings {
 	audio?: AudioConfiguration;
 	groups: Group[];
 	isPreview?: boolean;
-	/**
-	 * Who appears in this chapter: registry character ids, a subset of the season's cast (`cast:<toon>`), in display
-	 * order. Optional and editorial – suggested from the chapter's VN scenes (`chapterSceneCharacters`), set by hand for
-	 * plain scroll chapters. The reader shows it on the chapter list item and at the chapter start.
-	 */
-	featuring?: string[];
-	/**
-	 * Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to
-	 * every locale), agents/ITEMS.md "Players, albums, related items". Stored + edited; the reader does not show it yet.
-	 */
-	related_items?: string[];
 	/** how "Show hints" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies */
 	highlight?: Highlighter;
 }
@@ -665,8 +652,6 @@ export interface Event {
 	city: string;
 	category: EventCategory;
 	link?: string;
-	/** the toons the event belongs to (not shown yet) */
-	toon?: string[];
 }
 
 /** The `events` document: every event, in any order (the viewer sorts) */

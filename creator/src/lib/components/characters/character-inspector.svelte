@@ -6,7 +6,7 @@
 
 <script lang="ts">
 	import { FileSlot, ModelPreview } from '@scutoons/media';
-	import { characterImage, personaModelSource, type AssetRequests, type CharacterPersona, type CharacterRegistry, type CreditPerson, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
+	import { characterImage, personaModelSource, type AssetRequests, type CharacterPersona, type CharacterRegistry, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { cleanText } from '$lib/editor/character-form.ts';
 	import { isKnownMissing, type ToonInfo } from '$lib/editor/characters.ts';
@@ -47,7 +47,6 @@
 		languages,
 		source,
 		toons,
-		people,
 		edits,
 		bust,
 		personaName,
@@ -69,7 +68,6 @@
 		languages: string[];
 		source: string;
 		toons: ToonInfo[];
-		people: CreditPerson[];
 		edits: LookEdits;
 		bust: number;
 		personaName: string;
@@ -126,12 +124,12 @@
 	<div class="body">
 		{#if tab === 'profile'}
 			{#if level === 'character'}
-				<CharacterIdentity {registry} {character} {languages} {toons} {people} />
+				<CharacterIdentity {registry} {character} {languages} {toons} />
 			{:else if level === 'persona'}
 				{#if persona.id === 'regular'}
 					<p class="sc-empty">{m['creator.characters_regular_hint']()}</p>
 				{:else}
-					<CharacterPersonaFields {registry} {character} {persona} {languages} {toons} onremove={removePersona} />
+					<CharacterPersonaFields {registry} {character} {persona} {languages} onremove={removePersona} />
 				{/if}
 				<CharacterTransitions {registry} characterId={character.id} {persona} {languages} />
 			{:else if look}

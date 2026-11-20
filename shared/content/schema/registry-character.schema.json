@@ -44,24 +44,12 @@
 					"type": "string",
 					"description": "the toon this character is the protagonist of (optional – most characters have none)"
 				},
-				"voiced_by": {
-					"type": "string",
-					"description": "person id of the voice (scutoons/_/people.json)"
-				},
 				"tags": {
 					"type": "array",
 					"items": {
 						"type": "string"
 					},
 					"description": "search words"
-				},
-				"origin": {
-					"type": "string",
-					"description": "the region the character comes from (a map region id – agents/MAP.md §8.10); fixed"
-				},
-				"residence": {
-					"type": "string",
-					"description": "the region the character is registered in by default (a `migrate` in the story moves it – the save game)"
 				},
 				"home": {
 					"type": "string",
@@ -104,10 +92,6 @@
 					"$ref": "#/definitions/LocaleText",
 					"description": "appended to the name: \"Cat Pope · Biker\" (the regular persona needs none)"
 				},
-				"introduced": {
-					"$ref": "#/definitions/StoryPoint",
-					"description": "where the persona first appears (none = it has always been there)"
-				},
 				"description": {
 					"$ref": "#/definitions/LocaleText"
 				},
@@ -145,24 +129,6 @@
 				"looks"
 			],
 			"description": "A different identity or role of the same being. `regular` = the base persona every character has."
-		},
-		"StoryPoint": {
-			"type": "object",
-			"properties": {
-				"toon": {
-					"type": "string"
-				},
-				"season": {
-					"type": "number"
-				},
-				"chapter": {
-					"type": "number"
-				}
-			},
-			"required": [
-				"toon"
-			],
-			"description": "A point in a toon's story (a free reference for the editor and the story bible)."
 		},
 		"CharacterLook": {
 			"type": "object",

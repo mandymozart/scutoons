@@ -22,10 +22,9 @@ use Throwable;
  *   file each level plays (@scutoons/content `pickQualityVariant`: the level's variant, else the nearest lower, else
  *   the default), marked with those levels and the media's `group` (offline, the saved level's file answers for the
  *   group's other files); everything else is used at every level.
- * - The characters the chapter's VN puts on stage (`character` + `persona` refs; not `featuring` – the reader doesn't
- *   show it): those personas' portrait and avatar views (+ the regular persona, the fallback anchor) and the
+ * - The characters the chapter's VN puts on stage (`character` + `persona` refs): those personas' portrait and avatar views (+ the regular persona, the fallback anchor) and the
  *   character's image – no `full` view (unused), no A-pose, no 3D model.
- * - The catalog items it names (`item` fields, `related_items`): their icons and their variants' icons.
+ * - The catalog items it names (`item` fields): their icons and their variants' icons.
  * Only images, audio and video; paths from the CDN root (the viewer builds `<cdn>/<path>`, like toonUrl / asset).
  */
 final class ChapterFiles
@@ -179,7 +178,7 @@ final class ChapterFiles
     }
 
     /**
-     * The catalog item ids a chapter names: placed items and events (`item` fields) and its `related_items`
+     * The catalog item ids a chapter names: placed items and events (`item` fields)
      * @param array<mixed> $node
      * @param array<string, true> $ids
      * @return array<string, true>
@@ -188,9 +187,7 @@ final class ChapterFiles
     {
         foreach ($node as $key => $value) {
             if ($key === 'item' && is_string($value) && $value !== '') $ids[$value] = true;
-            elseif ($key === 'related_items' && is_array($value)) {
-                foreach ($value as $id) if (is_string($id) && $id !== '') $ids[$id] = true;
-            } elseif (is_array($value)) self::itemIds($value, $ids);
+            elseif (is_array($value)) self::itemIds($value, $ids);
         }
         return $ids;
     }

@@ -121,7 +121,7 @@ export interface ValidateContext {
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
 	 */
 	seasonStatus?: string | null;
-	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
+	/** the item catalog's ids (a season's `related_items` are checked against them; none = no check) */
 	items?: string[];
 	/** the world map's place ids (unlockLocation events are checked against them; none = no check) */
 	places?: string[];
@@ -1158,16 +1158,6 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	else if (ctx.seasonStatus !== undefined && ch.status !== undefined && ch.status !== ctx.seasonStatus)
 		c.warn(['status'], `status "${ch.status}" differs from the season ("${ctx.seasonStatus}"), which is the source – saving aligns it`);
 	if (ch.published !== undefined) c.info(['published'], 'published is no longer used (the season status is the source) – saving removes it');
-	if (ch.featuring !== undefined) {
-		if (!Array.isArray(ch.featuring) || ch.featuring.some((id: unknown) => !isStr(id) || !id)) c.error(['featuring'], 'featuring must be a list of character ids');
-		else {
-			ch.featuring.forEach((id: string, i: number) => {
-				if (ch.featuring.indexOf(id) !== i) c.warn(['featuring', i], `"${id}" is featured twice`);
-				else if (ctx.cast && !ctx.cast[id]) c.warn(['featuring', i], `"${id}" is featured but not in this season's cast`);
-			});
-		}
-	}
-	checkRelatedItems(ch.related_items, ctx.items, (level, path, message) => c.add(level, path, message));
 	if (ch.keyvisual !== undefined) {
 		if (isStr(ch.keyvisual)) c.error(['keyvisual'], 'keyvisual must be an object { image, video? } (string form is outdated)');
 		else if (!isObj(ch.keyvisual) || !isStr(ch.keyvisual.image)) c.error(['keyvisual', 'image'], 'keyvisual.image is missing');
@@ -1445,23 +1435,10 @@ function checkKanon(c: Collector, k: any, file: string) {
 /** A CSS colour as the registry writes them: a name (`blue`, `darkgreen`) or a hex colour */
 const CSS_COLOR = /^(?:[a-z]+|#[0-9a-f]{3}|#[0-9a-f]{6})$/i;
 
-/**
- * Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in `featuring`
- * (when the chapter has a featuring list) or not in the season's cast. `scene` = `chapterSceneCharacters` of the chapter.
- */
-export function featuringSuggestions(
-	featuring: string[] | null | undefined,
-	scene: string[],
-	cast: Record<string, string[]> | null | undefined,
-	file: string
-): Problem[] {
-	const out: Problem[] = [];
-	for (const id of scene) {
-		if (cast && !cast[id]) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in the season's cast – add them to the cast` });
-		else if (Array.isArray(featuring) && !featuring.includes(id)) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in "featuring"` });
-	}
-	if (!Array.isArray(featuring) && scene.length) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `no "featuring" yet – the scenes suggest ${scene.join(', ')}` });
-	return out;
+/** Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in the season's cast */
+export function sceneCastSuggestions(scene: string[], cast: Record<string, string[]> | null | undefined, file: string): Problem[] {
+	if (!cast) return [];
+	return scene.filter((id) => !cast[id]).map((id) => ({ level: 'info', file, locale: null, path: [], message: `"${id}" appears in the scenes but not in the season's cast – add them to the cast` }));
 }
 
 /** Problems of one locale file */
@@ -1639,7 +1616,7 @@ export function validateLocales(kind: string, file: string, files: Record<string
 	for (const [locale, data] of Object.entries(files)) {
 		if (locale === primary || !data) continue;
 		// related items are language-neutral (the creator writes one list to every locale)
-		if ((kind === 'chapter' || kind === 'season') && JSON.stringify(source.related_items ?? []) !== JSON.stringify(data.related_items ?? [])) {
+		if (kind === 'season' && JSON.stringify(source.related_items ?? []) !== JSON.stringify(data.related_items ?? [])) {
 			add('warning', locale, ['related_items'], `related_items differ between ${primary} and ${locale}: they are the same in every language`);
 		}
 		if (kind === 'chapter') {
