@@ -281,7 +281,7 @@ return [
     // Optimization jobs (bin/console assets:jobs): the ffmpeg / ffprobe executables
     'FFMPEG_PATH' => 'ffmpeg',
     'FFPROBE_PATH' => 'ffprobe',
-    // the core's time map measurement (deck/media bin deck-asset-timemap), after each derivative and for assets:timemaps
+    // the core's time map measurement (deck/media/hw bin deck-asset-timemap), after each derivative and for assets:timemaps
     'TIMEMAP_PATH' => 'deck-asset-timemap',
 
     // ── Logs ───────────────────────────────────────────────────────────────────────────────────────────

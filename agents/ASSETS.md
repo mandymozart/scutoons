@@ -98,8 +98,8 @@ wrote (`{ start?, end?, crop?: { left, top, right, bottom }, fade_in?, fade_out?
 (`PUT /api/assets/{id}` `edits`, null = none; `times: { path: { offset, fps } }` stores measured time maps). A use's trim
 (a scene `video` node's `start` / `end`) cuts inside the asset's span. Each rendition's time map (`time_offset`: the source's
 second at the file's 0, `frame_rate`) is measured by pictures (deck-media `timemap::measure`); a file without one plays as
-offset 0 with a warning. The measuring stays in the core: `deck-asset-timemap <source> <derivative>` (deck/media bin, prints
-`{"offset":s,"fps":n}`, exit 1 + reason on stderr; software decode: HAP / AV1 – an H.264 derivative fails until the core decodes it)
+offset 0 with a warning. The measuring stays in the core: `deck-asset-timemap <source> <derivative>` (deck/media/hw bin, prints
+`{"offset":s,"fps":n}`, exit 1 + reason on stderr; the platform's hardware decoders are installed first, so H.264 / HEVC / VP9 are measured where this machine decodes them; HAP / AV1 in software)
 is run by `AssetTimeMaps` (setting `TIMEMAP_PATH`) after every video derivative of an `assets:jobs` job – a failure stores NULL, logs
 "time map not measured" and never fails the job – and for the existing files by `php bin/console assets:timemaps [--dry-run]
 [--batch=20] [--limit=N] [--after=<rendition id>]` (resumable by the id it prints; failed ones are retried by the next run). Where

@@ -105,7 +105,7 @@ storyboard generations, default `GENERATION_BUDGET`; 0 = no budget = paid jobs r
 | `BUNNY_WRITE_PREFIX` | – | only keys below it may be written / deleted on the zone (`_test/` while trying the driver against production); empty = all |
 | `ASSET_UPLOAD_MAX_BYTES` | 209715200 | largest upload through the API (also mind PHP's `upload_max_filesize` / `post_max_size` – uploads are a raw `PUT` body, which `post_max_size` doesn't limit); bigger files: `bin/console assets:upload` |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | the optimization jobs (`bin/console assets:jobs`: video renditions 480p / 720p / 1080p, posters) and probing (duration, size) |
-| `TIMEMAP_PATH` | `deck-asset-timemap` | the core's time map measurement (`deck/media`, `cargo build --release -p deck-media --bin deck-asset-timemap`): run after each video derivative of `assets:jobs` and by `bin/console assets:timemaps`; without it the maps stay NULL (logged). Environment: `QR_TIMEMAP_PATH` |
+| `TIMEMAP_PATH` | `deck-asset-timemap` | the core's time map measurement (`deck/media/hw`, `cargo build --release -p deck-media-hw --bin deck-asset-timemap`): run after each video derivative of `assets:jobs` and by `bin/console assets:timemaps`; without it the maps stay NULL (logged). Environment: `QR_TIMEMAP_PATH` |
 
 Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
 `deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`

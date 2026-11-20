@@ -1,4 +1,5 @@
-//! The `deck-asset-timemap` binary against the derivative fixtures (tests/derivatives.rs lists how they were made).
+//! The `deck-asset-timemap` binary against the derivative fixtures (deck/media/tests/derivatives.rs lists how they were made;
+//! h264*.mp4: `ffmpeg [-ss 0.5] -i source.mov -c:v libx264 -pix_fmt yuv420p -preset slow -crf 18 -g 6 -bf 0 -map_metadata -1 -fflags +bitexact -flags:v +bitexact`).
 use std::process::{Command, Output};
 
 fn run(args: &[&str]) -> Output {
@@ -6,7 +7,7 @@ fn run(args: &[&str]) -> Output {
 }
 
 fn fixture(name: &str) -> String {
-    format!("{}/tests/fixtures/derivatives/{name}", env!("CARGO_MANIFEST_DIR"))
+    format!("{}/../tests/fixtures/derivatives/{name}", env!("CARGO_MANIFEST_DIR"))
 }
 
 fn measured(derivative: &str) -> (f64, f64) {
@@ -30,6 +31,19 @@ fn prints_the_time_map_as_json() {
         let (offset, fps) = measured("av1_24fps.webm");
         assert!(offset.abs() < 1e-6 && fps.round() == 24.0, "{offset} {fps}");
     }
+}
+
+/// H.264 has no software decoder in the core: measured only where the platform's hardware decodes it, else skipped
+#[test]
+fn measures_an_h264_derivative_where_a_decoder_is_installed() {
+    deck_media_hw::install();
+    if !deck_media::backend::hardware_codecs().contains(&deck_media::Codec::H264) {
+        return eprintln!("no hardware H.264 decoder here: skipped");
+    }
+    let (offset, fps) = measured("h264.mp4");
+    assert!(offset.abs() < 1e-6 && fps.round() == 12.0, "{offset} {fps}");
+    let (offset, fps) = measured("h264_from_half.mp4");
+    assert!((offset - 0.5).abs() < 1e-6 && fps.round() == 12.0, "{offset} {fps}");
 }
 
 #[test]
