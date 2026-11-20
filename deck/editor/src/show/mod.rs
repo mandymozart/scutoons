@@ -31,6 +31,7 @@ pub(crate) mod condition;
 pub mod demos;
 mod events;
 pub mod nodes;
+mod node_card;
 mod node_paint;
 mod node_pick;
 mod flash;

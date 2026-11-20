@@ -40,7 +40,7 @@ pub fn ports(show: &Show, column: &str, cell: &Cell) -> (Vec<Pin>, Vec<Pin>) {
     }
     ins.push(Pin::new(FIRE, Signal::Event));
     if let Cell::Play { values, .. } | Cell::Values { values, .. } = cell {
-        ins.extend(values.keys().map(|k| Pin::new(k.clone(), Signal::Control)));
+        ins.extend(values.iter().map(|(k, v)| Pin::new(k.clone(), Signal::Control).valued(v.as_str().map_or_else(|| v.to_string(), String::from))));
     }
     if let Cell::Mirror { .. } = cell {
         ins.push(Pin::new(MIRRORS, Signal::Scene));
