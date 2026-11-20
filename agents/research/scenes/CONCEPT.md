@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: a spot on a chapter group (§0.3, the owner leans to a spot within a location) and on a single slice (§0.4, where a place shows today); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: the map place → chapter link (§0.5, draft ticket, waiting for the OK); a spot on a chapter group (§0.3, the owner leans to a spot within a location) and on a single slice (§0.4, where a place shows today); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -78,6 +78,11 @@ What it needs, which today's XR plan does not have (XR.md "Not there"):
 - **The floor:** plane detection (where the ground is), which is world tracking: ruled out for the planned 8th Wall image engine by the SLAM licence; WebXR `immersive-ar` has it but only on Android Chrome, and it stops image tracking.
 - So the geo-anchor is a **new XR capability** (research, then a decision on the engine / platform; maybe the native wrapper the owner keeps for "when hardware needs it"), not a field on #482's first build.
 
+**The owner adds (2026-11-20, thought aloud):** *"The world map that is correct is a fictional distorted abstraction of the world so it hold not factual geoolocations. We have a mapping layer between the game map and the REAL WORLD which at this moment only xr scenes will have."*
+- The world map holds **no real geolocations**: its `x` / `y` are world units of a fictional, distorted map (MAP.md), never coordinates.
+- Between the game map and the real world sits a **mapping layer** (a concept, nothing built): it ties a game place to real anchors. **Only XR scenes use it for now.** An XR scene's geo-anchor is a real point; the mapping layer says which game place it stands for.
+- So three things stay apart: a story place (the webtoon, §0.4), a map place (the fictional map), a real anchor (XR, through the mapping layer).
+
 ### 0.3 A spot on a chapter group (owner 2026-11-20, thought aloud, **not decided**)
 
 > "Set on groups in dont know since a group could play out in a specific spot of a location ... so for example cathedral altar or cathedral confession both"
@@ -101,7 +106,7 @@ The owner's lean: a group names a **spot within a location** (`location:cathedra
 | **Storyboard locations** | `storyboard/types.ts`: `StoryboardDoc.locations[] = { ref, place (MAP.md place id) or new, time }`, each `Shot.location` = a `ref` | **this shot happens at this map place** (+ time / weather); prompts, the schematic and Luma use it | per **shot** | exact, but only in the storyboard |
 | Storyboard → chapter | `scripts/storyboard/compile.mjs`: one shot → one slice, `slice.shot = shot.id` | the slice keeps its shot's id, so slice → shot → location → place can be followed | per **slice** | exact for compiled slices; lost for hand-made slices and hand edits; the place itself is **not copied** into the chapter |
 | **Map events** | MAP.md §3: `unlockLocation`, `setPosition`, `travel`, `setAvatarLocation`, `focusMap`, in a group's VN script or on a slice (`trigger: intersect`) | the reader's map state changes here ("you are here" moves) | group or slice | inferred: unlocking a place is not standing in it |
-| Map place → chapter | the world map's place: `chapter?: { toon, number }`, `toons[]` | the place's card links to a chapter ("read chapter 1") | **chapter** | inferred, one chapter per place, no group or slice |
+| Map place → chapter | the world map's place: `chapter?: { toon, number }`, `toons[]` | the place's card links to a chapter ("read chapter 1") | **chapter** | inferred, one chapter per place, no group or slice | **Owner: not needed, against the dogma of ids across the universe (§0.5).**
 | `placeUnlocks` | `FlowIndex::placeUnlocks`: place id → the documents whose events unlock it | which chapter unlocks a place (the map builder warns about a hidden place nothing unlocks) | **document** (chapter), not group or slice | inferred |
 | Goto links and labels | `FlowIndex` edges `{ source: { toon, chapter, group: label }, target, kind: jump }`; the group's `label` | how groups connect; a label may *name* a place ("cathedral-altar") by convention | group | a naming habit, not data |
 
@@ -135,11 +140,24 @@ So "place" has two readings, kept apart here:
 | **Story place** | where something happens **in the story**: a part of the tale, told by labels and goto links (and the storyboard's scene heading) | relational: group labels, jump edges, the storyboard's `locations` per shot | the webtoon (chapter groups, slices) |
 | **Real place** | a point in the real world, a geo-anchor on the floor (§0.2) | nowhere yet | XR only |
 
-The world map sits between them: its places are story places drawn on a map (`location:<place>`, unlocked by story events), not real coordinates. Read this way, a group's or slice's place (§0.3, §0.4) would be a **story place**, never a real one, and the sketch's "Level" table should not suggest that a webtoon group and an XR scene name the same kind of place: they share at most the story place's id (an XR scene in the cathedral story place, anchored at a real spot), not its meaning. Open: whether a story place needs a field at all, or stays relational (labels, links) as the owner's "I assume" suggests.
+The world map sits between them: its places are story places drawn on a **fictional, distorted** map (owner: no factual geolocations), unlocked by story events. A real place reaches a map place only through the mapping layer, and only XR uses it (§0.2). Read this way, a group's or slice's place (§0.3, §0.4) would be a **story place**, never a real one, and the sketch's "Level" table should not suggest that a webtoon group and an XR scene name the same kind of place: they share at most the story place's id (an XR scene in the cathedral story place, anchored at a real spot), not its meaning. Open: whether a story place needs a field at all, or stays relational (labels, links) as the owner's "I assume" suggests.
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
 Draft tickets left (unfiled): feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
+
+### 0.5 The map place → chapter link (owner 2026-11-20)
+
+> "A map place links to one whole chapter, never to a group or a slice. This is something we do not really need since it is kind of against our dogma where we go to ids across the universe."
+
+A world-map place carries `chapter?: { toon, number }`: a toon and a number pair, not an address. What uses it (main @1d064d30):
+- **Schema:** `shared/content/schema/map-place.schema.json` (`chapter`, "the chapter the place's card links to").
+- **Creator:** `creator/src/lib/components/map/place-props.svelte`: a toon select and a chapter number on the place.
+- **Validation:** `shared/content/src/map.ts` (~1635): shape check, a warning when the toon is not in the place's `toons`.
+- **Reader:** `viewer/src/lib/components/toon/map/map-overlay.svelte` (~319, ~561): the place card's "Read chapter N" / "Read the prologue" link (this toon's, readable chapters only). The only thing a reader sees.
+- **Old viewer builds:** `legacyToonMap` (`map.ts` ~1328) and `Library::legacyMapLists` (`Library.php` ~634) write it back as `chapterNumber` in the old `ToonBundle.locations` shape; `map.ts` ~1394 migrated the old shape in.
+
+**Draft ticket (not filed, waiting for the owner's OK):** chore · area:map · complexity:S · "World map: the place card's chapter link goes, or becomes an address". Owner quote above. What: drop `chapter: { toon, number }` from the map place (schema, creator field, validation, the card's link), or replace it with an address from the address book (`chapter:<n>`, later `chapter:<n>.<group>` with #706, any toon's), so the map speaks ids like everything else. The legacy `chapterNumber` output for old viewer builds goes with it. **Open:** remove the card's "Read chapter" link entirely, or keep it through an address? Do saved places need a migration (drop the field, or turn it into an address)? Docs: MAP.md, this §0.5. Refs #703.
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
