@@ -41,6 +41,7 @@ export interface RelayCoreView extends QuicCore {
 
 export interface RelayModule {
 	RelayClient: new (options: string) => RelayCoreView;
+	TakeFollow: new (position: Float64Array, quaternion: Float64Array, scale: number) => object;
 }
 
 /** where a link stands (deck-space `relay::Status`) */

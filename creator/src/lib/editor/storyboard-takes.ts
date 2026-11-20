@@ -3,12 +3,7 @@
 // samples, smoothing, scale and trim (in / out, s), one active. Pure: every change is a function on the shot that the
 // page runs inside one document edit (an undo step, autosave). Also the record a rendered take leaves in the ledger.
 import type { Shot, ShotTakes, Take, TakeSample } from '@scutoons/content/storyboard';
-import { packSample } from './storyboard-handheld.ts';
 
-/** a take needs this many samples (a phone that sent nothing → no take) */
-export const TAKE_MIN_SAMPLES = 2;
-/** samples are stored at most this often (Hz) – the phone sends ~60 Hz; the document stays small (a 10 s take ≈ 30 KB) */
-export const STORE_HZ = 30;
 /** the rendered take's generator in the ledger (storyboard_generations.generator) */
 export const RENDER_GENERATOR = 'handheld-render';
 
@@ -22,28 +17,11 @@ export function nextTakeId(takes: readonly Pick<Take, 'id'>[]): string {
 	return `t${takes.reduce((m, t) => Math.max(m, Number(t.id.slice(1)) || 0), 0) + 1}`;
 }
 
-/** the samples as stored: rounded, at most STORE_HZ, t from 0 (the last one always kept – the take's end) */
-export function thinSamples(samples: readonly TakeSample[], hz = STORE_HZ): TakeSample[] {
-	if (!samples.length) return [];
-	const t0 = samples[0].t,
-		gap = 1 / hz - 1e-6;
-	const out: TakeSample[] = [];
-	let last = -Infinity;
-	samples.forEach((s, i) => {
-		const t = s.t - t0;
-		if (t - last >= gap || i === samples.length - 1) {
-			out.push(packSample({ ...s, t }));
-			last = t;
-		}
-	});
-	return out;
-}
-
-/** a recorded take (null: too short) */
-export function newTake(takes: readonly Pick<Take, 'id'>[], samples: readonly TakeSample[], opts: { smooth: number; scale: number; now?: string }): Take | null {
-	const kept = thinSamples(samples);
-	if (kept.length < TAKE_MIN_SAMPLES) return null;
-	return { id: nextTakeId(takes), created: opts.now ?? new Date().toISOString(), smooth: opts.smooth, scale: opts.scale, in: 0, out: takeEnd({ samples: kept }), samples: kept };
+/** a recorded take from the core's keys (null: the core found it too short to be a move); `fov` is the shot camera's lens */
+export function newTake(takes: readonly Pick<Take, 'id'>[], keys: readonly Omit<TakeSample, 'fov'>[] | null, opts: { smooth: number; scale: number; fov: number; now?: string }): Take | null {
+	if (!keys?.length) return null;
+	const samples = keys.map((k) => ({ ...k, fov: opts.fov }));
+	return { id: nextTakeId(takes), created: opts.now ?? new Date().toISOString(), smooth: opts.smooth, scale: opts.scale, in: 0, out: takeEnd({ samples }), samples };
 }
 
 // ── Changes of a shot (run inside the page's document edit) ─────────────────────────────────────────────

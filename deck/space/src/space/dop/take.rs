@@ -34,6 +34,34 @@ pub struct Recorder {
     t0: Option<f64>,
     last: Option<f64>,
     samples: Vec<Sample>,
+    /// poses are kept as samples (a live follow that is not taking yet only moves the view)
+    keeping: bool,
+    /// phone metres → scene metres
+    scale: f32,
+}
+
+/// a kept pose as a page draws it: seconds from the take's start, the eye, the camera's rotation (x y z w)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Key {
+    pub secs: f32,
+    pub eye: Vec3,
+    pub rot: Quat,
+}
+
+/// A page's camera (position, rotation x y z w; looks down -Z) as the view a take starts on. None: malformed.
+pub fn anchor_of(position: &[f64], quaternion: &[f64]) -> Option<View> {
+    if position.len() != 3 || quaternion.len() != 4 || !position.iter().chain(quaternion).all(|v| v.is_finite()) {
+        return None;
+    }
+    let eye = Vec3::new(position[0] as f32, position[1] as f32, position[2] as f32);
+    let rot = Quat::from_xyzw(quaternion[0] as f32, quaternion[1] as f32, quaternion[2] as f32, quaternion[3] as f32).normalize();
+    Some(View::from_eye(eye, eye + rot * Vec3::NEG_Z, crate::scene_camera::Lens::focal(50.0)))
+}
+
+/// a pose for a page: position (3), rotation (4), the eye rounded to 0.1 mm and the rotation to 1e-5
+pub fn flat(eye: Vec3, rot: Quat) -> [f64; 7] {
+    let r = |v: f32, k: f64| (v as f64 * k).round() / k;
+    [r(eye.x, 1e4), r(eye.y, 1e4), r(eye.z, 1e4), r(rot.x, 1e5), r(rot.y, 1e5), r(rot.z, 1e5), r(rot.w, 1e5)]
 }
 
 /// the eye's look as a shot's yaw and pitch (rad): the eye stands that way from its aim
@@ -45,7 +73,30 @@ fn angles(rot: Quat) -> (f32, f32) {
 impl Recorder {
     /// a take of the phone holding `camera`, starting on `anchor` (that camera's view now)
     pub fn new(camera: &str, anchor: View) -> Recorder {
-        Recorder { camera: camera.to_string(), anchor, follow: Follow::default(), t0: None, last: None, samples: Vec::new() }
+        Recorder { camera: camera.to_string(), anchor, follow: Follow::default(), t0: None, last: None, samples: Vec::new(), keeping: true, scale: 1.0 }
+    }
+
+    /// A phone's follow that takes nothing until `keep(true)`: the view it holds moves with the phone (a page's live view), and
+    /// `scale` scene metres go for a phone metre.
+    pub fn live(camera: &str, anchor: View, scale: f32) -> Recorder {
+        Recorder { keeping: false, scale: if scale.is_finite() && scale > 0.0 { scale } else { 1.0 }, ..Recorder::new(camera, anchor) }
+    }
+
+    /// Start (true: a new take from the next pose, what was kept goes) or end (false) the keeping of poses.
+    pub fn keep(&mut self, on: bool) {
+        if on && !self.keeping {
+            (self.samples, self.t0) = (Vec::new(), None);
+        }
+        self.keeping = on;
+    }
+
+    pub fn keeping(&self) -> bool {
+        self.keeping
+    }
+
+    /// the view the follow holds now (eye, rotation); none before the first pose
+    pub fn held(&self) -> Option<(Vec3, Quat)> {
+        self.follow.view()
     }
 
     /// the live camera it records (`scene:<id>` or `scene:<id> > shot:<id>`)
@@ -56,19 +107,22 @@ impl Recorder {
     /// A pose of the phone at `t` (its clock, ms): position (3), rotation (x y z w). False: late, malformed or past the
     /// longest take – dropped.
     pub fn pose(&mut self, t: f64, p: &[f64], q: &[f64]) -> bool {
-        if self.secs_at(t) > MAX_SECS {
+        if self.keeping && self.secs_at(t) > MAX_SECS {
             return false;
         }
         let eye = self.anchor.eye();
         let anchor = (eye, crate::live_cameras::look_rotation(eye, self.anchor.target));
-        if !self.follow.pose(t, p, q, anchor) {
+        let scaled: Vec<f64> = p.iter().map(|v| v * self.scale as f64).collect();
+        if !self.follow.pose(t, &scaled, q, anchor) {
             return false;
         }
         let dt = self.last.map_or(0.0, |l| ((t - l) / 1000.0) as f32);
-        self.t0.get_or_insert(t);
         self.last = Some(t);
         let Some((eye, rot)) = self.follow.step(dt) else { return false };
-        self.samples.push(Sample { secs: self.secs_at(t), eye, rot });
+        if self.keeping {
+            self.t0.get_or_insert(t);
+            self.samples.push(Sample { secs: self.secs_at(t), eye, rot });
+        }
         true
     }
 
@@ -98,21 +152,34 @@ impl Recorder {
         Some(View { target: s.eye - back(yaw, pitch) * d, yaw, pitch, distance: d, lens: self.anchor.lens })
     }
 
-    /// The take: its keys timed in beats at `bpm` (the tempo clock ran), else in seconds, and the view it ends on (the
-    /// anchor's lens, its aim as far ahead as the anchor's). None: too short to be a move.
-    pub fn take(&self, bpm: Option<f64>) -> Option<(Take, View)> {
+    /// the indices of the samples that stay (see `thin`), at most TAKE_MAX_KEYS; none: too short to be a move
+    fn kept(&self) -> Option<Vec<usize>> {
         let s = &self.samples;
         if s.len() < 2 || self.secs() <= 0.0 {
             return None;
         }
         let mut tol = 1.0;
-        let kept = loop {
+        loop {
             let kept = thin(s, tol);
             if kept.len() <= TAKE_MAX_KEYS {
-                break kept;
+                return Some(kept);
             }
             tol *= 2.0;
-        };
+        }
+    }
+
+    /// The take's keys as a page that draws its own camera takes them: the thinned poses, their time in seconds from the
+    /// first one, the eye and the rotation as kept (the phone's roll too). None: too short to be a move.
+    pub fn keys(&self) -> Option<Vec<Key>> {
+        let kept = self.kept()?;
+        Some(kept.into_iter().map(|i| Key { secs: self.samples[i].secs, eye: self.samples[i].eye, rot: self.samples[i].rot }).collect())
+    }
+
+    /// The take: its keys timed in beats at `bpm` (the tempo clock ran), else in seconds, and the view it ends on (the
+    /// anchor's lens, its aim as far ahead as the anchor's). None: too short to be a move.
+    pub fn take(&self, bpm: Option<f64>) -> Option<(Take, View)> {
+        let s = &self.samples;
+        let kept = self.kept()?;
         let r = |v: f32, k: f32| (v * k).round() / k;
         let time = |secs: f32| match bpm {
             Some(bpm) => Length::Beats(r(secs * (bpm / 60.0) as f32, 1000.0)),
@@ -245,6 +312,26 @@ mod tests {
             let (eye, _, _) = at(&take, t / 4.0).unwrap();
             assert!((eye.x - t / 2.0).abs() < 0.08, "{t}: {eye:?}");
         }
+    }
+
+    #[test]
+    fn a_live_follow_keeps_nothing_until_it_is_asked_and_scales_the_phone() {
+        let anchor = anchor_of(&[0.0, 1.6, 4.0], &[0.0, 0.0, 0.0, 1.0]).expect("an anchor");
+        let mut r = Recorder::live("shot", anchor, 2.0);
+        assert!(r.pose(0.0, &[0.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        assert!(r.pose(1000.0, &[1.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        assert_eq!((r.poses(), r.keys()), (0, None), "nothing kept while it only follows");
+        r.keep(true);
+        for i in 0..=60 {
+            assert!(r.pose(2000.0 + i as f64 * 50.0, &[1.0 + i as f64 / 60.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        }
+        let keys = r.keys().expect("a take");
+        assert_eq!(keys.first().unwrap().secs, 0.0);
+        assert!((keys.last().unwrap().secs - 3.0).abs() < 1e-3);
+        let (held, _) = r.held().unwrap();
+        assert!((held.x - 4.0).abs() < 0.2, "2 phone metres at scale 2: {held:?}");
+        assert!(keys.last().unwrap().eye.distance(held) < 0.3);
+        assert!(anchor_of(&[0.0, f64::NAN, 0.0], &[0.0, 0.0, 0.0, 1.0]).is_none());
     }
 
     #[test]
