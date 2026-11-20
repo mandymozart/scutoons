@@ -14,9 +14,8 @@ pub struct Show {
     pub id: String,
     pub version: u32,
     /// the toons whose scenes, story events and address books the show uses, the first its home (where it is listed, whose
-    /// source language labels it); at least one – a document without one opens with the problem, so a toon can be picked.
-    /// A document saved before #708 names one `toon`: read as the list of it
-    #[serde(default, alias = "toon", deserialize_with = "one_or_more", skip_serializing_if = "Vec::is_empty")]
+    /// source language labels it); at least one – a document without one opens with the problem, so a toon can be picked
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub toons: Vec<String>,
     pub outlets: Vec<Outlet>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -38,30 +37,23 @@ pub struct Show {
     pub background: Option<deck_space::Background>,
 }
 
-/// `toons` as a list, or the one `toon` of an older document (empty: none)
-fn one_or_more<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Toons {
-        One(String),
-        More(Vec<String>),
+/// what a document saved before #708 (one `toon`, no `toons`) is told: its stored versions were migrated, so a file that
+/// still names `toon` is an old copy
+pub const OLD_TOON: &str = "it names the old `toon`, no `toons` – an old copy: load the show from the API again";
+
+/// serde's words, or [`OLD_TOON`] for a document that names `toon`
+fn shape(e: &serde_json::Error) -> String {
+    let words = e.to_string();
+    if words.contains("unknown field `toon`") {
+        OLD_TOON.to_string()
+    } else {
+        words
     }
-    Ok(match Toons::deserialize(d)? {
-        Toons::One(t) if t.trim().is_empty() => Vec::new(),
-        Toons::One(t) => vec![t],
-        Toons::More(list) => list,
-    })
 }
 
-/// The toons a show document as JSON names (`toons`, or the one `toon` of an older one), home first; none when it names none
-/// or is no object
+/// The toons a show document as JSON names, home first; none when it names none or is no object
 pub fn toons_of(doc: &serde_json::Value) -> Vec<String> {
-    #[derive(Deserialize)]
-    struct Named {
-        #[serde(default, alias = "toon", deserialize_with = "one_or_more")]
-        toons: Vec<String>,
-    }
-    Named::deserialize(doc).map(|n| n.toons).unwrap_or_default()
+    doc.get("toons").and_then(|t| serde_json::from_value(t.clone()).ok()).unwrap_or_default()
 }
 
 impl Show {
@@ -462,12 +454,12 @@ impl std::error::Error for ParseError {}
 /// One document for editing (#91): the shape must be right, what it says may be wrong – the editor opens it and its
 /// problems list says what (`validate`). What runs or is flashed goes through [`parse`].
 pub fn open(json: &str) -> Result<Show, String> {
-    serde_json::from_str(json).map_err(|e| ParseError::Shape(e.to_string()).to_string())
+    serde_json::from_str(json).map_err(|e| ParseError::Shape(shape(&e)).to_string())
 }
 
 /// One document, read and checked on its own. The tree: [`validate::resolve`].
 pub fn parse(json: &str) -> Result<Show, ParseError> {
-    let show: Show = serde_json::from_str(json).map_err(|e| ParseError::Shape(e.to_string()))?;
+    let show: Show = serde_json::from_str(json).map_err(|e| ParseError::Shape(shape(&e)))?;
     let problems = validate::validate(&show);
     if problems.is_empty() {
         Ok(show)
@@ -510,27 +502,31 @@ mod tests {
         assert_eq!(super::toons_found(&toons, "").len(), 2);
     }
 
-    /// #708: a show names its toons, the first its home; a document saved with one `toon` reads as the list of it and is
-    /// written back as `toons`
+    /// #708: a show names its toons, the first its home, and is written with them
     #[test]
-    fn both_shapes_read_and_the_list_is_written() {
-        let old = super::parse(r#"{ "id": "x", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
-        assert_eq!((old.toons.as_slice(), old.home()), (&["catpope".to_string()][..], "catpope"));
-        let written = serde_json::to_value(&old).unwrap();
-        assert_eq!((&written["toons"], written.get("toon")), (&serde_json::json!(["catpope"]), None));
+    fn a_show_names_its_toons_the_first_its_home() {
         let new = super::parse(r#"{ "id": "x", "version": 1, "toons": ["catpope", "yellowmouse"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
         assert_eq!((new.toons.len(), new.home()), (2, "catpope"));
         assert_eq!(super::parse(&serde_json::to_string(&new).unwrap()).unwrap(), new, "round trip");
-        let none = super::open(r#"{ "id": "x", "version": 1, "toon": "", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
+        assert_eq!(super::toons_of(&serde_json::to_value(&new).unwrap()), ["catpope", "yellowmouse"]);
+        let none = super::open(r#"{ "id": "x", "version": 1, "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
         assert_eq!((none.toons.len(), none.home()), (0, ""));
-        assert!(super::open(r#"{ "id": "x", "version": 1, "toon": "a", "toons": ["b"], "outlets": [{ "id": "left" }], "rows": [] }"#).is_err(), "not both");
         let twice = super::open(r#"{ "id": "x", "version": 1, "toons": ["catpope", "catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap();
         assert!(crate::validate(&twice).iter().any(|p| p.to_string().contains("twice")));
     }
 
+    /// #708, RULES E2: the stored shows were migrated; an old file that still names `toon` is no show, and says why
+    #[test]
+    fn an_old_file_with_toon_is_refused_in_clear_words() {
+        let old = r#"{ "id": "x", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
+        assert_eq!(super::open(old).unwrap_err(), format!("not a show document: {}", super::OLD_TOON));
+        assert_eq!(super::parse(old).unwrap_err().to_string(), "not a show document: it names the old `toon`, no `toons` – an old copy: load the show from the API again");
+        assert!(super::toons_of(&serde_json::from_str(old).unwrap()).is_empty(), "no toons");
+    }
+
     #[test]
     fn a_document_with_problems_opens_for_editing_and_does_not_parse() {
-        let doc = r#"{ "id": "x", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [{ "id": "a", "cells": { "nowhere": { "mode": "black" } } }] }"#;
+        let doc = r#"{ "id": "x", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [{ "id": "a", "cells": { "nowhere": { "mode": "black" } } }] }"#;
         assert!(super::open(doc).is_ok());
         assert!(matches!(super::parse(doc), Err(super::ParseError::Invalid(_))));
         assert!(super::open("{}").unwrap_err().starts_with("not a show document"));

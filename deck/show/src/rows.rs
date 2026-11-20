@@ -656,9 +656,9 @@ mod tests {
     use protocol::{LayerSrc, Message};
 
     /// the editor's new show (deck-editor show/mod.rs `EMPTY`): one role, no row yet
-    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#;
     /// two roles and a lamp, no row yet
-    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
+    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
 
     fn ed(show: &Show, e: Edit) -> Edited {
         edit(show, &e).unwrap_or_else(|why| panic!("{e:?}: {why}"))

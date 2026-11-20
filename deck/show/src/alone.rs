@@ -117,7 +117,7 @@ mod tests {
         let doc = |text: &str, id: &str| {
             let mut v: Value = serde_json::from_str(text).unwrap();
             v["id"] = id.into();
-            v["toon"] = "sandbox".into();
+            v["toons"] = serde_json::json!(["sandbox"]);
             v
         };
         serde_json::json!({ "status": "success", "shows": [

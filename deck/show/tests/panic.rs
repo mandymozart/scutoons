@@ -3,7 +3,7 @@
 use deck_show::{parse, ClockChoice, Logged, Subtree};
 use protocol::{CellMode, Envelope, LayerSrc, Message};
 
-const DOC: &str = r#"{ "id": "panic", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }], "rows": [
+const DOC: &str = r#"{ "id": "panic", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }], "rows": [
   { "id": "one", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:choir" } } },
   { "id": "two", "cells": { "left": { "mode": "play", "piece": "scene:crypt" } } }
 ] }"#;

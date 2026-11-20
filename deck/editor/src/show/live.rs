@@ -250,7 +250,7 @@ pub fn button(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, ground: [f32; 
 mod tests {
     use super::super::rows::tests::{host_with, press};
 
-    const DOC: &str = r#"{ "id": "sermon", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const DOC: &str = r#"{ "id": "sermon", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#;
     use super::*;
 
     #[test]

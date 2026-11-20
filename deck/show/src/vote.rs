@@ -274,7 +274,7 @@ mod tests {
         if g == "left" { "Left side".into() } else { g.to_string() }
     }
 
-    const SHOW: &str = r#"{ "id": "sermon", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
+    const SHOW: &str = r#"{ "id": "sermon", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
 
     #[test]
     fn the_show_runner_opens_watches_holds_and_overrides_a_vote_through_its_conductor() {

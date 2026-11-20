@@ -1,7 +1,7 @@
 {
   "id": "far-nodes",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
   "rows": [
     {

@@ -303,7 +303,7 @@ fn a_cell_picks_its_scenes_shot_and_the_row_sends_the_camera_word() {
 #[test]
 fn a_left_columns_cut_leaves_the_right_columns_camera_alone() {
     let show = parse(
-        r#"{ "id": "duo", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }], "rows": [
+        r#"{ "id": "duo", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }], "rows": [
             { "id": "open", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:nave" } } },
             { "id": "cut", "fire": { "moment": "bar" }, "cells": { "left": { "mode": "play", "piece": "scene:nave", "shot": "close" } } } ] }"#,
     )
