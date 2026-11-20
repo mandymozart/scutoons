@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Main menu and Settings</title>
+<!-- #664 (owner 2026-11-20): main menu and Settings analog to the deck editor (bar.rs MENU, settings.rs) plus the creator's lines - PLAN.md 2.5. ?w=menu|settings -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;--hover:#2e3229;
+--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;--warn:#f0a030;--go:#4cc35a;--danger:#e5483b;
+--glass:rgba(26,28,24,.55);--glass2:rgba(26,28,24,.86);--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tr:1.8rem;--r:.36rem;
+--mono:"IBM Plex Mono",ui-monospace,monospace;
+--s0:#00d1ff;--s1:#f0a030;--s2:#b36bff;--s3:#4cc35a;--s4:#ff6b8a;--s5:#e6d24a}
+*{box-sizing:border-box}html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:var(--small)}.sp{flex:1}.warn{color:var(--warn)}.ok{color:var(--go)}.acc{color:var(--accent)}
+.bg{position:absolute;inset:0;overflow:hidden}
+/* top bar */
+.bar{position:absolute;top:1rem;left:1rem;right:1rem;display:flex;gap:.5rem;align-items:center;z-index:3}
+.pill{display:flex;align-items:center;gap:.2rem;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:2.55rem;white-space:nowrap}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .5rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;display:inline-grid;place-items:center;color:var(--text)}
+.ws{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .8rem;border-radius:1.2rem;background:var(--control)}
+.ws b{font-weight:400}
+.tab{display:flex;align-items:center;gap:.4rem;height:var(--row);padding:0 .35rem 0 .65rem;border-radius:1.2rem;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .x{width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.75rem;opacity:.55}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}.seg span{height:var(--row);padding:0 .75rem;border-radius:1.2rem;display:flex;align-items:center}
+.seg span.on{background:var(--pressed);color:var(--pressed-text)}.seg span.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block;margin-right:.35rem}
+/* panels */
+.p{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;z-index:2}
+.p.solid{background:var(--glass2)}
+.ph{display:flex;align-items:center;gap:.2rem;padding:.3rem .35rem .3rem .2rem;flex:none}
+.grip{width:.9rem;align-self:stretch;display:grid;place-items:center;color:var(--line);cursor:grab;font-size:.8rem;letter-spacing:-.15em}
+.pt{font-size:var(--small);padding:.18rem .6rem;border-radius:1rem;color:var(--muted);white-space:nowrap}
+.pt.on{background:var(--pressed);color:var(--pressed-text)}
+.ph .f{margin-left:auto;color:var(--muted);font-size:.75rem;padding:0 .3rem}
+.pb{overflow:hidden;flex:1;min-height:0;position:relative}
+.mini{position:absolute;z-index:2;display:flex;align-items:center;gap:.45rem;height:2.35rem;padding:0 .8rem 0 .4rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);white-space:nowrap;font-size:var(--small)}
+.mini .grip{width:.8rem}
+.ghost{position:absolute;z-index:4;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .4rem 1rem #000a;transform:rotate(-3deg)}
+.drop{position:absolute;z-index:4;width:2px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.note{position:absolute;z-index:5;max-width:19rem;font-size:var(--small);line-height:1.4;background:#fffbe6;color:#1d1d14;padding:.5rem .65rem;border-radius:var(--r);box-shadow:0 .3rem .9rem #0008}
+.note b{font-weight:700}
+.note::before{content:"Draft note";display:block;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:#7a6a00;margin-bottom:.15rem}
+/* content */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.chips{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.08rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.tr{height:var(--tr);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0)*1.05rem);white-space:nowrap;overflow:hidden}
+.tr.sel{background:var(--selected)}.tr.in{background:rgba(35,38,31,.6)}
+.tr .c{width:.8rem;color:var(--muted);font-size:.65rem;flex:none}
+.tr img,.tr .sw{width:1.25rem;height:1.25rem;border-radius:50%;object-fit:cover;flex:none;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted);padding-left:.4rem}
+.grp{padding:.55rem var(--pad) .2rem}
+.sec{border-top:1px solid var(--line)}
+.sh{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sh .c{color:var(--muted);font-size:.65rem;width:.8rem}.sh .s{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.si{padding:0 var(--pad) .75rem;display:grid;gap:.42rem}
+.prop{display:grid;grid-template-columns:6.3rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.fd{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot{height:4.2rem;border:1px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.6rem;padding:.3rem;color:var(--muted);font-size:var(--small)}
+.slot img{height:100%;aspect-ratio:1;object-fit:cover;border-radius:calc(var(--r) - 1px)}
+.slot.full{border-style:solid}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+/* canonical sheet: reads like a page, every value edits in place */
+.sheet{padding:.2rem 1rem 1rem;line-height:1.55}
+.sheet h2{font-size:1.15rem;font-weight:700;margin:.4rem 0 .1rem}
+.sheet .sub{color:var(--muted);font-size:var(--small);margin-bottom:.6rem}
+.sheet p{margin:.45rem 0}
+.sheet .v{border-bottom:1px dashed #5a6450;padding:0 .1rem}
+.sheet .ref{color:var(--accent);border-bottom:1px solid #0e5566}
+.sheet .h{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .2rem}
+.state{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.02rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+.state.draft{border-color:var(--muted);color:var(--muted)}.state.warn{border-color:var(--warn);color:var(--warn)}
+/* links: where used · events · deck */
+.lk{display:grid;grid-template-columns:auto 1fr auto;gap:.15rem .5rem;align-items:center;padding:.15rem var(--pad);font-size:var(--small)}
+.lk .k{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.ev{display:flex;align-items:center;gap:.35rem;padding:.25rem var(--pad);font-size:var(--small);white-space:nowrap}
+.ev .on{font-family:var(--mono);font-size:var(--label);padding:.05rem .4rem;border-radius:var(--r);background:var(--control);border:1px solid var(--line)}
+.ev .ar{color:var(--muted)}
+.ev .to{color:var(--accent)}
+/* tiles */
+.tiles{display:grid;gap:.5rem;padding:0 var(--pad) var(--pad)}
+.tile{position:relative;aspect-ratio:1;border-radius:var(--r);background:#0c0d0b;border:1px solid var(--line);overflow:hidden}
+.tile img{width:100%;height:100%;object-fit:contain}
+.tile.cover img{object-fit:cover}
+.tile .k{position:absolute;left:.3rem;top:.3rem;font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .u{position:absolute;right:.3rem;top:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .u.zero{border:1px dashed var(--muted);color:var(--muted)}
+.tile .q{position:absolute;right:.3rem;bottom:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .nm{position:absolute;left:0;right:0;bottom:0;padding:.9rem .4rem .25rem;background:linear-gradient(transparent,#000d);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{outline:2px solid var(--accent);outline-offset:1px}
+.tile.want{border-style:dashed;border-color:var(--warn);display:grid;place-items:center;color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.strip{display:flex;gap:.45rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.card{flex:none;width:7.5rem}
+.card .th{height:4.6rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#000;position:relative}
+.card .th img{width:100%;height:100%;object-fit:cover}
+.card .t{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem;white-space:nowrap}
+.card.sel .th{outline:2px solid var(--accent);outline-offset:1px}.card.sel .t{color:var(--text)}
+textarea,.txt{font:inherit;color:var(--text)}
+.txt{padding:.4rem 1rem 1rem;line-height:1.6;font-size:.95rem}
+.txt .sl{font-family:var(--mono);font-size:var(--label);color:var(--muted);letter-spacing:.06em;margin-top:.7rem}
+.txt .who{color:var(--accent);font-size:var(--small);letter-spacing:.06em;text-transform:uppercase}
+.txt .cur{background:rgba(0,209,255,.12);border-left:2px solid var(--accent);margin-left:-.6rem;padding-left:.5rem}
+svg text{font-family:"Noto Sans",sans-serif}
+</style></head><body><script>
+// workspaces2.html's script (assembled with workspaces.html's style) – #673 round 2, everything evolved on 2026-11-20
+const R='../../../media/', C=R+'characters/', CP=R+'catpope/', IT=R+'scutoons/items/';
+const W=innerWidth,H=innerHeight,rem=14,g=rem,T=g+2.55*rem+g;
+const ch=(c,v,m)=>`${C}${c}/${c}_${v}-${m}.webp`;
+const w=new URLSearchParams(location.search).get('w')||'menu';
+const ICON={home:'⌂',library:'▤',toons:'▦',chapter:'▥',characters:'☺',catalog:'◈',map:'⌖',storyboard:'▶',experiences:'◳',flows:'⟴',generations:'✶'};
+const NAME={home:'Home',library:'Library',toons:'Toons',chapter:'Chapter',characters:'Characters',catalog:'Catalog',map:'Map',storyboard:'Storyboard',experiences:'Experiences',flows:'Flows',generations:'Generations'};
+let out='';const add=x=>out+=x;
+add(`<style>
+.chip.gen{background:var(--primary);color:#171916;border-color:#9ce327}
+.sb{display:flex;gap:.3rem;flex-wrap:wrap}
+.blank{border:1.5px dashed var(--warn)!important;background:rgba(240,160,48,.06)!important;display:grid;place-items:center;color:var(--warn);font-size:var(--label);letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.3}
+.back{position:absolute;z-index:2;left:50%;transform:translateX(-50%);top:${T}px;display:flex;align-items:center;gap:.4rem;height:2.1rem;padding:0 .7rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);font-size:var(--small);white-space:nowrap}
+.k3{font-family:var(--mono);font-size:var(--label);padding:.02rem .35rem;border-radius:.3rem;border:1px solid var(--s2);color:var(--s2)}
+.node{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:.35rem .5rem;font-size:var(--small)}
+</style>`);
+function bar(tabs=[],o={}){
+  add(`<div class="bar"><div class="pill"><span class="logo">SCUTOONS</span><span class="ib">☰</span></div>
+  <div class="pill"><span class="ws"><span>${ICON[w]||'◎'}</span><b>${NAME[w]||'Overview'}</b><span class="muted">▾</span></span>${tabs.map((t,i)=>`<span class="tab ${i===0?'on':''}">${t.img?`<img src="${t.img}">`:`<span>${t.i||''}</span>`}<span>${t.n}</span><span class="x">✕</span></span>`).join('')}${tabs.length?'<span class="ib">＋</span>':''}</div>
+  <span class="sp"></span>
+  ${o.saved!==false?`<div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>`:''}
+  ${o.play?`<div class="pill"><div class="seg"><span class="on">Edit</span><span class="play">▶ Play</span></div></div>`:''}
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">?</span></div></div>`);
+}
+// the background is a maximized panel: its pill says what is in the back and swaps it
+const BACK=(what)=>add(`<div class="back"><span class="muted">back:</span>${what}<span class="muted">· ⤢ swap</span></div>`);
+function P(x,y,wd,ht,tabs,body,o={}){
+  add(`<div class="p ${o.solid?'solid':''}" style="left:${x}px;top:${y}px;width:${wd}px;height:${ht}px;${o.hi?'outline:2px solid var(--primary);outline-offset:2px;':''}"><div class="ph"><span class="grip">⋮⋮</span>${tabs.map((t,i)=>`<span class="pt ${i===(o.on||0)?'on':''}">${t}</span>`).join('')}<span class="f">⤢ —</span></div><div class="pb">${body}</div></div>`);
+}
+function M(x,y,label,extra=''){add(`<div class="mini" style="left:${x}px;top:${y}px"><span class="grip">⋮⋮</span>${label}${extra}</div>`)}
+function NOTE(x,y,html,wd){add(`<div class="note" style="left:${x}px;top:${y}px;${wd?`max-width:${wd}px`:''}">${html}</div>`)}
+const tr=(d,label,o={})=>`<div class="tr ${o.sel?'sel':''} ${o.in?'in':''}" style="--d:${d}"><span class="c">${o.c??''}</span>${o.img?`<img src="${o.img}" onerror="this.style.visibility='hidden'">`:o.blank?`<span class="sw" style="background:none;border:1px dashed var(--warn)"></span>`:o.sw?`<span class="sw" style="background:${o.sw}"></span>`:''}<span>${label}</span>${o.k3?'<span class="k3">3D</span>':''}${o.n!==undefined?`<span class="n ${o.nw?'warn':''}">${o.n}</span>`:''}</div>`;
+const sec=(open,name,sum,body='')=>`<div class="sec"><div class="sh"><span class="c">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="s">${sum}</span></div>${open?`<div class="si">${body}</div>`:''}</div>`;
+const prop=(k,v)=>`<div class="prop"><span>${k}</span>${v.startsWith('<')?v:`<div class="fd">${v}</div>`}</div>`;
+const FILL=`<div class="sb"><span class="chip">⇪ Upload</span><span class="chip">▤ Library</span><span class="chip gen">✶ Generate</span></div>`;
+const blankSlot=(addr,brief)=>`<div class="slot blank" style="height:auto;display:block;padding:.5rem .6rem;text-transform:none;letter-spacing:0;font-size:var(--small);text-align:left;color:var(--text)"><div class="lbl" style="color:var(--warn)">blank asset</div><div class="mono" style="font-size:var(--label);color:var(--muted)">${addr}</div><div style="margin:.3rem 0">${brief}</div>${FILL}</div>`;
+// story events: the real names – triggers intersect · click · hover; actions giveItem, unlockLocation, joinScene …
+const ev=(trig,act,target,deck)=>`<div class="ev"><span class="on">${trig}</span><span class="ar">→</span><span>${act}</span><span class="to">${target}</span>${deck?`<span class="ar">→</span><span class="acc">⚡ ${deck}</span>`:''}</div>`;
+const lk=(rows)=>rows.map(([k,n,s])=>`<div class="lk"><span class="k">${k}</span><span>${n}</span><span class="muted mono" style="font-size:var(--label)">${s||''}</span></div>`).join('');
+const LINKS=(addr,addressable,used,evs,deck)=>`<div class="ev"><span class="mono" style="font-size:var(--label)">${addr}</span><span class="state ${addressable?'':'warn'}">${addressable?'address':'reference only'}</span></div><div class="grp lbl">Used in · ${used.length}</div>${lk(used)}<div class="grp lbl">Story events</div>${evs.join('')}<div class="grp lbl">Deck</div>${lk(deck)}`;
+const tile=(src,k,n,o={})=>o.blank?`<div class="tile blank" style="aspect-ratio:1">blank<br>${o.gen?'✶ generating':'⇪ ▤ ✶'}<span class="nm" style="color:var(--warn);text-transform:none;letter-spacing:0">${n}</span></div>`:`<div class="tile ${o.sel?'sel':''} ${o.cover?'cover':''}"><img src="${src}" onerror="this.style.opacity=0"><span class="k">${k}${o.k3?' · 3D':''}</span><span class="u ${o.u===0?'zero':''}">${o.u??''}</span>${o.q?`<span class="q">${o.q}</span>`:''}<span class="nm">${n}</span></div>`;
+const kanon=(t)=>`<div class="h">Kanon</div><p class="muted">${t} <span class="acc">open ↗</span></p>`;
+
+
+// ───────────────────────────────────────── MENUS (#664, PLAN.md §2.5)
+add(`<style>
+.menu{position:absolute;z-index:5;background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:.3rem 0;min-width:17rem;box-shadow:0 .6rem 2rem rgba(0,0,0,.5)}
+.menu .ln{display:flex;align-items:center;gap:.6rem;height:2.15rem;padding:0 .8rem;font-size:var(--small);white-space:nowrap}
+.menu .ln .i{width:1.1rem;text-align:center;color:var(--muted)}
+.menu .ln .r{margin-left:auto;padding-left:1.2rem;color:var(--muted);font-family:var(--mono);font-size:var(--label)}
+.menu .ln.hov{background:var(--control)}
+.menu .ln.off{color:var(--muted);opacity:.55}
+.menu .ln.new .i{color:var(--primary)}
+.menu .hr{height:1px;background:var(--line);margin:.3rem 0}
+.menu .gl{padding:.35rem .8rem .15rem;font-size:var(--label);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tick{width:.9rem;height:.9rem;border:1px solid var(--line);border-radius:.2rem;display:inline-grid;place-items:center;font-size:.65rem}
+.tick.on{background:var(--primary);color:#171916;border-color:var(--primary)}
+.sw2{margin-left:auto;width:2rem;height:1.1rem;border-radius:1rem;background:var(--control);border:1px solid var(--line);position:relative;flex:none}
+.sw2::after{content:'';position:absolute;top:.1rem;left:.12rem;width:.8rem;height:.8rem;border-radius:50%;background:var(--muted)}
+.sw2.on{background:var(--primary);border-color:var(--primary)}.sw2.on::after{left:auto;right:.12rem;background:#171916}
+.row{display:flex;align-items:center;gap:.5rem;min-height:2.1rem;padding:0 var(--pad);font-size:var(--small)}
+.row .v{margin-left:auto}
+.segm{display:flex;border:1px solid var(--line);border-radius:2rem;overflow:hidden;font-size:var(--small)}
+.segm span{padding:.2rem .8rem}.segm .on{background:var(--primary);color:#171916}
+</style>`);
+// the new bar: ☰ · ⌂ Home · the items open, each in its own workspace (kind icon) – no workspace switch
+function bar2(open){
+  add(`<div class="bar"><div class="pill"><span class="ib" style="${open?'background:var(--control);':''}">☰</span><span class="ib">⌂</span></div>
+  <div class="pill">${[['▥','chapter:catpope/s1/c3',1],['☺','character:catpope'],['◳','experience:poster-feilchen'],['◈','item:record-player']].map(([i,n,on])=>`<span class="tab ${on?'on':''}"><span>${i}</span><span class="mono" style="font-size:var(--small)">${n}</span><span class="x">✕</span></span>`).join('')}<span class="ib">＋</span></div>
+  <span class="sp"></span>
+  <div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">☺</span></div></div>`);
+}
+add(`<div class="bg" style="background:radial-gradient(ellipse at 55% 40%,#1c2118,#000 70%)"></div>`);
+add(`<div style="position:absolute;left:50%;top:${T+2*rem}px;transform:translateX(-50%);width:390px;height:${H-T-4*rem}px;overflow:hidden;border:1px solid var(--line);opacity:.55"><img src="${CP}s1/c1/s1c1-slice-4.webp" style="width:100%"></div>`);
+bar2(w==='menu');
+if(w==='settings') P(g,T,17*rem,H-T-g,['Toon board','Library'],`${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral')})}${tr(1,'Season 1',{c:'▾'})}${tr(2,'C1 Nave',{n:'live'})}${tr(2,'C2 Cloister',{n:'live'})}${tr(2,'C3 Crypt stairs',{sel:1,n:'draft'})}${tr(2,'C4 Crypt',{n:'draft'})}`);
+if(w==='menu'){
+  const L=(i,t,r='',c='')=>`<div class="ln ${c}"><span class="i">${i}</span><span>${t}</span>${r?`<span class="r">${r}</span>`:''}</div>`;
+  add(`<div class="menu" style="left:${g}px;top:${T-.3*rem}px">
+  ${L('▤','Open…','Ctrl O','hov')}
+  ${L('＋','New…','Ctrl N')}
+  ${L('↑','Publish…','this chapter')}
+  <div class="hr"></div>
+  ${L('⚙','Settings…','Ctrl ,')}
+  ${L('♪','Audio & inputs','','off')}
+  ${L('A','Text language','EN ▸','new')}
+  ${L('?','Help','▸','new')}
+  ${L('↗','Go to','▸','new')}
+  <div class="hr"></div>
+  ${L('☺','Account – member · role','↗')}
+  <div class="hr"></div>
+  <div class="gl">Panels of this workspace</div>
+  ${[['Toon board',1],['Inspector',1],['Sheet',0],['Kanon',0],['Slots · Wanted',0],['Links',0],['Events',1],['Library',0]].map(([n,on])=>`<div class="ln"><span class="tick ${on?'on':''}">${on?'✓':''}</span><span>${n}</span></div>`).join('')}
+  </div>`);
+  add(`<div class="menu" style="left:${g+18.6*rem}px;top:${T+11*rem}px"><div class="gl">Help</div>${L('▦','Guide – style + script rules')}${L('↗','Docs')}${L('⌨','Keyboard shortcuts','?')}</div>`);
+  add(`<div class="menu" style="left:${g+18.6*rem}px;top:${T+20*rem}px"><div class="gl">Go to</div>${L('↗','Reader – this chapter')}${L('↗','Open in the deck')}${L('↗','Embassy')}${L('↗','Admin','by role')}</div>`);
+  NOTE(W-24*rem,T+2*rem,'<b>Main menu</b> like the deck editor\'s: its lines, then the open workspace\'s panels (ticked = open). Nothing to save – everything saves itself; ↗ leaves for the browser. <b>Green icons</b> = the creator\'s lines. "Audio & inputs" only where a stage plays. No "Quit to stage": ⌂ is Home.',21*rem);
+}
+if(w==='settings'){
+  const sw=(t,on)=>`<div class="row"><span>${t}</span><span class="sw2 ${on?'on':''}"></span></div>`;
+  const pw=25*rem, px=W-g-pw;
+  P(px,T,pw,H-T-g,['Settings'],`
+  ${sec(true,'Look','this machine',`<div class="row"><span>Theme</span><span class="v segm"><span>Day</span><span class="on">Night</span></span></div><div class="row"><span>UI size (1rem)</span><span class="v segm"><span>−</span><span>14 px · 100 %</span><span>+</span></span></div>`)}
+  ${sec(true,'Motion & feedback','this machine',`${sw('Hover reveal',1)}${sw('Focus flash',1)}${sw('Panel transitions',1)}${sw('Reduce motion (all off)',0)}`)}
+  ${sec(false,'Sound','UI sounds off')}
+  ${sec(true,'Language','you',`<div class="row"><span>Interface</span><span class="v fd" style="width:9rem">English ▾</span></div><div class="row muted" style="font-size:var(--label)">The text language (content) is its own switch in the bar.</div>`)}
+  ${sec(true,'Local folder','this machine',`<div class="row"><span class="mono" style="font-size:var(--small)">D:\\SCUTOONS\\local</span><span class="v chip">Change…</span></div><div class="row muted" style="font-size:var(--label)">generations and takes before upload (was "workspace folder")</div>`)}
+  ${sec(true,'AI & generation','you',`<div class="row"><span>Your Claude (MCP)</span><span class="v state">connected</span></div><div class="row"><span>Providers</span><span class="v muted">chosen in the back</span></div><div class="row"><span>New chains start</span><span class="v segm"><span class="on">✎ manual</span><span>✶ AI</span></span></div>`)}
+  ${sec(false,'Notifications','push off')}
+  ${sec(true,'Layout','',`<div class="row"><span>Reopen last tabs on start</span><span class="sw2 on"></span></div><div class="row"><span class="chip">Reset this workspace</span><span class="chip">Reset all</span></div>`)}
+  `,{solid:true});
+  NOTE(px-22*rem,T+2*rem,'<b>Settings</b> open as a floating panel, like the deck\'s: Look, Motion & feedback, Sound from the deck; Language, Local folder, AI & generation, Notifications, Layout for the creator. Machine settings stay in the browser, "you" settings go with the member.',20*rem);
+}
+document.body.insertAdjacentHTML('beforeend',out);
+</script></body></html>
