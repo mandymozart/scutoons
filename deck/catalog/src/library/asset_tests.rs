@@ -351,3 +351,16 @@ fn a_family_entry_is_served_from_the_cdn_and_found_by_any_version() {
     assert_eq!(f.entry().preview, Preview::Picture { url: "catpope/s1/c1/s1c1-slice-2.webp".into() }, "no cdn: the path");
     assert!(Kind::Image.is_file() && !Kind::Module.is_file());
 }
+
+#[test]
+fn a_workspace_counts_only_the_kinds_it_lists() {
+    let s = chapter_one();
+    let every = s.view(&q(Scope::All));
+    let pictures = s.view(&Query { within: vec![Kind::Image], ..q(Scope::All) });
+    assert!(every.order.iter().any(|k| k.ends_with("s1c1-bells")));
+    assert!(!pictures.order.iter().any(|k| k.ends_with("s1c1-bells")), "no audio in a pictures' workspace");
+    assert_eq!(pictures.scopes.all, s.families(false).iter().filter(|f| f.kind == Kind::Image).count(), "the rest is not counted either");
+    assert_eq!(pictures.scopes.context, every.scopes.context);
+    assert!(pictures.groups[0].pinned && pictures.groups.iter().skip(1).all(|g| g.folded), "All: the open item pinned, the rest folded");
+    assert_eq!(shelf::query_of(&json!({ "within": ["image"] })).within, [Kind::Image]);
+}

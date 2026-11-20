@@ -8,7 +8,8 @@ use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
-use deck_catalog::library::shelf::Shelf;
+use deck_catalog::library::shelf::{Group, GroupKind, Query, Scope, Shelf, View};
+use std::collections::HashMap;
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
 /// a card's width and its preview's height in the grid; a row's preview in the list
@@ -19,6 +20,8 @@ const ROW_PREVIEW: (f32, f32) = (44.0, 28.0);
 const DRAG: f32 = 5.0;
 /// a second press within this many seconds opens
 const OPEN: f64 = 0.45;
+/// "recently added" is asked again once a minute, not every frame
+const MINUTE: f64 = 60_000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -35,6 +38,10 @@ pub enum Hit {
     Mode,
     /// the owner's one button (Show's "new scene")
     Action,
+    /// the toon's files: what is shown of them
+    Scope(Scope),
+    /// a group's heading, by its place among the groups drawn
+    Fold(usize),
     /// a card, by its entry's index
     Card(usize),
 }
@@ -45,11 +52,15 @@ pub enum Hit {
 pub struct Source<'a> {
     pub entries: &'a [Entry],
     pub shelf: Option<&'a Shelf>,
+    /// changes whenever the shelf or its context does (the view is asked again)
+    pub stamp: u64,
+    /// now, in ms since 1970
+    pub now_ms: f64,
 }
 
 impl<'a> Source<'a> {
     pub fn plain(entries: &'a [Entry]) -> Source<'a> {
-        Source { entries, shelf: None }
+        Source { entries, shelf: None, stamp: 0, now_ms: 0.0 }
     }
 
     /// how many versions the card of `e` stacks (1: a single file or no family)
@@ -105,11 +116,19 @@ pub struct Browser {
     pub held: Option<Held>,
     last: Option<(usize, f64)>,
     pub hits: Vec<(Rect, Hit)>,
+    /// the toon's files: used by the open item, all (the open item's pinned on top, the rest folded until a search), unused
+    pub scope: Scope,
+    /// the groups the viewer folded or opened, by key (a search opens them all)
+    pub folds: HashMap<String, bool>,
+    /// the groups drawn: key and whether folded (a heading's press)
+    folded: Vec<(String, bool)>,
+    /// the shelf's last view: the stamp and query it answers
+    view: Option<(u64, Query, View)>,
 }
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new() }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -175,6 +194,16 @@ impl Browser {
                 Did::Taken
             }
             Hit::Action => Did::Action,
+            Hit::Scope(scope) => {
+                self.scope = scope;
+                Did::Taken
+            }
+            Hit::Fold(n) => {
+                if let Some((key, folded)) = self.folded.get(n).cloned() {
+                    self.folds.insert(key, !folded);
+                }
+                Did::Taken
+            }
             Hit::Card(i) => {
                 if self.last.is_some_and(|(j, t)| j == i && now - t <= OPEN) {
                     self.last = None;
@@ -205,8 +234,9 @@ impl Browser {
         Some(if h.dragging { Did::Drop { entry: h.entry, at: (x, y) } } else { Did::Click(h.entry) })
     }
 
-    /// The browser in `a`: the find field, the chips, the cards. `picture` answers which of the screen's pictures shows
-    /// a preview (a still or a picture already loaded); `action` is the owner's one button.
+    /// The browser in `a`: the find field, the chips, the cards – the owner's entries, then the toon's files in the
+    /// shelf's groups. `picture` answers which of the screen's pictures shows a preview (a still or a picture already
+    /// loaded); `action` is the owner's one button.
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), src: &Source, picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
         let entries = src.entries;
         self.hits.clear();
@@ -239,28 +269,111 @@ impl Browser {
         d.sans(field.x + 24.0, field.y + (field.h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &text, field.w - 30.0), ink);
         self.hits.push((field, Hit::Find));
         y += row + 4.0;
-        // a chip per kind there is, then "related" when a character is open
+        let f = self.filter_now();
+        let plain: Vec<usize> = find(entries, &f).into_iter().filter(|&i| src.shelf.is_none() || !entries[i].kind.is_file()).collect();
+        let groups = self.groups(src, &f);
+        // a chip per kind there is, "related" when a character is open, then the shelf's
         let kinds = facets(entries);
-        let mut names: Vec<String> = kinds.iter().map(|(k, n)| format!("{} {n}", k.word())).collect();
-        let mut on: Vec<bool> = kinds.iter().map(|(k, _)| self.filter.kinds.contains(k)).collect();
+        let mut chips: Vec<(String, bool, Hit)> = kinds.iter().map(|(k, n)| (format!("{} {n}", k.word()), self.filter.kinds.contains(k), Hit::Facet(*k))).collect();
         if let Some(c) = &self.character {
-            names.push(format!("related to {}", c.strip_prefix("character:").unwrap_or(c)));
-            on.push(self.filter.related.is_some());
+            chips.push((format!("related to {}", c.strip_prefix("character:").unwrap_or(c)), self.filter.related.is_some(), Hit::Related));
         }
-        if names.len() > 1 || self.character.is_some() {
-            let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-            let (places, used) = controls::chips(d, t, (a.x, y, a.w), &refs, &on);
-            for (i, r) in places.into_iter().enumerate() {
-                self.hits.push((r, kinds.get(i).map_or(Hit::Related, |(k, _)| Hit::Facet(*k))));
+        let shelf_chips = self.shelf_chips();
+        if chips.len() > 1 || self.character.is_some() || !shelf_chips.is_empty() {
+            chips.extend(shelf_chips);
+            let names: Vec<&str> = chips.iter().map(|(n, _, _)| n.as_str()).collect();
+            let on: Vec<bool> = chips.iter().map(|(_, o, _)| *o).collect();
+            let (places, used) = controls::chips(d, t, (a.x, y, a.w), &names, &on);
+            for (r, (_, _, hit)) in places.into_iter().zip(&chips) {
+                self.hits.push((r, *hit));
             }
             y += used + 6.0;
         }
-        let shown = self.shown(entries);
-        if shown.is_empty() {
+        if plain.is_empty() && groups.is_empty() {
             let why = if entries.is_empty() { "nothing here yet" } else { "nothing found" };
             d.sans(a.x, y + 4.0, small, why, t.color.muted);
             return;
         }
+        y = self.cards(d, t, (a, pointer), y, src, &plain, picture);
+        self.folded.clear();
+        for (n, g) in groups.iter().enumerate() {
+            if g.header {
+                let h = small * 1.4 + 8.0;
+                let r = Rect { x: a.x, y, w: a.w, h };
+                if r.has(pointer.0, pointer.1) {
+                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                }
+                d.icon(r.x + 2.0, r.y + (h - 12.0) * 0.5, 12.0, if g.folded { "next" } else { "down" }, t.color.muted);
+                let count = g.cards.len().to_string();
+                let cw = d.sans_width(small, &count);
+                d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &g.title, r.w - cw - 28.0), t.color.text);
+                d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &count, t.color.muted);
+                d.rect(r.x, r.y + h - t.size.edge, r.w, t.size.edge, t.color.line);
+                self.hits.push((r, Hit::Fold(n)));
+                y += h + 4.0;
+            }
+            self.folded.push((g.key.clone(), g.folded));
+            if !g.folded {
+                y = self.cards(d, t, (a, pointer), y, src, &g.cards, picture);
+            }
+        }
+    }
+
+    /// The toon's files the shelf shows for the filter, in its groups: its view asked again only when the query or the
+    /// shelf changed; only the kinds the owner lists (`within`), the kind chips picked, each family the owner's entry.
+    fn groups(&mut self, src: &Source, f: &Filter) -> Vec<Shown> {
+        let Some(shelf) = src.shelf else {
+            self.view = None;
+            return Vec::new();
+        };
+        let within: Vec<Kind> = Kind::ALL.into_iter().filter(|k| k.is_file() && src.entries.iter().any(|e| e.kind == *k)).collect();
+        if within.is_empty() {
+            self.view = None;
+            return Vec::new();
+        }
+        let q = Query { scope: self.scope, query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
+            self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
+        }
+        let Some((_, _, view)) = &self.view else { return Vec::new() };
+        let by_address: HashMap<&str, usize> = src.entries.iter().enumerate().filter(|(_, e)| e.kind.is_file()).map(|(i, e)| (e.address.as_str(), i)).collect();
+        let searching = !q.query.trim().is_empty();
+        view.groups
+            .iter()
+            .filter_map(|g| {
+                let cards: Vec<usize> = g
+                    .cells
+                    .iter()
+                    .flat_map(|c| &c.keys)
+                    .filter_map(|k| shelf.family_of(k))
+                    .filter_map(|fam| by_address.get(fam.main.as_str()).copied())
+                    .filter(|&i| f.kinds.is_empty() || f.kinds.contains(&src.entries[i].kind))
+                    .collect();
+                let folded = !searching && self.folds.get(&g.key).copied().unwrap_or(g.folded);
+                (!cards.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cards })
+            })
+            .collect()
+    }
+
+    /// the shelf's chips after the kinds: its scopes with their counts
+    fn shelf_chips(&self) -> Vec<(String, bool, Hit)> {
+        let Some((_, _, v)) = &self.view else { return Vec::new() };
+        let mut out = Vec::new();
+        for (scope, word, n) in [(Scope::Context, "in use", v.scopes.context), (Scope::All, "all files", v.scopes.all), (Scope::Unused, "unused", v.scopes.unused)] {
+            if n > 0 || self.scope == scope || scope == Scope::All {
+                out.push((format!("{word} {n}"), self.scope == scope, Hit::Scope(scope)));
+            }
+        }
+        out
+    }
+
+    /// The cards of `list` from `y` on, in the grid or the list; where they end.
+    #[allow(clippy::too_many_arguments)]
+    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[usize], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
+        if list.is_empty() {
+            return y;
+        }
+        let (entries, small) = (src.entries, t.size.small);
         let held = self.held.map(|h| h.entry);
         match self.mode {
             Mode::Grid => {
@@ -271,7 +384,7 @@ impl Browser {
                 }
                 let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
                 let ch = CARD_PREVIEW + small * 1.4 * 2.0 + 8.0;
-                for (n, &i) in shown.iter().enumerate() {
+                for (n, &i) in list.iter().enumerate() {
                     let e = &entries[i];
                     let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * (ch + gap), w: cw, h: ch };
                     let lit = held == Some(i);
@@ -283,10 +396,11 @@ impl Browser {
                     d.sans(r.x + 6.0, ty + small * 1.45, small, &controls::fit_sans(d, small, &e.detail, r.w - 12.0), t.color.muted);
                     self.hits.push((r, Hit::Card(i)));
                 }
+                y + list.len().div_ceil(cols) as f32 * (ch + gap)
             }
             Mode::List => {
                 let h = ROW_PREVIEW.1 + 6.0;
-                for (n, &i) in shown.iter().enumerate() {
+                for (n, &i) in list.iter().enumerate() {
                     let e = &entries[i];
                     let r = Rect { x: a.x, y: y + n as f32 * h, w: a.w, h };
                     if held == Some(i) {
@@ -303,8 +417,34 @@ impl Browser {
                     d.sans(r.x + r.w - dw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
                     self.hits.push((r, Hit::Card(i)));
                 }
+                y + list.len() as f32 * h + 4.0
             }
         }
+    }
+}
+
+/// one group of the toon's files as the browser shows it
+struct Shown {
+    key: String,
+    title: String,
+    /// a heading over it (not over the one group of an ungrouped view)
+    header: bool,
+    folded: bool,
+    /// the owner's entries, in the shelf's order
+    cards: Vec<usize>,
+}
+
+/// a group's heading
+fn title(g: &Group) -> String {
+    let item = g.item.as_deref().unwrap_or("");
+    match g.what {
+        GroupKind::Open => format!("here: {item}"),
+        GroupKind::Unused => "unused".into(),
+        GroupKind::Item => item.to_string(),
+        GroupKind::Toon => format!("the toon {}", item.strip_prefix("toon:").unwrap_or(item)),
+        GroupKind::Other => "other files".into(),
+        GroupKind::Kind => Kind::of_id(item).map_or_else(|| item.to_string(), |k| k.word().to_string()),
+        GroupKind::All => "all files".into(),
     }
 }
 
@@ -474,18 +614,56 @@ mod tests {
         let shelf = shelf();
         let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
         assert_eq!(entries.len(), 3, "one card per family, not per file");
-        let src = Source { entries: &entries, shelf: Some(&shelf) };
-        let hills = entries.iter().find(|e| e.label == "hills").expect("hills");
-        let sky = entries.iter().find(|e| e.label == "sky").expect("sky");
-        assert_eq!((src.stack(hills), src.stack(sky)), (3, 1));
-        let outlines = |b: &mut Browser, src: &Source| {
-            let mut d = DrawList::new(8.0);
-            b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, (-1.0, -1.0)), src, &|_| None, None);
-            d.prims().iter().filter(|p| matches!(p, Prim::Outline { .. })).count()
-        };
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 0, now_ms: 0.0 };
+        let hills = entries.iter().position(|e| e.label == "hills").expect("hills");
+        let sky = entries.iter().position(|e| e.label == "sky").expect("sky");
+        assert_eq!((src.stack(&entries[hills]), src.stack(&entries[sky])), (3, 1));
         let mut b = Browser::default();
-        let stacked = outlines(&mut b, &src);
-        let flat = outlines(&mut b, &Source::plain(&entries));
-        assert_eq!(stacked - flat, SHEETS, "two sheets behind the three versions' card");
+        b.filter.query = "hills".into();
+        let d = draw_src(&mut b, &src);
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(hills)).expect("the hills' card");
+        let behind = |k: f32| d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP * k && *y == r.y - SHEET_STEP * k));
+        assert!(behind(1.0) && behind(2.0) && !behind(3.0), "two sheets behind the three versions' card");
+    }
+
+    fn draw_src(b: &mut Browser, src: &Source) -> DrawList {
+        let mut d = DrawList::new(8.0);
+        b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 4000.0 }, (-1.0, -1.0)), src, &|_| None, None);
+        d
+    }
+
+    fn cards(b: &Browser) -> Vec<usize> {
+        b.hits.iter().filter_map(|(_, h)| if let Hit::Card(i) = h { Some(*i) } else { None }).collect()
+    }
+
+    #[test]
+    fn the_files_are_scoped_by_use_and_all_pins_the_open_item_and_folds_the_rest() {
+        let mut shelf = shelf();
+        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("scene:nave".into()), toon: Some("cat".into()), uses: vec![deck_catalog::library::shelf::Use { path: "cat/s1/c2/sky.webp".into(), item: "scene:nave".into(), part: "layer 1".into(), at: String::new() }], ..Default::default() });
+        let mut entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        entries.insert(0, entry("module:walk", Kind::Module, Preview::Kind, &[]));
+        let label = |i: usize| entries[i].label.clone();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser::default();
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["walk", "sky"], "the owner's entries, then the open item's files pinned; the rest folded");
+        let folds = b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count();
+        assert!(folds >= 2, "a heading per group");
+        let (x, y) = at(&b, Hit::Fold(1));
+        b.press(x, y, 0.0);
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).len(), 3, "a heading opens its group");
+        let (x, y) = at(&b, Hit::Scope(Scope::Context));
+        b.press(x, y, 1.0);
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["walk", "sky"], "in use: only what the scene uses");
+        b.scope = Scope::All;
+        b.filter.query = "bells".into();
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["bells"], "a search opens every group");
+        b.filter.query.clear();
+        b.filter.kinds = vec![Kind::Image];
+        draw_src(&mut b, &src);
+        assert!(cards(&b).into_iter().all(|i| entries[i].kind == Kind::Image), "a kind chip narrows the files too");
     }
 }

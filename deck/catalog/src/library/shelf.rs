@@ -126,6 +126,8 @@ pub struct Query {
     pub single: bool,
     /// now, in ms since 1970 (for "recently added")
     pub now_ms: f64,
+    /// the kinds the workspace lists at all (none = every kind): the rest are not counted anywhere
+    pub within: Vec<Kind>,
 }
 
 /// the open item and what it uses
@@ -486,11 +488,11 @@ impl Shelf {
     pub fn view(&self, q: &Query) -> View {
         let list = self.families(q.single);
         let idx = if q.single { &self.uses_of_single } else { &self.uses_of };
-        let all: Vec<usize> = (0..list.len()).collect();
+        let all: Vec<usize> = (0..list.len()).filter(|&i| q.within.is_empty() || q.within.contains(&list[i].kind)).collect();
         let scopes = ScopeCounts {
             context: all.iter().filter(|&&i| self.in_context(&list[i], &idx[i])).count(),
             toon: all.iter().filter(|&&i| self.in_toon(&list[i], &idx[i])).count(),
-            all: list.len(),
+            all: all.len(),
             unused: all.iter().filter(|&&i| Self::unused(&list[i], &idx[i])).count(),
         };
         let scoped: Vec<usize> = all.iter().copied().filter(|&i| self.in_scope(q.scope, &list[i], &idx[i])).collect();
@@ -499,7 +501,7 @@ impl Shelf {
         let searched: Vec<usize> = scoped.iter().copied().filter(|&i| Self::matches(&list[i], &q.query) && fits(i) && related(i)).collect();
         let specials = Specials {
             recent: searched.iter().filter(|&&i| Self::recent(&list[i], q.now_ms)).count(),
-            credits: list.iter().any(|f| f.credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
+            credits: all.iter().any(|&i| list[i].credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
             missing: searched.iter().filter(|&&i| !list[i].missing.is_empty()).count(),
             items: {
                 let mut counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -672,7 +674,7 @@ pub fn fit_of(v: &Value) -> Option<Fit> {
 }
 
 /// a view's query as JSON: `{ scope, grouping, sort, query, kind, special: "recent" | "credits" | "item:<address>",
-/// origin, fit, related, single, now }`
+/// origin, fit, related, single, now, within }`
 pub fn query_of(v: &Value) -> Query {
     let s = |k: &str| v[k].as_str().unwrap_or("");
     Query {
@@ -706,6 +708,7 @@ pub fn query_of(v: &Value) -> Query {
         related: v["related"].as_str().filter(|r| !r.is_empty()).map(str::to_string),
         single: v["single"] == Value::Bool(true),
         now_ms: v["now"].as_f64().unwrap_or(0.0),
+        within: kinds_of(&v["within"]),
     }
 }
 
