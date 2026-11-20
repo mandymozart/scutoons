@@ -949,7 +949,7 @@ fn run() -> Result<i32> {
         }
     }
     if args.history {
-        for p in [&mut build, &mut app_show.show_panels] {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.reopen(history_panel::PANEL);
         }
     }

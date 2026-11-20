@@ -170,7 +170,7 @@ pub fn shown(v: Option<&Value>) -> String {
     let text = match v {
         None => return String::new(),
         Some(Value::Null) => "∅".to_string(),
-        Some(Value::String(s)) => format!("“{s}”"),
+        Some(Value::String(s)) => format!("“{}”", s.replace('\r', "").replace('\n', "\\n")),
         Some(Value::Array(a)) => format!("[{}]", a.len()),
         Some(Value::Object(o)) => format!("{{{}}}", o.len()),
         Some(other) => other.to_string(),
@@ -364,6 +364,11 @@ mod tests {
         assert_eq!(r.doc, json!({"l": [1]}));
         let kept = revert(&json!({"l": [1]}), &json!({"l": [1, 2]}), &json!({"l": [1, 2, 3]}));
         assert_eq!(kept.kept, vec!["l".to_string()]);
+    }
+
+    #[test]
+    fn a_text_of_several_lines_is_shown_on_one() {
+        assert_eq!(shown(Some(&json!("a\nb"))), "“a\\nb”");
     }
 
     #[test]
