@@ -53,9 +53,10 @@ OSCT's editor (floats, #308, #318, #329, #330), the deck's [workspaces] / [desig
 
 ### 2.3 Edit / Play
 
-Only where something runs: Scene (a scene, a map's world, a chapter read as the reader), Asset rig / module, Experience
-(the simulated tracker: found / lost / tap). Not on forms-only items (a recipe, a season). Play's changes are dropped
-on Stop (deck rule).
+Per workspace, and only where something plays in the browser (owner 2026-11-21, law.md [editor-style]): the **chapter**
+(Play = the reader drives it: the draft preview the reader dock already shows in an iframe takes the stage) and the
+**storyboard** (Play = its playback). Every other workspace is editorial and has no Play – map, experience, rig,
+module, character, catalog, flows. The switch sits in the bar's middle only while such a workspace's tab is in front.
 
 ### 2.4 The top bar
 
@@ -63,7 +64,7 @@ Styled and organized like the deck editor's (owner 2026-11-20; `deck/editor/src/
 nothing under them but the stage, the panels start a gap below. **Left:** ☰ (main menu §2.5) · ⌂ Home · the tabs of the
 items open – each tab is an item in its own workspace (kind icon, name, ✕); the front tab carries the path inside it (its
 steps go back up, e.g. toon › season › chapter); an overflow list with Close others / Close all; ＋ opens the Library.
-**Middle:** Edit / Play only where something runs (#673). **Right:** save state · the text language (the one switch, RULES H1)
+**Middle:** Edit / Play only in the chapter and the storyboard (§2.3, #673). **Right:** save state · the text language (the one switch, RULES H1)
 · the account (sign-in) · the version, which keeps its place at any width. No workspace switch: the tab is the workspace. No Day / Night toggle in the bar – the look is only in Settings (owner 2026-11-20).
 
 ### 2.5 Main menu and Settings – analog to the deck editor (owner 2026-11-20: *"create a settings menu and main menu analog to deck editor with additionally the stuff needed for the creator"*)
