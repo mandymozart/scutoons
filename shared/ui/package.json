@@ -19,6 +19,11 @@
 		"./timeline": {
 			"types": "./src/timeline.ts",
 			"default": "./src/timeline.ts"
+		},
+		"./editor": {
+			"types": "./src/editor/index.ts",
+			"svelte": "./src/editor/index.ts",
+			"default": "./src/editor/index.ts"
 		}
 	},
 	"files": [
@@ -26,7 +31,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/timeline.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/timeline.test.ts test/floats.test.ts test/panel-tabs.test.ts test/tool-groups.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",

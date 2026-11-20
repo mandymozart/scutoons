@@ -45,6 +45,10 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `Chart` | plain SVG `kind` `line` \| `bar`, `labels` (x), `series: { label, values }[]` (≤ 4), `height`, `ariaLabel`, `formatLabel`, `formatValue`; one y-axis from 0, cyan only as fill, series told apart by fill/outline/hatch or dash pattern + legend; hover / arrow keys = crosshair + values |
 | `ToonAvatar` | a toon's navigation avatar (CDN `<toonId>/avatar.webp`, 512² transparent WebP): `src`, `alt` (default `''`), `name` (placeholder letter, default `alt`), `size` (CSS length for width + height, default `2.5rem`); `radius-sm`, no border, `object-fit: contain`, `loading="lazy"`; no `src` or a load error → first letter on `surface-hover` |
 
+## The editor kit (`import … from '@scutoons/ui/editor'`)
+
+The web tools' editor style (RULES H9) on the editor tokens (`--editor-*`, night default): `Floats` (one workspace's panels: specs declared once as `PanelSpec`, tabs as `TabSpec`, layout and tab arrangement remembered per workspace in this browser) drawn by `FloatingPanels` (the stage as `children`, `tab(id)` and `toolbar(panel)` snippets) – corner-kept places, 1rem gaps, snap on release, a resize pushes and shrinks the neighbours, fold by the head (double-click / Enter on the grip), universal tabs (drag into another panel's head with a marker, out onto the stage = a panel of its own; a panel whose last tab leaves closes; essential tabs never close). Controls: `Section` (head toggle, closed-value summary), `Toggle` (the switch), `ToolGroup`, `ToolMenu`, and `ScrubNumber` (the same one as above). The pure logic is `src/editor/floats.ts` and `panel-tabs.ts` (tested in `test/`). Demo: the creator's `/kit` (dev server only).
+
 ## Example
 
 ```svelte
