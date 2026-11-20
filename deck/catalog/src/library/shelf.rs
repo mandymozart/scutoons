@@ -387,6 +387,15 @@ impl Shelf {
         self.by_path.get(path).map(|&i| &self.families[i]).or_else(|| self.singles.iter().find(|f| f.key == path))
     }
 
+    /// the family of a key or a file as the view shows it: single levels, every file its own
+    pub fn family_in(&self, path: &str, single: bool) -> Option<&Family> {
+        if single {
+            self.singles.iter().find(|f| f.key == path)
+        } else {
+            self.family_of(path)
+        }
+    }
+
     /// Where a new file lands without a slot of its own: the open item's folder (a chapter's is where its files already
     /// are: its season is not in its address), else the toon's; None = the person picks a folder.
     pub fn upload_folder(&self) -> Option<String> {

@@ -391,3 +391,13 @@ fn a_frames_parts_come_with_their_main_into_a_workspace_that_lists_its_kind() {
     let single = s.view(&Query { within: vec![Kind::Video], single: true, ..q(Scope::All) });
     assert_eq!(single.order, ["catpope/s1/trailer.720p.mp4"], "single levels have no frames");
 }
+
+#[test]
+fn a_file_is_found_in_its_family_or_on_its_own_as_the_levels_show() {
+    let s = Shelf::new(fam());
+    let path = "catpope/s1/c1/s1c1-slice-2.2x.webp";
+    assert_eq!(s.family_in(path, false).map(|f| f.versions.len()), Some(3), "stacked: the family of three");
+    let one = s.family_in(path, true).expect("single: the file on its own");
+    assert_eq!((one.key.as_str(), one.main.as_str(), one.versions.len()), (path, path, 1));
+    assert!(s.family_in("catpope/s1/c1/s1c1-slice-2", true).is_none(), "a family's key is no file");
+}

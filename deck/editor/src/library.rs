@@ -163,6 +163,8 @@ impl Pictures {
 struct Assets {
     shelf: Option<Shelf>,
     list: Vec<Entry>,
+    /// every file its own entry (the browser's single levels)
+    singles: Vec<Entry>,
     /// where their paths are served from (the answer's `cdn`)
     cdn: String,
     rx: Option<Receiver<Result<Answer, String>>>,
@@ -186,6 +188,7 @@ impl Assets {
     fn take(&mut self, (mut shelf, cdn): Answer, context: &Context) {
         shelf.set_context(context.clone());
         self.list = shelf.families(false).iter().map(|f| f.entry_on(&cdn)).collect();
+        self.singles = shelf.families(true).iter().map(|f| f.entry_on(&cdn)).collect();
         (self.shelf, self.cdn) = (Some(shelf), cdn);
     }
 }
@@ -273,8 +276,9 @@ impl Library {
         crate::module::entries(&text).map_err(|e| tracing::warn!("--catalog modules: {e}")).ok()
     }
 
+    /// the assets' entries: one per family, or one per file when the browser shows the levels single
     pub fn assets(&self) -> Vec<Entry> {
-        self.assets.list.clone()
+        if self.browser.single { self.assets.singles.clone() } else { self.assets.list.clone() }
     }
 
     /// where the assets' paths are served from (empty until they are known)
@@ -347,7 +351,7 @@ impl Library {
 
     /// the family of a file's entry
     pub fn family(&self, e: &Entry) -> Option<&deck_catalog::library::family::Family> {
-        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address))
+        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, self.browser.single))
     }
 
     /// whether this workspace takes `e`: a file by its family (its kind, then the fit), anything else by its kind
@@ -595,6 +599,7 @@ impl crate::App {
             if self.args.library_list {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }
+            self.library.browser.single |= self.args.library_single;
         }
         if self.frames == 2 && self.args.library_related {
             self.library.browser.filter.related = Some(String::new());
@@ -682,6 +687,12 @@ mod tests {
         let files = lib.assets();
         assert_eq!(lib.takes(&files[1]), Ok(()), "a picture fits a scene's layer");
         assert!(lib.takes(&files[0]).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
+        lib.browser.single = true;
+        let singles = lib.assets();
+        assert_eq!(singles.len(), 4, "single levels: every file its own entry");
+        let two = singles.iter().find(|e| e.address == "cat/s1/c1/hills.2x.webp").expect("the 2x on its own");
+        assert_eq!(lib.family(two).map(|f| f.versions.len()), Some(1), "its family is the file alone");
+        assert_eq!(lib.takes(two), Ok(()));
     }
 
     #[test]

@@ -71,6 +71,8 @@ pub enum Hit {
     Grouping,
     /// the next order: name, newest, biggest, most used
     Sort,
+    /// the levels stacked (one card per family) or single (every file its own)
+    Levels,
     /// a card, by its entry's index
     Card(usize),
 }
@@ -92,9 +94,9 @@ impl<'a> Source<'a> {
         Source { entries, shelf: None, stamp: 0, now_ms: 0.0 }
     }
 
-    /// how many versions the card of `e` stacks (1: a single file or no family)
-    pub fn stack(&self, e: &Entry) -> usize {
-        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address)).map_or(1, |f| f.versions.len())
+    /// how many versions the card of `e` stacks (1: a single file, single levels or no family)
+    pub fn stack(&self, e: &Entry, single: bool) -> usize {
+        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, single)).map_or(1, |f| f.versions.len())
     }
 }
 
@@ -149,6 +151,8 @@ pub struct Browser {
     pub scope: Scope,
     pub grouping: Grouping,
     pub sort: Sort,
+    /// every file on its own instead of the families' stacks (its owner lists the single files then)
+    pub single: bool,
     pub place: Option<Place>,
     /// the cards chosen (by address) and the one a Shift run starts from
     pub chosen: Vec<String>,
@@ -167,7 +171,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, place: None, chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -260,6 +264,11 @@ impl Browser {
                     Sort::Size => Sort::Uses,
                     Sort::Uses => Sort::Name,
                 };
+                Did::Taken
+            }
+            Hit::Levels => {
+                self.single = !self.single;
+                (self.chosen, self.anchor) = (Vec::new(), None);
                 Did::Taken
             }
             Hit::Fold(n) => {
@@ -414,7 +423,7 @@ impl Browser {
             self.view = None;
             return Vec::new();
         }
-        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.place.map(Place::special), query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.place.map(Place::special), query: f.query.clone(), related: f.related.clone(), single: self.single, now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
         if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
             self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
         }
@@ -424,7 +433,7 @@ impl Browser {
         view.groups
             .iter()
             .filter_map(|g| {
-                let cells: Vec<Cell> = g.cells.iter().filter_map(|c| cell(shelf, c, &by_address, src.entries, f)).collect();
+                let cells: Vec<Cell> = g.cells.iter().filter_map(|c| cell((shelf, self.single), c, &by_address, src.entries, f)).collect();
                 let folded = !searching && self.folds.get(&g.key).copied().unwrap_or(g.folded);
                 (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
             })
@@ -463,6 +472,7 @@ impl Browser {
         };
         out.push((grouping.to_string(), false, Hit::Grouping));
         out.push((sort.to_string(), false, Hit::Sort));
+        out.push((if self.single { "levels single" } else { "levels stacked" }.to_string(), self.single, Hit::Levels));
         out
     }
 
@@ -506,7 +516,7 @@ impl Browser {
         };
         let lit = i.is_some_and(|i| self.held.map(|h| h.entry) == Some(i) || self.chosen.contains(&e.address));
         let hover = i.is_some() && r.has(pointer.0, pointer.1);
-        let stack = if i.is_some() { src.stack(e) } else { 1 };
+        let stack = if i.is_some() { src.stack(e, self.single) } else { 1 };
         match self.mode {
             Mode::Grid => {
                 sheets(d, t, r, stack);
@@ -554,10 +564,10 @@ struct Cell {
 
 /// The shelf's cell as tiles: each family the owner's entry (by its main file); a frame's part the owner does not list is
 /// drawn from its family. A kind chip picks by the cell's main. None = nothing of it is shown.
-fn cell(shelf: &Shelf, c: &deck_catalog::library::shelf::Cell, by_address: &HashMap<&str, usize>, entries: &[Entry], f: &Filter) -> Option<Cell> {
+fn cell((shelf, single): (&Shelf, bool), c: &deck_catalog::library::shelf::Cell, by_address: &HashMap<&str, usize>, entries: &[Entry], f: &Filter) -> Option<Cell> {
     let mut tiles = Vec::new();
     for k in &c.keys {
-        let Some(fam) = shelf.family_of(k) else { continue };
+        let Some(fam) = shelf.family_in(k, single) else { continue };
         match by_address.get(fam.main.as_str()).copied() {
             Some(i) => tiles.push(Tile::Card(i)),
             None if !tiles.is_empty() => tiles.push(Tile::Part(fam.entry())),
@@ -778,7 +788,8 @@ mod tests {
         let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 0, now_ms: 0.0 };
         let hills = entries.iter().position(|e| e.label == "hills").expect("hills");
         let sky = entries.iter().position(|e| e.label == "sky").expect("sky");
-        assert_eq!((src.stack(&entries[hills]), src.stack(&entries[sky])), (3, 1));
+        assert_eq!((src.stack(&entries[hills], false), src.stack(&entries[sky], false)), (3, 1));
+        assert_eq!(src.stack(&entries[hills], true), 1, "single levels: no stack");
         let mut b = Browser::default();
         b.filter.query = "hills".into();
         let d = draw_src(&mut b, &src);
@@ -917,6 +928,29 @@ mod tests {
         let d = draw_src(&mut b, &src);
         let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
         assert!(d.prims().iter().any(|p| matches!(p, Prim::Outline { y, h, .. } if *y < r.y && *h > 2.0 * r.h)), "in the list: one outline around both rows");
+    }
+
+    /// the levels chip: stacked one card per family, single every file its own card (the owner lists the single files)
+    #[test]
+    fn the_levels_show_stacked_or_single() {
+        let shelf = shelf();
+        let stacked: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let single: Vec<Entry> = shelf.families(true).iter().map(|f| f.entry()).collect();
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        let d = draw_src(&mut b, &Source { entries: &stacked, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 });
+        assert!(d.texts().contains(&"levels stacked"));
+        assert_eq!(cards(&b).len(), 3);
+        let (x, y) = at(&b, Hit::Levels);
+        b.chosen = vec!["cat/bells.128.mp3".into()];
+        b.press(x, y, 0.0);
+        assert!(b.single && b.chosen.is_empty(), "single, and the stacked selection gone");
+        let src = Source { entries: &single, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().contains(&"levels single"));
+        assert_eq!(cards(&b).len(), 5, "hills' 2x and 3x stand alone");
+        let three = single.iter().position(|e| e.address == "cat/s1/c1/hills.3x.webp").expect("the 3x");
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(three)).unwrap();
+        assert!(!d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP && *y == r.y - SHEET_STEP)), "no sheets behind a single file");
     }
 
     #[test]
