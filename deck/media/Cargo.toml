@@ -16,7 +16,7 @@ matroska-demuxer = "0.8"
 # HAP's chunks
 snap = "1.1"
 # the sound (the version deck-native's chapter music already uses)
-symphonia = { version = "0.5", default-features = false, features = ["aac", "isomp4", "mkv", "vorbis", "flac", "pcm"] }
+symphonia = { version = "0.5", default-features = false, features = ["aac", "isomp4", "mkv", "vorbis", "flac", "pcm", "wav", "mp3", "ogg"] }
 # a hardware decoder that fails or does not start says so (the host installs the subscriber)
 tracing.workspace = true
 
