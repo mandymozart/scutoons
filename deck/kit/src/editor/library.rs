@@ -376,6 +376,7 @@ impl Browser {
             d.sans(a.x, y + 4.0, small, why, t.color.muted);
             return;
         }
+        let plain: Vec<Cell> = plain.into_iter().map(|i| Cell { tiles: vec![Tile::Card(i)], frame: None }).collect();
         y = self.cards(d, t, (a, pointer), y, src, &plain, picture);
         self.folded.clear();
         for (n, g) in groups.iter().enumerate() {
@@ -386,7 +387,7 @@ impl Browser {
                     d.rect(r.x, r.y, r.w, r.h, t.color.hover);
                 }
                 d.icon(r.x + 2.0, r.y + (h - 12.0) * 0.5, 12.0, if g.folded { "next" } else { "down" }, t.color.muted);
-                let count = g.cards.len().to_string();
+                let count = g.cells.iter().map(|c| c.tiles.len()).sum::<usize>().to_string();
                 let cw = d.sans_width(small, &count);
                 d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &g.title, r.w - cw - 28.0), t.color.text);
                 d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &count, t.color.muted);
@@ -396,7 +397,7 @@ impl Browser {
             }
             self.folded.push((g.key.clone(), g.folded));
             if !g.folded {
-                y = self.cards(d, t, (a, pointer), y, src, &g.cards, picture);
+                y = self.cards(d, t, (a, pointer), y, src, &g.cells, picture);
             }
         }
     }
@@ -423,16 +424,9 @@ impl Browser {
         view.groups
             .iter()
             .filter_map(|g| {
-                let cards: Vec<usize> = g
-                    .cells
-                    .iter()
-                    .flat_map(|c| &c.keys)
-                    .filter_map(|k| shelf.family_of(k))
-                    .filter_map(|fam| by_address.get(fam.main.as_str()).copied())
-                    .filter(|&i| f.kinds.is_empty() || f.kinds.contains(&src.entries[i].kind))
-                    .collect();
+                let cells: Vec<Cell> = g.cells.iter().filter_map(|c| cell(shelf, c, &by_address, src.entries, f)).collect();
                 let folded = !searching && self.folds.get(&g.key).copied().unwrap_or(g.folded);
-                (!cards.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cards })
+                (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
             })
             .collect()
     }
@@ -472,61 +466,121 @@ impl Browser {
         out
     }
 
-    /// The cards of `list` from `y` on, in the grid or the list; where they end.
+    /// The cells of `list` from `y` on, in the grid or the list, a frame's tiles together inside its outline; where they end.
     #[allow(clippy::too_many_arguments)]
-    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[usize], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
+    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[Cell], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
         if list.is_empty() {
             return y;
         }
-        let (entries, small) = (src.entries, t.size.small);
-        let held = self.held.map(|h| h.entry);
-        match self.mode {
-            Mode::Grid => {
-                let gap = 8.0;
-                let cols = (((a.w + gap) / (CARD_W + gap)).floor() as usize).max(1);
-                if src.shelf.is_some() {
-                    y += SHEET_STEP * SHEETS as f32;
-                }
-                let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
-                let ch = CARD_PREVIEW + small * 1.4 * 2.0 + 8.0;
-                for (n, &i) in list.iter().enumerate() {
-                    let e = &entries[i];
-                    let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * (ch + gap), w: cw, h: ch };
-                    let lit = held == Some(i) || self.chosen.contains(&e.address);
-                    self.order.push((i, e.address.clone()));
-                    sheets(d, t, r, src.stack(e));
-                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.surface_head });
-                    preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
-                    let ty = r.y + CARD_PREVIEW + 4.0;
-                    d.sans(r.x + 6.0, ty, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.w - 12.0), t.color.text);
-                    d.sans(r.x + 6.0, ty + small * 1.45, small, &controls::fit_sans(d, small, &e.detail, r.w - 12.0), t.color.muted);
-                    self.hits.push((r, Hit::Card(i)));
-                }
-                y + list.len().div_ceil(cols) as f32 * (ch + gap)
+        let small = t.size.small;
+        let (gap, row_h) = (8.0, ROW_PREVIEW.1 + 6.0);
+        let grid = self.mode == Mode::Grid;
+        let cols = if grid { (((a.w + gap) / (CARD_W + gap)).floor() as usize).max(1) } else { 1 };
+        if grid && src.shelf.is_some() {
+            y += SHEET_STEP * SHEETS as f32;
+        }
+        let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
+        let ch = if grid { CARD_PREVIEW + small * 1.4 * 2.0 + 8.0 } else { row_h };
+        let step = if grid { ch + gap } else { row_h };
+        let slot = |n: usize| Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * step, w: cw, h: ch };
+        let mut n = 0;
+        for c in list {
+            let first = n;
+            for tile in &c.tiles {
+                self.tile(d, t, (slot(n), pointer), src, tile, picture);
+                n += 1;
             }
-            Mode::List => {
-                let h = ROW_PREVIEW.1 + 6.0;
-                for (n, &i) in list.iter().enumerate() {
-                    let e = &entries[i];
-                    let r = Rect { x: a.x, y: y + n as f32 * h, w: a.w, h };
-                    self.order.push((i, e.address.clone()));
-                    if held == Some(i) || self.chosen.contains(&e.address) {
-                        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
-                    } else if r.has(pointer.0, pointer.1) {
-                        d.rect(r.x, r.y, r.w, r.h, t.color.hover);
-                    }
-                    let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
-                    sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, src.stack(e));
-                    preview(d, t, p, e, picture);
-                    let x = r.x + ROW_PREVIEW.0 + 10.0;
-                    let dw = d.sans_width(small, &e.detail).min(r.w * 0.4);
-                    d.sans(x, r.y + (h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.x + r.w - dw - 12.0 - x), t.color.text);
-                    d.sans(r.x + r.w - dw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
-                    self.hits.push((r, Hit::Card(i)));
-                }
-                y + list.len() as f32 * h + 4.0
+            if c.frame.is_some() {
+                frame(d, t, (first..n).map(slot).collect(), if grid { gap * 0.5 - 1.0 } else { 1.0 });
             }
         }
+        y + n.div_ceil(cols) as f32 * step + if grid { 0.0 } else { 4.0 }
+    }
+
+    /// one tile in `r`: an owner's card (pressed, dragged, chosen) or a frame's part the owner does not list (drawn only)
+    fn tile(&mut self, d: &mut DrawList, t: &Tokens, (r, pointer): (Rect, (f32, f32)), src: &Source, tile: &Tile, picture: &dyn Fn(&Preview) -> Option<u64>) {
+        let small = t.size.small;
+        let (e, i) = match tile {
+            Tile::Card(i) => (&src.entries[*i], Some(*i)),
+            Tile::Part(e) => (e, None),
+        };
+        let lit = i.is_some_and(|i| self.held.map(|h| h.entry) == Some(i) || self.chosen.contains(&e.address));
+        let hover = i.is_some() && r.has(pointer.0, pointer.1);
+        let stack = if i.is_some() { src.stack(e) } else { 1 };
+        match self.mode {
+            Mode::Grid => {
+                sheets(d, t, r, stack);
+                d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if hover { t.color.hover } else { t.color.surface_head });
+                preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
+                let ty = r.y + CARD_PREVIEW + 4.0;
+                d.sans(r.x + 6.0, ty, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.w - 12.0), t.color.text);
+                d.sans(r.x + 6.0, ty + small * 1.45, small, &controls::fit_sans(d, small, &e.detail, r.w - 12.0), t.color.muted);
+            }
+            Mode::List => {
+                if lit {
+                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
+                } else if hover {
+                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                }
+                let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
+                sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, stack);
+                preview(d, t, p, e, picture);
+                let x = r.x + ROW_PREVIEW.0 + 10.0;
+                let dw = d.sans_width(small, &e.detail).min(r.w * 0.4);
+                d.sans(x, r.y + (r.h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.x + r.w - dw - 12.0 - x), t.color.text);
+                d.sans(r.x + r.w - dw - 4.0, r.y + (r.h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
+            }
+        }
+        if let Some(i) = i {
+            self.order.push((i, e.address.clone()));
+            self.hits.push((r, Hit::Card(i)));
+        }
+    }
+}
+
+/// what one place in the files shows: an owner's card, or a frame's part the owner does not list
+#[derive(Debug, Clone, PartialEq)]
+enum Tile {
+    Card(usize),
+    Part(Entry),
+}
+
+/// one cell: one card, or a frame's main and its parts
+#[derive(Debug, Clone)]
+struct Cell {
+    tiles: Vec<Tile>,
+    frame: Option<Kind>,
+}
+
+/// The shelf's cell as tiles: each family the owner's entry (by its main file); a frame's part the owner does not list is
+/// drawn from its family. A kind chip picks by the cell's main. None = nothing of it is shown.
+fn cell(shelf: &Shelf, c: &deck_catalog::library::shelf::Cell, by_address: &HashMap<&str, usize>, entries: &[Entry], f: &Filter) -> Option<Cell> {
+    let mut tiles = Vec::new();
+    for k in &c.keys {
+        let Some(fam) = shelf.family_of(k) else { continue };
+        match by_address.get(fam.main.as_str()).copied() {
+            Some(i) => tiles.push(Tile::Card(i)),
+            None if !tiles.is_empty() => tiles.push(Tile::Part(fam.entry())),
+            None => return None,
+        }
+    }
+    let Some(Tile::Card(main)) = tiles.first() else { return None };
+    (f.kinds.is_empty() || f.kinds.contains(&entries[*main].kind)).then(|| Cell { frame: c.frame.filter(|_| tiles.len() > 1), tiles })
+}
+
+/// a frame's outline around its tiles: in the grid one per row they take, in the list one around its rows
+fn frame(d: &mut DrawList, t: &Tokens, slots: Vec<Rect>, pad: f32) {
+    let mut rows: Vec<Rect> = Vec::new();
+    for r in slots {
+        match rows.last_mut() {
+            Some(last) if last.y == r.y => last.w = r.x + r.w - last.x,
+            // the list: one row under the other
+            Some(last) if last.x == r.x && last.w == r.w => last.h = r.y + r.h - last.y,
+            _ => rows.push(r),
+        }
+    }
+    for r in rows {
+        d.outline(r.x - pad, r.y - pad, r.w + 2.0 * pad, r.h + 2.0 * pad, (t.size.radius + pad, 1.0), t.color.accent);
     }
 }
 
@@ -537,8 +591,8 @@ struct Shown {
     /// a heading over it (not over the one group of an ungrouped view)
     header: bool,
     folded: bool,
-    /// the owner's entries, in the shelf's order
-    cards: Vec<usize>,
+    /// the owner's entries in the shelf's order, a frame's together
+    cells: Vec<Cell>,
 }
 
 /// a group's heading
@@ -830,6 +884,39 @@ mod tests {
         b.press(x, y, 3.0);
         draw_src(&mut b, &src);
         assert_eq!((b.place, names(&b).len()), (None, 3), "the same place again: all of the scope");
+    }
+
+    /// the toon's files with a video and its subtitles (a file kind no workspace lists)
+    fn framed() -> Shelf {
+        let items = r#"{ "items": [
+            { "id": "v", "kind": "video", "usages": 1, "renditions": [{ "path": "cat/s1/speak.720p.mp4", "width": 1280, "height": 720 }, { "path": "cat/s1/speak.480p.mp4", "width": 854, "height": 480 }] },
+            { "id": "s", "kind": "other", "usages": 1, "renditions": [{ "path": "cat/s1/speak.en.vtt" }] },
+            { "id": "h", "kind": "image", "usages": 1, "renditions": [{ "path": "cat/s1/hills.webp" }, { "path": "cat/s1/hills.2x.webp" }] }
+        ] }"#;
+        Shelf::from_json(items).expect("the answer")
+    }
+
+    /// a video and its subtitles stand in one frame: the subtitles drawn from their family though the owner lists no
+    /// files of their kind, outlined together with the video's card
+    #[test]
+    fn a_video_and_its_subtitles_stand_in_one_frame() {
+        let shelf = framed();
+        let entries: Vec<Entry> = shelf.families(false).iter().filter(|f| f.kind != Kind::File).map(|f| f.entry()).collect();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(cards(&b).len(), 2, "the part is drawn, not a card of the owner's");
+        let video = entries.iter().position(|e| e.kind == Kind::Video).unwrap();
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
+        let tiles = |d: &DrawList, r: Rect| d.prims().iter().filter(|p| matches!(p, Prim::Rect { y, w, h, .. } if *y == r.y && *w == r.w && *h == r.h)).count();
+        assert_eq!(tiles(&d, r), 3, "the video, its subtitles' tile, the hills");
+        assert!(d.prims().iter().any(|p| matches!(p, Prim::Icon { name, .. } if *name == Kind::File.icon())), "the subtitles show their kind");
+        let framed = d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, w, .. } if *x < r.x && *y < r.y && *w > 2.0 * r.w));
+        assert!(framed, "one outline around the video and its subtitles");
+        b.mode = Mode::List;
+        let d = draw_src(&mut b, &src);
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
+        assert!(d.prims().iter().any(|p| matches!(p, Prim::Outline { y, h, .. } if *y < r.y && *h > 2.0 * r.h)), "in the list: one outline around both rows");
     }
 
     #[test]

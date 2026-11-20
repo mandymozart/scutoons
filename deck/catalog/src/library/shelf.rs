@@ -499,7 +499,9 @@ impl Shelf {
     pub fn view(&self, q: &Query) -> View {
         let list = self.families(q.single);
         let idx = if q.single { &self.uses_of_single } else { &self.uses_of };
-        let all: Vec<usize> = (0..list.len()).filter(|&i| q.within.is_empty() || q.within.contains(&list[i].kind)).collect();
+        // a frame's parts come with their main, whatever their own kind
+        let part_of_listed = |key: &str| !q.single && self.frames.iter().any(|fr| q.within.contains(&fr.kind) && fr.parts.iter().any(|p| p == key));
+        let all: Vec<usize> = (0..list.len()).filter(|&i| q.within.is_empty() || q.within.contains(&list[i].kind) || part_of_listed(&list[i].key)).collect();
         let scopes = ScopeCounts {
             context: all.iter().filter(|&&i| self.in_context(&list[i], &idx[i])).count(),
             toon: all.iter().filter(|&&i| self.in_toon(&list[i], &idx[i])).count(),

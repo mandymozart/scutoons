@@ -379,3 +379,15 @@ fn a_workspace_counts_only_the_kinds_it_lists() {
     assert!(pictures.groups[0].pinned && pictures.groups.iter().skip(1).all(|g| g.folded), "All: the open item pinned, the rest folded");
     assert_eq!(shelf::query_of(&json!({ "within": ["image"] })).within, [Kind::Image]);
 }
+
+#[test]
+fn a_frames_parts_come_with_their_main_into_a_workspace_that_lists_its_kind() {
+    let s = Shelf::new(fam());
+    let videos = s.view(&Query { within: vec![Kind::Video], grouping: Grouping::None, ..q(Scope::All) });
+    assert_eq!(videos.groups[0].cells.len(), 1);
+    assert_eq!(videos.groups[0].cells[0].keys, ["catpope/s1/trailer", "catpope/s1/trailer.en"], "the subtitles stand in the video's frame");
+    let pictures = s.view(&Query { within: vec![Kind::Image], ..q(Scope::All) });
+    assert!(!pictures.order.iter().any(|k| k.starts_with("catpope/s1/trailer")), "no video listed: nor its parts");
+    let single = s.view(&Query { within: vec![Kind::Video], single: true, ..q(Scope::All) });
+    assert_eq!(single.order, ["catpope/s1/trailer.720p.mp4"], "single levels have no frames");
+}
