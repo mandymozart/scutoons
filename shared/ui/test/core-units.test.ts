@@ -25,7 +25,7 @@ describe('coreUnits', () => {
 		expect(asked).toEqual(['ms>s', 's>ms']);
 	});
 
-	it('marks a web or font reference on the wire and shows a field's own word', () => {
+	it("marks a web or font reference on the wire and shows a field's own word", () => {
 		expect(Array.from(unitRefs({ pixels: 390, web: true, em: true })).map((v) => (Number.isNaN(v) ? null : v))).toEqual([null, null, null, 390, null, 1, 1]);
 		expect(coreUnits(core, { kind: 'line-height', dimension: 'time', stored: 's', labels: { s: '×' } }).options[0].label).toBe('×');
 	});
