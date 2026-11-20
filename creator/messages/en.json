@@ -2283,7 +2283,7 @@
 		"download_n": "Download {count}",
 		"draft": "draft",
 		"drop_here": "Drop to upload",
-		"drop_misfit": "A {got} doesn't fit here – this takes {wants}.",
+		"drop_misfit": "This takes {wants} – the {got} file doesn't fit here.",
 		"drop_not_square": "Doesn't fit here – this takes a square picture.",
 		"drop_unknown": "The Library doesn't hold that file.",
 		"entities": "Items to open",

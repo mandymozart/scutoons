@@ -41,7 +41,7 @@
 	const others = $derived.by(() => {
 		const byRef = new Map<string, { ref: string; fields: Set<string>; state: string; href: string | null }>();
 		for (const u of usages ?? []) {
-			if (u.ref === library.address) continue;
+			if (library.address && (u.ref === library.address || u.ref.startsWith(`${library.address}:`))) continue;
 			const row = byRef.get(u.ref) ?? { ref: u.ref, fields: new Set<string>(), state: u.state, href: u.source === 'code' ? null : hrefOf(u.ref) };
 			row.fields.add(u.field.split('/').filter(Boolean).at(-1) ?? u.field);
 			byRef.set(u.ref, row);

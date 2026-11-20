@@ -2283,7 +2283,7 @@
 		"download_n": "{count} herunterladen",
 		"draft": "Entwurf",
 		"drop_here": "Loslassen zum Hochladen",
-		"drop_misfit": "Ein(e) {got} passt hier nicht – hier gehört {wants} hin.",
+		"drop_misfit": "Hier gehört {wants} hin – die Datei ({got}) passt nicht.",
 		"drop_not_square": "Passt hier nicht – hier gehört ein quadratisches Bild hin.",
 		"drop_unknown": "Die Bibliothek kennt diese Datei nicht.",
 		"entities": "Zum Öffnen",

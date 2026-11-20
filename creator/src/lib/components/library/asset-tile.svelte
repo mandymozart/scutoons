@@ -158,6 +158,8 @@
 			0.4rem -0.4rem 0 0 var(--editor-line);
 	}
 	.preview img {
+		position: absolute;
+		inset: 0;
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
