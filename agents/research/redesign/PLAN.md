@@ -64,7 +64,7 @@ nothing under them but the stage, the panels start a gap below. **Left:** ☰ (m
 items open – each tab is an item in its own workspace (kind icon, name, ✕); the front tab carries the path inside it (its
 steps go back up, e.g. toon › season › chapter); an overflow list with Close others / Close all; ＋ opens the Library.
 **Middle:** Edit / Play only where something runs (#673). **Right:** save state · the text language (the one switch, RULES H1)
-· the account (sign-in) · the version, which keeps its place at any width. No workspace switch: the tab is the workspace.
+· the account (sign-in) · the version, which keeps its place at any width. No workspace switch: the tab is the workspace. No Day / Night toggle in the bar – the look is only in Settings (owner 2026-11-20).
 
 ### 2.5 Main menu and Settings – analog to the deck editor (owner 2026-11-20: *"create a settings menu and main menu analog to deck editor with additionally the stuff needed for the creator"*)
 
