@@ -121,14 +121,15 @@ fn edits(d: &mut DrawList, t: &Tokens, m: &mut Media, fields: &[Field], r: Rect,
         let (lo, hi, log) = f.range();
         let fraction = crate::fraction(f.get(&o.edits) as f32, lo as f32, hi as f32, log);
         let hot = m.drag == Some(Hit::Edit(f));
-        let Some((kind, stored)) = f.unit() else {
+        let Some((kind, offered, first)) = f.unit() else {
             placed.push((controls::scrub(d, t, at, f.label(), &f.shown(&o.edits), fraction, hot), Hit::Edit(f)));
             continue;
         };
         let refs = o.refs(Some(f), reading.tempo);
-        let unit = reading.prefs.unit(kind, stored, &refs);
-        let v = units::convert(f.get(&o.edits), stored, unit, &refs).unwrap_or(f.get(&o.edits));
-        let (field, segs) = unit_field::scrub(d, t, at, f.label(), v, unit, &stored.dimension().offered(&refs), fraction, hot);
+        let offered: Vec<Unit> = offered.iter().copied().filter(|u| u.known(&refs)).collect();
+        let unit = Some(reading.prefs.unit(kind, first, &refs)).filter(|u| offered.contains(u)).unwrap_or(first);
+        let v = unit.from_base(f.get(&o.edits), &refs).unwrap_or(f.get(&o.edits));
+        let (field, segs) = unit_field::scrub(d, t, at, f.label(), v, unit, &offered, fraction, hot);
         placed.push((field, Hit::Edit(f)));
         placed.extend(segs.into_iter().map(|(r, u)| (r, Hit::Unit(kind, u))));
     }

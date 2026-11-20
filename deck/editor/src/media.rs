@@ -195,13 +195,14 @@ impl Field {
         }
     }
 
-    /// the kind of value it is (whose unit is chosen once for all of its fields) and the unit it is stored in – which
-    /// is also its dimension's base (deck-core `units`); none: it has no unit to switch (speed)
-    pub fn unit(self) -> Option<(&'static str, Unit)> {
+    /// the kind of value it is (whose unit is chosen once for all of its fields), the units its switch offers and the
+    /// one it is read in until another is chosen; its value is its dimension's base (deck-core `units`: a crop's parts, a
+    /// fade's s, a gain's dB). None: it has no unit to switch (speed).
+    pub fn unit(self) -> Option<(&'static str, &'static [Unit], Unit)> {
         match self {
-            Field::FadeIn | Field::FadeOut => Some((FADE_UNIT, Unit::Seconds)),
-            Field::Gain => Some((GAIN_UNIT, Unit::Decibels)),
-            Field::CropLeft | Field::CropTop | Field::CropRight | Field::CropBottom => Some((CROP_UNIT, Unit::Percent)),
+            Field::FadeIn | Field::FadeOut => Some((FADE_UNIT, &[Unit::Seconds, Unit::Frames], Unit::Seconds)),
+            Field::Gain => Some((GAIN_UNIT, &[Unit::Decibels, Unit::Gain], Unit::Decibels)),
+            Field::CropLeft | Field::CropTop | Field::CropRight | Field::CropBottom => Some((CROP_UNIT, &[Unit::Pixels, Unit::Percent], Unit::Percent)),
             Field::Speed => None,
         }
     }
@@ -461,7 +462,7 @@ impl Open {
         let pixels = self.source.pixels.or_else(|| own.filter(|_| local).map(|((w, h), _)| (f64::from(w), f64::from(h))));
         let fps = self.source.fps.or_else(|| own.and_then(|(_, fps)| fps)).filter(|v| *v > 0.0);
         let px = pixels.map(|(w, h)| if f.is_some_and(Field::across) { w } else { h });
-        match f.and_then(Field::unit).map(|(_, u)| u.dimension()) {
+        match f.and_then(Field::unit).map(|(_, _, u)| u.dimension()) {
             Some(deck_core::units::Dimension::Length) => Refs { pixels: px, ..Refs::default() },
             Some(deck_core::units::Dimension::Level) => Refs::default(),
             _ => Refs { fps, bpm: tempo.map(|t| t.0), per_bar: tempo.map(|t| t.1), ..Refs::default() },
@@ -671,7 +672,9 @@ mod tests {
         let trim = o.refs(None, Some((120.0, 4)));
         assert_eq!((trim.fps, trim.bpm, trim.pixels), (Some(25.0), Some(120.0), None));
         assert_eq!(Field::Speed.unit(), None, "speed has no unit to switch");
-        assert_eq!(Field::CropTop.unit(), Some((CROP_UNIT, Unit::Percent)), "stored as parts: the base of a length");
+        assert_eq!(Field::CropTop.unit().map(|(k, _, u)| (k, u)), Some((CROP_UNIT, Unit::Percent)), "% until px is chosen");
+        let px = o.refs(Some(Field::CropLeft), None);
+        assert_eq!(Unit::Pixels.from_base(0.1, &px), Some(192.0), "a crop's parts are its source's pixels");
     }
 
     #[test]

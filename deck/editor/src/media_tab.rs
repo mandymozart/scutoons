@@ -100,12 +100,11 @@ impl crate::App {
             if let Some(o) = self.media.open.as_mut() {
                 let mut v = f.at(f64::from((x - r.x) / r.w.max(1.0)));
                 // on the steps of the unit it is read in: whole source pixels, whole frames
-                if let Some((kind, stored)) = f.unit() {
+                if let Some((kind, offered, first)) = f.unit() {
                     let refs = o.refs(Some(f), tempo);
-                    let unit = self.settings.units.unit(kind, stored, &refs);
-                    if unit.whole() {
-                        let snapped = deck_core::units::convert(v, stored, unit, &refs).map(|u| unit.round(u));
-                        v = snapped.and_then(|u| deck_core::units::convert(u, unit, stored, &refs)).unwrap_or(v);
+                    let unit = self.settings.units.unit(kind, first, &refs);
+                    if unit.whole() && offered.contains(&unit) {
+                        v = unit.from_base(v, &refs).and_then(|u| unit.to_base(unit.round(u), &refs)).unwrap_or(v);
                     }
                 }
                 o.set_edit(f, v);
