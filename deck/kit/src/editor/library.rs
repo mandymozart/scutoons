@@ -8,7 +8,7 @@ use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
-use deck_catalog::library::shelf::{Group, GroupKind, Query, Scope, Shelf, View};
+use deck_catalog::library::shelf::{Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, View};
 use std::collections::HashMap;
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
@@ -42,6 +42,10 @@ pub enum Hit {
     Scope(Scope),
     /// a group's heading, by its place among the groups drawn
     Fold(usize),
+    /// the next grouping: by use, by kind, none
+    Grouping,
+    /// the next order: name, newest, biggest, most used
+    Sort,
     /// a card, by its entry's index
     Card(usize),
 }
@@ -118,6 +122,8 @@ pub struct Browser {
     pub hits: Vec<(Rect, Hit)>,
     /// the toon's files: used by the open item, all (the open item's pinned on top, the rest folded until a search), unused
     pub scope: Scope,
+    pub grouping: Grouping,
+    pub sort: Sort,
     /// the groups the viewer folded or opened, by key (a search opens them all)
     pub folds: HashMap<String, bool>,
     /// the groups drawn: key and whether folded (a heading's press)
@@ -128,7 +134,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -196,6 +202,23 @@ impl Browser {
             Hit::Action => Did::Action,
             Hit::Scope(scope) => {
                 self.scope = scope;
+                Did::Taken
+            }
+            Hit::Grouping => {
+                self.grouping = match self.grouping {
+                    Grouping::Use => Grouping::Kind,
+                    Grouping::Kind => Grouping::None,
+                    Grouping::None => Grouping::Use,
+                };
+                Did::Taken
+            }
+            Hit::Sort => {
+                self.sort = match self.sort {
+                    Sort::Name => Sort::Recent,
+                    Sort::Recent => Sort::Size,
+                    Sort::Size => Sort::Uses,
+                    Sort::Uses => Sort::Name,
+                };
                 Did::Taken
             }
             Hit::Fold(n) => {
@@ -331,7 +354,7 @@ impl Browser {
             self.view = None;
             return Vec::new();
         }
-        let q = Query { scope: self.scope, query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
         if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
             self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
         }
@@ -355,7 +378,7 @@ impl Browser {
             .collect()
     }
 
-    /// the shelf's chips after the kinds: its scopes with their counts
+    /// the shelf's chips after the kinds: its scopes with their counts, the grouping and the order
     fn shelf_chips(&self) -> Vec<(String, bool, Hit)> {
         let Some((_, _, v)) = &self.view else { return Vec::new() };
         let mut out = Vec::new();
@@ -364,6 +387,19 @@ impl Browser {
                 out.push((format!("{word} {n}"), self.scope == scope, Hit::Scope(scope)));
             }
         }
+        let grouping = match self.grouping {
+            Grouping::Use => "by use",
+            Grouping::Kind => "by kind",
+            Grouping::None => "no groups",
+        };
+        let sort = match self.sort {
+            Sort::Name => "by name",
+            Sort::Recent => "newest first",
+            Sort::Size => "biggest first",
+            Sort::Uses => "most used first",
+        };
+        out.push((grouping.to_string(), false, Hit::Grouping));
+        out.push((sort.to_string(), false, Hit::Sort));
         out
     }
 
@@ -665,5 +701,35 @@ mod tests {
         b.filter.kinds = vec![Kind::Image];
         draw_src(&mut b, &src);
         assert!(cards(&b).into_iter().all(|i| entries[i].kind == Kind::Image), "a kind chip narrows the files too");
+    }
+
+    #[test]
+    fn the_files_group_by_use_kind_or_none_and_sort_by_name_newest_size_or_uses() {
+        let shelf = shelf();
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser::default();
+        draw_src(&mut b, &src);
+        let (x, y) = at(&b, Hit::Grouping);
+        b.press(x, y, 0.0);
+        assert_eq!(b.grouping, Grouping::Kind);
+        draw_src(&mut b, &src);
+        assert_eq!(b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count(), 2, "a heading per kind: images, audio");
+        b.press(x, y, 1.0);
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count(), 0, "no groups: no headings");
+        assert!(d.texts().iter().any(|s| *s == "no groups"));
+        let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&b), ["bells", "hills", "sky"], "by name");
+        let (x, y) = at(&b, Hit::Sort);
+        b.press(x, y, 2.0);
+        draw_src(&mut b, &src);
+        assert_eq!(names(&b)[0], "hills", "newest first");
+        b.press(x, y, 3.0);
+        draw_src(&mut b, &src);
+        assert_eq!(names(&b)[0], "hills", "biggest first: three files");
+        b.press(x, y, 4.0);
+        draw_src(&mut b, &src);
+        assert_eq!(names(&b).last().map(String::as_str), Some("bells"), "most used first: the unused last");
     }
 }
