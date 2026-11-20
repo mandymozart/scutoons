@@ -71,7 +71,7 @@ gamepad = ["space", "dep:gilrs"]
 deck-core = { workspace = true, features = ["analysis", "tempo"] }
 # the scene model (graph, params, scene) and – with `space` – the 3D space itself (#198: shared with the browser)
 deck-space = { path = "../space", default-features = false, features = ["gpu"] }
-# the hardware video decoders (Media Foundation on Windows) offered to deck-media at start (`media`)
+# the hardware video decoders (Media Foundation on Windows, VA-API on Linux) offered to deck-media at start (`media`)
 deck-media-hw = { path = "../media/hw", optional = true }
 deck-events = { path = "../events", optional = true }
 # #317: the audio engine, the control domain and the FFT half – the universal core's; this crate keeps the device I/O

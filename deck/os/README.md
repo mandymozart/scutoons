@@ -22,7 +22,7 @@ the default is `full` – the deck and the editor (its tokens and demos under `/
 `profiles.toml`; the deck's cargo features come from `deck-scene-features --profile profiles.toml <class>` over the scenes the
 image carries (deck/native/README.md "Scene-driven builds"). `DECK_PROFILE` works for `npm run deck:update` too.
 
-What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage) → `cargo build --release` for
+What `container/build.sh` does: installs archiso + rust (+ pipewire, clang for the stage; libva, mesa, libdrm for hardware video decoding) → `cargo build --release` for
 `relay`, `bridge`, `deck-check`, `deck` (crate `deck-native`, the class's features), `deck-link`, `deck-update` (+ `deck-editor` on full) → copies archiso's **releng** profile, removes its live-only bits (root autologin, reflector, the mirror chooser,
 networkd), overlays `profile/` (packages, pacman.conf, identity, airootfs) and `rootfs/` (the deck's units, scripts
 and config – the same tree the PKGBUILD installs), drops the binaries in as `deck-relay`, `deck-bridge`,

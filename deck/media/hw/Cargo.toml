@@ -1,5 +1,5 @@
 # deck-media-hw – the hardware decode-only adapters behind deck-media's `DecodeBackend` (plan §2.9, P13c): Media
-# Foundation with the GPU's D3D11 video decoder (DXVA) on Windows. A platform adapter: the core keeps demux, the choice,
+# Foundation with the GPU's D3D11 video decoder (DXVA) on Windows, VA-API on Linux. A platform adapter: the core keeps demux, the choice,
 # decode-ahead, seeking and timing; an adapter only turns packets into NV12 pictures and says what its GPU decodes.
 [package]
 name = "deck-media-hw"
@@ -24,3 +24,9 @@ windows = { version = "0.62", features = [
     "Win32_Media_MediaFoundation",
     "Win32_System_Com",
 ] }
+
+# VA-API (the X1's UHD 620; Intel / AMD, so x86_64 only – ARM decks decode through V4L2): ChromeOS's stateless
+# decoders parse the bitstream, cros-libva talks to libva (bindgen against its headers at build: libva + clang in the
+# build container, deck/os/container/build.sh). Owner-approved 2026-11-20.
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
+cros-codecs = { version = "=0.0.6", default-features = false, features = ["vaapi"] }

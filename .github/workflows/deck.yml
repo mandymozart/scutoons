@@ -104,9 +104,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: deck
-      - name: 🔊 ALSA headers (midir on Linux)
+      - name: 🔊 ALSA + VA-API headers (midir; deck-media-hw on Linux x86_64)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libva-dev libgbm-dev libdrm-dev libclang-dev
       - name: 🎚 ASIO SDK (the Windows build carries ASIO by default; deck/native/README.md "Audio")
         if: runner.os == 'Windows'
         shell: pwsh

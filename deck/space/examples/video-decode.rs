@@ -1,8 +1,8 @@
 //! What a video frame costs from packet to the GPU, per decode backend – decoding (and the copy back from a hardware
 //! decoder), then the planes up and the conversion pass – and whether decoding keeps the clip's own frame rate:
 //!   cargo run --release -p deck-space --example video-decode -- CLIP [FRAMES]
-//! Backends: deck-media's software decoder (AV1, HAP), and on Windows Media Foundation on the GPU (DXVA) and, to compare,
-//! the same decoder on the CPU. Each frame waits for the GPU to finish, so the upload is measured apart from decoding.
+//! Backends: deck-media's software decoder (AV1, HAP); on Windows Media Foundation on the GPU (DXVA) and, to compare,
+//! the same decoder on the CPU; on Linux VA-API. Each frame waits for the GPU to finish, so the upload is measured apart from decoding.
 use anyhow::{Context, Result};
 use deck_media::{Clip, DecodeBackend, Frames, Player, Software};
 use deck_space::video::{upload, Converter};
@@ -32,6 +32,11 @@ fn main() -> Result<()> {
         println!("Media Foundation decodes on this GPU: {:?}", deck_media_hw::mf::codecs());
         backends.push(("hardware (Media Foundation, DXVA)", || Box::new(MediaFoundation::new())));
         backends.push(("Media Foundation on the CPU", || Box::new(MediaFoundation::software())));
+    }
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        println!("VA-API decodes here: {:?}", deck_media_hw::vaapi::codecs());
+        backends.push(("hardware (VA-API)", || Box::new(deck_media_hw::vaapi::Vaapi::new())));
     }
     for (label, make) in backends {
         let mut player = match Player::new(&clip, make()) {
