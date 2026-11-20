@@ -1,6 +1,6 @@
 # HANDOVER — the current state (read after RULES.md; limit 60 lines, aim ≤ 40: replace, never append; no rules, no todos)
 
-Refreshed 2026-11-03 (#380), last run 2026-11-20; the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
+Refreshed 2026-11-03 (#380), last run 2026-11-20 (evening); the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
 Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/decisions/<topic>.md (index DECISIONS.md; grep a key). Orchestrator state: HANDOFF.md.
 
 ## Where things are
@@ -23,9 +23,10 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
 ## Last run
-2026-11-19/20 night shift (orchestrator) · branch `develop`, **215 commits ahead of `main`, nothing pushed**; develop's deck:ci green after every merge (the last runs: #663 329 s, #651 running at writing).
-- Merged: #329 #591 #617 #605 (steps 1–5) #627 #628 #629 #630 #632 #633 #634 #637 #638 #639 #640 #641 #643 #646 #647 #648 #649 #650 (flac / mp4) #651 #652 #663 #327 (steps 1, 2, 4).
-- **Production after the next deploy:** the owner applies three migrations via the MCP (plan → apply): `2026-11-19-device-presets` (#633), `2026-11-19-analog-sections` (#649, rows 1 · 1), `2026-11-20-asset-edits` (#651, three nullable columns). #650's commit says `Fixes #650` – reopen it until wav / mp3 / ogg land.
-- The **sandbox toon** exists in production (draft) with the four demo shows, Sandgirl, dunes scenes and a chapter (agents/SANDBOX.md); the MCP has show tools (`list_shows`, `read_show`, `save_show_draft`) – a session must start after commit 298279fb to see them.
-- Running at writing: #676 (Edit / Play, provisional per #644) and #650's wav / mp3 / ogg (crates approved). Queue: #642 (deck start) → #677 (rig presets) → #327 step 3 (VA-API, crate approved) → #678 (time maps in the asset pipeline) → #679 (units in the UI kits) → if time #675, #662, a ticket for the live_quic / ring flakes.
-- Waiting on the owner: #644's final call after testing; #653 (shared Library, a concept); #631 (panels and tabs, OSCT #318's rules, no cross-project sharing); the RME cue channels 7/8 vs 3/4 (#633); #651's questions (edits checked by the core on save? pitch on speed?); the 8th Wall boundary (#682).
+2026-11-20 shift (orchestrator, day into night) · branch `develop`, **292 commits ahead of `main`, nothing pushed**; deck:ci green after every merge, `npm run check` exit 0 end to end, the touched server suites green.
+- Merged (on top of the 2026-11-19/20 list): #650 (wav / mp3 / ogg) #676 #642 #677 #678 #327 (step 3) #679 #686 #685 #684 #675 #699 #697 #705 #683 #662 #687 (steps 1–3).
+- **History (#687):** deck-core `history.rs`; server `/api/entities/<key>/revert|revert-to` and `/api/scenes|shows/<id>/revert|revert-to`; the creator, the deck editor, admin's Calendar and the MCP (`revert_change` needs a local core, `revert_to` anywhere). No migration. Admin's deploy target now sets up the wasm.
+- **Production after the next deploy:** pending migrations run by deploy.yml: `2026-11-19-device-presets`, `2026-11-19-analog-sections`, `2026-11-20-asset-edits`, `2026-11-20-rig-presets`. The deploy needs the owner's go. New MCP tools (shows, history) reach a session after an MCP restart.
+- The **sandbox toon** is in production (draft): four demo shows, Sandgirl, Sandy, dunes scenes, a chapter (agents/SANDBOX.md); Play lists the published sandbox shows on every deck (#686).
+- Open from the merges: #687 – modules and a rig's side documents in the History, `/api/shows/<id>/versions` wraps its answer twice; #697 – unit fields for the DOP point time, m, tempo; #662 – the editor's handheld and playback smoothing stay outside the core; deck-native `no_alloc` fails on this PC (deck:ci passes).
+- Waiting on the owner: the deploy; #688 (one conductor + standby vs co-conductors); moods → rig presets; who marks rig presets factory; #644's final call; #651's questions; #653 / #631 concepts; #633 cue channels; #682 the 8th Wall boundary; #674 posters (queue or XR session); the board's "In progress" triage; the unmerged #505 / #515 worktrees.
