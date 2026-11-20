@@ -10,6 +10,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_space::published::Opened;
 use deck_space::rig::bundle::Bundle;
+use deck_space::rig::RigPreset;
 use deck_space::scene::Scene;
 use deck_space::scene_edit::{Part, SceneEdit};
 use deck_space::scene_resolve::core_rigs;
@@ -38,6 +39,8 @@ pub struct SceneView {
     /// the video nodes' cards this frame: a live frame (posters.rs), or why there is none; and where a frame goes
     pub posters: Vec<(usize, Option<String>)>,
     pub poster_rects: Vec<(Rect, usize)>,
+    /// the rig presets the editor knows (its catalog's and this session's): what the members' rigs may play on
+    pub presets: Vec<RigPreset>,
 }
 
 /// `bundle` with these knob values written into its tracks (a slot no track's node names is left)
@@ -61,6 +64,16 @@ fn rig_from(catalog: Option<&Catalog>, kept: Option<&Opened>, subject: &str, ver
         .or_else(|| core_rigs(subject, version))
 }
 
+/// `b` with the rig presets of its rig the editor knows beyond what it came with (saved in this session)
+fn with_presets(mut b: Bundle, known: &[RigPreset]) -> Bundle {
+    for p in known.iter().filter(|p| p.rig == b.rig.subject) {
+        if !b.rig_presets.iter().any(|q| q.id == p.id) {
+            b.rig_presets.push(p.clone());
+        }
+    }
+    b
+}
+
 impl SceneView {
     /// The scene opened: the view and what the stage plays, with the core's notes (and the opening's own). Err: the
     /// core's reasons it does not play.
@@ -68,17 +81,17 @@ impl SceneView {
         let SceneOpen { doc, base, kept, note, save } = o;
         let id = doc.id.clone();
         let (cat, k) = (catalog.as_deref(), kept.as_ref());
-        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v);
+        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v).map(|b| with_presets(b, &[]));
         let set = |l: &str| k.and_then(|k| k.set(l));
         let (edit, resolved) = SceneEdit::open(doc, base, &rig, &set).map_err(|p| format!("scene:{id}: {}", p.join("; ")))?;
         let notes = note.into_iter().chain(resolved.notes).collect();
-        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None, posters: Vec::new(), poster_rects: Vec::new() }, resolved.scene, notes))
+        Ok((SceneView { edit, kept, catalog, sel: Part::Scene, inside: None, rows: Vec::new(), shown: true, auto: save.unwrap_or_else(|| crate::autosave::Autosave::new(base)), marks: Vec::new(), dop: Default::default(), carry: None, posters: Vec::new(), poster_rects: Vec::new(), presets: Vec::new() }, resolved.scene, notes))
     }
 
     /// the members again after a slot or a video node changed. Err: the core's reasons it does not play.
     pub fn refresh(&mut self) -> Result<(), String> {
         let (cat, k) = (self.catalog.as_deref(), self.kept.as_ref());
-        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v);
+        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v).map(|b| with_presets(b, &self.presets));
         let set = |l: &str| k.and_then(|k| k.set(l));
         self.edit.refresh(&rig, &set).map(|_| ()).map_err(|p| format!("{}: {}", self.edit.key(), p.join("; ")))
     }
@@ -86,7 +99,7 @@ impl SceneView {
     /// the scene as edited now, for the stage
     pub fn scene(&self) -> Result<Scene, String> {
         let (cat, k) = (self.catalog.as_deref(), self.kept.as_ref());
-        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v);
+        let rig = |s: &str, v: Option<&str>| rig_from(cat, k, s, v).map(|b| with_presets(b, &self.presets));
         let set = |l: &str| k.and_then(|k| k.set(l));
         self.edit.resolved(&rig, &set).map(|r| r.scene).map_err(|p| format!("{}: {}", self.edit.key(), p.join("; ")))
     }
@@ -176,6 +189,15 @@ pub enum Field {
     /// the selected member's slot `i` (a module drops on it), its module taken off
     Slot(usize),
     Detach(usize),
+    /// the selected member's rig preset, by its index in the rig's presets (`usize::MAX`: none, the rig's own values)
+    Preset(usize),
+}
+
+/// the selected member's rig presets as the inspector offers them: "none" first, then each preset's name, and the one on
+fn preset_pills(e: &SceneEdit, m: usize) -> (Vec<String>, usize) {
+    let presets = e.presets(m);
+    let on = e.preset(m).and_then(|id| presets.iter().position(|p| p.id == id)).map_or(0, |i| i + 1);
+    (std::iter::once("none".to_string()).chain(presets.iter().map(|p| p.name.clone())).collect(), on)
 }
 
 /// the selected member's holder, where its slots are
@@ -236,6 +258,16 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
             out.push((r, Field::Into));
         }
         y += t.size.row;
+        let (names, on) = preset_pills(e, m);
+        if names.len() > 1 {
+            let shown = if on == 0 { "none · the rig's own values".to_string() } else { names[on].clone() };
+            controls::row(d, t, area, &mut y, "rig preset", &shown);
+            let names: Vec<&str> = names.iter().map(String::as_str).take(6).collect();
+            for (i, r) in controls::pills(d, t, area.x, y, t.size.row - 4.0, &names, on).into_iter().enumerate() {
+                out.push((r, Field::Preset(i.checked_sub(1).unwrap_or(usize::MAX))));
+            }
+            y += t.size.row;
+        }
     }
     if let Some(on) = member_slots(view) {
         for (r, p) in crate::slots::section(d, t, area, &mut y, &e.slot_rows(on), view.carry) {
@@ -275,7 +307,12 @@ impl crate::App {
         self.leave_view();
         let (x, y) = self.cursor;
         match SceneView::open(o, self.show.compose.catalog.clone()) {
-            Ok((view, scene, notes)) => {
+            Ok((mut view, mut scene, notes)) => {
+                // the presets saved in this session too
+                view.presets = self.rigs.all_presets();
+                if !view.presets.is_empty() && view.refresh().is_ok() {
+                    scene = view.scene().unwrap_or(scene);
+                }
                 let id = view.edit.doc.id.clone();
                 self.adopt(&view.edit.key(), &id);
                 self.workspace = crate::show::Workspace::Stage;
