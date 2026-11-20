@@ -1412,5 +1412,29 @@
 		"next_unused": "Dateien, die nur diese Fassungen nutzten: Die nächste Bereinigung unter Assets → Unbenutzt kann sie entfernen.",
 		"help": "Jedes Speichern im Creator und im Admin-Katalog legt eine Fassung an. Diese Seite löscht die alten Verlaufsfassungen, die vor einem Tag gespeichert wurden: Erst listet ein Probelauf pro Dokument, was wegfällt, dann ein bestätigtes Löschen. Die veröffentlichte Fassung, die neueste Fassung und Fassungen, auf die ein Review zeigt, bleiben immer. Ab und zu ausführen.",
 		"help_assets": "Dateien, die nur gelöschte Fassungen nannten, standen schon als unbenutzt in der Liste (der Verwendungsindex kennt die veröffentlichte und die neueste Fassung); nach dem Löschen kann sie keine Wiederherstellung zurückbringen, also kann die nächste Bereinigung unter Assets → Unbenutzt sie sicher entfernen."
+	},
+	"history": {
+		"you": "dir",
+		"saves": "{count} Speicherungen",
+		"created": "angelegt",
+		"revert": "Zurücknehmen",
+		"back_to": "Hierhin zurück",
+		"revert_title": "Diese Änderung zurücknehmen?",
+		"revert_message": "Nimmt die Änderung vom {when} von {who} als neuen Entwurf zurück. Nichts wird gelöscht, und das Zurücknehmen lässt sich wieder zurücknehmen.",
+		"kept": "Seitdem wieder geändert – das bleibt, wie es ist: {places}",
+		"nothing": "Nichts zurückzunehmen: diese Änderung ist schon aufgehoben.",
+		"back_title": "Zu diesem Punkt zurück?",
+		"back_message": "Macht die Version vom {when} zum neuen Entwurf. {later} spätere Speicherungen werden aufgehoben; sie bleiben in der History.",
+		"others": "Änderungen anderer Personen werden auch aufgehoben: {people}",
+		"more": "… und {count} weitere Stellen",
+		"conflict": "Jemand hat inzwischen gespeichert – die History lädt neu, versuch es noch einmal.",
+		"title": "History",
+		"close": "Schließen",
+		"current": "aktuell",
+		"published": "veröffentlicht",
+		"import": "Import",
+		"publish": "Veröffentlichen",
+		"publish_title": "Diese Version veröffentlichen?",
+		"publish_message": "Macht die Version vom {when} zur veröffentlichten Liste."
 	}
 }

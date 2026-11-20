@@ -1412,5 +1412,29 @@
 		"next_unused": "Files only these versions used: the next cleanup in Assets → Unused can remove them.",
 		"help": "Every save in the creator and the admin catalog keeps a version. This page deletes the old history versions saved before a day: first a dry run lists per document what goes, then one confirmed delete. The published version, the newest version and versions a review points to always stay. Run it every once in a while.",
 		"help_assets": "Files that only deleted versions named were already listed as unused (the usage index covers the published and the newest version); after a purge no restore can bring them back, so the next Assets → Unused cleanup can remove them safely."
+	},
+	"history": {
+		"you": "you",
+		"saves": "{count} saves",
+		"created": "created",
+		"revert": "Revert",
+		"back_to": "Back to here",
+		"revert_title": "Revert this change?",
+		"revert_message": "Takes back the change of {when} by {who} as a new draft. Nothing is deleted, and the revert can be reverted.",
+		"kept": "Changed again since – these stay as they are: {places}",
+		"nothing": "Nothing to revert: this change is already undone.",
+		"back_title": "Go back to this point?",
+		"back_message": "Makes the version of {when} the new draft. {later} later saves are undone; they stay in the history.",
+		"others": "Changes by other people are undone too: {people}",
+		"more": "… and {count} more places",
+		"conflict": "Someone saved in the meantime – the history is reloaded, try again.",
+		"title": "History",
+		"close": "Close",
+		"current": "current",
+		"published": "published",
+		"import": "import",
+		"publish": "Publish",
+		"publish_title": "Publish this version?",
+		"publish_message": "Makes the version of {when} the published list."
 	}
 }

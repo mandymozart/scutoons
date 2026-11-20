@@ -31,7 +31,7 @@ if (crates.length > 1) {
 	copyFileSync(wasmPath(), `${out}live_core.wasm`);
 	files.push('live_core.wasm');
 }
-const apps = ['viewer', 'creator'].map((app) => here(`../../../${app}/static/live/`));
+const apps = ['viewer', 'creator', 'admin'].map((app) => here(`../../../${app}/static/live/`));
 for (const dir of apps) {
 	mkdirSync(dir, { recursive: true });
 	for (const f of files) copyFileSync(`${out}${f}`, `${dir}${f}`);

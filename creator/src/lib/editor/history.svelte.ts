@@ -1,33 +1,24 @@
 // The creator's History (#687, after OSCT's #312): the page's stored files, their saved steps, a revert planned by the
 // core (deck-core history through the deck's wasm) and stored by the server as a new draft, and this session's undo /
 // redo of the person's own saved steps. Every rule – what a step is, what changed, what a revert produces – is the core's.
-import type { HistoryDescription as Description, HistorySaved as Saved, HistoryStep as Step } from '@scutoons/content';
+import type { HistoryDescription as Description, HistoryStep as Step } from '@scutoons/content';
+import { createHistory, savedOf, type RevertPlan } from '@scutoons/api';
 import { historyCore } from './core-history.ts';
-import { getVersion, listVersions, revertChange, revertTo, type ContentVersion } from '$lib/api.ts';
+import { contentApi, type ContentVersion } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { confirmDialog } from '@scutoons/ui';
 import { m } from '$lib/paraglide/messages.js';
 import type { ContentDoc } from './doc.svelte.ts';
 import { CollectionDoc } from './world-map-doc.svelte.ts';
 
-export type { Description, Step };
+export type { Description, RevertPlan, Step };
 
 export { historyCore };
 
-/** a version's document (versions never change: kept once fetched) */
-const contents = new Map<number, Promise<unknown>>();
-export function contentOf(key: string, id: number): Promise<unknown> {
-	let c = contents.get(id);
-	if (!c) {
-		c = getVersion(key, id).then((v) => v.content);
-		contents.set(id, c);
-		c.catch(() => contents.delete(id));
-	}
-	return c;
-}
+const history = createHistory(contentApi, historyCore);
 
-export const saved = (versions: ContentVersion[]): Saved[] =>
-	versions.map((v) => ({ id: v.id, author: v.author_email ?? null, at_ms: Date.parse(v.created_at) || 0, message: v.message ?? null }));
+export const contentOf = history.contentOf;
+export const saved = savedOf;
 
 /** one stored file the History lists: a document's language, or the selected entry of a document made of many */
 export interface HistoryFile {
@@ -59,44 +50,29 @@ export interface FileHistory {
 }
 
 export async function loadFile(file: HistoryFile): Promise<FileHistory> {
-	const [{ versions }, h] = await Promise.all([listVersions(file.key), historyCore()]);
-	return { file, versions, steps: h.steps(saved(versions)) };
+	return { file, ...(await history.load(file.key)) };
 }
 
 /** what a step changed, in words (null: nothing before it to compare with) */
-export async function describeStep(key: string, step: Step): Promise<Description | null> {
-	if (step.before === null) return null;
-	const [h, before, after] = await Promise.all([historyCore(), contentOf(key, step.before), contentOf(key, step.last)]);
-	return h.describe(before, after);
-}
-
-/** the change `before` → `after` undone on the file's current version, as the core plans it */
-export interface RevertPlan {
-	doc: unknown;
-	applied: number;
-	kept: string[];
-	base: number;
-}
+export const describeStep = history.describe;
 
 export async function planRevert(file: HistoryFile, before: number, after: number): Promise<RevertPlan | null> {
 	const base = baseOf(file);
-	if (base === null) return null;
-	const [h, a, b, now] = await Promise.all([historyCore(), contentOf(file.key, before), contentOf(file.key, after), contentOf(file.key, base)]);
-	return { ...h.revert(a, b, now), base };
+	return base === null ? null : history.plan(file.key, before, after, base);
 }
 
 /** stores a planned revert of version `version`'s step; the new version's id */
 export async function applyRevert(file: HistoryFile, version: number, plan: RevertPlan): Promise<number> {
-	const r = await revertChange(file.key, version, plan.doc, plan.base);
+	const id = await history.apply(file.key, version, plan);
 	await file.doc.load();
-	return r.version.id;
+	return id;
 }
 
 /** back to version `version`: its document as a new draft */
 export async function applyBackTo(file: HistoryFile, version: number, base: number): Promise<number> {
-	const r = await revertTo(file.key, version, base);
+	const id = await history.backTo(file.key, version, base);
 	await file.doc.load();
-	return r.version.id;
+	return id;
 }
 
 export type Outcome = 'done' | 'none' | 'cancelled' | 'stale';

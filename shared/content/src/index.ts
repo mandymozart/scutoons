@@ -38,6 +38,7 @@ export * from './progress.ts';
 export * from './seasons.ts';
 export * from './reader-link.ts';
 export * from './history.ts';
+export * from './history-view.ts';
 export * from './variables.ts';
 export * from './save-game.ts';
 export * from './chains.ts';
