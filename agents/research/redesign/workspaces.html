@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspaces round 1</title>
+<!-- #673 / epic #626 – draft round 1 of every workspace (owner 2026-11-20). Floating panels with universal tabs (osct #308,
+     #318, #329), the deck's night tokens, opened items as tabs by address, the Library and Home as the way in, Links
+     (where used · events · deck) as the flow between them. ?w=home|library|toons|chapter|characters|catalog|map|
+     storyboard|experiences|flows|generations. Draft only. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;--hover:#2e3229;
+--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;--warn:#f0a030;--go:#4cc35a;--danger:#e5483b;
+--glass:rgba(26,28,24,.55);--glass2:rgba(26,28,24,.86);--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tr:1.8rem;--r:.36rem;
+--mono:"IBM Plex Mono",ui-monospace,monospace;
+--s0:#00d1ff;--s1:#f0a030;--s2:#b36bff;--s3:#4cc35a;--s4:#ff6b8a;--s5:#e6d24a}
+*{box-sizing:border-box}html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:var(--small)}.sp{flex:1}.warn{color:var(--warn)}.ok{color:var(--go)}.acc{color:var(--accent)}
+.bg{position:absolute;inset:0;overflow:hidden}
+/* top bar */
+.bar{position:absolute;top:1rem;left:1rem;right:1rem;display:flex;gap:.5rem;align-items:center;z-index:3}
+.pill{display:flex;align-items:center;gap:.2rem;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:2.55rem;white-space:nowrap}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .5rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;display:inline-grid;place-items:center;color:var(--text)}
+.ws{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .8rem;border-radius:1.2rem;background:var(--control)}
+.ws b{font-weight:400}
+.tab{display:flex;align-items:center;gap:.4rem;height:var(--row);padding:0 .35rem 0 .65rem;border-radius:1.2rem;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .x{width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.75rem;opacity:.55}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}.seg span{height:var(--row);padding:0 .75rem;border-radius:1.2rem;display:flex;align-items:center}
+.seg span.on{background:var(--pressed);color:var(--pressed-text)}.seg span.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block;margin-right:.35rem}
+/* panels */
+.p{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;z-index:2}
+.p.solid{background:var(--glass2)}
+.ph{display:flex;align-items:center;gap:.2rem;padding:.3rem .35rem .3rem .2rem;flex:none}
+.grip{width:.9rem;align-self:stretch;display:grid;place-items:center;color:var(--line);cursor:grab;font-size:.8rem;letter-spacing:-.15em}
+.pt{font-size:var(--small);padding:.18rem .6rem;border-radius:1rem;color:var(--muted);white-space:nowrap}
+.pt.on{background:var(--pressed);color:var(--pressed-text)}
+.ph .f{margin-left:auto;color:var(--muted);font-size:.75rem;padding:0 .3rem}
+.pb{overflow:hidden;flex:1;min-height:0;position:relative}
+.mini{position:absolute;z-index:2;display:flex;align-items:center;gap:.45rem;height:2.35rem;padding:0 .8rem 0 .4rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);white-space:nowrap;font-size:var(--small)}
+.mini .grip{width:.8rem}
+.ghost{position:absolute;z-index:4;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .4rem 1rem #000a;transform:rotate(-3deg)}
+.drop{position:absolute;z-index:4;width:2px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.note{position:absolute;z-index:5;max-width:19rem;font-size:var(--small);line-height:1.4;background:#fffbe6;color:#1d1d14;padding:.5rem .65rem;border-radius:var(--r);box-shadow:0 .3rem .9rem #0008}
+.note b{font-weight:700}
+.note::before{content:"Draft note";display:block;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:#7a6a00;margin-bottom:.15rem}
+/* content */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.chips{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.08rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.tr{height:var(--tr);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0)*1.05rem);white-space:nowrap;overflow:hidden}
+.tr.sel{background:var(--selected)}.tr.in{background:rgba(35,38,31,.6)}
+.tr .c{width:.8rem;color:var(--muted);font-size:.65rem;flex:none}
+.tr img,.tr .sw{width:1.25rem;height:1.25rem;border-radius:50%;object-fit:cover;flex:none;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted);padding-left:.4rem}
+.grp{padding:.55rem var(--pad) .2rem}
+.sec{border-top:1px solid var(--line)}
+.sh{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sh .c{color:var(--muted);font-size:.65rem;width:.8rem}.sh .s{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.si{padding:0 var(--pad) .75rem;display:grid;gap:.42rem}
+.prop{display:grid;grid-template-columns:6.3rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.fd{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot{height:4.2rem;border:1px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.6rem;padding:.3rem;color:var(--muted);font-size:var(--small)}
+.slot img{height:100%;aspect-ratio:1;object-fit:cover;border-radius:calc(var(--r) - 1px)}
+.slot.full{border-style:solid}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+/* canonical sheet: reads like a page, every value edits in place */
+.sheet{padding:.2rem 1rem 1rem;line-height:1.55}
+.sheet h2{font-size:1.15rem;font-weight:700;margin:.4rem 0 .1rem}
+.sheet .sub{color:var(--muted);font-size:var(--small);margin-bottom:.6rem}
+.sheet p{margin:.45rem 0}
+.sheet .v{border-bottom:1px dashed #5a6450;padding:0 .1rem}
+.sheet .ref{color:var(--accent);border-bottom:1px solid #0e5566}
+.sheet .h{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .2rem}
+.state{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.02rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+.state.draft{border-color:var(--muted);color:var(--muted)}.state.warn{border-color:var(--warn);color:var(--warn)}
+/* links: where used · events · deck */
+.lk{display:grid;grid-template-columns:auto 1fr auto;gap:.15rem .5rem;align-items:center;padding:.15rem var(--pad);font-size:var(--small)}
+.lk .k{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.ev{display:flex;align-items:center;gap:.35rem;padding:.25rem var(--pad);font-size:var(--small);white-space:nowrap}
+.ev .on{font-family:var(--mono);font-size:var(--label);padding:.05rem .4rem;border-radius:var(--r);background:var(--control);border:1px solid var(--line)}
+.ev .ar{color:var(--muted)}
+.ev .to{color:var(--accent)}
+/* tiles */
+.tiles{display:grid;gap:.5rem;padding:0 var(--pad) var(--pad)}
+.tile{position:relative;aspect-ratio:1;border-radius:var(--r);background:#0c0d0b;border:1px solid var(--line);overflow:hidden}
+.tile img{width:100%;height:100%;object-fit:contain}
+.tile.cover img{object-fit:cover}
+.tile .k{position:absolute;left:.3rem;top:.3rem;font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .u{position:absolute;right:.3rem;top:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .u.zero{border:1px dashed var(--muted);color:var(--muted)}
+.tile .q{position:absolute;right:.3rem;bottom:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .nm{position:absolute;left:0;right:0;bottom:0;padding:.9rem .4rem .25rem;background:linear-gradient(transparent,#000d);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{outline:2px solid var(--accent);outline-offset:1px}
+.tile.want{border-style:dashed;border-color:var(--warn);display:grid;place-items:center;color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.strip{display:flex;gap:.45rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.card{flex:none;width:7.5rem}
+.card .th{height:4.6rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#000;position:relative}
+.card .th img{width:100%;height:100%;object-fit:cover}
+.card .t{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem;white-space:nowrap}
+.card.sel .th{outline:2px solid var(--accent);outline-offset:1px}.card.sel .t{color:var(--text)}
+textarea,.txt{font:inherit;color:var(--text)}
+.txt{padding:.4rem 1rem 1rem;line-height:1.6;font-size:.95rem}
+.txt .sl{font-family:var(--mono);font-size:var(--label);color:var(--muted);letter-spacing:.06em;margin-top:.7rem}
+.txt .who{color:var(--accent);font-size:var(--small);letter-spacing:.06em;text-transform:uppercase}
+.txt .cur{background:rgba(0,209,255,.12);border-left:2px solid var(--accent);margin-left:-.6rem;padding-left:.5rem}
+svg text{font-family:"Noto Sans",sans-serif}
+</style>
+</head>
+<body>
+<script>
+const R='../../../media/', C=R+'characters/', CP=R+'catpope/';
+const W=innerWidth,H=innerHeight,rem=14,g=rem,T=g+2.55*rem+g;
+const ch=(c,v,m)=>`${C}${c}/${c}_${v}-${m}.webp`;
+const w=new URLSearchParams(location.search).get('w')||'home';
+const ICON={home:'⌂',library:'▤',toons:'▦',chapter:'▥',characters:'☺',catalog:'◈',map:'⌖',storyboard:'▶',experiences:'◳',flows:'⟴',generations:'✶'};
+const NAME={home:'Home',library:'Library',toons:'Toons',chapter:'Chapter',characters:'Characters',catalog:'Catalog',map:'Map',storyboard:'Storyboard',experiences:'Experiences',flows:'Flows',generations:'Generations'};
+let out='';
+const add=s=>out+=s;
+function bar({tabs=[],play=false,saved=true}={}){
+  add(`<div class="bar"><div class="pill"><span class="logo">SCUTOONS</span><span class="ib">☰</span></div>
+  <div class="pill"><span class="ws"><span>${ICON[w]}</span><b>${NAME[w]}</b><span class="muted">▾</span></span>${tabs.map((t,i)=>`<span class="tab ${i===0?'on':''}">${t.img?`<img src="${t.img}">`:`<span>${t.i||''}</span>`}<span>${t.n}</span><span class="x">✕</span></span>`).join('')}${tabs.length?'<span class="ib">＋</span>':''}</div>
+  <span class="sp"></span>
+  ${saved?`<div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>`:''}
+  ${play?`<div class="pill"><div class="seg"><span class="on">Edit</span><span class="play">▶ Play</span></div></div>`:''}
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">?</span></div></div>`);
+}
+// a floating panel; x,y,w,h in px; tabs = universal panel tabs
+function P(x,y,wd,ht,tabs,body,o={}){
+  add(`<div class="p ${o.solid?'solid':''}" style="left:${x}px;top:${y}px;width:${wd}px;height:${ht}px"><div class="ph"><span class="grip">⋮⋮</span>${tabs.map((t,i)=>`<span class="pt ${i===(o.on||0)?'on':''}">${t}</span>`).join('')}<span class="f">—</span></div><div class="pb">${body}</div></div>`);
+}
+function M(x,y,label,extra=''){add(`<div class="mini" style="left:${x}px;top:${y}px"><span class="grip">⋮⋮</span>${label}${extra}</div>`)}
+function NOTE(x,y,html,wd){add(`<div class="note" style="left:${x}px;top:${y}px;${wd?`max-width:${wd}px`:''}">${html}</div>`)}
+const tr=(d,label,o={})=>`<div class="tr ${o.sel?'sel':''} ${o.in?'in':''}" style="--d:${d}"><span class="c">${o.c??''}</span>${o.img?`<img src="${o.img}" onerror="this.style.visibility='hidden'">`:o.sw?`<span class="sw" style="background:${o.sw}"></span>`:''}<span>${label}</span>${o.n!==undefined?`<span class="n ${o.nw?'warn':''}">${o.n}</span>`:''}</div>`;
+const sec=(open,name,sum,body='')=>`<div class="sec"><div class="sh"><span class="c">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="s">${sum}</span></div>${open?`<div class="si">${body}</div>`:''}</div>`;
+const prop=(k,v)=>`<div class="prop"><span>${k}</span>${v.startsWith('<')?v:`<div class="fd">${v}</div>`}</div>`;
+const links=(rows)=>rows.map(([k,n,s])=>`<div class="lk"><span class="k">${k}</span><span>${n}</span><span class="muted mono" style="font-size:var(--label)">${s||''}</span></div>`).join('');
+const ev=(on,to,deck)=>`<div class="ev"><span class="on">${on}</span><span class="ar">→</span><span class="to">${to}</span>${deck?`<span class="ar">→</span><span class="acc">⚡ ${deck}</span>`:''}</div>`;
+const LINKS=(used,evs,deck)=>`<div class="grp lbl">Used in · ${used.length}</div>${links(used)}<div class="grp lbl">Events</div>${evs.join('')}<div class="grp lbl">Deck</div>${links(deck)}`;
+const tile=(src,k,n,o={})=>o.want?`<div class="tile want">wanted<span class="nm" style="color:var(--warn)">${n}</span></div>`:`<div class="tile ${o.sel?'sel':''} ${o.cover?'cover':''}"><img src="${src}" onerror="this.style.opacity=0"><span class="k">${k}</span><span class="u ${o.u===0?'zero':''}">${o.u??''}</span>${o.q?`<span class="q">${o.q}</span>`:''}<span class="nm">${n}</span></div>`;
+
+// ─────────────────────────────── HOME
+if(w==='home'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 30% 20%,#1f241a,#000 65%)"></div>`);
+  bar({saved:false});
+  const L=g, cw=W-2*g;
+  // the way in: search everything + workspaces
+  P(L,T,cw*0.62,5.4*rem,['Find'],`<div style="padding:.2rem var(--pad) 0"><div class="search" style="margin:0;height:2.6rem;font-size:1.1rem">⌕ <span>Search toons, chapters, characters, items, places, experiences, generations …</span><span class="sp"></span><span class="mono muted">Ctrl K</span></div></div>`,{solid:true});
+  const ws=['library','toons','chapter','characters','catalog','map','storyboard','experiences','flows','generations'];
+  P(L,T+5.4*rem+g,cw*0.62,13.6*rem,['Workspaces'],`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.45rem;padding:0 var(--pad) var(--pad)">${ws.map(k=>`<div style="border:1px solid var(--line);border-radius:var(--r);padding:.6rem .7rem;background:var(--control)"><div style="font-size:1.3rem">${ICON[k]}</div><div>${NAME[k]}</div><div class="muted" style="font-size:var(--label)">${{library:'412 assets',toons:'3 toons',chapter:'Feilchen open',characters:'7 · 4 wanted',catalog:'86 items',map:'14 places',storyboard:'c3 · 22 shots',experiences:'1 poster',flows:'universe',generations:'3 running'}[k]}</div></div>`).join('')}</div>`,{solid:true});
+  const y2=T+19*rem+2*g;
+  P(L,y2,cw*0.62,H-y2-g,['Continue','Recent'],`<div class="strip" style="flex-wrap:wrap;gap:.6rem">${[
+    [CP+'s1/c1/s1c1-slice-3.webp','Chapter','S1 · C3 Feilchen','slice 12 · 2 h ago'],
+    [ch('catpope','portrait','happy'),'Character','CatPope › Regular','moods · yesterday'],
+    [CP+'s1/s1-cover-portrait.webp','Experience','Poster · Feilchen','surfaces · today'],
+    [CP+'s1/c1/s1c1-key-visual.webp','Storyboard','C3 · shot 7','generating'],
+    [CP+'map/painted/terrain-abstract.webp','Map','CatPope world','places'],
+    [R+'scutoons/items/record_player.webp','Item','Record player','collage'],
+  ].map(([s,k,n,t])=>`<div class="card" style="width:11.5rem"><div class="th" style="height:6.8rem"><img src="${s}"></div><div class="t"><span style="color:var(--text)">${n}</span></div><div class="t"><span>${k}</span><span>${t}</span></div></div>`).join('')}</div>`);
+  const rx=L+cw*0.62+g, rw=W-rx-g;
+  P(rx,T,rw,15.5*rem,['Waiting for you'],`${[
+    ['Poster art – print on 12 Dec','experience:poster-feilchen','warn'],
+    ['3 generations to review','storyboard:catpope:3',''],
+    ['Kanon: Yellow Mouse – agreed?','character:yellowmouse',''],
+    ['Chapter 4 not live yet','chapter:catpope/s1/c4','draft'],
+  ].map(([t,a,s])=>`<div class="ev" style="justify-content:space-between"><span>${t}</span><span class="state ${s}">${s||'open'}</span></div><div class="ev" style="padding-top:0"><span class="mono muted" style="font-size:var(--label)">${a}</span></div>`).join('')}`,{solid:true});
+  P(rx,T+15.5*rem+g,rw,11*rem,['Wanted','Problems'],`<div class="tiles" style="grid-template-columns:repeat(4,1fr)">${tile('','','CatPope · dizzy',{want:1})}${tile('','','Mountain tiger',{want:1})}${tile('','','Crypt place',{want:1})}${tile('','','Poster art',{want:1})}</div><div class="ev muted">12 wanted · 3 problems → open in Generations</div>`);
+  const y3=T+26.5*rem+2*g;
+  P(rx,y3,rw,H-y3-g,['Toons'],`${[['catpope','CatPope','S1 · 3 / 5 live'],['yellowmouse','Yellow Mouse','S1 · drafting'],['billthefrog','Bill the Frog','pilot']].map(([i,n,s])=>tr(0,n,{img:ch(i,'avatar','neutral'),n:s})).join('')}`);
+  NOTE(W*0.33,H-9*rem,'<b>The way in:</b> Home = find anything, the workspaces, what you were doing, what waits for you. Everything opens as a tab in its workspace by its address (<span class="mono">chapter:catpope/s1/c3</span>).',300);
+}
+
+// ─────────────────────────────── LIBRARY (full window browser)
+if(w==='library'){
+  add(`<div class="bg" style="background:#0d0f0b"></div>`);
+  bar({});
+  const lw=15*rem, dw=24*rem;
+  P(g,T,lw,H-T-g,['Places'],`<div class="search">⌕ <span>Search</span></div>
+   <div class="grp lbl">Scope</div>${tr(0,'This toon · CatPope',{sel:1,n:412})}${tr(0,'All toons',{n:1240})}${tr(0,'Unused',{n:37,nw:1})}${tr(0,'Wanted',{n:12,nw:1})}
+   <div class="grp lbl">Kinds</div>${[['Characters',7],['Moods',18],['Items',86],['Places',14],['Slices',212],['Covers',3],['Audio',64],['Video',41],['3D models',22],['Generations',318],['Rigs · modules',19],['Scenes',8],['Experiences',1]].map(([k,n],i)=>tr(0,k,{n,sel:false,in:i===2})).join('')}`,{solid:true});
+  const gx=g+lw+g, gw=W-gx-g-dw-g;
+  const items=[['scutoons/items/record_player.webp','item','Record player',4,'4 q'],['scutoons/items/cd_player.webp','item','CD player',2,'4 q'],['scutoons/items/tape_player.webp','item','Tape player',0,'3 q'],['catpope/items/awakening_vinyl.webp','item','Awakening vinyl',6,'5 q'],['scutoons/items/sunglasses.webp','item','Sunglasses',3,'6 vars'],['scutoons/items/checkit_camera.webp','item','Checkit camera',1,'4 q'],['catpope/items/scorpion_amulet.webp','item','Scorpion amulet',2,'2 vars'],['catpope/items/cucumber.webp','item','Cucumber',1,'3 vars'],['scutoons/items/scutoons_tshirt.webp','item','T-shirt',5,'merch'],['catpope/items/dago_hoodie.webp','item','Dago hoodie',2,'4 vars'],['scutoons/items/broken_record_player.webp','item','Broken record player',1,'4 q'],['scutoons/items/repair_coupon.webp','item','Repair coupon',0,'2 q']];
+  P(gx,T,gw,H-T-g,['Items · 86'],`<div class="chips" style="padding-top:.1rem"><span class="chip on">All</span><span class="chip">Music</span><span class="chip">Wear</span><span class="chip">Tools</span><span class="chip">Merch</span><span class="sp"></span><span class="chip">Sort: used ▾</span><span class="chip">▦ ▤</span><span class="chip">＋ Upload</span></div>
+   <div class="grp lbl">Music · 5</div><div class="tiles" style="grid-template-columns:repeat(6,1fr)">${items.slice(0,6).map((t,i)=>tile(R+t[0],t[1],t[2],{u:t[3],q:t[4],sel:i===0})).join('')}</div>
+   <div class="grp lbl">Wear and tools · 6</div><div class="tiles" style="grid-template-columns:repeat(6,1fr)">${items.slice(6).map(t=>tile(R+t[0],t[1],t[2],{u:t[3],q:t[4]})).join('')}</div>`);
+  P(W-g-dw,T,dw,H-T-g,['Details','Links','Versions'],`<div style="padding:0 var(--pad)"><div style="height:13rem;background:#000;border-radius:var(--r);display:grid;place-items:center;border:1px solid var(--line)"><img src="${R}scutoons/items/record_player.webp" style="max-height:12rem"></div></div>
+   <div class="sheet"><h2>Record player</h2><div class="sub mono">item:record-player · music · 4 qualities</div>
+   <p>Plays any <span class="ref">record</span> in the carrier bag. Found in <span class="ref">Apartment blocks</span>; repaired with a <span class="ref">repair coupon</span>.</p></div>
+   ${LINKS([['chapter','S1 · C2 slice 14','placed'],['chapter','S1 · C3 slice 4','placed'],['recipe','Repair record player','input'],['map','Apartment blocks','spawn']],[ev('on found','item:record-player','sound · needle drop'),ev('on use','album:awakening','deck plays side A')],[['scene','scene:living-room','holder'],['module','module:turntable','plays']])}`,{solid:true,on:0});
+  NOTE(gx+gw*0.45,H-8.5*rem,'<b>One tile per asset family</b> (its qualities and variants folded, #653). <b>Links</b> = where used · events · deck: the flow from an asset to the story and the live show.',320);
+}
+
+// ─────────────────────────────── TOONS
+if(w==='toons'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 30%,#1c2018,#000 70%)"></div>`);
+  bar({tabs:[{img:ch('catpope','avatar','neutral'),n:'CatPope'},{img:ch('yellowmouse','avatar','neutral'),n:'Yellow Mouse'}]});
+  const lw=16*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g,['Tree','Library'],`${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral')})}${tr(1,'Season 1 · Das Erwachen',{c:'▾',sel:1,n:'5'})}${['Awakening','The choir','Feilchen','Crypt','Bells'].map((n,i)=>tr(2,`C${i+1} · ${n}`,{n:i<3?'live':'draft',nw:i>2})).join('')}${tr(1,'Season 2',{c:'▸',n:'plan'})}${tr(0,'Cast · 7',{c:'▸'})}${tr(0,'Credits',{c:'▸'})}${tr(0,'Kanon',{c:'▸'})}`);
+  // board of seasons and chapters
+  const chs=[['s1c1-slice-1','Awakening','live','2026-09-20'],['s1c1-slice-5','The choir','live','2026-10-18'],['s1c1-slice-9','Feilchen','live','2026-11-15'],['s1c1-slice-12','Crypt','draft','2027-01'],['s1c1-slice-7','Bells','plan','2027-02']];
+  add(`<div style="position:absolute;left:${bx}px;top:${T}px;width:${bw}px;z-index:1">
+   <div style="display:flex;gap:1rem;align-items:flex-end;margin-bottom:.8rem"><img src="${CP}s1/s1-cover-square.webp" style="width:9rem;border-radius:var(--r);border:1px solid var(--line)"><div><div class="lbl">Season 1</div><div style="font-size:1.6rem">Das Erwachen</div><div class="muted">3 of 5 chapters live · next: Crypt</div><div style="margin-top:.4rem;display:flex;gap:.3rem"><span class="chip">Cover ↗</span><span class="chip">Script ↗</span><span class="chip">Flow ↗</span><span class="chip">Album: Awakening ↗</span></div></div></div>
+   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem">${chs.map(([s,n,st,d],i)=>`<div class="card" style="width:auto"><div class="th" style="height:11rem"><img src="${CP}s1/c1/${s}.webp"></div><div class="t" style="color:var(--text)"><span>C${i+1} · ${n}</span></div><div class="t"><span class="state ${st==='live'?'':st==='draft'?'draft':'warn'}">${st}</span><span>${d}</span></div></div>`).join('')}</div>
+   <div class="lbl" style="margin:1rem 0 .4rem">Season 2 · planned</div><div style="height:5rem;border:1px dashed var(--line);border-radius:var(--r);display:grid;place-items:center" class="muted">＋ chapter</div></div>`);
+  P(W-g-iw,T,iw,H-T-g,['Inspector','Kanon','Problems'],`<div class="sheet"><h2>Season 1 · Das Erwachen</h2><div class="sub">season:catpope/1 · <span class="state">3 live</span></div>
+   <p>CatPope wakes in the <span class="ref">Cathedral</span> and finds the <span class="ref">choir</span> has lost its voice. Five chapters, released monthly from <span class="v">20 Sep 2026</span>.</p>
+   <div class="h">Cast</div><p>${['catpope','yellowmouse','billthefrog','crows'].map(c=>`<img src="${ch(c,'avatar','neutral')}" style="width:1.8rem;height:1.8rem;border-radius:50%;vertical-align:middle;margin-right:.2rem" onerror="this.remove()">`).join('')} <span class="muted">+3</span></p>
+   <div class="h">Release</div><p>Monthly, Sundays · <span class="v">5 chapters</span> · readers see <span class="v">1–3</span></p>
+   <div class="h">Credits</div><p>Story <span class="v">Tilman Porschütz</span> · Music <span class="v">Vienna Struggle</span> · <span class="muted">4 more</span></p>
+   <div class="h">Supporters</div><p class="muted">Kunstbuch print edition · 2 partners</p></div>`,{solid:true});
+  NOTE(bx+bw*0.5,H-7.5*rem,'<b>Canonical, not additive:</b> the season reads as a sheet; each value edits in place (dashed). Cast, credits, release are parts of it – not separate pages.',300);
+}
+
+// ─────────────────────────────── CHAPTER
+if(w==='chapter'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar({tabs:[{i:'▥',n:'S1 · C3 Feilchen'},{i:'▥',n:'S1 · C4 Crypt'}],play:true});
+  const lw=15*rem, iw=24*rem;
+  // the strip as canvas, centre
+  const sw=Math.min(28*rem,W-2*lw-2*iw), sx=g+lw+g+((W-2*g-lw-iw-2*g)-sw)/2+5*rem;
+  add(`<div style="position:absolute;left:${sx}px;top:${T+3.2*rem}px;width:${sw}px;height:${H-T-3.2*rem-g}px;overflow:hidden;z-index:1;display:flex;flex-direction:column;gap:0;border:1px solid var(--line)">${[4,5].map(n=>`<div style="position:relative"><img src="${CP}s1/c1/s1c1-slice-${n}.webp" style="width:100%;display:block">${n===4?`<div style="position:absolute;left:12%;top:62%;width:46%;height:16%;border:1px solid var(--accent);background:#fffffff2;color:#111;font:700 .95rem/1.25 'Noto Sans';padding:.4rem .5rem;border-radius:.6rem">The choir has lost its voice. Again.</div><div style="position:absolute;left:12%;top:59%;font-size:var(--label);background:var(--accent);color:#001b22;padding:0 .3rem;border-radius:.2rem">Text box · CatPope</div>`:''}</div>`).join('')}</div>`);
+  P(g,T,lw,H-T-g-11*rem-g,['Slices','Library'],`${tr(0,'Group · Nave',{c:'▾'})}${[1,2,3,4,5,6].map(n=>tr(1,`Slice ${n}`,{img:`${CP}s1/c1/s1c1-slice-${n}.webp`,sel:n===4,n:n===4?'2 boxes':''})).join('')}${tr(0,'Group · Crypt stairs',{c:'▸',n:'6'})}${tr(0,'Group · The bells',{c:'▸',n:'4'})}`);
+  P(g,H-g-11*rem,lw,11*rem,['Reader'],`<div style="display:grid;place-items:center;height:100%"><div style="width:6.5rem;height:9.5rem;border:2px solid var(--line);border-radius:.8rem;overflow:hidden"><img src="${CP}s1/c1/s1c1-slice-4.webp" style="width:100%"></div></div>`);
+  P(W-g-iw,T,iw,(H-T-2*g)*0.56,['Inspector','Events','Items'],`${sec(true,'Text box','CatPope · speech',`${prop('Speaker','<div class="fd"><img src="'+ch('catpope','avatar','neutral')+'" style="width:1.2rem;border-radius:50%;margin-right:.4rem">CatPope · happy</div>')}${prop('Text','The choir has lost its voice. Again.')}${prop('Tail','to CatPope · left')}${prop('Style','speech · bold')}`)}${sec(true,'Slice 4','390 × 624',`<div class="slot full"><img src="${CP}s1/c1/s1c1-slice-4.webp"><span>s1c1-slice-4 · 3 qualities<br><span class="acc">replace from Library / Generations</span></span></div>`)}${sec(false,'Audio','choir loop · fades in','')}${sec(false,'Collage','2 pieces','')}`,{solid:true});
+  const ky=T+(H-T-2*g)*0.56+g;
+  P(W-g-iw,ky,iw,H-ky-g,['Script','Kanon'],`<div class="txt"><div class="sl">SLICE 4 · NAVE · DAY</div><div class="who">CatPope</div><div class="cur">The choir has lost its voice. Again.</div><div class="who" style="margin-top:.5rem">Yellow Mouse</div><div>Then sing it yourself, Holiness.</div><div class="sl">SLICE 5 · CRYPT STAIRS</div><div class="muted">Bells, far below. ▸ event: <span class="acc">on enter → sound bells</span></div></div>`);
+  M(sx,T,'Tools','<span class="muted">· select · box · tail · grid · zoom</span>');
+  NOTE(g+lw+g,H-15*rem,'<b>Text and slots in parallel:</b> the script runs beside the canvas (same line highlighted); the slice\'s image is a slot that takes from the Library or Generations; Events are a panel tab, linked to the Flow and the deck.',290);
+}
+
+// ─────────────────────────────── CHARACTERS
+if(w==='characters'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 80%,#22261d,#000 62%)"><img src="${ch('catpope','full','happy')}" style="position:absolute;left:0;right:${2*rem}px;top:12%;bottom:15%;margin:auto;height:72%;object-fit:contain"></div>`);
+  bar({tabs:[{img:ch('catpope','avatar','neutral'),n:'CatPope · Regular'},{img:ch('yellowmouse','avatar','neutral'),n:'Yellow Mouse'}],play:true});
+  const lw=17*rem, iw=25*rem;
+  P(g,T,lw,H-T-g,['Library','Cast'],`<div class="search">⌕ <span>Characters</span></div>${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral'),n:'1 wanted',nw:1,in:1})}${tr(1,'Pope',{c:'▾',in:1,n:'3 looks'})}${tr(2,'Regular',{img:ch('catpope','avatar','neutral'),sel:1,n:'18/18'})}${tr(2,'Biker',{img:ch('catpope-biker','avatar','neutral'),in:1,n:'18/18'})}${tr(2,'Mountain tiger',{img:ch('catpope-mountaintiger','avatar','neutral'),in:1,n:'0/18',nw:1})}${tr(1,'Human',{c:'▸',in:1})}${['yellowmouse','billthefrog','yellowbubu','boy','crows','passerby'].map(c=>tr(0,c.replace(/^./,x=>x.toUpperCase()),{c:'▸',img:ch(c,'avatar','neutral')})).join('')}<div class="grp lbl">Moods · 18</div>${tr(0,'Vocabulary',{c:'▸',n:18})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Inspector','Links'],`<div class="sheet"><h2>CatPope</h2><div class="sub">character:catpope · in CatPope, Top Toy, Feilchen · <span class="state">Kanon agreed</span></div>
+   <p>The pope of the cats, <span class="v">warm baritone</span>, slow to anger. Wakes in the <span class="ref">Cathedral</span> and carries the <span class="ref">Scorpion amulet</span>.</p>
+   <div class="h">Personas</div><p><b>Pope</b> – <span class="v">regular, biker, mountain tiger</span> · <b>Human</b> · <b>Cat</b></p>
+   <div class="h">Look · Regular</div><p>18 of 18 moods · A-pose <span class="ref">tourist</span> · 3D <span class="ref">catpope-regular.glb</span></p>
+   <div class="h">Sound</div><p>Rig <span class="ref">CatPope choir</span> – sings in every chapter's finale.</p>
+   <div class="h">Kanon</div><p class="muted">“He never raises his voice – the choir does it for him.” <span class="acc">open Kanon ↗</span></p></div>`,{solid:true});
+  const bx=g+lw+g, bw=W-bx-g-iw-g;
+  const moods=['neutral','happy','laughing','smug','thinking','confused','surprised','sad','crying','angry','furious','scared'];
+  P(bx,H-g-9.6*rem,bw,9.6*rem,['Moods','Wanted · 1'],`<div class="strip">${moods.map(m=>`<div class="card" style="width:4.6rem"><div class="th" style="height:4.6rem;${m==='happy'?'outline:2px solid var(--accent);outline-offset:1px':''}"><img src="${ch('catpope','portrait',m)}"></div><div class="t">${m}</div></div>`).join('')}</div>`);
+  M(bx,T,'<b style="font-weight:400">Regular</b>','<span class="muted">· happy · full</span>');
+  add(`<div class="ghost" style="left:${W-g-iw-9*rem}px;top:${T+22*rem}px">⋮⋮ Links</div><div class="drop" style="left:${W-g-iw-1.2*rem}px;top:${T+21*rem}px;height:3.4rem;width:2px"></div>`);
+  NOTE(W-g-iw-20*rem,T+25*rem,'<b>Universal tabs</b> (osct #318): drag the Links tab out of the Sheet panel – it becomes a panel of its own on the stage, or drops into another panel before / after a tab.',260);
+  NOTE(bx+bw-19*rem,T+3.5*rem,'<b>Sheet first:</b> who the character is reads as one page (profile, personas, looks, sound, Kanon); Inspector has the raw fields; Links shows where the character is used, its events and its rig on the deck.',280);
+}
+
+// ─────────────────────────────── CATALOG
+if(w==='catalog'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 55%,#24281f,#000 65%)"><img src="${R}scutoons/items/record_player.webp" style="position:absolute;left:0;right:0;top:0;bottom:6rem;margin:auto;height:46%;object-fit:contain"></div>`);
+  bar({tabs:[{i:'◈',n:'Record player'},{i:'◈',n:'Awakening vinyl'},{i:'⇄',n:'Recipe · repair'}],play:true});
+  const lw=17*rem, iw=25*rem;
+  P(g,T,lw,H-T-g,['Library'],`<div class="search">⌕ <span>Catalog</span></div><div class="chips"><span class="chip on">Items 86</span><span class="chip">Recipes 12</span><span class="chip">Albums 3</span><span class="chip">Products 9</span><span class="chip">Editions 2</span><span class="chip">Home scenes</span></div>${[['record_player','Record player',4],['cd_player','CD player',2],['tape_player','Tape player',0],['checkit_camera','Checkit camera',1],['sunglasses','Sunglasses',3],['repair_coupon','Repair coupon',0]].map(([f,n,u],i)=>tr(0,n,{img:`${R}scutoons/items/${f}.webp`,sel:i===0,n:u?u+' used':'unused',nw:!u})).join('')}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Inspector','Links'],`<div class="sheet"><h2>Record player</h2><div class="sub">item:record-player · music · <span class="state">published</span></div>
+   <p>A <span class="v">portable</span> record player. Plays any <span class="ref">record</span> from the carrier bag; broken until repaired with a <span class="ref">repair coupon</span>.</p>
+   <div class="h">In the story</div><p>Found in <span class="ref">Apartment blocks</span>, chapter <span class="ref">S1 · C2</span>; respawns <span class="v">never</span>.</p>
+   <div class="h">Sound</div><p>Needle drop · plays the <span class="ref">Awakening</span> album, side A first.</p>
+   <div class="h">Collage</div><p>2 looks · 5 pieces · phone and desktop</p></div>
+   <div class="grp lbl">Events</div>${ev('on found','carrier bag','sound · needle drop')}${ev('on use','album:awakening','turntable module')}`,{solid:true});
+  const bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(bx,H-g-8.4*rem,bw,8.4*rem,['Looks','Qualities'],`<div class="strip">${['record_player','broken_record_player','tape_player','cd_player'].map((f,i)=>`<div class="card" style="width:6rem"><div class="th" style="height:5rem;background:#0c0d0b;${i===0?'outline:2px solid var(--accent);outline-offset:1px':''}"><img src="${R}scutoons/items/${f}.webp" style="object-fit:contain"></div><div class="t">${['regular','broken','(tape)','(cd)'][i]}</div></div>`).join('')}<div class="card" style="width:6rem"><div class="th" style="height:5rem;border-style:dashed;display:grid;place-items:center" ><span class="muted">＋ look</span></div></div></div>`);
+  M(bx,T,'Tools','<span class="muted">· collage · pieces · screen phone / desktop</span>');
+  NOTE(bx+bw*0.55,T+4*rem,'<b>Catalog = Library facets</b>; an item opens as a tab with its stage (the collage). Recipes, albums, products: sheets without a stage.',260);
+}
+
+// ─────────────────────────────── MAP
+if(w==='map'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 50%,#2b2f27,#0b0c0a 75%)"><img src="${CP}map/painted/terrain-abstract.webp" style="width:100%;height:100%;object-fit:contain;opacity:.55">
+   ${[['cathedral',.48,.38,1],['crypt',.55,.5],['church-square',.42,.46],['graveyard',.36,.58],['apartment-blocks',.62,.3],['station',.7,.52],['waterfall-tower',.3,.32],['library',.52,.66]].map(([p,x,y,s])=>`<div style="position:absolute;left:${x*100}%;top:${y*100}%;transform:translate(-50%,-50%);text-align:center"><img src="${CP}map/places/${p}.webp" style="width:${s?5.2:3.6}rem;height:${s?5.2:3.6}rem;object-fit:cover;border-radius:50%;border:2px solid ${s?'var(--accent)':'#fff8'};box-shadow:0 .3rem .8rem #000a"><div class="halo" style="font-size:var(--small);text-shadow:0 0 3px #000,0 0 3px #000">${p.replace('-',' ')}</div></div>`).join('')}
+   <svg style="position:absolute;inset:0;width:100%;height:100%"><polyline points="${W*.48},${H*.38} ${W*.55},${H*.5} ${W*.52},${H*.66}" fill="none" stroke="#00d1ff" stroke-width="2" stroke-dasharray="6 5"/></svg></div>`);
+  bar({tabs:[{i:'⌖',n:'CatPope world'}],play:true});
+  const lw=16*rem, iw=25*rem;
+  P(g,T,lw,H-T-g,['Tree','Library'],`<div class="grp lbl">Places · 14</div>${['cathedral','crypt','church-square','graveyard','apartment-blocks','station','waterfall-tower','library'].map((p,i)=>tr(0,p.replace('-',' '),{img:`${CP}map/places/${p}.webp`,sel:i===0,n:i===1?'image wanted':'',nw:1})).join('')}<div class="grp lbl">Regions · 3</div>${tr(0,'Old town',{sw:'#b36bff'})}${tr(0,'Ore mountains',{sw:'#f0a030'})}<div class="grp lbl">Routes · 4</div>${tr(0,'Cathedral → Crypt',{sw:'#00d1ff'})}<div class="grp lbl">Layers</div>${tr(0,'Terrain · fog · labels',{c:'▸'})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Inspector','Links'],`<div style="padding:0 var(--pad)"><img src="${CP}map/places/cathedral.webp" style="width:100%;height:9rem;object-fit:cover;border-radius:var(--r)"></div><div class="sheet"><h2>Cathedral</h2><div class="sub">place:cathedral · Old town · <span class="state">on map</span></div>
+   <p>Where CatPope wakes. The <span class="ref">choir</span> rehearses in the nave; stairs lead down to the <span class="ref">Crypt</span>. Unlocked from <span class="ref">S1 · C1</span>.</p>
+   <div class="h">3D room</div><p><span class="ref">cathedral.high.glb</span> · splat <span class="muted">(#74)</span></p></div>
+   ${LINKS([['chapter','S1 · C1 Awakening','starts here'],['chapter','S1 · C3 Feilchen','visits'],['item','Scorpion amulet','spawn']],[ev('on enter','sound · bells','scene:cathedral'),ev('on unlock','chapter:catpope/s1/c2','')],[['scene','scene:cathedral','3D set'],['show','Rotor session','row 3']])}`,{solid:true});
+  M(g+lw+g,T,'Tools','<span class="muted">· select · place · route · region · hex brush · fog</span>');
+  NOTE(W*0.5,H-8*rem,'<b>Map = the world as background.</b> A place reads as a sheet; Links shows the chapters it unlocks, its events (on enter / unlock) and the deck scene that is its 3D set.',300);
+}
+
+// ─────────────────────────────── STORYBOARD
+if(w==='storyboard'){
+  add(`<div class="bg"><img src="${CP}s1/c1/s1c1-key-visual.webp" style="width:100%;height:100%;object-fit:cover;opacity:.9"><img src="${ch('catpope','full','thinking')}" style="position:absolute;left:47%;top:36%;height:38%"><div style="position:absolute;left:30%;top:22%;width:40%;height:50%;border:1px solid #fff9;box-shadow:0 0 0 9999px #0007"></div><div style="position:absolute;left:30%;top:calc(22% - 1.5rem);font-size:var(--small)" class="halo">Shot 7 · 35 mm · close</div></div>`);
+  bar({tabs:[{i:'▶',n:'C3 storyboard'}],play:true});
+  const iw=24*rem, lw=15*rem;
+  P(g,T,lw,H-T-g-10.5*rem-g,['Script','Kanon'],`<div class="txt" style="padding:.3rem .8rem"><div class="sl">SHOT 6 · NAVE</div><div class="muted">Wide. The choir, silent.</div><div class="sl">SHOT 7 · CLOSE</div><div class="cur">CatPope looks up. Thinking. The bells, far away.</div><div class="sl">SHOT 8 · CRYPT STAIRS</div><div class="muted">Handheld, down the stairs.</div></div>`);
+  P(W-g-iw,T,iw,H-T-g-10.5*rem-g,['Shot','Generate','Figures'],`${sec(true,'Shot 7','close · 3.2 s',`${prop('Camera','35 mm · eye level')}${prop('Figures','CatPope · thinking')}${prop('Light','extreme hard, left')}${prop('Duration','3.2 s · bar 12')}`)}${sec(true,'Generate','luma · ~ € 0.42',`<div class="fd" style="height:auto;white-space:normal;padding:.4rem .6rem;line-height:1.4">Close on CatPope, looking up, hard light from the left, the nave behind in shadow.</div><div style="display:flex;gap:.4rem;justify-content:flex-end"><span class="chip">Vary</span><span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">Generate · € 0.42</span></div>`)}${sec(false,'Takes','2 handheld','')}`,{solid:true});
+  const sh=[1,2,3,4,5,6,7,8,9,10];
+  P(g,H-g-10.5*rem,W-2*g,10.5*rem,['Shots','Timeline','Variants ↗'],`<div class="strip">${sh.map(n=>`<div class="card ${n===7?'sel':''}" style="width:8.2rem"><div class="th" style="height:4.4rem"><img src="${CP}s1/c1/s1c1-key-visual.webp" style="object-position:${(n*9)%100}% ${(n*13)%100}%;transform:scale(${1+(n%3)*.3})"></div><div class="t"><span>Shot ${n}</span><span class="mono">${(n*3.1).toFixed(1)}s</span></div></div>`).join('')}</div><div style="margin:0 var(--pad);height:1.1rem;background:var(--control);border-radius:.3rem;position:relative"><div style="position:absolute;left:58%;top:-2px;bottom:-2px;width:2px;background:var(--accent)"></div></div>`);
+  M(g+lw+g,T,'Tools','<span class="muted">· orbit · camera · figures · light · 2D / 3D</span>');
+  NOTE(g+lw+g,T+3.5*rem,'<b>Storyboard</b> = the 3D stage of the shot + script beside it + shots / timeline below. Variants open <b>Generations</b> for this shot (not a mode here).',280);
+}
+
+// ─────────────────────────────── EXPERIENCES
+if(w==='experiences'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 70%,#2a2e24,#060705 70%)">
+   <div style="position:absolute;left:50%;top:52%;width:${H*0.42}px;height:${H*0.6}px;transform:translate(-62%,-50%) perspective(1600px) rotateX(10deg) rotateY(-14deg);box-shadow:0 2rem 3rem #000c;border:1px solid #fff3">
+     <img src="${CP}s1/s1-cover-portrait.webp" style="width:100%;height:100%;object-fit:cover">
+     <div style="position:absolute;left:12%;top:58%;width:34%;height:22%;border:2px solid var(--accent)"><span style="position:absolute;top:-1.4rem;left:0;font-size:var(--label);background:var(--accent);color:#001b22;padding:0 .3rem">target · choir</span></div>
+     <div style="position:absolute;left:55%;top:14%;width:30%;height:20%;border:2px dashed #fff9"></div>
+     <div style="position:absolute;left:-1px;bottom:-1.6rem;font-size:var(--label)" class="muted mono">poster · 594 × 841 mm · A1</div>
+   </div>
+   <div style="position:absolute;left:0;right:0;bottom:12%;height:1px;background:linear-gradient(90deg,transparent,#4a5242,transparent)"></div></div>`);
+  bar({tabs:[{i:'◳',n:'Poster · Feilchen'},{i:'◳',n:'Kunstbuch S1'}],play:true});
+  const lw=16*rem, iw=25*rem;
+  P(g,T,lw,H-T-g-9*rem-g,['Tree','Library'],`${tr(0,'Poster · Feilchen',{c:'▾',n:'poster'})}${tr(1,'Scene · Poster',{c:'▾',in:1})}${tr(2,'Surface · A1 front',{c:'▾',in:1,n:'594×841'})}${tr(3,'Target · choir',{sel:1,n:'found → song'})}${tr(3,'Target · bells',{n:'tap → video'})}${tr(3,'Target · logo',{n:'off'})}${tr(1,'Entries · 3',{c:'▸'})}<div class="grp lbl">Print</div>${tr(0,'Targets from print PDF',{n:'2 / 3 placed'})}${tr(0,'Print PDF',{n:'export'})}`);
+  P(W-g-iw,T,iw,H-T-g,['Inspector','Links','Environment'],`${sec(true,'Target · choir','on surface A1 front',`${prop('Place','<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem"><div class="fd mono">x 71</div><div class="fd mono">y 488</div><div class="fd mono">w 202</div><div class="fd mono">h 185</div></div>')}<div class="slot full"><img src="${CP}s1/s1-cover-portrait.webp" style="object-position:20% 70%"><span>image target · from the art<br><span class="ok">tracks well</span></span></div>`)}${sec(true,'Entry','on found',`${ev('on found','song · Choir lands','')}${ev('on tap','chapter:catpope/s1/c3','')}${ev('on found','item:scorpion-amulet','carrier bag')}`)}${sec(false,'Surface · A1 front','594 × 841 mm · wall','')}${sec(false,'Experience','Poster · print 12 Dec','')}`,{solid:true});
+  P(g,H-g-9*rem,W-2*g-iw-g,9*rem,['Scenes'],`<div class="strip">${[['s1-cover-portrait','Poster · front',1],['s1-cover-square','(back – none)',0]].map(([s,n,o])=>`<div class="card ${o?'sel':''}" style="width:9rem"><div class="th" style="height:5rem"><img src="${CP}s1/${s}.webp" style="${o?'':'opacity:.25'}"></div><div class="t"><span>${n}</span></div></div>`).join('')}<div class="card" style="width:9rem"><div class="th" style="height:5rem;border-style:dashed;display:grid;place-items:center"><span class="muted">＋ scene</span></div></div></div>`);
+  M(g+lw+g,T,'Tools','<span class="muted">· select · surface · target · grid mm · view</span>');
+  NOTE(g+lw+g,T+3.5*rem,'<b>Copied from OSCT:</b> surfaces on a tabletop in mm, targets on surfaces, scenes in a strip. <b>Play</b> = the simulated tracker (found / lost / tap). Print path for the December posters.',290);
+}
+
+// ─────────────────────────────── FLOWS
+if(w==='flows'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar({tabs:[{i:'⟴',n:'CatPope · S1'},{i:'⟴',n:'Universe'}]});
+  const lw=15*rem, iw=24*rem, gx=g+lw+g, gw=W-gx-g-iw-g;
+  // node graph: chapters → places/items/experiences → deck
+  const N=[
+    ['c1','chapter','C1 Awakening',0,0],['c2','chapter','C2 The choir',0,1],['c3','chapter','C3 Feilchen',0,2],['c4','chapter','C4 Crypt',0,3],
+    ['p1','place','Cathedral',1,0.3],['p2','place','Crypt',1,2.6],['i1','item','Scorpion amulet',1,1.4],['x1','experience','Poster · choir target',1,3.5],
+    ['e1','event','on enter · bells',2,0.3],['e2','event','on found · song',2,3.5],['e3','event','on use · amulet',2,1.4],
+    ['d1','deck','scene:cathedral',3,0.3],['d2','deck','Rotor session · row 3',3,1.6],['d3','deck','module:choir',3,3.2],
+  ];
+  const col={chapter:'#00d1ff',place:'#b36bff',item:'#f0a030',experience:'#ff6b8a',event:'#e6d24a',deck:'#b4ff32'};
+  const nx=c=>gx+30+c*(gw-60)/3.6, ny=r=>T+3.2*rem+r*(H-T-8*rem)/4.4, NW=Math.min(11*rem,(gw-60)/4.4);
+  const E=[['c1','p1'],['c2','i1'],['c3','x1'],['c3','p2'],['c4','p2'],['p1','e1'],['i1','e3'],['x1','e2'],['e1','d1'],['e3','d2'],['e2','d3'],['c1','c2'],['c2','c3'],['c3','c4']];
+  const pos=Object.fromEntries(N.map(n=>[n[0],[nx(n[3]),ny(n[4])]]));
+  add(`<svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1">${E.map(([a,b])=>{const[x1,y1]=pos[a],[x2,y2]=pos[b];const sx=x1+NW,sy=y1+18,ex=x2,ey=y2+18;return a[0]===b[0]?`<path d="M${x1+NW/2},${y1+36} L${x2+NW/2},${y2}" stroke="#4a5242" stroke-width="1.5" fill="none"/>`:`<path d="M${sx},${sy} C${sx+60},${sy} ${ex-60},${ey} ${ex},${ey}" stroke="${col[N.find(n=>n[0]===b)[1]]}" stroke-opacity=".7" stroke-width="2" fill="none"/>`}).join('')}</svg>`);
+  N.forEach(([id,k,n,c,r])=>add(`<div style="position:absolute;z-index:1;left:${pos[id][0]}px;top:${pos[id][1]}px;width:${NW}px;height:36px;border:1px solid ${col[k]};border-left:4px solid ${col[k]};border-radius:var(--r);background:var(--surface);display:flex;align-items:center;gap:.4rem;padding:0 .5rem;font-size:var(--small);white-space:nowrap;overflow:hidden;${id==='i1'?'outline:2px solid var(--accent);outline-offset:2px':''}"><span class="mono" style="font-size:var(--label);color:${col[k]}">${k}</span>${n}</div>`));
+  ['Story','Places · items · experiences','Events','Deck'].forEach((t,i)=>add(`<div class="lbl" style="position:absolute;z-index:1;left:${nx(i)}px;top:${T+1.2*rem}px">${t}</div>`));
+  P(g,T,lw,H-T-g,['Library','Filters'],`<div class="search">⌕ <span>Add to the flow</span></div><div class="chips"><span class="chip on">Chapters</span><span class="chip on">Places</span><span class="chip on">Items</span><span class="chip on">Events</span><span class="chip on">Deck</span><span class="chip">Characters</span></div>${tr(0,'Scorpion amulet',{img:R+'catpope/items/scorpion_amulet.webp',sel:1})}${tr(0,'Record player',{img:R+'scutoons/items/record_player.webp'})}${tr(0,'Crypt',{img:CP+'map/places/crypt.webp'})}<div class="grp lbl">Dead ends · 2</div>${tr(0,'Graveyard',{img:CP+'map/places/graveyard.webp',n:'no way in',nw:1})}`);
+  P(W-g-iw,T,iw,H-T-g,['Inspector','Problems'],`<div class="sheet"><h2>Scorpion amulet</h2><div class="sub">item:scorpion-amulet · in the flow</div><p>Found in <span class="ref">C2 The choir</span>; <span class="v">on use</span> it fires the event that the deck plays in <span class="ref">Rotor session · row 3</span>.</p></div>${LINKS([['chapter','C2 · slice 9','found'],['recipe','Amulet, purple','input']],[ev('on found','carrier bag',''),ev('on use','event:amulet-glow','Rotor · row 3')],[['show','Rotor session','row 3 cell 2']])}`,{solid:true});
+  M(gx,H-g-2.4*rem,'Tools','<span class="muted">· left → right · group · note · fit</span>');
+  NOTE(gx+gw*0.55,H-9*rem,'<b>The link, flow-wise:</b> story → places / items / experiences → events → deck. Same graph component later for rig and show nodes; Problems shows dead ends.',290);
+}
+
+// ─────────────────────────────── GENERATIONS
+if(w==='generations'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar({tabs:[{i:'✶',n:'C3 · shot 7'},{img:ch('catpope','avatar','neutral'),n:'CatPope · dizzy'},{i:'✶',n:'Poster art'}]});
+  const lw=16*rem, iw=24*rem, gx=g+lw+g, gw=W-gx-g-iw-g;
+  P(g,T,lw,H-T-g,['Wanted · 12','Jobs'],`${[['CatPope · dizzy','character mood',ch('catpope','portrait','dizzy')],['Mountain tiger · 18 moods','character look',''],['Crypt · place image','map place',CP+'map/places/crypt-plaster.webp'],['Poster art · Feilchen','experience','' ],['C3 · shot 7','storyboard',CP+'s1/c1/s1c1-key-visual.webp'],['Cover S2','season cover','']].map(([n,k,s],i)=>`<div class="tr ${i===4?'sel':''}" style="height:2.6rem"><span class="c"></span>${s?`<img src="${s}" style="border-radius:.3rem">`:`<span class="sw" style="border:1px dashed var(--warn);background:none;border-radius:.3rem"></span>`}<span style="line-height:1.15">${n}<br><span class="muted mono" style="font-size:var(--label)">${k}</span></span></div>`).join('')}<div class="grp lbl">Running · 3</div>${tr(0,'luma · shot 7 · v4',{n:'62 %'})}${tr(0,'gemini · dizzy · v2',{n:'queued'})}`);
+  // bands with lineage
+  const cw=11*rem, chh=6.6*rem;
+  const cols=[[['take','render'],['take','handheld']],[['v1','✓'],['v2','?']],[['v3','✓'],['v4','62 %'],['v5','✕']],[['v6','?']]];
+  let bx0=gx+.8*rem, by0=T+3*rem;
+  add(`<div class="lbl" style="position:absolute;z-index:1;left:${bx0}px;top:${T+1.2*rem}px">Shot 7 · sources → generations</div>`);
+  const cells=[];
+  cols.forEach((c,ci)=>c.forEach((v,ri)=>{const x=bx0+ci*(cw+2.2*rem), y=by0+ri*(chh+1.6*rem);cells.push([x,y,ci,ri,v])}));
+  add(`<svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1">${[[0,0,1,0],[0,1,1,1],[1,0,2,0],[1,0,2,1],[1,1,2,2],[2,0,3,0]].map(([a,b,c,d])=>{const p=cells.find(q=>q[2]===a&&q[3]===b),q=cells.find(q=>q[2]===c&&q[3]===d);return `<path d="M${p[0]+cw},${p[1]+chh/2} C${p[0]+cw+30},${p[1]+chh/2} ${q[0]-30},${q[1]+chh/2} ${q[0]},${q[1]+chh/2}" stroke="#5a6450" stroke-width="1.5" fill="none"/>`}).join('')}</svg>`);
+  cells.forEach(([x,y,ci,ri,[n,s]])=>add(`<div style="position:absolute;z-index:1;left:${x}px;top:${y}px;width:${cw}px"><div style="height:${chh}px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);${(ci===2&&ri===0)||(ci===1&&ri===0)?'outline:2px solid var(--accent);outline-offset:1px':''};${s==='✕'?'opacity:.35':''}"><img src="${CP}s1/c1/s1c1-key-visual.webp" style="width:100%;height:100%;object-fit:cover;object-position:${30+ci*12}% ${40+ri*9}%;filter:${ci===0?'grayscale(1) contrast(1.4)':'none'}"></div><div style="display:flex;justify-content:space-between;font-size:var(--small);padding-top:.15rem"><span class="muted">${n}</span><span class="${s==='✓'?'ok':s==='?'?'warn':''}">${s}</span></div></div>`));
+  add(`<div style="position:absolute;z-index:1;left:${bx0}px;top:${by0+3*(chh+1.6*rem)+.5*rem}px;display:flex;gap:.4rem"><span class="chip on">A · v1</span><span class="chip on">B · v3</span><span class="chip">Compare 2 ▸</span><span class="chip">Show rejected</span></div>`);
+  P(W-g-iw,T,iw,H-T-g,['Generate','Compare','Inspector'],`${sec(true,'Subject','storyboard:catpope:3 · shot 7',`<div class="slot full"><img src="${CP}s1/c1/s1c1-key-visual.webp"><span>start frame · v3 ✓<br><span class="muted">+ CatPope · thinking (reference)</span></span></div>`)}${sec(true,'Prompt','luma video',`<div class="fd" style="height:auto;white-space:normal;padding:.4rem .6rem;line-height:1.4">CatPope looks up, slow push in, hard light left, the nave dark behind.</div>${prop('Generator','luma · ray 2 · 5 s')}${prop('Estimate','<div class="fd">€ 0.42 · budget € 18.20 left</div>')}<div style="display:flex;justify-content:flex-end"><span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">Generate · € 0.42</span></div>`)}${sec(true,'Approve v3','→ Library',`<div class="ev">✓ approved v3 <span class="ar">→</span><span class="to">Library · storyboard / shot 7</span></div><div class="ev">use as <span class="to">slice 4 image</span> · <span class="to">CatPope · thinking</span></div>`)}`,{solid:true});
+  NOTE(gx+gw*0.45,H-8.5*rem,'<b>Generations for any subject</b> (a shot, a mood, a place, a poster): <b>Wanted</b> is the inbox, lineage left → right, approved results land in the <b>Library</b> with their history.',300);
+}
+document.body.insertAdjacentHTML('beforeend',out);
+</script>
+</body>
+</html>
