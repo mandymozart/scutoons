@@ -18,6 +18,8 @@ const DESCRIBED: usize = 12;
 pub trait Remote: Send + Sync + 'static {
     fn versions(&self, r: &Route) -> Result<Vec<Version>, String>;
     fn doc(&self, r: &Route, id: u64) -> Result<Value, String>;
+    /// the signed-in member as a version's author names them
+    fn me(&self) -> Result<String, String>;
     fn revert(&self, r: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal>;
     fn revert_to(&self, r: &Route, version: u64, base: u64) -> Result<u64, Refusal>;
 }
@@ -28,6 +30,9 @@ impl Remote for Api {
     }
     fn doc(&self, r: &Route, id: u64) -> Result<Value, String> {
         self.version_doc(r, id)
+    }
+    fn me(&self) -> Result<String, String> {
+        Api::me(self)
     }
     fn revert(&self, r: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal> {
         Api::revert(self, r, version, content, base)
@@ -62,11 +67,6 @@ fn saved(versions: &[Version]) -> Vec<Saved> {
 /// a step of this session's own: one of its versions was stored by this editor
 fn own(versions: &[Version], s: &Step) -> bool {
     versions.iter().any(|v| (s.first..=s.last).contains(&(v.id as i64)) && autosave::mine(v.id))
-}
-
-/// who this editor saves as: the author of a version it stored ("" before it stored one)
-fn me(versions: &[Version]) -> String {
-    versions.iter().find(|v| autosave::mine(v.id)).and_then(|v| v.author.clone()).unwrap_or_default()
 }
 
 /// one step as the panel shows it
@@ -124,7 +124,7 @@ pub struct Plan {
     pub back: Option<BackTo>,
     /// what it changes on the document
     pub described: Description,
-    /// this editor stored a version of the document, so it knows whose saves are others' (a back-to's names)
+    /// the signed-in member is known (`GET /me`), so others' saves can be told from their own (a back-to's names)
     pub knows_me: bool,
 }
 
@@ -143,7 +143,8 @@ fn plan_revert(remote: &dyn Remote, docs: &Docs, r: &Route, ask: Ask, (before, a
 
 fn plan_back(remote: &dyn Remote, docs: &Docs, r: &Route, point: u64, base: u64) -> Result<Plan, String> {
     let versions = remote.versions(r)?;
-    let me = me(&versions);
+    // not signed in or no answer: whose saves are whose is not known, the prompt says so
+    let me = remote.me().unwrap_or_default();
     let back = core::back_to(&saved(&versions), point as i64, &me);
     let described = core::describe(&docs.get(remote, r, base)?, &docs.get(remote, r, point)?);
     Ok(Plan { ask: Ask::BackTo, route: r.clone(), version: point, base, revert: None, back: Some(back), described, knows_me: !me.is_empty() })
@@ -438,6 +439,9 @@ pub mod tests {
             let v = self.versions.lock().unwrap();
             Ok(v.iter().rev().map(|(id, who, ms, message, _)| Version { id: *id, author: Some(who.clone()), at_ms: *ms, message: message.clone(), published: false }).collect())
         }
+        fn me(&self) -> Result<String, String> {
+            Ok("me@test".into())
+        }
         fn doc(&self, _: &Route, id: u64) -> Result<Value, String> {
             self.versions.lock().unwrap().iter().find(|v| v.0 == id).map(|v| v.4.clone()).ok_or_else(|| "unknown version".into())
         }
@@ -586,6 +590,19 @@ pub mod tests {
         let done = h.settle();
         assert!(matches!(&done[..], [Done::Say(w, true)] if w.contains("newer")), "a stale base is refused: {done:?}");
         let _ = c;
+    }
+
+    #[test]
+    fn the_signed_in_member_is_known_before_this_editor_saved() {
+        let s = Store::starting(60_000);
+        let a = s.save("me@test", 0, json!({"gain": 1}), false);
+        let b = s.save("nun@test", 600_000, json!({"gain": 2}), false);
+        let mut h = History::new(s.clone());
+        h.ask_back(&rig(), a, b);
+        h.settle();
+        let p = h.asking.clone().expect("asked");
+        assert!(p.knows_me, "the member comes from the API, not from this editor's saves");
+        assert_eq!(p.back, Some(BackTo { later: 1, others: vec!["nun@test".into()] }));
     }
 
     #[test]

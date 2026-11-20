@@ -163,7 +163,7 @@ pub fn prompt(p: &Plan) -> Prompt {
         match (b.others.is_empty(), p.knows_me) {
             (true, _) => {}
             (false, true) => lines.push((format!("saved since by others: {}", b.others.join(", ")), Tone::Warn)),
-            // this editor stored nothing of it yet: whose saves are its own is not known
+            // the member could not be asked: whose saves are theirs is not known
             (false, false) => lines.push((format!("saved since by: {}", b.others.join(", ")), Tone::Plain)),
         }
     }
