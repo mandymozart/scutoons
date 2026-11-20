@@ -8,7 +8,7 @@ use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
-use deck_catalog::library::shelf::{Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, View};
+use deck_catalog::library::shelf::{select, Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, View};
 use std::collections::HashMap;
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
@@ -65,6 +65,8 @@ pub enum Hit {
     Fold(usize),
     /// a place, or back to all of the scope
     Place(Place),
+    /// the selection's cross: none chosen
+    Unselect,
     /// the next grouping: by use, by kind, none
     Grouping,
     /// the next order: name, newest, biggest, most used
@@ -148,6 +150,13 @@ pub struct Browser {
     pub grouping: Grouping,
     pub sort: Sort,
     pub place: Option<Place>,
+    /// the cards chosen (by address) and the one a Shift run starts from
+    pub chosen: Vec<String>,
+    anchor: Option<String>,
+    /// Shift and Ctrl / ⌘ as the owner saw them at the press
+    pub keys: (bool, bool),
+    /// the cards drawn, in their order: entry and address (a Shift run's order)
+    order: Vec<(usize, String)>,
     /// the groups the viewer folded or opened, by key (a search opens them all)
     pub folds: HashMap<String, bool>,
     /// the groups drawn: key and whether folded (a heading's press)
@@ -158,7 +167,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, place: None, folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, place: None, chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -228,6 +237,10 @@ impl Browser {
                 self.scope = scope;
                 Did::Taken
             }
+            Hit::Unselect => {
+                (self.chosen, self.anchor) = (Vec::new(), None);
+                Did::Taken
+            }
             Hit::Place(p) => {
                 self.place = if self.place == Some(p) { None } else { Some(p) };
                 Did::Taken
@@ -256,6 +269,15 @@ impl Browser {
                 Did::Taken
             }
             Hit::Card(i) => {
+                let (shift, toggle) = self.keys;
+                if let Some(id) = self.order.iter().find(|(j, _)| *j == i).map(|(_, a)| a.clone()) {
+                    let order: Vec<String> = self.order.iter().map(|(_, a)| a.clone()).collect();
+                    (self.chosen, self.anchor) = select(&self.chosen, self.anchor.as_deref(), &id, &order, shift, toggle);
+                }
+                if shift || toggle {
+                    self.last = None;
+                    return Some(Did::Taken);
+                }
                 if self.last.is_some_and(|(j, t)| j == i && now - t <= OPEN) {
                     self.last = None;
                     return Some(Did::Open(i));
@@ -340,6 +362,15 @@ impl Browser {
             }
             y += used + 6.0;
         }
+        if self.chosen.len() > 1 {
+            let h = small * 1.4 + 6.0;
+            let text = format!("{} selected", self.chosen.len());
+            d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &text, t.color.text);
+            let x = controls::icon_button(d, t, Rect { x: a.x + d.sans_width(small, &text) + 6.0, y, w: h, h }, "close", t.color.muted, pointer);
+            self.hits.push((x, Hit::Unselect));
+            y += h + 4.0;
+        }
+        self.order.clear();
         if plain.is_empty() && groups.is_empty() {
             let why = if entries.is_empty() { "nothing here yet" } else { "nothing found" };
             d.sans(a.x, y + 4.0, small, why, t.color.muted);
@@ -461,7 +492,8 @@ impl Browser {
                 for (n, &i) in list.iter().enumerate() {
                     let e = &entries[i];
                     let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * (ch + gap), w: cw, h: ch };
-                    let lit = held == Some(i);
+                    let lit = held == Some(i) || self.chosen.contains(&e.address);
+                    self.order.push((i, e.address.clone()));
                     sheets(d, t, r, src.stack(e));
                     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.surface_head });
                     preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
@@ -477,7 +509,8 @@ impl Browser {
                 for (n, &i) in list.iter().enumerate() {
                     let e = &entries[i];
                     let r = Rect { x: a.x, y: y + n as f32 * h, w: a.w, h };
-                    if held == Some(i) {
+                    self.order.push((i, e.address.clone()));
+                    if held == Some(i) || self.chosen.contains(&e.address) {
                         d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
                     } else if r.has(pointer.0, pointer.1) {
                         d.rect(r.x, r.y, r.w, r.h, t.color.hover);
@@ -798,5 +831,33 @@ mod tests {
         b.press(x, y, 3.0);
         draw_src(&mut b, &src);
         assert_eq!((b.place, names(&b).len()), (None, 3), "the same place again: all of the scope");
+    }
+
+    #[test]
+    fn ctrl_adds_a_card_to_the_selection_and_shift_the_run_in_the_order_shown() {
+        let e = list();
+        let mut b = Browser::default();
+        drawn(&mut b, &e, &|_| None);
+        let press = |b: &mut Browser, i: usize, keys: (bool, bool), now: f64| {
+            let (x, y) = at(b, Hit::Card(i));
+            b.keys = keys;
+            let did = b.press(x, y, now);
+            b.release(x, y);
+            did
+        };
+        press(&mut b, 0, (false, false), 0.0);
+        assert_eq!(b.chosen, ["module:walk"], "a plain click: that one");
+        assert_eq!(press(&mut b, 2, (false, true), 10.0), Some(Did::Taken), "Ctrl: added, nothing held or opened");
+        assert_eq!(b.chosen, ["module:walk", "instrument:keys"]);
+        press(&mut b, 2, (false, true), 20.0);
+        assert_eq!(b.chosen, ["module:walk"], "Ctrl again: taken out");
+        press(&mut b, 3, (true, false), 30.0);
+        assert_eq!(b.chosen, ["module:walk", "instrument:keys", "scene:nave"], "Shift: the run from the anchor (the last Ctrl press) in the order shown");
+        let d = drawn(&mut b, &e, &|_| None);
+        assert!(d.texts().iter().any(|s| *s == "3 selected"));
+        let (x, y) = at(&b, Hit::Unselect);
+        b.keys = (false, false);
+        b.press(x, y, 40.0);
+        assert!(b.chosen.is_empty(), "the cross clears it");
     }
 }
