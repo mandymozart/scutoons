@@ -85,6 +85,17 @@ pub const RECENT_DAYS: f64 = 7.0;
 /// A square slot takes a picture whose sides differ by at most this share.
 pub const SQUARE_TOLERANCE: f64 = 0.02;
 
+impl Misfit {
+    /// why it does not fit, in words (the sentence a refused drop shows)
+    pub fn sentence(&self) -> String {
+        if self.square {
+            return "a square picture fits here: this one is not square".into();
+        }
+        let wants: Vec<&str> = self.wants.iter().map(|k| k.word()).collect();
+        format!("{} fit here, not {}", wants.join(" or "), self.got.word())
+    }
+}
+
 impl Fit {
     /// whether `f` fits, else what is wrong (unknown sizes fit a square slot)
     pub fn takes(&self, f: &Family) -> Result<(), Misfit> {
@@ -126,6 +137,8 @@ pub struct Query {
     pub single: bool,
     /// now, in ms since 1970 (for "recently added")
     pub now_ms: f64,
+    /// the kinds the workspace lists at all (none = every kind): the rest are not counted anywhere
+    pub within: Vec<Kind>,
 }
 
 /// the open item and what it uses
@@ -315,6 +328,8 @@ pub struct Shelf {
     /// per family index (stacked), the uses that name one of its files
     uses_of: Vec<Vec<usize>>,
     uses_of_single: Vec<Vec<usize>>,
+    /// a family's key and every version's path → its index (stacked)
+    by_path: BTreeMap<String, usize>,
 }
 
 fn index(families: &[Family], uses: &[Use]) -> Vec<Vec<usize>> {
@@ -336,7 +351,14 @@ fn index(families: &[Family], uses: &[Use]) -> Vec<Vec<usize>> {
 impl Shelf {
     pub fn new(families: Vec<Family>) -> Shelf {
         let singles = family::singles(&families);
-        let mut s = Shelf { families, singles, ..Shelf::default() };
+        let mut by_path = BTreeMap::new();
+        for (i, f) in families.iter().enumerate() {
+            by_path.insert(f.key.clone(), i);
+            for v in &f.versions {
+                by_path.insert(v.path.clone(), i);
+            }
+        }
+        let mut s = Shelf { families, singles, by_path, ..Shelf::default() };
         s.set_context(Context::default());
         s
     }
@@ -362,7 +384,7 @@ impl Shelf {
 
     /// the family a file (any version's path) or a key belongs to
     pub fn family_of(&self, path: &str) -> Option<&Family> {
-        self.families.iter().find(|f| f.key == path || f.versions.iter().any(|v| v.path == path)).or_else(|| self.singles.iter().find(|f| f.key == path))
+        self.by_path.get(path).map(|&i| &self.families[i]).or_else(|| self.singles.iter().find(|f| f.key == path))
     }
 
     /// Where a new file lands without a slot of its own: the open item's folder (a chapter's is where its files already
@@ -477,11 +499,11 @@ impl Shelf {
     pub fn view(&self, q: &Query) -> View {
         let list = self.families(q.single);
         let idx = if q.single { &self.uses_of_single } else { &self.uses_of };
-        let all: Vec<usize> = (0..list.len()).collect();
+        let all: Vec<usize> = (0..list.len()).filter(|&i| q.within.is_empty() || q.within.contains(&list[i].kind)).collect();
         let scopes = ScopeCounts {
             context: all.iter().filter(|&&i| self.in_context(&list[i], &idx[i])).count(),
             toon: all.iter().filter(|&&i| self.in_toon(&list[i], &idx[i])).count(),
-            all: list.len(),
+            all: all.len(),
             unused: all.iter().filter(|&&i| Self::unused(&list[i], &idx[i])).count(),
         };
         let scoped: Vec<usize> = all.iter().copied().filter(|&i| self.in_scope(q.scope, &list[i], &idx[i])).collect();
@@ -490,7 +512,7 @@ impl Shelf {
         let searched: Vec<usize> = scoped.iter().copied().filter(|&i| Self::matches(&list[i], &q.query) && fits(i) && related(i)).collect();
         let specials = Specials {
             recent: searched.iter().filter(|&&i| Self::recent(&list[i], q.now_ms)).count(),
-            credits: list.iter().any(|f| f.credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
+            credits: all.iter().any(|&i| list[i].credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
             missing: searched.iter().filter(|&&i| !list[i].missing.is_empty()).count(),
             items: {
                 let mut counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -663,7 +685,7 @@ pub fn fit_of(v: &Value) -> Option<Fit> {
 }
 
 /// a view's query as JSON: `{ scope, grouping, sort, query, kind, special: "recent" | "credits" | "item:<address>",
-/// origin, fit, related, single, now }`
+/// origin, fit, related, single, now, within }`
 pub fn query_of(v: &Value) -> Query {
     let s = |k: &str| v[k].as_str().unwrap_or("");
     Query {
@@ -697,6 +719,7 @@ pub fn query_of(v: &Value) -> Query {
         related: v["related"].as_str().filter(|r| !r.is_empty()).map(str::to_string),
         single: v["single"] == Value::Bool(true),
         now_ms: v["now"].as_f64().unwrap_or(0.0),
+        within: kinds_of(&v["within"]),
     }
 }
 

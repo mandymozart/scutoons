@@ -70,6 +70,11 @@ impl Kind {
         }
     }
 
+    /// a toon's file (what the shelf's families hold), not a catalog thing
+    pub fn is_file(self) -> bool {
+        matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::File)
+    }
+
     pub fn of_id(id: &str) -> Option<Kind> {
         Kind::ALL.into_iter().find(|k| k.id() == id)
     }
@@ -182,6 +187,22 @@ impl Purpose {
         } else {
             Err(format!("{} cannot be dropped {here}", kind.word()))
         }
+    }
+}
+
+impl Purpose {
+    /// what a toon's file dropped here must be (none: files are only opened here)
+    pub fn fit(self) -> Option<shelf::Fit> {
+        match self {
+            Purpose::Scene => Some(shelf::Fit { kinds: vec![Kind::Image], square: false }),
+            Purpose::Build | Purpose::Show | Purpose::Module => None,
+        }
+    }
+
+    /// whether a family dropped here lands: its kind by `takes`, then the slot's fit, else the sentence why not
+    pub fn takes_family(self, f: &family::Family) -> Result<(), String> {
+        self.takes(f.kind)?;
+        self.fit().map_or(Ok(()), |fit| fit.takes(f).map_err(|m| m.sentence()))
     }
 }
 

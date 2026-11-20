@@ -417,11 +417,21 @@ pub fn frames(families: &[Family], links: &[(String, String)]) -> Vec<Frame> {
 impl Family {
     /// the family as the deck's library entry (its browser lists it like any asset)
     pub fn entry(&self) -> Entry {
+        self.entry_on("")
+    }
+
+    /// the entry with its picture served from `cdn` (the assets' answer's base; empty = the paths as they are)
+    pub fn entry_on(&self, cdn: &str) -> Entry {
         let detail = match (self.duration, self.width, self.height) {
             (Some(s), _, _) => format!("{s:.1} s"),
             (_, Some(w), Some(h)) => format!("{w} × {h}"),
             _ => self.folder.clone(),
         };
-        Entry { address: self.main.clone(), label: self.title.clone(), detail, kind: self.kind, preview: self.preview.clone(), made_for: self.made_for.clone() }
+        let cdn = cdn.trim_end_matches('/');
+        let preview = match &self.preview {
+            Preview::Picture { url } if !cdn.is_empty() => Preview::Picture { url: format!("{cdn}/{}", url.trim_start_matches('/')) },
+            p => p.clone(),
+        };
+        Entry { address: self.main.clone(), label: self.title.clone(), detail, kind: self.kind, preview, made_for: self.made_for.clone() }
     }
 }

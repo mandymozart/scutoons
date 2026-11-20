@@ -1636,6 +1636,7 @@ impl App {
         if self.workspace == show::Workspace::Show && self.show.nodes.space && self.show.nodes_grab(x, y) {
             return;
         }
+        self.library.browser.keys = (self.mods.shift_key(), self.mods.control_key() || self.mods.super_key());
         match self.library.browser.press(x, y, library::now()) {
             Some(did) => return self.library_did(did),
             None => self.library.browser.stop_typing(),

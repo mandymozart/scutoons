@@ -339,3 +339,43 @@ fn the_wire_takes_and_gives_json() {
     assert!(Shelf::from_json("{}").is_err());
     assert_eq!(family::kind_of_asset("archive"), Kind::File);
 }
+
+#[test]
+fn a_family_entry_is_served_from_the_cdn_and_found_by_any_version() {
+    let shelf = Shelf::new(fam());
+    let f = shelf.family_of("catpope/s1/c1/s1c1-slice-2.3x.webp").expect("by a version's path");
+    assert_eq!((f.name.as_str(), f.versions.len()), ("s1c1-slice-2", 3));
+    assert_eq!(shelf.family_of("catpope/s1/c1/s1c1-slice-2").map(|f| f.versions.len()), Some(3), "by its key");
+    let e = f.entry_on("https://cdn.example/");
+    assert_eq!(e.preview, Preview::Picture { url: "https://cdn.example/catpope/s1/c1/s1c1-slice-2.webp".into() });
+    assert_eq!(f.entry().preview, Preview::Picture { url: "catpope/s1/c1/s1c1-slice-2.webp".into() }, "no cdn: the path");
+    assert!(Kind::Image.is_file() && !Kind::Module.is_file());
+}
+
+#[test]
+fn a_misfit_says_why_beside_the_purposes_sentence() {
+    use super::Purpose;
+    let f = fam();
+    let avatar = by_name(&f, "catpope_avatar-angry");
+    let bells = by_name(&f, "s1c1-bells");
+    assert_eq!(Purpose::Scene.takes_family(avatar), Ok(()));
+    assert_eq!(Purpose::Scene.takes_family(bells), Err("audio cannot be dropped on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules".into()), "the purpose's sentence first");
+    let wide = Fit { kinds: vec![Kind::Image], square: true };
+    let slice = by_name(&f, "s1c1-slice-10");
+    assert_eq!(wide.takes(slice).unwrap_err().sentence(), "a square picture fits here: this one is not square");
+    assert_eq!(Fit { kinds: vec![Kind::Video, Kind::Image], square: false }.takes(bells).unwrap_err().sentence(), "video or images fit here, not audio");
+    assert!(Purpose::Build.takes_family(avatar).is_err() && Purpose::Build.fit().is_none(), "a rig's tracks take no file");
+}
+
+#[test]
+fn a_workspace_counts_only_the_kinds_it_lists() {
+    let s = chapter_one();
+    let every = s.view(&q(Scope::All));
+    let pictures = s.view(&Query { within: vec![Kind::Image], ..q(Scope::All) });
+    assert!(every.order.iter().any(|k| k.ends_with("s1c1-bells")));
+    assert!(!pictures.order.iter().any(|k| k.ends_with("s1c1-bells")), "no audio in a pictures' workspace");
+    assert_eq!(pictures.scopes.all, s.families(false).iter().filter(|f| f.kind == Kind::Image).count(), "the rest is not counted either");
+    assert_eq!(pictures.scopes.context, every.scopes.context);
+    assert!(pictures.groups[0].pinned && pictures.groups.iter().skip(1).all(|g| g.folded), "All: the open item pinned, the rest folded");
+    assert_eq!(shelf::query_of(&json!({ "within": ["image"] })).within, [Kind::Image]);
+}

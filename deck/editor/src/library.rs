@@ -3,10 +3,11 @@
 //! played, kept in the cache by key, and an asset's picture fetched once – and the card's way out: dropped where the
 //! workspace takes it (Build's stage: a track; Show's cell: its piece), opened in its editor view on a second press.
 use crate::show::api::Api;
+use deck_catalog::library::shelf::{Context, Shelf, Use};
 use deck_catalog::library::{self, Entry, Kind, Preview, Purpose};
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::library::{Browser, Did};
+use deck_kit::editor::library::{Browser, Did, Source};
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -157,9 +158,10 @@ impl Pictures {
     }
 }
 
-/// the toon's assets, asked once signed in
+/// the toon's assets, asked once signed in: their families (deck-catalog `library::shelf`) and one entry per family
 #[derive(Default)]
 struct Assets {
+    shelf: Option<Shelf>,
     list: Vec<Entry>,
     /// where their paths are served from (the answer's `cdn`)
     cdn: String,
@@ -167,12 +169,43 @@ struct Assets {
     asked: bool,
 }
 
-/// the assets and their CDN base
-type Answer = (Vec<Entry>, String);
+/// the assets' families and their CDN base
+type Answer = (Shelf, String);
 
 /// the assets' answer's CDN base
 fn cdn_of(text: &str) -> String {
     serde_json::from_str::<serde_json::Value>(text).ok().and_then(|v| v["cdn"].as_str().map(str::to_string)).unwrap_or_default()
+}
+
+/// `GET /api/assets`' answer as the shelf's families and their CDN base
+fn answer(text: &str) -> Result<Answer, String> {
+    Ok((Shelf::from_json(text)?, cdn_of(text)))
+}
+
+impl Assets {
+    fn take(&mut self, (mut shelf, cdn): Answer, context: &Context) {
+        shelf.set_context(context.clone());
+        self.list = shelf.families(false).iter().map(|f| f.entry_on(&cdn)).collect();
+        (self.shelf, self.cdn) = (Some(shelf), cdn);
+    }
+}
+
+/// A scene's context: what its stage shows (the background's and the layers' media) is used by it.
+pub fn scene_context(id: &str, toons: &[String], media: Vec<String>, toon: Option<&str>) -> Context {
+    let open = format!("scene:{id}");
+    let uses = media.into_iter().map(|path| Use { path, item: open.clone(), part: "stage".into(), at: String::new() }).collect();
+    Context { toon: toons.first().cloned().or_else(|| toon.map(str::to_string)), open: Some(open), uses, ..Context::default() }
+}
+
+/// A character rig's context: no use index for a rig, its files are the ones in its character's folder.
+pub fn rig_context(character: &str, toon: Option<&str>) -> Context {
+    let id = character.strip_prefix("character:").unwrap_or(character).split('.').next().unwrap_or(character);
+    Context { open: Some(format!("character:{id}")), toon: toon.map(str::to_string), by_home: true, ..Context::default() }
+}
+
+/// now in ms since 1970: the shelf's "recently added"
+pub fn now_ms() -> f64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64() * 1000.0)
 }
 
 /// the library panel's state, one for the editor
@@ -187,11 +220,15 @@ pub struct Library {
     playing: Option<(String, u64)>,
     /// the rig the "related" filter last turned itself on for (an empty character rig: its modules first)
     related_for: Option<String>,
+    /// the open item and what it uses, handed to the shelf
+    context: Context,
+    /// counts the shelf's and its context's changes (the browser asks its view again)
+    stamp: u64,
 }
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None }
+        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None, context: Context::default(), stamp: 0 }
     }
 
     /// the workspace's entries this frame, only the kinds its purpose loads
@@ -214,7 +251,7 @@ impl Library {
         let (tx, rx) = channel();
         let api = Api::new(base.to_string());
         std::thread::spawn(move || {
-            let _ = tx.send(api.assets().and_then(|t| Ok((library::assets(&t)?, cdn_of(&t)))));
+            let _ = tx.send(api.assets().and_then(|t| answer(&t)));
         });
         self.assets.rx = Some(rx);
     }
@@ -224,8 +261,11 @@ impl Library {
     pub fn answers(&mut self, dir: &std::path::Path) -> Option<Vec<crate::module::Entry>> {
         if let Ok(text) = std::fs::read_to_string(dir.join("assets.json")) {
             self.assets.asked = true;
-            match library::assets(&text) {
-                Ok(list) => (self.assets.list, self.assets.cdn) = (list, cdn_of(&text)),
+            match answer(&text) {
+                Ok(a) => {
+                    self.assets.take(a, &self.context);
+                    self.stamp += 1;
+                }
                 Err(e) => tracing::warn!("--catalog assets: {e}"),
             }
         }
@@ -246,7 +286,10 @@ impl Library {
         self.pictures.poll();
         if let Some(Ok(r)) = self.assets.rx.as_ref().map(Receiver::try_recv) {
             match r {
-                Ok((list, cdn)) => (self.assets.list, self.assets.cdn) = (list, cdn),
+                Ok(a) => {
+                    self.assets.take(a, &self.context);
+                    self.stamp += 1;
+                }
                 Err(e) => tracing::info!("the library's assets: {e}"),
             }
             self.assets.rx = None;
@@ -273,7 +316,8 @@ impl Library {
     /// the panel's content in `a`; `action` = the workspace's one button
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, a: Rect, pointer: (f32, f32), action: Option<&str>) {
         let pictures = &self.pictures;
-        self.browser.draw(d, t, (a, pointer), &self.entries, &|p| pictures.get(p), action);
+        let src = Source { entries: &self.entries, shelf: self.assets.shelf.as_ref(), stamp: self.stamp, now_ms: now_ms() };
+        self.browser.draw(d, t, (a, pointer), &src, &|p| pictures.get(p), action);
     }
 
     /// An empty character rig turns "related" on once, with the modules: what is made for it first (owner 2026-11-16
@@ -289,9 +333,34 @@ impl Library {
         }
     }
 
-    /// the entry dragged now, if this workspace takes its kind
+    /// the open item and what it uses: the shelf takes it when it changed
+    pub fn set_context(&mut self, context: Context) {
+        if context == self.context {
+            return;
+        }
+        if let Some(s) = self.assets.shelf.as_mut() {
+            s.set_context(context.clone());
+        }
+        self.context = context;
+        self.stamp += 1;
+    }
+
+    /// the family of a file's entry
+    pub fn family(&self, e: &Entry) -> Option<&deck_catalog::library::family::Family> {
+        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address))
+    }
+
+    /// whether this workspace takes `e`: a file by its family (its kind, then the fit), anything else by its kind
+    pub fn takes(&self, e: &Entry) -> Result<(), String> {
+        match self.family(e) {
+            Some(f) => self.purpose.takes_family(f),
+            None => self.purpose.takes(e.kind),
+        }
+    }
+
+    /// the entry dragged now, if this workspace takes it
     pub fn carrying(&self) -> Option<&Entry> {
-        self.browser.dragging().and_then(|i| self.entries.get(i)).filter(|e| self.purpose.takes(e.kind).is_ok())
+        self.browser.dragging().and_then(|i| self.entries.get(i)).filter(|e| self.takes(e).is_ok())
     }
 }
 
@@ -391,6 +460,13 @@ impl crate::App {
         self.library.set(purpose, entries);
         let rig = (self.scene.is_none()).then(|| self.stage.bundle.rig.subject.clone());
         let character = rig.as_deref().and_then(crate::toon::character).map(String::from);
+        let toon = self.book.book.as_deref().map(|b| b.toon().to_string()).filter(|t| !t.is_empty());
+        let context = match purpose {
+            Purpose::Scene => self.scene.as_ref().map(|v| scene_context(&v.edit.doc.id, &v.edit.doc.toons, v.edit.doc.stage.media(), toon.as_deref())),
+            Purpose::Build => character.as_deref().map(|c| rig_context(c, toon.as_deref())),
+            Purpose::Show | Purpose::Module => None,
+        };
+        self.library.set_context(context.unwrap_or(Context { toon, ..Context::default() }));
         self.library.browser.character = if purpose == Purpose::Build { character.clone() } else { None };
         if let (Purpose::Build, Some(subject)) = (purpose, rig.as_deref()) {
             self.library.follow_rig(subject, character.as_deref(), crate::empty::is_empty(&self.stage.bundle));
@@ -455,7 +531,7 @@ impl crate::App {
         if self.library.browser.hit(at.0, at.1).is_some() {
             return;
         }
-        if let Err(why) = self.library.purpose.takes(e.kind) {
+        if let Err(why) = self.library.takes(&e) {
             self.refuse(why, at.0, at.1);
             return;
         }
@@ -587,6 +663,43 @@ mod tests {
         assert_eq!(lib.browser.shown(&lib.entries).len(), 3, "the viewer's choice stays for the same rig");
         lib.follow_rig("character.catpope", Some("catpope"), false);
         assert_eq!(lib.browser.filter.related, None, "a rig with tracks: as the viewer set it");
+    }
+
+    #[test]
+    fn the_assets_answer_is_one_entry_per_family_on_the_cdn() {
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-families-{}", std::process::id())));
+        let text = serde_json::json!({ "cdn": "https://cdn.example", "items": [
+            { "id": "a1", "kind": "image", "renditions": [{ "path": "cat/s1/c1/hills.webp" }, { "path": "cat/s1/c1/hills.2x.webp" }, { "path": "cat/s1/c1/hills.3x.webp" }] },
+            { "id": "a2", "kind": "audio", "path": "cat/bells.128.mp3" },
+        ] })
+        .to_string();
+        lib.assets.take(answer(&text).unwrap(), &Context::default());
+        let list = lib.assets();
+        assert_eq!(list.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["cat/bells.128.mp3", "cat/s1/c1/hills.webp"], "three files of hills are one entry");
+        assert_eq!(list[1].preview, Preview::Picture { url: "https://cdn.example/cat/s1/c1/hills.webp".into() });
+        lib.set(Purpose::Scene, of_scene(&[], None, list));
+        assert!(lib.entries.iter().any(|e| e.address == "cat/s1/c1/hills.webp") && !lib.entries.iter().any(|e| e.kind == Kind::Audio), "a scene takes the pictures");
+        let files = lib.assets();
+        assert_eq!(lib.takes(&files[1]), Ok(()), "a picture fits a scene's layer");
+        assert!(lib.takes(&files[0]).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
+    }
+
+    #[test]
+    fn a_scene_hands_its_stage_media_and_a_rig_its_characters_folder_to_the_shelf() {
+        let c = scene_context("nave", &[], vec!["cat/s1/c2/sky.webp".into()], Some("cat"));
+        assert_eq!((c.open.as_deref(), c.toon.as_deref(), c.uses.len(), c.uses[0].item.as_str()), (Some("scene:nave"), Some("cat"), 1, "scene:nave"));
+        assert_eq!(scene_context("nave", &["dog".into()], Vec::new(), Some("cat")).toon.as_deref(), Some("dog"), "the scene's own toon first");
+        let r = rig_context("yellowmouse.kid", None);
+        assert_eq!((r.open.as_deref(), r.by_home), (Some("character:yellowmouse"), true));
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-context-{}", std::process::id())));
+        let text = serde_json::json!({ "items": [{ "id": "a1", "kind": "image", "path": "cat/s1/c2/sky.webp" }] }).to_string();
+        lib.set_context(c.clone());
+        let before = lib.stamp;
+        lib.set_context(c);
+        assert_eq!(lib.stamp, before, "the same context: the view stays");
+        lib.assets.take(answer(&text).unwrap(), &lib.context.clone());
+        let shelf = lib.assets.shelf.as_ref().unwrap();
+        assert_eq!(shelf.view(&deck_catalog::library::shelf::Query::default()).order, ["cat/s1/c2/sky"], "in use by the scene");
     }
 
     #[test]
