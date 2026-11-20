@@ -1,4 +1,4 @@
-Status 2026-11-20: concept for the owner's review (#703, epic #626), nothing built and nothing to build until the owner says the concept is clear. §1 records the owner's idea as thought aloud. §2 is read from the code (main @1d064d30, plus develop for #642 / #686 and feature/698 for the Library). §3 to §7 are proposals. §8 holds the questions for the owner.
+Status 2026-11-20: concept for the owner (drawn for the decision: scenes-drafts.html – the four strips, the model, drivers, five flows, loading windows, three naming options, the six questions)'s review (#703, epic #626), nothing built and nothing to build until the owner says the concept is clear. §1 records the owner's idea as thought aloud. §2 is read from the code (main @1d064d30, plus develop for #642 / #686 and feature/698 for the Library). §3 to §7 are proposals. §8 holds the questions for the owner.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 

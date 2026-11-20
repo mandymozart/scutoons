@@ -1,0 +1,437 @@
+<!doctype html>
+<!-- Draft for #703: the sequence concept and its words, drawn for the owner's decision. Plain HTML + JS, not app code. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenes – one sequence model</title>
+<style>
+  :root {
+    --bg: #0f1114; --panel: #15181d; --line: #2a2f37; --text: #dce0e6; --muted: #8b939e; --faint: #4a515b;
+    --page: #7cc4ff; --stage: #ffb86b; --target: #b99cff; --light: #f2df6f;
+    --cursor: #ff5c7a; --prepare: #5fd38d; --keep: #3c8f62; --release: #555c66; --accent: #9fd0ff;
+  }
+  :root[data-theme="day"] {
+    --bg: #f6f5f2; --panel: #ffffff; --line: #d9d6cf; --text: #1d1f23; --muted: #6b7079; --faint: #b8b4ab;
+    --page: #2a7fc0; --stage: #c46a12; --target: #7448d6; --light: #a88a00;
+    --cursor: #d42a4c; --prepare: #23935a; --keep: #8cc9a6; --release: #b7b3aa; --accent: #2a6fb0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 0.95rem/1.5 system-ui, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+    display: flex; gap: 1rem; align-items: center; padding: 0.6rem 1.5rem; flex-wrap: wrap; }
+  header h1 { font-size: 1rem; font-weight: 500; margin: 0; }
+  header nav { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  header nav a { color: var(--muted); text-decoration: none; padding: 0.15rem 0.55rem; border: 1px solid var(--line); font-size: 0.8rem; }
+  header nav a:hover { color: var(--text); }
+  header button { margin-left: auto; background: none; color: var(--muted); border: 1px solid var(--line); padding: 0.2rem 0.6rem; cursor: pointer; }
+  main { max-width: 72rem; margin: 0 auto; padding: 1rem 1.5rem 5rem; }
+  section { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
+  section:first-child { border-top: 0; }
+  h2 { font-size: 1.25rem; font-weight: 500; margin: 0 0 0.25rem; }
+  h2 small { color: var(--muted); font-weight: 400; font-size: 0.85rem; margin-left: 0.5rem; }
+  h3 { font-size: 1rem; font-weight: 500; margin: 1.25rem 0 0.4rem; }
+  p.lead { color: var(--muted); margin: 0 0 1rem; max-width: 52rem; }
+  .muted { color: var(--muted); }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { fill: var(--text); font: 12px system-ui, sans-serif; }
+  svg .m { fill: var(--muted); }
+  svg .s { font-size: 10px; }
+  svg .b { font-size: 14px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(32rem, 1fr)); gap: 1rem; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr)); gap: 1rem; }
+  .card { border: 1px solid var(--line); background: var(--panel); padding: 1rem; }
+  .card h3 { margin-top: 0; }
+  .tag { display: inline-block; font-size: 0.72rem; border: 1px solid var(--line); padding: 0 0.4rem; color: var(--muted); margin-right: 0.25rem; }
+  .rec { border-color: var(--accent); }
+  .rec .tag.r { color: var(--accent); border-color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--muted); }
+  td code, p code, li code { font-size: 0.82rem; color: var(--accent); }
+  .w { font-weight: 500; }
+  .cost { display: flex; gap: 0.2rem; margin: 0.4rem 0; }
+  .cost i { width: 1.2rem; height: 0.4rem; background: var(--faint); }
+  .cost i.on { background: var(--stage); }
+  ul.tight { margin: 0.3rem 0; padding-left: 1.1rem; }
+  ul.tight li { margin: 0.15rem 0; }
+  .lane-key { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); margin: 0.5rem 0 1rem; }
+  .lane-key span::before { content: ""; display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.35rem; vertical-align: -0.05rem; }
+  .k-page::before { background: var(--page); } .k-stage::before { background: var(--stage); }
+  .k-target::before { background: var(--target); } .k-light::before { background: var(--light); }
+  .k-cursor::before { background: var(--cursor); } .k-prepare::before { background: var(--prepare); }
+  .k-keep::before { background: var(--keep); } .k-release::before { background: var(--release); }
+  .choice { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.6rem; }
+  .choice label { border: 1px solid var(--line); padding: 0.2rem 0.6rem; cursor: pointer; font-size: 0.82rem; }
+  .choice input { margin-right: 0.3rem; }
+  .choice label:has(input:checked) { border-color: var(--accent); color: var(--accent); }
+  #answers { white-space: pre-wrap; font: 0.8rem/1.4 ui-monospace, Consolas, monospace; background: var(--panel); border: 1px solid var(--line); padding: 0.8rem; min-height: 3rem; }
+  .opt-toggle { display: flex; gap: 0.3rem; margin: 0.5rem 0 1rem; }
+  .opt-toggle button { background: none; border: 1px solid var(--line); color: var(--muted); padding: 0.3rem 0.8rem; cursor: pointer; }
+  .opt-toggle button.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scenes · one sequence model <span class="muted">#703 draft</span></h1>
+  <nav>
+    <a href="#seen">1 What you saw</a><a href="#model">2 The model</a><a href="#drivers">3 Drivers</a>
+    <a href="#flows">4 Flows</a><a href="#window">5 Loading</a><a href="#words">6 Words</a><a href="#decide">7 Decide</a>
+  </nav>
+  <button id="theme">Day</button>
+</header>
+<main>
+
+<!-- 1 -->
+<section id="seen">
+  <h2>1 · What you saw: four strips of the same shape <small>read from the code, today</small></h2>
+  <p class="lead">The chapter tree, the storyboard, the show's rows band and OSCT's scenes panel all show an ordered row of units, and some neighbours are bundled together.
+  Under four different names they are the same thing. A deck scene is not on this list: it is what a unit <em>plays</em> on a stage.</p>
+  <svg id="strips" viewBox="0 0 1100 430"></svg>
+</section>
+
+<!-- 2 -->
+<section id="model">
+  <h2>2 · The model <small>proposal</small></h2>
+  <p class="lead">A <b class="w">sequence</b> is an ordered list of <b class="w">steps</b>. Neighbouring steps that are shown and loaded together form a <b class="w">window</b>.
+  A step has one <b class="w">lane</b> per output, which says what plays there, plus how the step is entered (<code>fire</code>) and how it ends (<code>end</code>).
+  The players (reader, deck, XR viewer) each draw only their own lane.</p>
+  <div class="lane-key"><span class="k-page">page lane: slices (reader)</span><span class="k-stage">stage lane: a deck scene / rig / module + values (deck)</span>
+  <span class="k-target">target lane: an XR scene (XR viewer)</span><span class="k-light">light lane: a look (DMX)</span></div>
+  <svg id="anatomy" viewBox="0 0 1160 400"></svg>
+  <div class="grid3" style="margin-top:1rem">
+    <div class="card"><h3>A chapter</h3>sequence = the chapter · window = a chain (<code>continues</code>) · step = a group · lanes: <b style="color:var(--page)">page</b> (+ <b style="color:var(--stage)">stage</b> if a group names a deck scene, S5) · end = <code>group.end</code> / the next chapter</div>
+    <div class="card"><h3>A show</h3>sequence = the show · window = one row · step = a row · lanes: one <b style="color:var(--stage)">stage</b> per outlet, <b style="color:var(--light)">light</b> per device · fire = <code>Row.fire</code> (event, auto / suggest, moment)</div>
+    <div class="card"><h3>An XR experience</h3>sequence = the experience · window = an OSCT group · step = an XR scene · lane: <b style="color:var(--target)">target</b> · fire = its image target is found (random access)</div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="drivers">
+  <h2>3 · Drivers move one cursor <small>who decides when to flip</small></h2>
+  <p class="lead">The cursor is where the sequence stands now. Whatever moves it is a driver: the reader's scroll, a story event, the conductor, the XR tracker, a timer.
+  "Live" and "reading" are only two different drivers on the same sequence. A driver's own policy (suggest vs autopilot, hold time, bar or phrase) stays with that driver.</p>
+  <svg id="driverSvg" viewBox="0 0 1100 330"></svg>
+</section>
+
+<!-- 4 -->
+<section id="flows">
+  <h2>4 · Flows <small>five situations, one model</small></h2>
+  <p class="lead">Each flow shows who moves the cursor (left) and who draws which lane (right). Grey arrows exist today; blue arrows are new in this concept.</p>
+  <div class="grid2">
+    <div class="card"><h3>F1 · Reading alone</h3><svg id="f1" viewBox="0 0 520 250"></svg>
+      <p class="muted">The same as today. Only <code>next()</code> and the lookahead come from the core (S4); the reader looks the same.</p></div>
+    <div class="card"><h3>F2 · A linked reader drives decks, without a show</h3><svg id="f2" viewBox="0 0 520 250"></svg>
+      <p class="muted">New (S5): a group names a deck scene in its stage lane. The reader scrolls into the group, and the session's decks crossfade to that scene. A show row can still override it.</p></div>
+    <div class="card"><h3>F3 · A conductor runs a show</h3><svg id="f3" viewBox="0 0 520 250"></svg>
+      <p class="muted">The same as today, with every feature kept. GO-next and what to preload come from the core (S3). A deck playing a show alone holds a window of rows, not all of them.</p></div>
+    <div class="card"><h3>F4 · XR: a found target</h3><svg id="f4" viewBox="0 0 520 250"></svg>
+      <p class="muted">Random access: the camera decides. The order only says what to preload next (OSCT's ±2 window, from the core, S8).</p></div>
+  </div>
+  <div class="card" style="margin-top:1rem"><h3>F5 · Chaining across kinds: one end, any step address</h3><svg id="f5" viewBox="0 0 1080 210"></svg>
+    <p class="muted">S9: <code>end</code> and jumps take any step address, e.g. <code>chapter:3.harbour</code> → <code>book:vinyl.cover</code> → back → a show row's event. The reader already jumps to <code>xr</code>, but no XR route exists yet.</p></div>
+</section>
+
+<!-- 5 -->
+<section id="window">
+  <h2>5 · Loading: one window rule, each player's own budget <small>prepare · keep · release</small></h2>
+  <p class="lead"><code>window(sequence, cursor, budget)</code> returns what to <b style="color:var(--prepare)">prepare</b>, nearest first and cancellable, what to <b style="color:var(--keep)">keep</b>, and what to <b style="color:var(--release)">release</b>.
+  The budget belongs to the player: the reader's data tier, GPU memory, the deck's quality governor.</p>
+  <div class="lane-key"><span class="k-cursor">cursor</span><span class="k-prepare">prepare</span><span class="k-keep">keep</span><span class="k-release">release / not loaded</span></div>
+  <svg id="winSvg" viewBox="0 0 1100 300"></svg>
+</section>
+
+<!-- 6 -->
+<section id="words">
+  <h2>6 · Words: three ways to name it <small>the big decision</small></h2>
+  <p class="lead">The question is not only what the core calls it, but what <em>you</em> read in the creator, the deck editor and the addresses.
+  Pick an option to see every place it changes. Cost counts renames of stored data, addresses and UI.</p>
+  <div class="opt-toggle" id="optBtns"></div>
+  <div class="grid3" id="optCards"></div>
+  <h3>Where each word lands</h3>
+  <table id="wordTable"></table>
+</section>
+
+<!-- 7 -->
+<section id="decide">
+  <h2>7 · Decide <small>six questions; your picks are collected below for copying into the chat</small></h2>
+  <div class="grid2" id="qs"></div>
+  <h3>Your answers</h3>
+  <div id="answers" class="muted">Pick options above.</div>
+</section>
+</main>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+function el(svg, tag, a, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in a) e.setAttribute(k, a[k]);
+  if (text != null) e.textContent = text;
+  svg.appendChild(e); return e;
+}
+const rect = (s, x, y, w, h, o = {}) => el(s, 'rect', { x, y, width: w, height: h, rx: o.rx ?? 3, fill: o.fill ?? 'none', stroke: o.stroke ?? css('line'), 'stroke-width': o.sw ?? 1, 'stroke-dasharray': o.dash ?? '' });
+const text = (s, x, y, t, o = {}) => el(s, 'text', { x, y, class: o.cls ?? '', 'text-anchor': o.anchor ?? 'start', fill: o.fill ?? '' , ...(o.fill ? { style: 'fill:' + o.fill } : {}) }, t);
+const line = (s, x1, y1, x2, y2, o = {}) => el(s, 'line', { x1, y1, x2, y2, stroke: o.stroke ?? css('muted'), 'stroke-width': o.sw ?? 1.2, 'stroke-dasharray': o.dash ?? '', 'marker-end': o.arrow ? 'url(#arr)' : '' });
+function defs(s) {
+  const d = el(s, 'defs', {});
+  const m = el(d, 'marker', { id: 'arr', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+  el(m, 'path', { d: 'M0,0 L10,5 L0,10 z', fill: css('muted') });
+}
+function clear(s) { while (s.firstChild) s.removeChild(s.firstChild); defs(s); }
+
+// 1 · four strips
+function drawStrips() {
+  const s = document.getElementById('strips'); clear(s);
+  const rows = [
+    { name: 'Chapter tree', where: 'creator chapter-tree.svelte', unit: 'group', band: 'chain (continues)', lane: 'page',
+      cards: ['intro', 'harbour', 'harbour·2', 'crows', 'night', 'end'], bands: [[1, 2], [3, 4]] },
+    { name: 'Storyboard', where: 'creator storyboard: script scene › group › shot', unit: 'storyboard group', band: 'script scene', lane: 'page',
+      cards: ['12·a', '12·b', '13·a', '13·b', '13·c', '14·a'], bands: [[0, 1], [2, 4], [5, 5]] },
+    { name: 'Show rows band', where: 'deck editor Show / Perform', unit: 'row', band: '(a row is its own window)', lane: 'stage',
+      cards: ['open', 'enter', 'vote', 'chase', 'calm', 'bow'], bands: [] },
+    { name: 'OSCT scenes panel', where: 'osct editor ScenesPanel / SceneCards', unit: 'XR scene', band: 'group = loading window', lane: 'target',
+      cards: ['cover', 'back', 'spread 1', 'spread 2', 'label A', 'label B'], bands: [[0, 1], [2, 3], [4, 5]] },
+  ];
+  rows.forEach((r, i) => {
+    const y = 20 + i * 102;
+    text(s, 0, y + 14, r.name, { cls: 'b' });
+    text(s, 0, y + 32, r.where, { cls: 'm s' });
+    text(s, 0, y + 50, 'unit: ' + r.unit, { cls: 'm s' });
+    text(s, 0, y + 64, 'bundle: ' + r.band, { cls: 'm s' });
+    const x0 = 260, cw = 120, gap = 10;
+    r.bands.forEach(([a, b]) => {
+      rect(s, x0 + a * (cw + gap) - 4, y - 2, (b - a + 1) * (cw + gap) - gap + 8, 14, { fill: css('line'), stroke: 'none' });
+    });
+    r.cards.forEach((c, j) => {
+      const x = x0 + j * (cw + gap);
+      rect(s, x, y + 16, cw, 58, { stroke: css(r.lane), fill: css('panel') });
+      rect(s, x + 6, y + 22, cw - 12, 28, { fill: css(r.lane), stroke: 'none' }).setAttribute('opacity', 0.18);
+      text(s, x + 8, y + 66, c, { cls: 's' });
+    });
+    if (i < 3) line(s, 0, y + 92, 1100, y + 92, { stroke: css('line'), sw: 1 });
+  });
+  text(s, 1095, 425, 'grey band over cards = the bundle (window)', { cls: 'm s', anchor: 'end' });
+}
+
+// 2 · anatomy
+function drawAnatomy() {
+  const s = document.getElementById('anatomy'); clear(s);
+  rect(s, 10, 10, 1140, 380, { stroke: css('muted') });
+  text(s, 24, 34, 'SEQUENCE', { cls: 'b' }); text(s, 110, 34, 'chapter · show · experience · storyboard — one document, ordered, addressable', { cls: 'm' });
+  const wins = [[0, 1], [2, 3, 4], [5]];
+  let x = 30; let k = 0;
+  wins.forEach((w, wi) => {
+    const SW = 160, ww = w.length * SW + (w.length - 1) * 12 + 24;
+    rect(s, x, 52, ww, 300, { stroke: css('faint'), dash: '5 4' });
+    text(s, x + 10, 72, 'WINDOW ' + (wi + 1), { cls: 's m' });
+    w.forEach((_, j) => {
+      const sx = x + 12 + j * (SW + 12); k++;
+      const cur = k === 3;
+      rect(s, sx, 82, SW, 258, { stroke: cur ? css('cursor') : css('line'), sw: cur ? 2 : 1, fill: css('panel') });
+      text(s, sx + 10, 102, 'STEP ' + k, { cls: 'b' });
+      text(s, sx + SW - 10, 102, 'id · label', { cls: 'm s', anchor: 'end' });
+      text(s, sx + 10, 124, 'fire', { cls: 'm s' });
+      text(s, sx + 40, 124, ['scroll reaches it', 'scroll reaches it', 'event "harbour"', 'GO', 'auto after 4 s', 'target found'][k - 1], { cls: 's' });
+      const lanes = [['page', 'slices'], ['stage', 'scene:stage + values'], ['target', 'book:vinyl.cover'], ['light', 'look "warm"']];
+      lanes.forEach(([ln, v], li) => {
+        const on = !((k === 1 || k === 2) && li >= 1) && !(k === 6 && li < 2) && !(k === 4 && li === 0);
+        const ly = 136 + li * 40;
+        rect(s, sx + 10, ly, SW - 20, 32, { stroke: on ? css(ln) : css('line'), dash: on ? '' : '3 3' });
+        text(s, sx + 18, ly + 14, ln + ' lane', { cls: 's', fill: on ? css(ln) : css('faint') });
+        text(s, sx + 18, ly + 27, on ? v : '— keep / nothing', { cls: 's m' });
+      });
+      text(s, sx + 10, 312, 'end', { cls: 'm s' });
+      text(s, sx + 40, 312, ['next', 'next', 'jump chapter:4', 'next', 'hold', 'back to chapter'][k - 1], { cls: 's' });
+    });
+    x += ww + 14;
+  });
+  text(s, 1140, 380, 'red outline = the cursor (current step)', { cls: 'm s', anchor: 'end' });
+}
+
+// 3 · drivers
+function drawDrivers() {
+  const s = document.getElementById('driverSvg'); clear(s);
+  const x0 = 330, cw = 110, gap = 12;
+  for (let i = 0; i < 6; i++) {
+    const x = x0 + i * (cw + gap);
+    rect(s, x, 140, cw, 56, { stroke: i === 2 ? css('cursor') : css('line'), sw: i === 2 ? 2 : 1, fill: css('panel') });
+    text(s, x + 8, 172, 'step ' + (i + 1), { cls: 's' });
+  }
+  el(s, 'polygon', { points: `${x0 + 2 * (cw + gap) + cw / 2 - 8},130 ${x0 + 2 * (cw + gap) + cw / 2 + 8},130 ${x0 + 2 * (cw + gap) + cw / 2},140`, fill: css('cursor') });
+  text(s, x0 + 2 * (cw + gap) + cw / 2, 122, 'cursor', { cls: 's', anchor: 'middle', fill: css('cursor') });
+  const drivers = [
+    ['Reader scroll', 'continuous position; linear', 'today: viewer', 3],
+    ['Story event', 'event id → step whose fire matches; jump', 'today: VN runner, linked reader', 4],
+    ['Conductor', 'GO · hand fire · auto / suggest · bar / phrase', 'today: deck-show conductor', 3],
+    ['XR tracker', 'found target → its step; random access', 'later: XR (#482)', 6],
+    ['Timer / end.auto', 'a step ends by itself', 'today: group.end auto, hold_ms', 4],
+  ];
+  drivers.forEach(([n, how, now, to], i) => {
+    const y = 20 + i * 60;
+    rect(s, 0, y, 280, 50, { fill: css('panel') });
+    text(s, 10, y + 18, n, { cls: 'b' }); text(s, 10, y + 33, how, { cls: 's' }); text(s, 10, y + 45, now, { cls: 's m' });
+    const tx = x0 + (to - 1) * (cw + gap) + cw / 2;
+    el(s, 'path', { d: `M280,${y + 25} C ${300 + i * 6},${y + 25} ${tx},${i < 2 ? 90 : 230} ${tx},${i < 2 ? 138 : 198}`, fill: 'none', stroke: css('muted'), 'stroke-dasharray': '4 3', 'marker-end': 'url(#arr)' });
+  });
+  text(s, 1090, 260, 'Players only draw their lane:', { cls: 's m', anchor: 'end' });
+  text(s, 1090, 278, 'reader → page · deck → stage / light · XR viewer → target', { cls: 's', anchor: 'end' });
+  text(s, 1090, 300, 'Policy stays with the driver (suggest vs auto, hold, moment).', { cls: 's m', anchor: 'end' });
+}
+
+// 4 · flows (swimlane sketches)
+function flow(id, actors, msgs) {
+  const s = document.getElementById(id); clear(s);
+  const w = 520, cols = actors.length, cx = i => 60 + i * ((w - 120) / (cols - 1));
+  actors.forEach(([n, c], i) => {
+    rect(s, cx(i) - 52, 6, 104, 28, { stroke: c ? css(c) : css('line'), fill: css('panel') });
+    text(s, cx(i), 24, n, { cls: 's', anchor: 'middle' });
+    line(s, cx(i), 34, cx(i), 245, { stroke: css('line'), dash: '2 3' });
+  });
+  msgs.forEach(([a, b, t, isNew], i) => {
+    const y = 56 + i * 34;
+    const st = isNew ? css('accent') : css('muted');
+    if (a === b) { rect(s, cx(a) - 6, y - 8, 12, 16, { stroke: st }); text(s, cx(a) + 12, y + 4, t, { cls: 's', fill: isNew ? css('accent') : '' }); return; }
+    el(s, 'line', { x1: cx(a), y1: y, x2: cx(b) + (b > a ? -4 : 4), y2: y, stroke: st, 'stroke-width': isNew ? 1.8 : 1.2, 'marker-end': 'url(#arr)' });
+    text(s, (cx(a) + cx(b)) / 2, y - 5, t, { cls: 's', anchor: 'middle', fill: isNew ? css('accent') : '' });
+  });
+}
+function drawFlows() {
+  flow('f1', [['Reader', 'page'], ['Sequence core', null], ['Page', 'page']], [
+    [0, 1, 'scroll position'], [1, 1, 'cursor → step 3', true], [1, 2, 'draw page lane'],
+    [1, 2, 'window(): prepare next chain', true], [0, 1, 'end of chain'], [1, 0, 'next(): end / next group / next chapter', true]]);
+  flow('f2', [['Reader', 'page'], ['Relay', null], ['Sequence core', null], ['Decks', 'stage']], [
+    [0, 1, 'cursor: step "harbour"', true], [1, 2, 'driver input', true], [2, 3, 'stage lane: scene:harbour', true],
+    [2, 3, 'window(): preload next group\'s scene', true], [0, 1, 'story event joinScene'], [1, 3, 'listener → join catpope']]);
+  flow('f3', [['Conductor', null], ['Sequence core', null], ['Decks', 'stage'], ['Lamps', 'light']], [
+    [0, 1, 'GO / event / vote'], [1, 1, 'fire row 4 at bar', true], [1, 2, 'full cells per outlet'],
+    [1, 3, 'look "warm"'], [1, 2, 'window(): rows 5–6 ready', true], [0, 0, 'GO always allowed']]);
+  flow('f4', [['Camera', 'target'], ['Sequence core', null], ['XR viewer', 'target']], [
+    [0, 1, 'target "spread 2" found'], [1, 1, 'jump: cursor → its step', true], [1, 2, 'target lane: XR scene'],
+    [1, 2, 'window(): ±2 neighbours', true], [1, 2, 'release far scenes (GPU)', true], [0, 1, 'target lost: hold']]);
+  // F5 chain across kinds
+  const s = document.getElementById('f5'); clear(s);
+  const boxes = [
+    ['chapter:3', 'reader · page', 'page', ['intro', 'harbour', 'record']],
+    ['book:vinyl', 'XR · target', 'target', ['cover', 'back', 'spread']],
+    ['chapter:3', 'reader · page', 'page', ['after', 'crows']],
+    ['show:night', 'conductor · stage', 'stage', ['row 7', 'row 8']],
+  ];
+  let x = 10;
+  boxes.forEach(([seq, who, ln, steps], i) => {
+    const w = 60 + steps.length * 62;
+    rect(s, x, 30, w, 120, { stroke: css(ln) });
+    text(s, x + 10, 50, seq, { cls: 'b' }); text(s, x + 10, 66, who, { cls: 's m' });
+    steps.forEach((st, j) => { rect(s, x + 10 + j * 62, 80, 56, 50, { fill: css('panel') }); text(s, x + 14 + j * 62, 110, st, { cls: 's' }); });
+    if (i < boxes.length - 1) {
+      line(s, x + w + 4, 100, x + w + 60, 100, { arrow: true, stroke: css('accent'), sw: 1.8 });
+      text(s, x + w + 32, 170 + (i % 2) * 18, ['end → book:vinyl.cover', 'back → chapter:3.after', 'event → show row 7'][i], { cls: 's', anchor: 'middle', fill: css('accent') });
+    }
+    x += w + 66;
+  });
+}
+
+// 5 · window
+function drawWindow() {
+  const s = document.getElementById('winSvg'); clear(s);
+  const rows = [
+    ['Reader (data tier "normal")', 'page', 12, 4, [3, 7], 'today: screens ahead, current chain only → + next chain, next chapter\'s first screen'],
+    ['Deck plays a show alone', 'stage', 12, 4, [4, 6], 'today: fetches ALL rows before row 1 → a window of rows, rest released'],
+    ['XR viewer', 'target', 12, 6, [4, 8], 'today in OSCT: ±2 scenes with targets, cancellable → the same rule from the core'],
+  ];
+  rows.forEach(([n, ln, count, cur, [a, b], note], i) => {
+    const y = 20 + i * 92;
+    text(s, 0, y + 12, n, { cls: 'b' }); text(s, 0, y + 74, note, { cls: 's m' });
+    for (let k = 0; k < count; k++) {
+      const x = 260 + k * 68;
+      const st = k === cur ? 'cursor' : (k > cur && k <= b) ? 'prepare' : (k >= a && k < cur) ? 'keep' : 'release';
+      rect(s, x, y + 22, 60, 34, { fill: css(st), stroke: k === cur ? css('cursor') : 'none' }).setAttribute('opacity', st === 'release' ? 0.35 : 0.85);
+      text(s, x + 30, y + 44, k + 1, { cls: 's', anchor: 'middle' });
+    }
+    rect(s, 252, y + 16, 68 * 12 + 4, 46, { stroke: css(ln), dash: '4 3' });
+  });
+}
+
+// 6 · words
+const OPTIONS = {
+  A: { title: 'A · Sequence / Step', tag: 'recommended', cost: 2,
+    sum: 'New neutral words for the general idea; "scene" stays the deck scene only. The apps may keep their words (group, row) as labels of a step.',
+    pro: ['Nothing stored is renamed; scene:<id> stays', 'One meaning per word (A14)', 'The deck editor\'s Scene workspace stays'],
+    con: ['"step" is not a stage word', 'You still read group / row in the apps unless they are renamed later'] },
+  B: { title: 'B · Scene is the general word', tag: 'your instinct', cost: 5,
+    sum: 'A scene becomes the unit of every sequence: a chapter group, a show row and an XR scene are scenes. Windows become acts. Today\'s deck scene needs a new name: a "staging" (what a stage plays).',
+    pro: ['One word people already use everywhere', 'Theatre fits live: show › act › scene', 'Chapter tree, storyboard and OSCT already say "scene"'],
+    con: ['scene:<id> changes meaning → every published deck scene, show cell and address renamed (a migration)', 'The deck editor\'s Scene workspace and #625 views get renamed', 'SCENES.md §8 is reversed'] },
+  C: { title: 'C · Core only, keep every word', tag: 'smallest', cost: 1,
+    sum: 'The core has Sequence / Step internally; every app keeps its own word for people (group, storyboard group, row, XR scene). Only the rules are shared.',
+    pro: ['Zero renames anywhere', 'Fastest to build'],
+    con: ['Four words for one thing stay visible', 'Doesn\'t answer the unification you saw', 'Agents keep confusing them'] },
+};
+const WORDS = [
+  ['the whole ordered thing', 'chapter · show · experience · storyboard', { A: 'sequence', B: 'sequence (chapter / show / experience keep their names)', C: '— (core: sequence)' }],
+  ['bundle loaded together', 'chain · script scene · OSCT group · —', { A: 'window', B: 'act', C: 'chain · group · — (core: window)' }],
+  ['the unit', 'group · storyboard group · row · XR scene', { A: 'step', B: 'scene', C: 'group · row · XR scene (core: step)' }],
+  ['what plays on one output', 'slices · cell · XR content', { A: 'lane', B: 'lane', C: 'cell / slices (core: lane)' }],
+  ['the deck\'s AV graph', 'deck scene, scene:<id>', { A: 'scene (scene:<id>) – unchanged', B: 'staging (staging:<id>) – renamed', C: 'scene – unchanged' }],
+  ['address of a unit', 'chapter:<n>.<label> · show row id · book:<id>.<target>', { A: 'chapter:3.harbour · show:night.row7 · book:vinyl.cover', B: 'same addresses; the unit is called scene in UI', C: 'unchanged' }],
+  ['creator chapter tree', '"Groups", "Add group"', { A: 'Groups (= steps) or "Steps"', B: '"Scenes", "Add scene"', C: 'Groups' }],
+  ['deck editor', 'views Scene · Asset · Show · Perform; rows band', { A: 'unchanged; rows band = steps', B: 'Scene view → Staging; rows → scenes', C: 'unchanged' }],
+  ['stored data to migrate', '', { A: 'group ids only (S1)', B: 'group ids + every scene:<id> → staging:<id> (shows, address book, published scenes, deck caches)', C: 'group ids only' }],
+];
+let opt = 'A';
+function drawWords() {
+  const btns = document.getElementById('optBtns'); btns.innerHTML = '';
+  Object.keys(OPTIONS).forEach(k => {
+    const b = document.createElement('button'); b.textContent = OPTIONS[k].title; if (k === opt) b.className = 'on';
+    b.onclick = () => { opt = k; drawWords(); }; btns.appendChild(b);
+  });
+  const cards = document.getElementById('optCards'); cards.innerHTML = '';
+  Object.entries(OPTIONS).forEach(([k, o]) => {
+    const d = document.createElement('div'); d.className = 'card' + (k === opt ? ' rec' : '');
+    d.innerHTML = `<h3>${o.title}</h3><span class="tag ${k === 'A' ? 'r' : ''}">${o.tag}</span>
+      <div class="cost">${[1,2,3,4,5].map(i => `<i class="${i <= o.cost ? 'on' : ''}"></i>`).join('')}</div>
+      <p>${o.sum}</p><b class="w">For</b><ul class="tight">${o.pro.map(p => `<li>${p}</li>`).join('')}</ul>
+      <b class="w">Against</b><ul class="tight">${o.con.map(p => `<li>${p}</li>`).join('')}</ul>`;
+    d.style.cursor = 'pointer'; d.onclick = () => { opt = k; drawWords(); };
+    cards.appendChild(d);
+  });
+  const t = document.getElementById('wordTable');
+  t.innerHTML = `<tr><th>Concept</th><th>Today</th><th>${OPTIONS[opt].title}</th></tr>` +
+    WORDS.map(([c, today, o]) => `<tr><td>${c}</td><td class="muted">${today}</td><td class="w">${o[opt]}</td></tr>`).join('');
+}
+
+// 7 · questions
+const QS = [
+  ['Q1 · Words', 'Which naming?', ['A · sequence / window / step / lane', 'B · scene is general, deck scene → staging', 'C · core only, keep app words'], 0],
+  ['Q2 · Group = row', 'A chapter group and a show row are both steps with lanes – the same thing, driven differently?', ['yes', 'no, keep them apart', 'not yet'], 0],
+  ['Q3 · Reader and core', 'How does the reader get next() and the lookahead from the one core?', ['shared test vectors (A6 contract), TS stays light', 'wasm in the reader', 'leave the reader alone'], 0],
+  ['Q4 · Stage lane on a group', 'May a chapter group name a deck scene that a linked reader plays on the decks, without a show (F2)?', ['yes, a show row may override', 'no, only through shows'], 0],
+  ['Q5 · XR preload', 'When XR is built: OSCT\'s prepared window from the core instead of a copy?', ['yes, from the core', 'copy OSCT first, move later'], 0],
+  ['Q6 · Windows load together', 'A chain, an OSCT group and a row are each "what is loaded together"?', ['yes', 'no'], 0],
+];
+const picks = {};
+function drawQs() {
+  const box = document.getElementById('qs'); box.innerHTML = '';
+  QS.forEach(([id, q, os, rec], qi) => {
+    const d = document.createElement('div'); d.className = 'card';
+    d.innerHTML = `<h3>${id}</h3><p>${q}</p><div class="choice">${os.map((o, oi) =>
+      `<label><input type="radio" name="q${qi}" value="${oi}">${o}${oi === rec ? ' <span class="tag">rec.</span>' : ''}</label>`).join('')}</div>`;
+    d.querySelectorAll('input').forEach(inp => inp.onchange = () => { picks[id] = os[+inp.value]; showAnswers(); });
+    box.appendChild(d);
+  });
+}
+function showAnswers() {
+  const a = document.getElementById('answers');
+  const keys = Object.keys(picks);
+  a.textContent = keys.length ? '#703 answers:\n' + QS.filter(q => picks[q[0]]).map(q => `${q[0]}: ${picks[q[0]]}`).join('\n') : 'Pick options above.';
+}
+
+function drawAll() { drawStrips(); drawAnatomy(); drawDrivers(); drawFlows(); drawWindow(); drawWords(); }
+document.getElementById('theme').onclick = e => {
+  const r = document.documentElement; const day = r.dataset.theme !== 'day';
+  r.dataset.theme = day ? 'day' : 'night'; e.target.textContent = day ? 'Night' : 'Day'; drawAll();
+};
+drawAll(); drawQs();
+</script>
+</body>
+</html>
