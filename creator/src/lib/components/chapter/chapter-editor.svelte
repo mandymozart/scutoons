@@ -15,6 +15,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
+	import { onLibrarySet, shareUses } from '$lib/editor/library-hook.svelte.ts';
+	import { toonAssetRef } from '@scutoons/content';
 	import { defaultMoodVocabulary, entities, getAt, deleteAt, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
@@ -106,6 +108,8 @@
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
 	// svelte-ignore state_referenced_locally
 	const chapter = toonDoc(entities.chapter(toon, chapterNumber), languages);
+	shareUses(() => `chapter:${toon}:${chapterNumber}`, () => (chapter.loading ? null : chapter.data[chapter.primary]), () => toon);
+	onLibrarySet('thumbnail', () => `chapter:${toon}:${chapterNumber}`, (path) => chapter.edit((file) => void (file.thumbnail = toonAssetRef(toon, path))));
 	// the season holds the chapter's status (visibility, per locale): edited in the meta panel, saved with the chapter
 	// svelte-ignore state_referenced_locally
 	const season = toonDoc(entities.season(toon, 1), languages);

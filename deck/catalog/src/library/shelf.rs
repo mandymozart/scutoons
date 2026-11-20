@@ -59,6 +59,8 @@ pub enum Sort {
 pub enum Special {
     Recent,
     Credits,
+    /// the families lacking a version they should have (shown on demand)
+    Missing,
     Item(String),
 }
 
@@ -192,6 +194,7 @@ pub struct Specials {
     pub recent: usize,
     /// None: the registry's answer carries no credits
     pub credits: Option<usize>,
+    pub missing: usize,
     /// every item with files, its address and how many
     pub items: Vec<(String, usize)>,
 }
@@ -425,7 +428,7 @@ impl Shelf {
     /// names, else its folder's home
     fn item_of(&self, f: &Family, uses: &[usize]) -> Option<String> {
         let open = self.context.open.as_deref();
-        uses.iter().map(|&u| &self.context.uses[u].item).find(|i| Some(i.as_str()) != open).cloned().or_else(|| home_of(&f.key))
+        uses.iter().map(|&u| &self.context.uses[u].item).find(|i| Some(i.as_str()) != open).cloned().or_else(|| home_of(&f.key).filter(|h| Some(h.as_str()) != open))
     }
 
     fn matches(f: &Family, query: &str) -> bool {
@@ -446,6 +449,7 @@ impl Shelf {
         match s {
             Special::Recent => Self::recent(f, now_ms),
             Special::Credits => f.credits == Some(false),
+            Special::Missing => !f.missing.is_empty(),
             Special::Item(item) => self.items_of(f, uses).iter().any(|i| i == item),
         }
     }
@@ -453,7 +457,7 @@ impl Shelf {
     /// every item a family counts for in the places: the items its uses name and its home
     fn items_of(&self, f: &Family, uses: &[usize]) -> Vec<String> {
         let mut out: Vec<String> = uses.iter().map(|&u| self.context.uses[u].item.clone()).collect();
-        out.extend(home_of(&f.key));
+        out.extend(home_of(&f.key).filter(|h| self.context.by_home || Some(h.as_str()) != self.context.open.as_deref()));
         out.sort();
         out.dedup();
         out
@@ -487,6 +491,7 @@ impl Shelf {
         let specials = Specials {
             recent: searched.iter().filter(|&&i| Self::recent(&list[i], q.now_ms)).count(),
             credits: list.iter().any(|f| f.credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
+            missing: searched.iter().filter(|&&i| !list[i].missing.is_empty()).count(),
             items: {
                 let mut counts: BTreeMap<String, usize> = BTreeMap::new();
                 for &i in &searched {
@@ -538,6 +543,8 @@ impl Shelf {
             let mut items: BTreeMap<String, Vec<usize>> = BTreeMap::new();
             let mut toon = Vec::new();
             let mut other = Vec::new();
+            let toon_item = self.context.toon.as_ref().map(|t| format!("toon:{t}"));
+            let toon_prefix = self.context.toon.as_ref().map(|t| format!("{t}/"));
             for &i in shown {
                 let (f, uses) = (&list[i], &idx[i]);
                 if self.in_context(f, uses) {
@@ -545,9 +552,11 @@ impl Shelf {
                 } else if Self::unused(f, uses) {
                     unused.push(i);
                 } else {
+                    // the open item's folder holds files it does not use: they count as the toon's
                     match self.item_of(f, uses) {
-                        Some(item) if item.starts_with("toon:") => toon.push(i),
+                        Some(item) if Some(&item) == toon_item.as_ref() => toon.push(i),
                         Some(item) => items.entry(item).or_default().push(i),
+                        None if toon_prefix.as_ref().is_some_and(|p| f.key.starts_with(p.as_str())) => toon.push(i),
                         None => other.push(i),
                     }
                 }
@@ -680,6 +689,7 @@ pub fn query_of(v: &Value) -> Query {
         special: match s("special") {
             "recent" => Some(Special::Recent),
             "credits" => Some(Special::Credits),
+            "missing" => Some(Special::Missing),
             x => x.strip_prefix("item:").map(|i| Special::Item(i.to_string())),
         },
         origin: Origin::of_id(s("origin")),

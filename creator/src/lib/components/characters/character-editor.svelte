@@ -34,6 +34,7 @@
 	import CharacterInspector, { type InspectorTab, type Level } from '$lib/components/characters/character-inspector.svelte';
 	import KanonSquare from '$lib/components/characters/kanon-square.svelte';
 	import { characterSubject, type KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
+	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
 
 	/**
 	 * One character (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the head (= the character level), the personas
@@ -80,6 +81,7 @@
 	const session = getCreatorSession();
 	const file = $derived(registryOf(registry));
 	const character = $derived(file?.characters.find((c) => c.id === id) ?? null);
+	shareUses(() => (character ? `character:${character.id}` : null), () => character);
 	const appearsIn = $derived(character ? castsOf(character.id, casts) : []);
 	const langs = $derived(characterLanguages(character, toons, appearsIn));
 	const languages = $derived(langs.languages as string[]);

@@ -24,6 +24,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 	import { library } from '$lib/editor/library.svelte.ts';
+	import { dropAsset, isAssetDrag } from '$lib/editor/library-drop.ts';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
@@ -112,6 +113,9 @@
 		}
 	});
 
+	/** the cell a Library tile is dragged over */
+	let dropOn = $state<string | null>(null);
+
 	function openDialog(mood: string, view: string) {
 		dialog = { mood, view };
 		dialogOpen = true;
@@ -185,6 +189,10 @@
 						class:requested={!!request}
 						title={c.path || c.convention}
 						onclick={() => openDialog(mood, view)}
+						ondragover={(e) => isAssetDrag(e) && (e.preventDefault(), (dropOn = `${mood} ${view}`))}
+						ondragleave={() => (dropOn = null)}
+						ondrop={(e) => ((dropOn = null), dropAsset(e, { kinds: ['image'], square: view !== 'full' }, (path) => onset(mood, view, path)))}
+						class:drop-on={dropOn === `${mood} ${view}`}
 						data-testid="cell-{mood}-{view}"
 						data-state={state}
 					>
@@ -287,6 +295,10 @@
 	.std {
 		font-size: var(--type-caption-size);
 		color: var(--muted);
+	}
+	.cell.drop-on {
+		outline: 0.125rem dashed var(--primary);
+		outline-offset: 0.0625rem;
 	}
 	.cell {
 		all: unset;

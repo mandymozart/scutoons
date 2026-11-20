@@ -31,6 +31,7 @@
 	import { PLATFORM_ALONG } from '$lib/editor/publish-tree.ts';
 	import { docLabel } from '$lib/labels.ts';
 	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDoc, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
+	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
 	import { loadToons } from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -126,6 +127,7 @@
 	});
 
 	const data = $derived<Data | null>(doc && !doc.loading ? ((doc.data[N] as Data | null) ?? null) : null);
+	shareUses(() => (selected ? catalogKey(kind, selected) : null), () => data);
 	/** the form's data: in place edits go straight into the document; a replaced object (Advanced JSON) too */
 	const formData = {
 		get: () => data ?? {},

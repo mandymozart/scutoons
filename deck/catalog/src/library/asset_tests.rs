@@ -251,7 +251,9 @@ fn the_places_recent_credits_and_items() {
     let v = s.view(&q(Scope::All));
     assert_eq!(v.specials.recent, 1, "camera, two days old");
     assert_eq!(v.specials.credits, Some(1));
-    assert!(v.specials.items.contains(&("chapter:catpope:1".to_string(), 4)), "{:?}", v.specials.items);
+    assert_eq!(v.specials.missing, 4, "slice 1 of chapter 2, slice 10, the bells, the trailer");
+    assert_eq!(s.view(&Query { special: Some(Special::Missing), ..q(Scope::All) }).total, 4);
+    assert!(v.specials.items.contains(&("chapter:catpope:1".to_string(), 3)), "{:?}", v.specials.items);
     let recent = s.view(&Query { special: Some(Special::Recent), ..q(Scope::All) });
     assert_eq!(recent.order, ["scutoons/items/camera"]);
     let item = s.view(&Query { special: Some(Special::Item("character:catpope".into())), ..q(Scope::All) });

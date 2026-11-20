@@ -1,30 +1,34 @@
 <script lang="ts">
 	import { CloseButton, Icon } from '@scutoons/ui';
-	import { LIBRARY_KINDS, beforeKinds, fits, groupByKind, kindCounts, sortFamilies, type AssetFamily } from '@scutoons/media';
+	import type { AssetFamily } from '@scutoons/media';
 	import { library } from '$lib/editor/library.svelte.ts';
+	import { deleteFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetTile from '$lib/components/library/asset-tile.svelte';
 	import AssetDetails from '$lib/components/library/asset-details.svelte';
+	import LibraryGrid from '$lib/components/library/library-grid.svelte';
+	import LibraryMenu from '$lib/components/library/library-menu.svelte';
 	import LibraryPlaces from '$lib/components/library/library-places.svelte';
+	import LibraryToolbar from '$lib/components/library/library-toolbar.svelte';
 
 	/**
-	 * The Library over the stage (⤢, research/redesign/library.html ?w=browser): places at the left, the grid grouped by
-	 * kind, the details drawer at the right. Esc closes it back to the panel.
+	 * The Library over the stage (⤢, research/redesign/library.html ?w=browser): the places at the left, the core's
+	 * groups in the middle, the details at the right; the levels stacked or single. Esc closes it back to the panel.
 	 */
 	let fileInput: HTMLInputElement | null = $state(null);
+	let replaceInput: HTMLInputElement | null = $state(null);
+	let replacing: AssetFamily | null = null;
 	let note = $state('');
-
-	const filter = $derived({ scope: library.scope, context: library.context, toon: library.toon, query: library.query, todo: library.todo, folder: library.folder, origin: library.origin });
-	const scoped = $derived(beforeKinds(library.families, filter));
-	const kinds = $derived(kindCounts(scoped));
-	const groups = $derived(groupByKind(sortFamilies(library.kind === 'all' || library.kind === 'entities' ? scoped : scoped.filter((f) => f.kind === library.kind), library.sort)));
-	const total = $derived(groups.reduce((n, g) => n + g.items.length, 0));
+	let menu = $state<{ x: number; y: number } | null>(null);
+	const view = $derived(library.view);
 
 	function keys(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
+		const typing = event.target instanceof HTMLElement && !!event.target.closest('input, textarea, select');
+		if (event.key === 'Escape' && !menu) {
 			event.preventDefault();
 			library.browser = false;
-		}
+		} else if (typing) return;
+		else if (event.key === 'F2' && library.selectedFamily) (event.preventDefault(), renameFamily(library.selectedFamily));
+		else if (event.key === 'Delete' && library.chosen.length) (event.preventDefault(), deleteFamilies(library.chosenFamilies));
 	}
 
 	async function run(work: () => Promise<unknown>) {
@@ -35,7 +39,13 @@
 			note = m['library.upload_failed']({ reason: e instanceof Error ? e.message : String(e) });
 		}
 	}
-	const replace = (f: AssetFamily, file: File) => run(() => library.replace(f, file));
+	const upload = (files: File[]) =>
+		run(async () => {
+			for (const f of files) {
+				const { converted } = await library.upload(f);
+				if (converted) note = m['library.converted']({ name: f.name, path: converted });
+			}
+		});
 </script>
 
 <svelte:window onkeydown={keys} />
@@ -45,45 +55,36 @@
 		<span class="lbl">{m['library.title']()}</span>
 		<input class="find" type="search" bind:value={library.query} placeholder={m['library.search']()} aria-label={m['library.search']()} />
 		<div class="chips">
-			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === 'all' || library.kind === 'entities'} onclick={() => (library.kind = 'all')}>{m['library.kind_all']()}</button>
-			{#each LIBRARY_KINDS as k (k)}
-				{#if kinds[k]}<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k} onclick={() => (library.kind = k)}>{m[`library.kinds_${k}`]()}<span class="n">{kinds[k]}</span></button>{/if}
+			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={!library.kind} onclick={() => (library.kind = null)}>{m['library.kind_all']()}</button>
+			{#each view?.kinds ?? [] as [k, n] (k)}
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k} onclick={() => (library.kind = k)}>{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
 			{/each}
 		</div>
 		<span class="sp"></span>
+		<div class="tools"><LibraryToolbar levels /></div>
 		<button type="button" class="primary" onclick={() => fileInput?.click()}><Icon name="upload" size="0.9rem" /> {m['library.upload']()}</button>
-		<input bind:this={fileInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) run(() => library.upload(f)); e.currentTarget.value = ''; }} />
+		<input bind:this={fileInput} type="file" multiple hidden onchange={(e) => (upload([...(e.currentTarget.files ?? [])]), (e.currentTarget.value = ''))} />
+		<input bind:this={replaceInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f && replacing) run(() => library.replace(replacing!, f)); e.currentTarget.value = ''; }} />
 		<CloseButton label={m['library.close_browser']()} onclick={() => (library.browser = false)} />
 	</header>
-	<div class="body" class:with-details={!!library.selectedFamily}>
+	<div class="body" class:with-details={!!library.selectedFamily && library.chosen.length === 1}>
 		<LibraryPlaces />
 		<div class="main">
 			{#if note}<p class="sc-empty note">{note}</p>{/if}
-			{#each groups as g (g.kind)}
-				<h3>{m[`library.kinds_${g.kind}`]()} · {g.items.length}</h3>
-				<div class="tiles" role="listbox" aria-label={m[`library.kinds_${g.kind}`]()}>
-					{#each g.items as f (f.key)}
-						<AssetTile
-							family={f}
-							selected={library.selected === f.key}
-							dimmed={!fits(f, library.pick)}
-							onselect={() => (library.selected = f.key)}
-							onuse={() => (library.use(f), (library.browser = false))}
-							onreplace={(file) => replace(f, file)}
-							ondetails={() => (library.selected = f.key)}
-						/>
-					{/each}
-				</div>
-			{/each}
-			{#if library.status === 'ready' && !total}<p class="sc-empty">{m['library.none_found']()}</p>{/if}
+			<LibraryGrid tile={Math.max(library.tile, 8)} list={library.list} onmenu={(x, y) => (menu = { x, y })} onuse={(f) => (library.use(f), (library.browser = false))} />
+			{#if library.status === 'ready' && !view?.total}<p class="sc-empty">{m['library.none_found']()}</p>{/if}
 			{#if library.status === 'loading'}<p class="sc-empty">{m['library.loading']()}</p>{/if}
-			<p class="foot">{m['library.browser_foot']({ count: total })}</p>
+			<p class="foot">{m['library.browser_foot']({ count: view?.total ?? 0 })}</p>
 		</div>
-		{#if library.selectedFamily}
-			<AssetDetails family={library.selectedFamily} onreplace={(file) => replace(library.selectedFamily!, file)} />
+		{#if library.selectedFamily && library.chosen.length === 1}
+			<AssetDetails family={library.selectedFamily} onreplace={(file) => run(() => library.replace(library.selectedFamily!, file))} />
 		{/if}
 	</div>
 </div>
+
+{#if menu}
+	<LibraryMenu x={menu.x} y={menu.y} onclose={() => (menu = null)} onreplace={(f) => ((replacing = f), replaceInput?.click())} />
+{/if}
 
 <style>
 	.browser {
@@ -116,8 +117,8 @@
 		text-transform: uppercase;
 	}
 	.find {
-		width: 26rem;
-		max-width: 35%;
+		width: 22rem;
+		max-width: 30%;
 	}
 	.chips {
 		display: flex;
@@ -148,6 +149,9 @@
 	.sp {
 		flex: 1 1 auto;
 	}
+	.tools {
+		min-width: 24rem;
+	}
 	.primary {
 		display: inline-flex;
 		align-items: center;
@@ -169,21 +173,11 @@
 		grid-template-columns: 15rem minmax(0, 1fr) 24rem;
 	}
 	.main {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
 		overflow: auto;
-		padding: 0.3rem var(--editor-pad) var(--editor-pad);
-	}
-	h3 {
-		margin: 0.5rem 0 0.3rem;
-		color: var(--editor-muted);
-		font-size: var(--editor-label);
-		font-weight: 400;
-		letter-spacing: var(--editor-label-spacing, 0.08em);
-		text-transform: uppercase;
-	}
-	.tiles {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-		gap: 0.45rem;
+		padding: 0.5rem var(--editor-pad) var(--editor-pad);
 	}
 	.foot {
 		margin: 0.8rem 0 0;
