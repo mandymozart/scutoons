@@ -1,10 +1,9 @@
-// A shot's handheld takes (src/lib/editor/storyboard-takes.ts, #126): ids, the stored samples (thinned, rounded, t from
-// 0), the changes of a shot (on, add, active, remove, smooth / scale, trim), the take on the timeline (ms), the record of
+// A shot's handheld takes (src/lib/editor/storyboard-takes.ts, #126): ids, the changes of a shot (on, add, active, remove, smooth / scale, trim), the take on the timeline (ms), the record of
 // a rendered take.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Shot, TakeSample } from '@scutoons/content/storyboard';
-import { activeTake, addTake, newTake, nextTakeId, removeTake, renderRecord, setActive, setOn, setTakeField, setTrim, sha256, shotTake, takeIn, takesOf, thinSamples } from '../src/lib/editor/storyboard-takes.ts';
+import { activeTake, addTake, newTake, nextTakeId, removeTake, renderRecord, setActive, setOn, setTakeField, setTrim, sha256, shotTake, takeIn, takesOf } from '../src/lib/editor/storyboard-takes.ts';
 
 const sample = (t: number): TakeSample => ({ t, position: [t, 1.5, 0], quaternion: [0, 0, 0, 1], fov: 50 });
 const run = (shot: Shot, ...changes: ((s: Shot) => void)[]) => (changes.forEach((c) => c(shot)), shot);
@@ -16,22 +15,18 @@ test('ids: t1 after none, after the highest', () => {
 	assert.deepEqual(takesOf(undefined), { on: false, active: null, takes: [] });
 });
 
-test('stored samples: at most 30 Hz, t from 0, the last one kept, rounded', () => {
-	const sixty = Array.from({ length: 61 }, (_, i) => sample(100 + i / 60));
-	const kept = thinSamples(sixty);
-	assert.equal(kept[0].t, 0);
-	assert.equal(kept.at(-1)!.t, 1);
-	assert.ok(kept.length >= 30 && kept.length <= 32, String(kept.length));
-	assert.ok(kept.every((s, i) => i === 0 || s.t - kept[i - 1].t > 0.03 || i === kept.length - 1));
-	assert.equal(newTake([], [sample(5)], { smooth: 0, scale: 1 }), null, 'one sample is no take');
-	const t = newTake([{ id: 't1' }], sixty, { smooth: 0.2, scale: 0.5, now: '2026-10-21T10:00:00Z' })!;
+test('a take from the core\'s keys: the next id, the lens on every key, in 0 out the end; no keys, no take', () => {
+	const keys = [sample(0), sample(0.4), sample(1)].map(({ fov: _, ...k }) => k);
+	assert.equal(newTake([], null, { smooth: 0, scale: 1, fov: 50 }), null, 'the core: too short');
+	const t = newTake([{ id: 't1' }], keys, { smooth: 0.2, scale: 0.5, fov: 35, now: '2026-10-21T10:00:00Z' })!;
 	assert.deepEqual([t.id, t.in, t.out, t.smooth, t.scale, t.created], ['t2', 0, 1, 0.2, 0.5, '2026-10-21T10:00:00Z']);
+	assert.deepEqual(t.samples.map((s) => s.fov), [35, 35, 35]);
 });
 
 test('the changes of a shot: on, a take added = active, another active, removed → the newest left', () => {
-	const a = newTake([], [sample(0), sample(2)], { smooth: 0, scale: 1 })!;
+	const a = newTake([], [sample(0), sample(2)], { smooth: 0, scale: 1, fov: 50 })!;
 	const s = run(shot(), setOn(true), addTake(a));
-	const b = newTake(s.takes!.takes, [sample(0), sample(3)], { smooth: 0, scale: 1 })!;
+	const b = newTake(s.takes!.takes, [sample(0), sample(3)], { smooth: 0, scale: 1, fov: 50 })!;
 	run(s, addTake(b));
 	assert.deepEqual([s.takes!.on, s.takes!.active, s.takes!.takes.map((t) => t.id)], [true, 't2', ['t1', 't2']]);
 	run(s, setActive('t1'), setActive('t9'));
@@ -45,7 +40,7 @@ test('the changes of a shot: on, a take added = active, another active, removed 
 });
 
 test('the trim: ms in, s stored, clamped to the take', () => {
-	const s = run(shot(), setOn(true), addTake(newTake([], [sample(0), sample(6)], { smooth: 0, scale: 1 })!));
+	const s = run(shot(), setOn(true), addTake(newTake([], [sample(0), sample(6)], { smooth: 0, scale: 1, fov: 50 })!));
 	run(s, setTrim('t1', 1200.4, 4800));
 	assert.deepEqual([s.takes!.takes[0].in, s.takes!.takes[0].out], [1.2, 4.8]);
 	run(s, setTrim('t1', -50, 99999));
@@ -55,7 +50,7 @@ test('the trim: ms in, s stored, clamped to the take', () => {
 });
 
 test('the take on the timeline (ms) – only the active one, only with the camera on', () => {
-	const s = run(shot(), setOn(true), addTake(newTake([], [sample(0), sample(6.01)], { smooth: 0, scale: 1 })!), setTrim('t1', 1200, 4800));
+	const s = run(shot(), setOn(true), addTake(newTake([], [sample(0), sample(6.01)], { smooth: 0, scale: 1, fov: 50 })!), setTrim('t1', 1200, 4800));
 	assert.deepEqual(shotTake(s), { id: 't1', in: 1200, out: 4800, length: 6010, kept: 3600 });
 	run(s, setOn(false));
 	assert.equal(shotTake(s), null);
@@ -64,7 +59,7 @@ test('the take on the timeline (ms) – only the active one, only with the camer
 });
 
 test('a rendered take\'s record: kind video, generator handheld-render, the take, file + hash + machine', async () => {
-	const take = newTake([], [sample(0), sample(2)], { smooth: 0.1, scale: 1 })!;
+	const take = newTake([], [sample(0), sample(2)], { smooth: 0.1, scale: 1, fov: 50 })!;
 	const r = renderRecord({ toon: 'catpope', chapter: 3, shot: 'sb-1', take, file: 'sb-1--g4.webm', hash: 'ab'.repeat(32), machine: 'pc', fps: 24, seconds: 2.0001, ratio: '1:1.6' });
 	assert.deepEqual([r.kind, r.generator, r.take, r.file, r.machine, r.duration, 'ratio' in r], ['video', 'handheld-render', 't1', 'sb-1--g4.webm', 'pc', 2, false]);
 	assert.equal(renderRecord({ toon: 'catpope', chapter: 3, shot: 'sb-1', take, file: 'x.webm', hash: '', machine: 'pc', fps: 24, seconds: 1, ratio: '9:16' }).ratio, '9:16');

@@ -30,5 +30,21 @@ export interface HandEnd {
 	view?(shot: string | null, on: boolean, recording: boolean, seconds: number): void;
 }
 
+/** the core's follow of a phone from a camera, as the wasm gives it (relay-web `TakeFollow`) */
+export interface FollowCore {
+	pose(t: number, p: Float64Array, q: Float64Array): boolean;
+	recenter(): void;
+	keep(on: boolean): void;
+	secs(): number;
+	/** position (3) + rotation (4); empty before the first pose */
+	held(): Float64Array;
+	/** JSON `[{ t, position, quaternion }]`; '' = too short to be a move */
+	take(): string;
+	free(): void;
+}
+
+/** a follow that starts on a camera (position, rotation) with `scale` scene metres per phone metre; null while the core is loading */
+export type OpenFollow = (position: readonly number[], quaternion: readonly number[], scale: number) => FollowCore | null;
+
 /** a link for one relay session: the phone (`handheld`) or the editor that showed its code (`conductor`), with the API's token */
 export type OpenHand = (role: 'handheld' | 'conductor', session: string, token: string, end: HandEnd) => HandPort;

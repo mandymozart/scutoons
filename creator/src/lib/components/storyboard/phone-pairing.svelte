@@ -8,7 +8,7 @@
 	import { PropRow, QrCode, ScrubNumber } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
-	import { openHand } from '$lib/handheld/hand-link.ts';
+	import { openFollow, openHand } from '$lib/handheld/hand-link.ts';
 
 	let { sb }: { sb: StoryboardPage } = $props();
 	const hh = $derived(sb.hh);
@@ -32,7 +32,7 @@
 </script>
 
 {#if hh.status === 'idle'}
-	<button type="button" class="secondary" onclick={() => hh.pair(openHand)} title={m['storyboard.hh_connect_hint']()} data-testid="hh-connect">{m['storyboard.hh_connect']()}</button>
+	<button type="button" class="secondary" onclick={() => hh.pair(openHand, openFollow)} title={m['storyboard.hh_connect_hint']()} data-testid="hh-connect">{m['storyboard.hh_connect']()}</button>
 {:else}
 	{#if hh.status === 'waiting' && hh.url}
 		<div class="pair">

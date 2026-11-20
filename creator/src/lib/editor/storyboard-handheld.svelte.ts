@@ -7,9 +7,10 @@
 // into the workspace folder + its record. The maths and the takes are the tested storyboard-handheld / -takes modules.
 import type { Shot, Take, TakeSample } from '@scutoons/content/storyboard';
 import { api } from '$lib/api.ts';
-import type { HandPort, OpenHand } from '$lib/handheld/hand-port.ts';
+import { followPort, type FollowPort } from '$lib/handheld/follow.ts';
+import type { HandPort, OpenFollow, OpenHand } from '$lib/handheld/hand-port.ts';
 import type { Stage3d } from '$lib/storyboard/stage.svelte.ts';
-import { makeOrigin, mapPose, sampleAt, smooth, smoother, type Origin } from './storyboard-handheld.ts';
+import { sampleAt, smooth, smoother } from './storyboard-handheld.ts';
 import { phoneUrl, sessionCalls } from './storyboard-pairing.ts';
 import { activeTake, addTake, newTake, renderRecord, sha256 } from './storyboard-takes.ts';
 import { recordGeneration } from './storyboard-generations.ts';
@@ -42,9 +43,12 @@ export class HandheldState {
 	private stage: Stage3d | null = null;
 	private link: HandPort | null = null;
 	private stop: AbortController | null = null;
-	private origin: Origin | null = null;
+	private openFollow: OpenFollow | null = null;
+	/** the core's follow of the phone (it holds the camera, Recenter and the take); its scale is the one it began with */
+	private follow: FollowPort | null = null;
+	private followScale = 1;
 	private filter = smoother(0);
-	private rec: { shot: string; t0: number | null; samples: TakeSample[] } | null = null;
+	private rec: { shot: string; fov: number } | null = null;
 	private readonly calls = sessionCalls(api);
 
 	constructor(private readonly sb: StoryboardPage) {}
@@ -66,8 +70,9 @@ export class HandheldState {
 
 	/** a new code + QR and its relay session; the PC joins it through `open` and waits for the phone (it claims within 10
 	 *  minutes) */
-	async pair(open: OpenHand): Promise<void> {
+	async pair(open: OpenHand, follow: OpenFollow): Promise<void> {
 		this.unpair();
+		this.openFollow = follow;
 		const stop = (this.stop = new AbortController());
 		this.status = 'waiting';
 		this.error = null;
@@ -134,26 +139,35 @@ export class HandheldState {
 		const stage = this.stage;
 		const rest = stage?.shotPose();
 		if (!stage || !rest || !this.sb.sel?.shot.takes?.on) return;
-		// the first pose (and the one after Recenter) starts at the shot camera
-		this.origin ??= makeOrigin(p, q, rest.position, rest.quaternion);
-		const pose = mapPose(this.origin, p, q, this.scale);
-		const s: TakeSample = { t: t / 1000, position: pose.position, quaternion: pose.quaternion, fov: rest.fov };
+		// the first pose (and the one after the scale changed) starts at the shot camera
+		const follow = (this.follow ??= this.begin(rest));
+		if (!follow?.pose(t, p, q)) return;
+		const held = follow.held();
+		if (!held) return;
+		const s: TakeSample = { t: t / 1000, position: held.position, quaternion: held.quaternion, fov: rest.fov };
 		if (!this.live) {
 			this.live = true;
 			this.filter = smoother(this.smooth);
 		}
 		stage.hold(this.filter.step(s));
 		if (this.rec) {
-			this.rec.t0 ??= s.t;
-			this.rec.samples.push({ ...s, t: s.t - this.rec.t0 });
-			const sec = s.t - this.rec.t0;
+			const sec = follow.secs();
 			if (Math.floor(sec * 4) !== Math.floor(this.recSeconds * 4)) this.sendState();
 			this.recSeconds = sec;
 		}
 	}
+	private begin(rest: { position: readonly number[]; quaternion: readonly number[] }): FollowPort | null {
+		this.followScale = this.scale;
+		const core = this.openFollow?.(rest.position, rest.quaternion, this.scale);
+		return core ? followPort(core) : null;
+	}
+	private dropFollow(): void {
+		this.follow?.free();
+		this.follow = null;
+	}
 	/** the phone's pose now = the shot camera (on the next pose) */
 	recenter(): void {
-		this.origin = null;
+		this.follow?.recenter();
 	}
 	setSmooth(v: number): void {
 		this.smooth = v;
@@ -161,13 +175,13 @@ export class HandheldState {
 	}
 	setScale(v: number): void {
 		this.scale = v;
-		this.origin = null;
+		if (!this.rec) this.dropFollow();
 	}
 	/** the phone's pose lets go of the 3D view (the shot camera back) */
 	stopLive(): void {
 		if (this.rec) void this.stopRec();
 		this.live = false;
-		this.origin = null;
+		this.dropFollow();
 		this.stage?.release();
 	}
 
@@ -175,8 +189,12 @@ export class HandheldState {
 
 	startRec(): void {
 		const id = this.sb.current;
-		if (this.rec || !id || !this.sb.sel?.shot.takes?.on) return;
-		this.rec = { shot: id, t0: null, samples: [] };
+		const rest = this.stage?.shotPose();
+		if (this.rec || !id || !rest || !this.sb.sel?.shot.takes?.on) return;
+		const follow = (this.follow ??= this.begin(rest));
+		if (!follow) return;
+		follow.keep(true);
+		this.rec = { shot: id, fov: rest.fov };
 		this.recording = true;
 		this.recSeconds = 0;
 		this.sendState();
@@ -188,8 +206,9 @@ export class HandheldState {
 		this.rec = null;
 		this.recording = false;
 		this.sendState();
+		this.follow?.keep(false);
 		const entry = this.sb.entries.find((e) => e.id === rec.shot);
-		const take = entry && newTake(entry.shot.takes?.takes ?? [], rec.samples, { smooth: this.smooth, scale: this.scale });
+		const take = entry && newTake(entry.shot.takes?.takes ?? [], this.follow?.take() ?? null, { smooth: this.smooth, scale: this.followScale, fov: rec.fov });
 		if (!entry || !take) return null;
 		this.editShot(entry, addTake(take));
 		return take;

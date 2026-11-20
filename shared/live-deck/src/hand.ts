@@ -7,7 +7,7 @@
 import type { HandPose, HandState, HandView } from '@scutoons/live';
 import { RelaySocket, type Platform, type RelayCoreView, type RelayModule, type RelayStatus } from './client.ts';
 
-export { loadRelay } from './client.ts';
+export { loadRelay, type RelayModule } from './client.ts';
 
 /** relay-web's `RelayClient` with a handheld session's moves */
 export interface HandCore extends RelayCoreView {

@@ -1,20 +1,12 @@
-// The handheld camera's maths (#126; research/HANDHELD-CAMERA.md, the studio's lib/handheld/track.js): the phone's pose
-// → the shot camera (relative to an origin, "Recenter"), the one smoothing filter (live and offline), a take's track at
+// The handheld camera's playback maths (#126; research/HANDHELD-CAMERA.md, the studio's lib/handheld/track.js): the one smoothing filter (live and offline), a take's track at
 // any time, the take as it is rendered (smoothed, trimmed, at fps). Plain quaternion maths without three.js; the tests
 // compare it with three's. The phone's side (its orientation, the drag) is the one handheld's (@scutoons/content/storyboard).
 //
 // A sample: { t (s), position [x, y, z] (m, the scene's world: Y up, as glTF), quaternion [x, y, z, w], fov (°) }.
-import { qAxisAngle, qMul, qRotate, yawOf, type Quat, type TakeSample, type Vec3 } from '@scutoons/content/storyboard';
+import type { Quat, TakeSample, Vec3 } from '@scutoons/content/storyboard';
 
 export { DRAG_M_PER_PX, dragStep, orientationQuat, qAxisAngle, qEulerYXZ, qMul, qRotate, yawOf, type Quat, type Vec3 } from '@scutoons/content/storyboard';
 
-export interface Pose {
-	position: Vec3;
-	quaternion: Quat;
-}
-
-/** the inverse of a unit quaternion */
-export const qInv = (q: Quat): Quat => [-q[0], -q[1], -q[2], q[3]];
 export function qNorm(q: Quat): Quat {
 	const l = Math.hypot(...q) || 1;
 	return [q[0] / l, q[1] / l, q[2] / l, q[3] / l];
@@ -42,30 +34,6 @@ export function qSlerp(a: Quat, b: Quat, t: number): Quat {
 	return [a[0] * ra + c[0] * rb, a[1] * ra + c[1] * rb, a[2] * ra + c[2] * rb, a[3] * ra + c[3] * rb];
 }
 const lerp3 = (a: Vec3, b: Vec3, k: number): Vec3 => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
-
-/** "Recenter": the phone's pose now = the shot camera's pose now – only the heading is matched, up stays up (both worlds
- *  are gravity-aligned), so walking forward on the floor moves the camera forward on the scene's ground */
-export interface Origin {
-	phonePos: Vec3;
-	phoneQuat: Quat;
-	camPos: Vec3;
-	camQuat: Quat;
-	turn: Quat;
-}
-export function makeOrigin(phonePos: Vec3, phoneQuat: Quat, camPos: Vec3, camQuat: Quat): Origin {
-	const turn = qAxisAngle([0, 1, 0], yawOf(camQuat) - yawOf(phoneQuat));
-	return { phonePos: [...phonePos], phoneQuat: [...phoneQuat], camPos: [...camPos], camQuat: [...camQuat], turn };
-}
-
-/** the phone's pose → the camera's pose (scale: scene metres per phone metre) */
-export function mapPose(origin: Origin, phonePos: Vec3, phoneQuat: Quat, scale = 1): Pose {
-	const d = qRotate(origin.turn, [phonePos[0] - origin.phonePos[0], phonePos[1] - origin.phonePos[1], phonePos[2] - origin.phonePos[2]]);
-	const position: Vec3 = [origin.camPos[0] + d[0] * scale, origin.camPos[1] + d[1] * scale, origin.camPos[2] + d[2] * scale];
-	// the phone's rotation since the origin, in the world, turned into the scene's heading
-	const delta = qMul(phoneQuat, qInv(origin.phoneQuat));
-	const q = qMul(qMul(qMul(origin.turn, delta), qInv(origin.turn)), origin.camQuat);
-	return { position, quaternion: qNorm(q) };
-}
 
 /**
  * The one smoothing filter (0 = raw handheld … 1 = a slow steadicam): exponential, a = 1 − exp(−dt / τ), τ = amount × 0.5 s;
@@ -134,12 +102,3 @@ export function bake(take: TakeTrack, fps = 24): TakeSample[] {
 	const n = Math.max(1, Math.floor((tout - tin) * fps + 1e-6) + 1);
 	return Array.from({ length: n }, (_, i) => ({ ...sampleAt(all, tin + i / fps)!, t: +(i / fps).toFixed(4) }));
 }
-
-const r = (n: number, d: number) => +n.toFixed(d);
-/** a sample as it is stored (rounded: 0.1 mm, 1e-5) – a take of a minute at 60 Hz stays a few hundred KB */
-export const packSample = (s: TakeSample): TakeSample => ({
-	t: r(s.t, 4),
-	position: s.position.map((n) => r(n, 4)) as Vec3,
-	quaternion: s.quaternion.map((n) => r(n, 5)) as Quat,
-	fov: r(s.fov ?? 50, 2)
-});

@@ -9,6 +9,16 @@ import { CameraLink, type Holding } from '../src/camera.ts';
 import type { WebSocketLike } from '../src/client.ts';
 import { NO_CORE, relayCore } from './relay-core.ts';
 
+interface FollowCore {
+	pose(t: number, p: Float64Array, q: Float64Array): boolean;
+	keep(on: boolean): void;
+	recenter(): void;
+	secs(): number;
+	held(): Float64Array;
+	take(): string;
+	free(): void;
+}
+
 test('the session URL: the relay, the session, the QUIC door only when named', () => {
 	assert.equal(handRelay('ws://127.0.0.1:7070/', 'HQ7K2M'), 'ws://127.0.0.1:7070/live/HQ7K2M');
 	assert.equal(handRelay('wss://relay.test', 'HQ7K2M', 'udp.test:443'), 'wss://relay.test/live/HQ7K2M?quic=udp.test%3A443');
@@ -143,3 +153,30 @@ test('a reader phone: its proof fetched with the sign-in before the first hello,
 	}
 });
 
+
+test('the storyboard\'s follow: the core follows the phone from the shot camera, keeps a take on Record and thins it to keys', { skip: NO_CORE || false }, async () => {
+	const { TakeFollow } = await relayCore();
+	// the module types the follow as an object: the creator's FollowCore (hand-port.ts) says what it has
+	const f = new TakeFollow(Float64Array.of(0, 1.6, 4), Float64Array.of(0, 0, 0, 1), 1) as unknown as FollowCore;
+	assert.equal(f.held().length, 0, 'no pose yet');
+	assert.equal(f.pose(0, Float64Array.of(0, 0, 0), Float64Array.of(0, 0, 0, 1)), true);
+	assert.equal(f.pose(0, Float64Array.of(0, 0, 0), Float64Array.of(0, 0, 0, 1)), false, 'a late pose is dropped');
+	assert.equal(f.take(), '', 'nothing kept before Record');
+	f.keep(true);
+	// 2 m to the right over 4 s at 60 Hz, the hand shaking a little
+	for (let i = 0; i <= 240; i++) f.pose(1000 + (i * 1000) / 60, Float64Array.of(Math.min(i / 120, 2), 0.002 * ((i * 7919) % 13) / 13, 0), Float64Array.of(0, 0, 0, 1));
+	f.keep(false);
+	const keys = JSON.parse(f.take()) as { t: number; position: number[]; quaternion: number[] }[];
+	assert.ok(keys.length >= 2 && keys.length < 60, `thinned: ${keys.length}`);
+	assert.equal(keys[0].t, 0);
+	assert.ok(Math.abs(keys.at(-1)!.t - 4) < 1e-3);
+	assert.ok(Math.abs(keys.at(-1)!.position[0] - 2) < 0.05 && Math.abs(keys[0].position[0]) < 0.05, 'from the shot camera, 2 m to the right');
+	assert.ok(Math.abs(f.secs() - 4) < 1e-3);
+	const held = f.held();
+	assert.equal(held.length, 7);
+	f.recenter();
+	assert.equal(f.pose(10000, Float64Array.of(7, 0, 7), Float64Array.of(0, 0, 0, 1)), true);
+	const back = f.held();
+	assert.ok(Math.abs(back[0]) < 1e-3 && Math.abs(back[1] - 1.6) < 1e-3 && Math.abs(back[2] - 4) < 1e-3, `Recenter: back on the shot camera ${[...back]}`);
+	f.free();
+});
