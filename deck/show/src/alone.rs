@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(cells.len(), 1, "row 2: a values cell on this outlet, a full cell");
         assert_eq!(piece(&cells[0]).as_deref(), Some("character:keys"));
         let cells = a.go(2000);
-        assert_eq!(cells.iter().map(|c| c.mode.clone()).collect::<Vec<_>>(), [CellMode::Black], "row 3: black");
+        assert_eq!(cells.iter().map(|c| c.mode).collect::<Vec<_>>(), [CellMode::Black], "row 3: black");
         assert!(a.go(3000).is_empty(), "after the last row nothing fires");
         assert_eq!(a.showing().row, 3);
         assert!(a.tick(4000).is_empty());
