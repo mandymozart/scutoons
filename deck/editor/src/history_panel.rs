@@ -421,7 +421,7 @@ mod tests {
 
     fn plan(ask: Ask) -> Plan {
         let line = Line { place: "gain".into(), kind: Kind::Changed, before: "2".into(), after: "1".into() };
-        Plan { ask, route: Route::Entity("rig:character.catpope".into()), version: 7, base: 9, revert: None, back: None, described: Description { lines: vec![line], more: 0 }, knows_me: true }
+        Plan { ask, route: Route::Entity("rig:character.catpope".into()), version: 7, base: 9, revert: None, back: None, described: Description { lines: vec![line], more: 0 }, sides: Vec::new(), knows_me: true }
     }
 
     #[test]
