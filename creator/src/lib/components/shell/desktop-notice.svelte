@@ -17,7 +17,7 @@
 		justify-content: center;
 		gap: var(--space-1);
 		min-height: 100dvh;
-		padding: var(--space-2);
+		padding: var(--space-15);
 		background: var(--editor-stage);
 	}
 	p {
