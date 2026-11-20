@@ -2632,6 +2632,7 @@ impl App {
         self.show.panic_pill();
         if self.show.sub.panicked() {
             self.stage.panic();
+            self.media.panic();
         } else if let Err(err) = self.stage.resume() {
             let (x, y) = self.cursor;
             self.refuse(format!("{err:#}"), x, y);

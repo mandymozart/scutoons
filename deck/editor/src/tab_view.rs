@@ -115,6 +115,7 @@ impl crate::App {
             Workspace::Home | Workspace::Show => None,
             Workspace::Media => {
                 self.media.drag = None;
+                self.media.silence();
                 let o = self.media.open.take()?;
                 own.then(|| Kept::Media(Box::new(o)))
             }
@@ -224,6 +225,7 @@ impl crate::App {
                 self.workspace = Workspace::Media;
                 self.stage.rest();
                 self.media.open = Some(*o);
+                self.media_sound();
             }
             None => self.load(&key, kind),
         }
@@ -364,6 +366,7 @@ impl crate::App {
             }
             Workspace::Media => {
                 self.media.drag = None;
+                self.media.silence();
                 self.media.open = None;
             }
             Workspace::Home => {}

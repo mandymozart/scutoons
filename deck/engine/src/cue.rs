@@ -111,6 +111,11 @@ impl Side {
         }
     }
 
+    /// the cue mix as set now: 0 = the show, 1 = the preview
+    pub(crate) fn mix(&self) -> f32 {
+        f32::from_bits(self.mix.load(Ordering::Relaxed)).clamp(0.0, 1.0)
+    }
+
     /// the preview's clock follows its host's: its frontier as the host's (they render in step), heard at `heard_ns`
     pub(crate) fn mark(&mut self, pending: usize, heard_ns: u64) {
         if let Some(p) = self.engine.as_deref_mut() {

@@ -1,7 +1,9 @@
 //! A medium in an Asset tab (decisions/deck.md [workspaces]): a video, an image, a sound or a 3D set on a stage of
 //! its own, with Play. A video plays on the deck's own playback (deck-space `Movie`, deck-media), a sound shows its
 //! waveform. Trimming is the use's, never the file's ([delegated]): opened from a scene's `video` node, the tab moves
-//! that node's `start` / `end` (deck-media `Trim`); opened from the library it has no use and the file plays whole.
+//! that node's `start` / `end` (deck-media `Trim`); opened from the library it has no use and the file plays whole. A
+//! sound's Play is heard through the engine's preview voice (deck-core `sound_preview`) on a small engine of its own.
+use deck_core::sound_preview::Clip;
 use deck_kit::editor::controls::Rect;
 use deck_media::Trim;
 use deck_space::video::{Converter, Movie, Texture};
@@ -65,11 +67,24 @@ pub struct Use {
     pub node: String,
 }
 
-/// a sound's picture: the peak of each column, 0..1
+/// a sound's picture (the peak of each column, 0..1) and the sound its Play hears
 #[derive(Debug, Clone, PartialEq)]
 pub struct Wave {
     pub peaks: Vec<f32>,
     pub seconds: f64,
+    pub clip: Arc<Clip>,
+}
+
+/// The sound's way out while a medium is open: an engine with no graph of its own holding the device (the stage rests in
+/// an Asset tab), its preview voice playing the sound.
+struct Out {
+    key: String,
+    sounds: deck_engine::sound::Sounds,
+    live: bool,
+    /// the device has a cue of its own (a live preview is heard)
+    cue: bool,
+    _handles: deck_native::audio::Handles,
+    _run: deck_native::audio::backend::Running,
 }
 
 /// what the loading thread hands back
@@ -128,6 +143,7 @@ pub struct Media {
     pub line: Option<Rect>,
     /// the stretch of the file the timeline shows, s
     pub view: (f64, f64),
+    out: Option<Out>,
 }
 
 /// The stretch of a file `length` s long the timeline shows for the span `(a, b)`: the whole file, or – when the span
@@ -180,7 +196,8 @@ fn load(sort: Sort, bytes: Vec<u8>) -> Result<Got, String> {
         Sort::Audio => {
             let pcm = deck_media::audio::decode(bytes).map_err(|e| e.0)?.ok_or("the file has no sound")?;
             let ch = usize::from(pcm.channels.max(1));
-            Ok(Got::Wave(Wave { peaks: peaks(&pcm.samples, ch, COLUMNS), seconds: pcm.seconds() }))
+            let clip = Arc::new(Clip::from_interleaved(pcm.rate, pcm.channels, &pcm.samples));
+            Ok(Got::Wave(Wave { peaks: peaks(&pcm.samples, ch, COLUMNS), seconds: pcm.seconds(), clip }))
         }
         Sort::Video | Sort::Model => Ok(Got::Bytes(bytes)),
     }
@@ -243,7 +260,77 @@ impl Open {
     }
 }
 
+/// an engine with an empty graph on the device as deck.toml has it, and its preview voice
+fn start_out(key: &str, volume: f32, live: bool) -> Result<Out, String> {
+    use deck_native::audio::{self, backend};
+    let scene = deck_space::scene::Scene::parse("").map_err(|e| format!("{e:#}"))?;
+    let empty = deck_space::graph::Graph::build(&scene).map_err(|e| format!("{e:#}"))?;
+    let mut got = None;
+    let mut factory = |rate: f32, channels: usize| {
+        let (engine, mut h) = audio::Engine::build_for(&empty, rate, volume, channels)?;
+        let sounds = h.core_mut().sound.take().ok_or_else(|| anyhow::anyhow!("the engine's preview voice"))?;
+        let cue = h.core_mut().cue.as_ref().is_some_and(deck_engine::cue::Cue::heard);
+        got = Some((sounds, cue, h));
+        Ok(engine)
+    };
+    let run = backend::start(&backend::Options::from_deck(&backend::DeckAudio::read()), &mut factory).map_err(|e| format!("no sound device: {e:#}"))?;
+    let (sounds, cue, h) = got.ok_or("no sound device")?;
+    Ok(Out { key: key.to_string(), sounds, live, cue, _handles: h, _run: run })
+}
+
 impl Media {
+    /// The preview voice follows the open sound: playing → from its playhead inside the use's span, on the cue while
+    /// `live`, else main; anything else → it stops. Ok(Some(note)): live without a cue of its own (heard nowhere).
+    pub fn sound(&mut self, volume: f32, live: bool) -> Result<Option<String>, String> {
+        let playing = self.open.as_ref().filter(|o| o.playing).and_then(|o| match &o.body {
+            Body::Audio(w) => Some((o.key.clone(), w.clip.clone(), o.at(), o.trim.span(w.seconds))),
+            _ => None,
+        });
+        let Some((key, clip, at, span)) = playing else {
+            if let Some(out) = self.out.as_mut() {
+                out.sounds.stop();
+            }
+            return Ok(None);
+        };
+        if self.out.as_ref().is_some_and(|o| o.key != key) {
+            self.out = None;
+        }
+        if self.out.is_none() {
+            self.out = Some(start_out(&key, volume, live)?);
+        }
+        let out = self.out.as_mut().expect("started");
+        out.live = live;
+        if !out.sounds.play(clip, at, span, live) {
+            return Err("the sound device did not take it".into());
+        }
+        Ok((live && !out.cue).then(|| "live: this device has no cue of its own – the sound is heard nowhere".into()))
+    }
+
+    /// whether the voice plays with a live flag other than `live` (the show went live or ended)
+    pub fn sound_stale(&self, live: bool) -> bool {
+        self.out.as_ref().is_some_and(|o| o.live != live) && self.open.as_ref().is_some_and(|o| o.playing)
+    }
+
+    /// PANIC: the voice silent at once, the device let go, the playhead back at its in point
+    pub fn panic(&mut self) {
+        if let Some(out) = self.out.as_mut() {
+            out.sounds.panic();
+        }
+        self.out = None;
+        if let Some(o) = self.open.as_mut() {
+            o.playing = false;
+            o.clock = 0.0;
+        }
+    }
+
+    /// the medium goes: its device is let go
+    pub fn silence(&mut self) {
+        if let Some(out) = self.out.as_mut() {
+            out.sounds.stop();
+        }
+        self.out = None;
+    }
+
     /// Each frame: what loaded is taken, a playing clock runs, the picture for it goes onto the texture. Returns the
     /// texture when there is one, and whether it is new (the card is made again).
     pub fn frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, dt: f32) -> Option<(&wgpu::TextureView, bool)> {
@@ -319,7 +406,7 @@ mod tests {
 
     fn opened(used: bool) -> Open {
         let mut o = Open::new("audio:nowhere.wav", "", used.then(|| Use { scene: "scene:nave".into(), node: "v".into() }), Trim::WHOLE).unwrap();
-        o.body = Body::Audio(Wave { peaks: Vec::new(), seconds: 10.0 });
+        o.body = Body::Audio(Wave { peaks: Vec::new(), seconds: 10.0, clip: Arc::new(Clip::default()) });
         o
     }
 

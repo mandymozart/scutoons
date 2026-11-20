@@ -31,6 +31,7 @@ pub mod pan;
 mod route;
 #[cfg(feature = "events")]
 pub mod sequencer;
+pub mod sound;
 mod tempo;
 mod voices;
 #[cfg(feature = "events")]
@@ -369,6 +370,8 @@ pub struct Engine {
     control: control::Control,
     /// a second engine on the cue (cue.rs), summed in after the limiters
     cue: Box<cue::Side>,
+    /// a sound asset's preview voice (sound.rs), on top after the cue
+    sound: Box<sound::Side>,
 }
 
 /// What the frame thread keeps of a built engine.
@@ -405,6 +408,8 @@ pub struct Handles {
     pub tones: Arc<Tones>,
     /// a preview summed onto the cue (cue.rs): taken once by whoever hands the audio thread one
     pub cue: Option<cue::Cue>,
+    /// a sound asset's preview voice (sound.rs): taken once by whoever plays sounds on it
+    pub sound: Option<sound::Sounds>,
     /// the hosts' events (#236): names, the sequencer, the routing for the dispatcher – `events.start()` runs them
     #[cfg(feature = "events")]
     pub events: dispatch::Events,
@@ -475,6 +480,7 @@ impl Engine {
             notes: Vec::new(),
             tones: Arc::new(Tones::default()),
             cue: None,
+            sound: None,
             #[cfg(feature = "events")]
             events: dispatch::Events::new(seq),
             #[cfg(feature = "modules")]
@@ -651,6 +657,8 @@ impl Engine {
         handles.control = Some(link);
         let (side, cue) = cue::Side::new(deck);
         handles.cue = Some(cue);
+        let (sound, sounds) = sound::Side::new(deck, rate);
+        handles.sound = Some(sounds);
         let engine = Engine {
             meters: handles.meters.clone(),
             bufs,
@@ -676,6 +684,7 @@ impl Engine {
             tone_on: tone_channels(deck),
             control,
             cue: Box::new(side),
+            sound: Box::new(sound),
         };
         Ok((engine, handles))
     }
@@ -838,6 +847,7 @@ impl Engine {
         }
         self.add_tone(to, n);
         self.cue.quantum(&mut self.dev, n);
+        self.sound.quantum(&mut self.dev, n, to, self.cue.mix());
         for c in 0..self.dev.channels() {
             let peak = self.dev.ch(c)[..n].iter().fold(0.0f32, |p, x| p.max(x.abs()));
             self.device.0[c].store(peak.to_bits(), Ordering::Relaxed);

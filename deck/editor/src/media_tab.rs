@@ -11,6 +11,7 @@ impl crate::App {
         self.workspace = Workspace::Media;
         self.stage.rest();
         self.media.drag = None;
+        self.media.silence();
         self.media.open = media::Open::new(key, self.library.cdn(), used, trim);
         if self.media.open.is_none() {
             let (x, y) = self.cursor;
@@ -36,17 +37,39 @@ impl crate::App {
         self.media_load(&key, Some(used), trim);
     }
 
-    /// Play runs the medium from its in point; Stop goes back there
+    /// Play runs the medium from its in point; Stop goes back there. A sound is heard (the preview voice); while a panic
+    /// holds it stays silent.
     pub(crate) fn media_play(&mut self, on: bool) {
+        let dark = self.stage.dark;
         let Some(o) = self.media.open.as_mut() else { return };
         if o.playing == on {
             return;
+        }
+        if on && dark && o.sort == media::Sort::Audio {
+            let (x, y) = self.cursor;
+            return self.refuse("a panic holds: resume first".into(), x, y);
         }
         o.playing = on;
         if !on {
             o.clock = 0.0;
         }
         self.note(if on { "Play: it runs from its in point, looped".into() } else { "Stop: back to its in point".into() });
+        self.media_sound();
+    }
+
+    /// the preview voice to what the open sound does now (the cue while a show is live, else main)
+    pub(crate) fn media_sound(&mut self) {
+        let (x, y) = self.cursor;
+        match self.media.sound(self.stage.volume(), self.stage.live) {
+            Ok(Some(note)) => self.note(note),
+            Ok(None) => {}
+            Err(why) => {
+                if let Some(o) = self.media.open.as_mut() {
+                    o.playing = false;
+                }
+                self.refuse(why, x, y);
+            }
+        }
     }
 
     /// a press on the timeline: the playhead goes there, a handle is taken
@@ -65,18 +88,28 @@ impl crate::App {
         let (lo, hi) = if self.media.view.1 > self.media.view.0 { self.media.view } else { (0.0, length) };
         let s = lo + f64::from(((x - r.x) / r.w.max(1.0)).clamp(0.0, 1.0)) * (hi - lo);
         if h == Hit::Seek {
-            return o.seek(s);
+            o.seek(s);
+            return self.media_sound();
         }
         if let Err(why) = o.set_point(h, s) {
             self.media.drag = None;
             let (x, y) = self.cursor;
-            self.refuse(why, x, y);
+            return self.refuse(why, x, y);
         }
+        self.media_sound();
     }
 
-    /// a check run's `--asset NODE[,play]`: once its scene is open, that video node in its Asset tab
+    /// a check run's `--asset NODE[,play]`: once its scene is open, that video node in its Asset tab; `--asset play`: the
+    /// medium open in front plays once it has loaded
     pub(crate) fn script_media(&mut self) {
         let Some((id, play)) = self.args.asset.clone() else { return };
+        if id == "play" || (id.is_empty() && play) {
+            if self.media.open.as_ref().is_some_and(|o| o.length().is_some()) {
+                self.args.asset = None;
+                self.media_play(true);
+            }
+            return;
+        }
         let Some(v) = self.scene.as_ref().and_then(|s| s.edit.doc.nodes.iter().position(|n| n.id == id)) else { return };
         if self.frames < 30 {
             return;

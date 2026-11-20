@@ -254,6 +254,11 @@ impl Stage {
         self.handles = None;
     }
 
+    /// the master gain what plays here is built with
+    pub fn volume(&self) -> f32 {
+        self.volume
+    }
+
     /// let go by `rest` (not by a panic): a replay brings the sound back
     pub fn resting(&self) -> bool {
         self._audio.is_none() && !self.dark
