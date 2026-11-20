@@ -4,7 +4,8 @@
 //!   noise and filter units), `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft
 //!   cap), `monitor` (the stats every deck shows, #364), `lead` (the adaptive output lead, #365), `meters` (the level
 //!   meters' ballistics and dB scale), `load` (the CPU / GPU meters' sampling, smoothing and peak), `devices` (a device message's words, its lamp's activity – #373) and `stage` (the
-//!   deck-native modules a scene needs, the carried part of a scene), `ui_tone` (the UI's short tones on top of the output).
+//!   deck-native modules a scene needs, the carried part of a scene), `ui_tone` (the UI's short tones on top of the output), `units` (the units
+//!   a value is shown and typed in, and their conversions – every unit-switch field's).
 //! - **Modules** (cargo features): `analysis` (the FFT: bands, the analyzer), `tempo` (the tempo map, quantize, tap, the
 //!   clock controller – #181 / #185).
 //! - **Scene-driven builds**: every kind names its module; `stage::scene_features` lists the deck-native features a scene
@@ -31,6 +32,7 @@ pub mod sound_preview;
 pub mod stage;
 pub mod trim;
 pub mod ui_tone;
+pub mod units;
 
 #[cfg(feature = "analysis")]
 pub mod analysis;

@@ -56,7 +56,7 @@ impl Sound {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     #[serde(flatten)]
@@ -65,6 +65,8 @@ pub struct Settings {
     pub sound: Sound,
     /// the Show workspace's node view: left → right or top → bottom
     pub node_flow: deck_kit::base::graph::Direction,
+    /// the unit each kind of value is read in (a crop in px or %, a fade in s or frames …)
+    pub units: deck_kit::editor::units::Prefs,
 }
 
 /// the editor's cache file of the settings

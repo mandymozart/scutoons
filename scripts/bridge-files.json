@@ -1,6 +1,7 @@
 {
 	"$comment": "check:core-only (#363): every bridge file (a file that touches the engine – the import graph – or lies in a bridge root) and its one-line purpose. A new file needs a line here: \"adapter: <what it moves between the core and the platform>\", \"ui: …\" or \"types: …\"; \"logic (#N): …\" marks today's logic with its move ticket and is never written for a new file.",
 	"files": {
+		"creator/src/lib/components/fields/unit-number.svelte": "ui: ScrubNumber with the core's units through the deck's wasm (#679)",
 		"creator/src/lib/components/sound/deck-half.svelte": "ui: the creator's deck half (stage, mood chip, signal strip)",
 		"creator/src/lib/components/sound/designer-half.svelte": "ui: the rig designer half",
 		"creator/src/lib/components/sound/mood-chip.svelte": "ui: the mood chip",
@@ -30,6 +31,7 @@
 		"shared/live-core/src/worker.ts": "adapter: the Web Worker hosting live_core.wasm (the lead and the monitor's audio side are the core's)",
 		"shared/live-core/src/worklet.ts": "adapter: the AudioWorklet playing the ring",
 		"shared/live-deck/scripts/build-wasm.ts": "adapter: builds space-web for the page",
+		"shared/live-deck/src/units.ts": "adapter: space-web's units (units_offered, units_convert, units_pick, units_word, units_decimals, units_step – deck-core units) for the web kit's unit field (#679)",
 		"shared/live-deck/src/assign.ts": "adapter: space-web's assignment rules (rig_coverage, rig_catalog_bundle, rig_face, rig_policy_template – deck-space rig::assign, face, template) for the creator's Assignment and Rust tabs (#283, #412)",
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",

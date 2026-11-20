@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
+	import UnitNumber from '$lib/components/fields/unit-number.svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt } from '@scutoons/content';
 	import { toonUrl } from '$lib/utils/cdn.ts';
@@ -75,7 +76,10 @@
 
 	<h3>{m['creator.music']()}</h3>
 	<div class="sc-fields" data-cols="2">
-		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label={m['creator.music_crossfade']()} type="number" step={100} placeholder="3000" />
+		<div class="field">
+			<label for="audio-crossfade">{m['creator.music_crossfade']()}</label>
+			<UnitNumber id="audio-crossfade" label={m['creator.music_crossfade']()} kind="crossfade" dimension="time" stored="ms" fallback="s" value={audio?.music?.transitionDuration} min={0} placeholder="3000" onchange={(v) => doc.set(['audio', 'music', 'transitionDuration'], v)} testid="audio-crossfade" />
+		</div>
 		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label={m['creator.music_default_track']()} type="select" options={tracks.map((t) => t.id)} placeholder={m['creator.field_none']()} />
 	</div>
 	<table>

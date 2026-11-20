@@ -19,6 +19,7 @@
 //! - **Phones:** the camera and each shot may be offered to a phone in a live session (LIVE-CAMERAS.md §4): who may take it
 //!   (the one condition control's filter) and how long without a pose before it returns. Unset: no phone takes it.
 use crate::rig::address::{word, Aim};
+use deck_core::units::{self, Refs, Unit};
 use crate::scene_document::Label;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -29,8 +30,6 @@ pub const FOCAL_PRESETS: [f32; 6] = [17.0, 30.0, 50.0, 70.0, 100.0, 150.0];
 pub const FOCAL_RANGE: (f32, f32) = (4.0, 1200.0);
 /// an orthographic view's height range (m)
 pub const SIZE_RANGE: (f32, f32) = (0.1, 500.0);
-/// the sensor a focal length is read on: full frame, 24 mm high
-pub const SENSOR_H_MM: f32 = 24.0;
 /// a shot's distance range (m)
 pub const DISTANCE_RANGE: (f32, f32) = (0.05, 500.0);
 /// the most rounds an orbit or a spiral turns
@@ -155,14 +154,14 @@ impl Lens {
     }
 }
 
-/// the vertical field of view of a focal length in mm (rad)
+/// the vertical field of view of a focal length in mm on full frame (rad; deck-core `units`)
 pub fn fov_of(focal: f32) -> f32 {
-    2.0 * (SENSOR_H_MM / (2.0 * focal.max(1e-3))).atan()
+    units::fov_deg(f64::from(focal)).to_radians() as f32
 }
 
 /// the focal length in mm of a vertical field of view (rad)
 pub fn focal_of(fov_y: f32) -> f32 {
-    SENSOR_H_MM / (2.0 * (fov_y * 0.5).tan().max(1e-6))
+    units::focal_mm(f64::from(fov_y).to_degrees()) as f32
 }
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -461,21 +460,48 @@ impl Length {
         }
     }
 
+    /// the unit it is counted in (deck-core `units`)
+    pub fn of_unit(self) -> Unit {
+        match self {
+            Length::Beats(_) => Unit::Beats,
+            Length::Bars(_) => Unit::Bars,
+            Length::Seconds(_) => Unit::Seconds,
+        }
+    }
+
+    /// `v` counted in `unit` (none: not a unit a length is counted in)
+    pub fn in_unit(unit: Unit, v: f32) -> Option<Length> {
+        match unit {
+            Unit::Beats => Some(Length::Beats(v)),
+            Unit::Bars => Some(Length::Bars(v)),
+            Unit::Seconds => Some(Length::Seconds(v)),
+            _ => None,
+        }
+    }
+
+    /// the units a length is counted in, as its switch shows them
+    pub const UNITS: [Unit; 3] = [Unit::Beats, Unit::Bars, Unit::Seconds];
+
+    /// the same length counted in `unit` at `bpm` and `per_bar` (the tempo it plays at)
+    pub fn to_unit(self, unit: Unit, per_bar: u32, bpm: f64) -> Option<Length> {
+        let v = units::convert(f64::from(self.value()), self.of_unit(), unit, &Length::refs(per_bar, bpm))?;
+        Length::in_unit(unit, v as f32)
+    }
+
+    fn refs(per_bar: u32, bpm: f64) -> Refs {
+        Refs { bpm: Some(bpm.max(1.0)), per_bar: Some(per_bar.max(1)), ..Refs::default() }
+    }
+
     /// in beats on a clock of `per_bar` beats a bar and `bpm`
     pub fn beats(self, per_bar: u32, bpm: f64) -> f64 {
-        match self {
-            Length::Beats(b) => f64::from(b),
-            Length::Bars(b) => f64::from(b) * f64::from(per_bar.max(1)),
-            Length::Seconds(s) => f64::from(s) * bpm / 60.0,
-        }
+        let r = Length::refs(per_bar, bpm);
+        units::convert(f64::from(self.value()), self.of_unit(), Unit::Beats, &r).unwrap_or(0.0)
     }
 
     /// in seconds at `bpm`
     pub fn seconds(self, per_bar: u32, bpm: f64) -> f64 {
-        match self {
-            Length::Seconds(s) => f64::from(s),
-            l => l.beats(per_bar, bpm) * 60.0 / bpm.max(1.0),
-        }
+        let r = Length::refs(per_bar, bpm);
+        units::convert(f64::from(self.value()), self.of_unit(), Unit::Seconds, &r).unwrap_or(0.0)
     }
 }
 

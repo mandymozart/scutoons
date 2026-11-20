@@ -7,6 +7,8 @@ use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
+use deck_core::units::{self, Refs, Unit};
+use deck_kit::editor::units as unit_field;
 use deck_kit::editor::{fold, icons};
 use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, FOCUS_RANGE, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
@@ -78,6 +80,8 @@ pub enum Field {
     Preset(usize),
     /// the focal length typed
     Focal,
+    /// the focal length read in this unit (mm, or the degrees it sees)
+    FocalUnit(Unit),
     /// an eye height preset, or typed
     Height(usize),
     HeightTyped,
@@ -130,6 +134,8 @@ pub enum Field {
 }
 
 const UNITS: [&str; 3] = ["beats", "bars", "s"];
+/// the kind of value a focal length is (its unit is chosen once: the editor's settings)
+pub const FOCAL_UNIT: &str = "focal";
 /// the eases a way to a track point may take beside an even speed
 const POINT_EASES: [Ease; 4] = [Ease::In, Ease::Out, Ease::InOut, Ease::Whip];
 
@@ -375,7 +381,8 @@ pub fn summary(part: Part, view: &SceneView) -> String {
 }
 
 /// Lens: the projection, the focal lengths as the cones they see (or an orthographic view's height), the exact value.
-fn lens_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+#[allow(clippy::too_many_arguments)]
+fn lens_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, focal: Unit, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
     let (cam, sel) = (&view.edit.camera(), &view.dop);
     let lens = lens_of(cam, sel);
     label(d, t, a, y, &whose_label(cam, sel, "projection"));
@@ -383,7 +390,7 @@ fn lens_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVie
     if lens.ortho() {
         return scrub(d, t, a, y, Num::Size, "view height", lens.size, &format!("{} m", crate::number(lens.size)), hot, out);
     }
-    label(d, t, a, y, "focal length · mm");
+    label(d, t, a, y, "focal length");
     let gap = t.size.pad * 0.6;
     let (cells, used) = fold::grid(a.x, *y, a.w, FOCAL_PRESETS.len(), FOCAL_PRESETS.len(), t.size.rem(4.4), gap);
     for (i, (r, f)) in cells.into_iter().zip(FOCAL_PRESETS).enumerate() {
@@ -393,8 +400,17 @@ fn lens_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVie
     }
     *y += used + gap;
     label(d, t, a, y, "exact");
-    let r = exact(d, t, a, y, &format!("{} mm", mm(lens.focal)), &format!("{:.0}° high on full frame", fov_of(lens.focal).to_degrees()), lens.preset().is_none());
+    let refs = Refs::default();
+    let shown = units::convert(f64::from(lens.focal), Unit::Millimetres, focal, &refs).unwrap_or(f64::from(lens.focal));
+    let note = match focal {
+        Unit::Degrees => format!("{} mm on full frame", mm(lens.focal)),
+        _ => format!("{:.0}° high on full frame", fov_of(lens.focal).to_degrees()),
+    };
+    let row = Rect { x: a.x, y: *y, w: a.w, h: t.size.row - 4.0 };
+    let (r, segs) = unit_field::exact(d, t, row, shown, focal, &note, &Unit::Millimetres.dimension().offered(&refs), lens.preset().is_none());
+    *y += t.size.row;
     out.push((r, Field::Focal));
+    out.extend(segs.into_iter().map(|(r, u)| (r, Field::FocalUnit(u))));
 }
 
 /// Focus: at the aim, a distance (scrubbed) or – a shot's – a subject on the stage it follows.
@@ -514,9 +530,13 @@ fn move_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVie
     let to = sel.shot.and_then(|i| cam.shots.get(i)).map_or("pick a shot", |s| s.id.as_str());
     controls::row(d, t, a, y, "ends on", to);
     if s.kind != MoveKind::Cut {
-        let unit = unit_of(s.length);
-        scrub(d, t, a, y, Num::Length, "length", s.length.value(), &format!("{} {}", crate::number(s.length.value()), s.length.unit()), hot, out);
-        pills_row(d, t, a, y, &UNITS, unit, &[Field::Unit(0), Field::Unit(1), Field::Unit(2)], out);
+        let (min, max, log) = Num::Length.range();
+        let row = Rect { x: a.x, y: *y, w: a.w, h: t.size.row };
+        let fraction = crate::fraction(s.length.value(), min, max, log);
+        let (r, segs) = unit_field::scrub(d, t, row, "length", f64::from(s.length.value()), s.length.of_unit(), &Length::UNITS, fraction, hot == Some(Num::Length));
+        out.push((r, Field::Scrub(Num::Length)));
+        out.extend(segs.into_iter().filter_map(|(r, u)| Some((r, Field::Unit(Length::UNITS.iter().position(|x| *x == u)?)))));
+        *y += t.size.row;
         let eases: Vec<&str> = Ease::ALL.iter().map(|e| e.word()).collect();
         let fields: Vec<Field> = (0..Ease::ALL.len()).map(Field::Ease).collect();
         pills_row(d, t, a, y, &eases, Ease::ALL.iter().position(|e| *e == s.ease).unwrap_or(0), &fields, out);
@@ -653,7 +673,8 @@ fn phones_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneV
 }
 
 /// The panel: the camera's source, then each section a line that opens onto its body; where its fields landed.
-pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Playing, hot: Option<Num>) -> Vec<(Rect, Field)> {
+/// `focal`: the unit the focal length is read in
+pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Playing, focal: Unit, hot: Option<Num>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let cam = view.edit.camera();
     let sel = &view.dop;
@@ -677,7 +698,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
         }
         y += t.size.pad * 0.3;
         match part {
-            Part::Lens => lens_body(d, t, body, &mut y, view, hot, &mut out),
+            Part::Lens => lens_body(d, t, body, &mut y, view, focal, hot, &mut out),
             Part::Focus => focus_body(d, t, body, &mut y, view, hot, &mut out),
             Part::Height => height_body(d, t, body, &mut y, view, &mut out),
             Part::Shots => shots_body(d, t, body, &mut y, view, &mut out),
@@ -704,7 +725,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Pl
 /// the height the panel takes
 pub fn height(t: &Tokens, view: &SceneView) -> f32 {
     let mut d = DrawList::new(0.6);
-    let fields = draw(&mut d, t, Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 }, view, None, None);
+    let fields = draw(&mut d, t, Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 }, view, None, Unit::Millimetres, None);
     fields.iter().map(|(r, _)| r.y + r.h).fold(0.0, f32::max) + t.size.pad + t.size.row * 1.5
 }
 
@@ -727,6 +748,7 @@ impl crate::App {
     /// a field of the DOP panel pressed
     pub(crate) fn dop_field(&mut self, f: Field, x: f32, y: f32) {
         let now = View::of(&self.stage.space.camera);
+        let tempo = self.tempo();
         let Some(view) = self.scene.as_mut() else { return };
         let cam = view.edit.camera();
         let sel = &mut view.dop;
@@ -753,7 +775,12 @@ impl crate::App {
                 let done = view.edit.set_lens(shot, Lens { focal: FOCAL_PRESETS[i], ..lens });
                 self.dop_done(done, format!("lens: {} mm", FOCAL_PRESETS[i]), x, y);
             }
-            Field::Focal => self.begin_edit(crate::Editing::Focal, crate::Hit::Dop(Field::Focal), mm(lens.focal)),
+            Field::Focal => {
+                let unit = self.settings.units.unit(FOCAL_UNIT, Unit::Millimetres, &Refs::default());
+                let v = units::convert(f64::from(lens.focal), Unit::Millimetres, unit, &Refs::default()).unwrap_or(f64::from(lens.focal));
+                self.begin_edit(crate::Editing::Focal, crate::Hit::Dop(Field::Focal), units::number(v, unit))
+            }
+            Field::FocalUnit(u) => self.change_settings(|s| s.units.set(FOCAL_UNIT, u)),
             Field::Height(i) => {
                 let (name, h) = EYE_HEIGHTS[i];
                 let done = view.edit.set_height(shot, h, view.dop.floor);
@@ -810,8 +837,10 @@ impl crate::App {
                 sel.draft = MoveSpec { follow: (kind == MoveKind::Follow).then_some(follow).flatten(), ..MoveSpec::of(kind) };
             }
             Field::Unit(u) => {
-                let v = sel.draft.length.value();
-                sel.draft.length = [Length::Beats(v), Length::Bars(v), Length::Seconds(v)][u];
+                // the same length counted in the other unit, at the clock's tempo
+                let (bpm, per_bar) = tempo.unwrap_or((120.0, units::PER_BAR));
+                let l = sel.draft.length;
+                sel.draft.length = l.to_unit(Length::UNITS[u], per_bar, bpm).unwrap_or(l);
             }
             Field::Ease(i) => sel.draft.ease = Ease::ALL[i],
             Field::Start(s) => sel.draft.start = s,
@@ -1169,8 +1198,10 @@ impl crate::App {
     /// a focal length typed
     pub(crate) fn dop_focal(&mut self, text: &str) {
         let (x, y) = self.cursor;
+        let unit = self.settings.units.unit(FOCAL_UNIT, Unit::Millimetres, &Refs::default());
+        let typed = units::parse(text, unit).and_then(|(v, u)| units::convert(v, u, Unit::Millimetres, &Refs::default()));
+        let Some(focal) = typed.map(|v| v as f32) else { return self.refuse(format!("'{text}': a focal length in mm, or the degrees it sees (40°)"), x, y) };
         let Some(view) = self.scene.as_mut() else { return };
-        let Ok(focal) = text.trim().trim_end_matches("mm").trim().replace(',', ".").parse::<f32>() else { return self.refuse(format!("'{text}': a focal length in mm"), x, y) };
         let lens = lens_of(&view.edit.camera(), &view.dop);
         let done = view.edit.set_lens(view.dop.shot, Lens { focal, projection: Projection::Perspective, ..lens });
         self.dop_done(done, format!("lens: {} mm", mm(focal)), x, y);
@@ -1192,7 +1223,7 @@ mod tests {
         let (mut view, _, _) = SceneView::open(SceneOpen { doc, base: Some(1), kept: None, note: None, save: None }, None).expect("it plays");
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 };
-        let fields = |d: &mut DrawList, view: &SceneView| draw(d, &t, area, view, None, None).into_iter().map(|(_, f)| f).collect::<Vec<_>>();
+        let fields = |d: &mut DrawList, view: &SceneView| draw(d, &t, area, view, None, Unit::Millimetres, None).into_iter().map(|(_, f)| f).collect::<Vec<_>>();
         let f = fields(&mut d, &view);
         assert!(f.contains(&Field::Source(Source::Handheld)) && d.texts().contains(&"Handheld"));
         assert!(Part::ALL.iter().all(|p| f.contains(&Field::Fold(*p))) && !f.contains(&Field::Preset(0)), "every section folded at first");
@@ -1265,7 +1296,7 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 };
         view.dop.open = Part::Move.bit();
-        let f: Vec<Field> = draw(&mut d, &t, area, &view, None, None).into_iter().map(|(_, f)| f).collect();
+        let f: Vec<Field> = draw(&mut d, &t, area, &view, None, Unit::Millimetres, None).into_iter().map(|(_, f)| f).collect();
         assert!((0..MoveKind::ALL.len()).all(|i| f.contains(&Field::Kind(i))) && f.contains(&Field::Preview));
         assert!(!f.contains(&Field::Preset(0)) && !f.contains(&Field::AddTrack), "the other sections stay folded");
         let texts = d.texts();

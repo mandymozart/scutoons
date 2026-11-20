@@ -22,6 +22,7 @@ export { default as PropRow } from './prop-row.svelte';
 export { default as FieldReset } from './field-reset.svelte';
 export { roundTo, type UnitOption, type Units } from './units.ts';
 export { unitPrefs } from './unit-prefs.svelte.ts';
+export { coreUnits, unitRefs, type UnitConversions, type UnitRefs } from './core-units.ts';
 export { default as ColourPopover } from './colour-popover.svelte';
 export { default as PaintField } from './paint-field.svelte';
 export { isGradient, paintCss, type Paint, type Gradient, type GradientStop } from './paint.ts';

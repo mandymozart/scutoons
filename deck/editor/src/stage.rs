@@ -88,6 +88,8 @@ pub struct Stage {
     pub groups: Vec<String>,
     /// the tempo clock's last frame: its BPM and whether it runs
     pub beat: Option<(f64, bool)>,
+    /// the clock's beats a bar
+    pub per_bar: u32,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
     pub scene: Option<String>,
     played_scene: Option<Scene>,
@@ -474,7 +476,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
     }
 
     /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
@@ -835,6 +837,7 @@ impl Stage {
         let moment = Moment::wall(clock::now_ns(), self.origin_ns, self.rate);
         let now = self.tempo.frame(&moment);
         self.beat = Some((now.bpm, now.running));
+        self.per_bar = now.per_bar;
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();
         let meters = self.handles.as_ref().and_then(|h| h.meters.clone());

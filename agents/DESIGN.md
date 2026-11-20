@@ -1046,6 +1046,16 @@ Three kinds, three places; none moves the layout:
   `text-size`, `stroke`, `letter-spacing`, `line-height` – X and Y switch together). Rotation stays °. Text boxes, placed
   items and slice collage pieces (X / Y / W of the slice; outline, shadow and blur – kind `effect` – of the piece's
   width, px by default); a score piece keeps % / staff spaces, opacity stays %.
+- **The core's units** (2026-11-20 [design], #679): the catalogue and conversions live once in deck-core `units` (time s · ms ·
+  frames · beats · bars; length px · % · m of a reference; angle mm · °; level dB · %; tempo BPM); a unit whose reference is
+  unknown (frames without a frame rate, px without the source's size) is not offered. deck-kit: `editor::units` (`scrub`,
+  `exact`: the field with its unit segments at its end; `Prefs`: the choice per kind, the editor's settings) – the Asset
+  tab's crop (px of the SOURCE, whole; stored as parts), fades (s · frames), loudness (dB · %) and the trim readout (s ·
+  frames · beats at the clock), the DOP's move length (beats · bars · s: switching converts at the clock's tempo – the
+  stored unit changes, as beats follow the tempo) and focal length (mm · °, typed in either). Svelte: ScrubNumber's
+  `units` built by `coreUnits` from the wasm (`@scutoons/live-deck/units` → space-web `units_*`), the creator's
+  `UnitNumber`; first use the chapter's music crossfade (stored ms, s by default). The slice lengths above
+  (length-units.ts: %, px, pt, rem) are still a TS conversion – a candidate to move onto the core.
 - Pilot: the text box inspector. `PropField` stays for page forms.
 - **The piece inspector** (collage, `PieceInspector` – slices and the score stage): the head "Shape / Character / Image
   · name" + Remove; a character's mood + view (avatar / portrait / full) outside the fold – a view without a file of

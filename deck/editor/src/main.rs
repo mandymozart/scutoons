@@ -142,6 +142,8 @@ struct Args {
     asset: Option<(String, bool)>,
     /// `--asset-edits JSON`: the open medium's asset edits as if the registry had answered them (deck-space asset_edits)
     asset_edits: Option<String>,
+    /// `--units KIND=UNIT,…`: the unit each kind of value is read in (crop=px, focal=deg), as if chosen
+    units: Vec<(String, deck_core::units::Unit)>,
     /// a check run's selection: this graph node's id, or a track's
     select: Option<String>,
     /// a check run's knob pull on the stage, in Play
@@ -220,7 +222,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -313,6 +315,12 @@ fn args() -> Result<Args> {
                 a.asset = Some(v.strip_suffix(",play").map_or((v.clone(), false), |n| (n.to_string(), true)));
             }
             "--asset-edits" => a.asset_edits = Some(val()?),
+            "--units" => {
+                for pair in val()?.split(',') {
+                    let (kind, id) = pair.split_once('=').context("--units KIND=UNIT,…")?;
+                    a.units.push((kind.trim().to_string(), deck_core::units::Unit::of_id(id.trim()).context("--units: a unit id (s, frames, px, percent, deg, mm, db, gain …)")?));
+                }
+            }
             "--api" => a.api = val()?,
             "--toon" => a.toon = Some(val()?),
             "--book" => a.book = Some(PathBuf::from(val()?)),
@@ -853,6 +861,9 @@ fn run() -> Result<i32> {
     let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
     app_settings.look.theme = args.theme.unwrap_or(app_settings.look.theme);
     app_settings.look.base = args.ui_size.unwrap_or(app_settings.look.base);
+    for (kind, unit) in &args.units {
+        app_settings.units.set(kind, *unit);
+    }
     let tokens = tokens::Watched::new(args.tokens.clone().unwrap_or_else(tokens::default_path), app_settings.look);
     let event_loop = EventLoop::new().context("no event loop (no display?)")?;
     let wire = args.wire;
@@ -1252,7 +1263,7 @@ impl App {
 
     /// the settings changed: kept, and the look applied at once
     fn change_settings(&mut self, f: impl FnOnce(&mut settings::Settings)) {
-        let was = self.settings;
+        let was = self.settings.clone();
         f(&mut self.settings);
         if self.settings == was {
             return;
@@ -3046,7 +3057,7 @@ impl App {
                     let shown = self.media.frame(&gpu.device, &gpu.queue, dt).map(|(view, fresh)| {
                         ui.set_card(&gpu.device, media::CARD, view, fresh);
                     });
-                    if let (Some(r), Some(())) = (media_draw::draw(ui, t, &mut self.media, (wf, hf), bar_bottom), shown) {
+                    if let (Some(r), Some(())) = (media_draw::draw(ui, t, &mut self.media, (wf, hf), bar_bottom, &media_draw::Reading { prefs: &self.settings.units, tempo: self.stage.beat.map(|(b, _)| (b, self.stage.per_bar)) }), shown) {
                         ui.card(media::CARD, r.x, r.y, r.w, r.h);
                     }
                 }
@@ -3520,7 +3531,8 @@ impl App {
                         Some(Drag::Dop(n, ..)) => Some(n),
                         _ => None,
                     };
-                    for (r, f) in dop::draw(ui, t, o.area, view, playing, hot) {
+                    let focal = self.settings.units.unit(dop::FOCAL_UNIT, deck_core::units::Unit::Millimetres, &deck_core::units::Refs::default());
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, focal, hot) {
                         self.panel.hits.push((r, Hit::Dop(f)));
                     }
                 }
@@ -3619,7 +3631,7 @@ impl App {
         self.settings_hits.clear();
         {
             let cursor = self.cursor;
-            let s = self.settings;
+            let s = self.settings.clone();
             let ws = match self.workspace {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,
