@@ -95,7 +95,11 @@ impl Drop for Running {
 }
 
 fn start(url: &str, role: Role, graph: Option<DeckGraph>) -> Running {
-    let mut c = Client::new(Options::new(url, role, Some("decks"))).unwrap();
+    start_with(Options::new(url, role, Some("decks")), graph)
+}
+
+fn start_with(o: Options, graph: Option<DeckGraph>) -> Running {
+    let mut c = Client::new(o).unwrap();
     if let Some(g) = graph {
         c.set_graph(g);
     }
@@ -193,7 +197,11 @@ fn when_udp_dies_mid_show_the_deck_moves_to_the_websocket_as_the_same_client() {
     joined(&conductor);
     let cut = Arc::new(AtomicBool::new(false));
     let path = udp_path(door, cut.clone());
-    let deck = start(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={path}&quichash={hash}"), Role::Musician, Some(graph()));
+    // QUIC runs alone until it is up (the head start is its whole patience): a loaded machine's handshake through the
+    // relaying path takes what it takes, and a WebSocket dialled at 250 ms would win the race
+    let mut o = Options::new(&format!("ws://127.0.0.1:{port}/live/ROOM?quic={path}&quichash={hash}"), Role::Musician, Some("decks"));
+    o.quic_head_start_ms = Some(WAIT.as_millis() as f64);
+    let deck = start_with(o, Some(graph()));
     let (id, quic) = joined(&deck);
     assert!(quic);
     deck.give.send(value(0.5)).unwrap();

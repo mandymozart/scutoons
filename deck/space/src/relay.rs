@@ -193,11 +193,15 @@ pub struct Options {
     /// a reader phone's own secret for the live cameras, kept in its browser: a drop or a reload is the same holder
     #[serde(default)]
     pub key: Option<String>,
+    /// how long QUIC runs alone before a WebSocket is dialled beside it (`QUIC_HEAD_START_MS` when none). A test that must
+    /// see QUIC win the race gives it all the time it needs – a loaded machine's handshake is no fixed 250 ms
+    #[serde(default)]
+    pub quic_head_start_ms: Option<f64>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None, quic_head_start_ms: None }
     }
 }
 
@@ -803,6 +807,7 @@ impl Client {
         self.joined = false;
         self.set_status(Status { state: State::Joining, client: None, why: None, wait: None });
         let path = self.path();
+        let head_start = self.o.quic_head_start_ms.unwrap_or(QUIC_HEAD_START_MS);
         if let Some(q) = self.door.as_mut() {
             q.on_quic = false;
             q.step_up_at = None;
@@ -813,7 +818,7 @@ impl Client {
             if !q.fell {
                 q.quic = Sock::Dialing;
                 q.ws = Sock::Idle;
-                q.ws_at = Some(now + QUIC_HEAD_START_MS);
+                q.ws_at = Some(now + head_start);
                 q.give_up_at = now + QUIC_GIVE_UP_MS;
                 self.out.push(Out::DialQuic { url: format!("{}{path}", q.base), hash: q.hash.clone() });
                 return;
