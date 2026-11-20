@@ -67,6 +67,10 @@ pub enum Hit {
     Place(Place),
     /// the selection's cross: none chosen
     Unselect,
+    /// the places per item: open or fold their list
+    Items,
+    /// one item's files, by its place in the list drawn (again: all of the scope)
+    Item(usize),
     /// the next grouping: by use, by kind, none
     Grouping,
     /// the next order: name, newest, biggest, most used
@@ -154,6 +158,12 @@ pub struct Browser {
     /// every file on its own instead of the families' stacks (its owner lists the single files then)
     pub single: bool,
     pub place: Option<Place>,
+    /// the one item whose files are shown (a place of its own, beside `place`)
+    pub item: Option<String>,
+    /// the list of places per item is open
+    pub items_open: bool,
+    /// the items listed, in their order (an item row's press)
+    items: Vec<String>,
     /// the cards chosen (by address) and the one a Shift run starts from
     pub chosen: Vec<String>,
     anchor: Option<String>,
@@ -171,7 +181,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, item: None, items_open: false, items: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -247,6 +257,17 @@ impl Browser {
             }
             Hit::Place(p) => {
                 self.place = if self.place == Some(p) { None } else { Some(p) };
+                self.item = None;
+                Did::Taken
+            }
+            Hit::Items => {
+                self.items_open = !self.items_open;
+                Did::Taken
+            }
+            Hit::Item(n) => {
+                let picked = self.items.get(n).cloned();
+                self.item = if self.item == picked { None } else { picked };
+                self.place = None;
                 Did::Taken
             }
             Hit::Grouping => {
@@ -376,6 +397,7 @@ impl Browser {
             d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &text, a.w), t.color.muted);
             y += h + 2.0;
         }
+        y = self.item_places(d, t, (a, pointer), y);
         if self.chosen.len() > 1 {
             let h = small * 1.4 + 6.0;
             let text = format!("{} selected", self.chosen.len());
@@ -428,7 +450,7 @@ impl Browser {
             self.view = None;
             return Vec::new();
         }
-        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.place.map(Place::special), query: f.query.clone(), related: f.related.clone(), single: self.single, now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.item.clone().map(Special::Item).or(self.place.map(Place::special)), query: f.query.clone(), related: f.related.clone(), single: self.single, now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
         if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
             self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
         }
@@ -443,6 +465,47 @@ impl Browser {
                 (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
             })
             .collect()
+    }
+
+    /// The places per item (the shelf's one-item places): a heading that opens the list, each item's address and how many
+    /// of the scope's files it has; the one shown is lit. Where it ends.
+    fn item_places(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32) -> f32 {
+        let list: Vec<(String, usize)> = self.view.as_ref().map(|(_, _, v)| v.specials.items.clone()).unwrap_or_default();
+        self.items = list.iter().map(|(i, _)| i.clone()).collect();
+        if list.is_empty() {
+            return y;
+        }
+        let small = t.size.small;
+        let h = small * 1.4 + 6.0;
+        let head = Rect { x: a.x, y, w: a.w, h };
+        if head.has(pointer.0, pointer.1) {
+            d.rect(head.x, head.y, head.w, head.h, t.color.hover);
+        }
+        d.icon(head.x + 2.0, head.y + (h - 12.0) * 0.5, 12.0, if self.items_open { "down" } else { "next" }, t.color.muted);
+        let title = match &self.item {
+            Some(i) => format!("by item: {i}"),
+            None => format!("by item {}", list.len()),
+        };
+        d.sans(head.x + 18.0, head.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &title, head.w - 22.0), if self.item.is_some() { t.color.text } else { t.color.muted });
+        self.hits.push((head, Hit::Items));
+        y += h;
+        if self.items_open {
+            for (n, (item, count)) in list.iter().enumerate() {
+                let r = Rect { x: a.x, y, w: a.w, h };
+                if self.item.as_deref() == Some(item.as_str()) {
+                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
+                } else if r.has(pointer.0, pointer.1) {
+                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                }
+                let c = count.to_string();
+                let cw = d.sans_width(small, &c);
+                d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, item, r.w - cw - 28.0), t.color.text);
+                d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &c, t.color.muted);
+                self.hits.push((r, Hit::Item(n)));
+                y += h;
+            }
+        }
+        y + 4.0
     }
 
     /// where a file dropped on the editor goes (the core's folder for the open item), when the workspace lists files
@@ -982,6 +1045,37 @@ mod tests {
         let src = Source { entries: &modules, shelf: Some(&shelf), stamp: 3, now_ms: 0.0 };
         draw_src(&mut b, &src);
         assert_eq!(b.drop_line(&src), None, "a workspace that lists no files takes none");
+    }
+
+    /// every item with files is a place of its own: listed with its count, pressed it shows only its files
+    #[test]
+    fn each_item_is_a_place_listed_with_its_count() {
+        let mut shelf = shelf();
+        let used = |path: &str, item: &str| deck_catalog::library::shelf::Use { path: path.into(), item: item.into(), part: String::new(), at: String::new() };
+        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("scene:nave".into()), toon: Some("cat".into()), uses: vec![used("cat/s1/c2/sky.webp", "scene:nave"), used("cat/s1/c1/hills.2x.webp", "scene:dunes")], ..Default::default() });
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        draw_src(&mut b, &src);
+        assert!(!b.hits.iter().any(|(_, h)| matches!(h, Hit::Item(_))), "folded at first");
+        let (x, y) = at(&b, Hit::Items);
+        b.press(x, y, 0.0);
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.items, ["chapter:cat:1", "chapter:cat:2", "scene:dunes", "scene:nave", "toon:cat"], "every item with files, in natural order");
+        assert!(d.texts().iter().filter(|s| **s == "1").count() >= 4, "each with its count: {:?}", d.texts());
+        let dunes = b.items.iter().position(|i| i == "scene:dunes").unwrap();
+        let (x, y) = at(&b, Hit::Item(dunes));
+        b.press(x, y, 1.0);
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>(), ["hills"], "only the files scene:dunes uses");
+        let (x, y) = at(&b, Hit::Place(Place::Credits));
+        b.press(x, y, 2.0);
+        assert_eq!((b.item.as_deref(), b.place), (None, Some(Place::Credits)), "a place replaces the item");
+        let (x, y) = at(&b, Hit::Item(dunes));
+        b.press(x, y, 3.0);
+        b.press(x, y, 4.0);
+        draw_src(&mut b, &src);
+        assert_eq!((b.item.as_deref(), b.place, cards(&b).len()), (None, None, 3), "the same item again: all of the scope");
     }
 
     #[test]
