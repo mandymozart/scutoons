@@ -184,6 +184,57 @@ impl Api {
         }
     }
 
+    /// a document's saved versions, newest first (`GET <route>/versions`)
+    pub fn versions(&self, r: &Route) -> Result<Vec<Version>, String> {
+        let url = format!("{}/{}/versions?limit=100", self.base, r.path());
+        let v: serde_json::Value = match self.auth(Self::agent().get(&url)).call() {
+            Ok(a) => a.into_json().map_err(|e| format!("{url}: {e}"))?,
+            Err(ureq::Error::Status(code, a)) => return Err(self.refused_words(&r.key(), code, &a.into_json().unwrap_or_default())),
+            Err(e) => return Err(format!("{url}: {e}")),
+        };
+        // /api/shows wraps the store's answer once more
+        let list = v["versions"].as_array().or_else(|| v.pointer("/versions/versions").and_then(|x| x.as_array())).cloned().unwrap_or_default();
+        Ok(list.iter().filter_map(Version::of).collect())
+    }
+
+    /// the stored version `id` of a document, as saved
+    pub fn version_doc(&self, r: &Route, id: u64) -> Result<serde_json::Value, String> {
+        let url = match r {
+            Route::Entity(_) => format!("{}/{}?version={id}", self.base, r.path()),
+            _ => format!("{}/{}?draft=1&at={id}", self.base, r.path()),
+        };
+        match self.auth(Self::agent().get(&url)).call() {
+            Ok(a) => {
+                let v: serde_json::Value = a.into_json().map_err(|e| format!("{url}: {e}"))?;
+                Ok(if matches!(r, Route::Entity(_)) { v } else { v["content"].clone() })
+            }
+            Err(ureq::Error::Status(code, a)) => Err(self.refused_words(&r.key(), code, &a.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
+    /// one change undone: `content` (the core's revert of version `version`'s step) as a new draft on `base`
+    pub fn revert(&self, r: &Route, version: u64, content: &serde_json::Value, base: u64) -> Result<u64, Refusal> {
+        self.post(&format!("{}/revert", r.path()), &r.key(), serde_json::json!({ "version": version, "content": content, "base": base }))
+    }
+
+    /// back to version `version`: its document as a new draft on `base`
+    pub fn revert_to(&self, r: &Route, version: u64, base: u64) -> Result<u64, Refusal> {
+        self.post(&format!("{}/revert-to", r.path()), &r.key(), serde_json::json!({ "version": version, "base": base }))
+    }
+
+    fn post(&self, path: &str, key: &str, body: serde_json::Value) -> Result<u64, Refusal> {
+        let url = format!("{}/{path}", self.base);
+        match self.auth(Self::agent().post(&url)).send_json(body) {
+            Ok(a) => {
+                let v: serde_json::Value = a.into_json().map_err(|e| Refusal::Other(format!("{url}: {e}")))?;
+                v.pointer("/version/id").and_then(|x| x.as_u64()).ok_or_else(|| Refusal::Other(format!("{url}: the answer has no version")))
+            }
+            Err(ureq::Error::Status(code, a)) => Err(self.refusal(key, code, &a.into_json().unwrap_or_default())),
+            Err(e) => Err(Refusal::Offline(format!("{url}: {e}"))),
+        }
+    }
+
     fn put(&self, path: &str, key: &str, content: &serde_json::Value, base: Option<u64>, message: &str) -> Result<u64, Refusal> {
         let url = format!("{}/{path}", self.base);
         let body = serde_json::json!({ "content": content, "base": base, "message": message });
@@ -287,6 +338,74 @@ impl std::fmt::Display for Refusal {
     }
 }
 
+/// where a document's history lives: the entity API (a rig), or a deck scene's / a show's own route (the server stamps
+/// their `version`)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Route {
+    Entity(String),
+    Scene(String),
+    Show(String),
+}
+
+impl Route {
+    pub fn key(&self) -> String {
+        match self {
+            Route::Entity(k) => k.clone(),
+            Route::Scene(id) => format!("scene:{id}"),
+            Route::Show(id) => format!("show:{id}"),
+        }
+    }
+
+    fn path(&self) -> String {
+        match self {
+            Route::Entity(k) => format!("entities/{k}"),
+            Route::Scene(id) => format!("scenes/{id}"),
+            Route::Show(id) => format!("shows/{id}"),
+        }
+    }
+
+    /// the server writes the document's `version` itself: never an edit of a person's
+    pub fn stamped(&self) -> bool {
+        !matches!(self, Route::Entity(_))
+    }
+}
+
+/// one saved version as `/versions` lists it
+#[derive(Debug, Clone, PartialEq)]
+pub struct Version {
+    pub id: u64,
+    pub author: Option<String>,
+    pub at_ms: i64,
+    pub message: Option<String>,
+    pub published: bool,
+}
+
+impl Version {
+    fn of(v: &serde_json::Value) -> Option<Version> {
+        Some(Version {
+            id: v["id"].as_u64()?,
+            author: v["author_email"].as_str().map(str::to_string),
+            at_ms: v["created_at"].as_str().and_then(utc_ms).unwrap_or(0),
+            message: v["message"].as_str().filter(|m| !m.is_empty()).map(str::to_string),
+            published: v["status"].as_str() == Some("published"),
+        })
+    }
+}
+
+/// `2026-11-20T19:29:30+00:00` (the server's `gmdate('c')`, always UTC) as milliseconds since 1970
+pub fn utc_ms(iso: &str) -> Option<i64> {
+    let n = |r: std::ops::Range<usize>| iso.get(r).and_then(|s| s.parse::<i64>().ok());
+    let (y, m, d, hh, mm, ss) = (n(0..4)?, n(5..7)?, n(8..10)?, n(11..13)?, n(14..16)?, n(17..19)?);
+    // days from 1970-01-01 of a civil date (H. Hinnant's days_from_civil)
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(((days * 24 + hh) * 60 + mm) * 60_000 + ss * 1000)
+}
+
 /// a document's newest draft: its JSON and the version a save names as `base`
 #[derive(Debug, Clone, PartialEq)]
 pub struct Draft {
@@ -314,6 +433,20 @@ pub fn refused_words(key: &str, code: u16, body: &serde_json::Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_versions_time_reads_as_utc_milliseconds() {
+        assert_eq!(utc_ms("1970-01-01T00:00:10+00:00"), Some(10_000));
+        assert_eq!(utc_ms("2000-03-01T00:00:00+00:00"), Some(951_868_800_000));
+        assert_eq!(utc_ms("2026-11-20T19:29:30+00:00"), Some(1_795_202_970_000));
+        assert_eq!(utc_ms("soon"), None);
+    }
+
+    #[test]
+    fn a_listed_version_reads_its_author_time_and_status() {
+        let v = serde_json::json!({ "id": 7, "status": "published", "created_at": "1970-01-01T00:00:01+00:00", "author_email": "a@b", "message": "" });
+        assert_eq!(Version::of(&v), Some(Version { id: 7, author: Some("a@b".into()), at_ms: 1000, message: None, published: true }));
+    }
 
     #[test]
     fn a_refused_draft_is_said_in_words() {

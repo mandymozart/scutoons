@@ -231,6 +231,7 @@ return static function (App $app): void {
     $app->get('/api/shows/{id}/versions', [ShowsController::class, 'versions']);
     $app->put('/api/shows/{id}', [ShowsController::class, 'put']);
     $app->post('/api/shows/{id}/publish', [ShowsController::class, 'publish']);
+    $app->post('/api/shows/{id}/{action:revert|revert-to}', [ShowsController::class, 'revert']);
     $app->post('/api/live/sessions', [ShowsController::class, 'open']);
     // ── Deck scenes `scene:<id>` (#243, ScenesController): published ones public, drafts the content editors' ────────
     $app->get('/api/scenes', [ScenesController::class, 'index']);
@@ -239,6 +240,7 @@ return static function (App $app): void {
     $app->put('/api/scenes/{id}', [ScenesController::class, 'put']);
     $app->post('/api/scenes/{id}/publish', [ScenesController::class, 'publish']);
     $app->post('/api/scenes/{id}/restore', [ScenesController::class, 'restore']);
+    $app->post('/api/scenes/{id}/{action:revert|revert-to}', [ScenesController::class, 'revert']);
     // a client's signed facts for one live session – a member's account roles, an approved deck (#478, LiveProofController)
     $app->get('/api/live/proof', [LiveProofController::class, 'proof']);
 

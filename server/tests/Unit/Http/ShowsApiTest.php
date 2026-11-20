@@ -107,6 +107,35 @@ final class ShowsApiTest extends TestCase
         self::assertSame(422, $this->request('PUT', '/api/shows/top', $live, ['content' => self::show('other')])->getStatusCode());
     }
 
+    /** #687: the History's reverts – a new draft, stamped anew; a stored version read by its id */
+    public function testARevertIsANewStampedDraft(): void
+    {
+        $live = $this->session([Roles::LIVE], 'revert@example.test');
+        $ids = [];
+        $base = null;
+        foreach ([[], [['id' => 'a']], [['id' => 'a'], ['id' => 'b']]] as $rows) {
+            $doc = self::show('top');
+            $doc['rows'] = $rows;
+            $base = self::json($this->request('PUT', '/api/shows/top', $live, ['content' => $doc, 'base' => $base]))['version']['id'];
+            $ids[] = $base;
+        }
+        self::assertSame([['id' => 'a']], self::json($this->request('GET', "/api/shows/top?draft=1&at=$ids[1]", $live))['content']['rows']);
+
+        $reverted = self::show('top');
+        $reverted['rows'] = [['id' => 'b']];
+        $done = self::json($this->request('POST', '/api/shows/top/revert', $live, ['version' => $ids[1], 'content' => $reverted, 'base' => $ids[2]]));
+        self::assertSame("revert #$ids[1]", $done['version']['message']);
+        $now = self::json($this->request('GET', '/api/shows/top?draft=1', $live))['content'];
+        self::assertSame([[['id' => 'b']], 4], [$now['rows'], $now['version']]);
+
+        self::assertSame(409, $this->request('POST', '/api/shows/top/revert-to', $live, ['version' => $ids[0], 'base' => $ids[2]])->getStatusCode());
+        $back = self::json($this->request('POST', '/api/shows/top/revert-to', $live, ['version' => $ids[0], 'base' => $done['version']['id']]));
+        self::assertSame("back to #$ids[0]", $back['version']['message']);
+        $now = self::json($this->request('GET', '/api/shows/top?draft=1', $live))['content'];
+        self::assertSame([[], 5], [$now['rows'], $now['version']]);
+        self::assertSame(403, $this->request('POST', '/api/shows/top/revert-to', $this->session([Roles::CREATOR], 'c@example.test'), ['version' => $ids[0], 'base' => $back['version']['id']])->getStatusCode());
+    }
+
     public function testPublishingAsksTheCoreWithTheWholeTreeByValue(): void
     {
         $live = $this->session([Roles::LIVE], 'tree@example.test');

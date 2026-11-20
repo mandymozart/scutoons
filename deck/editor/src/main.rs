@@ -20,6 +20,8 @@ mod empty;
 mod frame;
 mod gpu_time;
 mod grid;
+mod history;
+mod history_panel;
 mod home;
 mod idle;
 mod library;
@@ -198,6 +200,9 @@ struct Args {
     closed: Vec<String>,
     /// the Log panel open in every workspace
     log: bool,
+    /// the History panel open in Build and Show; a check run's ask on its step (`revert:N` | `back:N`, `:confirm` stores it)
+    history: bool,
+    history_ask: Option<history_panel::ScriptAsk>,
     main_menu: bool,
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
@@ -222,7 +227,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -362,6 +367,11 @@ fn args() -> Result<Args> {
             "--scene-file" => a.scene_file = Some(PathBuf::from(val()?)),
             "--rig-preset" => a.rig_preset = Some(val()?),
             "--log" => a.log = true,
+            "--history" => a.history = true,
+            "--history-ask" => {
+                a.history = true;
+                a.history_ask = Some(history_panel::ScriptAsk::parse(&val()?).context("--history-ask revert:N | back:N[:confirm]")?);
+            }
             "--log-info" => {}
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
             "--main-menu" => a.main_menu = true,
@@ -719,6 +729,9 @@ struct App {
     /// the Log panel's places and the status bar's that open it, this frame
     log_hits: Vec<(Rect, log::Press)>,
     opens_log: Vec<Rect>,
+    /// the front document's saved steps (history.rs) and its panel's places this frame
+    history: history::History,
+    history_hits: Vec<(Rect, history_panel::Press)>,
     /// the rigs before each change: ctrl+z
     undo: Vec<deck_space::rig::Bundle>,
     draft: rigs::Copy,
@@ -934,6 +947,11 @@ fn run() -> Result<i32> {
             p.floats.reopen(log::PANEL);
         }
     }
+    if args.history {
+        for p in [&mut build, &mut app_show.show_panels] {
+            p.floats.reopen(history_panel::PANEL);
+        }
+    }
     for id in &args.closed {
         for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.close(id);
@@ -955,6 +973,7 @@ fn run() -> Result<i32> {
     // a check run asks no server for presets
     let app_routing = routing::Page::new(deck_native::audio::backend::DeckAudio::read());
     let app_routing = if args.frames.is_none() { app_routing.with_api(&args.api) } else { app_routing };
+    let app_history = history::History::new(std::sync::Arc::new(show::api::Api::new(args.api.clone())));
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -992,6 +1011,8 @@ fn run() -> Result<i32> {
         log: log::Log::default(),
         log_hits: Vec::new(),
         opens_log: Vec::new(),
+        history: app_history,
+        history_hits: Vec::new(),
         undo: Vec::new(),
         draft,
         reach: Vec::new(),
@@ -1600,7 +1621,7 @@ impl App {
             }
             return;
         }
-        if self.press_status(x, y) {
+        if self.press_history(x, y) || self.press_status(x, y) {
             return;
         }
         // a panel's handle takes it in the hand, its chevron folds it, its close closes it
@@ -2576,6 +2597,7 @@ impl App {
 
     /// a check run's drag at fixed frames: the pointer's own path, through hit test, press, move and release
     fn script(&mut self) {
+        self.script_history();
         self.script_colour();
         self.script_library();
         self.show.script(self.frames, &self.args.script);
@@ -2777,6 +2799,7 @@ impl App {
         }
         self.follow_toon();
         self.follow_rigs();
+        self.follow_history();
         self.follow_modules();
         self.script_play();
         self.autosave();
@@ -3659,6 +3682,15 @@ impl App {
         let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
         self.colour.draw(ui, t, (wf, hf), value, self.cursor);
         self.log.draw_ring(ui, t);
+        {
+            let ws = match self.workspace {
+                show::Workspace::Stage => &mut self.build,
+                show::Workspace::Module => &mut self.module.panels,
+                show::Workspace::Show => &mut self.show.show_panels,
+                show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
+            };
+            self.history_hits = history_panel::draw_all(ui, t, (wf, hf), ws, &self.history, self.cursor);
+        }
         if let Some(p) = self.scene_prompt.as_mut() {
             p.draw(ui, t, (wf, hf));
         }
@@ -3886,6 +3918,7 @@ impl ApplicationHandler for App {
                     self.panic_pill();
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } if self.history.asking.is_some() => self.history_prompt_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.scene_prompt.is_some() => self.scene_prompt_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
@@ -3939,8 +3972,8 @@ impl ApplicationHandler for App {
                 } else if let Some(step) = (event.state == ElementState::Pressed && self.mods.control_key()).then(|| size_key(&event.logical_key)).flatten() {
                     let theme = self.tokens.look.theme;
                     self.look(theme, step);
-                } else if event.state == ElementState::Pressed && event.logical_key == Key::Character("z".into()) && self.mods.control_key() {
-                    self.take_back();
+                } else if event.state == ElementState::Pressed && matches!(&event.logical_key, Key::Character(c) if c.eq_ignore_ascii_case("z")) && self.mods.control_key() {
+                    self.history_key(self.mods.shift_key());
                 } else if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Delete) && self.workspace == show::Workspace::Stage {
                     self.remove_selected();
                 } else if let Some(tool) = (event.state == ElementState::Pressed && self.workspace == show::Workspace::Stage && !self.mods.control_key()).then(|| if let Key::Character(c) = &event.logical_key { tools::tool_key(c) } else { None }).flatten() {
