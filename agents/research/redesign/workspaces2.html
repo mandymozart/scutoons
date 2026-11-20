@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Workspaces round 2</title>
+<!-- #673 round 2 (owner 2026-11-20): everything evolved – background = a maximized panel, tabs by address, six panel types,
+     sheets first, blank assets and Upload · Library · Generate, generation nodes per type (AI · manual · upload · render),
+     3D first, real story events, cast as a season filter, Kanon for items and regions, flexible storyboard format.
+     ?w=overview|home|library|toons|chapter|characters|catalog|map|storyboard|experiences|flows|generations -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;--hover:#2e3229;
+--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;--warn:#f0a030;--go:#4cc35a;--danger:#e5483b;
+--glass:rgba(26,28,24,.55);--glass2:rgba(26,28,24,.86);--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tr:1.8rem;--r:.36rem;
+--mono:"IBM Plex Mono",ui-monospace,monospace;
+--s0:#00d1ff;--s1:#f0a030;--s2:#b36bff;--s3:#4cc35a;--s4:#ff6b8a;--s5:#e6d24a}
+*{box-sizing:border-box}html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:var(--small)}.sp{flex:1}.warn{color:var(--warn)}.ok{color:var(--go)}.acc{color:var(--accent)}
+.bg{position:absolute;inset:0;overflow:hidden}
+/* top bar */
+.bar{position:absolute;top:1rem;left:1rem;right:1rem;display:flex;gap:.5rem;align-items:center;z-index:3}
+.pill{display:flex;align-items:center;gap:.2rem;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:2.55rem;white-space:nowrap}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .5rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;display:inline-grid;place-items:center;color:var(--text)}
+.ws{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .8rem;border-radius:1.2rem;background:var(--control)}
+.ws b{font-weight:400}
+.tab{display:flex;align-items:center;gap:.4rem;height:var(--row);padding:0 .35rem 0 .65rem;border-radius:1.2rem;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .x{width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.75rem;opacity:.55}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}.seg span{height:var(--row);padding:0 .75rem;border-radius:1.2rem;display:flex;align-items:center}
+.seg span.on{background:var(--pressed);color:var(--pressed-text)}.seg span.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block;margin-right:.35rem}
+/* panels */
+.p{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;z-index:2}
+.p.solid{background:var(--glass2)}
+.ph{display:flex;align-items:center;gap:.2rem;padding:.3rem .35rem .3rem .2rem;flex:none}
+.grip{width:.9rem;align-self:stretch;display:grid;place-items:center;color:var(--line);cursor:grab;font-size:.8rem;letter-spacing:-.15em}
+.pt{font-size:var(--small);padding:.18rem .6rem;border-radius:1rem;color:var(--muted);white-space:nowrap}
+.pt.on{background:var(--pressed);color:var(--pressed-text)}
+.ph .f{margin-left:auto;color:var(--muted);font-size:.75rem;padding:0 .3rem}
+.pb{overflow:hidden;flex:1;min-height:0;position:relative}
+.mini{position:absolute;z-index:2;display:flex;align-items:center;gap:.45rem;height:2.35rem;padding:0 .8rem 0 .4rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);white-space:nowrap;font-size:var(--small)}
+.mini .grip{width:.8rem}
+.ghost{position:absolute;z-index:4;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .4rem 1rem #000a;transform:rotate(-3deg)}
+.drop{position:absolute;z-index:4;width:2px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.note{position:absolute;z-index:5;max-width:19rem;font-size:var(--small);line-height:1.4;background:#fffbe6;color:#1d1d14;padding:.5rem .65rem;border-radius:var(--r);box-shadow:0 .3rem .9rem #0008}
+.note b{font-weight:700}
+.note::before{content:"Draft note";display:block;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:#7a6a00;margin-bottom:.15rem}
+/* content */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.chips{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.08rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.tr{height:var(--tr);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0)*1.05rem);white-space:nowrap;overflow:hidden}
+.tr.sel{background:var(--selected)}.tr.in{background:rgba(35,38,31,.6)}
+.tr .c{width:.8rem;color:var(--muted);font-size:.65rem;flex:none}
+.tr img,.tr .sw{width:1.25rem;height:1.25rem;border-radius:50%;object-fit:cover;flex:none;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted);padding-left:.4rem}
+.grp{padding:.55rem var(--pad) .2rem}
+.sec{border-top:1px solid var(--line)}
+.sh{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sh .c{color:var(--muted);font-size:.65rem;width:.8rem}.sh .s{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.si{padding:0 var(--pad) .75rem;display:grid;gap:.42rem}
+.prop{display:grid;grid-template-columns:6.3rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.fd{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot{height:4.2rem;border:1px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.6rem;padding:.3rem;color:var(--muted);font-size:var(--small)}
+.slot img{height:100%;aspect-ratio:1;object-fit:cover;border-radius:calc(var(--r) - 1px)}
+.slot.full{border-style:solid}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+/* canonical sheet: reads like a page, every value edits in place */
+.sheet{padding:.2rem 1rem 1rem;line-height:1.55}
+.sheet h2{font-size:1.15rem;font-weight:700;margin:.4rem 0 .1rem}
+.sheet .sub{color:var(--muted);font-size:var(--small);margin-bottom:.6rem}
+.sheet p{margin:.45rem 0}
+.sheet .v{border-bottom:1px dashed #5a6450;padding:0 .1rem}
+.sheet .ref{color:var(--accent);border-bottom:1px solid #0e5566}
+.sheet .h{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .2rem}
+.state{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.02rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+.state.draft{border-color:var(--muted);color:var(--muted)}.state.warn{border-color:var(--warn);color:var(--warn)}
+/* links: where used · events · deck */
+.lk{display:grid;grid-template-columns:auto 1fr auto;gap:.15rem .5rem;align-items:center;padding:.15rem var(--pad);font-size:var(--small)}
+.lk .k{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.ev{display:flex;align-items:center;gap:.35rem;padding:.25rem var(--pad);font-size:var(--small);white-space:nowrap}
+.ev .on{font-family:var(--mono);font-size:var(--label);padding:.05rem .4rem;border-radius:var(--r);background:var(--control);border:1px solid var(--line)}
+.ev .ar{color:var(--muted)}
+.ev .to{color:var(--accent)}
+/* tiles */
+.tiles{display:grid;gap:.5rem;padding:0 var(--pad) var(--pad)}
+.tile{position:relative;aspect-ratio:1;border-radius:var(--r);background:#0c0d0b;border:1px solid var(--line);overflow:hidden}
+.tile img{width:100%;height:100%;object-fit:contain}
+.tile.cover img{object-fit:cover}
+.tile .k{position:absolute;left:.3rem;top:.3rem;font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .u{position:absolute;right:.3rem;top:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .u.zero{border:1px dashed var(--muted);color:var(--muted)}
+.tile .q{position:absolute;right:.3rem;bottom:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .nm{position:absolute;left:0;right:0;bottom:0;padding:.9rem .4rem .25rem;background:linear-gradient(transparent,#000d);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{outline:2px solid var(--accent);outline-offset:1px}
+.tile.want{border-style:dashed;border-color:var(--warn);display:grid;place-items:center;color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.strip{display:flex;gap:.45rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.card{flex:none;width:7.5rem}
+.card .th{height:4.6rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#000;position:relative}
+.card .th img{width:100%;height:100%;object-fit:cover}
+.card .t{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem;white-space:nowrap}
+.card.sel .th{outline:2px solid var(--accent);outline-offset:1px}.card.sel .t{color:var(--text)}
+textarea,.txt{font:inherit;color:var(--text)}
+.txt{padding:.4rem 1rem 1rem;line-height:1.6;font-size:.95rem}
+.txt .sl{font-family:var(--mono);font-size:var(--label);color:var(--muted);letter-spacing:.06em;margin-top:.7rem}
+.txt .who{color:var(--accent);font-size:var(--small);letter-spacing:.06em;text-transform:uppercase}
+.txt .cur{background:rgba(0,209,255,.12);border-left:2px solid var(--accent);margin-left:-.6rem;padding-left:.5rem}
+svg text{font-family:"Noto Sans",sans-serif}
+</style></head><body><script>
+// workspaces2.html's script (assembled with workspaces.html's style) – #673 round 2, everything evolved on 2026-11-20
+const R='../../../media/', C=R+'characters/', CP=R+'catpope/', IT=R+'scutoons/items/';
+const W=innerWidth,H=innerHeight,rem=14,g=rem,T=g+2.55*rem+g;
+const ch=(c,v,m)=>`${C}${c}/${c}_${v}-${m}.webp`;
+const w=new URLSearchParams(location.search).get('w')||'overview';
+const ICON={home:'⌂',library:'▤',toons:'▦',chapter:'▥',characters:'☺',catalog:'◈',map:'⌖',storyboard:'▶',experiences:'◳',flows:'⟴',generations:'✶'};
+const NAME={home:'Home',library:'Library',toons:'Toons',chapter:'Chapter',characters:'Characters',catalog:'Catalog',map:'Map',storyboard:'Storyboard',experiences:'Experiences',flows:'Flows',generations:'Generations'};
+let out='';const add=x=>out+=x;
+add(`<style>
+.chip.gen{background:var(--primary);color:#171916;border-color:#9ce327}
+.sb{display:flex;gap:.3rem;flex-wrap:wrap}
+.blank{border:1.5px dashed var(--warn)!important;background:rgba(240,160,48,.06)!important;display:grid;place-items:center;color:var(--warn);font-size:var(--label);letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.3}
+.back{position:absolute;z-index:2;left:50%;transform:translateX(-50%);top:${T}px;display:flex;align-items:center;gap:.4rem;height:2.1rem;padding:0 .7rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);font-size:var(--small);white-space:nowrap}
+.k3{font-family:var(--mono);font-size:var(--label);padding:.02rem .35rem;border-radius:.3rem;border:1px solid var(--s2);color:var(--s2)}
+.node{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:.35rem .5rem;font-size:var(--small)}
+</style>`);
+function bar(tabs=[],o={}){
+  add(`<div class="bar"><div class="pill"><span class="logo">SCUTOONS</span><span class="ib">☰</span></div>
+  <div class="pill"><span class="ws"><span>${ICON[w]||'◎'}</span><b>${NAME[w]||'Overview'}</b><span class="muted">▾</span></span>${tabs.map((t,i)=>`<span class="tab ${i===0?'on':''}">${t.img?`<img src="${t.img}">`:`<span>${t.i||''}</span>`}<span>${t.n}</span><span class="x">✕</span></span>`).join('')}${tabs.length?'<span class="ib">＋</span>':''}</div>
+  <span class="sp"></span>
+  ${o.saved!==false?`<div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>`:''}
+  ${o.play?`<div class="pill"><div class="seg"><span class="on">Edit</span><span class="play">▶ Play</span></div></div>`:''}
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">?</span></div></div>`);
+}
+// the background is a maximized panel: its pill says what is in the back and swaps it
+const BACK=(what)=>add(`<div class="back"><span class="muted">back:</span>${what}<span class="muted">· ⤢ swap</span></div>`);
+function P(x,y,wd,ht,tabs,body,o={}){
+  add(`<div class="p ${o.solid?'solid':''}" style="left:${x}px;top:${y}px;width:${wd}px;height:${ht}px;${o.hi?'outline:2px solid var(--primary);outline-offset:2px;':''}"><div class="ph"><span class="grip">⋮⋮</span>${tabs.map((t,i)=>`<span class="pt ${i===(o.on||0)?'on':''}">${t}</span>`).join('')}<span class="f">⤢ —</span></div><div class="pb">${body}</div></div>`);
+}
+function M(x,y,label,extra=''){add(`<div class="mini" style="left:${x}px;top:${y}px"><span class="grip">⋮⋮</span>${label}${extra}</div>`)}
+function NOTE(x,y,html,wd){add(`<div class="note" style="left:${x}px;top:${y}px;${wd?`max-width:${wd}px`:''}">${html}</div>`)}
+const tr=(d,label,o={})=>`<div class="tr ${o.sel?'sel':''} ${o.in?'in':''}" style="--d:${d}"><span class="c">${o.c??''}</span>${o.img?`<img src="${o.img}" onerror="this.style.visibility='hidden'">`:o.blank?`<span class="sw" style="background:none;border:1px dashed var(--warn)"></span>`:o.sw?`<span class="sw" style="background:${o.sw}"></span>`:''}<span>${label}</span>${o.k3?'<span class="k3">3D</span>':''}${o.n!==undefined?`<span class="n ${o.nw?'warn':''}">${o.n}</span>`:''}</div>`;
+const sec=(open,name,sum,body='')=>`<div class="sec"><div class="sh"><span class="c">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="s">${sum}</span></div>${open?`<div class="si">${body}</div>`:''}</div>`;
+const prop=(k,v)=>`<div class="prop"><span>${k}</span>${v.startsWith('<')?v:`<div class="fd">${v}</div>`}</div>`;
+const FILL=`<div class="sb"><span class="chip">⇪ Upload</span><span class="chip">▤ Library</span><span class="chip gen">✶ Generate</span></div>`;
+const blankSlot=(addr,brief)=>`<div class="slot blank" style="height:auto;display:block;padding:.5rem .6rem;text-transform:none;letter-spacing:0;font-size:var(--small);text-align:left;color:var(--text)"><div class="lbl" style="color:var(--warn)">blank asset</div><div class="mono" style="font-size:var(--label);color:var(--muted)">${addr}</div><div style="margin:.3rem 0">${brief}</div>${FILL}</div>`;
+// story events: the real names – triggers intersect · click · hover; actions giveItem, unlockLocation, joinScene …
+const ev=(trig,act,target,deck)=>`<div class="ev"><span class="on">${trig}</span><span class="ar">→</span><span>${act}</span><span class="to">${target}</span>${deck?`<span class="ar">→</span><span class="acc">⚡ ${deck}</span>`:''}</div>`;
+const lk=(rows)=>rows.map(([k,n,s])=>`<div class="lk"><span class="k">${k}</span><span>${n}</span><span class="muted mono" style="font-size:var(--label)">${s||''}</span></div>`).join('');
+const LINKS=(addr,addressable,used,evs,deck)=>`<div class="ev"><span class="mono" style="font-size:var(--label)">${addr}</span><span class="state ${addressable?'':'warn'}">${addressable?'address':'reference only'}</span></div><div class="grp lbl">Used in · ${used.length}</div>${lk(used)}<div class="grp lbl">Story events</div>${evs.join('')}<div class="grp lbl">Deck</div>${lk(deck)}`;
+const tile=(src,k,n,o={})=>o.blank?`<div class="tile blank" style="aspect-ratio:1">blank<br>${o.gen?'✶ generating':'⇪ ▤ ✶'}<span class="nm" style="color:var(--warn);text-transform:none;letter-spacing:0">${n}</span></div>`:`<div class="tile ${o.sel?'sel':''} ${o.cover?'cover':''}"><img src="${src}" onerror="this.style.opacity=0"><span class="k">${k}${o.k3?' · 3D':''}</span><span class="u ${o.u===0?'zero':''}">${o.u??''}</span>${o.q?`<span class="q">${o.q}</span>`:''}<span class="nm">${n}</span></div>`;
+const kanon=(t)=>`<div class="h">Kanon</div><p class="muted">${t} <span class="acc">open ↗</span></p>`;
+
+// ───────────────────────────────────────── OVERVIEW: the evolved model on one page
+if(w==='overview'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 40% 20%,#1d2119,#000 70%)"></div>`);
+  const L=2.4*rem; let y=2*rem;
+  add(`<div style="position:absolute;left:${L}px;top:${y}px"><div class="lbl">Round 2 · what evolved</div><div style="font-size:1.6rem">The creator: workspaces, panels, assets – one model</div></div>`);
+  y+=4.6*rem;
+  const box=(x,y,wd,ht,title,body,c='var(--line)')=>add(`<div style="position:absolute;left:${x}px;top:${y}px;width:${wd}px;height:${ht}px;border:1px solid ${c};border-radius:var(--r);background:var(--glass2);padding:.7rem .8rem;overflow:hidden"><div class="lbl" style="color:${c==='var(--line)'?'var(--muted)':c}">${title}</div>${body}</div>`);
+  const cw=(W-2*L-3*1.2*rem)/4, bh=13*rem, bh2=10.5*rem;
+  box(L,y,cw,bh,'1 · Workspace = its background',`<p>The background is a <b>panel maximized to the back</b>: a stage, a canvas, a map, a board. ⤢ swaps any panel to the back – the generation canvas, the Library, the stage.</p><p class="muted">Home · Library · Toons · Chapter · Characters · Catalog · Map · Storyboard · Experiences · Flows · Generations</p>`);
+  box(L+(cw+1.2*rem),y,cw,bh,'2 · Tabs = opened items by address',`<p><span class="mono" style="font-size:var(--small)">character:catpope</span><br><span class="mono" style="font-size:var(--small)">chapter:catpope/s1/c3</span><br><span class="mono" style="font-size:var(--small)">experience:poster-feilchen</span></p><p class="muted">The way in: Home (find, continue, waiting, wanted) and the Library.</p>`);
+  box(L+2*(cw+1.2*rem),y,cw,bh,'3 · Panels, defined once',`<p><b>Sheet</b> what it is · <b>Kanon / Text</b> · <b>Slots</b> + Wanted · <b>Links</b> where used · <b>Events</b> · <b>Inspector</b> this use only</p><p class="muted">Universal tabs: drag a tab into another panel or out onto the stage (osct #318). Panels make room on resize.</p>`);
+  box(L+3*(cw+1.2*rem),y,cw,bh,'4 · Canonical, not additive',`<p>A thing reads as a <b>sheet</b> first – character, place, region, item, toon, season – values edit in place. Kanon for items and regions too.</p><p class="muted">One source for authors, titles, names. Cast = a season filter. Events = story events; Calendar = PR dates.</p>`);
+  const y2=y+bh+1.2*rem;
+  box(L,y2,2*cw+1.2*rem,bh2,'5 · Every asset starts blank and ends in the Library',`<div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem">${[['blank','an address + a brief from the Kanon','var(--warn)'],['fill','⇪ Upload · ▤ Library · ✶ Generate – equal ways','var(--accent)'],['review','variants, lineage, A / B','var(--warn)'],['asset','in the Library: qualities, lineage, where wanted','var(--primary)']].map(([k,d,c])=>`<div style="flex:1;border:1.5px ${k==='blank'?'dashed':'solid'} ${c};border-radius:var(--r);padding:.5rem;min-height:5.5rem"><div class="state" style="border-color:${c};color:${c};display:inline-block">${k}</div><div style="font-size:var(--small);margin-top:.3rem">${d}</div></div>`).join('<span class="muted">→</span>')}</div><p class="muted" style="margin-top:.6rem">Generate is like upload – done inside, with context. Wherever a picture or a model belongs.</p>`,'var(--primary)');
+  box(L+2*(cw+1.2*rem),y2,2*cw+1.2*rem,bh2,'6 · Generation = nodes per asset type – and 3D first',`<div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.5rem">${['text','block','image','mesh','textured','module'].map((k,i)=>`<span class="node" style="${i===1?'opacity:.4':''}">${['✶','—','✎','✶','✶','⚙'][i]} ${k}</span>`).join('<span class="muted">→</span>')}</div><div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.5rem"><span class="node">3D model</span><span class="muted">→</span><span class="node">pose · camera · set</span><span class="muted">→</span><span class="node">render</span><span class="muted">→</span><span class="node">2D asset</span><span class="muted" style="margin-left:.4rem">backwards</span></div><p class="muted" style="margin-top:.6rem">Node kinds: ✶ AI (provider chosen in the back) · ✎ manual instruction (for people without gen AI) · ⇪ upload · ⚙ render / build. Any step skips; defined per type, adjusted as we go.</p>`,'var(--s2)');
+  const y3=y2+bh2+1.2*rem, names=['home','library','toons','chapter','characters','catalog','map','storyboard','experiences','flows','generations'];
+  add(`<div class="lbl" style="position:absolute;left:${L}px;top:${y3}px">7 · The eleven workspaces, round 2</div>`);
+  const tw=(W-2*L-5*.8*rem)/6, th=tw*900/1440;
+  names.forEach((n,i)=>{const x=L+(i%6)*(tw+.8*rem), yy=y3+1.4*rem+Math.floor(i/6)*(th+2*rem);add(`<div style="position:absolute;left:${x}px;top:${yy}px;width:${tw}px"><img src="round2/${n}.png" style="width:100%;height:${th}px;object-fit:cover;border:1px solid var(--line);border-radius:var(--r)"><div style="font-size:var(--small);margin-top:.15rem">${ICON[n]} ${NAME[n]}</div></div>`)});
+}
+
+// ───────────────────────────────────────── HOME
+if(w==='home'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 30% 20%,#1f241a,#000 65%)"></div>`);
+  bar([],{saved:false});
+  const L=g, cw=W-2*g, lw=cw*0.62;
+  P(L,T,lw,5.4*rem,['Find'],`<div style="padding:.2rem var(--pad) 0"><div class="search" style="margin:0;height:2.6rem;font-size:1.1rem">⌕ <span>Find anything – by name or address: <span class="mono">character:catpope</span>, <span class="mono">place:crypt</span> …</span><span class="sp"></span><span class="mono muted">Ctrl K</span></div></div>`,{solid:true});
+  const ws=['library','toons','chapter','characters','catalog','map','storyboard','experiences','flows','generations'];
+  const sub={library:'412 assets · 37 blank',toons:'3 toons',chapter:'C3 open',characters:'7 · 19 blank',catalog:'86 items · 61 in 3D',map:'14 places',storyboard:'C3 · scroll + video',experiences:'1 poster · print 12 Dec',flows:'2 dead ends',generations:'3 running · 4 to review'};
+  P(L,T+5.4*rem+g,lw,13.6*rem,['Workspaces'],`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.45rem;padding:0 var(--pad) var(--pad)">${ws.map(k=>`<div style="border:1px solid ${k==='experiences'?'var(--warn)':'var(--line)'};border-radius:var(--r);padding:.6rem .7rem;background:var(--control)"><div style="font-size:1.3rem">${ICON[k]}</div><div>${NAME[k]}</div><div class="${k==='experiences'?'warn':'muted'}" style="font-size:var(--label)">${sub[k]}</div></div>`).join('')}</div>`,{solid:true});
+  const y2=T+19*rem+2*g;
+  P(L,y2,lw,H-y2-g,['Continue','Recent'],`<div class="strip" style="flex-wrap:wrap;gap:.6rem">${[
+    [CP+'s1/c1/s1c1-slice-4.webp','chapter:catpope/s1/c3','slice 4 · 2 h ago'],
+    [ch('catpope','portrait','dizzy'),'character:catpope','dizzy ✓ · today'],
+    [CP+'s1/s1-cover-portrait.webp','experience:poster-feilchen','targets 2 / 3'],
+    [CP+'s1/c1/s1c1-key-visual.webp','storyboard:catpope:3','shot 7 · generating'],
+    [IT+'record_player.webp','item:record-player','3D · texturing'],
+  ].map(([s,a,t])=>`<div class="card" style="width:12.5rem"><div class="th" style="height:7rem"><img src="${s}"></div><div class="t mono" style="color:var(--text);font-size:var(--label)">${a}</div><div class="t"><span>${t}</span></div></div>`).join('')}</div>`);
+  const rx=L+lw+g, rw=W-rx-g;
+  P(rx,T,rw,15.5*rem,['Waiting for you'],`${[['Poster art – print 12 Dec','experience:poster-feilchen','warn','due'],['4 generations to review','generations','','review'],['Kanon: Scorpion amulet – new (items get a Kanon)','item:scorpion-amulet','','open'],['C4 Crypt not live yet','chapter:catpope/s1/c4','draft','draft']].map(([t,a,s,l])=>`<div class="ev" style="justify-content:space-between"><span>${t}</span><span class="state ${s}">${l}</span></div><div class="ev" style="padding-top:0"><span class="mono muted" style="font-size:var(--label)">${a}</span></div>`).join('')}`,{solid:true});
+  P(rx,T+15.5*rem+g,rw,12.5*rem,['Blank · 37','Problems · 3'],`<div class="tiles" style="grid-template-columns:repeat(4,1fr)">${tile('','','Mountain tiger · 18',{blank:1})}${tile('','','Crypt · place image',{blank:1})}${tile('','','Tape player · 3D',{blank:1,gen:1})}${tile('','','Poster art',{blank:1})}</div><div class="ev muted">blank = wanted · fill by ⇪ upload, ▤ library or ✶ generate</div>`);
+  const y3=T+28*rem+2*g;
+  P(rx,y3,rw,H-y3-g,['Toons'],`${[['catpope','CatPope','S1 · 3 / 5 live'],['yellowmouse','Yellow Mouse','S1 · drafting'],['billthefrog','Bill the Frog','pilot']].map(([i,n,s])=>tr(0,n,{img:ch(i,'avatar','neutral'),n:s})).join('')}`);
+}
+
+// ───────────────────────────────────────── LIBRARY
+if(w==='library'){
+  add(`<div class="bg" style="background:#0d0f0b"></div>`);
+  bar([]);
+  const lw=15*rem, dw=24*rem;
+  P(g,T,lw,H-T-g,['Places'],`<div class="search">⌕ <span>Search</span></div><div class="grp lbl">Scope</div>${tr(0,'This toon · CatPope',{sel:1,n:412})}${tr(0,'All toons',{n:1240})}${tr(0,'Unused',{n:37})}${tr(0,'Blank (wanted)',{blank:1,n:37,nw:1})}${tr(0,'Generating · review',{n:7})}<div class="grp lbl">Kinds</div>${[['Characters',7],['Moods',18],['Items',86],['3D models',61],['Places · regions',17],['Slices',212],['Covers',3],['Audio',64],['Video',41],['Rigs · modules',19],['Scenes',8],['Experiences',1]].map(([k,n],i)=>tr(0,k,{n,in:i===2})).join('')}`,{solid:true});
+  const gx=g+lw+g, gw=W-gx-g-dw-g;
+  const items=[['record_player','Record player',4,'3D + 4 renders',1],['cd_player','CD player',2,'3D + 2',1],['tape_player','Tape player',0,'',0,'blank3d'],['checkit_camera','Checkit camera',1,'3D + 4',1],['sunglasses','Sunglasses',3,'6 vars',0],['broken_record_player','Broken record player',1,'render of 3D',1]];
+  P(gx,T,gw,H-T-g,['Items · 86'],`<div class="chips" style="padding-top:.1rem"><span class="chip on">All</span><span class="chip">Music</span><span class="chip">Wear</span><span class="chip">Tools</span><span class="chip">with 3D</span><span class="chip warn">blank</span><span class="sp"></span><span class="chip">Sort: used ▾</span><span class="chip">＋ Upload</span><span class="chip gen">✶ New blank</span></div>
+   <div class="grp lbl">Music · 6</div><div class="tiles" style="grid-template-columns:repeat(6,1fr)">${items.map((t,i)=>t[5]?tile('','',t[1]+' · 3D',{blank:1,gen:1}):tile(IT+t[0]+'.webp','item',t[1],{u:t[2],q:t[3],sel:i===0,k3:t[4]})).join('')}</div>
+   <div class="grp lbl">Wear · 6</div><div class="tiles" style="grid-template-columns:repeat(6,1fr)">${[['catpope/items/scorpion_amulet','Scorpion amulet',2],['catpope/items/cucumber','Cucumber',1],['scutoons/items/scutoons_tshirt','T-shirt',5],['catpope/items/dago_hoodie','Dago hoodie',2]].map(t=>tile(R+t[0]+'.webp','item',t[1],{u:t[2]})).join('')}${tile('','','Choir robe',{blank:1})}${tile('','','Bishop hat',{blank:1})}</div>`);
+  P(W-g-dw,T,dw,H-T-g,['Details','Family','Links'],`<div style="padding:0 var(--pad)"><div style="height:11rem;background:#000;border-radius:var(--r);display:grid;place-items:center;border:1px solid var(--line);position:relative"><img src="${IT}record_player.webp" style="max-height:10rem"><span class="k3" style="position:absolute;left:.4rem;top:.4rem">3D · source</span></div></div>
+   <div class="sheet" style="padding-bottom:.2rem"><h2>Record player</h2><div class="sub mono">item:record-player · <span class="state">published</span></div></div>
+   ${sec(true,'Family','one tile – 1 source, 4 renders, 4 qualities',`<div class="strip" style="padding:0">${[['','3D','.glb'],['record_player','icon','render'],['broken_record_player','broken','render'],['record_player','top','render']].map(([f,l,k],i)=>`<div class="card" style="width:4.4rem"><div class="th" style="height:4.4rem;background:#0c0d0b;display:grid;place-items:center">${f?`<img src="${IT}${f}.webp" style="object-fit:contain;${l==='top'?'transform:rotate(90deg)':''}">`:'<span class="k3">3D</span>'}</div><div class="t">${l}</div></div>`).join('')}</div><div class="muted" style="font-size:var(--small)">2D renders come from the 3D source – re-render when the model changes.</div>`)}
+   ${sec(true,'Links','address · 4 uses',`${LINKS('item:record-player',1,[['chapter','S1 · C2 slice 14','placed'],['recipe','Repair record player','input']],[ev('click','giveItem','item:record-player','')],[['module','module:turntable','plays']])}`)}`,{solid:true});
+  NOTE(gx+gw*0.42,H-8.2*rem,'<b>Blank tiles live in the Library</b> like any asset – fill them where they are. <b>One tile per family</b>: the 3D source, its 2D renders, its qualities.',320);
+}
+
+// ───────────────────────────────────────── TOONS
+if(w==='toons'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 30%,#1c2018,#000 70%)"></div>`);
+  bar([{img:ch('catpope','avatar','neutral'),n:'toon:catpope'},{img:ch('yellowmouse','avatar','neutral'),n:'toon:yellowmouse'}]);
+  BACK('Board · Season 1');
+  const lw=16*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g,['Library','Tree'],`<div class="search">⌕ <span>Find</span></div><div class="chips"><span class="chip on">Cast · S1</span><span class="chip">Characters</span><span class="chip">Places</span></div>${['catpope','yellowmouse','billthefrog','crows','boy'].map((c,i)=>tr(0,c.replace(/^./,x=>x.toUpperCase()),{img:ch(c,'avatar','neutral'),n:['lead','lead','guest','choir','–'][i]})).join('')}${tr(0,'Mountain tiger look',{blank:1,n:'blank',nw:1})}<div class="ev muted" style="white-space:normal">The cast is a filter on the season – no second character editor.</div>`);
+  const chs=[['s1c1-slice-1','Awakening','live','2026-09-20'],['s1c1-slice-5','The choir','live','2026-10-18'],['s1c1-slice-9','Feilchen','live','2026-11-15'],['s1c1-slice-12','Crypt','draft','2027-01'],['','Bells','plan','2027-02']];
+  add(`<div style="position:absolute;left:${bx}px;top:${T+3*rem}px;width:${bw}px;z-index:1">
+   <div style="display:flex;gap:1rem;align-items:flex-end;margin-bottom:.8rem"><img src="${CP}s1/s1-cover-square.webp" style="width:8.5rem;border-radius:var(--r);border:1px solid var(--line)"><div><div class="lbl">Season 1</div><div style="font-size:1.6rem">Das Erwachen</div><div class="muted">3 of 5 live · next: Crypt</div><div style="margin-top:.4rem;display:flex;gap:.3rem;flex-wrap:wrap"><span class="chip">cover:catpope/1 ↗</span><span class="chip">Script ↗</span><span class="chip">Flow ↗</span><span class="chip">album:awakening ↗</span></div></div></div>
+   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem">${chs.map(([s,n,st,d],i)=>`<div class="card" style="width:auto">${s?`<div class="th" style="height:10.5rem"><img src="${CP}s1/c1/${s}.webp"></div>`:`<div class="th blank" style="height:10.5rem">blank keyvisual<br>⇪ ▤ ✶</div>`}<div class="t" style="color:var(--text)"><span>C${i+1} · ${n}</span></div><div class="t"><span class="state ${st==='live'?'':st==='draft'?'draft':'warn'}">${st}</span><span>${d}</span></div></div>`).join('')}</div></div>`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Kanon','Links'],`<div class="sheet"><h2>Season 1 · Das Erwachen</h2><div class="sub">season:catpope/1 · <span class="state">3 live</span></div><p>CatPope wakes in the <span class="ref">Cathedral</span> and finds the <span class="ref">choir</span> has lost its voice. Five chapters, monthly from <span class="v">20 Sep 2026</span>.</p><div class="h">Cast</div><p>${['catpope','yellowmouse','billthefrog','crows'].map(c=>`<img src="${ch(c,'avatar','neutral')}" style="width:1.8rem;height:1.8rem;border-radius:50%;vertical-align:middle;margin-right:.2rem" onerror="this.remove()">`).join('')} <span class="muted">roles live here · +3</span></p><div class="h">Credits</div><p>Story <span class="ref">Tilman Porschütz</span> · Music <span class="ref">Vienna Struggle</span> <span class="muted">– people from one list, titles referenced, not copied</span></p><div class="h">Cover</div><p><span class="ref">cover:catpope/1</span> · lettering reads the title</p></div>`,{solid:true});
+}
+
+// ───────────────────────────────────────── CHAPTER
+if(w==='chapter'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar([{i:'▥',n:'chapter:catpope/s1/c3'},{i:'▥',n:'…/s1/c4'}],{play:true});
+  const lw=15*rem, iw=24*rem;
+  const sw=Math.min(25*rem,W-2*lw-2*iw), sx=g+lw+g+((W-2*g-lw-iw-2*g)-sw)/2+3*rem;
+  add(`<div style="position:absolute;left:${sx}px;top:${T+3.2*rem}px;width:${sw}px;height:${H-T-3.2*rem-g}px;overflow:hidden;z-index:1;border:1px solid var(--line)"><div style="position:relative"><img src="${CP}s1/c1/s1c1-slice-4.webp" style="width:100%;display:block"><div style="position:absolute;left:12%;top:62%;width:46%;height:16%;border:1px solid var(--accent);background:#fffffff2;color:#111;font:700 .95rem/1.25 'Noto Sans';padding:.4rem .5rem;border-radius:.6rem">The choir has lost its voice. Again.</div><div style="position:absolute;left:62%;top:30%;width:18%;aspect-ratio:1;border:1px dashed var(--accent);border-radius:var(--r);display:grid;place-items:center"><img src="${IT}record_player.webp" style="width:80%"></div></div><div class="blank" style="height:13rem;margin-top:2px">slice 5 · blank<br>crypt stairs<br><span style="text-transform:none;letter-spacing:0">⇪ Upload · ▤ Library · ✶ Generate · ⚙ render from scene:cathedral</span></div></div>`);
+  M(sx,T,'Tools','<span class="muted">· select · box · tail · item · grid</span>');
+  P(g,T,lw,H-T-g-11*rem-g,['Slices','Library'],`${tr(0,'Group · Nave',{c:'▾'})}${[1,2,3,4].map(n=>tr(1,`Slice ${n}`,{img:`${CP}s1/c1/s1c1-slice-${n}.webp`,sel:n===4,n:n===4?'box · item':''})).join('')}${tr(1,'Slice 5',{blank:1,n:'blank',nw:1})}${tr(1,'Slice 6',{blank:1,n:'blank',nw:1})}${tr(0,'Group · The bells',{c:'▸',n:'4'})}`);
+  P(g,H-g-11*rem,lw,11*rem,['Reader'],`<div style="display:grid;place-items:center;height:100%"><div style="width:6.5rem;height:9.5rem;border:2px solid var(--line);border-radius:.8rem;overflow:hidden"><img src="${CP}s1/c1/s1c1-slice-4.webp" style="width:100%"></div></div>`);
+  P(W-g-iw,T,iw,(H-T-2*g)*0.58,['Inspector','Events','Sheet'],`${sec(true,'Item in slice 4','this use only',`${prop('Item','<div class="fd"><img src="'+IT+'record_player.webp" style="width:1.3rem;margin-right:.4rem">item:record-player</div>')}${prop('Place','x 62 % · y 30 % · 18 %')}${prop('Repeats','once')}`)}${sec(true,'Story events · slice 4','',`${ev('click','giveItem','item:record-player','reader')}${ev('intersect','joinScene','scene:cathedral','listener: choir joins')}${ev('intersect','fx','bells · far','')}<div class="sb"><span class="chip">＋ event</span></div>`)}${sec(false,'Text box','CatPope · speech','')}`,{solid:true,on:0});
+  const ky=T+(H-T-2*g)*0.58+g;
+  P(W-g-iw,ky,iw,H-ky-g,['Script','Kanon'],`<div class="txt"><div class="sl">SLICE 4 · NAVE · DAY</div><div class="who">CatPope</div><div class="cur">The choir has lost its voice. Again.</div><div class="muted">He finds the old record player on the altar.</div><div class="sl">SLICE 5 · CRYPT STAIRS</div><div class="muted">Bells, far below.</div></div>`);
+  NOTE(g+lw+g,H-16*rem,'<b>Blank slices</b> wait in the strip – fill by upload, Library, generation or a <b>render from a deck scene</b> (3D first). The item in the slice is an Inspector use; what the item <i>is</i> stays its sheet.',270);
+}
+
+// ───────────────────────────────────────── CHARACTERS
+if(w==='characters'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 80%,#22261d,#000 62%)"><img src="${ch('catpope','full','happy')}" style="position:absolute;left:0;right:${2*rem}px;top:12%;bottom:15%;margin:auto;height:72%;object-fit:contain"></div>`);
+  bar([{img:ch('catpope','avatar','neutral'),n:'character:catpope'},{img:ch('yellowmouse','avatar','neutral'),n:'character:yellowmouse'}],{play:true});
+  BACK('Stage · 3D rig <span class="k3">3D</span>');
+  const lw=17*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g,['Library','Wanted'],`<div class="search">⌕ <span>Characters</span></div>${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral'),in:1,k3:1})}${tr(1,'Pope',{c:'▾',in:1,n:'3 looks'})}${tr(2,'Regular',{img:ch('catpope','avatar','neutral'),sel:1,n:'18/18',k3:1})}${tr(2,'Biker',{img:ch('catpope-biker','avatar','neutral'),in:1,n:'18/18'})}${tr(2,'Mountain tiger',{blank:1,in:1,n:'blank · 3D first',nw:1})}${tr(1,'Human',{c:'▸',in:1})}${['yellowmouse','billthefrog','yellowbubu','crows'].map(c=>tr(0,c.replace(/^./,x=>x.toUpperCase()),{c:'▸',img:ch(c,'avatar','neutral')})).join('')}<div class="grp lbl">Moods · vocabulary</div>${tr(0,'18 moods',{c:'▸'})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Kanon','Links'],`<div class="sheet"><h2>CatPope</h2><div class="sub">character:catpope · <span class="state">Kanon agreed</span></div><p>The pope of the cats, <span class="v">warm baritone</span>, slow to anger. Wakes in the <span class="ref">Cathedral</span>, carries the <span class="ref">Scorpion amulet</span>.</p><div class="h">Personas · looks</div><p><b>Pope</b> – <span class="v">regular</span> <span class="k3">3D</span>, <span class="v">biker</span>, <span class="warn">mountain tiger (blank)</span> · <b>Human</b> · <b>Cat</b></p><div class="h">Sound</div><p>Rig <span class="ref">rig:character.catpope</span> – sings every finale.</p><div class="h">Seasons</div><p>S1 lead · Top Toy guest <span class="muted">– from the seasons' casts</span></p></div>${sec(true,'Links','address',`${LINKS('character:catpope',1,[['chapter','S1 · C1–C3','speaker'],['scene','scene:cathedral','holder']],[ev('intersect','joinScene','scene:cathedral','choir module')],[['rig','rig:character.catpope','sings']])}`)}`,{solid:true});
+  P(bx,H-g-9.8*rem,bw,9.8*rem,['Moods · 2D renders','Poses · 3D'],`<div class="strip">${['neutral','happy','laughing','smug','thinking','confused','surprised','sad','crying','dizzy','angry'].map(m=>`<div class="card" style="width:4.6rem"><div class="th" style="height:4.6rem;${m==='happy'?'outline:2px solid var(--accent);outline-offset:1px':''}"><img src="${ch('catpope','portrait',m)}"></div><div class="t">${m}</div></div>`).join('')}<div class="card" style="width:4.6rem"><div class="th blank" style="height:4.6rem">blank<br>⚙ ✶</div><div class="t warn">scared</div></div></div>`);
+  NOTE(bx+bw-18*rem,T+3.5*rem,'<b>3D first:</b> the rigged model is the stage; mood portraits can be <b>rendered back</b> from a pose (⚙) or generated (✶). Sheet · Kanon · Links side by side; Seasons come from the casts.',270);
+}
+
+// ───────────────────────────────────────── CATALOG
+if(w==='catalog'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 55%,#24281f,#000 65%)"><img src="${IT}record_player.webp" style="position:absolute;left:0;right:0;top:0;bottom:7rem;margin:auto;height:44%;object-fit:contain;transform:perspective(900px) rotateX(18deg) rotateY(-20deg)"><svg style="position:absolute;left:50%;top:50%;transform:translate(-50%,-55%)" width="420" height="300"><ellipse cx="210" cy="250" rx="190" ry="34" fill="none" stroke="#3a4034" stroke-dasharray="4 6"/><path d="M210 40 V250 M20 250 H400" stroke="#2a2f25"/></svg></div>`);
+  bar([{i:'◈',n:'item:record-player'},{i:'◈',n:'item:tape-player'},{i:'⇄',n:'recipe:repair'}],{play:true});
+  BACK('Stage · 3D <span class="k3">record-player.glb</span>');
+  const lw=17*rem, iw=25*rem;
+  P(g,T,lw,H-T-g,['Library'],`<div class="search">⌕ <span>Catalog</span></div><div class="chips"><span class="chip on">Items 86</span><span class="chip">Recipes</span><span class="chip">Albums</span><span class="chip">Products</span><span class="chip">Editions</span></div>${[['record_player','Record player','4 used',1],['cd_player','CD player','2 used',1],['checkit_camera','Checkit camera','1 used',1],['sunglasses','Sunglasses','3 used',0]].map(([f,n,u,k],i)=>tr(0,n,{img:`${IT}${f}.webp`,sel:i===0,n:u,k3:k})).join('')}${tr(0,'Tape player · 3D',{blank:1,n:'generating',nw:1})}${tr(0,'Choir robe',{blank:1,n:'blank',nw:1})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Kanon','Inspector','Links'],`<div class="sheet"><h2>Record player</h2><div class="sub">item:record-player · music · <span class="state">published</span></div><p>A <span class="v">portable</span> record player. Plays any <span class="ref">record</span> in the carrier bag; broken until repaired with a <span class="ref">repair coupon</span>.</p><div class="h">In the story</div><p>Found on the altar in <span class="ref">S1 · C3</span>; respawns <span class="v">never</span>.</p><div class="h">Model</div><p><span class="k3">3D</span> <span class="ref">record-player.glb</span> · 4 renders · module <span class="warn">blank</span></p>${kanon('“Nobody remembers who left it on the altar.”')}</div>`,{solid:true});
+  const bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(bx,H-g-9*rem,bw,9*rem,['Renders from 3D','Looks','Qualities'],`<div class="strip">${['record_player','broken_record_player','record_player'].map((f,i)=>`<div class="card" style="width:6rem"><div class="th" style="height:5rem;background:#0c0d0b;${i===0?'outline:2px solid var(--accent);outline-offset:1px':''}"><img src="${IT}${f}.webp" style="object-fit:contain;${i===2?'transform:rotate(90deg)':''}"></div><div class="t">${['icon · ¾','broken','top'][i]}</div></div>`).join('')}<div class="card" style="width:6rem"><div class="th" style="height:5rem;border-style:dashed;display:grid;place-items:center"><span class="muted">⚙ render view</span></div></div></div>`);
+  M(bx,T,'Tools','<span class="muted">· orbit · views · light · collage</span>');
+  NOTE(bx+bw*0.5,T+3.8*rem,'<b>Items go 3D:</b> the model is the stage; icons, the broken look and the collage pieces are <b>renders from views</b>. Items get a <b>Kanon</b>.',260);
+}
+
+// ───────────────────────────────────────── MAP
+if(w==='map'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 50%,#2b2f27,#0b0c0a 75%)"><img src="${CP}map/painted/terrain-abstract.webp" style="width:100%;height:100%;object-fit:contain;opacity:.5">
+   ${[['cathedral',.47,.36,1],['crypt',.55,.5,0,1],['church-square',.4,.46],['graveyard',.36,.6],['apartment-blocks',.62,.3],['station',.7,.52],['library',.52,.68]].map(([p,x,y,s,b])=>`<div style="position:absolute;left:${x*100}%;top:${y*100}%;transform:translate(-50%,-50%);text-align:center">${b?`<div class="blank" style="width:3.6rem;height:3.6rem;border-radius:50%;font-size:.6rem">blank</div>`:`<img src="${CP}map/places/${p}.webp" style="width:${s?5.2:3.6}rem;height:${s?5.2:3.6}rem;object-fit:cover;border-radius:50%;border:2px solid ${s?'var(--accent)':'#fff8'}">`}<div style="font-size:var(--small);text-shadow:0 0 3px #000,0 0 3px #000">${p.replace('-',' ')}</div></div>`).join('')}
+   <svg style="position:absolute;inset:0;width:100%;height:100%"><polyline points="${W*.47},${H*.36} ${W*.55},${H*.5} ${W*.52},${H*.68}" fill="none" stroke="#00d1ff" stroke-width="2" stroke-dasharray="6 5"/><ellipse cx="${W*.45}" cy="${H*.45}" rx="${W*.11}" ry="${H*.16}" fill="rgba(179,107,255,.08)" stroke="#b36bff" stroke-dasharray="3 5"/></svg></div>`);
+  bar([{i:'⌖',n:'map:catpope'}],{play:true});
+  BACK('Map · world');
+  const lw=16*rem, iw=25*rem;
+  P(g,T,lw,H-T-g,['Tree','Library'],`<div class="grp lbl">Places · 14</div>${['cathedral','crypt','church-square','graveyard','apartment-blocks','station','library'].map((p,i)=>i===1?tr(0,p,{blank:1,n:'image blank',nw:1}):tr(0,p.replace('-',' '),{img:`${CP}map/places/${p}.webp`,sel:i===0,k3:i===0})).join('')}<div class="grp lbl">Regions · 3</div>${tr(0,'Old town',{sw:'#b36bff',n:'Kanon'})}${tr(0,'Ore mountains',{sw:'#f0a030',n:'Kanon blank',nw:1})}<div class="grp lbl">Routes</div>${tr(0,'Cathedral → Crypt',{sw:'#00d1ff'})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Kanon','Links'],`<div style="padding:0 var(--pad)"><img src="${CP}map/places/cathedral.webp" style="width:100%;height:8rem;object-fit:cover;border-radius:var(--r)"></div><div class="sheet"><h2>Cathedral</h2><div class="sub">place:cathedral · <span class="ref">Old town</span> · <span class="state">on map</span></div><p>Where CatPope wakes. The <span class="ref">choir</span> rehearses in the nave; stairs lead down to the <span class="ref">Crypt</span>.</p><div class="h">3D</div><p><span class="k3">3D</span> <span class="ref">cathedral.high.glb</span> · the map image is a <b>render</b> of it</p></div>${sec(true,'Links','reference – no receiver yet',`${LINKS('location:cathedral',0,[['chapter','S1 · C1','starts here'],['scene','scene:cathedral','its 3D set']],[ev('click','unlockLocation','location:cathedral','')],[['scene','scene:cathedral','3D set']])}<div class="ev warn" style="white-space:normal">place / location: one word to pick</div>`)}`,{solid:true});
+  M(g+lw+g,T,'Tools','<span class="muted">· select · place · route · region · brush</span>');
+  NOTE(W*0.5-8*rem,H-8.5*rem,'<b>Regions get a Kanon</b>; a place\'s image can be a render of its 3D set. Links shows the real story events (unlockLocation) and that a place is a <b>reference</b>, not yet an address.',300);
+}
+
+// ───────────────────────────────────────── STORYBOARD
+if(w==='storyboard'){
+  add(`<div class="bg"><img src="${CP}s1/c1/s1c1-key-visual.webp" style="width:100%;height:100%;object-fit:cover;opacity:.85"><img src="${ch('catpope','full','thinking')}" style="position:absolute;left:47%;top:36%;height:38%"><div style="position:absolute;left:38%;top:20%;width:24%;height:56%;border:1px solid #fff9;box-shadow:0 0 0 9999px #0008"></div><div style="position:absolute;left:38%;top:calc(20% - 1.5rem);font-size:var(--small);text-shadow:0 0 3px #000">Shot 7 · webtoon slice 390 × 624</div></div>`);
+  bar([{i:'▶',n:'storyboard:catpope:3'}],{play:true});
+  BACK('Stage · scene:cathedral <span class="k3">3D</span>');
+  const iw=23*rem, lw=15*rem;
+  P(g,T,lw,H-T-g-10.5*rem-g,['Script','Kanon'],`<div class="txt" style="padding:.3rem .8rem"><div class="sl">SHOT 6 · NAVE</div><div class="muted">Wide. The choir, silent.</div><div class="sl">SHOT 7 · CLOSE</div><div class="cur">CatPope looks up. Thinking. The bells, far away.</div><div class="sl">SHOT 8 · CRYPT STAIRS</div><div class="muted">Handheld, down the stairs.</div></div>`);
+  P(W-g-iw,T,iw,H-T-g-10.5*rem-g,['Shot','Output'],`${sec(true,'Format','flexible',`<div class="seg" style="background:var(--control);border-radius:1.2rem;padding:2px;width:max-content"><span class="on">Webtoon scroll</span><span>Video 16:9</span><span>9:16</span></div>`)}${sec(true,'Shot 7','close · 3.2 s',`${prop('Camera','35 mm · eye level')}${prop('Figures','CatPope · thinking (rig pose)')}${prop('Light','extreme hard, left')}`)}${sec(true,'Fill the shot','⚙ render · ✶ generate · ⇪',`<div class="sb"><span class="chip">⚙ Render from stage</span><span class="chip">⇪ Upload</span><span class="chip gen">✶ Generate</span></div><div class="ev">→ result goes to <span class="to">slice 5</span> or <span class="to">video clip 7</span></div>`)}`,{solid:true});
+  P(g,H-g-10.5*rem,W-2*g,10.5*rem,['Shots','Timeline · video'],`<div class="strip">${[1,2,3,4,5,6,7,8,9,10].map(n=>n===9?`<div class="card" style="width:8.2rem"><div class="th blank" style="height:4.4rem">blank</div><div class="t"><span>Shot 9</span></div></div>`:`<div class="card ${n===7?'sel':''}" style="width:8.2rem"><div class="th" style="height:4.4rem"><img src="${CP}s1/c1/s1c1-key-visual.webp" style="object-position:${(n*9)%100}% ${(n*13)%100}%;transform:scale(${1+(n%3)*.3})"></div><div class="t"><span>Shot ${n}</span><span class="mono">${(n*3.1).toFixed(1)}s</span></div></div>`).join('')}</div><div style="margin:0 var(--pad);height:1.1rem;background:var(--control);border-radius:.3rem;position:relative"><div style="position:absolute;left:58%;top:-2px;bottom:-2px;width:2px;background:var(--accent)"></div></div>`);
+  M(g+lw+g,T,'Tools','<span class="muted">· orbit · camera · figures · light</span>');
+  NOTE(g+lw+g,T+3.5*rem,'<b>Format flexible:</b> the same shots become webtoon slices or a video. A shot is filled by a <b>render from the 3D stage</b>, a generation or an upload.',280);
+}
+
+// ───────────────────────────────────────── EXPERIENCES
+if(w==='experiences'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 70%,#2a2e24,#060705 70%)"><div style="position:absolute;left:50%;top:52%;width:${H*0.42}px;height:${H*0.6}px;transform:translate(-62%,-50%) perspective(1600px) rotateX(10deg) rotateY(-14deg);box-shadow:0 2rem 3rem #000c;border:1px solid #fff3"><img src="${CP}s1/s1-cover-portrait.webp" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;left:12%;top:58%;width:34%;height:22%;border:2px solid var(--accent)"><span style="position:absolute;top:-1.4rem;left:0;font-size:var(--label);background:var(--accent);color:#001b22;padding:0 .3rem">target · choir</span></div><div style="position:absolute;left:55%;top:14%;width:30%;height:20%;border:2px dashed var(--warn)"><span style="position:absolute;top:-1.4rem;left:0;font-size:var(--label);background:var(--warn);color:#1d1400;padding:0 .3rem">target · bells – not placed</span></div><div style="position:absolute;left:-1px;bottom:-1.6rem;font-size:var(--label)" class="muted mono">poster · 594 × 841 mm · print 12 Dec</div></div></div>`);
+  bar([{i:'◳',n:'experience:poster-feilchen'},{i:'◳',n:'experience:kunstbuch-s1'}],{play:true});
+  BACK('Stage · tabletop (OSCT)');
+  const lw=16*rem, iw=25*rem;
+  P(g,T,lw,H-T-g-9*rem-g,['Tree','Library'],`${tr(0,'Poster · Feilchen',{c:'▾',n:'poster'})}${tr(1,'Scene · Poster',{c:'▾',in:1})}${tr(2,'Surface · A1 front',{c:'▾',in:1,n:'594×841'})}${tr(3,'Target · choir',{sel:1,n:'placed'})}${tr(3,'Target · bells',{n:'not placed',nw:1})}${tr(1,'Entries · 3',{c:'▸'})}<div class="grp lbl">Print path</div>${tr(0,'Poster art',{blank:1,n:'blank · due 12 Dec',nw:1})}${tr(0,'Targets from print PDF',{n:'1 / 2'})}${tr(0,'Print PDF export',{n:'ready after art'})}`);
+  P(W-g-iw,T,iw,H-T-g,['Inspector','Links','Environment'],`${sec(true,'Poster art','the printed surface',blankSlot('experience:poster-feilchen/surface:a1-front/art','A1 portrait; the choir must stay a strong image target (high contrast, no repeating pattern).'))}${sec(true,'Target · choir','x 71 · y 488 · 202 × 185 mm',`<div class="slot full"><img src="${CP}s1/s1-cover-portrait.webp" style="object-position:20% 70%"><span>image target · from the art<br><span class="ok">tracks well</span></span></div>`)}${sec(true,'Entry · XR triggers','found · lost · tap',`${ev('found','play song','Choir lands','')}${ev('tap','jumpTo','chapter:catpope/s1/c3','reader')}${ev('found','giveItem','item:scorpion-amulet','')}`)}`,{solid:true});
+  P(g,H-g-9*rem,W-2*g-iw-g,9*rem,['Scenes'],`<div class="strip">${[['s1-cover-portrait','Poster · front',1]].map(([s,n,o])=>`<div class="card sel" style="width:9rem"><div class="th" style="height:5rem"><img src="${CP}s1/${s}.webp"></div><div class="t"><span>${n}</span></div></div>`).join('')}<div class="card" style="width:9rem"><div class="th" style="height:5rem;border-style:dashed;display:grid;place-items:center"><span class="muted">＋ scene</span></div></div></div>`);
+  M(g+lw+g,T,'Tools','<span class="muted">· select · surface · target · grid mm</span>');
+  NOTE(g+lw+g,T+3.5*rem,'<b>Posters first (Dec print):</b> the art is a <b>blank asset</b> with a brief; targets come from the print PDF; Play = the simulated tracker. XR keeps its own triggers (found / lost / tap).',290);
+}
+
+// ───────────────────────────────────────── FLOWS
+if(w==='flows'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar([{i:'⟴',n:'flow:catpope/s1'},{i:'⟴',n:'flow:universe'}]);
+  BACK('Graph');
+  const lw=15*rem, iw=24*rem, gx=g+lw+g, gw=W-gx-g-iw-g;
+  const N=[['c1','chapter','C1 Awakening',0,0],['c2','chapter','C2 The choir',0,1.2],['c3','chapter','C3 Feilchen',0,2.4],['c4','chapter','C4 Crypt',0,3.6],
+    ['e1','event','click · giveItem',1,0.6],['e2','event','click · unlockLocation',1,1.8],['e3','event','intersect · joinScene',1,3],['x1','experience','poster · found',1,4.1],
+    ['a1','address','item:record-player',2,0.6],['a2','reference','location:crypt',2,1.8],['a3','address','scene:cathedral',2,3],
+    ['d1','deck','module:turntable',3,0.6],['d3','deck','listener · choir joins',3,3],['p1','problem','no receiver',3,1.8]];
+  const col={chapter:'#00d1ff',event:'#e6d24a',experience:'#ff6b8a',address:'#b4ff32',reference:'#a7af9b',deck:'#b4ff32',problem:'#f0a030'};
+  const nx=c=>gx+24+c*(gw-48)/3.7, ny=r=>T+5*rem+r*(H-T-10*rem)/4.6, NW=Math.min(11*rem,(gw-48)/4.4);
+  const E=[['c2','e1'],['c3','e2'],['c3','e3'],['c4','e2'],['x1','a3'],['e1','a1'],['e2','a2'],['e3','a3'],['a1','d1'],['a3','d3'],['a2','p1']];
+  const pos=Object.fromEntries(N.map(n=>[n[0],[nx(n[3]),ny(n[4])]]));
+  add(`<svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1">${E.map(([a,b])=>{const[x1,y1]=pos[a],[x2,y2]=pos[b];return `<path d="M${x1+NW},${y1+18} C${x1+NW+50},${y1+18} ${x2-50},${y2+18} ${x2},${y2+18}" stroke="${col[N.find(n=>n[0]===b)[1]]}" stroke-opacity=".7" stroke-width="2" fill="none" ${b==='p1'?'stroke-dasharray="5 5"':''}/>`}).join('')}</svg>`);
+  N.forEach(([id,k,n])=>add(`<div style="position:absolute;z-index:1;left:${pos[id][0]}px;top:${pos[id][1]}px;width:${NW}px;height:36px;border:1px ${k==='reference'||k==='problem'?'dashed':'solid'} ${col[k]};border-left:4px solid ${col[k]};border-radius:var(--r);background:var(--surface);display:flex;align-items:center;gap:.4rem;padding:0 .5rem;font-size:var(--small);white-space:nowrap;overflow:hidden;${id==='a1'?'outline:2px solid var(--accent);outline-offset:2px':''}"><span class="mono" style="font-size:var(--label);color:${col[k]}">${k}</span>${n}</div>`));
+  ['Story','Story events','Addresses','Deck'].forEach((t,i)=>add(`<div class="lbl" style="position:absolute;z-index:1;left:${nx(i)}px;top:${T+3.2*rem}px">${t}</div>`));
+  P(g,T,lw,H-T-g,['Library','Filters'],`<div class="search">⌕ <span>Add to the flow</span></div><div class="chips"><span class="chip on">Chapters</span><span class="chip on">Story events</span><span class="chip on">Addresses</span><span class="chip on">Deck</span><span class="chip">Calendar ✕</span></div>${tr(0,'Record player',{img:IT+'record_player.webp',sel:1})}${tr(0,'Crypt',{img:CP+'map/places/crypt.webp'})}<div class="grp lbl">Problems · 2</div>${tr(0,'location:crypt – no receiver',{n:'ref',nw:1})}${tr(0,'Graveyard – no way in',{n:'dead end',nw:1})}`);
+  P(W-g-iw,T,iw,H-T-g,['Sheet','Links','Problems'],`<div class="sheet"><h2>Record player</h2><div class="sub">item:record-player · address</div><p>Given on <span class="v">click</span> in <span class="ref">C2 · slice 14</span>; on the deck it is the <span class="ref">turntable</span> module.</p></div>${LINKS('item:record-player',1,[['chapter','C2 · slice 14','giveItem'],['chapter','C3 · slice 4','placed']],[ev('click','giveItem','item:record-player','reader')],[['module','module:turntable','far input /item:record-player/…']])}`,{solid:true});
+  NOTE(gx+gw*0.5,H-8.8*rem,'<b>Real names now:</b> triggers intersect · click · hover, actions giveItem · unlockLocation · joinScene. Addresses have a receiver; references (location) show as Problems until they get one.',300);
+}
+
+// ───────────────────────────────────────── GENERATIONS
+if(w==='generations'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar([{i:'✶',n:'item:tape-player · 3D'},{img:ch('catpope','avatar','neutral'),n:'…/mood:scared'},{i:'✶',n:'poster art'}]);
+  BACK('Generation canvas · item 3D chain');
+  const lw=16*rem, iw=23*rem, cx=g+lw+g, cwid=W-cx-g-iw-g;
+  const TP=IT+'tape_player.webp';
+  const steps=[['Text','✶','done','brief from the Kanon',`<div style="padding:.5rem;font-size:var(--small);line-height:1.35;height:100%;overflow:hidden">A chunky tape player, cyan face, two big reels – toy-like, readable from far.</div>`],['Block','—','skipped','proportions','<div style="height:100%;display:grid;place-items:center" class="muted">skipped</div>'],['Image','✎','manual','instruction → artist',`<img src="${TP}" style="width:100%;height:100%;object-fit:contain">`],['Mesh','✶','done','tripo',`<img src="${TP}" style="width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.6) brightness(.8)">`],['Textured','✶','running','meshy · 4k',`<img src="${TP}" style="width:100%;height:100%;object-fit:contain;filter:saturate(.4) blur(1px);opacity:.6"><div style="position:absolute;inset:0;display:grid;place-items:center" class="acc mono">62 %</div>`],['Renders','⚙','blank','icon · ¾ · top','<div class="blank" style="height:100%">⚙ render<br>views</div>']];
+  const n=steps.length, nw=(cwid-2*rem-(n-1)*1.8*rem)/n, nh=nw*1.45, y0=T+6.5*rem;
+  const col={done:'var(--go)',skipped:'var(--line)',manual:'var(--accent)',running:'var(--accent)',blank:'var(--warn)'};
+  add(`<div style="position:absolute;z-index:1;left:${cx+rem}px;top:${T+3.2*rem}px;display:flex;gap:.3rem"><span class="chip">Type: item 3D ▾</span><span class="chip">nodes: ✶ AI · ✎ manual · ⇪ upload · ⚙ render</span><span class="chip">＋ node</span></div>`);
+  steps.forEach(([nm,k,st,what,img],i)=>{const x=cx+rem+i*(nw+1.8*rem);add(`<div style="position:absolute;z-index:1;left:${x}px;top:${y0}px;width:${nw}px;${st==='skipped'?'opacity:.45':''}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem"><span>${k} ${nm}</span><span class="state" style="border-color:${col[st]};color:${st==='skipped'?'var(--muted)':col[st]}">${st}</span></div><div style="position:relative;height:${nh}px;border-radius:var(--r);border:1.5px ${st==='blank'||st==='skipped'?'dashed':'solid'} ${col[st]};background:#000;overflow:hidden">${img}</div><div class="muted" style="font-size:var(--small);margin-top:.3rem">${what}</div></div>`);if(i<n-1)add(`<div style="position:absolute;z-index:1;left:${x+nw+.35*rem}px;top:${y0+1.6*rem+nh/2-10}px;color:var(--muted);font-size:1.3rem">→</div>`)});
+  // variants of the running step, lineage
+  const vy=y0+nh+5.5*rem;
+  add(`<div class="lbl" style="position:absolute;z-index:1;left:${cx+rem}px;top:${vy}px">Variants · textured mesh</div><div style="position:absolute;z-index:1;left:${cx+rem}px;top:${vy+1.4*rem}px;display:flex;gap:.6rem">${['v1 ✕','v2 ?','v3 62 %'].map((v,i)=>`<div style="width:8rem"><div style="height:6rem;border-radius:var(--r);border:1px solid ${i===1?'var(--accent)':'var(--line)'};background:#000;overflow:hidden;${i===0?'opacity:.35':''}"><img src="${TP}" style="width:100%;height:100%;object-fit:contain;filter:hue-rotate(${i*40}deg)"></div><div class="muted" style="font-size:var(--small)">${v}</div></div>`).join('')}</div>`);
+  P(g,T,lw,H-T-g,['Blank · 37','Running'],`${[['Tape player · 3D','item 3D',TP,1],['CatPope · scared','mood · ⚙ render from rig',ch('catpope','portrait','surprised')],['Poster art','experience · due 12 Dec',''],['Crypt · place image','place · ⚙ render from 3D',''],['Ore mountains · Kanon','region · ✎ text',''],['C3 · slice 5','slice · ⚙ render from scene','']].map(([n,k,s,sel])=>`<div class="tr ${sel?'sel':''}" style="height:2.6rem"><span class="c"></span>${s?`<img src="${s}" style="border-radius:.3rem">`:`<span class="sw" style="border:1px dashed var(--warn);background:none;border-radius:.3rem"></span>`}<span style="line-height:1.15">${n}<br><span class="muted mono" style="font-size:var(--label)">${k}</span></span></div>`).join('')}<div class="grp lbl">Chains by type</div><div class="ev muted" style="white-space:normal;font-size:var(--small)">mood: ⚙ rig pose → render · ✶ refs → image<br>item 3D: text → block → image → mesh → textured → renders<br>place: ⚙ 3D set → render · ✶ text → image<br>slice: ⚙ scene → render · ✶ script → image<br>shot · video: image → video</div>`);
+  P(W-g-iw,T,iw,H-T-g,['Node','Sheet','Kanon'],`${sec(true,'✎ Image · manual','instruction to a person',`<div class="fd" style="height:auto;white-space:normal;padding:.45rem .6rem;line-height:1.4">Draw the tape player front-on, flat light, white background, 2340 px wide. Keep the reels round and readable.</div>${prop('Assigned','<div class="fd">Anna · due Fri</div>')}${prop('Result','<div class="fd">⇪ uploaded · front.png ✓</div>')}`)}${sec(true,'✶ Textured · AI','provider chosen in the back',`${prop('Provider','meshy · 4k PBR')}${prop('Estimate','<div class="fd">€ 0.30 · 2 min</div>')}`)}${sec(true,'Each node','',`<div class="ev">skip · ⇪ upload instead · ↻ rerun</div><div class="ev">its result is an asset in the Library</div>`)}`,{solid:true});
+  NOTE(cx+cwid*0.45,H-8.6*rem,'<b>Nodes per asset type</b>, adjusted as we go: ✶ AI, ✎ <b>manual instructions</b> for people working without gen AI, ⇪ upload, ⚙ <b>render from 3D</b> (backwards). Every result lands in the Library.',320);
+}
+document.body.insertAdjacentHTML('beforeend',out);
+
+</script></body></html>
