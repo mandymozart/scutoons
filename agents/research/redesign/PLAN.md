@@ -112,8 +112,8 @@ Stored like the deck's: look, motion, sound, layout in the browser per machine; 
 | **Inspector** (+ tabs) | whatever is selected, as Sections (OSCT pattern); essential | all |
 | **Kanon / Text** | the script / Kanon of the selection's subject (one editor, four routes today) | all |
 | **Problems** | errors and warnings of the open items (accept a warning, H7) | all |
-| **Wanted** | what is missing (moods, looks, covers, place images, poster art) – the to-do list for Generations | Library, Generations |
-| **History** | saved versions, revert, compare | all |
+| **Wanted** | **one central panel** (owner 2026-11-21, as OSCT): every wanted / blank medium of the scope – moods, looks, covers, place images, poster art – pre-filtered by the workspace like the Library; replaces the Characters' "Wanted images" tab and every per-editor wanted list; the to-do list for Generations | all |
+| **History** | **one central panel** (owner 2026-11-21, OSCT #312): every saved change, newest first, who / what / before → after, revert one or go back to a point (with a prompt), pre-filtered by the open item; replaces the meta-page's History and every per-page history (#687) | all |
 | **Info** | the control under the pointer (*about* texts) | all |
 | **Reader** | the item as a reader sees it (phone / desktop screen) | Chapter, Map, Experience |
 | **Flow** | the story graph around the open item | Toon, Chapter, Flow |
