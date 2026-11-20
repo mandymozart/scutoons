@@ -197,11 +197,14 @@ pub struct Options {
     /// see QUIC win the race gives it all the time it needs – a loaded machine's handshake is no fixed 250 ms
     #[serde(default)]
     pub quic_head_start_ms: Option<f64>,
+    /// how long a QUIC dial nothing else waits for may take (`QUIC_GIVE_UP_MS` when none)
+    #[serde(default)]
+    pub quic_give_up_ms: Option<f64>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None, quic_head_start_ms: None }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None, quic_head_start_ms: None, quic_give_up_ms: None }
     }
 }
 
@@ -808,6 +811,7 @@ impl Client {
         self.set_status(Status { state: State::Joining, client: None, why: None, wait: None });
         let path = self.path();
         let head_start = self.o.quic_head_start_ms.unwrap_or(QUIC_HEAD_START_MS);
+        let give_up = self.o.quic_give_up_ms.unwrap_or(QUIC_GIVE_UP_MS);
         if let Some(q) = self.door.as_mut() {
             q.on_quic = false;
             q.step_up_at = None;
@@ -819,7 +823,7 @@ impl Client {
                 q.quic = Sock::Dialing;
                 q.ws = Sock::Idle;
                 q.ws_at = Some(now + head_start);
-                q.give_up_at = now + QUIC_GIVE_UP_MS;
+                q.give_up_at = now + give_up;
                 self.out.push(Out::DialQuic { url: format!("{}{path}", q.base), hash: q.hash.clone() });
                 return;
             }
