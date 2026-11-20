@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { folderTree, originCounts, scopeCounts, todoCounts, type FolderNode, type LibraryOrigin, type LibraryScope, type LibraryTodo } from '@scutoons/media';
+	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -62,7 +63,6 @@
 	</ul>
 	<h3>{m['library.todo']()}</h3>
 	<ul>
-		<li><button type="button" class="place row warn" data-control-exempt="tree row" class:on={library.todo === 'missing'} onclick={() => setTodo('missing')}>{m['library.todo_missing']()}<span class="n">{todo.missing}</span></button></li>
 		<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.todo === 'unused'} onclick={() => setTodo('unused')}>{m['library.todo_unused']()}<span class="n">{todo.unused}</span></button></li>
 	</ul>
 	<h3>{library.toon ? m['library.tree_toon']({ toon: library.toon }) : m['library.tree']()}</h3>
@@ -73,6 +73,11 @@
 			<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.origin === o} onclick={() => setOrigin(o)}>{m[`library.from_${o}`]()}<span class="n">{origins[o]}</span></button></li>
 		{/each}
 	</ul>
+	<Section id="library-places-missing" label={m['library.todo_missing']()} open={false} summary={String(todo.missing)}>
+		<ul>
+			<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.todo === 'missing'} onclick={() => setTodo('missing')}>{m['library.show_missing']()}<span class="n">{todo.missing}</span></button></li>
+		</ul>
+	</Section>
 </nav>
 
 <style>
@@ -116,9 +121,6 @@
 	}
 	.place:hover {
 		background: var(--editor-hover);
-	}
-	.place.warn {
-		color: var(--editor-warn);
 	}
 	.label {
 		display: block;

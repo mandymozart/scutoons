@@ -18,6 +18,7 @@
 	let usages = $state<AssetUsage[] | null>(null);
 	let failed = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
+	let showMissing = $state(false);
 
 	$effect(() => {
 		const f = family;
@@ -67,7 +68,7 @@
 	<h2>{family.title}</h2>
 	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()} · {m['library.versions_count']({ count: family.versions.length })}</p>
 
-	<Section id="library-details-versions" label={m['library.versions']()} summary={m['library.versions_summary']({ ready: family.versions.length, missing: family.missing.length })}>
+	<Section id="library-details-versions" label={m['library.versions']()} summary={m['library.versions_count']({ count: family.versions.length })}>
 		<table class="versions">
 			<tbody>
 				{#each family.versions as v (v.path)}
@@ -78,11 +79,16 @@
 						<td>{#if v.quality}<span class="tag">{v.quality}</span>{/if}</td>
 					</tr>
 				{/each}
-				{#each family.missing as label (label)}
-					<tr class="missing"><td class="mono">{label}</td><td class="mono" colspan="3">{m['library.missing']()}</td></tr>
-				{/each}
+				{#if showMissing}
+					{#each family.missing as label (label)}
+						<tr class="missing"><td class="mono">{label}</td><td class="mono" colspan="3">{m['library.missing']()}</td></tr>
+					{/each}
+				{/if}
 			</tbody>
 		</table>
+		{#if family.missing.length}
+			<button type="button" class="jump quiet" data-control-exempt="text link" aria-expanded={showMissing} onclick={() => (showMissing = !showMissing)}>{showMissing ? m['library.hide_missing']() : m['library.show_missing_n']({ count: family.missing.length })}</button>
+		{/if}
 	</Section>
 
 	<Section id="library-details-used" label={m['library.where_used']()} summary={usages ? m['library.uses']({ count: uses.length }) : ''}>
@@ -198,6 +204,12 @@
 		color: var(--editor-accent);
 		font: inherit;
 		cursor: pointer;
+	}
+	.jump.quiet {
+		display: block;
+		margin-top: 0.3rem;
+		color: var(--editor-muted);
+		text-align: left;
 	}
 	.actions {
 		display: flex;

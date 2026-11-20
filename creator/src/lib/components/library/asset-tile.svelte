@@ -56,6 +56,7 @@
 	class:row
 	class:selected
 	class:dimmed
+	class:stack={!row && family.versions.length > 1}
 	role="option"
 	tabindex="0"
 	aria-selected={selected}
@@ -88,16 +89,15 @@
 		{#if duration}<span class="duration mono">{duration}</span>{/if}
 		<span class="name">{family.title}</span>
 	{/if}
-	{#if family.versions.length > 1 || family.missing.length}
+	{#if family.versions.length > 1}
 		<button
 			type="button"
 			class="versions mono"
 			class:open={trayOpen}
-			class:warn={family.missing.length > 0}
 			data-control-exempt="tile badge"
-			title={m['library.versions_title']({ count: family.versions.length, missing: family.missing.length })}
+			title={m['library.versions_title']({ count: family.versions.length })}
 			onclick={(e) => (e.stopPropagation(), ontray ? ontray() : ondetails())}
-			data-testid="tile-versions"><Icon name="copy" size="0.75rem" /> {family.versions.length}{#if family.missing.length}<span class="miss">+{family.missing.length}</span>{/if}</button
+			data-testid="tile-versions"><Icon name="copy" size="0.75rem" /> {family.versions.length}</button
 		>
 	{/if}
 	{#if !dimmed}
@@ -126,6 +126,23 @@
 	.tile.selected {
 		outline: 0.125rem solid var(--editor-accent);
 		outline-offset: 0.0625rem;
+	}
+	/* a version stack (as OSCT #331): two sheets offset behind the tile, so a family reads as a pile at a glance */
+	/* every tile keeps the pile's room, so stacked and single tiles line up */
+	.tile:not(.row) {
+		margin: 0.4rem 0.4rem 0 0;
+	}
+	.tile.stack {
+		overflow: visible;
+		box-shadow:
+			0.2rem -0.2rem 0 -0.0625rem var(--editor-surface),
+			0.2rem -0.2rem 0 0 var(--editor-line),
+			0.4rem -0.4rem 0 -0.0625rem var(--editor-surface),
+			0.4rem -0.4rem 0 0 var(--editor-line);
+	}
+	.tile.stack .preview {
+		overflow: hidden;
+		border-radius: inherit;
 	}
 	.tile.dimmed {
 		opacity: 0.35;
@@ -188,12 +205,6 @@
 	.versions.open {
 		background: var(--editor-accent);
 		color: var(--editor-primary-ink);
-	}
-	.versions .miss {
-		color: var(--editor-warn);
-	}
-	.versions.open .miss {
-		color: inherit;
 	}
 	.name {
 		position: absolute;

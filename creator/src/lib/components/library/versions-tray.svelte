@@ -27,9 +27,6 @@
 				<span class="label mono">{v.label} {v.ext}</span>
 			</button>
 		{/each}
-		{#each family.missing as label (label)}
-			<span class="v missing" title={m['library.missing_version']({ label })}><span class="label mono">{label}</span><span class="mono">{m['library.missing']()}</span></span>
-		{/each}
 	</div>
 </div>
 
@@ -93,19 +90,6 @@
 		background: var(--editor-surface);
 		color: var(--editor-text);
 		font-size: var(--editor-label);
-	}
-	.v.missing {
-		border-style: dashed;
-		border-color: var(--editor-warn);
-		color: var(--editor-warn);
-		cursor: default;
-		font-size: var(--editor-label);
-		text-transform: uppercase;
-	}
-	.v.missing .label {
-		position: static;
-		background: none;
-		color: inherit;
 	}
 	.mono {
 		font-family: var(--editor-mono, ui-monospace, monospace);

@@ -2273,6 +2273,7 @@
 		"from_generated": "Generiert",
 		"from_imported": "Importiert",
 		"from_uploaded": "Hochgeladen",
+		"hide_missing": "Fehlende ausblenden",
 		"kind_all": "Alle",
 		"kind_audio": "Audio",
 		"kind_image": "Bild",
@@ -2287,7 +2288,6 @@
 		"load_failed": "Die Bibliothek hat nicht geladen: {reason}",
 		"loading": "Lädt …",
 		"missing": "fehlt",
-		"missing_version": "{label} fehlt",
 		"none_found": "Nichts passt – Suche leeren oder den Bereich erweitern.",
 		"none_here": "Hier ist noch nichts – hochladen, oder den Bereich auf den Toon oder Alle erweitern.",
 		"open_browser": "Browser öffnen (über der Bühne)",
@@ -2309,6 +2309,8 @@
 		"scope_toon": "Toon",
 		"scope_unused": "Unbenutzt",
 		"search": "Name, Ordner, Version suchen …  Strg L",
+		"show_missing": "Familien mit fehlenden Versionen zeigen",
+		"show_missing_n": "Die {count} fehlenden zeigen",
 		"size_m": "Kacheln",
 		"size_s": "Kleine Kacheln",
 		"sort": "Sortieren",
@@ -2330,8 +2332,7 @@
 		"uses": "{count}× benutzt",
 		"versions": "Versionen",
 		"versions_count": "{count} Versionen",
-		"versions_summary": "{ready} fertig · {missing} fehlen",
-		"versions_title": "{count} Versionen, {missing} fehlen – anzeigen",
+		"versions_title": "{count} Versionen – anzeigen",
 		"where_used": "Wo benutzt"
 	}
 }

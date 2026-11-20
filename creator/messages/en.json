@@ -2273,6 +2273,7 @@
 		"from_generated": "Generated",
 		"from_imported": "Imported",
 		"from_uploaded": "Uploaded",
+		"hide_missing": "Hide the missing",
 		"kind_all": "All",
 		"kind_audio": "audio",
 		"kind_image": "image",
@@ -2287,7 +2288,6 @@
 		"load_failed": "The Library didn't load: {reason}",
 		"loading": "Loading …",
 		"missing": "missing",
-		"missing_version": "{label} is missing",
 		"none_found": "Nothing matches – clear the search or widen the scope.",
 		"none_here": "Nothing here yet – Upload, or widen the scope to the toon or All.",
 		"open_browser": "Open the browser (over the stage)",
@@ -2309,6 +2309,8 @@
 		"scope_toon": "Toon",
 		"scope_unused": "Unused",
 		"search": "Search name, folder, version …  Ctrl L",
+		"show_missing": "Show the families missing versions",
+		"show_missing_n": "Show the {count} missing",
 		"size_m": "Tiles",
 		"size_s": "Small tiles",
 		"sort": "Sort",
@@ -2330,8 +2332,7 @@
 		"uses": "used {count}×",
 		"versions": "Versions",
 		"versions_count": "{count} versions",
-		"versions_summary": "{ready} ready · {missing} missing",
-		"versions_title": "{count} versions, {missing} missing – show them",
+		"versions_title": "{count} versions – show them",
 		"where_used": "Where used"
 	}
 }
