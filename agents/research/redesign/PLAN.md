@@ -31,6 +31,8 @@ OSCT's editor (floats, #308, #318, #329, #330), the deck's [workspaces] / [desig
 - **Tab (document)** = an opened item inside a workspace (`character:catpope`, `chapter:catpope/s1/c3`, `map:catpope`,
   `experience:poster-feilchen`). One tab per item; the last tabs reopen; Home when none. Only the front tab runs.
   The item's address is the address book's `kind:id` (#477) – also the URL.
+  **Opening an item opens its own workspace** – the one its kind belongs to, as in the deck – with that workspace's helpful
+  panels opened alongside; panels can still go anywhere (owner 2026-11-20). From Home, the toon board or the Library alike.
 - **Panel** = a floating window over the background, declared once (`PanelSpec`), shown by any workspace that wants it.
 - **Panel tab** = a panel's content unit. **Tabs are universal (OSCT #318):** any tab can live in any panel; drag a tab
   into another panel (a marker shows before / after), drag it out onto the stage → a panel of its own; a panel whose last
@@ -206,7 +208,7 @@ said so too. Posters must not wait for phase 2.
 
 ## 9. Questions for the owner
 
-1. ✓ **Asset kinds:** no Asset workspace – the Library is one panel like OSCT's, loading items and reaching every type anywhere; each workspace pre-filters it to its context, widenable to all (owner 2026-11-20, law.md [editor-style]). A character, item or sound opens as a tab (Sheet, Slots, Links …) in whatever workspace it is opened from.
+1. ✓ **Asset kinds:** no Asset workspace – the Library is one panel like OSCT's, loading items and reaching every type anywhere; each workspace pre-filters it to its context, widenable to all (owner 2026-11-20, law.md [editor-style]). Opening an item opens its own item-specific workspace, as in the deck (a character → the character workspace); the helpful panels open alongside it by default and can go anywhere (owner 2026-11-20).
 2. ✓ **Toons and Chapter:** one workspace – a Home screen like the deck editor's, the toon board opens chapters as tabs (owner 2026-11-20).
 3. ✓ **Generations:** yes – "generate is like upload, done within and in context"; a blank asset is filled by upload, Library or generate, the last step is always a Library asset; nodes per asset type, manual (non-AI) nodes, 3D first (owner 2026-11-20, law.md [editor-style]).
 4. ✓ **Library:** yes – the way in is Home plus the Library (owner 2026-11-20); the CSV list export goes (decisions/creator.md).
