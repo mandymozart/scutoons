@@ -194,7 +194,7 @@ impl Assets {
 pub fn scene_context(id: &str, toons: &[String], media: Vec<String>, toon: Option<&str>) -> Context {
     let open = format!("scene:{id}");
     let uses = media.into_iter().map(|path| Use { path, item: open.clone(), part: "stage".into(), at: String::new() }).collect();
-    Context { toon: toons.first().map(String::clone).or_else(|| toon.map(str::to_string)), open: Some(open), uses, ..Context::default() }
+    Context { toon: toons.first().cloned().or_else(|| toon.map(str::to_string)), open: Some(open), uses, ..Context::default() }
 }
 
 /// A character rig's context: no use index for a rig, its files are the ones in its character's folder.

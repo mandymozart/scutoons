@@ -789,7 +789,7 @@ mod tests {
         b.press(x, y, 1.0);
         let d = draw_src(&mut b, &src);
         assert_eq!(b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count(), 0, "no groups: no headings");
-        assert!(d.texts().iter().any(|s| *s == "no groups"));
+        assert!(d.texts().contains(&"no groups"));
         let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
         assert_eq!(names(&b), ["bells", "hills", "sky"], "by name");
         let (x, y) = at(&b, Hit::Sort);
@@ -810,10 +810,9 @@ mod tests {
         let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
         let now = deck_catalog::library::shelf::epoch_ms("2026-11-20 10:00:00").unwrap();
         let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: now };
-        let mut b = Browser::default();
-        b.grouping = Grouping::None;
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
         let d = draw_src(&mut b, &src);
-        assert!(d.texts().iter().any(|s| *s == "this week 1") && d.texts().iter().any(|s| *s == "no credits 1"), "{:?}", d.texts());
+        assert!(d.texts().contains(&"this week 1") && d.texts().contains(&"no credits 1"), "{:?}", d.texts());
         let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
         let (x, y) = at(&b, Hit::Place(Place::Recent));
         b.press(x, y, 0.0);
@@ -826,7 +825,7 @@ mod tests {
         let (x, y) = at(&b, Hit::Place(Place::Missing));
         b.press(x, y, 2.0);
         let d = draw_src(&mut b, &src);
-        assert!(d.texts().iter().any(|s| *s == "missing versions"), "on demand, without a count");
+        assert!(d.texts().contains(&"missing versions"), "on demand, without a count");
         assert!(names(&b).contains(&"bells".to_string()), "an audio lacking its levels: {:?}", names(&b));
         b.press(x, y, 3.0);
         draw_src(&mut b, &src);
@@ -854,7 +853,7 @@ mod tests {
         press(&mut b, 3, (true, false), 30.0);
         assert_eq!(b.chosen, ["module:walk", "instrument:keys", "scene:nave"], "Shift: the run from the anchor (the last Ctrl press) in the order shown");
         let d = drawn(&mut b, &e, &|_| None);
-        assert!(d.texts().iter().any(|s| *s == "3 selected"));
+        assert!(d.texts().contains(&"3 selected"));
         let (x, y) = at(&b, Hit::Unselect);
         b.keys = (false, false);
         b.press(x, y, 40.0);
