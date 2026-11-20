@@ -1,6 +1,6 @@
 // history-view.ts: deck-core's history rules (#687) as space-web's free functions hand them over – JSON in and out. No rule
-// here; the shapes: history.ts. Shared by the browser (live-deck) and the MCP (Node).
-import type { HistoryView } from './history.ts';
+// here; the shapes: version-history.ts. Shared by the browser (live-deck) and the MCP (Node).
+import type { HistoryView } from './version-history.ts';
 
 /** space-web's `history_*` exports */
 export interface HistoryExports {
