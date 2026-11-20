@@ -68,7 +68,7 @@ final class ShowsController
     {
         $this->live($request);
         $limit = (int) ($request->getQueryParams()['limit'] ?? 100);
-        return Json::response($response, 200, ['status' => 'success', 'versions' => $this->store->versions((string) EntityKey::parse('show:' . $args['id']), max(1, min($limit, 500)))]);
+        return Json::response($response, 200, $this->store->versions((string) EntityKey::parse('show:' . $args['id']), $limit));
     }
 
     /** @param array{id: string} $args */

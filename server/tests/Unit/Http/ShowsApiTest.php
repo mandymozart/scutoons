@@ -100,7 +100,9 @@ final class ShowsApiTest extends TestCase
         self::assertSame([], self::json($this->request('GET', '/api/shows/top?v=1', $live))['show']['rows']);
         self::assertSame(404, $this->request('GET', '/api/shows/top?v=9', $live)->getStatusCode());
 
-        self::assertCount(2, self::json($this->request('GET', '/api/shows/top/versions', $live))['versions']);
+        $listed = self::json($this->request('GET', '/api/shows/top/versions', $live));
+        self::assertCount(2, $listed['versions']);
+        self::assertArrayHasKey('id', $listed['versions'][0]);
         self::assertSame('show:top', self::json($this->request('GET', '/api/shows', $live))['shows'][0]['key']);
 
         // the document names itself
