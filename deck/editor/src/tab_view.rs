@@ -692,19 +692,44 @@ impl crate::App {
                 self.new_show_tab();
                 self.show.press(show::Hit::Sheet(show::Sheet::NewShow));
             }
-            home::Press::New(home::New::Scene) => self.new_scene_tab(),
+            home::Press::New(home::New::Scene) => self.ask_new_scene(),
         }
     }
 
-    /// a new scene, empty, in a Scene tab in front: its cast comes from the library; it saves itself as a draft once
-    /// it has one
-    pub(crate) fn new_scene_tab(&mut self) {
-        let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
-        let mut id = format!("new_{secs}");
-        while self.tabs.find(&format!("scene:{id}")).is_some() {
-            id.push('_');
+    /// the prompt for a new scene's name and id; the scene list's ids are the taken ones
+    pub(crate) fn ask_new_scene(&mut self) {
+        let mut taken: Vec<String> = self.show.scene_list().iter().filter_map(|p| p.address.strip_prefix("scene:").map(String::from)).collect();
+        taken.extend(self.tabs.list.iter().filter_map(|t| t.key.strip_prefix("scene:").map(String::from)));
+        self.scene_prompt = Some(crate::scene_prompt::ScenePrompt::new(taken));
+    }
+
+    /// a key while the new scene's prompt is open
+    pub(crate) fn scene_prompt_key(&mut self, k: &winit::event::KeyEvent) {
+        if k.state != winit::event::ElementState::Pressed {
+            return;
         }
-        let doc = deck_space::scene_document::SceneDocument::new(&id, "New scene", self.show.story_toon().into_iter().collect());
+        let (ctrl, shift) = (self.mods.control_key() || self.mods.super_key(), self.mods.shift_key());
+        let Some(p) = self.scene_prompt.as_mut() else { return };
+        let outcome = p.key(k.logical_key.as_ref(), k.text.as_deref(), ctrl, shift);
+        self.scene_prompt_done(outcome);
+    }
+
+    pub(crate) fn scene_prompt_done(&mut self, outcome: crate::scene_prompt::Outcome) {
+        use crate::scene_prompt::Outcome;
+        match outcome {
+            Outcome::Nothing => {}
+            Outcome::Cancel => self.scene_prompt = None,
+            Outcome::Create(id, name) => {
+                self.scene_prompt = None;
+                self.new_scene_tab(&id, &name);
+            }
+        }
+    }
+
+    /// a new scene, empty, named and with its id, in a Scene tab in front: its cast comes from the library; it saves itself
+    /// as a draft once it has one
+    pub(crate) fn new_scene_tab(&mut self, id: &str, name: &str) {
+        let doc = deck_space::scene_document::SceneDocument::new(id, name, self.show.story_toon().into_iter().collect());
         self.open_scene(show::build::SceneOpen { doc, base: None, kept: None, note: Some("new: drag its cast in from the library".into()), save: None });
     }
 

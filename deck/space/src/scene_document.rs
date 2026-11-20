@@ -502,6 +502,31 @@ impl Holder {
     }
 }
 
+/// Why `id` is no scene id (none = it is one): the server's entity id rule `[a-z0-9][a-z0-9_-]{0,63}` (EntityKey::ID_PATTERN).
+pub fn id_problem(id: &str) -> Option<String> {
+    let ok = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit();
+    let mut chars = id.chars();
+    if !chars.next().is_some_and(ok) || !chars.all(|c| ok(c) || matches!(c, '_' | '-')) {
+        return Some(format!("the id '{id}' is no scene id: lowercase letters, digits, '-' and '_', starting with a letter or digit"));
+    }
+    (id.len() > 64).then(|| format!("the id is {} characters long: at most 64", id.len()))
+}
+
+/// An id suggested from a scene's name: lowercase, every other run of characters one '-', at most 64 (empty for a name
+/// with nothing to keep).
+pub fn suggest_id(name: &str) -> String {
+    let mut id = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' {
+            id.push(c);
+        } else if !id.is_empty() && !id.ends_with('-') {
+            id.push('-');
+        }
+    }
+    let id = id.trim_matches(|c| c == '-' || c == '_');
+    id.chars().take(64).collect::<String>().trim_end_matches('-').to_string()
+}
+
 impl SceneDocument {
     /// A played scene (TOML, a sandbox) as a document of this format: its graph, stage and outputs; its being is no
     /// document field (a character holder brings its look). No version yet: the server stamps it.
@@ -573,8 +598,8 @@ impl SceneDocument {
     /// `check`, and what a new scene needs beside it: an id a `scene:` key takes, a stage name, a toon, a cast.
     pub fn check_new(&self) -> Vec<String> {
         let mut out = Vec::new();
-        if !crate::rig::content::safe_id(&self.id) || self.id.contains('.') {
-            out.push(format!("the id '{}' is no scene id: letters, digits, '-' and '_'", self.id));
+        if let Some(why) = id_problem(&self.id) {
+            out.push(why);
         }
         if self.stage.name.trim().is_empty() {
             out.push("the scene needs a name".into());
@@ -978,7 +1003,25 @@ mod tests {
         assert_eq!(doc.cast(), ["character:catpope", "character:nun.sister"]);
         assert_eq!(doc.check(), Vec::<String>::new());
         let bad = SceneDocument::new("a.b", "", Vec::new());
-        assert_eq!(bad.check_new()[..3], ["the id 'a.b' is no scene id: letters, digits, '-' and '_'", "the scene needs a name", "open a toon first: a scene without one is a template, in every toon's book"]);
+        assert_eq!(bad.check_new()[..3], ["the id 'a.b' is no scene id: lowercase letters, digits, '-' and '_', starting with a letter or digit", "the scene needs a name", "open a toon first: a scene without one is a template, in every toon's book"]);
+    }
+
+    #[test]
+    fn an_id_follows_the_servers_entity_rule_and_is_suggested_from_a_name() {
+        for ok in ["a", "nave", "0x", "night_nave-2", &"a".repeat(64)] {
+            assert_eq!(id_problem(ok), None, "{ok}");
+        }
+        for bad in ["", "Nave", "-a", "_a", "a.b", "a b", "ä", &"a".repeat(65)] {
+            assert!(id_problem(bad).is_some(), "{bad:?}");
+        }
+        assert_eq!(suggest_id("Night Nave"), "night-nave");
+        assert_eq!(suggest_id("  The  Nun's cell! "), "the-nun-s-cell");
+        assert_eq!(suggest_id("Ünïcode"), "n-code");
+        assert_eq!(suggest_id("???"), "");
+        assert!(suggest_id(&"ab ".repeat(40)).len() <= 64);
+        for name in ["Night Nave", "x_y", "9 lives", &"word ".repeat(30)] {
+            assert_eq!(id_problem(&suggest_id(name)), None, "{name}");
+        }
     }
 
     /// #243 / SCENES.md §8.2: a nudge names its control input as `input` in the TOML too (no alias)
