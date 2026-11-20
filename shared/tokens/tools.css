@@ -80,7 +80,8 @@ html:has(.sc-tool) body {
    the reader's root. 768px: keep in sync with base.css. */
 @media (min-width: 768px) {
 	html:has(.sc-tool) {
-		font-size: var(--editor-base);
+		/* --ui-scale: the creator's Settings › UI size */
+		font-size: calc(var(--editor-base) * var(--ui-scale, 1));
 	}
 }
 

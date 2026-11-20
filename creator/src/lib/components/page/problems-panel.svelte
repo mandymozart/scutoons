@@ -17,7 +17,8 @@
 		home,
 		groupLabel,
 		ongoto,
-		onclose
+		onclose,
+		bare = false
 	}: {
 		problems: Problem[];
 		/** the page's documents: a warning about one of them can be accepted (stored in it) */
@@ -28,6 +29,8 @@
 		groupLabel?: (index: number) => string;
 		ongoto?: (problem: Problem) => void;
 		onclose?: () => void;
+		/** in a floating panel: its head is the panel's (no title, fold or close of its own) */
+		bare?: boolean;
 	} = $props();
 
 	let showInfo = $state(false);
@@ -75,11 +78,13 @@
 </script>
 
 <div class="problems" data-testid="problems-panel">
-	<header>
-		<h2>{m['creator.problems']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
-	</header>
+	{#if !bare}
+		<header>
+			<h2>{m['creator.problems']()}</h2>
+			<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
+			{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
+		</header>
+	{/if}
 	<p class="summary">
 		<span class:bad={counts.error > 0}>{m['creator.problems_errors']({ count: counts.error })}</span> · {m['creator.problems_warnings']({ count: counts.warning })}
 	</p>

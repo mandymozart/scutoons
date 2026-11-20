@@ -76,6 +76,7 @@
 	.toggle-open {
 		display: inline-flex;
 		align-items: center;
+		justify-content: flex-start;
 		gap: 0.375rem;
 		flex: 1;
 		min-width: 0;
