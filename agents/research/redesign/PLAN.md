@@ -174,7 +174,7 @@ catalog, sound), which is how the owner names them. Open (§9.1): whether to gro
 | Node graph | Svelte Flow, own SVG, egui | one Svelte graph component (Flows first), the deck's port / wire grammar |
 | Timeline | shared/ui Timeline + deck | keep shared/ui Timeline, extend for camera moves |
 | Panels | deck-kit floats (Rust), OSCT floats (Svelte) | **copy OSCT's floats.ts + FloatingPanel into `shared/ui`** (it is the deck's model, already in Svelte, with #329 and #318 coming) |
-| three.js version | OSCT 0.174 (pinned by `^0.174`), creator / shared media 0.186 | not a blocker: the stage runs in its own sandboxed frame with its own bundle, and plugins get `api.three` from the engine; costs only a second copy if the reader loads both on one page – align when convenient |
+| three.js version | OSCT 0.174 (pinned by `^0.174`), creator / shared media 0.186 | owner 2026-11-20: **one version** – set when OSCT's stage is copied (Experiences); the creator's users are the model preview and the storyboard's viewport / take render, both small to move |
 
 ## 8. Order of work and the split
 
