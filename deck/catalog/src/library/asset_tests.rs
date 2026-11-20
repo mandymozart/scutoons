@@ -339,3 +339,15 @@ fn the_wire_takes_and_gives_json() {
     assert!(Shelf::from_json("{}").is_err());
     assert_eq!(family::kind_of_asset("archive"), Kind::File);
 }
+
+#[test]
+fn a_family_entry_is_served_from_the_cdn_and_found_by_any_version() {
+    let shelf = Shelf::new(fam());
+    let f = shelf.family_of("catpope/s1/c1/s1c1-slice-2.3x.webp").expect("by a version's path");
+    assert_eq!((f.name.as_str(), f.versions.len()), ("s1c1-slice-2", 3));
+    assert_eq!(shelf.family_of("catpope/s1/c1/s1c1-slice-2").map(|f| f.versions.len()), Some(3), "by its key");
+    let e = f.entry_on("https://cdn.example/");
+    assert_eq!(e.preview, Preview::Picture { url: "https://cdn.example/catpope/s1/c1/s1c1-slice-2.webp".into() });
+    assert_eq!(f.entry().preview, Preview::Picture { url: "catpope/s1/c1/s1c1-slice-2.webp".into() }, "no cdn: the path");
+    assert!(Kind::Image.is_file() && !Kind::Module.is_file());
+}

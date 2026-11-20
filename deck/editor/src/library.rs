@@ -3,10 +3,11 @@
 //! played, kept in the cache by key, and an asset's picture fetched once – and the card's way out: dropped where the
 //! workspace takes it (Build's stage: a track; Show's cell: its piece), opened in its editor view on a second press.
 use crate::show::api::Api;
+use deck_catalog::library::shelf::Shelf;
 use deck_catalog::library::{self, Entry, Kind, Preview, Purpose};
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::library::{Browser, Did};
+use deck_kit::editor::library::{Browser, Did, Source};
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -157,9 +158,10 @@ impl Pictures {
     }
 }
 
-/// the toon's assets, asked once signed in
+/// the toon's assets, asked once signed in: their families (deck-catalog `library::shelf`) and one entry per family
 #[derive(Default)]
 struct Assets {
+    shelf: Option<Shelf>,
     list: Vec<Entry>,
     /// where their paths are served from (the answer's `cdn`)
     cdn: String,
@@ -167,12 +169,24 @@ struct Assets {
     asked: bool,
 }
 
-/// the assets and their CDN base
-type Answer = (Vec<Entry>, String);
+/// the assets' families and their CDN base
+type Answer = (Shelf, String);
 
 /// the assets' answer's CDN base
 fn cdn_of(text: &str) -> String {
     serde_json::from_str::<serde_json::Value>(text).ok().and_then(|v| v["cdn"].as_str().map(str::to_string)).unwrap_or_default()
+}
+
+/// `GET /api/assets`' answer as the shelf's families and their CDN base
+fn answer(text: &str) -> Result<Answer, String> {
+    Ok((Shelf::from_json(text)?, cdn_of(text)))
+}
+
+impl Assets {
+    fn take(&mut self, (shelf, cdn): Answer) {
+        self.list = shelf.families(false).iter().map(|f| f.entry_on(&cdn)).collect();
+        (self.shelf, self.cdn) = (Some(shelf), cdn);
+    }
 }
 
 /// the library panel's state, one for the editor
@@ -214,7 +228,7 @@ impl Library {
         let (tx, rx) = channel();
         let api = Api::new(base.to_string());
         std::thread::spawn(move || {
-            let _ = tx.send(api.assets().and_then(|t| Ok((library::assets(&t)?, cdn_of(&t)))));
+            let _ = tx.send(api.assets().and_then(|t| answer(&t)));
         });
         self.assets.rx = Some(rx);
     }
@@ -224,8 +238,8 @@ impl Library {
     pub fn answers(&mut self, dir: &std::path::Path) -> Option<Vec<crate::module::Entry>> {
         if let Ok(text) = std::fs::read_to_string(dir.join("assets.json")) {
             self.assets.asked = true;
-            match library::assets(&text) {
-                Ok(list) => (self.assets.list, self.assets.cdn) = (list, cdn_of(&text)),
+            match answer(&text) {
+                Ok(a) => self.assets.take(a),
                 Err(e) => tracing::warn!("--catalog assets: {e}"),
             }
         }
@@ -246,7 +260,7 @@ impl Library {
         self.pictures.poll();
         if let Some(Ok(r)) = self.assets.rx.as_ref().map(Receiver::try_recv) {
             match r {
-                Ok((list, cdn)) => (self.assets.list, self.assets.cdn) = (list, cdn),
+                Ok(a) => self.assets.take(a),
                 Err(e) => tracing::info!("the library's assets: {e}"),
             }
             self.assets.rx = None;
@@ -273,7 +287,8 @@ impl Library {
     /// the panel's content in `a`; `action` = the workspace's one button
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, a: Rect, pointer: (f32, f32), action: Option<&str>) {
         let pictures = &self.pictures;
-        self.browser.draw(d, t, (a, pointer), &self.entries, &|p| pictures.get(p), action);
+        let src = Source { entries: &self.entries, shelf: self.assets.shelf.as_ref() };
+        self.browser.draw(d, t, (a, pointer), &src, &|p| pictures.get(p), action);
     }
 
     /// An empty character rig turns "related" on once, with the modules: what is made for it first (owner 2026-11-16
@@ -587,6 +602,22 @@ mod tests {
         assert_eq!(lib.browser.shown(&lib.entries).len(), 3, "the viewer's choice stays for the same rig");
         lib.follow_rig("character.catpope", Some("catpope"), false);
         assert_eq!(lib.browser.filter.related, None, "a rig with tracks: as the viewer set it");
+    }
+
+    #[test]
+    fn the_assets_answer_is_one_entry_per_family_on_the_cdn() {
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-families-{}", std::process::id())));
+        let text = serde_json::json!({ "cdn": "https://cdn.example", "items": [
+            { "id": "a1", "kind": "image", "renditions": [{ "path": "cat/s1/c1/hills.webp" }, { "path": "cat/s1/c1/hills.2x.webp" }, { "path": "cat/s1/c1/hills.3x.webp" }] },
+            { "id": "a2", "kind": "audio", "path": "cat/bells.128.mp3" },
+        ] })
+        .to_string();
+        lib.assets.take(answer(&text).unwrap());
+        let list = lib.assets();
+        assert_eq!(list.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["cat/bells.128.mp3", "cat/s1/c1/hills.webp"], "three files of hills are one entry");
+        assert_eq!(list[1].preview, Preview::Picture { url: "https://cdn.example/cat/s1/c1/hills.webp".into() });
+        lib.set(Purpose::Scene, of_scene(&[], None, list));
+        assert!(lib.entries.iter().any(|e| e.address == "cat/s1/c1/hills.webp") && !lib.entries.iter().any(|e| e.kind == Kind::Audio), "a scene takes the pictures");
     }
 
     #[test]

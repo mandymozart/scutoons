@@ -2,11 +2,13 @@
 //! instruments, the catalog, scenes, assets (deck-catalog `library`). A find field, a chip per kind there is (and
 //! "related" when a character is open), cards in a grid or rows in a list, each with the preview the core chose for its
 //! content. A card pressed and moved is dragged (its owner puts it in the one hand, `carry`); let go, its owner is told
-//! where; a second press on it soon after opens it.
+//! where; a second press on it soon after opens it. The toon's files come as the shelf's families (deck-catalog
+//! `library::shelf`): a family with more than one version is drawn as a stack.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
+use deck_catalog::library::shelf::Shelf;
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
 /// a card's width and its preview's height in the grid; a row's preview in the list
@@ -35,6 +37,38 @@ pub enum Hit {
     Action,
     /// a card, by its entry's index
     Card(usize),
+}
+
+/// what the browser lists: its owner's entries and, when the workspace lists the toon's files, their shelf (an entry
+/// of a file kind is a family's card, its address the family's main file)
+#[derive(Clone, Copy)]
+pub struct Source<'a> {
+    pub entries: &'a [Entry],
+    pub shelf: Option<&'a Shelf>,
+}
+
+impl<'a> Source<'a> {
+    pub fn plain(entries: &'a [Entry]) -> Source<'a> {
+        Source { entries, shelf: None }
+    }
+
+    /// how many versions the card of `e` stacks (1: a single file or no family)
+    pub fn stack(&self, e: &Entry) -> usize {
+        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address)).map_or(1, |f| f.versions.len())
+    }
+}
+
+/// the sheets drawn behind a stacked card (two at most) and how far each stands out
+const SHEETS: usize = 2;
+const SHEET_STEP: f32 = 3.0;
+
+/// the sheets of a stack of `n` versions behind `r`, up and to the right
+fn sheets(d: &mut DrawList, t: &Tokens, r: Rect, n: usize) {
+    for k in (1..=SHEETS.min(n.saturating_sub(1))).rev() {
+        let o = SHEET_STEP * k as f32;
+        d.round_rect(r.x + o, r.y - o, r.w, r.h, t.size.radius, t.color.surface_head);
+        d.outline(r.x + o, r.y - o, r.w, r.h, (t.size.radius, 1.0), t.color.line);
+    }
 }
 
 /// a card in the hand
@@ -173,7 +207,8 @@ impl Browser {
 
     /// The browser in `a`: the find field, the chips, the cards. `picture` answers which of the screen's pictures shows
     /// a preview (a still or a picture already loaded); `action` is the owner's one button.
-    pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), entries: &[Entry], picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
+    pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), src: &Source, picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
+        let entries = src.entries;
         self.hits.clear();
         let (pad, small, row) = (t.size.pad, t.size.small, t.size.tree_row);
         let mut y = a.y;
@@ -231,12 +266,16 @@ impl Browser {
             Mode::Grid => {
                 let gap = 8.0;
                 let cols = (((a.w + gap) / (CARD_W + gap)).floor() as usize).max(1);
+                if src.shelf.is_some() {
+                    y += SHEET_STEP * SHEETS as f32;
+                }
                 let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
                 let ch = CARD_PREVIEW + small * 1.4 * 2.0 + 8.0;
                 for (n, &i) in shown.iter().enumerate() {
                     let e = &entries[i];
                     let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * (ch + gap), w: cw, h: ch };
                     let lit = held == Some(i);
+                    sheets(d, t, r, src.stack(e));
                     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.surface_head });
                     preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
                     let ty = r.y + CARD_PREVIEW + 4.0;
@@ -255,7 +294,9 @@ impl Browser {
                     } else if r.has(pointer.0, pointer.1) {
                         d.rect(r.x, r.y, r.w, r.h, t.color.hover);
                     }
-                    preview(d, t, Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 }, e, picture);
+                    let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
+                    sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, src.stack(e));
+                    preview(d, t, p, e, picture);
                     let x = r.x + ROW_PREVIEW.0 + 10.0;
                     let dw = d.sans_width(small, &e.detail).min(r.w * 0.4);
                     d.sans(x, r.y + (h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.x + r.w - dw - 12.0 - x), t.color.text);
@@ -343,7 +384,7 @@ mod tests {
 
     fn drawn(b: &mut Browser, entries: &[Entry], has: &dyn Fn(&Preview) -> Option<u64>) -> DrawList {
         let mut d = DrawList::new(8.0);
-        b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, (-1.0, -1.0)), entries, has, Some("new scene"));
+        b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, (-1.0, -1.0)), &Source::plain(entries), has, Some("new scene"));
         d
     }
 
@@ -414,5 +455,37 @@ mod tests {
         assert!(!d.prims().iter().any(|p| matches!(p, Prim::Picture { .. })), "no still yet: its kind");
         let d = drawn(&mut b, &e, &|p| matches!(p, Preview::Still { .. }).then_some(7));
         assert!(d.prims().iter().any(|p| matches!(p, Prim::Picture { key: 7, .. })), "the still once the screen has it");
+    }
+
+    /// the toon's files as the shelf's families: two versions of one picture are one card, drawn as a stack
+    pub(crate) fn shelf() -> Shelf {
+        let file = |path: &str| format!(r#"{{ "path": "{path}", "size": 10 }}"#);
+        let asset = |id: &str, kind: &str, files: &[&str], extra: &str| format!(r#"{{ "id": "{id}", "kind": "{kind}", "usages": 1{extra}, "renditions": [{}] }}"#, files.iter().map(|f| file(f)).collect::<Vec<_>>().join(","));
+        let items = [
+            asset("a1", "image", &["cat/s1/c1/hills.webp", "cat/s1/c1/hills.2x.webp", "cat/s1/c1/hills.3x.webp"], r#", "updated_at": "2026-11-19 10:00:00""#),
+            asset("a2", "image", &["cat/s1/c2/sky.webp"], r#", "credits": """#),
+            asset("a3", "audio", &["cat/bells.128.mp3"], r#", "usages": 0"#),
+        ];
+        Shelf::from_json(&format!(r#"{{ "items": [{}] }}"#, items.join(","))).expect("the answer")
+    }
+
+    #[test]
+    fn a_family_of_versions_is_one_card_drawn_as_a_stack() {
+        let shelf = shelf();
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        assert_eq!(entries.len(), 3, "one card per family, not per file");
+        let src = Source { entries: &entries, shelf: Some(&shelf) };
+        let hills = entries.iter().find(|e| e.label == "hills").expect("hills");
+        let sky = entries.iter().find(|e| e.label == "sky").expect("sky");
+        assert_eq!((src.stack(hills), src.stack(sky)), (3, 1));
+        let outlines = |b: &mut Browser, src: &Source| {
+            let mut d = DrawList::new(8.0);
+            b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 2000.0 }, (-1.0, -1.0)), src, &|_| None, None);
+            d.prims().iter().filter(|p| matches!(p, Prim::Outline { .. })).count()
+        };
+        let mut b = Browser::default();
+        let stacked = outlines(&mut b, &src);
+        let flat = outlines(&mut b, &Source::plain(&entries));
+        assert_eq!(stacked - flat, SHEETS, "two sheets behind the three versions' card");
     }
 }

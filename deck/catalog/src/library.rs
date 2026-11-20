@@ -70,6 +70,11 @@ impl Kind {
         }
     }
 
+    /// a toon's file (what the shelf's families hold), not a catalog thing
+    pub fn is_file(self) -> bool {
+        matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::File)
+    }
+
     pub fn of_id(id: &str) -> Option<Kind> {
         Kind::ALL.into_iter().find(|k| k.id() == id)
     }

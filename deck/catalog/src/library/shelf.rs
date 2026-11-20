@@ -315,6 +315,8 @@ pub struct Shelf {
     /// per family index (stacked), the uses that name one of its files
     uses_of: Vec<Vec<usize>>,
     uses_of_single: Vec<Vec<usize>>,
+    /// a family's key and every version's path → its index (stacked)
+    by_path: BTreeMap<String, usize>,
 }
 
 fn index(families: &[Family], uses: &[Use]) -> Vec<Vec<usize>> {
@@ -336,7 +338,14 @@ fn index(families: &[Family], uses: &[Use]) -> Vec<Vec<usize>> {
 impl Shelf {
     pub fn new(families: Vec<Family>) -> Shelf {
         let singles = family::singles(&families);
-        let mut s = Shelf { families, singles, ..Shelf::default() };
+        let mut by_path = BTreeMap::new();
+        for (i, f) in families.iter().enumerate() {
+            by_path.insert(f.key.clone(), i);
+            for v in &f.versions {
+                by_path.insert(v.path.clone(), i);
+            }
+        }
+        let mut s = Shelf { families, singles, by_path, ..Shelf::default() };
         s.set_context(Context::default());
         s
     }
@@ -362,7 +371,7 @@ impl Shelf {
 
     /// the family a file (any version's path) or a key belongs to
     pub fn family_of(&self, path: &str) -> Option<&Family> {
-        self.families.iter().find(|f| f.key == path || f.versions.iter().any(|v| v.path == path)).or_else(|| self.singles.iter().find(|f| f.key == path))
+        self.by_path.get(path).map(|&i| &self.families[i]).or_else(|| self.singles.iter().find(|f| f.key == path))
     }
 
     /// Where a new file lands without a slot of its own: the open item's folder (a chapter's is where its files already
