@@ -262,6 +262,21 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
                 continue;
             }
         };
+        // the rig preset first (a knob the rig lost is left out), the holder's single values over it
+        if let Some(id) = &h.preset {
+            match bundle.rig_presets.iter().find(|p| &p.id == id && p.rig == subject) {
+                Some(p) => {
+                    for (path, x) in &p.values {
+                        if let Ok(Leaf::Port { track: Some(t), node, port }) = Address::leaf(path) {
+                            if let Some(n) = scene.nodes.iter_mut().find(|n| n.id == format!("{t}_{node}")) {
+                                n.params.insert(port, toml::Value::Float(f64::from(*x)));
+                            }
+                        }
+                    }
+                }
+                None => notes.push(format!("holder {}: no rig preset {id} of {subject} at hand: its rig's own values", h.id)),
+            }
+        }
         for (path, v) in &h.values {
             if let (Ok(Leaf::Port { track: Some(t), node, port }), HolderValue::Number(x)) = (Address::leaf(path), v) {
                 match scene.nodes.iter_mut().find(|n| n.id == format!("{t}_{node}")) {
