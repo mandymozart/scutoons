@@ -1,0 +1,126 @@
+<!doctype html>
+<!-- status: dropped (owner 2026-11-20: "No everything is fine there" – the reader's toon page stays as it is; #709 item 8 only swaps the source of its items row) -->
+<html lang="en"><head><meta charset="utf-8"><title>Toon page drafts</title>
+<style>
+:root{--ink:#0e0e0e;--paper:#f2efe8;--muted:#8d8a84;--line:#2c2c2c;--accent:#f2efe8}
+*{box-sizing:border-box}
+body{margin:0;background:#1b1b1b;color:var(--paper);font:13px/1.35 "JetBrains Mono",ui-monospace,Consolas,monospace;padding:24px}
+h1.page{font-size:18px;font-weight:normal;margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 20px;max-width:1200px}
+.row{display:flex;gap:28px;align-items:flex-start}
+.col{width:390px;flex:none}
+.col>h2{font-size:14px;font-weight:normal;margin:0 0 4px}
+.col>.why{color:var(--muted);font-size:11px;margin:0 0 10px;min-height:58px}
+.phone{background:var(--ink);border:1px solid #333;overflow:hidden}
+.hero{height:300px;background:linear-gradient(160deg,#5a3d55,#1d2a3c 60%,#0e0e0e);position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:16px}
+.hero.short{height:210px}
+.hero .lettering{position:absolute;top:30px;left:16px;right:16px;text-align:center;font:900 30px/1 Impact,"Bangers",sans-serif;transform:rotate(-5deg);color:var(--paper);text-shadow:3px 3px 0 #000}
+.hero .lettering small{display:block;font-size:15px}
+.kicker{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#d9d4ca}
+.title{font-size:26px;margin:2px 0}
+.tag{font-size:11px;color:#d9d4ca;margin-bottom:10px}
+.btns{display:flex;gap:8px}
+.btn{border:2px solid var(--paper);padding:7px 12px;font-size:12px;white-space:nowrap}
+.btn.inv{background:var(--paper);color:var(--ink)}
+.btn.sm{padding:4px 9px;font-size:11px;border-width:1px}
+.sec{padding:14px 16px 4px}
+.sec h3{font-size:15px;font-weight:normal;margin:0;padding-bottom:6px;border-bottom:2px solid var(--paper);display:flex;justify-content:space-between;align-items:baseline}
+.sec h3 a{font-size:11px;color:var(--muted)}
+.chap{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.thumb{width:72px;height:44px;background:#3a3236}
+.chap .n{color:var(--muted);font-size:11px}
+.prog{height:2px;background:#555;width:70px;margin-top:4px}.prog i{display:block;height:2px;background:var(--paper);width:60%}
+.item{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.ico{width:44px;height:44px;background:#2b2b2b;border-radius:4px;display:grid;place-items:center;font-size:20px}
+.cap{color:var(--muted);font-size:11px}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--ink)}
+.tabs span{flex:1;text-align:center;padding:10px 0;font-size:12px;color:var(--muted)}
+.tabs span.on{color:var(--paper);border-bottom:2px solid var(--paper)}
+.season-pills{display:flex;gap:6px;padding:12px 16px 0}
+.pill{border:1px solid #555;border-radius:99px;padding:3px 10px;font-size:11px;color:var(--muted)}
+.pill.on{border-color:var(--paper);color:var(--paper)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:8px}
+.tile{background:#232323;aspect-ratio:1;display:grid;place-items:center;font-size:24px;position:relative}
+.tile b{position:absolute;bottom:4px;left:6px;right:6px;font-weight:normal;font-size:10px;color:#cfcac0}
+.album{display:flex;gap:12px;align-items:center;padding:10px 0}
+.disc{width:84px;height:84px;border-radius:50%;background:radial-gradient(circle,#2a8a4a 0 16%,#111 17% 100%);flex:none}
+.credits{padding:14px 16px 18px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:12px}
+.drawer{height:34px;background:#000;border-top:1px solid #333;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+.note{background:#26231c;border-left:3px solid #c9a24a;color:#e7dcc2;padding:8px 10px;font-size:11px;margin:10px 16px}
+.q{max-width:1226px;margin-top:22px;color:#d9d4ca}
+.q h2{font-size:14px;font-weight:normal;border-bottom:1px solid #444;padding-bottom:4px}
+.q li{margin:4px 0}
+</style></head><body>
+<h1 class="page">Toon page: three drafts · catpope · night · phone 390</h1>
+<p class="lead">Today the page is a season landing page (hero, the season's chapters, then <i>the season's related items</i>, music, credits), and the inventory drawer is pushed in below it. Once related_items goes (#709 item 8), the page needs a clear job. All three keep the hero and the start button; they differ in what the page is <i>about</i>.</p>
+<div class="row">
+
+<!-- A -->
+<div class="col"><h2>A · Season landing (today, cleaned up)</h2>
+<p class="why">The page is still about one season. "With this season" becomes the toon's physical products. Music folds into the vinyl's row. The credits move to their own page (<code>/catpope/credits</code> already exists), leaving a link here.</p>
+<div class="phone">
+ <div class="hero"><div class="lettering"><small>CAT POPE</small>"AWAKENING!"</div>
+  <div class="tag">When the morning routine of a narcissistic religious personality is disrupted…</div>
+  <div class="btns"><span class="btn inv">Continue · #2 Anger ›</span></div></div>
+ <div class="sec"><h3>Season 1: Awakening <span>⤓</span></h3>
+  <div class="chap"><div class="thumb"></div><div>Roar Little Kitty<div class="prog"><i style="width:100%"></i></div></div><span class="n">Prologue</span></div>
+  <div class="chap"><div class="thumb"></div><div>Denial<div class="prog"><i></i></div></div><span class="n">#1</span></div>
+  <div class="chap"><div class="thumb"></div><div>Anger</div><span class="n">#2</span></div>
+  <div class="chap" style="opacity:.5"><div class="thumb"></div><div>Bargaining<div class="cap">Coming 12 Dec</div></div><span class="n">#3</span></div>
+ </div>
+ <div class="sec"><h3>Cat Pope products</h3>
+  <div class="item"><div class="ico">💿</div><div>Awakening – LP 12" vinyl<div class="cap">€27.50 · includes the music download</div></div><span class="btn sm">Buy</span></div>
+  <div class="item"><div class="ico">👕</div><div>SCUTOONS swim pants<div class="cap">You already have this</div></div><span></span></div>
+ </div>
+ <div class="credits"><span>Credits, songs, casts</span><span>›</span></div>
+ <div class="drawer">— inventory —</div>
+</div></div>
+
+<!-- B -->
+<div class="col"><h2>B · Toon home with tabs</h2>
+<p class="why">The page is about the toon. The hero is shorter. Tabs split what is now one long scroll: Chapters (every season, season pills), Items (the toon's own items: owned, buyable, findable), Music (one row per album), Credits.</p>
+<div class="phone">
+ <div class="hero short"><div class="kicker">Cat Pope · 2 seasons</div><div class="title">Cat Pope</div>
+  <div class="btns"><span class="btn inv">Continue · S1 #2 ›</span><span class="btn">Trailer ▶</span></div></div>
+ <div class="tabs"><span class="on">Chapters</span><span>Items</span><span>Music</span><span>Credits</span></div>
+ <div class="season-pills"><span class="pill on">S1 Awakening</span><span class="pill">S2 coming soon</span></div>
+ <div class="sec">
+  <div class="chap"><div class="thumb"></div><div>Roar Little Kitty</div><span class="n">Prologue</span></div>
+  <div class="chap"><div class="thumb"></div><div>Denial<div class="prog"><i></i></div></div><span class="n">#1</span></div>
+  <div class="chap"><div class="thumb"></div><div>Anger</div><span class="n">#2</span></div>
+ </div>
+ <div class="note">Items tab (preview below): every item whose <code>toon</code> is catpope. Owned ones are bright; the rest are greyed, with "Buy" or "Find it in the story".</div>
+ <div class="sec" style="padding-top:0"><div class="grid3">
+  <div class="tile">💿<b>Vinyl · €27.50</b></div><div class="tile">📷<b>Camera · owned</b></div><div class="tile" style="opacity:.45">🎛️<b>Record player · ?</b></div>
+ </div></div>
+ <div class="drawer">— inventory —</div>
+</div></div>
+
+<!-- C -->
+<div class="col"><h2>C · Toon home, sections in one scroll</h2>
+<p class="why">Like B, but with no tabs: short sections, each with a "show all" link to its own page. The page becomes a hub: read, the world (map and cast), things, music. The inventory leaves the toon page (it's already in the top bar).</p>
+<div class="phone">
+ <div class="hero short"><div class="kicker">Season 1 · Awakening</div><div class="title">Cat Pope</div>
+  <div class="btns"><span class="btn inv">Continue · #2 Anger ›</span></div></div>
+ <div class="sec"><h3>Read <a>all chapters ›</a></h3>
+  <div class="chap"><div class="thumb"></div><div>Anger<div class="cap">next up</div></div><span class="n">#2</span></div>
+  <div class="chap" style="opacity:.5"><div class="thumb"></div><div>Bargaining<div class="cap">Coming 12 Dec</div></div><span class="n">#3</span></div>
+ </div>
+ <div class="sec"><h3>World <a>map · cast ›</a></h3>
+  <div class="grid3"><div class="tile">🗺️<b>Map</b></div><div class="tile">🐱<b>Cat Pope</b></div><div class="tile">🧍<b>Sphynx</b></div></div></div>
+ <div class="sec"><h3>Things <a>all ›</a></h3>
+  <div class="item"><div class="ico">💿</div><div>Awakening – LP 12"<div class="cap">€27.50</div></div><span class="btn sm">Buy</span></div></div>
+ <div class="sec"><h3>Music</h3>
+  <div class="album"><div class="disc"></div><div>Awakening<div class="cap">6 songs · free for members</div><div style="margin-top:6px" class="btns"><span class="btn sm">Play</span><span class="btn sm">Download</span></div></div></div></div>
+ <div class="credits"><span>Credits</span><span>›</span></div>
+</div></div>
+
+</div>
+<div class="q"><h2>For the owner to decide</h2><ol>
+<li><b>What the page is for:</b> one season (A) or the toon as a whole (B and C)? The URL <code>/catpope</code> and the "season landing page" note today say A; adding Cat Pope × Yellow Mouse shows (#708) leans towards a toon home.</li>
+<li><b>Which items:</b> only buyable physical products (A), or all the toon's items, with owned / buyable / findable (B and C)?</li>
+<li><b>Music:</b> folded into the vinyl's row (A), or its own block per album, so a toon with several albums lists them all (B and C)? The second also settles "which album" in #709 item 8.</li>
+<li><b>Credits:</b> keep the long colophon on the page, or move it to <code>/&lt;toon&gt;/credits</code> with a link (all three drafts)?</li>
+<li><b>Inventory drawer:</b> it currently overlays the bottom of the page. Should it stay on the toon page or only live in the top bar?</li>
+</ol></div>
+</body></html>
