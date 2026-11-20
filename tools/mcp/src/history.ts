@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { createApiClient, createContentApi, createHistory } from '@scutoons/api';
 import type { HistoryView } from '@scutoons/content';
 import type { Config } from './config.ts';
+import { CoreMissing } from './core-history.ts';
 import { apiMessage } from './server.ts';
 import { creatorHref, type AppLinks } from './services.ts';
 
@@ -43,7 +44,13 @@ export function registerHistoryTools(server: McpServer, config: Config, options:
 		},
 		guard(async ({ key, version, base }) => {
 			const onto = await newest(key, base);
-			const { steps } = await history.load(key);
+			let steps;
+			try {
+				({ steps } = await history.load(key));
+			} catch (e) {
+				if (e instanceof CoreMissing) return fail(`revert_change needs the core's files on this machine (SCUTOONS_CORE_DIR, or a checkout's shared/live-deck/wasm). Revert this change in the creator's History instead: ${creatorHref(options.links, key) ?? options.links.creator} – or use revert_to.`);
+				throw e;
+			}
 			const step = steps.find((s) => version >= s.first && version <= s.last);
 			if (!step) return fail(`version ${version} is not in the history of ${key} (list_versions)`);
 			if (step.before === null) return fail(`version ${version} is the first one stored for ${key} – there is nothing before it to go back to (revert_to another version)`);

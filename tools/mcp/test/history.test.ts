@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { HistoryView } from '@scutoons/content';
-import { coreDir, coreHistory } from '../src/core-history.ts';
+import { CoreMissing, coreDir, coreHistory } from '../src/core-history.ts';
 import { registerHistoryTools } from '../src/history.ts';
 
 const links = { creator: 'http://c', admin: 'http://a', embassy: 'http://e', viewer: 'http://v' };
@@ -51,7 +51,7 @@ function harness(core: () => Promise<HistoryView>, opts: { stale?: boolean; writ
 }
 
 const wasm = coreDir() !== null;
-const core = coreHistory('http://v');
+const core = coreHistory();
 
 test('the two tools, drafts only: no publish, no restore of its own', () => {
 	assert.deepEqual(Object.keys(harness(core).tools).sort(), ['revert_change', 'revert_to']);
@@ -110,4 +110,13 @@ test('a stale base is a 409 conflict the agent can act on', { skip: !wasm && 'co
 
 test('the core files: SCUTOONS_CORE_DIR wins, a bundled copy without it has none', () => {
 	assert.equal(coreDir({ SCUTOONS_CORE_DIR: '/nowhere' } as never, true), null);
+});
+
+test('without the core on the machine revert_change points to the creator History, never fetches code', async () => {
+	const missing = () => Promise.reject(new CoreMissing());
+	const h = harness(missing);
+	const r = await h.run('revert_change', { key: 'events', version: 2 });
+	assert.equal(r.error, true);
+	assert.match(r.text, /creator's History/);
+	assert.ok(h.calls.every((c) => c.method === 'GET'), 'nothing posted');
 });

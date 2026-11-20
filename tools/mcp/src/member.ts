@@ -76,7 +76,7 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 		// the live shows over their own route (/api/shows, role `live`) – drafts only, the member publishes in the editor
 		registerShowTools(server, config, { write: services.content === 'write' });
 		// revert one change / go back to a version (#687) – a new draft, the core's rules; the member publishes in the creator
-		if (services.content === 'write') registerHistoryTools(server, config, { links, core: coreHistory(links.viewer) });
+		if (services.content === 'write') registerHistoryTools(server, config, { links, core: coreHistory() });
 		// the chapter storyboards and their generations (#122) – an admin who isn't a creator reads
 		registerStoryboardTools(server, config, { write: services.content === 'write', links });
 		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write
