@@ -1,6 +1,35 @@
-Status 2026-11-20: concept for the owner's review (#703, epic #626), drawn for the decision in scenes-drafts.html (the four strips, the model, drivers, five flows, loading windows, three naming options, the six questions), nothing built and nothing to build until the owner says the concept is clear. §1 records the owner's idea as thought aloud. §2 is read from the code (main @1d064d30, plus develop for #642 / #686 and feature/698 for the Library). §3 to §7 are proposals. §8 holds the questions for the owner.
+Status 2026-11-20: narrowed by the owner's answer (§0): no renaming, the containers stay specific to their medium; what is left to unify is what travels between them (assets, sets, events, addresses). §0 holds the narrowed proposal and its three questions; nothing built and nothing to build until the owner says it is clear (#703, epic #626). §1 and §2 stay valid (the idea, the map from the code). §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
+
+## 0. The owner's answer (2026-11-20) and the narrowed proposal
+
+> "everything renaming is not an option. that is really confusing. and also if the scenes keep their type that is actually good because we want to have some dogma for each process. we can pass around assets, and share sets, and events but the container is media specific. so perhaps i was going too far. but some of this research should allow for some sort of unification of concepts"
+
+**Decided:** no renaming. A chapter group, a show row, a deck scene and an XR scene keep their names, their types and their storage. (Naming options A and B in the drafts are off; nothing in §3's vocabulary becomes a stored or visible word.)
+
+**Thought aloud, recorded as the direction:** each container keeps its own rules ("dogma") per process: the reader flips by scroll, the show by the conductor, XR by a found target, and each player keeps its own loading. What is shared is what **travels between** the containers, not the container.
+
+What that leaves to unify, from the map in §2:
+
+| Shared thing | Today | The unification | Size |
+|---|---|---|---|
+| **Assets** | the catalog and the Library (#698): one rule in the core, drawn by the creator and the deck editor | nothing new: every container picks from the same library; XR (#482) picks from it too when it is built | — (follow the #698 pattern) |
+| **Sets** | a deck scene sits at one spot of one set (SCENES.md §8, CATALOG-LINK §8); a chapter group and an XR scene know no set | a chapter group and an XR scene **may name** a set (+ spot), the same field the deck scene has. Then a linked reader's group, a deck scene and an XR scene can stand in the same place with the same cast, without being the same thing | M |
+| **Events** | three vocabularies: the reader's story events (VN `events`, `?live=` #518 / #528), a show row's `fire` / `on_event`, a scene's listeners (#517); XR's rules (found / lost / tap → emit) are only on paper | **one event list per toon**: ids declared once, emitted by any container, heard by any. A reader event fires a row or a scene listener (as today), and XR's `emit` / found target emit the same ids | M |
+| **Addresses** | `scene:<id>`, `show:<id>`, rows by id; chapter groups have no id (`label` or the array index) | chapter groups get stable ids (was S1) so every container's unit has an address; an `end` or a jump may name an address of another kind (was S9). Chaining across kinds becomes "jump to that address", each container still runs itself | M + S–M |
+
+What is **dropped**: the shared sequence core (S2, S3, S4, S8 as a core), the general words (S0), the lanes as a model, the loading window as one rule. Each player keeps its own `next` and its own preload.
+
+What **stays as an idea, not a merge**: S5, a chapter group naming a deck scene that a linked reader's decks play without a show (the owner's 2026-11-11 thought). It is an attachment through an address, not one container inside another. And the strip look (S6): the chapter tree, the storyboard groups, the show band and OSCT's panel look alike; a shared **drawing** in the editor kits is possible without a shared model.
+
+**Three questions for the owner** (replacing §8):
+
+1. **Events: one list per toon**, emitted and heard by reader, deck and XR alike? *Recommended:* yes; this is the thread that already exists (#517, #518) and the one chaining needs.
+2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one.
+3. **Addresses: stable ids for chapter groups**, so a jump or an `end` can name any container's unit? *Recommended:* yes; it is a migration, `label` stays the reader's jump name.
+
+Draft tickets if the answers are yes (unfiled): `decide` "One event list per toon across reader, deck and XR" (area:content, S) · feature "Chapter groups get stable ids" (area:content, M) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M) · later, after a draft (G1): "A linked reader's group plays a named deck scene" (area:deck, M).
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
