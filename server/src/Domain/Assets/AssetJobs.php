@@ -18,7 +18,8 @@ use Throwable;
 /**
  * Optimization jobs (agents/ASSETS.md "Optimization"): queued from the admin's Assets page (or the CLI), run by
  * `php bin/console assets:jobs` on a machine with ffmpeg (the owner's – the shared host has none): download the
- * source from the storage, transcode, upload the outputs next to it, register them as renditions (origin generated).
+ * source from the storage, transcode, upload the outputs next to it, register them as renditions (origin generated);
+ * each video output gets its time map measured against the source (AssetTimeMaps; a failure leaves NULL, never fails the job).
  *   video-renditions  480p / 720p / 1080p H.264 (crf 24 / 24 / 22, preset slow, yuv420p, AAC 128k, +faststart) –
  *                     like the trailer loop; only levels up to the source's height; existing files are kept unless
  *                     params.overwrite (then replaced in place + purged)
@@ -38,6 +39,7 @@ final class AssetJobs
         private readonly AssetStorages $storages,
         private readonly MediaProbe $probe,
         private readonly Settings $settings,
+        private readonly AssetTimeMaps $timeMaps,
     ) {
     }
 
@@ -115,7 +117,7 @@ final class AssetJobs
                 'poster' => $this->poster($local, (string) $asset['slug'], $params, $work, $note),
                 default => throw new RuntimeException('Unknown kind.'),
             };
-            $this->store($storage, (string) $asset['id'], (int) $version['id'], $outputs, ($params['overwrite'] ?? false) === true, $note);
+            $this->store($storage, (string) $asset['id'], (int) $version['id'], $local, $outputs, ($params['overwrite'] ?? false) === true, $note);
         } catch (Throwable $error) {
             $status = 'failed';
             $note('FAILED: ' . $error->getMessage());
@@ -130,7 +132,7 @@ final class AssetJobs
     /**
      * @param list<array{file: string, path: string, label: string, quality: ?string}> $outputs
      */
-    private function store(AssetStorage $storage, string $assetId, int $versionId, array $outputs, bool $overwrite, callable $note): void
+    private function store(AssetStorage $storage, string $assetId, int $versionId, string $source, array $outputs, bool $overwrite, callable $note): void
     {
         $existing = [];
         foreach ($this->registry->renditions($versionId) as $r) $existing[(string) $r['path']] = $r;
@@ -144,11 +146,13 @@ final class AssetJobs
             $stored = new StoredFile($stored->key, $stored->size, gmdate('c'), hash_file('sha256', $out['file']) ?: null, $stored->mime);
             $probe = $this->probe->probe($out['file'], AssetPaths::kind($out['path']));
             if (isset($existing[$out['path']])) {
-                $this->registry->updateRendition((int) $existing[$out['path']]['id'], $stored, $probe);
-                $this->db->run("UPDATE asset_renditions SET origin = 'generated' WHERE id = ?", [$existing[$out['path']]['id']]);
+                $renditionId = (int) $existing[$out['path']]['id'];
+                $this->registry->updateRendition($renditionId, $stored, $probe);
+                $this->db->run("UPDATE asset_renditions SET origin = 'generated' WHERE id = ?", [$renditionId]);
             } else {
-                $this->registry->addRendition($assetId, $versionId, $out['label'], $out['quality'], $stored, $probe, 'generated');
+                $renditionId = $this->registry->addRendition($assetId, $versionId, $out['label'], $out['quality'], $stored, $probe, 'generated');
             }
+            if (AssetPaths::kind($out['path']) === 'video') $this->timeMaps->store($renditionId, $source, $out['file'], $note);
             if ($there) $storage->purge($out['path']);
             $note(sprintf('%s %s (%d bytes)', $there ? 'replaced' : 'added', $out['path'], $stored->size));
         }

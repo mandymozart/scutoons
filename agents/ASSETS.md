@@ -98,7 +98,12 @@ wrote (`{ start?, end?, crop?: { left, top, right, bottom }, fade_in?, fade_out?
 (`PUT /api/assets/{id}` `edits`, null = none; `times: { path: { offset, fps } }` stores measured time maps). A use's trim
 (a scene `video` node's `start` / `end`) cuts inside the asset's span. Each rendition's time map (`time_offset`: the source's
 second at the file's 0, `frame_rate`) is measured by pictures (deck-media `timemap::measure`); a file without one plays as
-offset 0 with a warning. The player is frame-exact: a lap decodes from the key frame before the in point and drops to it, the
+offset 0 with a warning. The measuring stays in the core: `deck-asset-timemap <source> <derivative>` (deck/media bin, prints
+`{"offset":s,"fps":n}`, exit 1 + reason on stderr; software decode: HAP / AV1 – an H.264 derivative fails until the core decodes it)
+is run by `AssetTimeMaps` (setting `TIMEMAP_PATH`) after every video derivative of an `assets:jobs` job – a failure stores NULL, logs
+"time map not measured" and never fails the job – and for the existing files by `php bin/console assets:timemaps [--dry-run]
+[--batch=20] [--limit=N] [--after=<rendition id>]` (resumable by the id it prints; failed ones are retried by the next run). Where
+it runs: the machine of `assets:jobs` (server docs/DEPLOY.md "The time map binary"). The player is frame-exact: a lap decodes from the key frame before the in point and drops to it, the
 next lap is decoded ahead across the out point (deck-media `Player::set_span`). Edited in the editor's Asset tab.
 
 ## Operations (`AssetService`, API + CLI)

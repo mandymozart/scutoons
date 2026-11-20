@@ -14,7 +14,7 @@ declare(strict_types=1);
  *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
  *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs media/ (read-only)
- *   php bin/console assets:sync | assets:scan | assets:jobs   the media asset layer (agents/ASSETS.md)
+ *   php bin/console assets:sync | assets:scan | assets:jobs | assets:timemaps   the media asset layer (agents/ASSETS.md)
  *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (local dev DB only)
  *   php bin/console embassy:inbox                     read the Embassy mailbox (IMAP), log the replies (cron)
  *   php bin/console embassy:cron                      inbox sync + reminder mails to the team (= GET /api/embassy/cron)
@@ -34,6 +34,7 @@ use Scutoons\Console\AssetsLayoutCommand;
 use Scutoons\Console\AssetsJobsCommand;
 use Scutoons\Console\AssetsScanCommand;
 use Scutoons\Console\AssetsSyncCommand;
+use Scutoons\Console\AssetsTimemapsCommand;
 use Scutoons\Console\BackfillEditionNumbersCommand;
 use Scutoons\Console\ContentCheckCommand;
 use Scutoons\Console\ContentNeutralCheckCommand;
@@ -54,7 +55,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class, PushKeysCommand::class, ModulesRebuildCommand::class] as $command) {
+foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsTimemapsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class, PushKeysCommand::class, ModulesRebuildCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());
