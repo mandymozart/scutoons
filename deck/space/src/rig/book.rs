@@ -13,21 +13,27 @@
 //! before their children). It is the one rule of the book's typeahead and exists once per language that draws one: here for
 //! the deck, `matchEntries` in creator/src/lib/editor/address-targets.ts for the creator (#477: the server serves the data,
 //! each client filters it; no wasm route, [contract]). The tests below are the cases both must give.
-use protocol::address_book::{AddressBook, AddressEntry, AddressKind, OriginState};
+use protocol::address_book::{AddressBook, AddressBooks, AddressEntry, AddressKind, OriginState};
 use protocol::content_text::pick_text;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// between the labels of a chain: "Cat Pope › Human › Default"
 pub const CHAIN: &str = " › ";
 
-/// A parsed book.
+/// A parsed book: one toon's, or several toons' merged (#708, a show that mixes toons): each toon's section in the asked
+/// order, then the entries they share; an addressed entry two sections list (a scene both toons name) is kept once, in the
+/// first.
 #[derive(Debug, Clone)]
 pub struct Book {
     book: AddressBook,
     /// each entry's labels in the map's own (sorted) order: the locale order's last step, `any`, takes the first
     labels: Vec<BTreeMap<String, String>>,
-    /// reference → entry
-    index: HashMap<String, usize>,
+    /// (section, reference) → entry; the shared entries' section is `None`
+    index: HashMap<(Option<usize>, String), usize>,
+    /// the toons, the home first, each with its source language (one toon: the book's)
+    toons: Vec<(String, String)>,
+    /// each entry's section (its toon in `toons`); `None`: shared by every toon, or the one toon's book
+    section: Vec<Option<usize>>,
 }
 
 /// One row of a typeahead.
@@ -40,22 +46,69 @@ pub struct Row {
     pub kind: AddressKind,
     /// a newer draft exists, or nothing is published yet
     pub draft: bool,
+    /// whose it is in a book of several toons (none: shared by all, or a book of one)
+    pub toon: Option<String>,
 }
 
 impl Book {
-    /// the document as the server sends it, or as a deck kept it
+    /// the document as the server sends it – one toon's book, or several toons' (`books`) – or as a deck kept it
     pub fn parse(text: &str) -> Result<Book, String> {
-        serde_json::from_str::<AddressBook>(text).map(Book::new).map_err(|e| format!("not an address book: {e}"))
+        let v: serde_json::Value = serde_json::from_str(text).map_err(|e| format!("not an address book: {e}"))?;
+        if v.get("books").is_some() {
+            return serde_json::from_value::<AddressBooks>(v).map(Book::merged).map_err(|e| format!("not an address book: {e}"));
+        }
+        serde_json::from_value::<AddressBook>(v).map(Book::new).map_err(|e| format!("not an address book: {e}"))
     }
 
     pub fn new(book: AddressBook) -> Book {
-        let labels = book.entries.iter().map(|e| e.labels.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).collect();
-        let index = book.entries.iter().enumerate().map(|(i, e)| (e.r#ref.clone(), i)).collect();
-        Book { book, labels, index }
+        let section = vec![None; book.entries.len()];
+        let toons = vec![(book.toon.clone(), book.source.clone())];
+        Book::index(book, toons, section)
     }
 
+    /// Several toons' books as one: each section in order, then the shared entries; an addressed entry an earlier section
+    /// listed already is left out (the same thing: a scene both toons name).
+    pub fn merged(books: AddressBooks) -> Book {
+        let toons: Vec<(String, String)> = books.books.iter().map(|b| (b.toon.clone(), b.source.clone())).collect();
+        let (home, source) = toons.first().cloned().unwrap_or_default();
+        let (mut entries, mut section, mut seen) = (Vec::new(), Vec::new(), HashSet::new());
+        let parts = books.books.into_iter().enumerate().map(|(i, b)| (Some(i), b.entries)).chain(std::iter::once((None, books.shared)));
+        for (at, list) in parts {
+            for e in list {
+                if e.address.as_ref().is_some_and(|a| !seen.insert(a.clone())) {
+                    continue;
+                }
+                entries.push(e);
+                section.push(at);
+            }
+        }
+        let book = AddressBook { address_book: books.address_book, toon: home, version: books.version, source, entries };
+        Book::index(book, toons, section)
+    }
+
+    fn index(book: AddressBook, toons: Vec<(String, String)>, section: Vec<Option<usize>>) -> Book {
+        let labels = book.entries.iter().map(|e| e.labels.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).collect();
+        let mut index = HashMap::new();
+        for (i, e) in book.entries.iter().enumerate() {
+            index.entry((section[i], e.r#ref.clone())).or_insert(i);
+        }
+        Book { book, labels, index, toons, section }
+    }
+
+    /// the home toon (the first of several)
     pub fn toon(&self) -> &str {
         &self.book.toon
+    }
+
+    /// every toon of the book, the home first
+    pub fn toons(&self) -> Vec<&str> {
+        self.toons.iter().map(|(t, _)| t.as_str()).collect()
+    }
+
+    /// whose entry `i` is in a book of several toons (none: shared, or a book of one)
+    pub fn toon_of(&self, i: usize) -> Option<&str> {
+        let s = (*self.section.get(i)?)?;
+        (self.toons.len() > 1).then(|| self.toons[s].0.as_str())
     }
 
     /// the catalog's version it was built from (the server's ETag)
@@ -75,14 +128,17 @@ impl Book {
     /// when it has no label
     pub fn label(&self, i: usize, locale: &str) -> &str {
         let Some(e) = self.book.entries.get(i) else { return "" };
-        pick_text(&self.labels[i], locale, Some(&self.book.source)).unwrap_or(&e.name)
+        let source = self.section[i].and_then(|s| self.toons.get(s)).map_or(self.book.source.as_str(), |(_, src)| src.as_str());
+        pick_text(&self.labels[i], locale, Some(source)).unwrap_or(&e.name)
     }
 
     /// the entry's label with the ones above it, the top first
     pub fn chain(&self, i: usize, locale: &str) -> String {
         let mut chain = vec![i];
+        let at = self.section.get(i).copied().flatten();
+        let parent = |a: &String| self.index.get(&(at, a.clone())).or_else(|| self.index.get(&(None, a.clone()))).copied();
         let mut up = self.book.entries.get(i).and_then(|e| e.parent.as_ref());
-        while let Some(&p) = up.and_then(|a| self.index.get(a)) {
+        while let Some(p) = up.and_then(parent) {
             if chain.contains(&p) {
                 break;
             }
@@ -111,7 +167,7 @@ impl Book {
     /// what a typeahead shows of entry `i`
     pub fn row(&self, i: usize, locale: &str) -> Option<Row> {
         let e = self.book.entries.get(i)?;
-        Some(Row { address: e.address.clone(), chain: self.chain(i, locale), kind: e.kind, draft: e.origin.state == OriginState::Draft })
+        Some(Row { address: e.address.clone(), chain: self.chain(i, locale), kind: e.kind, draft: e.origin.state == OriginState::Draft, toon: self.toon_of(i).map(str::to_string) })
     }
 }
 
@@ -210,6 +266,47 @@ mod tests {
         assert_eq!((tiger.kind, tiger.draft, tiger.address.as_deref()), (Character, true, Some("character:mountaintiger")));
         assert!(!b.row(at("item:incense"), "en").unwrap().draft);
         assert_eq!((b.toon(), b.version()), ("catpope", "v1"));
+    }
+
+    /// #708: several toons' books (`GET /api/addresses?toons=`) as one – each section, then the shared entries; a scene both
+    /// toons name once, in the first; a chapter of each toon (the same reference) stays each toon's, its groups' chain too;
+    /// a row says whose it is, each label falls back to its own toon's source language
+    const BOOKS: &str = r#"{
+        "address_book": 2, "toons": ["catpope", "yellowmouse"], "version": "vb",
+        "shared": [
+            { "ref": "toon:catpope", "kind": "toon", "name": "catpope", "labels": {}, "origin": { "key": "toon:catpope", "state": "published" } },
+            { "ref": "scene:solo", "address": "scene:solo", "kind": "scene", "name": "solo", "labels": {}, "origin": { "key": "scene:solo", "state": "published" }, "version": 1 }
+        ],
+        "books": [
+            { "toon": "catpope", "source": "de", "entries": [
+                { "ref": "character:catpope", "address": "character:catpope", "kind": "character", "name": "catpope", "labels": { "de": "Katzenpapst", "en": "Cat Pope" }, "origin": { "key": "character:catpope", "state": "published" } },
+                { "ref": "chapter:3", "kind": "chapter", "name": "3", "labels": { "de": "Wut" }, "origin": { "key": "chapter:catpope:3", "state": "published" } },
+                { "ref": "chapter:3.intro", "kind": "group", "name": "intro", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:catpope:3", "state": "published" } },
+                { "ref": "scene:duet", "address": "scene:duet", "kind": "scene", "name": "duet", "labels": { "de": "Duett" }, "origin": { "key": "scene:duet", "state": "published" }, "version": 2 }
+            ] },
+            { "toon": "yellowmouse", "source": "fr", "entries": [
+                { "ref": "character:mouse", "address": "character:mouse", "kind": "character", "name": "mouse", "labels": { "fr": "Souris", "de": "Maus" }, "origin": { "key": "character:mouse", "state": "draft" } },
+                { "ref": "chapter:3", "kind": "chapter", "name": "3", "labels": { "fr": "Trois" }, "origin": { "key": "chapter:yellowmouse:3", "state": "published" } },
+                { "ref": "chapter:3.intro", "kind": "group", "name": "intro", "parent": "chapter:3", "labels": {}, "origin": { "key": "chapter:yellowmouse:3", "state": "published" } },
+                { "ref": "scene:duet", "address": "scene:duet", "kind": "scene", "name": "duet", "labels": { "fr": "Duo" }, "origin": { "key": "scene:duet", "state": "published" }, "version": 2 }
+            ] }
+        ]
+    }"#;
+
+    #[test]
+    fn several_toons_books_are_one_each_entry_labelled_by_its_toon() {
+        let b = Book::parse(BOOKS).unwrap();
+        assert_eq!((b.toon(), b.toons(), b.version()), ("catpope", vec!["catpope", "yellowmouse"], "vb"));
+        assert_eq!(found(&b, "", &[Character, Scene], "en"), ["character:catpope", "scene:duet", "character:mouse", "scene:solo"], "sections in order, then the shared; the scene both name once");
+        let at = |r: &str, toon: Option<&str>| (0..b.entries().len()).find(|&i| b.entries()[i].r#ref == r && b.toon_of(i) == toon).unwrap();
+        let mouse = b.row(at("character:mouse", Some("yellowmouse")), "en").unwrap();
+        assert_eq!((mouse.chain.as_str(), mouse.toon.as_deref(), mouse.draft), ("Souris", Some("yellowmouse"), true), "its own toon's source language");
+        assert_eq!(b.row(at("character:catpope", Some("catpope")), "en").unwrap().toon.as_deref(), Some("catpope"));
+        assert_eq!(b.row(at("scene:solo", None), "en").unwrap().toon, None, "shared: no toon");
+        assert_eq!(b.chain(at("chapter:3.intro", Some("yellowmouse")), "en"), "Trois › intro", "the group's own toon's chapter");
+        assert_eq!(b.chain(at("chapter:3.intro", Some("catpope")), "en"), "Wut › intro");
+        assert_eq!(book().row(0, "en").unwrap().toon, None, "a book of one toon names none");
+        assert!(Book::parse(r#"{"address_book":2,"toons":["a"],"version":"v","shared":[],"books":[{"toon":"a","entries":[]}]}"#).unwrap_err().starts_with("not an address book"));
     }
 
     #[test]

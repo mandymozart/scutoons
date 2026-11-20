@@ -1,7 +1,7 @@
 {
   "id": "vote-and-question",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
   "questions": [
     {

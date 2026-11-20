@@ -230,7 +230,7 @@ mod tests {
     use deck_kit::base::tokens::Tokens;
     use deck_show::wiring::CellWire;
 
-    const SHOW: &str = r#"{ "id": "wired", "version": 1, "toon": "catpope",
+    const SHOW: &str = r#"{ "id": "wired", "version": 1, "toons": ["catpope"],
         "outlets": [{ "id": "wall" }, { "id": "floor" }, { "id": "sky" }],
         "rows": [{ "id": "one", "cells": {
             "wall": { "mode": "play", "piece": "scene:keys", "values": { "speed": 0.5 } },

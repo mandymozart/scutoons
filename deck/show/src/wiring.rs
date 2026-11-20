@@ -192,7 +192,7 @@ mod tests {
     use super::*;
     use crate::document::parse;
 
-    const SHOW: &str = r#"{ "id": "w", "version": 1, "toon": "catpope",
+    const SHOW: &str = r#"{ "id": "w", "version": 1, "toons": ["catpope"],
         "outlets": [{ "id": "wall" }, { "id": "floor" }, { "id": "lights", "kind": "device" }],
         "rows": [{ "id": "one", "cells": {
             "wall": { "mode": "play", "piece": "character:keys", "values": { "speed": 0.5 } },

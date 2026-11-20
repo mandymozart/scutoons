@@ -485,7 +485,7 @@ pub(super) mod tests {
         assert!(host.shown().rows.is_empty(), "from nothing: one role, no row");
         host.toons.list = vec!["catpope".into()];
         press(&mut host, |h| *h == Hit::ToonPick(0));
-        assert_eq!(host.shown().toon, "catpope", "its toon picked in the scene list");
+        assert_eq!(host.shown().home(), "catpope", "its toon picked in the scene list");
 
         press(&mut host, |h| *h == Hit::RowAdd);
         assert_eq!(host.status, "row 1 row added: manual, every column keeps");
@@ -522,7 +522,7 @@ pub(super) mod tests {
 
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
-        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
+        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, |h| *h == Hit::Load);
         assert_eq!(host.status, "loaded new-show@1");
         assert_eq!(host.shown(), &fixture, "loaded as saved");

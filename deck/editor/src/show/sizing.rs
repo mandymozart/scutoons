@@ -257,7 +257,7 @@ mod tests {
     use deck_show::sizes::{CELL, MIN};
 
     const DOC: &str = r#"{ "id": "sizes", "version": 1,
-      "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+      "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
       "rows": [
         { "id": "dialog", "fire": { "event": "ch3.dialog", "how": "auto", "moment": "bar" }, "cells": { "left": { "mode": "play", "piece": "scene:nave" } } },
         { "id": "yellowmouse", "fire": { "event": "ch3.yellowmouse-enters", "how": "suggest" }, "cells": { "right": { "mode": "play", "piece": "scene:a-scene-with-a-really-long-name-indeed" } } }

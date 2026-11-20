@@ -1,6 +1,7 @@
-//! A show's toon: picked at New show (its name, then its toon), kept with the document (deck-show's `toon`, `Edit::Toon`);
-//! where the show names none the picker sits in place – the library panel, the Session sheet's toon chips. The toons are the
-//! public library's list, asked once on a thread.
+//! A show's toons: the home picked at New show (its name, then its toon), kept with the document (deck-show's `toons`,
+//! `Edit::Toon`); where the show names none the picker sits in place – the library panel, the Session sheet's toon chips.
+//! Once it has one, the inspector's toons row takes more in or out (#708, `Edit::ToggleToon`: a show that mixes toons reads
+//! all their books). The toons are the public library's list, asked once on a thread.
 use super::roles::Typing;
 use super::rows::field;
 use super::{Hit, Host, Sheet};
@@ -31,7 +32,15 @@ const ON_ITS_WAY: &str = "the library's toons are on their way";
 impl Host {
     /// the toon of the show shown, none while it names none
     pub fn show_toon(&self) -> Option<&str> {
-        Some(self.shown().toon.as_str()).filter(|t| !t.is_empty())
+        Some(self.shown().home()).filter(|t| !t.is_empty())
+    }
+
+    /// the toons row's chips: the library's toons, then any the show names that the list lacks; whether the show uses it
+    pub(super) fn toons_row(&self) -> Vec<(String, bool)> {
+        let used = &self.shown().toons;
+        let mut out: Vec<(String, bool)> = self.toons.list.iter().map(|t| (t.clone(), used.contains(t))).collect();
+        out.extend(used.iter().filter(|t| !self.toons.list.contains(t)).map(|t| (t.clone(), true)));
+        out
     }
 
     /// the library's toons, asked once
@@ -50,11 +59,9 @@ impl Host {
         self.toons.rx = Some(rx);
     }
 
-    /// each frame: the list once it came; asked where a picker shows
+    /// each frame: the list once it came; asked once Show is drawn (the toons row and the pickers list it)
     pub(super) fn toons_poll(&mut self) {
-        if self.show_toon().is_none() || self.sheet == Some(Sheet::NewShow) {
-            self.toons_ask();
-        }
+        self.toons_ask();
         if let Some(Ok(answer)) = self.toons.rx.as_ref().map(Receiver::try_recv) {
             self.toons.rx = None;
             match answer {
@@ -92,6 +99,11 @@ impl Host {
             Hit::ToonPick(i) => {
                 if let Some(t) = self.toons_found().get(i).cloned() {
                     self.pick_toon(&t);
+                }
+            }
+            Hit::ShowToon(i) => {
+                if let Some(t) = self.toons_row().get(i).map(|(t, _)| t.clone()) {
+                    self.edit_rows(&Edit::ToggleToon { toon: t });
                 }
             }
             _ => {}
@@ -132,7 +144,7 @@ impl Host {
     fn make_show(&mut self, toon: &str) {
         match deck_show::document::new_show(&self.toons.name, toon) {
             Ok(s) => {
-                self.status = format!("new show {} · toon {}", s.id, s.toon);
+                self.status = format!("new show {} · toon {}", s.id, s.home());
                 self.sub = Subtree::new(s, ClockChoice::Parent);
                 (self.path, self.row, self.role, self.sheet, self.typing) = (Vec::new(), 0, None, None, None);
                 (self.cells, self.columns, self.group) = (Vec::new(), Vec::new(), None);
@@ -177,6 +189,21 @@ pub fn picker(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f3
     host.hits.push((r, Hit::ToonFind));
     used += row;
     used
+}
+
+/// The show's toons in the inspector (#708): every toon as a chip, the ones it uses lit, the home marked; a press takes one in
+/// or out (the core refuses the last). The height it took.
+pub fn of_show(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, f32, f32)) -> f32 {
+    let (font, row, pad) = (t.size.font, t.size.tree_row, t.size.pad);
+    let home = host.show_toon().unwrap_or_default().to_string();
+    let chips = host.toons_row();
+    d.text(x, y + (row - font * 1.25) * 0.5, font, "toons", t.color.muted);
+    let words: Vec<String> = chips.iter().map(|(c, _)| if *c == home { format!("{c} · home") } else { c.clone() }).collect();
+    let words: Vec<&str> = words.iter().map(String::as_str).collect();
+    let lit: Vec<bool> = chips.iter().map(|(_, on)| *on).collect();
+    let (rects, h) = controls::chips(d, t, (x + w * 0.42, y + 2.0, w * 0.58), &words, &lit);
+    host.hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Hit::ShowToon(i))));
+    h.max(row) + pad * 0.5
 }
 
 /// Where the show names no toon: why, and the picker right there. The height it took.
@@ -236,7 +263,7 @@ mod tests {
         typed(&mut host, "Top Toy Opening");
         typed(&mut host, "feil");
         assert_eq!(host.status, "new show top-toy-opening · toon feilchen");
-        assert_eq!((host.shown().id.as_str(), host.shown().toon.as_str(), host.sheet), ("top-toy-opening", "feilchen", None));
+        assert_eq!((host.shown().id.as_str(), host.shown().home(), host.sheet), ("top-toy-opening", "feilchen", None));
         assert_eq!(host.show_toon(), Some("feilchen"), "the book follows it");
     }
 
@@ -254,6 +281,22 @@ mod tests {
         super::super::scenes::tests::frame(&mut host, &mut lib);
         assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::ToonPick(_) | Hit::ToonFind)), "with its toon: the library again");
         assert!(!lib.browser.hits.is_empty());
+    }
+
+    /// #708: once the show has its toon, the inspector's toons row takes a second in (the book asks both, the home first)
+    /// and out again; the last one stays
+    #[test]
+    fn the_inspectors_toons_row_takes_toons_in_and_out() {
+        let mut host = host(&["catpope", "yellowmouse"]);
+        host.edit_rows(&deck_show::rows::Edit::Toon { to: "catpope".into() });
+        press(&mut host, |h| *h == Hit::ShowToon(1));
+        assert_eq!((host.status.as_str(), host.shown().toons.as_slice()), ("the show's toons: catpope (home), yellowmouse", &["catpope".to_string(), "yellowmouse".to_string()][..]));
+        assert_eq!(crate::toon::wanted(None, false, None, &host.shown().toons), ["catpope", "yellowmouse"], "the book follows both");
+        press(&mut host, |h| *h == Hit::ShowToon(0));
+        assert_eq!(host.shown().toons, ["yellowmouse"]);
+        press(&mut host, |h| *h == Hit::ShowToon(1));
+        assert!(host.status.contains("keeps its one toon"), "{}", host.status);
+        assert_eq!(host.toons_row(), [("catpope".to_string(), false), ("yellowmouse".to_string(), true)]);
     }
 
     #[test]

@@ -159,3 +159,27 @@ pub struct AddressBook {
 	/// parents before their children; characters, locations, regions, items, seasons, chapters (each followed by its groups), products, toons (this one first), scenes (published, by id), variables
 	pub entries: Vec<AddressEntry>,
 }
+
+/// One toon's part of several books (#708): the entries only that toon's book has, under its source language.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AddressBookSection {
+	pub toon: String,
+	/// the toon's source language: the second step of the locale order for this section's entries
+	pub source: String,
+	/// in the book's order, without the shared entries
+	pub entries: Vec<AddressEntry>,
+}
+
+/// Several toons' books in one answer (#708, GET /api/addresses?toons=a,b: a show that mixes toons): one scan of the newest versions; what every one of these books holds alike (regions, toons, templates, variables, the shared items and products) once in `shared`, as the home toon's book writes it, then a section per toon in the asked order (the first is the home).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AddressBooks {
+	/// the entries' format, the same as one book's
+	pub address_book: i64,
+	/// as asked, the home first
+	pub toons: Vec<String>,
+	/// one version over every version the books were built from (the response's ETag)
+	pub version: String,
+	/// the entries every one of these books holds, under the home toon's source language
+	pub shared: Vec<AddressEntry>,
+	pub books: Vec<AddressBookSection>,
+}

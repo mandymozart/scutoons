@@ -15,6 +15,8 @@ namespace Scutoons\Generated;
  * @phpstan-type Origin array{key: string, state: OriginState}
  * @phpstan-type AddressEntry array{ref: string, address?: string, kind: AddressKind, name: string, parent?: string, labels: LocaleText, origin: Origin, moods?: list<string>, set?: string, spot?: string, version?: int, placeholders?: list<ScenePlaceholder>}
  * @phpstan-type AddressBook array{address_book: 2, toon: string, version: string, source: string, entries: list<AddressEntry>}
+ * @phpstan-type AddressBookSection array{toon: string, source: string, entries: list<AddressEntry>}
+ * @phpstan-type AddressBooks array{address_book: 2, toons: list<string>, version: string, shared: list<AddressEntry>, books: list<AddressBookSection>}
  */
 final class AddressBookTypes
 {

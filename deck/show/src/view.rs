@@ -842,7 +842,7 @@ mod tests {
 
     const SERMON: &str = r#"{
       "id": "sermon", "version": 3,
-      "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+      "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
       "seats": [{ "id": "foyer", "show": { "id": "foyer-loop", "version": 2 }, "word": "suggest", "uses": { "rows": ["storm"] } }],
       "rows": [
         { "id": "arrival", "fire": { "event": "start", "how": "auto" }, "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "black" } } },
@@ -906,7 +906,7 @@ mod tests {
 
     #[test]
     fn a_kept_cell_is_the_arrow_lit_while_what_an_earlier_row_started_plays_on() {
-        let doc = r#"{ "id": "k", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }],
+        let doc = r#"{ "id": "k", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }],
           "rows": [{ "id": "a", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "black" } } }, { "id": "b", "cells": { "right": { "mode": "play", "piece": "scene:vigil" } } }] }"#;
         let mut sub = Subtree::new(parse(doc).unwrap(), ClockChoice::Parent);
         sub.fire("a", 0);
@@ -946,7 +946,7 @@ mod tests {
 
     #[test]
     fn columns_of_a_group_stand_under_one_head() {
-        let doc = r#"{ "id": "g", "version": 1, "rows": [], "toon": "catpope", "outlets": [{ "id": "left", "group": "stages" }, { "id": "right", "group": "stages" },
+        let doc = r#"{ "id": "g", "version": 1, "rows": [], "toons": ["catpope"], "outlets": [{ "id": "left", "group": "stages" }, { "id": "right", "group": "stages" },
           { "id": "lights", "kind": "device", "group": "light & sound" }, { "id": "wall" }] }"#;
         let show = parse(doc).unwrap();
         let m = plan(&show);

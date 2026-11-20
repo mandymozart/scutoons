@@ -1,7 +1,7 @@
 {
   "id": "far-outlets",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [
     { "id": "left" },
     { "id": "middle" },

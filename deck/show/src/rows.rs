@@ -126,8 +126,10 @@ pub enum Edit {
     Take { row: String, column: String, positions: Vec<(String, f32)> },
     /// the show's stage background, over what its pieces set (none: theirs)
     Background { to: Option<deck_space::Background> },
-    /// the show's toon
+    /// the show's home toon: first in its toons (moved there when it is named already)
     Toon { to: String },
+    /// #708: a toon the show uses beside its home, added at the end – or taken out when it is named (the last one stays)
+    ToggleToon { toon: String },
     /// a wire from one cell's outlet into another's inlet in the row (wiring.rs); `replaces` = the wire it was lifted from
     Wire { row: String, wire: crate::wiring::CellWire, replaces: Option<crate::wiring::CellWire> },
     /// the wire goes
@@ -449,11 +451,25 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             (said, None)
         }
         Edit::Toon { to } => {
-            next.toon = to.trim().to_string();
-            if next.toon.is_empty() {
+            let to = to.trim().to_string();
+            if to.is_empty() {
                 return Err(format!("not changed: show: {}", crate::validate::NO_TOON));
             }
-            (format!("the show's toon: {}", next.toon), None)
+            next.toons.retain(|t| *t != to);
+            next.toons.insert(0, to);
+            (toons_said(&next), None)
+        }
+        Edit::ToggleToon { toon } => {
+            let toon = toon.trim().to_string();
+            if next.toons.contains(&toon) {
+                if next.toons.len() == 1 {
+                    return Err(format!("not changed: the show keeps its one toon {toon} – pick another first"));
+                }
+                next.toons.retain(|t| *t != toon);
+            } else {
+                next.toons.push(toon);
+            }
+            (toons_said(&next), None)
         }
         Edit::Wire { row, wire, replaces } => {
             let i = row_at(&next, row)?;
@@ -559,6 +575,15 @@ pub fn cell_inspector(show: &Show, row: &str, column: &str) -> Option<CellInspec
     Some(CellInspector { title: format!("cell · row {} {row} · {}", i + 1, show.outlets.iter().find(|o| o.id == column).map_or(column, |o| o.name())), modes: modes(show, row, column), piece, shot, filter: cell_condition(show, row, column), knobs_of, warning })
 }
 
+/// what an edit of the toons says: the one toon, or the home first and the others
+fn toons_said(show: &Show) -> String {
+    match show.toons.as_slice() {
+        [one] => format!("the show's toon: {one}"),
+        [home, rest @ ..] => format!("the show's toons: {home} (home), {}", rest.join(", ")),
+        [] => String::new(),
+    }
+}
+
 /// One published scene the piece picker lists.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PieceView {
@@ -566,7 +591,7 @@ pub struct PieceView {
     pub address: String,
     /// the label chain for people: `Nave`
     pub label: String,
-    /// `scene:nave · v2`, `· newer draft`, `· template`
+    /// `scene:nave · v2`, `· newer draft`, `· template`, `· <toon>` in a book of several toons
     pub detail: String,
 }
 
@@ -585,6 +610,9 @@ pub fn pieces(book: &Book, query: &str, locale: &str) -> Vec<PieceView> {
             }
             if !e.placeholders.as_ref().is_none_or(Vec::is_empty) {
                 detail.push_str(" · template");
+            }
+            if let Some(toon) = &row.toon {
+                detail.push_str(&format!(" · {toon}"));
             }
             Some(PieceView { address, label: row.chain, detail })
         })
@@ -628,9 +656,9 @@ mod tests {
     use protocol::{LayerSrc, Message};
 
     /// the editor's new show (deck-editor show/mod.rs `EMPTY`): one role, no row yet
-    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const NOTHING: &str = r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#;
     /// two roles and a lamp, no row yet
-    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
+    const NEW: &str = r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lamps", "kind": "device" }], "rows": [] }"#;
 
     fn ed(show: &Show, e: Edit) -> Edited {
         edit(show, &e).unwrap_or_else(|why| panic!("{e:?}: {why}"))
@@ -647,9 +675,23 @@ mod tests {
         assert_eq!(edit(&show, &Edit::Toon { to: " ".into() }).unwrap_err(), "not changed: show: it names no toon – pick the show's toon");
         assert!(edit(&show, &Edit::Toon { to: "Cat Pope".into() }).unwrap_err().contains("is no toon id"));
         let set = ed(&show, Edit::Toon { to: " catpope ".into() });
-        assert_eq!((set.said.as_str(), set.show.toon.as_str()), ("the show's toon: catpope", "catpope"));
+        assert_eq!((set.said.as_str(), set.show.home()), ("the show's toon: catpope", "catpope"));
         assert!(crate::validate(&set.show).is_empty());
-        assert_eq!(serde_json::to_value(&set.show).unwrap()["toon"], "catpope", "kept with the document");
+        assert_eq!(serde_json::to_value(&set.show).unwrap()["toons"], serde_json::json!(["catpope"]), "kept with the document");
+    }
+
+    /// #708: a second toon beside the home, taken out again; the home moves first; the last toon stays
+    #[test]
+    fn a_show_uses_several_toons_the_first_its_home() {
+        let show = open(NOTHING).unwrap();
+        let two = ed(&show, Edit::ToggleToon { toon: "yellowmouse".into() });
+        assert_eq!((two.said.as_str(), two.show.toons.as_slice()), ("the show's toons: catpope (home), yellowmouse", &["catpope".to_string(), "yellowmouse".to_string()][..]));
+        let home = ed(&two.show, Edit::Toon { to: "yellowmouse".into() });
+        assert_eq!((home.show.home(), home.show.toons.len()), ("yellowmouse", 2));
+        let one = ed(&home.show, Edit::ToggleToon { toon: "yellowmouse".into() });
+        assert_eq!((one.said.as_str(), one.show.home()), ("the show's toon: catpope", "catpope"));
+        assert!(edit(&one.show, &Edit::ToggleToon { toon: "catpope".into() }).unwrap_err().contains("keeps its one toon"));
+        assert!(edit(&one.show, &Edit::ToggleToon { toon: "Yellow Mouse".into() }).unwrap_err().contains("is no toon id"));
     }
 
     /// #537's done-when, the core's half: from nothing to a row with a play cell naming a published scene, through the

@@ -238,6 +238,8 @@ pub enum Hit {
     NewName,
     ToonFind,
     ToonPick(usize),
+    /// #708: a toon of the show's toons row, taken in or out
+    ShowToon(usize),
 }
 
 impl Hit {
@@ -649,7 +651,7 @@ impl Host {
             Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
-            Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) => self.toons_press(hit),
+            Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) | Hit::ShowToon(_) => self.toons_press(hit),
         }
     }
 
