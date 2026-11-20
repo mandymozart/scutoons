@@ -3824,6 +3824,7 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => el.exit(),
+            WindowEvent::DroppedFile(path) => self.library_file(&path),
             WindowEvent::Resized(s) => {
                 if let Some(g) = self.gpu.as_mut() {
                     g.resize(s.width, s.height);

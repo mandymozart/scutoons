@@ -273,6 +273,18 @@ impl Api {
         }
     }
 
+    /// A new file at `path` (`PUT /api/assets/upload?path=`, an editor's, the bytes as the body): the path it landed at
+    /// (the server may convert it); 409 when the path is taken
+    pub fn upload_asset(&self, path: &str, bytes: &[u8]) -> Result<String, String> {
+        let url = format!("{}/assets/upload", self.base);
+        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(120)).build();
+        match self.auth(agent.put(&url)).query("path", path).send_bytes(bytes) {
+            Ok(r) => r.into_json::<serde_json::Value>().map(|v| v["uploaded"].as_str().unwrap_or(path).to_string()).map_err(|e| format!("{url}: {e}")),
+            Err(ureq::Error::Status(code, r)) => Err(self.refused_words(path, code, &r.into_json().unwrap_or_default())),
+            Err(e) => Err(format!("{url}: {e}")),
+        }
+    }
+
     /// the asset a file belongs to (`GET /api/assets/lookup`, an editor's): its detail – `asset` (with its `edits`) and
     /// `versions` (each file's time map); none when the registry does not know the file
     pub fn asset_of(&self, path: &str) -> Result<Option<serde_json::Value>, String> {

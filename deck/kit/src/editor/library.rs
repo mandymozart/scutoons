@@ -371,6 +371,11 @@ impl Browser {
             }
             y += used + 6.0;
         }
+        if let Some(text) = self.drop_line(src) {
+            let h = small * 1.4 + 4.0;
+            d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &text, a.w), t.color.muted);
+            y += h + 2.0;
+        }
         if self.chosen.len() > 1 {
             let h = small * 1.4 + 6.0;
             let text = format!("{} selected", self.chosen.len());
@@ -438,6 +443,12 @@ impl Browser {
                 (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
             })
             .collect()
+    }
+
+    /// where a file dropped on the editor goes (the core's folder for the open item), when the workspace lists files
+    fn drop_line(&self, src: &Source) -> Option<String> {
+        let to = src.shelf.filter(|_| self.view.is_some()).and_then(Shelf::upload_folder)?;
+        Some(format!("files dropped here go to {to}"))
     }
 
     /// the shelf's chips after the kinds: its scopes with their counts, the places, the grouping and the order
@@ -951,6 +962,26 @@ mod tests {
         let three = single.iter().position(|e| e.address == "cat/s1/c1/hills.3x.webp").expect("the 3x");
         let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(three)).unwrap();
         assert!(!d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP && *y == r.y - SHEET_STEP)), "no sheets behind a single file");
+    }
+
+    #[test]
+    fn the_browser_says_where_a_dropped_file_goes() {
+        let mut shelf = shelf();
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let mut b = Browser::default();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src), None, "nothing open, no toon: no folder");
+        assert!(!d.texts().iter().any(|s| s.starts_with("fil")));
+        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("character:catpope".into()), toon: Some("cat".into()), by_home: true, ..Default::default() });
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 2, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src).as_deref(), Some("files dropped here go to characters/catpope/"));
+        assert!(d.texts().iter().any(|s| s.starts_with("fil")), "drawn (cut to the panel's width): {:?}", d.texts());
+        let modules = list();
+        let src = Source { entries: &modules, shelf: Some(&shelf), stamp: 3, now_ms: 0.0 };
+        draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src), None, "a workspace that lists no files takes none");
     }
 
     #[test]
