@@ -527,6 +527,7 @@ impl Engine {
         let solo = Kind::Bus.input("solo").expect("a bus has a solo");
         let solo_of: Vec<Option<Param>> = early.iter().map(|p| p.as_ref().map(|p| p[solo].clone())).collect();
         let all: Arc<[Param]> = solo_of.iter().flatten().cloned().collect();
+        let audio_edges: Vec<(usize, usize)> = graph.links.iter().filter(|l| l.ty == PortType::Audio).map(|l| (l.from.0, l.to.0)).collect();
         for l in 0..depth {
             let nodes: Vec<usize> = graph.order.iter().copied().filter(|&i| audio(i) && level[i] == l).collect();
             // a feedback loop's output is there from the start of its level; its input is wired at the end
@@ -587,7 +588,7 @@ impl Engine {
                         *w = 2;
                     }
                 }
-                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(graph, i, &solo_of), downstream: downstream_solos(graph, i, &solo_of) };
+                let solos = route::Solos { all: all.clone(), upstream: upstream_solos(&audio_edges, i, &solo_of), downstream: downstream_solos(graph, &audio_edges, i, &solo_of) };
                 let block = match route::make(node, rate, &params, &widths, deck, &solos)? {
                     Some(b) => b,
                     None => blocks::make(node, i, rate, &params, &mut handles, seams, &mut tables)?,
@@ -930,37 +931,16 @@ impl Engine {
 }
 
 /// the solo params of the buses with an audio path into `node`
-fn upstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
-    let mut seen = vec![false; graph.nodes.len()];
-    let mut stack = vec![node];
-    let mut found = Vec::new();
-    while let Some(t) = stack.pop() {
-        for l in graph.links.iter().filter(|l| l.ty == PortType::Audio && l.to.0 == t) {
-            if !seen[l.from.0] {
-                seen[l.from.0] = true;
-                found.extend(solo_of[l.from.0].clone());
-                stack.push(l.from.0);
-            }
-        }
-    }
-    found.into()
+fn upstream_solos(edges: &[(usize, usize)], node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
+    deck_core::solo::upstream(edges, &node).into_iter().filter_map(|n| solo_of[n].clone()).collect()
 }
 
 /// the solo params of the buses `node`'s post-fader `out` feeds, directly or further down (a folder it plays into, the
 /// folder's folder): soloing a folder keeps its children audible (Reaper's folder solo)
-fn downstream_solos(graph: &Graph, node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
+fn downstream_solos(graph: &Graph, edges: &[(usize, usize)], node: usize, solo_of: &[Option<Param>]) -> Arc<[Param]> {
     let Some(out) = graph.nodes[node].kind.output("out") else { return Arc::new([]) };
-    let mut seen = vec![false; graph.nodes.len()];
-    let mut stack: Vec<usize> = graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from == (node, out)).map(|l| l.to.0).collect();
-    let mut found = Vec::new();
-    while let Some(t) = stack.pop() {
-        if t == node || std::mem::replace(&mut seen[t], true) {
-            continue;
-        }
-        found.extend(solo_of[t].clone());
-        stack.extend(graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from.0 == t).map(|l| l.to.0));
-    }
-    found.into()
+    let first: Vec<usize> = graph.links.iter().filter(|l| l.ty == PortType::Audio && l.from == (node, out)).map(|l| l.to.0).collect();
+    deck_core::solo::downstream(edges, &first, &node).into_iter().filter_map(|n| solo_of[n].clone()).collect()
 }
 
 /// An `out` node or the `audio_out` sink, as the outlet planning sees it.
