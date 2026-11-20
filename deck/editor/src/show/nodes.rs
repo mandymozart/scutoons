@@ -4,6 +4,7 @@
 //! everything). A click selects a node (shift adds), Tab moves the focus as a browser does; selected nodes group
 //! (ctrl+G or Group), a note joins the focused node; groups, notes and folds are the row's (deck-show canvas.rs). A drag
 //! on the empty canvas selects by a box, a click on a wire pins its value (node_pick.rs). The painting is node_paint.rs.
+use super::node_card;
 use super::node_paint::{self, Cam, Frame, Reveal};
 use super::node_pick::{self, Boxing};
 use super::roles::Typing;
@@ -467,7 +468,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     }
     for (i, (node, p)) in g.nodes.iter().zip(&placed).enumerate() {
         let tint = node.id.strip_prefix(GROUP).and_then(|id| doc.group(id)).and_then(|grp| deck_kit::editor::colour::rgb(&grp.colour));
-        let r = node_paint::box_of(d, t, (node, p, tint), &cam, &n);
+        let r = node_card::card(d, t, (node, p, tint), &cam, &n);
         host.hits.push((r.body, Hit::Nodes(NodeHit::Node(i))));
         if let Some(f) = r.fold {
             host.hits.push((f, Hit::Nodes(NodeHit::Fold(i))));
@@ -487,11 +488,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
         host.hits.push((r, Hit::Nodes(NodeHit::NoteText(k))));
     }
     for (i, w) in wires.iter().filter(|(i, _)| pinned(*i)) {
-        node_paint::value_label(d, t, &g.links[*i], w.at(0.5));
+        node_paint::value_label(d, t, &g.links[*i], w.at(0.5), true);
     }
     if let Some(i) = n.hover.as_deref().and_then(|h| h.strip_prefix("wire:")).and_then(|i| i.parse::<usize>().ok()).filter(|&i| !pinned(i)) {
         if let Some(l) = g.links.get(i) {
-            node_paint::value_label(d, t, l, cursor);
+            node_paint::value_label(d, t, l, cursor, false);
         }
     }
     if let Some(b) = &n.boxing {

@@ -72,6 +72,11 @@ pub const ICONS: &[(&str, &str)] = &[
     ("map", r#"<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line>"#),
     ("user", r#"<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>"#),
     ("smile", r#"<circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>"#),
+    // the node view's kinds (Feather)
+    ("clock", r#"<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>"#),
+    ("monitor", r#"<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>"#),
+    ("sidebar", r#"<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line>"#),
+    ("align-left", r#"<line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line>"#),
     // the camera tools (#646): line art drawn on an N-unit grid, scaled into the box; at N px it draws 1.5 px lines
     // the sections, on an 18 grid
     ("dop-camera", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="11" height="9" rx="1.5"/><path d="M13 8l4-2v7l-4-2"/></g>"##),
@@ -122,6 +127,23 @@ pub fn named(name: &str) -> Option<&'static str> {
     ICONS.iter().find(|(n, _)| *n == name).map(|(n, _)| *n)
 }
 
+/// the icon of a node view's kind (graph.rs `Node::kind`); one it does not know draws as a node
+pub fn of_kind(kind: &str) -> &'static str {
+    match kind {
+        "reader" => "book",
+        "clock" => "clock",
+        "event" => "bolt",
+        "character" => "user",
+        "item" => "package",
+        "scene" => "image",
+        "stage" => "monitor",
+        "device" => "sliders",
+        "row" => "align-left",
+        "group" => "sidebar",
+        _ => "node",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,6 +163,13 @@ mod tests {
         assert_eq!(named("move-fly through"), Some("move-fly-through"));
         assert_eq!(named("height-cyclops"), Some("height-cyclops"));
         assert_eq!(named("move-take"), None);
+    }
+
+    #[test]
+    fn every_node_kind_has_an_icon() {
+        for kind in ["reader", "clock", "event", "character", "item", "scene", "stage", "device", "row", "group", "anything"] {
+            assert!(has(of_kind(kind)), "{kind}");
+        }
     }
 
     #[test]

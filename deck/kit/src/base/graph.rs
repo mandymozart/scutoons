@@ -37,11 +37,17 @@ impl Direction {
 pub struct Pin {
     pub label: String,
     pub signal: Signal,
+    /// what it holds now, for people (a control's value): drawn beside the label
+    pub value: Option<String>,
 }
 
 impl Pin {
     pub fn new(label: impl Into<String>, signal: Signal) -> Pin {
-        Pin { label: label.into(), signal }
+        Pin { label: label.into(), signal, value: None }
+    }
+
+    pub fn valued(self, value: impl Into<String>) -> Pin {
+        Pin { value: Some(value.into()), ..self }
     }
 }
 
@@ -49,7 +55,9 @@ impl Pin {
 pub struct Node {
     pub id: String,
     pub title: String,
-    /// a short word after the title (what kind of node, where it comes from)
+    /// what kind of node, one word (`clock`, `event`, `character`): the head's small word and its icon
+    pub kind: &'static str,
+    /// where it comes from, what it does, for people (`from far`, `plays scene:nave`)
     pub detail: String,
     pub ins: Vec<Pin>,
     pub outs: Vec<Pin>,
@@ -213,9 +221,9 @@ fn size(n: &Node, dir: Direction, m: &Metrics) -> (f32, f32) {
         false => (n.ins.len(), n.outs.len()),
     };
     match (dir, n.collapsed) {
-        (Direction::Lr, true) => (snap(m.width * 0.75), snap(m.head.max(ins.max(outs) as f32 * m.line * 0.6))),
+        (Direction::Lr, true) => (snap(m.width), snap(m.head.max(ins.max(outs) as f32 * m.line * 0.6))),
         (Direction::Lr, false) => (snap(m.width), snap(m.head + ins.max(outs) as f32 * m.line + m.line * 0.4 + preview)),
-        (Direction::Tb, true) => (snap((m.width * 0.75).max(ins.max(outs) as f32 * m.pin_gap * 0.6)), snap(m.head)),
+        (Direction::Tb, true) => (snap(m.width.max(ins.max(outs) as f32 * m.pin_gap * 0.6)), snap(m.head)),
         (Direction::Tb, false) => (snap(m.width.max(ins.max(outs) as f32 * m.pin_gap)), snap(m.head + m.line + preview)),
     }
 }

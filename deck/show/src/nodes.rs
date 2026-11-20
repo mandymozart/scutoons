@@ -34,9 +34,9 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     };
     if !events.is_empty() {
         let outs = events.iter().map(|e| Pin::new(*e, Signal::Event)).collect();
-        g.nodes.push(Node { id: READER.into(), title: READER.into(), detail: "from far".into(), outs, far: true, ..Node::default() });
+        g.nodes.push(Node { id: READER.into(), title: READER.into(), kind: "reader", detail: "from far".into(), outs, far: true, ..Node::default() });
     }
-    g.nodes.push(Node { id: CLOCK.into(), title: CLOCK.into(), detail: "show".into(), outs: vec![Pin::new("beat", Signal::Clock), Pin::new("bar", Signal::Clock)], far: true, ..Node::default() });
+    g.nodes.push(Node { id: CLOCK.into(), title: CLOCK.into(), kind: "clock", detail: "show".into(), outs: vec![Pin::new("beat", Signal::Clock), Pin::new("bar", Signal::Clock)], far: true, ..Node::default() });
     let mut ins = Vec::new();
     if r.fire.event.is_some() {
         ins.push(Pin::new("on event", Signal::Event));
@@ -44,7 +44,7 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     if r.fire.moment != Moment::Now {
         ins.push(Pin::new(format!("on {}", view::moment_text(r.fire.moment)), Signal::Clock));
     }
-    g.nodes.push(Node { id: ROW.into(), title: r.id.clone(), detail: view::how_text(r.fire.how).into(), ins, outs: vec![Pin::new("fire", Signal::Event)], ..Node::default() });
+    g.nodes.push(Node { id: ROW.into(), title: r.fire.event.clone().unwrap_or_else(|| r.id.clone()), kind: "event", detail: view::how_text(r.fire.how).into(), ins, outs: vec![Pin::new("fire", Signal::Event)], ..Node::default() });
     let row_at = g.nodes.len() - 1;
     let wire = |g: &mut Graph, from: (usize, usize), to: (usize, usize), signal: Signal| g.links.push(Link::new(from, to, signal));
     if let (Some(e), Some(reader)) = (r.fire.event.as_deref(), g.node(READER)) {
@@ -62,7 +62,7 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
         let cell = r.cells.get(&o.id).cloned().unwrap_or(Cell::Keep);
         let kept = matches!(cell, Cell::Keep);
         let (ins, outs) = wiring::ports(show, &o.id, &cell);
-        let mut node = Node { id: o.id.clone(), title: o.name().to_string(), detail: view::cell_text(&cell), collapsed: kept, ins, outs, ..Node::default() };
+        let mut node = Node { id: o.id.clone(), title: o.name().to_string(), kind: kind_of(o.kind, &cell), detail: view::cell_text(&cell), collapsed: kept, ins, outs, ..Node::default() };
         // the far nodes' inlets after the cell's own, before a mirror's
         let mirrors = node.ins.iter().position(|p| p.signal == Signal::Scene).unwrap_or(node.ins.len());
         for l in far.iter().filter(|l| l.from == o.id) {
@@ -106,7 +106,7 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     }
     if !r.addresses.is_empty() {
         let outs = r.addresses.iter().map(|a| Pin::new(view::address_text(a), Signal::Address)).collect();
-        g.nodes.push(Node { id: SENDS.into(), title: "this row sends".into(), detail: format!("{} sends", r.addresses.len()), ins: vec![Pin::new("fire", Signal::Event)], outs, ..Node::default() });
+        g.nodes.push(Node { id: SENDS.into(), title: format!("this row sends · {}", r.addresses.len()), kind: "row", detail: format!("{} sends", r.addresses.len()), ins: vec![Pin::new("fire", Signal::Event)], outs, ..Node::default() });
         let at = g.nodes.len() - 1;
         wire(&mut g, (row_at, 0), (at, 0), Signal::Event);
     }
@@ -127,6 +127,21 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     g
 }
 
+/// a cell's node's kind: the place its piece is (`scene`, `character`, `item`), else its outlet's
+fn kind_of(outlet: crate::document::OutletKind, cell: &Cell) -> &'static str {
+    let piece = match cell {
+        Cell::Play { piece: Some(p), .. } | Cell::Values { piece: p, .. } => p.split_once(':').map(|(place, _)| place),
+        _ => None,
+    };
+    match (piece, outlet) {
+        (Some("scene"), _) => "scene",
+        (Some("character"), _) => "character",
+        (Some("item"), _) => "item",
+        (_, crate::document::OutletKind::Device) => "device",
+        (_, crate::document::OutletKind::Stage) => "stage",
+    }
+}
+
 /// what a wire carries, for people: a control's value as the cell sets it, else what its outlet gives
 fn value_of(g: &Graph, l: &Link, r: &crate::document::Row) -> Option<String> {
     let (from, to) = (g.nodes.get(l.from.0)?, g.nodes.get(l.to.0)?);
@@ -139,7 +154,8 @@ fn value_of(g: &Graph, l: &Link, r: &crate::document::Row) -> Option<String> {
             }
         }
     }
-    match (out.is_empty(), inlet.is_empty() || inlet == out) {
+    // an event is its name: the inlet it reaches (`on event`, `fire`) says nothing more
+    match (out.is_empty(), inlet.is_empty() || inlet == out || l.signal == Signal::Event) {
         (true, _) => Some(inlet).filter(|i| !i.is_empty()),
         (false, true) => Some(out),
         (false, false) => Some(format!("{out} → {inlet}")),
@@ -156,7 +172,7 @@ pub fn folded(g: Graph, show: &Show, row: usize) -> (Graph, Vec<(usize, Vec<usiz
         if members.is_empty() {
             continue;
         }
-        let pill = Node { id: format!("{GROUP}{}", grp.id), title: grp.label.clone(), detail: format!("{} nodes", members.len()), group: Some(k), ..Node::default() };
+        let pill = Node { id: format!("{GROUP}{}", grp.id), title: grp.label.clone(), kind: "group", detail: format!("{} nodes", members.len()), group: Some(k), ..Node::default() };
         g = g.fold(&members, pill);
     }
     let frames = (0..r.nodes.groups.len()).map(|k| (k, (0..g.nodes.len()).filter(|&i| g.nodes[i].group == Some(k)).collect::<Vec<_>>())).filter(|(_, m)| !m.is_empty()).collect();

@@ -1,13 +1,13 @@
 //! The node view's painting (nodes.rs holds its state and input): group frames on a dotted grid in their colour, the
 //! latent grid under what the pointer is on (dots of a fixed size whose opacity fades, no blur), the wires as the core's
-//! activity says, the nodes with their pins, fold, focus flash and preview, the notes, a wire's value.
+//! activity says, the notes, a wire's value (the nodes: node_card.rs).
 use super::nodes::{NodeHit, NodeView, FADE_IN, FADE_OUT};
 use deck_kit::base::canvas::{self, View};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::graph::{self, Activity, Direction, Graph, Link, Node, Placed};
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
-use deck_kit::editor::colour::{self, Rgb};
+use deck_kit::editor::colour;
 use deck_kit::editor::controls::{self, Rect};
 use deck_show::canvas::Canvas;
 
@@ -41,12 +41,12 @@ pub fn faded(c: [f32; 4], a: f32) -> [f32; 4] {
 }
 
 /// `a` mixed into `b` by `k`
-fn mix(a: [f32; 4], b: [f32; 4], k: f32) -> [f32; 4] {
+pub fn mix(a: [f32; 4], b: [f32; 4], k: f32) -> [f32; 4] {
     [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, 1.0]
 }
 
 /// `text` cut to `room` in the sans face
-fn sans_fit(d: &DrawList, text: &str, px: f32, room: f32) -> String {
+pub fn sans_fit(d: &DrawList, text: &str, px: f32, room: f32) -> String {
     let mut n = text.chars().count();
     loop {
         let s = controls::fit(text, n);
@@ -273,122 +273,6 @@ pub fn wire(d: &mut DrawList, t: &Tokens, (l, w): (&Link, &Wire), (cam, activity
     }
 }
 
-/// what a node's paint left to press: its body and its fold
-pub struct Boxed {
-    pub body: Rect,
-    pub fold: Option<Rect>,
-}
-
-/// One node: its ground (a folded group's pill on its dotted grid), a stripe in the colour of what it gives, the title
-/// and detail, its fold, its pins and their labels, its preview; selected a ring in its colour, focused a flash and a
-/// skeleton shimmer.
-pub fn box_of(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<Rgb>), cam: &Cam, v: &NodeView) -> Boxed {
-    let z = cam.z();
-    let body = cam.rect(p.rect);
-    let (o, w, h) = ((body.x, body.y), body.w, body.h);
-    let radius = if n.collapsed { h * 0.5 } else { t.size.radius * 1.5 * z };
-    let main = tint.map_or_else(|| main_colour(t, n), |c| colour::rgba(c, 1.0));
-    d.round_rect(o.0, o.1, w, h, radius, if n.collapsed { t.color.within } else { t.color.control });
-    if tint.is_some() {
-        for (q, a) in canvas::dots(body, cam.at, cam.view, cam.unit, |q| if canvas::to_rect(Rect { x: body.x + radius * 0.5, y: body.y + 2.0, w: (body.w - radius).max(0.0), h: (body.h - 4.0).max(0.0) }, q) <= 0.0 { 0.32 } else { 0.0 }) {
-            d.disc(q.0, q.1, 1.0, faded(main, a));
-        }
-    }
-    let edge = if tint.is_some() { faded(main, 0.6) } else if n.far { t.color.muted } else { t.color.line };
-    d.outline(o.0, o.1, w, h, (radius, 1.0), edge);
-    let (font, small, pad) = (t.size.font * z, t.size.small * z, t.size.pad * z);
-    let head = t.size.rem(2.0) * z;
-    if !n.collapsed {
-        d.round_rect(o.0, o.1, w, 3.0 * z, radius.min(1.5 * z), main);
-        d.rect(o.0, o.1 + head, w, 1.0, t.color.line);
-    }
-    // the fold, at the head's end (a pill's end)
-    let fs = (12.0 * z).clamp(9.0, 18.0);
-    let fold = (z >= 0.45).then(|| {
-        let line = if n.collapsed { h } else { head };
-        Rect { x: o.0 + w - pad - fs - if n.collapsed { radius * 0.3 } else { 0.0 }, y: o.1 + (line - fs) * 0.5, w: fs, h: fs }
-    });
-    if let Some(f) = fold {
-        d.icon(f.x, f.y, f.w, if n.collapsed { "next" } else { "down" }, t.color.muted);
-    }
-    let fold_w = fold.map_or(0.0, |f| f.w + pad * 0.5);
-    if z >= 0.3 {
-        let room = (w - 2.0 * pad - fold_w).max(0.0);
-        let detail_w = (d.advance(small) * n.detail.chars().count() as f32).min(room * 0.35);
-        let title_room = if n.collapsed { room } else { room - detail_w - pad };
-        let ty = o.1 + ((if n.collapsed { h } else { head }) - font * 1.25) * 0.5;
-        d.sans(o.0 + pad, ty, font, &sans_fit(d, &n.title, font, title_room), if n.far { t.color.muted } else { t.color.text });
-        if !n.collapsed {
-            let detail = controls::fit(&n.detail, ((room - title_room - pad).max(0.0) / d.advance(small)) as usize);
-            let dw = d.advance(small) * detail.chars().count() as f32;
-            d.text(o.0 + w - pad - fold_w - dw, o.1 + (head - small * 1.25) * 0.5, small, &detail, t.color.muted);
-        }
-    }
-    // the preview: the picture of what it plays, under its pins
-    if let (true, false, Some(key)) = (v.motion.previews, n.collapsed, n.picture.as_deref()) {
-        let ph = (5.0 * cam.unit - t.size.pad) * z;
-        let pw = (ph * 264.0 / 168.0).min(w - 2.0 * pad);
-        let (px, py) = (o.0 + (w - pw) * 0.5, o.1 + h - ph - pad * 0.5);
-        match v.pictures.get(key) {
-            Some(id) => d.picture(px, py, pw, ph, *id),
-            None => {
-                d.round_rect(px, py, pw, ph, t.size.radius * z, t.color.within);
-                if z >= 0.55 {
-                    d.text(px + pad * 0.6, py + pad * 0.4, small, &controls::fit(key, (pw / d.advance(small)) as usize), t.color.muted);
-                }
-            }
-        }
-    }
-    let r = t.size.rem(0.32) * z;
-    let flow = cam.dir.flow();
-    let labels = z >= 0.55 && !n.collapsed;
-    for (pins, at, inlet) in [(&n.ins, &p.ins, true), (&n.outs, &p.outs, false)] {
-        let mut drawn: Vec<(f32, f32)> = Vec::new();
-        for (pin, q) in pins.iter().zip(at) {
-            let q = cam.s(*q);
-            if !drawn.contains(&q) {
-                d.pin(q, r, (pin.signal.shape(), flow), t.color.signals.of(pin.signal), t.color.control);
-                drawn.push(q);
-            }
-            if !labels {
-                continue;
-            }
-            // a label keeps to its pin's share of the edge
-            let max = if cam.dir == Direction::Lr { w * 0.45 } else { w / pins.len() as f32 * 0.95 };
-            let label = controls::fit(&pin.label, (max / d.advance(small)) as usize);
-            let lw = d.advance(small) * label.chars().count() as f32;
-            let (lx, ly) = match (cam.dir, inlet) {
-                (Direction::Lr, true) => (q.0 + r + pad * 0.6, q.1 - small * 0.62),
-                (Direction::Lr, false) => (q.0 - r - pad * 0.6 - lw, q.1 - small * 0.62),
-                (Direction::Tb, true) => (q.0 - lw * 0.5, q.1 - r - small * 1.4),
-                (Direction::Tb, false) => (q.0 - lw * 0.5, q.1 + r + small * 0.2),
-            };
-            d.text(lx, ly, small, &label, t.color.muted);
-        }
-    }
-    if v.selected.contains(&n.id) {
-        d.outline(o.0 - 1.5, o.1 - 1.5, w + 3.0, h + 3.0, (radius + 1.5, 1.5), main);
-    }
-    if let Some(a) = v.flashing(&n.id) {
-        let k = 1.0 - a;
-        d.outline(o.0 - 3.0 * k, o.1 - 3.0 * k, w + 6.0 * k, h + 6.0 * k, (radius + 3.0 * k, 1.0 + 2.5 * k), faded(main, k));
-        // the skeleton shimmer: a light band sweeping across once
-        let band = w * 0.35;
-        let x = o.0 - band + (w + band) * a;
-        let light = faded(t.color.text, 0.12 * k);
-        let clear = faded(t.color.text, 0.0);
-        let (l0, l1) = (x.max(o.0), (x + band * 0.5).min(o.0 + w));
-        if l1 > l0 {
-            d.gradient(l0, o.1, l1 - l0, h, [clear, light, light, clear]);
-        }
-        let (r0, r1) = ((x + band * 0.5).max(o.0), (x + band).min(o.0 + w));
-        if r1 > r0 {
-            d.gradient(r0, o.1, r1 - r0, h, [light, clear, clear, light]);
-        }
-    }
-    Boxed { body, fold }
-}
-
 /// note lines: `text` broken into lines of at most `per` characters, at spaces where it can
 fn wrap(text: &str, per: usize) -> Vec<String> {
     let per = per.max(4);
@@ -447,16 +331,16 @@ pub fn notes(d: &mut DrawList, t: &Tokens, (doc, drawn, bounds): (&Canvas, &[(St
     out
 }
 
-/// a wire's value beside the pointer, in its colour
-pub fn value_label(d: &mut DrawList, t: &Tokens, l: &Link, cursor: (f32, f32)) {
+/// a wire's value as a small tag in its colour: beside the pointer, or pinned on the wire (`on`: centred on that point)
+pub fn value_label(d: &mut DrawList, t: &Tokens, l: &Link, at: (f32, f32), on: bool) {
     let Some(v) = l.value.as_deref() else { return };
-    let px = t.size.small;
-    let w = d.advance(px) * v.chars().count() as f32 + 2.0 * t.size.pad;
-    let (x, y) = (cursor.0 + 12.0, cursor.1 - px * 2.4);
+    let px = t.size.small * 0.9;
+    let (w, h) = (d.advance(px) * v.chars().count() as f32 + 1.2 * t.size.pad, px * 1.6);
+    let (x, y) = if on { (at.0 - w * 0.5, at.1 - h * 0.5) } else { (at.0 + 12.0, at.1 - px * 2.4) };
     let c = t.color.signals.of(l.signal);
-    d.round_rect(x, y, w, px * 1.7, t.size.radius, t.color.control);
-    d.outline(x, y, w, px * 1.7, (t.size.radius, 1.0), faded(c, 0.8));
-    d.text(x + t.size.pad, y + px * 0.2, px, v, t.color.text);
+    d.round_rect(x, y, w, h, t.size.radius, mix(t.color.surface, c, 0.12));
+    d.outline(x, y, w, h, (t.size.radius, 1.0), faded(c, 0.7));
+    d.text(x + 0.6 * t.size.pad, y + px * 0.18, px, v, c);
 }
 
 #[cfg(test)]
@@ -483,10 +367,10 @@ mod tests {
         let t = Tokens::new(deck_kit::base::tokens::Theme::Night, 16.0);
         let mut d = DrawList::new(0.6);
         let mut l = Link::new((0, 0), (1, 1), deck_kit::base::signal::Signal::Control);
-        value_label(&mut d, &t, &l, (100.0, 100.0));
+        value_label(&mut d, &t, &l, (100.0, 100.0), false);
         assert!(d.texts().is_empty(), "no value: no label");
         l.value = Some("mood = \"shy\"".into());
-        value_label(&mut d, &t, &l, (100.0, 100.0));
+        value_label(&mut d, &t, &l, (100.0, 100.0), false);
         assert_eq!(d.texts(), ["mood = \"shy\""]);
     }
 
