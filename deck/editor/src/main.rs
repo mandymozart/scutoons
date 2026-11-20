@@ -103,6 +103,8 @@ struct Args {
     inputs: Vec<String>,
     input_at: Option<u64>,
     stop_at: Option<u64>,
+    /// a check run's solos and arm (`--solo TRACK`, `--arm TRACK`), pressed at frame 12
+    monitor: Vec<(bool, String)>,
     /// a check run's press on Home's New (scene | show | module) at its start
     home_new: Option<String>,
     /// fullscreen on the current monitor (a deck's kiosk), else a 1280×720 window
@@ -215,7 +217,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -230,6 +232,8 @@ fn args() -> Result<Args> {
             "--input" => a.inputs.push(val()?),
             "--input-at" => a.input_at = Some(val()?.parse()?),
             "--stop-at" => a.stop_at = Some(val()?.parse()?),
+            "--solo" => a.monitor.push((false, val()?)),
+            "--arm" => a.monitor.push((true, val()?)),
             "--home-new" => a.home_new = Some(val()?),
             "--frames" => a.frames = Some(val()?.parse()?),
             "--screenshot" => a.screenshot = Some(PathBuf::from(val()?)),
@@ -494,6 +498,9 @@ enum Hit {
     StripSelect(mixer::Target),
     Fader(mixer::Target, Rect),
     Mute(usize),
+    Solo(usize),
+    /// the selected track armed or disarmed
+    Arm,
     Balance(usize),
     /// a highest-peak readout: a strip's, or the output's
     Peak(Option<mixer::Target>),
@@ -1374,6 +1381,8 @@ impl App {
             Hit::Background => Help::new("Background", "The stage's background while this rig plays: a colour (#rrggbb) or a media path (an image laid over the stage). Empty = its modules', else black; a scene or a show over it wins."),
             Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
+            Hit::Solo(i) => Help::new(format!("Solo {}", self.stage.strips.get(i)?.track), "Only the soloed tracks are heard (and an armed one). For this session; not saved with the rig."),
+            Hit::Arm => Help::new("Arm", "This track takes your hand in Edit, and its monitoring is on: you hear it through another's solo. One at a time; not saved."),
             Hit::ToCell => Help::new(show::build::TO_CELL, "Writes the knobs as this tab has them now into the show cell this rig was opened from; the show checks their ranges."),
             Hit::BackToShow => Help::new(show::build::BACK, "The show's tab, the linked cell selected."),
             Hit::SceneKnob(_) => Help::new("Value in the scene", "Drag to set this member's knob in the scene; the stage plays it when you let go; the scene saves itself as a draft."),
@@ -1754,6 +1763,18 @@ impl App {
                     self.change(done, format!("{track}: {}", if muted { "on" } else { "muted" }), x, y);
                 }
             }
+            Hit::Solo(i) => {
+                if let Some(track) = self.stage.strips.get(i).map(|s| s.track.clone()) {
+                    let on = self.stage.solo(&track);
+                    self.note(format!("{track}: {}", if on { "solo" } else { "solo off" }));
+                }
+            }
+            Hit::Arm => {
+                if let inspector::Sel::Track(track) = self.sel.clone() {
+                    let on = self.stage.arm(&track);
+                    self.note(format!("{track}: {}", if on { "armed, monitored" } else { "disarmed" }));
+                }
+            }
             Hit::Row(i) if self.scene.as_ref().is_some_and(|v| i < v.rows.len()) => {
                 let part = self.scene.as_ref().map(|v| v.rows[i]).expect("checked");
                 self.scene_row(part);
@@ -1987,7 +2008,7 @@ impl App {
         let Some(id) = self.stage.node_ids.get(node) else { return };
         let Some(p) = self.stage.ports.iter().find(|q| q.input && q.node == *id && q.name == name) else { return };
         let Some((_, local)) = p.address.split_once(':') else { return };
-        let done = wires::set_value(&self.stage.bundle, &p.track, local, self.stage.controls.input(node, name, 0.0));
+        let done = wires::set_value(&self.stage.bundle, &p.track, local, self.stage.saved(node, name));
         self.store(done);
     }
 
@@ -3376,6 +3397,7 @@ impl App {
                                 inspector::Field::Address(n) => Hit::Address(n),
                                 inspector::Field::Area(n, a) => Hit::Area(n, a),
                                 inspector::Field::Remove => Hit::Remove,
+                                inspector::Field::Arm => Hit::Arm,
                                 inspector::Field::Background => Hit::Background,
                                 inspector::Field::BackgroundColour => Hit::BackgroundColour,
                             };
@@ -3439,6 +3461,7 @@ impl App {
                     mixer::Part::GainText(target) => Hit::GainText(target),
                     mixer::Part::Fader(i, f) => Hit::Fader(i, f),
                     mixer::Part::Mute(i) => Hit::Mute(i),
+                    mixer::Part::Solo(i) => Hit::Solo(i),
                     mixer::Part::Pan(i) => Hit::Balance(i),
                     mixer::Part::Peak(p) => Hit::Peak(p),
                 };
