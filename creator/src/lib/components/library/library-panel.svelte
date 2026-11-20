@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseButton, Icon } from '@scutoons/ui';
 	import type { AssetFamily, LibraryScope } from '@scutoons/media';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { library } from '$lib/editor/library.svelte.ts';
@@ -152,7 +152,7 @@
 				<button type="button" class="quiet" onclick={() => downloadFamilies(library.chosenFamilies)}><Icon name="download" size="0.85rem" />{m['library.download']()}</button>
 				<button type="button" class="quiet" disabled title={NEEDS.credits()}>{m['library.credits']()}</button>
 				<button type="button" class="quiet danger" onclick={() => deleteFamilies(library.chosenFamilies)}><Icon name="trash-2" size="0.85rem" />{m['library.delete']()}</button>
-				<button type="button" class="quiet" onclick={() => library.clearSelection()} aria-label={m['library.clear_selection']()} title={m['library.clear_selection']()}><Icon name="x" size="0.85rem" /></button>
+				<CloseButton label={m['library.clear_selection']()} onclick={() => library.clearSelection()} />
 			</div>
 		{/if}
 		{#if note}<p class="sc-empty note">{note}</p>{/if}
