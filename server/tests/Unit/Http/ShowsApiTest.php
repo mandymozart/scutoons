@@ -126,6 +126,30 @@ final class ShowsApiTest extends TestCase
         self::assertSame(200, $this->request('POST', '/api/shows/top/publish', $live, [])->getStatusCode());
     }
 
+    public function testADeckReadsThePublishedShowsOnlyByToonWithoutTheLiveRole(): void
+    {
+        $live = $this->session([Roles::LIVE], 'published@example.test');
+        $this->core->answer = fn(array $request): array => [];
+        foreach (['demo-a' => 'sandbox', 'demo-draft' => 'sandbox', 'choir' => 'catpope'] as $id => $toon) {
+            $this->request('PUT', "/api/shows/$id", $live, ['content' => ['toon' => $toon] + self::show($id)]);
+        }
+        $this->request('POST', '/api/shows/demo-a/publish', $live, []);
+        $this->request('POST', '/api/shows/choir/publish', $live, []);
+        // a newer draft of a published show is not what a deck gets
+        $changed = ['toon' => 'sandbox'] + self::show('demo-a');
+        $changed['rows'] = [['id' => 'draft row']];
+        $this->request('PUT', '/api/shows/demo-a', $live, ['content' => $changed]);
+
+        $r = $this->request('GET', '/api/shows/published?toon=sandbox');
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        $shows = self::json($r)['shows'];
+        self::assertSame(['show:demo-a'], array_column($shows, 'key'), 'published only, the toon asked');
+        self::assertSame([], $shows[0]['content']['rows'], 'the published version, not the newer draft');
+        self::assertSame(['key', 'content'], array_keys($shows[0]), 'who saved it stays in the history');
+        self::assertSame(['show:demo-a', 'show:choir'], array_column(self::json($this->request('GET', '/api/shows/published'))['shows'], 'key'));
+        self::assertSame(401, $this->request('GET', '/api/shows/demo-a')->getStatusCode(), 'the other routes still need the role');
+    }
+
     public function testASessionIsACodeAndTheRelaysTokens(): void
     {
         $live = $this->session([Roles::LIVE], 'session@example.test');

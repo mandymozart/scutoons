@@ -10,7 +10,9 @@
 //! cast goes to the Live outlet's relay client.
 //! the deck's start (the rules are deck-ui `start.rs`): what the deck hears – the conductor's push or cell, the
 //! relay's clock, a MIDI clock in – and whether its conductor is in, read every frame; the menu follows the stand. Play's
-//! list: the API's listing of the published scenes (a thread, once) and the copies this deck keeps.
+//! list: the API's listing of the published scenes and the sandbox's published shows (a thread, once) and the copies this
+//! deck keeps. A show picked there plays on this deck as its own conductor (deck-show alone.rs): its scenes fetched
+//! first (a thread), then its rows' cells go to the piece side; the show page's GO fires the next row, LEAVE ends it.
 use crate::App;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
 use deck_ui::start::{self, Begin, Clock, Heard, Listed, Playable};
@@ -37,6 +39,49 @@ pub struct Native {
     left: bool,
     listing: Arc<Mutex<Vec<Listed>>>,
     play: Vec<Playable>,
+    /// a check run (`DECK_MENU_KEYS=enter,down`): the keys the start menu gets once it shows, one every 0.4 s
+    menu_keys: std::collections::VecDeque<Input>,
+    menu_key_at: Option<f32>,
+    /// the show this deck conducts itself
+    #[cfg(feature = "live")]
+    own: Own,
+}
+
+/// the API's answer listing the shows, the show while its scenes are fetched, the show playing, the cells for the piece
+/// side, the show's time base
+#[cfg(feature = "live")]
+#[derive(Default)]
+struct Own {
+    shows: Arc<Mutex<String>>,
+    fetching: Option<(deck_show::alone::Alone, std::sync::mpsc::Receiver<()>)>,
+    playing: Option<deck_show::alone::Alone>,
+    cells: Vec<protocol::Cell>,
+    started: Option<std::time::Instant>,
+}
+
+#[cfg(feature = "live")]
+impl Own {
+    fn ms(&mut self) -> u64 {
+        self.started.get_or_insert_with(std::time::Instant::now).elapsed().as_millis() as u64
+    }
+
+    fn active(&self) -> bool {
+        self.fetching.is_some() || self.playing.is_some()
+    }
+}
+
+/// a check run's keys (`up,down,enter,open`) as the kit's inputs
+fn keys_of(var: &str) -> std::collections::VecDeque<Input> {
+    let keys = std::env::var(var).unwrap_or_default();
+    keys.split(',')
+        .filter_map(|k| match k.trim() {
+            "up" => Some(Input::Up),
+            "down" => Some(Input::Down),
+            "enter" => Some(Input::Enter),
+            "open" => Some(Input::Open),
+            _ => None,
+        })
+        .collect()
 }
 
 impl Native {
@@ -49,20 +94,17 @@ impl Native {
         let check = args.frames.is_some() && std::env::var_os("DECK_START").is_none();
         let begin = Begin::of(session.as_deref(), args.scene.is_some() || check);
         let listing = Arc::new(Mutex::new(Vec::new()));
+        #[cfg(feature = "live")]
+        let own = Own::default();
         if !check {
             fetch_listing(args.api.clone(), listing.clone());
+            #[cfg(feature = "live")]
+            fetch_shows(args.api.clone(), own.shows.clone());
         }
-        let keys = std::env::var("DECK_BALLOT_KEYS").unwrap_or_default();
-        let keys = keys.split(',').filter_map(|k| match k.trim() {
-            "up" => Some(Input::Up),
-            "down" => Some(Input::Down),
-            "enter" => Some(Input::Enter),
-            _ => None,
-        });
         Native {
             menu: Menu::default(),
             ballot: Default::default(),
-            keys: keys.collect(),
+            keys: keys_of("DECK_BALLOT_KEYS"),
             key_at: None,
             at: (0.0, 0.0),
             pair: Pair::Off,
@@ -71,8 +113,47 @@ impl Native {
             left: false,
             listing,
             play: Vec::new(),
+            menu_keys: keys_of("DECK_MENU_KEYS"),
+            menu_key_at: None,
+            #[cfg(feature = "live")]
+            own,
         }
     }
+
+    /// the cells of the show this deck conducts itself, for the piece side (once a frame)
+    pub fn take_cells(&mut self) -> Vec<protocol::Cell> {
+        #[cfg(feature = "live")]
+        return std::mem::take(&mut self.own.cells);
+        #[cfg(not(feature = "live"))]
+        Vec::new()
+    }
+}
+
+/// the sandbox's published shows for Play, once, on a thread: the API's answer kept whole (a pick plays from it); a check
+/// run reads it from the file `DECK_SHOWS`
+#[cfg(feature = "live")]
+fn fetch_shows(api: String, into: Arc<Mutex<String>>) {
+    if let Some(file) = std::env::var_os("DECK_SHOWS") {
+        if let (Ok(body), Ok(mut s)) = (std::fs::read_to_string(file), into.lock()) {
+            *s = body;
+        }
+        return;
+    }
+    #[cfg(feature = "sync")]
+    std::thread::Builder::new()
+        .name("play-shows".into())
+        .spawn(move || {
+            let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(5)).timeout_read(std::time::Duration::from_secs(20)).build();
+            let path = deck_show::alone::path(start::DEMO_TOON);
+            let (status, body) = deck_native::published::get_with(&agent, &api, &path, deck_link::TokenSource::from_env().get());
+            tracing::info!("play: {} published shows listed ({status})", deck_show::alone::listing(&body).len());
+            if let (200, Ok(mut s)) = (status, into.lock()) {
+                *s = body;
+            }
+        })
+        .ok();
+    #[cfg(not(feature = "sync"))]
+    let _ = (api, into);
 }
 
 /// the API's published scenes for Play, once, on a thread (offline: none – Play lists the kept copies)
@@ -115,6 +196,10 @@ impl App {
             density: h / 1080.0,
             top: 0.0,
             play: self.menu.play.clone(),
+            #[cfg(feature = "live")]
+            showing: self.menu.own.playing.as_ref().map(deck_show::alone::Alone::showing),
+            #[cfg(not(feature = "live"))]
+            showing: None,
         }
     }
 
@@ -150,7 +235,10 @@ impl App {
         self.menu.menu.follow(&stand);
         if refresh && self.menu.menu.top().is_some_and(Page::start) {
             let cache = self.args.cache.clone().unwrap_or_else(crate::cache::default_dir);
-            let listed = self.menu.listing.lock().map(|l| l.clone()).unwrap_or_default();
+            #[allow(unused_mut)]
+            let mut listed = self.menu.listing.lock().map(|l| l.clone()).unwrap_or_default();
+            #[cfg(feature = "live")]
+            listed.extend(self.menu.own.shows.lock().map(|b| deck_show::alone::listing(&b)).unwrap_or_default());
             self.menu.play = start::play_list(&listed, &deck_native::published::kept(&cache));
         }
         if self.menu.menu.top() != was {
@@ -168,20 +256,98 @@ impl App {
             Answer::No => return self.ballot_input(i),
             Answer::Quit => el.exit(),
             Answer::Creator => self.open_creator(el),
-            Answer::Play(n) => {
-                if let Some(p) = facts.play.get(n) {
-                    self.switch(&p.value.clone());
-                }
-            }
-            // out of the session: the idle scene without the outlet; the stand is the start menu's again
+            Answer::Play(n) => match facts.play.get(n) {
+                Some(p) if p.show => self.play_show(p.value.trim_start_matches("show:")),
+                Some(p) => self.switch(&p.value.clone()),
+                None => {}
+            },
+            Answer::Go => self.show_go(),
+            // out of its own show, or out of the session: the idle scene without the outlet; the start menu again
             Answer::Leave => {
                 self.menu.left = true;
+                self.stop_show();
                 self.switch("idle");
             }
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
         true
+    }
+
+    /// The published show `id` on this deck as its own conductor: the scenes its outlet plays are fetched first (a
+    /// thread), then its first row fires (`own_frame`). One that cannot play says why on the switcher's line.
+    fn play_show(&mut self, id: &str) {
+        #[cfg(feature = "live")]
+        {
+            self.stop_show();
+            let body = self.menu.own.shows.lock().map(|b| b.clone()).unwrap_or_default();
+            let alone = match deck_show::alone::find(&body, id).and_then(deck_show::alone::Alone::new) {
+                Ok(a) => a,
+                Err(why) => {
+                    tracing::warn!("show: {why}");
+                    self.switcher.status = format!("NOT PLAYED: {why}");
+                    return;
+                }
+            };
+            tracing::info!("show: {id} on this deck as its own conductor, outlet '{}'", alone.outlet());
+            let scenes: Vec<_> = alone.needs().iter().filter_map(|p| deck_space::published::SceneRef::parse(p)).filter_map(Result::ok).collect();
+            let (api, cache) = (self.args.api.clone(), self.args.cache.clone().unwrap_or_else(crate::cache::default_dir));
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::Builder::new()
+                .name("show-scenes".into())
+                .spawn(move || {
+                    for r in scenes {
+                        if let Err(e) = deck_native::published::fetch(r, &api, &cache) {
+                            tracing::warn!("show: {e:#}");
+                        }
+                    }
+                    let _ = tx.send(());
+                })
+                .ok();
+            self.menu.own.fetching = Some((alone, rx));
+        }
+        #[cfg(not(feature = "live"))]
+        let _ = id;
+    }
+
+    /// GO on the show page: the show this deck conducts fires its next row
+    fn show_go(&mut self) {
+        #[cfg(feature = "live")]
+        {
+            let ms = self.menu.own.ms();
+            if let Some(a) = self.menu.own.playing.as_mut() {
+                let cells = a.go(ms);
+                self.menu.own.cells.extend(cells);
+            }
+        }
+    }
+
+    /// the show this deck conducts itself ends: what played fades (the piece side forgets it)
+    fn stop_show(&mut self) {
+        #[cfg(feature = "live")]
+        if self.menu.own.active() {
+            self.menu.own = Own { shows: self.menu.own.shows.clone(), ..Own::default() };
+            let _ = self.pieces.cell(&deck_show::alone::Alone::leave());
+        }
+    }
+
+    /// Once a frame: the show's scenes fetched – its first row fires; time passes for the show playing.
+    fn own_frame(&mut self) {
+        #[cfg(feature = "live")]
+        {
+            let ms = self.menu.own.ms();
+            let fetched = self.menu.own.fetching.as_ref().is_some_and(|(_, rx)| !matches!(rx.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)));
+            if fetched {
+                if let Some((mut a, _)) = self.menu.own.fetching.take() {
+                    self.menu.own.cells.extend(a.go(ms));
+                    self.menu.own.playing = Some(a);
+                }
+            }
+            if let Some(a) = self.menu.own.playing.as_mut() {
+                let cells = a.tick(ms);
+                self.menu.own.cells.extend(cells);
+            }
+        }
     }
 
     /// #556: an input the menu left, for the ballot – unless a page of the deck is open (its keys are its own); whether
@@ -268,6 +434,17 @@ impl App {
             self.menu.pair = deck_native::pairing::of(state.as_ref(), &deck_link::pairing::app_url());
         }
         self.start_frame(refresh);
+        self.own_frame();
+        // a check run's keys, from the moment the start menu shows
+        if self.menu.menu.top().is_some_and(Page::start) || self.menu.menu_key_at.is_some() {
+            let due = *self.menu.menu_key_at.get_or_insert(time + 0.4);
+            if time >= due && !self.menu.menu_keys.is_empty() {
+                self.menu.menu_key_at = Some(time + 0.4);
+                if let Some(i) = self.menu.menu_keys.pop_front() {
+                    self.menu_input(el, i);
+                }
+            }
+        }
         #[cfg(feature = "gamepad")]
         {
             // while the ballot shows, the d-pad and A are its own as they are the open menu's

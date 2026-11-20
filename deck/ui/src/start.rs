@@ -1,8 +1,8 @@
 //! The deck's start: an independent deck shows its start menu over the idle scene; a
 //! conductor's scene or its clock drives the deck and the menu gives way (a local MIDI clock does not); a restarted deck
 //! in a session rejoins it and takes its content from the relay's snapshot; a rejoining deck whose conductor is gone
-//! waits ("waiting for <show>") with Leave in reach. What Play lists: the sandbox toon's demos first, then the published
-//! scenes. Plain values in, the stand out – the adapter reads what it hears into [`Heard`] and the menu follows
+//! waits ("waiting for <show>") with Leave in reach. What Play lists: the sandbox toon's demos first (its scenes and its
+//! shows), then the published scenes; a show picked there plays on this deck as its own conductor ([`Showing`]). Plain values in, the stand out – the adapter reads what it hears into [`Heard`] and the menu follows
 //! ([`crate::menu::Menu::follow`]).
 
 /// the toon whose scenes are the demos (agents/SANDBOX.md)
@@ -91,34 +91,42 @@ pub fn waiting_line(show: &str) -> String {
     format!("waiting for {show}")
 }
 
-/// One published scene as a listing names it: its id (`scene:<id>`), its stage's name, its toons; a kept copy's version
-/// (it plays without asking; none: the published one).
+/// One published scene or show as a listing names it: its id (`scene:<id>`, `show:<id>`), its name, its toons; a kept
+/// copy's version (it plays without asking; none: the published one).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Listed {
     pub id: String,
     pub name: String,
     pub toons: Vec<String>,
     pub version: Option<u32>,
+    pub show: bool,
 }
 
-/// One row of Play: what the deck loads (`scene:<id>`), its words, whether it is a demo.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// One row of Play: what the deck loads (`scene:<id>`) or plays as its own conductor (`show:<id>`), its words, whether
+/// it is a demo.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Playable {
     pub value: String,
     pub label: String,
     pub demo: bool,
+    pub show: bool,
 }
 
-/// What Play lists: the sandbox toon's scenes (the demos) first, then the other published scenes, each by name; `listed`
-/// is the API's listing (empty offline), `kept` the published scenes this deck keeps (offline too). Each scene once.
+/// What Play lists: the sandbox toon's scenes and shows (the demos) first, then the other published scenes and shows,
+/// each by name; `listed` is the API's listing (empty offline), `kept` the published scenes this deck keeps (offline
+/// too). Each once.
 pub fn play_list(listed: &[Listed], kept: &[Listed]) -> Vec<Playable> {
     let mut seen = std::collections::HashSet::new();
-    let all: Vec<&Listed> = listed.iter().chain(kept).filter(|l| !l.id.is_empty() && seen.insert(l.id.clone())).collect();
+    let all: Vec<&Listed> = listed.iter().chain(kept).filter(|l| !l.id.is_empty() && seen.insert((l.show, l.id.clone()))).collect();
     let demo = |l: &Listed| l.toons.iter().any(|t| t == DEMO_TOON);
-    let row = |l: &Listed| Playable {
-        value: l.version.map_or_else(|| format!("scene:{}", l.id), |v| format!("scene:{}@{v}", l.id)),
-        label: if l.name.trim().is_empty() { l.id.clone() } else { l.name.clone() },
-        demo: demo(l),
+    let row = |l: &Listed| {
+        let kind = if l.show { "show" } else { "scene" };
+        Playable {
+            value: l.version.map_or_else(|| format!("{kind}:{}", l.id), |v| format!("{kind}:{}@{v}", l.id)),
+            label: if l.name.trim().is_empty() { l.id.clone() } else { l.name.clone() },
+            demo: demo(l),
+            show: l.show,
+        }
     };
     let mut out: Vec<Playable> = all.iter().filter(|l| demo(l)).map(|l| row(l)).collect();
     out.sort_by(|a, b| a.label.cmp(&b.label));
@@ -126,6 +134,43 @@ pub fn play_list(listed: &[Listed], kept: &[Listed]) -> Vec<Playable> {
     rest.sort_by(|a, b| a.label.cmp(&b.label));
     out.extend(rest);
     out
+}
+
+/// Play's count: `3 SCENES`, `3 SCENES · 4 SHOWS`
+pub fn play_count(play: &[Playable]) -> String {
+    let shows = play.iter().filter(|p| p.show).count();
+    match shows {
+        0 => format!("{} SCENES", play.len()),
+        n => format!("{} SCENES · {n} SHOWS", play.len() - n),
+    }
+}
+
+/// A show this deck plays on its own, as its own conductor: its name, the row playing (1-based; 0: none yet), how many
+/// rows it has.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Showing {
+    pub name: String,
+    pub row: usize,
+    pub rows: usize,
+}
+
+impl Showing {
+    /// the show page's line: `ROW 2 OF 3`, `NO ROW YET`
+    pub fn line(&self) -> String {
+        match self.row {
+            0 => "NO ROW YET".into(),
+            r => format!("ROW {r} OF {}", self.rows),
+        }
+    }
+
+    /// GO's value: the row it fires, or `THE END` after the last
+    pub fn next(&self) -> String {
+        if self.row >= self.rows {
+            "THE END".into()
+        } else {
+            format!("ROW {}", self.row + 1)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -181,7 +226,7 @@ mod tests {
 
     #[test]
     fn play_lists_the_demos_first_then_the_published_scenes() {
-        let l = |id: &str, name: &str, toon: &str| Listed { id: id.into(), name: name.into(), toons: vec![toon.into()], version: None };
+        let l = |id: &str, name: &str, toon: &str| Listed { id: id.into(), name: name.into(), toons: vec![toon.into()], ..Listed::default() };
         let listed = [l("nave", "Nave", "catpope"), l("sandy-dunes-sandgirl", "Sandgirl", DEMO_TOON), l("sandy-dunes", "Dunes", DEMO_TOON)];
         let kept = [Listed { version: Some(3), ..l("nave", "Nave", "catpope") }, Listed { version: Some(2), ..l("vigil", "", "catpope") }];
         let p = play_list(&listed, &kept);
@@ -191,6 +236,28 @@ mod tests {
             [("scene:sandy-dunes", "Dunes", true), ("scene:sandy-dunes-sandgirl", "Sandgirl", true), ("scene:nave", "Nave", false), ("scene:vigil@2", "vigil", false)]
         );
         assert!(play_list(&[], &[]).is_empty(), "offline with nothing kept: an empty list");
+        assert_eq!(play_count(&p), "4 SCENES");
         assert_eq!(play_list(&[], &kept)[0].value, "scene:nave@3", "offline: the kept copy plays without asking");
+    }
+
+    #[test]
+    fn play_lists_the_sandbox_shows_next_to_its_scenes_first() {
+        let l = |id: &str, toon: &str, show: bool| Listed { id: id.into(), name: id.into(), toons: vec![toon.into()], show, ..Listed::default() };
+        let listed = [l("nave", "catpope", false), l("demo-new-scene", DEMO_TOON, true), l("sandy-dunes", DEMO_TOON, false), l("choir", "catpope", true), l("demo-far-nodes", DEMO_TOON, true)];
+        let p = play_list(&listed, &[]);
+        let values: Vec<&str> = p.iter().map(|p| p.value.as_str()).collect();
+        assert_eq!(values, ["show:demo-far-nodes", "show:demo-new-scene", "scene:sandy-dunes", "show:choir", "scene:nave"]);
+        assert!(p[0].show && p[0].demo && !p[2].show && !p[3].demo);
+        assert_eq!(play_count(&p), "2 SCENES · 3 SHOWS");
+        // a show and a scene of the same id are two rows
+        assert_eq!(play_list(&[l("x", DEMO_TOON, true), l("x", DEMO_TOON, false)], &[]).len(), 2);
+    }
+
+    #[test]
+    fn a_show_s_lines() {
+        let s = Showing { name: "demo-new-scene".into(), row: 0, rows: 3 };
+        assert_eq!((s.line(), s.next()), ("NO ROW YET".into(), "ROW 1".into()));
+        let s = Showing { row: 3, ..s };
+        assert_eq!((s.line(), s.next()), ("ROW 3 OF 3".into(), "THE END".into()));
     }
 }
