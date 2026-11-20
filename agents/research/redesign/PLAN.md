@@ -1,4 +1,4 @@
-Status: analysis and design plan 2026-11-20 for epic #626, for the owner's answers (§9) – nothing decided beyond RULES H9 and law.md [editor-style]; the split (§8) becomes tickets after the answers.
+Status: plan 2026-11-20 for epic #626 – execution started (owner: "we can start planning this and executing"): phase 0 runs ticket by ticket (§8 "Now"); drafts round 2 (workspaces2.html, flow.html) are the current picture; §9 marks what the owner answered.
 
 # The creator overhaul – holistic analysis and design plan
 
@@ -178,6 +178,8 @@ catalog, sound), which is how the owner names them. Open (§9.1): whether to gro
 
 ## 8. Order of work and the split
 
+**Now (2026-11-20):** #655 tokens → #656 panels (one worker after the other, ORCHESTRATION) – neither waits on §9. #664 shell waits for #673 (§9 1, 2, 6). Posters (#674) start as soon as the owner names what the print needs.
+
 **Phase 0 – ground (needs nothing):**
 1. Tokens (#655): the deck's night / day tokens in `shared/tokens`.
 2. Panels (#656): OSCT's floats + FloatingPanel + panel tabs (universal tabs #318 as the target) into `shared/ui`; Section,
@@ -207,8 +209,8 @@ said so too. Posters must not wait for phase 2.
 1. **Asset kinds:** Characters, Catalog and Sound as three workspaces (as named) or one "Asset" workspace with kinds
    (the deck's grouping)?
 2. **Toons and Chapter:** one workspace (the toon board opens chapters as tabs) or two (as above)?
-3. **Generations:** a workspace for any subject, Wanted as its inbox, results into the Library – yes?
-4. **Library:** one asset manager for all media and entities, replacing every per-editor picker – yes?
-5. **Experiences:** copy OSCT's three.js frame now for the posters, the engine question later – yes?
+3. ✓ **Generations:** yes – "generate is like upload, done within and in context"; a blank asset is filled by upload, Library or generate, the last step is always a Library asset; nodes per asset type, manual (non-AI) nodes, 3D first (owner 2026-11-20, law.md [editor-style]).
+4. ✓ **Library:** yes – the way in is Home plus the Library (owner 2026-11-20); the CSV list export goes (decisions/creator.md).
+5. ✓ **Experiences:** yes – copy OSCT's surface model and frame; one three.js version, upgraded later (owner 2026-11-20, decisions/xr.md).
 6. **Universal tabs** (OSCT #318) from the start in `shared/ui`, or floating panels first and tabs second?
 7. **Rename** the storyboard's "workspace folder" (the member's local files) so "workspace" means one thing.
