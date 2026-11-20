@@ -110,6 +110,8 @@ pub struct NodeView {
     /// the wires drawn last, by link: the key a pin keeps (None: no value to pin) and the middle on screen
     pub(super) wire_keys: Vec<Option<String>>,
     pub(super) wire_mids: Vec<Option<(f32, f32)>>,
+    /// where the pinned values' tags were drawn last: the link and the tag's rect on screen
+    pub(super) pin_tags: Vec<(usize, Rect)>,
     /// the wires whose value stays shown, by key
     pub pinned: Vec<String>,
     /// the box being drawn
@@ -487,12 +489,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     for (k, r) in notes {
         host.hits.push((r, Hit::Nodes(NodeHit::NoteText(k))));
     }
+    let cards: Vec<Rect> = placed.iter().map(|p| cam.rect(p.rect)).collect();
+    let mut tags = Vec::new();
     for (i, w) in wires.iter().filter(|(i, _)| pinned(*i)) {
-        node_paint::value_label(d, t, &g.links[*i], w.at(0.5), true);
+        let l = &g.links[*i];
+        let size = node_paint::tag_size(d, t, l.value.as_deref().unwrap_or(""));
+        let r = graph::tag_spot(w, size, &cards, dir, t.size.pad * 0.5);
+        node_paint::pin_tag(d, t, l, r);
+        tags.push((*i, r));
     }
+    host.nodes.pin_tags = tags;
     if let Some(i) = n.hover.as_deref().and_then(|h| h.strip_prefix("wire:")).and_then(|i| i.parse::<usize>().ok()).filter(|&i| !pinned(i)) {
         if let Some(l) = g.links.get(i) {
-            node_paint::value_label(d, t, l, cursor, false);
+            node_paint::value_label(d, t, l, cursor);
         }
     }
     if let Some(b) = &n.boxing {
@@ -556,6 +565,27 @@ mod tests {
         assert!(d.prims().iter().any(|p| matches!(p, Prim::Poly { n: 3, color, .. } if *color == event)), "an event's triangle pin");
         let wire = d.prims().iter().filter(|p| matches!(p, Prim::Segment { color, .. } if color[..3] == event[..3])).count();
         assert!(wire >= deck_kit::base::wire::SAMPLES, "event wires drawn: {wire}");
+    }
+
+    #[test]
+    fn a_pinned_value_never_covers_a_node_left_to_right_or_top_to_bottom() {
+        let mut host = toy();
+        frame(&mut host);
+        host.nodes.pinned = host.nodes.wire_keys.iter().flatten().cloned().collect();
+        assert!(!host.nodes.pinned.is_empty(), "wires with values");
+        for dir in [Direction::Lr, Direction::Tb] {
+            host.press(Hit::NodeFlow(dir));
+            frame(&mut host);
+            assert_eq!(host.nodes.direction, dir);
+            assert_eq!(host.nodes.pin_tags.len(), host.nodes.pinned.len(), "{dir:?}: every pin drawn");
+            for (_, tag) in &host.nodes.pin_tags {
+                for id in host.nodes.drawn.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>() {
+                    let card = node_at(&host, &id);
+                    let over = tag.x < card.x + card.w && card.x < tag.x + tag.w && tag.y < card.y + card.h && card.y < tag.y + tag.h;
+                    assert!(!over, "{dir:?}: a pin on {id}: {tag:?} {card:?}");
+                }
+            }
+        }
     }
 
     #[test]
