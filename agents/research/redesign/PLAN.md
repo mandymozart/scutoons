@@ -206,8 +206,7 @@ said so too. Posters must not wait for phase 2.
 
 ## 9. Questions for the owner
 
-1. **Asset kinds:** Characters, Catalog and Sound as three workspaces (as named) or one "Asset" workspace with kinds
-   (the deck's grouping)?
+1. ✓ **Asset kinds:** no Asset workspace – the Library is one panel like OSCT's, loading items and reaching every type anywhere; each workspace pre-filters it to its context, widenable to all (owner 2026-11-20, law.md [editor-style]). A character, item or sound opens as a tab (Sheet, Slots, Links …) in whatever workspace it is opened from.
 2. **Toons and Chapter:** one workspace (the toon board opens chapters as tabs) or two (as above)?
 3. ✓ **Generations:** yes – "generate is like upload, done within and in context"; a blank asset is filled by upload, Library or generate, the last step is always a Library asset; nodes per asset type, manual (non-AI) nodes, 3D first (owner 2026-11-20, law.md [editor-style]).
 4. ✓ **Library:** yes – the way in is Home plus the Library (owner 2026-11-20); the CSV list export goes (decisions/creator.md).
