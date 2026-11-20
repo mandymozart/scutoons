@@ -178,7 +178,7 @@ catalog, sound), which is how the owner names them. Open (§9.1): whether to gro
 
 ## 8. Order of work and the split
 
-**Now (2026-11-20):** #655 tokens → #656 panels (one worker after the other, ORCHESTRATION) – neither waits on §9. #664 shell waits for #673 (§9 1, 2, 6). Posters (#674) start as soon as the owner names what the print needs.
+**Now (2026-11-20):** #655 tokens → #656 panels (one worker after the other, ORCHESTRATION) – neither waits on §9. #664 shell follows #656 – §9 1, 2, 6 answered, nothing waits on #673 any more. Posters (#674) start as soon as the owner names what the print needs.
 
 **Phase 0 – ground (needs nothing):**
 1. Tokens (#655): the deck's night / day tokens in `shared/tokens`.
@@ -207,9 +207,9 @@ said so too. Posters must not wait for phase 2.
 ## 9. Questions for the owner
 
 1. ✓ **Asset kinds:** no Asset workspace – the Library is one panel like OSCT's, loading items and reaching every type anywhere; each workspace pre-filters it to its context, widenable to all (owner 2026-11-20, law.md [editor-style]). A character, item or sound opens as a tab (Sheet, Slots, Links …) in whatever workspace it is opened from.
-2. **Toons and Chapter:** one workspace (the toon board opens chapters as tabs) or two (as above)?
+2. ✓ **Toons and Chapter:** one workspace – a Home screen like the deck editor's, the toon board opens chapters as tabs (owner 2026-11-20).
 3. ✓ **Generations:** yes – "generate is like upload, done within and in context"; a blank asset is filled by upload, Library or generate, the last step is always a Library asset; nodes per asset type, manual (non-AI) nodes, 3D first (owner 2026-11-20, law.md [editor-style]).
 4. ✓ **Library:** yes – the way in is Home plus the Library (owner 2026-11-20); the CSV list export goes (decisions/creator.md).
 5. ✓ **Experiences:** yes – copy OSCT's surface model and frame; one three.js version, upgraded later (owner 2026-11-20, decisions/xr.md).
-6. **Universal tabs** (OSCT #318) from the start in `shared/ui`, or floating panels first and tabs second?
+6. ✓ **Universal tabs** from the start in `shared/ui` (owner 2026-11-20) – part of #656.
 7. **Rename** the storyboard's "workspace folder" (the member's local files) so "workspace" means one thing.
