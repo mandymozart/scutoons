@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: the map place → chapter link (§0.5, draft ticket, waiting for the OK); a spot on a chapter group (§0.3, the owner leans to a spot within a location) and on a single slice (§0.4, where a place shows today); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), a story place stays relational (§0.3), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: the map place → chapter link (§0.5, draft ticket, waiting for the OK); the relation cleanup list (§0.6, waiting for the OK); the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -49,7 +49,7 @@ A toon's event is never global across toons; it is global within the session tha
 **Three questions for the owner** (replacing §8):
 
 1. ~~Events~~ **Decided: the story events and the choice questions join the address book as a kind `event`** (owner 2026-11-20: "choice questions seem to be the same concept. Lets do that.") → #707. No `all:` prefix, reach by where it is sent (§0.1). Shows mixing toons (Catpope + Yellow Mouse, soon) need several books at once → #708.
-2. **Spots on chapter groups and XR scenes: open, not decided** (§0.3). The owner leans toward a group naming a **spot within a location** (the cathedral's altar, its confessional), not a whole set; an XR scene's spot is a geo-anchor on the floor (§0.2).
+2. ~~Spots on chapter groups~~ **Decided: a story place stays relational, no place field on chapter groups or slices** (owner 2026-11-20, §0.3). An XR scene's geo-anchor stays its own topic (§0.2).
 
 ### 0.2 A spot inside an XR scene is a physical place (owner 2026-11-20)
 
@@ -83,7 +83,12 @@ What it needs, which today's XR plan does not have (XR.md "Not there"):
 - Between the game map and the real world sits a **mapping layer** (a concept, nothing built): it ties a game place to real anchors. **Only XR scenes use it for now.** An XR scene's geo-anchor is a real point; the mapping layer says which game place it stands for.
 - So three things stay apart: a story place (the webtoon, §0.4), a map place (the fictional map), a real anchor (XR, through the mapping layer).
 
-### 0.3 A spot on a chapter group (owner 2026-11-20, thought aloud, **not decided**)
+### 0.3 A spot on a chapter group – **decided: relational, no field** (owner 2026-11-20)
+
+> "Does a story place need a field at all, or stay relational: relational. since story board names locations. and webtoon driver events call scenes, and scenes specify locations. so purely relational is totally fine. and we should remove any other unused or previously conceptionalised placeholders. our initial creator has many places of relations that were intended but turned out useless to the overall logic"
+
+**Decided:** a story place is **relational**: the storyboard names the locations (per shot), the webtoon's driver events call deck scenes, and a deck scene names its location (set + spot). Chapter groups and slices get **no** place or spot field. §0.3 and §0.4 below are closed on that and kept as the record of how it was reached. The cleanup the owner asked for in the same answer: §0.6.
+
 
 > "Set on groups in dont know since a group could play out in a specific spot of a location ... so for example cathedral altar or cathedral confession both"
 
@@ -95,7 +100,7 @@ The owner's lean: a group names a **spot within a location** (`location:cathedra
 - The reference form: `location:cathedral.altar`, or a spot id of its own?
 - XR: the geo-anchor's engine and precision (§0.2).
 
-### 0.4 A place on a single slice, and where a place shows today (owner 2026-11-20, thought aloud, **not decided**)
+### 0.4 A place on a single slice, and where a place shows today – **closed: relational** (§0.3)
 
 > "But also a single slice can have that same location thingy. At the moment this is relational since only way to tell which group or slice is where is by goto links. And labels. Please investigate"
 
@@ -144,7 +149,7 @@ The world map sits between them: its places are story places drawn on a **fictio
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
-Draft tickets left (unfiled): feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
+Draft tickets left (unfiled): research "XR scenes: a geo-anchor through the game-map ↔ real-world mapping layer" (area:xr, M; the chapter-group half dropped, §0.3) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
 
 ### 0.5 The map place → chapter link (owner 2026-11-20)
 
@@ -158,6 +163,32 @@ A world-map place carries `chapter?: { toon, number }`: a toon and a number pair
 - **Old viewer builds:** `legacyToonMap` (`map.ts` ~1328) and `Library::legacyMapLists` (`Library.php` ~634) write it back as `chapterNumber` in the old `ToonBundle.locations` shape; `map.ts` ~1394 migrated the old shape in.
 
 **Draft ticket (not filed, waiting for the owner's OK):** chore · area:map · complexity:S · "World map: the place card's chapter link goes, or becomes an address". Owner quote above. What: drop `chapter: { toon, number }` from the map place (schema, creator field, validation, the card's link), or replace it with an address from the address book (`chapter:<n>`, later `chapter:<n>.<group>` with #706, any toon's), so the map speaks ids like everything else. The legacy `chapterNumber` output for old viewer builds goes with it. **Open:** remove the card's "Read chapter" link entirely, or keep it through an address? Do saved places need a migration (drop the field, or turn it into an address)? Docs: MAP.md, this §0.5. Refs #703.
+
+### 0.6 Relation placeholders nothing needs – the cleanup list (for the owner's OK, nothing removed)
+
+The owner (2026-11-20, §0.3): *"we should remove any other unused or previously conceptionalised placeholders. our initial creator has many places of relations that were intended but turned out useless to the overall logic"*. Read from the code (main @1d064d30; a code sweep, spot-checked). Saved-data counts are from the repo's fixtures and the last seed (`git show 04e0f968e^:shared/content/seed/…`), **not production** (no DB read). The deck reads none of these fields.
+
+| # | Field (where defined) | Written by | Still read by | Logic depends on it? | Saved data → migration |
+|---|---|---|---|---|---|
+| 1 | Slice `_type` / `_label` (content.ts:461–462; chapter / chapter-doc schemas) | nothing | nothing | no | 0 in fixtures and seed → none |
+| 2 | Platform event `toon?: string[]` "not shown yet" (content.ts:669; events schema) | no UI (the admin calendar keeps it as an unknown field) | nothing | no | the old seed had it on all 13 events → optional strip |
+| 3 | Persona `introduced: { toon, season, chapter }` (characters.ts:208–212) | creator character-persona.svelte | validation only | no | 1 in fixtures → optional strip |
+| 4 | Character `voiced_by` → person (characters.ts:347) | creator character-identity.svelte | validation only; credits do not use it | no | 0 → none |
+| 5 | Character `origin` / `residence` → map region (characters.ts:351–353) | creator character-identity.svelte | validation; `residenceOf`'s registry fallback (map.ts:1265) is passed only by a test; the reader uses the save game's residences | no | 0 → none |
+| 6 | Chapter `featuring` → characters (content.ts:551) | creator featuring field, meta panel, suggestions | **reader: none** (removed from the reader, "data kept", b4f16920b); server adds the ids to the `cast?chapter=` answer (Library.php:395–398), payload only | no | 1 + 4 in fixtures → optional strip; server query + tests change |
+| 7 | Chapter `related_items` → items, "the reader does not show it yet" (content.ts:556) | creator related-items field | server adds the items' icons to the chapter's offline files (ChapterFiles.php:191): extra downloads only | no | 0 → none. **Keep** Season `related_items` (the toon page reads it) |
+| 8 | Route `toons` (map.ts:247) | creator route-props.svelte | creator only: dims routes under the toon filter; legacy output | display only | 1 → optional strip |
+| 9 | Place `chapter: { toon, number }` (§0.5; map.ts:125) | creator place-props.svelte | **reader:** the place card's "Read chapter N" link (map-overlay.svelte:320); **creator:** the Flow's place boxes and its entry rule (a visible place makes its chapter an entry, flow.ts:923; published chapters are entries anyway); legacy output | the card link and the Flow's place boxes | 19 of 20 places in fixtures → **migration** (drop the field) |
+| 10 | The legacy map shape for old viewer builds: `MapLocation` / `MapRoute`, `ToonBundle.locations` / `.routes`, `Toon.map` (content.ts:196–212, 739, 862); server `legacyMapLists` / `withLegacyMap` (Library.php:309–321, 634–669+); TS `legacyToonMap(Settings)` (map.ts:1328–1356); a fallback reading the purged `locations:` / `routes:` docs (Library.php:313, dead since migration 2026-10-12) and their EntityKey kinds | the server, computed | **the current reader: nothing**; tests | no (for today's reader) | none stored → none. Open: is the "one release" window for old builds over? |
+
+**Checked and kept** (logic reads them): character `home` / `home_scene` (homes), `own_toon` (library, address book, deck editor), region `representative` (reader), season `trailer.chapter` (reader), jump target `toon`, item `toon` (permissions), item `product`, item `edition_id`, place `toons` (reader, address book), place `set` (deck scenes), season `related_items`.
+
+**Draft tickets (not filed; the owner approves the list first, a removal is not undone lightly):**
+- **A** · chore · area:content · S – "Remove relation fields nothing reads": rows 1–7 (schema, types, creator fields, validation; the server's `featuring` in the cast answer and `related_items` in the offline files with their tests). Saved data stays harmless; an optional strip migration for rows 2, 3, 6. Refs #703.
+- **B** · chore · area:map · S – "World map: the place → chapter link goes" (row 9, owner: "against our dogma"; and row 8, route `toons`, if the owner agrees it is display only). Removes the reader card's "Read chapter" link and the creator Flow's place boxes; a migration drops the field from saved places. Refs #703.
+- **C** · chore · area:platform · S – "Drop the legacy map output for old viewer builds" (row 10), once the owner confirms no old build needs it. Refs #703.
+
+**Open for the owner:** row 9 – the card link and the Flow's place boxes go with it (removal, as the dogma says), or is either missed? Row 8 – remove too? Row 10 – old viewer builds still in use? Rows 2, 3, 6 – strip saved data, or leave it?
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
