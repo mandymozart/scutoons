@@ -31,6 +31,8 @@ pub enum Field {
     Address(usize),
     /// takes the selected track or node away
     Remove,
+    /// the selected track armed or disarmed (it takes the hand, its monitoring on)
+    Arm,
     /// the rig's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
     BackgroundColour,
@@ -196,7 +198,16 @@ fn knobs(d: &mut DrawList, t: &Tokens, stage: &Stage, (area, y): (Rect, &mut f32
         let k = &stage.knobs[i];
         let v = stage.value(k);
         let f = crate::fraction(v, k.min, k.max, k.log);
-        let bar = controls::scrub(d, t, Rect { x: area.x, y: *y, w: area.w, h: t.size.row }, &k.label, &crate::number(v), f, hot == Some(Field::Knob(i)));
+        let r = Rect { x: area.x, y: *y, w: area.w, h: t.size.row };
+        // the live layer over it: the bar plays the live value, the mark and the first number are yours (what is saved)
+        let (text, hand) = match stage.live(k) {
+            Some(h) => (format!("{} · live {}", crate::number(h.hand), crate::number(h.live)), Some(crate::fraction(h.hand, k.min, k.max, k.log))),
+            None => (crate::number(v), None),
+        };
+        let bar = controls::scrub(d, t, r, &k.label, &text, f, hot == Some(Field::Knob(i)));
+        if let Some(h) = hand {
+            d.rect(r.x + (r.w - 2.0) * h.clamp(0.0, 1.0), r.y + 2.0, 2.0, r.h - 4.0, t.color.accent);
+        }
         out.push((bar, Field::Knob(i)));
         *y += t.size.row;
     }
@@ -242,6 +253,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
                 controls::row(d, t, area, &mut y, "gain", &crate::number(track.gain));
                 controls::row(d, t, area, &mut y, "pan", &crate::number(track.pan));
                 controls::row(d, t, area, &mut y, "mute", if track.mute { "on" } else { "off" });
+                let armed = stage.monitor.is_armed(id);
+                let a = controls::toggle(d, t, Rect { x: area.x, y: y + 2.0, w: d.advance(t.size.font) * 6.0, h: t.size.row - 4.0 }, "Arm", armed);
+                out.push((a, Field::Arm));
+                if armed {
+                    d.text(a.x + a.w + t.size.pad, y + 5.0, t.size.small, "takes your hand · monitored", t.color.muted);
+                }
+                y += t.size.row;
                 if let Some(why) = stage.silent.get(id) {
                     let small = t.size.small;
                     for line in deck_kit::editor::info::wrap(why, (area.w / d.advance(small)).max(8.0) as usize).into_iter().take(4) {

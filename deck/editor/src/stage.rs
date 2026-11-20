@@ -11,6 +11,7 @@ use deck_native::space::portrait::Portraits;
 use deck_native::space::Space;
 use deck_native::tempo::{self, Tempo};
 use deck_space::deck::Deck;
+use deck_space::edit_play::{self, LiveLayer, Monitor, Outlet};
 use deck_space::graph::{Graph, Kind, PortType};
 use deck_space::params;
 use deck_space::quality::Rung;
@@ -97,9 +98,14 @@ pub struct Stage {
     over: Option<deck_space::Background>,
     /// why a track is silent: its module is not loaded (published.rs), by track id
     pub silent: std::collections::BTreeMap<String, String>,
-    /// Play (#629): the item runs as a deck would – its clock follows its own source, what is addressed to it goes in;
-    /// Edit: the clock is the editor's own and nothing from outside goes in
+    /// Play: the item runs as a deck from the start; Edit: it is worked on, live (deck-space edit_play.rs)
     pub playing: bool,
+    /// what outside inputs set over the hand's values: shown on the knobs, never saved
+    pub layer: LiveLayer,
+    /// the mixer's solos and the armed track, for the session
+    pub monitor: Monitor,
+    /// Edit plays on the device's cue (not a live show's preview)
+    pub on_cue: bool,
     /// the source the item's clock names (its tempo node)
     clock_source: tempo::Source,
     /// the far world nodes' rings (deck-space far.rs), the MIDI world nodes' way in
@@ -206,7 +212,7 @@ pub fn bundle_scene(bundle: Bundle) -> Result<Scene> {
 impl Stage {
     /// `plays` on the stage at `volume`, the difference to the rig `base` (rigs.rs `base`)
     pub fn new(base: Bundle, plays: Bundle, volume: f32) -> Result<Stage> {
-        let mut stage = Stage::start(prepare(plays)?, volume, false, deck_engine::cue::MIX);
+        let mut stage = Stage::start(prepare(plays)?, volume, false, deck_engine::cue::MIX, false);
         stage.base = base;
         Ok(stage)
     }
@@ -291,7 +297,7 @@ impl Stage {
         self._audio = None;
         self.handles = None;
         self.prelisten = None;
-        let mut next = Stage::start(ready, self.volume, self.live, self.cue_mix);
+        let mut next = Stage::start(ready, self.volume, self.live, self.cue_mix, self.playing);
         next.base = self.base.clone();
         next.opened = std::mem::take(&mut self.opened);
         next.enter(self.path.clone());
@@ -304,16 +310,21 @@ impl Stage {
         for (path, value) in knobs {
             if let Some(k) = next.knobs.iter().find(|k| k.path == path) {
                 let (node, port, min, max) = (k.node, k.port_index, k.min, k.max);
-                next.set(node, port, value, min, max);
+                next.put(node, port, value, min, max);
             }
         }
         if let Some((tex, view, size)) = self.texture.take() {
             next.space.set_view(size.0 as f32, size.1 as f32);
             next.texture = Some((tex, view, size));
         }
-        let (dark, playing) = (self.dark, self.playing);
+        let dark = self.dark;
+        next.layer = std::mem::take(&mut self.layer);
+        next.monitor = std::mem::take(&mut self.monitor);
         *self = next;
-        self.follow(playing);
+        self.follow_clock();
+        let tracks: Vec<String> = self.bundle.rig.tracks.iter().map(|t| t.id.clone()).collect();
+        self.monitor.keep_only(&tracks.iter().map(String::as_str).collect::<Vec<_>>());
+        self.apply_monitor();
         // a rig changed during a panic stays silent until the resume
         if dark {
             self.panic();
@@ -349,16 +360,29 @@ impl Stage {
         Ok(())
     }
 
-    fn start(ready: Ready, volume: f32, live: bool, cue_mix: f32) -> Stage {
+    fn start(ready: Ready, volume: f32, live: bool, cue_mix: f32, playing: bool) -> Stage {
         let Ready { bundle, knobs: played_knobs, strips: played_strips, sum, scene, graph, tempo: tempo_cfg, space_node: node, ports, groups, reach } = ready;
         let tempo_cfg = if live { tempo_cfg.preview() } else { tempo_cfg };
         let mut handles = None;
         let mut cue = None;
         let mut audio_name = "off".to_string();
+        let mut on_cue = false;
         let audio = {
             let mut factory = |rate: f32, channels: usize| {
-                let (engine, h, c) = if live { preview(&graph, rate, volume, channels)? } else { own(&graph, rate, volume, channels)? };
-                tracing::info!("audio graph: {} ({} device channels{})", h.build.label(), engine.device_channels(), if live { ", a preview on the cue" } else { "" });
+                let (engine, h, c) = if live {
+                    preview(&graph, rate, volume, channels)?
+                } else {
+                    let (engine, h, c) = own(&graph, rate, volume, channels)?;
+                    if edit_play::outlet(playing, false, c.heard()) == Outlet::Cue {
+                        drop((engine, h, c));
+                        on_cue = true;
+                        preview(&graph, rate, volume, channels)?
+                    } else {
+                        (engine, h, c)
+                    }
+                };
+                let to = if live { ", a preview on the cue" } else if on_cue { ", Edit on the cue" } else { "" };
+                tracing::info!("audio graph: {} ({} device channels{to})", h.build.label(), engine.device_channels());
                 c.set_mix(cue_mix);
                 handles = Some(h);
                 cue = Some(c);
@@ -386,7 +410,7 @@ impl Stage {
         let clock_source = tempo_cfg.source;
         let mut tempo = Tempo::new(tempo_cfg, shared, rate);
         tempo.start();
-        if clock_source != tempo::Source::Internal {
+        if live && clock_source != tempo::Source::Internal {
             tempo.set_source(tempo::Source::Internal);
         }
         let cache = crate::cache_dir();
@@ -450,7 +474,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing: false, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
     }
 
     /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
@@ -532,11 +556,88 @@ impl Stage {
         Ok(())
     }
 
-    /// Play or Edit (#629): the clock follows the item's own source, or the editor's
+    /// Back to Edit (or Play): the clock stays the item's own; built again when Edit sounds elsewhere than Play (the cue)
     pub fn follow(&mut self, playing: bool) {
         self.playing = playing;
+        self.follow_clock();
+        let cue = self.cue_heard().unwrap_or(false);
+        let wants = !self.live && edit_play::outlet(playing, false, cue) == Outlet::Cue;
+        if wants != self.on_cue && !self.dark && self._audio.is_some() {
+            if let Err(e) = self.resume() {
+                tracing::warn!("edit / play: {e:#}");
+            }
+        }
+    }
+
+    /// in Edit and in Play the clock follows the item's own source (a live show holds it)
+    fn follow_clock(&mut self) {
         if self.clock_source != tempo::Source::Internal && !self.live {
-            self.tempo.set_source(if playing { self.clock_source } else { tempo::Source::Internal });
+            self.tempo.set_source(self.clock_source);
+        }
+    }
+
+    /// Play: the item built again from the start, as a deck would run it – states reset, the timeline at 0, on the deck's
+    /// outputs; the knobs as the hand left them. Nothing while a panic holds.
+    pub fn play_from_start(&mut self) -> Result<()> {
+        self.playing = true;
+        if self.dark {
+            return Ok(());
+        }
+        self.resume()?;
+        self.started = Instant::now();
+        Ok(())
+    }
+
+    /// The live layer dropped: each input it held back to the hand's value. False: it held nothing.
+    pub fn drop_layer(&mut self) -> bool {
+        let restore = edit_play::stop(&mut self.layer).restore;
+        let any = !restore.is_empty();
+        for (slot, v) in restore {
+            if let Some((node, port, min, max)) = self.slot(&slot) {
+                self.put(node, port, v, min, max);
+            }
+        }
+        any
+    }
+
+    /// the live layer over a knob: its hand's value and the live one
+    pub fn live(&self, k: &Knob) -> Option<&edit_play::Held> {
+        self.layer.held(&k.path)
+    }
+
+    /// what an input saves: the hand's value, never the live layer's
+    pub fn saved(&self, node: usize, name: &str) -> f32 {
+        let engine = self.controls.input(node, name, 0.0);
+        self.node_ids.get(node).map_or(engine, |id| self.layer.saved(&format!("{id}.{name}"), engine))
+    }
+
+    /// a track soloed or not any more (for the session); whether it is now
+    pub fn solo(&mut self, track: &str) -> bool {
+        let on = self.monitor.solo(track);
+        self.apply_monitor();
+        on
+    }
+
+    /// a track armed or disarmed: it takes the hand, its monitoring on; whether it is now
+    pub fn arm(&mut self, track: &str) -> bool {
+        let on = self.monitor.arm(track);
+        self.apply_monitor();
+        on
+    }
+
+    /// the strips as the monitor hears them: a strip not heard is silent, a heard one at its stored gain
+    fn apply_monitor(&mut self) {
+        let set: Vec<(usize, usize, f32)> = self
+            .strips
+            .iter()
+            .filter(|s| !s.owned)
+            .map(|s| {
+                let stored = self.bundle.rig.tracks.iter().find(|t| t.id == s.track).map_or(1.0, |t| t.gain);
+                (s.node, s.port, if self.monitor.heard(&s.track) { stored } else { 0.0 })
+            })
+            .collect();
+        for (node, port, gain) in set {
+            self.controls.set_base(node, port, gain);
         }
     }
 
@@ -561,15 +662,25 @@ impl Stage {
         fed
     }
 
-    /// a control input named by its compiled slot (`drone_osc.freq`) to `value` inside its range; false: no such input
+    /// A value from outside on a control input named by its compiled slot (`drone_osc.freq`), inside its range: it goes
+    /// into the live layer over the hand's value. False: no such input.
     pub fn set_slot(&mut self, slot: &str, value: f32) -> bool {
-        let (id, port) = node_port(slot);
-        let Some(node) = self.node_ids.iter().position(|n| n == id) else { return false };
-        let Some(&kind) = self.kinds.get(node) else { return false };
-        let Some(index) = kind.input(port) else { return false };
-        let spec = params::spec(kind, kind.inputs()[index].name);
-        self.set(node, index, value, spec.min, spec.max);
+        let Some((node, port, min, max)) = self.slot(slot) else { return false };
+        let value = value.clamp(min.min(max), max.max(min));
+        let now = self.controls.input_at(node, port).unwrap_or(value);
+        self.layer.outside(slot, now, value);
+        self.put(node, port, value, min, max);
         true
+    }
+
+    /// a compiled slot's node, input and range
+    fn slot(&self, slot: &str) -> Option<(usize, usize, f32, f32)> {
+        let (id, port) = node_port(slot);
+        let node = self.node_ids.iter().position(|n| n == id)?;
+        let kind = *self.kinds.get(node)?;
+        let index = kind.input(port)?;
+        let spec = params::spec(kind, kind.inputs()[index].name);
+        Some((node, index, spec.min, spec.max))
     }
 
     /// every rig knob's value as the engine has it, by its path
@@ -581,7 +692,7 @@ impl Stage {
     pub fn set_knob_values(&mut self, values: &[(String, f32)]) {
         for (path, v) in values {
             if let Some((node, port, min, max)) = self.knobs.iter().find(|k| k.path == *path).map(|k| (k.node, k.port_index, k.min, k.max)) {
-                self.set(node, port, *v, min, max);
+                self.put(node, port, *v, min, max);
             }
         }
     }
@@ -677,8 +788,19 @@ impl Stage {
         self.controls.input(k.node, &k.port, k.min)
     }
 
-    /// a knob's input `port` of `node` to `value` inside its range (a drag, the wheel)
+    /// The hand: a knob's input `port` of `node` to `value` inside its range (a drag, the wheel, typed); it takes the input
+    /// back from the live layer.
     pub fn set(&mut self, node: usize, port: usize, value: f32, min: f32, max: f32) {
+        if let (Some(id), Some(kind)) = (self.node_ids.get(node), self.kinds.get(node)) {
+            if let Some(p) = kind.inputs().get(port) {
+                self.layer.hand(&format!("{id}.{}", p.name));
+            }
+        }
+        self.put(node, port, value, min, max);
+    }
+
+    /// an input to `value` inside its range, whoever's it is
+    fn put(&mut self, node: usize, port: usize, value: f32, min: f32, max: f32) {
         self.controls.set_base(node, port, value.clamp(min.min(max), max.max(min)));
     }
 

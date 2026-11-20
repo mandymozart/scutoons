@@ -1,9 +1,9 @@
-//! Edit and Play on a Scene or Asset tab (decisions/deck.md [workspaces], #629). In Edit the item is worked on: the
-//! ports show, its clock is the editor's own, and what is addressed to it from outside only lights the ports it would
-//! reach. Play runs it as a deck would: its clock follows its own source, what is addressed to it goes in (far events to
-//! its far world nodes, a value to the input it names, a MIDI message to its MIDI world nodes) and its events fire. Play
-//! starts from what Edit left, and Stop goes back to it: changes made while playing are dropped, as in Unreal, and none
-//! of them is saved. Whether an address reaches the item is the core's (deck-space holders.rs `Reach::reached`).
+//! Edit and Play on a Scene or Asset tab (decisions/deck.md [deck-editor]; the rules are deck-space edit_play.rs). Edit is
+//! always live: the item's clock is its own and what is addressed to it goes in (far events to its far world nodes, a value
+//! to the input it names – into the live layer, never saved –, a MIDI message to its MIDI world nodes); the ports it
+//! reaches light. Play runs it as a deck from the start; Stop goes back to what Edit left: changes made while playing are
+//! dropped and none of them is saved. Stop and leaving Edit drop the live layer. Whether an address reaches the item is
+//! the core's (deck-space holders.rs `Reach::reached`).
 use crate::scene::SceneView;
 use deck_space::holders::{Reach, Reached};
 use deck_space::rig::address::{Address, Place};
@@ -83,16 +83,16 @@ pub enum Go {
     Midi,
 }
 
-/// An input routed: the ports it lights (graph node ids, or the item's port addresses `track:node.port`), and in Play
-/// what it does; none in Edit, and none for an input that is another's (it lights nothing either).
+/// An input routed: the ports it lights (graph node ids, or the item's port addresses `track:node.port`) and what it does;
+/// none for an input that is another's (it lights nothing either).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Routed {
     pub lit: Vec<String>,
     pub go: Option<Go>,
 }
 
-/// Where `input` goes for the item at `own` with this reach, in Play or in Edit.
-pub fn route(input: &Input, own: Option<&Place>, reach: &Reach, playing: bool) -> Routed {
+/// Where `input` goes for the item at `own` with this reach, in Edit as in Play.
+pub fn route(input: &Input, own: Option<&Place>, reach: &Reach) -> Routed {
     let (lit, go) = match input {
         Input::Midi(_) => (vec!["midi".to_string()], Go::Midi),
         _ => {
@@ -109,7 +109,7 @@ pub fn route(input: &Input, own: Option<&Place>, reach: &Reach, playing: bool) -
             }
         }
     };
-    Routed { lit, go: playing.then_some(go) }
+    Routed { lit, go: Some(go) }
 }
 
 /// one input that reached the item: what it lit, its words, when
@@ -201,27 +201,37 @@ impl crate::App {
         }
         if on {
             self.leave_view();
+            self.stage.drop_layer();
             let scene = self.scene.as_ref().map(|v| v.edit.doc.clone());
             self.play.left = Some(Left { bundle: self.stage.bundle.clone(), undo: self.undo.len(), knobs: self.stage.knob_values(), scene });
             self.wire = false;
-            self.stage.follow(true);
+            if let Err(e) = self.stage.play_from_start() {
+                let (x, y) = self.cursor;
+                self.refuse(format!("{e:#}"), x, y);
+            }
             let (now, own) = self.stage.clock();
             let clock = if own == "internal" { String::new() } else { format!(", its clock from {now}") };
-            self.note(format!("Play: it runs as a deck would{clock}; what you change now is dropped on Stop"));
+            self.note(format!("Play: it runs as a deck from the start{clock}; what you change now is dropped on Stop"));
         } else {
             self.stop_play();
         }
     }
 
-    /// Stop: back to what Edit left; nothing of Play was saved
+    /// Stop, or Edit left: the live layer dropped; from Play back to what Edit left (nothing of Play was saved)
     pub(crate) fn stop_play(&mut self) {
         if self.workspace == crate::show::Workspace::Media {
             return self.media_play(false);
         }
-        let Some(left) = self.play.left.take() else { return };
+        let layer = self.stage.drop_layer();
+        let Some(left) = self.play.left.take() else {
+            if layer {
+                self.note("Edit: the live values are dropped, the knobs back to yours".into());
+            }
+            return;
+        };
         let touched = std::mem::take(&mut self.play.touched);
         self.wire = true;
-        self.stage.follow(false);
+        self.stage.playing = false;
         let (x, y) = self.cursor;
         let mut dropped = touched;
         let inside = self.scene.as_ref().is_some_and(|v| v.inside.is_some());
@@ -245,6 +255,7 @@ impl crate::App {
             dropped = true;
             self.stage.set_knob_values(&left.knobs);
         }
+        self.stage.follow(false);
         self.note(if dropped { "Stop: back to Edit, what Play changed is dropped".to_string() } else { "Stop: back to Edit".to_string() });
     }
 
@@ -259,14 +270,14 @@ impl crate::App {
         }
     }
 
-    /// An input from outside: to the front item when it plays, else only onto its ports. Only a Scene or Asset tab on
-    /// the stage takes one.
+    /// An input from outside: into the front item, in Edit as in Play (a value into the live layer), its ports lit. Only
+    /// a Scene or Asset tab on the stage takes one.
     pub(crate) fn input(&mut self, input: Input) {
         if self.workspace != crate::show::Workspace::Stage {
             return;
         }
         let (own, reach) = self.reach_now();
-        let r = route(&input, own.as_ref(), &reach, self.playing());
+        let r = route(&input, own.as_ref(), &reach);
         if r.lit.is_empty() {
             return;
         }
@@ -286,18 +297,20 @@ impl crate::App {
         };
         let words = input.words();
         let to = input.address().unwrap_or("this deck").to_string();
-        let said = match (self.playing(), went) {
-            (true, true) => format!("Play: {to} {words} went in"),
-            (true, false) => format!("Play: {to} {words} reached it, nothing listens to it"),
-            (false, _) => format!("Edit: {to} {words} lit its port, Play takes it"),
+        let playing = self.playing();
+        let mode = if playing { "Play" } else { "Edit" };
+        let said = match (went, &input) {
+            (true, Input::Value { .. }) => format!("{mode}: {to} {words} went in, live (never saved)"),
+            (true, _) => format!("{mode}: {to} {words} went in"),
+            (false, _) => format!("{mode}: {to} {words} reached it, nothing listens to it"),
         };
         crate::log::post(deck_ui::messages::Level::Info, "input", said);
-        self.play.touched |= went;
+        self.play.touched |= went && playing;
         self.play.arrive(r.lit, words);
     }
 
     /// a check run's inputs (`--input`) at the frame `--input-at` names, its Play (`--play`) taken properly at the
-    /// start and its Stop (`--stop-at`); its press on Home's New (`--home-new`)
+    /// start and its Stop (`--stop-at`); its solos and arm (`--solo`, `--arm`); its press on Home's New (`--home-new`)
     pub(crate) fn script_play(&mut self) {
         if self.frames == 8 && !self.wire && !self.playing() {
             self.wire = true;
@@ -308,6 +321,15 @@ impl crate::App {
                 match Input::parse(&s) {
                     Ok(i) => self.input(i),
                     Err(e) => tracing::error!("--input {e}"),
+                }
+            }
+        }
+        if self.frames == 12 {
+            for (arm, track) in self.args.monitor.clone() {
+                if arm {
+                    self.stage.arm(&track);
+                } else {
+                    self.stage.solo(&track);
                 }
             }
         }
@@ -353,20 +375,16 @@ mod tests {
     }
 
     #[test]
-    fn an_input_addressed_to_the_item_reaches_play_but_only_lights_its_port_in_edit() {
+    fn an_input_addressed_to_the_item_goes_in_and_lights_its_port() {
         let (own, reach) = catpope();
         let value = Input::parse("/scene:nave/character:catpope/drone:osc.freq=220").unwrap();
-        let play = route(&value, Some(&own), &reach, true);
-        assert_eq!(play.go, Some(Go::Slot("drone_osc.freq".into())), "Play: it goes in");
-        let edit = route(&value, Some(&own), &reach, false);
-        assert_eq!((edit.go, edit.lit), (None, vec!["drone:osc.freq".to_string()]), "Edit: only its port lights");
+        let r = route(&value, Some(&own), &reach);
+        assert_eq!((r.go, r.lit), (Some(Go::Slot("drone_osc.freq".into())), vec!["drone:osc.freq".to_string()]), "it goes in, its port lights");
         let far = Input::parse("/deck:pc/scene:demo/character:bells/analog:seq.notes>music.note:pitch=60;vel=0.8").unwrap();
-        assert_eq!(route(&far, Some(&own), &reach, true), Routed { lit: vec!["drone_far".into()], go: Some(Go::Far) }, "a far node's address");
-        assert_eq!(route(&far, Some(&own), &reach, false).go, None);
+        assert_eq!(route(&far, Some(&own), &reach), Routed { lit: vec!["drone_far".into()], go: Some(Go::Far) }, "a far node's address");
         let other = Input::parse("/scene:nave/character:bells/drone:osc.freq=220").unwrap();
-        assert_eq!(route(&other, Some(&own), &reach, true), Routed { lit: vec![], go: None }, "another's: nothing");
-        assert_eq!(route(&Input::parse("midi:90,3c,64").unwrap(), Some(&own), &reach, true).go, Some(Go::Midi));
-        assert_eq!(route(&Input::parse("midi:90,3c,64").unwrap(), Some(&own), &reach, false).go, None);
+        assert_eq!(route(&other, Some(&own), &reach), Routed { lit: vec![], go: None }, "another's: nothing");
+        assert_eq!(route(&Input::parse("midi:90,3c,64").unwrap(), Some(&own), &reach).go, Some(Go::Midi));
         assert!(Input::parse("midi:90,3c").is_err() && Input::parse("nothing").is_err());
         assert_eq!(far.words(), "music.note pitch=60 vel=0.8");
     }

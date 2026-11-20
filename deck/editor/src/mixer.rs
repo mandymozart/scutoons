@@ -2,7 +2,7 @@
 //! perhapse last clip value. copy a bit like abletons channel strip", "when entering a node, the mixer should show the internal
 //! gains down there. so it is relativ."): the level of the tree it shows, a tab per level, so a parent's levels stay in
 //! reach. A strip: its level on the core's meter scale beside a fader on the same scale with the 0 dB mark, the highest
-//! peak until you click it; a track's has pan and mute. Folds to its head. The scale, the zones and the slots are the core's.
+//! peak until you click it; a track's has pan, mute and solo (the session's, deck-space edit_play.rs). Folds to its head. The scale, the zones and the slots are the core's.
 use crate::stage::Stage;
 use deck_core::meters;
 use deck_kit::editor::controls::{self, Rect};
@@ -41,6 +41,7 @@ pub enum Part {
     Tab(usize),
     Fader(Target, Rect),
     Mute(usize),
+    Solo(usize),
     Pan(usize),
     /// a highest-peak readout: a strip's, or the output's
     Peak(Option<Target>),
@@ -121,8 +122,8 @@ struct Row {
     value: f32,
     /// no hand on the fader: a policy owns it, or a cable feeds it
     fixed: bool,
-    /// a track's: its pan and whether it is muted
-    track: Option<(f32, bool)>,
+    /// a track's: its pan, whether it is muted, whether it is soloed
+    track: Option<(f32, bool, bool)>,
 }
 
 /// what the band draws at this level
@@ -149,7 +150,7 @@ fn rows(stage: &Stage, v: &View) -> Vec<Row> {
                 let target = Target::Track(i);
                 let stored = track.map_or(1.0, |x| x.gain);
                 let pan = v.panning.filter(|(j, _)| *j == i).map(|(_, p)| p).or(track.map(|x| x.pan)).unwrap_or(0.0);
-                Row { target, name: s.track.clone(), peak: s.peak, max: s.max, value: if hot == Some(target) { stage.strip_gain(s) } else { stored }, fixed: s.owned, track: Some((pan, track.is_some_and(|x| x.mute))) }
+                Row { target, name: s.track.clone(), peak: s.peak, max: s.max, value: if hot == Some(target) { stage.strip_gain(s) } else { stored }, fixed: s.owned, track: Some((pan, track.is_some_and(|x| x.mute), stage.monitor.soloed(&s.track))) }
             })
             .collect();
     }
@@ -189,7 +190,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -
         d.text(x, y0, small, &name, t.color.text);
         d.rect(x, area.y + area.h - 3.0 * u, strip - 10.0 * u, 3.0 * u, t.color.strips[n % t.color.strips.len()]);
         let pan_y = y0 + small + 4.0 * u;
-        if let (Some((pan, _)), Target::Track(i)) = (row.track, row.target) {
+        if let (Some((pan, ..)), Target::Track(i)) = (row.track, row.target) {
             let p = Rect { x, y: pan_y, w: strip - 10.0 * u, h: 7.0 * u };
             d.round_rect(p.x, p.y, p.w, p.h, 3.0 * u, t.color.control);
             d.round_rect(p.x + p.w * 0.5 + pan * (p.w * 0.5 - 2.0 * u) - 1.5, p.y, 3.0 * u, p.h, 1.5, t.color.text);
@@ -215,9 +216,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -
         if !row.fixed {
             out.push((gain_text, Part::GainText(row.target)));
         }
-        if let (Some((_, muted)), Target::Track(i)) = (row.track, row.target) {
-            let m = controls::toggle(d, t, Rect { x: col, y: y + inner - 16.0 * u, w, h: 16.0 * u }, "M", muted);
+        if let (Some((_, muted, soloed)), Target::Track(i)) = (row.track, row.target) {
+            let half = (w - 2.0 * u) * 0.5;
+            let m = controls::toggle(d, t, Rect { x: col, y: y + inner - 16.0 * u, w: half, h: 16.0 * u }, "M", muted);
             out.push((m, Part::Mute(i)));
+            let s = controls::toggle(d, t, Rect { x: col + half + 2.0 * u, y: y + inner - 16.0 * u, w: half, h: 16.0 * u }, "S", soloed);
+            out.push((s, Part::Solo(i)));
         }
         // last: the controls above take their own clicks
         out.push((column, Part::Select(row.target)));

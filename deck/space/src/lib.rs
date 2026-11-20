@@ -10,6 +10,7 @@ pub mod controls;
 pub mod deck;
 pub mod device_preset;
 pub mod devices;
+pub mod edit_play;
 pub mod far;
 pub mod fetched;
 pub mod gamepad;
