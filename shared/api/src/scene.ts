@@ -76,6 +76,8 @@ export type Holder = {
 	max?: number | null;
 	/** the modules on its member's slots (deck-catalog `slot`: an item's `motion`, on top of its spot) */
 	module?: Attach[];
+	/** the rig preset (`rig-preset:<id>`) its rig plays on; `values` set single knobs over it */
+	preset?: string | null;
 	/** fillers for the editor and the browser (a spawn zone may preview several) */
 	preview?: Fillers | null;
 	/** an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both */

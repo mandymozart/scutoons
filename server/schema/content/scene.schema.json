@@ -275,6 +275,13 @@
           },
           "type": "array"
         },
+        "preset": {
+          "description": "the rig preset (`rig-preset:<id>`) its rig plays on; `values` set single knobs over it",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "preview": {
           "anyOf": [
             {

@@ -1,6 +1,7 @@
 //! Instruments, presets and character rigs (#191, research/INSTRUMENTS.md): the data a being's sound is made of.
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
+//! - rig_preset.rs – a named set of every knob of one rig, saved on purpose, factory ones derived (`origin`)
 //! - assign.rs – the assignment (#283): which characters have a default rig, a draft rig's bundle from the catalog
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
@@ -37,6 +38,7 @@ pub mod horizon;
 pub mod instrument;
 pub mod policy;
 pub mod preset;
+pub mod rig_preset;
 pub mod template;
 pub mod validate;
 pub mod wiring;
@@ -47,6 +49,7 @@ pub use policy::Policy;
 pub use horizon::Prebuilt;
 pub use instrument::{Expose, Instrument, InstrumentKind, Patch};
 pub use preset::{Mapping, Preset, PresetBook, Resolved};
+pub use rig_preset::RigPreset;
 
 use crate::problem::Problems;
 use crate::world::{Source, World};

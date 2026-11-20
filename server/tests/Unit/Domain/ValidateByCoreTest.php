@@ -279,6 +279,22 @@ final class ValidateByCoreTest extends TestCase
         self::assertSame(['presets' => [['version' => $version, 'document' => $preset]]], self::json($listed));
     }
 
+    /** #677: a rig preset saves as a draft without the core, publishes through it and lands in its table with its rig */
+    public function testARigPresetPublishesThroughTheCore(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $preset = ['id' => 'character.catpope.soft', 'rig' => 'character.catpope', 'name' => 'Soft', 'origin' => 'character.catpope.warm', 'values' => ['voice:voice.index' => 4.0]];
+        self::assertSame(200, $this->request('PUT', '/api/entities/rig-preset:character.catpope.soft', $writer, ['content' => $preset])->getStatusCode());
+        self::assertSame([], $this->core->requests, 'a draft is saved without the core');
+
+        $published = $this->request('POST', '/api/entities/rig-preset:character.catpope.soft/publish', $writer, (object) []);
+        self::assertSame(200, $published->getStatusCode(), (string) $published->getBody());
+        $sent = $this->core->requests[count($this->core->requests) - 1]['request'];
+        self::assertSame(['rig-presets', 'character.catpope.soft'], [$sent['kind'], $sent['id']], 'the document goes to the core');
+        self::assertNotNull($this->row('rig-presets', 'character.catpope.soft'));
+        self::assertSame('character.catpope', $this->db->value("SELECT rig FROM catalog_rig_presets WHERE id = 'character.catpope.soft'"));
+    }
+
     public function testNotSetUpIsA503AndADraftStillSaves(): void
     {
         $this->withService = false;

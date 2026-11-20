@@ -36,6 +36,65 @@ pub enum Field {
     /// the rig's stage background: a click on its value types it, on its swatch opens the colour picker
     Background,
     BackgroundColour,
+    /// one of the rig's presets: loaded into its working state
+    PresetLoad(usize),
+    /// the working state saved as a new preset (a name is typed)
+    PresetSaveAs,
+    /// the loaded preset saved: your own overwritten, a factory one derived
+    PresetSave,
+}
+
+/// The rig's preset line: its presets' names, the one loaded, whether the knobs left it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PresetLine {
+    /// a rig on its own is open (not a scene, not a member inside one)
+    pub shown: bool,
+    pub names: Vec<String>,
+    pub loaded: Option<usize>,
+    pub dirty: bool,
+    /// the loaded one is a factory preset: Save derives
+    pub factory: bool,
+}
+
+impl PresetLine {
+    /// the row's value: the loaded preset with a dot once a knob moved, or the working state
+    pub fn value(&self) -> String {
+        match self.loaded.and_then(|i| self.names.get(i)) {
+            Some(n) => format!("{n}{}", if self.dirty { " •" } else { "" }),
+            None => "none · the working state".into(),
+        }
+    }
+
+    /// the buttons: Save as preset always, Save once a loaded one is dirty
+    pub fn buttons(&self) -> Vec<(&'static str, Field)> {
+        let mut out = vec![("Save as preset", Field::PresetSaveAs)];
+        if self.loaded.is_some() && self.dirty {
+            out.push((if self.factory { "Save (derives)" } else { "Save" }, Field::PresetSave));
+        }
+        out
+    }
+}
+
+/// the PRESET section: the loaded one, the presets to load (as many as fit a row), the buttons
+fn presets(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, line: &PresetLine, out: &mut Vec<(Rect, Field)>) {
+    *y += controls::section(d, t, area.x, *y, area.w, "PRESET", false);
+    controls::row(d, t, area, y, "preset", &line.value());
+    let h = t.size.row - 4.0;
+    if !line.names.is_empty() {
+        let fit: Vec<&str> = line.names.iter().map(String::as_str).take(6).collect();
+        for (i, r) in controls::pills(d, t, area.x, *y + 2.0, h, &fit, line.loaded.unwrap_or(usize::MAX)).into_iter().enumerate() {
+            if r.x + r.w <= area.x + area.w {
+                out.push((r, Field::PresetLoad(i)));
+            }
+        }
+        *y += t.size.row;
+    }
+    let buttons = line.buttons();
+    let names: Vec<&str> = buttons.iter().map(|b| b.0).collect();
+    for (r, (_, f)) in controls::pills(d, t, area.x, *y + 2.0, h, &names, usize::MAX).into_iter().zip(buttons) {
+        out.push((r, f));
+    }
+    *y += t.size.row;
 }
 
 /// Which page of a node's sections the inspector shows: an area (its tab) and a page of it. One button per area, the
@@ -224,7 +283,7 @@ fn port_line(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, p: &Port) {
 }
 
 /// draw it inside `area`; where its fields landed
-pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, paging: Paging, hot: Option<Field>) -> Vec<(Rect, Field)> {
+pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &PresetLine), sel: &Sel, paging: Paging, hot: Option<Field>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let mut y = area.y;
     let row = t.size.row;
@@ -242,6 +301,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, sel: &Sel, 
             // the first rect that has the pointer takes the press: the swatch before its row
             out.push((swatch, Field::BackgroundColour));
             out.push((at, Field::Background));
+            if line.shown && !stage.knobs.is_empty() {
+                presets(d, t, area, &mut y, line, &mut out);
+            }
             knobs(d, t, stage, (area, &mut y), None, hot, &mut out);
         }
         Sel::Track(id) => {
@@ -349,5 +411,18 @@ mod tests {
         assert!(at.has(swatch.x + 1.0, swatch.y + 1.0) && swatch.w < at.w, "the swatch sits in its row");
         assert!((at.h - t.size.tree_row).abs() < 1e-3, "the row is what a click types into");
         assert!(y > at.y + at.h, "its note under it");
+    }
+
+    #[test]
+    fn the_preset_line_says_what_is_loaded_and_offers_save_once_dirty() {
+        let mut l = PresetLine { names: vec!["soft".into(), "dirty".into()], ..Default::default() };
+        assert_eq!((l.value().as_str(), l.buttons().len()), ("none · the working state", 1));
+        l.loaded = Some(1);
+        assert_eq!((l.value().as_str(), l.buttons().len()), ("dirty", 1), "clean: nothing to save");
+        l.dirty = true;
+        assert_eq!(l.value(), "dirty •");
+        assert_eq!(l.buttons()[1], ("Save", Field::PresetSave));
+        l.factory = true;
+        assert_eq!(l.buttons()[1].0, "Save (derives)");
     }
 }

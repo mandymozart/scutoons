@@ -98,7 +98,17 @@ impl SceneEdit {
                 let version = holder.and_then(|h| h.rig.as_ref()?.version.clone());
                 let bundle = subject.as_deref().and_then(|s| rigs(s, version.as_deref()));
                 let persona = f.and_then(|f| f.persona);
-                let knobs = bundle.as_ref().and_then(|b| b.play(persona.as_deref(), None).ok()).map(|p| p.knobs).unwrap_or_default();
+                let mut knobs = bundle.as_ref().and_then(|b| b.play(persona.as_deref(), None).ok()).map(|p| p.knobs).unwrap_or_default();
+                // on a rig preset, its values are the member's own: the scene's values are single knobs over it
+                if let (Some(b), Some(id)) = (bundle.as_ref(), holder.and_then(|h| h.preset.as_ref())) {
+                    if let Some(p) = b.rig_presets.iter().find(|p| &p.id == id) {
+                        for k in &mut knobs {
+                            if let Some(v) = value_key(&b.rig, &k.path).and_then(|a| p.values.get(&a)) {
+                                k.value = *v;
+                            }
+                        }
+                    }
+                }
                 Member { holder: m.holder.clone(), filler: m.filler.clone(), place: m.place.clone(), spot: m.spot.clone(), subject, bundle, knobs, prefix: m.slots.clone() }
             })
             .collect();
@@ -213,6 +223,42 @@ impl SceneEdit {
             holder.values.insert(key, HolderValue::Number(value));
         }
         Ok(())
+    }
+
+    /// the rig preset member `m` plays on, if any
+    pub fn preset(&self, m: usize) -> Option<&str> {
+        let id = &self.members.get(m)?.holder;
+        self.doc.holders.iter().find(|h| &h.id == id)?.preset.as_deref()
+    }
+
+    /// the rig presets member `m`'s rig has (factory first, then by name)
+    pub fn presets(&self, m: usize) -> Vec<&crate::rig::RigPreset> {
+        let Some(b) = self.members.get(m).and_then(|m| m.bundle.as_ref()) else { return Vec::new() };
+        crate::rig::rig_preset::of_rig(&b.rig_presets, &b.rig.subject)
+    }
+
+    /// Member `m` plays its rig on `preset` (none: on the rig's own values); a single value equal to the preset's leaves the
+    /// document. The members are the caller's to refresh. Err: no such preset of its rig.
+    pub fn set_preset(&mut self, m: usize, preset: Option<&str>) -> Result<String, String> {
+        let member = self.members.get(m).ok_or("no such member")?;
+        let who = format!("{} ({})", member.holder, member.filler);
+        let values = match preset {
+            Some(id) => Some(self.presets(m).into_iter().find(|p| p.id == id).ok_or_else(|| format!("{who}: its rig has no preset {id}"))?.values.clone()),
+            None => None,
+        };
+        let holder = member.holder.clone();
+        self.change(|d| {
+            let h = d.holders.iter_mut().find(|h| h.id == holder).ok_or_else(|| format!("{who}: no holder"))?;
+            h.preset = preset.map(String::from);
+            if let Some(values) = &values {
+                h.values.retain(|k, v| !matches!((v, values.get(k)), (HolderValue::Number(x), Some(p)) if (*x - p).abs() <= f32::EPSILON * p.abs().max(1.0)));
+            }
+            Ok(())
+        })?;
+        Ok(match preset {
+            Some(id) => format!("{who} plays its rig on the preset {id}; the scene's values are single knobs over it"),
+            None => format!("{who} plays its rig's own values"),
+        })
     }
 
     /// Holder `holder` stands `at` metres from its spot (a member moved on the stage); none, or no offset, = on its spot.
@@ -354,6 +400,61 @@ mod tests {
         edit.set(0, &k.path, v).unwrap();
         edit.clear(0, &k.path);
         assert!(!edit.changed());
+    }
+
+    /// a member on a rig preset: the preset's values play, the scene's are single knobs over it; the old form (values
+    /// only) reads as before
+    #[test]
+    fn a_member_plays_its_rig_on_a_preset_with_single_overrides() {
+        use crate::rig::RigPreset;
+        let rigs = |s: &str, v: Option<&str>| {
+            let mut b = core_rigs(s, v)?;
+            if s == "character.catpope" {
+                let mut p = RigPreset::capture(&b, "soft", &[]).unwrap();
+                for x in p.values.values_mut() {
+                    *x *= 0.5;
+                }
+                b.rig_presets.push(p);
+            }
+            Some(b)
+        };
+        let (mut edit, _) = SceneEdit::open(duet(), Some(7), &rigs, &no_sets).unwrap();
+        let own = edit.members[0].knobs.iter().find(|k| k.value != 0.0).cloned().expect("a knob not at 0");
+        assert_eq!(edit.presets(0).iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), ["character.catpope.soft"]);
+        edit.set_preset(0, Some("character.catpope.soft")).unwrap();
+        edit.refresh(&rigs, &no_sets).unwrap();
+        assert_eq!(edit.preset(0), Some("character.catpope.soft"));
+        let k = edit.members[0].knobs.iter().find(|k| k.path == own.path).unwrap().clone();
+        assert!((k.value - own.value * 0.5).abs() < 1e-4, "the member's own value is the preset's");
+        assert!(edit.doc.holders[0].values.is_empty(), "no override yet");
+        let over = k.min + (k.max - k.min) * 0.9;
+        edit.set(0, &k.path, over).unwrap();
+        assert_eq!(edit.doc.holders[0].values.len(), 1, "one single override");
+        let (node, port) = k.path.split_once('.').unwrap();
+        let played = |e: &SceneEdit, path: &str| {
+            let (node, port) = path.split_once('.').unwrap();
+            let scene = e.resolved(&rigs, &no_sets).unwrap().scene;
+            scene.nodes.iter().find(|n| n.id == format!("catpope_{node}")).and_then(|n| n.params.get(port)?.as_float()).map(|x| x as f32)
+        };
+        assert_eq!(played(&edit, &k.path), Some(over), "the override wins over the preset");
+        let other = edit.members[0].knobs.iter().find(|x| x.path != k.path && x.value != 0.0).cloned();
+        if let Some(o) = other {
+            assert!((played(&edit, &o.path).unwrap() - o.value).abs() < 1e-4, "{node}.{port}: the others play the preset");
+        }
+        edit.set(0, &k.path, k.value).unwrap();
+        assert!(edit.doc.holders[0].values.is_empty(), "the preset's own value leaves the document");
+        let back = SceneDocument::parse_json(&edit.doc.to_json().unwrap()).unwrap();
+        assert_eq!(back.holders[0].preset.as_deref(), Some("character.catpope.soft"), "the preset survives the document's JSON");
+        assert!(edit.set_preset(0, Some("nothing")).unwrap_err().contains("no preset nothing"));
+        edit.set_preset(0, None).unwrap();
+        assert_eq!(edit.preset(0), None);
+        let mut missing = duet();
+        missing.holders[0].preset = Some("character.catpope.gone".into());
+        let r = SceneEdit::open(missing, None, &core_rigs, &no_sets).unwrap().1;
+        assert!(r.notes.iter().any(|n| n.contains("no rig preset character.catpope.gone")), "{:?}", r.notes);
+        missing = duet();
+        missing.holders[0].preset = Some("Bad Id".into());
+        assert!(missing.check().iter().any(|p| p.contains("'Bad Id' is no rig preset's id")));
     }
 
     #[test]

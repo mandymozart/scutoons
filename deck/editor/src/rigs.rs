@@ -9,7 +9,7 @@ use crate::autosave::{self, Autosave, Outbox};
 use crate::show::api::{Api, Refusal};
 use crate::{toon, wires};
 use deck_kit::editor::typeahead::Item;
-use deck_space::rig::{assign, Bundle, Rig};
+use deck_space::rig::{assign, rig_preset, Bundle, Rig, RigPreset};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -38,7 +38,9 @@ pub struct Catalog {
     pub instruments: Vec<Value>,
     pub presets: Vec<Value>,
     pub modules: Vec<Value>,
-    /// `instrument:<id>`, `preset:<id>` → its newest version: the base a save of a changed one names
+    /// the rig presets that read (deck-space rig_preset.rs)
+    pub rig_presets: Vec<RigPreset>,
+    /// `instrument:<id>`, `preset:<id>`, `rig-preset:<id>` → its newest version: the base a save of a changed one names
     pub versions: BTreeMap<String, u64>,
 }
 
@@ -69,8 +71,42 @@ impl Catalog {
         Ok(c)
     }
 
+    /// the rig presets of `/catalog/docs/rig-presets` added (one that does not read is left out)
+    pub fn with_rig_presets(mut self, text: &str) -> Result<Catalog, String> {
+        for e in entries(text)? {
+            if let (Some(id), Some(v)) = (e["id"].as_str(), e["latest"].as_u64()) {
+                self.versions.insert(format!("rig-preset:{id}"), v);
+            }
+            if let Ok(p) = serde_json::from_value::<RigPreset>(e["content"].clone()) {
+                self.rig_presets.push(p);
+            }
+        }
+        Ok(self)
+    }
+
+    /// the catalog; no rig presets where the server has none yet (before its migration)
     pub fn fetch(api: &Api) -> Result<Catalog, String> {
-        Catalog::parse(&api.catalog("rigs")?, &api.catalog("instruments")?, &api.catalog("presets")?, &api.catalog("modules")?)
+        let c = Catalog::parse(&api.catalog("rigs")?, &api.catalog("instruments")?, &api.catalog("presets")?, &api.catalog("modules")?)?;
+        Ok(match api.catalog("rig-presets") {
+            Ok(text) => c.clone().with_rig_presets(&text).unwrap_or(c),
+            Err(_) => c,
+        })
+    }
+
+    /// the rig presets of `subject`: the factory ones first, then by name
+    pub fn presets_of(&self, subject: &str) -> Vec<RigPreset> {
+        rig_preset::of_rig(&self.rig_presets, subject).into_iter().cloned().collect()
+    }
+
+    /// a preset saved as `version`: the catalog has it now
+    pub fn put_preset(&mut self, p: RigPreset, version: Option<u64>) {
+        if let Some(v) = version {
+            self.versions.insert(format!("rig-preset:{}", p.id), v);
+        }
+        match self.rig_presets.iter_mut().find(|q| q.id == p.id) {
+            Some(q) => *q = p,
+            None => self.rig_presets.push(p),
+        }
     }
 
     pub fn rig(&self, subject: &str) -> Option<&Entry> {
@@ -80,7 +116,9 @@ impl Catalog {
     /// the rig's document with what it names from the catalog, as the core bundles it
     pub fn bundle(&self, content: Value) -> Result<Bundle, String> {
         let rig: Rig = serde_json::from_value(content).map_err(|e| format!("the rig does not read: {e}"))?;
-        assign::catalog_bundle(rig, &self.instruments, &self.presets, &self.modules).map_err(|e| format!("{e:#}"))
+        let mut b = assign::catalog_bundle(rig, &self.instruments, &self.presets, &self.modules).map_err(|e| format!("{e:#}"))?;
+        b.rig_presets = self.presets_of(&b.rig.subject);
+        Ok(b)
     }
 }
 
@@ -306,6 +344,11 @@ pub struct Rigs {
     /// what the picker shows now, by its ids
     pub choices: Vec<Choice>,
     pub outbox: Outbox,
+    /// the rig preset loaded or saved last on the open rig, as saved: the knobs differ from it = dirty
+    pub preset: Option<RigPreset>,
+    /// presets saved without a catalog (none came): this session's
+    kept: Vec<RigPreset>,
+    preset_job: Option<Receiver<(RigPreset, Result<u64, Refusal>)>>,
 }
 
 impl Rigs {
@@ -318,14 +361,73 @@ impl Rigs {
 
     /// no asking at all (a check run): nothing saves itself
     pub fn offline(cache: &Path, subject: &str, version: Option<u64>, why: &str) -> Rigs {
-        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new(), outbox: Outbox::none() }
+        Rigs { api: String::new(), cache: cache.to_path_buf(), subject: subject.to_string(), auto: Autosave::new(version), listing: Listing::Failed(why.to_string()), asked_signed: false, told: true, opening: None, local: None, choices: Vec::new(), outbox: Outbox::none(), preset: None, kept: Vec::new(), preset_job: None }
+    }
+
+    /// a rig's presets: the catalog's (factory first, then by name), else this session's
+    pub fn presets(&self, subject: &str) -> Vec<RigPreset> {
+        match &self.listing {
+            Listing::Ready(c) => c.presets_of(subject),
+            _ => rig_preset::of_rig(&self.kept, subject).into_iter().cloned().collect(),
+        }
+    }
+
+    /// every rig preset the editor knows (a scene's members find theirs among them)
+    pub fn all_presets(&self) -> Vec<RigPreset> {
+        match &self.listing {
+            Listing::Ready(c) => c.rig_presets.clone(),
+            _ => self.kept.clone(),
+        }
+    }
+
+    /// every preset id there is (a new one takes none of them)
+    pub fn preset_ids(&self) -> Vec<String> {
+        match &self.listing {
+            Listing::Ready(c) => c.rig_presets.iter().map(|p| p.id.clone()).collect(),
+            _ => self.kept.iter().map(|p| p.id.clone()).collect(),
+        }
+    }
+
+    fn put_preset(&mut self, p: RigPreset, version: Option<u64>) {
+        match &mut self.listing {
+            Listing::Ready(c) => c.put_preset(p, version),
+            _ => match self.kept.iter_mut().find(|q| q.id == p.id) {
+                Some(q) => *q = p,
+                None => self.kept.push(p),
+            },
+        }
+    }
+
+    /// `p` saved as a draft of `rig-preset:<id>` on the version the catalog has, on a thread (its answer comes through
+    /// `poll`); a check run keeps it for the session. It is the loaded one from now on.
+    pub fn save_preset(&mut self, p: RigPreset) -> Option<String> {
+        self.preset = Some(p.clone());
+        if !self.saves() {
+            self.put_preset(p.clone(), None);
+            return Some(format!("preset {} kept for this session – a check run saves nothing", p.name));
+        }
+        if self.preset_job.is_some() {
+            return Some("a preset is on its way – try again in a moment".into());
+        }
+        let key = format!("rig-preset:{}", p.id);
+        let base = match &self.listing {
+            Listing::Ready(c) => c.versions.get(&key).copied(),
+            _ => None,
+        };
+        let (api, content) = (self.api.clone(), serde_json::to_value(&p).unwrap_or_default());
+        let (tx, rx) = channel();
+        std::thread::spawn(move || {
+            let _ = tx.send((p, Api::new(api).save_draft(&key, &content, base, MESSAGE)));
+        });
+        self.preset_job = Some(rx);
+        None
     }
 
     /// A check run's catalog from `dir`: `rigs.json`, `instruments.json`, `presets.json`, `modules.json`, each the API's
     /// answer to `/catalog/docs/<kind>` (a missing one = none of that kind).
     pub fn read_catalog(&mut self, dir: &Path) -> Result<(), String> {
         let read = |kind: &str| std::fs::read_to_string(dir.join(format!("{kind}.json"))).unwrap_or_else(|_| r#"{ "entries": [] }"#.to_string());
-        self.listing = Listing::Ready(Catalog::parse(&read("rigs"), &read("instruments"), &read("presets"), &read("modules"))?);
+        self.listing = Listing::Ready(Catalog::parse(&read("rigs"), &read("instruments"), &read("presets"), &read("modules"))?.with_rig_presets(&read("rig-presets"))?);
         Ok(())
     }
 
@@ -396,7 +498,7 @@ impl Rigs {
                     let (plays, local) = with_copy(&self.outbox, &subject, &server, at);
                     let back = local.is_none() && plays != server;
                     let empty = at.is_none() && plays.rig.tracks.is_empty();
-                    (self.subject, self.local) = (subject.clone(), local.clone());
+                    (self.subject, self.local, self.preset) = (subject.clone(), local.clone(), None);
                     self.auto.open(at);
                     if local.is_none() && back {
                         self.auto.edit(std::time::Instant::now());
@@ -411,6 +513,17 @@ impl Rigs {
                     out.push(Event::Say(words, false));
                 }
                 Err(why) => out.push(Event::Say(why, true)),
+            }
+        }
+        if let Some(Ok((p, answer))) = self.preset_job.as_ref().map(Receiver::try_recv) {
+            self.preset_job = None;
+            match answer {
+                Ok(v) => {
+                    let link = creator_link(&self.api, &format!("rig-preset:{}", p.id));
+                    out.push(Event::Say(format!("preset {} saved as draft v{v} – publish it in the creator: {link}", p.name), false));
+                    self.put_preset(p, Some(v));
+                }
+                Err(e) => out.push(Event::Say(format!("preset {}: {e}", p.name), true)),
             }
         }
         if let Some(((versions, sent), answer)) = self.auto.poll() {
@@ -593,6 +706,49 @@ mod tests {
         let draft = crate::show::api::Draft { content: serde_json::json!({ "subject": "character.boy", "track": [] }), version: Some(1) };
         assert_eq!(read(c, "character.boy", Some(draft)).expect("its draft").2, Some(1), "a saved draft opens, not the empty rig");
         assert!(base(&std::env::temp_dir().join("deck-editor-no-base"), "character.boy").expect("no error").0.rig.tracks.is_empty(), "no core rig: empty");
+    }
+
+    /// the panel model: the catalog's rig presets reach the rig's bundle; a check run keeps a saved one for the session,
+    /// a signed-in editor sends it as a draft on the version the catalog has
+    #[test]
+    fn rig_presets_come_with_the_catalog_and_save_as_drafts() {
+        let listed = r#"{ "entries": [
+            { "id": "character.catpope.soft", "latest": 4, "content": { "id": "character.catpope.soft", "rig": "character.catpope", "name": "soft" } },
+            { "id": "character.catpope.warm", "latest": 2, "content": { "id": "character.catpope.warm", "rig": "character.catpope", "name": "warm", "factory": true } },
+            { "id": "broken", "latest": 1, "content": { "id": "broken", "colour": 1 } } ] }"#;
+        let c = Catalog::parse(RIGS, DOCS, DOCS, r#"{ "entries": [] }"#).unwrap().with_rig_presets(listed).unwrap();
+        assert_eq!(c.presets_of("character.catpope").iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["warm", "soft"], "factory first; one that does not read is left out");
+        assert_eq!(c.versions.get("rig-preset:character.catpope.soft"), Some(&4));
+        assert_eq!(c.bundle(serde_json::json!({ "subject": "character.catpope", "track": [] })).unwrap().rig_presets.len(), 2, "the rig's bundle carries them");
+
+        let mut r = offline();
+        let p = RigPreset::of_values("character.catpope", "Dark", [("v:osc.freq".to_string(), 110.0)].into(), &[]);
+        assert!(r.save_preset(p.clone()).unwrap().contains("kept for this session"));
+        assert_eq!((r.presets("character.catpope"), r.preset.as_ref()), (vec![p.clone()], Some(&p)));
+
+        let fake = crate::autosave::tests::Fake::start(&[200]);
+        let mut r = ready();
+        r.api = fake.base.clone();
+        if let Listing::Ready(c) = &mut r.listing {
+            *c = c.clone().with_rig_presets(listed).unwrap();
+        }
+        let mut soft = r.presets("character.catpope")[1].clone();
+        soft.values.insert("v:osc.freq".into(), 220.0);
+        assert_eq!(r.save_preset(soft.clone()), None, "on its way");
+        let mut waiting = crate::autosave::tests::waiting();
+        let said = loop {
+            let events = r.poll(false);
+            if let Some(Event::Say(s, false)) = events.into_iter().next() {
+                break s;
+            }
+            assert!(waiting(), "no answer");
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+        assert!(said.starts_with("preset soft saved as draft v") && said.contains("/edit/rig-preset:character.catpope.soft"), "{said}");
+        let puts = fake.puts.lock().unwrap();
+        assert!(puts[0].0.ends_with("/entities/rig-preset:character.catpope.soft"), "{}", puts[0].0);
+        assert_eq!(puts[0].1["base"], 4, "on the catalog's version");
+        assert_eq!(r.presets("character.catpope")[1].values.get("v:osc.freq"), Some(&220.0), "the catalog has it now");
     }
 
     #[test]

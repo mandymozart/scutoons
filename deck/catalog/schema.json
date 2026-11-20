@@ -95,6 +95,13 @@
         },
         "rig": {
           "$ref": "#/$defs/Rig"
+        },
+        "rig_preset": {
+          "description": "the rig's presets (`rig-preset:<id>` documents): what a scene's holder may play it on",
+          "items": {
+            "$ref": "#/$defs/RigPreset"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -1068,6 +1075,47 @@
       "required": [
         "subject",
         "track"
+      ],
+      "type": "object"
+    },
+    "RigPreset": {
+      "additionalProperties": false,
+      "properties": {
+        "factory": {
+          "description": "read-only: saving it makes a derived preset",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "`[a-z0-9][a-z0-9_.-]{0,63}`; a saved one's is `<rig subject>.<slug of its name>`",
+          "type": "string"
+        },
+        "name": {
+          "description": "what a person reads (\"soft\")",
+          "type": "string"
+        },
+        "origin": {
+          "description": "the preset this one was derived from",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rig": {
+          "description": "the rig it is for: its subject (`character.catpope`)",
+          "type": "string"
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "float",
+            "type": "number"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "rig",
+        "name"
       ],
       "type": "object"
     },

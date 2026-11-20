@@ -41,6 +41,7 @@ mod routing;
 mod stage;
 mod tokens;
 mod ui;
+mod rig_presets;
 mod rigs;
 mod saving;
 mod scene;
@@ -211,13 +212,15 @@ struct Args {
     dop: Option<String>,
     /// a check run's scene document (JSON) opened in Build
     scene_file: Option<PathBuf>,
+    /// a check run's rig preset steps (rig_presets.rs `script_presets`)
+    rig_preset: Option<String>,
     /// a check run's node view: its direction, a zoom once it is framed
     nodes: Option<deck_kit::base::graph::Direction>,
     node_zoom: Option<f32>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -349,6 +352,7 @@ fn args() -> Result<Args> {
             "--node-zoom" => a.node_zoom = Some(val()?.parse()?),
             "--dop" => a.dop = Some(val()?),
             "--scene-file" => a.scene_file = Some(PathBuf::from(val()?)),
+            "--rig-preset" => a.rig_preset = Some(val()?),
             "--log" => a.log = true,
             "--log-info" => {}
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
@@ -435,7 +439,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -534,6 +538,14 @@ enum Hit {
     Background,
     /// a background's swatch: the colour picker
     BackgroundColour,
+    /// the rig's presets (rig_presets.rs): load one, save the working state as one, save the loaded one
+    PresetLoad(usize),
+    PresetSaveAs,
+    PresetSave,
+    /// Play: what it changed becomes the working state (not dropped on Stop)
+    Keep,
+    /// a scene member's rig preset (its index in the member's presets; `usize::MAX` = none)
+    ScenePreset(usize),
     /// the Audio panel's settings, map and tones
     Routing(routing::Field),
     /// #568: Build linked to a show cell – its knobs into the cell, back to Show
@@ -611,6 +623,8 @@ enum Editing {
     Gain(mixer::Target),
     Background,
     SceneBackground,
+    /// a new rig preset's name
+    PresetName,
     Focal,
     Height,
     /// a layer's picture
@@ -1379,6 +1393,11 @@ impl App {
             Hit::Add => Help::new("Add", "Inside a track: a node, a far world node with its holder from the address book. At the rig: a track playing an instrument of the catalog. Ctrl+z takes it back."),
             Hit::BackgroundColour => Help::new("Colour", "Choose the background's colour: the palette, your recent colours, saturation and brightness over the hue, or the eyedropper – a click takes the colour under the pointer on the stage, Esc cancels."),
             Hit::Background => Help::new("Background", "The stage's background while this rig plays: a colour (#rrggbb) or a media path (an image laid over the stage). Empty = its modules', else black; a scene or a show over it wins."),
+            Hit::PresetLoad(_) => Help::new("Load preset", "Puts every knob where this preset has it: the rig's working state, which saves itself as the rig's draft. A dot says a knob moved since. Ctrl+z takes it back."),
+            Hit::PresetSaveAs => Help::new("Save as preset", "Saves every knob of the rig as a new preset of yours, under the name you type. A draft – publish it in the creator."),
+            Hit::PresetSave => Help::new("Save preset", "Saves the knobs into the loaded preset. A factory preset is never changed: this makes a preset of yours that names it as its origin."),
+            Hit::Keep => Help::new("Keep", "What you changed while playing becomes the working state: Stop keeps it and it saves itself. Values from outside are not kept."),
+            Hit::ScenePreset(_) => Help::new("Rig preset", "The member plays its rig on this preset; the scene's values are single knobs over it. None = the rig's own values."),
             Hit::Remove => Help::new("Remove", "Takes the selected node or track away, its cables with it (delete does the same). Ctrl+z takes it back."),
             Hit::Mute(i) => Help::new(format!("Mute {}", self.stage.strips.get(i)?.track), "Takes the track out of the sound."),
             Hit::Solo(i) => Help::new(format!("Solo {}", self.stage.strips.get(i)?.track), "Only the soloed tracks are heard (and an armed one). For this session; not saved with the rig."),
@@ -1851,6 +1870,14 @@ impl App {
                 self.begin_edit(Editing::Background, Hit::Background, now);
             }
             Hit::BackgroundColour => self.colour_open(colour::Target::Rig),
+            Hit::PresetLoad(i) => self.preset_load(i),
+            Hit::PresetSaveAs => {
+                let name = format!("preset {}", self.rigs.presets(&self.stage.bundle.rig.subject).len() + 1);
+                self.begin_edit(Editing::PresetName, Hit::PresetSaveAs, name);
+            }
+            Hit::PresetSave => self.preset_save(),
+            Hit::Keep => self.keep_play(),
+            Hit::ScenePreset(i) => self.scene_preset(i),
             Hit::ToCell => self.knobs_to_cell(),
             Hit::BackToShow => self.go_show(),
             Hit::SceneKnob(i) => {
@@ -1968,6 +1995,7 @@ impl App {
             }
             Editing::Background => self.rig_background(&text),
             Editing::SceneBackground => self.scene_background(&text),
+            Editing::PresetName => self.preset_save_as(&text),
             Editing::Focal => self.dop_focal(&text),
             Editing::Height => self.dop_height(&text),
             Editing::SceneLayer(l) => self.scene_layer(l, &text),
@@ -2544,6 +2572,7 @@ impl App {
             self.knobs_to_cell();
         }
         self.script_scene();
+        self.script_presets();
         self.script_dop();
         self.script_slots();
         self.script_media();
@@ -2780,6 +2809,7 @@ impl App {
             self.panic_pill();
         }
         let help = self.help_now();
+        let preset_line = self.preset_line();
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
         let band = (self.workspace == show::Workspace::Show).then(|| self.show.band_cursor(self.cursor.0, self.cursor.1)).flatten();
@@ -2939,7 +2969,9 @@ impl App {
         let shows = matches!(self.workspace, show::Workspace::Show);
         // a Scene or Asset tab's Edit · Play; a Show tab's Go live, or End and Lock
         let (live_words, live_on, live_presses) = live_tabs::switch(self.show.live(), self.show.locked);
-        let modes: &[&str] = if edits { &["Edit", "Play"] } else { live_words };
+        // Play on the stage: Keep takes what it changed into the working state
+        let keeps = build && playing;
+        let modes: &[&str] = if keeps { &["Edit", "Play", "Keep"] } else if edits { &["Edit", "Play"] } else { live_words };
         let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
@@ -2974,7 +3006,7 @@ impl App {
             self.panel.hits.push((r, Hit::Meters));
         }
         self.panel.hits.push((placed.home, Hit::Home));
-        let mode_hits: Vec<Hit> = if edits { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
+        let mode_hits: Vec<Hit> = if keeps { vec![Hit::Mode(true), Hit::Mode(false), Hit::Keep] } else if edits { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
         for (r, h) in placed.modes.iter().zip(mode_hits) {
             self.panel.hits.push((*r, h));
         }
@@ -3379,6 +3411,7 @@ impl App {
                                 scene::Field::Knob(i) => Hit::SceneKnob(i),
                                 scene::Field::Clear(i) => Hit::SceneClear(i),
                                 scene::Field::Into => Hit::SceneInto,
+                                scene::Field::Preset(i) => Hit::ScenePreset(i),
                                 f => Hit::SceneField(f),
                             };
                             self.panel.hits.push((r, hit));
@@ -3390,7 +3423,8 @@ impl App {
                             self.panel.hits.push((r, Hit::Way(way)));
                         }
                     } else {
-                        for (r, field) in inspector::draw(ui, t, area, &self.stage, &self.sel, self.paging, hot) {
+                        let line = &preset_line;
+                        for (r, field) in inspector::draw(ui, t, area, (&self.stage, line), &self.sel, self.paging, hot) {
                             let hit = match field {
                                 inspector::Field::Knob(i) => Hit::Knob(i),
                                 inspector::Field::Param(n, p) => Hit::Param(n, p),
@@ -3400,6 +3434,9 @@ impl App {
                                 inspector::Field::Arm => Hit::Arm,
                                 inspector::Field::Background => Hit::Background,
                                 inspector::Field::BackgroundColour => Hit::BackgroundColour,
+                                inspector::Field::PresetLoad(i) => Hit::PresetLoad(i),
+                                inspector::Field::PresetSaveAs => Hit::PresetSaveAs,
+                                inspector::Field::PresetSave => Hit::PresetSave,
                             };
                             self.panel.hits.push((r, hit));
                         }

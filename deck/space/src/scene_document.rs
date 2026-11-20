@@ -228,6 +228,9 @@ pub struct Holder {
     /// the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rig: Option<RigPin>,
+    /// the rig preset (`rig-preset:<id>`) its rig plays on; `values` set single knobs over it
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
     /// values and preset choices only (SCENE-PACKAGE §2), by address: `"voice:voice.index": 4.0`,
     /// `"voice:@preset": "cathedral_voice.bright"`
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -790,6 +793,9 @@ impl SceneDocument {
                 if rig.subject().is_none() {
                     out.push(format!("{who}: the rig '{}' is no `rig:<subject>` (rig:character.catpope)", rig.rig));
                 }
+            }
+            if let Some(p) = h.preset.as_deref().filter(|p| !crate::device_preset::valid_id(p)) {
+                out.push(format!("{who}: '{p}' is no rig preset's id"));
             }
             for (path, value) in &h.values {
                 let ok = match (Address::leaf(path), value) {

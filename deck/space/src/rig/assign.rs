@@ -165,7 +165,7 @@ pub fn catalog_bundle(rig: Rig, instruments: &[Value], presets: &[Value], module
             chosen.entry(p.id.clone()).or_insert_with(|| p.clone());
         }
     }
-    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect(), modules })
+    Ok(Bundle { rig, instruments: picked, presets: chosen.into_values().collect(), modules, rig_presets: Vec::new() })
 }
 
 /// A code rig's policy module from the catalog's module documents: the descriptor the compile service stored in it. The
@@ -227,7 +227,7 @@ pub fn audition(subject: &str, descriptor: &Descriptor) -> Result<Bundle> {
     let instrument = module_instrument(&descriptor.name, descriptor)?;
     let track = super::Track { id: "module".into(), instrument: instrument.id.clone(), preset: None, gain: 1.0, pan: 0.0, mute: false };
     let rig = Rig { subject: subject.to_string(), tracks: vec![track], routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
-    Ok(Bundle { rig, instruments: vec![instrument], presets: Vec::new(), modules: vec![descriptor.clone()] })
+    Ok(Bundle { rig, instruments: vec![instrument], presets: Vec::new(), modules: vec![descriptor.clone()], rig_presets: Vec::new() })
 }
 
 /// `{ module: { id, descriptor, … } }` (a catalog `module:<id>` document, the descriptor the compile service wrote into

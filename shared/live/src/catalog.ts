@@ -31,6 +31,8 @@ export type Bundle = {
 	module?: Descriptor[];
 	preset?: Preset[];
 	rig: Rig;
+	/** the rig's presets (`rig-preset:<id>` documents): what a scene's holder may play it on */
+	rig_preset?: RigPreset[];
 };
 
 /** The catalog as a document: `kinds.json`. The API merges the published modules' descriptors into `kinds`. */
@@ -283,6 +285,20 @@ export type Rig = {
 	/** whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects */
 	subject: string;
 	track: Track[];
+};
+
+export type RigPreset = {
+	/** read-only: saving it makes a derived preset */
+	factory?: boolean;
+	/** `[a-z0-9][a-z0-9_.-]{0,63}`; a saved one's is `<rig subject>.<slug of its name>` */
+	id: string;
+	/** what a person reads ("soft") */
+	name: string;
+	/** the preset this one was derived from */
+	origin?: string | null;
+	/** the rig it is for: its subject (`character.catpope`) */
+	rig: string;
+	values?: { [key: string]: number };
 };
 
 /** What a holder may do (owner 2026-10-30: "the definition says who may save, copy or change it"). */

@@ -16,7 +16,8 @@
 //!   refused) with its scene's published document in `scenes` and the toon's book in `book` – `Use::problems`: the scene
 //!   and every filler in the book, each filler against its placeholder's `fill`, the scene resolved with them. The
 //!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors);
-//! - a device preset (kind `device-presets`): `DevicePreset` (unknown fields refused, id = the request's), its `problems`.
+//! - a device preset (kind `device-presets`): `DevicePreset` (unknown fields refused, id = the request's), its `problems`;
+//! - a rig preset (kind `rig-presets`): `RigPreset` (unknown fields refused, id = the request's), its `problems`.
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -96,7 +97,8 @@ impl Request {
             "scenes" => "scene",
             "uses" => "use of scene",
             "device-presets" => "device preset",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets)")),
+            "rig-presets" => "rig preset",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
@@ -105,6 +107,7 @@ impl Request {
             "scene" => self.scene(&who).map(|_| Vec::new()),
             "use of scene" => self.scene_use(&who).map(|_| Vec::new()),
             "device preset" => self.device_preset(&who).map(|_| Vec::new()),
+            "rig preset" => self.rig_preset(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -137,6 +140,16 @@ impl Request {
     /// a device preset's problems
     fn device_preset(&self, who: &str) -> Result<(), Problems> {
         let p: crate::device_preset::DevicePreset = parse(who, &self.document)?;
+        let mut problems: Problems = p.problems().into_iter().map(|s| format!("{who}: {s}")).collect();
+        if p.id != self.id {
+            problems.push(format!("{who}: the document's id is \"{}\", the key's \"{}\"", p.id, self.id));
+        }
+        if problems.is_empty() { Ok(()) } else { Err(problems) }
+    }
+
+    /// a rig preset's problems
+    fn rig_preset(&self, who: &str) -> Result<(), Problems> {
+        let p: super::RigPreset = parse(who, &self.document)?;
         let mut problems: Problems = p.problems().into_iter().map(|s| format!("{who}: {s}")).collect();
         if p.id != self.id {
             problems.push(format!("{who}: the document's id is \"{}\", the key's \"{}\"", p.id, self.id));
@@ -184,7 +197,7 @@ impl Request {
         let warnings = rig.warnings(&lib).map_err(said)?;
         let personas: Vec<String> = rig.personas.keys().cloned().collect();
         let moods: Vec<String> = rig.moods.keys().cloned().collect();
-        let bundle = Bundle { rig, instruments, presets, modules };
+        let bundle = Bundle { rig, instruments, presets, modules, rig_presets: Vec::new() };
         let variants = std::iter::once((None, None))
             .chain(personas.iter().map(|p| (Some(p.as_str()), None)))
             .chain(moods.iter().map(|m| (None, Some(m.as_str()))));
@@ -241,6 +254,10 @@ mod tests {
         let p = ask(r#"{"kind":"device-presets","id":"other","document":{"id":"mine","name":"Mine","hardware":{"channels":2},"outlets":[{"group":"main","channels":[3]}]}}"#).unwrap();
         assert_eq!(p, ["device preset other: 'main': channel 3 is not on the device (it has 1–2)", "device preset other: the document's id is \"mine\", the key's \"other\""]);
         assert!(ask(r#"{"kind":"device-presets","id":"m","document":{"id":"m","name":"M","hardware":{},"colour":1}}"#).unwrap()[0].contains("unknown field `colour`"));
+        let soft = r#"{"kind":"rig-presets","id":"character.catpope.soft","document":{"id":"character.catpope.soft","rig":"character.catpope","name":"Soft","origin":"character.catpope.warm","values":{"voice:voice.index":4.0}}}"#;
+        assert_eq!(ask(soft).unwrap(), Vec::<String>::new());
+        let p = ask(r#"{"kind":"rig-presets","id":"x","document":{"id":"character.catpope.soft","rig":"character.catpope","name":"Soft","values":{"voice.index":4.0}}}"#).unwrap();
+        assert_eq!(p, ["rig preset x: value 'voice.index' is no knob of a track (<track>:<node>.<port>)", "rig preset x: the document's id is \"character.catpope.soft\", the key's \"x\""]);
     }
 
     /// #243: a scene document – the first real scene passes; what a deck could not load is refused with its reasons
