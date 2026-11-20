@@ -17,6 +17,9 @@ pub mod menu;
 /// the deck's start – driven or not, rejoining, waiting for a conductor, what Play lists
 pub mod start;
 
+/// JOIN A SHOW's code page – a session code typed or picked, the relay's answer
+pub mod join;
+
 /// #531: the deck editor's Session panel – the session, the linked reader's link and QR, the linked readers
 pub mod session;
 
