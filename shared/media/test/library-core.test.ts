@@ -27,7 +27,7 @@ const answer = {
 };
 const query = (patch: Partial<LibraryQuery> = {}): LibraryQuery => ({ scope: 'all', grouping: 'use', sort: 'name', query: '', kind: null, special: null, origin: null, fit: null, single: false, now: 0, ...patch });
 
-test('the core: families, the open item pinned, fits, selection, upload path', { skip: NO_CORE }, async () => {
+test('the core: families, the open item pinned, fits, selection, upload path', { skip: NO_CORE || false }, async () => {
 	const lib = libraryCore(await core(), answer);
 	const families = lib.families(false);
 	assert.deepEqual(families.map((f) => [f.key, f.kind, f.versions.length]), [
