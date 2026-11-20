@@ -190,6 +190,22 @@ impl Purpose {
     }
 }
 
+impl Purpose {
+    /// what a toon's file dropped here must be (none: files are only opened here)
+    pub fn fit(self) -> Option<shelf::Fit> {
+        match self {
+            Purpose::Scene => Some(shelf::Fit { kinds: vec![Kind::Image], square: false }),
+            Purpose::Build | Purpose::Show | Purpose::Module => None,
+        }
+    }
+
+    /// whether a family dropped here lands: its kind by `takes`, then the slot's fit, else the sentence why not
+    pub fn takes_family(self, f: &family::Family) -> Result<(), String> {
+        self.takes(f.kind)?;
+        self.fit().map_or(Ok(()), |fit| fit.takes(f).map_err(|m| m.sentence()))
+    }
+}
+
 impl Entry {
     /// made for `character` (`catpope`, a persona `catpope.biker`; a reference `character:catpope` too) by the
     /// descriptor's rule

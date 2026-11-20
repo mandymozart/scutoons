@@ -345,9 +345,22 @@ impl Library {
         self.stamp += 1;
     }
 
-    /// the entry dragged now, if this workspace takes its kind
+    /// the family of a file's entry
+    pub fn family(&self, e: &Entry) -> Option<&deck_catalog::library::family::Family> {
+        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address))
+    }
+
+    /// whether this workspace takes `e`: a file by its family (its kind, then the fit), anything else by its kind
+    pub fn takes(&self, e: &Entry) -> Result<(), String> {
+        match self.family(e) {
+            Some(f) => self.purpose.takes_family(f),
+            None => self.purpose.takes(e.kind),
+        }
+    }
+
+    /// the entry dragged now, if this workspace takes it
     pub fn carrying(&self) -> Option<&Entry> {
-        self.browser.dragging().and_then(|i| self.entries.get(i)).filter(|e| self.purpose.takes(e.kind).is_ok())
+        self.browser.dragging().and_then(|i| self.entries.get(i)).filter(|e| self.takes(e).is_ok())
     }
 }
 
@@ -518,7 +531,7 @@ impl crate::App {
         if self.library.browser.hit(at.0, at.1).is_some() {
             return;
         }
-        if let Err(why) = self.library.purpose.takes(e.kind) {
+        if let Err(why) = self.library.takes(&e) {
             self.refuse(why, at.0, at.1);
             return;
         }
@@ -666,6 +679,9 @@ mod tests {
         assert_eq!(list[1].preview, Preview::Picture { url: "https://cdn.example/cat/s1/c1/hills.webp".into() });
         lib.set(Purpose::Scene, of_scene(&[], None, list));
         assert!(lib.entries.iter().any(|e| e.address == "cat/s1/c1/hills.webp") && !lib.entries.iter().any(|e| e.kind == Kind::Audio), "a scene takes the pictures");
+        let files = lib.assets();
+        assert_eq!(lib.takes(&files[1]), Ok(()), "a picture fits a scene's layer");
+        assert!(lib.takes(&files[0]).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
     }
 
     #[test]

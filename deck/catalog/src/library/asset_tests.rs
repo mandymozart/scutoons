@@ -353,6 +353,21 @@ fn a_family_entry_is_served_from_the_cdn_and_found_by_any_version() {
 }
 
 #[test]
+fn a_misfit_says_why_beside_the_purposes_sentence() {
+    use super::Purpose;
+    let f = fam();
+    let avatar = by_name(&f, "catpope_avatar-angry");
+    let bells = by_name(&f, "s1c1-bells");
+    assert_eq!(Purpose::Scene.takes_family(avatar), Ok(()));
+    assert_eq!(Purpose::Scene.takes_family(bells), Err("audio cannot be dropped on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules".into()), "the purpose's sentence first");
+    let wide = Fit { kinds: vec![Kind::Image], square: true };
+    let slice = by_name(&f, "s1c1-slice-10");
+    assert_eq!(wide.takes(slice).unwrap_err().sentence(), "a square picture fits here: this one is not square");
+    assert_eq!(Fit { kinds: vec![Kind::Video, Kind::Image], square: false }.takes(bells).unwrap_err().sentence(), "video or images fit here, not audio");
+    assert!(Purpose::Build.takes_family(avatar).is_err() && Purpose::Build.fit().is_none(), "a rig's tracks take no file");
+}
+
+#[test]
 fn a_workspace_counts_only_the_kinds_it_lists() {
     let s = chapter_one();
     let every = s.view(&q(Scope::All));

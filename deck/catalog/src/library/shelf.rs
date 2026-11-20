@@ -85,6 +85,17 @@ pub const RECENT_DAYS: f64 = 7.0;
 /// A square slot takes a picture whose sides differ by at most this share.
 pub const SQUARE_TOLERANCE: f64 = 0.02;
 
+impl Misfit {
+    /// why it does not fit, in words (the sentence a refused drop shows)
+    pub fn sentence(&self) -> String {
+        if self.square {
+            return "a square picture fits here: this one is not square".into();
+        }
+        let wants: Vec<&str> = self.wants.iter().map(|k| k.word()).collect();
+        format!("{} fit here, not {}", wants.join(" or "), self.got.word())
+    }
+}
+
 impl Fit {
     /// whether `f` fits, else what is wrong (unknown sizes fit a square slot)
     pub fn takes(&self, f: &Family) -> Result<(), Misfit> {
