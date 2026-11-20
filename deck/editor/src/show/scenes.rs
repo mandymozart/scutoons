@@ -16,7 +16,7 @@ pub const NO_BOOK: &str = "the address book is still on its way";
 
 impl Host {
     /// the book's published scenes, then the drafts (none without a book)
-    pub(super) fn scene_list(&self) -> Vec<PieceView> {
+    pub(crate) fn scene_list(&self) -> Vec<PieceView> {
         let Some(b) = self.book.as_ref() else { return Vec::new() };
         let mut list = rows::pieces(b, "", LOCALE);
         list.extend(rows::draft_pieces(&self.drafts_unlisted(), ""));

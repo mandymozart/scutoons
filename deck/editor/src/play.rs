@@ -315,10 +315,21 @@ impl crate::App {
             self.set_play(false);
         }
         if self.frames == 3 {
-            let new = match self.args.home_new.as_deref() {
-                Some("scene") => Some(crate::home::New::Scene),
-                Some("show") => Some(crate::home::New::Show),
-                Some("module") => Some(crate::home::New::Module),
+            // `scene=NAME` types the name into the prompt (it stays open: a check run's screenshot shows it)
+            let arg = self.args.home_new.clone();
+            let new = match arg.as_deref().map(|a| a.split_once('=').map_or((a, ""), |(w, n)| (w, n))) {
+                Some(("scene", name)) => {
+                    self.ask_new_scene();
+                    for c in name.chars() {
+                        let t = c.to_string();
+                        if let Some(p) = self.scene_prompt.as_mut() {
+                            p.key(winit::keyboard::Key::Character(t.as_str()), Some(&t), false, false);
+                        }
+                    }
+                    None
+                }
+                Some(("show", _)) => Some(crate::home::New::Show),
+                Some(("module", _)) => Some(crate::home::New::Module),
                 _ => None,
             };
             if let Some(n) = new {

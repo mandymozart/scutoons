@@ -45,6 +45,7 @@ mod rigs;
 mod saving;
 mod scene;
 mod scene_parts;
+mod scene_prompt;
 mod scene_stage;
 mod settings;
 mod show;
@@ -422,7 +423,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -755,6 +756,8 @@ struct App {
     /// Build's grid & snap (grid.rs)
     grid: grid::GridSnap,
     colour: colour::Colour,
+    /// Home's New scene: its name and id asked first (scene_prompt.rs)
+    scene_prompt: Option<scene_prompt::ScenePrompt>,
     /// the workspace the last frame saved in: leaving one saves what it edits
     saved_in: show::Workspace,
     /// a check run saves nothing by itself (it never writes to the server)
@@ -991,6 +994,7 @@ fn run() -> Result<i32> {
         last_row: None,
         grid: grid::GridSnap::load(app_grid_file),
         colour: app_colour,
+        scene_prompt: None,
         tools: tools::Tools::default(),
         library: app_library,
         library_open: None,
@@ -1494,7 +1498,7 @@ impl App {
     /// the window's own frame takes a press on its edge, a window button or the toolbar's empty run; an open menu,
     /// a typed field or the colour taker has the press first
     fn frame_press(&mut self) -> bool {
-        if self.edit.is_some() || self.menu.is_some() || self.main_menu || self.colour.taking() {
+        if self.scene_prompt.is_some() || self.edit.is_some() || self.menu.is_some() || self.main_menu || self.colour.taking() {
             return false;
         }
         let Some(w) = self.window.clone() else { return false };
@@ -1503,6 +1507,10 @@ impl App {
 
     fn press(&mut self) {
         let (x, y) = self.cursor;
+        if let Some(p) = self.scene_prompt.as_mut() {
+            let outcome = p.press(x, y);
+            return self.scene_prompt_done(outcome);
+        }
         // a click elsewhere finishes the typing
         if let Some(e) = &self.edit {
             if e.at.has(x, y) {
@@ -3566,6 +3574,9 @@ impl App {
         let value = self.colour.target().and_then(|target| colour::value(target, &self.stage, self.scene.as_ref(), &self.show));
         self.colour.draw(ui, t, (wf, hf), value, self.cursor);
         self.log.draw_ring(ui, t);
+        if let Some(p) = self.scene_prompt.as_mut() {
+            p.draw(ui, t, (wf, hf));
+        }
         // the main menu over everything, the workspace's panels under its lines
         self.menu_lines.clear();
         if self.main_menu {
@@ -3790,6 +3801,7 @@ impl ApplicationHandler for App {
                     self.panic_pill();
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } if self.scene_prompt.is_some() => self.scene_prompt_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.edit.is_some() => self.edit_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.menu.is_some() => self.menu_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.library.browser.typing.is_some() => self.library_key(&event),
