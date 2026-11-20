@@ -315,6 +315,7 @@ return static function (App $app): void {
     $app->put('/api/entities/{key:[A-Za-z0-9:._-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[A-Za-z0-9:._-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[A-Za-z0-9:._-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+    $app->post('/api/entities/{key:[A-Za-z0-9:._-]+}/{action:revert|revert-to}', [EntitiesController::class, 'revert']);
     // where a catalog item is placed in every toon (item limits, BACKLOG 10.39) – role creator
     $app->get('/api/catalog/items/{id:[A-Za-z0-9_.-]{1,100}}/placements', [EntitiesController::class, 'itemPlacements']);
     $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions|home-scenes|airlift-carriers|instruments|presets|rigs|modules}', [EntitiesController::class, 'catalogDocs']);
