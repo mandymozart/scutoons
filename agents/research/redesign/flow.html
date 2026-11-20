@@ -217,6 +217,42 @@ if(s==='4'){
   NOTE(bx+bw*0.52,T+3*rem,'<b>The last step is always an asset in the Library</b> – with its lineage, its qualities and where it was wanted. The blank is filled in place; Wanted counts down.',290);
   STEP(4,'Approved → an asset in the Library, filled where it was wanted');
 }
+// ── 5: a 3D asset – the generation as a chain of modular steps, chosen by the asset's type
+if(s==='5'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar('Catalog','◈',[{i:'◈',n:'Record player · 3D'},{i:'◈',n:'Awakening vinyl'}],false);
+  const lw=14*rem, iw=21*rem, cx=g+lw+g, cwid=W-cx-g-iw-g;
+  const RP=R+'scutoons/items/record_player.webp';
+  // the chain: type-dependent steps; done · skipped · uploaded · running · blank
+  const steps=[
+    ['Text','brief from the Kanon','done','—','<div style="padding:.5rem;font-size:var(--small);line-height:1.35;overflow:hidden;height:100%">A portable record player, white case, cyan label, chunky tone arm – toy-like, readable from far.</div>'],
+    ['Block','blockout · proportions','skipped','—',`<div style="height:100%;display:grid;place-items:center" class="muted">skipped</div>`],
+    ['Image','concept · front view','uploaded','upload',`<img src="${RP}" style="width:100%;height:100%;object-fit:contain">`],
+    ['Mesh','image → mesh','done','tripo · v2',`<img src="${RP}" style="width:100%;height:100%;object-fit:contain;filter:grayscale(1) contrast(1.6) brightness(.8)">`],
+    ['Textured mesh','mesh → PBR','running','meshy · 4k',`<img src="${RP}" style="width:100%;height:100%;object-fit:contain;filter:saturate(.4) blur(1px);opacity:.6"><div style="position:absolute;inset:0;display:grid;place-items:center" class="acc mono">62 %</div>`],
+    ['Module','asset → deck module','blank','build',`<div style="height:100%;display:grid;place-items:center;color:var(--warn)" class="lbl">blank<br>turntable</div>`],
+  ];
+  const n=steps.length, nw=(cwid-2*rem-(n-1)*1.8*rem)/n, nh=nw*1.5, y0=T+6*rem;
+  add(`<div style="position:absolute;z-index:1;left:${cx+rem}px;top:${T+1.2*rem}px"><div class="lbl">✶ Generation · item:record-player · 3D model</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><span class="chip">Type: item 3D ▾</span><span class="chip">Chain: text → block → image → mesh → textured → module</span><span class="chip">＋ step</span></div></div>`);
+  const col={done:'var(--go)',skipped:'var(--line)',uploaded:'var(--accent)',running:'var(--accent)',blank:'var(--warn)'};
+  steps.forEach(([name,what,st,api,img],i)=>{
+    const x=cx+rem+i*(nw+1.8*rem);
+    add(`<div style="position:absolute;z-index:1;left:${x}px;top:${y0}px;width:${nw}px;${st==='skipped'?'opacity:.45':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem"><span>${name}</span><span class="state" style="border-color:${col[st]};color:${st==='skipped'?'var(--muted)':col[st]}">${st}</span></div>
+      <div style="position:relative;height:${nh}px;border-radius:var(--r);border:1.5px ${st==='blank'||st==='skipped'?'dashed':'solid'} ${col[st]};background:#000;overflow:hidden">${img}</div>
+      <div class="muted" style="font-size:var(--small);margin-top:.3rem">${what}</div>
+      <div style="display:flex;gap:.25rem;margin-top:.35rem;flex-wrap:wrap"><span class="chip mono" style="font-size:var(--label)">${api}</span>${st==='blank'?'<span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">build</span>':st==='skipped'?'<span class="chip">＋ run</span>':'<span class="chip">↻</span><span class="chip">⇪</span>'}</div></div>`);
+    if(i<n-1)add(`<div style="position:absolute;z-index:1;left:${x+nw+.35*rem}px;top:${y0+1.6*rem+nh/2-10}px;color:${steps[i+1][2]==='skipped'?'var(--line)':'var(--muted)'};font-size:1.3rem">→</div>`);
+  });
+  // an upload placed between two steps
+  add(`<div style="position:absolute;z-index:1;left:${cx+rem+2*(nw+1.8*rem)}px;top:${y0+nh+6.4*rem}px;font-size:var(--small)" class="acc">⇪ uploaded in between – the chain goes on from it</div>`);
+  // the output line
+  const oy=y0+nh+9*rem;
+  add(`<div style="position:absolute;z-index:1;left:${cx+rem}px;top:${oy}px;right:${iw+2*g+rem}px;border-top:1px solid var(--line);padding-top:.7rem;display:flex;gap:1.2rem;align-items:center"><span class="lbl">Every step is an asset in the Library</span>${['text','image','mesh','textured mesh','module'].map(k=>`<span class="chip">${k}</span>`).join('<span class="muted">·</span>')}<span class="sp"></span><span class="muted">a step's result can be used on its own</span></div>`);
+  P(g,T,lw,H-T-g,['Wanted','Library'],`<div class="grp lbl">Blank · 3D</div>${tr(0,'Record player · 3D',{img:RP,sel:1,n:'running'})}${tr(0,'Tape player · 3D',{blank:1,n:'blank',nw:1})}${tr(0,'Choir · module',{blank:1,n:'blank',nw:1})}<div class="grp lbl">Chains by type</div>${[['character look','text → image → mesh → rig'],['item 3D','text → block → image → mesh → textured → module'],['place image','text → image'],['mood','text + refs → image'],['shot · video','image → video'],['slice','script → image']].map(([t,c])=>`<div class="tr" style="height:auto;padding-top:.25rem;padding-bottom:.25rem;flex-direction:column;align-items:flex-start;gap:0"><span>${t}</span><span class="muted mono" style="font-size:var(--label);white-space:normal">${c}</span></div>`).join('')}`);
+  P(W-g-iw,T,iw,H-T-g,['Step','Sheet','Kanon'],`${sec(true,'Textured mesh','meshy · 4k PBR',`${prop('Input','<div class="fd">mesh · tripo v2 ✓</div>')}${prop('Provider','meshy · chosen in the back')}${prop('Estimate','<div class="fd">€ 0.30 · 2 min</div>')}<div class="slot full"><img src="${RP}" style="filter:grayscale(1) contrast(1.6)"><span>mesh.glb · 12k tris<br><span class="muted">from the step before</span></span></div>`)}${sec(true,'This step','skip · upload · rerun',`<div class="ev">skip – the next step takes the one before</div><div class="ev">⇪ upload – your file becomes this step's result</div><div class="ev">↻ rerun – a new version, the lineage keeps the old</div>`)}${sec(false,'Chain','item 3D · 6 steps','')}`,{solid:true});
+  NOTE(cx+cwid*0.48,H-9.5*rem,'<b>Modular steps by asset type</b> – the providers are picked in the back, each step is a node. Any step can be <b>skipped</b> or <b>replaced by an upload</b>; every result is an asset of its own.',310);
+}
 document.body.insertAdjacentHTML('beforeend',out);
 
 </script></body></html>
