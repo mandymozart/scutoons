@@ -42,3 +42,43 @@ export {
 	withVariant,
 	type VariantMedia
 } from './media-variants.ts';
+export {
+	LIBRARY_KINDS,
+	expectedVersions,
+	formatDuration,
+	groupFamilies,
+	kindOfExt,
+	libraryKind,
+	parseVersionName,
+	versionRank,
+	type AssetFamily,
+	type FamilyVersion,
+	type LibraryKind,
+	type VersionName
+} from './library/families.ts';
+export {
+	LIBRARY_SORTS,
+	beforeKinds,
+	contextOf,
+	filterFamilies,
+	fits,
+	folderTree,
+	groupByKind,
+	inContext,
+	inScope,
+	kindCounts,
+	matchesQuery,
+	originCounts,
+	scopeCounts,
+	sortFamilies,
+	todoCounts,
+	toonOfAddress,
+	type FolderNode,
+	type LibraryContext,
+	type LibraryFilter,
+	type LibraryOrigin,
+	type LibraryScope,
+	type LibrarySort,
+	type LibraryTodo,
+	type SlotFit
+} from './library/filter.ts';

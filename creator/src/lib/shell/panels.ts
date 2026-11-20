@@ -37,7 +37,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'publish', name: m['shell.panel_publish'](), icon: 'upload-cloud', about: m['shell.panel_publish_about']() },
 		{ id: 'problems', name: m['creator.problems'](), icon: 'alert-triangle', about: m['shell.panel_problems_about']() },
 		{ id: 'history', name: m['creator.history'](), icon: 'clock', about: m['shell.panel_history_about']() },
-		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: m['shell.library_about'](), size: { w: 24, h: 26 } },
+		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: m['shell.library_about'](), size: { w: 28, h: 'fill' } },
 		{ id: 'settings', name: m['shell.settings'](), icon: 'settings', about: m['shell.settings_about'](), size: { w: 26, h: 'fill' } }
 	];
 }
@@ -59,7 +59,7 @@ export function panelSpecs(workspace: WorkspaceKind | 'home', available: Availab
 			min: { w: 16, h: 6 },
 			tabs: ['publish', 'problems', 'history']
 		},
-		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: '', place: at('bottom-left', 0, 0, { closed: closed('library') }), size: { w: 24, h: 26 }, min: { w: 16, h: 10 }, tabs: ['library'] },
+		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: '', place: at('top-right', 0, 0, { closed: closed('library') }), size: { w: 28, h: 'fill' }, min: { w: 18, h: 12 }, tabs: ['library'] },
 		{ id: 'settings', name: m['shell.settings'](), icon: 'settings', about: '', place: at('top-right', 0, 0, { closed: true }), size: { w: 26, h: 'fill' }, min: { w: 20, h: 12 }, tabs: ['settings'] }
 	];
 	return all.filter((p) => (p.id === 'tree' ? available.tree : p.id === 'document' ? available.doc : p.id === 'toon' ? workspace === 'toon' : true));

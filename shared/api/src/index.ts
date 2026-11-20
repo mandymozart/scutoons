@@ -35,7 +35,7 @@ export {
 	catalogDocKey,
 	needsReview
 } from './content.ts';
-export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
+export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
 export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
 export {
 	EVENT_NAMES,

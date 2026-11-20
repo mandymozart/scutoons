@@ -5,7 +5,9 @@
 	import { panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import SettingsPanel from '$lib/components/shell/settings-panel.svelte';
-	import LibraryPanel from '$lib/components/shell/library-panel.svelte';
+	import LibraryPanel from '$lib/components/library/library-panel.svelte';
+	import LibraryBrowser from '$lib/components/library/library-browser.svelte';
+	import { library } from '$lib/editor/library.svelte.ts';
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 
 	/**
@@ -18,6 +20,13 @@
 	const hasTree = $derived(!!tree);
 	const hasDoc = $derived(!!shell.doc);
 	const floats = $derived(new Floats(`creator-${kind}`, panelSpecs(kind, { tree: hasTree, doc: hasDoc }), tabSpecs()));
+
+	// the Library follows the front item: its context is the workspace's pre-filter
+	$effect(() => library.follow(kind === 'home' ? null : (shell.front?.address ?? null), toon));
+	// a blank slot's pick opens the Library panel
+	$effect(() => {
+		if (library.pick) shell.open('library');
+	});
 
 	$effect(() => {
 		const id = shell.wanted;
@@ -99,7 +108,7 @@
 					{:else if id === 'history'}
 						{@render shell.doc?.history()}
 					{:else if id === 'library'}
-						<LibraryPanel {kind} {toon} />
+						<LibraryPanel />
 					{:else if id === 'settings'}
 						<SettingsPanel onreset={() => floats.reset()} />
 					{/if}
@@ -107,6 +116,7 @@
 			{/snippet}
 		</FloatingPanels>
 	{/key}
+	{#if library.browser}<LibraryBrowser />{/if}
 </div>
 
 <style>
