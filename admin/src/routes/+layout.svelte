@@ -23,6 +23,7 @@
 	import { APP_NAME, initPwa, install, pwa } from '$lib/pwa.svelte.ts';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
+	import CoreHistoryProvider from '$lib/components/core-history-provider.svelte';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
 	import { KINDS, setupCatalog } from '@scutoons/catalog';
@@ -122,6 +123,7 @@
 	<title>{current ? `${current.title()} · ` : ''}{m['shell.title']()}</title>
 </svelte:head>
 
+<CoreHistoryProvider />
 <div class="admin sc-tool">
 	<AuthGate {session} app="admin" appName="Admin" locale={getLocale()} readerHref={VIEWER_URL}>
 		<AppShell

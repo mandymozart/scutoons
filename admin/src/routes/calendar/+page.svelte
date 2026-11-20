@@ -12,6 +12,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import HistoryPanel from '$lib/components/history-panel.svelte';
 
 	/**
 	 * The public events list (viewer /events): the platform-wide content entity `events` (entity_versions;
@@ -186,6 +187,12 @@
 	{#if past.length}
 		<Section title={m['calendar.past']()}>{@render rows(past)}</Section>
 	{/if}
+{/if}
+
+{#if loaded && stored}
+	<Section title={m['history.title']()}>
+		<HistoryPanel docKey={KEY} base={stored.version.id} onchange={load} />
+	</Section>
 {/if}
 
 <style>

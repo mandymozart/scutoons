@@ -17,6 +17,7 @@
 		"@scutoons/auth": "*",
 		"@scutoons/catalog": "*",
 		"@scutoons/content": "*",
+		"@scutoons/live-deck": "*",
 		"@scutoons/media": "*",
 		"@scutoons/pwa": "*",
 		"@scutoons/tokens": "*",
