@@ -8,9 +8,9 @@
 	 * A family's versions as a tray under its tile (the ⧉ badge): every file with its label and format, the expected ones
 	 * it lacks dashed. A click uses exactly that file.
 	 */
-	let { family, onuse, onclose }: { family: AssetFamily; onuse: (version: FamilyVersion) => void; onclose: () => void } = $props();
+	let { family, onuse, onclose }: { family: AssetFamily; onuse: (version: FamilyVersion) => void; onclose?: () => void } = $props();
 
-	const ICONS: Record<FamilyVersion['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', other: 'file' };
+	const ICONS: Record<FamilyVersion['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', file: 'file' };
 	const total = $derived(family.versions.reduce((n, v) => n + v.size, 0));
 </script>
 
@@ -18,7 +18,7 @@
 	<div class="head">
 		<span class="title">{family.title}</span>
 		<span class="sub">{m['library.tray_sub']({ count: family.versions.length, size: bytes(total) })}</span>
-		<button type="button" class="close" data-control-exempt="text link" onclick={onclose}>{m['library.close']()}</button>
+		{#if onclose}<button type="button" class="close" data-control-exempt="text link" onclick={onclose}>{m['library.close']()}</button>{/if}
 	</div>
 	<div class="files">
 		{#each family.versions as v (v.path)}

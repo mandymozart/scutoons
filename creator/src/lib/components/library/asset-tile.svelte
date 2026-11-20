@@ -1,45 +1,54 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { formatDuration, type AssetFamily } from '@scutoons/media';
+	import { ModelThumb, bytes, formatDuration, previewPicture, previewStill, type AssetFamily } from '@scutoons/media';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * One asset family as a tile (or a list row): preview, kind, use count (dashed 0 = unused), duration, ⧉ n = its
-	 * versions (missing ones counted apart); hover Use · Replace · ⋯. Click selects, double-click uses, drag hands the
-	 * file to a stage (`application/x-scutoons-asset`).
+	 * One asset family as a card (or a list row): the preview the core chose (a picture, a model's still, the kind),
+	 * its versions as sheets behind it (a stack), the name and one meta line – pixels · file size · version · further
+	 * uses. A click selects (Ctrl / ⌘ adds, Shift a run), a double click uses, right-click or ⋯ opens the menu, a drag
+	 * hands the file on (`application/x-scutoons-asset`: a stage, a tree row).
 	 */
 	let {
 		family,
 		selected = false,
-		dimmed = false,
 		row = false,
-		trayOpen = false,
-		onselect,
+		fresh = false,
+		stacked = true,
+		onpress,
 		onuse,
-		onreplace,
-		ondetails,
-		ontray
+		onmenu
 	}: {
 		family: AssetFamily;
 		selected?: boolean;
-		/** a pick that this family does not fit: shown, not usable */
-		dimmed?: boolean;
 		row?: boolean;
-		trayOpen?: boolean;
-		onselect: () => void;
+		/** just uploaded */
+		fresh?: boolean;
+		/** the levels as a stack (the browser's toggle: single shows every file on its own) */
+		stacked?: boolean;
+		onpress: (keys: { shift: boolean; toggle: boolean }) => void;
 		onuse: () => void;
-		onreplace: (file: File) => void;
-		ondetails: () => void;
-		ontray?: () => void;
+		onmenu: (x: number, y: number) => void;
 	} = $props();
 
-	const ICONS: Record<AssetFamily['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', other: 'file' };
-	let fileInput: HTMLInputElement | null = $state(null);
-	const duration = $derived(formatDuration(family.duration));
+	const ICONS: Record<AssetFamily['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', file: 'file' };
+	const picture = $derived(previewPicture(family.preview));
+	const still = $derived(previewStill(family.preview));
+	const meta = $derived(
+		[
+			fresh ? m['library.just_uploaded']() : '',
+			family.width && family.height ? `${family.width}×${family.height}` : formatDuration(family.duration),
+			bytes(family.size),
+			family.version > 1 ? `v${family.version}` : '',
+			family.usages > 1 ? m['library.more_uses']({ count: family.usages - 1 }) : ''
+		]
+			.filter(Boolean)
+			.join(' · ')
+	);
 
 	function drag(event: DragEvent) {
-		if (!event.dataTransfer || dimmed) return event.preventDefault();
+		if (!event.dataTransfer) return;
 		event.dataTransfer.effectAllowed = 'copy';
 		event.dataTransfer.setData('application/x-scutoons-asset', JSON.stringify({ path: family.main, key: family.key, kind: family.kind }));
 		event.dataTransfer.setData('text/plain', family.main);
@@ -47,7 +56,19 @@
 
 	function key(event: KeyboardEvent) {
 		if (event.key === 'Enter') onuse();
-		else if (event.key === ' ') (event.preventDefault(), onselect());
+		else if (event.key === ' ') (event.preventDefault(), onpress({ shift: event.shiftKey, toggle: event.ctrlKey || event.metaKey }));
+		else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+			event.preventDefault();
+			const r = (event.currentTarget as HTMLElement).getBoundingClientRect();
+			onmenu(r.left, r.bottom);
+		}
+	}
+
+	function menu(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		if (!selected) onpress({ shift: false, toggle: false });
+		onmenu(event.clientX, event.clientY);
 	}
 </script>
 
@@ -55,84 +76,80 @@
 	class="tile"
 	class:row
 	class:selected
-	class:dimmed
-	class:stack={!row && family.versions.length > 1}
+	class:stack={stacked && !row && family.versions.length > 1}
 	role="option"
 	tabindex="0"
 	aria-selected={selected}
-	aria-disabled={dimmed}
 	title={family.key}
-	draggable={!dimmed}
+	draggable="true"
 	data-control-exempt="asset tile"
 	data-testid="library-tile"
 	data-key={family.key}
-	onclick={onselect}
-	ondblclick={() => !dimmed && onuse()}
+	onclick={(e) => onpress({ shift: e.shiftKey, toggle: e.ctrlKey || e.metaKey })}
+	ondblclick={onuse}
+	oncontextmenu={menu}
 	onkeydown={key}
 	ondragstart={drag}
 >
 	<span class="preview">
-		{#if family.preview}
-			<img src={asset(family.preview)} alt="" loading="lazy" draggable="false" />
+		{#if picture}
+			<img src={asset(picture)} alt="" loading="lazy" draggable="false" />
+		{:else if still}
+			<ModelThumb path={family.main} size={row ? '1rem' : '1.6rem'} />
 		{:else}
 			<span class="glyph"><Icon name={ICONS[family.kind]} size={row ? '1rem' : '1.6rem'} /></span>
 		{/if}
+		{#if !row && family.versions.length > 1 && stacked}<span class="count mono" title={m['library.versions_count']({ count: family.versions.length })}>{family.versions.length}</span>{/if}
 	</span>
-	{#if row}
+	<span class="text">
 		<span class="name">{family.title}</span>
-		<span class="meta">{m[`library.kind_${family.kind}`]()}</span>
-		{#if duration}<span class="meta mono">{duration}</span>{/if}
-		<span class="uses mono" class:zero={family.usages === 0} title={m['library.uses']({ count: family.usages })}>{family.usages}</span>
-	{:else}
-		<span class="kind">{m[`library.kind_${family.kind}`]()}</span>
-		<span class="uses mono" class:zero={family.usages === 0} title={m['library.uses']({ count: family.usages })}>{family.usages}</span>
-		{#if duration}<span class="duration mono">{duration}</span>{/if}
-		<span class="name">{family.title}</span>
-	{/if}
-	{#if family.versions.length > 1}
-		<button
-			type="button"
-			class="versions mono"
-			class:open={trayOpen}
-			data-control-exempt="tile badge"
-			title={m['library.versions_title']({ count: family.versions.length })}
-			onclick={(e) => (e.stopPropagation(), ontray ? ontray() : ondetails())}
-			data-testid="tile-versions"><Icon name="copy" size="0.75rem" /> {family.versions.length}</button
-		>
-	{/if}
-	{#if !dimmed}
-		<span class="actions">
-			<button type="button" class="act use" data-control-exempt="tile action" onclick={(e) => (e.stopPropagation(), onuse())} data-testid="tile-use">{m['library.use']()}</button>
-			<button type="button" class="act round" data-control-exempt="tile action" title={m['library.replace']()} aria-label={m['library.replace']()} onclick={(e) => (e.stopPropagation(), fileInput?.click())}><Icon name="repeat" size="0.85rem" /></button>
-			<button type="button" class="act round" data-control-exempt="tile action" title={m['library.details']()} aria-label={m['library.details']()} onclick={(e) => (e.stopPropagation(), ondetails())}><Icon name="more-horizontal" size="0.85rem" /></button>
-		</span>
-	{/if}
-	<input bind:this={fileInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) onreplace(f); e.currentTarget.value = ''; }} />
+		<span class="meta mono" class:fresh>{meta}</span>
+	</span>
+	<button
+		type="button"
+		class="more"
+		data-control-exempt="tile action"
+		title={m['library.actions']()}
+		aria-label={m['library.actions']()}
+		onclick={(e) => {
+			e.stopPropagation();
+			const r = e.currentTarget.getBoundingClientRect();
+			if (!selected) onpress({ shift: false, toggle: false });
+			onmenu(r.left, r.bottom);
+		}}><Icon name="more-horizontal" size="0.85rem" /></button
+	>
 </div>
 
 <style>
 	.tile {
 		position: relative;
-		aspect-ratio: 1;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-stage);
-		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
 		cursor: pointer;
 		outline: none;
 		font-size: var(--editor-small);
 	}
-	.tile:focus-visible,
-	.tile.selected {
+	.preview {
+		position: relative;
+		aspect-ratio: 1;
+		display: grid;
+		place-items: center;
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-stage);
+		overflow: hidden;
+	}
+	.tile:focus-visible .preview,
+	.tile.selected .preview {
 		outline: 0.125rem solid var(--editor-accent);
 		outline-offset: 0.0625rem;
 	}
-	/* a version stack (as OSCT #331): two sheets offset behind the tile, so a family reads as a pile at a glance */
-	/* every tile keeps the pile's room, so stacked and single tiles line up */
+	/* a version stack (OSCT #331): two sheets behind the tile; every card keeps the pile's room so they line up */
 	.tile:not(.row) {
-		margin: 0.4rem 0.4rem 0 0;
+		padding: 0.4rem 0.4rem 0 0;
 	}
-	.tile.stack {
+	.tile.stack .preview {
 		overflow: visible;
 		box-shadow:
 			0.2rem -0.2rem 0 -0.0625rem var(--editor-surface),
@@ -140,118 +157,67 @@
 			0.4rem -0.4rem 0 -0.0625rem var(--editor-surface),
 			0.4rem -0.4rem 0 0 var(--editor-line);
 	}
-	.tile.stack .preview {
-		overflow: hidden;
-		border-radius: inherit;
-	}
-	.tile.dimmed {
-		opacity: 0.35;
-		cursor: default;
-	}
-	.preview {
+	.preview img {
 		position: absolute;
 		inset: 0;
-		display: grid;
-		place-items: center;
-	}
-	.preview img {
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
+		border-radius: inherit;
 	}
 	.glyph {
 		color: var(--editor-muted);
 	}
-	.kind,
-	.uses,
-	.duration,
-	.versions {
+	.count {
 		position: absolute;
+		right: 0.25rem;
+		bottom: 0.25rem;
 		padding: 0 0.3rem;
 		border-radius: 0.3rem;
 		background: var(--editor-surface);
 		color: var(--editor-muted);
 		font-size: var(--editor-label);
-		line-height: 1.5;
 	}
-	.kind {
-		left: 0.3rem;
-		top: 0.3rem;
+	.text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		padding: 0.2rem 0.1rem 0;
 	}
-	.uses {
-		right: 0.3rem;
-		top: 0.3rem;
-		color: var(--editor-text);
-		border: var(--editor-edge) solid transparent;
-	}
-	.uses.zero {
-		border-style: dashed;
-		border-color: var(--editor-muted);
-		color: var(--editor-muted);
-	}
-	.duration {
-		left: 0.3rem;
-		bottom: 1.7rem;
-	}
-	.versions {
-		right: 0.3rem;
-		bottom: 1.7rem;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
-		border: var(--editor-edge) solid transparent;
-		cursor: pointer;
-	}
-	.versions.open {
-		background: var(--editor-accent);
-		color: var(--editor-primary-ink);
-	}
-	.name {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		padding: 0.9rem 0.4rem 0.25rem;
-		background: linear-gradient(transparent, var(--editor-surface));
-		color: var(--editor-text);
-		white-space: nowrap;
+	.name,
+	.meta {
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
-	.actions {
+	.name {
+		color: var(--editor-text);
+	}
+	.meta {
+		color: var(--editor-muted);
+		font-size: var(--editor-label);
+	}
+	.meta.fresh {
+		color: var(--editor-accent);
+	}
+	.more {
 		position: absolute;
-		left: 0;
-		right: 0;
-		top: 50%;
-		transform: translateY(-50%);
+		top: 0.6rem;
+		right: 0.6rem;
+		width: 1.5rem;
+		height: 1.5rem;
 		display: none;
-		justify-content: center;
-		gap: 0.3rem;
-	}
-	.tile:hover .actions,
-	.tile:focus-within .actions {
-		display: flex;
-	}
-	.act {
-		height: 1.6rem;
+		place-items: center;
+		padding: 0;
 		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: 50%;
 		background: var(--editor-surface);
 		color: var(--editor-text);
 		cursor: pointer;
 	}
-	.actions .use {
-		padding: 0 0.6rem;
-		border-radius: 1rem;
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
-	}
-	.actions .round {
-		width: 1.6rem;
-		padding: 0;
-		border-radius: 50%;
+	.tile:hover .more,
+	.tile:focus-within .more {
 		display: inline-grid;
-		place-items: center;
 	}
 	.mono {
 		font-family: var(--editor-mono, ui-monospace, monospace);
@@ -259,50 +225,43 @@
 
 	/* list rows */
 	.tile.row {
-		aspect-ratio: auto;
-		display: flex;
+		flex-direction: row;
 		align-items: center;
 		gap: 0.5rem;
 		min-height: var(--editor-tree-row);
 		padding: 0 0.4rem 0 0.2rem;
-		border-color: transparent;
-		background: none;
+		border-radius: var(--editor-radius);
 	}
 	.tile.row:hover {
 		background: var(--editor-hover);
 	}
+	.tile.row.selected {
+		outline: 0.125rem solid var(--editor-accent);
+	}
 	.row .preview {
-		position: static;
 		flex: none;
 		width: 1.6rem;
 		height: 1.6rem;
+		border: 0;
 		border-radius: 0.25rem;
-		overflow: hidden;
-		background: var(--editor-stage);
+	}
+	.row.selected .preview {
+		outline: none;
 	}
 	.row .preview img {
 		object-fit: cover;
 	}
-	.row .name {
-		position: static;
+	.row .text {
 		flex: 1 1 auto;
-		min-width: 0;
+		flex-direction: row;
+		gap: 0.5rem;
+		align-items: baseline;
 		padding: 0;
-		background: none;
 	}
-	.row .meta {
-		flex: none;
-		color: var(--editor-muted);
-		font-size: var(--editor-label);
+	.row .name {
+		flex: 1 1 auto;
 	}
-	.row .uses,
-	.row .versions {
+	.row .more {
 		position: static;
-		flex: none;
-	}
-	.row .actions {
-		position: static;
-		transform: none;
-		flex: none;
 	}
 </style>

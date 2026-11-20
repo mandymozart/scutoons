@@ -1,8 +1,18 @@
 //! The library (owner 2026-11-16 [design]): one list of what can be found, dragged and opened – modules, instruments,
 //! the catalog's characters, items and places, scenes, the toon's assets – each with the preview its content asks for,
 //! and the one rule of what a query, a kind and "related" leave. The editor's browser (deck-kit `library`) only draws it.
+//!
+//! The toon's assets (#698, one Library for the creator and the deck editor): `family` – the files of one asset as one
+//! family with its versions and frames –, `shelf` – the scope by what the open item uses, the groups, the sort, the
+//! places, what a slot takes, the selection – and its JSON for the wasm bridge.
 use crate::{Descriptor, Dir, Domain, PortType};
+use serde::Serialize;
 use serde_json::Value;
+
+pub mod family;
+pub mod shelf;
+#[cfg(test)]
+mod asset_tests;
 
 /// what an entry is
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,6 +52,28 @@ impl Kind {
         }
     }
 
+    /// its id on the wire (the web Library's)
+    pub fn id(self) -> &'static str {
+        match self {
+            Kind::Module => "module",
+            Kind::Instrument => "instrument",
+            Kind::Rig => "rig",
+            Kind::Scene => "scene",
+            Kind::Character => "character",
+            Kind::Item => "item",
+            Kind::Place => "place",
+            Kind::Image => "image",
+            Kind::Audio => "audio",
+            Kind::Video => "video",
+            Kind::Model => "model",
+            Kind::File => "file",
+        }
+    }
+
+    pub fn of_id(id: &str) -> Option<Kind> {
+        Kind::ALL.into_iter().find(|k| k.id() == id)
+    }
+
     /// the kit's icon for it
     pub fn icon(self) -> &'static str {
         match self {
@@ -61,8 +93,14 @@ impl Kind {
     }
 }
 
+impl Serialize for Kind {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.id())
+    }
+}
+
 /// a node of a wiring preview: its place in 0..1 both ways and what it carries
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Dot {
     pub x: f32,
     pub y: f32,
@@ -70,7 +108,8 @@ pub struct Dot {
 }
 
 /// what an entry's card shows, chosen by its content
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Preview {
     /// a still of what it draws, rendered once by the stage and kept under `key` (until then its kind)
     Still { key: String },

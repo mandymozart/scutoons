@@ -1,19 +1,23 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { AssetUsage } from '@scutoons/api';
-	import { bytes, formatDuration, type AssetFamily } from '@scutoons/media';
+	import { bytes, formatDuration, previewPicture, type AssetFamily } from '@scutoons/media';
+	import { CloseButton } from '@scutoons/ui';
 	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
+	import { NEEDS, copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { hrefOf } from '$lib/shell/address.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import VersionsTray from '$lib/components/library/versions-tray.svelte';
 
 	/**
-	 * The browser's details drawer: the preview, the versions table (format, size, quality, the expected ones missing),
-	 * where the family is used (a click opens that item), the actions. The uses are the registry's (content + catalog);
-	 * credits per asset: TODO(#690).
+	 * A family's details – the browser's drawer at the right, the panel's at its bottom (`drawer`): the preview, the
+	 * name (F2 renames it: URL and uses stay), Use / Set as cover, where the open item uses it (each part a jump to it),
+	 * where else the registry knows it used, its versions (a tray to use one exactly, the table, the missing on demand),
+	 * Download, Copy path, Credits (#690), Delete.
 	 */
-	let { family, onreplace }: { family: AssetFamily; onreplace: (file: File) => void } = $props();
+	let { family, drawer = false, onreplace, onclose }: { family: AssetFamily; drawer?: boolean; onreplace: (file: File) => void; onclose?: () => void } = $props();
 
 	let usages = $state<AssetUsage[] | null>(null);
 	let failed = $state(false);
@@ -31,16 +35,22 @@
 		return () => (current = false);
 	});
 
-	/** one line per item that uses it (the fields it uses it in, joined) */
-	const uses = $derived.by(() => {
+	/** the open item's uses, each part a jump to it */
+	const parts = $derived(library.usesOf(family.key));
+	/** one line per other item the registry names (the fields it uses it in, joined) */
+	const others = $derived.by(() => {
 		const byRef = new Map<string, { ref: string; fields: Set<string>; state: string; href: string | null }>();
 		for (const u of usages ?? []) {
+			if (library.address && (u.ref === library.address || u.ref.startsWith(`${library.address}:`))) continue;
 			const row = byRef.get(u.ref) ?? { ref: u.ref, fields: new Set<string>(), state: u.state, href: u.source === 'code' ? null : hrefOf(u.ref) };
 			row.fields.add(u.field.split('/').filter(Boolean).at(-1) ?? u.field);
 			byRef.set(u.ref, row);
 		}
 		return [...byRef.values()];
 	});
+	const fits = $derived(!library.pick || library.takes(family.main, library.pick).ok);
+	const chapterOpen = $derived(!!library.address?.startsWith('chapter:') && family.kind === 'image');
+	const picture = $derived(previewPicture(family.preview));
 	const video = $derived(family.versions.find((v) => v.kind === 'video' && v.label === '480p') ?? family.versions.find((v) => v.kind === 'video'));
 	const audio = $derived(family.versions.find((v) => v.kind === 'audio'));
 	const dims = (w: number | null, h: number | null) => (w && h ? `${w} × ${h}` : '');
@@ -49,26 +59,69 @@
 		library.browser = false;
 		goto(href);
 	}
-	function copy() {
-		navigator.clipboard?.writeText(family.main).catch(() => {});
+	const at = (item: string, anchor: string) => {
+		const href = hrefOf(item);
+		return href && anchor ? `${href}${href.includes('?') ? '&' : '?'}${anchor}` : href;
+	};
+	function setCover() {
+		window.dispatchEvent(new CustomEvent('sc-library-set', { detail: { role: 'thumbnail', path: family.main, item: library.address } }));
 	}
 </script>
 
-<aside class="details" data-testid="library-details">
+<aside class="details" class:drawer data-testid="library-details">
+	{#if drawer && onclose}<span class="close"><CloseButton label={m['library.close']()} onclick={onclose} /></span>{/if}
 	<div class="preview">
 		{#if family.kind === 'video' && video}
 			<!-- svelte-ignore a11y_media_has_caption -->
-			<video src={asset(video.path)} poster={family.preview ? asset(family.preview) : undefined} controls preload="metadata"></video>
+			<video src={asset(video.path)} poster={picture ? asset(picture) : undefined} controls preload="metadata"></video>
 		{:else if family.kind === 'audio' && audio}
 			<audio src={asset(audio.path)} controls preload="none"></audio>
-		{:else if family.preview}
-			<img src={asset(family.preview)} alt="" />
+		{:else if picture}
+			<img src={asset(picture)} alt="" />
 		{/if}
 	</div>
-	<h2>{family.title}</h2>
-	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()} · {m['library.versions_count']({ count: family.versions.length })}</p>
+	<h2><button type="button" class="name" data-control-exempt="text link" title={m['library.rename']()} onclick={() => renameFamily(family)}>{family.title}</button></h2>
+	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
 
-	<Section id="library-details-versions" label={m['library.versions']()} summary={m['library.versions_count']({ count: family.versions.length })}>
+	<div class="actions">
+		<button type="button" class="primary" onclick={() => library.use(family)} disabled={!fits}>{library.pick ? m['library.use_here']() : m['library.use']()}</button>
+		{#if chapterOpen && !library.pick}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
+		<button type="button" onclick={() => downloadFamilies([family])}>{m['library.download']()}</button>
+		<button type="button" onclick={() => copyPath(family)}>{m['library.copy_path']()}</button>
+		<button type="button" onclick={() => fileInput?.click()}>{m['library.replace']()}</button>
+		<button type="button" disabled title={NEEDS.credits()}>{m['library.credits']()}</button>
+		<button type="button" class="danger" onclick={() => deleteFamilies([family])}>{m['library.delete']()}</button>
+	</div>
+	<input bind:this={fileInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) onreplace(f); e.currentTarget.value = ''; }} />
+
+	<Section id="library-details-used" label={m['library.where_used']()} summary={String(parts.length + others.length)}>
+		{#if parts.length}
+			<ul class="uses" data-testid="library-uses">
+				{#each parts as u (u.part + u.path)}
+					{@const href = at(u.item, u.at)}
+					<li>{#if href}<button type="button" class="jump" data-control-exempt="text link" onclick={() => jump(href)}>{u.part}</button>{:else}<span>{u.part}</span>{/if}</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if failed}
+			<p class="sc-empty">{m['library.detail_failed']()}</p>
+		{:else if others.length}
+			<ul class="uses">
+				{#each others as u (u.ref)}
+					<li>
+						{#if u.href}<button type="button" class="jump" data-control-exempt="text link" onclick={() => jump(u.href!)}>{u.ref}</button>{:else}<span class="mono">{u.ref}</span>{/if}
+						<span class="mono muted">{[...u.fields].join(', ')}</span>
+						{#if u.state === 'draft'}<span class="tag">{m['library.draft']()}</span>{/if}
+					</li>
+				{/each}
+			</ul>
+		{:else if usages && !parts.length}
+			<p class="sc-empty">{m['library.unused_hint']()}</p>
+		{/if}
+	</Section>
+
+	<Section id="library-details-versions" label={m['library.versions']()} open={!drawer} summary={m['library.versions_count']({ count: family.versions.length })}>
+		{#if family.versions.length > 1}<VersionsTray {family} onuse={(v) => library.use(family, v.path)} />{/if}
 		<table class="versions">
 			<tbody>
 				{#each family.versions as v (v.path)}
@@ -90,44 +143,35 @@
 			<button type="button" class="jump quiet" data-control-exempt="text link" aria-expanded={showMissing} onclick={() => (showMissing = !showMissing)}>{showMissing ? m['library.hide_missing']() : m['library.show_missing_n']({ count: family.missing.length })}</button>
 		{/if}
 	</Section>
-
-	<Section id="library-details-used" label={m['library.where_used']()} summary={usages ? m['library.uses']({ count: uses.length }) : ''}>
-		{#if failed}
-			<p class="sc-empty">{m['library.detail_failed']()}</p>
-		{:else if usages && uses.length}
-			<ul class="uses">
-				{#each uses as u (u.ref)}
-					<li>
-						{#if u.href}<button type="button" class="jump" data-control-exempt="text link" onclick={() => jump(u.href!)}>{u.ref}</button>{:else}<span class="mono">{u.ref}</span>{/if}
-						<span class="mono muted">{[...u.fields].join(', ')}</span>
-						{#if u.state === 'draft'}<span class="tag">{m['library.draft']()}</span>{/if}
-					</li>
-				{/each}
-			</ul>
-		{:else if usages}
-			<p class="sc-empty">{m['library.unused_hint']()}</p>
-		{/if}
-	</Section>
-
-	<Section id="library-details-actions" label={m['library.actions']()}>
-		<div class="actions">
-			<button type="button" class="primary" onclick={() => library.use(family)} disabled={!library.usable(family)}>{m['library.use']()}</button>
-			<button type="button" onclick={() => fileInput?.click()}>{m['library.replace']()}</button>
-			<button type="button" onclick={copy}>{m['library.copy_path']()}</button>
-			<a class="sc-button" href={asset(family.main)} target="_blank" rel="noopener">{m['library.open_file']()}</a>
-		</div>
-		<input bind:this={fileInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) onreplace(f); e.currentTarget.value = ''; }} />
-	</Section>
 </aside>
 
 <style>
 	.details {
+		position: relative;
 		overflow: auto;
 		padding: var(--editor-pad);
 		border-left: var(--editor-edge) solid var(--editor-line);
 		font-size: var(--editor-small);
 	}
+	.details.drawer {
+		position: sticky;
+		bottom: 0;
+		z-index: 1;
+		/* the panel's body has no set height, so a % would never bite: the drawer keeps the grid two rows at least */
+		max-height: min(40vh, 22rem);
+		margin: 0 calc(-1 * var(--editor-pad));
+		border-left: 0;
+		border-top: var(--editor-edge) solid var(--editor-line);
+		background: var(--editor-surface);
+	}
+	.close {
+		position: absolute;
+		top: 0.3rem;
+		right: 0.3rem;
+		z-index: 1;
+	}
 	.preview {
+		position: relative;
 		display: grid;
 		place-items: center;
 		aspect-ratio: 16 / 10;
@@ -135,8 +179,15 @@
 		background: var(--editor-stage);
 		overflow: hidden;
 	}
+	.drawer .preview {
+		aspect-ratio: auto;
+		height: 7rem;
+	}
+	/* out of the grid's flow: a % height there doesn't resolve and a tall picture showed only its top strip */
 	.preview img,
 	.preview video {
+		position: absolute;
+		inset: 0;
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
@@ -148,8 +199,15 @@
 		margin: 0.6rem 0 0.1rem;
 		font-size: var(--editor-title, 1.15rem);
 		font-weight: 400;
-		letter-spacing: normal;
-		text-transform: none;
+	}
+	.name {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: start;
+		cursor: text;
 	}
 	.sub {
 		margin: 0 0 0.5rem;
@@ -162,8 +220,23 @@
 	.muted {
 		color: var(--editor-muted);
 	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		margin-bottom: 0.4rem;
+	}
+	.actions .primary {
+		border-color: var(--editor-primary-line);
+		background: var(--editor-primary);
+		color: var(--editor-primary-ink);
+	}
+	.danger {
+		color: var(--editor-danger, var(--editor-warn));
+	}
 	.versions {
 		width: 100%;
+		margin-top: 0.4rem;
 		border-collapse: collapse;
 	}
 	.versions td {
@@ -185,7 +258,7 @@
 		font-size: var(--editor-label);
 	}
 	.uses {
-		margin: 0;
+		margin: 0 0 0.3rem;
 		padding: 0;
 		list-style: none;
 		display: grid;
@@ -203,22 +276,12 @@
 		background: none;
 		color: var(--editor-accent);
 		font: inherit;
+		text-align: start;
 		cursor: pointer;
 	}
 	.jump.quiet {
 		display: block;
 		margin-top: 0.3rem;
 		color: var(--editor-muted);
-		text-align: left;
-	}
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.3rem;
-	}
-	.actions .primary {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
 	}
 </style>

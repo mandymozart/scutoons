@@ -23,6 +23,10 @@
 		"./vinyl-model": {
 			"types": "./src/vinyl-model.d.ts",
 			"default": "./src/vinyl-model.js"
+		},
+		"./library": {
+			"types": "./src/library/core.ts",
+			"default": "./src/library/core.ts"
 		}
 	},
 	"files": [
@@ -30,11 +34,12 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/media-standard.test.ts test/media-audit.test.ts test/library.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/media-standard.test.ts test/media-audit.test.ts test/library-core.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
+		"@scutoons/live-deck": "*",
 		"@scutoons/tokens": "*",
 		"@scutoons/ui": "*",
 		"three": "0.186.1",
