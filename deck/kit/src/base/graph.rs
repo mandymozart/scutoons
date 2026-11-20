@@ -3,6 +3,7 @@
 //! graph with its own words (deck-show: a row's nodes); a view lays it out here and draws it.
 use crate::base::draw::Rect;
 use crate::base::signal::Signal;
+use crate::base::wire::Wire;
 use serde::{Deserialize, Serialize};
 
 /// which way the signal runs through a node view
@@ -353,6 +354,38 @@ pub fn bounds_of(rects: impl IntoIterator<Item = Rect>) -> Rect {
     Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
 
+/// how many places along a wire a value tag is tried at, each side of the middle
+const TAG_TRIES: usize = 64;
+
+/// the widths a value tag is tried at, as shares of its full width: a gap between two layers can be narrower than the text
+const TAG_SHARES: [f32; 5] = [1.0, 0.75, 0.55, 0.4, 0.3];
+
+/// Where a wire's value tag (`size`, centred on its spot) goes: at the wire's middle, else the nearest point along the
+/// wire where it overlaps no `avoid` rect (the node cards, `margin` wider). Where the full width fits nowhere, the tag
+/// narrows (the caller cuts its text) before the next try; with no spot at all, it sits beside the wire's end, on the
+/// side the signal comes from. The tag's rect.
+pub fn tag_spot(wire: &Wire, size: (f32, f32), avoid: &[Rect], dir: Direction, margin: f32) -> Rect {
+    let step = 0.5 / TAG_TRIES as f32;
+    for share in TAG_SHARES {
+        let w = size.0 * share;
+        let at = |c: (f32, f32)| Rect { x: c.0 - w * 0.5, y: c.1 - size.1 * 0.5, w, h: size.1 };
+        let clear = |r: Rect| avoid.iter().all(|a| !(r.x < a.x + a.w + margin && a.x - margin < r.x + r.w && r.y < a.y + a.h + margin && a.y - margin < r.y + r.h));
+        for k in 0..=TAG_TRIES {
+            for t in [0.5 + step * k as f32, 0.5 - step * k as f32] {
+                let r = at(wire.at(t));
+                if clear(r) {
+                    return r;
+                }
+            }
+        }
+    }
+    let (end, w) = (wire.c[3], size.0 * TAG_SHARES[TAG_SHARES.len() - 1]);
+    match dir {
+        Direction::Lr => Rect { x: end.0 - w - margin, y: end.1 - size.1 * 0.5, w, h: size.1 },
+        Direction::Tb => Rect { x: end.0 - w * 0.5, y: end.1 - size.1 - margin, w, h: size.1 },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -504,5 +537,26 @@ mod tests {
         let b = bounds(&p);
         assert!(p.iter().all(|q| q.rect.x >= b.x && q.rect.y >= b.y && q.rect.x + q.rect.w <= b.x + b.w && q.rect.y + q.rect.h <= b.y + b.h));
         assert_eq!(bounds(&[]), Rect::default());
+    }
+
+    #[test]
+    fn a_value_tag_moves_along_its_wire_off_the_nodes() {
+        let w = Wire::hang((0.0, 0.0), (300.0, 0.0), 16.0);
+        let size = (40.0, 16.0);
+        let mid = w.at(0.5);
+        let free = tag_spot(&w, size, &[], Direction::Lr, 4.0);
+        assert_eq!((free.x + free.w * 0.5, free.y + free.h * 0.5), mid, "free: the middle");
+        let on = Rect { x: mid.0 - 30.0, y: mid.1 - 30.0, w: 60.0, h: 60.0 };
+        let at = tag_spot(&w, size, &[on], Direction::Lr, 4.0);
+        assert_eq!(at.w, size.0, "room along the wire: whole");
+        assert!(at.x + at.w <= on.x - 4.0 || at.x >= on.x + on.w + 4.0, "moved clear of the node: {at:?}");
+        let (a, b) = (Rect { x: -50.0, y: -50.0, w: 120.0, h: 100.0 }, Rect { x: 110.0, y: -50.0, w: 300.0, h: 100.0 });
+        let narrow = tag_spot(&w, size, &[a, b], Direction::Lr, 4.0);
+        assert!(narrow.w < size.0 && narrow.x >= a.x + a.w + 4.0 && narrow.x + narrow.w <= b.x - 4.0, "a gap too small: the tag narrows {narrow:?}");
+        let all = Rect { x: -50.0, y: -50.0, w: 500.0, h: 500.0 };
+        let end = tag_spot(&w, size, &[all], Direction::Lr, 4.0);
+        assert_eq!((end.x + end.w + 4.0, end.y + end.h * 0.5), (300.0, 0.0), "no spot: beside the end");
+        let end = tag_spot(&w, size, &[all], Direction::Tb, 4.0);
+        assert_eq!((end.x + end.w * 0.5, end.y + end.h + 4.0), (300.0, 0.0));
     }
 }

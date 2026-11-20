@@ -331,16 +331,28 @@ pub fn notes(d: &mut DrawList, t: &Tokens, (doc, drawn, bounds): (&Canvas, &[(St
     out
 }
 
-/// a wire's value as a small tag in its colour: beside the pointer, or pinned on the wire (`on`: centred on that point)
-pub fn value_label(d: &mut DrawList, t: &Tokens, l: &Link, at: (f32, f32), on: bool) {
+/// the size of a wire's value tag: small, a little padding round the text
+pub fn tag_size(d: &DrawList, t: &Tokens, v: &str) -> (f32, f32) {
+    let px = t.size.small * 0.8;
+    (d.advance(px) * v.chars().count() as f32 + t.size.pad, px * 1.5)
+}
+
+/// a wire's value as a small muted tag in `r`: the signal's colour as text on a faint fill, no border; the text cut to fit
+pub fn pin_tag(d: &mut DrawList, t: &Tokens, l: &Link, r: Rect) {
     let Some(v) = l.value.as_deref() else { return };
-    let px = t.size.small * 0.9;
-    let (w, h) = (d.advance(px) * v.chars().count() as f32 + 1.2 * t.size.pad, px * 1.6);
-    let (x, y) = if on { (at.0 - w * 0.5, at.1 - h * 0.5) } else { (at.0 + 12.0, at.1 - px * 2.4) };
+    let px = t.size.small * 0.8;
     let c = t.color.signals.of(l.signal);
-    d.round_rect(x, y, w, h, t.size.radius, mix(t.color.surface, c, 0.12));
-    d.outline(x, y, w, h, (t.size.radius, 1.0), faded(c, 0.7));
-    d.text(x + 0.6 * t.size.pad, y + px * 0.18, px, v, c);
+    let room = ((r.w - t.size.pad) / d.advance(px)).floor().max(1.0) as usize;
+    let text = if v.chars().count() > room { controls::fit(v, room) } else { v.to_string() };
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, faded(mix(t.color.surface, c, 0.1), 0.8));
+    d.text(r.x + 0.5 * t.size.pad, r.y + px * 0.15, px, &text, faded(c, 0.85));
+}
+
+/// a wire's value beside the pointer
+pub fn value_label(d: &mut DrawList, t: &Tokens, l: &Link, at: (f32, f32)) {
+    let Some(v) = l.value.as_deref() else { return };
+    let (w, h) = tag_size(d, t, v);
+    pin_tag(d, t, l, Rect { x: at.0 + 12.0, y: at.1 - t.size.small * 0.8 * 2.4, w, h });
 }
 
 #[cfg(test)]
@@ -367,10 +379,10 @@ mod tests {
         let t = Tokens::new(deck_kit::base::tokens::Theme::Night, 16.0);
         let mut d = DrawList::new(0.6);
         let mut l = Link::new((0, 0), (1, 1), deck_kit::base::signal::Signal::Control);
-        value_label(&mut d, &t, &l, (100.0, 100.0), false);
+        value_label(&mut d, &t, &l, (100.0, 100.0));
         assert!(d.texts().is_empty(), "no value: no label");
         l.value = Some("mood = \"shy\"".into());
-        value_label(&mut d, &t, &l, (100.0, 100.0), false);
+        value_label(&mut d, &t, &l, (100.0, 100.0));
         assert_eq!(d.texts(), ["mood = \"shy\""]);
     }
 
