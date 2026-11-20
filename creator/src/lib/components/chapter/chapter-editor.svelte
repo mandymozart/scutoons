@@ -39,7 +39,6 @@
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import { type Tool } from '$lib/components/slice/slice-canvas.svelte';
 	import StripCanvas from '$lib/components/slice/strip-canvas.svelte';
-	import { TEXT_PRESETS } from '$lib/editor/text-presets.ts';
 	import { piecePlace } from '$lib/editor/canvas-pieces.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { followPieces, piecesMoved } from '$lib/editor/collage-edit.ts';
@@ -800,17 +799,9 @@
 		if (next) view.select(next);
 		else session.notify('The chapter has no sample library yet (Audio in the tree).');
 	}
-	/** what a tool makes of a click / a drawn rect on the canvas (a click: width 0) */
+	/** what a tool makes of a drawn rect on the canvas (the item / piece / event tools: a click too, width 0) */
 	const CREATE: Record<Tool, (rect: { x: number; y: number; width: number; height: number }) => void> = {
-		// a click (no rect): the picked preset at its size, centred on the click
-		text: (rect) => {
-			if (rect.width >= 2) return addDialog(rect);
-			const preset = TEXT_PRESETS.find((p) => p.id === view.textPreset) ?? TEXT_PRESETS[0];
-			const w = preset.rect.width ?? 70;
-			const h = preset.rect.height ?? 10;
-			const x = Math.max(0, Math.min(100 - w, rect.x - w / 2));
-			addDialog({ x: Math.round(x * 100) / 100, y: Math.round((rect.y - h / 2) * 100) / 100, width: w, ...(preset.rect.height !== undefined ? { height: h } : {}) }, preset);
-		},
+		text: (rect) => addDialog(rect),
 		item: (rect) => view.pickItem({ x: rect.x, y: rect.y }),
 		piece: (rect) => view.pickPiece(rect),
 		sample: (rect) => addSampleArea(rect),

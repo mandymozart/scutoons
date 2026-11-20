@@ -60,8 +60,8 @@ export class ChapterView {
 	snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
 	gridSize = $state(readPref(GRID_KEY, 30, (v) => GRID_SIZES.includes(v as number)));
 	/**
-	 * the canvas zoom, a factor of the slice's 1x width (50–300 %); null = fit (the area's height, at most 2x; on a phone
-	 * its width) – remembered on this device (UI-CONCEPTS E.4)
+	 * the canvas zoom, a factor of the slice's 1x width (50–300 %); null = fit (the area's height, at most 2x) –
+	 * remembered on this device (UI-CONCEPTS E.4)
 	 */
 	zoom = $state<number | null>(readPref(ZOOM_KEY, null, (v) => v === null || (typeof v === 'number' && v >= ZOOM_MIN && v <= ZOOM_MAX)));
 	/**
@@ -81,8 +81,6 @@ export class ChapterView {
 	pickingPiece = $state(false);
 	/** "+ Add text" shows the presets (owner 2026-10-03) */
 	pickingPreset = $state(false);
-	/** the phone's text preset (E3, the presets row): a tap on the canvas with the text tool places one of it */
-	textPreset = $state('speech');
 
 	/** `onopen`: a group opened */
 	constructor(private readonly onopen: (group: number) => void = () => {}) {}

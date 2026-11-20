@@ -1,5 +1,5 @@
 // Copy / cut / paste of slices (BACKLOG 10.39 step 5) as one handler for every place that picks slices: the chapter
-// tree's slice list (region 'slices') and the phone's slice grid (the selection bar, owner 2026-10-12). The picked
+// tree's slice list (region 'slices'). The picked
 // slices with their boxes, items, events and sounds; a paste goes after the last picked slice (else at the end) – fresh
 // ids, media of another toon referenced (`../<toon>/…`); Shift+V puts the copied slice's audio + events onto every
 // picked one.
