@@ -1,4 +1,5 @@
-//! The browser's video decoders (WebCodecs `VideoDecoder`), offered to deck-media as this platform's hardware: the
+//! The browser's video decoders (WebCodecs `VideoDecoder`), offered to deck-media twice: its hardware ones as the
+//! platform's hardware, its software ones as the platform's software (`backend::install_software`): the
 //! core's probes asked of `isConfigSupported`, packets in, each picture out as its `VideoFrame` – it stays on the GPU
 //! (`Format::Held`) and is copied there into the stage's texture (`copy_held`), then closed. This decides nothing: the
 //! codec strings, the packet order, the pacing and the fallback are deck-media's (`rfc6381`, `Player`, `backend::Auto`).
@@ -49,27 +50,46 @@ fn said(e: JsValue) -> Error {
     Error(format!("WebCodecs: {why}"))
 }
 
-/// The core's probes asked of the browser – which decode with `prefer` ("prefer-hardware" for the deck; a measurement
-/// may ask "prefer-software") – and the decoders installed for those; once, before a scene opens a video. Returns the
-/// probes it answered yes to; none: every video plays on deck-media's software decoders.
+/// The core's probes asked of the browser once for its hardware decoders and once for its software ones
+/// (`isConfigSupported`, "prefer-hardware" / "prefer-software") – and the decoders installed for each; once, before a
+/// scene opens a video. The core orders them (`backend::Auto`: hardware, the browser's software, deck-media's own).
+/// Returns the probes the hardware answered yes to; none: the browser's software and deck-media's decode.
 #[wasm_bindgen]
-pub async fn video_install(prefer: String) -> Vec<String> {
+pub async fn video_install() -> Vec<String> {
+    let hardware = supported("prefer-hardware").await;
+    let software = supported("prefer-software").await;
+    let hardware_yes: Vec<String> = hardware.iter().map(|(_, s)| s.to_string()).collect();
+    web_sys::console::log_1(&JsValue::from_str(&format!("video: the browser decodes in hardware: {:?}, in software: {:?}", names(&hardware), names(&software))));
+    let (hw, sw): (Vec<Codec>, Vec<Codec>) = (hardware.into_iter().map(|(c, _)| c).collect(), software.into_iter().map(|(c, _)| c).collect());
+    let any = !hw.is_empty() || !sw.is_empty();
+    if !hw.is_empty() {
+        deck_media::backend::install(Box::new(Browser { codecs: hw, prefer: "prefer-hardware" }));
+    }
+    if !sw.is_empty() {
+        deck_media::backend::install_software(Box::new(Browser { codecs: sw, prefer: "prefer-software" }));
+    }
+    if any {
+        deck_space::video::install_held(copy_held);
+    }
+    hardware_yes
+}
+
+fn names(v: &[(Codec, &str)]) -> Vec<String> {
+    v.iter().map(|(c, _)| format!("{c:?}")).collect()
+}
+
+/// the core's probes that the browser decodes with `prefer`
+async fn supported(prefer: &str) -> Vec<(Codec, &'static str)> {
     let mut yes = Vec::new();
     if js_sys::Reflect::has(&js_sys::global(), &"VideoDecoder".into()).unwrap_or(false) {
-        for (_, codec) in rfc6381::probes() {
-            let ask = object(&[("codec", codec.into()), ("hardwareAcceleration", prefer.as_str().into())]);
+        for (codec, string) in rfc6381::probes() {
+            let ask = object(&[("codec", string.into()), ("hardwareAcceleration", prefer.into())]);
             let Ok(p) = JsDecoder::is_config_supported(&ask) else { continue };
             let support = JsFuture::from(p).await.ok().and_then(|r| js_sys::Reflect::get(&r, &"supported".into()).ok());
             if support.and_then(|s| s.as_bool()) == Some(true) {
-                yes.push(codec.to_string());
+                yes.push((codec, string));
             }
         }
-    }
-    let codecs: Vec<Codec> = yes.iter().filter_map(|s| rfc6381::probed(s)).collect();
-    web_sys::console::log_1(&JsValue::from_str(&format!("video: the browser decodes ({prefer}): {codecs:?}")));
-    if !codecs.is_empty() {
-        deck_media::backend::install(Box::new(Browser { codecs, prefer }));
-        deck_space::video::install_held(copy_held);
     }
     yes
 }
@@ -106,7 +126,7 @@ fn copy_held(held: &Held, queue: &wgpu::Queue, texture: &wgpu::Texture) {
 
 struct Browser {
     codecs: Vec<Codec>,
-    prefer: String,
+    prefer: &'static str,
 }
 
 impl Hardware for Browser {
@@ -115,7 +135,7 @@ impl Hardware for Browser {
     }
 
     fn backend(&self) -> Box<dyn DecodeBackend> {
-        Box::new(WebCodecs { prefer: self.prefer.clone(), config: None, live: None, retired: None })
+        Box::new(WebCodecs { prefer: self.prefer, config: None, live: None, retired: None })
     }
 }
 
@@ -149,7 +169,7 @@ impl Live {
 }
 
 struct WebCodecs {
-    prefer: String,
+    prefer: &'static str,
     config: Option<js_sys::Object>,
     live: Option<Live>,
     /// the decoder before the last seek, kept while a late callback of it may still come
@@ -191,12 +211,14 @@ impl WebCodecs {
 
 impl DecodeBackend for WebCodecs {
     fn caps(&self) -> Caps {
-        Caps { codecs: deck_media::backend::hardware_codecs(), hardware: true }
+        let hardware = self.prefer == "prefer-hardware";
+        let codecs = if hardware { deck_media::backend::hardware_codecs() } else { deck_media::backend::platform_software_codecs() };
+        Caps { codecs, hardware }
     }
 
     fn configure(&mut self, stream: &Stream) -> Result<(), Error> {
         let codec = rfc6381::codec_string(stream).ok_or_else(|| Error(format!("WebCodecs: no codec string for {:?}", stream.codec)))?;
-        let mut fields = vec![("codec", codec.into()), ("codedWidth", stream.width.into()), ("codedHeight", stream.height.into()), ("hardwareAcceleration", self.prefer.as_str().into())];
+        let mut fields = vec![("codec", codec.into()), ("codedWidth", stream.width.into()), ("codedHeight", stream.height.into()), ("hardwareAcceleration", self.prefer.into())];
         if let Some(d) = rfc6381::description(stream) {
             fields.push(("description", js_sys::Uint8Array::from(d).into()));
         }
@@ -298,7 +320,13 @@ impl VideoBench {
     /// what the clip is and where it decodes: "<codec> <w>×<h> on <backend>"
     pub fn about(&self) -> String {
         let t = self.player.track();
-        let on = if deck_media::backend::hardware_codecs().contains(&t.codec) { "WebCodecs" } else { "software" };
+        let on = if deck_media::backend::hardware_codecs().contains(&t.codec) {
+            "WebCodecs hardware"
+        } else if deck_media::backend::platform_software_codecs().contains(&t.codec) {
+            "WebCodecs software"
+        } else {
+            "deck-media software"
+        };
         format!("{:?} {}×{} on {on}", t.codec, t.width, t.height)
     }
 

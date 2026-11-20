@@ -1,6 +1,6 @@
 //! Which of an asset's derivatives this deck plays: GPU-texture frames (HAP) where the GPU samples BC, else a codec a
-//! hardware decoder takes (`backend::hardware_codecs`, the adapter's capability query), else one the software backend
-//! decodes (rav1d's AV1, the floor); of those the tallest that fits the deck's height, else the smallest; at one height
+//! hardware decoder takes (`backend::hardware_codecs`, the adapter's capability query), else one the platform's own
+//! software decoders take (the browser's) or the software backend decodes (rav1d's AV1, the floor); of those the tallest that fits the deck's height, else the smallest; at one height
 //! the codec with the smaller file. TODO(#325): the derivatives come with the scene's asset manifest; until then a host passes the one file
 //! it has (`Derivative::only`).
 use crate::backend::Software;
@@ -30,6 +30,8 @@ pub struct Device {
     pub bc: bool,
     /// codecs a hardware decoder takes
     pub hardware: Vec<Codec>,
+    /// codecs the platform's own software decoders take (the browser's), behind the hardware ones
+    pub platform_software: Vec<Codec>,
     /// the tallest picture worth playing (the screen's height, or the quality rung's)
     pub max_height: u32,
 }
@@ -37,7 +39,7 @@ pub struct Device {
 impl Device {
     /// this deck: its GPU's BC sampling, its height, and the codecs its hardware decoders take
     pub fn here(bc: bool, max_height: u32) -> Device {
-        Device { bc, hardware: crate::backend::hardware_codecs(), max_height }
+        Device { bc, hardware: crate::backend::hardware_codecs(), platform_software: crate::backend::platform_software_codecs(), max_height }
     }
 
     fn rank(&self, d: &Derivative) -> Option<u8> {
@@ -46,6 +48,7 @@ impl Device {
             Codec::Hap(_) if self.bc => Some(0),
             c if self.hardware.contains(c) => Some(1),
             Codec::Hap(_) => Some(3),
+            c if self.platform_software.contains(c) => Some(2),
             c if Software::codecs().contains(c) => Some(2),
             _ => None,
         }
@@ -82,14 +85,14 @@ mod tests {
     #[test]
     fn a_native_deck_takes_hap_a_phone_its_decoder_and_both_the_height_that_fits() {
         let list = [d(Codec::Hap(Hap::Rgb), 1080), d(Codec::Hap(Hap::Q), 2160), d(Codec::Av1, 540), d(Codec::Av1, 1080), d(Codec::H264, 720)];
-        let x1 = Device { bc: true, hardware: vec![], max_height: 1080 };
+        let x1 = Device { bc: true, hardware: vec![], platform_software: vec![], max_height: 1080 };
         assert_eq!(choose(&list, &x1).unwrap().path, "1080", "HAP, the tallest that fits");
-        let phone = Device { bc: false, hardware: vec![Codec::H264], max_height: 2400 };
+        let phone = Device { bc: false, hardware: vec![Codec::H264], platform_software: vec![], max_height: 2400 };
         assert_eq!(choose(&list, &phone).unwrap().codec, Codec::H264, "its hardware decoder first");
         if crate::AV1 {
-            let small = Device { bc: false, hardware: vec![], max_height: 720 };
+            let small = Device { bc: false, hardware: vec![], platform_software: vec![], max_height: 720 };
             assert_eq!(choose(&list, &small).unwrap().path, "540", "software AV1, the tallest under the screen");
-            let tiny = Device { bc: false, hardware: vec![], max_height: 240 };
+            let tiny = Device { bc: false, hardware: vec![], platform_software: vec![], max_height: 240 };
             assert_eq!(choose(&list, &tiny).unwrap().path, "540", "nothing fits: the smallest");
         }
         assert!(choose(&[d(Codec::Other("xyz".into()), 720)], &x1).is_none());
@@ -99,22 +102,32 @@ mod tests {
     fn without_hardware_av1_the_codec_the_gpu_decodes() {
         // the PC (RTX 2070 SUPER: H.264, HEVC, VP9) and the X1 (UHD 620: the same) decode no AV1 in hardware
         let list = [d(Codec::Av1, 1080), d(Codec::Hevc, 1080), d(Codec::H264, 1080), d(Codec::H264, 720)];
-        let pc = Device { bc: false, hardware: vec![Codec::H264, Codec::Hevc, Codec::Vp9], max_height: 1440 };
+        let pc = Device { bc: false, hardware: vec![Codec::H264, Codec::Hevc, Codec::Vp9], platform_software: vec![], max_height: 1440 };
         assert_eq!(choose(&list, &pc).unwrap().codec, Codec::Hevc, "HEVC: hardware, and smaller than H.264");
-        let h264_only = Device { bc: false, hardware: vec![Codec::H264], max_height: 1080 };
+        let h264_only = Device { bc: false, hardware: vec![Codec::H264], platform_software: vec![], max_height: 1080 };
         let got = choose(&list, &h264_only).unwrap();
         assert_eq!((&got.codec, got.height), (&Codec::H264, 1080));
-        let newer = Device { bc: false, hardware: vec![Codec::Av1, Codec::Hevc], max_height: 1080 };
+        let newer = Device { bc: false, hardware: vec![Codec::Av1, Codec::Hevc], platform_software: vec![], max_height: 1080 };
         assert_eq!(choose(&list, &newer).unwrap().codec, Codec::Av1, "AV1 where the GPU has it");
         if crate::AV1 {
-            let none = Device { bc: false, hardware: vec![], max_height: 1080 };
+            let none = Device { bc: false, hardware: vec![], platform_software: vec![], max_height: 1080 };
             assert_eq!(choose(&list, &none).unwrap().codec, Codec::Av1, "software: rav1d's AV1, the floor");
         }
     }
 
     #[test]
+    fn the_browsers_software_decoders_come_after_hardware_and_before_hap() {
+        let list = [d(Codec::Hap(Hap::Rgb), 1080), d(Codec::Av1, 1080), d(Codec::H264, 1080)];
+        let browser = Device { bc: false, hardware: vec![Codec::H264], platform_software: vec![Codec::Av1], max_height: 1080 };
+        assert_eq!(choose(&list, &browser).unwrap().codec, Codec::H264, "hardware first");
+        assert_eq!(choose(&list[..2], &browser).unwrap().codec, Codec::Av1, "then the browser's software, before HAP as pixels");
+        let none = Device { platform_software: vec![], ..browser };
+        assert_eq!(choose(&list[..2], &none).map(|d| d.codec.clone()), if crate::AV1 { Some(Codec::Av1) } else { Some(Codec::Hap(Hap::Rgb)) });
+    }
+
+    #[test]
     fn one_file_passes_through() {
         let only = [Derivative::only("live/x/loop.mov")];
-        assert_eq!(choose(&only, &Device { bc: false, hardware: vec![], max_height: 0 }).unwrap().path, "live/x/loop.mov", "HAP decodes in software too");
+        assert_eq!(choose(&only, &Device { bc: false, hardware: vec![], platform_software: vec![], max_height: 0 }).unwrap().path, "live/x/loop.mov", "HAP decodes in software too");
     }
 }
