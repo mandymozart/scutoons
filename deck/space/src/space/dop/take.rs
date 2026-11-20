@@ -135,6 +135,11 @@ impl Recorder {
         self.follow.recenter();
     }
 
+    /// A page's Recenter (the storyboard's): the follow goes back to the camera it began from, so a camera never stays stuck
+    pub fn recenter_on_shot(&mut self) {
+        self.follow.reanchor();
+    }
+
     /// how long it runs so far (s) and how many poses it kept
     pub fn secs(&self) -> f32 {
         self.samples.last().map_or(0.0, |s| s.secs)
@@ -332,6 +337,27 @@ mod tests {
         assert!((held.x - 4.0).abs() < 0.2, "2 phone metres at scale 2: {held:?}");
         assert!(keys.last().unwrap().eye.distance(held) < 0.3);
         assert!(anchor_of(&[0.0, f64::NAN, 0.0], &[0.0, 0.0, 0.0, 1.0]).is_none());
+    }
+
+    #[test]
+    fn a_recenter_on_the_shot_jumps_back_to_the_shot_camera() {
+        let anchor = anchor_of(&[0.0, 1.6, 4.0], &[0.0, 0.0, 0.0, 1.0]).unwrap();
+        let mut r = Recorder::live("shot", anchor, 1.0);
+        assert!(r.pose(0.0, &[0.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        for i in 1..=30 {
+            assert!(r.pose(i as f64 * 100.0, &[i as f64 / 10.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        }
+        assert!(r.held().unwrap().0.x > 2.0, "walked away");
+        r.recenter_on_shot();
+        assert!(r.pose(4000.0, &[9.0, 0.0, 9.0], &[0.0, 0.0, 0.0, 1.0]));
+        let eye = r.held().unwrap().0;
+        assert!(eye.distance(Vec3::new(0.0, 1.6, 4.0)) < 1e-3, "back on the shot camera: {eye:?}");
+        // a plain recenter (a deck's) still stays where the view is
+        assert!(r.pose(4100.0, &[10.0, 0.0, 9.0], &[0.0, 0.0, 0.0, 1.0]));
+        let was = r.held().unwrap().0;
+        r.recenter();
+        assert!(r.pose(4200.0, &[0.0, 0.0, 0.0], &[0.0, 0.0, 0.0, 1.0]));
+        assert!(r.held().unwrap().0.distance(was) < 0.5, "a deck's recenter keeps the view");
     }
 
     #[test]

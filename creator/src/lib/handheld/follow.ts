@@ -13,7 +13,7 @@ export interface Key {
 export interface FollowPort {
 	/** false: late or malformed – dropped */
 	pose(t: number, p: readonly number[], q: readonly number[]): boolean;
-	/** the phone's next pose = the camera now */
+	/** the camera jumps back to the shot's; the phone's next pose is it */
 	recenter(): void;
 	/** Record (a new take from the next pose) and Stop */
 	keep(on: boolean): void;

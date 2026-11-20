@@ -20,6 +20,7 @@ test('the camera now and the take come out as plain values; the poses go in as t
 		core({
 			pose: (t, p, q) => (calls.push(`${t}:${[...p]}:${[...q]}`), true),
 			keep: (on) => void calls.push(`keep ${on}`),
+			recenter: () => void calls.push('recenter'),
 			held: () => Float64Array.of(1, 2, 3, 0, 0, 0, 1),
 			take: () => JSON.stringify([{ t: 0, position: [0, 1.5, 0], quaternion: [0, 0, 0, 1] }, { t: 2, position: [2, 1.5, 0], quaternion: [0, 0, 0, 1] }])
 		})
@@ -27,7 +28,8 @@ test('the camera now and the take come out as plain values; the poses go in as t
 	assert.equal(f.pose(10, [0, 1, 0], [0, 0, 0, 1]), true);
 	f.keep(true);
 	f.keep(false);
-	assert.deepEqual(calls, ['10:0,1,0:0,0,0,1', 'keep true', 'keep false']);
+	f.recenter();
+	assert.deepEqual(calls, ['10:0,1,0:0,0,0,1', 'keep true', 'keep false', 'recenter']);
 	assert.deepEqual(f.held(), { position: [1, 2, 3], quaternion: [0, 0, 0, 1] });
 	assert.deepEqual(f.take()?.map((k) => k.t), [0, 2]);
 });

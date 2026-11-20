@@ -12,6 +12,7 @@ import { NO_CORE, relayCore } from './relay-core.ts';
 interface FollowCore {
 	pose(t: number, p: Float64Array, q: Float64Array): boolean;
 	keep(on: boolean): void;
+	recenter(): void;
 	secs(): number;
 	held(): Float64Array;
 	take(): string;
@@ -173,5 +174,9 @@ test('the storyboard\'s follow: the core follows the phone from the shot camera,
 	assert.ok(Math.abs(f.secs() - 4) < 1e-3);
 	const held = f.held();
 	assert.equal(held.length, 7);
+	f.recenter();
+	assert.equal(f.pose(10000, Float64Array.of(7, 0, 7), Float64Array.of(0, 0, 0, 1)), true);
+	const back = f.held();
+	assert.ok(Math.abs(back[0]) < 1e-3 && Math.abs(back[1] - 1.6) < 1e-3 && Math.abs(back[2] - 4) < 1e-3, `Recenter: back on the shot camera ${[...back]}`);
 	f.free();
 });

@@ -23,8 +23,9 @@ impl TakeFollow {
         self.r.pose(t, p, q)
     }
 
+    /// Recenter: the camera jumps back to the one the follow began from (the shot's)
     pub fn recenter(&mut self) {
-        self.r.recenter();
+        self.r.recenter_on_shot();
     }
 
     /// Record (true) and Stop (false)
