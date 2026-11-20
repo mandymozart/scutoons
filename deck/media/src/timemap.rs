@@ -56,19 +56,27 @@ pub fn fps(track: &Track) -> f64 {
 pub fn thumbnail(p: &Picture) -> Vec<f32> {
     let rgba = p.to_rgba();
     let (w, h) = (rgba.width.max(1) as usize, rgba.height.max(1) as usize);
-    let mut sum = vec![0f32; CELLS * CELLS * 3];
-    let mut n = vec![0u32; CELLS * CELLS];
-    for y in 0..h {
-        for x in 0..w {
-            let px = &rgba.data[(y * w + x) * 4..(y * w + x) * 4 + 3];
-            let c = (y * CELLS / h) * CELLS + x * CELLS / w;
-            for k in 0..3 {
-                sum[c * 3 + k] += f32::from(px[k]) / 255.0;
+    // each cell its own pixels – at least one, so a picture smaller than the grid fills it too
+    let span = |c: usize, len: usize| {
+        let a = (c * len / CELLS).min(len - 1);
+        a..((c + 1) * len / CELLS).clamp(a + 1, len)
+    };
+    let mut cells = Vec::with_capacity(CELLS * CELLS * 3);
+    for cy in 0..CELLS {
+        for cx in 0..CELLS {
+            let (mut sum, mut n) = ([0f32; 3], 0f32);
+            for y in span(cy, h) {
+                for x in span(cx, w) {
+                    let px = &rgba.data[(y * w + x) * 4..(y * w + x) * 4 + 3];
+                    for k in 0..3 {
+                        sum[k] += f32::from(px[k]) / 255.0;
+                    }
+                    n += 1.0;
+                }
             }
-            n[c] += 1;
+            cells.extend(sum.map(|s| s / n));
         }
     }
-    let mut cells: Vec<f32> = sum.iter().enumerate().map(|(i, s)| if n[i / 3] > 0 { s / n[i / 3] as f32 } else { 0.0 }).collect();
     for k in 0..3 {
         let mean = cells.iter().skip(k).step_by(3).sum::<f32>() / (CELLS * CELLS) as f32;
         cells.iter_mut().skip(k).step_by(3).for_each(|v| *v -= mean);
@@ -147,10 +155,18 @@ mod tests {
 
     #[test]
     fn thumbnails_compare_pictures_of_any_size() {
-        let grey = |w: u32, h: u32, v: u8| Picture::new(w, h, crate::Format::Rgba8, [v, v, v, 255].repeat((w * h) as usize));
-        let (a, b) = (thumbnail(&grey(64, 48, 128)), thumbnail(&grey(32, 24, 128)));
+        // white on the left half (or the right), `level` added everywhere
+        let halves = |w: u32, h: u32, left: bool, level: u8| {
+            let px = (0..w * h).flat_map(|i| {
+                let v = if ((i % w) < w / 2) == left { 200 } else { 0 } + level;
+                [v, v, v, 255]
+            });
+            Picture::new(w, h, crate::Format::Rgba8, px.collect())
+        };
+        let (a, b) = (thumbnail(&halves(64, 48, true, 0)), thumbnail(&halves(16, 12, true, 0)));
         assert_eq!(a.len(), CELLS * CELLS * 3);
-        assert!(unlike(&a, &b) < 1e-6, "the same picture, half the size");
-        assert!(unlike(&a, &thumbnail(&grey(64, 48, 0))) > 0.4);
+        assert!(unlike(&a, &b) < 1e-6, "the same picture, a quarter the size (smaller than the grid)");
+        assert!(unlike(&a, &thumbnail(&halves(64, 48, true, 40))) < 1e-4, "a level shift is no difference");
+        assert!(unlike(&a, &thumbnail(&halves(64, 48, false, 0))) > 0.3, "the other half white");
     }
 }
