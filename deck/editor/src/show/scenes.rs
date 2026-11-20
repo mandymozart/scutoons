@@ -36,14 +36,9 @@ impl Host {
         })
     }
 
-    /// A piece let go at (x, y): on a cell it selects the cell and becomes its piece, or the core says why not, there.
-    /// False = no cell there.
-    pub fn drop_piece(&mut self, piece: &str, x: f32, y: f32) -> bool {
-        self.drop_pieces(&[piece.to_string()], x, y)
-    }
-
-    /// Several pieces let go at (x, y): the first on the cell there, each next one on the cell below (as far as the rows
-    /// go); the last cell landed on stays selected. False = no cell there.
+    /// Pieces let go at (x, y): on a cell the first selects it and becomes its piece, each next one the piece of the cell
+    /// below (as far as the rows go), or the core says why not, there; the last cell landed on stays selected. False = no
+    /// cell there.
     pub fn drop_pieces(&mut self, pieces: &[String], x: f32, y: f32) -> bool {
         let Some((r, c)) = self.drop_target(x, y) else { return false };
         let plan = view::plan(self.shown());
@@ -141,7 +136,7 @@ pub(in crate::show) mod tests {
         lib.browser.drag_to(at.0, at.1);
         assert!(lib.carrying().is_some(), "Show takes a scene");
         let Some(Did::Drop { entry, at }) = lib.browser.release(at.0, at.1) else { panic!("a drop") };
-        assert!(host.drop_piece(&lib.entries[entry].address.clone(), at.0, at.1), "a cell under the pointer");
+        assert!(host.drop_pieces(&[lib.entries[entry].address.clone()], at.0, at.1), "a cell under the pointer");
         at
     }
 
@@ -168,7 +163,7 @@ pub(in crate::show) mod tests {
         assert_eq!((host.row, host.cell().map(String::as_str)), (0, Some("middle")), "the cell it landed on is selected");
         assert_eq!(host.refused, None);
         let before = host.shown().clone();
-        assert!(!host.drop_piece("scene:nave", 1.0, 1.0), "let go over nothing: nothing changes");
+        assert!(!host.drop_pieces(&["scene:nave".into()], 1.0, 1.0), "let go over nothing: nothing changes");
         assert_eq!(host.shown(), &before);
     }
 
