@@ -74,7 +74,7 @@ Short term: **posters printed in December, rolled out in January (#674)** – P1
   poster's production path – nothing like it in SCUTOONS yet.
 - **Kit:** OSCT already has `FloatingPanel`, floats, `ToolGroup` / `ToolMenu`, `GridSnapMenu`, `ScrubNumber` – the same
   rules as deck-kit's floats; a source for #656.
-- **three.js:** OSCT 0.174, creator 0.186 – one version (owner 2026-11-20), set when the stage is copied.
+- **three.js:** OSCT 0.174, creator 0.186 – one version (owner 2026-11-20), set when the stage is copied, upgraded later (the 8th Wall binary holds 0.174).
 - XR.md §8.1 and XR-SHARED-CORE §3 named "surfaces without pages" as the one conflict; schema 3.0 resolves it, so the
   copy fits. Both docs predate 3.0.
 
