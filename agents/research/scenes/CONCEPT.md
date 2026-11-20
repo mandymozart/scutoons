@@ -31,7 +31,7 @@ Two grammars exist, on purpose:
 - **An address says where:** a place `<kind>:<id>` (`scene:nave`, `character:catpope`, `deck:left`) and the ladder below it (`deck/space/src/rig/address.rs`, SHOW.md §8). The **address book** (#477, `server/schema/api/address-book.schema.json`) lists what exists per toon, with the kinds character, persona, look, location, item, chapter, group, variable, season, toon, product, region, scene. **It has no `event` kind.**
 - **An event name says what happened:** `<domain>.<name>` with a dot (`story.fx`, `music.note`, `relay.cue`, `deck.mood`), from the name dictionary (`deck/events/src/names.rs`, EVENTS.md). A receiver subscribes to a name or a whole domain (`route.rs`). Story events carry the creator's stable event id (#539); a scene's listener matches type + id (#517); a show row's `fire` names an event id (`ch3.yellowmouse-enters` in the editor's tests).
 
-So the "event list per toon" is **not** the address book yet. It would be the address book gaining a kind `event`: every event id a toon's chapters, shows and (later) XR scenes declare, so the typeahead offers them and a row, a listener or an XR rule picks from one list.
+**Correction (owner asked, 2026-11-20): the event list exists, beside the address book, not in it.** `GET /api/creator/story-events` (#521, `server/src/Domain/Content/FlowIndex.php` `storyEvents`) lists every toon's chapters' story events: per chapter `{ id, type, characters, excerpt, group, groupIndex }`, drafts included, plus the published questions (#550); readable by the content editors and the role `live` (#555). The deck editor's row picker reads it (`deck/editor/src/show/events.rs`, #539: an event without an id is dropped, no row can name it). On a deck, the story adapter turns a story event into `story.<type>` in the name dictionary (`deck/events/src/adapters/story.rs`). What it lacks: events a show or an XR scene declares itself (not from a chapter), and one typeahead with the address book.
 
 **Global events (`all:enter_mainstage`):** there is no `all:` place, and none is needed. Reach comes from where an event is sent, not from its name:
 - Pushed down the conductor tree, an event reaches **every** receiver below (SHOW.md §8 "who picks up goes down"); a wildcard (`location:*`) is "all of a kind".
@@ -42,13 +42,13 @@ Proposed two tiers for the event list:
 | Tier | Who defines it | Where it lives | Examples |
 |---|---|---|---|
 | **Platform domains** | code | the name dictionary (`names.rs`) | `deck.*`, `relay.*`, `music.*`, `clock.*` |
-| **A toon's events** | the creator (chapters, shows, XR) | the address book, kind `event`, per toon | `ch3.yellowmouse-enters`, `enter_mainstage` |
+| **A toon's events** | the creator (chapters today; shows and XR later) | the story-events index (#521), per toon | `ch3.yellowmouse-enters`, `enter_mainstage` |
 
 A toon's event is never global across toons; it is global within the session that plays it.
 
 **Three questions for the owner** (replacing §8):
 
-1. **Events: the address book gains a kind `event`** (a toon's event ids from chapters, shows and XR), next to the platform domains in the name dictionary; no `all:` prefix, reach by where it is sent (§0.1)? *Recommended:* yes.
+1. **Events:** keep the story-events index (#521) as the toon's event list and let shows and XR scenes add their own event ids to it, or fold it into the address book (#477) as a kind `event` so one typeahead serves both? *Recommended:* fold it in, once #477's typeahead is the one picker; the index's content (id, type, chapter, group) becomes the entries. Either way: no `all:` prefix, reach by where it is sent (§0.1).
 2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one. **In XR a spot is physical** (§0.2): the shared thing is the spot's *name*; each medium resolves where it is.
 
 ### 0.2 A spot inside an XR scene is a physical place (owner 2026-11-20)
@@ -75,7 +75,7 @@ Question for the owner: **(a), (b), or (a) now and (b) later?** *Recommended:* (
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
-Draft tickets left (unfiled): feature "The address book lists a toon's events (kind `event`)" (area:content, M, with #477) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
+Draft tickets left (unfiled): feature "The story-events index joins the address book (kind `event`); shows and XR declare their own events" (area:content, M, with #477 and #521) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
