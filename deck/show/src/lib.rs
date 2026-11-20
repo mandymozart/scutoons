@@ -13,6 +13,8 @@
 //! - [`view`]: what the deck editor's Show and Perform workspaces draw: the matrix, the log in words, the inspector (#91).
 //! - [`choose`]: choosing what to flash (#471): every device of the tree, the filters, the prompt, what the flash names.
 //! - [`roles`]: the conductor's roles in the editor (#478): their filter in words, how many are here.
+/// a show one deck plays on its own, as its own conductor: Play's listing, the cells for its outlet
+pub mod alone;
 pub mod address;
 pub mod canvas;
 pub mod choose;

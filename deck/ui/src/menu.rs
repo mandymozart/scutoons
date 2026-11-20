@@ -10,7 +10,8 @@
 //!
 //! the native deck starts on the start menu over the idle scene instead (Play, Join a show, Settings, Open creator)
 //! and follows its stand (start.rs): a conductor drives it – the start pages give way; its conductor gone – "waiting for
-//! <show>" with Leave.
+//! <show>" with Leave. A show it plays as its own conductor: Esc opens its page, GO fires the next row, LEAVE stops it and
+//! goes back to the start menu.
 pub use deck_kit::base::input::Input;
 
 /// the pages drawn with the kit and painted (`Menu::paint`)
@@ -36,6 +37,8 @@ pub enum Page {
     Start,
     Play,
     Waiting,
+    /// the show this deck plays as its own conductor: GO, LEAVE
+    Show,
 }
 
 impl Page {
@@ -46,7 +49,7 @@ impl Page {
 
     /// a page of the start, which gives way when a conductor drives the deck
     pub fn start(self) -> bool {
-        matches!(self, Page::Start | Page::Play | Page::Waiting)
+        matches!(self, Page::Start | Page::Play | Page::Waiting | Page::Show)
     }
 }
 
@@ -110,6 +113,8 @@ pub struct Facts {
     pub top: f32,
     /// what Play lists (start.rs `play_list`)
     pub play: Vec<crate::start::Playable>,
+    /// the show this deck plays as its own conductor (none: none)
+    pub showing: Option<crate::start::Showing>,
 }
 
 /// The session's line of the menu for the Live page's session: none = not in it.
@@ -136,8 +141,10 @@ pub enum Answer {
     Creator,
     /// Play's row: load `Facts::play[n]`
     Play(usize),
-    /// LEAVE: out of the session the deck waits in
+    /// LEAVE: out of the session the deck waits in, or out of the show it plays on its own
     Leave,
+    /// GO: the show this deck plays on its own fires its next row
+    Go,
 }
 
 /// One row of the main menu.
@@ -152,6 +159,8 @@ pub enum Row {
     Join,
     Pick(usize),
     Leave,
+    /// the show page's GO
+    Go,
 }
 
 /// The main menu's rows (OPEN CREATOR where the deck can open it, QUIT only on the native deck).
@@ -186,6 +195,7 @@ pub fn rows_of(page: Page, f: &Facts) -> Vec<Row> {
         Page::Start => start_rows(f),
         Page::Play => (0..f.play.len()).map(Row::Pick).collect(),
         Page::Waiting => vec![Row::Leave],
+        Page::Show => vec![Row::Go, Row::Leave],
         _ => vec![],
     }
 }
@@ -219,13 +229,14 @@ pub fn words(row: Row, f: &Facts) -> (&'static str, String, bool) {
         Row::Open(Page::Mappings) => later("MAPPINGS"),
         Row::Open(_) => ("", String::new(), true),
         Row::Play if f.play.is_empty() => ("PLAY", "NOTHING YET".into(), false),
-        Row::Play => ("PLAY", format!("{} SCENES", f.play.len()), false),
+        Row::Play => ("PLAY", crate::start::play_count(&f.play), false),
         Row::Join => ("JOIN A SHOW", f.session.as_ref().map_or("NO SESSION".into(), |_| f.who.to_uppercase()), !f.live_page),
         Row::Pick(i) => match f.play.get(i) {
-            Some(p) => ("", if p.demo { "DEMO".into() } else { String::new() }, false),
+            Some(p) => ("", [p.demo.then_some("DEMO"), p.show.then_some("SHOW")].into_iter().flatten().collect::<Vec<_>>().join(" "), false),
             None => ("", String::new(), true),
         },
         Row::Leave => ("LEAVE", String::new(), false),
+        Row::Go => ("GO", f.showing.as_ref().map(crate::start::Showing::next).unwrap_or_default(), f.showing.as_ref().is_none_or(|s| s.row >= s.rows)),
     }
 }
 
@@ -349,8 +360,17 @@ impl Menu {
                 return Answer::Play(i);
             }
             Row::Leave => {
-                self.close();
+                // out of its own show: the start menu again (the stand did not change)
+                if self.top() == Some(Page::Show) {
+                    (self.stack, self.cursor) = (vec![Page::Start], 0);
+                } else {
+                    self.close();
+                }
                 return Answer::Leave;
+            }
+            Row::Go => {
+                self.close();
+                return Answer::Go;
             }
         }
         Answer::Yes
@@ -365,7 +385,8 @@ impl Menu {
         let Some(top) = self.top() else {
             return match i {
                 Input::Open => {
-                    (self.stack, self.cursor) = (vec![Page::Main], 0);
+                    let page = if f.showing.is_some() { Page::Show } else { Page::Main };
+                    (self.stack, self.cursor) = (vec![page], 0);
                     Answer::Yes
                 }
                 _ => Answer::No,
@@ -574,7 +595,7 @@ mod tests {
     }
 
     fn playable(value: &str, label: &str, demo: bool) -> crate::start::Playable {
-        crate::start::Playable { value: value.into(), label: label.into(), demo }
+        crate::start::Playable { value: value.into(), label: label.into(), demo, show: value.starts_with("show:") }
     }
 
     #[test]
@@ -604,6 +625,37 @@ mod tests {
         assert!(!m.open(), "the scene loads, the menu closes");
         m.follow(&Stand::Menu);
         assert!(!m.open(), "the same stand again opens nothing");
+    }
+
+    #[test]
+    fn a_show_picked_plays_esc_opens_its_page_go_fires_and_leave_goes_back_to_the_start_menu() {
+        use crate::start::{Showing, Stand};
+        let mut f = Facts { play: vec![playable("show:demo-new-scene", "demo-new-scene", true), playable("scene:nave", "Nave", false)], ..native() };
+        assert_eq!(words(Row::Play, &f).1, "1 SCENES · 1 SHOWS");
+        assert_eq!(words(Row::Pick(0), &f).1, "DEMO SHOW");
+        let mut m = Menu::default();
+        m.follow(&Stand::Menu);
+        m.input(Input::Enter, &f);
+        assert_eq!(m.input(Input::Enter, &f), Answer::Play(0));
+        assert!(!m.open(), "the show plays, the menu closes");
+        f.showing = Some(Showing { name: "demo-new-scene".into(), row: 1, rows: 3 });
+        m.input(Input::Open, &f);
+        assert_eq!(m.top(), Some(Page::Show), "Esc: the show's page, not the main menu");
+        assert_eq!(rows_of(Page::Show, &f), [Row::Go, Row::Leave]);
+        assert_eq!(words(Row::Go, &f), ("GO", "ROW 2".into(), false));
+        assert_eq!(m.input(Input::Enter, &f), Answer::Go);
+        assert!(!m.open(), "GO: back to the stage");
+        m.input(Input::Open, &f);
+        m.input(Input::Back, &f);
+        assert!(!m.open(), "Esc again: the show plays on");
+        f.showing = Some(Showing { name: "demo-new-scene".into(), row: 3, rows: 3 });
+        assert!(words(Row::Go, &f).2, "after the last row GO is dimmed");
+        m.input(Input::Open, &f);
+        m.input(Input::Down, &f);
+        assert_eq!(m.input(Input::Enter, &f), Answer::Leave);
+        assert_eq!((m.top(), m.cursor()), (Some(Page::Start), 0), "LEAVE: the start menu again");
+        m.follow(&Stand::Driven);
+        assert!(!m.open(), "a conductor takes over from the show page too");
     }
 
     #[test]

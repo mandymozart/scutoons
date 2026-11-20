@@ -77,6 +77,7 @@ fn title(page: Page) -> &'static str {
         Page::Mappings => "MAPPINGS",
         Page::Start | Page::Waiting => "SCUTOONS DECK",
         Page::Play => "PLAY",
+        Page::Show => "SHOW",
     }
 }
 
@@ -149,7 +150,7 @@ impl Menu {
             }
             Page::Play => {
                 y += b.head(y, title(top), "ESC BACK");
-                y += b.line(y, "DEMOS FIRST, THEN THE PUBLISHED SCENES", "", true);
+                y += b.line(y, "DEMOS FIRST, THEN THE PUBLISHED ONES", "", true);
                 y += b.rule(y);
                 if f.play.is_empty() {
                     y += b.line(y, "NOTHING TO PLAY: OFFLINE AND NO SCENE KEPT", "", true);
@@ -173,6 +174,20 @@ impl Menu {
                 y += b.rule(y);
                 if !b.finger {
                     y += b.line(y, "ENTER LEAVE  ESC CLOSE", "", true);
+                }
+            }
+            Page::Show => {
+                y += b.head(y, title(top), "ESC CLOSE");
+                let showing = f.showing.clone().unwrap_or_default();
+                y += b.line(y, &showing.name.to_uppercase(), &showing.line(), true);
+                y += b.line(y, "THIS DECK IS ITS CONDUCTOR", "", true);
+                y += b.rule(y);
+                y += self.items(b, top, f, y);
+                y += b.rule(y);
+                if b.finger {
+                    y += b.foot_back(y, f);
+                } else {
+                    y += b.line(y, "ENTER GO  ESC CLOSE", "", true);
                 }
             }
             Page::Pair => {
@@ -323,7 +338,7 @@ mod tests {
     fn the_start_menu_and_the_wait_are_painted_and_pressed() {
         use crate::start::{Playable, Stand};
         let text = |layer: &Layer, want: &str| layer.list.prims().iter().any(|p| matches!(*p, Prim::Text { start, end, .. } if layer.list.text_of(start, end) == want));
-        let f = Facts { play: vec![Playable { value: "scene:sandy-dunes".into(), label: "Dunes".into(), demo: true }], ..native() };
+        let f = Facts { play: vec![Playable { value: "scene:sandy-dunes".into(), label: "Dunes".into(), demo: true, show: false }], ..native() };
         let mut m = Menu::default();
         m.follow(&Stand::Menu);
         let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the start menu");

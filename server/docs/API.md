@@ -790,6 +790,8 @@ Handshake, then approval, then data (agents/research/CYBERDECKS.md §9). Code: `
 `show:<id>` in entity_versions; `/api/entities` refuses `show:` keys (403, `role: live`) – creator and admin do not imply `live`.
 - `GET /api/shows` every show with its newest draft · `GET /api/shows/<id>[?draft=1]` published / newest, wrapped ·
   `GET /api/shows/<id>?v=<n>` the document at the version a seat pins (404 `unknown_version`) · `GET /api/shows/<id>/versions`
+- `GET /api/shows/published[?toon=<toon>]` → `{ shows: [{ key, content }] }`: the published shows, public like the published
+  scenes (a deck's Play lists them and plays one on its own, #686); never a draft, no `live` role needed
 - `PUT /api/shows/<id> { content, base?, message? }` a new draft; `content.id` must be `<id>` (422); the server stamps
   `content.version` (1, then +1 on every change; an unchanged document keeps its number)
 - `POST /api/shows/<id>/publish { version? }` asks the Rust core (deck-show, the build service's `POST /validate` with

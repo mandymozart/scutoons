@@ -117,7 +117,7 @@ pub fn listed(cached: &str) -> Option<(SceneRef, String)> {
 pub fn kept(cached: &str) -> Option<deck_ui::start::Listed> {
     let k = serde_json::from_str::<Kept>(cached).ok().filter(|k| safe_id(&k.scene))?;
     let (r, name) = listed(cached)?;
-    Some(deck_ui::start::Listed { id: r.id, name, toons: toons(&k.document), version: r.version })
+    Some(deck_ui::start::Listed { id: r.id, name, toons: toons(&k.document), version: r.version, show: false })
 }
 
 /// the API's listing of the published scenes (`GET /scenes`: `{ scenes: [{ key: "scene:<id>", content }] }`) as Play
@@ -130,7 +130,7 @@ pub fn catalog(body: &str) -> Vec<deck_ui::start::Listed> {
             let id = r.get("key")?.as_str()?.strip_prefix("scene:")?.to_string();
             let doc = r.get("content").filter(|c| !c.is_null())?;
             let name = doc.pointer("/stage/name").and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty()).unwrap_or(&id).to_string();
-            safe_id(&id).then(|| deck_ui::start::Listed { name, toons: toons(doc), id, version: None })
+            safe_id(&id).then(|| deck_ui::start::Listed { name, toons: toons(doc), id, version: None, show: false })
         })
         .collect()
 }

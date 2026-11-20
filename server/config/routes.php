@@ -226,6 +226,7 @@ return static function (App $app): void {
     // real sign-in; every member, readers included)
     // ── Live: show documents and session tokens, role `live` (#90, ShowsController) ──────────────────────
     $app->get('/api/shows', [ShowsController::class, 'index']);
+    $app->get('/api/shows/published', [ShowsController::class, 'published']);
     $app->get('/api/shows/{id}', [ShowsController::class, 'get']);
     $app->get('/api/shows/{id}/versions', [ShowsController::class, 'versions']);
     $app->put('/api/shows/{id}', [ShowsController::class, 'put']);

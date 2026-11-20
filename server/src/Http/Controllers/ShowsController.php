@@ -19,6 +19,8 @@ use stdClass;
 /**
  * Show documents and live sessions, role `live` (#90, docs/API.md "Live"; the entity store's other routes refuse `show:` keys):
  *   GET  /api/shows                      every show, the newest draft of each
+ *   GET  /api/shows/published[?toon=]    the published shows (public, like the published scenes: a deck plays one on its
+ *                                        own); never a draft
  *   GET  /api/shows/<id>[?draft=1]       published / newest (wrapped); ?v=<n>: the document at that version
  *   GET  /api/shows/<id>/versions?limit=
  *   PUT  /api/shows/<id> { content, base?, message? }  a new draft; the server stamps `version`
@@ -35,6 +37,14 @@ final class ShowsController
     {
         $this->live($request);
         return Json::response($response, 200, ['status' => 'success', 'shows' => $this->store->withContent(['show'], true)]);
+    }
+
+    public function published(Request $request, Response $response): Response
+    {
+        $toon = $request->getQueryParams()['toon'] ?? null;
+        $rows = array_filter($this->store->withContent(['show'], false), fn(array $r) => $r['content'] instanceof stdClass
+            && (!is_string($toon) || $toon === '' || ($r['content']->toon ?? null) === $toon));
+        return Json::response($response, 200, ['status' => 'success', 'shows' => array_values(array_map(fn(array $r) => ['key' => $r['key'], 'content' => $r['content']], $rows))]);
     }
 
     /** @param array{id: string} $args */

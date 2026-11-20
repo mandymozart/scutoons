@@ -80,15 +80,16 @@ impl Side {
     }
 
     /// One frame: the playing scene's cast words and story (#517, cast.rs: `scene` is the deck's `--scene`, `space` the
-    /// scene's space with its link), then – with the outlet – its cells and glides. Some(scene) = the deck switches to it (a
-    /// file, or `outlet`); a piece's switch comes first.
-    pub fn frame(&mut self, live: Option<&Live>, space: Option<&mut deck_space::space::Space>, scene: Option<&Path>, graph: &Graph, ctl: &mut Controls) -> Option<String> {
+    /// scene's space with its link), then the cells – the outlet's and `own`, those of the show this deck conducts itself
+    /// (deck-show alone.rs) – and the glides. Some(scene) = the deck switches to it (a file, or `outlet`); a piece's switch
+    /// comes first.
+    pub fn frame(&mut self, live: Option<&Live>, own: Vec<protocol::Cell>, space: Option<&mut deck_space::space::Space>, scene: Option<&Path>, graph: &Graph, ctl: &mut Controls) -> Option<String> {
         let cast = space.and_then(|s| {
             s.ask_story(self.listens(scene));
             let came = s.take_cast();
             self.hear(scene, came)
         });
-        live.and_then(|l| self.pieces(l, graph, ctl)).or(cast)
+        self.pieces(live, own, graph, ctl).or(cast)
     }
 
     /// #538: the scene that plays is the core's answer (piece.rs `Side::playing`: a cell's piece while one plays, else the
@@ -123,17 +124,22 @@ impl Side {
         (said, to)
     }
 
-    /// the cells the outlet routed, then the glides
-    fn pieces(&mut self, live: &Live, graph: &Graph, ctl: &mut Controls) -> Option<String> {
+    /// the cells the outlet routed and the deck's own show's, then the glides
+    fn pieces(&mut self, live: Option<&Live>, mut cells: Vec<protocol::Cell>, graph: &Graph, ctl: &mut Controls) -> Option<String> {
         let now = self.started.elapsed().as_secs_f64() * 1000.0;
         let mut switch = None;
-        while let Ok(cell) = live.pieces.try_recv() {
+        if let Some(l) = live {
+            cells.extend(l.pieces.try_iter());
+        }
+        for cell in cells {
             let (said, to) = self.cell(&cell);
             tracing::info!("piece: {}", said.did);
             for p in &said.problems {
                 tracing::warn!("piece: {p}");
             }
-            live.status.lock().unwrap().set_piece(&said.did, &said.problems);
+            if let Some(l) = live {
+                l.status.lock().unwrap().set_piece(&said.did, &said.problems);
+            }
             switch = to.or(switch);
         }
         for (path, v) in self.side.values_at(now) {
