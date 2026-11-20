@@ -74,9 +74,41 @@ pub fn for_file(detail: &Value, path: &str) -> (Edits, f64, Option<String>) {
     }
 }
 
+/// What the units of an asset's edits are read against: its source's size in pixels and the frame rate measured for one
+/// of its files – none where the registry does not know it.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Source {
+    pub pixels: Option<(f64, f64)>,
+    pub fps: Option<f64>,
+}
+
+/// The source of `detail` (`GET /api/assets/{id}`: the current version; `lookup`'s `asset`: its own width and height) and
+/// the frame rate of its file `path`.
+pub fn source(detail: &Value, path: &str) -> Source {
+    let current = detail["versions"].as_array().into_iter().flatten().find(|v| v["status"] == "current");
+    let sized = |v: &Value| Some((v["width"].as_f64().filter(|w| *w > 0.0)?, v["height"].as_f64().filter(|h| *h > 0.0)?));
+    let pixels = current.and_then(sized).or_else(|| sized(detail));
+    let renditions = current.into_iter().flat_map(|v| v["renditions"].as_array().into_iter().flatten());
+    let file = renditions.chain(detail["renditions"].as_array().into_iter().flatten()).find(|r| r["path"].as_str() == Some(path));
+    let fps = file.and_then(time).map(|(_, fps)| fps).filter(|f| *f > 0.0);
+    Source { pixels, fps }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_source_is_the_current_versions_and_the_frame_rate_its_files() {
+        let detail = json!({ "versions": [
+            { "status": "old", "width": 640, "height": 360, "renditions": [] },
+            { "status": "current", "width": 3840, "height": 2160, "renditions": [{ "path": "v/x.720p.mp4", "time": { "offset": 0.0, "fps": 24.0 } }] }
+        ] });
+        assert_eq!(source(&detail, "v/x.720p.mp4"), Source { pixels: Some((3840.0, 2160.0)), fps: Some(24.0) }, "a derivative's px are its source's");
+        let looked_up = json!({ "width": 1920, "height": 1080, "renditions": [{ "path": "v/y.mp4" }] });
+        assert_eq!(source(&looked_up, "v/y.mp4"), Source { pixels: Some((1920.0, 1080.0)), fps: None }, "no time map: no frame rate");
+        assert_eq!(source(&json!({ "width": null }), "v/z.mp4"), Source::default());
+    }
 
     #[test]
     fn an_edit_list_reads_back_what_was_written() {

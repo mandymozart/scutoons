@@ -74,9 +74,18 @@ impl crate::App {
         }
     }
 
-    /// a press on the timeline: the playhead goes there, a handle is taken
+    /// the clock's tempo `(bpm, per_bar)`, which beats and bars are read at
+    pub(crate) fn tempo(&self) -> Option<(f64, u32)> {
+        self.stage.beat.map(|(bpm, _)| (bpm, self.stage.per_bar))
+    }
+
+    /// a press on the timeline: the playhead goes there, a handle is taken; a unit's segment: its kind is read in it
     pub(crate) fn media_press(&mut self, x: f32, y: f32) -> bool {
         let Some(&(r, h)) = self.media.hits.iter().rev().find(|(r, _)| r.has(x, y)) else { return false };
+        if let Hit::Unit(kind, unit) = h {
+            self.change_settings(|s| s.units.set(kind, unit));
+            return true;
+        }
         self.media.drag = Some(h);
         self.media.field = matches!(h, Hit::Edit(_)).then_some(r);
         self.media_drag_to(x);
@@ -87,8 +96,19 @@ impl crate::App {
     /// is let go)
     pub(crate) fn media_drag_to(&mut self, x: f32) {
         if let (Some(Hit::Edit(f)), Some(r)) = (self.media.drag, self.media.field) {
+            let tempo = self.tempo();
             if let Some(o) = self.media.open.as_mut() {
-                o.set_edit(f, f.at(f64::from((x - r.x) / r.w.max(1.0))));
+                let mut v = f.at(f64::from((x - r.x) / r.w.max(1.0)));
+                // on the steps of the unit it is read in: whole source pixels, whole frames
+                if let Some((kind, stored)) = f.unit() {
+                    let refs = o.refs(Some(f), tempo);
+                    let unit = self.settings.units.unit(kind, stored, &refs);
+                    if unit.whole() {
+                        let snapped = deck_core::units::convert(v, stored, unit, &refs).map(|u| unit.round(u));
+                        v = snapped.and_then(|u| deck_core::units::convert(u, unit, stored, &refs)).unwrap_or(v);
+                    }
+                }
+                o.set_edit(f, v);
             }
             return self.media_sound();
         }
@@ -140,7 +160,7 @@ impl crate::App {
     pub(crate) fn media_release(&mut self) {
         let Some(h) = self.media.drag.take() else { return };
         self.media.field = None;
-        if h == Hit::Seek {
+        if matches!(h, Hit::Seek | Hit::Unit(..)) {
             return;
         }
         let (x, y) = self.cursor;

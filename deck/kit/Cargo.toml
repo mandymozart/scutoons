@@ -10,7 +10,7 @@ description = "The component library (#456, #485): one base on egui's primitives
 [features]
 default = []
 # the native editor's components and look (controls, typeahead, info strip, icons): never in the decks' build
-editor = ["egui-text", "dep:deck-catalog"]
+editor = ["egui-text", "dep:deck-catalog", "dep:deck-core"]
 # #485 slice 3: egui's context and text set the mono face (`Screen::with_egui_text`, the editor). Without it the decks
 # set the face on the kit's own glyph atlas (base glyphs.rs) and egui's text stack (harfrust, skrifa, vello_cpu: 3.2 MB
 # of code) is not linked into the browser deck.
@@ -32,4 +32,6 @@ font8x8 = { version = "0.3", default-features = false, features = ["unicode"], o
 serde.workspace = true
 # the editor's library browser draws the library's entries and previews
 deck-catalog = { path = "../catalog", optional = true }
+# the unit-switch field's catalogue and conversions (units)
+deck-core = { workspace = true, optional = true }
 toml.workspace = true

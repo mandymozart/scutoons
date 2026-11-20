@@ -14,6 +14,10 @@
 			"types": "./src/assign.ts",
 			"default": "./src/assign.ts"
 		},
+		"./units": {
+			"types": "./src/units.ts",
+			"default": "./src/units.ts"
+		},
 		"./hand": {
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"

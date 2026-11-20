@@ -1269,6 +1269,7 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "deck-catalog",
+ "deck-core",
  "egui",
  "font8x8",
  "serde",

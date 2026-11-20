@@ -14,4 +14,5 @@ pub mod library;
 pub mod status;
 pub mod table;
 pub mod typeahead;
+pub mod units;
 pub mod window;

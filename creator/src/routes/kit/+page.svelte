@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ScrubNumber } from '@scutoons/ui';
+	import UnitNumber from '$lib/components/fields/unit-number.svelte';
 	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
 	import { at, Floats, FloatingPanels, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
@@ -51,6 +52,7 @@
 	let x = $state<number | undefined>(120);
 	let y = $state<number | undefined>(40);
 	let scale = $state<number | undefined>(1);
+	let fade = $state<number | undefined>(1.5);
 	let visible = $state(true);
 	let shadow = $state(false);
 	let glow = $state(true);
@@ -119,6 +121,7 @@
 								<div class="row"><span>X</span><ScrubNumber label="X" tag="X" value={x} unit="px" onchange={(v) => (x = v)} /></div>
 								<div class="row"><span>Y</span><ScrubNumber label="Y" tag="Y" value={y} unit="px" onchange={(v) => (y = v)} /></div>
 								<div class="row"><span>Scale</span><ScrubNumber label="Scale" value={scale} step={0.05} min={0.05} placeholder="1" onchange={(v) => (scale = v)} /></div>
+								<div class="row"><span>Fade</span><UnitNumber label="Fade" kind="kit-fade" dimension="time" stored="s" refs={{ fps: 25, bpm: 120, perBar: 4 }} value={fade} min={0} onchange={(v) => (fade = v)} testid="kit-fade" /></div>
 							</Section>
 							<Section id="kit-look" label="Look" summary={visible ? 'visible' : 'hidden'}>
 								<div class="row"><span>Visible</span><Toggle on={visible} label="Visible" onchange={(on) => (visible = on)} /></div>

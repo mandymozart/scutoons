@@ -1,10 +1,18 @@
 //! The medium's Asset view: its picture (or waveform) fitted into the window under the bar – the asset's crop shaded,
 //! its fade darkening it –, the timeline with the asset's span, the use's in and out points and the playhead, the asset's
 //! edits as fields to drag, and what it is. Returns where the picture's card goes.
-use crate::media::{Body, Field, Hit, Media, Sort};
+use crate::media::{Body, Field, Hit, Media, Sort, TRIM_UNIT};
+use deck_core::units::{self, Unit};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::units::{self as unit_field, Prefs};
+
+/// what the units are read with: the units chosen per kind of value, the tempo `(bpm, per_bar)` when known
+pub struct Reading<'a> {
+    pub prefs: &'a Prefs,
+    pub tempo: Option<(f64, u32)>,
+}
 
 fn alpha(c: [f32; 4], a: f32) -> [f32; 4] {
     [c[0], c[1], c[2], c[3] * a]
@@ -19,7 +27,7 @@ pub fn fit(r: Rect, aspect: f32) -> Rect {
     Rect { x: r.x + (r.w - w) * 0.5, y: r.y + (r.h - h) * 0.5, w, h }
 }
 
-pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Media, (w, h): (f32, f32), top: f32) -> Option<Rect> {
+pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Media, (w, h): (f32, f32), top: f32, reading: &Reading) -> Option<Rect> {
     m.hits.clear();
     m.line = None;
     let aspect = m.aspect();
@@ -78,8 +86,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Media, (w, h): (f32, f32), top
     }
     if let (true, Some(length)) = (timed, o.source_length()) {
         let line = Rect { x: x0, y: stage.y + stage.h + row * 0.5, w: w0, h: row };
-        timeline(d, t, m, line, length);
-        edits(d, t, m, &fields, Rect { x: x0, y: line.y + row * 2.5, w: w0, h: row });
+        timeline(d, t, m, line, length, reading);
+        edits(d, t, m, &fields, Rect { x: x0, y: line.y + row * 2.5, w: w0, h: row }, reading);
     }
     card
 }
@@ -101,8 +109,8 @@ fn shade(d: &mut DrawList, r: Rect, crop: deck_core::asset_edit::Crop, dark: f32
     }
 }
 
-/// the asset's edits as fields to drag, four to a row
-fn edits(d: &mut DrawList, t: &Tokens, m: &mut Media, fields: &[Field], r: Rect) {
+/// the asset's edits as fields to drag, four to a row; one with a unit in the unit chosen for its kind, its switch at its end
+fn edits(d: &mut DrawList, t: &Tokens, m: &mut Media, fields: &[Field], r: Rect, reading: &Reading) {
     let Some(o) = m.open.as_ref() else { return };
     let gap = t.size.pad;
     let w = (r.w - 3.0 * gap) / 4.0;
@@ -112,13 +120,22 @@ fn edits(d: &mut DrawList, t: &Tokens, m: &mut Media, fields: &[Field], r: Rect)
         let at = Rect { x: r.x + col * (w + gap), y: r.y + line * (r.h + 4.0), w, h: r.h };
         let (lo, hi, log) = f.range();
         let fraction = crate::fraction(f.get(&o.edits) as f32, lo as f32, hi as f32, log);
-        let field = controls::scrub(d, t, at, f.label(), &f.shown(&o.edits), fraction, m.drag == Some(Hit::Edit(f)));
+        let hot = m.drag == Some(Hit::Edit(f));
+        let Some((kind, stored)) = f.unit() else {
+            placed.push((controls::scrub(d, t, at, f.label(), &f.shown(&o.edits), fraction, hot), Hit::Edit(f)));
+            continue;
+        };
+        let refs = o.refs(Some(f), reading.tempo);
+        let unit = reading.prefs.unit(kind, stored, &refs);
+        let v = units::convert(f.get(&o.edits), stored, unit, &refs).unwrap_or(f.get(&o.edits));
+        let (field, segs) = unit_field::scrub(d, t, at, f.label(), v, unit, &stored.dimension().offered(&refs), fraction, hot);
         placed.push((field, Hit::Edit(f)));
+        placed.extend(segs.into_iter().map(|(r, u)| (r, Hit::Unit(kind, u))));
     }
     m.hits.extend(placed);
 }
 
-fn timeline(d: &mut DrawList, t: &Tokens, m: &mut Media, r: Rect, length: f64) {
+fn timeline(d: &mut DrawList, t: &Tokens, m: &mut Media, r: Rect, length: f64, reading: &Reading) {
     let Some(o) = m.open.as_ref() else { return };
     let small = t.size.small;
     let (a, b) = o.span().unwrap_or((0.0, length));
@@ -152,9 +169,19 @@ fn timeline(d: &mut DrawList, t: &Tokens, m: &mut Media, r: Rect, length: f64) {
     }
     let whose = if o.used.is_some() { "the use's" } else { "the asset's" };
     let lap = o.playback().map_or(b - a, |p| p.lap());
-    let end = if (b - length).abs() < 1e-3 { format!("{b:.2} s (the end)") } else { format!("{b:.2} s") };
-    let words = format!("{whose} in {a:.2} s · out {end} · plays {lap:.2} s of {length:.2} s · at {:.2} s", o.at());
-    d.text(r.x, r.y + r.h + 9.0, small, &words, t.color.muted);
+    // the trim's points and lengths in the unit chosen for it (s · frames · beats at the clock's tempo), its switch at the end
+    let refs = o.refs(None, reading.tempo);
+    let offered: Vec<Unit> = [Unit::Seconds, Unit::Frames, Unit::Beats].into_iter().filter(|u| u.known(&refs)).collect();
+    let unit = reading.prefs.unit(TRIM_UNIT, Unit::Seconds, &refs);
+    let unit = if offered.contains(&unit) { unit } else { Unit::Seconds };
+    let said = |s: f64| units::show(units::convert(s, Unit::Seconds, unit, &refs).unwrap_or(s), unit);
+    let end = if (b - length).abs() < 1e-3 { format!("{} (the end)", said(b)) } else { said(b) };
+    let words = format!("{whose} in {} · out {end} · plays {} of {} · at {}", said(a), said(lap), said(length), said(o.at()));
+    let h = t.size.tree_row - 6.0;
+    let segs = unit_field::switch(d, t, (r.x + r.w, r.y + r.h + 7.0, h), &offered, unit);
+    let room = segs.first().map_or(r.w, |(s, _)| s.x - r.x - t.size.pad);
+    d.text(r.x, r.y + r.h + 9.0, small, &controls::fit(&words, (room / d.advance(small)).max(0.0) as usize), t.color.muted);
+    m.hits.extend(segs.into_iter().map(|(s, u)| (s, Hit::Unit(TRIM_UNIT, u))));
 }
 
 #[cfg(test)]

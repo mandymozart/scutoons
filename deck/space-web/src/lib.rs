@@ -205,6 +205,66 @@ pub fn rig_catalog_bundle(request: &str) -> Result<String, JsValue> {
     deck_space::rig::assign::catalog_bundle_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
+/// deck-core `units` for the web kit's unit-switch field (@scutoons/ui `UnitField`): `refs` is `Refs::from_wire`'s
+/// `[fps, bpm, per_bar, pixels, metres]`, NaN = not known. The ids of `dimension`'s units it can be read in.
+#[wasm_bindgen]
+pub fn units_offered(dimension: &str, refs: &[f64]) -> Vec<String> {
+    use deck_core::units::{Dimension, Refs};
+    Dimension::of_id(dimension).map_or_else(Vec::new, |d| d.offered(&Refs::from_wire(refs)).iter().map(|u| u.id().to_string()).collect())
+}
+
+/// `v` from the unit `from` into `to` (ids); NaN when it cannot be
+#[wasm_bindgen]
+pub fn units_convert(v: f64, from: &str, to: &str, refs: &[f64]) -> f64 {
+    use deck_core::units::{convert, Refs, Unit};
+    Unit::of_id(from).zip(Unit::of_id(to)).and_then(|(a, b)| convert(v, a, b, &Refs::from_wire(refs))).unwrap_or(f64::NAN)
+}
+
+/// the unit a value is shown in: `chosen` (an id, may be empty) if it can be offered, else `fallback`'s dimension's
+#[wasm_bindgen]
+pub fn units_pick(chosen: &str, fallback: &str, refs: &[f64]) -> String {
+    use deck_core::units::{pick, Refs, Unit};
+    Unit::of_id(fallback).map_or_else(String::new, |f| pick(Unit::of_id(chosen), f, &Refs::from_wire(refs)).id().to_string())
+}
+
+/// `v` in `unit` as a person reads it ("12 px"), its number alone (`number`), its word, on its steps (`round`)
+#[wasm_bindgen]
+pub fn units_show(v: f64, unit: &str) -> String {
+    deck_core::units::Unit::of_id(unit).map_or_else(|| v.to_string(), |u| deck_core::units::show(v, u))
+}
+
+#[wasm_bindgen]
+pub fn units_number(v: f64, unit: &str) -> String {
+    deck_core::units::Unit::of_id(unit).map_or_else(|| v.to_string(), |u| deck_core::units::number(v, u))
+}
+
+#[wasm_bindgen]
+pub fn units_word(unit: &str) -> String {
+    deck_core::units::Unit::of_id(unit).map_or("", |u| u.word()).to_string()
+}
+
+#[wasm_bindgen]
+pub fn units_decimals(unit: &str) -> u32 {
+    deck_core::units::Unit::of_id(unit).map_or(2, |u| u.decimals() as u32)
+}
+
+#[wasm_bindgen]
+pub fn units_step(unit: &str) -> f64 {
+    deck_core::units::Unit::of_id(unit).map_or(1.0, |u| u.step())
+}
+
+#[wasm_bindgen]
+pub fn units_round(v: f64, unit: &str) -> f64 {
+    deck_core::units::Unit::of_id(unit).map_or(v, |u| u.round(v))
+}
+
+/// a typed value in `unit` (or a unit of its dimension it names): `[value, unit id]`, empty when it is no value
+#[wasm_bindgen]
+pub fn units_parse(text: &str, unit: &str) -> Vec<String> {
+    use deck_core::units::{parse, Unit};
+    Unit::of_id(unit).and_then(|u| parse(text, u)).map_or_else(Vec::new, |(v, u)| vec![v.to_string(), u.id().to_string()])
+}
+
 /// #412: a bundle's face (deck-space `Rig::describe`): its tracks and what a code rig's policy owns of them, as JSON – the
 /// Assignment tab marks the rows from it.
 #[wasm_bindgen]

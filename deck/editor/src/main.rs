@@ -1252,7 +1252,7 @@ impl App {
 
     /// the settings changed: kept, and the look applied at once
     fn change_settings(&mut self, f: impl FnOnce(&mut settings::Settings)) {
-        let was = self.settings;
+        let was = self.settings.clone();
         f(&mut self.settings);
         if self.settings == was {
             return;
@@ -3046,7 +3046,7 @@ impl App {
                     let shown = self.media.frame(&gpu.device, &gpu.queue, dt).map(|(view, fresh)| {
                         ui.set_card(&gpu.device, media::CARD, view, fresh);
                     });
-                    if let (Some(r), Some(())) = (media_draw::draw(ui, t, &mut self.media, (wf, hf), bar_bottom), shown) {
+                    if let (Some(r), Some(())) = (media_draw::draw(ui, t, &mut self.media, (wf, hf), bar_bottom, &media_draw::Reading { prefs: &self.settings.units, tempo: self.stage.beat.map(|(b, _)| (b, self.stage.per_bar)) }), shown) {
                         ui.card(media::CARD, r.x, r.y, r.w, r.h);
                     }
                 }
@@ -3520,7 +3520,8 @@ impl App {
                         Some(Drag::Dop(n, ..)) => Some(n),
                         _ => None,
                     };
-                    for (r, f) in dop::draw(ui, t, o.area, view, playing, hot) {
+                    let focal = self.settings.units.unit(dop::FOCAL_UNIT, deck_core::units::Unit::Millimetres, &deck_core::units::Refs::default());
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, focal, hot) {
                         self.panel.hits.push((r, Hit::Dop(f)));
                     }
                 }
@@ -3619,7 +3620,7 @@ impl App {
         self.settings_hits.clear();
         {
             let cursor = self.cursor;
-            let s = self.settings;
+            let s = self.settings.clone();
             let ws = match self.workspace {
                 show::Workspace::Stage => &mut self.build,
                 show::Workspace::Module => &mut self.module.panels,

@@ -22,6 +22,8 @@ pub struct Movie {
     height: u32,
     /// the file's length, s
     length: f64,
+    /// its frames a second (its frames over its length)
+    fps: f64,
     /// what plays: the span, its speed, the fades, the gain, the crop
     play: Playback,
     /// the shown frame's place in the stream; none yet: −1
@@ -35,32 +37,43 @@ enum Inner {
     Thread(threaded::Ahead),
 }
 
-fn player(bytes: Vec<u8>) -> Result<(Player, u32, u32, f64), String> {
+fn player(bytes: Vec<u8>) -> Result<(Player, u32, u32, f64, f64), String> {
     let clip = Clip::open(bytes.into()).map_err(|e| e.0)?;
     let mut p = Player::open(&clip).map_err(|e| e.0)?;
     p.ahead = AHEAD;
     let (w, h) = (p.track().width, p.track().height);
     let length = p.length();
-    Ok((p, w, h, length))
+    let fps = if length > 0.0 { p.track().samples.len() as f64 / length } else { 0.0 };
+    Ok((p, w, h, length, fps))
 }
 
 impl Movie {
     /// the clip in `bytes`, decoded on the caller's thread
     pub fn open(bytes: Vec<u8>) -> Result<Movie, String> {
-        let (p, width, height, length) = player(bytes)?;
-        Ok(Movie { width, height, length, play: Playback::whole(length), shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
+        let (p, width, height, length, fps) = player(bytes)?;
+        Ok(Movie { width, height, length, fps, play: Playback::whole(length), shown: -1, inner: Inner::Here(Box::new(p), Frames::new(QUEUE)) })
     }
 
     /// the clip in `bytes`, decoded ahead on a thread of its own
     #[cfg(all(feature = "native", not(target_arch = "wasm32")))]
     pub fn spawn(bytes: Vec<u8>, name: &str) -> Result<Movie, String> {
-        let (p, width, height, length) = player(bytes)?;
-        Ok(Movie { width, height, length, play: Playback::whole(length), shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
+        let (p, width, height, length, fps) = player(bytes)?;
+        Ok(Movie { width, height, length, fps, play: Playback::whole(length), shown: -1, inner: Inner::Thread(threaded::Ahead::start(p, name)) })
     }
 
     /// width over height
     pub fn aspect(&self) -> f32 {
         self.width as f32 / self.height.max(1) as f32
+    }
+
+    /// its size in pixels
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    /// its frames a second
+    pub fn fps(&self) -> f64 {
+        self.fps
     }
 
     /// the file's length, s

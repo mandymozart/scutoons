@@ -8,6 +8,7 @@
 use deck_core::asset_edit::{Crop, Edits, Playback};
 use deck_core::sound_preview::Clip;
 use deck_core::trim::Trim;
+use deck_core::units::{Refs, Unit};
 use deck_kit::editor::controls::Rect;
 use deck_space::video::{Converter, Movie, Texture};
 use std::io::Read;
@@ -194,21 +195,39 @@ impl Field {
         }
     }
 
-    /// the value as read on its field
-    pub fn shown(self, e: &Edits) -> String {
-        let v = self.get(e);
+    /// the kind of value it is (whose unit is chosen once for all of its fields) and the unit it is stored in – which
+    /// is also its dimension's base (deck-core `units`); none: it has no unit to switch (speed)
+    pub fn unit(self) -> Option<(&'static str, Unit)> {
         match self {
-            Field::FadeIn | Field::FadeOut => format!("{v:.2} s"),
-            Field::Speed => format!("{v:.2} ×"),
-            Field::Gain => format!("{v:+.1} dB"),
-            _ => format!("{:.0} %", v * 100.0),
+            Field::FadeIn | Field::FadeOut => Some((FADE_UNIT, Unit::Seconds)),
+            Field::Gain => Some((GAIN_UNIT, Unit::Decibels)),
+            Field::CropLeft | Field::CropTop | Field::CropRight | Field::CropBottom => Some((CROP_UNIT, Unit::Percent)),
+            Field::Speed => None,
         }
     }
+
+    /// a crop across: a part of the source's width, else of its height
+    fn across(self) -> bool {
+        matches!(self, Field::CropLeft | Field::CropRight)
+    }
+
+    /// the value as read on a field without a unit
+    pub fn shown(self, e: &Edits) -> String {
+        format!("{:.2} ×", self.get(e))
+    }
 }
+
+/// the kinds of value whose unit is chosen (a view preference, the editor's settings)
+pub const CROP_UNIT: &str = "crop";
+pub const FADE_UNIT: &str = "fade";
+pub const GAIN_UNIT: &str = "gain";
+pub const TRIM_UNIT: &str = "trim";
 
 /// what can be pressed in the view
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Hit {
+    /// a unit switch's segment: that kind of value is read in that unit from now on
+    Unit(&'static str, Unit),
     /// the timeline: the playhead goes there
     Seek,
     /// the in point's handle, the out point's
@@ -243,6 +262,8 @@ pub struct Open {
     pub asset: Option<String>,
     /// what the registry said that is worth a line (no time map measured, not reachable)
     pub note: Option<String>,
+    /// the source's size in pixels (a crop's px are the source's, not this file's) and its frame rate, as far as known
+    pub source: deck_space::asset_edits::Source,
     found: Option<Receiver<Found>>,
     pub body: Body,
     rx: Option<Receiver<Result<Got, String>>>,
@@ -349,7 +370,7 @@ impl Open {
             rx
         });
         let edits = Edits::NONE;
-        Some(Open { key: key.to_string(), sort, path, used, trim, edits, offset: 0.0, asset: None, note: None, found, body: Body::Loading, rx: Some(rx), clock: 0.0, playing: false, tex: None, shown: false })
+        Some(Open { key: key.to_string(), sort, path, used, trim, edits, offset: 0.0, asset: None, note: None, source: Default::default(), found, body: Body::Loading, rx: Some(rx), clock: 0.0, playing: false, tex: None, shown: false })
     }
 
     /// the registry's answer: the asset's id, its edits and this file's time map
@@ -358,6 +379,7 @@ impl Open {
             Ok(Some(detail)) => {
                 let (edits, offset, warn) = deck_space::asset_edits::for_file(&detail, &self.path);
                 (self.edits, self.offset, self.note) = (edits, offset, warn);
+                self.source = deck_space::asset_edits::source(&detail, &self.path);
                 self.asset = detail["asset"]["id"].as_str().map(str::to_string);
                 self.apply();
             }
@@ -413,7 +435,7 @@ impl Open {
             Hit::Start => Trim::new(s.min(b - SHORTEST).max(0.0), t.end),
             Hit::End if s >= length - 1e-3 => Trim::new(a, 0.0),
             Hit::End => Trim::new(a, s.max(a + SHORTEST)),
-            Hit::Seek | Hit::Edit(_) => t,
+            Hit::Seek | Hit::Edit(_) | Hit::Unit(..) => t,
         };
         let point = if self.used.is_some() {
             self.trim = moved(self.trim, self.edits.span(self.trim, length));
@@ -425,6 +447,25 @@ impl Open {
         self.apply();
         self.clock = 0.0;
         Ok(point)
+    }
+
+    /// What a unit of the field `f` (none: the trim's) is read against: the source's pixels across or down (a file on this
+    /// machine is its own source), its frame rate (the registry's, else this file's) and the tempo `(bpm, per_bar)`.
+    pub fn refs(&self, f: Option<Field>, tempo: Option<(f64, u32)>) -> Refs {
+        let local = self.asset.is_none() && std::path::Path::new(&self.path).is_file();
+        let own = match &self.body {
+            Body::Video(m) => Some((m.size(), Some(m.fps()))),
+            Body::Image(i) => Some(((i.width(), i.height()), None)),
+            _ => None,
+        };
+        let pixels = self.source.pixels.or_else(|| own.filter(|_| local).map(|((w, h), _)| (f64::from(w), f64::from(h))));
+        let fps = self.source.fps.or_else(|| own.and_then(|(_, fps)| fps)).filter(|v| *v > 0.0);
+        let px = pixels.map(|(w, h)| if f.is_some_and(Field::across) { w } else { h });
+        match f.and_then(Field::unit).map(|(_, u)| u.dimension()) {
+            Some(deck_core::units::Dimension::Length) => Refs { pixels: px, ..Refs::default() },
+            Some(deck_core::units::Dimension::Level) => Refs::default(),
+            _ => Refs { fps, bpm: tempo.map(|t| t.0), per_bar: tempo.map(|t| t.1), ..Refs::default() },
+        }
     }
 
     /// an edit's field to `v` (cleaned by the core), applied at once
@@ -621,6 +662,19 @@ mod tests {
     }
 
     #[test]
+    fn a_crop_is_read_against_the_sources_pixels_and_the_trim_against_its_frames_and_the_tempo() {
+        let mut o = opened(false);
+        assert_eq!(o.refs(Some(Field::CropLeft), None).pixels, None, "not known yet: no pixels");
+        o.source = deck_space::asset_edits::Source { pixels: Some((1920.0, 1080.0)), fps: Some(25.0) };
+        assert_eq!(o.refs(Some(Field::CropLeft), None).pixels, Some(1920.0), "across: the source's width");
+        assert_eq!(o.refs(Some(Field::CropBottom), None).pixels, Some(1080.0), "down: its height");
+        let trim = o.refs(None, Some((120.0, 4)));
+        assert_eq!((trim.fps, trim.bpm, trim.pixels), (Some(25.0), Some(120.0), None));
+        assert_eq!(Field::Speed.unit(), None, "speed has no unit to switch");
+        assert_eq!(Field::CropTop.unit(), Some((CROP_UNIT, Unit::Percent)), "stored as parts: the base of a length");
+    }
+
+    #[test]
     fn an_edits_field_sets_its_value_through_the_core() {
         let mut o = opened(false);
         o.set_edit(Field::Speed, Field::Speed.at(1.0));
@@ -630,7 +684,7 @@ mod tests {
         o.set_edit(Field::CropLeft, 0.9);
         o.set_edit(Field::CropRight, 0.9);
         assert!((o.edits.crop.rect()[2] - deck_core::asset_edit::CROP_KEEPS).abs() < 1e-6, "a crop always leaves a part");
-        assert_eq!(Field::Gain.shown(&deck_core::asset_edit::Edits { gain_db: -3.0, ..o.edits }), "-3.0 dB");
+        assert_eq!(Field::Speed.shown(&deck_core::asset_edit::Edits { speed: 1.5, ..o.edits }), "1.50 ×");
         let play = o.playback().unwrap();
         assert!((play.lap() - 10.0).abs() < 1e-9, "at speed 1 a lap is the file");
     }
