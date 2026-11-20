@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ScrubNumber, coreUnits, type UnitConversions, type UnitRefs } from '@scutoons/ui';
-	import { loadUnits } from '@scutoons/live-deck/units';
+	import { ScrubNumber, coreUnits, type UnitRefs } from '@scutoons/ui';
+	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 
 	/**
 	 * ScrubNumber with the core's units (deck-core `units` through the deck's wasm, decisions/deck.md [design]): a value
@@ -19,6 +19,7 @@
 		min,
 		max,
 		placeholder = '',
+		required = false,
 		id,
 		testid
 	}: {
@@ -35,13 +36,14 @@
 		min?: number;
 		max?: number;
 		placeholder?: string;
+		required?: boolean;
 		id?: string;
 		testid?: string;
 	} = $props();
 
-	let core = $state<UnitConversions | null>(null);
-	$effect(() => void loadUnits('/live/').then((c) => (core = c), () => {}));
+	const holder = useCoreUnits();
+	const core = $derived(holder.core);
 	const units = $derived(core ? coreUnits(core, { kind, dimension, stored, fallback, refs }) : undefined);
 </script>
 
-<ScrubNumber {id} {label} {value} {units} unit={core ? undefined : stored} {min} {max} {placeholder} {onchange} {testid} />
+<ScrubNumber {id} {label} {value} {units} unit={core ? undefined : stored} {min} {max} {placeholder} {required} {onchange} {testid} />

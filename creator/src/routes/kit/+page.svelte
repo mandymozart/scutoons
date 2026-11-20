@@ -53,6 +53,7 @@
 	let y = $state<number | undefined>(40);
 	let scale = $state<number | undefined>(1);
 	let fade = $state<number | undefined>(1.5);
+	let slot = $state<number | undefined>(12.5);
 	let visible = $state(true);
 	let shadow = $state(false);
 	let glow = $state(true);
@@ -122,6 +123,7 @@
 								<div class="row"><span>Y</span><ScrubNumber label="Y" tag="Y" value={y} unit="px" onchange={(v) => (y = v)} /></div>
 								<div class="row"><span>Scale</span><ScrubNumber label="Scale" value={scale} step={0.05} min={0.05} placeholder="1" onchange={(v) => (scale = v)} /></div>
 								<div class="row"><span>Fade</span><UnitNumber label="Fade" kind="kit-fade" dimension="time" stored="s" refs={{ fps: 25, bpm: 120, perBar: 4 }} value={fade} min={0} onchange={(v) => (fade = v)} testid="kit-fade" /></div>
+								<div class="row"><span>Width</span><UnitNumber label="Width" kind="kit-length" dimension="length" stored="percent" refs={{ pixels: 390, web: true }} value={slot} min={0} onchange={(v) => (slot = v)} testid="kit-length" /></div>
 							</Section>
 							<Section id="kit-look" label="Look" summary={visible ? 'visible' : 'hidden'}>
 								<div class="row"><span>Visible</span><Toggle on={visible} label="Visible" onchange={(on) => (visible = on)} /></div>

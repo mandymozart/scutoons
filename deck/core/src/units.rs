@@ -4,9 +4,10 @@
 //! how it is shown and typed. Each dimension has a base the conversions go through:
 //!
 //! - **time:** seconds; ms; frames (at the source's frame rate); beats and bars (at a tempo and its beats a bar)
-//! - **length:** parts of a reference (0..1); % of it; px (the reference's pixels, whole); m (the reference's metres)
+//! - **length:** parts of a reference (0..1); % of it; px (the reference's pixels, whole); m (the reference's metres);
+//!   on a web reference (a slice at 1x) pt (4/3 px) and rem (16 px); on a font size, em (the reference itself) in place of %
 //! - **angle:** degrees of a vertical field of view; mm (the focal length that sees it on a full-frame sensor)
-//! - **level:** dB; % (the linear gain, 100 % = 0 dB)
+//! - **level:** dB; % (the linear gain, 100 % = 0 dB); × (the linear gain itself, 1 = 0 dB)
 //! - **tempo:** BPM
 //!
 //! A unit whose reference is unknown (frames without a frame rate, px without a picture) is not offered.
@@ -15,6 +16,9 @@
 pub const SENSOR_H_MM: f64 = 24.0;
 /// the level a gain of 0 reads as, dB
 pub const SILENT_DB: f64 = -120.0;
+/// CSS px in a point and in a rem
+pub const CSS_PX_PER_PT: f64 = 4.0 / 3.0;
+pub const CSS_PX_PER_REM: f64 = 16.0;
 /// the beats a bar when the tempo's own is not known
 pub const PER_BAR: u32 = 4;
 
@@ -48,9 +52,9 @@ impl Dimension {
     pub fn units(self) -> &'static [Unit] {
         match self {
             Dimension::Time => &[Unit::Seconds, Unit::Milliseconds, Unit::Frames, Unit::Beats, Unit::Bars],
-            Dimension::Length => &[Unit::Pixels, Unit::Percent, Unit::Metres],
+            Dimension::Length => &[Unit::Pixels, Unit::Percent, Unit::Em, Unit::Points, Unit::Rem, Unit::Metres],
             Dimension::Angle => &[Unit::Millimetres, Unit::Degrees],
-            Dimension::Level => &[Unit::Decibels, Unit::Gain],
+            Dimension::Level => &[Unit::Decibels, Unit::Gain, Unit::Linear],
             Dimension::Tempo => &[Unit::Bpm],
         }
     }
@@ -70,12 +74,20 @@ pub enum Unit {
     Bars,
     Pixels,
     Percent,
+    /// parts of a font size (the reference is one)
+    Em,
+    /// CSS points: 4/3 px
+    Points,
+    /// CSS rem: 16 px
+    Rem,
     Metres,
     Degrees,
     Millimetres,
     Decibels,
     /// a level as its linear gain, %
     Gain,
+    /// a level as its linear gain, 1 = 0 dB
+    Linear,
     Bpm,
 }
 
@@ -88,6 +100,10 @@ pub struct Refs {
     pub per_bar: Option<u32>,
     pub pixels: Option<f64>,
     pub metres: Option<f64>,
+    /// the pixels are a web reference at 1x: pt and rem are offered
+    pub web: bool,
+    /// the reference is a font size: em is offered, % is not
+    pub em: bool,
 }
 
 fn positive(v: Option<f64>) -> Option<f64> {
@@ -95,11 +111,11 @@ fn positive(v: Option<f64>) -> Option<f64> {
 }
 
 impl Refs {
-    /// From its wire form `[fps, bpm, per_bar, pixels, metres]` (the web kit's, through space-web): NaN, ≤ 0 or left
+    /// From its wire form `[fps, bpm, per_bar, pixels, metres, web, em]` (the web kit's, through space-web): NaN, ≤ 0 or left
     /// out = not known.
     pub fn from_wire(w: &[f64]) -> Refs {
         let at = |i: usize| positive(w.get(i).copied());
-        Refs { fps: at(0), bpm: at(1), per_bar: at(2).map(|b| b.round() as u32), pixels: at(3), metres: at(4) }
+        Refs { fps: at(0), bpm: at(1), per_bar: at(2).map(|b| b.round() as u32), pixels: at(3), metres: at(4), web: at(5).is_some(), em: at(6).is_some() }
     }
 
     fn fps(&self) -> Option<f64> {
@@ -120,7 +136,7 @@ impl Refs {
 }
 
 impl Unit {
-    pub const ALL: [Unit; 13] = [
+    pub const ALL: [Unit; 17] = [
         Unit::Seconds,
         Unit::Milliseconds,
         Unit::Frames,
@@ -128,20 +144,24 @@ impl Unit {
         Unit::Bars,
         Unit::Pixels,
         Unit::Percent,
+        Unit::Em,
+        Unit::Points,
+        Unit::Rem,
         Unit::Metres,
         Unit::Degrees,
         Unit::Millimetres,
         Unit::Decibels,
         Unit::Gain,
+        Unit::Linear,
         Unit::Bpm,
     ];
 
     pub fn dimension(self) -> Dimension {
         match self {
             Unit::Seconds | Unit::Milliseconds | Unit::Frames | Unit::Beats | Unit::Bars => Dimension::Time,
-            Unit::Pixels | Unit::Percent | Unit::Metres => Dimension::Length,
+            Unit::Pixels | Unit::Percent | Unit::Em | Unit::Points | Unit::Rem | Unit::Metres => Dimension::Length,
             Unit::Degrees | Unit::Millimetres => Dimension::Angle,
-            Unit::Decibels | Unit::Gain => Dimension::Level,
+            Unit::Decibels | Unit::Gain | Unit::Linear => Dimension::Level,
             Unit::Bpm => Dimension::Tempo,
         }
     }
@@ -156,11 +176,15 @@ impl Unit {
             Unit::Bars => "bars",
             Unit::Pixels => "px",
             Unit::Percent => "percent",
+            Unit::Em => "em",
+            Unit::Points => "pt",
+            Unit::Rem => "rem",
             Unit::Metres => "m",
             Unit::Degrees => "deg",
             Unit::Millimetres => "mm",
             Unit::Decibels => "db",
             Unit::Gain => "gain",
+            Unit::Linear => "linear",
             Unit::Bpm => "bpm",
         }
     }
@@ -179,10 +203,14 @@ impl Unit {
             Unit::Bars => "bars",
             Unit::Pixels => "px",
             Unit::Percent | Unit::Gain => "%",
+            Unit::Em => "em",
+            Unit::Points => "pt",
+            Unit::Rem => "rem",
             Unit::Metres => "m",
             Unit::Degrees => "°",
             Unit::Millimetres => "mm",
             Unit::Decibels => "dB",
+            Unit::Linear => "×",
             Unit::Bpm => "BPM",
         }
     }
@@ -197,13 +225,18 @@ impl Unit {
         match self {
             Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Millimetres | Unit::Degrees => 0,
             Unit::Percent | Unit::Gain | Unit::Decibels | Unit::Bpm => 1,
-            Unit::Seconds | Unit::Beats | Unit::Bars | Unit::Metres => 2,
+            Unit::Seconds | Unit::Beats | Unit::Bars | Unit::Metres | Unit::Em | Unit::Points | Unit::Linear => 2,
+            Unit::Rem => 3,
         }
     }
 
-    /// one step of a field in it (an arrow key): its last decimal
+    /// one step of a field in it (an arrow key): its last decimal; type units step coarser
     pub fn step(self) -> f64 {
-        libm::pow(10.0, -(self.decimals() as f64))
+        match self {
+            Unit::Points => 0.5,
+            Unit::Rem => 0.05,
+            _ => libm::pow(10.0, -(self.decimals() as f64)),
+        }
     }
 
     /// what it needs is known
@@ -212,6 +245,9 @@ impl Unit {
             Unit::Frames => refs.fps().is_some(),
             Unit::Beats | Unit::Bars => refs.bpm().is_some(),
             Unit::Pixels => refs.pixels().is_some(),
+            Unit::Points | Unit::Rem => refs.web && refs.pixels().is_some(),
+            Unit::Percent => !refs.em,
+            Unit::Em => refs.em,
             Unit::Metres => refs.metres().is_some(),
             _ => true,
         }
@@ -227,10 +263,15 @@ impl Unit {
             Unit::Bars => v * refs.per_bar() * 60.0 / refs.bpm()?,
             Unit::Pixels => v / refs.pixels()?,
             Unit::Percent => v / 100.0,
+            Unit::Em => v,
+            Unit::Points => v * CSS_PX_PER_PT / refs.pixels()?,
+            Unit::Rem => v * CSS_PX_PER_REM / refs.pixels()?,
             Unit::Metres => v / refs.metres()?,
             Unit::Millimetres => fov_deg(v),
             Unit::Gain if v <= 0.0 => SILENT_DB,
             Unit::Gain => (20.0 * libm::log10(v / 100.0)).max(SILENT_DB),
+            Unit::Linear if v <= 0.0 => SILENT_DB,
+            Unit::Linear => (20.0 * libm::log10(v)).max(SILENT_DB),
         })
     }
 
@@ -244,10 +285,15 @@ impl Unit {
             Unit::Bars => b * refs.bpm()? / 60.0 / refs.per_bar(),
             Unit::Pixels => b * refs.pixels()?,
             Unit::Percent => b * 100.0,
+            Unit::Em => b,
+            Unit::Points => b * refs.pixels()? / CSS_PX_PER_PT,
+            Unit::Rem => b * refs.pixels()? / CSS_PX_PER_REM,
             Unit::Metres => b * refs.metres()?,
             Unit::Millimetres => focal_mm(b),
             Unit::Gain if b <= SILENT_DB => 0.0,
             Unit::Gain => 100.0 * libm::pow(10.0, b / 20.0),
+            Unit::Linear if b <= SILENT_DB => 0.0,
+            Unit::Linear => libm::pow(10.0, b / 20.0),
         })
     }
 
@@ -327,7 +373,7 @@ mod tests {
     }
 
     fn every() -> Refs {
-        Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(4), pixels: Some(1920.0), metres: Some(3.0) }
+        Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(4), pixels: Some(1920.0), metres: Some(3.0), web: true, em: false }
     }
 
     #[test]
@@ -358,6 +404,19 @@ mod tests {
     }
 
     #[test]
+    fn type_units_are_css_pixels_of_a_web_reference() {
+        let slice = Refs { pixels: Some(390.0), web: true, ..Refs::default() };
+        assert_eq!(Dimension::Length.offered(&slice), [Unit::Pixels, Unit::Percent, Unit::Points, Unit::Rem]);
+        assert_eq!(convert(10.0, Unit::Percent, Unit::Pixels, &slice), Some(39.0));
+        assert!(close(convert(39.0, Unit::Pixels, Unit::Rem, &slice).unwrap(), 2.4375));
+        assert!(close(convert(12.0, Unit::Points, Unit::Pixels, &slice).unwrap(), 16.0));
+        let font = Refs { pixels: Some(16.0), web: true, em: true, ..Refs::default() };
+        assert_eq!(Dimension::Length.offered(&font), [Unit::Pixels, Unit::Em, Unit::Points, Unit::Rem]);
+        assert!(close(convert(0.5, Unit::Em, Unit::Pixels, &font).unwrap(), 8.0));
+        assert_eq!(Dimension::Length.offered(&Refs { pixels: Some(1920.0), ..Refs::default() }), [Unit::Pixels, Unit::Percent], "a picture has no pt / rem");
+    }
+
+    #[test]
     fn beats_and_bars_are_seconds_at_a_tempo() {
         let refs = Refs { bpm: Some(120.0), per_bar: Some(4), ..Refs::default() };
         assert_eq!(convert(4.0, Unit::Beats, Unit::Seconds, &refs), Some(2.0));
@@ -383,6 +442,8 @@ mod tests {
         assert!(close(convert(0.0, Unit::Decibels, Unit::Gain, &refs).unwrap(), 100.0));
         assert!((convert(-6.0, Unit::Decibels, Unit::Gain, &refs).unwrap() - 50.118_723).abs() < 1e-5);
         assert_eq!(convert(0.0, Unit::Gain, Unit::Decibels, &refs), Some(SILENT_DB), "silence is the floor, not −∞");
+        assert!(close(convert(0.5, Unit::Linear, Unit::Gain, &refs).unwrap(), 50.0), "a sample's volume 0..1");
+        assert_eq!(convert(0.0, Unit::Linear, Unit::Decibels, &refs), Some(SILENT_DB));
     }
 
     #[test]
@@ -412,7 +473,8 @@ mod tests {
 
     #[test]
     fn the_wire_form_leaves_out_what_is_not_known() {
-        assert_eq!(Refs::from_wire(&[25.0, 120.0, 3.0, 1920.0, f64::NAN]), Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(3), pixels: Some(1920.0), metres: None });
+        assert_eq!(Refs::from_wire(&[25.0, 120.0, 3.0, 1920.0, f64::NAN]), Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(3), pixels: Some(1920.0), metres: None, web: false, em: false });
+        assert_eq!(Refs::from_wire(&[f64::NAN, f64::NAN, f64::NAN, 390.0, f64::NAN, 1.0, 1.0]), Refs { pixels: Some(390.0), web: true, em: true, ..Refs::default() });
         assert_eq!(Refs::from_wire(&[0.0, -1.0]), Refs::default());
     }
 

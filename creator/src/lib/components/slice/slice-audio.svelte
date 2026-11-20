@@ -202,8 +202,8 @@
 					<p class="warn">{m['creator.sample_not_in_library']({ id: sample.id })}</p>
 				{/if}
 				<div class="sc-fields" data-cols="2" data-density="dense">
-					<PropField {doc} path={[...samplesPath, i, 'volume']} label={m['creator.field_volume']()} type="number" step={0.05} min={0} max={1} placeholder="1" />
-					<PropField {doc} path={[...samplesPath, i, 'delay']} label={m['creator.field_delay']()} type="number" step={100} placeholder="0" />
+					<PropField {doc} path={[...samplesPath, i, 'volume']} label={m['creator.field_volume']()} type="number" unit={{ kind: 'volume', dimension: 'level', stored: 'linear' }} step={0.05} min={0} max={1} placeholder="1" />
+					<PropField {doc} path={[...samplesPath, i, 'delay']} label={m['creator.field_delay']()} type="number" unit={{ kind: 'duration', dimension: 'time', stored: 'ms' }} step={100} placeholder="0" />
 					<div class="field">
 						<label for="tt-{i}">{m['creator.trigger']()}</label>
 						<select id="tt-{i}" value={sample.trigger?.type ?? ''} onchange={(e) => setTriggerType(i, e.currentTarget.value)}>

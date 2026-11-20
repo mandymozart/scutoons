@@ -10,6 +10,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import DesktopNotice from '$lib/components/shell/desktop-notice.svelte';
+	import CoreUnitsProvider from '$lib/components/fields/core-units-provider.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -34,7 +35,7 @@
 </script>
 
 {#if started || !away}
-	<div class="page" class:away>{@render children()}</div>
+	<div class="page" class:away><CoreUnitsProvider>{@render children()}</CoreUnitsProvider></div>
 {/if}
 {#if away}<DesktopNotice />{/if}
 

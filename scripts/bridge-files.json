@@ -1,7 +1,7 @@
 {
 	"$comment": "check:core-only (#363): every bridge file (a file that touches the engine – the import graph – or lies in a bridge root) and its one-line purpose. A new file needs a line here: \"adapter: <what it moves between the core and the platform>\", \"ui: …\" or \"types: …\"; \"logic (#N): …\" marks today's logic with its move ticket and is never written for a new file.",
 	"files": {
-		"creator/src/lib/components/fields/unit-number.svelte": "ui: ScrubNumber with the core's units through the deck's wasm (#679)",
+		"creator/src/lib/components/fields/core-units-provider.svelte": "ui: loads the core's units through the deck's wasm once and gives them to every unit field (#679, #697)",
 		"creator/src/lib/components/sound/deck-half.svelte": "ui: the creator's deck half (stage, mood chip, signal strip)",
 		"creator/src/lib/components/sound/designer-half.svelte": "ui: the rig designer half",
 		"creator/src/lib/components/sound/mood-chip.svelte": "ui: the mood chip",

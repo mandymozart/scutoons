@@ -206,7 +206,7 @@ pub fn rig_catalog_bundle(request: &str) -> Result<String, JsValue> {
 }
 
 /// deck-core `units` for the web kit's unit-switch field (@scutoons/ui `UnitField`): `refs` is `Refs::from_wire`'s
-/// `[fps, bpm, per_bar, pixels, metres]`, NaN = not known. The ids of `dimension`'s units it can be read in.
+/// `[fps, bpm, per_bar, pixels, metres, web, em]`, NaN = not known. The ids of `dimension`'s units it can be read in.
 #[wasm_bindgen]
 pub fn units_offered(dimension: &str, refs: &[f64]) -> Vec<String> {
     use deck_core::units::{Dimension, Refs};

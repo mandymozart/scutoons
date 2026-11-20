@@ -33,7 +33,7 @@
 	<PropField {doc} path={[...path, 'params', 'effect']} label={m['creator.fx_effect']()} type="select" options={effects()} />
 	<PropField {doc} path={[...path, 'params', 'target']} label={m['creator.fx_target']()} type="select" options={targets()} placeholder={m['creator.fx_target_slice']()} />
 	<PropField {doc} path={[...path, 'params', 'sound']} label={m['creator.fx_sound']()} type="select" options={sounds()} placeholder={m['creator.fx_sound_own']()} />
-	<PropField {doc} path={[...path, 'params', 'duration']} label={m['creator.field_duration']()} type="number" step={50} placeholder={m['creator.fx_duration_own']()} />
+	<PropField {doc} path={[...path, 'params', 'duration']} label={m['creator.field_duration']()} type="number" unit={{ kind: 'duration', dimension: 'time', stored: 'ms' }} step={50} placeholder={m['creator.fx_duration_own']()} />
 	<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
 	<button type="button" class="sc-round" title={m['creator.fx_preview']()} aria-label={m['creator.fx_preview']()} onclick={preview} data-testid="fx-preview"><Icon name="play" /></button>
 </div>

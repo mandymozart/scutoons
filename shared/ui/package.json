@@ -16,6 +16,10 @@
 			"svelte": "./src/index.ts",
 			"default": "./src/index.ts"
 		},
+		"./core-units": {
+			"types": "./src/core-units.ts",
+			"default": "./src/core-units.ts"
+		},
 		"./timeline": {
 			"types": "./src/timeline.ts",
 			"default": "./src/timeline.ts"

@@ -2,6 +2,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import ListField from '$lib/components/fields/list-field.svelte';
+	import UnitNumber from '$lib/components/fields/unit-number.svelte';
+	import type { UnitRefs } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -23,7 +25,8 @@
 		required = false,
 		testid = '',
 		onchange,
-		source
+		source,
+		unit
 	}: {
 		doc: ContentDoc;
 		path: Path;
@@ -44,6 +47,8 @@
 		onchange?: (next: unknown) => void;
 		/** a field that stands for several keys (the group's Layout): its value, and its write instead of `doc.set(path)` */
 		source?: { value: unknown; write: (next: unknown) => void };
+		/** a number with a unit switch (core units): the value is stored in `stored`, shown in the unit chosen for `kind` */
+		unit?: { kind: string; dimension: string; stored: string; fallback?: string; refs?: UnitRefs };
 	} = $props();
 
 	const value = $derived(source ? source.value : doc.get(doc.primary, path));
@@ -100,6 +105,8 @@
 				<option value={display(value)}>{display(value)} (?)</option>
 			{/if}
 		</select>
+	{:else if type === 'number' && unit}
+		<UnitNumber {id} {label} {...unit} {value} {min} {max} {placeholder} {required} onchange={(v) => write(v === undefined ? (required ? 0 : undefined) : v)} testid={testid ? `${testid}-input` : undefined} />
 	{:else if type === 'color'}
 		<span class="color">
 			<input {id} type="text" value={display(value)} {placeholder} oninput={(e) => onInput(e.currentTarget.value)} />
