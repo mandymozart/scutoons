@@ -207,6 +207,7 @@ impl SceneEdit {
             MoveKind::CraneDown | MoveKind::CraneUp => "crane",
             MoveKind::DollyZoom => "vertigo",
             MoveKind::Rack => "rack",
+            MoveKind::Fly => "fly",
             k => k.word(),
         }
         .replace(' ', "_");

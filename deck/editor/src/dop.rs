@@ -1,18 +1,18 @@
-//! Build's DOP panel: the scene's primary camera – its source, the lens (projection, the focal presets, a typed focal
-//! length, an orthographic view's height, the focus: at the aim, a distance or a subject), its shots (taken from the view, looked through), a move to preview or keep,
-//! the kept moves, the trolley track, who may take it on a phone in a live session (the access row: the one condition
-//! control, how long without a pose before it returns, Record – a phone's take kept as a move, take.rs; its QR is in
-//! Perform's Session sheet). The camera, its checks and the moves are the core's (deck-space scene_camera.rs,
-//! scene_dop.rs, space/dop); here the panel is drawn and its presses go to the core.
+//! Build's camera tools (the DOP panel): the scene's primary camera – its source, then the sections Lens · Focus · Height
+//! · Shots · Move · Track · Phones, each one line (a line icon, its name, what it is set to) folded until it is opened,
+//! the open ones remembered per tab (`Sel::open`). The camera, its checks, the moves and their groups are the core's
+//! (deck-space scene_camera.rs, scene_dop.rs, space/dop); the icons and the folding sections are the kit's
+//! (editor/icons.rs, editor/fold.rs); here the panel is laid out and its presses go to the core.
 use crate::scene::SceneView;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::{fold, icons};
 use deck_space::scene_camera::{fov_of, height_preset, Ease, EYE_HEIGHTS, Length, Lens, MoveKind, MoveSpec, Projection, Repeat, SceneCamera, Side, Source, Start, Turn, FOCAL_PRESETS, FOCUS_RANGE, MAX_ROUNDS, SIZE_RANGE};
 use deck_space::space::dop::View;
 use deck_ui::filter::Condition;
 
-pub const WIDTH: f32 = 340.0;
+pub const WIDTH: f32 = 384.0;
 /// how near (logical px) the focus marker is let go to a subject to focus on it
 const SUBJECT_REACH: f32 = 40.0;
 
@@ -29,11 +29,13 @@ pub struct Sel {
     pub aims: Vec<String>,
     /// a phone's take being recorded (take.rs)
     pub rec: Option<crate::take::Rec>,
+    /// the sections open (`Part::bit`); none at first
+    pub open: u8,
 }
 
 impl Default for Sel {
     fn default() -> Sel {
-        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0, aims: Vec::new(), rec: None }
+        Sel { shot: None, point: None, kept: None, draft: MoveSpec::of(MoveKind::Glide), floor: 0.0, aims: Vec::new(), rec: None, open: 0 }
     }
 }
 
@@ -120,6 +122,8 @@ pub enum Field {
     /// record the selected camera's phone as a take; pressed while recording: keep it
     Record,
     Discard,
+    /// a section's head: open or close it; with Alt, all of them
+    Fold(Part),
     /// the camera's slot `i` (a module drops on it), its module taken off
     Slot(usize),
     Detach(usize),
@@ -172,6 +176,64 @@ pub fn shot_words(s: &deck_space::scene_camera::ShotDef) -> String {
 /// what plays on the stage: the move's kind word, the shot it ends on, how far it is (0..1)
 pub type Playing = Option<(String, String, f32)>;
 
+/// The panel's sections, in their order: each one line (its icon, its name, what it is set to) that opens onto its body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    Lens,
+    Focus,
+    Height,
+    Shots,
+    Move,
+    Track,
+    Phones,
+}
+
+impl Part {
+    pub const ALL: [Part; 7] = [Part::Lens, Part::Focus, Part::Height, Part::Shots, Part::Move, Part::Track, Part::Phones];
+
+    pub fn word(self) -> &'static str {
+        match self {
+            Part::Lens => "lens",
+            Part::Focus => "focus",
+            Part::Height => "height",
+            Part::Shots => "shots",
+            Part::Move => "move",
+            Part::Track => "track",
+            Part::Phones => "phones",
+        }
+    }
+
+    fn icon(self) -> &'static str {
+        match self {
+            Part::Lens => "dop-lens",
+            Part::Focus => "dop-focus",
+            Part::Height => "dop-height",
+            Part::Shots => "dop-shots",
+            Part::Move => "dop-move",
+            Part::Track => "dop-track",
+            Part::Phones => "dop-phones",
+        }
+    }
+
+    pub fn bit(self) -> u8 {
+        1 << Part::ALL.iter().position(|p| *p == self).unwrap_or(0)
+    }
+
+    /// every section open
+    pub const fn all() -> u8 {
+        (1 << Part::ALL.len()) - 1
+    }
+}
+
+/// a number in a summary: whole when it is, else two places
+fn short(v: f32) -> String {
+    if (v - v.round()).abs() < 1e-3 {
+        format!("{v:.0}")
+    } else {
+        format!("{v:.2}")
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn pills_row(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, names: &[&str], on: usize, fields: &[Field], out: &mut Vec<(Rect, Field)>) {
     for (r, f) in controls::pills(d, t, a.x, *y, t.size.row - 4.0, names, on).into_iter().zip(fields) {
@@ -185,6 +247,11 @@ fn caption(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, text: &str) {
     *y += t.size.small * 1.6;
 }
 
+/// a group's small uppercase label
+fn label(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, text: &str) {
+    *y += fold::caption(d, t, a.x, *y, text);
+}
+
 #[allow(clippy::too_many_arguments)]
 fn scrub(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, n: Num, label: &str, v: f32, shown: &str, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
     let (min, max, log) = n.range();
@@ -193,9 +260,33 @@ fn scrub(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, n: Num, label: &str
     *y += t.size.row;
 }
 
+#[allow(clippy::too_many_arguments)]
+fn chips_row(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, names: &[&str], lit: &[bool], fields: impl IntoIterator<Item = Field>, out: &mut Vec<(Rect, Field)>) {
+    let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), names, lit);
+    out.extend(rects.into_iter().zip(fields));
+    *y += used + 6.0;
+}
+
+/// an exact value's field, a row high; its place
+fn exact(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, value: &str, note: &str, hot: bool) -> Rect {
+    let r = fold::value(d, t, Rect { x: a.x, y: *y, w: a.w, h: t.size.row - 4.0 }, value, note, hot);
+    *y += t.size.row;
+    r
+}
+
+/// a group label naming whose lens or height it is: the selected shot's, else the camera's
+fn whose_label(cam: &SceneCamera, sel: &Sel, what: &str) -> String {
+    sel.shot.and_then(|i| cam.shots.get(i)).map_or(what.to_string(), |s| format!("{what} · {}", s.id))
+}
+
 /// the lens the panel edits: the selected shot's, else the camera's
 pub fn lens_of(cam: &SceneCamera, sel: &Sel) -> Lens {
     sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.lens, |s| s.lens)
+}
+
+/// the eye height the panel shows: the selected shot's, else the camera's
+fn height_of(cam: &SceneCamera, sel: &Sel) -> f32 {
+    sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(sel.floor))
 }
 
 /// a number of the draft or the lens, as a scrub starts from it
@@ -219,13 +310,100 @@ fn focus_of(cam: &SceneCamera, sel: &Sel) -> f32 {
     lens_of(cam, sel).focus.unwrap_or_else(|| shot.map_or(3.0, |s| s.distance))
 }
 
-/// The focus: at the aim, a distance (scrubbed) or – a shot's – a subject on the stage it follows.
-fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+/// how long the selected camera's phone may go without a pose (ms; none: no limit)
+fn release_of(cam: &SceneCamera, sel: &Sel) -> Option<u64> {
+    match sel.shot {
+        Some(i) => cam.shots.get(i)?.phones.as_ref()?.release_ms,
+        None => cam.phones.as_ref()?.release_ms,
+    }
+}
+
+/// who may take the selected shot's camera (none selected: the primary camera) on a phone, and its condition's chips
+pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
+    let phones = match sel.shot {
+        Some(i) => cam.shots.get(i)?.phones.as_ref(),
+        None => cam.phones.as_ref(),
+    }?;
+    Some(Condition::admits(phones.admits.as_ref(), &[]))
+}
+
+/// A section's line: what it is set to now.
+pub fn summary(part: Part, view: &SceneView) -> String {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let shot = sel.shot.and_then(|i| cam.shots.get(i));
+    match part {
+        Part::Lens => {
+            let lens = lens_of(cam, sel);
+            if lens.ortho() {
+                format!("orthographic · {} m high", short(lens.size))
+            } else {
+                format!("{} mm · perspective · {:.0}° high", mm(lens.focal), fov_of(lens.focal).to_degrees())
+            }
+        }
+        Part::Focus => match (shot.and_then(|s| s.focus_on.as_deref()), lens_of(cam, sel).focus) {
+            (Some(on), _) => format!("on {on}"),
+            (None, Some(f)) => format!("{} m", short(f)),
+            (None, None) => format!("at the aim · {} m", short(focus_of(cam, sel))),
+        },
+        Part::Height => {
+            let h = height_of(cam, sel);
+            match height_preset(h) {
+                Some(i) => format!("{} · {} m", EYE_HEIGHTS[i].0, short(h)),
+                None => format!("{} m", short(h)),
+            }
+        }
+        Part::Shots => match (cam.shots.len(), shot) {
+            (0, _) => "none yet".into(),
+            (n, Some(s)) => format!("{n} shot{} · {} picked", if n == 1 { "" } else { "s" }, s.id),
+            (n, None) => format!("{n} shot{}", if n == 1 { "" } else { "s" }),
+        },
+        Part::Move => {
+            let s = &sel.draft;
+            let to = shot.map_or(" · pick a shot".to_string(), |x| format!(" → {}", x.id));
+            let len = if s.kind == MoveKind::Cut { String::new() } else { format!(" · {} {}", short(s.length.value()), s.length.unit()) };
+            format!("{}{to}{len}", s.kind.word())
+        }
+        Part::Track => cam.track.as_ref().map_or("none".into(), |t| {
+            let len = deck_space::space::dop::track::Path::of(t).map_or(0.0, |p| p.len());
+            format!("{} points · {} m", t.points.len(), short(len))
+        }),
+        Part::Phones => match phones_condition(cam, sel) {
+            None => "no phone".into(),
+            Some(c) => format!("{} may take {}", c.words, shot.map_or("the camera", |s| s.id.as_str())),
+        },
+    }
+}
+
+/// Lens: the projection, the focal lengths as the cones they see (or an orthographic view's height), the exact value.
+fn lens_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let lens = lens_of(cam, sel);
+    label(d, t, a, y, &whose_label(cam, sel, "projection"));
+    pills_row(d, t, a, y, &["Perspective", "Orthographic"], usize::from(lens.ortho()), &[Field::Projection(Projection::Perspective), Field::Projection(Projection::Orthographic)], out);
+    if lens.ortho() {
+        return scrub(d, t, a, y, Num::Size, "view height", lens.size, &format!("{} m", crate::number(lens.size)), hot, out);
+    }
+    label(d, t, a, y, "focal length · mm");
+    let gap = t.size.pad * 0.6;
+    let (cells, used) = fold::grid(a.x, *y, a.w, FOCAL_PRESETS.len(), FOCAL_PRESETS.len(), t.size.rem(4.4), gap);
+    for (i, (r, f)) in cells.into_iter().zip(FOCAL_PRESETS).enumerate() {
+        let (room, ink) = fold::tile(d, t, r, &format!("{f}"), lens.preset() == Some(i));
+        fold::cone(d, room, fov_of(f) * 0.5, ink);
+        out.push((r, Field::Preset(i)));
+    }
+    *y += used + gap;
+    label(d, t, a, y, "exact");
+    let r = exact(d, t, a, y, &format!("{} mm", mm(lens.focal)), &format!("{:.0}° high on full frame", fov_of(lens.focal).to_degrees()), lens.preset().is_none());
+    out.push((r, Field::Focal));
+}
+
+/// Focus: at the aim, a distance (scrubbed) or – a shot's – a subject on the stage it follows.
+fn focus_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
     let (cam, sel) = (&view.edit.camera(), &view.dop);
     let lens = lens_of(cam, sel);
     let shot = sel.shot.and_then(|i| cam.shots.get(i));
     let on = shot.and_then(|s| s.focus_on.as_deref());
-    caption(d, t, a, y, "focus");
+    label(d, t, a, y, "focus on");
     let mut names = vec!["at the aim".to_string()];
     let mut lit = vec![lens.focus.is_none() && on.is_none()];
     let mut fields = vec![Field::FocusAim];
@@ -237,9 +415,7 @@ fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVi
         }
     }
     let names: Vec<&str> = names.iter().map(String::as_str).collect();
-    let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), &names, &lit);
-    out.extend(rects.into_iter().zip(fields));
-    *y += used + 6.0;
+    chips_row(d, t, a, y, &names, &lit, fields, out);
     match on {
         Some(s) => caption(d, t, a, y, &format!("follows {s}: drag the marker off it for a distance")),
         None => {
@@ -250,250 +426,271 @@ fn focus_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVi
     }
 }
 
-/// how long the selected camera's phone may go without a pose (ms; none: no limit)
-fn release_of(cam: &SceneCamera, sel: &Sel) -> Option<u64> {
-    match sel.shot {
-        Some(i) => cam.shots.get(i)?.phones.as_ref()?.release_ms,
-        None => cam.phones.as_ref()?.release_ms,
-    }
-}
-
-/// who may take the selected shot's camera (none: the primary camera) on a phone, and its condition's chips
-pub fn phones_condition(cam: &SceneCamera, sel: &Sel) -> Option<Condition> {
-    let phones = match sel.shot {
-        Some(i) => cam.shots.get(i)?.phones.as_ref(),
-        None => cam.phones.as_ref(),
-    }?;
-    Some(Condition::admits(phones.admits.as_ref(), &[]))
-}
-
-/// The access row (LIVE-CAMERAS.md §4): whether a phone may take this camera in a live session, who (the one condition
-/// control, any one fact) and its id the show and the QR name.
-#[allow(clippy::too_many_arguments)]
-fn phones_rows(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, scene: &str, cam: &SceneCamera, sel: &Sel, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
-    let shot = sel.shot.and_then(|i| cam.shots.get(i));
-    let whose = shot.map_or("PHONES · THE CAMERA".to_string(), |s| format!("PHONES · {}", s.id.to_uppercase()));
-    *y += controls::section(d, t, a.x, *y, a.w, &whose, false);
-    let c = phones_condition(cam, sel);
-    pills_row(d, t, a, y, &["No phone", "Phones may take it"], usize::from(c.is_some()), &[Field::Phones(false), Field::Phones(true)], out);
-    if let Some(c) = c {
-        let (names, on) = c.chips();
-        caption(d, t, a, y, &format!("who: {}", c.words));
-        let (rects, used) = controls::chips(d, t, (a.x, *y, a.w), &names, &on);
-        out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::PhonesFact(i))));
-        *y += used + 6.0;
-        let id = deck_space::live_cameras::camera_id(scene, shot.map(|s| s.id.as_str()));
-        let release = release_of(cam, sel).map_or(0.0, |ms| ms as f32 / 1000.0);
-        let shown = if release > 0.0 { format!("{} s, then it returns", crate::number(release)) } else { "no limit – Leave frees it".into() };
-        scrub(d, t, a, y, Num::Release, "no pose for", release, &shown, hot, out);
-        caption(d, t, a, y, &format!("{id} · its QR: Perform › Session"));
-        match sel.rec.as_ref() {
-            Some(r) => {
-                caption(d, t, a, y, &format!("● REC {:.1} s · {} poses · the stage looks through it", r.secs, r.poses));
-                pills_row(d, t, a, y, &["Stop and keep", "Discard"], usize::MAX, &[Field::Record, Field::Discard], out);
-            }
-            None => pills_row(d, t, a, y, &["Record a take"], usize::MAX, &[Field::Record], out),
+/// Height: the eye heights as figures on a ground line, the exact value (typed).
+fn height_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let height = height_of(cam, sel);
+    let preset = height_preset(height);
+    label(d, t, a, y, &whose_label(cam, sel, "eye height"));
+    let gap = t.size.pad * 0.6;
+    let (cells, used) = fold::grid(a.x, *y, a.w, EYE_HEIGHTS.len(), EYE_HEIGHTS.len(), t.size.rem(4.4), gap);
+    for (i, (r, (name, _))) in cells.into_iter().zip(EYE_HEIGHTS).enumerate() {
+        let (room, ink) = fold::tile(d, t, r, name, preset == Some(i));
+        if let Some(icon) = icons::named(&format!("height-{name}")) {
+            fold::picture(d, room, 32.0, icon, ink);
         }
+        out.push((r, Field::Height(i)));
+    }
+    *y += used + gap;
+    label(d, t, a, y, "exact");
+    let r = exact(d, t, a, y, &format!("{} m", crate::number(height)), "click to type", preset.is_none());
+    out.push((r, Field::HeightTyped));
+}
+
+/// Shots: each with a small picture of its view, taking the view as a shot, what the selected one aims at.
+fn shots_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    if cam.shots.is_empty() {
+        caption(d, t, a, y, "none yet: frame the stage and take the view as a shot");
+    }
+    let (tw, th) = (t.size.rem(3.1), t.size.rem(1.85));
+    let h = th + t.size.pad;
+    let px = t.size.small;
+    for (i, s) in cam.shots.iter().enumerate() {
+        let r = Rect { x: a.x - t.size.pad * 0.5, y: *y, w: a.w + t.size.pad * 0.5, h };
+        let picked = sel.shot == Some(i);
+        if picked {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, fold::accent_dim(t));
+        }
+        fold::view_thumb(d, t, Rect { x: a.x, y: r.y + (h - th) * 0.5, w: tw, h: th }, s.pitch, s.lens.ortho(), if picked { t.color.accent } else { t.color.muted });
+        let ty = r.y + (h - px * 1.25) * 0.5;
+        let id_x = a.x + tw + t.size.pad;
+        d.sans(id_x, ty, px, &s.id, if picked { t.color.bright } else { t.color.text });
+        let words_x = id_x + t.size.rem(3.4);
+        let first = if i == 0 { "opens · " } else { "" };
+        let line = format!("{first}{}", shot_words(s));
+        d.sans(words_x, ty, px, &controls::fit_sans(d, px, &line, a.x + a.w - words_x), t.color.muted);
+        out.push((r, Field::Shot(i)));
+        *y += h + 2.0;
+    }
+    *y += 4.0;
+    let mut names = vec!["+ from view"];
+    let mut fields = vec![Field::AddShot];
+    if sel.shot.is_some() {
+        names.extend(["set from view", "remove"]);
+        fields.extend([Field::SetShot, Field::RemoveShot]);
+    }
+    pills_row(d, t, a, y, &names, usize::MAX, &fields, out);
+    if let Some(s) = sel.shot.and_then(|i| cam.shots.get(i)) {
+        label(d, t, a, y, &format!("{} aims at", s.id));
+        let mut names = vec!["its point"];
+        names.extend(sel.aims.iter().map(String::as_str));
+        let lit: Vec<bool> = std::iter::once(s.aim.is_none()).chain(sel.aims.iter().map(|x| s.aim.as_deref() == Some(x.as_str()))).collect();
+        chips_row(d, t, a, y, &names, &lit, (0..names.len()).map(|i| Field::Aim(i.checked_sub(1))), out);
     }
 }
 
-/// The panel; where its fields landed.
+/// Move: every kind a tile in its group, only the picked kind's settings under them, Preview / Keep, the kept moves.
+#[allow(clippy::too_many_arguments)]
+fn move_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, playing: &Playing, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let s = &sel.draft;
+    let gap = t.size.pad * 0.6;
+    for (name, gloss, kinds) in MoveKind::GROUPS {
+        label(d, t, a, y, &if gloss.is_empty() { name.to_string() } else { format!("{name} · {gloss}") });
+        let (cells, used) = fold::grid(a.x, *y, a.w, kinds.len(), 6, t.size.rem(4.6), gap);
+        for (r, k) in cells.into_iter().zip(kinds.iter()) {
+            let (room, ink) = fold::tile(d, t, r, k.word(), *k == s.kind);
+            if let Some(icon) = icons::named(&format!("move-{}", k.word())) {
+                fold::picture(d, room, 28.0, icon, ink);
+            }
+            if let Some(i) = MoveKind::ALL.iter().position(|x| x == k) {
+                out.push((r, Field::Kind(i)));
+            }
+        }
+        *y += used + gap;
+    }
+    label(d, t, a, y, &format!("{} settings", s.kind.word()));
+    let to = sel.shot.and_then(|i| cam.shots.get(i)).map_or("pick a shot", |s| s.id.as_str());
+    controls::row(d, t, a, y, "ends on", to);
+    if s.kind != MoveKind::Cut {
+        let unit = unit_of(s.length);
+        scrub(d, t, a, y, Num::Length, "length", s.length.value(), &format!("{} {}", crate::number(s.length.value()), s.length.unit()), hot, out);
+        pills_row(d, t, a, y, &UNITS, unit, &[Field::Unit(0), Field::Unit(1), Field::Unit(2)], out);
+        let eases: Vec<&str> = Ease::ALL.iter().map(|e| e.word()).collect();
+        let fields: Vec<Field> = (0..Ease::ALL.len()).map(Field::Ease).collect();
+        pills_row(d, t, a, y, &eases, Ease::ALL.iter().position(|e| *e == s.ease).unwrap_or(0), &fields, out);
+    }
+    label(d, t, a, y, "starts");
+    pills_row(d, t, a, y, &["now", "on the bar line"], usize::from(s.start == Start::Bar), &[Field::Start(Start::Now), Field::Start(Start::Bar)], out);
+    if !matches!(s.kind, MoveKind::Cut | MoveKind::Follow) {
+        let names: Vec<&str> = Repeat::ALL.iter().map(|r| r.word()).collect();
+        let lit: Vec<bool> = Repeat::ALL.iter().map(|r| *r == s.repeat).collect();
+        chips_row(d, t, a, y, &names, &lit, Repeat::ALL.map(Field::Repeat), out);
+    }
+    match s.kind {
+        MoveKind::Orbit | MoveKind::Spiral => {
+            scrub(d, t, a, y, Num::Rounds, "rounds", s.rounds, &crate::number(s.rounds), hot, out);
+            pills_row(d, t, a, y, &["turn left", "turn right"], usize::from(s.turn == Turn::Right), &[Field::Turn(Turn::Left), Field::Turn(Turn::Right)], out);
+        }
+        MoveKind::In => pills_row(d, t, a, y, &["from the left", "from the right"], usize::from(s.side == Side::Right), &[Field::Side(Side::Left), Field::Side(Side::Right)], out),
+        MoveKind::CraneDown | MoveKind::CraneUp => scrub(d, t, a, y, Num::Height, "height", s.height, &format!("{} m", crate::number(s.height)), hot, out),
+        MoveKind::Shake => scrub(d, t, a, y, Num::Amount, "unrest", s.amount, &format!("{}°", crate::number(s.amount)), hot, out),
+        MoveKind::Follow => {
+            let holders: Vec<&str> = view.edit.doc.holders.iter().map(|h| h.id.as_str()).collect();
+            if holders.is_empty() {
+                caption(d, t, a, y, "the scene has no holder to follow");
+            } else {
+                let on = s.follow.as_deref().and_then(|f| holders.iter().position(|h| *h == f)).unwrap_or(usize::MAX);
+                let fields: Vec<Field> = (0..holders.len()).map(Field::Follow).collect();
+                pills_row(d, t, a, y, &holders, on, &fields, out);
+            }
+        }
+        MoveKind::Fly if cam.track.is_none() => caption(d, t, a, y, "runs along the trolley track: add one under Track"),
+        _ => {}
+    }
+    if let Some((kind, shot, p)) = playing {
+        let bar = Rect { x: a.x, y: *y + 2.0, w: a.w, h: 3.0 };
+        d.rect(bar.x, bar.y, bar.w, bar.h, t.color.control);
+        d.rect(bar.x, bar.y, bar.w * p.clamp(0.0, 1.0), bar.h, t.color.accent);
+        *y += 8.0;
+        caption(d, t, a, y, &format!("playing: {kind} to {shot} · {:.0} %", p * 100.0));
+    }
+    pills_row(d, t, a, y, &["Preview", "Keep as move"], usize::MAX, &[Field::Preview, Field::Keep], out);
+    if cam.moves.is_empty() {
+        return;
+    }
+    label(d, t, a, y, "kept moves");
+    for (i, m) in cam.moves.iter().enumerate() {
+        let r = Rect { x: a.x, y: *y, w: a.w, h: t.size.tree_row };
+        if sel.kept == Some(i) {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
+        }
+        let then = m.then.as_deref().map_or(String::new(), |n| format!(" → {n}"));
+        let repeat = if m.spec.repeat == Repeat::Once { String::new() } else { format!(" · {}", m.spec.repeat.word()) };
+        let line = format!("{} · {} to {} · {} {}{repeat}{then}", m.id, m.spec.kind.word(), m.to, crate::number(m.spec.length.value()), m.spec.length.unit());
+        d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), t.color.text);
+        out.push((r, Field::Kept(i)));
+        *y += t.size.tree_row;
+    }
+    *y += 4.0;
+    if sel.kept.is_some() {
+        pills_row(d, t, a, y, &["Play", "Remove"], usize::MAX, &[Field::PlayKept, Field::RemoveKept], out);
+    }
+}
+
+/// Track: the trolley path, its points with their times and eases.
+fn track_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let Some(track) = cam.track.as_ref() else {
+        return pills_row(d, t, a, y, &["Add track"], usize::MAX, &[Field::AddTrack], out);
+    };
+    let len = deck_space::space::dop::track::Path::of(track).map_or(0.0, |p| p.len());
+    let at = sel.point.map_or(String::new(), |p| format!(" · point {} selected", p + 1));
+    caption(d, t, a, y, &format!("{} points · {} m{at} · drag them on the stage", track.points.len(), crate::number(len)));
+    for i in 0..track.points.len() {
+        let r = Rect { x: a.x, y: *y, w: a.w, h: t.size.tree_row };
+        let picked = sel.point == Some(i);
+        if picked {
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
+        }
+        let line = point_words(track, i);
+        d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), if picked { t.color.bright } else { t.color.text });
+        out.push((r, Field::Point(i)));
+        *y += t.size.tree_row;
+    }
+    *y += 4.0;
+    if let Some(p) = sel.point.filter(|p| *p > 0).and_then(|i| track.points.get(i)) {
+        label(d, t, a, y, "arrives");
+        let mut names = vec!["by length"];
+        names.extend(UNITS);
+        let lit: Vec<bool> = (0..=UNITS.len()).map(|k| p.time.map_or(k == 0, |t| k == unit_of(t) + 1)).collect();
+        chips_row(d, t, a, y, &names, &lit, (0..names.len()).map(|k| Field::PointUnit(k.checked_sub(1))), out);
+        if let Some(time) = p.time {
+            scrub(d, t, a, y, Num::PointTime, "at", time.value(), &format!("{} {}", crate::number(time.value()), time.unit()), hot, out);
+        }
+        let mut names = vec!["even"];
+        names.extend(POINT_EASES.iter().map(|e| e.word()));
+        let lit: Vec<bool> = std::iter::once(p.ease.is_none()).chain(POINT_EASES.iter().map(|e| p.ease == Some(*e))).collect();
+        chips_row(d, t, a, y, &names, &lit, (0..names.len()).map(|k| Field::PointEase(k.checked_sub(1))), out);
+    }
+    let mut names = vec!["Add point"];
+    let mut fields = vec![Field::AddPoint];
+    if sel.point.is_some_and(|p| p > 0 && p + 1 < track.points.len()) {
+        names.push("Remove point");
+        fields.push(Field::RemovePoint);
+    }
+    names.push("Remove track");
+    fields.push(Field::RemoveTrack);
+    pills_row(d, t, a, y, &names, usize::MAX, &fields, out);
+}
+
+/// Phones (LIVE-CAMERAS.md §4): whether a phone may take this camera in a live session, who (the one condition control,
+/// any one fact), how long without a pose, its id the show and the QR name, a take recorded from it.
+fn phones_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneView, hot: Option<Num>, out: &mut Vec<(Rect, Field)>) {
+    let (cam, sel) = (&view.edit.camera(), &view.dop);
+    let shot = sel.shot.and_then(|i| cam.shots.get(i));
+    let c = phones_condition(cam, sel);
+    label(d, t, a, y, &whose_label(cam, sel, "phones"));
+    pills_row(d, t, a, y, &["No phone", "Phones may take it"], usize::from(c.is_some()), &[Field::Phones(false), Field::Phones(true)], out);
+    let Some(c) = c else { return };
+    label(d, t, a, y, "who");
+    let (names, on) = c.chips();
+    chips_row(d, t, a, y, &names, &on, (0..names.len()).map(Field::PhonesFact), out);
+    let release = release_of(cam, sel).map_or(0.0, |ms| ms as f32 / 1000.0);
+    let shown = if release > 0.0 { format!("{} s, then it returns", crate::number(release)) } else { "no limit – Leave frees it".into() };
+    scrub(d, t, a, y, Num::Release, "no pose for", release, &shown, hot, out);
+    label(d, t, a, y, "qr");
+    let id = deck_space::live_cameras::camera_id(&view.edit.key(), shot.map(|s| s.id.as_str()));
+    exact(d, t, a, y, &id, "Perform › Session", false);
+    match sel.rec.as_ref() {
+        Some(r) => {
+            caption(d, t, a, y, &format!("● REC {:.1} s · {} poses · the stage looks through it", r.secs, r.poses));
+            pills_row(d, t, a, y, &["Stop and keep", "Discard"], usize::MAX, &[Field::Record, Field::Discard], out);
+        }
+        None => pills_row(d, t, a, y, &["Record a take"], usize::MAX, &[Field::Record], out),
+    }
+}
+
+/// The panel: the camera's source, then each section a line that opens onto its body; where its fields landed.
 pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, view: &SceneView, playing: Playing, hot: Option<Num>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let cam = view.edit.camera();
     let sel = &view.dop;
     let mut y = a.y;
-    y += controls::section(d, t, a.x, y, a.w, "CAMERA", true);
     let on = usize::from(cam.source == Source::Handheld);
-    pills_row(d, t, a, &mut y, &["Scene camera", "Handheld – later"], on, &[Field::Source(Source::Scene), Field::Source(Source::Handheld)], &mut out);
+    pills_row(d, t, a, &mut y, &["Scene camera", "Handheld"], on, &[Field::Source(Source::Scene), Field::Source(Source::Handheld)], &mut out);
     if cam.source == Source::Handheld {
         caption(d, t, a, &mut y, "a phone steers it – not built yet; the shots and moves wait");
     }
-
-    let lens = lens_of(&cam, sel);
-    let whose = sel.shot.and_then(|i| cam.shots.get(i)).map_or("LENS · THE CAMERA".to_string(), |s| format!("LENS · {}", s.id.to_uppercase()));
-    y += controls::section(d, t, a.x, y, a.w, &whose, false);
-    pills_row(d, t, a, &mut y, &["Perspective", "Orthographic"], usize::from(lens.ortho()), &[Field::Projection(Projection::Perspective), Field::Projection(Projection::Orthographic)], &mut out);
-    if lens.ortho() {
-        scrub(d, t, a, &mut y, Num::Size, "view height", lens.size, &format!("{} m", crate::number(lens.size)), hot, &mut out);
-    } else {
-        let mut names: Vec<String> = FOCAL_PRESETS.iter().map(|f| format!("{f}")).collect();
-        names.push(if lens.preset().is_none() { format!("{} mm", mm(lens.focal)) } else { "mm…".into() });
-        let names: Vec<&str> = names.iter().map(String::as_str).collect();
-        let fields: Vec<Field> = (0..FOCAL_PRESETS.len()).map(Field::Preset).chain([Field::Focal]).collect();
-        pills_row(d, t, a, &mut y, &names, lens.preset().unwrap_or(FOCAL_PRESETS.len()), &fields, &mut out);
-        caption(d, t, a, &mut y, &format!("{} mm · {:.0}° high on full frame", mm(lens.focal), fov_of(lens.focal).to_degrees()));
-    }
-    focus_rows(d, t, a, &mut y, view, hot, &mut out);
-    let height = sel.shot.and_then(|i| cam.shots.get(i)).map_or(cam.height, |s| s.height(sel.floor));
-    let preset = height_preset(height);
-    let mut names: Vec<String> = EYE_HEIGHTS.iter().map(|(n, _)| n.to_string()).collect();
-    names.push(format!("{} m…", crate::number(height)));
-    let names: Vec<&str> = names.iter().map(String::as_str).collect();
-    let lit: Vec<bool> = (0..=EYE_HEIGHTS.len()).map(|i| preset.map_or(i == EYE_HEIGHTS.len(), |p| p == i)).collect();
-    let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
-    out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, if i < EYE_HEIGHTS.len() { Field::Height(i) } else { Field::HeightTyped })));
-    y += used + 6.0;
-
-    y += controls::section(d, t, a.x, y, a.w, "SHOTS", false);
-    if cam.shots.is_empty() {
-        caption(d, t, a, &mut y, "none yet: frame the stage and take the view as a shot");
-    }
-    for (i, s) in cam.shots.iter().enumerate() {
-        let r = Rect { x: a.x, y, w: a.w, h: t.size.tree_row };
-        let picked = sel.shot == Some(i);
-        if picked {
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
+    y += t.size.pad * 0.5;
+    d.rect(a.x, y - t.size.edge, a.w, t.size.edge, t.color.line);
+    let indent = t.size.pad * 2.0 + fold::HEAD_ICON;
+    let body = Rect { x: a.x + indent, y: 0.0, w: a.w - indent - t.size.pad, h: 0.0 };
+    for part in Part::ALL {
+        let open = sel.open & part.bit() != 0;
+        let r = fold::head(d, t, Rect { x: a.x, y, w: a.w, h: fold::head_height(t) }, part.icon(), part.word(), &summary(part, view), open);
+        out.push((r, Field::Fold(part)));
+        y += r.h;
+        if !open {
+            continue;
         }
-        let first = if i == 0 { " · opens" } else { "" };
-        let line = format!("{}{first}   {}", s.id, shot_words(s));
-        d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), if picked { t.color.bright } else { t.color.text });
-        out.push((r, Field::Shot(i)));
-        y += t.size.tree_row;
-    }
-    y += 4.0;
-    let mut names = vec!["Add from view"];
-    let mut fields = vec![Field::AddShot];
-    if sel.shot.is_some() {
-        names.extend(["Set from view", "Remove"]);
-        fields.extend([Field::SetShot, Field::RemoveShot]);
-    }
-    pills_row(d, t, a, &mut y, &names, usize::MAX, &fields, &mut out);
-    if let Some(s) = sel.shot.and_then(|i| cam.shots.get(i)) {
-        caption(d, t, a, &mut y, "aims at");
-        let mut names = vec!["its point"];
-        names.extend(sel.aims.iter().map(String::as_str));
-        let lit: Vec<bool> = std::iter::once(s.aim.is_none()).chain(sel.aims.iter().map(|x| s.aim.as_deref() == Some(x.as_str()))).collect();
-        let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
-        out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::Aim(i.checked_sub(1)))));
-        y += used + 6.0;
-    }
-
-    phones_rows(d, t, a, &mut y, &view.edit.key(), &cam, sel, hot, &mut out);
-
-    y += controls::section(d, t, a.x, y, a.w, "MOVE", false);
-    let s = &sel.draft;
-    let kinds: Vec<&str> = MoveKind::ALL.iter().map(|k| k.word()).collect();
-    let lit: Vec<bool> = MoveKind::ALL.iter().map(|k| *k == s.kind).collect();
-    let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &kinds, &lit);
-    out.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Field::Kind(i))));
-    y += used + 6.0;
-    let to = sel.shot.and_then(|i| cam.shots.get(i)).map_or("pick a shot above", |s| s.id.as_str());
-    controls::row(d, t, a, &mut y, "ends on", to);
-    if s.kind != MoveKind::Cut {
-        let unit = unit_of(s.length);
-        scrub(d, t, a, &mut y, Num::Length, "length", s.length.value(), &format!("{} {}", crate::number(s.length.value()), s.length.unit()), hot, &mut out);
-        pills_row(d, t, a, &mut y, &UNITS, unit, &[Field::Unit(0), Field::Unit(1), Field::Unit(2)], &mut out);
-        let eases: Vec<&str> = Ease::ALL.iter().map(|e| e.word()).collect();
-        let fields: Vec<Field> = (0..Ease::ALL.len()).map(Field::Ease).collect();
-        pills_row(d, t, a, &mut y, &eases, Ease::ALL.iter().position(|e| *e == s.ease).unwrap_or(0), &fields, &mut out);
-    }
-    pills_row(d, t, a, &mut y, &["now", "on the bar line"], usize::from(s.start == Start::Bar), &[Field::Start(Start::Now), Field::Start(Start::Bar)], &mut out);
-    if !matches!(s.kind, MoveKind::Cut | MoveKind::Follow) {
-        let names: Vec<&str> = Repeat::ALL.iter().map(|r| r.word()).collect();
-        let lit: Vec<bool> = Repeat::ALL.iter().map(|r| *r == s.repeat).collect();
-        let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
-        out.extend(rects.into_iter().zip(Repeat::ALL).map(|(r, k)| (r, Field::Repeat(k))));
-        y += used + 6.0;
-    }
-    match s.kind {
-        MoveKind::Orbit | MoveKind::Spiral => {
-            scrub(d, t, a, &mut y, Num::Rounds, "rounds", s.rounds, &crate::number(s.rounds), hot, &mut out);
-            pills_row(d, t, a, &mut y, &["turn left", "turn right"], usize::from(s.turn == Turn::Right), &[Field::Turn(Turn::Left), Field::Turn(Turn::Right)], &mut out);
+        y += t.size.pad * 0.3;
+        match part {
+            Part::Lens => lens_body(d, t, body, &mut y, view, hot, &mut out),
+            Part::Focus => focus_body(d, t, body, &mut y, view, hot, &mut out),
+            Part::Height => height_body(d, t, body, &mut y, view, &mut out),
+            Part::Shots => shots_body(d, t, body, &mut y, view, &mut out),
+            Part::Move => move_body(d, t, body, &mut y, view, &playing, hot, &mut out),
+            Part::Track => track_body(d, t, body, &mut y, view, hot, &mut out),
+            Part::Phones => phones_body(d, t, body, &mut y, view, hot, &mut out),
         }
-        MoveKind::In => pills_row(d, t, a, &mut y, &["from the left", "from the right"], usize::from(s.side == Side::Right), &[Field::Side(Side::Left), Field::Side(Side::Right)], &mut out),
-        MoveKind::CraneDown | MoveKind::CraneUp => scrub(d, t, a, &mut y, Num::Height, "height", s.height, &format!("{} m", crate::number(s.height)), hot, &mut out),
-        MoveKind::Shake => scrub(d, t, a, &mut y, Num::Amount, "unrest", s.amount, &format!("{}°", crate::number(s.amount)), hot, &mut out),
-        MoveKind::Follow => {
-            let holders: Vec<&str> = view.edit.doc.holders.iter().map(|h| h.id.as_str()).collect();
-            if holders.is_empty() {
-                caption(d, t, a, &mut y, "the scene has no holder to follow");
-            } else {
-                let on = s.follow.as_deref().and_then(|f| holders.iter().position(|h| *h == f)).unwrap_or(usize::MAX);
-                let fields: Vec<Field> = (0..holders.len()).map(Field::Follow).collect();
-                pills_row(d, t, a, &mut y, &holders, on, &fields, &mut out);
-            }
-        }
-        MoveKind::Fly if cam.track.is_none() => caption(d, t, a, &mut y, "runs along the trolley track: add one below"),
-        _ => {}
+        y += t.size.pad;
+        d.rect(a.x, y - t.size.edge, a.w, t.size.edge, t.color.line);
     }
-    if let Some((kind, shot, p)) = &playing {
-        let bar = Rect { x: a.x, y: y + 2.0, w: a.w, h: 3.0 };
-        d.rect(bar.x, bar.y, bar.w, bar.h, t.color.control);
-        d.rect(bar.x, bar.y, bar.w * p.clamp(0.0, 1.0), bar.h, t.color.accent);
-        y += 8.0;
-        caption(d, t, a, &mut y, &format!("playing: {kind} to {shot} · {:.0} %", p * 100.0));
-    }
-    pills_row(d, t, a, &mut y, &["Preview", "Keep as move"], usize::MAX, &[Field::Preview, Field::Keep], &mut out);
-
-    if !cam.moves.is_empty() {
-        y += controls::section(d, t, a.x, y, a.w, "MOVES", false);
-        for (i, m) in cam.moves.iter().enumerate() {
-            let r = Rect { x: a.x, y, w: a.w, h: t.size.tree_row };
-            if sel.kept == Some(i) {
-                d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
-            }
-            let then = m.then.as_deref().map_or(String::new(), |n| format!(" → {n}"));
-            let repeat = if m.spec.repeat == Repeat::Once { String::new() } else { format!(" · {}", m.spec.repeat.word()) };
-            let line = format!("{} · {} to {} · {} {}{repeat}{then}", m.id, m.spec.kind.word(), m.to, crate::number(m.spec.length.value()), m.spec.length.unit());
-            d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), t.color.text);
-            out.push((r, Field::Kept(i)));
-            y += t.size.tree_row;
-        }
-        y += 4.0;
-        if sel.kept.is_some() {
-            pills_row(d, t, a, &mut y, &["Play", "Remove"], usize::MAX, &[Field::PlayKept, Field::RemoveKept], &mut out);
-        }
-    }
-
-    y += controls::section(d, t, a.x, y, a.w, "TROLLEY TRACK", false);
-    match cam.track.as_ref() {
-        None => pills_row(d, t, a, &mut y, &["Add track"], usize::MAX, &[Field::AddTrack], &mut out),
-        Some(track) => {
-            let len = deck_space::space::dop::track::Path::of(track).map_or(0.0, |p| p.len());
-            let at = sel.point.map_or(String::new(), |p| format!(" · point {} selected", p + 1));
-            caption(d, t, a, &mut y, &format!("{} points · {} m{at} · drag them on the stage", track.points.len(), crate::number(len)));
-            for i in 0..track.points.len() {
-                let r = Rect { x: a.x, y, w: a.w, h: t.size.tree_row };
-                let picked = sel.point == Some(i);
-                if picked {
-                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
-                }
-                let line = point_words(track, i);
-                d.text(r.x + 6.0, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &controls::fit(&line, ((r.w - 12.0) / d.advance(t.size.small)) as usize), if picked { t.color.bright } else { t.color.text });
-                out.push((r, Field::Point(i)));
-                y += t.size.tree_row;
-            }
-            y += 4.0;
-            if let Some(p) = sel.point.filter(|p| *p > 0).and_then(|i| track.points.get(i)) {
-                caption(d, t, a, &mut y, "arrives");
-                let mut names = vec!["by length"];
-                names.extend(UNITS);
-                let lit: Vec<bool> = (0..=UNITS.len()).map(|k| p.time.map_or(k == 0, |t| k == unit_of(t) + 1)).collect();
-                let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
-                out.extend(rects.into_iter().enumerate().map(|(k, r)| (r, Field::PointUnit(k.checked_sub(1)))));
-                y += used + 6.0;
-                if let Some(time) = p.time {
-                    scrub(d, t, a, &mut y, Num::PointTime, "at", time.value(), &format!("{} {}", crate::number(time.value()), time.unit()), hot, &mut out);
-                }
-                let mut names = vec!["even"];
-                names.extend(POINT_EASES.iter().map(|e| e.word()));
-                let lit: Vec<bool> = std::iter::once(p.ease.is_none()).chain(POINT_EASES.iter().map(|e| p.ease == Some(*e))).collect();
-                let (rects, used) = controls::chips(d, t, (a.x, y, a.w), &names, &lit);
-                out.extend(rects.into_iter().enumerate().map(|(k, r)| (r, Field::PointEase(k.checked_sub(1)))));
-                y += used + 6.0;
-            }
-            let mut names = vec!["Add point"];
-            let mut fields = vec![Field::AddPoint];
-            if sel.point.is_some_and(|p| p > 0 && p + 1 < track.points.len()) {
-                names.push("Remove point");
-                fields.push(Field::RemovePoint);
-            }
-            names.push("Remove track");
-            fields.push(Field::RemoveTrack);
-            pills_row(d, t, a, &mut y, &names, usize::MAX, &fields, &mut out);
-        }
-    }
+    y += t.size.pad * 0.6;
+    caption(d, t, Rect { x: a.x + t.size.pad, ..a }, &mut y, "Alt-click a head: open / close all");
+    y += t.size.pad;
     let rows = view.edit.slot_rows(deck_space::scene_modules::On::Camera);
     for (r, p) in crate::slots::section(d, t, a, &mut y, &rows, view.carry) {
         out.push((r, match p {
@@ -536,6 +733,14 @@ impl crate::App {
         let lens = lens_of(&cam, sel);
         let shot = sel.shot;
         match f {
+            Field::Fold(p) => {
+                let open = sel.open & p.bit() != 0;
+                sel.open = match (self.mods.alt_key(), open) {
+                    (true, true) => 0,
+                    (true, false) => Part::all(),
+                    (false, _) => sel.open ^ p.bit(),
+                };
+            }
             Field::Source(s) => {
                 let done = view.edit.set_source(s);
                 self.dop_done(done, format!("camera: {}", if s == Source::Handheld { "handheld – nothing steers it yet" } else { "the scene's shots and moves" }), x, y);
@@ -832,6 +1037,12 @@ impl crate::App {
         let (x, y) = self.cursor;
         let now = View::of(&self.stage.space.camera);
         match self.frames {
+            // `open-lens`, `open-move` …: those sections open; `open-all`
+            76 if spec.contains("open-") => {
+                let Some(view) = self.scene.as_mut() else { return };
+                let all = spec.contains("open-all");
+                view.dop.open = Part::ALL.iter().filter(|p| all || spec.contains(&format!("open-{}", p.word()))).fold(0, |m, p| m | p.bit());
+            }
             78 if spec.contains("shots") => {
                 let Some(view) = self.scene.as_mut() else { return };
                 let close = View { distance: now.distance * 0.5, yaw: now.yaw - 0.7, lens: Lens::focal(70.0), ..now };
@@ -983,7 +1194,11 @@ mod tests {
         let area = Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 };
         let fields = |d: &mut DrawList, view: &SceneView| draw(d, &t, area, view, None, None).into_iter().map(|(_, f)| f).collect::<Vec<_>>();
         let f = fields(&mut d, &view);
-        assert!(f.contains(&Field::Source(Source::Handheld)) && d.texts().iter().any(|s| s.contains("Handheld – later")));
+        assert!(f.contains(&Field::Source(Source::Handheld)) && d.texts().contains(&"Handheld"));
+        assert!(Part::ALL.iter().all(|p| f.contains(&Field::Fold(*p))) && !f.contains(&Field::Preset(0)), "every section folded at first");
+        assert!(d.texts().iter().any(|s| s.contains("30 mm · perspective · 44° high")) && d.texts().iter().any(|s| s.contains("adult · 1.60 m")), "each line says what it is set to: {:?}", d.texts());
+        view.dop.open = Part::all();
+        let f = fields(&mut d, &view);
         assert!((0..6).all(|i| f.contains(&Field::Preset(i))) && f.contains(&Field::Focal));
         assert!((0..7).all(|i| f.contains(&Field::Height(i))) && f.contains(&Field::HeightTyped), "the eye heights beside the lens");
         assert!(d.texts().contains(&"giraffe"));
@@ -999,7 +1214,7 @@ mod tests {
         assert!(f.contains(&Field::Phones(true)) && !f.contains(&Field::PhonesFact(0)));
         view.edit.set_phones(Some(i), true).unwrap();
         let f = fields(&mut d, &view);
-        assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("who: guest and up")) && d.texts().iter().any(|s| s.contains("scene:duet > shot:shot1")));
+        assert!(f.contains(&Field::PhonesFact(1)) && d.texts().iter().any(|s| s.contains("guest and up may take shot1")) && d.texts().iter().any(|s| s.contains("scene:duet > shot:shot1")));
         // how long without a pose, and Record; while recording: the take's line, Stop and keep, Discard
         assert!(f.contains(&Field::Scrub(Num::Release)) && d.texts().iter().any(|s| s.contains("no limit")) && f.contains(&Field::Record) && !f.contains(&Field::Discard));
         view.edit.set_release(Some(i), Some(4500)).unwrap();
@@ -1040,5 +1255,23 @@ mod tests {
         view.dop.draft = MoveSpec::of(MoveKind::Cut);
         assert!(!fields(&mut d, &view).contains(&Field::Repeat(Repeat::Loop)), "a cut does not repeat");
         assert!(height(&t, &view) > t.size.row * 10.0);
+    }
+
+    /// the moves as tiles in the core's groups, each kind once; only what a section holds shows when it is open
+    #[test]
+    fn the_moves_are_tiles_in_their_groups_and_sections_open_one_by_one() {
+        let doc = SceneDocument::new("duet", "Duet", vec!["catpope".into()]);
+        let (mut view, _, _) = SceneView::open(SceneOpen { doc, base: Some(1), kept: None, note: None, save: None }, None).expect("it plays");
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        let area = Rect { x: 0.0, y: 0.0, w: WIDTH, h: 4000.0 };
+        view.dop.open = Part::Move.bit();
+        let f: Vec<Field> = draw(&mut d, &t, area, &view, None, None).into_iter().map(|(_, f)| f).collect();
+        assert!((0..MoveKind::ALL.len()).all(|i| f.contains(&Field::Kind(i))) && f.contains(&Field::Preview));
+        assert!(!f.contains(&Field::Preset(0)) && !f.contains(&Field::AddTrack), "the other sections stay folded");
+        let texts = d.texts();
+        assert!(texts.contains(&"LOCOMOTION · THE CAMERA TRAVELS") && texts.contains(&"ACCENTS") && texts.contains(&"GLIDE SETTINGS"), "{texts:?}");
+        assert!(MoveKind::ALL.iter().all(|k| icons::named(&format!("move-{}", k.word())).is_some()), "every kind has its line art");
+        assert!(EYE_HEIGHTS.iter().all(|(n, _)| icons::named(&format!("height-{n}")).is_some()), "every eye height has its figure");
+        assert_eq!(Part::all().count_ones() as usize, Part::ALL.len());
     }
 }

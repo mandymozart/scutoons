@@ -72,11 +72,54 @@ pub const ICONS: &[(&str, &str)] = &[
     ("map", r#"<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line>"#),
     ("user", r#"<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>"#),
     ("smile", r#"<circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>"#),
+    // the camera tools (#646): line art drawn on an N-unit grid, scaled into the box; at N px it draws 1.5 px lines
+    // the sections, on an 18 grid
+    ("dop-camera", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="11" height="9" rx="1.5"/><path d="M13 8l4-2v7l-4-2"/></g>"##),
+    ("dop-lens", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6.5"/><circle cx="9" cy="9" r="3"/><path d="M9 2.5v3M15.5 9h-3"/></g>"##),
+    ("dop-focus", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2h4M12 2h4v4M16 12v4h-4M6 16H2v-4"/><circle cx="9" cy="9" r="2"/></g>"##),
+    ("dop-height", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h12"/><path d="M6 16V8"/><circle cx="6" cy="5" r="1.3"/><path d="M12 16V3M10.5 4.5L12 3l1.5 1.5M10.5 14.5L12 16l1.5-1.5"/></g>"##),
+    ("dop-shots", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="9" height="7" rx="1"/><rect x="7" y="8" width="9" height="7" rx="1"/></g>"##),
+    ("dop-move", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13c3-8 9-8 14-6"/><path d="M13 4.5l3 2.5-3.5 1.5"/><rect x="1.5" y="12" width="4" height="3" rx=".6"/></g>"##),
+    ("dop-track", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c4-1 5-9 14-10"/><path d="M3 16.5c4-1 6-9.5 14-10.5" stroke-dasharray="1.5 2"/><circle cx="9" cy="9" r="1.6"/></g>"##),
+    ("dop-phones", r##"<g transform="scale(1.333)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="1.8" width="8" height="14.4" rx="1.6"/><path d="M8 13.5h2"/></g>"##),
+    // the moves, by their kind's word, on a 28 grid
+    ("move-cut", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="9" height="13" rx="1"/><rect x="16" y="7" width="9" height="13" rx="1"/><path d="M13 23L15 4"/></g>"##),
+    ("move-glide", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20c5-10 13-12 22-9"/><path d="M21 8l4 3-4.5 2"/></g>"##),
+    ("move-in", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="6" width="13" height="16" rx="1"/><path d="M2 14h12M10 10l4 4-4 4"/></g>"##),
+    ("move-fly-through", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 24V12a7 7 0 0114 0v12"/><path d="M2 18c8-1 16-1 24-4"/><path d="M22 12l4 2-3.5 3"/></g>"##),
+    ("move-crane-down", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 24h20M8 24L19 6"/><rect x="17" y="3" width="6" height="4" rx=".8"/><path d="M24 11v8M21.5 16.5L24 19l2.5-2.5"/></g>"##),
+    ("move-crane-up", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 24h20M8 24L19 6"/><rect x="17" y="3" width="6" height="4" rx=".8"/><path d="M24 19v-8M21.5 13.5L24 11l2.5 2.5"/></g>"##),
+    ("move-spiral", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14a2 2 0 112 2 4 4 0 01-6-2 6 6 0 0110-5 8 8 0 01-4 13 10 10 0 01-11-6"/></g>"##),
+    ("move-push-in", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="20" height="18" rx="1"/><path d="M8 9l4 4M20 9l-4 4M8 19l4-4M20 19l-4 4"/></g>"##),
+    ("move-pull-out", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="20" height="18" rx="1"/><path d="M12 13L8 9M16 13l4-4M12 15l-4 4M16 15l4 4"/><path d="M8 12V9h3M20 12V9h-3"/></g>"##),
+    ("move-orbit", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="14" cy="15" rx="11" ry="5"/><circle cx="14" cy="11" r="3"/><path d="M22 18.5l3-1-1.5 3"/></g>"##),
+    ("move-truck", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="5" width="10" height="8" rx="1"/><path d="M3 19h22M6 16l-3 3 3 3M22 16l3 3-3 3"/></g>"##),
+    ("move-tilt", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="11" width="10" height="7" rx="1"/><path d="M6 7a11 11 0 0116 0"/><path d="M20 4.5l2 2.5-3 .8"/></g>"##),
+    ("move-zoom", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="22" height="18" rx="1"/><rect x="9" y="10" width="10" height="8" rx=".6"/><path d="M5 7l4 3M23 7l-4 3"/></g>"##),
+    ("move-dolly-zoom", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l7 4v8l-7 4zM25 6l-7 4v8l7 4z"/><path d="M10 14h8"/></g>"##),
+    ("move-whip-pan", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="15" y="7" width="10" height="14" rx="1"/><path d="M2 10h10M4 14h9M2 18h10"/></g>"##),
+    ("move-follow", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="21" cy="14" r="3"/><path d="M3 14h12" stroke-dasharray="2 2.5"/><rect x="2" y="10" width="6" height="8" rx="1"/></g>"##),
+    ("move-shake", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14l3-5 3 10 3-12 3 14 3-11 3 8 3-6 3 2"/></g>"##),
+    ("move-rack-focus", r##"<g transform="scale(0.8571)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="14" r="5"/><circle cx="20" cy="14" r="5" stroke-dasharray="2 2"/><path d="M13 14h2"/></g>"##),
+    // the eye heights: a figure on the ground line, on a 32 grid
+    ("height-frog", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><path d="M9 27c0-4 4-6 7-6s7 2 7 6"/><circle cx="12" cy="20" r="1.6"/><circle cx="20" cy="20" r="1.6"/></g>"##),
+    ("height-cat", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><path d="M8 27v-6l3-4 1 3h6l1-3 3 4v6"/><path d="M22 23c3 0 4-3 4-6"/></g>"##),
+    ("height-kid", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><circle cx="16" cy="13" r="2.5"/><path d="M16 16v6M12 18h8M13.5 27l2.5-5 2.5 5"/></g>"##),
+    ("height-adult", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><circle cx="16" cy="7" r="2.5"/><path d="M16 10v9M11 13h10M13 27l3-8 3 8"/></g>"##),
+    ("height-cyclops", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><circle cx="16" cy="5" r="3.2"/><circle cx="16" cy="5" r="1" fill="#fff"/><path d="M16 8.5v10M9 12h14M12 27l4-8.5 4 8.5"/></g>"##),
+    ("height-giraffe", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><path d="M10 27v-8h10v8M13 19L20 5M19 3.5l3 1.5-1.5 2"/><path d="M14 19v8"/></g>"##),
+    ("height-bird", r##"<g transform="scale(0.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 27h26"/><path d="M7 9c3-3 6-3 9 0 3-3 6-3 9 0"/><path d="M12 27h8" stroke-dasharray="1 2"/></g>"##),
 ];
 
 /// is there an icon of this name
 pub fn has(name: &str) -> bool {
     ICONS.iter().any(|(n, _)| *n == name)
+}
+
+/// the icon of a name made at run time (`move-` and a kind's word, its spaces as dashes …), if there is one
+pub fn named(name: &str) -> Option<&'static str> {
+    let name = name.replace(' ', "-");
+    ICONS.iter().find(|(n, _)| *n == name).map(|(n, _)| *n)
 }
 
 #[cfg(test)]
@@ -88,6 +131,16 @@ mod tests {
         for name in ["up", "down", "next", "close", "play-fill", "stop-fill", "grip", "menu", "info", "account", "tool", "pointer", "maximize", "square", "window-min", "window-max", "window-restore", "home", "map", "user", "package", "smile", "code", "video", "list"] {
             assert!(has(name), "{name}");
         }
+    }
+
+    #[test]
+    fn the_camera_tools_have_their_line_art() {
+        for name in ["dop-camera", "dop-lens", "dop-focus", "dop-height", "dop-shots", "dop-move", "dop-track", "dop-phones"] {
+            assert!(has(name), "{name}");
+        }
+        assert_eq!(named("move-fly through"), Some("move-fly-through"));
+        assert_eq!(named("height-cyclops"), Some("height-cyclops"));
+        assert_eq!(named("move-take"), None);
     }
 
     #[test]
