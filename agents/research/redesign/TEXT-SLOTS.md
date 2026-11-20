@@ -104,9 +104,9 @@ titles and names should all be referenced from one place (credits, the toon) the
   instance.
 - Events in the drafts use the real trigger and action names (round 1 invented "on found / on use / on enter";
   "found / tap" stay for XR targets, which are OSCT's).
-- **Decide (owner):** (1) one word for place / location; (2) Kanon roles for regions and items; (3) authors and titles
+- **Decide (owner):** (1) one word for place / location; (2) ✓ Kanon roles for regions and items (owner 2026-11-20); (3) authors and titles
   referenced from one place; (4) "Events" naming – owner 2026-11-20: calendar events are public relations, real-world dates (concerts,
-  performances, happenings, exhibitions – an exhibition date can point to its XR Exhibition experience; admin Calendar, reader home); proposal: "Events" in the creator = story events, the PR dates
-  stay "Calendar"; (5) ✓ cast as a season facet, not a second character editor (owner 2026-11-20).
+  performances, happenings, exhibitions – an exhibition date can point to its XR Exhibition experience; admin Calendar, reader home); ✓ "Events" in the creator = story events, the PR dates
+  stay "Calendar" (owner 2026-11-20); (5) ✓ cast as a season facet, not a second character editor (owner 2026-11-20).
 - Data work this implies: sheets need no new storage; the merges (authors, titles, descriptions vs Kanon, place /
   location) are migrations – ticket them per area.

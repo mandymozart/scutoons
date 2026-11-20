@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Generation flow</title>
+<!-- #673 – the blank asset → generation → Library flow (owner 2026-11-20). ?s=0 the idea · 1 blank · 2 generate in context · 3 maximized to the back · 4 approved into the Library -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;--hover:#2e3229;
+--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;--warn:#f0a030;--go:#4cc35a;--danger:#e5483b;
+--glass:rgba(26,28,24,.55);--glass2:rgba(26,28,24,.86);--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tr:1.8rem;--r:.36rem;
+--mono:"IBM Plex Mono",ui-monospace,monospace;
+--s0:#00d1ff;--s1:#f0a030;--s2:#b36bff;--s3:#4cc35a;--s4:#ff6b8a;--s5:#e6d24a}
+*{box-sizing:border-box}html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:var(--small)}.sp{flex:1}.warn{color:var(--warn)}.ok{color:var(--go)}.acc{color:var(--accent)}
+.bg{position:absolute;inset:0;overflow:hidden}
+/* top bar */
+.bar{position:absolute;top:1rem;left:1rem;right:1rem;display:flex;gap:.5rem;align-items:center;z-index:3}
+.pill{display:flex;align-items:center;gap:.2rem;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:2.55rem;white-space:nowrap}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .5rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;display:inline-grid;place-items:center;color:var(--text)}
+.ws{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .8rem;border-radius:1.2rem;background:var(--control)}
+.ws b{font-weight:400}
+.tab{display:flex;align-items:center;gap:.4rem;height:var(--row);padding:0 .35rem 0 .65rem;border-radius:1.2rem;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .x{width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.75rem;opacity:.55}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}.seg span{height:var(--row);padding:0 .75rem;border-radius:1.2rem;display:flex;align-items:center}
+.seg span.on{background:var(--pressed);color:var(--pressed-text)}.seg span.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block;margin-right:.35rem}
+/* panels */
+.p{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;z-index:2}
+.p.solid{background:var(--glass2)}
+.ph{display:flex;align-items:center;gap:.2rem;padding:.3rem .35rem .3rem .2rem;flex:none}
+.grip{width:.9rem;align-self:stretch;display:grid;place-items:center;color:var(--line);cursor:grab;font-size:.8rem;letter-spacing:-.15em}
+.pt{font-size:var(--small);padding:.18rem .6rem;border-radius:1rem;color:var(--muted);white-space:nowrap}
+.pt.on{background:var(--pressed);color:var(--pressed-text)}
+.ph .f{margin-left:auto;color:var(--muted);font-size:.75rem;padding:0 .3rem}
+.pb{overflow:hidden;flex:1;min-height:0;position:relative}
+.mini{position:absolute;z-index:2;display:flex;align-items:center;gap:.45rem;height:2.35rem;padding:0 .8rem 0 .4rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);white-space:nowrap;font-size:var(--small)}
+.mini .grip{width:.8rem}
+.ghost{position:absolute;z-index:4;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .4rem 1rem #000a;transform:rotate(-3deg)}
+.drop{position:absolute;z-index:4;width:2px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.note{position:absolute;z-index:5;max-width:19rem;font-size:var(--small);line-height:1.4;background:#fffbe6;color:#1d1d14;padding:.5rem .65rem;border-radius:var(--r);box-shadow:0 .3rem .9rem #0008}
+.note b{font-weight:700}
+.note::before{content:"Draft note";display:block;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:#7a6a00;margin-bottom:.15rem}
+/* content */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.chips{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.08rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.tr{height:var(--tr);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0)*1.05rem);white-space:nowrap;overflow:hidden}
+.tr.sel{background:var(--selected)}.tr.in{background:rgba(35,38,31,.6)}
+.tr .c{width:.8rem;color:var(--muted);font-size:.65rem;flex:none}
+.tr img,.tr .sw{width:1.25rem;height:1.25rem;border-radius:50%;object-fit:cover;flex:none;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted);padding-left:.4rem}
+.grp{padding:.55rem var(--pad) .2rem}
+.sec{border-top:1px solid var(--line)}
+.sh{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sh .c{color:var(--muted);font-size:.65rem;width:.8rem}.sh .s{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.si{padding:0 var(--pad) .75rem;display:grid;gap:.42rem}
+.prop{display:grid;grid-template-columns:6.3rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.fd{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot{height:4.2rem;border:1px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.6rem;padding:.3rem;color:var(--muted);font-size:var(--small)}
+.slot img{height:100%;aspect-ratio:1;object-fit:cover;border-radius:calc(var(--r) - 1px)}
+.slot.full{border-style:solid}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+/* canonical sheet: reads like a page, every value edits in place */
+.sheet{padding:.2rem 1rem 1rem;line-height:1.55}
+.sheet h2{font-size:1.15rem;font-weight:700;margin:.4rem 0 .1rem}
+.sheet .sub{color:var(--muted);font-size:var(--small);margin-bottom:.6rem}
+.sheet p{margin:.45rem 0}
+.sheet .v{border-bottom:1px dashed #5a6450;padding:0 .1rem}
+.sheet .ref{color:var(--accent);border-bottom:1px solid #0e5566}
+.sheet .h{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .2rem}
+.state{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.02rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+.state.draft{border-color:var(--muted);color:var(--muted)}.state.warn{border-color:var(--warn);color:var(--warn)}
+/* links: where used · events · deck */
+.lk{display:grid;grid-template-columns:auto 1fr auto;gap:.15rem .5rem;align-items:center;padding:.15rem var(--pad);font-size:var(--small)}
+.lk .k{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.ev{display:flex;align-items:center;gap:.35rem;padding:.25rem var(--pad);font-size:var(--small);white-space:nowrap}
+.ev .on{font-family:var(--mono);font-size:var(--label);padding:.05rem .4rem;border-radius:var(--r);background:var(--control);border:1px solid var(--line)}
+.ev .ar{color:var(--muted)}
+.ev .to{color:var(--accent)}
+/* tiles */
+.tiles{display:grid;gap:.5rem;padding:0 var(--pad) var(--pad)}
+.tile{position:relative;aspect-ratio:1;border-radius:var(--r);background:#0c0d0b;border:1px solid var(--line);overflow:hidden}
+.tile img{width:100%;height:100%;object-fit:contain}
+.tile.cover img{object-fit:cover}
+.tile .k{position:absolute;left:.3rem;top:.3rem;font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .u{position:absolute;right:.3rem;top:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .u.zero{border:1px dashed var(--muted);color:var(--muted)}
+.tile .q{position:absolute;right:.3rem;bottom:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .nm{position:absolute;left:0;right:0;bottom:0;padding:.9rem .4rem .25rem;background:linear-gradient(transparent,#000d);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{outline:2px solid var(--accent);outline-offset:1px}
+.tile.want{border-style:dashed;border-color:var(--warn);display:grid;place-items:center;color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.strip{display:flex;gap:.45rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.card{flex:none;width:7.5rem}
+.card .th{height:4.6rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#000;position:relative}
+.card .th img{width:100%;height:100%;object-fit:cover}
+.card .t{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem;white-space:nowrap}
+.card.sel .th{outline:2px solid var(--accent);outline-offset:1px}.card.sel .t{color:var(--text)}
+textarea,.txt{font:inherit;color:var(--text)}
+.txt{padding:.4rem 1rem 1rem;line-height:1.6;font-size:.95rem}
+.txt .sl{font-family:var(--mono);font-size:var(--label);color:var(--muted);letter-spacing:.06em;margin-top:.7rem}
+.txt .who{color:var(--accent);font-size:var(--small);letter-spacing:.06em;text-transform:uppercase}
+.txt .cur{background:rgba(0,209,255,.12);border-left:2px solid var(--accent);margin-left:-.6rem;padding-left:.5rem}
+svg text{font-family:"Noto Sans",sans-serif}
+</style></head><body><script>
+// flow.html's script (assembled with workspaces.html's style by build-flow.py) – #673 draft: the blank asset → generation → Library flow
+const R='../../../media/', C=R+'characters/', CP=R+'catpope/';
+const W=innerWidth,H=innerHeight,rem=14,g=rem,T=g+2.55*rem+g;
+const ch=(c,v,m)=>`${C}${c}/${c}_${v}-${m}.webp`;
+const s=new URLSearchParams(location.search).get('s')||'0';
+let out='';const add=x=>out+=x;
+function bar(wsName,wsIcon,tabs,play){
+  add(`<div class="bar"><div class="pill"><span class="logo">SCUTOONS</span><span class="ib">☰</span></div>
+  <div class="pill"><span class="ws"><span>${wsIcon}</span><b>${wsName}</b><span class="muted">▾</span></span>${tabs.map((t,i)=>`<span class="tab ${i===0?'on':''}">${t.img?`<img src="${t.img}">`:`<span>${t.i||''}</span>`}<span>${t.n}</span><span class="x">✕</span></span>`).join('')}<span class="ib">＋</span></div>
+  <span class="sp"></span><div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>
+  ${play?`<div class="pill"><div class="seg"><span class="on">Edit</span><span class="play">▶ Play</span></div></div>`:''}
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">?</span></div></div>`);
+}
+function P(x,y,wd,ht,tabs,body,o={}){
+  add(`<div class="p ${o.solid?'solid':''}" style="left:${x}px;top:${y}px;width:${wd}px;height:${ht}px;${o.hi?'outline:2px solid var(--primary);outline-offset:2px;':''}"><div class="ph"><span class="grip">⋮⋮</span>${tabs.map((t,i)=>`<span class="pt ${i===(o.on||0)?'on':''}">${t}</span>`).join('')}<span class="f">${o.max?'<span title="maximize to the back">⤢</span> ':''}—</span></div><div class="pb">${body}</div></div>`);
+}
+function NOTE(x,y,html,wd){add(`<div class="note" style="left:${x}px;top:${y}px;${wd?`max-width:${wd}px`:''}">${html}</div>`)}
+function STEP(n,t){add(`<div style="position:absolute;z-index:6;left:50%;bottom:${g}px;transform:translateX(-50%);display:flex;gap:.4rem;align-items:center;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.3rem .5rem">${[1,2,3,4].map(i=>`<span style="width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;${i===n?'background:var(--primary);color:#171916':'border:1px solid var(--line);color:var(--muted)'}">${i}</span>`).join('')}<span style="padding:0 .6rem">${t}</span></div>`)}
+const tr=(d,label,o={})=>`<div class="tr ${o.sel?'sel':''} ${o.in?'in':''}" style="--d:${d}"><span class="c">${o.c??''}</span>${o.img?`<img src="${o.img}" onerror="this.style.visibility='hidden'">`:o.blank?`<span class="sw" style="background:none;border:1px dashed var(--warn)"></span>`:''}<span>${label}</span>${o.n!==undefined?`<span class="n ${o.nw?'warn':''}">${o.n}</span>`:''}</div>`;
+const sec=(open,name,sum,body='')=>`<div class="sec"><div class="sh"><span class="c">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="s">${sum}</span></div>${open?`<div class="si">${body}</div>`:''}</div>`;
+const prop=(k,v)=>`<div class="prop"><span>${k}</span>${v.startsWith('<')?v:`<div class="fd">${v}</div>`}</div>`;
+const moods=['neutral','happy','laughing','smug','thinking','confused','surprised','sad','crying','dizzy','angry','furious'];
+// a blank asset: dashed, its address, its brief from the Kanon – it exists before its file
+const blank=(label,state)=>`<div class="th" style="height:4.6rem;border:1.5px dashed ${state==='gen'?'var(--accent)':state==='review'?'var(--warn)':'var(--warn)'};display:grid;place-items:center;background:${state==='gen'?'rgba(0,209,255,.07)':'rgba(240,160,48,.06)'};color:${state==='gen'?'var(--accent)':'var(--warn)'};font-size:var(--label);letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.3">${label}</div>`;
+function moodStrip(state){return `<div class="strip">${moods.map(m=>m==='dizzy'?`<div class="card" style="width:4.6rem">${state==='done'?`<div class="th" style="height:4.6rem;outline:2px solid var(--primary);outline-offset:1px"><img src="${ch('catpope','portrait','dizzy')}"></div>`:blank(state==='gen'?'gen<br>62 %':state==='review'?'review<br>2 ?':'blank<br>✶ generate',state)}<div class="t" style="color:${state==='done'?'var(--text)':'var(--warn)'}">${m}</div></div>`:`<div class="card" style="width:4.6rem"><div class="th" style="height:4.6rem"><img src="${ch('catpope','portrait',m)}"></div><div class="t">${m}</div></div>`).join('')}</div>`}
+const sheetChar=(extra='')=>`<div class="sheet"><h2>CatPope</h2><div class="sub">character:catpope · <span class="state">Kanon agreed</span></div><p>The pope of the cats, <span class="v">warm baritone</span>, slow to anger. Gets dizzy from incense – the <span class="ref">choir</span> spins around him.</p>${extra}</div>`;
+
+// ── 0: the idea in one picture – the asset's life and "a canvas is a maximized panel"
+if(s==='0'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 30%,#1c2018,#000 70%)"></div>`);
+  add(`<div style="position:absolute;left:${3*rem}px;top:${2.5*rem}px;right:${3*rem}px"><div class="lbl">The flow</div><div style="font-size:1.7rem;margin:.2rem 0 1.4rem">Every asset starts blank – and ends in the Library</div></div>`);
+  const st=[
+    ['blank','Wanted','an address and a brief – no file yet','var(--warn)',`<div style="height:100%;border:1.5px dashed var(--warn);border-radius:var(--r);display:grid;place-items:center;color:var(--warn)" class="lbl">character:catpope<br>· look:regular<br>· mood:dizzy</div>`],
+    ['generating','Generation','a canvas in context: prompt from the Kanon, references from the Library','var(--accent)',`<img src="${ch('catpope','portrait','confused')}" style="width:100%;height:100%;object-fit:cover;filter:blur(3px) saturate(.6);opacity:.7"><div style="position:absolute;inset:0;display:grid;place-items:center" class="acc mono">62 %</div>`],
+    ['review','Review','variants side by side, lineage, A / B','var(--warn)',`<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;height:100%"><img src="${ch('catpope','portrait','confused')}" style="width:100%;height:100%;object-fit:cover"><img src="${ch('catpope','portrait','dizzy')}" style="width:100%;height:100%;object-fit:cover;outline:2px solid var(--accent);outline-offset:-2px"></div>`],
+    ['asset','Library','approved: the file, its qualities, its lineage – used where it was wanted','var(--primary)',`<img src="${ch('catpope','portrait','dizzy')}" style="width:100%;height:100%;object-fit:cover">`],
+  ];
+  const cw=(W-6*rem-3*3*rem)/4, cy=9*rem;
+  st.forEach(([k,n,d,c,img],i)=>{const x=3*rem+i*(cw+3*rem);add(`<div style="position:absolute;left:${x}px;top:${cy}px;width:${cw}px"><div style="position:relative;height:${cw*0.8}px;border-radius:var(--r);overflow:hidden;border:1px solid ${c};background:#000">${img}</div><div style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><span class="state" style="border-color:${c};color:${c}">${k}</span><span style="font-size:1.1rem">${n}</span></div><div class="muted" style="margin-top:.2rem">${d}</div></div>`);if(i<3)add(`<div style="position:absolute;left:${x+cw+.6*rem}px;top:${cy+cw*0.4-10}px;font-size:1.6rem;color:var(--muted)">→</div>`)});
+  const y2=cy+cw*0.8+6.5*rem;
+  add(`<div style="position:absolute;left:${3*rem}px;top:${y2}px;right:${3*rem}px"><div class="lbl" style="margin-bottom:.6rem">A canvas is a panel maximized to the back</div></div>`);
+  // three mini screens: panel → maximized → another panel maximized
+  const mw=(W-6*rem-2*2*rem)/3, mh=H-y2-4.5*rem;
+  const mini=(x,lab,bgLabel,panels)=>add(`<div style="position:absolute;left:${x}px;top:${y2+1.8*rem}px;width:${mw}px;height:${mh}px;border:1px solid var(--line);border-radius:var(--r);background:#050604;overflow:hidden"><div style="position:absolute;inset:0;display:grid;place-items:center;color:#3c4334;font-size:1.4rem">${bgLabel}</div>${panels.map(([px,py,pw,ph,t,hi])=>`<div style="position:absolute;left:${px*100}%;top:${py*100}%;width:${pw*100}%;height:${ph*100}%;border:1px solid ${hi?'var(--primary)':'var(--line)'};border-radius:.3rem;background:var(--glass2);font-size:var(--label);padding:.25rem .4rem;color:${hi?'var(--primary)':'var(--muted)'}">${t}</div>`).join('')}</div><div style="position:absolute;left:${x}px;top:${y2+1.8*rem+mh+.4*rem}px" class="muted">${lab}</div>`);
+  mini(3*rem,'1 · Characters: the stage is the back, Generate is a panel','STAGE · CatPope',[[.03,.05,.22,.88,'Library'],[.75,.05,.22,.88,'Sheet'],[.3,.45,.4,.45,'Generate ⤢',1]]);
+  mini(3*rem+mw+2*rem,'2 · ⤢ Generate goes to the back – the stage becomes a panel','GENERATION CANVAS',[[.03,.05,.22,.88,'Library'],[.75,.05,.22,.88,'Sheet · Kanon'],[.3,.6,.25,.3,'Stage',0],[.58,.6,.14,.3,'Prompt',1]]);
+  mini(3*rem+2*(mw+2*rem),'3 · approved → the Library, the stage comes back to the back','STAGE · CatPope',[[.03,.05,.22,.88,'Library ✓ new',1],[.75,.05,.22,.88,'Sheet'],[.3,.72,.42,.2,'Moods ✓ dizzy',1]]);
+}
+
+// ── 1: a blank asset where a picture belongs
+if(s==='1'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 80%,#22261d,#000 62%)"><img src="${ch('catpope','full','confused')}" style="position:absolute;left:0;right:${2*rem}px;top:12%;bottom:15%;margin:auto;height:72%;object-fit:contain"></div>`);
+  bar('Characters','☺',[{img:ch('catpope','avatar','neutral'),n:'CatPope · Regular'}],true);
+  const lw=17*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g-4*rem,['Library','Wanted · 12'],`<div class="search">⌕ <span>Characters</span></div>${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral'),n:'1 blank',nw:1,in:1})}${tr(1,'Pope › Regular',{c:'▾',in:1,n:'17 / 18'})}${['neutral','happy','sad','crying'].map(m=>tr(2,m,{img:ch('catpope','portrait',m),in:1})).join('')}${tr(2,'dizzy',{blank:1,sel:1,n:'blank',nw:1})}${tr(1,'Mountain tiger',{c:'▸',in:1,n:'18 blank',nw:1})}${tr(0,'Yellow Mouse',{c:'▸',img:ch('yellowmouse','avatar','neutral')})}`);
+  P(W-g-iw,T,iw,H-T-g-4*rem,['Sheet','Slots','Links'],`${sheetChar()}<div class="grp lbl">Blank asset</div><div style="padding:0 var(--pad) var(--pad)"><div class="fd mono" style="font-size:var(--label)">character:catpope/pope/regular/mood:dizzy</div><div class="txt" style="padding:.5rem 0;font-size:var(--small);line-height:1.5"><span class="lbl">Brief – from the Kanon</span><br>CatPope, regular look, dizzy: eyes spiralling, paws on the temples, the incense smoke circling – same framing as the other portraits.</div><div style="display:flex;gap:.4rem;justify-content:flex-end"><span class="chip">Upload</span><span class="chip">Pick from Library</span><span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">✶ Generate here</span></div></div>`,{solid:true});
+  P(bx,H-g-4*rem-g-9.6*rem,bw,9.6*rem,['Moods','Wanted · 1'],moodStrip('blank'));
+  NOTE(bx+bw*0.52,T+3*rem,'<b>A blank asset</b> already exists: an address, its place in the moods, a brief written from the Kanon. Where a picture belongs, three ways in – upload, pick, <b>generate here</b>.',300);
+  STEP(1,'A picture is missing → a blank asset');
+}
+
+// ── 2: Generate as a contextual panel over the stage
+if(s==='2'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 80%,#22261d,#000 62%)"><img src="${ch('catpope','full','confused')}" style="position:absolute;left:0;right:${16*rem}px;top:12%;bottom:15%;margin:auto;height:72%;object-fit:contain;opacity:.55"></div>`);
+  bar('Characters','☺',[{img:ch('catpope','avatar','neutral'),n:'CatPope · Regular'}],true);
+  const lw=17*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g-4*rem,['Library','Wanted · 12'],`${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral'),in:1})}${tr(1,'Pope › Regular',{c:'▾',in:1})}${tr(2,'dizzy',{blank:1,sel:1,n:'generating',nw:1})}<div class="grp lbl">References · drag in</div>${['neutral','confused','sad'].map(m=>tr(0,'portrait · '+m,{img:ch('catpope','portrait',m)})).join('')}`);
+  P(W-g-iw,T,iw,H-T-g-4*rem,['Sheet','Kanon'],sheetChar(`<div class="h">Kanon · Body</div><p>When dizzy his ears fold back and the left eye closes first.</p>`),{on:1,solid:true});
+  const gw=bw*0.62, gh=(H-T-4*rem-g)*0.74, gx=bx+bw-gw, gy=T;
+  P(gx,gy,gw,gh,['✶ Generate · dizzy','Variants'],`${sec(true,'Subject','blank · mood:dizzy',`<div class="slot full" style="height:3.6rem">${['neutral','confused'].map(m=>`<img src="${ch('catpope','portrait',m)}">`).join('')}<span>2 references<br><span class="muted">framing: portrait · same as the others</span></span></div>`)}${sec(true,'Prompt','from the brief',`<div class="fd" style="height:auto;white-space:normal;padding:.4rem .6rem;line-height:1.4">CatPope, regular look, dizzy: eyes spiralling, paws on the temples, incense smoke circling. Ears folded back, left eye closed.</div>${prop('Generator','gemini image · 4 variants')}${prop('Estimate','<div class="fd">€ 0.16 · budget € 18.20 left</div>')}`)}<div style="display:flex;justify-content:flex-end;gap:.4rem;padding:0 var(--pad)"><span class="chip">⤢ to the back</span><span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">Generate · € 0.16</span></div>`,{solid:true,hi:1,max:1});
+  P(bx,H-g-4*rem-g-9.6*rem,bw,9.6*rem,['Moods'],moodStrip('gen'));
+  NOTE(bx,T+3*rem,'<b>Generation in context:</b> the Generate panel opens over the stage it belongs to – the Kanon tab beside it feeds the prompt, the Library gives the references. Nothing leaves the character.',270);
+  STEP(2,'Generate opens as a panel in context');
+}
+
+// ── 3: maximized to the back – the generation canvas with the context on top
+if(s==='3'){
+  add(`<div class="bg" style="background:#0b0c0a"></div>`);
+  bar('Characters','☺',[{img:ch('catpope','avatar','neutral'),n:'CatPope · Regular'}],false);
+  const lw=17*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  // the canvas: bands of variants, lineage
+  const cw=10*rem, chh=10*rem, x0=bx+1.5*rem, y0=T+3*rem;
+  add(`<div class="lbl" style="position:absolute;left:${x0}px;top:${T+1.2*rem}px;z-index:1">✶ Generation canvas · mood:dizzy · maximized to the back</div>`);
+  const cells=[[0,0,'neutral','ref'],[0,1,'confused','ref'],[1,0,'confused','v1 ✕'],[1,1,'dizzy','v2 ✓'],[1,2,'surprised','v3 ?'],[2,1,'dizzy','v4 ?']];
+  const pos=([c,r])=>[x0+c*(cw+3*rem),y0+r*(chh+1.6*rem)];
+  add(`<svg style="position:absolute;inset:0;width:100%;height:100%;z-index:1">${[[0,0,1,0],[0,1,1,1],[0,1,1,2],[1,1,2,1]].map(([a,b,c,d])=>{const[p1,q1]=pos([a,b]),[p2,q2]=pos([c,d]);return `<path d="M${p1+cw},${q1+chh/2} C${p1+cw+40},${q1+chh/2} ${p2-40},${q2+chh/2} ${p2},${q2+chh/2}" stroke="#5a6450" stroke-width="1.5" fill="none"/>`}).join('')}</svg>`);
+  cells.forEach(([c,r,m,l])=>{const[x,y]=pos([c,r]);add(`<div style="position:absolute;z-index:1;left:${x}px;top:${y}px;width:${cw}px"><div style="height:${chh}px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);${l.includes('✓')?'outline:2px solid var(--accent);outline-offset:1px':''};${l.includes('✕')?'opacity:.3':''}"><img src="${ch('catpope','portrait',m)}" style="width:100%;height:100%;object-fit:cover;${c===0?'filter:grayscale(.6)':''}"></div><div style="display:flex;justify-content:space-between;font-size:var(--small);padding-top:.15rem"><span class="muted">${l.split(' ')[0]}</span><span class="${l.includes('✓')?'ok':l.includes('?')?'warn':''}">${l.split(' ')[1]||''}</span></div></div>`)});
+  P(g,T,lw,H-T-g-4*rem,['Library','Wanted · 12'],`${tr(0,'mood:dizzy',{blank:1,sel:1,n:'review',nw:1})}<div class="grp lbl">References</div>${['neutral','confused'].map(m=>tr(0,'portrait · '+m,{img:ch('catpope','portrait',m)})).join('')}<div class="grp lbl">Wanted next</div>${tr(0,'Mountain tiger · 18',{blank:1,n:'blank',nw:1})}${tr(0,'Crypt · place image',{blank:1,n:'blank',nw:1})}`);
+  P(W-g-iw,T,iw,(H-T-g-4*rem-g)*0.55,['Generate','Compare','Kanon'],`${sec(true,'v2','gemini · seed 4411',`<div class="fd" style="height:auto;white-space:normal;padding:.4rem .6rem;line-height:1.4">… eyes spiralling, paws on the temples, ears folded back, left eye closed.</div><div style="display:flex;gap:.4rem;justify-content:flex-end"><span class="chip">Vary</span><span class="chip">Improve</span><span class="chip" style="background:var(--primary);color:#171916;border-color:#9ce327">✓ Approve → Library</span></div>`)}${sec(false,'Compare','A neutral · B v2','')}`,{solid:true});
+  // the stage, now a small panel on top
+  const sy=T+(H-T-g-4*rem-g)*0.55+g;
+  P(W-g-iw,sy,iw,H-sy-g-4*rem,['Stage'],`<div style="height:100%;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 80%,#22261d,#000 70%)"><img src="${ch('catpope','full','confused')}" style="height:92%"></div>`,{max:1});
+  NOTE(x0+2*(cw+3*rem),y0+2*(chh+1.6*rem)+1*rem,'<b>⤢ to the back:</b> the generation canvas is now the background; the stage shrank to a panel on top (⤢ brings it back). The same mechanism for every background – a canvas or stage is just a maximized panel.',280);
+  STEP(3,'Maximized: the canvas is the back, the context floats on top');
+}
+
+// ── 4: approved → the Library; the blank is an asset now, used where it was wanted
+if(s==='4'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 50% 80%,#22261d,#000 62%)"><img src="${ch('catpope','full','happy')}" style="position:absolute;left:0;right:${2*rem}px;top:12%;bottom:15%;margin:auto;height:72%;object-fit:contain"></div>`);
+  bar('Characters','☺',[{img:ch('catpope','avatar','neutral'),n:'CatPope · Regular'}],true);
+  const lw=17*rem, iw=25*rem, bx=g+lw+g, bw=W-bx-g-iw-g;
+  P(g,T,lw,H-T-g-4*rem,['Library','Wanted · 11'],`${tr(0,'CatPope',{c:'▾',img:ch('catpope','avatar','neutral'),n:'18 / 18',in:1})}${tr(1,'Pope › Regular',{c:'▾',in:1,n:'complete'})}${['neutral','happy','sad'].map(m=>tr(2,m,{img:ch('catpope','portrait',m),in:1})).join('')}${tr(2,'dizzy · new',{img:ch('catpope','portrait','dizzy'),sel:1,n:'✓ today'})}`,{hi:1});
+  P(W-g-iw,T,iw,H-T-g-4*rem,['Asset','Links','History'],`<div style="padding:0 var(--pad)"><img src="${ch('catpope','portrait','dizzy')}" style="width:100%;height:12rem;object-fit:cover;border-radius:var(--r)"></div><div class="sheet"><h2>CatPope · dizzy</h2><div class="sub mono">character:catpope/pope/regular/mood:dizzy · <span class="state">approved</span></div></div>${sec(true,'Lineage','2 references → v2',`<div class="strip" style="padding:0">${['neutral','confused','dizzy'].map((m,i)=>`<div class="card" style="width:4.2rem"><div class="th" style="height:4.2rem"><img src="${ch('catpope','portrait',m)}"></div><div class="t">${['ref','ref','v2 ✓'][i]}</div></div>`).join('<span class="muted" style="align-self:center">→</span>')}</div>`)}${sec(true,'Qualities','3 · made on approve','<div class="mono muted" style="font-size:var(--label)">1x · 2x · 3x webp · lossless master kept</div>')}${sec(true,'Used in','was wanted by',`<div class="ev"><span class="on">mood strip</span><span class="ar">→</span><span class="to">Regular › dizzy</span></div><div class="ev"><span class="on">chapter</span><span class="ar">→</span><span class="to">S1 · C3 slice 9 · text box speaker</span></div>`)}`,{solid:true});
+  P(bx,H-g-4*rem-g-9.6*rem,bw,9.6*rem,['Moods'],moodStrip('done'));
+  NOTE(bx+bw*0.52,T+3*rem,'<b>The last step is always an asset in the Library</b> – with its lineage, its qualities and where it was wanted. The blank is filled in place; Wanted counts down.',290);
+  STEP(4,'Approved → an asset in the Library, filled where it was wanted');
+}
+document.body.insertAdjacentHTML('beforeend',out);
+
+</script></body></html>
