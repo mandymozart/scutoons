@@ -24,3 +24,4 @@ rustfft = { version = "6", optional = true, default-features = false }
 libm = "0.2"
 toml = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
