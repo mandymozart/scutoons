@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q1 events in the address book (§0.1), Q2 sets on groups and XR scenes, where in XR a spot is a physical place (§0.2, readings a / b). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q2 sets on groups and XR scenes, where in XR a spot is a physical place (§0.2, readings a / b). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -48,7 +48,7 @@ A toon's event is never global across toons; it is global within the session tha
 
 **Three questions for the owner** (replacing §8):
 
-1. **Events:** keep the story-events index (#521) as the toon's event list and let shows and XR scenes add their own event ids to it, or fold it into the address book (#477) as a kind `event` so one typeahead serves both? *Recommended:* fold it in, once #477's typeahead is the one picker; the index's content (id, type, chapter, group) becomes the entries. Either way: no `all:` prefix, reach by where it is sent (§0.1).
+1. ~~Events~~ **Decided: the story events and the choice questions join the address book as a kind `event`** (owner 2026-11-20: "choice questions seem to be the same concept. Lets do that.") → #707. No `all:` prefix, reach by where it is sent (§0.1). Shows mixing toons (Catpope + Yellow Mouse, soon) need several books at once → #708.
 2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one. **In XR a spot is physical** (§0.2): the shared thing is the spot's *name*; each medium resolves where it is.
 
 ### 0.2 A spot inside an XR scene is a physical place (owner 2026-11-20)
@@ -75,7 +75,7 @@ Question for the owner: **(a), (b), or (a) now and (b) later?** *Recommended:* (
 
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
-Draft tickets left (unfiled): feature "The story-events index joins the address book (kind `event`); shows and XR declare their own events" (area:content, M, with #477 and #521) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
+Draft tickets left (unfiled): feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
 
 ## 1. The idea (owner 2026-11-20, thought aloud, not a decision)
 
