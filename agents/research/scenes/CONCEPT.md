@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q1 events in the address book (§0.1), Q2 sets on groups and XR scenes. Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706); dropped: the shared sequence core and a group playing a deck scene without a show. Open: Q1 events in the address book (§0.1), Q2 sets on groups and XR scenes, where in XR a spot is a physical place (§0.2, readings a / b). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -49,7 +49,30 @@ A toon's event is never global across toons; it is global within the session tha
 **Three questions for the owner** (replacing §8):
 
 1. **Events: the address book gains a kind `event`** (a toon's event ids from chapters, shows and XR), next to the platform domains in the name dictionary; no `all:` prefix, reach by where it is sent (§0.1)? *Recommended:* yes.
-2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one.
+2. **Sets on chapter groups and XR scenes:** may they name a set + spot like a deck scene does? *Recommended:* yes, optional, nothing changes for a group without one. **In XR a spot is physical** (§0.2): the shared thing is the spot's *name*; each medium resolves where it is.
+
+### 0.2 A spot inside an XR scene is a physical place (owner 2026-11-20)
+
+> "important addition. a inside a xr scene a spot is linked to the physical position of the device IRL"
+
+The same word, three resolvers, which is the "container is media specific" rule again:
+
+| Medium | What a spot resolves to | Who resolves it |
+|---|---|---|
+| **Deck** | a named place in the 3D set (`set` + `spot` on the space node, SCENES.md §8) | the scene document, at load |
+| **XR** | **a place in the real world where the device is**: the content stands where the phone is, IRL | the XR viewer's tracking, at run time |
+| **Reader** | no position: at most the panel's framing (a spot names *which* place, not where) | — |
+
+What today's XR plan can and cannot do (XR.md, the table "Inside a book" / "Not there"):
+- Content is anchored on an **image target** (1 unit = the target's width): a printed page or a poster. A target's physical place (the poster on the wall, the book on the table) is the only real-world position the viewer knows.
+- **World tracking, rooms and anchors are not there:** the SLAM binary's licence rules them out; 6DoF needs WebXR `immersive-ar` (Android Chrome only, and it stops image tracking). The handheld camera (#469) already streams a phone's pose that way, but into a deck, not in the XR reader.
+
+So the owner's addition has two readings, and they need different things:
+- **(a) A spot is a target's physical place:** "this spot = where poster 3 hangs". Works with the image tracking planned for #482; a spot names a target (or a group of targets in one room).
+- **(b) A spot is where the device itself stands:** the phone's own position (room / GPS / SLAM) picks or places the spot. Needs world tracking or geolocation, which the current XR plan rules out (licence, WebXR limits). That makes it a new capability, not a field.
+
+Question for the owner: **(a), (b), or (a) now and (b) later?** *Recommended:* (a) now, it is buildable with #482's engine; (b) as its own research when an exhibition or a venue asks for it.
+
 3. ~~Stable ids for chapter groups~~ **Decided yes** (owner 2026-11-20: "the more we get to learn and unify the addressing the better") → #706.
 
 Draft tickets left (unfiled): feature "The address book lists a toon's events (kind `event`)" (area:content, M, with #477) · feature "A set + spot on chapter groups and XR scenes" (area:content, M) · feature "`end` and jumps take another kind's address" (area:content, S–M, after #706) · feature "Draft: one strip drawing for chapter tree, storyboard groups, show band" (area:creator, S).
