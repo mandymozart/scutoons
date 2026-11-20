@@ -43,6 +43,7 @@ pub mod saving;
 pub mod scenes;
 mod session;
 mod sheets;
+mod sizing;
 mod toons;
 pub(crate) mod values;
 mod vote;
@@ -226,6 +227,8 @@ pub enum Hit {
     Knob(values::KnobHit),
     /// #630: the Session panel's cue mix (cue.rs): a press takes it in the hand
     CueMix,
+    /// an edge of the rows band: dragged it resizes, a double click fits it (sizing.rs)
+    Edge(deck_kit::editor::table::Edge),
     /// the scene sheet's fields, buttons and lines (new_scene.rs)
     Compose(new_scene::ComposeHit),
     /// a demo of the Demos sheet
@@ -272,6 +275,13 @@ pub struct Host {
     /// where the rows band is scrolled, and the band as drawn last for the wheel
     pub show_scroll: deck_kit::editor::table::Scroll,
     band: Option<deck_kit::editor::table::Laid>,
+    /// the band's sizes per show, as this viewer left them, the cache file they are kept in, an edge in the hand, the
+    /// last press on an edge (for a double click) and what the content asked for as drawn (sizing.rs)
+    pub sizes: sizing::Views,
+    pub views_file: Option<std::path::PathBuf>,
+    pub resizing: Option<sizing::Resize>,
+    last_edge: Option<(deck_kit::editor::table::Edge, std::time::Instant)>,
+    band_fits: sizing::Fits,
     pub view_slot: Rect,
     pub help: Option<deck_kit::editor::info::Help>,
     /// #553: the address of the inspected row (its index) whose filter's chips show
@@ -411,7 +421,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -506,18 +516,19 @@ impl Host {
 
     /// The wheel over the rows band drawn last (`steps` across, down): whether it scrolled.
     pub fn band_wheel(&mut self, x: f32, y: f32, steps: (f32, f32)) -> bool {
-        let Some(laid) = self.band else { return false };
+        let Some(laid) = self.band.as_mut() else { return false };
         if !laid.area.has(x, y) {
             return false;
         }
         let Some(s) = laid.wheel(steps) else { return false };
         self.show_scroll = s;
-        self.band = Some(deck_kit::editor::table::Laid { scroll: s, ..laid });
+        laid.scroll = s;
         true
     }
 
-    pub(super) fn drew_band(&mut self, laid: deck_kit::editor::table::Laid) {
+    pub(super) fn drew_band(&mut self, laid: deck_kit::editor::table::Laid, fits: sizing::Fits) {
         self.band = Some(laid);
+        self.band_fits = fits;
     }
 
     /// The panic pill: the core's panic down the tree, or its resume when one holds; joined or not, the core keeps the state.
@@ -633,6 +644,7 @@ impl Host {
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
             Hit::CueMix => self.mix_press(),
+            Hit::Edge(e) => self.edge_press(e),
             Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
@@ -814,6 +826,9 @@ pub struct Script {
     pub node_box: Option<[f32; 4]>,
     /// the value of the n-th wire that has one pinned by a click
     pub node_pin: Option<usize>,
+    /// an edge of the rows band (`column:ID`, `row:ID`, `heads`) taken and moved by this many pixels, held for the
+    /// screenshot (sizing.rs)
+    pub band_drag: Option<(String, f32)>,
 }
 
 /// `ID,NAME,FILLER+FILLER[,play]`
@@ -863,6 +878,11 @@ impl Host {
             }
             95 => self.script_nodes(&s.node_select, s.node_frame),
             96 => self.script_pick(s.node_box, s.node_pin),
+            97 => {
+                if let Some((edge, by)) = &s.band_drag {
+                    self.script_band_drag(edge, *by);
+                }
+            }
             70 => {
                 let cols = deck_show::view::matrix(&self.sub).columns;
                 if let Some((r, c)) = s.launch.as_ref().and_then(|(r, c)| Some((rows.iter().position(|x| x == r)?, cols.iter().position(|x| x.id == *c)?))) {

@@ -299,26 +299,50 @@ pub fn fires(fire: &Fire) -> String {
     }
 }
 
-/// How a row fires, drawn as a chip in its head: an event that fires it by itself (`auto`, a filled bolt) or offers it and
-/// waits for GO (`suggest`, outlined). A manual row has none: it waits for its ▶ or GO.
+/// How a row fires, drawn as a tag in its head: an event that fires it by itself (`auto`, a filled bolt) or offers it and
+/// waits for GO (`suggest`, dashed). A manual row has none: it waits for its ▶ or GO.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FireChip {
     pub event: String,
+    /// what the tag says: only what the row's name does not (`ch3` when the row is named after `ch3.dialog`, nothing
+    /// when it is named after a bare event), else the whole event (`ch3 · yellowmouse-enters`)
+    pub tag: String,
+    /// the row is named after its event
+    pub named: bool,
     pub auto: bool,
     pub moment: Moment,
     /// a suggestion of this row stands: it waits for GO
     pub waiting: bool,
 }
 
-/// the chip of `fire` (none: manual, or no event)
-pub fn fire_chip(fire: &Fire, waiting: bool) -> Option<FireChip> {
+/// What a row's fire tag says of `event` beside the row's name `row`, and whether the row is named after it: an event's
+/// part before its first `.` is where it comes from (the chapter: `ch3`), the rest its name.
+pub fn fire_tag(event: &str, row: &str) -> (String, bool) {
+    let (scope, name) = match event.split_once('.') {
+        Some((s, n)) => (Some(s), n),
+        None => (None, event),
+    };
+    match scope {
+        _ if name == row => (scope.unwrap_or_default().to_string(), true),
+        Some(s) => (format!("{s} · {name}"), false),
+        None => (event.to_string(), false),
+    }
+}
+
+/// the chip of `fire` on the row `row` (none: manual, or no event)
+pub fn fire_chip(fire: &Fire, row: &str, waiting: bool) -> Option<FireChip> {
     let auto = match fire.how {
         How::Auto => true,
         How::Suggest => false,
         How::Manual => return None,
     };
-    Some(FireChip { event: fire.event.clone()?, auto, moment: fire.moment, waiting: waiting && !auto })
+    let event = fire.event.clone()?;
+    let (tag, named) = fire_tag(&event, row);
+    Some(FireChip { event, tag, named, auto, moment: fire.moment, waiting: waiting && !auto })
 }
+
+/// what a kept cell says: what an earlier row started there carries on
+pub const CARRIES_ON: &str = "↑ carries on";
 
 /// what a waiting suggestion says beside its chip
 pub const WAITS: &str = "waits for GO";
@@ -462,7 +486,7 @@ fn cell_view(row: &str, cell: Option<&Cell>, stage: Option<&OnStage>) -> CellVie
     let Some(cell) = cell.filter(|c| !matches!(c, Cell::Keep)) else {
         // a kept cell plays on what an earlier row started there: the arrow says so
         let lit = stage.filter(|s| !matches!(s.playing, Playing::Black));
-        return CellView { text: cell_text(&Cell::Keep), keep: true, state: state_of(row, lit, None), ..CellView::default() };
+        return CellView { text: CARRIES_ON.into(), keep: true, state: state_of(row, lit, None), ..CellView::default() };
     };
     let mine = stage.filter(|s| s.row == row);
     let problem = match (cell, stage.map(|s| &s.playing)) {
@@ -538,7 +562,7 @@ fn matrix_of(sub: &Subtree, ms: Option<u64>) -> Matrix {
                 _ => State::Idle,
             };
             let suggested = c.suggestion().is_some_and(|s| s.row == r.id);
-            RowView { id: r.id.clone(), number: i + 1, fires: fires(&r.fire), chip: fire_chip(&r.fire, suggested), moment: moment_text(r.fire.moment).into(), state, current, suggested, cells }
+            RowView { id: r.id.clone(), number: i + 1, fires: fires(&r.fire), chip: fire_chip(&r.fire, &r.id, suggested), moment: moment_text(r.fire.moment).into(), state, current, suggested, cells }
         })
         .collect();
     Matrix { groups: groups(&columns), columns, rows, suggestion: c.suggestion().map(|s| suggested(show, s)), go: go_text(show, c.current(), c.suggestion()) }
@@ -555,7 +579,7 @@ pub fn plan(show: &Show) -> Matrix {
             id: r.id.clone(),
             number: i + 1,
             fires: fires(&r.fire),
-            chip: fire_chip(&r.fire, false),
+            chip: fire_chip(&r.fire, &r.id, false),
             moment: moment_text(r.fire.moment).into(),
             state: State::Idle,
             current: false,
@@ -805,6 +829,17 @@ mod tests {
     use crate::document::parse;
     use crate::subtree::ClockChoice;
 
+    #[test]
+    fn a_rows_fire_tag_says_only_what_its_name_does_not() {
+        assert_eq!(fire_tag("ch3.dialog", "dialog"), ("ch3".to_string(), true), "named after its event: the chapter");
+        assert_eq!(fire_tag("meet", "meet"), (String::new(), true), "a bare event it is named after: nothing but the bolt");
+        assert_eq!(fire_tag("ch3.yellowmouse-enters", "yellowmouse enters"), ("ch3 · yellowmouse-enters".to_string(), false), "another name: the whole event");
+        assert_eq!(fire_tag("meet", "together"), ("meet".to_string(), false));
+        let fire = Fire { event: Some("ch3.dialog".into()), how: How::Suggest, hold_ms: 0, moment: Moment::Bar };
+        let chip = fire_chip(&fire, "dialog", true).unwrap();
+        assert_eq!((chip.tag.as_str(), chip.named, chip.event.as_str(), chip.waiting), ("ch3", true, "ch3.dialog", true));
+    }
+
     const SERMON: &str = r#"{
       "id": "sermon", "version": 3,
       "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
@@ -828,7 +863,7 @@ mod tests {
         assert_eq!(m.rows[1].fires, "roar · suggest");
         assert_eq!(m.rows[2].fires, "manual");
         assert_eq!(m.rows[1].cells[0].text, "values · light 0.8");
-        assert!(m.rows[1].cells[2].keep && m.rows[1].cells[2].text == "↑");
+        assert!(m.rows[1].cells[2].keep && m.rows[1].cells[2].text == CARRIES_ON);
         assert_eq!(m.go, "GO: next row 1 arrival");
         sub.fire("arrival", 1000);
         let m = matrix(&sub);
@@ -878,7 +913,7 @@ mod tests {
         sub.fire("b", 10);
         let m = matrix_at(&sub, 20);
         let left = &m.rows[1].cells[0];
-        assert!(left.keep && left.text == "↑" && left.state == State::Playing, "{left:?}");
+        assert!(left.keep && left.text == CARRIES_ON && left.state == State::Playing, "{left:?}");
         assert_eq!(m.rows[0].cells[0].state, State::Idle, "it counts as the row that kept it");
     }
 

@@ -397,6 +397,11 @@ fn args() -> Result<Args> {
                 a.script.node_box = Some(v.try_into().map_err(|_| anyhow::anyhow!("--node-box X0,Y0,X1,Y1 (fractions of the canvas)"))?);
             }
             "--node-pin" => a.script.node_pin = Some(val()?.parse()?),
+            "--band-drag" => {
+                let v = val()?;
+                let (edge, by) = v.rsplit_once(',').context("--band-drag EDGE,PIXELS (column:ID, row:ID or heads)")?;
+                a.script.band_drag = Some((edge.to_string(), by.trim().parse()?));
+            }
             "--known-shots" => a.script.known_shots = val()?.split_once('=').map(|(s, ids)| (s.to_string(), ids.split('+').map(String::from).collect())),
             "--wiring" => a.script.wiring = Some(val()?),
             "--cell" => a.script.cell = val()?.split_once(',').map(|(r, c)| (r.trim().to_string(), c.trim().to_string())),
@@ -844,6 +849,9 @@ fn run() -> Result<i32> {
     app_show.nodes.direction = args.nodes.unwrap_or(app_settings.node_flow);
     app_show.nodes.zoom_once = args.node_zoom;
     app_show.knobs.rigs.clone_from(&args.rigs);
+    if args.frames.is_none() {
+        app_show.keep_views_in(cache_dir().join("editor-show-views.json"));
+    }
     if let Some(f) = &args.story {
         app_show.story_from_file(f);
     }
@@ -2741,7 +2749,8 @@ impl App {
         let help = self.help_now();
         self.show.help.clone_from(&help);
         let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
-        let grab = frame::cursor(&self.frame.frame, self.cursor).unwrap_or_else(|| panels::cursor(&self.panels().floats, self.cursor));
+        let band = (self.workspace == show::Workspace::Show).then(|| self.show.band_cursor(self.cursor.0, self.cursor.1)).flatten();
+        let grab = frame::cursor(&self.frame.frame, self.cursor).or(band).unwrap_or_else(|| panels::cursor(&self.panels().floats, self.cursor));
         self.take_messages();
         let words = self.state_words();
         let account = self.auth.state();

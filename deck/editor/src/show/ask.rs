@@ -269,6 +269,7 @@ impl Host {
         self.nodes_drag(x, y);
         self.knob_moved(x);
         self.mix_moved(x, self.mix_width);
+        self.edge_moved(x, y);
         if let Some(c) = self.context.as_mut() {
             c.ta.hover(x, y);
         }

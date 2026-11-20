@@ -1,37 +1,37 @@
 //! The rows band, which is the cue matrix too: the session grid of rows × columns under sticky heads (deck-kit `table`),
-//! after Ableton's session view – authored and launched in one place, a cell edited while it plays. A row's head holds its
-//! ▶ (the row fires), its number, its name and – auto or suggest – its fire chip; a column's head its group, its name, who
-//! takes it and its small stop; a clip cell its ▶ and its words, an empty cell a stop slot (a small square), a kept cell a
-//! bare ↑. What plays is lime with the bar's progress, what waits for its moment is ringed, a cell started off its row has
-//! a corner mark, a cell playing a published scene with a newer draft says so. The selection shows: the row as a soft band
-//! with a bar on its left, a column as a band from its head to its last row with an underline, a group's head, a cell
-//! outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs (`matrix_at`); this file
-//! lays them out and names the places.
+//! after Ableton's session view – authored and launched in one place, a cell edited while it plays. No grid lines: each
+//! cell is a card (deck-kit `cards`) – its ▶, its words and a status line with a dot; a kept cell says it carries on, an
+//! empty one is a stop slot. A row's head holds its ▶, its number, its name and – auto or suggest – its fire tag, which
+//! says only what the name does not; a column's head its group, its name, who takes it and its small stop. The edges
+//! between columns and rows show only under the pointer, as a handle to drag; a double click fits (sizing.rs). What plays
+//! is lime with the bar's progress, what waits for its moment is ringed, a cell started off its row has a corner mark.
+//! The selection shows: the row as a soft band with a bar on its left, a column as a band from its head to its last row,
+//! a group's head, a cell outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs
+//! (`matrix_at`) and every size limit its sizes.rs; this file lays them out and names the places.
 use super::roles::Typing;
+use super::sizing::{Fits, GRIP};
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::signal::Signal;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
+use deck_kit::editor::cards::{self, fade as soft, fit, Tag};
 use deck_kit::editor::controls::{self, Rect};
-use deck_kit::editor::table::{Laid, Scroll, Table};
-use deck_show::view::{FireChip, Matrix, State};
+use deck_kit::editor::table::{Edge, Laid, Scroll, Table};
+use deck_show::sizes::{Sizes, CELL};
+use deck_show::view::{CellView, FireChip, Matrix, RowView, State};
 use deck_show::Moment;
 
-fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
-    controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
-}
-
-/// the band's measures for `m`; in Show (`adds`) one more row under the last: the new row's place
-pub fn table(t: &Tokens, m: &Matrix, adds: bool) -> Table {
+/// the band's measures for `m` at the viewer's `sizes`; in Show (`adds`) one more row under the last: the new row's place
+pub fn table(t: &Tokens, m: &Matrix, adds: bool, sizes: &Sizes) -> Table {
     let s = &t.size;
     let groups = if m.groups.is_empty() { 0.0 } else { s.rem(1.6) };
-    Table { head: (s.rem(14.0), groups + s.rem(3.2)), cell: (s.rem(11.0), s.rem(3.6)), rows: m.rows.len() + usize::from(adds), cols: m.columns.len(), foot: s.rem(1.6) }
-}
-
-/// `color` at a share of its opacity: a soft band
-fn soft(color: [f32; 4], share: f32) -> [f32; 4] {
-    [color[0], color[1], color[2], color[3] * share]
+    let widths = m.columns.iter().map(|c| s.rem(sizes.column(&c.id))).collect();
+    let mut heights: Vec<f32> = m.rows.iter().map(|r| s.rem(sizes.row(&r.id))).collect();
+    if adds {
+        heights.push(s.rem(CELL.1));
+    }
+    Table { head: (s.rem(sizes.heads()), groups + s.rem(3.2)), widths, heights, foot: s.rem(1.6) }
 }
 
 /// a ▶ in a circle of radius `r` around `c`: filled lime while it plays, ringed while it waits, quiet else
@@ -70,8 +70,17 @@ fn stop_slot(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, 
     }
 }
 
-/// the moment as ticks: now one, the next bar a tall and three short, the next phrase four tall; their width
-fn ticks(d: &mut DrawList, (x, y, h): (f32, f32, f32), moment: Moment, color: [f32; 4]) -> f32 {
+/// the moment's ticks' width: now one, the next bar four, the next phrase four
+pub fn ticks_width(moment: Moment) -> f32 {
+    if moment == Moment::Now {
+        3.0
+    } else {
+        12.0
+    }
+}
+
+/// the moment as ticks: now one, the next bar a tall and three short, the next phrase four tall
+fn ticks(d: &mut DrawList, (x, y, h): (f32, f32, f32), moment: Moment, color: [f32; 4]) {
     let tall: &[bool] = match moment {
         Moment::Now => &[true],
         Moment::Bar => &[true, false, false, false],
@@ -81,40 +90,19 @@ fn ticks(d: &mut DrawList, (x, y, h): (f32, f32, f32), moment: Moment, color: [f
         let th = if *high { h } else { h * 0.5 };
         d.rect(x + i as f32 * 3.0, y + h - th, 1.5, th, color);
     }
-    tall.len() as f32 * 3.0
 }
 
-/// A row's fire chip at `(x, y)`: auto filled, suggest outlined (dashed), the bolt, the event, the moment's ticks;
-/// Its width.
-pub fn fire_chip(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), chip: &FireChip) -> f32 {
-    let px = t.size.label * 1.2;
-    let h = px * 1.6;
-    let frame = h * 0.95 + 6.0 + 12.0 + h * 0.4;
-    let event = fit(d, &chip.event, px, (w - frame).max(0.0));
-    let tw = d.advance(px) * event.chars().count() as f32;
-    let cw = frame + tw;
-    let (ink, bolt) = if chip.auto { (t.color.surface, t.color.primary) } else { (t.color.text, t.color.primary_line) };
-    if chip.auto {
-        d.round_rect(x, y, cw, h, h * 0.5, t.color.text);
-    } else {
-        // dashed: the outline in short pieces
-        let dash = 4.0;
-        let mut at = x + h * 0.5;
-        while at < x + cw - h * 0.5 {
-            let end = (at + dash).min(x + cw - h * 0.5);
-            d.rect(at, y, end - at, 1.0, t.color.text);
-            d.rect(at, y + h - 1.0, end - at, 1.0, t.color.text);
-            at += dash * 2.0;
-        }
-        for side in [x, x + cw - 1.0] {
-            d.rect(side, y + h * 0.3, 1.0, h * 0.4, t.color.text);
-        }
-    }
-    d.icon(x + h * 0.25, y + h * 0.15, h * 0.7, if chip.auto { "bolt-fill" } else { "bolt" }, bolt);
-    let tx = x + h * 0.95;
-    d.text(tx, y + (h - px * 1.25) * 0.5, px, &event, ink);
-    ticks(d, (tx + tw + 6.0, y + h * 0.25, h * 0.5), chip.moment, ink);
-    cw
+/// the tag of a row's fire chip: a filled bolt for auto, an outlined one and a dashed border for suggest
+pub fn fire_tag_of<'a>(t: &Tokens, chip: &'a FireChip) -> Tag<'a> {
+    Tag { icon: if chip.auto { "bolt-fill" } else { "bolt" }, tint: t.color.warn, text: &chip.tag, dashed: !chip.auto, trail: ticks_width(chip.moment) }
+}
+
+/// A row's fire tag at `(x, y)`, no wider than `w`: the bolt, what the row's name does not say, the moment's ticks; its width.
+pub fn fire_tag(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), chip: &FireChip) -> f32 {
+    let (r, trail) = cards::tag(d, t, (x, y, w), &fire_tag_of(t, chip));
+    let h = cards::tag_height(t);
+    ticks(d, (trail, y + h * 0.28, h * 0.44), chip.moment, t.color.muted);
+    r.w
 }
 
 /// a far node's or a question's link: its two ports and the signal it carries
@@ -142,33 +130,52 @@ fn typed(host: &Host, what: impl Fn(&Typing) -> bool) -> Option<String> {
     host.typing.as_ref().filter(|(w, _)| what(w)).map(|(_, f)| f.text.clone())
 }
 
-/// The band in `area` (a panel's visible content), scrolled by `scroll`; its laid table (for the wheel). `runs`: the
-/// conductor runs the document shown – the ▶ and the stops work (a sub conductor's document only shows).
-pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs): (&Matrix, bool), scroll: Scroll, pointer: (f32, f32)) -> Laid {
-    let l = table(t, m, true).lay(area, scroll);
+/// A cell's status line: what waits for which moment, why it would not play, who the question reaches, a published scene
+/// playing while a newer draft of it exists.
+pub fn note(t: &Tokens, host: &Host, (r, c): (&RowView, usize), m: &Matrix, cell: &CellView) -> Option<(String, [f32; 4])> {
+    let show = host.shown();
+    let newer = cell.state == State::Playing && host.book.as_ref().zip(m.columns.get(c)).is_some_and(|(b, col)| deck_show::rows::newer_draft(show, &r.id, &col.id, b));
+    match (&cell.state, &cell.problem, &cell.ask) {
+        (State::Queued, ..) => Some((r.moment.clone(), t.color.primary_line)),
+        (_, Some(p), _) => Some((p.clone(), t.color.warn)),
+        (_, _, Some(a)) => Some((a.filter.clone(), t.color.muted)),
+        _ if newer => Some((deck_show::rows::NEWER_DRAFT.to_string(), t.color.warn)),
+        _ => None,
+    }
+}
+
+/// The band in `area` (a panel's visible content), scrolled by `scroll`; its laid table (for the wheel and the edges) and
+/// what its content asks for. `runs`: the conductor runs the document shown – the ▶ and the stops work (a sub
+/// conductor's document only shows).
+pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs): (&Matrix, bool), scroll: Scroll, pointer: (f32, f32)) -> (Laid, Fits) {
+    let sizes = host.view_sizes();
+    let l = table(t, m, true, &sizes).lay(area, scroll);
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
-    let (cw, ch) = l.table.cell;
+    // the vertical layout of a row stands on a row's height as it comes: a taller row only has more room below
+    let h0 = t.size.rem(CELL.1);
     let show = host.shown().clone();
     let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
     let picked: Vec<String> = host.columns.clone();
     let columns_on = |id: &str| picked.iter().any(|c| c == id);
     let sel = (host.role.is_none() && host.columns.is_empty() && host.group.is_none()).then_some(host.row);
-    let book = host.book.clone();
     let gh = if m.groups.is_empty() { 0.0 } else { t.size.rem(1.6) };
     let n = m.rows.len();
+    let cols = m.columns.len();
     let mut wires: Vec<Hung> = Vec::new();
     let mut laid: Vec<super::wiring::RowLay> = Vec::new();
+    let rad = (h0 * 0.19).min(t.size.rem(0.8));
+    let fits = super::sizing::measure(d, t, host, m, rad);
 
     // the cells, under both heads; first the selection's bands
     d.clip(Some(l.body));
-    if let Some(i) = sel.filter(|i| *i < n) {
-        let a = l.cell(i, 0);
-        d.rect(a.x, a.y + 1.0, cw * m.columns.len() as f32, ch - 2.0, soft(t.color.selected, 0.45));
+    if let Some(i) = sel.filter(|i| *i < n && cols > 0) {
+        let a = l.span(i, 0, cols);
+        d.rect(a.x, a.y + 1.0, a.w, a.h - 2.0, soft(t.color.selected, 0.45));
     }
     for (c, col) in m.columns.iter().enumerate() {
         if columns_on(&col.id) && n > 0 {
-            let a = l.cell(0, c);
-            d.rect(a.x + 1.0, a.y, cw - 2.0, ch * n as f32, soft(t.color.selected, 0.45));
+            let a = l.down(0, c, n);
+            d.rect(a.x + 1.0, a.y, a.w - 2.0, a.h, soft(t.color.selected, 0.45));
         }
     }
     for (i, r) in m.rows.iter().enumerate().take(l.visible_rows().end.min(n)).skip(l.visible_rows().start) {
@@ -181,18 +188,17 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 Some(a) => (a.run.max(1), a.words()),
                 None => (1, Some(cell.text.clone())),
             };
-            let whole = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: l.span(i, c, span).w - 6.0, h: ch - 6.0 };
+            let whole = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: l.span(i, c, span).w - 6.0, h: box_.h - 6.0 };
             let selected = host.role.is_none() && host.row == i && m.columns.get(c).is_some_and(|col| host.cells.contains(&col.id));
-            let at = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: cw - 6.0, h: ch - 6.0 };
+            let at = Rect { x: box_.x + 3.0, y: box_.y + 3.0, w: box_.w - 6.0, h: box_.h - 6.0 };
             push(host, at, &l.body, Hit::Cell(i, c));
-            let rad = (ch * 0.19).min(t.size.rem(0.8));
             let c0 = (whole.x + pad + rad, whole.y + pad * 0.6 + rad);
             let on_launcher = Rect { x: c0.0 - rad, y: c0.1 - rad, w: 2.0 * rad, h: 2.0 * rad }.has(pointer.0, pointer.1);
             if cell.empty {
                 // an empty cell: Ableton's stop slot
-                stop_slot(d, t, (c0.0, box_.y + ch * 0.5), rad, cell.state, on_launcher);
+                stop_slot(d, t, c0, rad, cell.state, on_launcher);
                 if runs {
-                    push(host, Rect { x: c0.0 - rad - 2.0, y: box_.y + ch * 0.5 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
+                    push(host, Rect { x: c0.0 - rad - 2.0, y: c0.1 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if let Some(words) = words.filter(|_| !cell.keep) {
                 let over = whole.has(pointer.0, pointer.1);
@@ -209,18 +215,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 launcher(d, t, c0, rad, cell.state, on_launcher);
                 let tx = c0.0 + rad + pad * 0.75;
                 d.text(tx, c0.1 - font * 0.62, font, &fit(d, &words, font, whole.x + whole.w - tx - pad), t.color.text);
-                // under it: what waits for which moment, why it would not play, who the question reaches, a published
-                // scene playing while a newer draft of it exists
-                let newer = cell.state == State::Playing && book.as_ref().zip(m.columns.get(c)).is_some_and(|(b, col)| deck_show::rows::newer_draft(&show, &r.id, &col.id, b));
-                let note = match (&cell.state, &cell.problem, &cell.ask) {
-                    (State::Queued, ..) => Some((r.moment.clone(), t.color.text)),
-                    (_, Some(p), _) => Some((p.clone(), t.color.warn)),
-                    (_, _, Some(a)) => Some((a.filter.clone(), t.color.muted)),
-                    _ if newer => Some((deck_show::rows::NEWER_DRAFT.to_string(), t.color.warn)),
-                    _ => None,
-                };
-                if let Some((words, color)) = note {
-                    controls::label(d, t, tx, whole.y + whole.h - pad * 0.6 - t.size.label * 1.4, &fit(d, &words, t.size.label * 1.2, whole.x + whole.w - tx - pad), color);
+                if let Some((words, color)) = note(t, host, (r, c), m, cell) {
+                    let y = (c0.1 + rad + pad * 0.4).min(whole.y + whole.h - pad * 0.5 - t.size.label * 1.5);
+                    cards::status(d, t, (whole.x + pad, y, whole.w - 2.0 * pad), &words, color);
                 }
                 if cell.off_row {
                     let (mx, my) = (whole.x + whole.w - pad * 0.9, whole.y + pad * 0.9);
@@ -237,9 +234,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                     push(host, Rect { x: c0.0 - rad - 2.0, y: c0.1 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if cell.keep {
-                // a kept cell: a bare arrow, lit while what an earlier row started plays on through this row
-                let color = if cell.state == State::Playing { t.color.primary_line } else { t.color.muted };
-                d.text(box_.x + pad + 2.0, box_.y + (ch - font * 1.25) * 0.5, font, &cell.text, color);
+                // a kept cell: what an earlier row started carries on, lit while it plays on through this row
+                let color = if cell.state == State::Playing { t.color.primary_line } else { cards::faint(t) };
+                let tw = d.advance(small) * cell.text.chars().count() as f32;
+                let text = fit(d, &cell.text, small, box_.w - 2.0 * pad);
+                d.text(box_.x + ((box_.w - tw) * 0.5).max(pad), box_.y + (h0 - small * 1.25) * 0.5, small, &text, color);
             }
             if selected {
                 d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.accent);
@@ -251,7 +250,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         }
         // the cells of this row whose far nodes listen to each other, and the parts of one question, hang on wires from
         // ports at their feet
-        let foot = l.cell(i, 0).y + ch - 3.0;
+        let row = l.cell(i, 0);
+        let foot = row.y + row.h - 3.0;
         let port = |c: usize| {
             let run = r.cells.get(c).and_then(|x| x.ask.as_ref()).map_or(1, |a| a.run.max(1));
             let s = l.span(i, c, run);
@@ -267,6 +267,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         }
         wires.extend(r.ask_links().into_iter().map(|(a, b)| (port(a), port(b), Signal::Vote)));
         laid.push(super::wiring::RowLay { i, id: r.id.clone(), cells: boxes });
+    }
+    // a row's bottom edge: before the ports, which take a press at a cell's foot first
+    for i in l.visible_rows().filter(|i| *i < n) {
+        if let Some(r) = l.edge_place(Edge::Row(i), GRIP) {
+            host.hits.push((r, Hit::Edge(Edge::Row(i))));
+        }
     }
     let unit = t.size.rem(1.0);
     for (a, b, s) in wires {
@@ -299,8 +305,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let on = columns_on(&col.id) || (role.is_some() && host.role.as_ref() == Some(&col.id));
         if on {
             // the column's band, the same x and width as its cells below
-            d.rect(r.x + 1.0, y, cw - 2.0, r.h - gh, soft(t.color.selected, 0.45));
-            d.rect(r.x + pad, r.y + r.h - 3.0, cw - 2.0 * pad, 2.0, t.color.accent);
+            d.rect(r.x + 1.0, y, r.w - 2.0, r.h - gh, soft(t.color.selected, 0.45));
+            d.rect(r.x + pad, r.y + r.h - 3.0, r.w - 2.0 * pad, 2.0, t.color.accent);
         }
         let stop = t.size.rem(0.85);
         let here = role.map(|k| deck_show::roles::here_text(roles[k].here)).unwrap_or_default();
@@ -331,7 +337,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         }
     }
 
-    // the row heads: ▶, number, name, the fire chip; in Show the new row's place under the last
+    // the row heads: ▶, number, name, the fire tag; in Show the new row's place under the last
     d.clip(Some(l.heads_left));
     for (i, r) in m.rows.iter().enumerate().take(l.visible_rows().end.min(n)).skip(l.visible_rows().start) {
         let h = l.row_head(i);
@@ -346,15 +352,15 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
             d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 2.0), t.color.warn);
         }
         push(host, whole, &l.heads_left, Hit::Row(i));
-        let rr = (h.h * 0.26).min(t.size.rem(1.0));
-        let c0 = (h.x + pad + 3.0 + rr, h.y + h.h * 0.5);
+        let rr = (h0 * 0.26).min(t.size.rem(1.0));
+        let c0 = (h.x + pad + 3.0 + rr, h.y + h0 * 0.5);
         launcher(d, t, c0, rr, r.state, Rect { x: c0.0 - rr, y: c0.1 - rr, w: 2.0 * rr, h: 2.0 * rr }.has(pointer.0, pointer.1));
         if runs {
             push(host, Rect { x: c0.0 - rr - 2.0, y: c0.1 - rr - 2.0, w: 2.0 * rr + 4.0, h: 2.0 * rr + 4.0 }, &l.heads_left, Hit::Fire(i));
         }
         let nx = c0.0 + rr + pad;
         let number = format!("{:02}", r.number);
-        let top = if r.chip.is_some() { h.y + h.h * 0.5 - font * 1.2 } else { h.y + (h.h - font * 1.25) * 0.5 };
+        let top = if r.chip.is_some() { h.y + h0 * 0.5 - font * 1.2 } else { h.y + (h0 - font * 1.25) * 0.5 };
         let nw = d.text(nx, top + (font - small) * 0.5, small, &number, t.color.muted);
         let tx = nx + nw + pad * 0.75;
         // a suggestion that stands says so at the end of the name's line
@@ -373,7 +379,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
             push(host, name, &l.heads_left, Hit::RowName);
         }
         if let Some(chip) = &r.chip {
-            fire_chip(d, t, (tx, h.y + h.h * 0.5 + 3.0, whole.x + whole.w - tx - pad), chip);
+            fire_tag(d, t, (tx, h.y + h0 * 0.5 + 3.0, whole.x + whole.w - tx - pad), chip);
             if waits {
                 d.text(whole.x + whole.w - ww + pad * 0.5, top + (font - wpx) * 0.5, wpx, deck_show::view::WAITS, t.color.primary_line);
             }
@@ -390,8 +396,32 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         push(host, whole, &l.heads_left, Hit::RowAdd);
     }
 
-    // the foot: what is out of view
+    // the edges of the heads and the columns, over their heads; the one under the pointer or in the hand as a handle
     d.clip(Some(area));
+    for e in std::iter::once(Edge::Heads).chain(l.visible_cols().map(Edge::Column)) {
+        // under the groups' strip: a group's head is pressed whole
+        if let Some(r) = l.edge_place(e, GRIP).and_then(|r| Laid::shown(&r, &Rect { y: area.y + gh, h: area.h - gh, ..area })) {
+            host.hits.push((r, Hit::Edge(e)));
+        }
+    }
+    let held = host.resizing.map(|r| r.edge);
+    let hot = held.or_else(|| match host.hit(pointer.0, pointer.1) {
+        Some(Hit::Edge(e)) => Some(e),
+        _ => None,
+    });
+    if let Some(e) = hot.filter(|e| l.edge_place(*e, GRIP).is_some()) {
+        let (a, b) = l.edge_line(e);
+        cards::handle(d, t, (a, b), held.is_some());
+        if let Some(words) = host.edge_badge() {
+            let at = match e {
+                Edge::Row(_) => (l.area.x + l.table.head.0 * 0.5, a.1 + 3.0),
+                _ => (a.0, l.area.y + 1.0),
+            };
+            cards::badge(d, t, at, &words);
+        }
+    }
+
+    // the foot: what is out of view
     if let Some(f) = l.foot {
         let (rows, cols) = l.counters();
         if let Some(rows) = rows {
@@ -402,7 +432,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
             d.text(f.x + f.w - w - pad, f.y + (f.h - small * 1.25) * 0.5, small, &cols, t.color.muted);
         }
     }
-    l
+    (l, fits)
 }
 
 #[cfg(test)]
@@ -462,10 +492,10 @@ mod tests {
         let mut host = host_with(DOC);
         let book = super::super::rows::tests::BOOK.replace(r#""key": "scene:nave", "state": "published""#, r#""key": "scene:nave", "state": "draft""#);
         host.book = Some(std::sync::Arc::new(deck_space::rig::book::Book::parse(&book).unwrap()));
-        assert!(!frame(&mut host).iter().any(|t| t.starts_with("A NEWER DRAFT")), "idle: nothing said");
+        assert!(!frame(&mut host).iter().any(|t| t.starts_with("a newer draft")), "idle: nothing said");
         press(&mut host, |h| *h == Hit::Fire(0));
         let texts = frame(&mut host);
-        assert_eq!(texts.iter().filter(|t| t.starts_with("A NEWER DRAFT")).count(), 1, "nave plays with a newer draft, vigil without: {texts:?}");
+        assert_eq!(texts.iter().filter(|t| t.starts_with("a newer draft")).count(), 1, "nave plays with a newer draft, vigil without: {texts:?}");
     }
 
     #[test]
@@ -473,7 +503,7 @@ mod tests {
         let mut host = host_with(DOC);
         host.two_d = false;
         let texts = frame(&mut host);
-        assert_eq!(texts.iter().filter(|t| *t == "↑").count(), 3, "row 1's lights, row 2's left and lights (the inspector lists no cells): {texts:?}");
+        assert_eq!(texts.iter().filter(|t| *t == view::CARRIES_ON).count(), 3, "row 1's lights, row 2's left and lights (the inspector lists no cells): {texts:?}");
         assert!(place(&host, Hit::Cell(1, 0)).is_some(), "a kept cell is still a place to select");
         assert!(place(&host, Hit::Launch(1, 0)).is_none(), "but has no ▶ of its own");
         assert!(texts.iter().any(|t| t == "STAGES") && texts.iter().any(|t| t == "LIGHT"), "{texts:?}");
