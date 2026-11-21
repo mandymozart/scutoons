@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`.
+/// What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`. `job` is a run that starts, progresses and ends (a generation, a night run, a publish); `asset` is a reference to a Library asset of any kind (a picture that arrived, an approved text) – owner 2026-11-21: spores get job and asset signals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Signal {
 	#[serde(rename = "event")]
@@ -27,6 +27,10 @@ pub enum Signal {
 	Scene,
 	#[serde(rename = "far")]
 	Far,
+	#[serde(rename = "job")]
+	Job,
+	#[serde(rename = "asset")]
+	Asset,
 }
 
 impl Signal {
@@ -41,11 +45,13 @@ impl Signal {
 			Signal::Vote => "vote",
 			Signal::Scene => "scene",
 			Signal::Far => "far",
+			Signal::Job => "job",
+			Signal::Asset => "asset",
 		}
 	}
 }
 
-/// Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events (generation done, approved, published …), `network` the spore network's levels above them all.
+/// Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events that can trigger spores (a night run, a publish, a draft saved, a job triggered, a picture arriving in another spore, a budget authorized, a Kanon text or script approved, a storyboard cut, a chapter's status changed – owner 2026-11-21), `network` the spore network's levels above them all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Scope {
 	#[serde(rename = "story")]

@@ -364,6 +364,23 @@
 					]
 				},
 				{
+					"id": "night",
+					"kind": "night-run",
+					"family": "event",
+					"label": "night run",
+					"detail": "every night 02:00",
+					"address": "creator:night-run",
+					"driver": "server",
+					"ports": [
+						{
+							"id": "start",
+							"label": "starts",
+							"signal": "job",
+							"dir": "out"
+						}
+					]
+				},
+				{
 					"id": "gen",
 					"kind": "generation",
 					"family": "free",
@@ -373,9 +390,21 @@
 					"driver": "server",
 					"ports": [
 						{
-							"id": "done",
+							"id": "run",
+							"label": "run",
+							"signal": "job",
+							"dir": "in"
+						},
+						{
+							"id": "picture",
+							"label": "picture",
+							"signal": "asset",
+							"dir": "out"
+						},
+						{
+							"id": "state",
 							"label": "done",
-							"signal": "event",
+							"signal": "job",
 							"dir": "out"
 						}
 					]
@@ -414,6 +443,22 @@
 					"home": {
 						"doc": "show:sandbox-demo",
 						"path": "/rows/3/cells/sound"
+					}
+				},
+				{
+					"id": "n3",
+					"from": {
+						"spore": "night",
+						"port": "start"
+					},
+					"to": {
+						"spore": "gen",
+						"port": "run"
+					},
+					"signal": "job",
+					"home": {
+						"doc": "creator:night-run",
+						"path": "/triggers/0"
 					}
 				}
 			],

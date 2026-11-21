@@ -19,6 +19,8 @@ fn semitones(s: Signal) -> i32 {
         Signal::Vote => 0,     // A4
         Signal::Event => 3,    // C5
         Signal::Address => 5,  // D5
+        Signal::Job => 7,      // E5
+        Signal::Asset => 10,   // G5
     }
 }
 
