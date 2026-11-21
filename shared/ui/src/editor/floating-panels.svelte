@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FloatingPanel from './floating-panel.svelte';
-	import type { Floats } from './floats.svelte.ts';
+		import type { Floats } from './floats.svelte.ts';
+	import type { Rect } from './floats.ts';
 
 	/**
 	 * The floating panels of one workspace over its stage (`children`, the background): measures the room, lays every
@@ -12,24 +13,36 @@
 		floats,
 		tab,
 		toolbar,
-		children,
-		main = null,
+				children,
 		onmain,
-		onover,
+				onover,
+		stageDrop,
 		labels = {}
 	}: {
 		floats: Floats;
 		tab: Snippet<[tab: string]>;
 		toolbar?: Snippet<[panel: string]>;
 		children?: Snippet;
-		/** the tab on the stage, and the head's ◱ main / ⤢ over everything (floating-panel.svelte) */
-		main?: string | null;
+				/** the head's ◱ main / ⤢ over everything (floating-panel.svelte); the tabs on the stage are `floats.staged` */
 		onmain?: (tab: string) => void;
 		onover?: (tab: string) => void;
+		/**
+		 * The page's stage takes a tab let go over it: `zone` says where it would land (client px) and what happens – drawn
+		 * while the tab is in the hand; `drop` takes it (true: taken, no panel of its own)
+		 */
+		stageDrop?: {
+			zone: (tab: string, x: number, y: number) => { rect: Rect; label: string } | null;
+			drop: (tab: string, x: number, y: number) => boolean;
+		};
 		labels?: { fold?: string; open?: string; close?: string; move?: string; main?: string; back?: string; over?: string };
 	} = $props();
 
-	let layer = $state<HTMLDivElement>();
+		let layer = $state<HTMLDivElement>();
+
+	$effect(() => {
+		floats.dropOnStage = stageDrop ? stageDrop.drop : null;
+		return () => (floats.dropOnStage = null);
+	});
 
 	$effect(() => {
 		const el = layer;
@@ -52,7 +65,9 @@
 		};
 	});
 
-	const held = $derived(floats.heldTab?.moved ? floats.heldTab : null);
+		const held = $derived(floats.heldTab?.moved ? floats.heldTab : null);
+	const zone = $derived(held && !held.target && stageDrop ? stageDrop.zone(held.tab, held.at[0], held.at[1]) : null);
+	const px = (v: number) => `${v / floats.metrics.rem}rem`;
 	/** The layer's top left in client px */
 	const origin = $derived({ left: floats.area.x - floats.metrics.gap, top: floats.area.y - floats.metrics.gap });
 </script>
@@ -68,9 +83,8 @@
 	{#if floats.area.w > 0}
 		{#each floats.specs as spec (spec.id)}
 			<FloatingPanel
-				{floats}
+								{floats}
 				id={spec.id}
-				{main}
 				{onmain}
 				{onover}
 				foldLabel={labels.fold}
@@ -90,6 +104,11 @@
 				{/snippet}
 			</FloatingPanel>
 		{/each}
+	{/if}
+		{#if zone}
+		<div class="zone" style:left={px(zone.rect.x - origin.left)} style:top={px(zone.rect.y - origin.top)} style:width={px(zone.rect.w)} style:height={px(zone.rect.h)}>
+			<span>{zone.label}</span>
+		</div>
 	{/if}
 	{#if held}
 		{#if held.marker}
@@ -125,6 +144,24 @@
 		background: var(--editor-accent);
 		box-shadow: 0 0 0.375rem var(--editor-accent);
 		pointer-events: none;
+	}
+		.zone {
+		position: absolute;
+		z-index: 999;
+		display: grid;
+		place-items: center;
+		box-sizing: border-box;
+		outline: 2px dashed var(--editor-accent);
+		outline-offset: -0.4rem;
+		pointer-events: none;
+	}
+	.zone span {
+		padding: 0.3rem 0.8rem;
+		border-radius: 1rem;
+		background: var(--editor-surface);
+		color: var(--editor-accent);
+		font-family: var(--editor-sans);
+		font-size: var(--editor-small);
 	}
 	.ghost {
 		position: absolute;

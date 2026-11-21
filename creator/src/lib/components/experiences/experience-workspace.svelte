@@ -134,10 +134,11 @@
 </div>
 
 <style>
+	/* the host's stage holds the page full-bleed (usePageNav fill, preset clear off): the workspace fills it */
 	.xr-workspace {
-		position: fixed;
-		inset: 0;
-		z-index: 0;
+		position: relative;
+		flex: 1;
+		min-height: 0;
 		background: var(--editor-stage, var(--ink));
 	}
 	.empty {

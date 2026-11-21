@@ -2353,7 +2353,14 @@
 		"not_live": "Not live",
 		"ago_now": "now",
 		"ago_min": "{n} min",
-		"ago_h": "{n} h"
+		"ago_h": "{n} h",
+		"stage_takes": "{tab} takes the stage",
+		"stage_split_left": "{tab} splits the stage – left",
+		"stage_split_right": "{tab} splits the stage – right",
+		"stage_replaces": "{tab} replaces {other}",
+		"stage_view": "Back to the workspace's view",
+		"stage_divider": "Drag: share the stage",
+		"stage_chip": "{tab} on the stage – drag it back onto a panel"
 	},
 	"library": {
 		"actions": "Actions",

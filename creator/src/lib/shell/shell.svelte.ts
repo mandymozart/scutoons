@@ -4,7 +4,8 @@ import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
 import type { Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
-import { mainOf, PRESETS } from './presets.ts';
+import { PRESETS, stageOf } from './presets.ts';
+import { back, clampSplit, send, splitIn, type Side, type Stage } from './stage.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 
@@ -63,8 +64,12 @@ class Shell {
 	over = $state<string | null>(null);
 
 	readonly front = $derived(frontTab(this.state));
-	/** the tab on the stage in the front workspace (◱ main) */
-	readonly main = $derived(mainOf(this.kind, this.view(this.kind)));
+	/** the tabs on the stage in the front workspace (◱ main), left to right; empty: the workspace's own view */
+	readonly stage = $derived(stageOf(this.kind, this.view(this.kind)));
+	/** where a split divides the stage */
+	readonly split = $derived(clampSplit(this.view(this.kind).split ?? 0.5));
+	/** set by the stage while it is drawn: it measures, applies the change and flies what moved (stage.svelte) */
+	mover: ((apply: () => void, was: Stage, now: Stage) => void) | null = null;
 	/** the front workspace's content keeps clear of the bar's row */
 	readonly clear = $derived(this.view(this.kind).clear ?? PRESETS[this.kind as keyof typeof PRESETS]?.clear ?? true);
 
@@ -109,9 +114,31 @@ class Shell {
 	changeView(patch: ViewSettings) {
 		this.change({ views: { ...this.settings.views, [this.kind]: { ...this.view(this.kind), ...patch } } });
 	}
-	/** ◱ main: the tab takes the stage; the one on it already goes back into its panel */
-	toggleMain(tab: string) {
-		this.changeView({ main: this.main === tab ? null : tab });
+	#stage(next: Stage) {
+		const was = this.stage;
+		if (next.length === was.length && next.every((t, i) => t === was[i])) return;
+		const apply = () => this.changeView({ stage: [...next], ...(next.length === 2 && was.length < 2 ? { split: 0.5 } : {}) });
+		if (this.mover) this.mover(apply, was, next);
+		else apply();
+	}
+	/** ◱ main: the tab alone on the stage (whatever was there goes back); pressed again it goes back itself */
+	send(tab: string) {
+		this.#stage(send(this.stage, tab));
+	}
+	/** a tab dropped on a half of the stage: a split, or that half replaced */
+	splitIn(tab: string, side: Side) {
+		this.#stage(splitIn(this.stage, tab, side));
+	}
+	/** a tab back into its panel (none named: the last one, as Esc) */
+	back(tab?: string) {
+		this.#stage(back(this.stage, tab));
+	}
+	/** every tab back: the workspace's own view takes the stage */
+	home() {
+		this.#stage([]);
+	}
+	setSplit(split: number) {
+		this.changeView({ split: clampSplit(split) });
 	}
 	/** the front workspace back to its preset: its panels, tabs and the stage */
 	resetView() {
@@ -157,5 +184,5 @@ export function usePageDoc(doc: () => PageDoc | null) {
 
 /** a tab on the stage goes back into its panel (the Flow after a box opened its place: the page shows it) */
 export function stepBack(tab: string) {
-	if (shell.main === tab) shell.toggleMain(tab);
+	if (shell.stage.includes(tab)) shell.back(tab);
 }

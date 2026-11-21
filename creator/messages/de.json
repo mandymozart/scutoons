@@ -2353,7 +2353,14 @@
 		"not_live": "Nicht live",
 		"ago_now": "jetzt",
 		"ago_min": "{n} Min.",
-		"ago_h": "{n} Std."
+		"ago_h": "{n} Std.",
+		"stage_takes": "{tab} nimmt die Bühne",
+		"stage_split_left": "{tab} teilt die Bühne – links",
+		"stage_split_right": "{tab} teilt die Bühne – rechts",
+		"stage_replaces": "{tab} ersetzt {other}",
+		"stage_view": "Zurück zur Ansicht des Arbeitsbereichs",
+		"stage_divider": "Ziehen: die Bühne teilen",
+		"stage_chip": "{tab} auf der Bühne – auf ein Panel zurückziehen"
 	},
 	"library": {
 		"actions": "Aktionen",
