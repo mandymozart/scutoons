@@ -1,12 +1,12 @@
-// GENERATED from server/schema/api/network-view.schema.json by server/schema/generate.ts – edit the source, run `npm run generate`.
-// One level of the one network (#763, agents/research/redesign/NETWORK.md §4): what a projector computes from a scope's documents and every canvas draws – the creator's Flow tab, the native deck editor, the Reception tab, the MCP. The documents stay the truth; a view is never stored (only its canvas). Each scope's projector lives where that scope's rules live (story: shared/content; XR: the OSCT logic package; show and rig: the Rust core). Edit this file, run `npm run generate` (server/schema/generate.ts writes the Rust and TS types), commit the outputs; network-view.vectors.json holds the views every language reads.
+// GENERATED from server/schema/api/spore-network.schema.json by server/schema/generate.ts – edit the source, run `npm run generate`.
+// One level of the spore network as a weave (#763, agents/research/redesign/NETWORK.md §4; owner 2026-11-21: the tab is "Spores", connecting is "weaving"): the spores and threads a scope's projector computes from its documents, drawn by every canvas – the creator's Spores tab, the native deck editor, the Reception tab, the MCP. The documents stay the truth; a weave is never stored (only its canvas). Each scope's projector lives where that scope's rules live (story: shared/content; XR: the OSCT logic package; show and rig: the Rust core). Edit this file, run `npm run generate` (server/schema/generate.ts writes the Rust and TS types), commit the outputs; spore-network.vectors.json holds the weaves every language reads.
 #![allow(clippy::all)]
 use serde::{Deserialize, Serialize};
 
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What travels on a port or edge – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and wire. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`.
+/// What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Signal {
 	#[serde(rename = "event")]
@@ -45,7 +45,7 @@ impl Signal {
 	}
 }
 
-/// Which documents a view projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events (generation done, approved, published …), `network` the levels above them all.
+/// Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events (generation done, approved, published …), `network` the spore network's levels above them all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Scope {
 	#[serde(rename = "story")]
@@ -78,9 +78,9 @@ impl Scope {
 	}
 }
 
-/// Where a node runs: the `reader` (the VN runner), `xr` (OSCT's engine in the reader), the `conductor`, a `deck` (the engine, its own audio context), the `server` (jobs, generations), the `editor` (authoring-time nodes only, never at reading time).
+/// The driver that runs a spore (the runtimes): the `reader` (the VN runner), `xr` (OSCT's engine in the reader), the `conductor`, a `deck` (the engine, its own audio context), the `server` (jobs, generations), the `editor` (authoring-time nodes only, never at reading time).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Runtime {
+pub enum Driver {
 	#[serde(rename = "reader")]
 	Reader,
 	#[serde(rename = "xr")]
@@ -95,20 +95,20 @@ pub enum Runtime {
 	Editor,
 }
 
-impl Runtime {
+impl Driver {
 	pub const fn as_str(self) -> &'static str {
 		match self {
-			Runtime::Reader => "reader",
-			Runtime::Xr => "xr",
-			Runtime::Conductor => "conductor",
-			Runtime::Deck => "deck",
-			Runtime::Server => "server",
-			Runtime::Editor => "editor",
+			Driver::Reader => "reader",
+			Driver::Xr => "xr",
+			Driver::Conductor => "conductor",
+			Driver::Deck => "deck",
+			Driver::Server => "server",
+			Driver::Editor => "editor",
 		}
 	}
 }
 
-/// A node's family – how a canvas draws it and what a gesture may do. `container` can be entered (a chapter, a group, a row, a cell, a track); `world` comes from outside the level with an image of its origin (MIDI, clock, carrier bag, VN state); `free` lives only in the canvas (a reference, a generation, a manual instruction – OSCT L11–L13); `far` is a stub's far end.
+/// A spore's family – how a canvas draws it and what a gesture may do. `container` can be entered (a chapter, a group, a row, a cell, a track); `world` comes from outside the level with an image of its origin (MIDI, clock, carrier bag, VN state); `free` lives only in the canvas (a reference, a generation, a manual instruction – OSCT L11–L13); `far` is a stub's far end.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Family {
 	#[serde(rename = "event")]
@@ -173,7 +173,7 @@ impl Direction {
 	}
 }
 
-/// How an edge crosses runtimes: `same` (one runtime), `relay` (the Live relay), `navigation` (the reader moves to another place), `savegame` (a variable or item read elsewhere).
+/// How a thread crosses runtimes: `same` (one runtime), `relay` (the Live relay), `navigation` (the reader moves to another place), `savegame` (a variable or item read elsewhere).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Transport {
 	#[serde(rename = "same")]
@@ -193,6 +193,24 @@ impl Transport {
 			Transport::Relay => "relay",
 			Transport::Navigation => "navigation",
 			Transport::Savegame => "savegame",
+		}
+	}
+}
+
+/// What a port connects to: `cyber` (devices, modules, the engine – called a port) or `organic` (beings, characters, living matter – called a pore). Only the word and the look differ; the signal decides what may connect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Matter {
+	#[serde(rename = "cyber")]
+	Cyber,
+	#[serde(rename = "organic")]
+	Organic,
+}
+
+impl Matter {
+	pub const fn as_str(self) -> &'static str {
+		match self {
+			Matter::Cyber => "cyber",
+			Matter::Organic => "organic",
 		}
 	}
 }
@@ -217,26 +235,29 @@ pub struct Port {
 	/// Unused and folded behind the node's `+`.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub hidden: Option<bool>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub matter: Option<Matter>,
 }
 
+/// A spore: one thing of a level – a group, a rule, a cell, a module, a generator. Its `kind` is its spore type, registered by a scope's projector, a plugin, a component or a module.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Node {
+pub struct Spore {
 	/// Unique within the view.
 	pub id: String,
-	/// The registered node type (a scope's projector or a module names it).
+	/// The spore type.
 	pub kind: String,
 	pub family: Family,
 	pub label: String,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub detail: Option<String>,
-	/// What the node is, in the one grammar.
+	/// What the spore is, in the one grammar.
 	pub address: String,
-	pub runtime: Runtime,
+	pub driver: Driver,
 	pub ports: Vec<Port>,
 	/// The address of the level a double-click opens; none: a leaf.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub enter: Option<String>,
-	/// An asset reference for the node's image (a world node's origin, a preview).
+	/// An asset reference for the spore's image (a world spore's origin, a preview).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub picture: Option<String>,
 	/// The canvas group it sits in.
@@ -244,13 +265,14 @@ pub struct Node {
 	pub group: Option<String>,
 }
 
+/// One end of a thread: a spore and one of its ports.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Pin {
-	pub node: String,
+pub struct End {
+	pub spore: String,
 	pub port: String,
 }
 
-/// The one document field that holds an edge or a node: an edit is an op on it. None on an edge: derived (a by-name join, a computed link).
+/// The one document field that holds a thread or a spore: an edit is an op on it. None on a thread: derived (a by-name join, a computed link).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Home {
 	/// The document's address, e.g. `rig:crow`, `chapter:sandbox/1/2`, `show:demo`.
@@ -259,11 +281,12 @@ pub struct Home {
 	pub path: String,
 }
 
+/// A thread woven between two spores' ports.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Edge {
+pub struct Thread {
 	pub id: String,
-	pub from: Pin,
-	pub to: Pin,
+	pub from: End,
+	pub to: End,
 	pub signal: Signal,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub label: Option<String>,
@@ -271,16 +294,16 @@ pub struct Edge {
 	pub home: Option<Home>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub crosses: Option<Transport>,
-	/// A bundle of this many edges of one kind between one pair.
+	/// A bundle of this many threads of one kind between one pair.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub count: Option<u64>,
 }
 
-/// An edge that leaves the level, named by its far end; following it changes the view's scope.
+/// A thread that leaves the level, named by its far end; following it changes the weave's scope.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stub {
-	/// The edge's id; its node at the level's edge is a `far` node.
-	pub edge: String,
+	/// The thread's id; its spore at the level's edge is a `far` spore.
+	pub thread: String,
 	pub side: Direction,
 	/// The far end's address.
 	pub far: String,
@@ -306,7 +329,7 @@ impl Severity {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
-	/// A node's or an edge's id.
+	/// A spore's or a thread's id.
 	pub at: String,
 	pub severity: Severity,
 	pub text: String,
@@ -318,7 +341,7 @@ pub struct Group {
 	pub label: String,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub colour: Option<String>,
-	pub nodes: Vec<String>,
+	pub spores: Vec<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub folded: Option<bool>,
 }
@@ -327,7 +350,7 @@ pub struct Group {
 pub struct Note {
 	pub id: String,
 	pub text: String,
-	/// The node it sits beside.
+	/// The spore it sits beside.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub near: Option<String>,
 }
@@ -348,17 +371,18 @@ pub struct Canvas {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub folded: Option<Vec<String>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub pins: Option<std::collections::HashMap<String, Point>>,
+	pub placed: Option<std::collections::HashMap<String, Point>>,
 }
 
+/// One level of the spore network: its spores, the threads woven between them, the threads that leave it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct View {
+pub struct Weave {
 	pub scope: Scope,
 	/// The level's address.
 	pub context: String,
 	pub levels: Vec<Level>,
-	pub nodes: Vec<Node>,
-	pub edges: Vec<Edge>,
+	pub spores: Vec<Spore>,
+	pub threads: Vec<Thread>,
 	pub stubs: Vec<Stub>,
 	pub problems: Vec<Problem>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
