@@ -1,0 +1,389 @@
+<!-- Status: design drafts round 1 for the owner's review (#763, epic #626), 2026-11-21 – concept only, no build. Research: NETWORK.md. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One network</title>
+<!-- The one Flow tab over every scope (#763). The tab is shown on the stage (#765 "taking the stage").
+     ?v=1 chapter level (story scope) · 2 the network, A runtime lanes · 3 the network, B nested scopes · 4 a rig (deck scope, audio context)
+     ?theme=day · ?quiet folds the notes. Keys: 1–4 views · T day / night · N notes · L live feedback on / off. Open at 1440×900.
+     Colours: shared/tokens/editor.css; signals: deck/kit/src/base/signal.rs (night + day), copied 1:1. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
+  --primary:#b4ff32;--danger:#c0392b;--warn:#f0a030;--ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+  --s-event:#f3f3f0;--s-control:#46d36a;--s-clock:#e5484d;--s-audio:#19b8d8;--s-picture:#6f9bff;--s-address:#b46bff;--s-vote:#ffb020;--s-scene:#ff6b8a;--s-far:#a7af9b;
+  --grid:#1c1f19;--outline:#000000;
+}
+[data-theme=day]{
+  --stage:#ffffff;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#b4ff32;--danger:#c0392b;--warn:#b86e0c;--ground:rgb(243 243 240 / 0.8);--halo:none;
+  --s-event:#22271e;--s-control:#2f9e4a;--s-clock:#c23238;--s-audio:#0089a8;--s-picture:#3a63c9;--s-address:#8a4fd0;--s-vote:#b07800;--s-scene:#c8385a;--s-far:#6b7461;
+  --grid:#eceee8;--outline:#ffffff;
+}
+:root{--gap:1rem;--small:.86rem;--label:.72rem;--row:2.15rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap);pointer-events:none}
+.bar>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line);backdrop-filter:blur(6px)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap}
+.pill button:hover{background:var(--hover)}
+.pill button.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.pill .sep{width:1px;height:1.1rem;background:var(--line);margin:0 .2rem}
+.middle{flex:1;display:flex;justify-content:center}
+.crumbs{font-size:var(--small);color:var(--muted)}
+.crumbs button{padding:0 .45rem}
+.crumbs b{color:var(--text);font-weight:400}
+.crumbs .scope{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;border:1px solid var(--line);border-radius:.6rem;padding:0 .35rem;margin-right:.15rem}
+.tool{position:fixed;z-index:40;top:calc(var(--top) + .2rem);left:var(--gap)}
+.follow{position:fixed;z-index:40;top:calc(var(--top) + .2rem);right:var(--gap)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--primary)}
+.legend{position:fixed;z-index:40;bottom:var(--gap);right:var(--gap);font-size:var(--small)}
+.legend span{display:flex;align-items:center;gap:.3rem;padding:0 .4rem;color:var(--muted)}
+.views{position:fixed;z-index:40;bottom:var(--gap);left:var(--gap)}
+.waits{position:fixed;z-index:40;bottom:var(--gap);left:50%;transform:translateX(-50%);font-size:var(--small);color:var(--muted)}
+#canvas{position:fixed;inset:0;background-color:var(--stage);background-image:radial-gradient(var(--grid) 1px,transparent 1.2px);background-size:1rem 1rem}
+svg#g{position:absolute;inset:0;width:100%;height:100%}
+.notes{position:fixed;z-index:45;top:calc(var(--top) + 3rem);right:var(--gap);width:19rem;max-height:calc(100vh - var(--top) - 7rem);overflow:auto;padding:.8rem 1rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 .4rem 1.2rem rgb(0 0 0/.35);font-size:var(--small)}
+.notes h2{font-size:1rem;margin:.1rem 0 .5rem;font-weight:700}
+.notes p{margin:.35rem 0}
+.notes ul{margin:.3rem 0;padding-left:1.1rem}
+.notes li{margin:.2rem 0}
+.notes code{font-size:.8rem;color:var(--muted)}
+body.quiet .notes{display:none}
+/* svg text */
+.t{font:400 11.5px "Noto Sans",system-ui,sans-serif;fill:var(--text)}
+.tm{font:400 10.5px "Noto Sans",system-ui,sans-serif;fill:var(--muted)}
+.th{font:700 12px "Noto Sans",system-ui,sans-serif;fill:var(--text)}
+.tl{font:400 10.5px "Noto Sans",system-ui,sans-serif;paint-order:stroke;stroke:var(--outline);stroke-width:3px;stroke-linejoin:round}
+.lane-t{font:400 10px "Noto Sans",system-ui,sans-serif;letter-spacing:.15em;text-transform:uppercase;fill:var(--muted)}
+.wire{fill:none;stroke-width:1.6}
+.wire.dim{opacity:.55}
+.bead{animation:none}
+body.live .lit{filter:drop-shadow(0 0 3px currentColor)}
+</style>
+</head>
+<body>
+<div id="canvas"><svg id="g"></svg></div>
+
+<div class="bar">
+  <div class="pill" id="items"></div>
+  <div class="middle"><div class="pill crumbs" id="path"></div></div>
+  <div class="pill"><button title="Library">Library</button><button title="Settings">⚙</button></div>
+</div>
+
+<div class="pill tool" id="tool"></div>
+<div class="pill follow" id="follow"></div>
+<div class="pill legend" id="legend"></div>
+<div class="pill views" id="views"></div>
+<div class="pill waits" id="waits"></div>
+<aside class="notes" id="notes"></aside>
+
+<script>
+const R = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+const q = new URLSearchParams(location.search);
+let view = +(q.get('v') || 1);
+if (q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
+if (q.has('quiet')) document.body.classList.add('quiet');
+let live = true; document.body.classList.add('live');
+
+const SIG = ['event','control','clock','audio','picture','address','vote','scene','far'];
+const SHAPE = { event:'tri', control:'dot', clock:'dot', vote:'dot', audio:'sq', picture:'sq', scene:'sq', address:'dia', far:'ring' };
+const col = s => `var(--s-${s})`;
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a = {}, txt) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+
+function port(g, x, y, s, r = 4.2) {
+  const c = col(s), k = SHAPE[s];
+  if (k === 'tri') g.append(el('path', { d: `M${x - r},${y - r} L${x + r},${y} L${x - r},${y + r} Z`, fill: c }));
+  else if (k === 'sq') g.append(el('rect', { x: x - r + .6, y: y - r + .6, width: 2 * r - 1.2, height: 2 * r - 1.2, fill: c }));
+  else if (k === 'dia') g.append(el('path', { d: `M${x},${y - r - .5} L${x + r + .5},${y} L${x},${y + r + .5} L${x - r - .5},${y} Z`, fill: c }));
+  else if (k === 'ring') g.append(el('circle', { cx: x, cy: y, r: r - .4, fill: 'none', stroke: c, 'stroke-width': 1.6 }));
+  else g.append(el('circle', { cx: x, cy: y, r: r - .4, fill: c }));
+}
+
+/* ── the views' data (positions in rem) ─────────────────────────────── */
+// node: { id, x, y, w, title, kind, chip, ins:[[id,label,signal]], outs:[...], far, sel, pic, problem, group }
+// edge: [from 'node.port', to 'node.port', signal, label, {lit, crosses, count}]
+const V = {};
+
+V[1] = {
+  items: [['Home'], ['Chapter 2 · Dunes', true], ['rig crow'], ['Sandbox demo']],
+  path: [['Story', 'scope'], ['Universe'], ['sandbox'], ['Season 1'], ['Chapter 2 · Dunes', 'b']],
+  follows: 'chapter:sandbox/1/2',
+  waits: 'Chapter view waits ↓',
+  nodes: [
+    { id: 'in1', x: 1, y: 14, w: 9, far: true, title: '← Chapter 1 · end', outs: [['o', 'enters', 'far']] },
+    { id: 'g1', x: 12, y: 12, w: 10, title: 'Arrival', kind: 'group 1', pic: true, ins: [['i', 'enter', 'event']], outs: [['n', 'next', 'event']] },
+    { id: 'g2', x: 25, y: 8, w: 11, title: 'The well', kind: 'group 2', pic: true, ins: [['i', 'enter', 'event']], outs: [['n', 'next', 'event'], ['w', 'sets water', 'control'], ['s', 'gives item:shovel', 'address']] },
+    { id: 'g3', x: 39, y: 10, w: 11, title: 'Dig or wait?', kind: 'group 3 · choice', sel: true, pic: true, ins: [['i', 'enter', 'event']], outs: [['a', 'dig', 'event'], ['b', 'wait', 'event'], ['v', 'counted live', 'vote']] },
+    { id: 'g4a', x: 53, y: 5, w: 11, title: 'Dig', kind: 'group 4a', pic: true, ins: [['i', 'enter', 'event'], ['s', 'needs shovel', 'address']], outs: [['j', 'jumpTo xr', 'scene']] },
+    { id: 'g4b', x: 53, y: 18, w: 11, title: 'Wait', kind: 'group 4b', pic: true, problem: 'water read before set on one path', ins: [['i', 'enter', 'event'], ['w', 'if water > 0', 'control']], outs: [['n', 'next', 'event']] },
+    { id: 'g5', x: 67, y: 19, w: 10, title: 'Storm', kind: 'group 5', pic: true, ins: [['i', 'enter', 'event']], outs: [['e', 'fires storm', 'event'], ['x', 'end', 'scene']] },
+    { id: 'v', x: 39, y: 27, w: 11, title: 'global.met_crow', kind: 'variable · save game', ins: [['i', 'set in catpope 4', 'control']], outs: [['o', 'read here', 'control']] },
+    { id: 'xr', x: 67, y: 2, w: 12, far: true, title: '→ XR dune-ar · scene well', ins: [['i', 'navigation', 'far']] },
+    { id: 'show', x: 80, y: 15, w: 12, far: true, title: '→ show Sandbox demo · row 4 fires', ins: [['i', 'relay', 'far']] },
+    { id: 'ch3', x: 80, y: 24, w: 9, far: true, title: '→ Chapter 3', ins: [['i', 'end', 'far']] },
+  ],
+  edges: [
+    ['in1.o', 'g1.i', 'event', ''], ['g1.n', 'g2.i', 'event', ''], ['g2.n', 'g3.i', 'event', '', { lit: true }],
+    ['g3.a', 'g4a.i', 'event', 'dig'], ['g3.b', 'g4b.i', 'event', 'wait'],
+    ['g2.w', 'g4b.w', 'control', ''], ['g2.s', 'g4a.s', 'address', ''],
+    ['g4a.j', 'xr.i', 'scene', 'jumpTo', { crosses: 'navigation' }], ['g4b.n', 'g5.i', 'event', ''],
+    ['g5.e', 'show.i', 'event', 'storm', { lit: true, crosses: 'relay' }], ['g5.x', 'ch3.i', 'scene', 'end'],
+    ['v.o', 'g4b.w', 'control', 'met_crow'],
+  ],
+  notes: `<h2>1 · Chapter level (story scope)</h2>
+  <p>The one <b>Flow</b> tab, on the stage. It <b>follows the front item</b> (<code>chapter:sandbox/1/2</code>); the pin keeps the level.</p>
+  <ul><li>Groups are boxes with typed ports from the one signal table: next / choice = <b>event</b> ▸, a variable = <b>control</b> ●, an item = <b>address</b> ◆, jumpTo / end = <b>scene</b> ■.</li>
+  <li>Cables that leave the chapter end in <b>stubs</b> named by their far end (ring ports). <i>→ show Sandbox demo · row 4 fires</i> crosses the <b>relay</b>; clicking it moves the tab into the show's scope.</li>
+  <li><code>global.met_crow</code> is set in another toon: a variable box at the level's edge.</li>
+  <li>Labels wear an outline, no backdrop. Lit wires = live: the reader preview fired that event just now.</li>
+  <li>The problem dot on <i>Wait</i> is the same line the Log shows (#767).</li></ul>
+  <p>Read-only for now, as today's Flow; the box's double-click goes into the group level.</p>`,
+};
+
+V[2] = {
+  items: [['Home'], ['Chapter 2 · Dunes'], ['rig crow'], ['Sandbox demo']],
+  path: [['Universe', 'b']],
+  follows: 'pinned · universe',
+  pinned: true,
+  waits: 'Home waits ↓',
+  lanes: [['Reader · story', 5, 15.5], ['Reader · XR (OSCT engine)', 21.5, 11], ['Conductor · show', 33.5, 10], ['Deck · engine (own audio context)', 44.5, 13]],
+  seams: [[20.5, 'navigation'], [32.5, 'relay · story events'], [43.5, 'relay · cells to outlets']],
+  nodes: [
+    { id: 'cat', x: 4, y: 6.5, w: 15, title: 'Catpope', kind: 'toon · 3 seasons', pic: true, outs: [['v', 'met_crow', 'control']] },
+    { id: 'sand', x: 30, y: 7, w: 16, title: 'Sandbox', kind: 'toon · Season 1, Ch 1–3', pic: true, sel: true, ins: [['v', 'reads met_crow', 'control'], ['b', 'back from AR', 'scene']], outs: [['e', 'story events ×3', 'event'], ['j', 'jumpTo xr', 'scene'], ['vo', 'votes', 'vote']] },
+    { id: 'fei', x: 4, y: 13.5, w: 15, title: 'Feilchen', kind: 'toon · Ch 3', pic: true, outs: [['e', 'story events ×1', 'event']] },
+    { id: 'ar', x: 58, y: 24, w: 16, title: 'dune-ar', kind: 'experience · 4 scenes', pic: true, ins: [['i', 'enter at well', 'scene']], outs: [['g', 'goto back', 'scene']] },
+    { id: 'show', x: 30, y: 35, w: 16, title: 'Sandbox demo', kind: 'show · 6 rows · 3 outlets', ins: [['e', 'fire on', 'event'], ['vo', 'vote', 'vote'], ['c', 'clock', 'clock']], outs: [['p', 'plays', 'scene'], ['a', 'addresses', 'address']] },
+    { id: 'clk', x: 8, y: 36, w: 11, title: 'clock', kind: 'world · tempo', outs: [['c', 'beat · bar', 'clock']] },
+    { id: 'crow', x: 14, y: 47, w: 14, title: 'rig crow ×3', kind: 'rig · 3 tracks', pic: true, ins: [['p', 'played by', 'scene'], ['a', 'being', 'address']], outs: [['o', 'voice', 'audio']] },
+    { id: 'drum', x: 36, y: 47, w: 14, title: 'rig drums', kind: 'rig · 8 lanes', ins: [['p', 'played by', 'scene']], outs: [['o', 'kit', 'audio']] },
+    { id: 'dunes', x: 58, y: 47, w: 14, title: 'scene dunes', kind: 'deck scene · 3 layers', pic: true, ins: [['p', 'played by', 'scene'], ['au', 'sound', 'audio']], outs: [['o', 'outlet A', 'picture']] },
+  ],
+  edges: [
+    ['cat.v', 'sand.v', 'control', 'global.met_crow · save game'],
+    ['sand.j', 'ar.i', 'scene', 'jumpTo', { crosses: 'navigation' }], ['ar.g', 'sand.b', 'scene', 'goto'],
+    ['sand.e', 'show.e', 'event', 'storm · dig · wait', { lit: true, count: 3, crosses: 'relay' }],
+    ['fei.e', 'show.e', 'event', 'rain', { count: 1 }], ['sand.vo', 'show.vo', 'vote', 'dig / wait'],
+    ['clk.c', 'show.c', 'clock', ''], ['show.p', 'crow.p', 'scene', 'row 2, 4', { count: 2, lit: true }],
+    ['show.p', 'drum.p', 'scene', 'row 1–6'], ['show.p', 'dunes.p', 'scene', 'row 4'], ['show.a', 'crow.a', 'address', 'character:crow'],
+    ['crow.o', 'dunes.au', 'audio', '', { lit: true }], ['drum.o', 'dunes.au', 'audio', ''],
+  ],
+  notes: `<h2>2 · The network, variant A: runtime lanes</h2>
+  <p>The tab's top level (<b>Universe</b>), pinned. Every toon, experience, show, rig and deck scene is a box; double-click goes into its scope.</p>
+  <ul><li>The <b>lanes are the runtimes</b>: the reader (story), the reader running OSCT's engine (XR), the conductor (show), the deck's engine with its own audio context. "Another audio context" is a lane, not another canvas.</li>
+  <li>A cable that crosses a seam says <b>how it travels</b>: navigation, the relay's story events, the relay's cells to outlets, the save game.</li>
+  <li>Busy cables are bundled per kind and pair with a count (×3 story events), as the deck's rows band bundles.</li>
+  <li>Nothing here is a new document: it is the <b>network index</b> computed from every scope's stubs (FlowIndex.php's story edges + show + XR).</li></ul>`,
+};
+
+V[3] = {
+  items: V[2].items, path: V[2].path, follows: 'pinned · universe', pinned: true, waits: 'Home waits ↓',
+  frames: [
+    ['Toon · Sandbox', 4, 6, 40, 15, 'story · reader'], ['Experience · dune-ar', 4, 25, 24, 12, 'xr · reader'],
+    ['Show · Sandbox demo', 48, 6, 28, 15, 'show · conductor'], ['Rig · crow', 48, 25, 26, 15, 'deck · audio context'], ['Toon · Catpope', 4, 41, 24, 8, 'story · reader'],
+  ],
+  nodes: [
+    { id: 'c1', x: 6, y: 9.5, w: 10, title: 'Ch 1', kind: 'chapter', pic: true, outs: [['n', 'end', 'scene']] },
+    { id: 'c2', x: 19, y: 9.5, w: 11, title: 'Ch 2 · Dunes', kind: 'chapter', pic: true, sel: true, ins: [['i', 'from', 'scene'], ['v', 'met_crow', 'control']], outs: [['e', 'storm', 'event'], ['j', 'jumpTo', 'scene']] },
+    { id: 'c3', x: 32, y: 15.5, w: 10, title: 'Ch 3', kind: 'chapter', pic: true, ins: [['i', 'from', 'scene']] },
+    { id: 's1', x: 6, y: 28.5, w: 9, title: 'well', kind: 'scene', ins: [['i', 'enter', 'scene']], outs: [['g', 'goto', 'scene']] },
+    { id: 's2', x: 17, y: 28.5, w: 9, title: 'dune top', kind: 'scene', ins: [['i', 'enter', 'scene']] },
+    { id: 'r4', x: 50, y: 9.5, w: 11, title: 'row 4 · storm', kind: 'row', ins: [['e', 'fire on', 'event']], outs: [['p', 'cell A', 'scene'], ['q', 'cell B', 'scene']] },
+    { id: 'r5', x: 63, y: 9.5, w: 11, title: 'row 5', kind: 'row', ins: [['e', 'auto', 'event']] },
+    { id: 't1', x: 50, y: 28.5, w: 10, title: 'voice', kind: 'track', ins: [['p', 'note', 'event']], outs: [['o', 'out', 'audio']] },
+    { id: 't2', x: 62, y: 28.5, w: 10, title: 'sum', kind: 'node', ins: [['i', 'in', 'audio']], outs: [['o', 'being', 'audio']] },
+    { id: 'k4', x: 6, y: 43.5, w: 11, title: 'Ch 4', kind: 'chapter', outs: [['v', 'met_crow', 'control']] },
+  ],
+  edges: [
+    ['c1.n', 'c2.i', 'scene', 'end'], ['c2.j', 's1.i', 'scene', 'jumpTo'], ['s1.g', 'c3.i', 'scene', 'goto'],
+    ['c2.e', 'r4.e', 'event', 'storm', { lit: true, crosses: 'relay' }], ['r4.p', 't1.p', 'scene', 'plays', { lit: true }],
+    ['t1.o', 't2.i', 'audio', '', { lit: true }], ['k4.v', 'c2.v', 'control', 'global.met_crow'],
+  ],
+  notes: `<h2>3 · The network, variant B: nested scopes</h2>
+  <p>The same network, but every scope is a frame you see into: a toon shows its chapters, a show its rows, a rig its tracks. Cables run between the inner boxes.</p>
+  <ul><li>More detail at once, and one zoom goes from the network to a chapter.</li>
+  <li>But the runtime boundary is only a chip on the frame, the frames fight for space, and the breadcrumb already gives the nesting.</li>
+  <li><b>Recommendation: A</b> for the top level; B's "see into a box" as a hover preview on A's boxes.</li></ul>`,
+};
+
+V[4] = {
+  items: [['Home'], ['Chapter 2 · Dunes'], ['rig crow', true], ['Sandbox demo']],
+  path: [['Deck', 'scope'], ['Universe'], ['rig crow', 'b'], ['track voice']],
+  follows: 'rig:crow',
+  waits: 'Sound stage waits ↓',
+  frames: [['deck engine · audio context · 48 kHz · block 128', 15, 6, 56, 30, '']],
+  nodes: [
+    { id: 'show', x: 0, y: 9, w: 13, far: true, title: '← show Sandbox demo · row 4', outs: [['o', 'note', 'far']] },
+    { id: 'midi', x: 0, y: 18, w: 12, title: 'MIDI · X1', kind: 'world node', pic: true, outs: [['n', 'midi.note', 'event'], ['cc', 'cc 21', 'control']] },
+    { id: 'clk', x: 0, y: 28, w: 12, title: 'clock', kind: 'world node', outs: [['c', 'step', 'clock']] },
+    { id: 'osc', x: 17, y: 8, w: 11, title: 'osc', kind: 'module · factory', ins: [['n', 'note', 'event'], ['p', 'pitch', 'control']], outs: [['o', 'out', 'audio']] },
+    { id: 'env', x: 17, y: 20, w: 11, title: 'adsr', kind: 'module · factory', ins: [['g', 'gate', 'event']], outs: [['o', 'env', 'control']] },
+    { id: 'svf', x: 31, y: 9, w: 11, title: 'svf', kind: 'module · lowpass', ins: [['i', 'in', 'audio'], ['c', 'cutoff', 'control'], ['r', 'resonance', 'control']], outs: [['o', 'out', 'audio']] },
+    { id: 'dly', x: 45, y: 9, w: 11, title: 'delay', kind: 'module · ⅜ synced', ins: [['i', 'in', 'audio'], ['t', 'time', 'clock']], outs: [['o', 'out', 'audio']] },
+    { id: 'cv', x: 45, y: 22, w: 11, title: 'convolver', kind: 'module · ir: well', ins: [['i', 'in', 'audio']], outs: [['o', 'out', 'audio']] },
+    { id: 'sum', x: 59, y: 15, w: 10, title: 'sum', kind: 'folder bus', ins: [['a', 'dry', 'audio'], ['b', 'wet', 'audio']], outs: [['o', 'out', 'audio'], ['l', 'level', 'control']] },
+    { id: 'being', x: 75, y: 12, w: 12, far: true, title: '→ being: crow · voice', ins: [['i', 'outlet', 'far']] },
+    { id: 'vis', x: 75, y: 22, w: 12, far: true, title: '→ scene dunes · glow', ins: [['i', 'level → light', 'far']] },
+  ],
+  edges: [
+    ['show.o', 'osc.n', 'event', 'music.note', { lit: true, crosses: 'relay' }], ['midi.n', 'env.g', 'event', ''], ['show.o', 'env.g', 'event', '', { lit: true }],
+    ['midi.cc', 'svf.c', 'control', 'cutoff'], ['env.o', 'svf.r', 'control', ''], ['osc.o', 'svf.i', 'audio', '', { lit: true }],
+    ['svf.o', 'dly.i', 'audio', '', { lit: true }], ['clk.c', 'dly.t', 'clock', '⅜'], ['svf.o', 'cv.i', 'audio', ''],
+    ['dly.o', 'sum.a', 'audio', '', { lit: true }], ['cv.o', 'sum.b', 'audio', ''],
+    ['sum.o', 'being.i', 'audio', '', { lit: true }], ['sum.l', 'vis.i', 'control', 'level'],
+  ],
+  notes: `<h2>4 · A rig: the deck's scope, in the same tab</h2>
+  <p>The Sound workspace's front item is <code>rig:crow</code>, so the tab follows into the <b>deck scope</b>. The audio nodes (#713) are types the rig's projector registers – the "specific nodes" – on the same canvas.</p>
+  <ul><li>The dashed frame is the runtime: the deck's engine and its own audio context. What comes from outside enters as <b>world nodes</b> (MIDI, clock, with an image of their origin) or as a <b>stub</b> from the show that plays it.</li>
+  <li>The graph comes from the core (<code>rig/wiring.rs</code> <code>wire_view</code>) through wasm – no TS copy (A6). Live beads come from the engine's analysis frame.</li>
+  <li>Hand rewiring stays in the native deck editor (2026-11-08) unless you change that (Q5); the tab offers <b>Open in deck editor</b>.</li>
+  <li>The native deck editor draws the same View with deck-kit, kept in step by fixtures.</li></ul>`,
+  extra: 'Open in deck editor',
+};
+
+/* ── drawing ─────────────────────────────────────────────────────────── */
+const HEAD = 2.1, ROW = 1.55;
+function geom(n) {
+  const rows = Math.max((n.ins || []).length, (n.outs || []).length, n.far ? 1 : 1);
+  const h = n.far ? 2 : HEAD + rows * ROW + .5 + (n.pic ? 0 : 0);
+  return { h };
+}
+function portPos(n, id, side, r) {
+  const list = side === 'in' ? n.ins || [] : n.outs || [];
+  const i = list.findIndex(p => p[0] === id);
+  if (n.far) return [(side === 'in' ? n.x : n.x + n.w) * r, (n.y + 1) * r];
+  return [(side === 'in' ? n.x : n.x + n.w) * r, (n.y + HEAD + i * ROW + ROW / 2 + .25) * r];
+}
+
+function draw() {
+  const d = V[view], r = R(), svg = document.getElementById('g');
+  svg.replaceChildren();
+  const byId = Object.fromEntries(d.nodes.map(n => [n.id, n]));
+  const top = el('g', { transform: `translate(0, ${1.5 * r})` });
+  svg.append(top);
+
+  for (const [t, y, h] of d.lanes || []) {
+    top.append(el('rect', { 'data-lane': 1, x: 0, y: y * r, width: 90 * r, height: h * r, rx: .36 * r, fill: 'var(--within)', opacity: .45 }));
+    top.append(el('text', { x: 1.2 * r, y: (y + 1.2) * r, class: 'lane-t' }, t));
+  }
+  for (const [y, t] of d.seams || []) {
+    top.append(el('line', { x1: 0, x2: 90 * r, y1: (y + .5) * r, y2: (y + .5) * r, stroke: 'var(--line)', 'stroke-dasharray': '4 4' }));
+    top.append(el('text', { x: 89 * r, y: (y + .2) * r, class: 'tm', 'text-anchor': 'end' }, '↕ ' + t));
+  }
+  for (const [t, x, y, w, h, chip] of d.frames || []) {
+    top.append(el('rect', { x: x * r, y: y * r, width: w * r, height: h * r, rx: .5 * r, fill: 'none', stroke: 'var(--muted)', 'stroke-dasharray': '5 4', opacity: .8 }));
+    top.append(el('text', { x: (x + .7) * r, y: (y + 1.15) * r, class: 'lane-t' }, t));
+    if (chip) top.append(el('text', { x: (x + w - .7) * r, y: (y + 1.15) * r, class: 'tm', 'text-anchor': 'end' }, chip));
+  }
+
+  const wires = el('g'), boxes = el('g'), labels = el('g'), beads = [];
+  top.append(wires, boxes, labels);
+
+  for (const [a, b, s, label, o = {}] of d.edges) {
+    const [na, pa] = a.split('.'), [nb, pb] = b.split('.');
+    const A = byId[na], B = byId[nb];
+    const [x1, y1] = portPos(A, pa, 'out', r), [x2, y2] = portPos(B, pb, 'in', r);
+    const dx = Math.max(40, Math.abs(x2 - x1) * .45);
+    const dpath = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    const lit = live && o.lit;
+    const w = el('path', { d: dpath, class: 'wire' + (lit ? ' lit' : ' dim'), stroke: col(s), 'stroke-width': o.count ? 2.6 : (s === 'event' ? 1.8 : 1.5), style: `color:${col(s)}` });
+    if (s === 'far' || B.far || A.far) w.setAttribute('stroke-dasharray', '1 0');
+    wires.append(w);
+    if (lit) for (let k = 0; k < 3; k++) {
+      const c = el('circle', { r: 2, fill: col(s), opacity: .85 });
+      const m = el('animateMotion', { dur: '2.4s', repeatCount: 'indefinite', begin: `-${k * .8}s`, path: dpath });
+      c.append(m); beads.push(c);
+    }
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const txt = (label || '') + (o.count ? `  ×${o.count}` : '');
+    if (txt.trim()) labels.append(el('text', { x: mx, y: my - 4, class: 'tl', fill: col(s), 'text-anchor': 'middle' }, txt));
+    if (o.crosses) labels.append(el('text', { x: mx, y: my + 11, class: 'tl', fill: 'var(--muted)', 'text-anchor': 'middle' }, '⇄ ' + o.crosses));
+  }
+
+  for (const n of d.nodes) {
+    const g = el('g'), { h } = geom(n), x = n.x * r, y = n.y * r, w = n.w * r;
+    if (n.far) {
+      g.append(el('rect', { x, y, width: w, height: 2 * r, rx: r, fill: 'var(--surface)', stroke: 'var(--s-far)', 'stroke-dasharray': '3 3' }));
+      g.append(el('text', { x: x + w / 2, y: y + 1.32 * r, class: 'tm', 'text-anchor': 'middle' }, n.title));
+      if (n.ins) port(g, x, y + r, 'far'); if (n.outs) port(g, x + w, y + r, 'far');
+      boxes.append(g); continue;
+    }
+    g.append(el('rect', { x, y, width: w, height: h * r, rx: .36 * r, fill: 'var(--surface)', stroke: n.sel ? 'var(--accent)' : 'var(--line)', 'stroke-width': n.sel ? 1.5 : 1 }));
+    g.append(el('path', { d: `M${x + .36 * r},${y} h${w - .72 * r} a${.36 * r},${.36 * r} 0 0 1 ${.36 * r},${.36 * r} v${HEAD * r - .36 * r} h${-w} v${-(HEAD * r - .36 * r)} a${.36 * r},${.36 * r} 0 0 1 ${.36 * r},${-.36 * r} z`, fill: 'var(--head)' }));
+    let tx = x + .6 * r;
+    if (n.pic) { g.append(el('rect', { x: x + .45 * r, y: y + .35 * r, width: 1.4 * r, height: 1.4 * r, rx: .2 * r, fill: 'var(--within)', stroke: 'var(--line)' })); g.append(el('path', { d: `M${x + .55 * r},${y + 1.6 * r} l${.45 * r},${-.55 * r} l${.3 * r},${.3 * r} l${.4 * r},${-.5 * r} l${.1 * r},${.75 * r}z`, fill: 'var(--muted)', opacity: .6 })); tx += 1.5 * r; }
+    g.append(el('text', { x: tx, y: y + .95 * r, class: 'th' }, n.title));
+    g.append(el('text', { x: tx, y: y + 1.75 * r, class: 'tm' }, n.kind || ''));
+    if (n.problem) { g.append(el('circle', { cx: x + w - .7 * r, cy: y + .75 * r, r: .3 * r, fill: 'var(--warn)' })); g.append(el('title', {}, n.problem)); }
+    (n.ins || []).forEach(([id, label, s], i) => {
+      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x, py, s);
+      g.append(el('text', { x: x + .65 * r, y: py + 4, class: 't' }, label));
+    });
+    (n.outs || []).forEach(([id, label, s], i) => {
+      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x + w, py, s);
+      g.append(el('text', { x: x + w - .65 * r, y: py + 4, class: 't', 'text-anchor': 'end' }, label));
+    });
+    boxes.append(g);
+  }
+  // fit everything into the free area (left of the notes, between the toolbars)
+  top.removeAttribute('transform');
+  const bb = top.getBBox(), quiet = document.body.classList.contains('quiet');
+  const L = r, T = 6.6 * r, W = innerWidth - (quiet ? 2 * r : 21.5 * r) - L, H = innerHeight - T - 4 * r;
+  const s = Math.min(W / bb.width, H / bb.height, 1.25);
+  top.setAttribute('transform', `translate(${L + (W - bb.width * s) / 2 - bb.x * s}, ${T + (H - bb.height * s) / 2 - bb.y * s}) scale(${s})`);
+  wires.append(...beads);
+  if (d.lanes) for (const rc of top.querySelectorAll('rect[data-lane]')) { rc.setAttribute('x', bb.x - r / s); rc.setAttribute('width', bb.width + 2 * r / s); }
+}
+
+function chrome() {
+  const d = V[view];
+  document.getElementById('items').innerHTML = d.items.map(([t, on]) => `<button class="${on ? 'on' : ''}">${t}</button>`).join('');
+  document.getElementById('path').innerHTML = '<span class="label" style="padding:0 .4rem">Flow</span><button title="Up a level (Alt+↑)">↑</button><span class="sep"></span>' +
+    d.path.map(([t, k], i) => k === 'scope' ? `<span class="scope">${t}</span>` : `<button>${k === 'b' ? `<b>${t}</b>` : t}</button>${i < d.path.length - 1 ? '›' : ''}`).join('');
+  document.getElementById('tool').innerHTML = `<button title="Frame all (F)">Frame</button><button title="Direction (workspace setting)">LR ▾</button><button title="Previews in nodes">Previews</button><button class="${live ? 'on' : ''}" id="livebtn" title="Live feedback (L)">Live</button>${d.extra ? `<span class="sep"></span><button>${d.extra}</button>` : ''}`;
+  document.getElementById('follow').innerHTML = d.pinned
+    ? `<button class="on" title="Pinned: the level stays">📌 ${d.follows}</button><button title="Follow the front item again">Follow</button>`
+    : `<span class="dot" style="margin:0 .3rem 0 .5rem"></span><span style="font-size:var(--small);color:var(--muted);padding-right:.4rem">follows ${d.follows}</span><button title="Pin this level">📌</button>`;
+  document.getElementById('legend').innerHTML = ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far'].map(s => {
+    const svg = `<svg width="12" height="12" viewBox="-6 -6 12 12">${shapeSvg(s)}</svg>`; return `<span>${svg}${s}</span>`;
+  }).join('');
+  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4].map(i => `<button class="${i === view ? 'on' : ''}" data-v="${i}">${['Chapter', 'Network A', 'Network B', 'Rig'][i - 1]}</button>`).join('');
+  document.getElementById('waits').innerHTML = `<button>${d.waits}</button>`;
+  document.getElementById('notes').innerHTML = d.notes;
+  document.querySelectorAll('#views button').forEach(b => b.onclick = () => go(+b.dataset.v));
+  document.getElementById('livebtn').onclick = toggleLive;
+}
+function shapeSvg(s) {
+  const c = col(s), k = SHAPE[s];
+  if (k === 'tri') return `<path d="M-4,-4 L4,0 L-4,4Z" fill="${c}"/>`;
+  if (k === 'sq') return `<rect x="-3.5" y="-3.5" width="7" height="7" fill="${c}"/>`;
+  if (k === 'dia') return `<path d="M0,-4.5 L4.5,0 L0,4.5 L-4.5,0Z" fill="${c}"/>`;
+  if (k === 'ring') return `<circle r="3.6" fill="none" stroke="${c}" stroke-width="1.6"/>`;
+  return `<circle r="3.8" fill="${c}"/>`;
+}
+function go(v) { view = v; q.set('v', v); history.replaceState(null, '', '?' + q); chrome(); draw(); }
+function toggleLive() { live = !live; document.body.classList.toggle('live', live); chrome(); draw(); }
+addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '4') go(+e.key);
+  else if (e.key === 't' || e.key === 'T') { const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; draw(); }
+  else if (e.key === 'n' || e.key === 'N') { document.body.classList.toggle('quiet'); draw(); }
+  else if (e.key === 'l' || e.key === 'L') toggleLive();
+});
+addEventListener('resize', draw);
+document.fonts.ready.then(() => { chrome(); draw(); });
+chrome(); draw();
+</script>
+</body>
+</html>
