@@ -1,4 +1,4 @@
-Status: research + design drafts 2026-11-21 for #763 (epic #626), for the owner's review – nothing built. Drafts: network.html (?v=1–4).
+Status: research + design drafts 2026-11-21 for #763 (epic #626), round 2 for the owner's review (§9) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C).
 
 # One network, many scopes: Flow, Logic and the deck's nodes as one view
 
@@ -126,7 +126,7 @@ navigation · save game), so the view can draw the lanes and say how a cable tra
 | XR projector + ops | OSCT's `logic` package, consumed at a pinned tag (L9 = yes, contract shared) – or copied with #482 | OSCT built and owns it |
 | Show and rig projectors + ops | the Rust core (`deck/show` `nodes.rs`, `rig/wiring.rs`), reached in the creator through wasm (`space-web`) | A1 / A6: the deck's graph exists once, in the core |
 | Network index (top level) | computed from the projectors' stubs; the server's `FlowIndex.php` grows the show / XR edges or the client joins them | a read, no new truth |
-| Web canvas | one Svelte canvas over `@xyflow/svelte` (both apps already on it), drawing any `View` | one renderer for the web |
+| Web canvas | one Svelte canvas over `@xyflow/svelte` (both apps already on it), drawing any `View` – **round 2: perhaps deck-kit through wasm instead (§9)** | one renderer for the web |
 | Native canvas | deck-kit `graph.rs` over the same `View` (egui), kept in step by the fixtures | the native editor can't host a web canvas (#763 D3); #764 may change this |
 | Live feedback | each runtime posts activity by address (reader preview: fired events; XR stage: `observeEvents`, `allVars`; deck: `Activity`), rate-limited, into the tab | the owner's #763 comment |
 
@@ -168,10 +168,10 @@ navigation · save game), so the view can draw the lanes and say how a cable tra
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | The tab's name: **Flow** (creator), **Logic** (OSCT) or **Nodes** (deck)? | **Flow** – it is the creator's word and the deck's ("signal flow"); OSCT keeps "Logic" in its own editor |
-| Q2 | The network level: **A runtime lanes** (Reader · XR · Deck, cables cross with their transport) or **B nested scopes** (zoom into boxes)? | **A** – it shows "another audio context" at a glance; B's nesting is what the breadcrumb already gives |
+| Q2 | The network level: **A runtime lanes** or **B nested scopes**? | answered 2026-11-21: B reads best, A's rows show where a thing shows → **C** (§9) |
 | Q3 | Adopt OSCT's package (#702 L9): share the **contract + fixtures** and consume the package for XR, or copy it with #482? | share the contract and fixtures; the package itself copied with #482 (as decided for the editor) until OSCT's core tag exists |
 | Q4 | One name for the value signal: deck "control" vs OSCT "value"? | one entry, two labels for now; decide when OSCT and the deck next touch `signal.rs` |
-| Q5 | Rig rewiring in the web tab: stay native only (2026-11-08), or allow it in the creator now that the creator is desktop-only? | stay native only until #764 answers; the web tab draws and opens the deck editor |
+| Q5 | Rig rewiring in the web tab: stay native only (2026-11-08), or allow it in the creator? | answered 2026-11-21: **native only** (deck.md [rigs]); open detail Q12 |
 | Q6 | Does a stub click change only the tab's scope, or open the far item in its workspace too? | only the tab; a second click ("Open") opens the item – the tab never drags the workspace |
 | Q7 | Story editing in the tab (step 7) – wanted, or the chapter editor stays the place to write events? | later; read-only first, as today |
 | Q8 | Order of steps 1–6 | 1, 2, 3, 5, 4, 6 – the deck's scopes before XR, because the deck's node view is the duplicate the owner named |
@@ -182,3 +182,45 @@ Nothing built or run. OSCT's package was read by its file list and commit log, n
 `Wiring` from the engine host (`shared/rig-designer/src/nodes.ts` header); `wire_view`'s levels and stubs are not exported to the web
 yet (no hit in `deck/space-web`) – step 3 adds that. The cross-scope edge table (§2) is from the documents' shapes; the
 show-row → story event link was read from OSCT §1.2 / §2 and research/LIVE.md, not traced at runtime.
+
+## 9 · Round 2: C – the nested scopes in rows of where a thing shows
+
+The owner, 2026-11-21, on round 1: *"love the nested scopes in term so readability, but wiht the runtime rows, i can see more clearly
+the devices or groups something is potentially showing at. can we rethink this even fruther one time. rig rewiring native only.
+potentially we will lean to integrate more and more into the deck rather than the web. my feeling at the moment. because we can always
+access a deck in browser through wasm"* (thought aloud on the deck; recorded in creator.md and deck.md).
+
+**C = B's frames placed in A's rows, but the rows change meaning: not runtimes, places that show.** Drafts `?v=5` and `?v=6`.
+
+- **The rows come from the address book.** The readers' phones, AR, the conductor, and the show's **roles**: its outlets
+  (`deck/show/src/document.rs` `Outlet`: a stage role is a screen or a speaker, a device role is a bridge's MIDI / DMX / OSC; adjacent
+  roles share a `group` head such as *light & sound*). A role is taken by decks (#478), so a row says where a thing *may* show.
+- **Two ways to read the rows, one switch.** *Where it may show* (`?v=5`, from the documents: roles) and *devices now* (`?v=6`, from a
+  running session: how many readers, which deck took which role, a deck without a role at the bottom, a role nobody took marked
+  empty). The relay knows both. Recommendation: roles outside a session, devices inside one, the switch to override.
+- **Placement rule.** A scope sits in the row where it shows. The **show spans its roles**: its rows sit in the conductor's row and each
+  cell in the row of the role that plays it, so the show's grid becomes part of the network. What a cell plays sits beside it in that
+  row (the deck scene on the left screen, the rig on the sound role, the DMX look on the lamps). A thing that may show in several rows
+  (a rig taken by two roles) is drawn once, in its first row, with a ghost mark in the others (not drawn yet).
+- **The runtime stays visible** as the frame's chip (story · xr · deck · audio context), and the cables across rows keep their
+  transport (relay per role, navigation, story events).
+
+**The deck as the home (thought aloud, not decided – #764's question).** If more moves into the deck, this tab is the obvious first
+piece: deck-kit already has the graph layout (`base/graph.rs`), the signal table (`base/signal.rs`) and the show node view with
+groups, notes, folds and live activity. One renderer would then draw the tab natively and, through the deck's wasm in a canvas, in the
+creator – instead of xyflow on the web and egui natively (§4's two-renderer problem goes away, D3 of the issue with it). The projectors
+stay where their rules live and hand the View over the contract (story in TS, XR from OSCT, show and rig in the core), unless #764
+moves the story's rules too. xyflow would remain OSCT's only.
+
+**New questions**
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q9 | C as the network level (nested scopes in where-it-shows rows)? | yes |
+| Q10 | Rows: roles outside a session and devices inside (automatic), or always the switch? | automatic, with the switch to override |
+| Q11 | Draw the tab with deck-kit everywhere (natively, and in the creator through wasm) – decide now for this tab, or wait for #764? | make this tab #764's first test piece: deck-kit, hosted in the creator through wasm; fall back to xyflow only if the wasm host fails a measured budget (load, memory) |
+| Q12 | "Native only" for rig rewiring: does the deck editor running as wasm in a browser count as native? | yes – the deck editor is the place to rewire, wherever it runs; the creator's own pages only draw |
+
+If Q11 is yes, the steps of §6 reorder: 1 the contract · 2 the tab in deck-kit with the show and rig scopes it already draws, and its
+wasm host in the creator · 3 the story projector feeding it · 4 the network level C · 5 XR · 6 live feedback.
+

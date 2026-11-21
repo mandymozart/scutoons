@@ -1,4 +1,4 @@
-<!-- Status: design drafts round 1 for the owner's review (#763, epic #626), 2026-11-21 – concept only, no build. Research: NETWORK.md. -->
+<!-- Status: design drafts round 2 for the owner's review (#763, epic #626), 2026-11-21 – C (?v=5/6) after the owner liked B's readability and A's rows; concept only, no build. Research: NETWORK.md. -->
 <!doctype html>
 <html lang="en" data-theme="night">
 <head>
@@ -7,6 +7,7 @@
 <title>One network</title>
 <!-- The one Flow tab over every scope (#763). The tab is shown on the stage (#765 "taking the stage").
      ?v=1 chapter level (story scope) · 2 the network, A runtime lanes · 3 the network, B nested scopes · 4 a rig (deck scope, audio context)
+     · round 2: 5 the network, C nested scopes in where-it-shows rows (roles) · 6 the same rows as devices now
      ?theme=day · ?quiet folds the notes. Keys: 1–4 views · T day / night · N notes · L live feedback on / off. Open at 1440×900.
      Colours: shared/tokens/editor.css; signals: deck/kit/src/base/signal.rs (night + day), copied 1:1. -->
 <style>
@@ -253,6 +254,64 @@ V[4] = {
   extra: 'Open in deck editor',
 };
 
+/* round 2 (C): the nested scopes of B inside rows that say where a thing shows */
+const C_NODES = [
+  { id: 'c1', x: 15, y: 3.2, w: 9, title: 'Ch 1', kind: 'chapter', pic: true, outs: [['n', 'end', 'scene']] },
+  { id: 'c2', x: 27, y: 2.6, w: 11, title: 'Ch 2 · Dunes', kind: 'chapter', pic: true, sel: true, ins: [['i', 'from', 'scene']], outs: [['e', 'storm', 'event'], ['j', 'jumpTo', 'scene']] },
+  { id: 'c3', x: 42, y: 3.2, w: 9, title: 'Ch 3', kind: 'chapter', pic: true, ins: [['i', 'from', 'scene']] },
+  { id: 'well', x: 56, y: 14.2, w: 10, title: 'well', kind: 'XR scene', ins: [['i', 'enter', 'scene']], outs: [['g', 'goto', 'scene']] },
+  { id: 'top', x: 69, y: 14.2, w: 10, title: 'dune top', kind: 'XR scene', ins: [['i', 'enter', 'scene']] },
+  { id: 'r4', x: 15, y: 24, w: 12, title: 'row 4 · storm', kind: 'row · on beat', ins: [['e', 'fire on', 'event']], outs: [['l', 'cell left', 'scene'], ['s', 'cell sound', 'scene'], ['m', 'lamps look', 'address']] },
+  { id: 'r5', x: 30, y: 24, w: 11, title: 'row 5', kind: 'row · auto', ins: [['e', 'after 4', 'event']] },
+  { id: 'cl', x: 15, y: 35.2, w: 12, title: 'cell · left', kind: 'Play scene', ins: [['p', 'play', 'scene']], outs: [['o', 'scene dunes', 'scene']] },
+  { id: 'cs', x: 15, y: 46.5, w: 12, title: 'cell · sound', kind: 'Play rig', ins: [['p', 'play', 'scene']], outs: [['o', 'notes', 'event']] },
+  { id: 'cm', x: 15, y: 57.4, w: 12, title: 'cell · lamps', kind: 'Send', ins: [['p', 'send', 'address']], outs: [['o', 'look storm', 'address']] },
+  { id: 'dunes', x: 52, y: 35, w: 13, title: 'dunes', kind: 'deck scene · 3 layers', pic: true, ins: [['p', 'play', 'scene'], ['g', 'glow', 'control']], outs: [['o', 'screen', 'picture']] },
+  { id: 'osc', x: 52, y: 46.5, w: 9, title: 'osc', kind: 'module', ins: [['n', 'note', 'event']], outs: [['o', 'out', 'audio']] },
+  { id: 'svf', x: 64, y: 46.5, w: 9, title: 'svf', kind: 'module', ins: [['i', 'in', 'audio']], outs: [['o', 'out', 'audio']] },
+  { id: 'sum', x: 76, y: 46.5, w: 10, title: 'sum', kind: 'folder bus', ins: [['i', 'in', 'audio']], outs: [['o', 'being', 'audio'], ['l', 'level', 'control']] },
+  { id: 'dmx', x: 52, y: 57.4, w: 13, title: 'bridge · DMX', kind: 'device role', ins: [['i', 'look', 'address']] },
+];
+const C_EDGES = [
+  ['c1.n', 'c2.i', 'scene', 'end'], ['c2.j', 'well.i', 'scene', 'jumpTo', { crosses: 'navigation' }], ['well.g', 'c3.i', 'scene', 'goto'],
+  ['c2.e', 'r4.e', 'event', 'storm', { lit: true, crosses: 'relay · story events' }],
+  ['r4.l', 'cl.p', 'scene', ''], ['r4.s', 'cs.p', 'scene', '', { lit: true }], ['r4.m', 'cm.p', 'address', ''],
+  ['cl.o', 'dunes.p', 'scene', '', { crosses: 'relay · role left' }], ['cs.o', 'osc.n', 'event', 'music.note', { lit: true, crosses: 'relay · role sound' }],
+  ['osc.o', 'svf.i', 'audio', '', { lit: true }], ['svf.o', 'sum.i', 'audio', '', { lit: true }], ['sum.l', 'dunes.g', 'control', 'level → glow'],
+  ['cm.o', 'dmx.i', 'address', '', { crosses: 'relay · role lamps' }],
+];
+const C_FRAMES = [
+  ['Toon · Sandbox', 13, 1, 40, 8.6, 'story'], ['Experience · dune-ar', 54, 12, 27, 7, 'xr'],
+  ['Show · Sandbox demo', 13, 22, 31, 41.5, 'conductor + 3 roles'], ['Deck scene · dunes', 50, 33.4, 17, 8.2, 'deck'], ['Rig · crow', 50, 44.6, 38, 9.2, 'deck · audio context'],
+];
+const C_ROWS = R => `<span class="label" style="padding:0 .4rem">rows</span><button class="${R === 'roles' ? 'on' : ''}" data-v="5">where it may show</button><button class="${R === 'devices' ? 'on' : ''}" data-v="6">devices now</button>`;
+
+V[5] = {
+  items: [['Home'], ['Chapter 2 · Dunes'], ['rig crow'], ['Sandbox demo', true]],
+  path: [['Universe', 'b']], follows: 'pinned · universe', pinned: true, waits: 'Home waits ↓',
+  lanes: [['Readers', 0, 10, 'phones · the reader app'], ['AR', 11, 9, 'phones · OSCT engine'], ['Conductor', 21, 11, "the show's seat"],
+    ['screens › left', 33, 9, 'stage role'], ['light & sound › sound', 43, 12, 'stage role'], ['light & sound › lamps', 56, 7.5, 'device role']],
+  frames: C_FRAMES, nodes: C_NODES, edges: C_EDGES, extraHtml: C_ROWS('roles'),
+  notes: `<h2>5 · C: nested scopes in "where it shows" rows</h2>
+  <p>B's frames (readable) placed in A's rows (where it plays). The rows are no longer runtimes but <b>places that show</b>: the readers' phones, AR, the conductor, and the show's <b>roles</b> (its outlets: a stage role is a screen or a speaker, a device role a bridge; adjacent roles share a group head, <i>light &amp; sound</i>).</p>
+  <ul><li>A scope sits in the row it shows in. The <b>show spans its roles</b>: its rows sit in the conductor's row, each cell in the row of the role that plays it – the show's grid turned into the network.</li>
+  <li>What a cell plays sits beside it in the same row: the deck scene on the left screen, the rig on the sound role, the DMX look on the lamps.</li>
+  <li>Cables crossing rows say how they travel (relay, navigation).</li>
+  <li>Switch <b>devices now</b> to see the same network on the devices of a running session.</li>
+  <li>Drawn by deck-kit: the same canvas in the deck editor and, through wasm, in the creator (§9).</li></ul>`,
+};
+V[6] = {
+  ...V[5],
+  lanes: [['412 phones', 0, 10, 'reading · sandbox'], ['38 phones', 11, 9, 'in AR · dune-ar'], ["Tilman's laptop", 21, 11, 'conductor'],
+    ['deck-2 · projector', 33, 9, 'takes: left'], ['crow-box · speakers', 43, 12, 'takes: sound'], ['bridge-1 · DMX', 56, 7.5, 'takes: lamps'], ['deck-3', 64.5, 4, 'no role · idle']],
+  extraHtml: C_ROWS('devices'),
+  notes: `<h2>6 · C: the same rows, as devices now</h2>
+  <p>During a session the rows are the <b>devices that are there</b>: how many readers, which deck took which role, a deck without a role at the bottom. The scopes and cables stay where they are; only the row heads change.</p>
+  <ul><li>A deck taking two roles is one row with two heads; a role nobody took shows empty and marked.</li>
+  <li>Live beads come from the devices themselves: the relay knows who received what.</li>
+  <li>Outside a session the tab shows roles (5); inside one, devices (6) – or a switch, as here.</li></ul>`,
+};
+
 /* ── drawing ─────────────────────────────────────────────────────────── */
 const HEAD = 2.1, ROW = 1.55;
 function geom(n) {
@@ -274,9 +333,10 @@ function draw() {
   const top = el('g', { transform: `translate(0, ${1.5 * r})` });
   svg.append(top);
 
-  for (const [t, y, h] of d.lanes || []) {
+  for (const [t, y, h, sub] of d.lanes || []) {
     top.append(el('rect', { 'data-lane': 1, x: 0, y: y * r, width: 90 * r, height: h * r, rx: .36 * r, fill: 'var(--within)', opacity: .45 }));
     top.append(el('text', { x: 1.2 * r, y: (y + 1.2) * r, class: 'lane-t' }, t));
+    if (sub) top.append(el('text', { x: 1.2 * r, y: (y + 2.3) * r, class: 'tm' }, sub));
   }
   for (const [y, t] of d.seams || []) {
     top.append(el('line', { x1: 0, x2: 90 * r, y1: (y + .5) * r, y2: (y + .5) * r, stroke: 'var(--line)', 'stroke-dasharray': '4 4' }));
@@ -352,17 +412,17 @@ function chrome() {
   document.getElementById('items').innerHTML = d.items.map(([t, on]) => `<button class="${on ? 'on' : ''}">${t}</button>`).join('');
   document.getElementById('path').innerHTML = '<span class="label" style="padding:0 .4rem">Flow</span><button title="Up a level (Alt+↑)">↑</button><span class="sep"></span>' +
     d.path.map(([t, k], i) => k === 'scope' ? `<span class="scope">${t}</span>` : `<button>${k === 'b' ? `<b>${t}</b>` : t}</button>${i < d.path.length - 1 ? '›' : ''}`).join('');
-  document.getElementById('tool').innerHTML = `<button title="Frame all (F)">Frame</button><button title="Direction (workspace setting)">LR ▾</button><button title="Previews in nodes">Previews</button><button class="${live ? 'on' : ''}" id="livebtn" title="Live feedback (L)">Live</button>${d.extra ? `<span class="sep"></span><button>${d.extra}</button>` : ''}`;
+  document.getElementById('tool').innerHTML = `<button title="Frame all (F)">Frame</button><button title="Direction (workspace setting)">LR ▾</button><button title="Previews in nodes">Previews</button><button class="${live ? 'on' : ''}" id="livebtn" title="Live feedback (L)">Live</button>${d.extra ? `<span class="sep"></span><button>${d.extra}</button>` : ''}${d.extraHtml ? `<span class="sep"></span>${d.extraHtml}` : ''}`;
   document.getElementById('follow').innerHTML = d.pinned
     ? `<button class="on" title="Pinned: the level stays">📌 ${d.follows}</button><button title="Follow the front item again">Follow</button>`
     : `<span class="dot" style="margin:0 .3rem 0 .5rem"></span><span style="font-size:var(--small);color:var(--muted);padding-right:.4rem">follows ${d.follows}</span><button title="Pin this level">📌</button>`;
   document.getElementById('legend').innerHTML = ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far'].map(s => {
     const svg = `<svg width="12" height="12" viewBox="-6 -6 12 12">${shapeSvg(s)}</svg>`; return `<span>${svg}${s}</span>`;
   }).join('');
-  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4].map(i => `<button class="${i === view ? 'on' : ''}" data-v="${i}">${['Chapter', 'Network A', 'Network B', 'Rig'][i - 1]}</button>`).join('');
+  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4, 5].map(i => `<button class="${i === view || (i === 5 && view === 6) ? 'on' : ''}" data-v="${i}">${['Chapter', 'Network A', 'Network B', 'Rig', 'Network C'][i - 1]}</button>`).join('');
   document.getElementById('waits').innerHTML = `<button>${d.waits}</button>`;
   document.getElementById('notes').innerHTML = d.notes;
-  document.querySelectorAll('#views button').forEach(b => b.onclick = () => go(+b.dataset.v));
+  document.querySelectorAll('#views button, #tool button[data-v]').forEach(b => b.onclick = () => go(+b.dataset.v));
   document.getElementById('livebtn').onclick = toggleLive;
 }
 function shapeSvg(s) {
@@ -376,7 +436,7 @@ function shapeSvg(s) {
 function go(v) { view = v; q.set('v', v); history.replaceState(null, '', '?' + q); chrome(); draw(); }
 function toggleLive() { live = !live; document.body.classList.toggle('live', live); chrome(); draw(); }
 addEventListener('keydown', e => {
-  if (e.key >= '1' && e.key <= '4') go(+e.key);
+  if (e.key >= '1' && e.key <= '6') go(+e.key);
   else if (e.key === 't' || e.key === 'T') { const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; draw(); }
   else if (e.key === 'n' || e.key === 'N') { document.body.classList.toggle('quiet'); draw(); }
   else if (e.key === 'l' || e.key === 'L') toggleLive();
