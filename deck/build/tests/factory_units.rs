@@ -11,6 +11,13 @@ fn every_factory_module_passes_the_compile_check() {
         ("bob", bob_module::Bob::DESCRIPTOR),
         ("dolly", dolly_module::Dolly::DESCRIPTOR),
         ("fixture", fixture_module::Fixture::DESCRIPTOR),
+        ("env", env_module::Env::DESCRIPTOR),
+        ("vca", vca_module::Vca::DESCRIPTOR),
+        ("filter", filter_module::Filter::DESCRIPTOR),
+        ("noise", noise_module::Noise::DESCRIPTOR),
+        ("osc", osc_module::Osc::DESCRIPTOR),
+        ("mixer", mixer_module::Mixer::DESCRIPTOR),
+        ("transpose", transpose_module::Transpose::DESCRIPTOR),
     ] {
         check(json).unwrap_or_else(|e| panic!("{name}: {e}"));
     }

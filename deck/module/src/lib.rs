@@ -38,6 +38,8 @@ pub mod block;
 pub mod ctx;
 pub mod cv;
 pub mod ev;
+/// a golden render's hash
+pub mod golden;
 pub mod hdr;
 pub mod io;
 pub mod layout;

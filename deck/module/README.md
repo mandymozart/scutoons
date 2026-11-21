@@ -61,7 +61,7 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
   every module node has them from the next block's start – natively and in live-core alike (`lc_context`). Match the
   string or switch on the index; both change on the same block.
 - Parameters are a table the host writes (clamped, NaN ignored); the dirty ones are copied into the fields before a call and
-  `Module::params_changed(dirty)` follows. `Smooth`, `deck_module::math` (libm: the same bits native and wasm) and the units of `deck_module::dsp` (below) for the DSP;
+  `Module::params_changed(dirty)` follows. `Smooth` (`land`: arrived, once this close), `deck_module::math` (libm: the same bits native and wasm) and the units of `deck_module::dsp` (below) for the DSP;
   `cv::GateCv::render_notes` renders a module's own notes into a `cv` port.
 - Exports: `dm_abi` (2), `dm_io`, `dm_layout`, `dm_descriptor_ptr/len`, `dm_new`, `dm_process` **or** `dm_control`,
   `dm_asset_buf` (with assets). The counting allocator counts allocations inside a call into `OutHdr.allocs` and traps when
@@ -117,10 +117,33 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 | `svf` | `Svf`: LP / BP / HP / notch from a control-rate `Coef` (`tick`), or the lowpass with cutoff and Q per sample (`lowpass`); `drive`. |
 | `onepole` | `OnePole`: 6 dB lowpass / highpass, `coef(cutoff, rate)`. |
 | `adsr` | `Adsr`: linear attack, exponential decay and release that take exactly their time. |
+| `line` | `Line`: the ADSR with straight attack, decay and release, the same gate and times. |
 | `follower` | `Follower`: a signal's size as a level, attack and release times. |
+| `level` | `gain(db)`: a dB parameter as a factor, 0 at `OFF_DB` (−60) and below. |
 | `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
 | `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
 | `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
+
+## The small audio modules
+
+Seven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`. A level in dB is
+silent at its bottom (−60); every knob glides; an event takes effect on its frame.
+
+| module | ports in → out | parameters | preset |
+|---|---|---|---|
+| `osc` | `notes` (event), `fm` (audio 1), `pitch` (control, st) → `out` (1) | `wave` saw / pulse / triangle / sine, `semi` st, `fine` cent, `pw` %, `detune` cent, `voices` 1–7 | supersaw |
+| `noise` | `gate` (event) → `out` (1) | `color` white / pink, `level` dB, `mode` free / gated | hat |
+| `env` | `gate` (event) → `out` (audio 1, a value a sample), `env` (control, a value a call) | `mode` adsr / ad / ar, `a` `d` `r` s (log), `s` %, `curve` lin / exp, `velocity` % | pluck |
+| `vca` | `in` (any), `cv` (audio 1), `cv_control` (control) → `out` (any) | `gain` dB, `amount` % (how much the cv plays the gain) | vca |
+| `filter` | `in` (any), `cutoff_mod` (control, oct), `notes` (event, key tracking) → `out` (any) | `mode` lp12 / lp24 / bp / hp / notch, `cutoff` Hz (log), `res` %, `drive` %, `key` % | acid |
+| `mixer` | `in1` … `in8` (2 each) → `out` (2), `send` (2) | per input `gain` dB, `pan` −1 … 1 (a balance), `send` dB, `mute`; `master` dB | pair |
+| `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
+
+Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
+turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven
+native ≡ wasm by `deck/build/tests/factory_wasm.rs`. A module's golden and no_alloc tests share one script through
+`deck_module::golden` (`Bench`: parameters by name, a seeded input signal; `Hash`).
 
 ## Tests
 

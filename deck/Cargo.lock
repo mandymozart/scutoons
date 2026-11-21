@@ -1859,6 +1859,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "env-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "epaint"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1961,6 +1968,13 @@ checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
 dependencies = [
  "cfg-if",
  "libc",
+]
+
+[[package]]
+name = "filter-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
 ]
 
 [[package]]
@@ -3053,6 +3067,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mixer-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "module-bench"
 version = "0.1.0"
 dependencies = [
@@ -3243,6 +3264,13 @@ name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
+
+[[package]]
+name = "noise-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
 
 [[package]]
 name = "nom"
@@ -3747,6 +3775,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "osc-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
 ]
 
 [[package]]
@@ -4752,8 +4787,13 @@ dependencies = [
  "deck-show",
  "deck-space",
  "dolly-module",
+ "env-module",
+ "filter-module",
  "fixture-module",
  "libc",
+ "mixer-module",
+ "noise-module",
+ "osc-module",
  "proc-macro2",
  "serde",
  "serde_json",
@@ -4763,6 +4803,8 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "transpose-module",
+ "vca-module",
  "walk-module",
 ]
 
@@ -5824,6 +5866,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "transpose-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "ttf-parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5981,6 +6030,13 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "vca-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
 
 [[package]]
 name = "vec_map"

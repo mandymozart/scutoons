@@ -10,7 +10,9 @@
 //! | `svf` | state-variable filter: LP / BP / HP / notch, drive |
 //! | `onepole` | 6 dB lowpass / highpass |
 //! | `adsr` | the envelope |
+//! | `line` | the envelope with straight segments |
 //! | `follower` | envelope follower: attack, release |
+//! | `level` | decibels as a factor, silent at the bottom |
 //! | `delay` | delay line (whole and cubic fractional reads), allpass, damped comb |
 //! | `fft` | radix-2 FFT of real input, and back |
 //! | `arith` | f64 maths from arithmetic only |
@@ -19,6 +21,8 @@ pub mod arith;
 pub mod delay;
 pub mod fft;
 pub mod follower;
+pub mod level;
+pub mod line;
 pub mod noise;
 pub mod onepole;
 pub mod osc;
