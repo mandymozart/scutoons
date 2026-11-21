@@ -1,4 +1,4 @@
-Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), a story place stays relational (§0.3), the relation cleanup filed (#709, #710, #711), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. Open, not decided: the XR geo-anchor's engine and precision (§0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
+Status 2026-11-20: narrowed by the owner's answers (§0): no renaming, the containers stay specific to their medium; only what travels between them is unified (assets, sets, events, addresses). Decided: stable chapter group ids (#706), a story place stays relational (§0.3), the relation cleanup filed (#709, #710, #711), story events and choice questions in the address book (#707), shows across toons filed (#708); dropped: the shared sequence core and a group playing a deck scene without a show. The XR geo-anchor is filed as a proposal, not to do yet (#714, §0.2). Nothing else built (#703, epic #626). §1 and §2 stay valid; §3 to §8 and scenes-drafts.html are the first, wider proposal, kept as the record and superseded by §0.
 
 # SCENES / CONCEPT — one sequence model for reader, storyboard, XR and deck
 
@@ -98,7 +98,7 @@ The owner's lean: a group names a **spot within a location** (`location:cathedra
 - Does a chapter group carry a spot at all, and what does it do there (the reader shows no position: is it only for a linked deck, for XR, for the map)?
 - One spot per group, or several ("both")?
 - The reference form: `location:cathedral.altar`, or a spot id of its own?
-- XR: the geo-anchor's engine and precision (§0.2).
+- XR: the geo-anchor's engine and precision (§0.2) → proposal #714, not to do yet (owner 2026-11-21).
 
 ### 0.4 A place on a single slice, and where a place shows today – **closed: relational** (§0.3)
 
