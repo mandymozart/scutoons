@@ -2,6 +2,7 @@ import { Raycaster, Vector2, type Object3D } from 'three';
 import { modelOf, nodeOf, pickable, pickByFilter, type StageHit } from '../osct/editor/src/lib/stage/pick';
 import { outline, SELECTION_COLOR, type Outline } from '../osct/editor/src/lib/stage/shading';
 import { entityNodes, getTarget, getTargets } from '../osct/engine/src/content/game-config';
+import { BACKDROP_LAYER } from '../osct/engine/src/scene/view';
 import type { SceneInspection } from '../osct/engine/src/types/scene';
 import type { XrNodeRef } from './stage-api';
 
@@ -12,6 +13,8 @@ import type { XrNodeRef } from './stage-api';
  */
 export function stagePicking(inspect: () => SceneInspection | null, scene: string) {
 	const raycaster = new Raycaster();
+	// the printed images and the desk lie on the backdrop layer (OSCT's stage-core enables it too)
+	raycaster.layers.enable(BACKDROP_LAYER);
 	let selected: Outline | null = null;
 
 	function hits(container: HTMLElement, clientX: number, clientY: number, planes: Object3D[]): StageHit[] {
