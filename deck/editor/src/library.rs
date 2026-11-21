@@ -748,18 +748,19 @@ impl crate::App {
                     None => tracing::warn!("--library-drag: no card of {address} in {:?}", self.library.entries.iter().map(|e| &e.address).collect::<Vec<_>>()),
                 }
             }
-            f if f > START && f <= START + 10 => {
+            // a held card follows its target (the node view frames itself again when a preview arrives)
+            f if f > START && (hold || f <= START + 10) => {
                 let (x0, y0) = self.cursor;
-                let k = 1.0 / (START + 11 - f) as f32;
+                let k = 1.0 / (START + 11).saturating_sub(f).max(1) as f32;
                 self.pointer(x0 + (x - x0) * k, y0 + (y - y0) * k);
             }
-            f if f == START + 12 && !hold => self.release(),
-            f if f == START + 14 => {
-                let row = self.show.shown().rows.get(self.show.row);
-                let cells: Vec<String> = row.map(|r| r.cells.iter().map(|(c, cell)| format!("{c}: {}", deck_show::view::cell_text(cell))).collect()).unwrap_or_default();
-                tracing::info!("library-drag {address}: row {} [{}]", row.map_or("-", |r| r.id.as_str()), cells.join(", "));
-            }
+            f if f == START + 12 => self.release(),
             _ => {}
+        }
+        if self.frames == START + 14 {
+            let row = self.show.shown().rows.get(self.show.row);
+            let cells: Vec<String> = row.map(|r| r.cells.iter().map(|(c, cell)| format!("{c}: {}", deck_show::view::cell_text(cell))).collect()).unwrap_or_default();
+            tracing::info!("library-drag {address}: row {} [{}]", row.map_or("-", |r| r.id.as_str()), cells.join(", "));
         }
     }
 }
