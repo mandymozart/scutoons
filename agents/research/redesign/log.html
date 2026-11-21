@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- status: draft, 2026-11-21 – #767: one Log with Problems as a filter (A) vs a Log tab and a Problems tab sharing the scope (B). Owner decides. -->
+<!-- status: decided 2026-11-21 – #767: A, one Log (owner: "a one log, also make it so i can filter events by type" – "with their legends"); B stays below as considered. -->
 <html lang="en" data-theme="night">
 <head>
 <meta charset="utf-8">
@@ -33,7 +33,11 @@ main { display: grid; grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr)
 
 /* the panel, as the creator's floating panel */
 .panel { background: var(--ground); backdrop-filter: blur(6px); border-radius: calc(var(--radius) * 2); text-shadow: var(--halo);
-	display: grid; grid-template-rows: auto auto auto 1fr; height: 34rem; overflow: hidden; }
+	display: grid; grid-template-rows: auto auto auto 1fr;
+}
+#a.panel { grid-template-rows: auto auto auto auto 1fr auto; height: calc(100vh - 8.5rem); }
+.panel { height: 34rem; overflow: hidden; }
+#a.panel { height: calc(100vh - 8.5rem); }
 .phead { display: flex; align-items: center; gap: 0.25rem; padding: 0.4rem 0.5rem; }
 .grip { color: var(--muted); font-size: 0.8rem; margin-right: 0.2rem; }
 .tab { all: unset; cursor: pointer; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: var(--small); }
@@ -68,6 +72,13 @@ main { display: grid; grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr)
 .accepted { opacity: 0.5; }
 .empty { color: var(--muted); font-size: var(--small); padding: 1rem 0.2rem; }
 
+.ic { width: 0.95em; height: 0.95em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.12em; }
+.kind { color: var(--text); margin-right: 0.35rem; }
+.pill .ic { margin-right: 0.3rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; padding: 0.45rem 0.6rem 0.55rem; border-top: 1px solid var(--line); font-size: var(--label); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.legend .ic { color: var(--text); }
+.legend b { font-weight: 400; color: var(--text); }
 footer { display: flex; gap: 0.5rem; align-items: center; }
 .bar { flex: 1; display: flex; gap: 0.75rem; align-items: center; background: var(--ground); backdrop-filter: blur(6px); border-radius: 999px; padding: 0.35rem 0.9rem; font-size: var(--small); text-shadow: var(--halo); color: var(--text); }
 .bar .dot { margin: 0; }
@@ -85,7 +96,7 @@ footer { display: flex; gap: 0.5rem; align-items: center; }
 
 <main>
 	<section class="col">
-		<h2>A · One Log, Problems as a filter</h2>
+		<h2>A · One Log, Problems as a filter – chosen</h2>
 		<div class="panel" id="a">
 			<div class="phead"><span class="grip">⠿</span>
 				<button class="tab on">Log <span class="n bad">2</span></button>
@@ -94,13 +105,15 @@ footer { display: flex; gap: 0.5rem; align-items: center; }
 			</div>
 			<div class="row" data-group="scope"></div>
 			<div class="row" data-group="show"></div>
+			<div class="row" data-group="types"></div>
 			<div class="lines"></div>
+			<div class="legend"></div>
 		</div>
-		<p class="note"><b>One place, one set of pills.</b> "Problems" is a filter of the Log: the default view shows what's wrong now on top (it stays until fixed), and below it what happened. One count, one list, one way to scope. <b>Cost:</b> a busy session puts many events under the problems; the Problems filter hides them.</p>
+		<p class="note"><b>Event types with their legend:</b> every event carries its type's icon; the Type pills show the same icons and pick which kinds show (several at once, none = all); the legend under the list says what each means. Problems aren't typed – they're the standing part. <b>One place, one set of pills.</b> "Problems" is a filter of the Log: the default view shows what's wrong now on top (it stays until fixed), and below it what happened. One count, one list, one way to scope. <b>Cost:</b> a busy session puts many events under the problems; the Problems filter hides them.</p>
 	</section>
 
 	<section class="col">
-		<h2>B · Two tabs in one shared panel, the scope shared</h2>
+		<h2>B · Two tabs, the scope shared – considered, not chosen</h2>
 		<div class="panel" id="b">
 			<div class="phead"><span class="grip">⠿</span>
 				<button class="tab on" data-tab="problems">Problems <span class="n bad">2</span></button>
@@ -129,14 +142,28 @@ const LINES = [
 	{ k: 'problem', lvl: 'warn', scope: 'chapter/2/group/2/slice/6', where: 'Group 2 › Slice 6', text: 'Lettering runs past the safe area' },
 	{ k: 'problem', lvl: 'warn', scope: 'chapter/2', where: 'Chapter', text: "Description is short for the reader's card" },
 	{ k: 'problem', lvl: 'warn', scope: 'season/1', where: 'Season 1', text: 'Season 1 has no cover', accepted: true },
-	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved', t: '12 s' },
-	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3 · generation', text: 'Generation started – 4 variants', t: '1 min' },
-	{ k: 'event', lvl: 'error', scope: 'chapter/2/group/2/slice/2', where: 'Slice 2.2 · generation', text: 'Generation failed – the model timed out', t: '3 min' },
-	{ k: 'event', lvl: 'ok', scope: 'chapter/1', where: 'Chapter 1', text: 'Published by tilman', t: '20 min' },
-	{ k: 'event', lvl: 'info', scope: 'season/1', where: 'Library', text: 'Uploaded cathedral_night.png', t: '25 min' },
-	{ k: 'event', lvl: 'info', scope: 'show', where: 'Show · conductor', text: 'Cue 4 "Choir" fired', t: '40 min' },
-	{ k: 'tech', lvl: 'warn', scope: 'app', where: 'Technical', text: 'wasm core: slow frame 48 ms', t: '41 min' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved', t: '12 s', type: 'save' },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3', text: 'Generation started – 4 variants', t: '1 min', type: 'generation' },
+	{ k: 'event', lvl: 'error', scope: 'chapter/2/group/2/slice/2', where: 'Slice 2.2', text: 'Generation failed – the model timed out', t: '3 min', type: 'generation' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/1', where: 'Chapter 1', text: 'Published by tilman', t: '20 min', type: 'publish' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Restored the version of 14:02', t: '8 min', type: 'history' },
+	{ k: 'event', lvl: 'warn', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved again after a lost connection', t: '9 min', type: 'sync' },
+	{ k: 'event', lvl: 'info', scope: 'season/1', where: 'Library', text: 'Uploaded cathedral_night.png', t: '25 min', type: 'library' },
+	{ k: 'event', lvl: 'info', scope: 'show', where: 'Show', text: 'Cue 4 "Choir" fired', t: '40 min', type: 'show' },
+	{ k: 'tech', lvl: 'warn', scope: 'app', where: 'App', text: 'wasm core: slow frame 48 ms', t: '41 min', type: 'technical' },
 ];
+const ICON = {
+	save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',
+	publish: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+	history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+	generation: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z"/>',
+	library: '<rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="M20 15l-5-5-9 9"/>',
+	show: '<path d="M7 4l12 8-12 8z"/>',
+	sync: '<path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/>',
+	technical: '<path d="M4 7l5 5-5 5M12 18h8"/>',
+};
+const icon = (t) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[t]}</svg>`;
+const TYPES = [['save', 'Saves', 'an autosave of the item'], ['publish', 'Publishes', 'made live for readers'], ['history', 'History', 'a version restored'], ['generation', 'Generations', 'image / video jobs'], ['library', 'Library', 'uploads, replaces, deletes'], ['show', 'Show', 'cues, devices, the conductor'], ['sync', 'Sync', 'connection, saving again'], ['technical', 'Technical', 'the app and the core']];
 const SCOPES = [['selection', 'Selection'], ['item', 'Item'], ['chapter', 'Chapter'], ['season', 'Season'], ['toon', 'Toon'], ['show', 'Show'], ['all', 'All']];
 const inScope = (l, s) => s === 'all' ? true
 	: s === 'show' ? l.scope === 'show'
@@ -146,13 +173,14 @@ const inScope = (l, s) => s === 'all' ? true
 	: true;
 
 const shared = { scope: 'item' }; // B: one scope for both tabs
-const state = { a: { show: 'default', scope: 'item' }, b: { tab: 'problems' } };
+const state = { a: { show: 'default', scope: 'item', types: new Set() }, b: { tab: 'problems' } }; // A: no type picked = every type
 
 function lineHtml(l) {
 	const right = l.k === 'problem'
 		? `<span class="side">jump ›<button class="acc" title="${l.accepted ? 'accepted' : 'accept'}">✓</button></span>`
 		: `<span class="side">${l.t}</span>`;
-	return `<div class="line ${l.lvl}${l.accepted ? ' accepted' : ''}"><span class="dot"></span><div><div class="where"><span class="lvl">${l.lvl === 'ok' ? '' : l.lvl}</span> ${l.where}</div>${l.text}</div>${right}</div>`;
+	const kind = l.type ? `<span class="kind" title="${TYPES.find(([v]) => v === l.type)[1]}">${icon(l.type)}</span>` : '';
+	return `<div class="line ${l.lvl}${l.accepted ? ' accepted' : ''}"><span class="dot"></span><div><div class="where">${kind}<span class="lvl">${l.lvl === 'ok' ? '' : l.lvl}</span> ${l.where}</div>${l.text}</div>${right}</div>`;
 }
 function pills(row, items, on, pick) {
 	row.innerHTML = items.map(([v, t]) => v === '|' ? '<span class="sep"></span>' : v === 'find' ? '<input class="find" placeholder="Find">' : `<button class="pill${v === on ? ' on' : ''}" data-v="${v}">${t}</button>`).join('');
@@ -167,15 +195,23 @@ function drawA() {
 	const lab = (t) => `<span class="lab">${t}</span>`;
 	pills(p.querySelector('[data-group=scope]'), SCOPES, s.scope, (v) => { s.scope = v; drawA(); });
 	p.querySelector('[data-group=scope]').insertAdjacentHTML('afterbegin', lab('Scope'));
-	pills(p.querySelector('[data-group=show]'), [['default', 'Now + what happened'], ['problems', 'Problems'], ['events', 'Events'], ['tech', 'Technical'], ['|'], ['find']], s.show, (v) => { s.show = v; drawA(); });
+	pills(p.querySelector('[data-group=show]'), [['default', 'Now + what happened'], ['problems', 'Problems'], ['events', 'Events'], ['|'], ['find']], s.show, (v) => { s.show = v; drawA(); });
 	p.querySelector('[data-group=show]').insertAdjacentHTML('afterbegin', lab('Show'));
+	const typeRow = p.querySelector('[data-group=types]');
+	const typed = s.show !== 'problems';
+	typeRow.style.display = typed ? '' : 'none';
+	p.querySelector('.legend').style.display = typed ? '' : 'none';
+	typeRow.innerHTML = lab('Type') + `<button class="pill${s.types.size ? '' : ' on'}" data-v="*">All</button>` + TYPES.map(([v, t]) => `<button class="pill${s.types.has(v) ? ' on' : ''}" data-v="${v}" title="${t}">${icon(v)}${t}</button>`).join('');
+	typeRow.querySelectorAll('.pill').forEach((b) => (b.onclick = () => { const v = b.dataset.v; if (v === '*') s.types.clear(); else if (s.types.has(v)) s.types.delete(v); else s.types.add(v); drawA(); }));
+	p.querySelector('.legend').innerHTML = TYPES.map(([v, t, what]) => `<span>${icon(v)}<b>${t}</b> ${what}</span>`).join('');
 	const here = LINES.filter((l) => inScope(l, s.scope));
-	const probs = here.filter((l) => l.k === 'problem'), events = here.filter((l) => l.k === 'event'), tech = here.filter((l) => l.k === 'tech');
+	const probs = here.filter((l) => l.k === 'problem');
+	const happened = here.filter((l) => l.k !== 'problem' && (!s.types.size || s.types.has(l.type)));
+	const picked = s.types.size ? ' · ' + TYPES.filter(([v]) => s.types.has(v)).map(([, t]) => t.toLowerCase()).join(', ') : '';
 	let html = '';
-	if (s.show === 'default') html = group('Now – problems', probs, ' · stay until fixed') + group('What happened', [...events, ...tech]);
+	if (s.show === 'default') html = group('Now – problems', probs, ' · stay until fixed') + group('What happened', happened, picked);
 	if (s.show === 'problems') html = group('Problems', probs);
-	if (s.show === 'events') html = group('Events', events);
-	if (s.show === 'tech') html = group('Technical', tech);
+	if (s.show === 'events') html = group('Events', happened, picked);
 	p.querySelector('.lines').innerHTML = html || '<div class="empty">Nothing in this scope.</div>';
 }
 
@@ -204,6 +240,7 @@ const q = new URLSearchParams(location.search);
 if (q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
 if (q.get('b')) state.b.tab = q.get('b');
 if (q.get('a')) state.a.show = q.get('a');
+if (q.get('types')) q.get('types').split(',').forEach((t) => state.a.types.add(t));
 if (q.get('scope')) { state.a.scope = q.get('scope'); shared.scope = q.get('scope'); }
 drawA(); drawB();
 </script>

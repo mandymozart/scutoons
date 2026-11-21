@@ -1,4 +1,4 @@
-<!-- status: concept, 2026-11-21 – the owner thought aloud ("create some concept"); nothing decided, nothing built. Issue: #767. -->
+<!-- status: concept, 2026-11-21 – one Log decided (A in log.html, events filtered by type with a legend); questions 2–4 open; nothing built. Issue: #767. -->
 # One Log for everything that happens
 
 > The owner, 2026-11-21, thinking aloud: *"about problems. logs, infos, errors, events, warning etc. I was thinking of a unified log which can be target for all that is happening across the app, scope can be applied to the selection or all or toon or chapter or season or show. so we can filter also for all of this. maybe problems go into it as well. a panel or tab. create some concept"*
@@ -43,6 +43,13 @@ Because a scope is just a prefix, every line knows which scopes it belongs to wi
 - find;
 - accepted on/off (problems).
 Copy all and Save stay (for bug reports).
+
+## 2a. Decided 2026-11-21 (draft: `log.html`, variant A)
+
+- **One Log.** Problems sit inside it as standing lines, and "Problems" is a filter, not its own tab. Two tabs sharing the scope pills read as "weird" to the owner.
+- **Show:** *Now + what happened* (the default: problems on top, then events), *Problems*, *Events*, plus find.
+- **Event types** (owner: *"filter events by type… with their legends"*): Saves, Publishes, History, Generations, Library, Show, Sync, Technical. Every event line carries its type's icon. The Type pills show the same icons and pick several types at once (none picked = all). A legend under the list says what each type means. Problems carry no type; they're the standing part.
+- The type belongs to the line in the core's model (`kind` / `type` beside `level` and `scope`), so the deck editor's Log gets the same filter.
 
 ## 3. Where it shows
 
