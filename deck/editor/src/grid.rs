@@ -4,7 +4,9 @@
 //! Kept per view (a rig, a scene) in the editor's cache.
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
+use deck_core::units::{self, Refs, Unit};
 use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::units as unit_field;
 use deck_space::scene_edit::Part;
 use deck_space::snap::{Guide, Plane, Precision, Settings, Target, SNAP_PX, TARGETS};
 use deck_space::space::place::{Grab, ScreenLine};
@@ -28,6 +30,8 @@ pub enum Field {
     To(Target),
     Move,
     Rotate,
+    /// the steps read in this unit (m, cm, ft)
+    Unit(Unit),
 }
 
 impl Field {
@@ -60,13 +64,15 @@ pub struct GridSnap {
     /// a number being scrubbed: which, the pointer's x and the value when it started
     scrub: Option<(Field, f32, f32)>,
     held: Option<Held>,
+    /// the unit a press on a step's switch chose, for the app to keep
+    picked: Option<Unit>,
 }
 
 impl GridSnap {
     /// the views' settings kept in `file` (none yet: every view starts with the defaults)
     pub fn load(file: Option<PathBuf>) -> GridSnap {
         let views = file.as_deref().and_then(|f| std::fs::read_to_string(f).ok()).and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
-        GridSnap { views, file, key: String::new(), open: false, pill: None, fields: Vec::new(), scrub: None, held: None }
+        GridSnap { views, file, key: String::new(), open: false, pill: None, fields: Vec::new(), scrub: None, held: None, picked: None }
     }
 
     pub fn settings(&self) -> Settings {
@@ -151,7 +157,7 @@ impl GridSnap {
 
     /// The popover from its button, while open, over everything else: under it, or over it when the window (`room`) has
     /// no place below.
-    pub fn popover(&mut self, ui: &mut DrawList, t: &Tokens, room: (f32, f32)) {
+    pub fn popover(&mut self, ui: &mut DrawList, t: &Tokens, room: (f32, f32), distance: Unit) {
         self.fields.clear();
         let Some(pill) = self.pill.filter(|_| self.open) else { return };
         let s = self.settings();
@@ -180,7 +186,17 @@ impl GridSnap {
             let fraction = (value / min).ln() / (max / min).ln();
             (controls::scrub(ui, t, Rect { x: ix, y, w: iw, h: row }, label, &format!("{}{unit}", crate::number(value)), fraction, hot == Some(field)), field)
         };
-        self.fields.push(number(ui, y, "Step", Field::Step, s.step, " m"));
+        let offered = Unit::Metres.dimension().offered(&Refs::default());
+        let metres = |ui: &mut DrawList, y: f32, label: &str, field: Field, value: f32| {
+            let (min, max) = field.precision().map_or((1.0, 2.0), Precision::limits);
+            let fraction = (value / min).ln() / (max / min).ln();
+            let shown = units::convert(f64::from(value), Unit::Metres, distance, &Refs::default()).unwrap_or(f64::from(value));
+            let (r, segs) = unit_field::scrub(ui, t, Rect { x: ix, y, w: iw, h: row }, label, shown, distance, &offered, fraction, hot == Some(field));
+            (r, field, segs)
+        };
+        let (r, f, segs) = metres(ui, y, "Step", Field::Step, s.step);
+        self.fields.push((r, f));
+        self.fields.extend(segs.into_iter().map(|(r, u)| (r, Field::Unit(u))));
         y += row;
         label(ui, y, "Snap");
         let (rects, _) = controls::chips(ui, t, (lx, y + 3.0, iw * 0.58), &["off", "on"], &[!s.snap, s.snap]);
@@ -192,7 +208,9 @@ impl GridSnap {
         let (rects, used) = controls::chips(ui, t, (lx, y + 3.0, iw * 0.58), &names, &on);
         self.fields.extend(rects.into_iter().zip(TARGETS).map(|(r, target)| (r, Field::To(target))));
         y += used.max(row) + 4.0;
-        self.fields.push(number(ui, y, "Move step", Field::Move, s.move_step, " m"));
+        let (r, f, segs) = metres(ui, y, "Move step", Field::Move, s.move_step);
+        self.fields.push((r, f));
+        self.fields.extend(segs.into_iter().map(|(r, u)| (r, Field::Unit(u))));
         y += row;
         self.fields.push(number(ui, y, "Rotate", Field::Rotate, s.rotate, "°"));
         y += row;
@@ -218,6 +236,7 @@ impl GridSnap {
             Field::Step => self.scrub = Some((field, x, s.step)),
             Field::Move => self.scrub = Some((field, x, s.move_step)),
             Field::Rotate => self.scrub = Some((field, x, s.rotate)),
+            Field::Unit(u) => self.picked = Some(u),
         }
         true
     }
@@ -235,6 +254,11 @@ impl GridSnap {
             _ => s.rotate = v,
         });
         true
+    }
+
+    /// the unit a press on a step's switch chose since last asked
+    pub fn take_unit(&mut self) -> Option<Unit> {
+        self.picked.take()
     }
 
     /// the button let go: a scrub ends; true = there was one

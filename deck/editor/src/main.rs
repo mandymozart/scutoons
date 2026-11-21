@@ -1679,6 +1679,9 @@ impl App {
                 return;
             }
         } else if self.grid.press(x, y) {
+            if let Some(u) = self.grid.take_unit() {
+                self.change_settings(|s| s.units.set(dop::DISTANCE_UNIT, u));
+            }
             return;
         }
         match self.hit(x, y) {
@@ -3556,8 +3559,8 @@ impl App {
                         Some(Drag::Dop(n, ..)) => Some(n),
                         _ => None,
                     };
-                    let focal = self.settings.units.unit(dop::FOCAL_UNIT, deck_core::units::Unit::Millimetres, &deck_core::units::Refs::default());
-                    for (r, f) in dop::draw(ui, t, o.area, view, playing, focal, hot) {
+                    let us = dop::Units::of(&self.settings.units);
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, us, hot) {
                         self.panel.hits.push((r, Hit::Dop(f)));
                     }
                 }
@@ -3609,7 +3612,7 @@ impl App {
             ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
             ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
         }
-        self.grid.popover(ui, t, (wf, hf));
+        self.grid.popover(ui, t, (wf, hf), dop::Units::of(&self.settings.units).distance);
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
