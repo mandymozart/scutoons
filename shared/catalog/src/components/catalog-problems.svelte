@@ -117,18 +117,30 @@
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-05);
-		padding: var(--space-05) 0 var(--space-05) var(--space-075);
-		border-left: var(--border-width-focus) solid var(--border-muted);
+		padding: var(--space-05) 0;
 		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
-	li.level-error {
-		border-left-color: var(--state-error);
+	/* the level as a dot, no side rule (owner 2026-11-21, H10) */
+	li::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05, 0.5rem);
+		border-radius: 50%;
+		background: var(--border-muted);
+		margin-top: 0.4em;
+		margin-right: 0;
 	}
-	li.level-warning {
-		border-left-color: var(--state-warning);
+	li.level-error::before {
+		background: var(--state-error);
 	}
-	li.is-accepted {
-		border-left-color: var(--border-muted);
+	li.level-warning::before {
+		background: var(--state-warning);
+	}
+	li.is-accepted::before {
+		background: var(--border-muted);
 	}
 	li.is-accepted .msg {
 		color: var(--text-muted);

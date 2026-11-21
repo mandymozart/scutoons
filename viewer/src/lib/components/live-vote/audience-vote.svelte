@@ -209,7 +209,7 @@
 		font-size: var(--type-title-size);
 	}
 	.mine {
-		padding-left: var(--space-05);
-		border-left: 0.5rem solid var(--group);
+		padding: var(--space-025) var(--space-05);
+		border: 2px solid var(--group);
 	}
 </style>

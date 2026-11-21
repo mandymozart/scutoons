@@ -521,11 +521,7 @@
 	.hits {
 		position: relative;
 	}
-	/* state = the frame's colour + a thick left rule (locale-text), the mirrors keep the same inset */
-	.missing > *,
-	.long > * {
-		border-left-width: 0.5em;
-	}
+	/* state = the frame's colour only, no side rule (H10) */
 	.missing textarea {
 		border-color: var(--state-error);
 	}

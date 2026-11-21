@@ -379,11 +379,11 @@
 		padding: 0;
 	}
 	.notice {
-		border-left: 0.5rem solid var(--primary-cyan);
-		padding-left: var(--space-05);
+		border: var(--border-width-regular) solid var(--primary-cyan);
+		padding: var(--space-025) var(--space-05);
 	}
 	.blocked {
-		border-left: 0.5rem solid var(--state-error);
-		padding-left: var(--space-05);
+		border: var(--border-width-regular) solid var(--state-error);
+		padding: var(--space-025) var(--space-05);
 	}
 </style>

@@ -506,8 +506,8 @@
 		margin: 0;
 	}
 	.store .warn {
-		padding-left: var(--space-05);
-		border-left: 0.5rem solid var(--state-warning);
+		padding: var(--space-025) var(--space-05);
+		border: var(--border-width-regular) solid var(--state-warning);
 	}
 	.carried {
 		display: flex;

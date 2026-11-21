@@ -440,7 +440,6 @@
 	:global(.admin .error-box) {
 		padding: var(--space-075);
 		border: var(--border-width-regular) solid var(--state-error);
-		border-left-width: 0.5rem;
 	}
 	@media (max-width: 479px) {
 		:global(.admin dl.facts) {

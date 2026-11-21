@@ -731,14 +731,21 @@ html:has(.sc-tool[data-theme='day']) body {
 }
 
 /* a problem line outside a Field (a list's or a group's problem after a save): the Field error's look – caption, ink
-   text, a state-colored rule (the error red is below 4.5:1 as small text) */
+   text, a state-coloured dot (the error red is below 4.5:1 as small text; no side rule – owner 2026-11-21, H10) */
 .sc-error {
 	margin: 0;
-	padding-left: var(--space-05);
-	border-left: var(--border-width-regular) solid var(--state-error);
 	color: var(--ink);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
+}
+.sc-error::before {
+	content: '';
+	display: inline-block;
+	width: 0.5em;
+	height: 0.5em;
+	margin-right: var(--space-05);
+	border-radius: 50%;
+	background: var(--state-error);
 }
 
 /* segmented control (owner 2026-10-03, COMPONENTS.md step 6; @scutoons/ui Segmented renders it): one 2px ink frame
@@ -909,20 +916,19 @@ html:has(.sc-tool[data-theme='day']) body {
 	gap: var(--space-05);
 	padding: var(--space-05) var(--space-1);
 	border-bottom: var(--border-width-regular) solid var(--editor-line);
-	border-left: 0.5rem solid var(--editor-line);
 }
 .sc-bar.is-dirty {
 	background: var(--editor-pressed);
 	color: var(--editor-pressed-text);
 }
 .sc-bar.is-warning {
-	border-left-color: var(--state-warning);
+	border-bottom-color: var(--state-warning);
 }
 .sc-bar.is-error {
-	border-left-color: var(--state-error);
+	border-bottom-color: var(--state-error);
 }
 .sc-bar.is-note {
-	border-left-color: var(--primary-cyan);
+	border-bottom-color: var(--primary-cyan);
 }
 
 /* a framed block */

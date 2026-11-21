@@ -99,11 +99,10 @@
 	article {
 		display: grid;
 		gap: var(--space-05);
-		padding-left: var(--space-05);
-		border-left: var(--border-width-focus) solid transparent;
+		padding-inline: var(--space-05);
 	}
 	article.approved {
-		border-left-color: var(--ink);
+		background: var(--editor-selected);
 	}
 	.actions {
 		display: flex;

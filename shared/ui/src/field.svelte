@@ -113,11 +113,19 @@
 	.field-hint {
 		color: var(--text-muted);
 	}
-	/* ink text + state-colored rule: the error red is below 4.5:1 as small text */
+	/* ink text + a state-coloured dot (the error red is below 4.5:1 as small text; no side rule – owner 2026-11-21, H10) */
 	.field-error {
 		color: var(--ink);
-		padding-left: var(--space-05);
-		border-left: var(--border-width-regular) solid var(--state-error);
+	}
+	.field-error::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05, 0.5rem);
+		border-radius: 50%;
+		background: var(--state-error);
 	}
 	.has-error :global(:is(input, select, textarea)) {
 		border-color: var(--state-error);

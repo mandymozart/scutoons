@@ -1171,7 +1171,6 @@
 		width: 100%;
 		min-height: var(--control-height);
 		padding: 0 0.75rem;
-		border-left: 3px solid transparent;
 		cursor: pointer;
 	}
 	/* hover frames (never inverted); the selected one: tools.css .sc-selected */

@@ -527,7 +527,7 @@
 	}
 	/* "Register it now – otherwise someone else can" (registration strategy, ITEMS.md "Ownership, claims, gifting") */
 	.warn {
-		border-left: 0.375rem solid black;
+		border: 2px solid black;
 		padding: 0.25rem 0.5rem;
 		font-weight: 700;
 	}

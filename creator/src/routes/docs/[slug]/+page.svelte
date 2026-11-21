@@ -128,7 +128,6 @@
 	.note {
 		margin: 1.5rem 0 0;
 		padding: 0.75rem 1rem;
-		border-left: 0.25rem solid var(--d-accent);
 		background: var(--d-card);
 		line-height: 1.5;
 	}

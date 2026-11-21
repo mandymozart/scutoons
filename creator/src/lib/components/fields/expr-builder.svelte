@@ -427,10 +427,19 @@
 		padding-left: var(--space-05);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		border-left: 0.5rem solid var(--state-warning);
 	}
-	.problem.error {
-		border-left-color: var(--state-error);
+	.problem::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05);
+		border-radius: 50%;
+		background: var(--state-warning);
+	}
+	.problem.error::before {
+		background: var(--state-error);
 	}
 	.actions {
 		display: flex;

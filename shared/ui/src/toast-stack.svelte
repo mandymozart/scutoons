@@ -60,13 +60,13 @@
 		max-width: 100%;
 	}
 	.success {
-		border-left: 0.5em solid var(--primary-cyan);
+		border-color: var(--primary-cyan);
 	}
 	.warning {
-		border-left: 0.5em solid var(--state-warning);
+		border-color: var(--state-warning);
 	}
 	.error {
-		border-left: 0.5em solid var(--state-error);
+		border-color: var(--state-error);
 	}
 	.action {
 		flex: none;

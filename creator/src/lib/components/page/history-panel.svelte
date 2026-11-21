@@ -204,8 +204,8 @@
 		border-bottom: 1px solid var(--border-subtle);
 	}
 	ol > li.live {
-		border-left: 3px solid var(--ink);
-		padding-left: 0.3rem;
+		background: var(--editor-selected);
+		padding-inline: 0.3rem;
 	}
 	.head {
 		display: flex;

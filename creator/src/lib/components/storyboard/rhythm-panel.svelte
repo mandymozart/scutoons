@@ -74,11 +74,10 @@
 	}
 	li {
 		display: grid;
-		padding-left: var(--space-05);
-		border-left: var(--border-width-focus) solid transparent;
+		padding-inline: var(--space-05);
 	}
 	li.current {
-		border-left-color: var(--ink);
+		background: var(--editor-selected);
 	}
 	.scene {
 		text-transform: uppercase;

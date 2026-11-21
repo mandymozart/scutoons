@@ -321,7 +321,6 @@
 	}
 	.cell.state-missing {
 		border: 1px solid var(--error);
-		border-left: 0.5rem solid var(--state-error);
 		color: var(--error);
 	}
 	.cell.state-empty,
