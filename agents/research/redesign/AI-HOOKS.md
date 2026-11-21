@@ -46,6 +46,8 @@ What that means, in the network's words (#763: a node is a **spore**, connecting
   - a **reference spore** holds one or more reference pictures (a character's sheet, a mood board), woven into a gen-AI spore's reference pore.
   - Both are plain inputs, so the canvas stays open to whatever formats a tool takes. The Kanon texts are a natural source for skills spores.
 
+- **Pores are not "media"** (owner 2026-11-22, answering the draft's question 2: *"no its about organic matter. a image is data and not organic. but pores carry combined complex data."*). A picture, a text or a mesh file is data, and it travels on **ports**. **Pores** connect organic matter and carry combined, complex data: a whole being rather than one file. The draft's round / diamond marks (spores.html step 4) read it wrongly and get redrawn with the next pass.
+
 This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
 ## 1. One shape
