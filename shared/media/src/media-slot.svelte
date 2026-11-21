@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { mediaText, mediaUrl as asset } from './setup.ts';
+	import { mediaHost, mediaText, mediaUrl as asset } from './setup.ts';
 	import { toonAsset } from '@scutoons/content';
-	import AssetPickerSheet from './asset-picker-sheet.svelte';
+	import { slotFit } from './slot-host.ts';
+	import { SlotDrop } from './slot-drop.svelte.ts';
 
 	/**
-	 * One image or video of a page as a slot (owner 2026-10-03: "the text fields for the images are not needed, the
-	 * preview does the job; if something is missing an empty slot will do"): the preview is the button that opens the
-	 * asset picker, an empty slot when nothing is set, the path only as the tooltip; × clears it.
+	 * One image or video of a page as a slot: the preview is the button that asks the app's host for a file (the
+	 * creator's Library), an empty slot when nothing is set, the path only as the tooltip; a file dragged from the host
+	 * drops on it; × clears it.
 	 */
 	let {
 		toon,
@@ -19,8 +20,7 @@
 		onchange,
 		testid,
 		bust = 0,
-		hideLabel = false,
-		webp = false
+		hideLabel = false
 	}: {
 		/** the toon folder ('' = paths from the CDN root, e.g. the character registry's) */
 		toon: string;
@@ -28,6 +28,7 @@
 		value: string | undefined;
 		kind?: 'image' | 'video';
 		label: string;
+		/** where a new file for this slot belongs (a CDN-root folder, e.g. catpope/s1/) */
 		place?: string;
 		onchange: (path: string | undefined) => void;
 		testid?: string;
@@ -35,12 +36,13 @@
 		bust?: number;
 		/** no visible label – the surrounding field shows it (the slot button keeps it as its accessible name) */
 		hideLabel?: boolean;
-		/** an uploaded PNG / JPEG becomes a WebP (the asset picker's `webp`) */
-		webp?: boolean;
 	} = $props();
 
 	const t = $derived(mediaText());
-	let open = $state(false);
+	const fit = $derived(slotFit(kind));
+	const take = (path: string) => onchange(toonRelativePath(path, toon));
+	const drop = new SlotDrop(() => fit, take);
+	const pick = () => mediaHost()?.pick({ ...fit, label, value: value ? rootPath(value, toon) : '', place, onpick: take });
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
 	const src = $derived(value ? asset(toonAsset(toon, value)) + (bust ? `?v=${bust}` : '') : '');
@@ -55,7 +57,19 @@
 <div class="media-slot" data-testid={testid}>
 	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
 	<div class="row">
-		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${t.chooseHint}` : t.chooseHint} aria-label="{label}: {value ?? t.choose}">
+		<button
+			type="button"
+			class="slot"
+			class:empty={!value}
+			class:fits={drop.answer?.ok}
+			class:misfit={drop.answer && !drop.answer.ok}
+			onclick={pick}
+			ondragover={drop.over}
+			ondragleave={drop.leave}
+			ondrop={drop.drop}
+			title={value ? `${value}\n${t.chooseHint}` : t.chooseHint}
+			aria-label="{label}: {value ?? t.choose}"
+		>
 			{#if !value}
 				<Icon name="plus" />
 			{:else if failed}
@@ -72,17 +86,8 @@
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange(undefined)}><CloseIcon /></button>
 		{/if}
 	</div>
-	{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}
-	<AssetPickerSheet
-		bind:open
-		{toon}
-		{kind}
-		value={value ? rootPath(value, toon) : ''}
-		{place}
-		{webp}
-		title={label}
-		onpick={(picked) => onchange(toonRelativePath(picked.path, toon))}
-	/>
+	{#if drop.answer && !drop.answer.ok}<span class="sc-caption misfit" data-testid="slot-misfit">{drop.answer.why}</span>
+	{:else if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}
 </div>
 
 <style>
@@ -118,6 +123,18 @@
 	.slot:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: 2px;
+	}
+	.slot.fits {
+		outline: var(--border-width-focus) dashed var(--editor-accent);
+		outline-offset: 2px;
+	}
+	.slot.misfit {
+		outline: var(--border-width-focus) dashed var(--error);
+		outline-offset: 2px;
+	}
+	.misfit {
+		max-width: 8rem;
+		color: var(--error);
 	}
 	.slot img,
 	.slot video {

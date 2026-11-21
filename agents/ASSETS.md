@@ -314,21 +314,15 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, res
 
 ## UI
 
-- **Creator – the asset picker** (`@scutoons/media` `AssetPickerSheet`, `shared/media/src/asset-picker-sheet.svelte` since 2026-10-04, like the character
-  picker): search, folder (the toon first), kind, resolution (`res`: a file labelled 480p / 720p / 1080p / 1440p / 2x / 3x,
-  or an unlabelled one whose short side is in that band – owner 2026-10-16), unused-only; a grid of thumbnails with the
-  file name wrapped, up to three lines (owner 2026-10-16: the cut names were hard to read; the chosen asset and its
-  files show the whole name and path), size / dimensions / "unused". The controls sit in ONE sticky bar at the bottom
-  (owner 2026-10-16): upload icon · search · filter icon (folder, kind, resolution, unused open above the bar; a dot
-  when narrower than the field's own) · grid / list switch (remembered per browser, `sc-asset-view`). Previews: images
-  themselves, 3D models a rendered still, videos their poster or else their smallest file at 1 s (loaded when the card
-  comes near the screen), edge to edge in the card. Filters also: files = originals only / with versions (`files=single|several`). The field's current file: the card's border in cyan. The chosen asset: picture + whole name in one row, the facts under it, its files as tiles named by their resolution (the original: a star, like the source language), Use across; the chosen asset's files
-  (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
-  editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
-  "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's
-  480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
-  one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
-  asset, chips per level replace / clear one file.
+- **Creator – slots pick through the Library** (#752): a media slot (`MediaSlot`, `FileSlot`, `MediaVariantsSlot` from
+  @scutoons/media) asks the app's host for a file (`setupMedia({ host })`, slot-host.ts) and hands a drag over it to the
+  host (slot-drop.svelte.ts); the creator's host is the Library (`libraryHost`, creator/src/lib/editor/library-drop.ts):
+  a press opens the Library panel in pick mode on what the slot takes (`slotFit`; the core's `takes` decides), "Use here"
+  fills it; a Library tile dragged over a slot lights it when it fits, else the slot shows why (`misfitWords`). A
+  variants slot fills every level from the picked file's family (480p / 720p / 1080p → `variants` low / medium / high,
+  720p the default); a level chip picks a file for that level only. A collage piece ("+ piece", the score stage) is a
+  Library pick of any picture; a character picture keeps its figure. Upload is the Library's (into the slot's folder:
+  TODO #701). The old asset picker lives on only in the admin's newsletter (#771).
 - **Map tiles** (owner 2026-10-16: "thousands … really hard to find anything"; research/ASSET-LISTS.md): a file
   `<set>/<z>/<x>_<y>.<ext>` below a `/map/` folder (`AssetPaths::tileSet` / `TILE_SQL`, MAP.md §8.9a) is a map tile.
   Every list hides them (`tiles=hide`, the API default – the picker, the library, the MCP's search); "Map tiles" in the

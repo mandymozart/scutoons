@@ -226,7 +226,7 @@
 		white-space: nowrap;
 	}
 	.slot {
-		color: var(--editor-bright);
+		color: var(--editor-text);
 	}
 	.link {
 		border: 0;

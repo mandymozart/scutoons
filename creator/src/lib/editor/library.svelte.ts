@@ -88,6 +88,8 @@ class Library {
 	pick = $state.raw<PickRequest | null>(null);
 	/** a file just uploaded: its tile says so */
 	fresh = $state<string | null>(null);
+	/** the file of the tile being dragged (a drag's data can only be read on the drop) */
+	dragging = $state<string | null>(null);
 
 	constructor() {
 		if (typeof localStorage !== 'undefined') Object.assign(this, readView());
@@ -213,6 +215,12 @@ class Library {
 		return this.core?.takes(path, fit) ?? { ok: false, unknown: true };
 	}
 
+	/** the family holding `path` (stacked or single as shown) */
+	familyOf(path: string): AssetFamily | null {
+		void this.version;
+		return this.core?.families(this.single).find((f) => f.versions.some((v) => v.path === path)) ?? null;
+	}
+
 	/** a click on a tile: one, Ctrl / ⌘ adds or takes one, Shift a run in the order shown */
 	click(key: string, keys: { shift?: boolean; toggle?: boolean } = {}) {
 		if (!this.core) return;
@@ -269,7 +277,7 @@ class Library {
 		const answer = await assetsApi.upload(file, asked);
 		const path = answer.uploaded || asked;
 		await this.load(true);
-		const family = this.core?.families(this.single).find((f) => f.versions.some((v) => v.path === path)) ?? null;
+		const family = this.familyOf(path);
 		this.fresh = family?.key ?? null;
 		if (family) this.click(family.key);
 		if (this.pick && family && this.takes(path, this.pick).ok) this.use(family, path);

@@ -36,7 +36,7 @@
 <h2>{layer.id}</h2>
 <label class="field"><span>{m['creator.map_layer_id']()}</span><input type="text" value={layer.id} onchange={(e) => { const id = e.currentTarget.value.trim(); if (!id) return; edit((l) => (l.id = id)); onselect({ kind: 'layer', id }); }} /></label>
 <!-- the asset picker (owner 2026-10-11: no bare URL field): an SVG or a WebP; an uploaded PNG / JPEG becomes a WebP -->
-<MediaSlot toon="" value={layer.image || undefined} label={m['creator.map_layer_image']()} place={layerFolder} webp onchange={(path) => edit((l) => (l.image = path ?? ''))} testid="layer-image" />
+<MediaSlot toon="" value={layer.image || undefined} label={m['creator.map_layer_image']()} place={layerFolder} onchange={(path) => edit((l) => (l.image = path ?? ''))} testid="layer-image" />
 <span class="lbl">{m['creator.map_layer_zoom']()}</span>
 <div class="row">
 	<input type="number" step="0.25" min="0" value={layer.minZoom ?? ''} aria-label={m['creator.map_min_zoom']()} onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.minZoom; else l.minZoom = v; })} />

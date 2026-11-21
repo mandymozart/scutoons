@@ -138,6 +138,19 @@ export function formatDuration(seconds: number | null): string {
 	return s >= 3600 ? `${Math.floor(s / 3600)}:${two(Math.floor((s % 3600) / 60))}:${two(s % 60)}` : `${Math.floor(s / 60)}:${two(s % 60)}`;
 }
 
+/** 1234567 → "1.2 MB" */
+export function bytes(n: number): string {
+	if (n < 1024) return `${n} B`;
+	const units = ['KB', 'MB', 'GB'];
+	let v = n / 1024;
+	let i = 0;
+	while (v >= 1024 && i < units.length - 1) {
+		v /= 1024;
+		i++;
+	}
+	return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
 /** the picture a preview shows ('' = none) */
 export function previewPicture(preview: LibraryPreview): string {
 	return typeof preview === 'object' && preview && 'picture' in preview ? (preview.picture as { url: string }).url : '';

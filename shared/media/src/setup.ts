@@ -8,6 +8,7 @@
 import type { AssetsApi } from '@scutoons/api';
 import { cdnUrl } from '@scutoons/content';
 import { mediaLabels, type MediaLabels } from './labels.ts';
+import type { MediaHost } from './slot-host.ts';
 
 export interface MediaSetup {
 	/** `createAssetsApi(client)` of the app's API client (session cookie) */
@@ -18,6 +19,8 @@ export interface MediaSetup {
 	locale?: () => string;
 	/** single texts overridden */
 	labels?: Partial<MediaLabels>;
+	/** who answers a slot's pick and a drop on it (the creator: its Library); none = the slots only show and clear */
+	host?: MediaHost;
 }
 
 let current: MediaSetup | null = null;
@@ -46,4 +49,9 @@ export function mediaUrl(path: string): string {
 export function mediaText(): MediaLabels {
 	const setup = need();
 	return mediaLabels(setup.locale?.() ?? 'en', setup.labels);
+}
+
+/** the app's answer to a slot's pick and drop, if it has one */
+export function mediaHost(): MediaHost | null {
+	return current?.host ?? null;
 }

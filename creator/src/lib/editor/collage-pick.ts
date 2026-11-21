@@ -1,10 +1,14 @@
-// The collage picker's logic (agents/research/COLLAGE.md §5): what a pick hands back (`PickedPiece`), the vector
-// library's filters, titles and pages, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
+// A collage piece's pick (agents/research/COLLAGE.md §5): what a Library pick hands back (`PickedPiece`), the vector
+// library's titles and pages, and the new piece a host makes of a pick. Pure (no Svelte; `imageRatio` alone needs a DOM).
 import {
 	AUTHORED_VIEW,
+	CHARACTER_IMAGE_ROOT,
 	CHARACTER_IMAGE_VARIANTS,
+	DEFAULT_LOOK,
+	REGULAR_PERSONA,
 	characterImage,
 	isMissingImagePath,
+	matchCharacterImageFile,
 	toonAssetRef,
 	type Anchor,
 	type CharacterImageVariant,
@@ -12,7 +16,8 @@ import {
 	type PieceFigure,
 	type RegistryCharacter
 } from '@scutoons/content';
-import type { AssetRendition, AssetSummary } from '@scutoons/api';
+import type { AssetSummary } from '@scutoons/api';
+import type { AssetFamily } from '@scutoons/media';
 import { newPlacementId } from './clip.ts';
 
 /** what the picker hands back: the file from the CDN root, its ratio (w ÷ h) when known, how a figure was picked */
@@ -68,37 +73,29 @@ export function figureViews(character: RegistryCharacter | null | undefined, fig
 	});
 }
 
-/** a shape of the vector library as a pick */
-export function shapePick(shape: AssetSummary): PickedPiece {
-	return { src: shape.path, ratio: assetRatio(shape) ?? undefined, name: shape.title || shape.slug };
-}
-
 /**
- * An image from the asset picker as a pick: the WebP rendition of a PNG / JPEG (a PNG + WebP twin – COLLAGE.md §5), else
- * the chosen file as it is
+ * A Library file as a piece: a PNG / JPEG's WebP twin in its family (COLLAGE.md §5), else the file; the family's ratio;
+ * a character picture (`characters/<name>/…`) keeps its figure – persona, look, mood, view – so the piece follows the
+ * character's pictures
  */
-export function imagePick(asset: AssetSummary, rendition: AssetRendition | null, path: string): PickedPiece {
-	const webp = /\.(png|jpe?g)$/i.test(path) ? asset.renditions.find((r) => r.mime === 'image/webp' || /\.webp$/i.test(r.path)) : undefined;
-	const file = webp ?? rendition ?? asset;
-	return { src: webp?.path ?? path, ratio: assetRatio(file) ?? assetRatio(asset) ?? undefined, name: asset.title || asset.slug };
-}
-
-/** the library's tags by how often they are used (then by name) – the tag select */
-export function shapeTags(shapes: readonly Pick<AssetSummary, 'tags'>[]): { tag: string; count: number }[] {
-	const counts = new Map<string, number>();
-	for (const shape of shapes) for (const tag of new Set(shape.tags ?? [])) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-	return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-}
-
-/** the shapes whose title, slug or tags hold every word of `query`, with `tag` when one is chosen */
-export function filterShapes<T extends Pick<AssetSummary, 'title' | 'slug' | 'tags'>>(shapes: readonly T[], query: string, tag = ''): T[] {
-	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	return shapes.filter((shape) => {
-		if (tag && !(shape.tags ?? []).includes(tag)) return false;
-		if (!words.length) return true;
-		const text = `${shape.title} ${shape.slug} ${(shape.tags ?? []).join(' ')}`.toLowerCase();
-		return words.every((word) => text.includes(word));
-	});
+export function libraryPiece(
+	path: string,
+	family: Pick<AssetFamily, 'title' | 'name' | 'width' | 'height' | 'versions'> | null,
+	characters: readonly RegistryCharacter[] = []
+): PickedPiece {
+	const webp = /\.(png|jpe?g)$/i.test(path) ? family?.versions.find((v) => v.ext.toLowerCase() === 'webp') : undefined;
+	const src = webp?.path ?? path;
+	const piece: PickedPiece = { src, ratio: assetRatio(webp ?? family) ?? undefined, name: family?.title || family?.name || src.split('/').pop() || src };
+	const folder = src.startsWith(`${CHARACTER_IMAGE_ROOT}/`) ? src.split('/')[1] : '';
+	const character = folder ? characters.find((c) => folder === c.id || folder.startsWith(`${c.id}-`)) : undefined;
+	const slot = character ? matchCharacterImageFile(src, character) : null;
+	if (character && slot?.kind === 'expression') {
+		const figure: PieceFigure = { id: character.id, view: slot.view, mood: slot.mood };
+		if (slot.persona !== REGULAR_PERSONA) figure.persona = slot.persona;
+		if (slot.look !== DEFAULT_LOOK) figure.look = slot.look;
+		piece.figure = figure;
+	}
+	return piece;
 }
 
 /**

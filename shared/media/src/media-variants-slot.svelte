@@ -2,15 +2,15 @@
 	import { AUDIO_QUALITY_LABELS, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, toonAsset, type MediaQuality } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { mediaText, mediaUrl as asset } from './setup.ts';
-	import { defaultLevel, mediaFromAsset, withVariant, type VariantMedia } from './media-variants.ts';
-	import AssetPickerSheet, { type PickedAsset } from './asset-picker-sheet.svelte';
+	import { mediaHost, mediaText, mediaUrl as asset } from './setup.ts';
+	import { defaultLevel, mediaFromFiles, withVariant, type VariantMedia } from './media-variants.ts';
+	import { slotFit, type PickedFile } from './slot-host.ts';
+	import { SlotDrop } from './slot-drop.svelte.ts';
 
 	/**
-	 * One medium with its quality levels as ONE slot (owner 2026-10-03: "simplify the multiple resolutions situation"):
-	 * the preview is the button that opens the asset picker – picking an asset fills every level from its renditions
-	 * (480p / 720p / 1080p, the medium one the default); under it one chip per level shows which files exist, a chip
-	 * opens the picker on that file's asset (its files listed) to replace just that level, its × clears it. Paths only
+	 * One medium with its quality levels as ONE slot: the preview is the button that asks the app's host for a file –
+	 * a pick (or a drop) fills every level from the file's family (480p / 720p / 1080p, the medium one the default);
+	 * beside it one chip per level shows which files exist, a chip picks a file for just that level, its × clears it. Paths only
 	 * as tooltips; × beside the preview clears the whole medium. Same `{ src, variants }` shape as the slice video – the
 	 * season trailer maps its `loop` to `src`. Audio (owner 2026-10-04): the preview is ♪ + the file's name (a small player
 	 * under it), the levels 96k / 128k / 320k; music tracks and samples map their `path` to `src`.
@@ -34,7 +34,7 @@
 		value: VariantMedia;
 		kind?: 'video' | 'image' | 'audio';
 		label: string;
-		/** where uploads go by the content rules (CDN-root folder, e.g. catpope/s1/) */
+		/** where a new file for this slot belongs (a CDN-root folder, e.g. catpope/s1/) */
 		place?: string;
 		/** a poster (toon-relative) shown in the video preview until it loads */
 		poster?: string;
@@ -56,9 +56,6 @@
 	const url = (path: string) => asset(toonAsset(toon, path));
 	const main = $derived(defaultLevel(value));
 
-	/** null = the picker fills the whole medium; a level = it replaces only that file */
-	let target = $state<MediaQuality | null>(null);
-	let open = $state(false);
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
 
@@ -68,21 +65,22 @@
 		failed = false;
 	});
 
+	const fit = $derived(slotFit(kind));
+	/** the whole medium from a file's family: its levels of this kind */
+	const fill = (path: string, files: PickedFile[]) => onchange(mediaFromFiles(files.filter((f) => f.kind === kind), path, toon));
+	const drop = new SlotDrop(() => fit, fill);
+
+	/** null: the pick fills the whole medium; a level: it replaces only that file */
 	function choose(level: MediaQuality | null) {
-		target = level;
-		open = true;
+		const file = (level && value.variants?.[level]) || value.src;
+		mediaHost()?.pick({
+			...fit,
+			label: level ? `${label} · ${levelLabel(level)}` : label,
+			value: file ? rootPath(file, toon) : '',
+			place,
+			onpick: level ? (path) => onchange(withVariant(value, level, toonRelativePath(path, toon))) : fill
+		});
 	}
-
-	function pick(picked: PickedAsset) {
-		if (target === null) onchange(mediaFromAsset(picked.asset.renditions, picked.path, toon, `${kind}/`));
-		else onchange(withVariant(value, target, toonRelativePath(picked.path, toon)));
-	}
-
-	/** the picker opens on the file the click is about (its asset preselected, its files listed) */
-	const pickerValue = $derived.by(() => {
-		const file = (target && value.variants?.[target]) || value.src;
-		return file ? rootPath(file, toon) : '';
-	});
 </script>
 
 <div class="variants-slot" data-testid={testid}>
@@ -94,7 +92,12 @@
 			class:image={kind === 'image'}
 			class:audio={kind === 'audio'}
 			class:empty={!value.src}
+			class:fits={drop.answer?.ok}
+			class:misfit={drop.answer && !drop.answer.ok}
 			onclick={() => choose(null)}
+			ondragover={drop.over}
+			ondragleave={drop.leave}
+			ondrop={drop.drop}
 			title={value.src ? `${value.src}${size ? ` · ${size.w} × ${size.h} px` : ''}\n${kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}` : kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}
 			aria-label="{label}: {value.src ?? t.choose}"
 			data-testid={testid ? `${testid}-choose` : undefined}
@@ -140,6 +143,7 @@
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
 	</div>
+	{#if drop.answer && !drop.answer.ok}<span class="sc-caption misfit" data-testid="slot-misfit">{drop.answer.why}</span>{/if}
 	{#if value.src}
 		{#if main === null}
 			<span class="sc-caption" title={value.src}>{t.single}</span>
@@ -148,15 +152,6 @@
 			<audio controls preload="none" src={url(value.src)}></audio>
 		{/if}
 	{/if}
-	<AssetPickerSheet
-		bind:open
-		{toon}
-		{kind}
-		value={pickerValue}
-		{place}
-		title={target ? `${label} · ${levelLabel(target)}` : label}
-		onpick={pick}
-	/>
 </div>
 
 <style>
@@ -188,6 +183,17 @@
 		overflow: hidden;
 	}
 	/* an image (a portrait slice) is a small preview, like the single media slot (owner 2026-10-03) */
+	.slot.fits {
+		outline: var(--border-width-focus) dashed var(--editor-accent);
+		outline-offset: 2px;
+	}
+	.slot.misfit {
+		outline: var(--border-width-focus) dashed var(--error);
+		outline-offset: 2px;
+	}
+	.misfit {
+		color: var(--error);
+	}
 	.slot.image {
 		flex-basis: 6rem;
 	}

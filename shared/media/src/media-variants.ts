@@ -1,5 +1,5 @@
 import { MEDIA_QUALITIES, type MediaQuality, type QualityVariants } from '@scutoons/content';
-import { qualityVariants, toonRelativePath, type AssetRendition } from '@scutoons/api';
+import { toonRelativePath } from '@scutoons/api';
 
 /**
  * A medium with quality variants as the content stores it (PLAN.md "RULE: one file per quality level"): `src` = the
@@ -27,12 +27,12 @@ export function cleanVariants(variants: QualityVariants | undefined): QualityVar
 }
 
 /**
- * A whole asset from the picker: its quality renditions of the right kind (480p / 720p / 1080p …) become the variants,
- * the medium one the default. An asset without levels (one plain file) → that file as `src`, no variants.
+ * A whole family from a pick: its files with a quality level (480p / 720p / 1080p …) become the variants, the medium one
+ * the default. A family without levels (one plain file) → the picked file as `src`, no variants.
  */
-export function mediaFromAsset(renditions: AssetRendition[], pickedPath: string, toon: string, mime = 'video/'): VariantMedia {
-	const levels = qualityVariants(renditions.filter((r) => r.mime?.startsWith(mime)));
-	const variants = cleanVariants(Object.fromEntries(MEDIA_QUALITIES.filter((l) => levels[l]).map((l) => [l, toonRelativePath(levels[l]!, toon)])));
+export function mediaFromFiles(files: readonly { path: string; quality?: string | null }[], pickedPath: string, toon: string): VariantMedia {
+	const level = (l: MediaQuality) => files.find((f) => f.quality === l)?.path;
+	const variants = cleanVariants(Object.fromEntries(MEDIA_QUALITIES.filter((l) => level(l)).map((l) => [l, toonRelativePath(level(l)!, toon)])));
 	return { src: preferredVariant(variants) ?? toonRelativePath(pickedPath, toon), variants };
 }
 

@@ -2,6 +2,7 @@
 	import { Icon } from '@scutoons/ui';
 	import { ModelThumb, bytes, formatDuration, previewPicture, previewStill, type AssetFamily } from '@scutoons/media';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { library } from '$lib/editor/library.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -52,6 +53,7 @@
 		event.dataTransfer.effectAllowed = 'copy';
 		event.dataTransfer.setData('application/x-scutoons-asset', JSON.stringify({ path: family.main, key: family.key, kind: family.kind }));
 		event.dataTransfer.setData('text/plain', family.main);
+		library.dragging = family.main;
 	}
 
 	function key(event: KeyboardEvent) {
@@ -90,6 +92,7 @@
 	oncontextmenu={menu}
 	onkeydown={key}
 	ondragstart={drag}
+	ondragend={() => (library.dragging = null)}
 >
 	<span class="preview">
 		{#if picture}
