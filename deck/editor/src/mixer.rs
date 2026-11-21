@@ -39,7 +39,8 @@ pub enum Target {
 pub enum Part {
     /// a level of the tree: 0 = the rig
     Tab(usize),
-    Fader(Target, Rect),
+    /// a strip's fader: a press anywhere on its track fades (the kit's rule)
+    Fader(Target, controls::Fader),
     Mute(usize),
     Solo(usize),
     Pan(usize),
@@ -173,14 +174,32 @@ pub fn size(t: &Tokens, stage: &Stage, v: &View) -> (f32, f32) {
 /// the mixer in `area` (its panel's content); where its parts landed
 pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -> Vec<(Rect, Part)> {
     let mut out = Vec::new();
-    let Sizes { tabs, strip, u, .. } = sizes(t);
+    let Sizes { tabs, u, .. } = sizes(t);
     let names: Vec<&str> = v.tabs.iter().map(String::as_str).collect();
     for (depth, r) in controls::pills(d, t, area.x, area.y + 2.0 * u, tabs - 4.0 * u, &names, v.tab).into_iter().enumerate() {
         out.push((r, Part::Tab(depth)));
     }
     let small = t.size.small;
     let y0 = area.y + tabs;
-    for (n, row) in rows(stage, v).into_iter().enumerate() {
+    strips(d, t, area, &rows(stage, v), v, &mut out);
+    // what goes out
+    let x = area.x + area.w - 54.0 * u;
+    controls::label(d, t, x, y0, "out", t.color.muted);
+    let y = y0 + small + 15.0 * u;
+    let inner = area.y + area.h - y - 5.0 * u;
+    meter(d, t, Rect { x, y, w: 9.0 * u, h: inner }, stage.master_peak);
+    zero(d, t, x, y, 11.0 * u, inner);
+    let r = peak_readout(d, t, x + 12.0 * u, y, 34.0 * u, stage.master_max);
+    out.push((r, Part::Peak(None)));
+    out
+}
+
+/// the strips of `rows` in `area`, under the tabs
+fn strips(d: &mut DrawList, t: &Tokens, area: Rect, rows: &[Row], v: &View, out: &mut Vec<(Rect, Part)>) {
+    let Sizes { tabs, strip, u, .. } = sizes(t);
+    let small = t.size.small;
+    let y0 = area.y + tabs;
+    for (n, row) in rows.iter().enumerate() {
         let x = area.x + 3.0 * u + n as f32 * strip;
         let name = controls::fit(&row.name, ((strip - 8.0 * u) / d.advance(small)) as usize);
         let column = Rect { x: x - 3.0 * u, y: y0 - 1.0 * u, w: strip - 5.0 * u, h: area.y + area.h - y0 + 1.0 * u };
@@ -201,11 +220,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -
         let inner = area.y + area.h - y - 7.0 * u;
         meter(d, t, Rect { x, y, w: 7.0 * u, h: inner }, row.peak);
         scale(d, t, x + 8.0 * u, y, inner);
-        let f = Rect { x: x + 9.0 * u, y, w: 11.0 * u, h: inner };
-        controls::fader(d, t, f, gain_position(row.value), v.hot == Some(row.target));
+        let f = controls::fader(d, t, Rect { x: x + 9.0 * u, y, w: 14.0 * u, h: inner }, 9.0 * u, gain_position(row.value), v.hot == Some(row.target));
         zero(d, t, x, y, 12.0 * u, inner);
         if !row.fixed {
-            out.push((f, Part::Fader(row.target, f)));
+            out.push((f.track, Part::Fader(row.target, f)));
         }
         let col = x + 23.0 * u;
         let w = strip - 33.0 * u;
@@ -226,16 +244,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, stage: &Stage, v: &View) -
         // last: the controls above take their own clicks
         out.push((column, Part::Select(row.target)));
     }
-    // what goes out
-    let x = area.x + area.w - 54.0 * u;
-    controls::label(d, t, x, y0, "out", t.color.muted);
-    let y = y0 + small + 15.0 * u;
-    let inner = area.y + area.h - y - 5.0 * u;
-    meter(d, t, Rect { x, y, w: 9.0 * u, h: inner }, stage.master_peak);
-    zero(d, t, x, y, 11.0 * u, inner);
-    let r = peak_readout(d, t, x + 12.0 * u, y, 34.0 * u, stage.master_max);
-    out.push((r, Part::Peak(None)));
-    out
 }
 
 #[cfg(test)]
@@ -252,6 +260,66 @@ mod tests {
     fn the_bottom_of_the_fader_is_silence_and_its_top_the_mixers_limit() {
         assert_eq!(position_gain(0.0), 0.0);
         assert!(position_gain(1.0) <= GAIN_MAX);
+    }
+
+    fn row(i: usize, value: f32, fixed: bool) -> Row {
+        Row { target: Target::Track(i), name: format!("track {i}"), peak: [0.0; 2], max: 0.0, value, fixed, track: Some((0.0, false, false)) }
+    }
+
+    /// the mixer panel's strips, drawn without a window; what is under a point, as the editor asks (the first that has it)
+    fn panel(rows: &[Row]) -> impl Fn(f32, f32) -> Option<Part> {
+        let (mut d, t) = (DrawList::new(0.6), Tokens::default());
+        let v = View { tabs: vec!["rig".into()], tab: 0, selected: None, hot: None, panning: None };
+        let mut out = Vec::new();
+        strips(&mut d, &t, Rect { x: 40.0, y: 500.0, w: 600.0, h: sizes(&t).open }, rows, &v, &mut out);
+        move |x, y| out.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p)
+    }
+
+    fn fader_of(at: &impl Fn(f32, f32) -> Option<Part>, target: Target) -> controls::Fader {
+        let (w, h) = (700, 1000);
+        (0..w * h)
+            .find_map(|i| match at((i % w) as f32, (i / w) as f32) {
+                Some(Part::Fader(t, f)) if t == target => Some(f),
+                _ => None,
+            })
+            .expect("a fader")
+    }
+
+    #[test]
+    fn a_press_on_a_strips_meter_fades_there_and_the_drag_goes_on() {
+        let at = panel(&[row(0, 1.0, false), row(1, 1.0, false)]);
+        let f = fader_of(&at, Target::Track(1));
+        // the meter's left edge, a quarter up: left of the handle's column, far from the handle
+        let (x, y) = (f.track.x + 1.0, f.track.y + f.track.h * 0.75);
+        assert!(x < f.handle.x && !f.handle.has(x, y));
+        let Some(Part::Fader(Target::Track(1), pressed)) = at(x, y) else { panic!("the meter is the fader's track: {:?}", at(x, y)) };
+        let (grip, jumped) = pressed.press(y);
+        let gain = position_gain(jumped.expect("a jump to the pointer"));
+        assert!((gain_position(gain) - 0.25).abs() < 1e-3 && gain < 1.0, "{gain}");
+        assert!((gain_position(position_gain(grip.at(f.track.y + f.track.h * 0.5))) - 0.5).abs() < 1e-3, "the drag goes on");
+        assert_eq!(position_gain(grip.at(f.track.y + f.track.h + 40.0)), 0.0, "under its bottom: silence");
+        // the handle's own tip is the fader's too, and holds its value
+        let (hx, hy) = (f.handle.x + f.handle.w - 1.5, f.handle.y + f.handle.h * 0.5);
+        assert!(matches!(at(hx, hy), Some(Part::Fader(Target::Track(1), _))), "{:?}", at(hx, hy));
+        assert_eq!(f.press(hy).1, None, "a press on the handle does not jump");
+    }
+
+    #[test]
+    fn the_other_parts_of_a_strip_keep_their_presses() {
+        let at = panel(&[row(0, 1.0, false)]);
+        let f = fader_of(&at, Target::Track(0));
+        let right = f.track.x + f.track.w + 2.0;
+        assert_eq!(at(right, f.track.y + 2.0), Some(Part::Peak(Some(Target::Track(0)))));
+        assert_eq!(at(right, f.track.y + f.track.h - 2.0), Some(Part::Mute(0)));
+        assert_eq!(at(f.track.x + 1.0, f.track.y - 6.0), Some(Part::Pan(0)));
+    }
+
+    #[test]
+    fn a_fader_a_policy_or_a_cable_owns_takes_no_press() {
+        let free = panel(&[row(0, 1.0, false)]);
+        let f = fader_of(&free, Target::Track(0));
+        let owned = panel(&[row(0, 1.0, true)]);
+        assert_eq!(owned(f.track.x + 1.0, f.track.y + f.track.h * 0.5), Some(Part::Select(Target::Track(0))));
     }
 
     #[test]

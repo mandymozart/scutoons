@@ -266,11 +266,48 @@ pub fn level(d: &mut DrawList, t: &Tokens, r: Rect, position: f32, ok: f32, hot:
     }
 }
 
-/// a fader as a triangle beside its meter, at `fraction` (0..1)
-pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, fraction: f32, hot: bool) {
+/// Where a fader landed: its track (the whole travel, what a press takes) and its handle.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Fader {
+    pub track: Rect,
+    pub handle: Rect,
+}
+
+/// A fader in the hand.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FaderGrip {
+    track: Rect,
+    /// the pointer below the handle's middle
+    grab: f32,
+}
+
+impl Fader {
+    /// The kit's one rule for a fader, the scrollbar's (floats.rs): a press anywhere on the track puts the handle on the
+    /// pointer and the drag goes on from there; a press at the handle's height picks it up where it is, without a jump.
+    /// A knob or a number field has no track and drags relative. The grip, and the fraction the press jumped to.
+    pub fn press(&self, y: f32) -> (FaderGrip, Option<f32>) {
+        let middle = self.handle.y + self.handle.h * 0.5;
+        let held = (y - middle).abs() <= self.handle.h * 0.5;
+        let grip = FaderGrip { track: self.track, grab: if held { y - middle } else { 0.0 } };
+        (grip, (!held).then(|| grip.at(y)))
+    }
+}
+
+impl FaderGrip {
+    /// the fraction (0..1 from the bottom) with the pointer at `y`, held to the track's ends
+    pub fn at(&self, y: f32) -> f32 {
+        (1.0 - (y - self.grab - self.track.y) / self.track.h.max(f32::EPSILON)).clamp(0.0, 1.0)
+    }
+}
+
+/// A fader as a triangle in the column `r` at `fraction` (0..1), right of a meter `beside` wide on the same scale: the
+/// meter is part of its track.
+pub fn fader(d: &mut DrawList, t: &Tokens, r: Rect, beside: f32, fraction: f32, hot: bool) -> Fader {
     let size = t.size.rem(0.93);
     let y = r.y + r.h * (1.0 - fraction.clamp(0.0, 1.0));
-    d.icon(r.x - 1.0, y - size * 0.5, size, "left-fill", if hot { t.color.text } else { t.color.muted });
+    let handle = Rect { x: r.x - 1.0, y: y - size * 0.5, w: size, h: size };
+    d.icon(handle.x, handle.y, size, "left-fill", if hot { t.color.text } else { t.color.muted });
+    Fader { track: Rect { x: r.x - beside, w: r.w + beside, ..r }, handle }
 }
 
 /// a small button that is on or off; its place
@@ -451,6 +488,29 @@ mod tests {
 
     fn list() -> DrawList {
         DrawList::new(0.6)
+    }
+
+    #[test]
+    fn a_press_on_a_faders_track_puts_the_handle_there_and_the_drag_goes_on() {
+        let (mut d, t) = (list(), Tokens::default());
+        let f = fader(&mut d, &t, Rect { x: 20.0, y: 100.0, w: 14.0, h: 200.0 }, 9.0, 0.25, false);
+        assert_eq!((f.track.x, f.track.w, f.track.y, f.track.h), (11.0, 23.0, 100.0, 200.0), "the meter beside it is its track");
+        assert!((f.handle.y + f.handle.h * 0.5 - 250.0).abs() < 1e-3, "the handle sits at its fraction");
+        assert!(f.track.has(12.0, 150.0) && !f.handle.has(12.0, 150.0), "on the meter, far from the handle");
+        let (grip, jumped) = f.press(150.0);
+        assert_eq!(jumped, Some(0.75));
+        assert_eq!(grip.at(200.0), 0.5, "and follows the drag");
+        assert_eq!((grip.at(50.0), grip.at(400.0)), (1.0, 0.0), "held to its ends");
+    }
+
+    #[test]
+    fn a_press_on_a_faders_handle_picks_it_up_without_a_jump() {
+        let (mut d, t) = (list(), Tokens::default());
+        let f = fader(&mut d, &t, Rect { x: 20.0, y: 100.0, w: 14.0, h: 200.0 }, 9.0, 0.25, false);
+        let (grip, jumped) = f.press(253.0);
+        assert_eq!(jumped, None);
+        assert!((grip.at(253.0) - 0.25).abs() < 1e-4, "where it was");
+        assert!((grip.at(153.0) - 0.75).abs() < 1e-4, "the drag moves it by the pointer's way");
     }
 
     #[test]
