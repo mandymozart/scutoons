@@ -232,7 +232,6 @@ const PAGES = [
 	['creator-script', `${CREATOR}/catpope/script`],
 	['creator-toon-settings', `${CREATOR}/catpope/toon`],
 	['creator-characters', `${CREATOR}/characters`],
-	['creator-moods', `${CREATOR}/characters?tab=moods`],
 	['creator-wanted', `${CREATOR}/characters?tab=wanted`],
 	['creator-guide', `${CREATOR}/guide`],
 	['admin-dashboard', `${ADMIN}/`],

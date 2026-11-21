@@ -51,6 +51,7 @@ export {
 	previewStill,
 	type AssetFamily,
 	type FamilyVersion,
+	type LibraryCast,
 	type LibraryCell,
 	type LibraryContext,
 	type LibraryFitAnswer,

@@ -1,5 +1,5 @@
 use super::family::{self, families, version_name, Family, Origin};
-use super::shelf::{self, at_home, epoch_ms, home_of, natural, select, Context, Fit, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, Use};
+use super::shelf::{self, at_home, epoch_ms, home_of, natural, select, Cast, Context, Fit, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, Use};
 use super::{Kind, Preview};
 use serde_json::{json, Value};
 use std::cmp::Ordering;
@@ -55,6 +55,7 @@ fn chapter_one() -> Shelf {
             used("catpope/s1/c1/s1c1-slice-10.webp", "chapter:catpope:1", "slice 10"),
         ],
         links: Vec::new(),
+        casts: Vec::new(),
     });
     s
 }
@@ -400,4 +401,20 @@ fn a_file_is_found_in_its_family_or_on_its_own_as_the_levels_show() {
     let one = s.family_in(path, true).expect("single: the file on its own");
     assert_eq!((one.key.as_str(), one.main.as_str(), one.versions.len()), (path, path, 1));
     assert!(s.family_in("catpope/s1/c1/s1c1-slice-2", true).is_none(), "a family's key is no file");
+}
+
+#[test]
+fn a_cast_is_a_facet_of_its_characters_files() {
+    let mut s = Shelf::new(fam());
+    let cast = |address: &str, characters: &[&str]| Cast { address: address.into(), characters: characters.iter().map(|c| c.to_string()).collect() };
+    s.set_context(Context { casts: vec![cast("season:catpope:1", &["catpope"]), cast("season:catpope:2", &["yellow_mouse"])], ..Context::default() });
+    let v = s.view(&q(Scope::All));
+    assert_eq!(v.specials.casts, [("season:catpope:1".to_string(), 2)], "a cast without files is not offered");
+    let season = s.view(&Query { special: Some(Special::Cast("season:catpope:1".into())), ..q(Scope::All) });
+    assert_eq!(season.total, 2, "the character's and its persona's files: {:?}", season.order);
+    assert_eq!(s.view(&Query { special: Some(Special::Cast("season:other:1".into())), ..q(Scope::All) }).total, 0);
+    let parsed = shelf::query_of(&json!({ "special": "cast:season:catpope:1" }));
+    assert_eq!(parsed.special, Some(Special::Cast("season:catpope:1".into())));
+    let context = shelf::context_of(&json!({ "casts": [{ "address": "season:catpope:1", "characters": ["catpope", "boy"] }] }));
+    assert_eq!(context.casts, [cast("season:catpope:1", &["catpope", "boy"])]);
 }

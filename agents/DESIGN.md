@@ -821,7 +821,7 @@ The creator is a hierarchy: **toon → season → chapter → group (scene) → 
   "up" (the parent level), page status / filters, secondary actions, primary action right-most.
 - **URLs follow the hierarchy.** The existing routes map cleanly and stay: `/<toon>`, `/<toon>/season/<n>`,
   `/<toon>/chapter/<n>` (a chapter belongs to its season; the breadcrumb shows it), `/<toon>/cast|credits|toon`,
-  `/characters?tab=moods|wanted&id=`. Inside the chapter the selection is in the query:
+  `/characters?tab=wanted&id=`. Inside the chapter the selection is in the query:
   `/<toon>/chapter/2?group=scene-14&slice=3` (`group` = the group's id, else its number;
   `slice` 1-based; `?section=audio`). Deep links, crumbs and back/forward all work through the URL.
 - **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the page's list.

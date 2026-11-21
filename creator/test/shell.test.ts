@@ -9,7 +9,7 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
 	assert.equal(addressOf('/toons'), null);
 	assert.equal(addressOf('/catpope'), 'toon:catpope');
-	for (const sub of ['cast', 'credits', 'script', 'toon']) assert.equal(addressOf(`/catpope/${sub}`), 'toon:catpope', sub);
+	for (const sub of ['credits', 'script', 'toon']) assert.equal(addressOf(`/catpope/${sub}`), 'toon:catpope', sub);
 	assert.equal(addressOf('/catpope/season/1'), 'season:catpope:1');
 	assert.equal(addressOf('/catpope/season/1/cover'), 'season:catpope:1');
 	assert.equal(addressOf('/catpope/chapter/3'), 'chapter:catpope:3');
@@ -17,7 +17,7 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/catpope/chapter/3/storyboard'), 'storyboard:catpope:3');
 	assert.equal(addressOf('/characters'), AREAS.characters);
 	assert.equal(addressOf('/characters', '?id=catpope'), 'character:catpope');
-	assert.equal(addressOf('/characters', '?tab=moods'), AREAS.moods);
+	assert.equal(addressOf('/characters', '?tab=moods'), AREAS.characters, 'the mood words are a panel tab, not a page');
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
@@ -67,11 +67,11 @@ test('every address has a workspace and an icon; a typed address resolves', () =
 test('visiting opens a tab right of the front one, or brings its tab to the front', () => {
 	let s = visit(EMPTY, 'toon:catpope', '/catpope', 'CatPope');
 	s = visit(s, 'chapter:catpope:3', '/catpope/chapter/3');
-	s = visit(s, 'toon:catpope', '/catpope/cast');
+	s = visit(s, 'toon:catpope', '/catpope/credits');
 	s = visit(s, 'character:catpope', '/characters?id=catpope');
 	assert.deepEqual(s.tabs.map((t) => t.address), ['toon:catpope', 'character:catpope', 'chapter:catpope:3']);
 	assert.equal(s.front, 'character:catpope');
-	assert.equal(s.tabs[0].href, '/catpope/cast', 'the tab keeps the page it was last on');
+	assert.equal(s.tabs[0].href, '/catpope/credits', 'the tab keeps the page it was last on');
 	assert.equal(visit(s, null, '/').front, null, 'Home keeps the tabs');
 	assert.equal(visit(s, null, '/').tabs.length, 3);
 });

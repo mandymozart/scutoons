@@ -1,48 +1,38 @@
 <script lang="ts">
-	import { Divider, Icon, Tabs, panelWidth } from '@scutoons/ui';
+	import { Section, ToolGroup, type ToolGroupOption } from '@scutoons/ui/editor';
 	import {
 		REGULAR_PERSONA,
 		castsOf,
-		characterImage,
 		defaultLookId,
 		findPersona,
 		lookLabel,
-		lookPortraitMoods,
 		personaIds,
 		pickText,
 		type CharacterRegistry,
 		type CharacterView,
 		type MoodVocabulary,
-		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { editHref } from '$lib/editor/edit-key.ts';
-	import { addLook, addPersona, characterLanguages, edit, editCharacter, isKnownMissing, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
+	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { lookEdits } from '$lib/editor/look-edit.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { shell, useLentPanels } from '$lib/shell/shell.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import SourceMark from '$lib/components/text/source-mark.svelte';
-	import FaceRow from '$lib/components/characters/face-row.svelte';
 	import CharacterStage from '$lib/components/characters/character-stage.svelte';
-	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
-	import CharacterInspector, { type InspectorTab, type Level } from '$lib/components/characters/character-inspector.svelte';
-	import KanonSquare from '$lib/components/characters/kanon-square.svelte';
+	import CharacterInspector, { type Level } from '$lib/components/characters/character-inspector.svelte';
+	import MoodStrip from '$lib/components/characters/mood-strip.svelte';
+	import KanonPanel from '$lib/components/characters/kanon-panel.svelte';
 	import { characterSubject, type KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
 
 	/**
-	 * One character (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the head (= the character level), the personas
-	 * and the looks as face rows, the stage (one picture: persona › look › mood · view; the grid square = every mood to
-	 * fill), and the inspector beside it (a right region with its Divider). The inspector follows the level picked on the page – a tap on the head, a persona,
-	 * a look – which the page rings. Each level ends in its Kanon text square (K3, #82): it opens that level's text in the
-	 * inspector (no tab of its own). Replaces character-detail.svelte (one long page).
-	 * Over 400 lines (RULES "Code"): the page's one layout – head, rows, stage and inspector region – in one
-	 * place; its parts (FaceRow, CharacterStage, CharacterInspector, KanonSquare) are components.
+	 * One character as the character workspace (research/redesign/PLAN.md §4, the approved draft workspace.html): the
+	 * picture is the background; the Inspector (character › persona › look, Links, Prompts, Wanted), its Kanon tab and the
+	 * Moods panel are panel tabs it lends the shell; the Library follows it (its uses).
 	 */
 	let {
 		registry,
@@ -52,10 +42,9 @@
 		id,
 		persona = $bindable(REGULAR_PERSONA),
 		look = $bindable(''),
-		tab = $bindable<InspectorTab>('profile'),
-		grid = $bindable(false),
 		toons,
 		casts,
+		castDocs,
 		kanon,
 		onselect
 	}: {
@@ -66,10 +55,10 @@
 		id: string;
 		persona?: string;
 		look?: string;
-		tab?: InspectorTab;
-		grid?: boolean;
 		toons: ToonInfo[];
 		casts: Record<string, ToonCast | null>;
+		/** the toons' cast documents (Links edits them; saved with the page) */
+		castDocs: Record<string, ContentDoc>;
 		/** the page's Kanon texts (saved with the page) */
 		kanon: KanonDocs;
 		onselect: (id: string) => void;
@@ -90,44 +79,34 @@
 	const lookId = $derived(lookIds.includes(look) ? look : defaultLookId(currentPersona));
 	const currentLook = $derived(currentPersona?.looks.find((l) => l.id === lookId));
 	const requests = $derived(requestsOf(requestsDoc));
-	let level = $state<Level>('look');
 	let mood = $state('neutral');
 	let view = $state<CharacterView>('portrait');
+	let grid = $state(false);
 	/** set after an import: previews of files with new bytes at the same path load again */
 	let bust = $state(0);
 
 	const edits = lookEdits(() => ({ registry, moodsDoc, requestsDoc, moods, requests, character: id, persona: currentPersona!, lookId, languages, email: session.user?.email ?? null }));
 	const personaLabel = (p: string) => (p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, textLanguage.names, [source, ...languages]) || p);
-	const face = (ref: { persona?: string; look?: string }) => characterImage(character, ref, 'avatar', { isMissing: isKnownMissing });
 
 	function pickPersona(p: string) {
 		if (p !== personaId) {
 			persona = p;
 			look = '';
 		}
-		level = 'persona';
-	}
-	function pickLook(l: string) {
-		look = l;
-		level = 'look';
 	}
 	function newPersona(label: string) {
 		persona = addPersona(registry, id, label, languages);
 		look = '';
-		level = 'persona';
 	}
 	function newLook(label: string) {
 		look = addLook(registry, id, personaId, label, languages);
-		level = 'look';
 	}
 	function personaRemoved() {
 		const target = personaId;
 		editCharacter(registry, id, (c) => (c.personas = c.personas.filter((p) => p.id !== target)));
 		persona = REGULAR_PERSONA;
-		level = 'persona';
 	}
-	/** also the Publish panel's Delete (characters-editor.svelte, the selection's actions) */
-	export async function remove() {
+	async function remove() {
 		if (!character) return;
 		const used = appearsIn.length ? m['creator.characters_remove_used']({ toons: appearsIn.join(', ') }) : '';
 		if (!(await confirmRemove(`${m['creator.characters_remove_confirm']({ name: shownCharacterName(character) })} ${used}`.trim()))) return;
@@ -135,244 +114,106 @@
 		onselect('');
 	}
 
-	// ── the Kanon (K3): a level's square opens its text in the inspector; the open text follows the picked level ──
+	// ── the Kanon tab: one level's text; a level's square in the Inspector opens it there ──
+	let kanonLevel = $state<Level>('character');
 	const subjectOf = (l: Level) => characterSubject(id, l === 'character' ? null : personaId, l === 'look' ? lookId : null);
-	const kanonSubject = $derived(subjectOf(level));
+	const kanonSubject = $derived(subjectOf(kanonLevel));
+	const kanonDoc = $derived(kanon.docs[kanonSubject] ?? null);
+	$effect(() => void kanon.open(kanonSubject, languages, source));
 	function openKanon(l: Level) {
-		level = l;
-		tab = 'kanon';
+		kanonLevel = l;
+		shell.open('kanon');
 	}
-	$effect(() => {
-		if (tab === 'kanon') kanon.open(kanonSubject, languages, source);
-	});
+	const LEVELS: ToolGroupOption[] = $derived([
+		{ value: 'character', icon: 'user', name: m['creator.characters_character'](), label: m['creator.characters_character']() },
+		{ value: 'persona', icon: 'users', name: m['creator.characters_level_persona'](), label: m['creator.characters_level_persona']() },
+		{ value: 'look', icon: 'image', name: m['creator.characters_level_look'](), label: m['creator.characters_level_look']() }
+	]);
 
-	// ── the inspector: a right region (Divider, remembered width) ──
-	let editorEl = $state<HTMLElement>();
-	const inspectorSize = panelWidth('sc-panel-width:character-inspector', 22, () => editorEl?.getBoundingClientRect().right ?? window.innerWidth);
-	inspectorSize.room = () => (editorEl?.clientWidth ?? window.innerWidth) / 2;
-	const TABS: { id: InspectorTab; icon: string; label: () => string }[] = [
-		{ id: 'profile', icon: 'user', label: () => m['creator.characters_tab_profile']() },
-		{ id: 'model', icon: 'box', label: () => m['creator.characters_tab_model']() },
-		{ id: 'wanted', icon: 'inbox', label: () => m['creator.characters_wanted']() },
-		{ id: 'prompts', icon: 'sparkles', label: () => m['creator.prompts_title']() }
-	];
-	// (the Tabs' `tab` snippet shadows the prop's name in its markup)
-	const currentTab = $derived(tab);
-	function setTab(id: string) {
-		tab = id as InspectorTab;
-	}
+	useLentPanels(() => (character && currentPersona ? { inspector, kanon: kanonTab, moods: currentLook ? moodsTab : null } : {}));
 </script>
 
+{#snippet inspector()}
+	{#if character && currentPersona}
+		<CharacterInspector
+			{registry}
+			{moodsDoc}
+			{requestsDoc}
+			{file}
+			{moods}
+			{requests}
+			{character}
+			persona={currentPersona}
+			{lookId}
+			{languages}
+			{source}
+			{toons}
+			casts={castDocs}
+			{edits}
+			bind:bust
+			kanon={(l) => ({ state: kanon.state(subjectOf(l)), open: kanonLevel === l })}
+			onpersona={pickPersona}
+			onlook={(l) => (look = l)}
+			onnewpersona={newPersona}
+			onnewlook={newLook}
+			onkanon={openKanon}
+			onpersonaremoved={personaRemoved}
+			onlookremoved={() => (look = '')}
+			onremove={remove}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet kanonTab()}
+	<div class="kanon" data-testid="character-kanon">
+		<ToolGroup label={m['creator.kanon']()} options={LEVELS} value={kanonLevel} expanded onchoose={(v) => (kanonLevel = v as Level)} />
+		<Section id="character-kanon-text" label={kanonLevel === 'character' ? (character ? shownCharacterName(character) : '') : kanonLevel === 'persona' ? personaLabel(personaId) : lookLabel(currentPersona, lookId, textLanguage.names)}>
+			{#if kanonDoc}<KanonPanel doc={kanonDoc} role={kanonLevel} />{/if}
+		</Section>
+	</div>
+{/snippet}
+
+{#snippet moodsTab()}
+	{#if character && currentLook}
+		<MoodStrip {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view bind:grid {bust} />
+	{/if}
+{/snippet}
+
 {#if character && currentPersona}
-	<article class="char-editor" bind:this={editorEl} style:--inspector-width={inspectorSize.css} data-testid="character-detail" data-id={character.id}>
-		<div class="main">
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<header class="head" class:ringed={level === 'character'} onclick={(e) => !(e.target as HTMLElement).closest('button, a, input') && (level = 'character')}>
-				<button type="button" class="avatar" onclick={() => (level = 'character')} aria-label={m['creator.characters_character']()} title={m['creator.characters_character']()} style:background={character.color || null}>
-					{#if face({})}<img src={asset(face({}))} alt="" />{/if}
-				</button>
-				<div class="t">
-					<h2 data-testid="character-title">{shownCharacterName(character)}</h2>
-					<span class="hint">
-						{character.id}{#if appearsIn.length} · {m['creator.characters_appears_in']()}: {#each appearsIn as t, i (t)}{i ? ', ' : ''}<a href="/{t}/cast">{toons.find((x) => x.id === t)?.name ?? t}</a>{/each}{/if}
-						· {#each languages as l, i (l)}{i ? ' ' : ''}{l}{#if l === source}<SourceMark />{/if}{/each}
-					</span>
-				</div>
-				<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust compact />
-				<a class="sq" href={editHref(`rig:character.${character.id}`, { w: 'sound' })} title={m['creator.characters_sound_design']()} aria-label={m['creator.characters_sound_design']()} data-testid="character-sound-design"><Icon name="music" /></a>
-				<button type="button" class="sq" onclick={remove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
-				<KanonSquare state={kanon.state(subjectOf('character'))} open={tab === 'kanon' && level === 'character'} label={m['creator.kanon']()} onclick={() => openKanon('character')} testid="kanon-character" />
-			</header>
-			<div class="level-row">
-			<FaceRow
-				label={m['creator.characters_personas']()}
-				items={personas.map((p) => ({ id: p, label: personaLabel(p), src: face({ persona: p }) }))}
-				value={personaId}
-				ringed={level === 'persona'}
-				addLabel={m['creator.characters_persona_label_placeholder']()}
-				onpick={pickPersona}
-				onadd={newPersona}
-				testid="persona"
-			/>
-			<KanonSquare state={kanon.state(subjectOf('persona'))} open={tab === 'kanon' && level === 'persona'} label={m['creator.kanon']()} onclick={() => openKanon('persona')} testid="kanon-persona" />
-			</div>
-			{#if currentLook}
-				<CharacterStage {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view bind:grid {bust} label="{personaLabel(personaId)} › {lookLabel(currentPersona, lookId, textLanguage.names)}">
-					{#snippet lead()}
-						<FaceRow
-							label={m['creator.characters_looks']()}
-							items={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, textLanguage.names), src: face({ persona: personaId, look: l.id }), count: String(lookPortraitMoods(l).length), warning: lookPortraitMoods(l).length === 0 }))}
-							value={lookId}
-							ringed={level === 'look'}
-							addLabel={m['creator.characters_new_look']()}
-							onpick={pickLook}
-							onadd={newLook}
-							testid="look"
-						/>
-					{/snippet}
-					{#snippet tools()}
-						<KanonSquare state={kanon.state(subjectOf('look'))} open={tab === 'kanon' && level === 'look'} label={m['creator.kanon']()} onclick={() => openKanon('look')} testid="kanon-look" />
-					{/snippet}
-					{#snippet gridContent()}
-						{#key `${personaId}/${lookId}`}
-							<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} {bust} />
-						{/key}
-					{/snippet}
-				</CharacterStage>
-			{/if}
-		</div>
-		<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="character-inspector" />
-		<aside class="side" id="character-inspector" aria-label={m['creator.inspector']()}>
-			<div class="insp-tabs">
-				<Tabs variant="grid" label={m['creator.inspector']()} value={currentTab} onchange={setTab} tabs={TABS.map((t) => ({ id: t.id, label: t.label(), testid: `inspector-tab-${t.id}` }))}>
-					{#snippet tab(t)}
-						<Icon name={TABS.find((x) => x.id === t.id)?.icon ?? 'user'} />{#if t.id === 'model'}<span class="b3d" aria-hidden="true">3D</span>{/if}
-					{/snippet}
-				</Tabs>
-			</div>
-			<CharacterInspector
-				{tab}
-				{level}
-				{registry}
-				{file}
-				{moods}
-				{requests}
-				{character}
-				persona={currentPersona}
-				{lookId}
-				{languages}
-				{source}
-				{toons}
-				{edits}
-				{bust}
-				personaName={shownCharacterName(character, personaId)}
-				lookName={lookLabel(currentPersona, lookId, textLanguage.names)}
-				kanonDoc={tab === 'kanon' ? (kanon.docs[kanonSubject] ?? null) : null}
-				kanonState={kanon.state(kanonSubject)}
-				onpersonaremoved={personaRemoved}
-				onlookremoved={() => (look = '')}
-			/>
-		</aside>
+	<article class="char-workspace" data-testid="character-detail" data-id={character.id}>
+		{#if currentLook}
+			<CharacterStage {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} {mood} {view} {grid} {bust} label="{shownCharacterName(character)} · {personaLabel(personaId)} › {lookLabel(currentPersona, lookId, textLanguage.names)}">
+				{#snippet gridContent()}
+					{#key `${personaId}/${lookId}`}
+						<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} {bust} />
+					{/key}
+				{/snippet}
+			</CharacterStage>
+		{/if}
 	</article>
 {:else}
 	<p class="sc-empty">{m['creator.characters_pick']()}</p>
 {/if}
 
 <style>
-	.char-editor {
-		position: relative;
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
+	/* the picture stays clear of the Moods strip over the foot */
+	.char-workspace {
+		display: flex;
+		flex-direction: column;
 		min-height: 0;
 		height: 100%;
-	}
-	.main {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		min-height: 0;
-		border-right: var(--border-width-regular) solid var(--ink);
-	}
-	.head {
-		display: flex;
-		align-items: center;
-		gap: var(--space-075);
-		padding: var(--space-075) var(--space-05) var(--space-05) var(--space-1);
-		min-width: 0;
-		cursor: pointer;
-	}
-	/* the persona row and its Kanon square: the row scrolls (its fade), the square stays at the end (K3) */
-	.level-row {
-		display: flex;
-		align-items: center;
-		min-width: 0;
-		padding-right: var(--space-05);
-	}
-	.level-row > :global(.face-row) {
-		flex: 1;
-	}
-	.avatar {
-		all: unset;
 		box-sizing: border-box;
-		width: 3.5rem;
-		height: 3.5rem;
-		flex: none;
-		overflow: hidden;
-		background: var(--surface-hover);
-		cursor: pointer;
+		padding-bottom: var(--ws-foot, 0);
+		background: var(--editor-stage);
 	}
-	.avatar img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
-	}
-	.head.ringed .avatar {
-		outline: calc(2 * var(--border-width-regular)) solid var(--ink);
-		outline-offset: var(--border-width-regular);
-	}
-	.t {
+	.kanon {
 		display: flex;
 		flex-direction: column;
+		gap: 0.5rem;
 		min-width: 0;
-		flex: 1;
 	}
-	h2 {
-		margin: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.hint {
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.sq {
-		all: unset;
-		box-sizing: border-box;
-		flex: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--control-height);
-		height: var(--control-height);
-		cursor: pointer;
-	}
-	.sq:hover,
-	.sq:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	.side {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		min-width: 0;
-		background: var(--paper);
-	}
-	.insp-tabs {
-		flex: none;
-		padding: var(--space-05) var(--space-1);
-		/* the four icon tabs in one row (the grid tabs' default is 9rem a tab) */
-		--tabs-min: 3rem;
-	}
-	.insp-tabs :global([role='tab']) {
-		position: relative;
-	}
-	/* the model tab's tiny badge (owner 2026-10-20: "3d is fine but add a tiny 3D badge") */
-	.b3d {
-		position: absolute;
-		right: calc(50% - 1.5rem);
-		top: 0.15rem;
-		padding: 0 0.1rem;
-		font-size: var(--type-nav-micro-size);
-		line-height: 1.1;
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.insp-tabs :global([aria-selected='true'] .b3d) {
-		background: var(--paper);
-		color: var(--ink);
+	.kanon > :global(:first-child) {
+		margin: 0 var(--editor-pad);
+		align-self: flex-start;
 	}
 </style>

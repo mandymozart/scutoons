@@ -4,7 +4,7 @@ import { editHref, parseEditKey } from './edit-key.ts';
 
 /**
  * The creator page that edits a stored file (the dashboard's lists, the review list): a chapter → its editor, a season,
- * a toon's entry / settings / cast / credits / script → their pages, a catalog entry → its catalog page, a map document → the map,
+ * a toon's entry / settings / credits / script → their pages, a cast → Characters (its Links), a catalog entry → its catalog page, a map document → the map,
  * the character registry → Characters, a deck scene → its page in Scenes, a module or a rig → the editor (`/edit/<key>`),
  * a storyboard → its chapter's storyboard page. `toon` is the file's toon when the key does not name it (a review's toon).
  */
@@ -24,9 +24,8 @@ export function placeHref(key: string, toon: string | null = null): string {
 		case 'toon':
 		case 'toon-settings':
 			return `/${t}/toon`;
-		case 'cast':
 		case 'credits':
-			return `/${t}/${ref.kind}`;
+			return `/${t}/credits`;
 		case 'season-script':
 			return `/${t}/season/${ref.number}/script`;
 		case 'chapter-script':
@@ -38,6 +37,7 @@ export function placeHref(key: string, toon: string | null = null): string {
 		case 'route':
 		case 'region':
 			return '/map';
+		case 'cast':
 		case 'characters':
 		case 'character':
 		case 'moods':

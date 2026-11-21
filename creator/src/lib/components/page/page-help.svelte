@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'kanon' | 'guide' | 'map' | 'catalog' | 'storyboard';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'script' | 'kanon' | 'guide' | 'map' | 'catalog' | 'storyboard';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -125,8 +125,11 @@
 			<dd>{m['creator.characters_glossary_view']()}</dd>
 		</dl>
 		<p>{m['creator.characters_glossary_fallback']()}</p>
-		<h3>{m['creator.characters_moods']()}</h3>
+		<h3>{m['shell.panel_vocabulary']()}</h3>
 		<p>{m['creator.characters_moods_hint']()}</p>
+		<h3>{m['creator.characters_links']()}</h3>
+		<p>{m['creator.cast_hint']()}</p>
+		<p>{m['creator.cast_star_hint']()}</p>
 		<h3>{m['creator.characters_wanted']()}</h3>
 		<p>{m['creator.characters_wanted_hint']()}</p>
 		<h3>{m['creator.help_transitions_title']()}</h3>
@@ -135,10 +138,6 @@
 		{@render saving()}
 		<h3 class="guide-head">{m['creator.style_guide']()}</h3>
 		<StyleGuide sections={['characters']} />
-	{:else if page === 'cast'}
-		<p>{m['creator.cast_hint']()}</p>
-		<p>{m['creator.cast_star_hint']()}</p>
-		{@render saving()}
 	{:else if page === 'script'}
 		<p>{m['creator.help_script']()}</p>
 		<h3>{m['creator.script_rules']()}</h3>

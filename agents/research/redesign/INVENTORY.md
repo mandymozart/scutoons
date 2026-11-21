@@ -18,8 +18,8 @@ in the storyboard and the chapter's VN events today).
 | `(app)/`, `toons/` | dashboard (Continue, Toons, Not live yet, Waiting for you), toon list | page/home-bar, toon-list, review-list | 580 | Home | home |
 | `[toonId]/` | seasons / chapters tree, publish tree, Flow dock | flow/flow-dock, status/* | 505 | Home (toon) + Library tree | home |
 | `[toonId]/season/[n]`, `/toon`, `/credits` | season meta, toon settings, credits | toon/season-editor, toon-editor, credits/* | 1750 | Inspector of the toon / season node | home |
-| `[toonId]/cast` | season cast (characters, personas) | characters/cast-editor | 400 | **duplicate** of characters → Inspector of the season + Library filter | character |
-| `characters/` (`?tab=moods\|wanted`) | registry, character page, moods vocabulary, wanted images | characters/* (25 files) | 4750 | Asset: character · Asset: mood (vocabulary) · wanted → Problems / Library filter | character |
+| ~~`[toonId]/cast`~~ | gone (#104): membership + role in the character's Links, the Library's cast facet; the season sheet's side with #665 | – | – | – | character |
+| `characters/` (`?tab=wanted`) | registry cards; `character:<id>` = the character workspace (#104): picture as background, Tree, Inspector · Kanon, Moods · Vocabulary panels; wanted images | characters/* | 4500 | wanted → the central Wanted panel (#696) | character |
 | `catalog/[kind]` | items, recipes, albums, products, editions, home-scenes, airlift-carriers | catalog/catalog-editor + `@scutoons/catalog` | 450+ | Asset: item; the other kinds Library + Inspector | item |
 | `catalog/items/[id]/collage` | an item's score / collage stage | collage/* | 1700 | Asset: item (its stage) | item |
 | `edit/[key]` (`?w=sound`) | Sound workspace: rig / module designer + deck stage | sound/*, rigs/*, `@scutoons/rig-designer` | 1150+ | Asset: rig · Asset: module (`/edit/<kind>:<id>` is already a tab address) | rig |

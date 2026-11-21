@@ -147,9 +147,9 @@ try {
 	} else check(false, 'a chapter box in the toon Flow');
 
 	// ── a page without a Flow: the held one closes ──
-	await nav(`/${TOON}/cast`);
-	await until(`location.pathname.endsWith('/cast') && !${q('flow-dock')} ? true : null`, 15000);
-	check(!(await js(`!!${q('flow-dock')}`)), 'the cast page (no Flow): the held Flow closes');
+	await nav('/characters');
+	await until(`location.pathname.endsWith('/characters') && !${q('flow-dock')} ? true : null`, 15000);
+	check(!(await js(`!!${q('flow-dock')}`)), 'the characters page (no Flow): the held Flow closes');
 
 	// ── Problems: chapter → season the same panel ──
 	// the bar's start (Problems) may sit in "More" (the chapter editor's ActionBar breakpoint)
