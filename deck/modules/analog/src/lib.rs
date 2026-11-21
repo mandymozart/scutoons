@@ -1,8 +1,9 @@
 //! `analog` – a classic two-oscillator, two-filter, two-amp subtractive synth as one universal module (#331, README.md):
 //! Osc 1 / Osc 2 (saw, pulse, triangle, sine; a sub each; Osc 2 hard-syncs to Osc 1) and noise → routing → Filter 1 /
 //! Filter 2 (LP, BP, HP, notch; parallel or serial) → Amp 1 / Amp 2 (level, pan) → stereo out, modulated by two LFOs and
-//! four ADSRs, eight voices. Notes come in on one event input (module ABI v2, #343: note on / off paired by id, with
-//! velocity; a bend per note; a reset) and a sustain control; every control is a module parameter (`params.rs`, units and
+//! four ADSRs, eight voices (or one: mono / legato, with glide). Notes come in on one event input (module ABI v2, #343: note on / off paired by id, with
+//! velocity; a bend per note; a reset) and a sustain control; two control outputs give amp envelope 1 and the output's
+//! level; every control is a module parameter (`params.rs`, units and
 //! docs in the descriptor); the factory preset `pad` is the descriptor's, the other presets are documents
 //! (`analog.preset.json` holds three to import).
 //!
@@ -44,5 +45,8 @@ impl Module for Analog {
         let mut out = block.audio_out(Self::OUT);
         let (left, right) = out.stereo();
         self.engine.render(&patch, notes, sustain, &ctx.tempo(), ctx.frame(), (left, right));
+        let (env, level) = self.engine.outputs();
+        block.set(Self::ENV, env);
+        block.set(Self::LEVEL, level);
     }
 }
