@@ -112,10 +112,11 @@ test('the tabs stay below the limit and a broken store opens empty', () => {
 	});
 });
 
-test('machine settings: night by default, every field checked', () => {
+test('machine settings: day by default (owner 2026-11-21), every field checked', () => {
 	assert.deepEqual(readSettings(undefined), DEFAULTS);
-	assert.equal(DEFAULTS.theme, 'night');
-	assert.deepEqual(readSettings({ theme: 'day', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'day', scale: 1.5, reopenTabs: false });
+	assert.equal(DEFAULTS.theme, 'day');
+	assert.deepEqual(readSettings({ theme: 'night', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'night', scale: 1.5, reopenTabs: false });
+	assert.equal(readSettings({ theme: 'dusk' }).theme, 'day');
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);

@@ -286,7 +286,9 @@
 		padding-right: var(--ws-right, 0);
 		transition: padding 0.18s ease;
 	}
+	/* the bar lies over the panel layer (workspace.svelte, z 40), so its menus (☰, the tab list) open over every panel (#750) */
 	.creator :global(.sc-shell-top) {
+		z-index: 50;
 		border-bottom: 0;
 		background: var(--editor-stage);
 	}
@@ -302,6 +304,9 @@
 	:global(:where(.creator textarea)) {
 		width: 100%;
 	}
+	/* buttons on the deck editor's dogma (deck/kit/src/editor/controls.rs, #750): quiet controls on the control ground with
+	   the radius; an option that is on is pressed (`pills`); a lone icon shows its ground only under the pointer
+	   (`icon_button`); the view's one primary action is lime (`primary`) */
 	:global(:where(.creator button)),
 	:global(:where(.creator .btn)) {
 		display: inline-flex;
@@ -310,39 +315,46 @@
 		gap: var(--space-025);
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: 0 var(--space-15);
+		padding: 0 var(--editor-pad);
 		line-height: var(--type-button-line);
-		background: var(--ink);
-		color: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
+		background: var(--editor-control);
+		color: var(--editor-text);
+		border: var(--editor-edge) solid transparent;
+		border-radius: var(--editor-radius);
 		cursor: pointer;
 		text-decoration: none;
 	}
+	:global(:where(.creator button:hover:not(:disabled))),
+	:global(:where(.creator .btn:hover)) {
+		background: var(--editor-hover);
+	}
 	:global(:where(.creator button.secondary)),
 	:global(:where(.creator .btn.secondary)) {
-		background: var(--paper);
-		color: var(--ink);
-		border-color: var(--border-muted);
-	}
-	:global(:where(.creator button.secondary:hover:not(:disabled))),
-	:global(:where(.creator .btn.secondary:hover)) {
-		border-color: var(--ink);
+		background: var(--editor-control);
+		color: var(--editor-text);
 	}
 	:global(:where(.creator button.ghost)) {
 		background: transparent;
-		color: var(--ink);
-		border-color: transparent;
+		color: var(--editor-text);
 		padding: 0 var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
-		border-color: var(--border-muted);
+		background: var(--editor-hover);
 	}
 	:global(:where(.creator button.active)),
+	:global(:where(.creator button[aria-pressed='true'])),
 	:global(:where(.creator button.active:hover:not(:disabled))) {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--editor-pressed);
+		color: var(--editor-pressed-text);
+	}
+	:global(:where(.creator button.primary)),
+	:global(:where(.creator .btn.primary)) {
+		background: var(--editor-primary);
+		color: var(--editor-primary-ink);
+		border-color: var(--editor-primary-line);
+	}
+	:global(:where(.creator button.primary:hover:not(:disabled))) {
+		background: var(--editor-primary-line);
 	}
 	:global(:where(.creator button:disabled)) {
 		opacity: 0.5;

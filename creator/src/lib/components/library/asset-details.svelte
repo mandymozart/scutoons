@@ -2,10 +2,10 @@
 	import { goto } from '$app/navigation';
 	import type { AssetUsage } from '@scutoons/api';
 	import { bytes, formatDuration, previewPicture, type AssetFamily } from '@scutoons/media';
-	import { CloseButton } from '@scutoons/ui';
+	import { CloseButton, Icon } from '@scutoons/ui';
 	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { NEEDS, copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
+	import { copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { hrefOf } from '$lib/shell/address.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -83,14 +83,16 @@
 	<h2><button type="button" class="name" data-control-exempt="text link" title={m['library.rename']()} onclick={() => renameFamily(family)}>{family.title}</button></h2>
 	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
 
+	<!-- what can be done with it here (#750): Use only while a slot picks, the cover only in a chapter; the rest as icons -->
 	<div class="actions">
-		<button type="button" class="primary" onclick={() => library.use(family)} disabled={!fits}>{library.pick ? m['library.use_here']() : m['library.use']()}</button>
+		{#if library.pick}<button type="button" class="primary" onclick={() => library.use(family)} disabled={!fits}>{m['library.use_here']()}</button>{/if}
 		{#if chapterOpen && !library.pick}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
-		<button type="button" onclick={() => downloadFamilies([family])}>{m['library.download']()}</button>
-		<button type="button" onclick={() => copyPath(family)}>{m['library.copy_path']()}</button>
-		<button type="button" onclick={() => fileInput?.click()}>{m['library.replace']()}</button>
-		<button type="button" disabled title={NEEDS.credits()}>{m['library.credits']()}</button>
-		<button type="button" class="danger" onclick={() => deleteFamilies([family])}>{m['library.delete']()}</button>
+		<span class="icons">
+			<button type="button" class="ghost icon" title={m['library.download']()} aria-label={m['library.download']()} onclick={() => downloadFamilies([family])}><Icon name="download" size="1rem" /></button>
+			<button type="button" class="ghost icon" title={m['library.copy_path']()} aria-label={m['library.copy_path']()} onclick={() => copyPath(family)}><Icon name="copy" size="1rem" /></button>
+			<button type="button" class="ghost icon" title={m['library.replace']()} aria-label={m['library.replace']()} onclick={() => fileInput?.click()}><Icon name="upload" size="1rem" /></button>
+			<button type="button" class="ghost icon danger" title={m['library.delete']()} aria-label={m['library.delete']()} onclick={() => deleteFamilies([family])}><Icon name="trash-2" size="1rem" /></button>
+		</span>
 	</div>
 	<input bind:this={fileInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) onreplace(f); e.currentTarget.value = ''; }} />
 
@@ -197,6 +199,7 @@
 	}
 	h2 {
 		margin: 0.6rem 0 0.1rem;
+		font-family: var(--editor-sans);
 		font-size: var(--editor-title, 1.15rem);
 		font-weight: 400;
 	}
@@ -223,16 +226,26 @@
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 0.3rem;
 		margin-bottom: 0.4rem;
 	}
-	.actions .primary {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
+	/* the icon actions sit at the row's end; delete is red only under the pointer */
+	.icons {
+		display: flex;
+		gap: 0.1rem;
+		margin-left: auto;
 	}
-	.danger {
-		color: var(--editor-danger, var(--editor-warn));
+	.icon {
+		width: var(--editor-row);
+		padding: 0;
+		color: var(--editor-muted);
+	}
+	.icon:hover {
+		color: var(--editor-text);
+	}
+	.icon.danger:hover {
+		color: var(--editor-danger);
 	}
 	.versions {
 		width: 100%;
