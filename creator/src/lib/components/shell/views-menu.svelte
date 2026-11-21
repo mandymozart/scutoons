@@ -23,16 +23,20 @@
 				</button>
 				{#each floats.tabsOf(p.id) as t (t)}
 					<button type="button" class="line tab" class:front={open && floats.activeOf(p.id) === t} onclick={() => shell.open(t)} data-testid="views-tab-{t}">
-						{floats.tab(t)?.name ?? t}{#if shell.main === t}<span class="mark">{m['shell.on_stage']()}</span>{/if}
+						{floats.tab(t)?.name ?? t}{#if shell.stage.includes(t)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
 					</button>
 				{/each}
 			{/each}
 		{/if}
 		<hr />
 		<span class="head">{m['shell.views_stage']()}</span>
-		<button type="button" class="line" disabled={!shell.main} onclick={() => shell.main && shell.toggleMain(shell.main)} data-testid="views-stage">
-			<Icon name="monitor" size="1rem" />{shell.main ? (floats?.tab(shell.main)?.name ?? shell.main) : m['shell.views_stage_none']()}
-		</button>
+		{#each shell.stage as t (t)}
+			<button type="button" class="line" onclick={() => shell.back(t)} title={m['shell.main_back']()} data-testid="views-stage">
+				<Icon name="monitor" size="1rem" />{floats?.tab(t)?.name ?? t}
+			</button>
+		{:else}
+			<button type="button" class="line" disabled data-testid="views-stage"><Icon name="monitor" size="1rem" />{m['shell.views_stage_none']()}</button>
+		{/each}
 		<button type="button" class="line" role="menuitemcheckbox" aria-checked={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear">
 			<span class="tick" class:on={shell.clear} aria-hidden="true">{#if shell.clear}<Icon name="check" size="0.8rem" />{/if}</span>{m['shell.views_clear']()}
 		</button>

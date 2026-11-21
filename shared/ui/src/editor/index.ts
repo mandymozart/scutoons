@@ -13,3 +13,4 @@ export { default as ToolMenu } from './tool-menu.svelte';
 export { type ToolOption } from './tool-groups.ts';
 // the one number field of the tools (typed maths, units, reset) – the same component for the editor kit
 export { default as ScrubNumber } from '../scrub-number.svelte';
+export { measureDrop } from './measure-drop.ts';

@@ -43,8 +43,13 @@ export interface PresetPanel {
 
 export interface Preset {
 	panels: readonly PresetPanel[];
-	/** the tab on the stage when the workspace opens (none: the workspace's own background) */
+	/**
+	 * the tab on the stage when the workspace opens. None: the workspace's own view is the stage – it fills the whole
+	 * window under the bar (a full-bleed stage such as an XR experience or a character stage needs no tab for it)
+	 */
 	main?: TabId;
+	/** the view's default for clear of the bar (a full-bleed workspace: false) */
+	clear?: boolean;
 }
 
 const left = (tabs: readonly TabId[], more: { collapsed?: boolean; closed?: boolean } = {}): PresetPanel => ({ id: 'left', tabs, place: at('top-left', 0, 0, more), size: { w: 18, h: 'fill' }, min: { w: 12, h: 8 } });
@@ -93,10 +98,11 @@ export function panelSpecs(workspace: WorkspaceKind | 'home', available: Readonl
 	});
 }
 
-/** the tab on a workspace's stage: the one the person put there (null: none), else the preset's */
-export function mainOf(workspace: string, view: { main?: string | null }): string | null {
-	if (view.main !== undefined) return view.main;
-	return PRESETS[workspace as WorkspaceKind | 'home']?.main ?? null;
+/** the tabs on a workspace's stage: those the person put there (empty: none), else the preset's `main` */
+export function stageOf(workspace: string, view: { stage?: readonly string[] }): readonly string[] {
+	if (view.stage) return view.stage;
+	const main = PRESETS[workspace as WorkspaceKind | 'home']?.main;
+	return main ? [main] : [];
 }
 
 /** the tabs with content: the shell's own (the Toon only with a toon) and those the front page fills */
