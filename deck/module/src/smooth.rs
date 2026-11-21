@@ -29,6 +29,14 @@ impl Smooth {
         self.value
     }
 
+    /// there, once the way left is at most `within`: in f32 a one-pole stalls a few millionths short of a target that
+    /// is not 0, so a level that should close or pass untouched says where it counts as arrived
+    pub fn land(&mut self, within: f32) {
+        if (self.target - self.value).abs() <= within {
+            self.value = self.target;
+        }
+    }
+
     pub fn value(&self) -> f32 {
         self.value
     }
@@ -70,6 +78,16 @@ mod tests {
         s.jump(-2.0);
         assert_eq!((s.value(), s.step(0.3)), (-2.0, -2.0));
         assert_eq!(Smooth::coef(0.0, 0.01), 1.0);
+        s.to(1.0);
+        for _ in 0..10_000 {
+            s.step(0.01);
+        }
+        assert!(s.value() < 1.0, "stalled short of the target");
+        s.land(1e-5);
+        assert_eq!(s.value(), 1.0);
+        s.to(0.5);
+        s.land(1e-5);
+        assert_eq!(s.value(), 1.0, "still on its way");
         assert!((Smooth::coef(0.1, 0.1) - (1.0 - (-1.0f32).exp())).abs() < 1e-6);
     }
 }

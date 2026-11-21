@@ -38,7 +38,8 @@ pub struct Adsr {
     from: f32,
 }
 
-fn samples(seconds: f32, rate: f64) -> u32 {
+/// a stage's length in samples: at least one
+pub(super) fn samples(seconds: f32, rate: f64) -> u32 {
     (f64::from(seconds.max(0.0)) * rate).round().max(1.0) as u32
 }
 
