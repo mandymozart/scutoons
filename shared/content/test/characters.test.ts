@@ -368,7 +368,7 @@ test('the star is in every season of the cast (added in front, never twice)', ()
 	assert.equal(ensureStar(cast, null), false);
 });
 
-test('the scenes' characters: suggested for the season's cast', () => {
+test("the scenes' characters: suggested for the season's cast", () => {
 	const groups = [
 		{ slices: [{ events: [{ type: 'showMessage', params: { character: 'crows', text: 'kra' }, trigger: {} }] }] },
 		{ events: [{ type: 'joinScene', params: { characters: [{ character: 'boy', variant: 'portrait' }, { name: 'plf' }] } }, { type: 'showMessage', params: { character: 'boy', text: 'hi' } }] },

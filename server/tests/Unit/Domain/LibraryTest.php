@@ -72,13 +72,12 @@ final class LibraryTest extends TestCase
     /**
      * A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has two groups.
      * The toon entry holds the toon's settings per language; chapters and the season are language-neutral
-     * documents (texts per locale, agents/NEUTRAL.md); the locations are per locale.
+     * documents (texts per locale, agents/NEUTRAL.md).
      * @param array<string, mixed> $entry more fields of the toon entry
      */
     private function seedToon(array $entry = []): void
     {
         $this->doc('t', '_', 'index.json', $entry + self::ENTRY + self::ENTRY_TEXTS);
-        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
         $this->seedSeason();
         $this->chapter1(['label' => 'scene', 'events' => [['type' => 'joinScene', 'params' => ['character' => 'plf']]], 'params' => new \stdClass()]);
         $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => []]);
@@ -690,9 +689,6 @@ final class LibraryTest extends TestCase
         $store->setPublished(['id' => $gone, 'entity_key' => 'place:tower']);
         self::assertSame(['home', 'well'], $ids(false));
         self::assertNotSame($before, $this->library()->map('de', null, false)->etag, 'publishing a place gives a new cache key');
-
-        // the old bundle lists follow the documents too
-        self::assertSame(['home', 'well'], array_column(self::decode($this->library()->toon('t', 'en', false)->body)['locations'], 'id'));
     }
 
     /** the regions (agents/MAP.md §8.10): region:<id> documents in the map, every one for readers, texts in the locale, no cells */
