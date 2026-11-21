@@ -1,0 +1,99 @@
+{
+	"description": "Views every language reads (#763, the [contract] mechanism 'shared test vectors'): the Rust types deserialize and re-serialize each one unchanged, the TS types take them as written. One per scope as the projectors arrive; each is the drafts' example (agents/research/redesign/network.html).",
+	"views": [
+		{
+			"scope": "story",
+			"context": "chapter:sandbox/1/2",
+			"levels": [
+				{ "address": "network", "label": "Universe" },
+				{ "address": "toon:sandbox", "label": "sandbox" },
+				{ "address": "season:sandbox/1", "label": "Season 1" },
+				{ "address": "chapter:sandbox/1/2", "label": "Chapter 2 · Dunes" }
+			],
+			"nodes": [
+				{ "id": "g3", "kind": "group", "family": "container", "label": "Dig or wait?", "detail": "choice", "address": "chapter:sandbox/1/2/g3", "runtime": "reader", "enter": "chapter:sandbox/1/2/g3",
+					"ports": [
+						{ "id": "enter", "label": "enter", "signal": "event", "dir": "in", "many": true },
+						{ "id": "dig", "label": "dig", "signal": "event", "dir": "out" },
+						{ "id": "wait", "label": "wait", "signal": "event", "dir": "out" }
+					] },
+				{ "id": "g5", "kind": "group", "family": "container", "label": "Storm", "address": "chapter:sandbox/1/2/g5", "runtime": "reader", "enter": "chapter:sandbox/1/2/g5",
+					"ports": [
+						{ "id": "enter", "label": "enter", "signal": "event", "dir": "in", "many": true },
+						{ "id": "storm", "label": "fires storm", "signal": "event", "dir": "out" }
+					] },
+				{ "id": "far-show", "kind": "stub", "family": "far", "label": "show Sandbox demo · row 4", "address": "show:sandbox-demo/row/4", "runtime": "conductor",
+					"ports": [{ "id": "in", "label": "", "signal": "far", "dir": "in" }] }
+			],
+			"edges": [
+				{ "id": "e1", "from": { "node": "g3", "port": "wait" }, "to": { "node": "g5", "port": "enter" }, "signal": "event", "label": "wait",
+					"home": { "doc": "chapter:sandbox/1/2", "path": "/groups/2/events/4/options/1/target" } },
+				{ "id": "e2", "from": { "node": "g5", "port": "storm" }, "to": { "node": "far-show", "port": "in" }, "signal": "event", "label": "storm", "crosses": "relay" }
+			],
+			"stubs": [{ "edge": "e2", "side": "out", "far": "show:sandbox-demo/row/4", "label": "→ show Sandbox demo · row 4 fires" }],
+			"problems": [{ "at": "g5", "severity": "warning", "text": "water is read before it is set on one path" }]
+		},
+		{
+			"scope": "rig",
+			"context": "rig:crow",
+			"levels": [
+				{ "address": "network", "label": "Universe" },
+				{ "address": "rig:crow", "label": "rig crow" }
+			],
+			"nodes": [
+				{ "id": "midi", "kind": "midi", "family": "world", "label": "MIDI · X1", "address": "midi:x1", "runtime": "deck", "picture": "asset:x1-photo",
+					"ports": [{ "id": "note", "label": "midi.note", "signal": "event", "dir": "out" }] },
+				{ "id": "voice_osc", "kind": "module:osc", "family": "sound", "label": "osc", "address": "rig:crow/voice:osc", "runtime": "deck",
+					"ports": [
+						{ "id": "note", "label": "note", "signal": "event", "dir": "in" },
+						{ "id": "pitch", "label": "pitch", "signal": "control", "dir": "in", "hidden": true },
+						{ "id": "out", "label": "out", "signal": "audio", "dir": "out" }
+					] },
+				{ "id": "voice_sum", "kind": "sum", "family": "sound", "label": "sum", "detail": "folder bus", "address": "rig:crow/voice:sum", "runtime": "deck",
+					"ports": [
+						{ "id": "in", "label": "in", "signal": "audio", "dir": "in", "many": true },
+						{ "id": "out", "label": "being", "signal": "audio", "dir": "out" }
+					] }
+			],
+			"edges": [
+				{ "id": "w1", "from": { "node": "midi", "port": "note" }, "to": { "node": "voice_osc", "port": "note" }, "signal": "event",
+					"home": { "doc": "rig:crow", "path": "/routes/0" } },
+				{ "id": "w2", "from": { "node": "voice_osc", "port": "out" }, "to": { "node": "voice_sum", "port": "in" }, "signal": "audio",
+					"home": { "doc": "instrument:crow-voice", "path": "/links/0" } }
+			],
+			"stubs": [],
+			"problems": [],
+			"canvas": {
+				"groups": [{ "id": "voice", "label": "voice", "colour": "#19b8d8", "nodes": ["voice_osc", "voice_sum"], "folded": false }],
+				"notes": [{ "id": "n1", "text": "a minor third above crow 1", "near": "voice_osc" }],
+				"folded": [],
+				"pins": { "midi": { "x": 0.5, "y": 4.5 } }
+			}
+		},
+		{
+			"scope": "network",
+			"context": "network",
+			"levels": [{ "address": "network", "label": "Universe" }],
+			"nodes": [
+				{ "id": "sandbox", "kind": "toon", "family": "container", "label": "Sandbox", "address": "toon:sandbox", "runtime": "reader", "enter": "toon:sandbox",
+					"ports": [{ "id": "events", "label": "story events", "signal": "event", "dir": "out" }] },
+				{ "id": "demo", "kind": "show", "family": "container", "label": "Sandbox demo", "address": "show:sandbox-demo", "runtime": "conductor", "enter": "show:sandbox-demo",
+					"ports": [
+						{ "id": "fire", "label": "fire on", "signal": "event", "dir": "in", "many": true },
+						{ "id": "plays", "label": "plays", "signal": "scene", "dir": "out" }
+					] },
+				{ "id": "crow", "kind": "rig", "family": "container", "label": "rig crow", "address": "rig:crow", "runtime": "deck", "enter": "rig:crow",
+					"ports": [{ "id": "played", "label": "played by", "signal": "scene", "dir": "in" }] },
+				{ "id": "gen", "kind": "generation", "family": "free", "label": "dune backdrop", "detail": "image · waiting for approval", "address": "generation:42", "runtime": "server",
+					"ports": [{ "id": "done", "label": "done", "signal": "event", "dir": "out" }] }
+			],
+			"edges": [
+				{ "id": "n1", "from": { "node": "sandbox", "port": "events" }, "to": { "node": "demo", "port": "fire" }, "signal": "event", "label": "storm · dig · wait", "crosses": "relay", "count": 3 },
+				{ "id": "n2", "from": { "node": "demo", "port": "plays" }, "to": { "node": "crow", "port": "played" }, "signal": "scene", "label": "row 2, 4", "crosses": "relay", "count": 2,
+					"home": { "doc": "show:sandbox-demo", "path": "/rows/3/cells/sound" } }
+			],
+			"stubs": [],
+			"problems": []
+		}
+	]
+}
