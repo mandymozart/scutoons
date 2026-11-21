@@ -154,9 +154,10 @@ impl Engine {
         Engine::build_seq(graph, rate, volume, detect_build(), detect_sequencing())
     }
 
-    /// `build` for a device with `channels` channels (what its backend reports; `build` is a stereo device)
+    /// `build` for a device with `channels` channels (what its backend reports), its outlet groups where deck.toml maps
+    /// them – the deck's own audio. `build` is a fresh stereo deck: tests and offline renders never take this PC's routing.
     pub fn build_for(graph: &Graph, rate: f32, volume: f32, channels: usize) -> Result<(Engine, Handles)> {
-        Engine::build_device(graph, rate, volume, detect_build(), detect_sequencing(), channels)
+        Engine::build_mapped(graph, rate, volume, detect_build(), detect_sequencing(), channels, &backend::DeckAudio::read().audio_outlet)
     }
 
     /// `build` with this `build`, the hosts' generators inside the block (no thread to start – the tests)
@@ -164,12 +165,9 @@ impl Engine {
         Engine::build_seq(graph, rate, volume, build, Sequencing::InBlock)
     }
 
+    /// a fresh stereo deck (no deck.toml map: main on 1/2)
     pub fn build_seq(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing) -> Result<(Engine, Handles)> {
-        Engine::build_device(graph, rate, volume, build, seq, 2)
-    }
-
-    fn build_device(graph: &Graph, rate: f32, volume: f32, build: Build, seq: Sequencing, channels: usize) -> Result<(Engine, Handles)> {
-        Engine::build_mapped(graph, rate, volume, build, seq, channels, &backend::DeckAudio::read().audio_outlet)
+        Engine::build_mapped(graph, rate, volume, build, seq, 2, &[])
     }
 
     /// `build_device` with this channel map instead of deck.toml's: a test tone on a map not saved yet
