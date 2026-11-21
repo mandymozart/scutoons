@@ -46,6 +46,7 @@ Copy all and Save stay (for bug reports).
 
 ## 3. Where it shows
 
+- **Owner, 2026-11-21, thinking aloud:** *"maybe a tab in shared panel. i think."* Read as: the Log is a shell tab like Toon, Library and Settings (`SHELL_TABS` in presets.ts). It's there in every workspace and lives in a panel shared across workspaces, not one per workspace.
 - **One tab: Log.** It replaces the Problems tab. "Problems" becomes a **preset filter of the Log** (standing lines, errors and warnings, scope Item), so the chapter preset's tab still reads as Problems where that's what matters. A workspace preset can keep its own filter (the Flow workspace: scope Chapter; the live show: scope Show, kind events).
 - **The status bar** stays the deck's: the newest line (dot, words, age), the counts, and a press opens the Log. The counts follow the **Item** scope by default, so you see *this* item's problems, not the whole toon's.
 - **On the stage (#765):** the Log can take the stage as a full-height list (a page tab, clear of the bar), for a review pass over a whole season.
