@@ -50,6 +50,18 @@ What that means, in the network's words (#763: a node is a **spore**, connecting
 
 This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
+## 0a. Reference: an agentic 3D workflow canvas (owner's research, 2026-11-22)
+
+`refs/tripo-modular-character-assembly.webp`: Tripo3D's "Modular Game Character Assembly" workflow, shared by the owner *"just for reference"*:
+- **The flow:** one character picture is split into parts (head, hair, lower body, dress, hands, an accessory). Each part gets its own chain in parallel columns: image → 3D mesh → smart mesh (retopology) → texture. The parts then assemble into one character.
+- **Clone:** the whole canvas can be copied and run as your own workflow.
+
+The owner's reading: *"we are pretty much at the same. even a bit more modular and we can feed from our library."* What that means for us:
+- **It's a spore generator.** One input fans out into parallel chains per part, then gathers into one output. Our canvas draws the same shape.
+- **More modular:** a part's chain can itself be a generator (a "hair → 3D" generator reused in many characters). The parts map onto our modules and dress-up (module bodies #335, research/DRESS-UP.md).
+- **Fed from the Library:** a chain can start from a character's sheet, its Kanon look (a skills spore), reference pictures, or parts already made, not only from one uploaded picture.
+- **Clone = a generator document copied as a new version** in another toon or character. It's not a separate template store.
+
 ## 1. One shape
 
 Every hook in the creator has the same four parts and the same four states. Only the words change.
