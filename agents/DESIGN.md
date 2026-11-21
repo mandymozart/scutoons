@@ -112,7 +112,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   never with the absolute #N next to it: the chapter page's tab title ("<toon> · <label>: <title>"), the coming-soon
   heading, the end actions in the box, the start button's "S2 K1", the list's "#1". The toon page's list is grouped
   by season, each under its heading `#season-S` (one season: as before). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
-  and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
+  and simple; the data went too, 2026-11-21, #709).
 - **Coming-soon page** (owner 2026-10-05): with a key visual the page is a fullscreen teaser (`chapter-teaser.svelte`):
   the key visual video fills the window and starts **with sound, once** – no loop; at the end "Nochmal ansehen" in the
   centre (reduced motion: "Abspielen" before it starts) (owner 2026-10-08); a tap anywhere on the playing video toggles
@@ -821,8 +821,8 @@ The creator is a hierarchy: **toon → season → chapter → group (scene) → 
   "up" (the parent level), page status / filters, secondary actions, primary action right-most.
 - **URLs follow the hierarchy.** The existing routes map cleanly and stay: `/<toon>`, `/<toon>/season/<n>`,
   `/<toon>/chapter/<n>` (a chapter belongs to its season; the breadcrumb shows it), `/<toon>/cast|credits|toon`,
-  `/characters?tab=moods|wanted&id=`. Inside the chapter the selection is in the query:
-  `/<toon>/chapter/2?group=scene-14&slice=3` (`group` = the group's label or scene name, else its number;
+  `/characters?tab=wanted&id=`. Inside the chapter the selection is in the query:
+  `/<toon>/chapter/2?group=scene-14&slice=3` (`group` = the group's id, else its number;
   `slice` 1-based; `?section=audio`). Deep links, crumbs and back/forward all work through the URL.
 - **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the page's list.
 - **Names, not files:** the UI never shows storage keys (`chapter2.json` …): one mapping `entityLabel()` in

@@ -72,12 +72,12 @@ test('prepareSlices: media reference the source toon, fresh box / event / placem
 	assert.equal(foreignFiles(slices, undefined, 'catpope', 'catpope'), 0);
 });
 
-test('prepareGroup: unique label, script ids dropped, the script\'s showTextBox follows', () => {
+test('prepareGroup: unique id, script ids dropped, the script\'s showTextBox follows', () => {
 	const clip = makeClip('groups', 'catpope', []);
-	const group = { label: 'scene-1', events: [{ id: 'e1', type: 'showTextBox', params: { dialog: 'd1' } }], slices: [{ image: 'a.webp', dialog: [{ id: 'd1' }] }] };
+	const group = { id: 'scene-1', events: [{ id: 'e1', type: 'showTextBox', params: { dialog: 'd1' } }], slices: [{ image: 'a.webp', dialog: [{ id: 'd1' }] }] };
 	const labels = new Set(['scene-1', 'scene-1-2']);
 	const g = prepareGroup(clip, group, { toon: 'catpope', nextBoxId: () => 'new-1' }, labels);
-	assert.equal(g.label, 'scene-1-3');
+	assert.equal(g.id, 'scene-1-3');
 	assert.equal(g.events[0].id, undefined);
 	assert.equal(g.events[0].params.dialog, 'new-1');
 	assert.equal(g.slices[0].image, 'a.webp', 'same toon: paths unchanged');
@@ -126,9 +126,9 @@ test('settings only (Shift+V)', () => {
 	assert.equal(applyVnSettings(vn, [{ type: 'showMessage', params: { text: { de: 'b' } }, if: 'y' }]), true);
 	assert.deepEqual(vn, { id: 'e1', type: 'showMessage', params: { text: { de: 'b' } }, if: 'y' });
 
-	const group: any = { label: 'a', slices: [1], renderer: { type: 'vertical' } };
-	applyGroupSettings(group, { label: 'b', renderer: { type: 'horizontal' }, continues: true });
-	assert.deepEqual(group, { label: 'a', slices: [1], renderer: { type: 'horizontal' }, continues: true });
+	const group: any = { id: 'a', slices: [1], renderer: { type: 'vertical' } };
+	applyGroupSettings(group, { id: 'b', renderer: { type: 'horizontal' }, continues: true });
+	assert.deepEqual(group, { id: 'a', slices: [1], renderer: { type: 'horizontal' }, continues: true });
 });
 
 test('placements are counted per catalog item (a chapter, a scene, a clip)', () => {

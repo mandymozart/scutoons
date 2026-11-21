@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The storyboard's rhythm (STORYBOARD.md §6, @scutoons/content/storyboard summarize / measureShot / TARGET): the
 	// chapter's reading length against the target, each scene's, and the current shot's. The storyboard check's errors
-	// and warnings are the creator's Problems panel (the ActionBar) – a row there picks the shot it names.
+	// and warnings are the creator's Problems tab – a row there picks the shot it names.
 	import { measureShot, summarize, TARGET } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
@@ -74,11 +74,10 @@
 	}
 	li {
 		display: grid;
-		padding-left: var(--space-05);
-		border-left: var(--border-width-focus) solid transparent;
+		padding-inline: var(--space-05);
 	}
 	li.current {
-		border-left-color: var(--ink);
+		background: var(--editor-selected);
 	}
 	.scene {
 		text-transform: uppercase;

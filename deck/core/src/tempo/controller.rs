@@ -29,7 +29,8 @@ const NUDGE_S: f64 = 1.0;
 /// … and never more than this much (2 % – a gentle tempo change, inaudible as a jump)
 const MAX_NUDGE: f64 = 0.02;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Source {
     Internal,
     Midi,
@@ -38,7 +39,57 @@ pub enum Source {
     Relay,
 }
 
+/// What the tempo pill shows (`Controller::pill`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pill {
+    pub source: Source,
+    /// the tempo comes from outside the deck's own clock (INT / EXT)
+    pub external: bool,
+    /// the external source has its tempo (a source not locked yet is waited for)
+    pub locked: bool,
+    /// a live show's clock holds this one: the pill cannot be edited
+    pub held: bool,
+    /// the metronome sounds on its own bus
+    pub click: bool,
+    /// the beat dot and the bar meter
+    pub beat: Beat,
+}
+
+/// The beat dot and the bar meter (`Now::beat`): beat `beat` (from 0) of `per_bar`, the dot lit on its first part.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Beat {
+    pub beat: u32,
+    pub per_bar: u32,
+    pub lit: bool,
+    /// the bar's first beat
+    pub accent: bool,
+    pub running: bool,
+}
+
 impl Source {
+    /// the sources the pill offers, in order: the deck's own clock, the show clock, MIDI clock in, Link
+    pub const PICKS: [Source; 4] = [Source::Internal, Source::Relay, Source::Midi, Source::Link];
+
+    /// the master after a typed tempo: a follower that can't be steered (MIDI clock in, the show clock) leaves for the own
+    /// clock; Link and OSC take it
+    pub fn typed(self) -> Source {
+        match self {
+            Source::Midi | Source::Relay => Source::Internal,
+            s => s,
+        }
+    }
+
+    /// the tempo comes from outside this deck's own clock
+    pub fn external(self) -> bool {
+        self != Source::Internal
+    }
+
+    /// the pick after this one among those `offered` (one a platform cannot open is left out); this one when none else
+    pub fn next_pick(self, offered: &[Source]) -> Source {
+        let i = Source::PICKS.iter().position(|&s| s == self).unwrap_or(0);
+        (1..=Source::PICKS.len()).map(|k| Source::PICKS[(i + k) % Source::PICKS.len()]).find(|s| offered.contains(s)).unwrap_or(self)
+    }
+
     pub const ALL: [Source; 5] = [Source::Internal, Source::Midi, Source::Link, Source::Osc, Source::Relay];
 
     pub fn parse(s: &str) -> Option<Source> {
@@ -95,6 +146,14 @@ pub enum What {
     Midi([u8; 3]),
     Osc(Cmd),
     Key(Key),
+    /// a tempo typed on the pill (the master BPM): the deck's own clock takes it – a follower of MIDI clock in or the show
+    /// clock is left for it, Link takes it into the session, a live show's clock holds it back
+    Bpm(f64),
+    /// the metronome on or off – a monitor's choice, also while a live show's clock holds this one
+    Click(bool),
+    /// the tempo a show document keeps (`deck_show::document::Tempo`): its BPM on the own clock, then its source the master;
+    /// a live show's clock holds it back
+    Saved(f64, Source),
     /// the show clock's anchor (the relay's `tempo`, §3.7) – in relay time
     Tempo(Anchor),
     /// a pong: the ping left at `t0_ns` (this clock), the relay's clock read `t1_ms`; the event's `at_ns` = back
@@ -330,6 +389,26 @@ impl Controller {
     /// the picker's choice the clock is on now (a key or a scene may have moved it); None on Link or OSC (#370)
     pub fn mode(&self) -> Option<ClockMode> {
         ClockMode::of(self.source, self.leads)
+    }
+
+    /// the tempo pill's pick of a source (`PICKS`): it becomes the master and the deck asks to lead no show clock by it
+    pub fn pick(&mut self, s: Source, host: &mut dyn Host) {
+        self.set_source(s, host);
+        self.set_lead(false);
+    }
+
+    /// what the tempo pill says at the heard moment (#585): whether the tempo comes from outside the deck's own clock, and
+    /// whether that source is locked – MIDI clock in has its clock, the show clock its anchor and an offset, Link and OSC are
+    /// there as soon as they are the master
+    pub fn pill(&self, now_ns: u64) -> Pill {
+        let show = self.show(now_ns);
+        let locked = match self.source {
+            Source::Internal => true,
+            Source::Midi => !show.midi_lost,
+            Source::Relay => show.locked && show.anchor,
+            Source::Link | Source::Osc => true,
+        };
+        Pill { source: self.source, external: self.source.external(), locked, held: self.held.is_some(), click: self.click, beat: self.now.beat() }
     }
 
     /// the picker's choice: its source the master, leading or not (#370)
@@ -573,7 +652,23 @@ impl Controller {
                 self.pinger = Pinger::default();
                 self.lead.again();
             }
-            What::Osc(_) | What::Key(_) if self.held.is_some() => {}
+            What::Click(on) => self.click = on,
+            What::Osc(_) | What::Key(_) | What::Bpm(_) | What::Saved(..) if self.held.is_some() => {}
+            What::Saved(b, s) => {
+                // Link takes the BPM into its session; every other source has it on the own clock to start from
+                self.set_source(if s == Source::Link { s } else { Source::Internal }, host);
+                self.command(Cmd::Bpm(b), f, m, e.at_ns, host);
+                if self.source != s {
+                    self.set_source(s, host);
+                }
+                self.set_lead(false);
+            }
+            What::Bpm(b) => {
+                if self.source.typed() != self.source {
+                    self.set_source(self.source.typed(), host);
+                }
+                self.command(Cmd::Bpm(b), f, m, e.at_ns, host);
+            }
             What::Osc(c) if self.source == Source::Osc => self.command(c, f, m, e.at_ns, host),
             What::Osc(_) => {}
             What::Key(Key::NextSource) => self.set_source(self.source.next(), host),
@@ -747,6 +842,156 @@ mod tests {
         assert!(t.shared.map().unwrap().1, "the click is on");
         t.push(at(1.0, What::Key(Key::StartStop)));
         assert!(!t.frame(&moment(1.1, 0.0), &mut NoHost).running);
+    }
+
+    #[test]
+    fn a_typed_tempo_is_the_own_clocks_and_leaves_a_follower() {
+        // the own clock takes it from the frontier on, the beat stays
+        let mut t = tempo(120.0);
+        t.push(at(1.0, What::Bpm(90.0)));
+        let n = t.frame(&moment(1.0, 0.0), &mut NoHost);
+        assert_eq!((t.source, n.bpm), (Source::Internal, 90.0));
+        t.push(at(1.5, What::Bpm(9000.0)));
+        assert_eq!(t.frame(&moment(1.5, 0.0), &mut NoHost).bpm, MAX_BPM, "held at the cap");
+        // MIDI clock in: the typed tempo overrides it, the deck is its own again
+        let mut t = tempo(90.0);
+        t.set_source(Source::Midi, &mut NoHost);
+        assert!(t.pill(0).external && !t.pill(0).locked, "MIDI clock in waited for");
+        t.push(at(2.0, What::Bpm(100.0)));
+        let n = t.frame(&moment(2.0, 0.0), &mut NoHost);
+        assert_eq!((t.source, n.bpm, t.pill(2_000_000_000).external), (Source::Internal, 100.0, false));
+        // the show clock: the same
+        t.set_source(Source::Relay, &mut NoHost);
+        t.push(at(3.0, What::Bpm(110.0)));
+        let n = t.frame(&moment(3.0, 0.0), &mut NoHost);
+        assert_eq!((t.source, n.bpm), (Source::Internal, 110.0));
+        // OSC is a steerable master: it stays
+        t.set_source(Source::Osc, &mut NoHost);
+        t.push(at(4.0, What::Bpm(70.0)));
+        assert_eq!((t.frame(&moment(4.0, 0.0), &mut NoHost).bpm, t.source), (70.0, Source::Osc));
+    }
+
+    #[test]
+    fn a_live_shows_clock_holds_back_a_typed_tempo() {
+        let mut t = tempo(120.0);
+        let held = Held { bpm: 128.0, beat: 8.0, per_bar: 4, running: true, at_ns: 1_000_000_000 };
+        t.hold(Some(held));
+        assert!(t.pill(1_000_000_000).held);
+        t.push(at(1.1, What::Bpm(60.0)));
+        let n = t.frame(&moment(1.2, 0.0), &mut NoHost);
+        assert!((n.bpm - 128.0).abs() < 0.01 * 128.0, "{n:?}");
+    }
+
+    #[test]
+    fn picking_a_source_makes_it_the_master_and_an_external_one_overrides_the_typed_tempo() {
+        let mut t = tempo(120.0);
+        t.push(at(0.5, What::Bpm(100.0)));
+        t.frame(&moment(0.5, 0.0), &mut NoHost);
+        // the show clock: followed once its anchor is there and the filter is locked
+        t.pick(Source::Relay, &mut NoHost);
+        assert_eq!((t.mode(), t.leading()), (Some(ClockMode::Show), false));
+        assert!(t.pill(0).external && !t.pill(0).locked, "no anchor yet: waited for");
+        pongs(&mut t, 0.0, 1000.0);
+        t.push_anchor(Anchor { bpm: 90.0, per_bar: 4, beat: 0.0, at: 1_001_000, running: true }, 1_100_000_000);
+        let n = t.frame(&moment(1.5, 0.0), &mut NoHost);
+        assert!((n.bpm - 90.0).abs() < 1e-6, "the show's tempo, not the typed one: {n:?}");
+        let p = t.pill(1_500_000_000);
+        assert!(p.external && p.locked && !p.held, "{p:?}");
+        // MIDI clock in leads the show; Link is a master as well
+        t.pick(Source::Midi, &mut NoHost);
+        assert_eq!(t.mode(), Some(ClockMode::Midi));
+        let mut link = FakeLink { bpm: 100.0, opened: vec![] };
+        t.pick(Source::Link, &mut link);
+        assert_eq!((link.opened.clone(), t.mode()), (vec![Source::Link], None));
+        t.push(at(2.0, What::Bpm(104.0)));
+        t.frame(&moment(2.0, 0.0), &mut link);
+        assert_eq!((link.bpm, t.source), (104.0, Source::Link), "typed on Link: the session takes it");
+        // back to the own clock
+        t.pick(Source::Internal, &mut NoHost);
+        assert_eq!((t.mode(), t.pill(0).external), (Some(ClockMode::Own), false));
+    }
+
+    #[test]
+    fn the_picks_go_round_over_what_a_platform_can_open() {
+        let all = Source::PICKS;
+        assert_eq!(Source::Internal.next_pick(&all), Source::Relay);
+        assert_eq!(Source::Link.next_pick(&all), Source::Internal);
+        // no Link built: the round is three
+        let none = [Source::Internal, Source::Relay, Source::Midi];
+        assert_eq!(Source::Midi.next_pick(&none), Source::Internal);
+        // a source outside the round (OSC) goes to the first offered after the start
+        assert_eq!(Source::Osc.next_pick(&none), Source::Relay);
+        assert_eq!(Source::Internal.next_pick(&[Source::Internal]), Source::Internal);
+    }
+
+    #[test]
+    fn the_pill_says_the_beat_in_the_bar_and_the_dot_lights_on_its_first_part() {
+        let mut t = tempo(120.0);
+        t.frame(&moment(0.0, 0.0), &mut NoHost);
+        // 120 BPM: a beat is 0.5 s; 1.05 s = beat 2 (from 0), 10 % into it
+        t.frame(&moment(1.05, 0.0), &mut NoHost);
+        let b = t.pill(1_050_000_000).beat;
+        assert_eq!((b.beat, b.per_bar, b.lit, b.accent, b.running), (2, 4, true, false, true), "{b:?}");
+        // 1.4 s: 80 % into beat 2 - dark
+        t.frame(&moment(1.4, 0.0), &mut NoHost);
+        assert!(!t.pill(1_400_000_000).beat.lit);
+        // 2.0 s: the next bar's first beat
+        t.frame(&moment(2.0, 0.0), &mut NoHost);
+        let b = t.pill(2_000_000_000).beat;
+        assert!(b.accent && b.lit && b.beat == 0, "{b:?}");
+        // standing: the beat stays, the dot is dark
+        t.push(at(2.1, What::Key(Key::StartStop)));
+        t.frame(&moment(2.1, 0.0), &mut NoHost);
+        let b = t.pill(2_100_000_000).beat;
+        assert!(!b.lit && !b.running && b.beat == 0, "{b:?}");
+    }
+
+    #[test]
+    fn the_click_is_set_on_and_off_also_under_a_live_shows_clock() {
+        let mut t = tempo(120.0);
+        t.push(at(0.1, What::Click(true)));
+        t.frame(&moment(0.1, 0.0), &mut NoHost);
+        assert!(t.pill(0).click && t.shared.map().unwrap().1, "on, published for the audio");
+        t.hold(Some(Held { bpm: 128.0, beat: 0.0, per_bar: 4, running: true, at_ns: 200_000_000 }));
+        t.push(at(0.3, What::Click(false)));
+        t.frame(&moment(0.3, 0.0), &mut NoHost);
+        assert!(!t.pill(300_000_000).click && !t.shared.map().unwrap().1, "off while held");
+    }
+
+    #[test]
+    fn a_saved_tempo_sets_the_bpm_and_then_its_source() {
+        // the own clock
+        let mut t = tempo(120.0);
+        t.push(at(1.0, What::Saved(96.0, Source::Internal)));
+        let n = t.frame(&moment(1.0, 0.0), &mut NoHost);
+        assert_eq!((t.source, n.bpm), (Source::Internal, 96.0));
+        // MIDI clock in: waited for, the own clock at the saved BPM until it comes
+        let mut t = tempo(120.0);
+        t.push(at(1.0, What::Saved(100.0, Source::Midi)));
+        t.frame(&moment(1.0, 0.0), &mut NoHost);
+        assert_eq!((t.source, t.map.bpm), (Source::Midi, 100.0));
+        assert_eq!(t.mode(), Some(ClockMode::Midi), "following, not leading");
+        // Link: the session takes it
+        let mut t = tempo(120.0);
+        let mut link = FakeLink { bpm: 120.0, opened: vec![] };
+        t.push(at(1.0, What::Saved(132.0, Source::Link)));
+        t.frame(&moment(1.0, 0.0), &mut link);
+        assert_eq!((t.source, link.bpm, link.opened.clone()), (Source::Link, 132.0, vec![Source::Link]));
+        // held back by a live show's clock
+        let mut t = tempo(120.0);
+        t.hold(Some(Held { bpm: 128.0, beat: 0.0, per_bar: 4, running: true, at_ns: 500_000_000 }));
+        t.push(at(1.0, What::Saved(60.0, Source::Midi)));
+        let n = t.frame(&moment(1.0, 0.0), &mut NoHost);
+        assert_eq!(t.source, Source::Internal);
+        assert!((n.bpm - 128.0).abs() < 0.02 * 128.0, "{n:?}");
+    }
+
+    #[test]
+    fn a_source_is_stored_by_its_name() {
+        for s in Source::ALL {
+            assert_eq!(serde_json::to_value(s).unwrap(), serde_json::Value::String(s.name().into()));
+            assert_eq!(serde_json::from_value::<Source>(serde_json::Value::String(s.name().into())).unwrap(), s);
+        }
     }
 
     /// a Link session stand-in: a fixed phase, takes tempo changes

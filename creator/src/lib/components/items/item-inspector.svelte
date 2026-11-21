@@ -203,7 +203,15 @@
 	}
 	.warn {
 		margin: 0;
-		padding-left: var(--space-05);
-		border-left: 0.5rem solid var(--state-warning);
+	}
+	.warn::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05);
+		border-radius: 50%;
+		background: var(--state-warning);
 	}
 </style>

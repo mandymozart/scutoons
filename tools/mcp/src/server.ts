@@ -336,7 +336,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'list_chapters',
 		{
 			description:
-				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, label, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
+				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, id, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
 			inputSchema: z.object({
 				toon: z.string(),
 				chapter: z.number().int().min(0).optional().describe('only this chapter'),
@@ -372,7 +372,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 				for (const [i, g] of ((doc.content?.groups ?? []) as Json[]).entries()) {
 					groups.push({
 						index: i,
-						label: g?.label ?? null,
+						id: g?.id ?? null,
 						slices: Array.isArray(g?.slices) ? g.slices.length : 0,
 						events: Array.isArray(g?.events) ? g.events.length : 0,
 						points: scriptLabels(g?.events)
@@ -532,7 +532,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'read_map_places',
 		{
 			description:
-				'Places of the SCUTOONS world map – each place is its own document `place:<id>` (routes `route:<id>`, the size / layers of the map are `map`; read_entity / save_draft / validate work on those keys, the document of a place is the place without its id). Here: id, key, name, position, which toons use it, hidden, linked chapter, whether a newer draft waits or it is removed (a tombstone: `removed: true` – the id stays taken).',
+				'Places of the SCUTOONS world map – each place is its own document `place:<id>` (routes `route:<id>`, the size / layers of the map are `map`; read_entity / save_draft / validate work on those keys, the document of a place is the place without its id). Here: id, key, name, position, which toons use it, hidden, whether a newer draft waits or it is removed (a tombstone: `removed: true` – the id stays taken).',
 			inputSchema: z.object({
 				toon: z.string().optional().describe('only places this toon uses'),
 				published: z.boolean().optional().describe('what readers see (default: the newest drafts)')
@@ -548,8 +548,8 @@ export function registerContentTools(server: McpServer, config: Config, options:
 					.filter((p) => !toon || p.doc.toons?.includes(toon))
 					.map(({ id, doc }) => {
 						const e = meta.get(`place:${id}`);
-						const { name, x, y, toons, hidden, chapter, removed } = doc;
-						return { id, key: `place:${id}`, name, x, y, toons, hidden, chapter, ...(removed ? { removed } : {}), draft: !!e && e.latest !== e.published };
+						const { name, x, y, toons, hidden, removed } = doc;
+						return { id, key: `place:${id}`, name, x, y, toons, hidden, ...(removed ? { removed } : {}), draft: !!e && e.latest !== e.published };
 					})
 			);
 		})

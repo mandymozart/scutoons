@@ -73,6 +73,8 @@ pub struct Bar<'a> {
     pub play: Option<bool>,
     /// the tempo clock's BPM and whether it runs
     pub beat: Option<(f64, bool)>,
+    /// the beat dot and the bar meter (the core's `Beat`), the metronome on or off – none: no tempo clock plays
+    pub meter: Option<(deck_core::tempo::Beat, bool)>,
     pub clock: Clock,
     pub account: Signed,
     /// 0..1, the signing-in icon's breath (1 = still, reduce motion)
@@ -155,6 +157,11 @@ pub struct Placed {
     /// the panic pill, in every workspace
     pub panic: Rect,
     pub tempo: Rect,
+    /// inside it: the BPM (typed on) and the source's word (cycles the pick)
+    pub bpm: Rect,
+    pub source: Rect,
+    /// the metronome's button (none drawn: zero wide)
+    pub click: Rect,
     pub account: Rect,
     /// the load meters, where there was room for them
     pub meters: Option<Rect>,
@@ -200,6 +207,37 @@ fn inner_button(d: &mut DrawList, t: &Tokens, r: Rect, name: &'static str, color
     r
 }
 
+/// `c` at `a` of its strength
+fn faded(c: [f32; 4], a: f32) -> [f32; 4] {
+    [c[0], c[1], c[2], c[3] * a]
+}
+
+/// the beat dot: lit on the first part of each beat (the bar's first in the accent), dark between and while standing
+fn beat_dot(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), b: deck_core::tempo::Beat) {
+    let ink = match (b.lit, b.accent) {
+        (true, true) => t.color.accent,
+        (true, false) => t.color.text,
+        _ => faded(t.color.muted, 0.35),
+    };
+    d.disc(x, y, t.size.rem(0.24), ink);
+}
+
+/// the bar meter: a cell per beat of the bar, the beat now filled (the first in the accent), the others faint
+fn bar_meter(d: &mut DrawList, t: &Tokens, r: Rect, b: deck_core::tempo::Beat) {
+    let n = b.per_bar.max(1);
+    let gap = (r.w * 0.12 / n as f32).min(t.size.rem(0.18));
+    let w = (r.w - gap * (n - 1) as f32) / n as f32;
+    for i in 0..n {
+        let ink = match (i == b.beat, i == 0) {
+            (true, true) => t.color.accent,
+            (true, false) if b.running => t.color.text,
+            (true, false) => t.color.muted,
+            _ => faded(t.color.muted, 0.3),
+        };
+        d.round_rect(r.x + i as f32 * (w + gap), r.y, w, r.h, (r.h * 0.2).min(w * 0.5), ink);
+    }
+}
+
 pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     let (h, pad, px, small) = (t.size.top, t.size.pad, t.size.font, t.size.small);
     let gap = t.size.gap * 0.5;
@@ -238,7 +276,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     // the clock as wide as its widest words: the row does not move when the source changes
     let words = [Clock::Int, Clock::Ext { locked: true }, Clock::Live].iter().map(|c| controls::label_width(d, t, c.word())).fold(0.0, f32::max);
     let mark = t.size.rem(0.5);
-    let clock_w = lead + d.advance(px) * 5.0 + pad + words + mark + end;
+    let (dot_w, meter_w) = (t.size.rem(0.85), t.size.rem(3.0));
+    let clock_w = lead + dot_w + d.advance(px) * 5.0 + pad + meter_w + pad + words + mark + ih + end;
     // as wide in both states: the row does not move when it latches
     let panic_w = controls::label_width(d, t, panic_label(true)).max(controls::label_width(d, t, panic_label(false))) + 4.0 * pad;
     let tempo_w = clock_w + gap + panic_w;
@@ -266,13 +305,28 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         Some((bpm, running)) => (format!("{bpm:.1}"), if running { t.color.text } else { t.color.muted }),
         None => ("–".to_string(), t.color.muted),
     };
-    let vw = d.text(tempo.x + lead, text_y, px, &value, ink);
-    let wx = tempo.x + lead + vw + pad;
+    let bx = tempo.x + lead + dot_w;
+    let vw = d.text(bx, text_y, px, &value, ink);
+    let meter_x = bx + d.advance(px) * 5.0 + pad;
+    if let Some((beat, _)) = b.meter {
+        beat_dot(d, t, (tempo.x + lead + dot_w * 0.35, mid), beat);
+        bar_meter(d, t, Rect { x: meter_x, y: mid - t.size.rem(0.19), w: meter_w, h: t.size.rem(0.38) }, beat);
+    }
+    let wx = meter_x + meter_w + pad;
     let ww = controls::label(d, t, wx, mid - t.size.label * 0.62, b.clock.word(), t.color.muted);
     if b.clock == (Clock::Ext { locked: false }) {
         d.disc(wx + ww + mark * 0.6, mid - t.size.label * 0.3, mark * 0.25, t.color.warn);
     }
+    if let Some((_, on)) = b.meter {
+        let at = Rect { x: tempo.x + clock_w - end - ih, y: y + inset, w: ih, h: ih };
+        if on {
+            d.round_rect(at.x, at.y, at.w, at.h, ir, t.color.pressed);
+        }
+        out.click = inner_button(d, t, at, if on { "metronome" } else { "metronome-off" }, if on { t.color.pressed_text } else { t.color.muted }, b.pointer);
+    }
     out.tempo = tempo;
+    out.bpm = Rect { x: bx - pad * 0.5, y, w: vw + pad, h };
+    out.source = Rect { x: wx - pad * 0.5, y, w: ww + pad, h };
     // the panic: red, always there, beside the tempo; latched it is ringed and says RESUME
     let panic = Rect { x: tempo.x + clock_w + gap, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
@@ -506,7 +560,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { tabs: &TABS, front: Some(1), path: &path, modes: None, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
+        let b = Bar { tabs: &TABS, front: Some(1), path: &path, modes: None, play: None, beat: None, meter: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
     }
@@ -533,7 +587,7 @@ mod tests {
         let faces = deck_kit::base::fonts::Faces::shipped(deck_outlet::text::mono_ttf());
         let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
         let path = vec!["1 Opening".to_string()];
-        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::Signing, pulse: 0.5, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), meter: None, clock: Clock::Int, account: Signed::Signing, pulse: 0.5, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.2, peak: 0.3 }), gpu: Some(Reading { value: 0.1, peak: 0.1 }), khz: Some(48.0), fps: 60.0, slot: 0.0, panicked: false, window: None };
         draw(&mut d, &t, 1600.0, &b);
         let texts = d.texts();
         for whole in [deck_native::BUILD, "catpope", "1 Opening", "duet", "120.0", "INT", "48 kHz", "60 fps"] {
@@ -552,7 +606,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { tabs: &TABS[..1], front: Some(0), path: &path, modes: None, play: None, beat: Some((128.0, true)), clock, account, pulse, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false, window: None };
+        let b = Bar { tabs: &TABS[..1], front: Some(0), path: &path, modes: None, play: None, beat: Some((128.0, true)), meter: Some((BEAT, false)), clock, account, pulse, pointer: (0.0, 0.0), cpu: Some(Reading { value: 0.3, peak: 0.3 }), gpu: None, khz: Some(44.1), fps: 59.6, slot: 0.0, panicked: false, window: None };
         let placed = draw(&mut d, &t, 1800.0, &b);
         (d, placed)
     }
@@ -573,6 +627,60 @@ mod tests {
         assert!(ext.0.texts().contains(&"EXT"));
         assert_eq!(ext.1.tempo, placed.tempo, "the pill keeps its width whatever the source");
         assert_eq!(waiting.0.prims().len(), ext.0.prims().len() + 1, "a source not locked yet: a small mark");
+    }
+
+    #[test]
+    fn the_bpm_and_the_source_word_are_two_places_inside_the_tempo_pill() {
+        let (_, p) = drawn(Clock::Int, Signed::In, 1.0);
+        let inside = |r: Rect| r.x >= p.tempo.x && r.x + r.w <= p.tempo.x + p.tempo.w + 0.01 && r.w > 0.0;
+        assert!(inside(p.bpm) && inside(p.source), "{p:?}");
+        assert!(p.bpm.x + p.bpm.w <= p.source.x + 0.01, "the BPM first, then the word: {p:?}");
+        let (_, ext) = drawn(Clock::Ext { locked: true }, Signed::In, 1.0);
+        assert_eq!((ext.bpm, ext.source), (p.bpm, p.source), "they stay where they are whatever the source");
+    }
+
+    const BEAT: deck_core::tempo::Beat = deck_core::tempo::Beat { beat: 1, per_bar: 4, lit: true, accent: false, running: true };
+
+    fn with_meter(meter: Option<(deck_core::tempo::Beat, bool)>) -> (DrawList, Placed) {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["main".to_string()];
+        let b = Bar { tabs: &TABS[..1], front: Some(0), path: &path, modes: None, play: None, beat: Some((128.0, true)), meter, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let placed = draw(&mut d, &t, 1800.0, &b);
+        (d, placed)
+    }
+
+    /// the rounded cells and discs drawn in `ink`
+    fn inked(d: &DrawList, ink: [f32; 4]) -> usize {
+        use deck_kit::base::draw::Prim;
+        d.prims().iter().filter(|p| matches!(**p, Prim::Rect { color, .. } if color == ink)).count()
+    }
+
+    #[test]
+    fn the_pill_has_a_beat_dot_a_bar_meter_and_the_click_button() {
+        let t = Tokens::default();
+        let (none, p0) = with_meter(None);
+        let (on, p) = with_meter(Some((BEAT, true)));
+        assert_eq!(p0.tempo, p.tempo, "the pill keeps its width with or without a clock");
+        assert!(p0.click.w == 0.0 && p.click.w > 0.0, "the button only with a clock");
+        let inside = p.click.x >= p.tempo.x && p.click.x + p.click.w <= p.tempo.x + p.tempo.w + 0.01;
+        assert!(inside && p.source.x + p.source.w <= p.click.x + 0.01, "the button last in the pill: {p:?}");
+        // beat 2 of 4, lit: the dot and the meter's cell in the text's ink, three faint cells
+        assert_eq!(inked(&on, t.color.text), 2, "{:?}", on.prims());
+        assert_eq!(inked(&on, faded(t.color.muted, 0.3)), 3);
+        assert_eq!(inked(&none, t.color.text), 0);
+        let icon = |d: &DrawList| d.prims().iter().find_map(|x| if let deck_kit::base::draw::Prim::Icon { name, .. } = *x { name.starts_with("metronome").then_some(name) } else { None });
+        assert_eq!(icon(&on), Some("metronome"));
+        assert_eq!(icon(&with_meter(Some((BEAT, false))).0), Some("metronome-off"));
+        // the bar's first beat lit: the dot and its cell in the accent; a bar of 3 has three cells
+        let first = deck_core::tempo::Beat { beat: 0, per_bar: 3, accent: true, ..BEAT };
+        let (d, _) = with_meter(Some((first, false)));
+        assert_eq!((inked(&d, t.color.accent), inked(&d, faded(t.color.muted, 0.3))), (2, 2));
+        // standing: the dot dark
+        let still = deck_core::tempo::Beat { lit: false, running: false, ..BEAT };
+        let (d, _) = with_meter(Some((still, false)));
+        assert_eq!(inked(&d, t.color.text), 0);
+        assert_eq!(inked(&d, faded(t.color.muted, 0.35)), 1, "the dark dot");
     }
 
     #[test]
@@ -601,7 +709,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["main".to_string()];
-        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: Some((Side::Right, false)) };
+        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: None, play: Some(true), beat: Some((120.0, true)), meter: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: Some((Side::Right, false)) };
         let (width, height) = (1600.0, 900.0);
         let p = draw(&mut d, &t, width, &b);
         assert!(!d.prims().iter().any(|p| matches!(p, Prim::Logo { .. })), "no logo: the row starts with the menu");
@@ -629,7 +737,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let path = vec!["analog".to_string()];
-        let b = Bar { tabs, front, path: &path, modes: None, play: None, beat: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let b = Bar { tabs, front, path: &path, modes: None, play: None, beat: None, meter: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: None };
         let p = draw(&mut d, &t, width, &b);
         (d, p)
     }

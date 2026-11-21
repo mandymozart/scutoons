@@ -7,7 +7,8 @@ import { runTrigger } from './script-runner.ts';
 /** the group a slice belongs to (toon/group.svelte's context, visual-novel/group-scope.ts) */
 export interface GroupScript {
 	events: VNEvent[] | undefined;
-	label: string | null;
+	/** the group's id */
+	id: string | null;
 	scope: string;
 }
 
@@ -32,7 +33,7 @@ export class EventProcessor {
 
 	run(): Promise<string | null> {
 		const own = this.events ?? [];
-		const label = this.group ? this.group.label : this.vn.scriptLabel;
+		const label = this.group ? this.group.id : this.vn.scriptLabel;
 		const script = this.group ? (this.group.events ?? []) : this.vn.script;
 		console.log(`VN trigger: ${own.map((e) => e?.type).join(', ')}`);
 		return runTrigger(own, {

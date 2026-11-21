@@ -340,13 +340,21 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     if show.id.is_empty() {
         out.push(refused(&Spot::Show, "an empty id"));
     }
-    if show.toon.is_empty() {
+    if show.toons.is_empty() {
         out.push(refused(&Spot::Show, NO_TOON));
-    } else if !show.toon.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
-        out.push(refused(&Spot::Show, format!("the toon '{}' is no toon id", show.toon)));
+    }
+    for (i, toon) in show.toons.iter().enumerate() {
+        if toon.is_empty() || !toon.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
+            out.push(refused(&Spot::Show, format!("the toon '{toon}' is no toon id")));
+        } else if show.toons[..i].contains(toon) {
+            out.push(refused(&Spot::Show, format!("the toon '{toon}' is named twice")));
+        }
     }
     if let Some(e) = show.background.as_ref().and_then(deck_space::Background::check) {
         out.push(refused(&Spot::Show, format!("background: {e}")));
+    }
+    if let Some(e) = show.tempo.as_ref().and_then(crate::document::Tempo::check) {
+        out.push(refused(&Spot::Show, e));
     }
     // outlets and seats are the matrix's columns, one name for each
     let mut columns = BTreeSet::new();

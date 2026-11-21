@@ -157,4 +157,18 @@ mod tests {
         h.tempo.publish(&m, false);
         assert!(render(&mut e, 96_000).iter().all(|x| *x == 0.0));
     }
+
+    /// the metronome a sounding scene gets: its own bus (the `click` group) on main's channels, silent while the click is off
+    #[test]
+    fn the_metronome_ticks_on_its_own_bus_on_the_main_out() {
+        let text = "[[node]]\nid=\"t\"\nkind=\"tempo\"\nbpm=120\nbeats=4\n[[node]]\nid=\"o\"\nkind=\"osc\"\ngain=0\n[[node]]\nid=\"out\"\nkind=\"out\"\n[[link]]\nfrom=\"o\"\nto=\"out.in\"\n";
+        let scene = Scene::parse(text).unwrap().with_metronome();
+        let graph = Graph::build(&scene).unwrap();
+        assert_eq!(crate::outlet_groups(&graph), ["main", "click"]);
+        let (mut e, h) = Engine::build(&graph, 48_000.0, 1.0).unwrap();
+        assert!(render(&mut e, 48_000).iter().all(|x| *x == 0.0), "the click off: silent");
+        let (m, _) = h.tempo.map().unwrap();
+        h.tempo.publish(&m, true);
+        assert_eq!(onsets(&render(&mut e, 48_000)).len(), 2, "on: a tick a beat, where main plays");
+    }
 }

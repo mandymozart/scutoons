@@ -135,6 +135,21 @@ for (const file of [...new Set(CONTROL_DIRS.flatMap(walk))].filter((f) => f.ends
 		if (GLYPH_CROSS.test(line) && !/close-ok/.test(line)) crosses.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
 	});
 }
+// side bars (owner 2026-11-21, RULES H10: "i hate those left border indicators. as mentioned many time."): no thick
+// left / start rule as a state or accent mark – a state is the frame's colour, a dot or coloured words. A border-left or
+// border-inline-start of 3px / 0.2em / 0.2rem or more is a side bar (a line with `sidebar-ok` + the reason is exempt)
+const sideBars = [];
+const SIDE_BAR = /border-(left|inline-start)(-width)?\s*:\s*(?:[^;]*\s)?((?:[3-9]|\d{2,})px|(?:0?\.[2-9]\d*|[1-9][\d.]*)r?em)\b/;
+// a left / start edge coloured by state (error, warning, a level) is the same side bar, whatever its width
+const SIDE_STATE = /border-(left|inline-start)(-color)?\s*:[^;]*(--state-|--error\b|--warn\b|--border-width-focus)/;
+for (const file of [...new Set([...CONTROL_DIRS, 'shared/catalog/src', 'shared/rig-designer/src'].flatMap(walk))]) {
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const text = readFileSync(file, 'utf8');
+	const css = file.endsWith('.css') ? text : text.replace(/<style[^>]*>([\s\S]*?)<\/style>|[^\n]/g, (m, inner) => (inner !== undefined ? m : ' '));
+	css.split('\n').forEach((line, i) => {
+		if ((SIDE_BAR.test(line) || SIDE_STATE.test(line)) && !/sidebar-ok/.test(line)) sideBars.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
+	});
+}
 // field grid (owner 2026-10-03, COMPONENTS.md 4.4.2): one tools.css `.sc-fields[data-cols][data-density]` – no local
 // `.g2/.g3/.g4` copies (selector or `class="grid gN"` markup), no local field-grid class (`.grid`, `.two`, `.pair`,
 // `.form-grid`, `.meta-grid` with display: grid; a line with `grid-ok` + the reason is exempt, e.g. a thumbnail grid)
@@ -208,11 +223,13 @@ if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
 if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length) && !flag('--browser-only')) process.exit(1);
+if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / start rules (owner 2026-11-21, RULES H10: a state is the frame's colour, a dot or coloured words – never a side bar; a line with \`sidebar-ok\` + the reason is exempt):\n  ${sideBars.join('\n  ')}`);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
+console.log('side bars: no thick left / start rules – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -232,7 +249,6 @@ const PAGES = [
 	['creator-script', `${CREATOR}/catpope/script`],
 	['creator-toon-settings', `${CREATOR}/catpope/toon`],
 	['creator-characters', `${CREATOR}/characters`],
-	['creator-moods', `${CREATOR}/characters?tab=moods`],
 	['creator-wanted', `${CREATOR}/characters?tab=wanted`],
 	['creator-guide', `${CREATOR}/guide`],
 	['admin-dashboard', `${ADMIN}/`],

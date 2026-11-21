@@ -45,12 +45,9 @@
 			}
 		]
 	},
-	"featuring": [
-		"catpope"
-	],
 	"groups": [
 		{
-			"label": "scenes-1-to-10",
+			"id": "scenes-1-to-10",
 			"renderer": {
 				"type": "vertical"
 			},

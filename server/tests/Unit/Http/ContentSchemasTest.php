@@ -66,7 +66,7 @@ final class ContentSchemasTest extends TestCase
     public function testStoredShapesThatTheReadersAccept(): void
     {
         // narration (no speaker) in a group of a (per-locale) chapter – as stored for catpope
-        $chapter = fn(array $group) => ['title' => 'Eins', 'author' => 'M', 'language' => 'de', 'release' => '2025-10-04', 'description' => '', 'thumbnail' => '', 'number' => 1, 'groups' => [$group]];
+        $chapter = fn(array $group) => ['title' => 'Eins', 'author' => 'M', 'language' => 'de', 'release' => '2025-10-04', 'description' => '', 'thumbnail' => '', 'number' => 1, 'groups' => [['id' => 'g1'] + $group]];
         self::assertSame([], $this->problems('chapter', $chapter(['events' => [['type' => 'showMessage', 'params' => ['text' => 'Ein sonniger Sonntag.', 'wait' => true]]]])));
         self::assertNotSame([], $this->problems('chapter', $chapter(['events' => [['type' => 'showMessage', 'params' => ['wait' => true]]]])), 'text is required');
         self::assertSame([], $this->problems('locations', ['anything' => 1]), 'the old map is not checked');
@@ -78,14 +78,14 @@ final class ContentSchemasTest extends TestCase
         $schemas = $this->get(ContentSchemas::class);
         $check = fn(string $key, mixed $content) => $schemas->problemsOf(EntityKey::parse($key), json_decode((string) json_encode($content)));
         $neutral = ['title' => ['de' => 'Eins', 'en' => 'One'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
-            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => ['de' => ['a', 'b'], 'en' => 'ab']]]]],
+            'thumbnail' => '', 'groups' => [['id' => 'g1', 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => ['de' => ['a', 'b'], 'en' => 'ab']]]]],
                 'events' => [['type' => 'addChoice', 'params' => ['label' => ['de' => 'Ja']]]]]]];
         self::assertSame([], $check('chapter:catpope:1', $neutral));
         self::assertNotSame([], $check('chapter:catpope:1:de', $neutral), 'per locale: texts are strings');
         $perLocale = ['language' => 'de', 'title' => 'Eins'] + $neutral;
         self::assertNotSame([], $check('chapter:catpope:1', ['title' => 'Eins'] + $neutral), 'neutral: a title is a locale map');
         self::assertNotSame([], $check('chapter:catpope:1', $perLocale));
-        $group = fn(array $events) => ['groups' => [['slices' => [], 'events' => $events]]] + $neutral;
+        $group = fn(array $events) => ['groups' => [['id' => 'g1', 'slices' => [], 'events' => $events]]] + $neutral;
         self::assertSame([], $check('chapter:catpope:1', $group([['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'mood' => 'sad']]])));
         self::assertNotSame([], $check('chapter:catpope:1', $group([['type' => 'showMessage', 'params' => ['text' => 'Na?']]])), 'neutral: a text is a locale map');
         self::assertFalse(EntityKey::isValid('scene:catpope:1:kiosk'), 'one document per chapter since 2026-10-19: no scene documents');
@@ -102,7 +102,7 @@ final class ContentSchemasTest extends TestCase
     {
         $schemas = $this->get(ContentSchemas::class);
         $chapter = fn(array $style) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
-            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1,
+            'thumbnail' => '', 'groups' => [['id' => 'g1', 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1,
                 'pieces' => [['id' => 'piece-a', 'src' => 'catpope/vectors/wreath.svg', 'ratio' => 1, 'rect' => ['x' => 0, 'y' => 0, 'width' => 10], 'style' => $style]]]]]]];
         $check = fn(array $style) => $schemas->problemsOf(EntityKey::parse('chapter:catpope:1'), json_decode((string) json_encode($chapter($style))));
         self::assertNotSame([], $check(['fill' => 'url(https://x/p.png)']), 'a url() fill');
@@ -149,7 +149,7 @@ final class ContentSchemasTest extends TestCase
         $schemas = $this->get(ContentSchemas::class);
         $check = fn(string $key, mixed $content) => $schemas->problemsOf(EntityKey::parse($key), json_decode((string) json_encode($content)));
         $chapter = fn(array $dialog, array $message, array $label) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
-            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => $dialog]],
+            'thumbnail' => '', 'groups' => [['id' => 'g1', 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => $dialog]],
                 'items' => [['id' => 'i1', 'item' => 'coin', 'rect' => ['x' => 0, 'y' => 0, 'width' => 1, 'height' => 1], 'events' => [['type' => 'showMessage', 'params' => ['text' => $message]]]]]]],
                 'events' => [['type' => 'addChoice', 'params' => ['label' => $label]]]]]];
         $fine = $chapter(['de' => ['{map.total - map.unlocked} Orte', '{map.totl}'], 'en' => '{coins == 1: coin|coins}'], ['de' => '{Hallo.|Du schon wieder?|Geh weg!} {clock(t)}'], ['de' => '{unknown_fn(1)} {coinz}']);
@@ -169,7 +169,7 @@ final class ContentSchemasTest extends TestCase
     {
         $schemas = $this->get(ContentSchemas::class);
         $check = fn(mixed $content) => $schemas->problemsOf(EntityKey::parse('chapter:catpope:1'), json_decode((string) json_encode($content)));
-        $scene = fn(string $condition, string $question) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['slices' => [], 'events' => [
+        $scene = fn(string $condition, string $question) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['id' => 'g1', 'slices' => [], 'events' => [
             ['id' => 'e1', 'type' => 'showMessage', 'if' => ['expr' => $condition], 'params' => ['text' => ['de' => 'Hallo']]],
             ['id' => 'e2', 'type' => 'askText', 'params' => ['text' => ['de' => $question], 'scope' => 'reader']],
         ]]]];
@@ -186,7 +186,7 @@ final class ContentSchemasTest extends TestCase
         $user = $this->user('creator@example.com');
         $this->get(Roles::class)->grant((string) $user['id'], Roles::CREATOR);
         $auth = ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
-        $scene = fn(string $text) => (string) json_encode(['content' => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['slices' => [], 'events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => $text]]]]]]]]);
+        $scene = fn(string $text) => (string) json_encode(['content' => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''], 'thumbnail' => '', 'groups' => [['id' => 'g1', 'slices' => [], 'events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => $text]]]]]]]]);
 
         $bad = $this->request('PUT', '/api/entities/chapter:smoke:1', $auth, $scene('Hallo {name'));
         self::assertSame(422, $bad->getStatusCode(), (string) $bad->getBody());

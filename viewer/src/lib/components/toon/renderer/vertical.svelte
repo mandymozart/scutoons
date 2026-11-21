@@ -6,7 +6,7 @@
 	let { group, sliceOffset = 0 }: { group: Group; sliceOffset?: number } = $props();
 </script>
 
-<div class="renderer renderer--vertical" data-group-label={group.label}>
+<div class="renderer renderer--vertical" data-group-id={group.id}>
 	{#each group.slices as slice, index}
 		<Slice {slice} sliceIndex={index} pageIndex={sliceOffset + index} allSlices={group.slices} />
 	{:else}

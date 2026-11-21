@@ -165,8 +165,8 @@ export type NextStep =
 	| { kind: 'season-end' };
 
 export interface NextStepInput {
-	/** the chapter's groups in order (a group is addressed by its `label`; `continues` links, `end` = an authored end) */
-	groups: ({ label?: string | null; end?: unknown } & ChainGroupLike)[];
+	/** the chapter's groups in order (a group is addressed by its `id`; `continues` links, `end` = an authored end) */
+	groups: ({ id?: string | null; end?: unknown } & ChainGroupLike)[];
 	/** index of the shown group (any group of its chain) */
 	group: number;
 	/** the shown chapter's number */
@@ -187,9 +187,8 @@ export function nextStep({ groups, group, chapter, sequence, includeDrafts = fal
 	const { end } = chainOf(groups, group);
 	const authored = groupEnd(groups[end]);
 	if (authored) return { kind: 'jump', target: authored.target, auto: !!authored.auto };
-	// a following group without a label can't be addressed (the chapter page shows `?label=` or the first group)
 	const following = groups[end + 1];
-	if (following?.label) return { kind: 'group', label: following.label };
+	if (following?.id) return { kind: 'group', label: following.id };
 	const at = sequence.findIndex((item) => Number(item.number) === chapter);
 	const next = at >= 0 ? sequence[at + 1] : sequence.find((item) => Number(item.number) > chapter);
 	if (!next) return { kind: 'season-end' };

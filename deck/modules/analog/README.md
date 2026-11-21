@@ -51,19 +51,22 @@ files import (#346) they wait in **`analog.preset.json`** (format `scutoons.pres
 by parameter name}]`), the file the creator imports as drafts. A preset lists only what differs from the defaults. The tests
 apply all four (`tests/common`).
 
-## The DSP (`src/*.rs` beside `lib.rs`, plain Rust, no SDK)
+## The DSP (the SDK's units, and `src/*.rs` beside `lib.rs`)
 
 Flat files on purpose (#350): the build service compiles a module as flat `src/*.rs` files, and the catalog's factory
-document `module:analog` stores exactly these (migration 2026-11-05-factory-modules; the server's FactoryModulesTest keeps
-the two equal). A sub-folder would make it a repository crate the service cannot build.
+document `module:analog` stores exactly these (migration 2026-11-05-factory-modules, last brought up to the repository by
+2026-11-21-analog-dsp-units; the server's FactoryModulesTest keeps the two equal). A sub-folder would make it a repository
+crate the service cannot build. The first four are the SDK's (`deck_module::dsp`, deck/module/README.md "DSP units"), shared
+with every other module; `tests/golden.rs` holds the render's hash.
 
 - `osc` – saw, pulse (width), triangle, sine; PolyBLEP steps and PolyBLAMP corners, **hard sync as a band-limited step** (a one-sample
   output delay lets the pre-step half of the correction in), the sub as a flip-flop on the parent's wraps (an exact octave).
 - `svf` – trapezoidal state-variable filter (LP / BP / HP / notch), resonance Q 0.7 … 24, a drive crossfade.
 - `adsr` – linear attack, exponential decay and release that take exactly their time (0.1 % left at the end).
-- `lfo` – sine, triangle, saw, square, seeded sample & hold; free (Hz) or locked to the tempo map's beat; delay, attack.
-- `pan` – constant power (−3 dB at the centre); `noise` – seeded xorshift64*; `math` – `exp2`, `log2`, `sin`, `tan` from
-  `+ − × ÷ floor` only, so no platform libm is on the audio path (ENGINE-REFACTOR-PLAN §3.4) and no dependency is added.
+- `noise` – seeded xorshift64*; `arith` – `exp2`, `log2`, `sin`, `tan` from `+ − × ÷ floor` only, so no platform libm is on
+  the audio path (ENGINE-REFACTOR-PLAN §3.4).
+- the synth's own (`src/lfo.rs`, `src/pan.rs`): `lfo` – sine, triangle, saw, square, seeded sample & hold; free (Hz) or locked to
+  the tempo map's beat; delay, attack; `pan` – constant power (−3 dB at the centre).
 
 Modulation is read every sample; pitch, cutoffs and pan are recomputed every 16 samples of the voice's own clock, so a render does
 not depend on how the host cuts the audio into blocks (tested). No allocation on the audio path (`tests/no_alloc.rs`: the SDK's

@@ -51,7 +51,7 @@ function asset(svg, w, h, id, frameOf = id, crop = null) {
 const groups = [];
 for (const { sb } of list) {
 	for (const g of sb.groups ?? []) {
-		const group = { label: g.label, renderer: g.renderer ?? { type: 'vertical' }, interaction: 'webtoon' };
+		const group = { id: g.label, renderer: g.renderer ?? { type: 'vertical' }, interaction: 'webtoon' };
 		if (g.continues) group.continues = true;
 		group.slices = [];
 		for (const shot of g.shots ?? []) {
@@ -108,7 +108,7 @@ try {
 	console.warn(`(${e.message.split('\n')[0]} – a bare chapter)`);
 	chapter = { number, groups: [] };
 }
-const kept = (chapter.groups ?? []).filter((g) => !/^chapter-\d+$/.test(g.label ?? ''));
+const kept = (chapter.groups ?? []).filter((g) => !/^chapter-\d+$/.test(g.id ?? ''));
 const draft = { ...chapter, groups: [...groups, ...kept] };
 writeFileSync(resolve(out, 'chapter.draft.json'), JSON.stringify(draft, null, '\t'));
 
@@ -138,6 +138,6 @@ if (!noPng) {
 }
 const slices = groups.reduce((a, g) => a + g.slices.length, 0);
 writeFileSync(resolve(out, 'uploads.json'), JSON.stringify(assets.map((a) => ({ file: `png/${a.file}`, path: `${toon}/${a.path}` })), null, '\t'));
-console.log(`${key}: ${groups.length} storyboard groups, ${slices} slices (+ ${kept.length} kept: ${kept.map((g) => g.label).join(', ') || '–'})`);
+console.log(`${key}: ${groups.length} storyboard groups, ${slices} slices (+ ${kept.length} kept: ${kept.map((g) => g.id).join(', ') || '–'})`);
 console.log(`→ ${resolve(out, 'chapter.draft.json')}\n→ ${png} PNGs in ${resolve(out, 'png')} (upload list: uploads.json)`);
 console.log('Nothing saved: save_draft + upload_asset through the SCUTOONS MCP, by the owner or with the owner\'s go.');

@@ -48,6 +48,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { useTabs } from '$lib/shell/shell.svelte.ts';
 	import { addPlace, addRegion, addRoute, cdnHas, editMap, editPlace, editRegion, editRoute, connectWaypoint, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -363,9 +364,9 @@
 			// remembered for this visit only
 		}
 	}
+	// the map's list is its Tree, the toon filter at its top
+	useTabs(() => ({ tree: mapTree }));
 	usePageNav({
-		sidebar: mapNav,
-		crumbEnd: toonChip,
 		fill: true,
 		// the selection's own address (page.url lags behind: the selection is written with replaceState); the crumbs are the
 		// way up – "Map" clears the selection (owner 2026-10-11, BACKLOG 10.68)
@@ -710,6 +711,11 @@
 	{#if level}<span class="mark" class:bad={level === 'error'} class:warn={level === 'warning'} title={problems.filter((p) => { const t = problemTarget(p); return t && `${t.kind}:${t.id}` === key; }).map((p) => p.message).join('\n')}>!</span>{/if}
 {/snippet}
 
+{#snippet mapTree()}
+	<div class="tree-filter">{@render toonChip()}</div>
+	{@render mapNav()}
+{/snippet}
+
 {#snippet mapNav()}
 	<!-- the nav lists + the map = ONE selection region ('map', DESIGN.md "Selection"): the selected layer / place / route
 	     is sc-selected here, the marker's halo on the map -->
@@ -908,6 +914,10 @@
 </MetaPage>
 
 <style>
+	.tree-filter {
+		position: relative;
+		padding: 0 var(--editor-pad) var(--editor-pad);
+	}
 	.builder {
 		position: relative;
 		display: grid;
@@ -1161,7 +1171,6 @@
 		width: 100%;
 		min-height: var(--control-height);
 		padding: 0 0.75rem;
-		border-left: 3px solid transparent;
 		cursor: pointer;
 	}
 	/* hover frames (never inverted); the selected one: tools.css .sc-selected */

@@ -100,7 +100,9 @@ final class ShowsApiTest extends TestCase
         self::assertSame([], self::json($this->request('GET', '/api/shows/top?v=1', $live))['show']['rows']);
         self::assertSame(404, $this->request('GET', '/api/shows/top?v=9', $live)->getStatusCode());
 
-        self::assertCount(2, self::json($this->request('GET', '/api/shows/top/versions', $live))['versions']);
+        $listed = self::json($this->request('GET', '/api/shows/top/versions', $live));
+        self::assertCount(2, $listed['versions']);
+        self::assertArrayHasKey('id', $listed['versions'][0]);
         self::assertSame('show:top', self::json($this->request('GET', '/api/shows', $live))['shows'][0]['key']);
 
         // the document names itself
@@ -159,23 +161,25 @@ final class ShowsApiTest extends TestCase
     {
         $live = $this->session([Roles::LIVE], 'published@example.test');
         $this->core->answer = fn(array $request): array => [];
-        foreach (['demo-a' => 'sandbox', 'demo-draft' => 'sandbox', 'choir' => 'catpope'] as $id => $toon) {
-            $this->request('PUT', "/api/shows/$id", $live, ['content' => ['toon' => $toon] + self::show($id)]);
+        foreach (['demo-a' => 'sandbox', 'demo-draft' => 'sandbox', 'choir' => 'catpope', 'mixed' => 'catpope,sandbox'] as $id => $toon) {
+            $this->request('PUT', "/api/shows/$id", $live, ['content' => ['toons' => explode(',', $toon)] + self::show($id)]);
         }
         $this->request('POST', '/api/shows/demo-a/publish', $live, []);
         $this->request('POST', '/api/shows/choir/publish', $live, []);
+        $this->request('POST', '/api/shows/mixed/publish', $live, []);
         // a newer draft of a published show is not what a deck gets
-        $changed = ['toon' => 'sandbox'] + self::show('demo-a');
+        $changed = ['toons' => ['sandbox']] + self::show('demo-a');
         $changed['rows'] = [['id' => 'draft row']];
         $this->request('PUT', '/api/shows/demo-a', $live, ['content' => $changed]);
 
         $r = $this->request('GET', '/api/shows/published?toon=sandbox');
         self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
         $shows = self::json($r)['shows'];
-        self::assertSame(['show:demo-a'], array_column($shows, 'key'), 'published only, the toon asked');
+        self::assertSame(['show:demo-a'], array_column($shows, 'key'), 'published only, the toon asked; a show of several toons only under its home');
         self::assertSame([], $shows[0]['content']['rows'], 'the published version, not the newer draft');
         self::assertSame(['key', 'content'], array_keys($shows[0]), 'who saved it stays in the history');
-        self::assertSame(['show:demo-a', 'show:choir'], array_column(self::json($this->request('GET', '/api/shows/published'))['shows'], 'key'));
+        self::assertSame(['show:choir', 'show:mixed'], array_column(self::json($this->request('GET', '/api/shows/published?toon=catpope'))['shows'], 'key'));
+        self::assertSame(['show:demo-a', 'show:choir', 'show:mixed'], array_column(self::json($this->request('GET', '/api/shows/published'))['shows'], 'key'));
         self::assertSame(401, $this->request('GET', '/api/shows/demo-a')->getStatusCode(), 'the other routes still need the role');
     }
 

@@ -163,7 +163,7 @@ pub fn prompt(p: &Plan) -> Prompt {
         match (b.others.is_empty(), p.knows_me) {
             (true, _) => {}
             (false, true) => lines.push((format!("saved since by others: {}", b.others.join(", ")), Tone::Warn)),
-            // this editor stored nothing of it yet: whose saves are its own is not known
+            // the member could not be asked: whose saves are theirs is not known
             (false, false) => lines.push((format!("saved since by: {}", b.others.join(", ")), Tone::Plain)),
         }
     }
@@ -207,6 +207,8 @@ impl App {
                 let version = self.show.saves.get(&id).and_then(|a| a.version);
                 Some((Route::Show(id), version))
             }
+            // a factory module is read-only: its save is a module of your own, with a History of its own
+            show::Workspace::Module => self.module.open.as_ref().filter(|o| !o.factory).map(|o| (Route::Entity(o.key()), self.module.auto.version)),
             _ => None,
         }
     }
@@ -219,6 +221,7 @@ impl App {
                 None => self.rigs.auto.settled(),
             },
             show::Workspace::Show => self.show.saves.get(&self.show.shown().id).is_none_or(|a| a.settled()),
+            show::Workspace::Module => self.module.auto.settled(),
             _ => true,
         }
     }
@@ -264,6 +267,17 @@ impl App {
                         self.refuse(why, x, y);
                     }
                 }
+                if let Some(id) = key.strip_prefix("module:").filter(|id| self.module.open.as_ref().is_some_and(|o| o.id == *id)) {
+                    match self.show.api().draft(key) {
+                        Ok(Some(d)) => {
+                            if let Err(why) = self.module.reopen(d) {
+                                self.refuse(why, x, y);
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(why) => self.refuse(format!("module:{id}: {why}"), x, y),
+                    }
+                }
             }
             Route::Scene(id) => {
                 if self.scene.as_ref().is_none_or(|v| &v.edit.doc.id != id) {
@@ -294,7 +308,7 @@ impl App {
         if self.playing() {
             return self.note("Play: nothing to undo – what you change now is dropped on Stop".to_string());
         }
-        if !redo && !self.undo.is_empty() {
+        if !redo && !self.undo.is_empty() && self.workspace == show::Workspace::Stage {
             return self.take_back();
         }
         let Some((route, base)) = self.history_doc() else { return };
@@ -407,7 +421,7 @@ mod tests {
 
     fn plan(ask: Ask) -> Plan {
         let line = Line { place: "gain".into(), kind: Kind::Changed, before: "2".into(), after: "1".into() };
-        Plan { ask, route: Route::Entity("rig:character.catpope".into()), version: 7, base: 9, revert: None, back: None, described: Description { lines: vec![line], more: 0 }, knows_me: true }
+        Plan { ask, route: Route::Entity("rig:character.catpope".into()), version: 7, base: 9, revert: None, back: None, described: Description { lines: vec![line], more: 0 }, sides: Vec::new(), knows_me: true }
     }
 
     #[test]

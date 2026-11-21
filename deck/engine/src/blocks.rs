@@ -1,6 +1,6 @@
 //! The audio kinds' blocks – the patcher model: one block per node (#183). The batch runtime runs sine oscillators and
 //! FM voices as batches (voices.rs) and everything else as these blocks; a patcher build (`Build::patcher`, the tests'
-//! and the bench's reference) runs every node as a block. The oscillators, the noise and the filter are deck-core's
+//! and the bench's reference) runs every node as a block. The oscillators, the noise and the filter are the module SDK's
 //! `dsp` units (wavetables built here, outside the callback); the wiring, envelopes, sequencer, player, mixer and FFT
 //! tap are ours. Nothing in `process` allocates.
 use super::click::Click;
@@ -8,7 +8,9 @@ use super::{Block, Buf, Handles, MusicFeed, Param, Seams, Track};
 use anyhow::{bail, Result};
 use deck_core::tempo::{BeatReader, Follow};
 use deck_space::graph::{Kind, Node};
-use deck_core::dsp::{self, Pink, Svf, Wave, WaveTable, White};
+use deck_module::dsp::noise::{Pink, White};
+use deck_module::dsp::svf::Svf;
+use deck_module::dsp::wavetable::{self, Wave, WaveTable, START_PHASE};
 use deck_core::math::{round_fast, sin_turns};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
 use std::sync::{Arc, Mutex};
@@ -28,9 +30,9 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
     Ok(match node.kind {
         Kind::Osc => {
             let shape = match node.str("wave").unwrap_or("sine") {
-                "sine" => Shape::Sine { phase: dsp::START_PHASE },
+                "sine" => Shape::Sine { phase: START_PHASE },
                 w => match Wave::parse(w) {
-                    Some(wave) => Shape::Table { table: tables.get(wave), osc: dsp::Osc::new() },
+                    Some(wave) => Shape::Table { table: tables.get(wave), osc: wavetable::Osc::new() },
                     None => bail!("node '{}': unknown wave '{w}' (sine, saw, square, triangle)", node.id),
                 },
             };
@@ -53,8 +55,8 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             })
         }
         Kind::Fm => Box::new(Fm {
-            carrier: dsp::START_PHASE,
-            modulator: dsp::START_PHASE,
+            carrier: START_PHASE,
+            modulator: START_PHASE,
             sd: 1.0 / rate,
             freq: glide("freq"),
             ratio: quick("ratio"),
@@ -214,7 +216,7 @@ fn pitch(cv: Option<&Buf>, freq: (f32, f32), i: usize) -> (f32, f32) {
 /// an oscillator's wave: the sine (the batched voices' arithmetic, one lane) or a band-limited table
 enum Shape {
     Sine { phase: f32 },
-    Table { table: Arc<WaveTable>, osc: dsp::Osc },
+    Table { table: Arc<WaveTable>, osc: wavetable::Osc },
 }
 
 struct Osc {

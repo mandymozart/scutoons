@@ -24,9 +24,20 @@ impl Host {
         self.edit_rows_with(e, None)
     }
 
+    /// several edits as one change (one undo step), or none of them
+    pub(super) fn edit_rows_all(&mut self, edits: &[Edit]) -> bool {
+        let done = rows::edit_all(self.shown(), edits);
+        self.rows_edited(done)
+    }
+
     /// the same, with the knobs of the cell's piece a value edit is checked against
     pub(super) fn edit_rows_with(&mut self, e: &Edit, knobs: Option<&[deck_show::values::Knob]>) -> bool {
-        match rows::edit_with(self.shown(), e, knobs) {
+        let done = rows::edit_with(self.shown(), e, knobs);
+        self.rows_edited(done)
+    }
+
+    fn rows_edited(&mut self, done: Result<rows::Edited, String>) -> bool {
+        match done {
             Ok(done) => {
                 self.status = done.said;
                 if let Some(id) = &done.row {
@@ -485,7 +496,7 @@ pub(super) mod tests {
         assert!(host.shown().rows.is_empty(), "from nothing: one role, no row");
         host.toons.list = vec!["catpope".into()];
         press(&mut host, |h| *h == Hit::ToonPick(0));
-        assert_eq!(host.shown().toon, "catpope", "its toon picked in the scene list");
+        assert_eq!(host.shown().home(), "catpope", "its toon picked in the scene list");
 
         press(&mut host, |h| *h == Hit::RowAdd);
         assert_eq!(host.status, "row 1 row added: manual, every column keeps");
@@ -522,7 +533,7 @@ pub(super) mod tests {
 
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
-        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
+        host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
         press(&mut host, |h| *h == Hit::Load);
         assert_eq!(host.status, "loaded new-show@1");
         assert_eq!(host.shown(), &fixture, "loaded as saved");
@@ -579,6 +590,22 @@ pub(super) mod tests {
         }
         typed(&mut host, "");
         assert_eq!(host.shown().background, None);
+    }
+
+    /// the play pill's tempo kept in the show: in its document (saved with it), the same one twice changes nothing
+    #[test]
+    fn the_pills_tempo_is_kept_in_the_show() {
+        use deck_core::tempo::Source;
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        assert_eq!(host.tempo().1, None);
+        let to = deck_show::Tempo::of(96.0, Source::Midi);
+        assert!(host.keep_tempo(to));
+        assert_eq!(host.status, "the show's tempo: 96.0 BPM, midi");
+        assert_eq!(host.tempo(), (host.shown().id.clone(), Some(to)));
+        host.status.clear();
+        assert!(host.keep_tempo(to) && host.status.is_empty(), "unchanged: no edit");
+        let text = serde_json::to_string(host.shown()).unwrap();
+        assert_eq!(deck_show::document::open(&text).unwrap().tempo, Some(to), "it round-trips");
     }
 
     /// #553: the one condition control, by the chips the operator presses – a role's admission (any one fact)

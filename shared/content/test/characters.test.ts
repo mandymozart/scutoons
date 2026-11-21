@@ -7,9 +7,7 @@ import {
 	castIndex,
 	chapterSceneCharacters,
 	ensureStar,
-	featuredCharacters,
-	featuringSuggestions,
-	suggestFeaturing,
+	sceneCastSuggestions,
 	toonStar,
 	characterImage,
 	expressionIndex,
@@ -199,7 +197,7 @@ test('validation: default looks, neutral anchor, casts, VN scripts', () => {
 
 	const registry: CharacterRegistry = { characters: [catpope, mouse] };
 	const group = {
-		label: 'scene',
+		id: 'scene',
 		renderer: { type: 'vertical' },
 		events: [
 			{ type: 'joinScene', params: { characters: [{ name: 'catpope', persona: 'biker', look: 'helmet', mood: 'tripping', position: { variant: 'portrait' } }] } },
@@ -344,7 +342,7 @@ test('legacy ids and the new ref form', async () => {
 	// a group's VN script accepts both forms; an old id is info only
 	const registry: CharacterRegistry = { characters: [catpope] };
 	const group = {
-		label: 's',
+		id: 's',
 		renderer: { type: 'vertical' },
 		slices: [],
 		events: [
@@ -370,24 +368,17 @@ test('the star is in every season of the cast (added in front, never twice)', ()
 	assert.equal(ensureStar(cast, null), false);
 });
 
-test('featuring: suggested from the VN scenes, validated against the cast', () => {
+test("the scenes' characters: suggested for the season's cast", () => {
 	const groups = [
 		{ slices: [{ events: [{ type: 'showMessage', params: { character: 'crows', text: 'kra' }, trigger: {} }] }] },
 		{ events: [{ type: 'joinScene', params: { characters: [{ character: 'boy', variant: 'portrait' }, { name: 'plf' }] } }, { type: 'showMessage', params: { character: 'boy', text: 'hi' } }] },
 		{ slices: [] }
 	];
 	assert.deepEqual(chapterSceneCharacters(groups), ['crows', 'boy', 'catpope']);
-	assert.deepEqual(suggestFeaturing(groups, 'catpope'), ['catpope', 'crows', 'boy']);
-	assert.deepEqual(suggestFeaturing([{ slices: [] }], 'catpope'), ['catpope']);
 	const cast = { catpope: ['regular'], boy: ['regular'] };
-	const info = featuringSuggestions(['catpope'], ['crows', 'boy', 'catpope'], cast, 'chapter:catpope:2');
-	assert.deepEqual(info.map((p) => [p.level, p.message.split(' ')[0]]), [['info', '"crows"'], ['info', '"boy"']]);
-	assert.match(featuringSuggestions(undefined, ['boy'], cast, 'x')[0].message, /no "featuring" yet/);
-	const chapter = { title: 't', author: 'a', description: '', thumbnail: '', number: 2, language: 'de', release: '2026-10-04', groups: [{ slices: [] }], featuring: ['catpope', 'crows', 'catpope'] };
-	const problems = validateFile('chapter', chapter, 'de', { file: 'chapter:catpope:2', cast }).filter((p) => p.path[0] === 'featuring');
-	assert.deepEqual(problems.map((p) => p.message), [`"crows" is featured but not in this season's cast`, '"catpope" is featured twice']);
-	assert.equal(validateFile('chapter', { ...chapter, featuring: 'catpope' }, 'de', { file: 'x' }).some((p) => p.level === 'error' && p.path[0] === 'featuring'), true);
-	assert.deepEqual(featuredCharacters(['boy', 'nobody', 'catpope'], [{ name: 'catpope' }, { name: 'boy' }]).map((c) => c.name), ['boy', 'catpope']);
+	const info = sceneCastSuggestions(['crows', 'boy', 'catpope'], cast, 'chapter:catpope:2');
+	assert.deepEqual(info.map((p) => [p.level, p.message.split(' ')[0]]), [['info', '"crows"']]);
+	assert.deepEqual(sceneCastSuggestions(['boy'], null, 'x'), [], 'no cast, no suggestion');
 });
 
 test('media requests (view "media"): toon media without a character – listed, validated, closed when the file exists', async () => {

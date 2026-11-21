@@ -44,7 +44,7 @@ fn a_far_world_node_hears_the_named_decks_output_over_the_relay() {
     // the deck `left`: one event output, nothing far
     let queue: Arc<Mutex<Vec<Event>>> = Arc::new(Mutex::new(Vec::new()));
     let q = queue.clone();
-    let left = Link::start(&url, Join::Deck, None, Some("character.catpope".into()), None, None, None).unwrap();
+    let left = Link::start(&url, Join::Deck, None, Some("character.catpope".into()), None, None, None, None).unwrap();
     left.far(FarTable {
         name: Some("left".into()),
         subject: "character.catpope".into(),
@@ -56,7 +56,7 @@ fn a_far_world_node_hears_the_named_decks_output_over_the_relay() {
     // the asking deck: one far world node cabled once
     let got: Arc<Mutex<Vec<Event>>> = Arc::new(Mutex::new(Vec::new()));
     let g = got.clone();
-    let asking = Link::start(&url, Join::Deck, None, Some("character.boy".into()), None, None, None).unwrap();
+    let asking = Link::start(&url, Join::Deck, None, Some("character.boy".into()), None, None, None, None).unwrap();
     let their = names();
     let (note, pitch) = (their.get("music.note").unwrap(), their.get("pitch").unwrap());
     asking.far(FarTable {

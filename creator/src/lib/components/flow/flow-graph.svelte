@@ -183,8 +183,7 @@
 		stroke-width: 3;
 	}
 	.graph :global(.flow-edge.kind-trigger path.svelte-flow__edge-path),
-	.graph :global(.flow-edge.kind-reveal path.svelte-flow__edge-path),
-	.graph :global(.flow-edge.kind-place path.svelte-flow__edge-path) {
+	.graph :global(.flow-edge.kind-reveal path.svelte-flow__edge-path) {
 		stroke-dasharray: 2 4;
 	}
 	.graph :global(.flow-edge.is-never path.svelte-flow__edge-path),

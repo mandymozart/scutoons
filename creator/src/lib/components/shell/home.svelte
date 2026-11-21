@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { Badge, Icon, ToonAvatar } from '@scutoons/ui';
 	import type { ContentIndexEntity } from '@scutoons/api';
 	import { toonAsset, toonName } from '@scutoons/content';
@@ -13,26 +12,16 @@
 	import { toast } from '$lib/toasts.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import { addressOf, iconOf, resolveTyped } from '$lib/shell/address.ts';
-	import { matches, places } from '$lib/shell/places.svelte.ts';
+	import { addressOf, iconOf } from '$lib/shell/address.ts';
+	import { places } from '$lib/shell/places.svelte.ts';
 	import ReviewList from '$lib/components/page/review-list.svelte';
 
 	/**
-	 * Home (the deck editor's home.rs; research/redesign/workspaces2.html ?w=home): find anything by name or address,
-	 * continue where this browser was, what waits for you (reviews, drafts not live yet), the areas, and the toons – a
+	 * Home (the deck editor's home.rs; research/redesign/workspaces2.html ?w=home): continue where this browser was, what waits for you (reviews, drafts not live yet), the areas, and the toons – a
 	 * toon opens its board (seasons › chapters), a chapter there opens its own workspace.
 	 */
 	const nav = getCreatorNav();
 	$effect(() => places.load(nav.toons));
-
-	let query = $state('');
-	const all = $derived([...places.toons(nav.toons, (id) => nav.toonName(id)), ...places.areas(), ...(query.trim() ? places.experiences() : [])]);
-	const found = $derived(query.trim() ? all.filter((p) => matches(p, query)).slice(0, 10) : []);
-	function find(event: SubmitEvent) {
-		event.preventDefault();
-		const href = resolveTyped(query) ?? found[0]?.href;
-		if (href) void goto(href);
-	}
 
 	let pending = $state<ContentIndexEntity[]>([]);
 	let loadedFor = '';
@@ -87,19 +76,6 @@
 
 <main class="home" data-testid="dashboard">
 	<div class="col main">
-		<section class="card" data-testid="home-find">
-			<form class="find" onsubmit={find} role="search">
-				<Icon name="search" size="1.1rem" />
-				<input type="search" bind:value={query} placeholder={m['shell.find_placeholder']()} aria-label={m['shell.find']()} data-testid="home-find-input" />
-			</form>
-			{#if found.length}
-				<ul class="rows">
-					{#each found as p (p.address)}
-						<li><a href={p.href}><Icon name={p.icon} size="1rem" /><span class="ell">{p.label}</span><span class="addr">{p.address}</span></a></li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
 		<section class="card">
 			<h2>{m['shell.areas']()}</h2>
 			<div class="areas">
@@ -173,6 +149,8 @@
 		grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 1fr);
 		align-items: start;
 		gap: 1rem;
+		max-width: 58rem;
+		margin: 0 auto 0 max(0rem, calc((100% - 88rem) / 2));
 		padding: 0.4rem 1rem 1rem;
 		color: var(--editor-text);
 	}
@@ -203,16 +181,6 @@
 	}
 	.n {
 		color: var(--editor-warn);
-	}
-	.find {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		color: var(--editor-muted);
-	}
-	.find input {
-		flex: 1 1 auto;
-		font-size: var(--editor-title);
 	}
 	.areas {
 		display: grid;

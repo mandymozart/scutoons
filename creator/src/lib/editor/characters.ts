@@ -1,6 +1,6 @@
 // Characters editor: the platform-wide entities of the characters model (see @scutoons/content characters.ts) –
 // `characters`, `moods`, `asset-requests` – and the per-toon `cast:<toon>`, as ContentDocs with
-// the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
+// the single locale `_`, saved / published by the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
 import { CharacterRegistryDoc } from '$lib/editor/world-map-doc.svelte.ts';
 import { SvelteSet } from 'svelte/reactivity';
@@ -29,7 +29,6 @@ import {
 	type CharacterRegistry,
 	type LocaleText,
 	type MoodVocabulary,
-	type PeopleRegistry,
 	type RegistryCharacter,
 	type ToonCast,
 	type ToonIndex,
@@ -45,13 +44,11 @@ const N = NEUTRAL_LOCALE;
 /** the character registry: one editable registry, stored as `characters` + one `character:<id>` each (agents/MAP-DOCUMENTS.md) */
 export const registryDoc = () => new CharacterRegistryDoc();
 export const castDoc = (toon: string) => neutralDoc(entities.cast(toon));
-export const peopleDoc = () => neutralDoc(entities.people);
 export const moodsDoc = () => neutralDoc(entities.moods);
 export const requestsDoc = () => neutralDoc(entities.assetRequests);
 
 export const registryOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as CharacterRegistry | null;
 export const castOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as ToonCast | null;
-export const peopleListOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as PeopleRegistry | null)?.people ?? [];
 /** the stored vocabulary, else the built-in seed (17 standard + dizzy, tripping) */
 export const moodsOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as MoodVocabulary | null) ?? defaultMoodVocabulary();
 export const requestsOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as AssetRequests | null;

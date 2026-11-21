@@ -76,7 +76,7 @@ let ch2Next = null;
 if (previewOk) {
 	const groups = (await (await fetch(`${api}/library/toons/${toon}/chapters/2?locale=de&draft=1`, { headers: auth })).json()).groups ?? [];
 	const end = groups.findIndex((g) => !g.continues);
-	ch2Next = end >= 0 && groups[end + 1]?.label && !groups[end].end ? { first: groups[0].label, next: groups[end + 1].label } : null;
+	ch2Next = end >= 0 && groups[end + 1]?.id && !groups[end].end ? { first: groups[0].id, next: groups[end + 1].id } : null;
 }
 let skipped = 0;
 function skip(name, why) { skipped++; console.log(`  skip  ${name} – ${why}`); }

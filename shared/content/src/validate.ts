@@ -11,7 +11,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, HIGHLIGHTERS, isFxSoundChoice } from './fx.ts';
-import { linksToNext, scriptJumps } from './chains.ts';
+import { GROUP_ID_PATTERN } from './group-ids.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
@@ -121,7 +121,7 @@ export interface ValidateContext {
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
 	 */
 	seasonStatus?: string | null;
-	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
+	/** the item catalog's ids (a season's `related_items` are checked against them; none = no check) */
 	items?: string[];
 	/** the world map's place ids (unlockLocation events are checked against them; none = no check) */
 	places?: string[];
@@ -135,7 +135,7 @@ export interface ValidateContext {
 	itemRespawn?: Record<string, ItemRespawn | null>;
 	/**
 	 * chapter files: what the whole toon says (`toonFacts` over its documents – the creator loads them): which labels
-	 * something jumps to, which variables something sets. None: every labelled group counts as reachable by a jump and no
+	 * something jumps to, which variables something sets. None: every group counts as reachable by a jump and no
 	 * condition is judged (reach.ts)
 	 */
 	facts?: ToonFacts;
@@ -159,7 +159,7 @@ export interface JumpTargets {
 	toons?: readonly string[];
 	/** a toon's chapter numbers */
 	chapters?: (toon: string) => readonly number[] | undefined;
-	/** a chapter's group labels (its scenes' included) */
+	/** a chapter's group ids (its scenes' included) */
 	labels?: (toon: string, chapter: number) => readonly string[] | undefined;
 }
 
@@ -354,7 +354,7 @@ function checkTarget(c: Collector, target: any, path: Path, ctx: ValidateContext
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
 	if (target.anyOf !== undefined) {
 		if (!Array.isArray(target.anyOf) || !target.anyOf.length || target.anyOf.some((l: unknown) => !isStr(l) || !l)) {
-			c.error([...path, 'anyOf'], 'anyOf must be a list of group labels (one of them is picked at random)');
+			c.error([...path, 'anyOf'], 'anyOf must be a list of group ids (one of them is picked at random)');
 		}
 	}
 	if (target.toon !== undefined) {
@@ -392,7 +392,7 @@ function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path,
 		return;
 	}
 	const field = isStr(target.label) && target.label ? 'label' : 'anyOf';
-	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group labelled "${l}"`);
+	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group "${l}"`);
 }
 
 /** what a script gives (`giveItem` / a choice's `give`): a catalog item, 1 … GIVE_ITEM_MAX pieces (BACKLOG 10.38) */
@@ -933,7 +933,8 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 		c.error([...path, 'renderer', 'type'], 'renderer.type must be vertical or horizontal (the reader shows "Renderer is missing")');
 	}
 	checkRendererParams(c, g, path);
-	if (!g.label) c.warn([...path, 'label'], 'group has no label (?label= links and jumpTo need one)');
+	if (!isStr(g.id) || !g.id) c.error([...path, 'id'], 'group needs an id (its address: jumps and ?label= links name it)');
+	else if (!GROUP_ID_PATTERN.test(g.id)) c.error([...path, 'id'], `group id "${g.id}": letters, digits, - and _ only, starting with a letter or digit`);
 	if (!Array.isArray(g.slices) && !Array.isArray(g.events)) c.error(path, 'group needs slices or events');
 	if (Array.isArray(g.slices)) {
 		if (!g.slices.length && !g.events) c.warn([...path, 'slices'], 'group has no slices');
@@ -1000,18 +1001,19 @@ function checkGroupLinks(c: Collector, g: any, path: Path, ctx: ValidateContext)
 }
 
 /**
- * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; a chain that isn't the chapter's start
- * needs a label on its first group (else nothing reaches it); a group whose script can jump away and continues needs a
- * label on the next group (whatever follows a jumpTo must be reachable by a label) – what can't be reached at all is
- * `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref (where known).
+ * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; group ids are unique in the chapter
+ * – what can't be reached at all is `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref.
  */
 function checkChains(c: Collector, groups: any[]) {
+	const seen = new Map<string, number>();
 	groups.forEach((g, i) => {
-		if (!isObj(g) || g.continues !== true) return;
-		if (i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
-		else if (scriptJumps(g) && isObj(groups[i + 1]) && !groups[i + 1].label)
-			c.warn(['groups', i + 1, 'label'], 'the group before can jump away (jumpTo) and continues into this one – give this group a label so a jump can lead back here');
-		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
+		if (!isObj(g)) return;
+		if (isStr(g.id) && g.id) {
+			const first = seen.get(g.id);
+			if (first !== undefined) c.error(['groups', i, 'id'], `group id "${g.id}" is taken by group ${first + 1} – ids are unique in a chapter`);
+			else seen.set(g.id, i);
+		}
+		if (g.continues === true && i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
 	});
 }
 
@@ -1021,7 +1023,7 @@ function checkChains(c: Collector, groups: any[]) {
  */
 function checkReach(c: Collector, groups: any[], facts: ToonFacts | undefined) {
 	const r = chapterReach(groups, facts);
-	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its label, and the content before it always leaves or never finishes)'));
+	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its id, and the content before it always leaves or never finishes)'));
 	r.slices.forEach((list, gi) => {
 		if (r.groups[gi] === 'unreachable') return;
 		list.forEach((reach, si) => reach === 'unreachable' && c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always leaves when it is seen'));
@@ -1158,16 +1160,6 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	else if (ctx.seasonStatus !== undefined && ch.status !== undefined && ch.status !== ctx.seasonStatus)
 		c.warn(['status'], `status "${ch.status}" differs from the season ("${ctx.seasonStatus}"), which is the source – saving aligns it`);
 	if (ch.published !== undefined) c.info(['published'], 'published is no longer used (the season status is the source) – saving removes it');
-	if (ch.featuring !== undefined) {
-		if (!Array.isArray(ch.featuring) || ch.featuring.some((id: unknown) => !isStr(id) || !id)) c.error(['featuring'], 'featuring must be a list of character ids');
-		else {
-			ch.featuring.forEach((id: string, i: number) => {
-				if (ch.featuring.indexOf(id) !== i) c.warn(['featuring', i], `"${id}" is featured twice`);
-				else if (ctx.cast && !ctx.cast[id]) c.warn(['featuring', i], `"${id}" is featured but not in this season's cast`);
-			});
-		}
-	}
-	checkRelatedItems(ch.related_items, ctx.items, (level, path, message) => c.add(level, path, message));
 	if (ch.keyvisual !== undefined) {
 		if (isStr(ch.keyvisual)) c.error(['keyvisual'], 'keyvisual must be an object { image, video? } (string form is outdated)');
 		else if (!isObj(ch.keyvisual) || !isStr(ch.keyvisual.image)) c.error(['keyvisual', 'image'], 'keyvisual.image is missing');
@@ -1445,23 +1437,10 @@ function checkKanon(c: Collector, k: any, file: string) {
 /** A CSS colour as the registry writes them: a name (`blue`, `darkgreen`) or a hex colour */
 const CSS_COLOR = /^(?:[a-z]+|#[0-9a-f]{3}|#[0-9a-f]{6})$/i;
 
-/**
- * Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in `featuring`
- * (when the chapter has a featuring list) or not in the season's cast. `scene` = `chapterSceneCharacters` of the chapter.
- */
-export function featuringSuggestions(
-	featuring: string[] | null | undefined,
-	scene: string[],
-	cast: Record<string, string[]> | null | undefined,
-	file: string
-): Problem[] {
-	const out: Problem[] = [];
-	for (const id of scene) {
-		if (cast && !cast[id]) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in the season's cast – add them to the cast` });
-		else if (Array.isArray(featuring) && !featuring.includes(id)) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in "featuring"` });
-	}
-	if (!Array.isArray(featuring) && scene.length) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `no "featuring" yet – the scenes suggest ${scene.join(', ')}` });
-	return out;
+/** Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in the season's cast */
+export function sceneCastSuggestions(scene: string[], cast: Record<string, string[]> | null | undefined, file: string): Problem[] {
+	if (!cast) return [];
+	return scene.filter((id) => !cast[id]).map((id) => ({ level: 'info', file, locale: null, path: [], message: `"${id}" appears in the scenes but not in the season's cast – add them to the cast` }));
 }
 
 /** Problems of one locale file */
@@ -1639,7 +1618,7 @@ export function validateLocales(kind: string, file: string, files: Record<string
 	for (const [locale, data] of Object.entries(files)) {
 		if (locale === primary || !data) continue;
 		// related items are language-neutral (the creator writes one list to every locale)
-		if ((kind === 'chapter' || kind === 'season') && JSON.stringify(source.related_items ?? []) !== JSON.stringify(data.related_items ?? [])) {
+		if (kind === 'season' && JSON.stringify(source.related_items ?? []) !== JSON.stringify(data.related_items ?? [])) {
 			add('warning', locale, ['related_items'], `related_items differ between ${primary} and ${locale}: they are the same in every language`);
 		}
 		if (kind === 'chapter') {

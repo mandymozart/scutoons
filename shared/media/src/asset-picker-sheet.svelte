@@ -563,7 +563,6 @@
 	}
 	.error {
 		margin: 0;
-		border-left: 0.5rem solid var(--state-error);
 		padding-left: 0.5rem;
 	}
 	/* the cards are tools.css .sc-card (the picker sheets' vocabulary); here the picture has a hairline frame */

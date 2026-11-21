@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { shellDock } from '@scutoons/ui';
+	import { stepBack } from '$lib/shell/shell.svelte.ts';
 	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -12,7 +12,7 @@
 	/**
 	 * The season's / toon's flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"): one box per chapter (its status, its
 	 * reach in the toon, unreachable groups), the season order, jumps and ends between chapters, exits to other seasons /
-	 * toons / products; the toon level adds the map places. Dead things below the graph. A box opens its chapter (with its
+	 * toons / products. Dead things below the graph. A box opens its chapter (with its
 	 * Flow), an exit its season / toon. Read-only; the graph is loaded only when it opens. Shown in the dock's `FlowDock`
 	 * (the same panel as the chapter's: toon → season → chapter keep it mounted – UI-CONCEPTS E.3 b); a box navigates
 	 * the main area, the dock's Flow follows (no `?flow=1`: the open Flow is the dock's).
@@ -36,18 +36,18 @@
 	/** the boxes' pictures: chapters' thumbnails, other chapters / toons (the flow index) */
 	// svelte-ignore state_referenced_locally
 	const pictures = new FlowPictures(toon);
-	const link = (n: FlowNode) => n.kind === 'chapter' || n.kind === 'place' || (n.kind === 'exit' && !!n.target && ['chapter', 'season', 'toon'].includes(n.target.type));
-	/** a box opens its page – a maximized Flow steps back (owner 2026-10-06) */
+	const link = (n: FlowNode) => n.kind === 'chapter' || (n.kind === 'exit' && !!n.target && ['chapter', 'season', 'toon'].includes(n.target.type));
+	/** a box opens its page – a Flow on the stage steps back (owner 2026-10-06) */
 	function open(n: FlowNode) {
-		shellDock.restore();
-		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}`);
+		stepBack('flow');
+		if (n.kind === 'chapter') return goto(`/${toon}/chapter/${n.chapter}`);
 		const t = n.target;
 		if (!t) return;
 		if (t.type === 'chapter') return goto(`/${t.toon || toon}/chapter/${t.value}`);
 		if (t.type === 'season') return goto(`/${toon}/season/${t.value}`);
 		if (t.type === 'toon') return goto(`/${t.value}`);
 	}
-	const openDead = (at: DeadPlace) => (shellDock.restore(), goto(`/${toon}/chapter/${at.chapter}`));
+	const openDead = (at: DeadPlace) => (stepBack('flow'), goto(`/${toon}/chapter/${at.chapter}`));
 </script>
 
 <section class="flow" data-testid="toon-flow" data-level={season !== undefined ? 'season' : 'toon'}>

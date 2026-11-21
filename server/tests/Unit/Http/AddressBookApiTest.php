@@ -68,13 +68,13 @@ final class AddressBookApiTest extends TestCase
         // items: the toon's and the shared ones (the fixture catalog: catpope's and no toon's)
         self::assertSame(['de' => 'Kamera', 'en' => 'Camera'], $by['item:camera']['labels']);
         self::assertArrayHasKey('item:scutoons_tshirt', $by, 'a shared item');
-        // chapters by number, each followed by its groups (a label once; a label that is no address word gets a safe form), then
+        // chapters by number, each followed by its groups (an id once; an id that isn't slug-safe is left out), then
         // the variables of the one save game
         $chapters = array_values(array_filter($book['entries'], fn(array $e) => in_array($e['kind'], ['chapter', 'group'], true)));
-        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.Das-Ende', 'chapter:2.Das-Ende-2', 'chapter:10'], array_column($chapters, 'ref'));
+        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.das-ende', 'chapter:10'], array_column($chapters, 'ref'));
         self::assertSame(['2', ['de' => 'Zwei']], [$by['chapter:2']['name'], $by['chapter:2']['labels']]);
-        self::assertSame(['kind' => 'group', 'name' => 'Das Ende?', 'parent' => 'chapter:2', 'labels' => [], 'origin' => ['key' => 'chapter:catpope:2', 'state' => 'published']],
-            array_diff_key($by['chapter:2.Das-Ende-2'], ['ref' => 1]), 'the name is the label as the event stores it');
+        self::assertSame(['kind' => 'group', 'name' => 'das-ende', 'parent' => 'chapter:2', 'labels' => [], 'origin' => ['key' => 'chapter:catpope:2', 'state' => 'published']],
+            array_diff_key($by['chapter:2.das-ende'], ['ref' => 1]), 'the name is the id as a jump stores it');
         $variables = array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'variable'));
         self::assertSame(array_fill(0, count($variables), 'variable'), array_column(array_slice($book['entries'], -count($variables)), 'kind'), 'variables last');
         self::assertSame(['variable:catpope.coins' => 'coins', 'variable:global.stars' => 'global.stars', 'variable:toptoy.luck' => 'toptoy.luck'],
@@ -119,7 +119,7 @@ final class AddressBookApiTest extends TestCase
         self::assertArrayNotHasKey('character:catpope.human', $by);
         // a variable another toon sets (one save game) changes it too
         $before = $changed->getHeaderLine('ETag');
-        $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['label' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
+        $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['id' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
         $moons = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $moons->getStatusCode());
         self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'ref'));
@@ -205,6 +205,61 @@ final class AddressBookApiTest extends TestCase
         }
     }
 
+    /**
+     * #708: several toons' books in one answer – what every one holds alike once (regions, toons, templates, variables, the
+     * shared items), a section per toon with the rest of its own book, the home first; one version over all of them
+     */
+    public function testSeveralToonsInOneRequest(): void
+    {
+        $this->catalog();
+        $scene = fn(string $id, array $toons) => ['format' => 2, 'id' => $id, 'version' => 1, 'toons' => $toons, 'stage' => ['name' => ucfirst($id)], 'node' => [], 'link' => []];
+        $this->store('scene:nave', $scene('nave', ['catpope']));
+        $this->store('scene:duet', $scene('duet', ['catpope', 'toptoy']));
+        $this->store('scene:solo', $scene('solo', []));
+        [$creator] = $this->session([Roles::CREATOR], 'creator@scutoons.test');
+        $r = $this->request('/api/addresses?toons=catpope,toptoy', $creator);
+        self::assertSame(200, $r->getStatusCode(), (string) $r->getBody());
+        $books = self::json($r);
+        self::assertSame([AddressBookTypes::FORMAT, ['catpope', 'toptoy']], [$books['address_book'], $books['toons']]);
+        self::assertSame('"' . $books['version'] . '"', $r->getHeaderLine('ETag'));
+        self::assertSame([['catpope', 'en'], ['toptoy', 'de']], array_map(fn(array $b) => [$b['toon'], $b['source']], $books['books']));
+        $shared = array_column($books['shared'], 'ref');
+        foreach (['region:hills', 'toon:catpope', 'toon:toptoy', 'scene:solo', 'item:scutoons_tshirt', 'variable:global.stars'] as $ref) self::assertContains($ref, $shared);
+        self::assertSame(['toon:catpope', 'toon:toptoy'], array_values(array_filter($shared, fn(string $s) => str_starts_with($s, 'toon:'))), 'the home first');
+        self::assertSame('coins', array_column($books['shared'], 'name', 'ref')['variable:catpope.coins'], 'as the home writes it');
+        [$cat, $top] = [array_column($books['books'][0]['entries'], 'ref'), array_column($books['books'][1]['entries'], 'ref')];
+        self::assertSame([], array_intersect($shared, array_merge($cat, $top)), 'a shared entry is in no section');
+        foreach (['character:catpope', 'item:camera', 'chapter:2', 'scene:nave', 'scene:duet', 'location:dom'] as $ref) self::assertContains($ref, $cat);
+        foreach (['character:mouse', 'chapter:1', 'scene:duet', 'location:shop'] as $ref) self::assertContains($ref, $top);
+        self::assertNotContains('scene:nave', $top);
+        self::assertNotContains('character:mouse', $cat);
+        // each toon's own book is its section and the shared entries, the same order
+        foreach (['catpope' => $cat, 'toptoy' => $top] as $toon => $section) {
+            $one = array_column(self::json($this->request("/api/addresses/$toon", $creator))['entries'], 'ref');
+            self::assertSame($one, array_values(array_filter($one, fn(string $ref) => in_array($ref, array_merge($section, $shared), true))));
+            self::assertEqualsCanonicalizing($one, array_merge($section, $shared), $toon);
+        }
+        // the same version again: 304; the order asked is part of it (the home differs)
+        $again = $this->request('/api/addresses?toons=catpope,toptoy', $creator, ['If-None-Match' => $r->getHeaderLine('ETag')]);
+        self::assertSame(304, $again->getStatusCode());
+        $swapped = $this->request('/api/addresses?toons=toptoy,catpope', $creator);
+        self::assertSame(['toptoy', 'catpope'], self::json($swapped)['toons']);
+        self::assertNotSame($r->getHeaderLine('ETag'), $swapped->getHeaderLine('ETag'));
+        // a change in one toon changes the one version
+        $this->store('character:mouse', ['name' => ['de' => 'Maus (neu)'], 'color' => 'yellow', 'own_toon' => 'toptoy', 'personas' => []], false);
+        self::assertSame(200, $this->request('/api/addresses?toons=catpope,toptoy', $creator, ['If-None-Match' => $r->getHeaderLine('ETag')])->getStatusCode());
+        // one toon is a book of one section; asked wrong: why
+        self::assertSame(['catpope'], array_column(self::json($this->request('/api/addresses?toons=catpope', $creator))['books'], 'toon'));
+        foreach (['/api/addresses', '/api/addresses?toons=', '/api/addresses?toons=Cat%20Pope', '/api/addresses?toons=a,b,c,d,e,f,g,h,i'] as $bad) {
+            self::assertSame([400, 'invalid_toons'], [$this->request($bad, $creator)->getStatusCode(), self::json($this->request($bad, $creator))['error'] ?? null], $bad);
+        }
+        $unknown = $this->request('/api/addresses?toons=catpope,nope', $creator);
+        self::assertSame([404, 'unknown_toon'], [$unknown->getStatusCode(), self::json($unknown)['error'] ?? null]);
+        self::assertStringContainsString('nope', (string) $unknown->getBody());
+        [$member] = $this->session([], 'reader@scutoons.test');
+        self::assertSame(403, $this->request('/api/addresses?toons=catpope', $member)->getStatusCode());
+    }
+
     public function testWhoReadsIt(): void
     {
         $this->catalog();
@@ -253,13 +308,13 @@ final class AddressBookApiTest extends TestCase
         $this->store('chapter:catpope:10', ['number' => 10, 'title' => ['de' => 'Zehn'], 'groups' => []]);
         $set = fn(string $variable) => ['type' => 'setVariable', 'params' => ['variable' => $variable, 'value' => '1']];
         $this->store('chapter:catpope:2', ['number' => 2, 'title' => ['de' => 'Zwei'], 'groups' => [
-            ['label' => 'intro', 'events' => [$set('coins')]],
-            ['label' => 'Das Ende.'],
-            ['label' => 'Das Ende?'],
-            ['label' => 'intro'],
+            ['id' => 'intro', 'events' => [$set('coins')]],
+            ['id' => 'das-ende'],
+            ['id' => 'Das Ende?'],
+            ['id' => 'intro'],
             ['events' => [$set('global.stars')]],
         ]]);
-        $this->store('chapter:toptoy:1', ['number' => 1, 'title' => ['de' => 'Eins'], 'groups' => [['label' => 'start', 'events' => [$set('luck')]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'title' => ['de' => 'Eins'], 'groups' => [['id' => 'start', 'events' => [$set('luck')]]]]);
     }
 
     /** @param array<mixed> $doc */

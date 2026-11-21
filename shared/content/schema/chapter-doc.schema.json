@@ -56,20 +56,6 @@
 				"isPreview": {
 					"type": "boolean"
 				},
-				"featuring": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"description": "Who appears in this chapter: registry character ids, a subset of the season's cast (`cast:<toon>`), in display order. Optional and editorial – suggested from the chapter's VN scenes (`chapterSceneCharacters`), set by hand for plain scroll chapters. The reader shows it on the chapter list item and at the chapter start."
-				},
-				"related_items": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"description": "Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to every locale), agents/ITEMS.md \"Players, albums, related items\". Stored + edited; the reader does not show it yet."
-				},
 				"highlight": {
 					"$ref": "#/definitions/Highlighter",
 					"description": "how \"Show hints\" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies"
@@ -115,8 +101,10 @@
 					},
 					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
 				},
-				"label": {
-					"type": "string"
+				"id": {
+					"type": "string",
+					"description": "The group's address inside its chapter (`chapter:<n>.<id>`): unique per chapter, slug-safe (`GROUP_ID_PATTERN`). Jump targets, `?label=` links and the creator's `?group=` name it; renaming it rewrites them (`renameGroupId`).",
+					"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
 				},
 				"renderer": {
 					"type": "object",
@@ -141,6 +129,9 @@
 					"description": "Where the reader goes when this group – the chain's last – is done, instead of the next group / chapter. Ignored on a group that `continues`."
 				}
 			},
+			"required": [
+				"id"
+			],
 			"description": "A group of a chapter (one document per chapter since 2026-10-19 – the scene documents were inlined)"
 		},
 		"SliceDoc": {
@@ -199,12 +190,6 @@
 						"$ref": "#/definitions/CollagePiece"
 					},
 					"description": "collage pieces on the picture (collage.ts, agents/research/COLLAGE.md §3): under every text box, item and area, clipped to the picture, in array order back → front – no `layer`; picture slices only"
-				},
-				"_type": {
-					"type": "string"
-				},
-				"_label": {
-					"type": "string"
 				}
 			},
 			"required": [

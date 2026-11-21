@@ -40,6 +40,7 @@
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
 //! proves native ≡ wasm32 ≡ wasm32 + simd128, so the browser's bridge adds nothing a scenario can see.
+pub mod bones;
 pub mod caps;
 pub mod deck;
 pub mod stage;
@@ -987,7 +988,27 @@ pub extern "C" fn hl_run(len: usize) -> i32 {
     })
 }
 
-/// wasm: the outbox's address (its length is what `hl_run` returned)
+/// wasm: the questions and the .glb in the inbox's first `len` bytes (bones.rs) answered → the answer's length in the
+/// outbox (< 0: an error text)
+#[no_mangle]
+pub extern "C" fn hl_bones(len: usize) -> i32 {
+    IO.with(|io| {
+        let mut io = io.borrow_mut();
+        let (text, ok) = match bones::answer(&io.0[..len.min(io.0.len())]) {
+            Ok(lines) => (lines, true),
+            Err(e) => (e, false),
+        };
+        io.1 = text.into_bytes();
+        let n = io.1.len() as i32;
+        if ok {
+            n
+        } else {
+            -n
+        }
+    })
+}
+
+/// wasm: the outbox's address (its length is what `hl_run` or `hl_bones` returned)
 #[no_mangle]
 pub extern "C" fn hl_outbox() -> *const u8 {
     IO.with(|io| io.borrow().1.as_ptr())

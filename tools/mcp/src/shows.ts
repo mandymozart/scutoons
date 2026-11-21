@@ -12,6 +12,15 @@ type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
 const text = (value: unknown): Result => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }] });
 const fail = (message: string): Result => ({ ...text(message), isError: true });
 
+/** list_shows' rows: each API row { key, latest, published, content } (the newest draft's document, EntityStore::withContent) in
+ *  short, only the shows that use `toon` when it is given (#708: a show names several toons, the first its home) */
+export function showRows(all: Record<string, any>[], toon?: string) {
+	return all
+		.map((r): Record<string, any> => ({ ...((r.content ?? {}) as Record<string, any>), key: r.key, latest: r.latest, published: r.published }))
+		.filter((s) => toon === undefined || (Array.isArray(s.toons) && s.toons.includes(toon)))
+		.map((s) => ({ id: s.id ?? String(s.key).replace(/^show:/, ''), toons: Array.isArray(s.toons) ? s.toons : [], outlets: (s.outlets ?? []).map((o: { id: string }) => o.id), rows: (s.rows ?? []).length, draft: s.latest, published: s.published }));
+}
+
 /** a show id: lowercase letters, digits, - and _ (the server's ID_KINDS rule) */
 export const SHOW_ID = /^[a-z0-9_-]{1,64}$/;
 export function showId(given: string): string | null {
@@ -43,18 +52,14 @@ export function registerShowTools(server: McpServer, config: Config, options: { 
 	server.registerTool(
 		'list_shows',
 		{
-			description: 'Every live show (the newest draft of each): id, toon, its outlets and rows in short. `toon` filters (e.g. "sandbox" for the demos and tests). Needs the role `live`.',
+			description: 'Every live show (the newest draft of each): id, toons (the first is its home), its outlets and rows in short. `toon` filters to shows that use that toon (e.g. "sandbox" for the demos and tests). Needs the role `live`.',
 			inputSchema: z.object({ toon: z.string().optional() }),
 			annotations: read
 		},
 		guard(async ({ toon }) => {
 			const r = await api.get<{ shows?: unknown[] } | unknown[]>('/shows');
 			const all = (Array.isArray(r) ? r : (r.shows ?? [])) as Record<string, any>[];
-			const rows = all
-				// each row: { key, latest, published, content } – the newest draft's document (EntityStore::withContent)
-				.map((r): Record<string, any> => ({ ...((r.content ?? {}) as Record<string, any>), key: r.key, latest: r.latest, published: r.published }))
-				.filter((s) => toon === undefined || s.toon === toon)
-				.map((s) => ({ id: s.id ?? String(s.key).replace(/^show:/, ''), toon: s.toon, outlets: (s.outlets ?? []).map((o: { id: string }) => o.id), rows: (s.rows ?? []).length, draft: s.latest, published: s.published }));
+			const rows = showRows(all, toon);
 			return text(rows);
 		})
 	);
@@ -79,7 +84,7 @@ export function registerShowTools(server: McpServer, config: Config, options: { 
 		'save_show_draft',
 		{
 			description:
-				'Saves a NEW draft version of a live show (append-only; the server stamps `version`). The whole `content` (`id` = the show id, `toon`, `outlets`, `rows` …) or `ops` on the newest draft (base = its version id from read_show; a newer save in between → 409). A new show: content with base null. Demos and tests belong to the toon `sandbox`. You never publish – the member does, in the editor\'s Show tab.',
+				'Saves a NEW draft version of a live show (append-only; the server stamps `version`). The whole `content` (`id` = the show id, `toons` – a list, the first the home toon –, `outlets`, `rows` …) or `ops` on the newest draft (base = its version id from read_show; a newer save in between → 409). A new show: content with base null. Demos and tests belong to the toon `sandbox`. You never publish – the member does, in the editor\'s Show tab.',
 			inputSchema: z.object({
 				id: idSchema,
 				base: z.number().int().nullable().describe('the version id the change starts from (read_show; null = a new show)'),

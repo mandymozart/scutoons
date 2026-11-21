@@ -1,7 +1,7 @@
 {
   "id": "stage-cast",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [{ "id": "left" }],
   "rows": [
     {

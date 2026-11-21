@@ -12,12 +12,21 @@
 		floats,
 		tab,
 		toolbar,
-		children
+		children,
+		main = null,
+		onmain,
+		onover,
+		labels = {}
 	}: {
 		floats: Floats;
 		tab: Snippet<[tab: string]>;
 		toolbar?: Snippet<[panel: string]>;
 		children?: Snippet;
+		/** the tab on the stage, and the head's ◱ main / ⤢ over everything (floating-panel.svelte) */
+		main?: string | null;
+		onmain?: (tab: string) => void;
+		onover?: (tab: string) => void;
+		labels?: { fold?: string; open?: string; close?: string; move?: string; main?: string; back?: string; over?: string };
 	} = $props();
 
 	let layer = $state<HTMLDivElement>();
@@ -58,7 +67,20 @@
 	<div class="stage">{@render children?.()}</div>
 	{#if floats.area.w > 0}
 		{#each floats.specs as spec (spec.id)}
-			<FloatingPanel {floats} id={spec.id}>
+			<FloatingPanel
+				{floats}
+				id={spec.id}
+				{main}
+				{onmain}
+				{onover}
+				foldLabel={labels.fold}
+				openLabel={labels.open}
+				closeLabel={labels.close}
+				moveLabel={labels.move}
+				mainLabel={labels.main}
+				backLabel={labels.back}
+				overLabel={labels.over}
+			>
 				{#snippet children(active)}
 					{#if spec.inline}
 						{@render toolbar?.(spec.id)}

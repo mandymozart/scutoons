@@ -37,6 +37,8 @@ deck-ui = { path = "../ui" }
 # #470: the browser deck pairs with deck-link's handshake and schedule (sans-IO – the page fetches and signs)
 deck-link = { path = "../link", default-features = false, features = ["handshake"] }
 protocol = { workspace = true }
+# #698: the Library's shelf for the creator (library.rs)
+deck-catalog = { path = "../catalog" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

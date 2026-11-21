@@ -15,9 +15,33 @@ export interface MachineSettings {
 	reduceMotion: boolean;
 	/** the last tabs come back when the creator starts */
 	reopenTabs: boolean;
+	/** per workspace: the tab on the stage, and whether its content keeps clear of the bar's row */
+	views: Record<string, ViewSettings>;
 }
 
-export const DEFAULTS: MachineSettings = { theme: 'night', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true };
+export interface ViewSettings {
+	/** the tab that took the stage (◱ main); absent: the preset's */
+	main?: string | null;
+	/** the content starts under the bar's row (the stage itself still runs under the bar); default on */
+	clear?: boolean;
+}
+
+export const DEFAULTS: MachineSettings = { theme: 'day', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true, views: {} };
+
+/** a workspace's view settings, every field checked */
+export function readViews(raw: unknown): Record<string, ViewSettings> {
+	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+	const out: Record<string, ViewSettings> = {};
+	for (const [kind, v] of Object.entries(raw as Record<string, unknown>)) {
+		if (typeof v !== 'object' || v === null) continue;
+		const r = v as Record<string, unknown>;
+		const view: ViewSettings = {};
+		if (typeof r.main === 'string' || r.main === null) view.main = r.main as string | null;
+		if (typeof r.clear === 'boolean') view.clear = r.clear;
+		out[kind] = view;
+	}
+	return out;
+}
 
 export const SCALE_MIN = 0.8;
 export const SCALE_MAX = 1.5;
@@ -34,10 +58,11 @@ export function readSettings(raw: unknown): MachineSettings {
 	const v = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
 	const bool = (key: keyof MachineSettings) => (typeof v[key] === 'boolean' ? (v[key] as boolean) : (DEFAULTS[key] as boolean));
 	return {
-		theme: v.theme === 'day' ? 'day' : 'night',
+		theme: v.theme === 'night' ? 'night' : 'day',
 		scale: typeof v.scale === 'number' ? clampScale(v.scale) : DEFAULTS.scale,
 		panelTransitions: bool('panelTransitions'),
 		reduceMotion: bool('reduceMotion'),
-		reopenTabs: bool('reopenTabs')
+		reopenTabs: bool('reopenTabs'),
+		views: readViews(v.views)
 	};
 }

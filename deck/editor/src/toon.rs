@@ -1,13 +1,18 @@
-//! Which toon's address book the editor reads: the one of what is open – in Build the rig's (its character's `own_toon`
-//! in the library's registry, `GET /api/library/characters`), in Show and Perform the show's; `--toon` overrides both. The registry is asked once, on a thread, and kept in the cache for the next offline start.
+//! Which toons' address book the editor reads: the one of what is open – in Build the rig's (its character's `own_toon`
+//! in the library's registry, `GET /api/library/characters`), in Show and Perform the show's toons (#708: several, the
+//! home first); `--toon` overrides both. The registry is asked once, on a thread, and kept in the cache for the next offline start.
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 
-/// the toon to read: `forced` (`--toon`), else the rig's in Build, else the show's
-pub fn wanted(forced: Option<&str>, build: bool, rig: Option<&str>, show: Option<&str>) -> Option<String> {
-    let t = forced.or(if build { rig } else { show })?.trim();
-    (!t.is_empty()).then(|| t.to_string())
+/// the toons to read: `forced` (`--toon`), else the rig's in Build, else the show's (none: an empty list)
+pub fn wanted(forced: Option<&str>, build: bool, rig: Option<&str>, show: &[String]) -> Vec<String> {
+    let list: Vec<&str> = match (forced, build) {
+        (Some(f), _) => vec![f],
+        (None, true) => rig.into_iter().collect(),
+        (None, false) => show.iter().map(String::as_str).collect(),
+    };
+    list.into_iter().map(str::trim).filter(|t| !t.is_empty()).map(str::to_string).collect()
 }
 
 /// the character a rig subject names (`character.catpope` → `catpope`); items and others have none
@@ -68,12 +73,13 @@ mod tests {
 
     #[test]
     fn the_toon_follows_what_is_open() {
-        assert_eq!(wanted(None, true, Some("catpope"), Some("feilchen")).as_deref(), Some("catpope"), "Build: the rig's");
-        assert_eq!(wanted(None, false, Some("catpope"), Some("feilchen")).as_deref(), Some("feilchen"), "Show / Perform: the show's");
-        assert_eq!(wanted(Some("other"), false, Some("catpope"), Some("feilchen")).as_deref(), Some("other"), "--toon overrides");
-        assert_eq!(wanted(None, false, Some("catpope"), None), None, "a show without its toon: none, not the rig's");
-        assert_eq!(wanted(None, false, None, None), None, "none at all");
-        assert_eq!(wanted(None, true, None, Some("feilchen")), None);
+        let show = ["feilchen".to_string(), "catpope".to_string()];
+        assert_eq!(wanted(None, true, Some("catpope"), &show), ["catpope"], "Build: the rig's");
+        assert_eq!(wanted(None, false, Some("catpope"), &show), ["feilchen", "catpope"], "Show / Perform: the show's toons, the home first");
+        assert_eq!(wanted(Some("other"), false, Some("catpope"), &show), ["other"], "--toon overrides");
+        assert!(wanted(None, false, Some("catpope"), &[]).is_empty(), "a show without its toon: none, not the rig's");
+        assert!(wanted(None, false, None, &[]).is_empty(), "none at all");
+        assert!(wanted(None, true, None, &show).is_empty());
     }
 
     #[test]

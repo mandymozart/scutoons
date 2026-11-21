@@ -64,14 +64,14 @@
 		// again: a page going away may have cleared the context in between
 		vn.registerDialogRefs(dialogRefs(), scope);
 		// the running script + its label (a choice's random jump, the fallback for diverts)
-		vn.setScript(group.events, group.label ?? null);
+		vn.setScript(group.events, group.id ?? null);
 		vn.beginEvents();
 		return runScript(group.events ?? [], 0, {
 			vn,
 			game,
 			navigate: (url) => goto(url),
 			cancelled: () => cancelled,
-			currentLabel: () => group.label ?? null,
+			currentLabel: () => group.id ?? null,
 			scope,
 			// a slice trigger's run holding the box pauses the script before its next event (box-state.ts)
 			yieldToRuns: true

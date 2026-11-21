@@ -55,7 +55,7 @@ pub const CAPS: &[(&str, &str, &str, &str)] = &[("test_missing", "#0", "a stand-
 
 /// the steps the core answers now (their move tickets landed): name, ticket – `hud` (#374, deck-ui) is a step of the
 /// runner's (lib.rs: it reads the deck's clock)
-pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430"), ("ballot", "#556")];
+pub const MOVED: &[(&str, &str)] = &[("stats", "#364"), ("lead", "#365"), ("mood", "#367"), ("rig_facts", "#368"), ("device_text", "#373"), ("meters", "#373"), ("gesture", "#376"), ("knob", "#369"), ("sync", "#371"), ("relay_join", "#366"), ("quality_options", "#375"), ("code_rig", "#408"), ("code_rig_deck", "#410"), ("event_rig", "#430"), ("ballot", "#556"), ("midi_notes", "#734")];
 
 /// Call the capability `name` with the step's input: its answer, or what is missing.
 pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
@@ -74,6 +74,7 @@ pub fn call(name: &str, input: &Value) -> Result<Value, Missing> {
         "code_rig" => return Ok(code_rig(input)),
         "code_rig_deck" => return Ok(code_rig_deck(input)),
         "event_rig" => return Ok(event_rig(input)),
+        "midi_notes" => return Ok(midi_notes(input)),
         "ballot" => return Ok(ballot(input)),
         _ => {}
     }
@@ -451,6 +452,46 @@ fn code_rig(i: &Value) -> Value {
 /// sound is deck-native's tests/modules.rs): the document's problems, the played scene's event cables, the event inputs no
 /// cable reaches (they hear nothing), the tracks' strips, the silent tracks, the world nodes' filters (`rig`, `instrument`,
 /// `module` as the bundle's documents).
+/// #734: MIDI messages on their inputs (`messages`: `at` seconds, `port`, `bytes`) through deck-events' MIDI adapter, one
+/// per input, and the `world` node's port and channel (deck-space world.rs) as the event host lets them through: the live
+/// events in order (a key down plays at once, held; its key up ends it) and their recorded form (deck-events' Recorder).
+/// The sound of it is deck-native's tests/modules.rs (no module runtime here, #290).
+fn midi_notes(i: &Value) -> Value {
+    use deck_events::adapters::midi::{Midi, Recorder};
+    use deck_events::{Names, Time};
+    use deck_space::world::World;
+    let params = i.get("world").cloned().map(serde_json::from_value::<toml::Table>).transpose();
+    let world = match params.map_err(|e| e.to_string()).and_then(|p| World::read("world", &p.unwrap_or_default()).map_err(|e| format!("{e:#}"))) {
+        Ok(w) => w,
+        Err(e) => return json!({ "problem": e }),
+    };
+    let mut names = Names::new();
+    let mut recorder = Recorder::new(&mut names);
+    let key = |names: &mut Names, k: &str| names.key(k).expect("a plain word");
+    let (port_key, ch_key, note_key) = (key(&mut names, "port"), key(&mut names, "ch"), key(&mut names, "note"));
+    let secs = |t: Time| match t {
+        Time::Seconds(s) => s,
+        _ => f64::NAN,
+    };
+    let mut inputs: Vec<Midi> = Vec::new();
+    let (mut heard, mut recorded) = (Vec::new(), Vec::new());
+    for m in i.get("messages").and_then(Value::as_array).into_iter().flatten() {
+        let port = num(m, "port", 1.0) as usize;
+        while inputs.len() < port {
+            inputs.push(Midi::new(&mut names, None, inputs.len() as u8 + 1));
+        }
+        let bytes: Vec<u8> = m.get("bytes").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_u64).map(|b| b as u8).collect();
+        let mut out = Vec::new();
+        inputs[port.max(1) - 1].feed(&bytes, num(m, "at", 0.0), &mut out);
+        for e in out.iter().filter(|e| world.filter.passes(e.props.get(port_key), e.props.get(ch_key))) {
+            heard.push(format!("{:.3} {} {}", secs(e.start), names.name(e.name), e.props.get(note_key).unwrap_or(f32::NAN)));
+            recorder.take(e, &mut recorded);
+        }
+    }
+    let recorded: Vec<Value> = recorded.iter().map(|e| json!({ "note": e.props.get(note_key), "start": secs(e.start), "dur": e.dur.map(secs) })).collect();
+    json!({ "heard": heard, "recorded": recorded })
+}
+
 fn event_rig(i: &Value) -> Value {
     let b: Bundle = match serde_json::from_value(i.clone()) {
         Ok(b) => b,
@@ -486,7 +527,7 @@ fn event_rig(i: &Value) -> Value {
     deaf.sort();
     let strips: Vec<String> = p.links.iter().filter(|l| l.to.starts_with("mix")).map(|l| l.from.clone()).collect();
     let silent: Vec<&str> = b.rig.tracks.iter().filter(|t| b.instruments.iter().any(|ins| ins.id == t.instrument && ins.out.is_none())).map(|t| t.id.as_str()).collect();
-    let world: serde_json::Map<String, Value> = w.nodes.iter().filter_map(|n| n.world.as_ref().map(|s| (n.id.clone(), json!({ "source": s.source, "listen": s.listen })))).collect();
+    let world: serde_json::Map<String, Value> = w.nodes.iter().filter_map(|n| n.world.as_ref().map(|s| (n.id.clone(), serde_json::to_value(s).unwrap_or(Value::Null)))).collect();
     out["cables"] = json!(cables);
     out["deaf"] = json!(deaf);
     out["strips"] = json!(strips);

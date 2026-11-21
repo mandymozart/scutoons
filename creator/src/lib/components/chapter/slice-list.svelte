@@ -6,7 +6,8 @@
 	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { newSlice } from '$lib/editor/defaults.ts';
 	import { toonUrl } from '$lib/utils/cdn.ts';
-	import { toonAsset } from '@scutoons/content';
+	import { toonAsset, toonAssetRef } from '@scutoons/content';
+	import { dropAsset, isAssetDrag } from '$lib/editor/library-drop.ts';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from '$lib/components/chapter/slice-import.svelte';
@@ -139,6 +140,15 @@
 		onselect(at);
 	}
 
+	/** a Library tile dropped on the slice: its picture becomes the slice's */
+	function useAsset(index: number, path: string) {
+		doc.edit((file) => {
+			const s = getAt(file, [...groupPath, 'slices', index]);
+			if (s) s.image = toonAssetRef(doc.toon, path);
+		});
+		fillSliceSize(doc, [...groupPath, 'slices', index], (p) => toonUrl(doc.toon, p));
+	}
+
 	async function remove(index: number) {
 		const s = slices[index];
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `slice ${index + 1} (${s?.image ?? ''})` })))) return;
@@ -180,13 +190,16 @@
 			class:file-before={fileOver?.index === index && fileOver.zone === 'before'}
 			class:file-after={fileOver?.index === index && fileOver.zone === 'after'}
 			ondragover={(e) => {
-				if (!hasFiles(e)) return;
+				const tile = isAssetDrag(e);
+				if (!hasFiles(e) && !tile) return;
 				e.preventDefault();
-				fileOver = { index, zone: fileZone(e) };
+				fileOver = { index, zone: tile ? 'on' : fileZone(e) };
 				if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
 			}}
 			ondragleave={() => (fileOver = fileOver?.index === index ? null : fileOver)}
 			ondrop={(e) => {
+				fileOver = null;
+				if (isAssetDrag(e)) return void dropAsset(e, { kinds: ['image'] }, (path) => useAsset(index, path));
 				const files = [...(e.dataTransfer?.files ?? [])];
 				if (!files.length) return;
 				e.preventDefault();

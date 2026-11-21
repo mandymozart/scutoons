@@ -165,6 +165,9 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
                 host.hits.push((swatch, Hit::BackgroundColour));
             }
         }
+        if host.show_toon().is_some() && host.path.is_empty() {
+            y += super::toons::of_show(d, t, host, (a.x, y, a.w));
+        }
         let role = host.role.as_ref().and_then(|id| deck_show::roles::inspector(&show, host.path.is_empty().then_some(&host.sub), id));
         match role {
             // the role's inspector keeps its remove at its foot: a foot of its own size

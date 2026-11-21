@@ -34,6 +34,7 @@ pub mod nodes;
 mod node_card;
 mod node_paint;
 mod node_pick;
+mod node_wire;
 pub(crate) mod flash;
 mod link;
 pub mod live;
@@ -214,10 +215,10 @@ pub enum Hit {
     Sheet(Sheet),
     /// a line of the problems list: select what it points at
     Problem(usize),
-    /// #531, the Session sheet: a toon, a chapter of it, the label field, Copy link, Open here
+    /// #531, the Session sheet: a toon, a chapter of it, a label of it, Copy link, Open here
     SessionToon(usize),
     SessionChapter(usize),
-    SessionLabel,
+    SessionLabel(usize),
     SessionCopy,
     SessionOpen,
     /// a live camera of the list picked (again: the list) – the QR becomes its own
@@ -238,6 +239,8 @@ pub enum Hit {
     NewName,
     ToonFind,
     ToonPick(usize),
+    /// #708: a toon of the show's toons row, taken in or out
+    ShowToon(usize),
 }
 
 impl Hit {
@@ -641,7 +644,7 @@ impl Host {
                 }
             }
             Hit::Problem(i) => self.select_problem(i),
-            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
+            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel(_) | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
             Hit::CueMix => self.mix_press(),
@@ -649,7 +652,7 @@ impl Host {
             Hit::Port(r, c, out, k) => self.port_press(r, c, out, k),
             Hit::Compose(c) => self.compose_press(c),
             Hit::Demo(i) => self.demo_press(i),
-            Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) => self.toons_press(hit),
+            Hit::NewName | Hit::ToonFind | Hit::ToonPick(_) | Hit::ShowToon(_) => self.toons_press(hit),
         }
     }
 
@@ -832,6 +835,8 @@ pub struct Script {
     pub node_box: Option<[f32; 4]>,
     /// the value of the n-th wire that has one pinned by a click
     pub node_pin: Option<usize>,
+    /// a wiring gesture in the node view (node_wire.rs `script_node_wire`)
+    pub node_wire: Option<String>,
     /// an edge of the rows band (`column:ID`, `row:ID`, `heads`) taken and moved by this many pixels, held for the
     /// screenshot (sizing.rs)
     pub band_drag: Option<(String, f32)>,
@@ -884,6 +889,11 @@ impl Host {
             }
             95 => self.script_nodes(&s.node_select, s.node_frame),
             96 => self.script_pick(s.node_box, s.node_pin),
+            98 | 104 => {
+                if let Some(spec) = &s.node_wire {
+                    self.script_node_wire(spec, frame == 104);
+                }
+            }
             97 => {
                 if let Some((edge, by)) = &s.band_drag {
                     self.script_band_drag(edge, *by);
@@ -954,7 +964,7 @@ impl Host {
             }
             43 => {
                 let Some(w) = self.wiring.clone() else { return };
-                let from = deck_show::view::plan(self.shown()).columns.iter().position(|c| c.id == w.from);
+                let from = deck_show::view::plan(self.shown()).columns.iter().position(|c| c.id == w.held.from);
                 if let Some((r, _)) = self.hits.iter().rev().find(|(_, h)| matches!(*h, Hit::Port(_, c, false, _) if Some(c) != from)) {
                     self.cursor = (r.x + r.w * 0.5, r.y + r.h * 0.5);
                 }
@@ -1009,6 +1019,7 @@ impl Host {
                 }
                 if let Some(p) = &s.reader_place {
                     self.session_toon(&p.toon);
+                    self.session_labels(p.chapter);
                     self.session.place.chapter = p.chapter;
                     self.session.place.label = p.label.clone();
                 }

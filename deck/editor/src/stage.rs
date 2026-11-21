@@ -90,6 +90,8 @@ pub struct Stage {
     pub groups: Vec<String>,
     /// the tempo clock's last frame: its BPM and whether it runs
     pub beat: Option<(f64, bool)>,
+    /// where that tempo comes from, as of the last frame (the toolbar's INT / EXT)
+    pub pill: Option<deck_core::tempo::Pill>,
     /// the clock's beats a bar
     pub per_bar: u32,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
@@ -198,7 +200,7 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     }
     // a module whose build is not loaded yet leaves its node out: the rest of the rig sounds meanwhile
     let library = deck_native::module_host::Library::global();
-    let scene = Scene::parse(&turn.played.scene)?.modules_kept(|kind| library.get(kind.trim_start_matches(deck_space::modreg::PREFIX)).is_some());
+    let scene = Scene::parse(&turn.played.scene)?.modules_kept(|kind| library.get(kind.trim_start_matches(deck_space::modreg::PREFIX)).is_some()).with_metronome();
     let graph = Graph::build(&scene)?;
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
@@ -230,6 +232,7 @@ impl Stage {
     /// A scene the core resolved (Show's new scene) plays in the rig's place, the rig kept for `replay`: its cast sounds
     /// and stands at its spots; no knobs, no cables of a rig.
     pub fn play_scene(&mut self, id: &str, scene: Scene) -> Result<()> {
+        let scene = scene.with_metronome();
         let graph = Graph::build(&scene)?;
         let tempo = tempo::config_from_graph(&graph)?;
         let space_node = graph.first(Kind::Space).context("the scene has a space node")?;
@@ -406,7 +409,7 @@ impl Stage {
             }
         };
         let far = handles.as_mut().and_then(|h| deck_native::space::far_table(h, &bundle.rig.subject));
-        let midi = handles.as_mut().map(|h| deck_events::adapters::midi::Midi::new(&mut h.core_mut().events.names.clone(), Some("midi:editor")));
+        let midi = handles.as_mut().map(|h| deck_events::adapters::midi::Midi::new(&mut h.core_mut().events.names.clone(), Some("midi:editor"), 1));
         let events = handles.as_mut().and_then(|h| h.start_events().map_err(|e| tracing::warn!("events: no thread ({e})")).ok().flatten());
         let controls = Controls::new(&graph, handles.as_mut().map(|h| h.core_mut()));
         let rate = handles.as_ref().map_or(48_000.0, |h| h.clock.rate as f64);
@@ -487,7 +490,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, sends, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, sends, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, pill: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
     }
 
     /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
@@ -509,6 +512,37 @@ impl Stage {
         if held.is_some() || self.tempo.held() {
             self.tempo.hold(held);
         }
+    }
+
+    /// the master BPM typed on the toolbar's pill (the core's rules: a follower is left for it, Link takes it)
+    pub fn set_bpm(&mut self, bpm: f64) {
+        // the item's own source gives way with the follower: Edit and Play go on with the typed tempo
+        if self.tempo.source.typed() != self.tempo.source {
+            self.clock_source = self.tempo.source.typed();
+        }
+        self.tempo.set_bpm(bpm);
+    }
+
+    /// the source picked on the toolbar's pill: the item's own now, until another is picked
+    pub fn pick_clock(&mut self, s: tempo::Source) {
+        self.clock_source = s;
+        self.tempo.pick(s);
+    }
+
+    /// the metronome on or off (the pill's click button)
+    pub fn set_click(&mut self, on: bool) {
+        self.tempo.set_click(on);
+    }
+
+    /// a show's kept tempo takes the clock: its BPM, then its source, the item's own until another is picked
+    pub fn take_saved(&mut self, t: &deck_show::Tempo) {
+        self.clock_source = t.source;
+        self.tempo.send(t.event());
+    }
+
+    /// the sources the pill cycles through here: the show clock is the deck's, a stage has none of its own
+    pub fn picks() -> Vec<tempo::Source> {
+        Tempo::offered().into_iter().filter(|s| *s != tempo::Source::Relay).collect()
     }
 
     /// whether the clock is the live show's
@@ -848,6 +882,7 @@ impl Stage {
         let moment = Moment::wall(clock::now_ns(), self.origin_ns, self.rate);
         let now = self.tempo.frame(&moment);
         self.beat = Some((now.bpm, now.running));
+        self.pill = Some(self.tempo.pill(moment.now_ns));
         self.per_bar = now.per_bar;
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();

@@ -803,6 +803,10 @@ slice and mute the audio, with a tiny overlay note."
 
 ## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
 
+**Now (2026-11-21, #709):** the chapter's `featuring` is gone (field, suggestions, `/cast?chapter=` ids, saved data –
+migration 2026-11-21-unread-relations); the season cast and the star stay, and the chapter's scenes still suggest
+missing cast entries (`sceneCastSuggestions`). The rest of this section is the history.
+
 The cast is an **editorial list**, not derived: non-VN chapters (plain vertical scroll) reference no characters, so a
 cast computed from scenes would be empty there.
 - **Season cast** (stored, as today): characters + the personas that appear. The toon's **star** (the character with
@@ -1368,11 +1372,9 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
 - **Music download stays** (owner): the toon page's music button + `/<toon>/download` unchanged; the download page now
   follows the album's `access.download` when the zip is an album's download (`members` = the membership blocker as
   before, `everyone` = open, `owners` = "Diesen Download gibt es nur für Besitzer der Platte.").
-- **Chapters**: `related_items` is stored and edited (creator chapter Meta); the reader shows nothing yet (candidate: the
-  chapter end beside the next-bar).
+- **Chapters**: the chapter's `related_items` went 2026-11-21 (#709, owner: "really pointless"); only the season has them.
 
-**Creator**: "Verwandte Items" / "Related items" – the season editor's own section (after Downloads) and the chapter
-Meta (under Featuring): chips with the item icon + name (UI language; the id in the tooltip), reorder (chevrons), remove
+**Creator**: "Verwandte Items" / "Related items" – the season editor's own section (after Downloads): chips with the item icon + name (UI language; the id in the tooltip), reorder (chevrons), remove
 (x), "Item hinzufügen …" lists the rest of the catalog (`/api/items/`, loaded once), an id not in the catalog is marked
 "nicht im Katalog" (`related-items-field.svelte`). Regular weight, Feather icons, tooltips on icon buttons.
 **Admin**: Catalog → Items: `format · album` and `plays <format>` badges; an "Albums" table (tracks, carriers, download,

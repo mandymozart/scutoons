@@ -2,7 +2,7 @@
 // SCUTOONS, dead things.   node --experimental-transform-types --no-warnings --test test/flow-levels.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterExits, jumpLabels, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, groupLayout, rendererOf, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
+import { chapterExits, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, groupLayout, rendererOf, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
 
 const msg = (text: string, character?: string) => ({ type: 'showMessage', params: { text, ...(character ? { character } : {}) } });
 const join = (character: string, persona?: string) => ({ type: 'joinScene', params: { characters: [{ character, ...(persona ? { persona } : {}), variant: 'avatar' }] } });
@@ -14,9 +14,9 @@ const out = (f: { edges: ChapterFlow['edges'] }, from: string) =>
 
 test('groupFlow: every event – plain ones in runs between the key points, steps under a test, where the reader comes from', () => {
 	const groups = [
-		{ label: 'a', slices: [{}], events: [jump('2', 'b')] },
+		{ id: 'a', slices: [{}], events: [jump('2', 'b')] },
 		{
-			label: 'b',
+			id: 'b',
 			slices: [{ events: [{ ...msg('tap'), trigger: { type: 'click' } }] }, {}],
 			events: [
 				join('catpope', 'cat'),
@@ -63,9 +63,9 @@ test('groupFlow: every event – plain ones in runs between the key points, step
 
 test('groupFlow: after the group – linked, the follow-up bar, an authored end (auto), the next chapter', () => {
 	const groups = [
-		{ label: 'a', continues: true, slices: [{}], events: [msg('1')] },
+		{ id: 'a', continues: true, slices: [{}], events: [msg('1')] },
 		{ slices: [{}], end: { target: { type: 'chapter', value: '0' }, auto: true } },
-		{ label: 'c', slices: [{}] }
+		{ id: 'c', slices: [{}] }
 	];
 	assert.deepEqual(out(groupFlow(groups, 0, { chapter: 2 }), 'g0e0'), ['continues:g1']);
 	assert.deepEqual(out(groupFlow(groups, 1, { chapter: 2 }), 'g1'), ['end:x:chapter:0::(auto)']);
@@ -75,7 +75,7 @@ test('groupFlow: after the group – linked, the follow-up bar, an authored end 
 test('sliceFlow: the slice, its triggers and item taps, the script points they divert into, the events that reveal its boxes', () => {
 	const groups = [
 		{
-			label: 'a',
+			id: 'a',
 			slices: [
 				{},
 				{
@@ -107,8 +107,8 @@ test('sliceFlow: the slice, its triggers and item taps, the script points they d
 
 // a toon: season 1 = chapters 1, 2, 3, 4; chapter 2 always jumps to chapter 3's label (no follow-up bar), chapter 3
 // jumps to another toon or (only with coins) back to 1; chapter 4 is a draft only the order would reach; chapter 9 is in
-// no season but a jump of chapter 1 (through a condition) leads there; a visible map place opens chapter 4
-const toon = (places = true) => {
+// no season but a jump of chapter 1 (through a condition) leads there; another toon jumps into chapter 4
+const toon = (incoming = true) => {
 	const chapters: FlowChapter[] = [
 		{ number: 1, status: 'published', title: 'One', groups: [{ slices: [{}], events: [{ ...jump('9'), if: { variable: 'coins', op: 'set' } }] }] },
 		{ number: 2, status: 'draft', groups: [{ slices: [{}], events: [jump('3', 'forest')] }] },
@@ -117,14 +117,14 @@ const toon = (places = true) => {
 			status: 'draft',
 			groups: [
 				{ slices: [{}] },
-				{ label: 'forest', slices: [{}], events: [choice('Top Toy', { jumpTo: { target: { type: 'toon', value: 'toptoy' } } }), choice('back', { jumpTo: { target: { type: 'chapter', value: '1' } } }, { if: { variable: 'coins', op: 'set' } }), { type: 'showChoices' }] }
+				{ id: 'forest', slices: [{}], events: [choice('Top Toy', { jumpTo: { target: { type: 'toon', value: 'toptoy' } } }), choice('back', { jumpTo: { target: { type: 'chapter', value: '1' } } }, { if: { variable: 'coins', op: 'set' } }), { type: 'showChoices' }] }
 			]
 		},
 		{ number: 4, status: 'draft', groups: [{ slices: [{}] }, { slices: [{}] }] },
 		{ number: 9, groups: [{ slices: [{}] }] }
 	];
 	const facts = toonFacts([...chapters.map((c) => c.groups), { type: 'setVariable', params: { variable: 'coins', value: 1 } }]);
-	return { toon: 'catpope', chapters, seasons: [{ number: 1, chapters: [1, 2, 3, 4] }], facts, places: places ? [{ id: 'well', name: 'Well', chapter: 4 }] : [] };
+	return { toon: 'catpope', chapters, seasons: [{ number: 1, chapters: [1, 2, 3, 4] }], facts, incoming: incoming ? [4] : [] };
 };
 
 test('chapterExits: the ways out of a chapter with the best status', () => {
@@ -137,17 +137,17 @@ test('chapterExits: the ways out of a chapter with the best status', () => {
 	assert.deepEqual(chapterExits(chapterFlow(t.chapters[0].groups, { chapter: 1, facts: t.facts })).map((x) => `${x.kind}:${x.next ? 'next' : x.target?.value}:${x.status}`), ['jump:9:conditional', 'order:next:reachable']);
 });
 
-test('toonReach: entries (season start, published, visible places), the season order, jumps; conditions', () => {
+test('toonReach: entries (season start, published, incoming jumps), the season order, jumps; conditions', () => {
 	const r = toonReach(toon(false));
 	assert.deepEqual([...r].map(([n, x]) => `${n}:${x.reach}`), ['1:reachable', '2:reachable', '3:reachable', '4:unreachable', '9:conditional']);
-	// chapter 2 never reaches its follow-up bar: chapter 4 only through a visible map place
+	// chapter 2 never reaches its follow-up bar: chapter 4 only through the other toon's jump
 	assert.equal(toonReach(toon()).get(4)?.reach, 'reachable');
 	// dead groups per chapter (chapterReach): chapter 3's first group can't get to its labelled second one … but it is the entry
 	assert.equal(r.get(3)?.dead, 0);
 	assert.equal(r.get(4)?.dead, 1, 'an unlabelled group after a group: the bar leads to the next chapter');
 });
 
-test('toonFlow: season level (its chapters, exits elsewhere) and toon level (every chapter, map places)', () => {
+test('toonFlow: season level (its chapters, exits elsewhere) and toon level (every chapter)', () => {
 	const season = toonFlow(toon(), { season: 1 });
 	assert.deepEqual(season.nodes.filter((n) => n.kind === 'chapter').map((n) => `${n.id}:${n.status}:${n.state}`), ['c1:reachable:published', 'c2:reachable:draft', 'c3:reachable:draft', 'c4:reachable:draft']);
 	assert.deepEqual(out(season, 'c1'), ['jump:x:chapter:9{}'.replace('{}', ''), 'order:c2']);
@@ -155,14 +155,11 @@ test('toonFlow: season level (its chapters, exits elsewhere) and toon level (eve
 	assert.deepEqual(out(season, 'c3'), ['jump:x:toon:toptoy[Top Toy]', 'jump:c1[back]']);
 	assert.equal(season.edges.find((e) => e.from === 'c3' && e.to === 'c1')?.status, 'conditional');
 	assert.equal(node(season, 'x:chapter:9')?.status, 'conditional');
-	assert.ok(!season.nodes.some((n) => n.kind === 'place'), 'no places on the season level');
 	const all = toonFlow(toon());
 	assert.deepEqual(all.nodes.filter((n) => n.kind === 'chapter').map((n) => n.id), ['c1', 'c2', 'c3', 'c4', 'c9']);
 	assert.deepEqual(out(all, 'c1'), ['jump:c9', 'order:c2']);
-	assert.deepEqual(node(all, 'p4')?.places, ['Well']);
-	assert.deepEqual(out(all, 'p4'), ['place:c4']);
 	// parallel ways between two chapters are merged and counted
-	const twice = toonFlow({ ...toon(), chapters: [{ number: 1, groups: [{ slices: [{}], events: [choice('a', { jumpTo: { target: { type: 'chapter', value: '2' } } }), choice('b', { jumpTo: { target: { type: 'chapter', value: '2' } } }), { type: 'showChoices' }] }] }, { number: 2, groups: [{ slices: [{}] }] }], seasons: [{ number: 1, chapters: [1, 2] }], places: [] });
+	const twice = toonFlow({ ...toon(), chapters: [{ number: 1, groups: [{ slices: [{}], events: [choice('a', { jumpTo: { target: { type: 'chapter', value: '2' } } }), choice('b', { jumpTo: { target: { type: 'chapter', value: '2' } } }), { type: 'showChoices' }] }] }, { number: 2, groups: [{ slices: [{}] }] }], seasons: [{ number: 1, chapters: [1, 2] }], incoming: [] });
 	assert.deepEqual(twice.edges.map((e) => `${e.from}>${e.to}:${e.kind}:${e.label}:${e.count ?? 1}`), ['c1>c2:jump:a · b:2']);
 });
 
@@ -191,7 +188,7 @@ test('deadThings: variables set but never read, read but never set, points and l
 			number: 2,
 			groups: [
 				{
-					label: 'start',
+					id: 'start',
 					continues: true,
 					slices: [{ dialog: [{ id: 'b', text: { de: 'Runde {laps}' } }], events: [{ type: 'divert', params: { to: 'tap' }, trigger: { type: 'click' } }] }],
 					events: [
@@ -205,17 +202,17 @@ test('deadThings: variables set but never read, read but never set, points and l
 						{ type: 'showChoices' }
 					]
 				},
-				{ label: 'middle', slices: [{}] },
-				{ label: 'after-end', slices: [{}], end: { target: { type: 'chapter', value: '3' } } },
-				{ label: 'attic', slices: [{}] },
-				{ label: 'used', slices: [{}] }
+				{ id: 'middle', slices: [{}] },
+				{ id: 'after-end', slices: [{}], end: { target: { type: 'chapter', value: '3' } } },
+				{ id: 'attic', slices: [{}] },
+				{ id: 'used', slices: [{}] }
 			]
 		}
 	];
 	const facts = toonFacts([chapters[0].groups, { jumpTo: { target: { type: 'chapter', value: '2', label: 'used' } } }]);
 	const dead = deadThings(chapters, facts);
 	assert.deepEqual(dead.unread.map((x) => x.name), ['searching']);
-	assert.deepEqual(dead.unset.map((x) => `${x.name}@${x.at[0].chapter}.${x.at[0].group}:${x.at[0].label}`), ['rocket@2.0:start']);
+	assert.deepEqual(dead.unset.map((x) => `${x.name}@${x.at[0].chapter}.${x.at[0].group}:${x.at[0].id}`), ['rocket@2.0:start']);
 	assert.deepEqual(dead.points.map((x) => x.name), ['lonely']);
 	// `middle` follows a linked group (nothing needs its label), `attic` follows an authored end; `after-end` gets the
 	// follow-up bar, `used` a jump
@@ -227,7 +224,7 @@ test('step 3: expression conditions, askText, repeat rules (once for good), the 
 	const ask = (variable: string | undefined, scope?: string) => ({ type: 'askText', params: { text: 'What’s your name?', ...(variable ? { variable } : {}), ...(scope ? { scope } : {}) } });
 	const groups = [
 		{
-			label: 'a',
+			id: 'a',
 			slices: [
 				{
 					events: [
@@ -281,7 +278,7 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 	const s = (n: number, variants = false) => ({ image: `s1/c2/slice-${n}.webp`, width: 390, height: 625, ...(variants ? { imageVariants: { low: `s1/c2/slice-${n}.webp`, medium: `s1/c2/slice-${n}.2x.webp` } } : {}) });
 	const groups = [
 		{
-			label: 'start',
+			id: 'start',
 			slices: [s(1, true), { ...s(2), items: [{ id: 'cucumber-1', item: 'cucumber', rect: { x: 0, y: 0, width: 10 }, events: [msg('crunch')] }] }],
 			events: [
 				join('cat'), // legacy id → catpope · cat
@@ -294,8 +291,8 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 				jump('2', 'harbour')
 			]
 		},
-		{ label: 'harbour', renderer: { type: 'horizontal' }, slices: [s(5)] },
-		{ label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, slices: [] }
+		{ id: 'harbour', renderer: { type: 'horizontal' }, slices: [s(5)] },
+		{ id: 'band', renderer: { type: 'horizontal', params: { endless: true } }, slices: [] }
 	];
 	const facts = toonFacts([groups], { toon: 'catpope' });
 	const f = chapterFlow(groups, { chapter: 2, toon: 'catpope', facts, nextChapter: 3 });
@@ -328,7 +325,7 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 	// slice level: the slice's own image
 	assert.deepEqual(node(sliceFlow(groups, 0, 1, { chapter: 2, toon: 'catpope' }), 'g0s1')?.image, { kind: 'slice', path: 's1/c2/slice-2.webp', slice: 1, toon: 'catpope', group: 0 });
 	// season / toon: a chapter's thumbnail from its document
-	const toon = toonFlow({ toon: 'catpope', seasons: [{ number: 1, chapters: [2, 3] }], chapters: [{ number: 2, groups, thumbnail: 's1/c2/thumb.jpg' }, { number: 3, groups: [{ label: 'forest', slices: [s(9)] }] }] });
+	const toon = toonFlow({ toon: 'catpope', seasons: [{ number: 1, chapters: [2, 3] }], chapters: [{ number: 2, groups, thumbnail: 's1/c2/thumb.jpg' }, { number: 3, groups: [{ id: 'forest', slices: [s(9)] }] }] });
 	assert.deepEqual(node(toon, 'c2')?.image, { kind: 'thumbnail', path: 's1/c2/thumb.jpg', chapter: 2, toon: 'catpope' });
 	assert.equal(node(toon, 'c3')?.image, undefined);
 	// SCUTOONS: a toon's avatar; the flow index's chapter pictures (what the server lists)
@@ -341,7 +338,3 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 	assert.deepEqual(targetPictures({ type: 'season', value: '2' }), {});
 });
 
-test("a chapter's jump places: its groups' labels in order, each once – unlabelled and empty ones are none (#529)", () => {
-	assert.deepEqual(jumpLabels([{ label: 'start' }, {}, { label: '' }, { label: 'harbour' }, { label: 'start' }, null, { label: 3 }]), ['start', 'harbour']);
-	assert.deepEqual(jumpLabels(undefined), []);
-});

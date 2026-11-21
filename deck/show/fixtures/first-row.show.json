@@ -1,7 +1,7 @@
 {
   "id": "new-show",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [{ "id": "left" }],
   "rows": [
     { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" } } }

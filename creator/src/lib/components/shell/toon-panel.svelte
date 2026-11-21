@@ -5,13 +5,12 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { places } from '$lib/shell/places.svelte.ts';
 
-	/** The toon workspace's own pages: its board (seasons › chapters), cast, script, credits, settings, and its seasons */
+	/** The toon workspace's own pages: its board (seasons › chapters), script, credits, settings, and its seasons */
 	let { toon }: { toon: string } = $props();
 
 	const path = $derived(page.url.pathname);
 	const pages = $derived([
 		{ href: `/${toon}`, label: m['creator.toon_stories'](), testid: 'nav-stories' },
-		{ href: `/${toon}/cast`, label: m['creator.cast'](), testid: 'nav-cast' },
 		{ href: `/${toon}/script`, label: m['creator.script'](), testid: 'nav-script' },
 		{ href: `/${toon}/credits`, label: m['creator.credits'](), testid: 'nav-credits' },
 		{ href: `/${toon}/toon`, label: m['creator.toon_settings'](), testid: 'nav-toon-settings' }
@@ -35,13 +34,15 @@
 	.toon-panel {
 		display: flex;
 		flex-direction: column;
-		padding: 0 0 var(--editor-pad);
+		gap: 1px;
+		/* rows inset in the panel, the hover ground inside it with the radius (the deck's tree row) */
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.row {
 		display: flex;
 		align-items: center;
 		min-height: var(--editor-tree-row);
-		padding: 0 var(--editor-pad);
+		padding: 0 0.5rem;
 		border-radius: var(--editor-radius);
 		color: var(--editor-text);
 		text-decoration: none;
@@ -54,7 +55,7 @@
 		background: var(--editor-selected);
 	}
 	.head {
-		padding: var(--editor-pad) var(--editor-pad) 0.2rem;
+		padding: var(--editor-pad) 0.5rem 0.2rem;
 		color: var(--editor-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);

@@ -13,6 +13,8 @@
 use crate::document::Pinned;
 use crate::subtree::Subtree;
 use crate::validate::Lock;
+use deck_ui::filter::Fact;
+use protocol::filter::{passes, Facts};
 use std::collections::BTreeSet;
 
 /// What the confirmed prompt sends with the flash (`Subtree::flash_to`): the paths left out, the paths flashed although
@@ -373,12 +375,19 @@ impl Choice {
     }
 }
 
-/// One condition of the typed filter.
+/// One condition of the typed filter: a fact about who the device is (`device:`, `kind:`, `group:` – deck-ui's `Fact`,
+/// tested by the one evaluator, protocol `filter::passes`, #553) or a state of the line in the list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Term {
     not: bool,
-    key: String,
-    value: Option<String>,
+    what: What,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum What {
+    Fact(Fact),
+    /// `seat:` / `outlet:` / `show:` with a value, or a flag (`ready`, `changed`, `old`, `keep`, `here`, `own`, `rejected`)
+    State(String, Option<String>),
 }
 
 /// What the typed filter's empty field shows.
@@ -400,35 +409,48 @@ fn terms(text: &str) -> Result<Vec<Term>, String> {
                 Some((k, v)) => (k.trim().to_string(), Some(v.trim().to_string())),
                 None => (t.to_string(), None),
             };
-            let known = match &value {
-                Some(_) => ["device", "kind", "group", "seat", "outlet", "show"].contains(&key.as_str()),
-                None => ["ready", "changed", "old", "keep", "here", "own", "rejected"].contains(&key.as_str()),
-            };
+            // a device's report says its device and its group, not an account or an approval: those are no condition here
+            let fact = Fact::typed(&key, value.as_deref()).filter(|f| matches!(f, Fact::Device(_) | Fact::Group(_)));
+            let known = fact.is_some()
+                || match &value {
+                    Some(_) => ["seat", "outlet", "show"].contains(&key.as_str()),
+                    None => ["ready", "changed", "old", "keep", "here", "own", "rejected"].contains(&key.as_str()),
+                };
             if !known || t.is_empty() {
                 return Err(format!("'{t}' is no condition: {KEYS}"));
             }
-            Ok(Term { not, key, value })
+            Ok(Term { not, what: fact.map_or(What::State(key, value), What::Fact) })
         })
         .collect()
 }
 
 impl Term {
     fn matches(&self, l: &Line) -> bool {
-        let eq = |s: Option<&String>| s.is_some_and(|s| Some(s.to_lowercase()) == self.value);
-        let yes = match self.key.as_str() {
-            "device" | "kind" => eq(Some(&l.kind)),
-            "group" => eq(l.seat.as_ref()) || eq(l.outlet.as_ref()),
-            "seat" => eq(l.seat.as_ref()),
-            "outlet" => eq(l.outlet.as_ref()),
-            "show" => eq(l.runs.as_ref().map(|p| &p.id)),
-            "ready" => l.ready == Some(true),
-            "changed" => l.changed(),
-            "old" => l.old,
-            "keep" => l.keep.is_some(),
-            "here" => l.online,
-            "own" => l.own,
-            "rejected" => l.rejected,
-            _ => false,
+        let yes = match &self.what {
+            What::Fact(fact) => {
+                // a line's group is its seat or its outlet: either one passes
+                let at = |group: Option<&String>| {
+                    let facts = Facts { group: group.map(String::as_str), device: Some(l.kind.as_str()), ..Facts::default() };
+                    passes(Some(&fact.filter()), &facts)
+                };
+                at(l.seat.as_ref()) || at(l.outlet.as_ref())
+            }
+            What::State(key, value) => {
+                let eq = |s: Option<&String>| s.is_some_and(|s| Some(s.to_lowercase()) == *value);
+                match key.as_str() {
+                    "seat" => eq(l.seat.as_ref()),
+                    "outlet" => eq(l.outlet.as_ref()),
+                    "show" => eq(l.runs.as_ref().map(|p| &p.id)),
+                    "ready" => l.ready == Some(true),
+                    "changed" => l.changed(),
+                    "old" => l.old,
+                    "keep" => l.keep.is_some(),
+                    "here" => l.online,
+                    "own" => l.own,
+                    "rejected" => l.rejected,
+                    _ => false,
+                }
+            }
         };
         yes != self.not
     }
@@ -440,7 +462,7 @@ mod tests {
     use crate::{ClockChoice, Show};
     use protocol::{Envelope, FlashReport, Message};
 
-    const TOP: &str = r#"{ "id": "top", "version": 3, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }],
+    const TOP: &str = r#"{ "id": "top", "version": 3, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }],
       "seats": [{ "id": "foyer", "show": { "id": "foyer-loop", "version": 2 }, "word": "follow" }],
       "rows": [{ "id": "start", "cells": { "left": { "mode": "black" } } }] }"#;
 
@@ -533,6 +555,9 @@ mod tests {
         assert_eq!(c.filter("where device:browser"), Ok(1));
         assert_eq!(c.filter("where group:foyer and not changed"), Ok(1), "the sub conductor");
         assert_eq!(c.filter("outlet:left and ready"), Ok(1));
+        assert_eq!(c.filter("not device:browser and kind:native"), Ok(1), "the one condition, negated and by its other name");
+        let e = c.filter("where account:member").unwrap_err();
+        assert!(e.starts_with("'account:member' is no condition"), "{e}");
         let e = c.filter("where colour:red").unwrap_err();
         assert!(e.starts_with("'colour:red' is no condition"), "{e}");
         assert_eq!(c.count(), 1, "the ticks stay");
@@ -604,7 +629,7 @@ mod tests {
         // #475: the conductor holds the pinned version, so the flash says what each outlet plays
         assert!(f.needs.as_ref().is_some_and(|n| !n.is_empty()), "{:?}", f.needs);
         // the child conductor of foyer-loop refuses what left it out, and sends nothing down
-        let mut child = Subtree::new(crate::parse(r#"{ "id": "foyer-loop", "version": 2, "toon": "catpope", "outlets": [], "rows": [] }"#).unwrap(), ClockChoice::Parent);
+        let mut child = Subtree::new(crate::parse(r#"{ "id": "foyer-loop", "version": 2, "toons": ["catpope"], "outlets": [], "rows": [] }"#).unwrap(), ClockChoice::Parent);
         let back = child.on_wire(&Envelope::new(protocol::PARENT, Message::Flash(f.clone())), 101);
         assert_eq!(back.len(), 1);
         let Message::FlashReport(r) = &back[0].message else { panic!() };

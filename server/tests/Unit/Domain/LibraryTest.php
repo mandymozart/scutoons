@@ -72,13 +72,12 @@ final class LibraryTest extends TestCase
     /**
      * A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has two groups.
      * The toon entry holds the toon's settings per language; chapters and the season are language-neutral
-     * documents (texts per locale, agents/NEUTRAL.md); the locations are per locale.
+     * documents (texts per locale, agents/NEUTRAL.md).
      * @param array<string, mixed> $entry more fields of the toon entry
      */
     private function seedToon(array $entry = []): void
     {
         $this->doc('t', '_', 'index.json', $entry + self::ENTRY + self::ENTRY_TEXTS);
-        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
         $this->seedSeason();
         $this->chapter1(['label' => 'scene', 'events' => [['type' => 'joinScene', 'params' => ['character' => 'plf']]], 'params' => new \stdClass()]);
         $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => []]);
@@ -126,7 +125,6 @@ final class LibraryTest extends TestCase
             $this->doc('t', $l, 'chapter1.json', ['title' => "Eins $l", 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'status' => 'published',
                 'audio' => ['volume' => 1.0], 'groups' => [['label' => "scene $l", 'events' => [['type' => 'joinScene', 'params' => ['character' => 'plf']]], 'params' => new \stdClass()], ['label' => 'inline', 'slices' => []]]]);
             $this->doc('t', $l, 'chapter2.json', ['title' => "Zwei $l", 'number' => 2, 'groups' => []]);
-            $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
         }
         $this->doc('t', 'de', 'chapter3.json', ['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'groups' => [['label' => 'secret']]]);
     }
@@ -138,10 +136,8 @@ final class LibraryTest extends TestCase
         $data = self::decode($answer->body);
         self::assertSame('en', $answer->locale);
         self::assertTrue($answer->fallback, 'chapter 3 exists in de only');
-        self::assertSame(['entry', 'toon', 'seasons', 'locations', 'routes'], array_keys($data));
+        self::assertSame(['entry', 'toon', 'seasons'], array_keys($data), 'no old per-toon map lists');
         self::assertSame('T en', $data['toon']['title']);
-        self::assertSame([['id' => 'loc-en']], $data['locations']);
-        self::assertSame([], $data['routes'], 'missing lists are empty');
         $chapters = $data['seasons'][0]['chapters'];
         self::assertSame([1, 3], array_column($chapters, 'number'), 'the draft chapter is not listed, coming-soon is');
         self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'language' => 'en', 'status' => 'published'], $chapters[0],
@@ -291,14 +287,14 @@ final class LibraryTest extends TestCase
     /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
     public function testToonBundleMergesTheNeutralSettings(): void
     {
-        $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
+        $map = ['center' => ['x' => 1320, 'y' => 440], 'zoom' => 1.5];
         $this->seedToon(['authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
         // a stale per-language document (legacy) is not read once the entry has texts
         $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T old', 'status' => 'published', 'map' => ['width' => 0]]);
         foreach (['de', 'en'] as $l) {
             $data = self::decode($this->library()->toon('t', $l, false)->body);
             self::assertSame("T $l", $data['toon']['title']);
-            self::assertSame($map, $data['toon']['map'], "$l: the map of the index entry");
+            self::assertSame($map, $data['toon']['map'], "$l: the start view of the index entry");
             self::assertSame(['A'], $data['toon']['authors']);
             self::assertSame(5, $data['toon']['chapters']);
             self::assertSame('th.webp', $data['toon']['thumbnail']);
@@ -451,10 +447,13 @@ final class LibraryTest extends TestCase
         self::assertSame([true, null], [$list[0]['announced'] ?? null, $list[1]['announced'] ?? null]);
     }
 
-    public function testCastHasTheStarAndTheChapterFeaturing(): void
+    public function testCastHasTheStarAndTheChapterCharacters(): void
     {
         $this->seedToon();
-        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => [], 'featuring' => ['star', 'crows']]);
+        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => [['label' => 'g', 'events' => [
+            ['type' => 'showMessage', 'params' => ['character' => 'star', 'text' => ['de' => 'Hi']]],
+            ['type' => 'showMessage', 'params' => ['character' => 'crows', 'text' => ['de' => 'Kra']]],
+        ]]]]);
         $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => [['character' => 'boy', 'personas' => ['regular']], ['character' => 'crows', 'personas' => ['regular']]], '2' => [['character' => 'star', 'personas' => ['regular', 'x']]]]]);
         $this->doc(Library::PLATFORM, '_', 'characters.json', ['characters' => [['id' => 'star', 'own_toon' => 't'], ['id' => 'boy'], ['id' => 'crows'], ['id' => 'other', 'own_toon' => 'u']]]);
         $all = self::decode($this->library()->cast('t', null, false)->body);
@@ -462,9 +461,7 @@ final class LibraryTest extends TestCase
         self::assertSame([['character' => 'star', 'personas' => ['regular', 'x']]], $all['cast']['seasons']['2'], 'a season with the star stays as it is');
         self::assertSame(['star', 'boy', 'crows'], array_column($all['registry']['characters'], 'id'));
         $chapter = self::decode($this->library()->cast('t', 2, true)->body);
-        self::assertSame(['star', 'crows'], array_column($chapter['registry']['characters'], 'id'), 'a chapter: its featuring');
-        $bundle = self::decode($this->library()->toon('t', 'de', true)->body);
-        self::assertSame(['star', 'crows'], $bundle['seasons'][0]['chapters'][1]['featuring'], 'the season overview passes featuring through');
+        self::assertSame(['star', 'crows'], array_column($chapter['registry']['characters'], 'id'), 'a chapter: the characters its scenes use');
     }
 
     public function testSeasonDownloadAndSupportersPassThrough(): void
@@ -598,7 +595,7 @@ final class LibraryTest extends TestCase
             'width' => 2048, 'height' => 1046,
             'layers' => [['id' => 'terrain', 'image' => 't/images/map/terrain.svg']],
             'locations' => [
-                ['id' => 'home', 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 90, 'y' => 40, 'toons' => ['t'], 'chapter' => ['toon' => 't', 'number' => 1]],
+                ['id' => 'home', 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 90, 'y' => 40, 'toons' => ['t']],
                 ['id' => 'tower', 'name' => ['de' => 'Turm'], 'x' => 120, 'y' => 60, 'toons' => ['t'], 'hidden' => true, 'unlock' => ['toon' => 't', 'chapter' => 1, 'at' => 0.5]],
                 ['id' => 'stage', 'name' => ['de' => 'Bühne', 'en' => 'Stage'], 'x' => 500, 'y' => 500, 'toons' => ['d']],
                 ['id' => 'pond', 'name' => ['de' => 'Teich', 'en' => 'Pond'], 'x' => 700, 'y' => 600, 'toons' => ['sandbox']],
@@ -666,20 +663,6 @@ final class LibraryTest extends TestCase
         }
     }
 
-    /** Older viewer builds: the bundle's `locations` / `routes` / `toon.map` in the old shape, computed from the world map */
-    public function testToonBundleComputesTheOldMapFromTheWorld(): void
-    {
-        $this->seedWorldMap();
-        $data = self::decode($this->library()->toon('t', 'en', false)->body);
-        self::assertSame([
-            ['id' => 'home', 'label' => 'Home', 'toonId' => 't', 'type' => 'chapter', 'chapterNumber' => '1', 'image' => '', 'coordinates' => ['x' => 90, 'y' => 40]],
-            ['id' => 'tower', 'label' => 'Turm', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 120, 'y' => 60]],
-        ], $data['locations'], 'the old documents (locations:t:*) are no longer read once the world map exists');
-        self::assertSame([['id' => 'way', 'title' => 'Way', 'locations' => ['home', 'tower', 'gone']]], $data['routes']);
-        self::assertSame(['layers' => ['terrain' => 'images/map/terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 100, 'y' => 50]], $data['toon']['map']);
-        self::assertArrayNotHasKey('map', $data['entry']);
-    }
-
     /**
      * The world map as documents (agents/MAP-DOCUMENTS.md): place:<id> / route:<id> on their own – a newer draft of one
      * place only in draft mode, a removed place (tombstone) is gone once published, a new place joins at the end
@@ -706,9 +689,6 @@ final class LibraryTest extends TestCase
         $store->setPublished(['id' => $gone, 'entity_key' => 'place:tower']);
         self::assertSame(['home', 'well'], $ids(false));
         self::assertNotSame($before, $this->library()->map('de', null, false)->etag, 'publishing a place gives a new cache key');
-
-        // the old bundle lists follow the documents too
-        self::assertSame(['home', 'well'], array_column(self::decode($this->library()->toon('t', 'en', false)->body)['locations'], 'id'));
     }
 
     /** the regions (agents/MAP.md §8.10): region:<id> documents in the map, every one for readers, texts in the locale, no cells */
@@ -746,7 +726,7 @@ final class LibraryTest extends TestCase
             ['number' => 3, 'status' => ['de' => 'coming-soon']],
         ]]);
         $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'N Eins', 'en' => 'N One'], 'number' => 1, 'release' => ['de' => '2025-10-04', 'en' => '2025-11-01'],
-            'description' => ['de' => 'Beschreibung'], 'thumbnail' => 'x.webp', 'featuring' => ['catpope'], 'audio' => ['volume' => 1.0],
+            'description' => ['de' => 'Beschreibung'], 'thumbnail' => 'x.webp', 'audio' => ['volume' => 1.0],
             'groups' => [['label' => 'N scene', 'events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'character' => 'plf']]]],
                 ['label' => 'inline', 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1,
                 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => ['de' => 'Hallo', 'en' => 'Hello']]]]]]]]);
@@ -807,14 +787,14 @@ final class LibraryTest extends TestCase
         $season = $de['seasons'][0];
         self::assertSame(['NS de', 'de'], [$season['season']['title'], $season['season']['language']]);
         self::assertSame([1, 3], array_column($season['chapters'], 'number'));
-        self::assertSame(['title' => 'N Eins', 'number' => 1, 'release' => '2025-10-04', 'description' => 'Beschreibung', 'thumbnail' => 'x.webp', 'featuring' => ['catpope'],
+        self::assertSame(['title' => 'N Eins', 'number' => 1, 'release' => '2025-10-04', 'description' => 'Beschreibung', 'thumbnail' => 'x.webp',
             'language' => 'de', 'status' => 'published'], $season['chapters'][0], 'summary of the neutral chapter: no groups / audio');
         self::assertSame('Drei', $season['chapters'][1]['title'], 'chapter 3 stays per locale');
         $en = self::decode($this->library()->toon('t', 'en', false)->body)['seasons'][0];
         self::assertSame(['NS en', 'coming-soon', 'N One', '2025-11-01'], [$en['season']['title'], $en['chapters'][0]['status'], $en['chapters'][0]['title'], $en['chapters'][0]['release']]);
         self::assertSame('coming-soon', $en['season']['sequence'][2]['status'], "a status missing in en → the source's");
         self::assertSame('published', self::decode($this->library()->season('t', 1, 'de', false)->body)['chapters'][0]['status']);
-        // cast?chapter= reads the neutral chapter (its featuring + its groups' characters)
+        // cast?chapter= reads the neutral chapter (its groups' characters)
         $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => []]]);
         $this->doc('scutoons', '_', 'characters.json', ['characters' => [['id' => 'catpope'], ['id' => 'other']]]);
         $cast = self::decode($this->library()->cast('t', 1, false)->body);
@@ -837,8 +817,8 @@ final class LibraryTest extends TestCase
         file_put_contents("$root/t/de/chapter1/scene-1.json", '{"params":{}}');
         $keys = array_column(ContentFiles::sources($root), 0);
         self::assertSame(['toon:b', 'toon:a', 'events', 'chapter:t:2', 'season:t:2', 'chapter:t:1:de',
-            'locations:t:de', 'routes:t:de', 'season:t:1:de', 'toon-settings:t:de'], $keys,
-            'toons.json split in order, events, the map; legacy characters/credits.json, the removed collectables and scene files (chapter<N>/<name>.json, gone 2026-10-19) are not store files');
+            'season:t:1:de', 'toon-settings:t:de'], $keys,
+            'toons.json split in order, events; legacy characters/credits.json, the old map lists, the removed collectables and scene files (chapter<N>/<name>.json, gone 2026-10-19) are not store files');
 
         $tester = new \Symfony\Component\Console\Tester\CommandTester($this->get(ImportContentCommand::class));
         self::assertSame(0, $tester->execute(['root' => $root]));

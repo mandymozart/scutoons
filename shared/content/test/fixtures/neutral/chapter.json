@@ -29,9 +29,6 @@
 		"audio": {
 			"volume": 1
 		},
-		"featuring": [
-			"catpope"
-		],
 		"groups": [
 			{
 				"ref": {
@@ -39,7 +36,7 @@
 				}
 			},
 			{
-				"label": "inline",
+				"id": "inline",
 				"renderer": {
 					"type": "vertical"
 				},
@@ -169,9 +166,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {
@@ -179,7 +173,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},
@@ -297,9 +291,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {
@@ -307,7 +298,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},
@@ -422,9 +413,6 @@
 					"audio": {
 						"volume": 1
 					},
-					"featuring": [
-						"catpope"
-					],
 					"groups": [
 						{
 							"ref": {
@@ -432,7 +420,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},

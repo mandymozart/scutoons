@@ -1,10 +1,14 @@
 //! The headless deck host as wasm (#363): deck-headless built for wasm32 and wasm32 + simd128 (the cdylib's `hl_*`
 //! exports), every scenario run in wasmtime – the report (audio hashes, beats, lines, quality levels, the messages that
 //! left) is byte for byte the native one. What the browser runs is that core; its bridge adds nothing a scenario can see.
-//! The wasm files are built into target dirs of their own (`<target>/headless-wasm*`), once per change.
+//! The wasm files are built into target dirs of their own (`<target>/headless-wasm*`), once per change. The same
+//! modules answer a model's bones (`hl_bones`): the reference matrices hold natively and in wasm.
 mod common;
+#[path = "../../space/tests/fixtures/bones.rs"]
+mod bones;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use wasmtime::{Engine, Instance, Module, Store};
 
@@ -29,12 +33,36 @@ fn build(simd: bool) -> PathBuf {
     dir.join("wasm32-unknown-unknown").join("release").join("deck_headless.wasm")
 }
 
-/// one bundle through the module's `hl_run` → the report's JSON
-fn run_wasm(module: &Module, engine: &Engine, bundle: &[u8]) -> String {
+fn engine() -> &'static Engine {
+    static ENGINE: OnceLock<Engine> = OnceLock::new();
+    ENGINE.get_or_init(Engine::default)
+}
+
+/// (simd128, the module, its build time, its compile time): built (each in its own target dir) and compiled side by
+/// side on two threads, once for the tests of this binary (#536)
+fn modules() -> &'static [(bool, Module, Duration, Duration); 2] {
+    static MODULES: OnceLock<[(bool, Module, Duration, Duration); 2]> = OnceLock::new();
+    MODULES.get_or_init(|| {
+        let prepare = |simd: bool| -> (bool, Module, Duration, Duration) {
+            let t = Instant::now();
+            let path = build(simd);
+            let built = t.elapsed();
+            let t = Instant::now();
+            (simd, Module::from_file(engine(), path).expect("the module compiles"), built, t.elapsed())
+        };
+        std::thread::scope(|s| {
+            let simd = s.spawn(|| prepare(true));
+            [prepare(false), simd.join().expect("the simd128 module")]
+        })
+    })
+}
+
+/// the inbox through one of the module's exports (`hl_run`: a bundle → the report's JSON) → the outbox
+fn run_wasm(module: &Module, engine: &Engine, export: &str, bundle: &[u8]) -> String {
     let mut store = Store::new(engine, ());
     let inst = Instance::new(&mut store, module, &[]).expect("no imports");
     let inbox = inst.get_typed_func::<u32, u32>(&mut store, "hl_inbox").unwrap();
-    let run = inst.get_typed_func::<u32, i32>(&mut store, "hl_run").unwrap();
+    let run = inst.get_typed_func::<u32, i32>(&mut store, export).unwrap();
     let outbox = inst.get_typed_func::<(), u32>(&mut store, "hl_outbox").unwrap();
     let at = inbox.call(&mut store, bundle.len() as u32).unwrap() as usize;
     let mem = inst.get_memory(&mut store, "memory").unwrap();
@@ -42,7 +70,7 @@ fn run_wasm(module: &Module, engine: &Engine, bundle: &[u8]) -> String {
     let n = run.call(&mut store, bundle.len() as u32).unwrap();
     let ptr = outbox.call(&mut store, ()).unwrap() as usize;
     let text = String::from_utf8(mem.data(&store)[ptr..ptr + n.unsigned_abs() as usize].to_vec()).unwrap();
-    assert!(n > 0, "hl_run: {text}");
+    assert!(n > 0, "{export}: {text}");
     text
 }
 
@@ -75,26 +103,13 @@ const KNOWN_DIVERGENT: &[(&str, &str)] = &[
 fn every_scenario_reports_the_same_native_and_in_wasm32_with_and_without_simd128() {
     let bundles = common::bundles();
     let native: Vec<String> = bundles.iter().map(|b| serde_json::to_string(&deck_headless::run(b)).unwrap()).collect();
-    let engine = Engine::default();
-    // the two modules built (each in its own target dir) and compiled side by side on two threads (#536)
-    let prepare = |simd: bool| -> (Module, Duration, Duration) {
-        let t = Instant::now();
-        let path = build(simd);
-        let built = t.elapsed();
-        let t = Instant::now();
-        (Module::from_file(&engine, path).expect("the module compiles"), built, t.elapsed())
-    };
-    let modules = std::thread::scope(|s| {
-        let simd = s.spawn(|| prepare(true));
-        [(false, prepare(false)), (true, simd.join().expect("the simd128 module"))]
-    });
-    for (simd, (module, built, compiled)) in modules {
-        let target = if simd { "wasm32 + simd128" } else { "wasm32" };
+    for (simd, module, built, compiled) in modules() {
+        let target = if *simd { "wasm32 + simd128" } else { "wasm32" };
         let t = Instant::now();
         let mut wrong = Vec::new();
         let mut same = 0;
         for (b, want) in bundles.iter().zip(&native) {
-            let got = run_wasm(&module, &engine, &serde_json::to_vec(b).unwrap());
+            let got = run_wasm(module, engine(), "hl_run", &serde_json::to_vec(b).unwrap());
             let known = KNOWN_DIVERGENT.iter().find(|(n, _)| *n == b.name);
             let d = diff(want, &got);
             match known {
@@ -109,5 +124,44 @@ fn every_scenario_reports_the_same_native_and_in_wasm32_with_and_without_simd128
         println!("{target}: {same} of {} scenarios report exactly what native does", bundles.len());
         // where the test's time goes (#536): cargo's build of the wasm, Cranelift's compile, the runs
         println!("{target}: built in {built:.1?}, compiled in {compiled:.1?}, ran in {:.1?}", t.elapsed());
+    }
+}
+
+/// `hl_bones`' answer: a matrix per line
+fn matrices(answer: &str) -> Vec<[f32; 16]> {
+    answer
+        .lines()
+        .map(|l| {
+            let bits: Vec<u32> = l.split(' ').map(|x| u32::from_str_radix(x, 16).unwrap_or_else(|_| panic!("not a matrix: {l}"))).collect();
+            std::array::from_fn(|i| f32::from_bits(bits[i]))
+        })
+        .collect()
+}
+
+#[test]
+fn a_bone_s_world_matrix_matches_the_reference_native_and_in_wasm32_with_and_without_simd128() {
+    let mut models = vec![("the two-bone model", bones::glb(), bones::REFERENCE.to_vec())];
+    if let Some(file) = bones::media("scutoons/3d/mannequin-more-legs.glb") {
+        models.push(("the mannequin", file, bones::export(bones::MANNEQUIN)));
+    }
+    for (model, glb, reference) in &models {
+        let questions: Vec<String> = reference.iter().map(|(bone, clip, t, _)| format!("{bone}\t{}\t{t}", clip.unwrap_or("-"))).collect();
+        let input = deck_headless::bones::input(&questions.join("\n"), glb);
+        let check = |target: &str, answer: &str| {
+            let got = matrices(answer);
+            assert_eq!(got.len(), reference.len(), "{model} in {target}: {answer}");
+            for (m, (bone, clip, t, want)) in got.iter().zip(reference) {
+                assert!(bones::close(m, want), "{model} in {target}: {bone} in {clip:?} at {t} is {m:?}, the reference says {want:?}");
+            }
+        };
+        let native = deck_headless::bones::answer(&input).expect("the native answer");
+        check("native", &native);
+        for (simd, module, ..) in modules() {
+            let target = if *simd { "wasm32 + simd128" } else { "wasm32" };
+            let answer = run_wasm(module, engine(), "hl_bones", &input);
+            check(target, &answer);
+            let same = answer.lines().zip(native.lines()).filter(|(a, b)| a == b).count();
+            println!("{model}, {target}: {} matrices match the reference, {same} of them bit for bit what native answers", reference.len());
+        }
     }
 }

@@ -463,8 +463,8 @@
 		margin-right: var(--space-05);
 	}
 	.notice {
-		border-left: 0.5rem solid var(--primary-cyan);
-		padding-left: var(--space-05);
+		border: var(--border-width-regular) solid var(--primary-cyan);
+		padding: var(--space-025) var(--space-05);
 	}
 	.facts {
 		display: grid;

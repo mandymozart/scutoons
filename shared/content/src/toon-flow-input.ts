@@ -1,8 +1,8 @@
 // A toon's documents shaped for `toonFlow` / `deadThings` (flow.ts): its chapters (each group's scene document in place
-// of the reference), seasons (their chapter order and status), the map places that lead into it, the toon's facts
+// of the reference), seasons (their chapter order and status), the toon's facts
 // (`toonFacts`, with what the other toons do from the server's flow index). Pure – the caller loads the documents (the
 // creator's Flow panel, the MCP server's read_flow). Moved from creator/src/lib/editor/toon-flow.ts (agents/MCP.md).
-import { deadThings, type DeadThings, type FlowChapter, type FlowPlace, type FlowSeason, type ToonFlowInput } from './flow.ts';
+import { deadThings, type DeadThings, type FlowChapter, type FlowSeason, type ToonFlowInput } from './flow.ts';
 import { toonFacts } from './reach.ts';
 
 /** a text (a string or a locale map) in `locale`, else the first one */
@@ -72,10 +72,7 @@ export function toonFlowInput(sources: ToonFlowSources): { input: ToonFlowInput;
 		});
 	}
 	chapters.sort((a, b) => a.number - b.number);
-	const places: FlowPlace[] = (Array.isArray(map?.locations) ? map.locations : [])
-		.filter((l: any) => l?.chapter?.toon === toon && Number.isFinite(Number(l.chapter.number)))
-		.map((l: any) => ({ id: String(l.id), name: localeText(l.name, locale) || String(l.id), chapter: Number(l.chapter.number), ...(l.hidden ? { hidden: true } : {}) }));
 	const facts = toonFacts([...byEntity.values(), ...(map ? [map] : [])], { toon, incoming: incoming.labels, elsewhere: incoming.elsewhere });
-	const input: ToonFlowInput = { toon, chapters, seasons, facts, places, incoming: incoming.chapters, text: (v) => localeText(v, locale) };
+	const input: ToonFlowInput = { toon, chapters, seasons, facts, incoming: incoming.chapters, text: (v) => localeText(v, locale) };
 	return { input, dead: deadThings(chapters, facts) };
 }

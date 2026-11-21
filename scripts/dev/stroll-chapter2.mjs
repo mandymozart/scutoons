@@ -105,7 +105,7 @@ for (const scene of STROLLS) {
 for (const locale of LOCALES) {
 	const key = `chapter:${TOON}:2:${locale}`;
 	const { content, version } = await draft(key);
-	const group = (content.groups ?? []).find((g) => g?.label === END);
+	const group = (content.groups ?? []).find((g) => g?.id === END);
 	if (!group) throw new Error(`${key}: no group ${END}`);
 	group.events = [...arrive, ...strip(group.events, locale)];
 	await save(key, content, version?.id ?? null, `${END}: 7:00, the stroll is over`);

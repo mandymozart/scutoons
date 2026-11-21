@@ -25,8 +25,6 @@ pub enum Typing {
     Label(String),
     /// a client's name (its id)
     Nick(String),
-    /// #531: the label a linked reader starts at (the Session sheet)
-    ReaderLabel,
     /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
     RowName(String),
     /// a column's name, a group's, typed in its head
@@ -142,7 +140,6 @@ impl Host {
                         self.status = said;
                         self.send(out);
                     }
-                    Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
                     Typing::RowName(id) => {
                         let at = self.shown().rows.iter().position(|r| r.id == id);
                         self.edit_rows(&deck_show::rows::Edit::Rename { id: id.clone(), to: text });
@@ -176,6 +173,17 @@ impl Host {
             }
             Err(why) => self.refuse(format!("not changed: {why}")),
         }
+    }
+
+    /// The shown show's id and the tempo it keeps.
+    pub fn tempo(&self) -> (String, Option<deck_show::Tempo>) {
+        let show = self.shown();
+        (show.id.clone(), show.tempo)
+    }
+
+    /// The play pill's tempo kept in the shown show (saved with it); refused in its words.
+    pub fn keep_tempo(&mut self, to: deck_show::Tempo) -> bool {
+        self.shown().tempo == Some(to) || self.edit_rows(&deck_show::rows::Edit::Tempo { to: Some(to) })
     }
 
     /// The prompt asked now, in deck-show's words.

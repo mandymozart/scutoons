@@ -16,6 +16,7 @@ const LOOK: Duration = Duration::from_secs(1);
 use crate::show::api::Api;
 use crate::stage::Stage;
 use deck_catalog::{Curve, Descriptor, ParamDesc};
+use deck_core::units::{Dimension, Unit};
 use deck_kit::editor::controls::Rect;
 use deck_space::rig::{assign, Bundle};
 use scutoons_build::files::Files;
@@ -38,6 +39,8 @@ pub enum Hit {
     Build,
     Param(usize),
     Problem(usize),
+    /// a unit switch's segment: parameters of this kind are read in it
+    Unit(&'static str, Unit),
 }
 
 /// one module of the catalog
@@ -149,6 +152,19 @@ pub fn value_at(p: &ParamDesc, f: f32) -> f32 {
         Curve::Log if p.min > 0.0 => p.min * (p.max / p.min).powf(f),
         _ => p.min + f * (p.max - p.min),
     }
+}
+
+/// A parameter read in a unit of its choice: the kind its choice is kept under, the unit it is stored in, the units it
+/// can be read in. Frequencies and pitches only – the other dimensions' alternatives need a reference a module
+/// parameter does not have (beats a tempo, px a picture) or mean something else (mm is a focal length).
+pub fn switchable(p: &ParamDesc) -> Option<(&'static str, Unit, &'static [Unit])> {
+    let unit = Unit::named(&p.unit).filter(|_| p.choices.is_empty())?;
+    let kind = match unit.dimension() {
+        Dimension::Frequency => "module-frequency",
+        Dimension::Pitch => "module-pitch",
+        _ => return None,
+    };
+    Some((kind, unit, unit.dimension().units()))
 }
 
 /// a parameter's value in words
@@ -318,6 +334,7 @@ impl Module {
             Hit::Code => self.code(None),
             Hit::Build => self.build(),
             Hit::Problem(i) => self.code(Some(i)),
+            Hit::Unit(..) => {}
             Hit::Param(i) => {
                 if let Some(p) = self.descriptor.as_ref().and_then(|d| d.params.get(i)) {
                     self.drag = Some((i, x, fraction(p, self.value(i, stage))));
@@ -402,6 +419,26 @@ impl Module {
             Ok(copy::Checkout::Kept) => self.post(format!("{key}: the working copy's own changes are kept ({})", dir.display()), false),
             Err(err) => self.post(format!("{key}: the working copy could not be written: {err}"), true),
         }
+    }
+
+    /// a revert stored the open module's newest draft: its sources replace the working copy, the next save names it
+    pub fn reopen(&mut self, draft: crate::show::api::Draft) -> Result<(), String> {
+        let Some(open) = self.open.clone() else { return Ok(()) };
+        let files = files_of(&draft.content);
+        let local = self.local()?;
+        copy::replace(&open.dir, &open.key(), draft.version, &files, &local.manifest(), &scutoons_build::determinism::clippy_toml()).map_err(|e| format!("{}: the working copy could not be written: {e}", open.key()))?;
+        self.descriptor = draft.content.get("descriptor").and_then(|d| serde_json::from_value(d.clone()).ok());
+        self.problems.clear();
+        if let Some(o) = self.open.as_mut() {
+            o.content = draft.content;
+            o.version = draft.version;
+        }
+        self.auto.open(draft.version);
+        self.auto.look(fingerprint(&files), Instant::now());
+        self.looked = None;
+        self.heard = false;
+        self.post(format!("{}: the working copy is the stored version – build to hear it", open.key()), false);
+        Ok(())
     }
 
     /// the local builder, made once (the SDK baked into the cache)
@@ -614,6 +651,25 @@ mod tests {
     }
 
     #[test]
+    fn a_reverted_module_replaces_the_working_copy_and_the_next_save_names_it() {
+        let root = std::env::temp_dir().join(format!("deck-editor-reopen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut m = Module::new("", &root, Script::default());
+        let dir = copy::folder(&m.root, "module:walk");
+        let files = Files::from([("lib.rs".to_string(), "// mine".to_string())]);
+        copy::replace(&dir, "module:walk", Some(3), &files, "[package]", "msrv").unwrap();
+        std::fs::write(dir.join("src/lib.rs"), "// unsaved").unwrap();
+        m.open = Some(Open { id: "walk".into(), factory: false, content: json!({ "id": "walk", "files": files }), version: Some(3), dir: dir.clone(), save_as: "my_walk".into() });
+        m.auto.open(Some(3));
+        let draft = crate::show::api::Draft { content: json!({ "id": "walk", "files": { "lib.rs": "// reverted" } }), version: Some(7) };
+        m.reopen(draft).expect("the local builder starts");
+        assert_eq!(copy::sources(&dir).unwrap()["lib.rs"], "// reverted");
+        assert_eq!((m.auto.version, m.open.as_ref().and_then(|o| o.version)), (Some(7), Some(7)));
+        assert!(!copy::changed(&dir));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn the_catalog_lists_factory_modules_first() {
         let text = json!({ "entries": [
             { "id": "mine", "latest": 9, "draft": true, "content": { "id": "mine", "files": { "lib.rs": "" } } },
@@ -664,5 +720,17 @@ mod tests {
         assert_eq!(shown(&log, 147.0), "147 Hz");
         let wave = param(json!({ "name": "wave", "choices": ["saw", "pulse", "sine"], "default": 0 }));
         assert_eq!((fraction(&wave, 1.0), value_at(&wave, 0.9), shown(&wave, 2.0)), (0.5, 2.0, "sine".to_string()));
+    }
+
+    #[test]
+    fn frequencies_and_pitches_switch_their_unit() {
+        let cutoff = param(json!({ "name": "cutoff", "min": 20.0, "max": 20000.0, "unit": "Hz" }));
+        assert_eq!(switchable(&cutoff), Some(("module-frequency", Unit::Hertz, &[Unit::Hertz, Unit::Kilohertz][..])));
+        let fine = param(json!({ "name": "fine", "min": -100.0, "max": 100.0, "unit": "cent" }));
+        assert_eq!(switchable(&fine).map(|(k, u, o)| (k, u, o.len())), Some(("module-pitch", Unit::Cents, 3)));
+        let tilt = param(json!({ "name": "tilt", "min": 0.0, "max": 30.0, "unit": "°" }));
+        assert_eq!(switchable(&tilt), None, "a tilt is no field of view: no mm");
+        let period = param(json!({ "name": "period", "min": 1.0, "max": 16.0, "unit": "beats" }));
+        assert_eq!(switchable(&period), None);
     }
 }

@@ -52,14 +52,14 @@
 	$effect(() => (data.chapter ? wakeLock.hold('chapter', { idle: true }) : undefined));
 	$effect(() => {
 		const chapter = data.chapter;
-		vn?.setPlace(chapter ? { toon: page.params.toonId ?? '', chapter: chapter.number, labels: chapter.groups.flatMap((g) => (g.label ? [g.label] : [])) } : null);
+		vn?.setPlace(chapter ? { toon: page.params.toonId ?? '', chapter: chapter.number, labels: chapter.groups.flatMap((g) => (g.id ? [g.id] : [])) } : null);
 	});
 	
 	let group = $derived(
 		!data.chapter
 			? undefined
-			: currentLabel && data.chapter.groups.find((g) => g.label === currentLabel)
-			? data.chapter.groups.find((g) => g.label === currentLabel)
+			: currentLabel && data.chapter.groups.find((g) => g.id === currentLabel)
+			? data.chapter.groups.find((g) => g.id === currentLabel)
 			: data.chapter.groups[0]
 	);
 
@@ -201,7 +201,7 @@
 		const inChain = () => !!chain && r.group >= chain.start && r.group <= chain.end;
 		if (!inChain()) {
 			const { start } = chainOf(groups, r.group);
-			const label = groups.slice(start, r.group + 1).findLast((g) => g.label)?.label ?? null;
+			const label = groups.slice(start, r.group + 1).findLast((g) => g.id)?.id ?? null;
 			if (!label && start !== 0) return;
 			const url = new URL(location.href);
 			url.searchParams.delete('resume');

@@ -1313,6 +1313,7 @@ name = "deck-headless"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-events",
  "deck-show",
  "deck-space",
  "deck-ui",
@@ -4740,22 +4741,29 @@ dependencies = [
 name = "scutoons-build"
 version = "0.1.0"
 dependencies = [
+ "analog-module",
  "anyhow",
  "base64",
+ "bob-module",
  "deck-catalog",
+ "deck-core",
  "deck-module",
  "deck-module-host",
  "deck-show",
  "deck-space",
+ "dolly-module",
+ "fixture-module",
  "libc",
  "proc-macro2",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "stepseq-module",
  "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "walk-module",
 ]
 
 [[package]]
@@ -5082,6 +5090,7 @@ name = "space-web"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "deck-catalog",
  "deck-core",
  "deck-engine",
  "deck-link",

@@ -159,8 +159,8 @@
 		border-bottom: 1px solid var(--border-subtle, #ddd);
 	}
 	ol > li.live {
-		border-left: 3px solid var(--text, currentColor);
-		padding-left: 0.5rem;
+		background: var(--surface-muted, #eee);
+		padding-inline: 0.5rem;
 	}
 	.head {
 		display: flex;

@@ -2,14 +2,14 @@
 //! Amp 1 / Amp 2 → stereo – with its two LFOs and four envelopes. Modulation is read every sample; what is costly (the
 //! pitch, the cutoffs, the pan) is recomputed every `CTRL` samples of the voice's own clock, so a render does not
 //! depend on how the host cut the audio into blocks.
-use crate::adsr::{Adsr, Times};
 use crate::lfo::{self, Lfo, Settings as LfoSettings, Shape};
-use crate::math::{exp2, log2, C4};
-use crate::noise::{mix, Noise};
-use crate::osc::{Osc, Sub, Wave};
 use crate::pan;
-use crate::svf::{self, Coef, Mode, Svf};
 use crate::params::Patch;
+use deck_module::dsp::adsr::{Adsr, Times};
+use deck_module::dsp::arith::{exp2, log2, C4};
+use deck_module::dsp::noise::{mix, White};
+use deck_module::dsp::osc::{Osc, Sub, Wave};
+use deck_module::dsp::svf::{self, Coef, Mode, Svf};
 
 /// samples between the control-rate updates (0.33 ms at 48 kHz)
 pub const CTRL: u32 = 16;
@@ -69,7 +69,7 @@ pub struct Voice {
     ctr: u32,
     osc: [Osc; 2],
     sub: [Sub; 2],
-    noise: Noise,
+    noise: White,
     svf: [Svf; 2],
     coef: [Coef; 2],
     fenv: [Adsr; 2],
@@ -118,7 +118,7 @@ impl Voice {
         self.hz = n.hz.clamp(8.0, 12_000.0);
         self.base = self.hz;
         self.vel = n.vel.clamp(0.0, 1.0);
-        self.noise = Noise::new(mix(n.seed));
+        self.noise = White::new(mix(n.seed));
         self.lfo[0].start(mix(n.seed ^ 1));
         self.lfo[1].start(mix(n.seed ^ 2));
         for k in 0..2 {

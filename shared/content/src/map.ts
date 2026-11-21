@@ -1,11 +1,8 @@
 // The SCUTOONS world map (agents/MAP.md): ONE map for the whole universe (entity `map`, platform-wide, language-neutral,
 // names as `{ de, en }` inside), the reader's map state (unlocked places, revealed routes, positions – world-wide game
-// state under the reserved id `scutoons`), the old per-toon answer shape for older viewer builds, the migration from
-// catpope's `locations.json` / `routes.json`, and the validation. Pure: no Svelte, no DOM.
+// state under the reserved id `scutoons`) and the validation. Pure: no Svelte, no DOM.
 import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
-import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
-import { toonAsset } from './paths.ts';
 import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type MediaQuality, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
@@ -33,11 +30,11 @@ export interface WorldMap extends AcceptedWarnings {
 /**
  * A region of the world map (agents/MAP.md §8.10, owner 2026-10-12: "hexagonal area covers … not as locations, not as
  * layers but as regions"): its cover is a set of the map's hex cells (`HEX_CELL`, the places' grid), stored as row runs;
- * a character comes from one (`origin`) and lives in one (`residence`); the event `migrate` moves the reader or a
- * character there and plays the welcome (the sign, the representative – or the narrator – saying the greeting).
+ * the event `migrate` moves the reader or a character there and plays the welcome (the sign, the representative – or
+ * the narrator – saying the greeting).
  */
 export interface MapRegion {
-	/** slug, stable forever (events and characters reference it) */
+	/** slug, stable forever (events reference it) */
 	id: string;
 	name: LocaleText;
 	/** the slogan on the welcome sign ("Geizig! Garstig! Steil!") */
@@ -121,8 +118,6 @@ export interface MapPlace {
 	 * are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)
 	 */
 	hidden?: boolean;
-	/** the chapter the place's card links to */
-	chapter?: { toon: string; number: number };
 	/** its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`) */
 	size?: number;
 	/**
@@ -1139,7 +1134,7 @@ export interface MapState {
 	resetAt?: number;
 	/**
 	 * who lives where (agents/MAP.md §8.10): `reader` (the reader's avatar) or a character id → its region, `at` = when it
-	 * moved (ms; the newer move wins in the merge). A character without an entry lives in its `residence` (registry).
+	 * moved (ms; the newer move wins in the merge).
 	 * Not touched by a map reset – the reader's registration is no unlock animation. Left out while empty.
 	 */
 	residences?: Record<string, MapResidence>;
@@ -1261,8 +1256,8 @@ export function moveResident(state: MapState, who: string, region: string, now: 
 	state.residences = { ...(state.residences ?? {}), [who]: { region, at: now } };
 	return true;
 }
-/** where the reader or a character lives: the save game's last move, else the character's registry `residence` */
-export const residenceOf = (state: Pick<MapState, 'residences'>, who: string, fallback?: string): string | undefined => state.residences?.[who]?.region ?? fallback;
+/** where the reader or a character lives: the save game's last move */
+export const residenceOf = (state: Pick<MapState, 'residences'>, who: string): string | undefined => state.residences?.[who]?.region;
 
 export function setPosition(state: MapState, toon: string, position: Omit<MapPosition, 'at'>, now: number): void {
 	state.positions[toon] = { ...position, at: now } as MapPosition;
@@ -1315,96 +1310,6 @@ export function routeDrawnTo(route: RouteLike, state: MapState, visible: (placeI
 		if (isPlaceWaypoint(w) && visible(w.location)) last = i;
 	});
 	return last;
-}
-
-// ── The old per-toon answer (older viewer builds: `ToonBundle.locations` / `.routes`, `toon.map`) ──────────────────────
-
-/**
- * The toon's places and routes in the shape of the old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents (one release,
- * then dropped). Every place and route of the toon, hidden ones too (old viewers showed every place; they have no unlock
- * state); a route lists its place waypoints only (free points did not exist), unknown ids included, as before. The server computes the same
- * (`Library::legacyMap`); this one is for tests and tools.
- */
-export function legacyToonMap(map: WorldMap, toon: string, locale: string): { locations: MapLocation[]; routes: MapRoute[] } {
-	const locations: MapLocation[] = (map.locations ?? [])
-		.filter((p) => p.toons?.includes(toon))
-		.map((p) => ({
-			id: p.id,
-			label: mapName(p.name, locale),
-			toonId: p.chapter?.toon ?? toon,
-			type: 'chapter',
-			...(p.chapter ? { chapterNumber: String(p.chapter.number) } : {}),
-			image: p.image?.src ?? '',
-			coordinates: { x: p.x, y: p.y }
-		}));
-	const routes: MapRoute[] = (map.routes ?? [])
-		.filter((r) => r.toons?.includes(toon))
-		.map((r) => ({ id: r.id, title: mapName(r.name, locale), locations: (r.waypoints ?? []).filter(isPlaceWaypoint).map((w) => w.location) }));
-	return { locations, routes };
-}
-
-/** A CDN-root path relative to a toon's folder (the old `toon.map.layers.terrain` was toon-relative) */
-export function mapPathInToonFolder(path: string, toon: string): string {
-	return path.startsWith(`${toon}/`) ? path.slice(toon.length + 1) : `../${path}`;
-}
-
-/** The old `toon.map` (`{ layers: { terrain }, width, height, center }`) from the world map + the toon's start view */
-export function legacyToonMapSettings(map: WorldMap, toon: string, view: ToonMapView | null | undefined): LegacyToonMap {
-	const terrain = (map.layers ?? []).find((l) => l.id === 'terrain') ?? map.layers?.[0];
-	const center = view?.center ?? centerOf((map.locations ?? []).filter((p) => p.toons?.includes(toon))) ?? { x: map.width / 2, y: map.height / 2 };
-	return { layers: { terrain: terrain ? mapPathInToonFolder(terrain.image, toon) : '' }, width: map.width, height: map.height, center: { x: center.x, y: center.y } };
-}
-
-// ── Migration (agents/MAP.md §2.6) ─────────────────────────────────────────────────────────────────────────────────
-
-/** A route of the old `routes.json` (the en file spelled `titel`) */
-export interface LegacyRouteFile {
-	id: string;
-	title?: string;
-	titel?: string;
-	locations: string[];
-}
-
-/**
- * The world map from one toon's old map files: `toonMap` = its old `toon.map` (layers.terrain toon-relative, width, height,
- * center), `locations` / `routes` = the per-locale files (`{ de: [...], en: [...] }`). Every value survives: ids,
- * coordinates, labels → `name` per locale (verbatim), `toonId` → `toons`, `chapterNumber` → `chapter`, route
- * `title ?? titel` → `name`, `locations` → place waypoints in order (unknown ids kept – the validation reports them).
- * Returns the world map and the toon's start view (`{ center }`).
- */
-export function migrateLegacyMap(input: {
-	toon: string;
-	toonMap: LegacyToonMap;
-	locations: Record<string, MapLocation[]>;
-	routes: Record<string, LegacyRouteFile[]>;
-	source: string;
-}): { map: WorldMap; view: ToonMapView } {
-	const { toon, toonMap, source } = input;
-	const locales = [source, ...Object.keys(input.locations).filter((l) => l !== source)];
-	const terrain = toonMap.layers?.terrain ?? '';
-	const image = toonAsset(toon, terrain);
-	const map: WorldMap = { width: toonMap.width, height: toonMap.height, layers: terrain ? [{ id: 'terrain', image }] : [], locations: [], routes: [] };
-	for (const loc of input.locations[source] ?? []) {
-		const name: LocaleText = {};
-		for (const l of locales) {
-			const label = (input.locations[l] ?? []).find((x) => x.id === loc.id)?.label;
-			if (typeof label === 'string') name[l] = label;
-		}
-		const place: MapPlace = { id: loc.id, name, x: loc.coordinates.x, y: loc.coordinates.y, toons: [loc.toonId || toon] };
-		if (loc.type === 'chapter' && loc.chapterNumber !== undefined && loc.chapterNumber !== '') place.chapter = { toon: loc.toonId || toon, number: Number(loc.chapterNumber) };
-		if (loc.image) place.image = { src: loc.image };
-		map.locations.push(place);
-	}
-	for (const route of input.routes[source] ?? []) {
-		const name: LocaleText = {};
-		for (const l of [source, ...Object.keys(input.routes).filter((x) => x !== source)]) {
-			const r = (input.routes[l] ?? []).find((x) => x.id === route.id);
-			const title = r?.title ?? r?.titel;
-			if (typeof title === 'string') name[l] = title;
-		}
-		map.routes.push({ id: route.id, name, toons: [toon], waypoints: (route.locations ?? []).map((location) => ({ location })) });
-	}
-	return { map, view: { center: { x: toonMap.center.x, y: toonMap.center.y } } };
 }
 
 // ── Wanted images: every place without an image (agents/MAP.md §5, owner 2026-10-01) ─────────────────────────────────
@@ -1632,11 +1537,6 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		// the old slice / chapter link (owner 2026-10-11: places are unlocked by the unlockLocation event only)
 		if (p.unlock !== undefined) add('error', [...path, 'unlock'], `${what}: \`unlock\` is gone – an unlockLocation event on a slice or in a script unlocks the place (migration 2026-10-11-unlock-location-events)`);
 		if (p.size !== undefined && (!isNum(p.size) || p.size < PLACE_SIZE_MIN || p.size > PLACE_SIZE_MAX)) add('error', [...path, 'size'], `${what}: the size is ${PLACE_SIZE_MIN}–${PLACE_SIZE_MAX} world units`);
-		if (p.chapter !== undefined) {
-			if (!isObj(p.chapter) || typeof p.chapter.toon !== 'string' || !Number.isInteger(p.chapter.number) || p.chapter.number < 0)
-				add('error', [...path, 'chapter'], `${what}: the chapter link must be { toon, number }`);
-			else if (Array.isArray(p.toons) && !p.toons.includes(p.chapter.toon)) add('warning', [...path, 'chapter'], `${what}: links a chapter of ${p.chapter.toon}, which is not in its toons`);
-		}
 		if (p.view !== undefined) {
 			const v = p.view;
 			if (!isObj(v)) add('error', [...path, 'view'], `${what}: the view must be { zoom?, offset? }`);

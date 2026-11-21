@@ -115,7 +115,7 @@ mod tests {
     use super::super::rows::tests::host_with;
     use super::*;
 
-    const DOC: &str = r#"{ "id": "sermon", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }], "rows": [] }"#;
+    const DOC: &str = r#"{ "id": "sermon", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#;
 
     #[test]
     fn the_mix_reads_as_show_against_preview() {

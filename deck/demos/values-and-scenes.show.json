@@ -1,7 +1,7 @@
 {
   "id": "values-and-scenes",
   "version": 1,
-  "toon": "catpope",
+  "toons": ["catpope"],
   "outlets": [{ "id": "left" }, { "id": "middle" }, { "id": "right" }],
   "rows": [
     {

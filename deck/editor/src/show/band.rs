@@ -444,7 +444,7 @@ mod tests {
     use deck_show::view::{self, State};
 
     const DOC: &str = r#"{ "id": "band", "version": 1,
-      "toon": "catpope", "outlets": [{ "id": "left", "group": "stages" }, { "id": "right", "group": "stages" }, { "id": "lights", "kind": "device", "group": "light" }],
+      "toons": ["catpope"], "outlets": [{ "id": "left", "group": "stages" }, { "id": "right", "group": "stages" }, { "id": "lights", "kind": "device", "group": "light" }],
       "rows": [
         { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
         { "id": "together", "fire": { "event": "meet", "how": "suggest" }, "cells": { "right": { "mode": "play", "piece": "scene:choir" } } }
@@ -520,7 +520,7 @@ mod tests {
     fn a_band_too_large_scrolls_both_ways_under_its_heads_and_counts_what_is_out_of_view() {
         let outlets: Vec<String> = (0..12).map(|i| format!(r#"{{ "id": "o{i}" }}"#)).collect();
         let rows: Vec<String> = (0..30).map(|i| format!(r#"{{ "id": "r{i}", "cells": {{ "o0": {{ "mode": "play", "piece": "scene:nave" }} }} }}"#)).collect();
-        let doc = format!(r#"{{ "id": "big", "version": 1, "toon": "catpope", "outlets": [{}], "rows": [{}] }}"#, outlets.join(","), rows.join(","));
+        let doc = format!(r#"{{ "id": "big", "version": 1, "toons": ["catpope"], "outlets": [{}], "rows": [{}] }}"#, outlets.join(","), rows.join(","));
         let mut host = host_with(&doc);
         let texts = frame(&mut host);
         let counter = |texts: &[String], end: &str| texts.iter().find(|t| t.starts_with('+') && t.ends_with(end)).cloned();
@@ -540,7 +540,7 @@ mod tests {
     }
 
     const SLOTS: &str = r#"{ "id": "slots", "version": 1,
-      "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+      "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
       "rows": [
         { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
         { "id": "dark", "fire": { "event": "meet", "how": "suggest", "moment": "bar" }, "cells": { "left": { "mode": "black" } } },

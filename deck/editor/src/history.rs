@@ -5,9 +5,9 @@
 //! server stores each revert as a new draft. Every ask runs on a thread; the UI polls.
 use crate::autosave;
 use crate::show::api::{Api, Refusal, Route, Version};
-use deck_core::history::{self as core, BackTo, Description, Revert, Saved, Step};
+use deck_core::history::{self as core, BackTo, Description, Kind, Line, Revert, Saved, SideSaved, Step};
 use serde_json::Value;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -18,6 +18,8 @@ const DESCRIBED: usize = 12;
 pub trait Remote: Send + Sync + 'static {
     fn versions(&self, r: &Route) -> Result<Vec<Version>, String>;
     fn doc(&self, r: &Route, id: u64) -> Result<Value, String>;
+    /// the signed-in member as a version's author names them
+    fn me(&self) -> Result<String, String>;
     fn revert(&self, r: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal>;
     fn revert_to(&self, r: &Route, version: u64, base: u64) -> Result<u64, Refusal>;
 }
@@ -28,6 +30,9 @@ impl Remote for Api {
     }
     fn doc(&self, r: &Route, id: u64) -> Result<Value, String> {
         self.version_doc(r, id)
+    }
+    fn me(&self) -> Result<String, String> {
+        Api::me(self)
     }
     fn revert(&self, r: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal> {
         Api::revert(self, r, version, content, base)
@@ -64,11 +69,6 @@ fn own(versions: &[Version], s: &Step) -> bool {
     versions.iter().any(|v| (s.first..=s.last).contains(&(v.id as i64)) && autosave::mine(v.id))
 }
 
-/// who this editor saves as: the author of a version it stored ("" before it stored one)
-fn me(versions: &[Version]) -> String {
-    versions.iter().find(|v| autosave::mine(v.id)).and_then(|v| v.author.clone()).unwrap_or_default()
-}
-
 /// one step as the panel shows it
 #[derive(Debug, Clone)]
 pub struct Row {
@@ -89,15 +89,132 @@ pub struct Listed {
 
 fn list(remote: &dyn Remote, docs: &Docs, r: &Route, base: Option<u64>) -> Result<Listed, String> {
     let versions = remote.versions(r)?;
-    let rows = core::steps(&saved(&versions))
-        .into_iter()
+    let steps = core::steps(&saved(&versions));
+    let sides = Sides::of(remote, docs, r, &steps);
+    let rows = steps
+        .iter()
+        .cloned()
         .enumerate()
         .map(|(i, step)| {
-            let described = step.before.filter(|_| i < DESCRIBED).map(|b| describe(remote, docs, r, b as u64, step.last as u64));
+            let described = step.before.filter(|_| i < DESCRIBED).map(|b| {
+                let mut d = describe(remote, docs, r, b as u64, step.last as u64)?;
+                for c in sides.of_step(i) {
+                    match side_describe(remote, docs, &c) {
+                        Ok(more) => {
+                            d.more += more.more;
+                            d.lines.extend(more.lines);
+                        }
+                        Err(why) => d.lines.push(Line { place: c.key.clone(), kind: Kind::Changed, before: String::new(), after: why }),
+                    }
+                }
+                Ok(d)
+            });
             Row { mine: own(&versions, &step), published: versions.iter().any(|v| v.id as i64 == step.last && v.published), described, step }
         })
         .collect();
     Ok(Listed { route: r.clone(), base, rows })
+}
+
+/// a rig's side documents: the instruments and presets its tracks use, saved by the same save as the rig (the rig's
+/// editor saves them first, then the rig) – they ride in the rig's steps
+#[derive(Default)]
+struct Sides {
+    /// each side document's saves, newest first
+    lists: BTreeMap<String, Vec<Version>>,
+    /// per step (newest first): what changed in which document
+    steps: Vec<Vec<SideChange>>,
+}
+
+/// one side document's change in a step: the version before (none: made by the step) and the one the step left
+#[derive(Debug, Clone)]
+struct SideChange {
+    key: String,
+    before: Option<u64>,
+    after: u64,
+}
+
+fn is_rig(r: &Route) -> bool {
+    matches!(r, Route::Entity(k) if k.starts_with("rig:"))
+}
+
+/// `instrument:<id>` and `preset:<id>` of the tracks of a rig document
+fn side_keys(rig: &Value) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for t in rig["tracks"].as_array().into_iter().flatten() {
+        out.extend(t["instrument"].as_str().map(|i| format!("instrument:{i}")));
+        out.extend(t["preset"].as_str().map(|p| format!("preset:{p}")));
+    }
+    out
+}
+
+impl Sides {
+    /// the side documents of the newest steps (none for a document that is not a rig, or when they cannot be listed)
+    fn of(remote: &dyn Remote, docs: &Docs, r: &Route, steps: &[Step]) -> Sides {
+        let mut sides = Sides { lists: BTreeMap::new(), steps: vec![Vec::new(); steps.len()] };
+        if !is_rig(r) {
+            return sides;
+        }
+        let mut keys = BTreeSet::new();
+        for s in steps.iter().take(DESCRIBED) {
+            if let Ok(doc) = docs.get(remote, r, s.last as u64) {
+                keys.extend(side_keys(&doc));
+            }
+        }
+        for k in keys {
+            if let Ok(v) = remote.versions(&Route::Entity(k.clone())) {
+                sides.lists.insert(k, v);
+            }
+        }
+        let flat: Vec<SideSaved> = sides.lists.iter().flat_map(|(k, vs)| saved(vs).into_iter().map(|s| SideSaved { key: k.clone(), saved: s })).collect();
+        for (i, idx) in core::with_sides(steps, &flat).into_iter().enumerate() {
+            let mut per_key: BTreeMap<&str, (i64, i64)> = BTreeMap::new();
+            for n in idx {
+                let (k, id) = (flat[n].key.as_str(), flat[n].saved.id);
+                let e = per_key.entry(k).or_insert((id, id));
+                *e = (e.0.min(id), e.1.max(id));
+            }
+            sides.steps[i] = per_key
+                .into_iter()
+                .map(|(k, (first, last))| SideChange { key: k.to_string(), before: sides.lists[k].iter().map(|v| v.id).filter(|id| (*id as i64) < first).max(), after: last as u64 })
+                .collect();
+        }
+        sides
+    }
+
+    fn of_step(&self, i: usize) -> Vec<SideChange> {
+        self.steps.get(i).cloned().unwrap_or_default()
+    }
+
+    /// the newest version of a side document
+    fn newest(&self, key: &str) -> Option<u64> {
+        self.lists.get(key)?.iter().map(|v| v.id).max()
+    }
+}
+
+/// a side document's change in words, its places named with its key
+fn side_describe(remote: &dyn Remote, docs: &Docs, c: &SideChange) -> Result<Description, String> {
+    let r = Route::Entity(c.key.clone());
+    let Some(before) = c.before else {
+        return Ok(Description { lines: vec![Line { place: c.key.clone(), kind: Kind::Added, before: String::new(), after: "new".into() }], more: 0 });
+    };
+    Ok(named(&c.key, core::describe(&docs.get(remote, &r, before)?, &docs.get(remote, &r, c.after)?)))
+}
+
+fn named(key: &str, mut d: Description) -> Description {
+    for l in &mut d.lines {
+        l.place = format!("{key} › {}", l.place);
+    }
+    d
+}
+
+/// a side document's revert, stored before the rig's own
+#[derive(Debug, Clone)]
+pub struct SideRevert {
+    pub key: String,
+    /// the step's version of it
+    pub version: u64,
+    pub base: u64,
+    pub doc: Value,
 }
 
 fn describe(remote: &dyn Remote, docs: &Docs, r: &Route, before: u64, after: u64) -> Result<Description, String> {
@@ -124,7 +241,9 @@ pub struct Plan {
     pub back: Option<BackTo>,
     /// what it changes on the document
     pub described: Description,
-    /// this editor stored a version of the document, so it knows whose saves are others' (a back-to's names)
+    /// the rig's instruments and presets the step saved: put back with it
+    pub sides: Vec<SideRevert>,
+    /// the signed-in member is known (`GET /me`), so others' saves can be told from their own (a back-to's names)
     pub knows_me: bool,
 }
 
@@ -137,16 +256,40 @@ impl Plan {
 
 fn plan_revert(remote: &dyn Remote, docs: &Docs, r: &Route, ask: Ask, (before, after): (u64, u64), base: u64) -> Result<Plan, String> {
     let (a, b, now) = (docs.get(remote, r, before)?, docs.get(remote, r, after)?, docs.get(remote, r, base)?);
-    let revert = core::revert(&a, &b, &now);
-    Ok(Plan { ask, route: r.clone(), version: after, base, described: core::describe(&now, &revert.doc), revert: Some(revert), back: None, knows_me: true })
+    let mut revert = core::revert(&a, &b, &now);
+    let mut described = core::describe(&now, &revert.doc);
+    let mut sides = Vec::new();
+    if is_rig(r) {
+        let steps = core::steps(&saved(&remote.versions(r)?));
+        let listed = Sides::of(remote, docs, r, &steps);
+        for c in steps.iter().position(|s| s.last as u64 == after).map(|i| listed.of_step(i)).unwrap_or_default() {
+            let Some(before) = c.before else {
+                revert.kept.push(format!("{} (made by the step)", c.key));
+                continue;
+            };
+            let (Some(newest), side) = (listed.newest(&c.key), Route::Entity(c.key.clone())) else { continue };
+            let (x, y, z) = (docs.get(remote, &side, before)?, docs.get(remote, &side, c.after)?, docs.get(remote, &side, newest)?);
+            let back = core::revert(&x, &y, &z);
+            revert.kept.extend(back.kept.iter().map(|k| format!("{} › {k}", c.key)));
+            if back.applied > 0 {
+                revert.applied += back.applied;
+                let more = named(&c.key, core::describe(&z, &back.doc));
+                described.more += more.more;
+                described.lines.extend(more.lines);
+                sides.push(SideRevert { key: c.key, version: c.after, base: newest, doc: back.doc });
+            }
+        }
+    }
+    Ok(Plan { ask, route: r.clone(), version: after, base, described, revert: Some(revert), back: None, sides, knows_me: true })
 }
 
 fn plan_back(remote: &dyn Remote, docs: &Docs, r: &Route, point: u64, base: u64) -> Result<Plan, String> {
     let versions = remote.versions(r)?;
-    let me = me(&versions);
+    // not signed in or no answer: whose saves are whose is not known, the prompt says so
+    let me = remote.me().unwrap_or_default();
     let back = core::back_to(&saved(&versions), point as i64, &me);
     let described = core::describe(&docs.get(remote, r, base)?, &docs.get(remote, r, point)?);
-    Ok(Plan { ask: Ask::BackTo, route: r.clone(), version: point, base, revert: None, back: Some(back), described, knows_me: !me.is_empty() })
+    Ok(Plan { ask: Ask::BackTo, route: r.clone(), version: point, base, revert: None, back: Some(back), described, sides: Vec::new(), knows_me: !me.is_empty() })
 }
 
 /// the newest own step of this session not undone yet, planned as its revert (None: there is none)
@@ -158,6 +301,10 @@ fn plan_undo(remote: &dyn Remote, docs: &Docs, r: &Route, base: u64, skip: &BTre
 }
 
 fn apply(remote: &dyn Remote, p: &Plan) -> Result<u64, Refusal> {
+    for s in &p.sides {
+        let id = remote.revert(&Route::Entity(s.key.clone()), s.version, &s.doc, s.base)?;
+        autosave::remember(id);
+    }
     let id = match (&p.revert, p.ask) {
         (_, Ask::BackTo) => remote.revert_to(&p.route, p.version, p.base)?,
         (Some(rv), _) => remote.revert(&p.route, p.version, &rv.doc, p.base)?,
@@ -384,7 +531,18 @@ pub mod tests {
     use serde_json::json;
 
     /// a stored version: its id, author, time, note and document
-    type Stored = (u64, String, i64, Option<String>, Value);
+    type Stored = (u64, String, i64, Option<String>, Value, String);
+
+    const RIG: &str = "rig:character.catpope";
+
+    /// the store keeps entities by key; a scene or a show of a test is the one document it holds
+    fn held(r: &Route) -> String {
+        if matches!(r, Route::Entity(_)) {
+            r.key()
+        } else {
+            RIG.into()
+        }
+    }
 
     /// the server's entity store in memory: every save a new version, a revert on a stale base refused
     #[derive(Default)]
@@ -400,53 +558,65 @@ pub mod tests {
 
         /// a save by `who` at `ms`; `mine`: by this editor
         pub fn save(&self, who: &str, ms: i64, doc: Value, mine: bool) -> u64 {
-            let id = self.push(who, ms, None, doc);
+            let id = self.push(RIG, who, ms, None, doc);
             if mine {
                 autosave::remember(id);
             }
             id
         }
 
-        fn push(&self, who: &str, ms: i64, message: Option<String>, doc: Value) -> u64 {
+        /// a save of another document (a rig's instrument) by `who` at `ms`
+        pub fn save_in(&self, key: &str, who: &str, ms: i64, doc: Value) -> u64 {
+            self.push(key, who, ms, None, doc)
+        }
+
+        fn push(&self, key: &str, who: &str, ms: i64, message: Option<String>, doc: Value) -> u64 {
             let mut n = self.next.lock().unwrap();
             *n += 1;
-            self.versions.lock().unwrap().push((*n, who.into(), ms, message, doc));
+            self.versions.lock().unwrap().push((*n, who.into(), ms, message, doc, key.into()));
             *n
         }
 
-        fn latest(&self) -> u64 {
-            self.versions.lock().unwrap().last().map_or(0, |v| v.0)
+        fn latest(&self, key: &str) -> u64 {
+            self.versions.lock().unwrap().iter().rev().find(|v| v.5 == key).map_or(0, |v| v.0)
         }
 
         pub fn newest(&self) -> (Value, Option<String>) {
+            self.newest_of(RIG)
+        }
+
+        pub fn newest_of(&self, key: &str) -> (Value, Option<String>) {
             let v = self.versions.lock().unwrap();
-            let last = v.last().unwrap();
+            let last = v.iter().rev().find(|v| v.5 == key).unwrap();
             (last.4.clone(), last.3.clone())
         }
 
-        fn stored(&self, base: u64, message: String, doc: Value) -> Result<u64, Refusal> {
-            if base != self.latest() {
-                return Err(Refusal::Conflict { theirs: Some(self.latest()), words: "someone saved a newer version".into() });
+        fn stored(&self, key: &str, base: u64, message: String, doc: Value) -> Result<u64, Refusal> {
+            if base != self.latest(key) {
+                return Err(Refusal::Conflict { theirs: Some(self.latest(key)), words: "someone saved a newer version".into() });
             }
-            let ms = self.versions.lock().unwrap().last().map_or(0, |v| v.2) + 60_000;
-            Ok(self.push("me@test", ms, Some(message), doc))
+            let ms = self.versions.lock().unwrap().last().map_or(0, |v| v.2) + 30_000;
+            Ok(self.push(key, "me@test", ms, Some(message), doc))
         }
     }
 
     impl Remote for Store {
-        fn versions(&self, _: &Route) -> Result<Vec<Version>, String> {
+        fn versions(&self, r: &Route) -> Result<Vec<Version>, String> {
             let v = self.versions.lock().unwrap();
-            Ok(v.iter().rev().map(|(id, who, ms, message, _)| Version { id: *id, author: Some(who.clone()), at_ms: *ms, message: message.clone(), published: false }).collect())
+            Ok(v.iter().rev().filter(|v| v.5 == held(r)).map(|(id, who, ms, message, _, _)| Version { id: *id, author: Some(who.clone()), at_ms: *ms, message: message.clone(), published: false }).collect())
+        }
+        fn me(&self) -> Result<String, String> {
+            Ok("me@test".into())
         }
         fn doc(&self, _: &Route, id: u64) -> Result<Value, String> {
             self.versions.lock().unwrap().iter().find(|v| v.0 == id).map(|v| v.4.clone()).ok_or_else(|| "unknown version".into())
         }
-        fn revert(&self, _: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal> {
-            self.stored(base, format!("revert #{version}"), content.clone())
+        fn revert(&self, r: &Route, version: u64, content: &Value, base: u64) -> Result<u64, Refusal> {
+            self.stored(&held(r), base, format!("revert #{version}"), content.clone())
         }
         fn revert_to(&self, r: &Route, version: u64, base: u64) -> Result<u64, Refusal> {
             let doc = self.doc(r, version).map_err(Refusal::Other)?;
-            self.stored(base, format!("back to #{version}"), doc)
+            self.stored(&held(r), base, format!("back to #{version}"), doc)
         }
     }
 
@@ -558,7 +728,7 @@ pub mod tests {
         assert_eq!((p.ask, p.version, p.base), (Ask::Revert, b, c));
         assert_eq!(p.revert.as_ref().unwrap().doc, json!({"gain": 1, "name": "Pope"}), "only the step's place goes back");
         h.cancel();
-        assert_eq!(s.latest(), c, "Back stores nothing");
+        assert_eq!(s.latest(RIG), c, "Back stores nothing");
 
         h.ask_revert(&rig(), &step, c);
         h.settle();
@@ -586,6 +756,59 @@ pub mod tests {
         let done = h.settle();
         assert!(matches!(&done[..], [Done::Say(w, true)] if w.contains("newer")), "a stale base is refused: {done:?}");
         let _ = c;
+    }
+
+    #[test]
+    fn the_signed_in_member_is_known_before_this_editor_saved() {
+        let s = Store::starting(60_000);
+        let a = s.save("me@test", 0, json!({"gain": 1}), false);
+        let b = s.save("nun@test", 600_000, json!({"gain": 2}), false);
+        let mut h = History::new(s.clone());
+        h.ask_back(&rig(), a, b);
+        h.settle();
+        let p = h.asking.clone().expect("asked");
+        assert!(p.knows_me, "the member comes from the API, not from this editor's saves");
+        assert_eq!(p.back, Some(BackTo { later: 1, others: vec!["nun@test".into()] }));
+    }
+
+    /// a rig whose track plays instrument `bell`: its first save, then two saves that each set the instrument's gain too
+    fn with_an_instrument() -> (Arc<Store>, History, [u64; 5]) {
+        let s = Store::starting(0);
+        let rig = |name: &str| json!({ "tracks": [{ "id": "t", "instrument": "bell" }], "name": name });
+        let a = s.save("me@test", 0, rig("Cat"), false);
+        let bell1 = s.save_in("instrument:bell", "me@test", 99_000, json!({ "gain": 1 }));
+        let b = s.save("me@test", 100_000, rig("Cat"), false);
+        let bell2 = s.save_in("instrument:bell", "me@test", 199_000, json!({ "gain": 2 }));
+        let c = s.save("me@test", 200_000, rig("Pope"), false);
+        (s.clone(), History::new(s), [a, b, c, bell1, bell2])
+    }
+
+    #[test]
+    fn a_rigs_instrument_saved_with_it_is_in_its_step() {
+        let (_, mut h, [_, b, c, _, _]) = with_an_instrument();
+        h.show(Some(&rig()), Some(c));
+        h.settle();
+        let l = h.listed.clone().expect("listed");
+        let lines = |i: usize| l.rows[i].described.clone().expect("described").expect("reads").lines.into_iter().map(|x| (x.place, x.before, x.after)).collect::<Vec<_>>();
+        assert_eq!(lines(0), [("name".to_string(), "“Cat”".to_string(), "“Pope”".to_string()), ("instrument:bell › gain".to_string(), "1".to_string(), "2".to_string())]);
+        assert_eq!(lines(1), [("instrument:bell".to_string(), String::new(), "new".to_string())], "the step that made it");
+        assert_eq!(l.rows[1].step.last, b as i64);
+    }
+
+    #[test]
+    fn reverting_a_rig_step_puts_its_instrument_back_with_it() {
+        let (s, mut h, [_, _, c, _, _]) = with_an_instrument();
+        h.show(Some(&rig()), Some(c));
+        h.settle();
+        let step = h.listed.clone().expect("listed").rows[0].step.clone();
+        h.ask_revert(&rig(), &step, c);
+        h.settle();
+        let p = h.asking.clone().expect("always asked");
+        assert!(p.described.lines.iter().any(|x| x.place == "instrument:bell › gain"), "the prompt names it: {:?}", p.described.lines);
+        h.confirm();
+        h.settle();
+        assert_eq!(s.newest_of("instrument:bell").0, json!({ "gain": 1 }));
+        assert_eq!(s.newest().0["name"], json!("Cat"));
     }
 
     #[test]

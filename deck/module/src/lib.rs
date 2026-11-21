@@ -9,7 +9,7 @@
 //! #[port(input, audio, name = "in", channels = "any")]
 //! #[port(output, audio, name = "out", channels = "any")]
 //! struct Gain {
-//!     #[param(range = 0.0..2.0, default = 1.0, unit = "x", doc = "the gain")]
+//!     #[param(range = 0.0..2.0, default = 1.0, unit = "×", doc = "the gain")]
 //!     amount: f32,
 //! }
 //!
@@ -48,6 +48,8 @@ pub mod testing;
 
 #[cfg(feature = "host")]
 pub mod host;
+/// the DSP units (oscillators, filters, envelopes, delay, FFT): one copy for modules and the engine
+pub mod dsp;
 /// deterministic maths (libm): the same bits native and wasm (ABI-V2 §6)
 pub mod math;
 /// a one-pole step per block (ABI-V2 §2: the module smooths)

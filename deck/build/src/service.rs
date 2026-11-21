@@ -299,7 +299,7 @@ mod tests {
     #[tokio::test]
     async fn validate_answers_a_shows_problems() {
         let s = Service::new(config(2, 100), Fake::new());
-        let body = serde_json::json!({ "kind": "shows", "id": "t", "document": { "id": "t", "version": 1, "toon": "catpope", "outlets": [], "rows": [], "seats": [
+        let body = serde_json::json!({ "kind": "shows", "id": "t", "document": { "id": "t", "version": 1, "toons": ["catpope"], "outlets": [], "rows": [], "seats": [
             { "id": "a", "show": { "id": "x", "version": 1 }, "word": "follow" } ] }, "shows": [] }).to_string();
         let r = s.handle(&validate(Some("sesame"), &body)).await;
         let answer: serde_json::Value = serde_json::from_str(&r.body).unwrap();

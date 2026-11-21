@@ -14,9 +14,6 @@
 					},
 					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
 				},
-				"map": {
-					"$ref": "#/definitions/ToonMapView"
-				},
 				"authors": {
 					"type": "array",
 					"items": {
@@ -28,6 +25,10 @@
 				},
 				"thumbnail": {
 					"type": "string"
+				},
+				"map": {
+					"$ref": "#/definitions/ToonMapView",
+					"description": "the toon's start view on the world map (its index entry's, agents/MAP.md §2.2)"
 				},
 				"announce": {
 					"type": "boolean",

@@ -16,8 +16,7 @@
 //   3. pan: a mouse drag moves the world by the drag; zoom: the "+" key (×1.5) and the wheel (at the cursor) change the
 //      scale (no zoom buttons since 2026-10-11);
 //   4. no two visible labels overlap (the phone overlap fix);
-//   5. a click on a (seen) place in "Orte" opens its card (name; "Kapitel N lesen" only when that chapter is readable for
-//      this reader) – a new one would play its reveal instead;
+//   5. a click on a (seen) place in "Orte" opens its card (its name) – a new one would play its reveal instead;
 //   6. "Orte" lists the visible places A–Z;
 //   7. universe-wide: in another public toon (none in the production data: skipped) the unlocked catpope places are on the
 //      map as plain markers (no label);
@@ -115,7 +114,7 @@ const chapterOf = async (n) => (chapterDocs[n] ??= await (await fetch(`${api}/li
 function sliceUnlocks(doc) {
 	return (doc?.groups ?? []).flatMap((g, gi) => (g.slices ?? []).flatMap((s, si) => (s.events ?? [])
 		.filter((e) => e?.type === 'unlockLocation' && e.trigger?.type === 'intersect' && !e.if && typeof e.params?.location === 'string')
-		.map((e) => ({ group: g.label, groupIndex: gi, slice: si, image: s.image ?? '', location: e.params.location, silent: !!e.params.silent }))));
+		.map((e) => ({ group: g.id, groupIndex: gi, slice: si, image: s.image ?? '', location: e.params.location, silent: !!e.params.silent }))));
 }
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -218,7 +217,7 @@ const MAP = `(() => {
 	return { open: !!o?.classList.contains('visible'), places: [...document.querySelectorAll('[data-testid^="map-place-"]')].map((b) => b.dataset.testid.slice(10)),
 		newPlaces: [...document.querySelectorAll('.place.new [data-testid^="map-place-"]')].map((b) => b.dataset.testid.slice(10)),
 		labels, scale: m ? m[0] : null, tx: m ? m[4] : null, ty: m ? m[5] : null, badge: !!document.querySelector('[data-testid="map-badge"]'),
-		card: document.querySelector('[data-testid="map-card"] h2')?.textContent ?? null, cardLink: document.querySelector('[data-testid="map-card-chapter"]')?.textContent.trim() ?? null,
+		card: document.querySelector('[data-testid="map-card"] h2')?.textContent ?? null,
 		list: [...document.querySelectorAll('[data-testid="map-list"] li button')].map((b) => b.firstChild?.textContent.trim()),
 		world: JSON.parse(localStorage.getItem('scutoons_game_scutoons') || 'null') };
 })()`;
@@ -333,10 +332,7 @@ async function reader(width, locale) {
 	report('"Orte" lists the visible places A–Z', JSON.stringify(listed) === JSON.stringify(names) ? [] : [JSON.stringify(listed), JSON.stringify(names)]);
 	await evaluate(`(() => { [...document.querySelectorAll('[data-testid="map-list"] li button')].find((b) => b.firstChild?.textContent.trim() === ${JSON.stringify(first.name)})?.click(); return true; })()`);
 	s = await waitFor(`(() => { const s = ${MAP}; return s.card ? s : null; })()`, 3000);
-	const chapterItem = bundle[locale].seasons[0].chapters.find((c) => c.number === first.chapter?.number);
-	const readable = !!chapterItem && ['published', 'draft'].includes(chapterItem.status) && !!chapterItem.isPreview;
-	const link = readable ? fill(msg.map.read_chapter, { number: first.chapter.number }) : null;
-	report(`a place's card: "${first.name}"${link ? ` + "${link}"` : ' (chapter not readable for a guest: no link)'}`, s?.card === first.name && s?.cardLink === link ? [] : [JSON.stringify({ card: s?.card, link: s?.cardLink })]);
+	report(`a place's card: "${first.name}"`, s?.card === first.name ? [] : [JSON.stringify({ card: s?.card })]);
 	await shot(`map-${width}-${locale}-4-card`);
 
 	// 7. universe-wide: another toon a guest can open shows catpope's unlocked places as plain markers. The dev DB is
@@ -434,9 +430,9 @@ async function reading() {
 	// R1. chapter 1 (its scene groups are one chain = one page, #145): page slice k → "<group>#<slice in it>"
 	const c1 = await chapterOf(1);
 	const r1 = await readSlices(`${viewer}/catpope/chapter/1`);
-	const pageSlice = c1.groups.flatMap((g) => g.slices.map((_, i) => `${g.label}#${i + 1}`));
+	const pageSlice = c1.groups.flatMap((g) => g.slices.map((_, i) => `${g.id}#${i + 1}`));
 	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [pageSlice[k - 1] ?? `?#${k}`, v]));
-	const exp1 = want(c1, c1.groups.map((g) => g.label));
+	const exp1 = want(c1, c1.groups.map((g) => g.id));
 	checkRead('chapter 1', c1, got1, exp1, r1);
 	await shot('map-reading-chapter-1');
 	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing) – only when a guest can
@@ -452,12 +448,12 @@ async function reading() {
 		const toasts = new Set();
 		let mapOpened = false;
 		for (const g of c2.groups) {
-			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
-			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
+			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.id)}`);
+			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.id}#${k}`] = v;
 			r.toasts.forEach((t) => toasts.add(t));
 			mapOpened ||= r.mapOpened;
 		}
-		exp2 = want(c2, c2.groups.map((g) => g.label));
+		exp2 = want(c2, c2.groups.map((g) => g.id));
 		checkRead('chapter 2', c2, got2, exp2, { toasts, mapOpened });
 	}
 	await open(`${viewer}/catpope`);

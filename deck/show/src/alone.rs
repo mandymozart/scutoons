@@ -22,8 +22,8 @@ pub fn listing(body: &str) -> Vec<Listed> {
     rows(body)
         .into_iter()
         .map(|(id, doc)| {
-            let toon = doc.get("toon").and_then(Value::as_str).unwrap_or_default().to_string();
-            Listed { name: id.clone(), id, toons: vec![toon], version: None, show: true }
+            let toons = crate::document::toons_of(&doc);
+            Listed { name: id.clone(), id, toons: if toons.is_empty() { vec![String::new()] } else { toons }, version: None, show: true }
         })
         .collect()
 }
@@ -117,7 +117,7 @@ mod tests {
         let doc = |text: &str, id: &str| {
             let mut v: Value = serde_json::from_str(text).unwrap();
             v["id"] = id.into();
-            v["toon"] = "sandbox".into();
+            v["toons"] = serde_json::json!(["sandbox"]);
             v
         };
         serde_json::json!({ "status": "success", "shows": [

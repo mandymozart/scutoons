@@ -18,12 +18,10 @@ import {
 	seasonMusicDownload,
 	validateCatalog,
 	catalogFromSeed,
-	resolveChapter,
 	resolveSeason,
 	validateFile,
 	validateNeutral,
 	type Catalog,
-	type ChapterDoc,
 	type SeasonDoc,
 	type ItemDef
 } from '../src/index.ts';
@@ -240,11 +238,6 @@ test('related items: the fixture season lists catalog items, once for every lang
 	assert.ok(wrong.some((p) => p.message.includes('"nope" is not in the item catalog') && p.locale === null));
 	assert.ok(wrong.some((p) => p.message.includes('listed twice')));
 	assert.ok(validateFile('season', { ...de, related_items: 'awakening_vinyl' }, 'de', { file: 's' }).some((p) => p.level === 'error' && p.path[0] === 'related_items'));
-	// chapters take the same field
-	const chapter: ChapterDoc = json('../../../server/tests/fixtures/content/catpope/_/chapter1.json');
-	const ch = validateFile('chapter', { ...resolveChapter(chapter, 'de', languages), related_items: ['record_player', 'nope'] }, 'de', { file: 'c', items: itemIds }).filter((p) => p.path[0] === 'related_items');
-	assert.equal(ch.length, 1);
-	assert.match(ch[0].message, /"nope"/);
 });
 
 test('season music comes from the related items’ album; old seasons keep their download fields', () => {

@@ -174,44 +174,6 @@ export interface JumpToTarget {
 }
 
 /**
- * The OLD per-toon map settings (`toon.map` in the reader's bundle): since the world map (entity `map`, agents/MAP.md) the
- * library computes it from the world + the toon's start view, for older viewer builds only (one release, then dropped).
- */
-export interface Map {
-	layers: MapLayers,
-	width: number,
-	height: number, 
-	center: MapCoordinates
-}
-
-export interface MapCoordinates {
-	x: number;
-	y: number;
-}
-
-export interface MapLayers {
-	terrain: string;
-}
-
-/** @deprecated the old `locations:<toon>:<l>` shape – computed from the world map for older viewer builds (`legacyToonMap`) */
-export interface MapLocation {
-	id: string;
-	label: string;
-	toonId: string;
-	chapterNumber?: string;
-	type: string;
-	image: string;
-	coordinates: MapCoordinates;
-}
-
-/** @deprecated the old `routes:<toon>:<l>` shape – computed from the world map for older viewer builds (`legacyToonMap`) */
-export interface MapRoute {
-	id: string;
-	title: string;
-	locations: string[];
-}
-
-/**
  * The standard slice (owner 2026-10-20, #78; 390 × 625 from 2026-09-30): 390 × 624 px – its 3x file (1170 × 1872) is
  * exactly WEBTOON's 800 × 1280, so a standard slice is one WEBTOON image. Slices are delivered and served at 1x as
  * one WebP (`s<n>/c<n>/<sXcY>-slice-N.webp`, agents/ASSETS.md "Folder convention"); other heights are fine, the width stays 390.
@@ -458,8 +420,6 @@ export interface Slice extends SensitiveFlag {
 	 */
 	pieces?: CollagePiece[];
 	events?: Array<VNSliceEvent>;
-	_type?: string;
-	_label?: string;
 }
 
 /**
@@ -498,7 +458,12 @@ export interface Checkpoint {
 }
 
 export interface Group extends AcceptedWarnings {
-	label?: string;
+	/**
+	 * The group's address inside its chapter (`chapter:<n>.<id>`): unique per chapter, slug-safe (`GROUP_ID_PATTERN`).
+	 * Jump targets, `?label=` links and the creator's `?group=` name it; renaming it rewrites them (`renameGroupId`).
+	 * @pattern ^[A-Za-z0-9][A-Za-z0-9_-]*$
+	 */
+	id: string;
 	renderer?: {
 		type: Renderer;
 		params?: RendererParams;
@@ -543,17 +508,6 @@ export interface Chapter extends AcceptedWarnings {
 	audio?: AudioConfiguration;
 	groups: Group[];
 	isPreview?: boolean;
-	/**
-	 * Who appears in this chapter: registry character ids, a subset of the season's cast (`cast:<toon>`), in display
-	 * order. Optional and editorial – suggested from the chapter's VN scenes (`chapterSceneCharacters`), set by hand for
-	 * plain scroll chapters. The reader shows it on the chapter list item and at the chapter start.
-	 */
-	featuring?: string[];
-	/**
-	 * Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to
-	 * every locale), agents/ITEMS.md "Players, albums, related items". Stored + edited; the reader does not show it yet.
-	 */
-	related_items?: string[];
 	/** how "Show hints" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies */
 	highlight?: Highlighter;
 }
@@ -665,8 +619,6 @@ export interface Event {
 	city: string;
 	category: EventCategory;
 	link?: string;
-	/** the toons the event belongs to (not shown yet) */
-	toon?: string[];
 }
 
 /** The `events` document: every event, in any order (the viewer sorts) */
@@ -735,8 +687,8 @@ export interface Toon extends AcceptedWarnings {
 	 * carry one – the reader falls back to it when the season has none
 	 */
 	cover?: Cover;
-	/** the old per-toon map (older viewer builds), filled by the library from the world map + the toon's start view */
-	map?: Map;
+	/** the toon's start view on the world map (its index entry's, agents/MAP.md §2.2) */
+	map?: ToonMapView;
 	/**
 	 * Show the toon publicly before it is published (owner 2026-10-01): the landing page's tile and the main menu list it
 	 * as "bald" / "soon" (not clickable, no dates, no chapters). Language-neutral.
@@ -759,7 +711,7 @@ export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
  * The language-neutral toon settings, stored in the index entry `toon:<toon>` (all optional there). `map` is the toon's
  * start view on the world map (`{ center?, zoom? }`, agents/MAP.md §2.2); width, height and layers belong to the world.
  */
-export type ToonNeutralSettings = Partial<Pick<Toon, Exclude<ToonNeutralField, 'map'>>> & { map?: ToonMapView };
+export type ToonNeutralSettings = Partial<Pick<Toon, ToonNeutralField>>;
 
 /**
  * The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral
@@ -859,6 +811,4 @@ export interface ToonBundle {
 	entry: ToonIndex | null;
 	toon: Toon;
 	seasons: SeasonOverview[];
-	locations: MapLocation[];
-	routes: MapRoute[];
 }

@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
-import { DEFAULTS, clampScale, readSettings } from '../src/lib/shell/settings.ts';
+import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
+import { PRESETS, availableTabs, mainOf, panelSpecs } from '../src/lib/shell/presets.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
 	assert.equal(addressOf('/toons'), null);
 	assert.equal(addressOf('/catpope'), 'toon:catpope');
-	for (const sub of ['cast', 'credits', 'script', 'toon']) assert.equal(addressOf(`/catpope/${sub}`), 'toon:catpope', sub);
+	for (const sub of ['credits', 'script', 'toon']) assert.equal(addressOf(`/catpope/${sub}`), 'toon:catpope', sub);
 	assert.equal(addressOf('/catpope/season/1'), 'season:catpope:1');
 	assert.equal(addressOf('/catpope/season/1/cover'), 'season:catpope:1');
 	assert.equal(addressOf('/catpope/chapter/3'), 'chapter:catpope:3');
@@ -17,7 +18,7 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/catpope/chapter/3/storyboard'), 'storyboard:catpope:3');
 	assert.equal(addressOf('/characters'), AREAS.characters);
 	assert.equal(addressOf('/characters', '?id=catpope'), 'character:catpope');
-	assert.equal(addressOf('/characters', '?tab=moods'), AREAS.moods);
+	assert.equal(addressOf('/characters', '?tab=moods'), AREAS.characters, 'the mood words are a panel tab, not a page');
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
@@ -75,11 +76,11 @@ test('every address has a workspace and an icon; a typed address resolves', () =
 test('visiting opens a tab right of the front one, or brings its tab to the front', () => {
 	let s = visit(EMPTY, 'toon:catpope', '/catpope', 'CatPope');
 	s = visit(s, 'chapter:catpope:3', '/catpope/chapter/3');
-	s = visit(s, 'toon:catpope', '/catpope/cast');
+	s = visit(s, 'toon:catpope', '/catpope/credits');
 	s = visit(s, 'character:catpope', '/characters?id=catpope');
 	assert.deepEqual(s.tabs.map((t) => t.address), ['toon:catpope', 'character:catpope', 'chapter:catpope:3']);
 	assert.equal(s.front, 'character:catpope');
-	assert.equal(s.tabs[0].href, '/catpope/cast', 'the tab keeps the page it was last on');
+	assert.equal(s.tabs[0].href, '/catpope/credits', 'the tab keeps the page it was last on');
 	assert.equal(visit(s, null, '/').front, null, 'Home keeps the tabs');
 	assert.equal(visit(s, null, '/').tabs.length, 3);
 });
@@ -120,11 +121,45 @@ test('the tabs stay below the limit and a broken store opens empty', () => {
 	});
 });
 
-test('machine settings: night by default, every field checked', () => {
+test('machine settings: day by default (owner 2026-11-21), every field checked', () => {
 	assert.deepEqual(readSettings(undefined), DEFAULTS);
-	assert.equal(DEFAULTS.theme, 'night');
-	assert.deepEqual(readSettings({ theme: 'day', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'day', scale: 1.5, reopenTabs: false });
+	assert.equal(DEFAULTS.theme, 'day');
+	assert.deepEqual(readSettings({ theme: 'night', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'night', scale: 1.5, reopenTabs: false });
+	assert.equal(readSettings({ theme: 'dusk' }).theme, 'day');
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);
+});
+
+const TABS = ['toon', 'tree', 'inspector', 'kanon', 'moods', 'flow', 'preview', 'problems', 'timeline', 'library', 'settings'].map((id) => ({ id, name: id, icon: 'x', about: '' }));
+
+test('a workspace is a preset: its panels hold only the tabs with content, Library and Settings everywhere', () => {
+	const specs = panelSpecs('chapter', availableTabs(['tree', 'flow', 'problems'], 'catpope'), TABS);
+	const ids = specs.map((p) => p.id);
+	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
+	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
+	assert.deepEqual(specs[1].tabs, ['problems', 'flow'], 'the inspector without content is not offered');
+	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
+	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
+});
+
+test('a tab with content that no preset panel holds gets a closed panel of its own', () => {
+	const specs = panelSpecs('map', availableTabs(['tree', 'flow'], null), TABS);
+	const flow = specs.find((p) => p.id === 'flow');
+	assert.deepEqual(flow?.tabs, ['flow']);
+	assert.equal(flow?.place.closed, true);
+	assert.ok(!specs.some((p) => p.tabs?.includes('toon')), 'the Toon only with a toon');
+});
+
+test('every workspace kind has a preset; the stage holds the person’s tab, else the preset’s', () => {
+	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
+	assert.equal(mainOf('chapter', {}), null);
+	assert.equal(mainOf('chapter', { main: 'flow' }), 'flow');
+	assert.equal(mainOf('chapter', { main: null }), null);
+});
+
+test('view settings: per workspace, every field checked', () => {
+	assert.deepEqual(readViews({ chapter: { main: 'flow', clear: false }, map: { main: 3, clear: 'no' }, bad: 1 }), { chapter: { main: 'flow', clear: false }, map: {} });
+	assert.deepEqual(readViews([]), {});
+	assert.deepEqual(readSettings({ views: { home: { clear: true } } }).views, { home: { clear: true } });
 });

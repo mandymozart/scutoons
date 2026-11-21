@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; migrate: region; an item event: item; a jump: chapter, group, season, toon, product; setVariable: variable; a show cell's piece: scene). A jump's kinds are its target types (`JumpToTargetType`, a group is a chapter target with its label): `season:<number>` (the toon's season), `toon:<id>` (a toon: its page, and in the creator's jump field the way into its own book), `product:<id>` (a shop product of the toon or a shared one); XR is not listed: there is no catalog of XR targets. `region:<id>`: a region of the world map, where migrate registers someone. `scene:<id>`: a deck scene (#487, research/SCENES.md §8: `scene` means the deck scene only – never a chapter's group, a screenplay heading or a sandbox), listed only as published and only in the books of the toons its `toons` names. character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. Proposals the owner has not confirmed (#477): a chapter's group is referenced `chapter:<number>.<group>` (its `name` the label as an event stores it, the reference word a safe form of it) and a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
+/// What an entry is – the one thing a typeahead filters by: an asker takes the kinds it may pick (a VN character event: character, persona, look; unlockLocation: location; migrate: region; an item event: item; a jump: chapter, group, season, toon, product; setVariable: variable; a show cell's piece: scene). A jump's kinds are its target types (`JumpToTargetType`, a group is a chapter target with its id): `season:<number>` (the toon's season), `toon:<id>` (a toon: its page, and in the creator's jump field the way into its own book), `product:<id>` (a shop product of the toon or a shared one); XR is not listed: there is no catalog of XR targets. `region:<id>`: a region of the world map, where migrate registers someone. `scene:<id>`: a deck scene (#487, research/SCENES.md §8: `scene` means the deck scene only – never a chapter's group, a screenplay heading or a sandbox), listed only as published and only in the books of the toons its `toons` names. character / persona / look are the levels of address.rs's `Target` (`character:<id>[.<persona>[.<look>]]`); location, item and chapter are referenced `<kind>:<id>`. A chapter's group is referenced `chapter:<number>.<id>` (its `name` the group's id, as a jump stores it). A proposal the owner has not confirmed (#477): a story variable `variable:<scope>.<name>` (scope = the owning toon or `global`; its `name` the variable as written in this toon).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AddressKind {
 	#[serde(rename = "character")]
@@ -122,7 +122,7 @@ pub struct AddressEntry {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub address: Option<String>,
 	pub kind: AddressKind,
-	/// its own id at its level (`default` for the look above, `3` for a chapter, a group's label, a variable as written in this toon: `coins`, `global.coins`, `toptoy.coins`, a scene's id `nave`; its stage's name is its label under the toon's source language): what a document's field holds
+	/// its own id at its level (`default` for the look above, `3` for a chapter, a group's id, a variable as written in this toon: `coins`, `global.coins`, `toptoy.coins`, a scene's id `nave`; its stage's name is its label under the toon's source language): what a document's field holds
 	pub name: String,
 	/// the reference one level up (a look's persona, a persona's character); absent at the top
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -158,4 +158,28 @@ pub struct AddressBook {
 	pub source: String,
 	/// parents before their children; characters, locations, regions, items, seasons, chapters (each followed by its groups), products, toons (this one first), scenes (published, by id), variables
 	pub entries: Vec<AddressEntry>,
+}
+
+/// One toon's part of several books (#708): the entries only that toon's book has, under its source language.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AddressBookSection {
+	pub toon: String,
+	/// the toon's source language: the second step of the locale order for this section's entries
+	pub source: String,
+	/// in the book's order, without the shared entries
+	pub entries: Vec<AddressEntry>,
+}
+
+/// Several toons' books in one answer (#708, GET /api/addresses?toons=a,b: a show that mixes toons): one scan of the newest versions; what every one of these books holds alike (regions, toons, templates, variables, the shared items and products) once in `shared`, as the home toon's book writes it, then a section per toon in the asked order (the first is the home).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AddressBooks {
+	/// the entries' format, the same as one book's
+	pub address_book: i64,
+	/// as asked, the home first
+	pub toons: Vec<String>,
+	/// one version over every version the books were built from (the response's ETag)
+	pub version: String,
+	/// the entries every one of these books holds, under the home toon's source language
+	pub shared: Vec<AddressEntry>,
+	pub books: Vec<AddressBookSection>,
 }

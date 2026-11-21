@@ -247,9 +247,14 @@
 		padding: var(--space-05) 0;
 		border-top: var(--border-width-hairline) solid var(--border-subtle);
 	}
-	.list li.failed {
-		border-left: var(--border-width-regular) solid var(--state-error);
-		padding-left: var(--space-05);
+	.list li.failed::before {
+		content: '';
+		display: inline-block;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05);
+		border-radius: 50%;
+		background: var(--state-error);
 	}
 	.list p {
 		margin: 0;

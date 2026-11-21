@@ -25,7 +25,7 @@ use stdClass;
  * - **regions**: every region of the world map (one map for all toons) – `region:<id>`; references
  * - **items**: the catalog's items of the toon and the shared ones (no toon) – `item:<id>`; addresses
  * - **seasons**: the toon's seasons – `season:<number>`; references
- * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`; references
+ * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<id>`; references
  * - **products**: the shop's products of the toon and the shared ones – `product:<id>`; references
  * - **toons**: every toon, this one first – `toon:<id>`; references (a jump's other toon; XR targets have no catalog to list)
  * - **scenes** (#487, research/SCENES.md §3 / §8): the deck scenes whose published version names the toon in its `toons` –
@@ -39,10 +39,9 @@ use stdClass;
  *   files, never in entity_versions)
  * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
  *   `variable:<scope>.<name>`; references
- * The group and variable forms are proposals the owner has not confirmed (#477, slice B): cheap to change, here and in the
- * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its reference word is a safe form
- * of the label (letters, digits, `_` and `-`; anything else becomes `-`, a second label with the same form gets `-2` …). A
- * variable's `name` is the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
+ * A group is its chapter's `chapter:<number>.<id>`: its `name` is the group's `id` (slug-safe, unique in the chapter, the
+ * value a jump stores). The variable form is a proposal the owner has not confirmed (#477, slice B). A variable's `name` is
+ * the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
  * Not in it yet: sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
  * regions and toons (tombstones) are left out.
  *
@@ -65,6 +64,8 @@ final class AddressBook
      * persona and a look (the show's addressing, `picks_up`), a scene (a deck plays it, #487). Every other kind is a reference only.
      */
     private const ADDRESSED = ['character', 'persona', 'look', 'item', 'scene'];
+    /** a chapter group's id (@scutoons/content GROUP_ID_PATTERN, the chapter schema's pattern) */
+    private const GROUP_ID = '/^[A-Za-z0-9][A-Za-z0-9_-]*$/';
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
 
     public function __construct(private readonly Database $db, private readonly CatalogStore $catalog, private readonly Cache $cache, private readonly FlowIndex $flow)
@@ -77,27 +78,53 @@ final class AddressBook
      */
     public function document(string $toon): ?array
     {
-        $rows = $this->db->all(
-            "SELECT entity_key, MAX(id) AS latest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
-             WHERE locale IS NULL AND ((kind IN ('cast', 'chapter', 'season') AND toon = ?) OR kind IN ('toon', 'character', 'place', 'region'))
-             GROUP BY entity_key ORDER BY entity_key",
-            [$toon]
-        );
-        $versions = [];
-        foreach ($rows as $r) $versions[(string) $r['entity_key']] = [(int) $r['latest'], $r['published'] !== null ? (int) $r['published'] : null];
-        if (!isset($versions["toon:$toon"])) return null;
-        $mine = fn(array $r) => in_array(self::catalogToon($r['data']), [$toon, null], true);
-        $items = array_values(array_filter($this->catalog->rows('items'), $mine));
-        $products = array_values(array_filter($this->catalog->rows('products'), $mine));
-        $variables = $this->variables();
-        $scenes = $this->scenes($toon);
-        $rows = fn(array $list) => array_map(fn(array $r) => [$r['id'], sha1($r['data'])], $list);
-        $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$versions, $rows($items), $rows($products), $variables, array_map(fn(array $s) => $s['row'], $scenes)])), 0, 20);
-        $key = "address-book:$toon:$version";
+        $scan = $this->scan([$toon]);
+        if ($scan === null) return null;
+        $part = $scan['parts'][$toon];
+        $key = "address-book:$toon:{$part['version']}";
+        $cached = $this->cache->get($key);
+        if ($cached !== null) return ['version' => $part['version'], 'json' => $cached];
+        $book = $this->compose($toon, $part['version'], $this->documents($scan['versions']), $part['items'], $part['products'], $scan['variables'], $part['scenes']);
+        $json = json_encode(self::wire($book), self::JSON_FLAGS);
+        $this->cache->set($key, $json, self::CACHE_TTL);
+        return ['version' => $part['version'], 'json' => $json];
+    }
+
+    /**
+     * Several toons' books in one answer (#708; the shape: AddressBooks of the schema): one scan of the newest versions,
+     * each document decoded once; what every one of these books holds alike (regions, toons, templates, variables, the shared
+     * items and products) once in `shared`, as the home toon's book writes it, then a section per toon with the rest of its
+     * book, in the asked order (the first is the home). One version over every toon's.
+     * @param list<string> $toons
+     * @return array{version: string, json: string}|string the document, or the first toon that has no `toon:<toon>` document
+     */
+    public function books(array $toons): array|string
+    {
+        $scan = $this->scan($toons);
+        if ($scan === null) {
+            foreach ($toons as $t) if ($this->scan([$t]) === null) return $t;
+            return $toons[0];
+        }
+        $version = substr(sha1(AddressBookTypes::FORMAT . 'books' . json_encode(array_map(fn(array $p) => $p['version'], $scan['parts']))), 0, 20);
+        $key = "address-books:$version";
         $cached = $this->cache->get($key);
         if ($cached !== null) return ['version' => $version, 'json' => $cached];
-        $book = $this->compose($toon, $version, $this->documents($versions), $items, $products, $variables, $scenes);
-        $json = json_encode(self::wire($book), self::JSON_FLAGS);
+        $docs = $this->documents($scan['versions']);
+        $shared = [];
+        foreach ($scan['parts'] as $part) {
+            foreach ($part['items'] as $r) if (self::catalogToon($r['data']) === null) $shared["item:{$r['id']}"] = true;
+            foreach ($part['products'] as $r) if (self::catalogToon($r['data']) === null) $shared["product:{$r['id']}"] = true;
+            foreach ($part['scenes'] as $id => $s) if (!is_array($s['doc']->toons ?? null) || $s['doc']->toons === []) $shared["scene:$id"] = true;
+        }
+        $isShared = fn(array $e): bool => in_array($e['kind'], ['region', 'toon', 'variable'], true) || isset($shared[$e['ref']]);
+        $out = ['address_book' => AddressBookTypes::FORMAT, 'toons' => $toons, 'version' => $version, 'shared' => [], 'books' => []];
+        foreach ($toons as $i => $toon) {
+            $part = $scan['parts'][$toon];
+            $book = self::wire($this->compose($toon, $part['version'], $docs, $part['items'], $part['products'], $scan['variables'], $part['scenes']));
+            if ($i === 0) $out['shared'] = array_values(array_filter($book['entries'], $isShared));
+            $out['books'][] = ['toon' => $toon, 'source' => $book['source'], 'entries' => array_values(array_filter($book['entries'], fn(array $e) => !$isShared($e)))];
+        }
+        $json = json_encode($out, self::JSON_FLAGS);
         $this->cache->set($key, $json, self::CACHE_TTL);
         return ['version' => $version, 'json' => $json];
     }
@@ -114,6 +141,50 @@ final class AddressBook
         /** @var array{entries: list<array{ref: string}>} $book */
         $book = json_decode($doc['json'], true);
         return array_column($book['entries'], 'ref');
+    }
+
+    /**
+     * What the books of `$toons` are built from, read once: the newest and published version ids of every document any of
+     * them reads (each toon's cast, chapters and seasons; every toon, character, place and region), the catalog, the
+     * variables and the published scenes – and per toon its share of it and its version (the hash of the ids it was built
+     * from: content-addressed, nothing to invalidate). Null when a toon has no `toon:<toon>` document.
+     * @param list<string> $toons
+     * @return array{versions: array<string, array{0: int, 1: ?int}>, variables: array<string, array{set: list<string>, read: list<string>}>, parts: array<string, array{version: string, items: list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}>, products: list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}>, scenes: array<string, array{row: int, doc: stdClass}>}>}|null
+     */
+    private function scan(array $toons): ?array
+    {
+        $rows = $this->db->all(
+            "SELECT entity_key, MAX(id) AS latest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
+             WHERE locale IS NULL AND ((kind IN ('cast', 'chapter', 'season') AND toon IN (" . implode(',', array_fill(0, count($toons), '?')) . ")) OR kind IN ('toon', 'character', 'place', 'region'))
+             GROUP BY entity_key ORDER BY entity_key",
+            $toons
+        );
+        $versions = [];
+        foreach ($rows as $r) $versions[(string) $r['entity_key']] = [(int) $r['latest'], $r['published'] !== null ? (int) $r['published'] : null];
+        foreach ($toons as $toon) if (!isset($versions["toon:$toon"])) return null;
+        $allItems = $this->catalog->rows('items');
+        $allProducts = $this->catalog->rows('products');
+        $variables = $this->variables();
+        $allScenes = $this->scenes();
+        $hashes = fn(array $list) => array_map(fn(array $r) => [$r['id'], sha1($r['data'])], $list);
+        $parts = [];
+        foreach ($toons as $toon) {
+            $mine = fn(array $r) => in_array(self::catalogToon($r['data']), [$toon, null], true);
+            $items = array_values(array_filter($allItems, $mine));
+            $products = array_values(array_filter($allProducts, $mine));
+            $scenes = array_filter($allScenes, fn(array $s) => !is_array($s['doc']->toons ?? null) || $s['doc']->toons === [] || in_array($toon, $s['doc']->toons, true));
+            $own = array_filter($versions, fn(string $key) => self::readBy($key, $toon), ARRAY_FILTER_USE_KEY);
+            $version = substr(sha1(AddressBookTypes::FORMAT . json_encode([$own, $hashes($items), $hashes($products), $variables, array_map(fn(array $s) => $s['row'], $scenes)])), 0, 20);
+            $parts[$toon] = ['version' => $version, 'items' => $items, 'products' => $products, 'scenes' => $scenes];
+        }
+        return ['versions' => $versions, 'variables' => $variables, 'parts' => $parts];
+    }
+
+    /** whether `$toon`'s book reads the document `$key`: its own cast, chapters and seasons, and every toon, character, place and region */
+    private static function readBy(string $key, string $toon): bool
+    {
+        return $key === "cast:$toon" || str_starts_with($key, "chapter:$toon:") || str_starts_with($key, "season:$toon:")
+            || preg_match('#^(toon|character|place|region):#', $key) === 1;
     }
 
     /**
@@ -137,19 +208,18 @@ final class AddressBook
     }
 
     /**
-     * The published deck scenes whose `toons` name the toon, and the templates – published scenes with no toon (#504,
-     * SCENES.md §9.5, owner 2026-11-12 [scenes]: "in every toon's book"; the core's one definition, scene_document.rs
-     * `is_template`, held to this by the shared vectors book-entries.json, #509) –, by id (a draft never leaves the editor)
+     * Every published deck scene by id (a draft never leaves the editor); a toon's book takes the ones whose `toons` name
+     * it, and the templates – published scenes with no toon (#504, SCENES.md §9.5, owner 2026-11-12 [scenes]: "in every
+     * toon's book"; the core's one definition, scene_document.rs `is_template`, held to this by the shared vectors
+     * book-entries.json, #509)
      * @return array<string, array{row: int, doc: stdClass}> scene id → the published version's row id and document
      */
-    private function scenes(string $toon): array
+    private function scenes(): array
     {
         $out = [];
         foreach ($this->db->all("SELECT id, entity_key, json FROM entity_versions WHERE kind = 'scene' AND status = 'published' AND locale IS NULL ORDER BY entity_key") as $r) {
             $doc = json_decode((string) $r['json']);
             if (!$doc instanceof stdClass) continue;
-            $toons = is_array($doc->toons ?? null) ? $doc->toons : [];
-            if ($toons !== [] && !in_array($toon, $toons, true)) continue;
             $out[substr((string) $r['entity_key'], strlen('scene:'))] = ['row' => (int) $r['id'], 'doc' => $doc];
         }
         return $out;
@@ -221,13 +291,12 @@ final class AddressBook
             $origin = ['key' => $key, 'state' => $state];
             $chapter = "chapter:$m[1]";
             $chapters[(int) $m[1]] = [['ref' => $chapter, 'kind' => 'chapter', 'name' => $m[1], 'labels' => self::text($doc->title ?? null), 'origin' => $origin]];
-            $words = [];
+            $ids = [];
             foreach (self::objects($doc instanceof stdClass ? $doc->groups ?? null : null) as $group) {
-                $label = $group->label ?? null;
-                if (!is_string($label) || $label === '' || isset($words[$label])) continue;
-                $word = self::word($label, $words);
-                $words[$label] = $word;
-                $chapters[(int) $m[1]][] = ['ref' => "$chapter.$word", 'kind' => 'group', 'name' => $label, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
+                $id = $group->id ?? null;
+                if (!is_string($id) || preg_match(self::GROUP_ID, $id) !== 1 || isset($ids[$id])) continue;
+                $ids[$id] = true;
+                $chapters[(int) $m[1]][] = ['ref' => "$chapter.$id", 'kind' => 'group', 'name' => $id, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
             }
         }
         ksort($chapters);
@@ -337,20 +406,6 @@ final class AddressBook
             $out[] = $placeholder;
         }
         return $out;
-    }
-
-    /**
-     * A group label as a reference word (proposal, #477): letters, digits, `_` and `-` stay, every other run becomes `-`
-     * (the grammar's word may not hold `/ : . @ #` or white space); a form another label of the chapter already has gets `-2`, `-3` …
-     * @param array<string, string> $taken label → its word, this chapter's so far
-     */
-    private static function word(string $label, array $taken): string
-    {
-        $base = trim((string) preg_replace('/[^\p{L}\p{N}_-]+/u', '-', $label), '-');
-        if ($base === '') $base = 'group';
-        $word = $base;
-        for ($n = 2; in_array($word, $taken, true); $n++) $word = "$base-$n";
-        return $word;
     }
 
     /**

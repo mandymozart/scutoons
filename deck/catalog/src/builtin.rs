@@ -483,7 +483,7 @@ fn build() -> Vec<Descriptor> {
         Audio,
         "core",
         "stage",
-        "An outlet (Max's dac~): writes its input to device channels. `group` names the outlet group (default main; cue …) whose device channels the deck configuration gives; `first` (counted from 1) or a `channels` list pins device channels instead; nothing set = main on channels 1.. and any other group silent. An outlet with more channels than the device has is folded by the deck configuration (the layout's down-mix, else the first channels). Several outs add up.",
+        "An outlet (Max's dac~): writes its input to device channels. `group` names the outlet group (default main; cue …) whose device channels the deck configuration gives; `first` (counted from 1) or a `channels` list pins device channels instead; nothing set = main on channels 1.., the metronome's `click` group where main plays, and any other group silent. An outlet with more channels than the device has is folded by the deck configuration (the layout's down-mix, else the first channels). Several outs add up.",
         &[aanyi("in", "the sound written to the outlet"), ci("gain", "level of this out")],
         &[
             lin("gain", 0.0, 1.5, 1.0, "", "level of this out"),

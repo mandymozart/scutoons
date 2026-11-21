@@ -1,7 +1,6 @@
 //! `deck-core` – the platform-free core of the stage (#182): the foundations every deck shares, native and wasm32.
 //!
-//! - **Always:** `math` (sines with the same bits on every target), `lanes` (the `F8` vector ops), `dsp` (the oscillator,
-//!   noise and filter units), `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft
+//! - **Always:** `math` (sines with the same bits on every target), `lanes` (the `F8` vector ops), `smooth` (control values glide into audio – no zipper, #188), `limiter` (the output's soft
 //!   cap), `monitor` (the stats every deck shows, #364), `lead` (the adaptive output lead, #365), `meters` (the level
 //!   meters' ballistics and dB scale), `load` (the CPU / GPU meters' sampling, smoothing and peak), `devices` (a device message's words, its lamp's activity – #373) and `stage` (the
 //!   deck-native modules a scene needs, the carried part of a scene), `ui_tone` (the UI's short tones on top of the output), `units` (the units
@@ -18,9 +17,9 @@
 
 pub mod asset_edit;
 pub mod devices;
-pub mod dsp;
 pub mod fit;
 pub mod history;
+pub mod places;
 pub mod lanes;
 pub mod lead;
 pub mod limiter;

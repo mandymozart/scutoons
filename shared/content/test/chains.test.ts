@@ -62,11 +62,11 @@ test('chapterReach: groups / slices / events – reachable, only through a condi
 	const msg = { type: 'showMessage', params: { text: 'x' } };
 	const g = (o: object = {}) => ({ slices: [{}, {}, {}], ...o });
 	const none = toonFacts([]);
-	// a always jumps: b (no label) can't be reached; c's label is unknown to the toon → unreachable too (with facts)
-	let r = chapterReach([g({ label: 'a', events: [jump], continues: true }), g({ continues: true }), g({ label: 'c' })], none);
+	// a always jumps: b (no id) can't be reached; c's id is unknown to the toon → unreachable too (with facts)
+	let r = chapterReach([g({ id: 'a', events: [jump], continues: true }), g({ continues: true }), g({ id: 'c' })], none);
 	assert.deepEqual(r.groups, ['reachable', 'unreachable', 'unreachable']);
-	// without facts every labelled group may be jumped to
-	r = chapterReach([g({ label: 'a', events: [jump], continues: true }), g({ continues: true }), g({ label: 'c' })]);
+	// without facts every group with an id may be jumped to
+	r = chapterReach([g({ id: 'a', events: [jump], continues: true }), g({ continues: true }), g({ id: 'c' })]);
 	assert.deepEqual(r.groups, ['reachable', 'unreachable', 'reachable']);
 	// a conditional jump: the rest only through a condition (the test must fail)
 	r = chapterReach([g({ events: [{ ...jump, if: { variable: 'v', op: 'set' } }, msg], continues: true }), g()]);
@@ -79,10 +79,10 @@ test('chapterReach: groups / slices / events – reachable, only through a condi
 	assert.deepEqual([r.slices[0], r.groups[1]], [['reachable', 'reachable', 'unreachable'], 'unreachable']);
 	r = chapterReach([g({ continues: true, slices: [{ events: [{ ...jump, trigger: { type: 'click' } }] }, {}] }), g()]);
 	assert.deepEqual(r.groups, ['reachable', 'reachable']);
-	// the follow-up bar leads to a labelled next chain – not after an authored end, not to an unlabelled group
-	r = chapterReach([g(), g({ label: 'b' })], none);
+	// the follow-up bar leads to the next chain – not after an authored end
+	r = chapterReach([g(), g({ id: 'b' })], none);
 	assert.deepEqual(r.groups, ['reachable', 'reachable']);
-	r = chapterReach([g({ end: { target: { type: 'chapter', value: '3' } } }), g({ label: 'b' })], none);
+	r = chapterReach([g({ end: { target: { type: 'chapter', value: '3' } } }), g({ id: 'b' })], none);
 	assert.deepEqual(r.groups, ['reachable', 'unreachable']);
 	// events after an unconditional jump / divert; a slice event's divert enters the script at its point
 	const script = [msg, jump, msg, { type: 'label', params: { name: 'p' } }, msg];
@@ -130,7 +130,7 @@ test('chapterReach: never-true conditions cut their branch; endless loops; big c
 	// events diverting around in a cycle, many groups: linear, no recursion – twice the groups take about twice the time
 	// (the growth is asserted, not a wall-clock limit: the machine may be busy)
 	const big = Array.from({ length: 600 }, (_, i) => (i % 3 === 0 ? { type: 'label', params: { name: `l${i}` } } : i % 3 === 1 ? { type: 'divert', params: { to: `l${(i + 2) % 600}` }, if: { variable: 'v', op: 'set' } } : msg));
-	const chapter = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `g${i}`, continues: i < n - 1, slices: [{}, {}], events: big }));
+	const chapter = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `g${i}`, continues: i < n - 1, slices: [{}, {}], events: big }));
 	assert.equal(chapterReach(chapter(200)).groups.length, 200);
 	assertLinear((n) => chapterReach(chapter(n)), 100);
 });
@@ -152,11 +152,11 @@ test('groupEnd: a usable target only', () => {
 test("nextStep: after the chain's last group; an authored end wins", () => {
 	const sequence = [{ number: 1, status: 'published', isPreview: true }, { number: 2, status: 'published', isPreview: true }];
 	const groups = [
-		{ label: 'a', continues: true },
-		{ label: 'b' },
-		{ label: 'c', continues: true },
+		{ id: 'a', continues: true },
+		{ id: 'b' },
+		{ id: 'c', continues: true },
 		{ end: { target: { type: 'chapter', value: '2', label: 'x' }, auto: true } },
-		{ label: 'e' }
+		{ id: 'e' }
 	];
 	// any group of the chain a–b: the group after it
 	assert.deepEqual(nextStep({ groups, group: 0, chapter: 1, sequence, member: false }), { kind: 'group', label: 'c' });
@@ -166,10 +166,10 @@ test("nextStep: after the chain's last group; an authored end wins", () => {
 	assert.deepEqual(nextStep({ groups, group: 2, chapter: 1, sequence, member: false }), jump);
 	assert.deepEqual(nextStep({ groups, group: 3, chapter: 1, sequence, member: false }), jump);
 	// an end in the middle of a chain is never read
-	const middle = [{ label: 'a', continues: true, end: { target: { type: 'toon', value: 't' } } }, { label: 'b' }, { label: 'c' }];
+	const middle = [{ id: 'a', continues: true, end: { target: { type: 'toon', value: 't' } } }, { id: 'b' }, { id: 'c' }];
 	assert.deepEqual(nextStep({ groups: middle, group: 0, chapter: 1, sequence, member: false }), { kind: 'group', label: 'c' });
 	// a chain to the chapter's end → the next chapter
-	assert.deepEqual(nextStep({ groups: [{ label: 'a', continues: true }, { label: 'b' }], group: 0, chapter: 1, sequence, member: false }), { kind: 'chapter', chapter: 2 });
+	assert.deepEqual(nextStep({ groups: [{ id: 'a', continues: true }, { id: 'b' }], group: 0, chapter: 1, sequence, member: false }), { kind: 'chapter', chapter: 2 });
 });
 
 test("validate: continues / end on groups and the chapter's chains", () => {
@@ -181,11 +181,11 @@ test("validate: continues / end on groups and the chapter's chains", () => {
 		number: 1,
 		language: 'de',
 		release: '2025-01-01',
-		groups: groups.map((g, i) => ({ label: `g${i}`, renderer: { type: 'vertical' }, slices: slices(1), ...g }))
+		groups: groups.map((g, i) => ({ id: `g${i}`, renderer: { type: 'vertical' }, slices: slices(1), ...g }))
 	});
 	const list = (data: object, ctx: object = {}) =>
 		validateFile('chapter', data, 'de', { file: 'x', ...ctx } as never)
-			.filter((p) => /continues|end|label/.test(p.path.join('.')))
+			.filter((p) => /continues|end|label|^groups\.\d+\.id$/.test(p.path.join('.')))
 			.map((p) => `${p.level} ${p.path.join('.')}`);
 	const problems = (groups: object[]) => list(chapter(groups));
 	assert.deepEqual(problems([{ continues: true }, { continues: false, end: { target: { type: 'chapter', value: '2' }, auto: true } }]), []);
@@ -204,16 +204,12 @@ test("validate: continues / end on groups and the chapter's chains", () => {
 	// VN groups link like any other (owner 2026-10-06)
 	assert.deepEqual(problems([{ continues: true, events: [] }, {}]), []);
 	assert.deepEqual(problems([{ continues: true }, { events: [] }]), []);
-	// a script that can jump away and continues: the next group needs a label (a warning); with one it is fine
+	// ids: required, slug-safe, unique in the chapter
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } }, if: { variable: 'v', op: 'set' } };
-	assert.deepEqual(problems([{ continues: true, events: [jump] }, { label: undefined }]), ['warning groups.1.label', 'warning groups.1.label']);
+	assert.deepEqual(problems([{ continues: true, events: [jump] }, { id: undefined }]), ['error groups.1.id']);
 	assert.deepEqual(problems([{ continues: true, events: [jump] }, {}]), []);
-	// a chain that isn't the chapter's start needs a label on its first group (the plain "no label" warnings come first)
-	assert.deepEqual(problems([{}, { label: undefined, continues: true }, { label: undefined }]), [
-		'warning groups.1.label',
-		'warning groups.2.label',
-		'warning groups.1.label'
-	]);
+	assert.deepEqual(problems([{ id: 'a b' }]), ['error groups.0.id']);
+	assert.deepEqual(problems([{ id: 'x' }, { id: 'x' }]), ['error groups.1.id']);
 });
 
 test('validate: text box ids unique in the chapter; unreachable content warns', () => {
@@ -228,14 +224,14 @@ test('validate: text box ids unique in the chapter; unreachable content warns', 
 		release: '2025-01-01',
 		groups
 	});
-	const group = (label: string, o: object) => ({ label, renderer: { type: 'vertical' }, ...o });
+	const group = (id: string, o: object) => ({ id, renderer: { type: 'vertical' }, ...o });
 	const run = (data: object, ctx: object = {}, re = /dialog\.\d+\.id|unreachable/) =>
 		validateFile('chapter', data, 'de', { file: 'x', ...ctx } as never)
 			.filter((p) => re.test(p.path.join('.')) || re.test(p.message))
 			.map((p) => `${p.level} ${p.path.join('.')}`);
 	const slice = (dialog: object[] = []) => ({ ...slices(1)[0], dialog });
 	assert.deepEqual(run(chapter([group('a', { slices: [slice([box('d1')])] }), group('b', { slices: [slice([box('d1'), box('d2')])] })])), ['error groups.1.slices.0.dialog.0.id']);
-	// unreachable: events after an unconditional jump, the unlabelled group after it
+	// unreachable: events after an unconditional jump, the group after it
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
 	const data = chapter([group('a', { continues: true, slices: [slice()], events: [jump, { type: 'hideMessage' }] }), { renderer: { type: 'vertical' }, slices: [slice()] }]);
 	assert.deepEqual(run(data, {}, /unreachable/), ['warning groups.1', 'warning groups.0.events.1']);

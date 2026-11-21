@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
-	import { confirmDialog, DockFold, CloseIcon } from '@scutoons/ui';
+	import { confirmDialog } from '@scutoons/ui';
 	import { ApiError, publishVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { applyBackTo, applyRevert, baseOf, contentOf, describeStep, historyCore, historyFiles, loadFile, planRevert, saved, type Description, type FileHistory, type HistoryFile, type Step } from '$lib/editor/history.svelte.ts';
@@ -14,9 +14,9 @@
 	/**
 	 * The History (#687): the saved changes of the open item's files as steps – time, who, what in words, before → after –
 	 * with Revert (that change, as a new draft) and Back to here, always after a prompt; publish / unpublish per step.
-	 * Pre-filtered to the open item's first file, widened to all its files. `bare`: in a floating panel.
+	 * Pre-filtered to the open item's first file, widened to all its files – the bar's History menu.
 	 */
-	let { doc, docs, onclose, bare = false }: { doc?: ContentDoc; docs?: ContentDoc[]; onclose?: () => void; bare?: boolean } = $props();
+	let { doc, docs }: { doc?: ContentDoc; docs?: ContentDoc[] } = $props();
 
 	const session = getCreatorSession();
 	const me = $derived(session.user?.email ?? '');
@@ -129,13 +129,6 @@
 </script>
 
 <div class="history" data-testid="history-panel">
-	{#if !bare}
-		<header>
-			<h2>{m['creator.history']()}</h2>
-			<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-			{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
-		</header>
-	{/if}
 	{#if files.length > 1}
 		<div class="scope" role="group">
 			<button class="chip" class:on={!wide} onclick={() => (wide = false)}>{files[0] ? label(files[0]) : m['history.this_file']()}</button>
@@ -187,15 +180,6 @@
 </div>
 
 <style>
-	header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		border-bottom: 2px solid var(--ink);
-	}
-	h2 {
-		margin: 0.25rem 0;
-	}
 	.scope {
 		display: flex;
 		gap: 0.25rem;
@@ -220,8 +204,8 @@
 		border-bottom: 1px solid var(--border-subtle);
 	}
 	ol > li.live {
-		border-left: 3px solid var(--ink);
-		padding-left: 0.3rem;
+		background: var(--editor-selected);
+		padding-inline: 0.3rem;
 	}
 	.head {
 		display: flex;

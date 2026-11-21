@@ -1,8 +1,18 @@
 //! The library (owner 2026-11-16 [design]): one list of what can be found, dragged and opened – modules, instruments,
 //! the catalog's characters, items and places, scenes, the toon's assets – each with the preview its content asks for,
 //! and the one rule of what a query, a kind and "related" leave. The editor's browser (deck-kit `library`) only draws it.
+//!
+//! The toon's assets (#698, one Library for the creator and the deck editor): `family` – the files of one asset as one
+//! family with its versions and frames –, `shelf` – the scope by what the open item uses, the groups, the sort, the
+//! places, what a slot takes, the selection – and its JSON for the wasm bridge.
 use crate::{Descriptor, Dir, Domain, PortType};
+use serde::Serialize;
 use serde_json::Value;
+
+pub mod family;
+pub mod shelf;
+#[cfg(test)]
+mod asset_tests;
 
 /// what an entry is
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,6 +52,33 @@ impl Kind {
         }
     }
 
+    /// its id on the wire (the web Library's)
+    pub fn id(self) -> &'static str {
+        match self {
+            Kind::Module => "module",
+            Kind::Instrument => "instrument",
+            Kind::Rig => "rig",
+            Kind::Scene => "scene",
+            Kind::Character => "character",
+            Kind::Item => "item",
+            Kind::Place => "place",
+            Kind::Image => "image",
+            Kind::Audio => "audio",
+            Kind::Video => "video",
+            Kind::Model => "model",
+            Kind::File => "file",
+        }
+    }
+
+    /// a toon's file (what the shelf's families hold), not a catalog thing
+    pub fn is_file(self) -> bool {
+        matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::File)
+    }
+
+    pub fn of_id(id: &str) -> Option<Kind> {
+        Kind::ALL.into_iter().find(|k| k.id() == id)
+    }
+
     /// the kit's icon for it
     pub fn icon(self) -> &'static str {
         match self {
@@ -61,8 +98,14 @@ impl Kind {
     }
 }
 
+impl Serialize for Kind {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.id())
+    }
+}
+
 /// a node of a wiring preview: its place in 0..1 both ways and what it carries
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Dot {
     pub x: f32,
     pub y: f32,
@@ -70,7 +113,8 @@ pub struct Dot {
 }
 
 /// what an entry's card shows, chosen by its content
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Preview {
     /// a still of what it draws, rendered once by the stage and kept under `key` (until then its kind)
     Still { key: String },
@@ -130,19 +174,39 @@ impl Purpose {
         }
     }
 
-    /// whether an entry of `kind` dropped here lands (where exactly is the target's to say), else the sentence why not
-    pub fn takes(self, kind: Kind) -> Result<(), String> {
-        let (ok, here) = match self {
-            Purpose::Build => (matches!(kind, Kind::Module | Kind::Instrument), "on a rig: its tracks play modules and instruments"),
-            Purpose::Show => (matches!(kind, Kind::Scene | Kind::Character | Kind::Item), "on a cell: a cell plays a scene, a character or an item"),
-            Purpose::Module => (false, "here: a double click opens a module"),
-            Purpose::Scene => (matches!(kind, Kind::Character | Kind::Item | Kind::Image | Kind::Module), "on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules"),
-        };
-        if ok {
-            Ok(())
-        } else {
-            Err(format!("{} cannot be dropped {here}", kind.word()))
+    /// where a drop lands in this workspace (none: entries are only opened here)
+    pub fn view(self) -> Option<crate::drop::View> {
+        match self {
+            Purpose::Build => Some(crate::drop::View::Rig),
+            Purpose::Show => Some(crate::drop::View::ShowRow),
+            Purpose::Scene => Some(crate::drop::View::Scene),
+            Purpose::Module => None,
         }
+    }
+
+    /// whether an entry of `kind` dropped here lands (where exactly is the target's to say), else the sentence why not:
+    /// the drop plan's answer
+    pub fn takes(self, kind: Kind) -> Result<(), String> {
+        match self.view() {
+            Some(view) => crate::drop::lands(view, kind).map(|_| ()),
+            None => Err(format!("{} cannot be dropped here: a double click opens a module", kind.word())),
+        }
+    }
+}
+
+impl Purpose {
+    /// what a toon's file dropped here must be (none: files are only opened here)
+    pub fn fit(self) -> Option<shelf::Fit> {
+        match self {
+            Purpose::Scene => Some(shelf::Fit { kinds: vec![Kind::Image], square: false }),
+            Purpose::Build | Purpose::Show | Purpose::Module => None,
+        }
+    }
+
+    /// whether a family dropped here lands: its kind by `takes`, then the slot's fit, else the sentence why not
+    pub fn takes_family(self, f: &family::Family) -> Result<(), String> {
+        self.takes(f.kind)?;
+        self.fit().map_or(Ok(()), |fit| fit.takes(f).map_err(|m| m.sentence()))
     }
 }
 
@@ -345,7 +409,11 @@ mod tests {
     fn a_drop_lands_where_its_kind_is_played_or_says_why_not() {
         assert_eq!(Purpose::Build.takes(Kind::Module), Ok(()));
         assert_eq!(Purpose::Show.takes(Kind::Scene), Ok(()));
-        assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: its tracks play modules and instruments".into()));
+        assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: a show's row plays it, a rig plays modules and instruments".into()));
+        assert_eq!(Purpose::Build.takes(Kind::Character), Err("characters on a rig become a world node: not built yet".into()), "planned, not landing yet");
+        assert_eq!(Purpose::Show.takes(Kind::Place), Ok(()), "a place is a piece");
+        assert_eq!(Purpose::Show.takes(Kind::Module), Err("modules cannot be dropped in a Show row: a row holds pieces: scenes, characters, items and places".into()));
+        assert_eq!(Purpose::Module.takes(Kind::Module), Err("modules cannot be dropped here: a double click opens a module".into()));
         assert!(Purpose::Module.takes(Kind::Module).is_err());
         assert_eq!(Purpose::Scene.takes(Kind::Item), Ok(()));
         assert_eq!(Purpose::Scene.takes(Kind::Module), Ok(()), "a module lands on an entity's Modules slot");

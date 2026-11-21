@@ -1,6 +1,6 @@
 # HANDOVER — the current state (read after RULES.md; limit 60 lines, aim ≤ 40: replace, never append; no rules, no todos)
 
-Refreshed 2026-11-03 (#380), last run 2026-11-20 (evening); the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
+Refreshed 2026-11-03 (#380), last run 2026-11-21 (night); the longer 2026-10-12 version with the feature notes is archive/HANDOVER-2026-11-03.md. How agents work: RULES.md.
 Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/decisions/<topic>.md (index DECISIONS.md; grep a key). Orchestrator state: HANDOFF.md.
 
 ## Where things are
@@ -23,10 +23,9 @@ Open work: GitHub issues + the board "SCUTOONS" (RULES C). Decisions: agents/dec
   worktrees (`.claude/worktrees/*`) – the owner reviews and merges them; agents don't (RULES B3).
 
 ## Last run
-2026-11-20 shift (orchestrator, day into night) · branch `develop`, **292 commits ahead of `main`, nothing pushed**; deck:ci green after every merge, `npm run check` exit 0 end to end, the touched server suites green.
-- Merged (on top of the 2026-11-19/20 list): #650 (wav / mp3 / ogg) #676 #642 #677 #678 #327 (step 3) #679 #686 #685 #684 #675 #699 #697 #705 #683 #662 #687 (steps 1–3).
-- **History (#687):** deck-core `history.rs`; server `/api/entities/<key>/revert|revert-to` and `/api/scenes|shows/<id>/revert|revert-to`; the creator, the deck editor, admin's Calendar and the MCP (`revert_change` needs a local core, `revert_to` anywhere). No migration. Admin's deploy target now sets up the wasm.
-- **Production after the next deploy:** pending migrations run by deploy.yml: `2026-11-19-device-presets`, `2026-11-19-analog-sections`, `2026-11-20-asset-edits`, `2026-11-20-rig-presets`. The deploy needs the owner's go. New MCP tools (shows, history) reach a session after an MCP restart.
-- The **sandbox toon** is in production (draft): four demo shows, Sandgirl, Sandy, dunes scenes, a chapter (agents/SANDBOX.md); Play lists the published sandbox shows on every deck (#686).
-- Open from the merges: #687 – modules and a rig's side documents in the History, `/api/shows/<id>/versions` wraps its answer twice; #697 – unit fields for the DOP point time, m, tempo; #662 – the editor's handheld and playback smoothing stay outside the core; deck-native `no_alloc` fails on this PC (deck:ci passes).
-- Waiting on the owner: the deploy; #688 (one conductor + standby vs co-conductors); moods → rig presets; who marks rig presets factory; #644's final call; #651's questions; #653 / #631 concepts; #633 cue channels; #682 the 8th Wall boundary; #674 posters (queue or XR session); the board's "In progress" triage; the unmerged #505 / #515 worktrees.
+2026-11-20/21 (orchestrator) · deployed 2026-11-20 20:12: main = 14f7b38 on all seven targets, five migrations applied by deploy.yml (0 errors). Since then on `develop`, **81 commits ahead of `main`, nothing pushed**; deck:ci green after every merge, `npm run check` exit 0.
+- Merged after the deploy: #708 (a show's `toons`; migration `2026-11-20-show-toons` runs at the next deploy, the four sandbox demo shows among the rows; the MCP's show tools follow) · #698 (the Library's rules in the core – the redesign session's branch, merged here on the owner's go) · #701 steps 1–2 (the deck editor's Library on them) · #687 step 4 (module and rig side-document history, show versions answer once) · #697 step 2 (deck distances and the DOP track time on the unit field; core Distance dimension) · #534 (jump labels in the core, reading group `id` after #706) · #553 (flash filter on the one evaluator) · #585 (play pill BPM and tempo source) · #582 (camera cut end to end over the relay – fixed: a deck's link filtered as group "decks", not its column).
+- Research for the owner to read (no build yet): agents/research/outlets-on-models-and-node-view.md (#712) and agents/research/audio-nodes-foundation.md (#713, with the three-crows rave demo); each ends with its open questions.
+- A sweep of the open deck issues #515–600 commented evidence on 24 of them (18 done, 6 partly) – the owner closes.
+- Open from the merges: #708 – an older native deck refuses the new show documents until it updates; #585 – is the typed BPM saved with the show?; #582 – a role moved by assign moves the deck's column only after a restart; #687 – Back to here doesn't take a rig's side documents back; #701 – upload into a slot, frame links from documents; deck-native `no_alloc` fails on this PC (deck:ci passes).
+- Waiting on the owner: the next deploy; #712 / #713 questions; #688; moods → rig presets; #644; #651; #653 / #631; #633; #682; #674; closing the swept issues; #543 rescope; the unmerged #505 / #515 worktrees.

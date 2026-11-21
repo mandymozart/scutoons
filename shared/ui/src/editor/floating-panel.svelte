@@ -37,6 +37,8 @@
 	 * tab dragged into another panel's head moves there (a marker shows where), onto the stage it becomes a panel of its
 	 * own. Open, the edges resize it and push the neighbours. An inline panel (a toolbar) is one row or one column. The
 	 * page lays the panels out in `floats`; this draws one. `children` = the front tab's content (or the toolbar's row).
+	 * With `onmain` the head offers ◱ main (the front tab takes the stage; pressed again it comes back), with `onover`
+	 * ⤢ over everything (the front tab as a dialog over all).
 	 */
 	let {
 		floats,
@@ -46,7 +48,13 @@
 		foldLabel = 'Fold',
 		openLabel = 'Open',
 		closeLabel = 'Close',
-		moveLabel = 'Move the panel – drag, or the arrow keys; Enter folds it'
+		moveLabel = 'Move the panel – drag, or the arrow keys; Enter folds it',
+		main = null,
+		onmain,
+		onover,
+		mainLabel = 'On the stage',
+		backLabel = 'Back into the panel',
+		overLabel = 'Over everything'
 	}: {
 		floats: Floats;
 		id: string;
@@ -56,6 +64,13 @@
 		openLabel?: string;
 		closeLabel?: string;
 		moveLabel?: string;
+		/** the tab on the stage (its panel shows the head's ◱ pressed) */
+		main?: string | null;
+		onmain?: (tab: string) => void;
+		onover?: (tab: string) => void;
+		mainLabel?: string;
+		backLabel?: string;
+		overLabel?: string;
 	} = $props();
 
 	const spec = $derived(floats.spec(id)!);
@@ -241,6 +256,24 @@
 					{/each}
 				</div>
 				<span class="buttons">
+					{#if active && !collapsed && onover}
+						<button type="button" class="icon" onclick={() => onover(active)} aria-label={overLabel} title={overLabel} data-testid="panel-over">
+							<Icon name="maximize-2" size="0.9rem" strokeWidth={2} />
+						</button>
+					{/if}
+					{#if active && !collapsed && onmain}
+						<button
+							type="button"
+							class="icon"
+							aria-pressed={main === active}
+							onclick={() => onmain(active)}
+							aria-label={main === active ? backLabel : mainLabel}
+							title={main === active ? backLabel : mainLabel}
+							data-testid="panel-main"
+						>
+							<Icon name="monitor" size="0.9rem" strokeWidth={2} />
+						</button>
+					{/if}
 					<button
 						type="button"
 						class="icon"
@@ -388,6 +421,10 @@
 		background: none;
 		color: var(--editor-muted);
 		cursor: pointer;
+	}
+	.icon[aria-pressed='true'] {
+		background: var(--editor-pressed);
+		color: var(--editor-pressed-text);
 	}
 	.buttons :global(.panel-close) {
 		border-radius: 50%;

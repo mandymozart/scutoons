@@ -1,5 +1,5 @@
 // The map builder's model (agents/MAP.md §4): the world map as one editable WorldMap (WorldMapDoc – stored as many
-// documents: `map`, `place:<id>`, `route:<id>`, agents/MAP-DOCUMENTS.md; saved / published through the page's ActionBar
+// documents: `map`, `place:<id>`, `route:<id>`, agents/MAP-DOCUMENTS.md; saved / published by the page
 // like every entity), and the edits the builder makes – each one an undo step.
 import {
 	MAP_SOURCE_LANGUAGE,

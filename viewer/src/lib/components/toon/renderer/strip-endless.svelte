@@ -198,7 +198,7 @@
 	aria-label={m['chapter.strip_endless']()}
 	data-endless
 	data-fx-window
-	data-group-label={group.label}
+	data-group-id={group.id}
 	bind:this={band}
 	{@attach stripDrag(input)}
 	{@attach viewportWidth}

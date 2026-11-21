@@ -30,7 +30,8 @@ pub struct DeckConfig {
     /// the device channels' names ("Out 1" … a Fireface's "ADAT 3"); a missing name is the channel's number
     #[serde(default)]
     pub names: Vec<String>,
-    /// group → device channels; `main` without an entry plays on channels 1.., any other group without one is silent
+    /// group → device channels; `main` without an entry plays on channels 1.., the metronome's `click` where main does, any
+    /// other group without one is silent
     #[serde(default)]
     pub outlets: Vec<OutletMap>,
     /// speaker layouts of this venue, over the built-ins of the same name (layout.rs)
@@ -98,6 +99,7 @@ impl DeckConfig {
         let listed: Vec<usize> = match self.outlets.iter().find(|o| o.group == group) {
             Some(o) => o.channels.clone(),
             None if group == "main" => (1..=width).collect(),
+            None if deck_space::device_preset::on_main_by_default(group) => return self.channels_of("main", width),
             None => Vec::new(),
         };
         listed.into_iter().map(|c| (c >= 1 && c <= self.channels).then(|| c - 1)).collect()
@@ -154,6 +156,16 @@ mod tests {
         assert_eq!((rack.channels_of("main", 2), rack.channels_of("cue", 2)), (on(&[0, 1]), on(&[2, 3])));
         assert_eq!(DeckConfig::device(3).with_outlet("cue", &[3, 4]).channels_of("cue", 2), [Some(2), None], "channel 4 does not exist");
         assert_eq!(DeckConfig::device(3).with_outlet("cue", &[4, 3]).channels_of("cue", 2), [None, Some(2)], "the second keeps its place");
+    }
+
+    #[test]
+    fn the_metronome_plays_where_main_does_until_it_is_routed() {
+        let on = |c: &[usize]| c.iter().map(|&c| Some(c)).collect::<Vec<_>>();
+        assert_eq!(DeckConfig::stereo().channels_of("click", 2), on(&[0, 1]));
+        let rack = DeckConfig::device(8).with_outlet("main", &[3, 4]);
+        assert_eq!(rack.channels_of("click", 2), on(&[2, 3]), "main's entry");
+        assert_eq!(rack.clone().with_outlet("click", &[7, 8]).channels_of("click", 2), on(&[6, 7]), "routed: its own");
+        assert_eq!(rack.with_outlet("click", &[]).channels_of("click", 2), [], "an empty entry silences it");
     }
 
     #[test]

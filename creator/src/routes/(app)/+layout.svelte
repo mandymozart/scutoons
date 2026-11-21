@@ -5,7 +5,6 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
-		AppShell,
 		CommandPalette,
 		languageCommand,
 		linkCommands,
@@ -42,6 +41,7 @@
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
+	import StatusBar from '$lib/components/shell/status-bar.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -225,38 +225,17 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div
-	class="creator sc-tool sc-desktop-only"
-	style:--ws-left="{shell.insets.left}rem"
-	style:--ws-right="{shell.insets.right}rem"
-	data-testid="creator"
->
+<div class="creator sc-tool sc-desktop-only" data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
-		<!-- the page host: the area's page is the workspace's background until the areas move onto the stage; its dock
-		     and bottom region stay the page's own -->
-		<AppShell
-			mode={nav.fill ? 'fill' : 'page'}
-			minContent={24}
-			dockLabel={m['creator.dock_label']()}
-			dockResizeLabel={m['creator.resize_panel']()}
-			dockUnfoldLabel={m['creator.unfold_panel']()}
-			pageLabel={nav.crumbs.at(-1)?.label}
-			pageFoldLabel={m['creator.fold_page']()}
-			pageUnfoldLabel={m['creator.unfold_page']()}
-			bottom={nav.bottom ? pageBottom : undefined}
-			bottomSize={nav.bottom?.size}
-			bottomLabel={nav.bottom?.label}
-			bottomIcon={nav.bottom?.icon}
-			bottomResizeLabel={nav.bottom?.resizeLabel}
-			bottomUnfoldLabel={nav.bottom?.unfoldLabel}
-		>
-			{#snippet topbar()}
-				<ShellBar {path} languages={textLanguages.languages} source={textLanguages.source} {reader} page={nav.actions ?? undefined} />
-			{/snippet}
+		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
+		     panels and the status bar float on it, and the stage never gives way to them -->
+		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
-			{#key toonId}{@render children()}{/key}
-		</AppShell>
-		<Workspace kind={workspace} tree={nav.sidebar} toon={toonId} />
+			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
+		</div>
+		<ShellBar {path} {reader} />
+		<Workspace kind={workspace} toon={toonId} />
+		<StatusBar />
 		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
@@ -265,29 +244,57 @@
 	<InstallBar {install} app={APP_NAME} labels={pwaLabels(getLocale())} hidden={pwa.updateReady} />
 </div>
 
-{#snippet pageBottom()}{@render nav.bottom?.panel()}{/snippet}
-
 <style>
 	.creator {
 		--cyan: var(--primary-cyan);
 		--muted: var(--text-muted);
 		--error: var(--state-error);
 		--warn: var(--state-warning);
-		--action-bar-height: var(--tool-bar-height);
 		/* the bar's row: the pills and a gap above and below (the panels start a gap under it) */
 		--shell-top: calc(var(--control-height) + 1.4rem);
 		--top: var(--shell-top);
+		/* the status bar along the bottom and the room it takes (the panels end above it) */
+		--status-height: calc(var(--control-height) + 0.2rem);
+		--status-room: calc(var(--status-height) + 1rem);
 		min-height: 100dvh;
 	}
-	/* the page gives way to the panels at the walls (Workspace sets the room) */
-	.creator :global(.sc-shell-frame) {
-		padding-left: var(--ws-left, 0);
-		padding-right: var(--ws-right, 0);
-		transition: padding 0.18s ease;
-	}
-	.creator :global(.sc-shell-top) {
-		border-bottom: 0;
+	.stage {
+		position: fixed;
+		inset: 0;
+		box-sizing: border-box;
+		padding-bottom: var(--status-room);
+		overflow: auto;
 		background: var(--editor-stage);
+		color: var(--editor-text);
+	}
+	/* a view clear of the bar keeps its content under the bar's row (the stage itself still runs under it) */
+	.stage.clear {
+		padding-top: var(--shell-top);
+	}
+	.stage.fill {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.stage-page {
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
+	}
+	/* a page that scrolls (a form, a board) is a sheet in the stage's middle; the panels float beside it */
+	.stage.sheet .stage-page {
+		box-sizing: border-box;
+		width: min(60rem, 100% - 2rem);
+		min-height: 0;
+		margin: 0 auto 1rem;
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-surface);
+	}
+	.stage.fill .stage-page {
+		flex: 1;
+		min-height: 0;
+		height: 100%;
 	}
 	:global(html[data-motion='reduced'] *),
 	:global(html[data-panel-transitions='off'] [data-float]) {
@@ -301,6 +308,9 @@
 	:global(:where(.creator textarea)) {
 		width: 100%;
 	}
+	/* buttons on the deck editor's dogma (deck/kit/src/editor/controls.rs, #750): quiet controls on the control ground with
+	   the radius; an option that is on is pressed (`pills`); a lone icon shows its ground only under the pointer
+	   (`icon_button`); the view's one primary action is lime (`primary`) */
 	:global(:where(.creator button)),
 	:global(:where(.creator .btn)) {
 		display: inline-flex;
@@ -309,39 +319,46 @@
 		gap: var(--space-025);
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: 0 var(--space-15);
+		padding: 0 var(--editor-pad);
 		line-height: var(--type-button-line);
-		background: var(--ink);
-		color: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
+		background: var(--editor-control);
+		color: var(--editor-text);
+		border: var(--editor-edge) solid transparent;
+		border-radius: var(--editor-radius);
 		cursor: pointer;
 		text-decoration: none;
 	}
+	:global(:where(.creator button:hover:not(:disabled))),
+	:global(:where(.creator .btn:hover)) {
+		background: var(--editor-hover);
+	}
 	:global(:where(.creator button.secondary)),
 	:global(:where(.creator .btn.secondary)) {
-		background: var(--paper);
-		color: var(--ink);
-		border-color: var(--border-muted);
-	}
-	:global(:where(.creator button.secondary:hover:not(:disabled))),
-	:global(:where(.creator .btn.secondary:hover)) {
-		border-color: var(--ink);
+		background: var(--editor-control);
+		color: var(--editor-text);
 	}
 	:global(:where(.creator button.ghost)) {
 		background: transparent;
-		color: var(--ink);
-		border-color: transparent;
+		color: var(--editor-text);
 		padding: 0 var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
-		border-color: var(--border-muted);
+		background: var(--editor-hover);
 	}
 	:global(:where(.creator button.active)),
+	:global(:where(.creator button[aria-pressed='true'])),
 	:global(:where(.creator button.active:hover:not(:disabled))) {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--editor-pressed);
+		color: var(--editor-pressed-text);
+	}
+	:global(:where(.creator button.primary)),
+	:global(:where(.creator .btn.primary)) {
+		background: var(--editor-primary);
+		color: var(--editor-primary-ink);
+		border-color: var(--editor-primary-line);
+	}
+	:global(:where(.creator button.primary:hover:not(:disabled))) {
+		background: var(--editor-primary-line);
 	}
 	:global(:where(.creator button:disabled)) {
 		opacity: 0.5;

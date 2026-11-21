@@ -61,7 +61,7 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
   every module node has them from the next block's start – natively and in live-core alike (`lc_context`). Match the
   string or switch on the index; both change on the same block.
 - Parameters are a table the host writes (clamped, NaN ignored); the dirty ones are copied into the fields before a call and
-  `Module::params_changed(dirty)` follows. `Smooth` and `deck_module::math` (libm: the same bits native and wasm) for the DSP;
+  `Module::params_changed(dirty)` follows. `Smooth`, `deck_module::math` (libm: the same bits native and wasm) and the units of `deck_module::dsp` (below) for the DSP;
   `cv::GateCv::render_notes` renders a module's own notes into a `cv` port.
 - Exports: `dm_abi` (2), `dm_io`, `dm_layout`, `dm_descriptor_ptr/len`, `dm_new`, `dm_process` **or** `dm_control`,
   `dm_asset_buf` (with assets). The counting allocator counts allocations inside a call into `OutHdr.allocs` and traps when
@@ -102,6 +102,25 @@ marks – a camera's shots, an item's spot) and `out.transform()` (`TransformOut
 `set_projection`). The deck calls it once a drawn frame, after the moves; only the parts its slot writes are taken.
 `modules/dolly` (a camera) and `modules/bob` (an item) are the examples; `module-host/tests/motion.rs` proves them
 native ≡ wasm.
+
+## DSP units (`deck_module::dsp`)
+
+One copy for every module and the engine's built-in kinds (`src/dsp/`): build a unit in `init` (the ones with a buffer or a
+table allocate there), then it never allocates (`tests/dsp_no_alloc.rs`), and a feedback state that decays ends at 0 instead of
+in the denormals (`dsp::flush` – wasm has no flush-to-zero).
+
+| unit | what |
+|---|---|
+| `osc` | `Osc`: PolyBLEP saw / pulse (width) / triangle / sine, pitch and width per sample, hard sync as a band-limited step (output one sample late); `Sub`: a square an octave down. |
+| `wavetable` | `WaveTable` + `Osc`: saw / square / triangle from a table per quarter octave – cleaner than PolyBLEP (aliasing under −80 dB), ≈ 350 KB a wave, built once. The engine's `osc`. |
+| `noise` | `White` (xorshift64*, seeded), `Pink` (−3 dB an octave). The engine's `noise`. |
+| `svf` | `Svf`: LP / BP / HP / notch from a control-rate `Coef` (`tick`), or the lowpass with cutoff and Q per sample (`lowpass`); `drive`. |
+| `onepole` | `OnePole`: 6 dB lowpass / highpass, `coef(cutoff, rate)`. |
+| `adsr` | `Adsr`: linear attack, exponential decay and release that take exactly their time. |
+| `follower` | `Follower`: a signal's size as a level, attack and release times. |
+| `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
+| `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
+| `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
 
 ## Tests
 

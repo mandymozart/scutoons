@@ -200,6 +200,6 @@
 		gap: 0.25rem;
 		margin: 0;
 		padding: 0.5rem 0.75rem;
-		border-left: 0.5rem solid var(--primary-cyan);
+		border: 2px solid var(--primary-cyan);
 	}
 </style>

@@ -1,8 +1,8 @@
 //! The LFO: five shapes, a free rate in Hz or locked to the tempo, a delay before it starts and an attack that fades it
 //! in. Output −1..1. Free, it starts at phase 0 with the note; locked, its phase is the tempo's beat position (the
 //! same on every voice and every deck that plays the same tempo map), sample & hold is seeded.
-use super::math::sin_turns;
-use super::noise::Noise;
+use deck_module::dsp::arith::sin_turns;
+use deck_module::dsp::noise::White;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Shape {
@@ -52,12 +52,12 @@ pub struct Lfo {
     held: f32,
     /// samples since the note began
     age: u64,
-    noise: Noise,
+    noise: White,
 }
 
 impl Lfo {
     pub fn start(&mut self, seed: u64) {
-        *self = Lfo { noise: Noise::new(seed), ..Lfo::default() };
+        *self = Lfo { noise: White::new(seed), ..Lfo::default() };
         self.held = self.noise.next();
     }
 

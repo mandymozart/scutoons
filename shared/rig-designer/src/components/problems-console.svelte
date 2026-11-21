@@ -172,13 +172,36 @@
 	}
 	.line.ok {
 		color: var(--ink);
-		border-left: 0.25rem solid var(--primary-cyan, #00d1ff);
 	}
-	.line.warn {
-		border-left: 0.25rem solid var(--state-warning);
+	.line.ok::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05, 0.5rem);
+		border-radius: 50%;
+		background: var(--primary-cyan, #00d1ff);
 	}
-	.line.error {
-		border-left: 0.25rem solid var(--state-error);
+	.line.warn::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05, 0.5rem);
+		border-radius: 50%;
+		background: var(--state-warning);
+	}
+	.line.error::before {
+		content: '';
+		display: inline-block;
+		flex: none;
+		width: 0.5em;
+		height: 0.5em;
+		margin-right: var(--space-05, 0.5rem);
+		border-radius: 50%;
+		background: var(--state-error);
 	}
 	.line.info,
 	.line.log {

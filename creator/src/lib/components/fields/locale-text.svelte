@@ -75,8 +75,8 @@
 			<label class:missing={s.missing} class:long={s.long}>
 				<span class="head">
 					<span>{label} · {locale}{#if locale === source}<SourceMark />{/if}</span>
-					{#if s.missing}<span class="sc-chip is-error">{m['creator.missing']()}</span>{/if}
-					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
+					{#if s.missing}<span class="bad">{m['creator.missing']()}</span>{/if}
+					{#if s.long}<span class="warn">{Math.round(s.ratio * 100)}%</span>{/if}
 					{#if Array.isArray(value)}<button type="button" class="ghost mini" title={m['creator.text_paragraphs_hint']()} onclick={() => toggleArray(locale)}>[ ]</button>{/if}
 				</span>
 				{#if expressions && type === 'text'}
@@ -140,20 +140,25 @@
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
 	}
-	/* state = the frame's colour + a thick left rule, no tinted fills */
+	/* state = the frame's colour only – no side rule (H10), no tinted fills */
 	.missing textarea,
 	.missing input {
 		border-color: var(--error);
-		border-left-width: 0.5em;
 	}
 	.long textarea,
 	.long input {
 		border-color: var(--warn);
-		border-left-width: 0.5em;
 	}
 	textarea {
 		resize: vertical;
 		min-height: 3em;
+	}
+	/* the state as quiet coloured words, no filled chip (owner 2026-11-21) */
+	.bad {
+		color: var(--error);
+	}
+	.warn {
+		color: var(--text-muted);
 	}
 	.mini {
 		margin-left: auto;

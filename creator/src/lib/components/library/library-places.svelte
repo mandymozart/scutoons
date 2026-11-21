@@ -1,94 +1,75 @@
 <script lang="ts">
-	import { folderTree, originCounts, scopeCounts, todoCounts, type FolderNode, type LibraryOrigin, type LibraryScope, type LibraryTodo } from '@scutoons/media';
+	import type { LibraryScope } from '@scutoons/media';
+	import { parseEntityKey } from '@scutoons/content';
 	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
+	import { NEEDS } from '$lib/editor/library-actions.ts';
+	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The browser's places (research/redesign/library.html ?w=browser): the scope, the to-do lists (versions missing,
-	 * unused), the folders of the toon (or of everything) as a tree, and where the files came from.
+	 * The browser's places (OSCT's sidebar): the scope, recently added (7 days), missing credits, one place per item with
+	 * its count (the chapters, characters … that use or hold files), one per season cast (its characters' files); the missing
+	 * versions on demand. The counts are the core's.
 	 */
-	const ctx = $derived(library.context);
-	const counts = $derived(scopeCounts(library.families, ctx, library.toon));
-	const todo = $derived(todoCounts(library.families));
-	const origins = $derived(originCounts(library.families));
-	const tree = $derived(folderTree(library.families, library.toon ?? ''));
-	let open = $state<Record<string, boolean>>({});
-
+	const view = $derived(library.view);
 	const scopes = $derived<{ id: LibraryScope; label: string; count: number }[]>([
-		...(ctx && ctx.kind !== 'toon' ? [{ id: 'context' as const, label: m['library.place_this']({ what: m[`library.scope_${ctx.kind}`]() }), count: counts.context }] : []),
-		...(library.toon ? [{ id: 'toon' as const, label: m['library.place_toon']({ toon: library.toon }), count: counts.toon }] : []),
-		{ id: 'all', label: m['library.place_all'](), count: counts.all },
-		{ id: 'unused', label: m['library.scope_unused'](), count: counts.unused }
+		...(library.address && !library.address.startsWith('toon:') ? [{ id: 'context' as const, label: m['library.place_this']({ what: library.address }), count: view?.scopes.context ?? 0 }] : []),
+		...(library.toon ? [{ id: 'toon' as const, label: m['library.place_toon']({ toon: library.toon }), count: view?.scopes.toon ?? 0 }] : []),
+		{ id: 'all', label: m['library.place_all'](), count: view?.scopes.all ?? 0 },
+		{ id: 'unused', label: m['library.scope_unused'](), count: view?.scopes.unused ?? 0 }
 	]);
-
-	function scope(id: LibraryScope) {
-		library.scope = id;
-		library.todo = null;
-		library.folder = null;
-		library.origin = null;
-	}
-	function toggle<T>(current: T | null, value: T): T | null {
-		return current === value ? null : value;
-	}
-	const setTodo = (t: LibraryTodo) => (library.todo = toggle(library.todo, t));
-	const setOrigin = (o: LibraryOrigin) => (library.origin = toggle(library.origin, o));
-	function setFolder(node: FolderNode) {
-		library.folder = toggle(library.folder, node.path);
-		if (library.folder) library.scope = 'all';
-	}
+	const special = (s: string) => (library.special = library.special === s ? null : s);
+	/** `chapter:catpope:3` → `chapter catpope 3` */
+	const words = (address: string) => address.replace(/[:_-]+/g, ' ');
+	/** `season:catpope:1` → `catpope · Season 1` */
+	const castLabel = (address: string) => [parseEntityKey(address)?.toon, fileLabel(address)].filter(Boolean).join(' · ');
 </script>
-
-{#snippet folders(nodes: FolderNode[], depth: number)}
-	{#each nodes as node (node.path)}
-		<li>
-			<div class="place" class:on={library.folder === node.path} style:--depth={depth}>
-				{#if node.children.length}
-					<button type="button" class="fold" data-control-exempt="tree fold" aria-expanded={!!open[node.path]} aria-label={node.name} onclick={() => (open[node.path] = !open[node.path])}>{open[node.path] ? '▾' : '▸'}</button>
-				{:else}<span class="fold"></span>{/if}
-				<button type="button" class="label" data-control-exempt="tree row" onclick={() => setFolder(node)}>{node.name}</button>
-				<span class="n">{node.count}</span>
-			</div>
-			{#if node.children.length && open[node.path]}<ul>{@render folders(node.children, depth + 1)}</ul>{/if}
-		</li>
-	{/each}
-{/snippet}
 
 <nav class="places" aria-label={m['library.places']()} data-testid="library-places">
 	<h3>{m['library.scope']()}</h3>
 	<ul>
 		{#each scopes as s (s.id)}
-			<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.scope === s.id && !library.folder} onclick={() => scope(s.id)}>{s.label}<span class="n">{s.count}</span></button></li>
+			<li><button type="button" class="place" data-control-exempt="tree row" class:on={library.scope === s.id && !library.special} onclick={() => library.setScope(s.id)}>{s.label}<span class="n">{s.count}</span></button></li>
 		{/each}
 	</ul>
-	<h3>{m['library.todo']()}</h3>
+	<h3>{m['library.places']()}</h3>
 	<ul>
-		<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.todo === 'unused'} onclick={() => setTodo('unused')}>{m['library.todo_unused']()}<span class="n">{todo.unused}</span></button></li>
+		<li><button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'recent'} onclick={() => special('recent')} data-testid="place-recent">{m['library.recent']()}<span class="n">{view?.specials.recent ?? 0}</span></button></li>
+		<li>
+			<button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'credits'} disabled={view?.specials.credits == null} title={view?.specials.credits == null ? NEEDS.credits() : undefined} onclick={() => special('credits')}>{m['library.missing_credits']()}<span class="n">{view?.specials.credits ?? '–'}</span></button>
+		</li>
 	</ul>
-	<h3>{library.toon ? m['library.tree_toon']({ toon: library.toon }) : m['library.tree']()}</h3>
-	<ul>{@render folders(tree, 0)}</ul>
-	<h3>{m['library.from']()}</h3>
-	<ul>
-		{#each ['uploaded', 'generated', 'imported'] as const as o (o)}
-			<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.origin === o} onclick={() => setOrigin(o)}>{m[`library.from_${o}`]()}<span class="n">{origins[o]}</span></button></li>
-		{/each}
-	</ul>
-	<Section id="library-places-missing" label={m['library.todo_missing']()} open={false} summary={String(todo.missing)}>
-		<ul>
-			<li><button type="button" class="place row" data-control-exempt="tree row" class:on={library.todo === 'missing'} onclick={() => setTodo('missing')}>{m['library.show_missing']()}<span class="n">{todo.missing}</span></button></li>
+	{#if view?.specials.items.length}
+		<h3>{m['library.by_item']()}</h3>
+		<ul data-testid="place-items">
+			{#each view.specials.items as [item, n] (item)}
+				<li><button type="button" class="place" data-control-exempt="tree row" class:on={library.special === `item:${item}`} title={item} onclick={() => special(`item:${item}`)}><span class="label">{words(item)}</span><span class="n">{n}</span></button></li>
+			{/each}
 		</ul>
+	{/if}
+	{#if view?.specials.casts.length}
+		<h3>{m['library.by_cast']()}</h3>
+		<ul data-testid="place-casts">
+			{#each view.specials.casts as [cast, n] (cast)}
+				<li><button type="button" class="place" data-control-exempt="tree row" class:on={library.special === `cast:${cast}`} title={cast} onclick={() => special(`cast:${cast}`)}><span class="label">{castLabel(cast)}</span><span class="n">{n}</span></button></li>
+			{/each}
+		</ul>
+	{/if}
+	<Section id="library-places-missing" label={m['library.todo_missing']()} open={false} summary={String(view?.specials.missing ?? 0)}>
+		<button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'missing'} onclick={() => special('missing')}>{m['library.show_missing']()}<span class="n">{view?.specials.missing ?? 0}</span></button>
 	</Section>
 </nav>
 
 <style>
 	.places {
 		overflow: auto;
-		padding: 0.5rem 0;
+		padding: 0.3rem 0.5rem var(--editor-pad) var(--editor-pad);
 		border-right: var(--editor-edge) solid var(--editor-line);
 		font-size: var(--editor-small);
 	}
 	h3 {
-		margin: 0.7rem var(--editor-pad) 0.2rem;
+		margin: 0.8rem 0 0.2rem;
 		color: var(--editor-muted);
 		font-size: var(--editor-label);
 		font-weight: 400;
@@ -101,55 +82,40 @@
 		list-style: none;
 	}
 	.place {
-		box-sizing: border-box;
 		display: flex;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 0.4rem;
 		width: 100%;
 		min-height: var(--editor-tree-row);
-		padding: 0 var(--editor-pad) 0 calc(var(--editor-pad) + var(--depth, 0) * 1rem);
+		padding: 0 0.3rem;
 		border: 0;
+		border-radius: var(--editor-radius);
 		background: none;
 		color: var(--editor-text);
 		font: inherit;
-		text-align: left;
-		justify-content: flex-start;
+		text-align: start;
 		cursor: pointer;
 	}
-	.place.on {
-		background: var(--editor-selected);
-	}
-	.place:hover {
+	.place:hover:not(:disabled) {
 		background: var(--editor-hover);
 	}
+	.place:disabled {
+		color: var(--editor-muted);
+		cursor: default;
+	}
+	.place.on {
+		background: var(--editor-pressed);
+		color: var(--editor-pressed-text);
+	}
 	.label {
-		display: block;
-		flex: 1 1 0;
+		flex: 1 1 auto;
 		min-width: 0;
-		padding: 0;
-		border: 0;
-		background: none;
-		color: inherit;
-		font: inherit;
-		text-align: left;
-		cursor: pointer;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.fold {
-		flex: none;
-		width: 0.9rem;
-		padding: 0;
-		border: 0;
-		background: none;
-		color: var(--editor-muted);
-		font-size: var(--editor-label);
-		cursor: pointer;
-	}
 	.n {
-		margin-left: auto;
-		padding-left: 0.4rem;
+		margin-inline-start: auto;
 		color: var(--editor-muted);
 		font-family: var(--editor-mono, ui-monospace, monospace);
 		font-size: var(--editor-label);

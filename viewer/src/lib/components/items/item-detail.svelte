@@ -421,8 +421,8 @@
 	.invite-offer {
 		display: grid;
 		gap: 0.25rem;
-		padding-left: 0.6rem;
-		border-left: 0.5rem solid var(--state-warning);
+		padding: 0.25rem 0.6rem;
+		border: 2px solid var(--state-warning);
 		font-size: 0.875rem;
 		line-height: 1.35;
 	}

@@ -7,7 +7,6 @@
 //                                     one language-neutral document each, texts as locale maps (neutral.ts, agents/NEUTRAL.md)
 //   season:<toon>:<n>:<locale>  chapter:<toon>:<n>:<locale>
 //                                     legacy per-locale documents: read while the entity has no neutral document
-//   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
 //   season-script:<toon>:<n>:<locale>  chapter-script:<toon>:<n>:<locale>
 //                                     a season's / a chapter's screenplay (creator only: no library endpoint, readers never
@@ -22,7 +21,6 @@
 //   character:<id>                    one document per character of the registry (`characters` keeps its own fields)
 //   scene:<id>                        one deck scene (#243, research/SCENES.md §9.3 format 2; platform-wide, its toons in
 //                                     its `toons`) – read and written only through `/api/scenes` (`/api/entities` refuses it)
-//   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
 // An "entity" is a key without its locale (`chapter:catpope:2`); the stored document of one language adds `:<locale>`.
 // Language-neutral entities are stored under the entity itself – so are chapters and seasons since 2026-10-06
@@ -38,8 +36,6 @@ export type EntityKind =
 	| 'toon-settings'
 	| 'season'
 	| 'chapter'
-	| 'locations'
-	| 'routes'
 	| 'cast'
 	| 'credits'
 	| 'season-script'
@@ -80,8 +76,6 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	'toon-settings': [true, false, true],
 	season: [true, true, true],
 	chapter: [true, true, true],
-	locations: [true, false, true],
-	routes: [true, false, true],
 	cast: [true, false, false],
 	credits: [true, false, false],
 	'season-script': [true, true, true],
@@ -136,8 +130,6 @@ export const entities = {
 	toonSettings: (toon: string) => `toon-settings:${toon}`,
 	season: (toon: string, n: number) => `season:${toon}:${n}`,
 	chapter: (toon: string, n: number) => `chapter:${toon}:${n}`,
-	locations: (toon: string) => `locations:${toon}`,
-	routes: (toon: string) => `routes:${toon}`,
 	cast: (toon: string) => `cast:${toon}`,
 	credits: (toon: string) => `credits:${toon}`,
 	/** a season's screenplay (creator only) */

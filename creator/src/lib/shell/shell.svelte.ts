@@ -1,8 +1,10 @@
-import type { Snippet } from 'svelte';
+import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
-import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings } from './settings.ts';
+import type { Floats } from '@scutoons/ui/editor';
+import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
+import { mainOf, PRESETS } from './presets.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 
@@ -22,43 +24,49 @@ function writeJson(key: string, value: unknown): void {
 }
 
 /**
- * What the open item's page hands the shell (meta-page): its save state and ↶ ↷ for the bar, its Publish · Problems as
- * panel tabs and its documents for the one History panel (#687).
+ * What the open item's page hands the shell: its save state and ↶ ↷ for the bar and the status bar, its Publish for the
+ * bar's Publish menu and its documents for the bar's History menu (#687). A page without documents of its own (the
+ * scenes, the toon board) hands only its Publish.
  */
 export interface PageDoc {
-	dirty: boolean;
-	saving: boolean;
-	errors: number;
-	warnings: number;
-	save: () => void;
-	publish: Snippet;
-	problems: Snippet;
-	docs: ContentDoc[];
-	undo: () => void;
-	redo: () => void;
+	dirty?: boolean;
+	saving?: boolean;
+	errors?: number;
+	warnings?: number;
+	/** something saved is not live yet */
+	unpublished?: boolean;
+	save?: () => void;
+	publish?: Snippet;
+	docs?: ContentDoc[];
+	undo?: () => void;
+	redo?: () => void;
 }
 
 /**
- * The creator's shell (research/redesign/PLAN.md §2.4–§2.5): the open tabs (the front one is the URL), this machine's
- * settings applied to the page, and what the front page lends to the panels – its own list (the Tree) and its document.
+ * The creator's shell (research/redesign/PLAN.md §2.4–§2.5, panels.html): the open tabs (the front one is the URL), this
+ * machine's settings applied to the page, the panel tabs the front page fills (lib/shell/panels.ts) and its document.
  */
 class Shell {
 	state = $state<TabsState>(typeof localStorage === 'undefined' ? EMPTY : readTabs(readJson(TABS_KEY)));
 	settings = $state<MachineSettings>(typeof localStorage === 'undefined' ? DEFAULTS : readSettings(readJson(SETTINGS_KEY)));
-	/** the front page's document (null: the page saves on its own, or has nothing to save) */
+	/** the front page's document (null: the page has nothing to save or publish) */
 	doc = $state.raw<PageDoc | null>(null);
-	/** asked by a menu line or ＋: a panel to open in the front workspace (the workspace takes it and clears it) */
+	/** the panel tabs the front page fills, by tab id (lib/shell/panels.ts) */
+	tabs = $state.raw<Record<string, Snippet>>({});
+	/** the front workspace's panels (set by the workspace host: the Views menu reads and changes them) */
+	floats = $state.raw<Floats | null>(null);
+	/** the front workspace's kind */
+	kind = $state<string>('home');
+	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
-	/** a panel of the front workspace to open or close (the main menu's list) */
-	toggled = $state<string | null>(null);
-	/** the front workspace's panels that can close, ticked = open (the main menu's list) */
-	panels = $state<{ id: string; name: string; open: boolean }[]>([]);
-	/** the front workspace's layout back to its defaults */
-	resetAsked = $state(false);
-	/** what the open panels at the walls and the page's bottom bar take (rem): the page host gives way */
-	insets = $state({ left: 0, right: 0, bottom: 0 });
+	/** the tab over everything (⤢): a dialog over the whole creator */
+	over = $state<string | null>(null);
 
 	readonly front = $derived(frontTab(this.state));
+	/** the tab on the stage in the front workspace (◱ main) */
+	readonly main = $derived(mainOf(this.kind, this.view(this.kind)));
+	/** the front workspace's content keeps clear of the bar's row */
+	readonly clear = $derived(this.view(this.kind).clear ?? PRESETS[this.kind as keyof typeof PRESETS]?.clear ?? true);
 
 	#set(next: TabsState) {
 		if (next === this.state) return;
@@ -95,12 +103,46 @@ class Shell {
 		writeJson(SETTINGS_KEY, next);
 	}
 
-	open(panel: string) {
-		this.wanted = panel;
+	view(kind: string): ViewSettings {
+		return this.settings.views[kind] ?? {};
+	}
+	changeView(patch: ViewSettings) {
+		this.change({ views: { ...this.settings.views, [this.kind]: { ...this.view(this.kind), ...patch } } });
+	}
+	/** ◱ main: the tab takes the stage; the one on it already goes back into its panel */
+	toggleMain(tab: string) {
+		this.changeView({ main: this.main === tab ? null : tab });
+	}
+	/** the front workspace back to its preset: its panels, tabs and the stage */
+	resetView() {
+		this.floats?.reset();
+		const { [this.kind]: _gone, ...views } = this.settings.views;
+		this.change({ views });
+	}
+
+	open(tab: string) {
+		this.wanted = tab;
 	}
 }
 
 export const shell = shared('creator-shell', () => new Shell());
+
+/**
+ * A page or a part of it fills these panel tabs while it is mounted (call during component init) – the one way content
+ * reaches a panel; a tab without content is not offered. Several parts may fill: each takes back only its own.
+ */
+export function useTabs(tabs: () => Record<string, Snippet | null | undefined>) {
+	$effect(() => {
+		const mine = Object.entries(tabs()).filter((e): e is [string, Snippet] => !!e[1]);
+		untrack(() => (shell.tabs = { ...shell.tabs, ...Object.fromEntries(mine) }));
+		return () =>
+			untrack(() => {
+				const next = { ...shell.tabs };
+				for (const [id, snippet] of mine) if (next[id] === snippet) delete next[id];
+				shell.tabs = next;
+			});
+	});
+}
 
 /** The page hands its document to the shell while it is mounted (call during component init) */
 export function usePageDoc(doc: () => PageDoc | null) {
@@ -111,4 +153,9 @@ export function usePageDoc(doc: () => PageDoc | null) {
 			if (shell.doc === value) shell.doc = null;
 		};
 	});
+}
+
+/** a tab on the stage goes back into its panel (the Flow after a box opened its place: the page shows it) */
+export function stepBack(tab: string) {
+	if (shell.main === tab) shell.toggleMain(tab);
 }

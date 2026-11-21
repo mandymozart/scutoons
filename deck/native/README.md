@@ -587,7 +587,7 @@ with the token, ready, the cell, resume, the snapshot after a restart). Not yet:
   sine oscillators and FM voices run as one batch each (`voices.rs`: groups of eight voices in deck-core's `F8` lanes,
   the group's state in registers for the block; `fm` is true frequency modulation), every other node as a block of its
   own (`blocks.rs`, the patcher model for one-off nodes: saw / square / triangle on deck-core's mip-mapped wavetables,
-  noise on seeded xorshift / Kellet pink and the lowpass on a state-variable filter – `core/src/dsp.rs`, no fundsp;
+  noise on seeded xorshift / Kellet pink and the lowpass on a state-variable filter – `module/src/dsp` (the module SDK's units), no fundsp;
   sequencer, click, player with linear resampling, mixer, FFT tap, output). One preallocated stereo buffer of 128 frames
   per output port; the engine renders whole 128-frame quanta whatever the device asks for. `Build::patcher()` runs every
   node as a block (the engine before #183) – the reference the tests compare with: the batches agree with it bit for

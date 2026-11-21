@@ -9,7 +9,7 @@
 //   <toon>/_/cast.json              ToonCast          – per season: which characters, with which personas
 //
 // Hierarchy (owner, 2026-09-30): Character → Persona → Look → Mood × View.
-//   Character – the being. Identity-level: name, description, color, voiced_by, tags, the A-pose.
+//   Character – the being. Identity-level: name, description, color, tags, the A-pose.
 //   Persona   – a different identity or role of the same being (Cat Pope's `human`, `cat`, `biker`). Nested in the
 //               character; every character has the persona `regular`. Changes who they are in the story.
 //   Look      – the appearance right now: outfit, gear, accessories; can change within a scene (helmet on/off), one
@@ -204,13 +204,6 @@ export function resolveCharacterId(id: string, persona?: string): { character: s
 
 // ── Files ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** A point in a toon's story (a free reference for the editor and the story bible). */
-export interface StoryPoint {
-	toon: string;
-	season?: number;
-	chapter?: number;
-}
-
 /** mood → view → CDN path */
 export type MoodImages = Partial<Record<string, CharacterImage>>;
 
@@ -244,8 +237,6 @@ export interface CharacterPersona {
 	id: string;
 	/** appended to the name: "Cat Pope · Biker" (the regular persona needs none) */
 	label?: LocaleText;
-	/** where the persona first appears (none = it has always been there) */
-	introduced?: StoryPoint;
 	description?: LocaleText;
 	/** the persona's own color (VN avatar background); none = the character's */
 	color?: string;
@@ -343,14 +334,8 @@ export interface RegistryCharacter {
 	tendencies?: string[];
 	/** the toon this character is the protagonist of (optional – most characters have none) */
 	own_toon?: string;
-	/** person id of the voice (scutoons/_/people.json) */
-	voiced_by?: string;
 	/** search words */
 	tags?: string[];
-	/** the region the character comes from (a map region id – agents/MAP.md §8.10); fixed */
-	origin?: string;
-	/** the region the character is registered in by default (a `migrate` in the story moves it – the save game) */
-	residence?: string;
 	/**
 	 * The avatar's home (research/CAVE.md D1): a map place id – none = where the character is first introduced in a
 	 * story (the creator suggests it); a missing place is added to the map as a new one
@@ -912,7 +897,7 @@ function eventCharacters(events: unknown, out: string[]) {
 
 /**
  * The characters a chapter's VN scenes use, in order of first appearance: the events of its groups (inline groups and
- * the scene documents, passed in as groups) and of their slices (slice triggers). The suggestion for `Chapter.featuring`.
+ * the scene documents, passed in as groups) and of their slices (slice triggers).
  */
 export function chapterSceneCharacters(groups: unknown[]): string[] {
 	const out: string[] = [];
@@ -921,23 +906,6 @@ export function chapterSceneCharacters(groups: unknown[]): string[] {
 		for (const slice of g?.slices ?? []) eventCharacters(slice?.events, out);
 	}
 	return out;
-}
-
-/**
- * The suggested `featuring` of a chapter: the toon's star first, then everyone its VN scenes use (first appearance).
- * Non-VN chapters get the star only; the author edits the list by hand.
- */
-export function suggestFeaturing(groups: unknown[], star: string | null | undefined): string[] {
-	return [...new Set([...(star ? [star] : []), ...chapterSceneCharacters(groups)])];
-}
-
-/**
- * The characters shown as "featuring" (reader): `featuring` in order, each resolved from the loaded cast; ids without a
- * character are skipped.
- */
-export function featuredCharacters<T extends { name: string }>(featuring: string[] | null | undefined, characters: T[] | null | undefined): T[] {
-	if (!Array.isArray(featuring) || !characters?.length) return [];
-	return featuring.map((id) => characters.find((c) => c.name === id)).filter((c): c is T => !!c);
 }
 
 /** Toons whose cast (any season) lists the character – "appears in". */
@@ -1327,25 +1295,13 @@ function checkText(add: Add, value: unknown, path: Path, what: string, languages
 	for (const l of languages) if (!(isStr(value[l]) && value[l].trim())) add('warning', [...path, l], `${what}: missing ${l}`);
 }
 
-function checkStoryPoint(add: Add, value: unknown, path: Path, what: string, toons?: string[]) {
-	if (!isObj(value) || !isStr(value.toon)) return add('error', path, `${what} must be { toon, season?, chapter? }`);
-	if (toons && !toons.includes(value.toon)) add('warning', [...path, 'toon'], `${what}: unknown toon "${value.toon}"`);
-	for (const key of ['season', 'chapter'] as const) {
-		if (value[key] !== undefined && !(Number.isInteger(value[key]) && value[key] > 0)) add('error', [...path, key], `${what}: ${key} must be a positive number`);
-	}
-}
-
 export interface CharactersContext {
 	/** the mood vocabulary (unknown moods are warnings; default: the seed vocabulary) */
 	moods?: MoodVocabulary | null;
 	/** languages the texts must exist in: per character (its own toon / the toons whose cast lists it) or for all */
 	languages: string[] | ((character: RegistryCharacter) => string[]);
-	/** known person ids (voiced_by) */
-	people?: string[];
-	/** known toon ids (own_toon, introduced) */
+	/** known toon ids (own_toon) */
 	toons?: string[];
-	/** known map region ids (origin, residence – agents/MAP.md §8.10) */
-	regions?: string[];
 	/** known map place ids (home) */
 	places?: string[];
 	/** known home scene ids (home_scene – the catalog) */
@@ -1400,10 +1356,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		if (c.testo !== undefined && !(typeof c.testo === 'number' && c.testo >= 0 && c.testo <= 100)) add('error', [...path, 'testo'], `${who}: testo must be a number 0–100`);
 		if (c.tendencies !== undefined && !(Array.isArray(c.tendencies) && c.tendencies.every((t: unknown) => isStr(t) && CHARACTER_ID.test(t)))) add('error', [...path, 'tendencies'], `${who}: tendencies must be a list of ids`);
 		if (c.own_toon !== undefined && (!isStr(c.own_toon) || (ctx.toons && !ctx.toons.includes(c.own_toon)))) add('warning', [...path, 'own_toon'], `${who}: unknown own toon "${c.own_toon}"`);
-		if (c.voiced_by !== undefined && (!isStr(c.voiced_by) || (ctx.people && !ctx.people.includes(c.voiced_by)))) add('error', [...path, 'voiced_by'], `${who}: voiced by an unknown person "${c.voiced_by}"`);
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
-		for (const field of ['origin', 'residence'] as const)
-			if (c[field] !== undefined && (!isStr(c[field]) || !c[field] || (ctx.regions && !ctx.regions.includes(c[field])))) add('warning', [...path, field], `${who}: unknown region "${c[field]}" (${field})`);
 		if (c.home !== undefined && (!isStr(c.home) || (ctx.places && !ctx.places.includes(c.home)))) add('warning', [...path, 'home'], `${who}: the home "${c.home}" is not a place on the map – add it in the map builder`);
 		if (c.home_scene !== undefined && (!isStr(c.home_scene) || (ctx.homeScenes && !ctx.homeScenes.includes(c.home_scene)))) add('warning', [...path, 'home_scene'], `${who}: unknown home scene "${c.home_scene}"`);
 
@@ -1425,7 +1378,6 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			if (p.id !== REGULAR_PERSONA && (!isObj(p.label) || !Object.values(p.label).some((t) => isStr(t) && t.trim()))) add('warning', [...pp, 'label'], `${pwho}: persona label is empty (e.g. "Biker")`);
 			else checkText(add, p.label, [...pp, 'label'], `${pwho}: label`, languages);
 			checkText(add, p.description, [...pp, 'description'], `${pwho}: description`, languages);
-			if (p.introduced !== undefined) checkStoryPoint(add, p.introduced, [...pp, 'introduced'], `${pwho}: introduced`, ctx.toons);
 			if (p.color !== undefined && !isStr(p.color)) add('error', [...pp, 'color'], `${pwho}: color must be a text`);
 			if (p.testo !== undefined && !(typeof p.testo === 'number' && p.testo >= 0 && p.testo <= 100)) add('error', [...pp, 'testo'], `${pwho}: testo must be a number 0–100`);
 

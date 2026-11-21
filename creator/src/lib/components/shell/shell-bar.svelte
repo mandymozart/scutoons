@@ -3,23 +3,26 @@
 	import { Icon } from '@scutoons/ui';
 	import type { Crumb } from '$lib/nav.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import BarFind from '$lib/components/shell/bar-find.svelte';
+	import BarMenu from '$lib/components/shell/bar-menu.svelte';
 	import MainMenu from '$lib/components/shell/main-menu.svelte';
 	import TabStrip from '$lib/components/shell/tab-strip.svelte';
+	import ViewsMenu from '$lib/components/shell/views-menu.svelte';
 
 	/**
-	 * The top bar, styled and ordered like the deck editor's (deck/editor/src/bar.rs; research/redesign/PLAN.md §2.4):
-	 * pills in one row over the stage – ☰ · ⌂ Home · the open items' tabs (＋ = the Library) on the left; ↶ ↷ (unsaved
-	 * edits, then the saved changes of this session), the save state, the text language (the one switch, RULES H1), the account and the version on the right. No workspace switch: the
-	 * tab is the workspace.
+	 * The bar: pills on the stage, ordered like the deck editor's (deck/editor/src/bar.rs; research/redesign/panels.html) –
+	 * ☰ · ⌂ Home · the open items' tabs (＋ = the Library) on the left; in the middle Find on Home, the item's path inside an
+	 * item; on the right ↶ ↷, Views, History and Publish (menus under their pills, as OSCT's), the account and the
+	 * version. The text language and Day / Night live in Settings only; the save state is the status bar's.
 	 */
-	let { path, languages, source, reader, page }: { path: Crumb[]; languages: string[]; source: string; reader: string | null; page?: import('svelte').Snippet } = $props();
+	let { path, reader }: { path: Crumb[]; reader: string | null } = $props();
 
 	const session = getCreatorSession();
 	const doc = $derived(shell.doc);
-	const saveWord = $derived(!doc ? null : doc.saving ? m['creator.saving']() : doc.dirty ? m['shell.unsaved']() : m['creator.saved']());
 
 	// the build this is (version.json beside the app; a dev server has none)
 	let version = $state('dev');
@@ -34,38 +37,62 @@
 </script>
 
 <header class="shell-bar" data-testid="creator-bar">
-	<MainMenu {reader} />
-	<a class="round" href="/" aria-current={shell.state.front === null ? 'page' : undefined} aria-label={m['shell.home']()} title={m['shell.home']()} data-testid="creator-brand"><Icon name="home" size="1rem" /></a>
-	<TabStrip {path} />
-	{#if page}<span class="page-tools">{@render page()}</span>{/if}
-	<span class="spacer"></span>
-	{#if doc}
-		<button type="button" class="round" onclick={() => doc?.undo()} aria-label={m['history.undo']()} title={m['history.undo_hint']()} data-testid="bar-undo"><Icon name="rotate-ccw" size="1rem" /></button>
-		<button type="button" class="round" onclick={() => doc?.redo()} aria-label={m['history.redo']()} title={m['history.redo_hint']()} data-testid="bar-redo"><Icon name="rotate-cw" size="1rem" /></button>
+	<span class="pill pair"><MainMenu {reader} /><a class="round" href="/" aria-current={shell.state.front === null ? 'page' : undefined} aria-label={m['shell.home']()} title={m['shell.home']()} data-testid="creator-brand"><Icon name="home" size="1rem" /></a></span>
+	<TabStrip />
+	<span class="middle">
+		{#if shell.state.front === null}
+			<BarFind />
+		{:else if path.length}
+			<nav class="pill path" aria-label={m['creator.breadcrumb']()} data-testid="bar-path">
+				<Icon name={iconOf(shell.state.front)} size="1rem" />
+				{#each path as step, i (step.href + i)}
+					{#if i > 0}<Icon name="chevron-right" size="0.75rem" />{/if}
+					{#if i < path.length - 1}<a class="step" href={step.href}>{step.label}</a>{:else}<span class="name">{step.label}</span>{/if}
+				{/each}
+			</nav>
+		{/if}
+	</span>
+	{#if doc?.undo}
+		<span class="pill pair">
+			<button type="button" class="round" onclick={() => doc?.undo?.()} aria-label={m['history.undo']()} title={m['history.undo_hint']()} data-testid="bar-undo"><Icon name="rotate-ccw" size="1rem" /></button>
+			<button type="button" class="round" onclick={() => doc?.redo?.()} aria-label={m['history.redo']()} title={m['history.redo_hint']()} data-testid="bar-redo"><Icon name="rotate-cw" size="1rem" /></button>
+		</span>
 	{/if}
-	{#if saveWord}
-		<button type="button" class="pill state" class:dirty={doc?.dirty} disabled={doc?.saving} onclick={() => doc?.save()} title={m['creator.save_draft']()} data-testid="save-state">
-			<span class="dot" aria-hidden="true"></span>{saveWord}
-		</button>
-	{/if}
-	{#if languages.length > 1}
-		<span class="pill lang"><TextLanguageSwitch {languages} {source} /></span>
-	{/if}
+	<ViewsMenu />
+	<BarMenu label={m['shell.history_menu']()} icon="clock" about={m['shell.history_about']()} testid="bar-history" wide>
+		{#snippet children()}
+			{#if doc?.docs?.length}<HistoryPanel docs={doc.docs} />{:else}<p class="empty">{m['shell.history_none']()}</p>{/if}
+		{/snippet}
+	</BarMenu>
+	<BarMenu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_about']()} testid="bar-publish" dot={!!doc?.unpublished}>
+		{#snippet children()}
+			{#if doc?.publish}{@render doc.publish()}{:else}<p class="empty">{m['shell.publish_none']()}</p>{/if}
+		{/snippet}
+	</BarMenu>
 	<span class="pill account" title={session.user?.email ?? ''}><Icon name="user" size="1rem" /><span class="who">{session.user?.email?.split('@')[0] ?? ''}</span></span>
 	<span class="pill version" title={m['shell.version']()}>{version}</span>
 </header>
 
 <style>
+	/* the bar's row lies on the stage: only its pills take the pointer */
 	.shell-bar {
+		position: fixed;
+		z-index: 50;
+		top: 0;
+		left: 0;
+		right: 0;
 		display: flex;
 		align-items: center;
 		gap: 0.45rem;
 		box-sizing: border-box;
-		min-height: var(--shell-top, 3.6rem);
+		height: var(--shell-top);
 		padding: 0 1rem;
-		background: var(--editor-stage);
 		color: var(--editor-text);
 		font-family: var(--editor-sans);
+		pointer-events: none;
+	}
+	.shell-bar > :global(*) {
+		pointer-events: auto;
 	}
 	.round,
 	.pill {
@@ -77,7 +104,8 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		border: var(--editor-edge) solid var(--editor-line);
-		background: var(--editor-surface);
+		background: var(--editor-panel-ground);
+		text-shadow: var(--editor-halo);
 		color: var(--editor-text);
 		text-decoration: none;
 	}
@@ -85,11 +113,20 @@
 		min-width: var(--control-height);
 		border-radius: 50%;
 	}
-	.round:hover {
+	.pair .round,
+	.pair :global(.round) {
+		min-width: calc(var(--control-height) - 0.4rem);
+		min-height: calc(var(--control-height) - 0.4rem);
+		border: 0;
+		padding: 0;
+		background: transparent;
+	}
+	.pair .round:hover,
+	.pair :global(.round:hover) {
 		background: var(--editor-hover);
 	}
 	.round[aria-current='page'] {
-		background: var(--editor-pressed);
+		background: var(--editor-pressed) !important;
 		color: var(--editor-pressed-text);
 	}
 	.pill {
@@ -97,20 +134,43 @@
 		border-radius: 1.2rem;
 		white-space: nowrap;
 	}
-	.state .dot {
-		width: 0.5rem;
-		height: 0.5rem;
-		border-radius: 50%;
-		background: var(--editor-go);
-	}
-	.state.dirty .dot {
-		background: var(--editor-warn);
-	}
-	.lang {
+	.pair {
+		gap: 0.15rem;
 		padding: 0 0.2rem;
 	}
-	.lang :global(.text-language.sc-control:not(:hover):not(:focus-within)) {
-		border-color: transparent;
+	.middle {
+		display: flex;
+		flex: 1 1 0;
+		justify-content: center;
+		min-width: 0;
+		pointer-events: none;
+	}
+	.middle > :global(*) {
+		pointer-events: auto;
+	}
+	.path {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		color: var(--editor-muted);
+		font-size: var(--editor-small);
+	}
+	.step {
+		flex: 0 1 auto;
+		min-width: 2rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: inherit;
+		text-decoration: none;
+	}
+	.step:hover {
+		color: var(--editor-text);
+		text-decoration: underline;
+	}
+	.name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--editor-text);
 	}
 	.who {
 		max-width: 8rem;
@@ -121,14 +181,5 @@
 		color: var(--editor-muted);
 		font-family: var(--font-mono);
 		font-size: var(--editor-small);
-	}
-	.page-tools {
-		display: flex;
-		flex: none;
-		align-items: center;
-		gap: 0.25rem;
-	}
-	.spacer {
-		flex: 1 1 0;
 	}
 </style>

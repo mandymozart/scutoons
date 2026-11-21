@@ -343,7 +343,7 @@ export function validateAlbums(catalog: Record<string, any>, add: (level: Proble
 }
 
 /**
- * `related_items` of a season or chapter (language-neutral: the same list in every locale): catalog item ids, ordered.
+ * A season's `related_items` (language-neutral: the same list in every locale): catalog item ids, ordered.
  * `known` = the catalog's item ids (no check without it).
  */
 export function checkRelatedItems(value: unknown, known: Iterable<string> | undefined, add: (level: Problem['level'], path: (string | number)[], message: string) => void) {

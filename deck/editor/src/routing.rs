@@ -275,7 +275,7 @@ impl Page {
                     }
                 }
                 self.draft.audio_outlet.retain(|o| o.group != group);
-                if !list.is_empty() || group == "main" {
+                if !list.is_empty() || deck_space::device_preset::on_main_by_default(&group) {
                     self.draft.audio_outlet.push(OutletMap { group, channels: list });
                 }
             }

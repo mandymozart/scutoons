@@ -170,7 +170,7 @@
 	/** the authored end's URL (a random one of `anyOf` picked once per showing) */
 	const jumpHref = $derived.by(() => {
 		if (step.kind !== 'jump') return null;
-		const url = buildJumpToUrl(step.target, toonId, group.label ?? null);
+		const url = buildJumpToUrl(step.target, toonId, group.id ?? null);
 		return url ? localizeHref(url) : null;
 	});
 	const primaryHref = $derived.by(() => {

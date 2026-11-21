@@ -8,7 +8,7 @@
 // toon's files (`../<toon>/…`, @scutoons/content `rebaseToonAsset`). Ids are fresh on paste: events lose theirs (the
 // document's edit assigns new ones, event-ids.ts), text boxes get the target's next ids (a showTextBox event follows its
 // box), placements a random one (`newPlacementId`).
-import { rebaseToonAsset } from '@scutoons/content';
+import { newGroupId, rebaseToonAsset } from '@scutoons/content';
 
 export const CLIP_MARKER = 'scutoons/creator-clip';
 
@@ -324,7 +324,7 @@ export function prepareSlices(clip: Clip, slices: readonly any[], ctx: PasteCont
 
 /**
  * A clip group made ready for `ctx.toon`: as `prepareSlices` for its slices, its script's ids dropped (a showTextBox in
- * the script follows its box too), the label made unique among `labels` (the chapter's group labels).
+ * the script follows its box too), the id made unique among `labels` (the chapter's group ids; none: a fresh one).
  */
 export function prepareGroup(clip: Clip, group: any, ctx: PasteContext, labels: Set<string>): Obj {
 	const g = copy(group) as Obj;
@@ -336,12 +336,12 @@ export function prepareGroup(clip: Clip, group: any, ctx: PasteContext, labels: 
 	}
 	dropEventIds(g.events);
 	renameBoxes(g, ctx.nextBoxId);
-	if (typeof g.label === 'string' && g.label) {
-		let label = g.label;
-		for (let n = 2; labels.has(label); n++) label = `${g.label}-${n}`;
-		g.label = label;
-		labels.add(label);
-	}
+	if (typeof g.id === 'string' && g.id) {
+		let id = g.id;
+		for (let n = 2; labels.has(id); n++) id = `${g.id}-${n}`;
+		g.id = id;
+	} else g.id = newGroupId([...labels].map((id) => ({ id })));
+	labels.add(g.id as string);
 	return g;
 }
 

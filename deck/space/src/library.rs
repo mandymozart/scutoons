@@ -23,10 +23,13 @@ pub fn from_book(book: &Book, locale: &str) -> Vec<Entry> {
             Kind::Character | Kind::Scene => Preview::Still { key: e.r#ref.clone() },
             _ => Preview::Kind,
         };
-        let detail = match kind {
+        let mut detail = match kind {
             Kind::Scene => e.set.clone().unwrap_or_default(),
             _ => e.r#ref.clone(),
         };
+        if let Some(toon) = book.toon_of(i) {
+            detail = if detail.is_empty() { toon.to_string() } else { format!("{detail} · {toon}") };
+        }
         out.push(Entry { address, label: book.label(i, locale).to_string(), detail, kind, preview, made_for: Vec::new() });
     }
     out

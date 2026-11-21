@@ -6,7 +6,7 @@ use deck_show::document::How;
 use deck_show::roles::{edit, Edit};
 use deck_show::{parse, view, ClockChoice, Subtree};
 
-const DOC: &str = r#"{ "id": "slots", "version": 1, "toon": "catpope", "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
+const DOC: &str = r#"{ "id": "slots", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }, { "id": "right" }, { "id": "lights", "kind": "device" }],
   "rows": [
     { "id": "opening", "cells": { "left": { "mode": "play", "piece": "scene:nave" }, "right": { "mode": "play", "piece": "scene:vigil" } } },
     { "id": "dark-left", "cells": { "left": { "mode": "black" } } },

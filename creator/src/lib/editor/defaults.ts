@@ -92,8 +92,8 @@ export function newSeasonDoc(languages: readonly string[], authors: string[] = [
 	};
 }
 
-export function newGroup(label: string): Group {
-	return { label, renderer: { type: Renderer.VERTICAL }, slices: [] };
+export function newGroup(id: string): Group {
+	return { id, renderer: { type: Renderer.VERTICAL }, slices: [] };
 }
 
 /** A chapter's folder in the toon's CDN folder: `s<season>/c<chapter>` (agents/ASSETS.md "Folder convention") */

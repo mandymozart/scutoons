@@ -21,6 +21,8 @@ deck-module = { path = "../module", features = ["host"] }
 # the strict test run (src/strict.rs): the compiled module played by the deck's own host, in wasmtime's sandbox (#344)
 deck-module-host = { path = "../module-host" }
 deck-catalog = { path = "../catalog" }
+# a parameter's unit names one of the core's unit catalogue (units::check_params)
+deck-core = { workspace = true }
 # `POST /validate` (#313): instruments, presets and rigs checked by the core's own code (deck-space rig::validate) –
 # the rig model only, without the space, the GPU or the loaders
 deck-space = { path = "../space", default-features = false }
@@ -43,5 +45,12 @@ libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3"
+# the factory modules' descriptors pass the compile service's checks (tests/factory_units.rs)
+walk-module = { path = "../modules/walk" }
+stepseq-module = { path = "../modules/stepseq" }
+analog-module = { path = "../modules/analog" }
+bob-module = { path = "../modules/bob" }
+dolly-module = { path = "../modules/dolly" }
+fixture-module = { path = "../modules/fixture" }
 # paused time in the service tests: the queue and its waits are exact, not wall-clock sleeps
 tokio = { workspace = true, features = ["test-util"] }

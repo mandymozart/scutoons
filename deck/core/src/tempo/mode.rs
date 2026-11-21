@@ -67,7 +67,18 @@ pub struct Flash {
     pub dur_s: f64,
 }
 
+/// the part of a beat the pill's dot is lit (from the beat on)
+pub const DOT_PHASE: f64 = 0.25;
+
 impl Now {
+    /// the pill's beat dot and bar meter (#585): the beat in the bar, the dot lit on the first part of the beat while the
+    /// clock runs; standing, the meter keeps its beat and the dot is dark
+    pub fn beat(&self) -> super::Beat {
+        let per_bar = self.per_bar.max(1);
+        let beat = self.pos.beat_in_bar.min(per_bar - 1);
+        super::Beat { beat, per_bar, lit: self.running && self.pos.phase < DOT_PHASE, accent: beat == 0, running: self.running }
+    }
+
     /// the flash of the beat at most `FLASH_AHEAD_S` past the heard moment; None while the clock stands
     pub fn flash(&self) -> Option<Flash> {
         if !self.running || self.bpm <= 0.0 {

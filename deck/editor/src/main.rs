@@ -117,6 +117,10 @@ struct Args {
     audio: bool,
     frames: Option<u64>,
     screenshot: Option<PathBuf>,
+    /// a check run types this on the toolbar's BPM (its screenshots)
+    tempo_type: Option<String>,
+    /// a check run turns the metronome on (its screenshots)
+    click: bool,
     tokens: Option<PathBuf>,
     volume: f32,
     /// the window's logical size (the gate is measured at 1920,1080)
@@ -211,6 +215,10 @@ struct Args {
     /// a check run's library in the list mode, filtered by a query
     library_find: Option<String>,
     library_list: bool,
+    /// a check run's Library shows the levels single
+    library_single: bool,
+    /// a check run's Library starts with these cards chosen (addresses)
+    library_choose: Vec<String>,
     library_related: bool,
     /// a check run's view: panned by (dx, dy) pixels at the start, then looking through the scene's camera if asked
     pan: Option<(f32, f32)>,
@@ -227,7 +235,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -252,6 +260,8 @@ fn args() -> Result<Args> {
             "--wire" => a.wire = true,
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
+            "--tempo-type" => a.tempo_type = Some(val()?),
+            "--click" => a.click = true,
             "--go-live" => a.go_live = val()?.split(',').map(str::to_string).collect(),
             "--lock" => a.lock = true,
             "--colour" => a.colour = Some(val()?),
@@ -267,6 +277,8 @@ fn args() -> Result<Args> {
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
+            "--library-single" => a.library_single = true,
+            "--library-choose" => a.library_choose = val()?.split(',').map(str::to_string).collect(),
             "--library-related" => a.library_related = true,
             "--save-state" => a.save_state = Some(val()?),
             "--tools-folded" => a.tools_folded = true,
@@ -427,6 +439,7 @@ fn args() -> Result<Args> {
                 a.script.node_box = Some(v.try_into().map_err(|_| anyhow::anyhow!("--node-box X0,Y0,X1,Y1 (fractions of the canvas)"))?);
             }
             "--node-pin" => a.script.node_pin = Some(val()?.parse()?),
+            "--node-wire" => a.script.node_wire = Some(val()?),
             "--band-drag" => {
                 let v = val()?;
                 let (edge, by) = v.rsplit_once(',').context("--band-drag EDGE,PIXELS (column:ID, row:ID or heads)")?;
@@ -457,7 +470,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -502,6 +515,11 @@ enum Hit {
     Panic,
     /// the toolbar's tempo pill, its account icon, its meters
     Tempo,
+    /// inside the tempo pill: the BPM (a press types on it), the source's word (a press picks the next source)
+    TempoBpm,
+    TempoSource,
+    /// the metronome's button in the tempo pill
+    TempoClick,
     Account,
     Meters,
     Tab(Tab),
@@ -518,7 +536,7 @@ enum Hit {
     GainText(mixer::Target),
     /// a mixer strip: selects what it is the level of; moving its fader does not
     StripSelect(mixer::Target),
-    Fader(mixer::Target, Rect),
+    Fader(mixer::Target, controls::Fader),
     Mute(usize),
     Solo(usize),
     /// the selected track armed or disarmed
@@ -585,8 +603,8 @@ enum Hit {
 #[derive(Clone, Copy, PartialEq)]
 enum Drag {
     Knob(usize, f32, f32),
-    /// a strip's fader: which, its travel's rect
-    Fader(mixer::Target, Rect),
+    /// a strip's fader: which, the hand on it
+    Fader(mixer::Target, controls::FaderGrip),
     /// a strip's pan: which, the pointer's start, the start's value, now
     Balance(usize, f32, f32, f32),
     /// a node's parameter: node, port, the pointer's start, the start's 0..1
@@ -649,6 +667,8 @@ enum Editing {
     SceneLayer(usize),
     /// the Log panel's find
     LogFind,
+    /// the master BPM on the toolbar's pill
+    Tempo,
 }
 
 /// a value being typed, in place of its field
@@ -783,7 +803,9 @@ struct App {
     show: show::Host,
     /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
     book: book::Loader,
-    book_key: (Option<String>, bool),
+    book_key: (Vec<String>, bool),
+    /// the shown show and the tempo it keeps, as last taken by the clock
+    show_tempo: Option<(String, Option<deck_show::Tempo>)>,
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
@@ -909,8 +931,9 @@ fn run() -> Result<i32> {
     if let Some(name) = &args.demo {
         app_show.open_demo(name).map_err(anyhow::Error::msg)?;
     }
-    let app_book = book::Loader::new(&args.api, args.toon.as_deref(), args.book.as_deref(), auth.token(), &cache);
-    let book_key = (args.toon.clone(), auth.token().is_some());
+    let forced: Vec<String> = args.toon.iter().cloned().collect();
+    let app_book = book::Loader::new(&args.api, &forced, args.book.as_deref(), auth.token(), &cache);
+    let book_key = (forced, auth.token().is_some());
     let mut app_module = module::Module::new(&args.api, &cache, args.module.clone());
     app_module.autosaves = args.frames.is_none();
     let mut app_library = library::Library::new(cache.clone());
@@ -948,7 +971,7 @@ fn run() -> Result<i32> {
         }
     }
     if args.history {
-        for p in [&mut build, &mut app_show.show_panels] {
+        for p in [&mut build, &mut app_module.panels, &mut app_show.show_panels] {
             p.floats.reopen(history_panel::PANEL);
         }
     }
@@ -1046,6 +1069,7 @@ fn run() -> Result<i32> {
         show: app_show,
         book: app_book,
         book_key,
+        show_tempo: None,
         rig_toon,
         auth,
         rigs,
@@ -1264,7 +1288,9 @@ impl App {
     /// library.rs); a check run's pointer stays where it was put
     fn follow_nodes(&mut self) {
         let m = self.settings.motion;
-        self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
+        if self.args.script.node_wire.is_none() || self.show.nodes.hand.is_none() {
+            self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
+        }
         let n = &mut self.show.nodes;
         n.secs = self.started.elapsed().as_secs_f32();
         n.motion = show::nodes::Motion { activity: m.allows(m.signal_flow), reveal: m.allows(m.hover_reveal), flash: m.allows(m.focus_flash), previews: m.allows(m.live_previews) };
@@ -1344,12 +1370,18 @@ impl App {
         }
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; this view's panels; back to the deck's stage."),
-            Hit::Tempo => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match self.stage.beat {
+            Hit::TempoClick => Help::new(
+                if self.stage.pill.is_some_and(|p| p.click) { "Click on" } else { "Click off" },
+                "The metronome: a tick on every beat, higher on the bar's first, on its own bus (the click outlet group, on the main out until the Audio tab routes it). Click to turn it on or off.",
+            ),
+            Hit::Tempo | Hit::TempoBpm | Hit::TempoSource => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match (self.stage.beat, self.stage.pill) {
                 _ if self.stage.held() => "LIVE: the live show's clock, locked – what plays here follows it.",
                 _ if self.stage.live => "LIVE: locked while the show is live; it follows the show's clock once the relay sends it.",
-                Some((_, true)) => "INT: the deck's own tempo clock runs; it sets the tempo of what plays here.",
-                Some((_, false)) => "INT: the deck's own tempo clock, standing.",
-                None => "No tempo clock plays here.",
+                (_, Some(p)) if p.external && !p.locked => "EXT: waiting for the tempo source. Click the BPM to type a tempo and take the clock back; click EXT for the next source.",
+                (_, Some(p)) if p.external => "EXT: the tempo comes from outside the deck (MIDI clock in, Link). Click the BPM to type a tempo and take the clock back; click EXT for the next source.",
+                (Some((_, true)), _) => "INT: the deck's own tempo clock runs. Click the BPM to type a tempo; click INT to follow MIDI clock in or Link.",
+                (Some((_, false)), _) => "INT: the deck's own tempo clock, standing. Click the BPM to type a tempo.",
+                (None, _) => "No tempo clock plays here.",
             }),
             Hit::Account => {
                 let line = self.auth.line(&deck_link::pairing::app_url());
@@ -1414,10 +1446,10 @@ impl App {
             Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
             Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
             Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
-            Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
+            Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Press anywhere on it or drag it; it goes into the draft when you let go."),
             Hit::Fader(mixer::Target::Inner(i), _) => {
                 let s = self.stage.inner.get(i)?;
-                Help::new(format!("{}:{}", s.track, s.label), format!("How much of {} goes on. Drag it; it goes into the draft when you let go.", s.source))
+                Help::new(format!("{}:{}", s.track, s.label), format!("How much of {} goes on. Press anywhere on it or drag it; it goes into the draft when you let go.", s.source))
             }
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
@@ -1535,7 +1567,7 @@ impl App {
                 let s = self.scale();
                 self.stage.pointer(x * s, y * s);
             }
-            Some(Drag::Fader(i, r)) => self.fader_to(i, r, y),
+            Some(Drag::Fader(i, grip)) => self.fader_to(i, grip.at(y)),
             Some(Drag::Balance(i, x0, v0, _)) => self.panel.drag = Some(Drag::Balance(i, x0, v0, (v0 + (x - x0) / 40.0).clamp(-1.0, 1.0))),
             Some(Drag::Right(lx, ly)) => {
                 if (x - lx).abs() + (y - ly).abs() > 3.0 {
@@ -1635,6 +1667,7 @@ impl App {
         if self.workspace == show::Workspace::Show && self.show.nodes.space && self.show.nodes_grab(x, y) {
             return;
         }
+        self.library.browser.keys = (self.mods.shift_key(), self.mods.control_key() || self.mods.super_key());
         match self.library.browser.press(x, y, library::now()) {
             Some(did) => return self.library_did(did),
             None => self.library.browser.stop_typing(),
@@ -1651,6 +1684,9 @@ impl App {
                 return;
             }
         } else if self.workspace == show::Workspace::Module {
+            if let Some(module::Hit::Unit(kind, unit)) = self.module.hit(x, y) {
+                return self.change_settings(|s| s.units.set(kind, unit));
+            }
             if let Some(h) = self.module.hit(x, y) {
                 return self.module.press(h, x, &self.stage);
             }
@@ -1677,6 +1713,9 @@ impl App {
                 return;
             }
         } else if self.grid.press(x, y) {
+            if let Some(u) = self.grid.take_unit() {
+                self.change_settings(|s| s.units.set(dop::DISTANCE_UNIT, u));
+            }
             return;
         }
         match self.hit(x, y) {
@@ -1703,6 +1742,9 @@ impl App {
                 }
             }
             Hit::Tempo | Hit::Meters => {}
+            Hit::TempoBpm => self.tempo_edit(x, y),
+            Hit::TempoSource => self.tempo_pick(x, y),
+            Hit::TempoClick => self.tempo_click(),
             Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Stage => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, &self.args.api, f),
@@ -1796,9 +1838,12 @@ impl App {
                 }
             }
             Hit::Peak(None) => self.stage.master_max = 0.0,
-            Hit::Fader(i, r) => {
-                self.panel.drag = Some(Drag::Fader(i, r));
-                self.fader_to(i, r, y);
+            Hit::Fader(i, f) => {
+                let (grip, jumped) = f.press(y);
+                self.panel.drag = Some(Drag::Fader(i, grip));
+                if let Some(to) = jumped {
+                    self.fader_to(i, to);
+                }
             }
             Hit::Balance(i) => {
                 if let Some(s) = self.stage.strips.get(i) {
@@ -1951,6 +1996,9 @@ impl App {
         if self.workspace == show::Workspace::Show && button == MouseButton::Middle && self.show.nodes_grab(x, y) {
             return;
         }
+        if self.workspace == show::Workspace::Show && button == MouseButton::Right && self.mods.control_key() && self.show.nodes_cut(x, y) {
+            return;
+        }
         // #551: Show's right click on a cell of the rows band is the same typeahead, on the selected cells of a row
         // (show/ask.rs); elsewhere the stage pans as in Build
         if self.workspace == show::Workspace::Show && button == MouseButton::Right && self.show.context(x, y) {
@@ -2032,7 +2080,80 @@ impl App {
             Editing::Height => self.dop_height(&text),
             Editing::SceneLayer(l) => self.scene_layer(l, &text),
             Editing::LogFind => self.log.find = text,
+            Editing::Tempo => self.tempo_typed(&text),
         }
+    }
+
+    /// the master BPM: typed in place on the pill (a live show's clock holds it back)
+    fn tempo_edit(&mut self, x: f32, y: f32) {
+        if self.stage.held() || self.stage.live {
+            return self.refuse("the live show's clock sets the tempo while it is live".into(), x, y);
+        }
+        let Some((bpm, _)) = self.stage.beat else { return self.refuse("no tempo clock plays here".into(), x, y) };
+        self.begin_edit(Editing::Tempo, Hit::TempoBpm, deck_core::units::number(bpm, deck_core::units::Unit::Bpm));
+    }
+
+    /// what was typed on the pill, in BPM, into the deck's clock
+    fn tempo_typed(&mut self, text: &str) {
+        let (x, y) = self.cursor;
+        use deck_core::units::{convert, parse, Refs, Unit};
+        let typed = parse(text, Unit::Bpm).and_then(|(v, u)| convert(v, u, Unit::Bpm, &Refs::default()));
+        let Some(bpm) = typed.filter(|v| *v > 0.0) else { return self.refuse(format!("'{text}': a tempo in BPM"), x, y) };
+        let held = deck_core::tempo::clamp_bpm(bpm);
+        let source = self.stage.pill.map_or(deck_core::tempo::Source::Internal, |p| p.source).typed();
+        self.stage.set_bpm(held);
+        self.keep_tempo(held, source);
+        let said = if (held - bpm).abs() > 1e-9 { format!("tempo: {held:.0} BPM ({bpm:.0} is out of {:.0}-{:.0})", deck_core::tempo::MIN_BPM, deck_core::tempo::MAX_BPM) } else { format!("tempo: {held:.1} BPM") };
+        self.note(said);
+    }
+
+    /// the pill's source word: the next pick - own clock, MIDI clock in, Link (the show clock is the deck's)
+    fn tempo_pick(&mut self, x: f32, y: f32) {
+        if self.stage.held() || self.stage.live {
+            return self.refuse("the live show's clock sets the tempo while it is live".into(), x, y);
+        }
+        let now = self.stage.pill.map_or(deck_core::tempo::Source::Internal, |p| p.source);
+        let next = now.next_pick(&stage::Stage::picks());
+        self.stage.pick_clock(next);
+        if let Some((bpm, _)) = self.stage.beat {
+            self.keep_tempo(bpm, next);
+        }
+        self.note(match next {
+            deck_core::tempo::Source::Internal => "tempo: the deck's own clock".to_string(),
+            s => format!("tempo: follows {} - it sets the BPM; type one to take it back", pick_name(s)),
+        });
+    }
+
+    /// the metronome on or off (the pill's button)
+    fn tempo_click(&mut self) {
+        let on = !self.stage.pill.is_some_and(|p| p.click);
+        self.stage.set_click(on);
+        self.note(if on { "click on: the metronome on its own bus" } else { "click off" }.to_string());
+    }
+
+    /// in the Show workspace the pill's tempo is the show's: kept in its document, saved with it
+    fn keep_tempo(&mut self, bpm: f64, source: deck_core::tempo::Source) {
+        if self.workspace == show::Workspace::Show {
+            let to = deck_show::Tempo::of(bpm, source);
+            self.show.keep_tempo(to);
+            self.show_tempo = Some(self.show.tempo());
+        }
+    }
+
+    /// a show opened in the Show workspace sets the clock to the tempo it keeps (once per document and tempo; a live
+    /// show's clock holds it back)
+    fn take_show_tempo(&mut self) {
+        if self.workspace != show::Workspace::Show || self.stage.held() || self.stage.live {
+            return;
+        }
+        let kept = self.show.tempo();
+        if self.show_tempo.as_ref() == Some(&kept) {
+            return;
+        }
+        if let Some(t) = &kept.1 {
+            self.stage.take_saved(t);
+        }
+        self.show_tempo = Some(kept);
     }
 
     /// the rig's background as typed or picked: into the rig, the undo and the draft
@@ -2162,9 +2283,8 @@ impl App {
         }
     }
 
-    /// a fader under the pointer: the engine at once
-    fn fader_to(&mut self, target: mixer::Target, r: Rect, y: f32) {
-        let f = (1.0 - (y - r.y) / r.h).clamp(0.0, 1.0);
+    /// a fader at `f` of its track: the engine at once
+    fn fader_to(&mut self, target: mixer::Target, f: f32) {
         let gain = mixer::position_gain(f);
         match target {
             mixer::Target::Track(i) => {
@@ -2218,7 +2338,7 @@ impl App {
             return typeahead::Typeahead::new(Vec::new(), x, y).with_note(why.unwrap_or_default());
         };
         let kinds = deck_space::world::FAR_HOLDERS;
-        let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }) });
+        let row = |i: usize| book.row(i, LOCALE).map(|r| typeahead::Item { id: i, label: r.chain, detail: format!("{}{}{}", r.kind.as_str(), if r.draft { " · draft" } else { "" }, r.toon.map(|t| format!(" · {t}")).unwrap_or_default()) });
         let items = book.find("", &kinds, LOCALE).into_iter().filter_map(row).collect();
         let found = book.clone();
         let ta = typeahead::Typeahead::found_by(items, x, y, move |q| found.find(q, &kinds, LOCALE));
@@ -2240,11 +2360,11 @@ impl App {
         }
         self.rig_toon.poll();
         let build = self.workspace == show::Workspace::Stage;
-        let toon = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), self.show.show_toon());
+        let toons = toon::wanted(self.args.toon.as_deref(), build, self.rig_toon.toon.as_deref(), &self.show.shown().toons);
         let token = self.auth.token();
-        let key = (toon, token.is_some());
+        let key = (toons, token.is_some());
         if key != self.book_key {
-            self.book = book::Loader::new(&self.args.api, key.0.as_deref(), None, token, &cache_dir());
+            self.book = book::Loader::new(&self.args.api, &key.0, None, token, &cache_dir());
             self.book_key = key;
         }
     }
@@ -2364,7 +2484,7 @@ impl App {
     /// the rig picker: the toon's rigs on the server, the local copy when it differs; why there are none inside it
     fn open_rigs(&mut self, x: f32, y: f32) {
         let registry = std::fs::read_to_string(toon::kept(&cache_dir())).unwrap_or_default();
-        let (items, note) = self.rigs.items(self.book_key.0.as_deref(), &registry, &self.auth.line(&deck_link::pairing::app_url()));
+        let (items, note) = self.rigs.items(self.book_key.0.first().map(String::as_str), &registry, &self.auth.line(&deck_link::pairing::app_url()));
         let mut ta = typeahead::Typeahead::new(items, x, y);
         if let Some(n) = note {
             ta = ta.with_note(n);
@@ -2816,7 +2936,7 @@ impl App {
         self.follow_tabs();
         self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
-            self.book = book::Loader::new(&self.args.api, None, Some(&f), None, &cache_dir());
+            self.book = book::Loader::new(&self.args.api, &[], Some(&f), None, &cache_dir());
             self.args.book = Some(f);
         }
         self.book.poll();
@@ -2842,6 +2962,19 @@ impl App {
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
         }
+        if self.frames == 2 && self.args.click {
+            self.tempo_click();
+        }
+        if self.frames == 4 {
+            if let Some(typed) = self.args.tempo_type.clone() {
+                self.tempo_edit(0.0, 0.0);
+                if let Some(e) = self.edit.as_mut() {
+                    e.field = text::Field::with(&typed);
+                    e.field.focused = true;
+                }
+            }
+        }
+        self.take_show_tempo();
         let help = self.help_now();
         let preset_line = self.preset_line();
         self.show.help.clone_from(&help);
@@ -3016,7 +3149,12 @@ impl App {
             modes: if edits { Some((modes, usize::from(playing))) } else { shows.then_some((modes, live_on)) },
             play: None,
             beat: self.stage.beat,
-            clock: if self.stage.live { bar::Clock::Live } else { bar::Clock::Int },
+            meter: self.stage.pill.map(|p| (p.beat, p.click)),
+            clock: match self.stage.pill {
+                _ if self.stage.live || self.stage.held() => bar::Clock::Live,
+                Some(p) if p.external => bar::Clock::Ext { locked: p.locked },
+                _ => bar::Clock::Int,
+            },
             account,
             pulse,
             pointer: self.cursor,
@@ -3036,6 +3174,11 @@ impl App {
         self.panel.hits.push((placed.panic, Hit::Panic));
         self.panel.hits.push((placed.account, Hit::Account));
         self.panel.hits.push((placed.tempo, Hit::Tempo));
+        self.panel.hits.push((placed.bpm, Hit::TempoBpm));
+        self.panel.hits.push((placed.source, Hit::TempoSource));
+        if placed.click.w > 0.0 {
+            self.panel.hits.push((placed.click, Hit::TempoClick));
+        }
         if let Some(r) = placed.meters {
             self.panel.hits.push((r, Hit::Meters));
         }
@@ -3065,7 +3208,7 @@ impl App {
             self.show.flow = self.settings.motion.allows(self.settings.motion.signal_flow).then(|| self.started.elapsed().as_secs_f32());
             match self.workspace {
                 show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
-                show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, &self.stage, (wf, hf), self.cursor, help.as_ref()),
+                show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, (&self.stage, &self.settings.units), (wf, hf), self.cursor, help.as_ref()),
                 show::Workspace::Home => {
                     self.home_panels.layout(ui, t, ((wf, hf), bar_bottom), &[], &[]);
                     if let Some((recent, library, deck, why)) = &home_page {
@@ -3554,8 +3697,8 @@ impl App {
                         Some(Drag::Dop(n, ..)) => Some(n),
                         _ => None,
                     };
-                    let focal = self.settings.units.unit(dop::FOCAL_UNIT, deck_core::units::Unit::Millimetres, &deck_core::units::Refs::default());
-                    for (r, f) in dop::draw(ui, t, o.area, view, playing, focal, hot) {
+                    let us = dop::Units::of(&self.settings.units);
+                    for (r, f) in dop::draw(ui, t, o.area, view, playing, us, hot) {
                         self.panel.hits.push((r, Hit::Dop(f)));
                     }
                 }
@@ -3594,20 +3737,9 @@ impl App {
         }
         // over everything else: what is being typed, the typeahead
         if let Some(e) = &self.edit {
-            let px = font;
-            let adv = ui.advance(px);
-            let tx = e.at.x + 6.0;
-            ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
-            ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
-            if let Some((a, b)) = e.field.selection() {
-                let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
-                ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);
-            }
-            let (shown, column) = e.field.shown();
-            ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
-            ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
+            draw_edit(ui, t, e, font);
         }
-        self.grid.popover(ui, t, (wf, hf));
+        self.grid.popover(ui, t, (wf, hf), dop::Units::of(&self.settings.units).distance);
         if let Some(m) = self.menu.as_mut() {
             m.ta.draw(ui, t, (wf, hf));
         }
@@ -3711,6 +3843,10 @@ impl App {
             if let Some(at) = placed.list {
                 self.tab_lines = bar::tab_list(ui, t, at, &tab_pills, self.tabs.front, self.cursor);
             }
+        }
+        // the toolbar's BPM is typed on in every workspace; the build stage draws the typing in its own pass
+        if let (false, Some(e)) = (build, self.edit.as_ref().filter(|e| e.what == Editing::Tempo)) {
+            draw_edit(ui, t, e, font);
         }
         window.set_cursor(grab);
         // the pass: logical pixels → the surface's, through the screen uniform
@@ -3819,6 +3955,7 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, el: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => el.exit(),
+            WindowEvent::DroppedFile(path) => self.library_file(&path),
             WindowEvent::Resized(s) => {
                 if let Some(g) = self.gpu.as_mut() {
                     g.resize(s.width, s.height);
@@ -4001,6 +4138,32 @@ impl ApplicationHandler for App {
 /// a number as someone types it: a point or a German comma, a typographic minus
 pub(crate) fn typed_number(text: &str) -> Option<f32> {
     text.trim().replace(',', ".").replace('−', "-").parse().ok().filter(|v: &f32| v.is_finite())
+}
+
+/// the value being typed, over its field
+fn draw_edit(ui: &mut ui::Ui, t: &deck_kit::base::tokens::Tokens, e: &ValueEdit, px: f32) {
+    let adv = ui.advance(px);
+    let tx = e.at.x + 6.0;
+    ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
+    ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
+    if let Some((a, b)) = e.field.selection() {
+        let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
+        ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);
+    }
+    let (shown, column) = e.field.shown();
+    ui.text(tx, e.at.y + (e.at.h - px * 1.25) * 0.5, px, &shown, t.color.text);
+    ui.rect(tx + column as f32 * adv, e.at.y + 3.0, 1.5, e.at.h - 6.0, t.color.text);
+}
+
+/// a tempo source in words
+fn pick_name(s: deck_core::tempo::Source) -> &'static str {
+    match s {
+        deck_core::tempo::Source::Midi => "the MIDI clock in",
+        deck_core::tempo::Source::Link => "Ableton Link",
+        deck_core::tempo::Source::Relay => "the show clock",
+        deck_core::tempo::Source::Osc => "OSC",
+        deck_core::tempo::Source::Internal => "the deck's own clock",
+    }
 }
 
 /// the port under (x, y): the nearest one, the being's points lie close together

@@ -3,7 +3,7 @@
 	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted").
 	// An acceptance is an edit of the document the warning is about (`accepted_warnings` in that locale's file,
 	// @scutoons/content accepted.ts): the page turns unsaved, Save keeps it, undo takes it back.
-	import { CloseButton, DockFold, Icon, shellDock } from '@scutoons/ui';
+	import { Icon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import type { Problem } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -16,9 +16,7 @@
 		docs = [],
 		home,
 		groupLabel,
-		ongoto,
-		onclose,
-		bare = false
+		ongoto
 	}: {
 		problems: Problem[];
 		/** the page's documents: a warning about one of them can be accepted (stored in it) */
@@ -28,9 +26,6 @@
 		/** a group of the page's own file by its name (the tree's), not its number (owner 2026-10-13) */
 		groupLabel?: (index: number) => string;
 		ongoto?: (problem: Problem) => void;
-		onclose?: () => void;
-		/** in a floating panel: its head is the panel's (no title, fold or close of its own) */
-		bare?: boolean;
 	} = $props();
 
 	let showInfo = $state(false);
@@ -78,13 +73,6 @@
 </script>
 
 <div class="problems" data-testid="problems-panel">
-	{#if !bare}
-		<header>
-			<h2>{m['creator.problems']()}</h2>
-			<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-			{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
-		</header>
-	{/if}
 	<p class="summary">
 		<span class:bad={counts.error > 0}>{m['creator.problems_errors']({ count: counts.error })}</span> · {m['creator.problems_warnings']({ count: counts.warning })}
 	</p>
@@ -97,7 +85,7 @@
 			{@const place = placeOf(p)}
 			{@const done = isAccepted(p)}
 			<li class="level-{p.level}" class:is-accepted={done}>
-				<button type="button" class="goto" onclick={() => (shellDock.restore(), shellDock.foldMain(false), ongoto?.(p))} title={m['creator.problems_goto']()}>
+				<button type="button" class="goto" onclick={() => ongoto?.(p)} title={m['creator.problems_goto']()}>
 					<span class="where">{place}</span>
 					<span class="msg">{messageOf(p)}</span>
 				</button>
@@ -112,18 +100,6 @@
 </div>
 
 <style>
-	header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	h2 {
-		margin: 0;
-		font-size: var(--type-body-size);
-		line-height: var(--type-body-line);
-		font-weight: normal;
-	}
 	.summary {
 		margin: 0 0 var(--space-05);
 		color: var(--muted);
@@ -159,18 +135,18 @@
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-05);
-		padding: var(--space-05) 0 var(--space-05) var(--space-075);
-		border-left: var(--border-width-focus) solid var(--border-muted);
+		padding: var(--space-05) 0;
 		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
-	li.level-error {
-		border-left-color: var(--error);
+	/* the level as the place's text colour (no side bar, RULES H10) */
+	li.level-error .where {
+		color: var(--editor-stop);
 	}
-	li.level-warning {
-		border-left-color: var(--warn);
+	li.level-warning .where {
+		color: var(--editor-warn);
 	}
-	li.is-accepted {
-		border-left-color: var(--border-muted);
+	li.is-accepted .where {
+		color: var(--muted);
 	}
 	li.is-accepted .msg {
 		color: var(--muted);
@@ -180,7 +156,10 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-start;
 		gap: var(--space-025);
+		min-height: 0;
 		padding: 0;
 		border: 0;
 		background: none;

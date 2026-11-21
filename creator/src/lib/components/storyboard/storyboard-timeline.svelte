@@ -6,7 +6,7 @@
 	// shows its frames one after another (clip-strip) and a tag with its source. The head: the view mode (like Blender's
 	// viewport shading), the clips' count and length, "Back to the shot camera" while a take's moment holds the 3D view,
 	// Play / Pause, the fold. A hover shows the clip's first frame next to the pointer. In Take mode the take's in / out
-	// are the trim (way C). The AppShell's bottom region (storyboard-editor → usePageNav).
+	// are the trim (way C). The Timeline tab (storyboard-editor → useTabs).
 	import { FoldButton, Icon, IconButton, Segmented, Timeline } from '@scutoons/ui';
 	import { formatTime } from '@scutoons/ui/timeline';
 	import { shotSvg } from '@scutoons/content/storyboard';

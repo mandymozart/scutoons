@@ -18,7 +18,7 @@ const BR: Corner = Corner::BottomRight;
 
 // the panels every view has alike, defined once
 const LOG: Spec = spec("log", "Log", "entry", "Every message, newest first, and the technical log: filter, find, copy all, save as a file.", Place::at(BR, 0.0, 0.0).closed());
-const HISTORY: Spec = spec(crate::history_panel::PANEL, "History", "clock", "The open rig's, scene's or show's saved steps: who, when, what changed; revert one or go back to a point, always asked first.", Place::at(TR, 0.0, 0.0).closed());
+const HISTORY: Spec = spec(crate::history_panel::PANEL, "History", "clock", "The open rig's, scene's, show's or module's saved steps: who, when, what changed; revert one or go back to a point, always asked first.", Place::at(TR, 0.0, 0.0).closed());
 const SETTINGS_PANEL: Spec = spec("settings", "Settings", "settings", "Day or night, motion & feedback, sound and the UI size: this machine's, remembered.", Place::at(TR, 0.0, 0.0).closed());
 
 // The order is the order of growth: an earlier panel leaves a later one the room it asks for, so the ones whose content
@@ -57,13 +57,14 @@ pub const SHOW: [Spec; 14] = [
     SETTINGS_PANEL,
 ];
 
-pub const MODULE: [Spec; 8] = [
+pub const MODULE: [Spec; 9] = [
     spec("library", "Library", "grid", "The catalog's modules with their previews: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
     spec("drives", "Drives", "activity", "What the module drives while it plays: each control output as a lamp, its value and its trace.", Place::at(BL, 0.0, 200.0)),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
     spec("tools", "Tools", "tool", "The stage's tools: the tool in hand, the view, grid & snap, framing – what this view offers.", Place::at(TR, 420.0, 0.0)).inline(),
+    HISTORY,
     LOG,
     SETTINGS_PANEL,
 ];
