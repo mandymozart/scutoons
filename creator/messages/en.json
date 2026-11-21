@@ -1688,6 +1688,8 @@
 		"experiences_plugin_line": "API {api} · {kb} KB",
 		"experiences_versions": "Versions",
 		"experiences_from_library": "Open an experience from the Library ({chip}).",
+		"experiences_inspector_none": "Select a node on the stage or in the Tree.",
+		"experiences_inspector_read_only": "Shown as stored. Editing comes next.",
 		"experiences_open_reader": "Open in reader",
 		"experiences_stage": "Stage",
 		"experiences_stage_frame": "The scene on the stage",

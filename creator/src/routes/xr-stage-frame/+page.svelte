@@ -32,7 +32,8 @@
 					handlers: {
 						status: (status, message) => post({ kind: 'status', status, message: message ?? null }),
 						found: (targets) => post({ kind: 'found', targets: [...targets] }),
-						subtitle: (text) => post({ kind: 'subtitle', text })
+						subtitle: (text) => post({ kind: 'subtitle', text }),
+						picked: (ref) => post({ kind: 'picked', ref: ref ? { target: ref.target, path: ref.path ? [...ref.path] : null } : null })
 					}
 				});
 				if ('problems' in opened) return post({ kind: 'problems', problems: opened.problems });
@@ -48,6 +49,7 @@
 			if (event.source !== parent || event.origin !== page) return;
 			const request = readStageRequest(event.data);
 			if (request?.kind === 'view') stage?.view(request.view);
+			else if (request?.kind === 'select') stage?.select(request.ref);
 			else if (request?.kind === 'open' && !asked) {
 				asked = true;
 				void open(request);

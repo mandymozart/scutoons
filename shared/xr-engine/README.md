@@ -8,7 +8,7 @@ engine, the experience's configuration (scenes, surfaces, entries, targets, enti
 | | |
 |---|---|
 | source | the OSCT repository (the owner's), branch `develop` |
-| commit | `8525607b` (2026-11-21): app 4.1.0, content schema 5.1, plugin API 3.1 |
+| commit | `d3d1060d` (2026-11-21): app 4.8.1, content schema 5.2, plugin API 3.1 |
 | copied | `engine/src` without its tests (58 files) and the files of `shared/` it imports, followed through (25 files) |
 | copied for the stage | of OSCT's editor (`editor/src/lib`): the stage's twelve files (`stage/mock-tracker.ts`, `mock-stage.ts`, `preview.ts`, `placement.ts`, `surfaces.ts`, `origin.ts`, `snap.ts`, `shading.ts`, `sky.ts`, `plywood.ts`, `oak.ts`, `linoleum.ts`), `storage.ts`, `library-place.ts`, and what those reach only through types (`api.ts`, `publish-plugins.ts`, `plugins/compile.ts`, four files of `shared/api`); of `editor/static`: the desk, its two textures and one sky, with their READMEs (sources and licences) |
 | tests | OSCT's own (`engine/src/**/__tests__`, vitest) stay there; `npm run check` here is the type check against SCUTOONS's three.js |

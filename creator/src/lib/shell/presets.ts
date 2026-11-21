@@ -69,7 +69,7 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	map: { panels: [left(['tree']), right(['problems'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },
 	// the XR editor (#482): the stage is the experience, the whole window; the panels float over it
-	experience: { panels: [left(['tree']), right(['experience'], {}, 24), foot(['scenes']), library()], clear: false },
+	experience: { panels: [left(['tree']), right(['inspector', 'experience']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['problems'], FOLDED)] },
 	sound: { panels: [right(['problems'], FOLDED), library()] },
 	text: { panels: [left(['tree']), right(['problems'], FOLDED)] },

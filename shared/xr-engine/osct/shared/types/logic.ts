@@ -31,18 +31,33 @@ import { type BehaviourRule, readRules, type RuleHome, rulesData, rulesProblems 
  * - `folds`: the view's node ids that are folded to a pill;
  * - `exposed` (schema 5.1): the ports an author exposed on a box beyond its wired ones – box id → port ids. A box shows its
  *   wired ports and these; the rest of the ports its spec gives stay hidden behind its **+** (the Blender way, #334).
+ * - `positions` (schema 5.2, L-T7): where an author pinned a box over the automatic layout – box id → `{ x, y }` in the
+ *   view's px (on the 1rem = 16px grid). A box without one sits where the layout puts it; the editor's *Tidy* drops them.
  */
 export interface LogicCanvas {
   groups?: LogicCanvasGroup[];
   notes?: LogicCanvasNote[];
   folds?: string[];
   exposed?: Record<string, string[]>;
+  positions?: Record<string, LogicCanvasPoint>;
 }
 
+/** A pinned box's place on the canvas (schema 5.2) */
+export interface LogicCanvasPoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * A frame around boxes (as the SCUTOONS deck's groups): `colour` (schema 5.2) the `#rrggbb` it is drawn in, `folded`
+ * (schema 5.2) the group drawn as one pill instead of its boxes
+ */
 export interface LogicCanvasGroup {
   id: string;
   label: string;
   members: string[];
+  colour?: string;
+  folded?: boolean;
 }
 
 export interface LogicCanvasNote {
@@ -66,12 +81,14 @@ export type LogicHome = Exclude<RuleHome, "entity">;
 const isText = (value: unknown): value is string => typeof value === "string";
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/** The fields a canvas has (`exposed` since schema 5.1) */
-const CANVAS_KEYS = ["groups", "notes", "folds", "exposed"];
+/** The fields a canvas has (`exposed` since schema 5.1, `positions` since 5.2) */
+const CANVAS_KEYS = ["groups", "notes", "folds", "exposed", "positions"];
+/** A group's colour: `#rrggbb` */
+const COLOUR = /^#[0-9a-fA-F]{6}$/;
 
 /** Problems of a canvas (`at` = its path) */
 export const canvasProblems = (canvas: unknown, at: string): string[] => {
-  if (!isObject(canvas)) return [`${at}: expected { groups?, notes?, folds?, exposed? }`];
+  if (!isObject(canvas)) return [`${at}: expected { groups?, notes?, folds?, exposed?, positions? }`];
   const problems: string[] = [];
   Object.keys(canvas).filter(key => !CANVAS_KEYS.includes(key)).forEach(key => problems.push(`${at}.${key}: unknown field of a canvas (${CANVAS_KEYS.join(", ")})`));
   const list = (key: string, check: (item: unknown, path: string) => string[]) => {
@@ -84,7 +101,10 @@ export const canvasProblems = (canvas: unknown, at: string): string[] => {
     if (!isObject(group) || !isText(group.id) || !group.id || !isText(group.label) || !Array.isArray(group.members) || !group.members.every(isText)) {
       return [`${path}: expected { id, label, members: [node ids] }`];
     }
-    return [];
+    const wrong: string[] = [];
+    if (group.colour !== undefined && !(isText(group.colour) && COLOUR.test(group.colour))) wrong.push(`${path}.colour: expected a colour #rrggbb`);
+    if (group.folded !== undefined && typeof group.folded !== "boolean") wrong.push(`${path}.folded: expected true or false`);
+    return wrong;
   });
   list("notes", (note, path) =>
     !isObject(note) || !isText(note.id) || !note.id || !isText(note.text) || !isNumber(note.x) || !isNumber(note.y) ? [`${path}: expected { id, text, x, y }`] : []);
@@ -94,6 +114,14 @@ export const canvasProblems = (canvas: unknown, at: string): string[] => {
     else {
       for (const [box, ports] of Object.entries(canvas.exposed)) {
         if (!box || !Array.isArray(ports) || !ports.every(port => isText(port) && port)) problems.push(`${at}.exposed.${box}: expected a list of port ids`);
+      }
+    }
+  }
+  if (canvas.positions !== undefined) {
+    if (!isObject(canvas.positions)) problems.push(`${at}.positions: expected { <box id>: { x, y } }`);
+    else {
+      for (const [box, point] of Object.entries(canvas.positions)) {
+        if (!box || !isObject(point) || !isNumber(point.x) || !isNumber(point.y)) problems.push(`${at}.positions.${box}: expected { x, y }`);
       }
     }
   }

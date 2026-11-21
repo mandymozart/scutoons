@@ -20,7 +20,11 @@ export interface LiveIn {
 }
 
 /** What an environment serves (`experience` null when it cannot be told), or `error` when its content store cannot be read */
-export type EnvironmentServing = { env: string; experience: string | null; build: string | null; since: string | null } | { env: string; error: string };
+/** An environment where an experience's store cannot be read (`GET /editor/experiences`, `environments`) */
+export interface EnvironmentUnreadable {
+  env: string;
+  error: string;
+}
 
 /** An experience of the list and of the tree (`Experiences::summary`) */
 export interface ExperienceSummary {
@@ -48,10 +52,10 @@ export interface ExperienceSummary {
   live: LiveIn[];
 }
 
-/** `GET /editor/experiences`: the experiences, and what each environment serves – only those that serve something */
+/** `GET /editor/experiences`: the experiences, and the environments where a store of theirs cannot be read */
 export interface ExperienceList {
   experiences: ExperienceSummary[];
-  environments: EnvironmentServing[];
+  environments: EnvironmentUnreadable[];
 }
 
 /** An entry in the tree; `category` as the content holds it */
@@ -89,7 +93,7 @@ export interface EnvironmentInfo {
   store: "cdn" | "server";
   /** Only the instance's own environment */
   publish: boolean;
-  /** Where readers load it */
+  /** Where readers load it: the environment base (`<pull zone>/<title>/<env>`, this API's `/content/<env>`) – an experience's store is `<url>/<experience>` (#87) */
   url: string | null;
   /** Wherever the directory store is the publish target: what that means */
   warning: string | null;
@@ -109,17 +113,11 @@ export interface PublishResult {
   build: string;
   hash: string;
   publishedAt: string;
-  /** The experience this publish replaced in the environment, null when there was none */
-  replaced: { experience: string | null; build: string | null } | null;
-}
-
-/** `details.current` of a 409 other-experience: what the environment serves instead */
-export interface OtherExperience {
-  env: string;
-  experience: string | null;
-  title: string | null;
-  build: string | null;
-  since: string | null;
+  /**
+   * The build's export archive (#322, `ExportArchive`): `exports/<build>` in the experience's store – `written` false when
+   * that build's archive was there already, or with `error` when writing it failed (the publish itself went through)
+   */
+  export: { path: string; written: boolean; error?: string };
 }
 
 /** A row of the publish log (`GET /editor/experiences/{id}/versions`, newest first) */
@@ -176,6 +174,32 @@ export interface ExperienceExport {
   plugins: PluginSource[];
   /** Every credit line of the Library, by file URL */
   credits: Record<string, string>;
+}
+
+/**
+ * `exports/<build>/export.json` of an export archive (#322, docs/content.md "Export archive"): written by a publish
+ * (`ExportArchive`) or `osct content export --archive`. The media are not copied: every file the archive's YAML names is
+ * listed with its path in the folder and the immutable URL it is read from; `builds` are the content builds those URLs lie
+ * in (and the archived build itself) – what `osct content purge` keeps for the newest export of an experience.
+ */
+export interface ExportArchiveRecord {
+  archive: true;
+  experience: string;
+  /** The API that wrote it, or the CLI's API URL */
+  instance: string;
+  title: string;
+  env: string;
+  /** Never a person: the archive is readable through the pull zone */
+  source: ExperienceExport["source"];
+  build: string;
+  hash: string;
+  schema: string;
+  appVersion: string;
+  writtenBy: "publish" | "cli";
+  exportedAt: string;
+  files: { path: string; url: string; origin: ExportFile["origin"]; sha256: string | null; v: string | null; size: number | null }[];
+  builds: { env: string; build: string }[];
+  problems: string[];
 }
 
 /** A row of the change log (`GET /editor/experiences/{id}/changes`, newest first); `token` = the AI connection's name, else null */
@@ -586,6 +610,11 @@ export interface Asset {
   usages: number;
   /** A file of the content import (`files.json`), not an upload: read-only, no replace or delete */
   imported: boolean;
+  /**
+   * The stored file's sha256 (hex) – what an upload is deduplicated by; `osct delivery import` skips a file the Library
+   * already holds (#322). Null for an imported file
+   */
+  sha256?: string | null;
   /**
    * The picture credits (#277): one free text line, as the book prints them ("Book Golem by TER-JAN / DeviantArt"); null =
    * none yet. Kept per URL – imported files carry one too.

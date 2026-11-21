@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { openRequest, readStageEvent, STAGE_FRAME_PATH, STAGE_LOADING, STAGE_SANDBOX, stageAfter, stageMessage, type StageShown, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { openRequest, readStageEvent, STAGE_FRAME_PATH, STAGE_LOADING, STAGE_SANDBOX, stageAfter, stageMessage, type StageRef, type StageShown, type StageView } from '$lib/editor/xr-stage-frame.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -7,7 +7,8 @@
 	/**
 	 * The workspace's stage: one scene of the experience on the desk, filling its parent. The engine and the experience's
 	 * plugins run in the sandboxed frame (lib/editor/xr-stage-frame.ts); this element only carries it and its notes.
-	 * A new `scene` or `run` loads the frame anew; `view` turns the camera of the frame that plays.
+	 * A new `scene` or `run` loads the frame anew; `view` turns the camera of the frame that plays; `selected` is outlined
+	 * there, a click on the stage reports what it picked (`onpick`).
 	 */
 	let {
 		content,
@@ -15,8 +16,10 @@
 		scene,
 		view,
 		run,
+		selected,
+		onpick,
 		shown = $bindable(STAGE_LOADING)
-	}: { content: unknown; assets: string; scene: string; view: StageView; run: number; shown?: StageShown } = $props();
+	}: { content: unknown; assets: string; scene: string; view: StageView; run: number; selected: StageRef | null; onpick: (ref: StageRef | null) => void; shown?: StageShown } = $props();
 
 	let frame = $state<HTMLIFrameElement>();
 
@@ -25,6 +28,7 @@
 		if (!target || event.source !== target) return;
 		const e = readStageEvent(event.data);
 		if (!e) return;
+		if (e.kind === 'picked') return onpick(e.ref);
 		if (e.kind !== 'ready') return void (shown = stageAfter(shown, e));
 		// a frame loaded anew takes the experience as it is now
 		const request = openRequest($state.snapshot(content), scene, asset(assets), getLocale());
@@ -36,6 +40,10 @@
 	$effect(() => {
 		const next = view;
 		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'view', view: next }), '*');
+	});
+	$effect(() => {
+		const ref = selected ? { target: selected.target, path: selected.path ? [...selected.path] : null } : null;
+		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'select', ref }), '*');
 	});
 </script>
 

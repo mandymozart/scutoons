@@ -34,12 +34,11 @@ import type {
   SurfaceReferenceSaved,
   TargetSaved,
   Ungrouped,
-  EnvironmentServing,
+  EnvironmentUnreadable,
   ExperienceSummary,
   ExperienceList,
   ExperienceTree,
   PublishResult,
-  OtherExperience,
   ImportComparison,
   ImportPreview,
   ExperienceSaved,
@@ -51,7 +50,7 @@ import type {
   IncomingBuild,
   ImportResult,
 } from "@shared/api/editor";
-export type { EnvironmentServing, ExperienceSummary, ExperienceList, ExperienceTree, PublishResult, OtherExperience, ImportComparison, ImportPreview, ExperienceSaved, ExperiencePassesSaved, ExperienceAppearanceSaved, RemovalImpact } from "@shared/api/editor";
+export type { EnvironmentUnreadable, ExperienceSummary, ExperienceList, ExperienceTree, PublishResult, ImportComparison, ImportPreview, ExperienceSaved, ExperiencePassesSaved, ExperienceAppearanceSaved, RemovalImpact } from "@shared/api/editor";
 import { apiErrorFields } from "@shared/api/errors";
 import { imageUseQuery, type ImageFit, type ImageUse } from "@shared/api/images";
 import type { PublishedPlugin } from "#lib/publish-plugins.js";
@@ -102,7 +101,7 @@ export type {
 export const API_URL = "/api";
 
 export class ApiError extends Error {
-  /** `details` = the rest of the server's error object (e.g. `current` of a 409 other-experience) */
+  /** `details` = the rest of the server's error object (e.g. `comparison` of a 409 confirm-import) */
   constructor(public readonly status: number, public readonly code: string, message: string, public readonly details: Record<string, unknown> = {}) {
     super(message);
   }
@@ -427,7 +426,7 @@ export const getExperience = (experienceId: string, { fresh = false }: { fresh?:
 };
 
 /** What an import sends: a configuration, or the instance CDN's current version – `confirm` = the second step */
-export type ImportSource = { configuration: GameConfiguration; files?: unknown; assetsBase?: string } | { source: "cdn" };
+export type ImportSource = { configuration: GameConfiguration; files?: unknown; assetsBase?: string } | { source: "cdn"; experience?: string };
 export type ImportBody = ImportSource & { confirm?: string };
 
 /** What the import of this body would bring in and replace – read-only; 502 content-fetch-failed names the `url` */
@@ -453,10 +452,10 @@ export const putTargetEntity = (experienceId: string, targetId: string, entity: 
   api<TargetSaved>("PUT", `/editor/experiences/${encodeURIComponent(experienceId)}/targets/${encodeURIComponent(targetId)}`, { entity });
 
 /**
- * `replace` = publish although the environment serves another experience (else 409 other-experience); `plugins` = the Code tab's
- * saved sources as the browser transpiled them (`publish-plugins.ts`, #78) – the API puts them into the version
+ * Into the experience's own store in `env` (#87); `plugins` = the Code tab's saved sources as the browser transpiled them
+ * (`publish-plugins.ts`, #78) – the API puts them into the version
  */
-export const publishExperience = (experienceId: string, env: string, options: { note?: string; replace?: boolean; plugins?: PublishedPlugin[] } = {}) =>
+export const publishExperience = (experienceId: string, env: string, options: { note?: string; plugins?: PublishedPlugin[] } = {}) =>
   api<PublishResult>("POST", `/editor/experiences/${encodeURIComponent(experienceId)}/publish`, { env, ...options });
 
 /** The draft as a content version – the engine's `loadGameConfiguration({ baseUrl, fetch: authFetch })` reads it */

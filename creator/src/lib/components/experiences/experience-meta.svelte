@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { crossAppClick } from '@scutoons/pwa';
 	import { VIEWER_URL } from '$lib/config.ts';
-	import { readerHref, titleIn, type ExperienceFacts } from '$lib/editor/experiences.ts';
+	import { kb, readerHref, titleIn, type ExperienceFacts, type PluginRow } from '$lib/editor/experiences.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** The Experience tab: the open experience's meta (what it is, for which toons, where it came from) and the reader's link. */
-	let { facts, typeName, toons, problems }: { facts: ExperienceFacts; typeName: string; toons: string; problems: string[] } = $props();
+	let { facts, typeName, toons, problems, plugins }: { facts: ExperienceFacts; typeName: string; toons: string; problems: string[]; plugins: PluginRow[] } = $props();
 
 	const locale = getLocale();
 </script>
@@ -37,6 +37,8 @@
 		</dd>
 		<dt>{m['creator.experiences_assets']()}</dt>
 		<dd><code>{facts.assets}</code></dd>
+		<dt>{m['creator.experiences_plugins']()}</dt>
+		<dd>{#if plugins.length}{#each plugins as p (p.id)}<span class="line">{p.id} <span class="muted">{m['creator.experiences_plugin_line']({ api: p.api, kb: kb(p.bytes) })}</span></span>{/each}{:else}<span class="muted">–</span>{/if}</dd>
 	</dl>
 	<a class="reader" href={readerHref(VIEWER_URL, facts.id)} target="_blank" rel="noopener" onclick={crossAppClick} data-testid="experience-reader">{m['creator.experiences_open_reader']()} ↗</a>
 </div>

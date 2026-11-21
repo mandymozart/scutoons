@@ -107,10 +107,14 @@ export type AssetType = (typeof ASSET_TYPES)[number];
  * `exposed` (the ports an author exposed per box, `./logic.ts`). The built-in node types have specs for the Logic view
  * (`BUILT_IN_NODE_SPECS`, `./node-types.ts`). An app of 5.0 ignores the new spec fields (it reads a recorded spec's
  * kinds and params only) and never sees a canvas (a reader's configuration carries none).
+ *
+ * **5.2** (#334 L-T7): the Logic canvas as the SCUTOONS deck draws it – a logic canvas may carry `positions` (box id →
+ * `{ x, y }`: boxes pinned over the automatic layout) and a canvas group `colour` (`#rrggbb`) and `folded` (`./logic.ts`).
+ * Authoring data only: a reader's configuration carries no canvas, so an app of 5.1 is not touched.
  * Every change in shared/ needs a bump: shared/content-schema.json locks the checksum of shared/ to this
  * version (scripts: `npm run schema:lock`, checked by a test).
  */
-export const CONTENT_SCHEMA_VERSION = "5.1";
+export const CONTENT_SCHEMA_VERSION = "5.2";
 /** The oldest content schema MAJOR this contract reads – 5: no 4.x content is read (5.0 reshaped every rule's `when`) */
 export const OLDEST_READABLE_SCHEMA_MAJOR = 5;
 

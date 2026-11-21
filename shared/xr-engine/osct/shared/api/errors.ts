@@ -6,7 +6,7 @@
  */
 import type { Confirmation } from "./editor";
 
-/** What an error answer says: its code, its message and its other fields (`current` of a 409 other-experience, `usages`, …) */
+/** What an error answer says: its code, its message and its other fields (`comparison` of a 409 confirm-import, `usages`, …) */
 export interface ApiErrorFields {
   code: string;
   message: string;

@@ -1688,6 +1688,8 @@
 		"experiences_plugin_line": "API {api} · {kb} KB",
 		"experiences_versions": "Versionen",
 		"experiences_from_library": "Öffne ein Erlebnis aus der Bibliothek ({chip}).",
+		"experiences_inspector_none": "Wähle einen Knoten auf der Bühne oder im Baum.",
+		"experiences_inspector_read_only": "So, wie es gespeichert ist. Bearbeiten kommt als Nächstes.",
 		"experiences_open_reader": "Im Reader öffnen",
 		"experiences_stage": "Bühne",
 		"experiences_stage_frame": "Die Szene auf der Bühne",

@@ -45,6 +45,16 @@ test('the page reads only the frame’s known events, cut to size', () => {
 	assert.equal(many?.kind === 'problems' ? many.problems.length : 0, 20);
 });
 
+test('a pick and a selection cross only as a short target id and a small path', () => {
+	assert.deepEqual(readStageEvent(stageMessage({ kind: 'picked', ref: { target: 'catpope', path: [1, 0] } })), { kind: 'picked', ref: { target: 'catpope', path: [1, 0] } });
+	assert.deepEqual(readStageEvent(stageMessage({ kind: 'picked', ref: null })), { kind: 'picked', ref: null });
+	assert.deepEqual(readStageRequest(stageMessage({ kind: 'select', ref: { target: 'catpope', path: null } })), { kind: 'select', ref: { target: 'catpope', path: null } });
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'picked', ref: { target: 'x', path: [-1] } }), null);
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'picked', ref: { target: 'x', path: Array(65).fill(0) } }), null);
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'picked', ref: { target: 'x'.repeat(201), path: [] } }), null);
+	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'select', ref: 'catpope' }), null);
+});
+
 test('the panel shows loading until the scene runs, and why it failed', () => {
 	const running = stageAfter(STAGE_LOADING, { kind: 'status', status: 'running', message: null });
 	assert.equal(stageAfter(STAGE_LOADING, { kind: 'status', status: 'loading', message: null }).phase, 'loading');

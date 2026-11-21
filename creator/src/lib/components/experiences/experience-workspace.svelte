@@ -4,7 +4,8 @@
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { publishMany } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { experienceFacts, experienceHref, experienceKey, experienceOutline, titleIn } from '$lib/editor/experiences.ts';
+	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
+	import type { NodeRef } from '$lib/editor/xr-nodes.ts';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
@@ -15,7 +16,8 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import ExperienceMeta from './experience-meta.svelte';
-	import ExperienceOutline from './experience-outline.svelte';
+	import ExperienceInspector from './experience-inspector.svelte';
+	import ExperienceTree from './experience-tree.svelte';
 	import ExperienceScenes from './experience-scenes.svelte';
 	import ExperienceStage from './experience-stage.svelte';
 
@@ -35,12 +37,15 @@
 	let shown = $state(STAGE_LOADING);
 	let problems = $state<string[]>([]);
 	let busy = $state(false);
+	/** the one selection: the Tree, the stage and the Inspector share it */
+	let selected = $state.raw<NodeRef | null>(null);
 
 	$effect(() => {
 		const current = id;
 		untrack(() => {
 			problems = [];
 			picked = '';
+			selected = null;
 			doc = current ? neutralDoc(experienceKey(current)) : null;
 			void doc?.load();
 		});
@@ -50,6 +55,8 @@
 	const facts = $derived(content && id ? experienceFacts(content, id) : null);
 	const scenes = $derived(experienceOutline((content as { configuration?: unknown } | null)?.configuration).scenes);
 	const scene = $derived(scenes.find((s) => s.id === picked)?.id ?? scenes[0]?.id ?? '');
+	const configuration = $derived((content as { configuration?: unknown } | null)?.configuration);
+	const plugins = $derived(pluginRows((content as { plugins?: unknown } | null)?.plugins));
 	const base = $derived(doc?.base[NEUTRAL_LOCALE] ?? null);
 	const unpublished = $derived(!!doc && base !== null && doc.published[NEUTRAL_LOCALE] !== base);
 
@@ -81,7 +88,7 @@
 
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
 	usePageDoc(() => (doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length } : null));
-	useTabs(() => ({ tree: facts ? tree : null, experience: facts ? meta : null, scenes: facts && scenes.length ? strip : null }));
+	useTabs(() => ({ tree: facts ? tree : null, inspector: facts ? inspector : null, experience: facts ? meta : null, scenes: facts && scenes.length ? strip : null }));
 </script>
 
 {#snippet publishMenu()}
@@ -92,20 +99,24 @@
 {/snippet}
 
 {#snippet tree()}
-	{#if facts}<ExperienceOutline {content} assets={facts.assets} />{/if}
+	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} />{/if}
+{/snippet}
+
+{#snippet inspector()}
+	<ExperienceInspector {configuration} {selected} />
 {/snippet}
 
 {#snippet meta()}
-	{#if facts}<ExperienceMeta {facts} typeName={TYPES[facts.type]?.() ?? facts.type} toons={facts.toons.map((t) => nav.toonName(t)).join(' · ')} {problems} />{/if}
+	{#if facts}<ExperienceMeta {facts} typeName={TYPES[facts.type]?.() ?? facts.type} toons={facts.toons.map((t) => nav.toonName(t)).join(' · ')} {problems} {plugins} />{/if}
 {/snippet}
 
 {#snippet strip()}
-	{#if facts}<ExperienceScenes {scenes} current={scene} assets={facts.assets} bind:view playing={shown.phase === 'playing'} onpick={(s) => ((picked = s), (view = 'reader'))} onreplay={() => ((run += 1), (view = 'reader'))} />{/if}
+	{#if facts}<ExperienceScenes {scenes} current={scene} assets={facts.assets} bind:view playing={shown.phase === 'playing'} onpick={(s) => ((picked = s), (view = 'reader'), (selected = null))} onreplay={() => ((run += 1), (view = 'reader'))} />{/if}
 {/snippet}
 
 <div class="xr-workspace" data-testid="experience-workspace">
 	{#if facts && scene}
-		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} bind:shown />
+		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} bind:shown />
 	{:else}
 		<div class="empty">
 			{#if !id}

@@ -15,6 +15,12 @@ export type StageView = (typeof STAGE_VIEWS)[number];
 const STATUSES = ['idle', 'loading', 'ready', 'starting', 'running', 'paused', 'error'] as const;
 export type StageStatus = (typeof STATUSES)[number];
 
+/** a node of a target's entity, or the target's printed image (`path` null) – xr-nodes.ts `NodeRef` */
+export interface StageRef {
+	target: string;
+	path: number[] | null;
+}
+
 export interface StagePlugin {
 	id: string;
 	api: string;
@@ -24,7 +30,8 @@ export interface StagePlugin {
 /** page → frame */
 export type StageRequest =
 	| { kind: 'open'; configuration: object; plugins: StagePlugin[]; scene: string; assets: string; language: string }
-	| { kind: 'view'; view: StageView };
+	| { kind: 'view'; view: StageView }
+	| { kind: 'select'; ref: StageRef | null };
 
 /** frame → page */
 export type StageEvent =
@@ -32,13 +39,25 @@ export type StageEvent =
 	| { kind: 'status'; status: StageStatus; message: string | null }
 	| { kind: 'problems'; problems: string[] }
 	| { kind: 'found'; targets: string[] }
-	| { kind: 'subtitle'; text: string | null };
+	| { kind: 'subtitle'; text: string | null }
+	| { kind: 'picked'; ref: StageRef | null };
 
 type Obj = Record<string, unknown>;
 const tagged = (data: unknown): Obj | null => (!!data && typeof data === 'object' && (data as Obj).tag === TAG ? (data as Obj) : null);
 const text = (v: unknown, max: number): string | null => (typeof v === 'string' ? v.slice(0, max) : null);
 const texts = (v: unknown, count: number, max: number): string[] | null =>
 	Array.isArray(v) && v.every((x) => typeof x === 'string') ? v.slice(0, count).map((x: string) => x.slice(0, max)) : null;
+
+/** a node reference from the other side: a short target id and a path of at most 64 small whole numbers; else undefined */
+function refOf(v: unknown): StageRef | null | undefined {
+	if (v === null) return null;
+	const r = v && typeof v === 'object' ? (v as Obj) : null;
+	if (!r || typeof r.target !== 'string' || !r.target || r.target.length > 200) return undefined;
+	if (r.path === null) return { target: r.target, path: null };
+	const path = r.path;
+	if (!Array.isArray(path) || path.length > 64 || !path.every((i) => Number.isInteger(i) && i >= 0 && i < 100000)) return undefined;
+	return { target: r.target, path: [...(path as number[])] };
+}
 
 export const stageMessage = (message: StageRequest | StageEvent): object => ({ tag: TAG, ...message });
 
@@ -59,6 +78,10 @@ export function readStageRequest(data: unknown): StageRequest | null {
 	const d = tagged(data);
 	if (!d) return null;
 	if (d.kind === 'view') return STAGE_VIEWS.includes(d.view as StageView) ? { kind: 'view', view: d.view as StageView } : null;
+	if (d.kind === 'select') {
+		const ref = refOf(d.ref);
+		return ref === undefined ? null : { kind: 'select', ref };
+	}
 	if (d.kind !== 'open') return null;
 	const request = openRequest({ configuration: d.configuration, plugins: d.plugins }, String(d.scene ?? ''), String(d.assets ?? ''), String(d.language ?? ''));
 	return request && /^https?:\/\//.test(String(d.assets)) ? request : null;
@@ -82,6 +105,10 @@ export function readStageEvent(data: unknown): StageEvent | null {
 		return targets ? { kind: 'found', targets } : null;
 	}
 	if (d.kind === 'subtitle') return d.text === null || typeof d.text === 'string' ? { kind: 'subtitle', text: text(d.text, 500) } : null;
+	if (d.kind === 'picked') {
+		const ref = refOf(d.ref);
+		return ref === undefined ? null : { kind: 'picked', ref };
+	}
 	return null;
 }
 

@@ -6,6 +6,7 @@ import { ArScene } from '../osct/engine/src/scene/index';
 import { ArState } from '../osct/engine/src/types/scene';
 import { setDeviceStorage } from '../osct/engine/src/utils/device-storage';
 import { loadExperience, pageProgress } from './load';
+import { stagePicking } from './stage-pick';
 import type * as api from './stage-api';
 
 // OSCT's stage as its editor wires it (editor/src/lib/stage/stage-core.svelte.ts), the viewing half only.
@@ -16,12 +17,13 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 	setPreviewActive(true);
 	setDeviceStorage(deviceStorage);
 	const found = new Set<string>();
+	let tracker: MockTracker | null = null;
 	const progress = pageProgress();
 	const graphics = () => ({ onionSky: false, surroundings: false, textureQuality: getPreview().textureQuality });
 	const view = new ArScene(container, {
 		graphics: { getSettings: graphics, subscribe: (listener) => subscribePreview(() => listener(graphics())) },
 		createTracker: ({ container: host, options, scene: world }) => {
-			const tracker = new MockTracker(host, options);
+			tracker = new MockTracker(host, options);
 			tracker.attachStage(new MockStage(world, (path) => stageBase + path));
 			return tracker;
 		},
@@ -46,10 +48,19 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 	await view.load(scene);
 	await view.setState(ArState.RUNNING);
 
+	// a click (not the end of an orbit drag: the tracker swallows those) picks what lies under the pointer
+	const picking = stagePicking(() => view.inspect(), scene);
+	const planes = () => tracker?.targetPlanes() ?? [];
+	const onClick = (event: MouseEvent) => handlers.picked(picking.pick(container, event.clientX, event.clientY, planes()));
+	container.addEventListener('click', onClick);
+
 	return {
 		stage: {
 			view: (preset) => updatePreview({ view: preset }),
+			select: (ref) => picking.select(ref, planes()),
 			dispose: async () => {
+				container.removeEventListener('click', onClick);
+				picking.dispose();
 				off.forEach((stop) => stop());
 				await view.dispose();
 				setPreviewActive(false);

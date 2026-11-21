@@ -640,6 +640,9 @@ export const loadPlugins = async (
   importer: (url: string) => Promise<unknown> = url => import(/* @vite-ignore */ url),
 ): Promise<void> => {
   await Promise.all(plugins.map(plugin => {
+    // The editor's stage runs the Code tab's saved source of this id instead (#269): the compiled module – maybe built
+    // against an older plugin API – is neither checked nor loaded
+    if (keptPlugins.has(plugin.id)) return Promise.resolve();
     if (!pluginApiCompatible(plugin.api)) {
       console.error(`[plugins] ${plugin.id} was built against plugin API ${plugin.api}, this engine runs ${PLUGIN_API_VERSION} – not loaded`);
       return Promise.resolve();
