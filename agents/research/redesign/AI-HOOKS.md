@@ -41,6 +41,11 @@ What that means, in the network's words (#763: a node is a **spore**, connecting
 
 - **Runs stay on the generator canvas** (owner 2026-11-22: *"all reruns are kept on the generator canvas. until manually deleted. or clean up workers remove unused runs."*). Every run and its takes stay on the canvas. They go only when someone deletes them by hand, or when a clean-up worker removes runs nothing uses (no slot holds them, none was accepted).
 
+- **Skills files and reference images as spores** (owner 2026-11-22, thinking aloud: *"lumalabs uses skills.md files in combination with reference pictures. i assume we can just have nodes that allow for skills text files and for reference images for example. so the canvas is pretty open to these formats as well."*):
+  - a **skills spore** holds a text file of instructions (a `skills.md`: style rules, how to draw a character, what to avoid). It's a Library document, versioned, and woven into a gen-AI spore's prompt port.
+  - a **reference spore** holds one or more reference pictures (a character's sheet, a mood board), woven into a gen-AI spore's reference pore.
+  - Both are plain inputs, so the canvas stays open to whatever formats a tool takes. The Kanon texts are a natural source for skills spores.
+
 This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
 ## 1. One shape
