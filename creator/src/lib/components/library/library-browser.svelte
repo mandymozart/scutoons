@@ -89,11 +89,12 @@
 <style>
 	.browser {
 		position: fixed;
-		z-index: 60;
-		top: var(--shell-top, 3.6rem);
-		left: var(--editor-gap, 1rem);
-		right: var(--editor-gap, 1rem);
-		bottom: var(--editor-gap, 1rem);
+		z-index: 80; /* over everything, the bar too (as OSCT's asset manager) */
+		top: 2rem;
+		left: 2.5rem;
+		right: 2.5rem;
+		bottom: 2.5rem;
+		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.55), 0 1rem 3rem rgb(0 0 0 / 0.5);
 		display: flex;
 		flex-direction: column;
 		border: var(--editor-edge) solid var(--editor-line);

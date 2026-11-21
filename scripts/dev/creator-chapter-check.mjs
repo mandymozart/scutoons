@@ -254,7 +254,20 @@ async function until(expression, ms = 15000) {
 }
 const q = (testid) => `document.querySelector('[data-testid="${testid}"]')`;
 /** a real mouse click in the middle of the element */
+// the workspace host (#751): Save / Publish sit in the bar's Publish menu, Problems open from the status bar
+const IN_MENU = { 'save-draft': 'bar-publish', publish: 'bar-publish', 'scene-publish': 'bar-publish', 'sound-publish': 'bar-publish' };
+async function reach(selector) {
+	const id = /^\[data-testid="([^"]+)"\]$/.exec(selector)?.[1];
+	if (id === 'problems-toggle') return '[data-testid="status-counts"]';
+	if (id === 'undo' || id === 'redo') return `[data-testid="bar-${id}"]`;
+	if (id && IN_MENU[id] && !(await js(`!!document.querySelector('[data-testid="${id}"]')`))) {
+		await js(`document.querySelector('[data-testid="${IN_MENU[id]}"]')?.click(), true`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return selector;
+}
 async function click(selector) {
+	selector = await reach(selector);
 	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
 	for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
 	await sleep(250);
@@ -310,8 +323,6 @@ const writesSince = (n) => writes.slice(n);
  * group and the rest in More – the group is opened first (undo / redo keep it open). The main row's own cells (Save,
  * Publish, Problems, the desktop's slice stepper) are hidden while a group is open: its ‹ goes back first */
 async function barClick(testid) {
-	if (!(await js(`!!${q(testid)}`)) && (await js(`!!${q('group-bar-back')}`))) await click(tid('group-bar-back'));
-	if (!(await js(`!!${q(testid)}`))) await click(tid(['undo', 'redo'].includes(testid) ? 'group-bar-history' : 'group-bar-more'));
 	await click(tid(testid));
 }
 
@@ -725,7 +736,7 @@ try {
 		await pieceCase();
 		await click(tid('save-draft'));
 		await answerDialog('button.primary');
-		await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
+		await until(`!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`);
 		const saved = savedPieces(await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`), piecesBefore);
 		check(saved.ok, 'pieces: Save draft stores both pieces (the toon\'s path, the ratio, the look, distinct ids, no height)', saved.detail);
 		const presetsNow = (await index()).colorations;
@@ -797,7 +808,7 @@ try {
 	check(await until(`document.activeElement?.dataset?.testid === 'text-de'`, 3000), 'add: the cursor is in the new text field');
 	await send('Input.insertText', { text: TEXT });
 	await sleep(300);
-	check(await until(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
+	check(await until(`!!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`, 3000), 'add: typing marks the page dirty');
 	// leaving with unsaved changes asks in-page (step 14: no browser confirm()); "Cancel" stays
 	const toonLink = await js(`!!document.querySelector('a[href="/${TOON}"]')`);
 	if (toonLink) {
@@ -1022,8 +1033,8 @@ try {
 	// chip left the ActionBar with the grouped bar, e3c9c63b 2026-10-12) ──
 	if (await js(`!!${q('group-bar-back')}`)) await click(tid('group-bar-back'));
 	check(await js(`!document.querySelector('.sc-bar.is-dirty') && !document.querySelector('.editor > .files')`), 'E.1: no unsaved bar, no file-status row above the editor');
-	check(await js(`document.querySelector('[data-testid="save-draft"]').textContent.includes('•')`), 'E.1: the Save button carries the dot');
-	check(await js(`!document.querySelector('[data-testid="file-status"]') && !${q('publish')}.textContent.includes('•')`), 'E.1: no not-live chip; Publish without a dot while nothing is saved (no draft)');
+	check(await js(`document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`), 'E.1: the Save button carries the dot');
+	check(await js(`!document.querySelector('[data-testid="file-status"]') && !!!document.querySelector('[data-testid="status-not-live"]')`), 'E.1: no not-live chip; Publish without a dot while nothing is saved (no draft)');
 
 	// ── collage pieces (left on the slice for the save below) ──────────────────────────────────────────
 	const piecesBefore = (slice.pieces ?? []).length;
@@ -1038,11 +1049,11 @@ try {
 		: null;
 	check(!!suggested?.value && suggested.selected && suggested.value.length <= 90 && /Text ?box/i.test(suggested.value), 'Save draft: the note dialog suggests what changed (the new text box), selected', JSON.stringify(suggested));
 	await answerDialog('button.primary');
-	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
+	await until(`!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
 	check(await until(`!!document.querySelector('.sc-toast-stack .toast.success')`, 3000), 'E.1: "Saved" is a toast (bottom-right, not a bar in the flow)');
-	check(await until(`${q('publish')}.textContent.includes('•')`, 3000), 'E.1: Publish carries the dot once a draft is not live');
+	check(await until(`!!document.querySelector('[data-testid="status-not-live"]')`, 3000), 'E.1: Publish carries the dot once a draft is not live');
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	const savedDialogs = draft.content.groups[GROUP].slices[SLICE].dialog ?? [];
 	check(

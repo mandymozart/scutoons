@@ -153,7 +153,20 @@ async function mouse(type, x, y, buttons = 0) {
 	await send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' && !buttons ? 'none' : 'left', buttons, clickCount: type === 'mouseMoved' ? 0 : 1 });
 }
 /** a real mouse click in the middle of the element */
+// the workspace host (#751): Save / Publish sit in the bar's Publish menu, Problems open from the status bar
+const IN_MENU = { 'save-draft': 'bar-publish', publish: 'bar-publish', 'scene-publish': 'bar-publish', 'sound-publish': 'bar-publish' };
+async function reach(selector) {
+	const id = /^\[data-testid="([^"]+)"\]$/.exec(selector)?.[1];
+	if (id === 'problems-toggle') return '[data-testid="status-counts"]';
+	if (id === 'undo' || id === 'redo') return `[data-testid="bar-${id}"]`;
+	if (id && IN_MENU[id] && !(await js(`!!document.querySelector('[data-testid="${id}"]')`))) {
+		await js(`document.querySelector('[data-testid="${IN_MENU[id]}"]')?.click(), true`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return selector;
+}
 async function click(selector) {
+	selector = await reach(selector);
 	const at = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
 	if (!at) throw new Error(`no ${selector}`);
 	await mouse('mouseMoved', ...at);
@@ -557,7 +570,7 @@ try {
 	await sleep(200);
 	saved = true;
 	await js(`document.querySelector('dialog.sc-dialog[open] button.primary').click(), true`);
-	check(await until(`!${q('save-draft')}?.textContent.includes('•') ? true : null`, 15000), 'Save: the draft stored');
+	check(await until(`!${q('save-state')}?.classList.contains('dirty') ? true : null`, 15000), 'Save: the draft stored');
 	const stored = await draftOf();
 	const sheet = stored?.content?.score?.collage;
 	const byId = (id) => sheet?.pieces?.find((p) => p.id === id);

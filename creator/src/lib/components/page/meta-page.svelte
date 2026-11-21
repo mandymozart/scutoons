@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
-	import { Icon, useDock, type DockContent, type GroupBarItem } from '@scutoons/ui';
+	import { Icon, type GroupBarItem } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -16,12 +16,11 @@
 	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import type { HelpPage } from '$lib/components/page/page-help.svelte';
-	import { flowWidth } from '$lib/nav.svelte.ts';
-	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
+	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 
 	/**
-	 * The frame of a page's documents (season, toon settings, characters, the map …): it hands the shell its save state
-	 * and its Publish · Problems · History as the Document panel's tabs (lib/shell), autosave + recover, missing-locale
+	 * The documents of a page (season, toon settings, characters, the map …): it hands the shell its save state, its
+	 * Publish and History (the bar's menus) and its Problems (a panel tab), autosave + recover, missing-locale
 	 * bars (only the blocking ones stay in the flow – E.1), the leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs`
 	 * are validated, saved and published; `companions()` are files that follow them (the chapter files whose status
 	 * mirrors the season) – saved when dirty, published with the docs; `along()` are files edited here along with them (a
@@ -42,8 +41,6 @@
 		help,
 		children,
 		status,
-		dock,
-		dockOpen = $bindable(false),
 		more = [],
 		selection = null,
 		tree,
@@ -78,15 +75,7 @@
 		children: Snippet;
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
-		/**
-		 * the page's Flow (the season's `FlowDock` + its props), docked in the page host's dock while `dockOpen`; mounted by
-		 * the host (`kind: 'flow'`): the next page's Flow takes it over (UI-CONCEPTS E.3 b)
-		 */
-		dock?: DockContent;
-		dockOpen?: boolean;
 	} = $props();
-
-	const dockSize = flowWidth();
 
 	const main = $derived(docs[0]);
 	const creator = getCreatorSession();
@@ -97,7 +86,6 @@
 	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
-	useDock(() => (dockOpen && dock ? { kind: 'flow', content: dock, size: dockSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (dockOpen = false) } : null));
 
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
@@ -134,8 +122,9 @@
 	/** a page entry or a selection's action as a button (a group gives its actions) */
 	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
-	// the shell's bar shows the save state and ↶ ↷; the Document panel holds Publish · Problems, the shell's History these docs
-	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, save: () => session.saveDraft(), publish: publishTab, problems: problemsTab, docs, undo, redo }));
+	// the bar: ↶ ↷, Publish and History; the status bar: the save state and the counts; Problems is a panel tab
+	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, save: () => session.saveDraft(), publish: publishTab, docs, undo, redo }));
+	useTabs(() => ({ problems: loaded ? problemsTab : null }));
 
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
@@ -201,7 +190,7 @@
 {/snippet}
 
 {#snippet problemsTab()}
-	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} bare /></div>
+	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} /></div>
 {/snippet}
 
 <style>
@@ -220,9 +209,12 @@
 		padding: 0.35rem 0.75rem;
 		border-bottom: 1px solid var(--border-subtle);
 	}
+	/* the page's form in the stage's middle: the panels float beside it */
 	.content {
+		box-sizing: border-box;
+		margin: 0 auto;
 		padding: 1rem;
-		max-width: 70rem;
+		max-width: 56rem;
 	}
 	.wide .content {
 		max-width: none;
@@ -240,7 +232,7 @@
 	}
 	.side-panel {
 		box-sizing: border-box;
-		padding: 0 var(--space-1) var(--space-1);
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.publish {
 		display: flex;

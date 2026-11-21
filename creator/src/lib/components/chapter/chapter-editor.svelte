@@ -2,11 +2,12 @@
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, GroupBar, type GroupBarItem, Divider, Icon, MaximizeButton, confirmDialog, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { Icon, confirmDialog } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
+	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
@@ -69,10 +70,9 @@
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
-	import HistoryPanel from '$lib/components/page/history-panel.svelte';
-	import FlowDock from '$lib/components/flow/flow-dock.svelte';
-	import ReaderDock from '$lib/components/reader/reader-dock.svelte';
+	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import FlowTab from '$lib/components/flow/flow-tab.svelte';
+	import PreviewTab from '$lib/components/reader/preview-tab.svelte';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -81,27 +81,6 @@
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
-	const panelSize = dockWidth('chapter', 16); // normal = --tool-panel-width
-	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
-	const flowSize = flowWidth();
-	// the Reader (BACKLOG 10.49): a phone screen reads well from 24rem
-	const readerSize = dockWidth('reader', 24);
-	// the slice inspector: a right region of the editor's main area (agents/DOCKING.md) – its Divider drags it from its
-	// normal 22rem up to half the area (owner 2026-10-03), remembered; under 1280px it sits below the canvas
-	let columnsEl = $state<HTMLElement>();
-	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
-	inspectorSize.room = () => (columnsEl?.clientWidth ?? window.innerWidth) / 2;
-	// maximized (owner 2026-10-06, agents/DOCKING.md "Maximize"): the inspector fills the editor's columns and the shell
-	// gives the content the dock's room too; the canvas is only hidden (its edits, scroll and size stay)
-	const INSPECTOR = 'slice-inspector';
-	const inspectorMax = $derived(shellDock.maximized === INSPECTOR);
-	$effect(() => () => {
-		if (shellDock.maximized === INSPECTOR) shellDock.restore();
-	});
-	// leaving the slice (the chapter's meta, a group) leaves no inspector to fill the page
-	$effect(() => {
-		if (inspectorMax && view.section !== 'slice') shellDock.restore();
-	});
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
@@ -321,19 +300,7 @@
 		void view.seams;
 		view.savePrefs();
 	});
-	// the Flow / Problems / Reader the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b);
-	// `?flow=1` (a deep link) opens the Flow. Several at once (10.57): each its own panel, side by side
-	type PanelKind = 'problems' | 'history' | 'flow' | 'reader';
-	const open = $state<Record<PanelKind, boolean>>({
-		flow: page.url.searchParams.get('flow') === '1' || shellDock.has('flow'),
-		problems: shellDock.has('problems'),
-		reader: shellDock.has('reader'),
-		history: false
-	});
-	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
-	// Flow, Problems and the Reader are mounted by the shell (`kind` + `content`): the next page of the same kind takes
-	// them over
-	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() }, reader: { icon: 'smartphone', title: () => m['creator.reader']() } };
+	// the Flow, the Preview (the reader) and Problems are panel tabs (lib/shell/panels.ts)
 	const flowProps = () => ({
 		input: {
 			level: 'chapter' as const,
@@ -350,8 +317,7 @@
 			name: flowName,
 			text: flowText,
 			onopen: openFlowNode
-		},
-		onclose: () => (open.flow = false)
+		}
 	});
 	// the Reader (UI-CONCEPTS E.6): the viewer's draft preview at the open group / slice (the chapter's start on its meta /
 	// audio), in the text language when the reader has it (de / en), else the first it has
@@ -363,18 +329,10 @@
 			group: view.section === 'group' || view.section === 'slice' ? Math.max(0, view.groupIndex) : 0,
 			slice: view.section === 'slice' ? view.sliceIndex : -1
 		},
-		locale: readerLocale,
-		onclose: () => (open.reader = false)
+		locale: readerLocale
 	});
-	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, groupLabel: (i: number) => groupName(groups[i], i), ongoto: gotoProblem, onclose: () => (open.problems = false) });
-	const docked = (kind: PanelKind, size: typeof panelSize) => ({ kind, size, title: PANELS[kind].title(), icon: PANELS[kind].icon, close: () => (open[kind] = false) });
-	useDock(() => (open.flow ? { ...docked('flow', flowSize), content: { component: FlowDock, props: flowProps } } : null));
-	useDock(() => (open.reader ? { ...docked('reader', readerSize), content: { component: ReaderDock, props: readerProps } } : null));
-	useDock(() => (open.problems ? { ...docked('problems', panelSize), content: { component: ProblemsDock, props: problemsProps } } : null));
-	useDock(() => (open.history ? { ...docked('history', panelSize), panel: sidePanel } : null));
-	function togglePanel(next: PanelKind) {
-		open[next] = !open[next];
-	}
+	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, groupLabel: (i: number) => groupName(groups[i], i), ongoto: gotoProblem });
+	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, problems: problemsTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
 	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
@@ -511,7 +469,7 @@
 	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
 	const groupKey = (g: any, i: number) => g?.id || String(i + 1);
 	const groupName = (g: any, i: number) => g?.id || `${m['creator.groups']()} ${i + 1}`;
-	/** the ActionBar's not-live chip (E.1): the chapter, the season while it has something unpublished */
+	/** what is not live yet: the chapter, the season while it has something unpublished */
 	const liveFiles = $derived([
 		{ doc: chapter, label: fileLabel(chapter.entity) },
 		...(!season.loading && (season.dirty || season.unpublished.length) ? [{ doc: season, label: fileLabel(season.entity) }] : [])
@@ -525,8 +483,6 @@
 		return query ? `${chapterHref}?${query}` : chapterHref;
 	}
 	usePageNav({
-		sidebar: tree,
-		actions: flowToggle,
 		fill: true,
 		extra: () => {
 			if (view.section !== 'group' && view.section !== 'slice') return [];
@@ -840,25 +796,19 @@
 		if (action === 'duplicate') await clipboard.pasteFromMenu(false);
 	}
 	/** the bar: Problems and the slice stepper, then Save · History (undo, redo, versions) · Publish · More */
-	const stepping = $derived(view.section === 'slice' && !!activeGroup?.slices?.length);
-	const barItems = $derived<GroupBarItem[]>([
-		{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems'), testid: 'problems-toggle' },
-		...(stepping ? [{ id: 'slices', label: m['creator.slice_navigation'](), content: deskSliceNav }] : []),
-		{ id: 'save', icon: 'save', label: anySaving ? m['creator.saving']() : m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: !anyDirty || anySaving, run: () => session.saveDraft(), testid: 'save-draft' },
-		{
-			id: 'history',
-			icon: 'clock',
-			label: m['creator.history'](),
-			items: [
-				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc, run: undoLast, stay: true, testid: 'undo' },
-				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc, run: redoLast, stay: true, testid: 'redo' },
-				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history'), testid: 'history-versions' }
-			]
-		},
-		// a dot while saved drafts are not live yet
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: liveFiles.some((f) => f.doc.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'publish' },
-		{ id: 'more', icon: 'more-horizontal', label: m['creator.more'](), badge: errorCount || undefined, items: [{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') }] }
-	]);
+	// the bar: ↶ ↷, Publish and History; the status bar: the save state and the counts
+	usePageDoc(() => ({
+		dirty: anyDirty,
+		saving: anySaving,
+		errors: errorCount,
+		warnings: warningCount,
+		unpublished: liveFiles.some((f) => f.doc.unpublished.length > 0),
+		save: () => session.saveDraft(),
+		publish: publishMenu,
+		docs: activeDoc && activeDoc !== chapter ? [activeDoc, chapter] : [chapter],
+		undo: undoLast,
+		redo: redoLast
+	}));
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
 	// unsaved changes: leaving asks in-page; lib/editor/ask.ts
@@ -981,11 +931,20 @@
 <!-- right-click in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
 <ClipMenu />
 
-<!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06); the Reader next to it
-     (BACKLOG 10.49) -->
-{#snippet flowToggle()}
-	<button type="button" class="sc-round" aria-pressed={open.reader} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
-	<button type="button" class="sc-round" aria-pressed={open.flow} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{#snippet flowTab()}
+	<FlowTab {...flowProps()} />
+{/snippet}
+{#snippet previewTab()}
+	<PreviewTab {...readerProps()} />
+{/snippet}
+{#snippet problemsTab()}
+	<div class="side-panel"><ProblemsPanel {...problemsProps()} /></div>
+{/snippet}
+{#snippet publishMenu()}
+	<div class="publish-menu" data-testid="publish-panel">
+		<button type="button" class:primary={anyDirty} disabled={!anyDirty || anySaving} onclick={() => session.saveDraft()} data-testid="save-draft"><Icon name="save" />{anySaving ? m['creator.saving']() : m['creator.save_short']()}</button>
+		<button type="button" disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{publishLabel(toon)}</button>
+	</div>
 {/snippet}
 
 {#snippet tree()}
@@ -994,12 +953,6 @@
 
 <div class="editor">
 
-	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet groups()}
-			<GroupBar items={barItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-	</ActionBar>
 
 	{#if chapter.loading}
 		<p class="pad">{m['creator.loading']()}</p>
@@ -1009,7 +962,7 @@
 		<DocNotices {session} docs={noticeDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
-		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
@@ -1069,45 +1022,6 @@
 				{/if}
 			</main>
 
-			<!-- Inspector -->
-			{#if view.section === 'slice' && activeDoc && activeSlice}
-				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="slice-inspector" class="inspector-resize" />
-				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region" data-sc-maximize={INSPECTOR}>
-				<SliceInspector
-					{view}
-					groupTab={groupBody}
-					{groupPath}
-					boxOf={(i) => canvas?.drawnBox(i) ?? null}
-					onpick={(i, next) => {
-						view.focusSlice(i);
-						view.select(next);
-					}}
-					doc={activeDoc}
-					slice={activeSlice}
-					{slicePath}
-					group={activeGroup}
-					{toon}
-					{chapterNumber}
-					seasonNumber={Number(season.get(season.primary, ['number'])) || 1}
-					locale={displayLocale}
-					{characters}
-					{choices}
-					presets={colorations}
-					{groupLabels}
-					chapterAudio={chapterData?.audio}
-					{librarySample}
-					{heldMusic}
-					onaddtext={(preset) => addDialog(undefined, preset)}
-					oncreatebox={createBoxForEvent}
-					onremove={removeSelected}
-					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
-				>
-					{#snippet after()}
-						<MaximizeButton target={INSPECTOR} controls="slice-inspector" label={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} testid="inspector-maximize" />
-					{/snippet}
-				</SliceInspector>
-				</aside>
-			{/if}
 		</div>
 		{#if view.section === 'slice' && activeSlice}
 			<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
@@ -1128,18 +1042,47 @@
 	{/if}
 {/snippet}
 
-<!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
-{#snippet sidePanel()}
-	<div class="side-panel">
-		{#if open.history && activeDoc}
-			<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (open.history = false)} />
+<!-- the slice's inspector: a panel tab, in the slice canvas' selection region (the keys act on both) -->
+{#snippet inspectorTab()}
+	<div class="inspector-tab" use:region={SLICE_REGION} data-testid="inspector-region">
+		{@render deskSliceNav()}
+		{#if activeDoc && activeSlice}
+	<SliceInspector
+		{view}
+		groupTab={groupBody}
+		{groupPath}
+		boxOf={(i) => canvas?.drawnBox(i) ?? null}
+		onpick={(i, next) => {
+			view.focusSlice(i);
+			view.select(next);
+		}}
+		doc={activeDoc}
+		slice={activeSlice}
+		{slicePath}
+		group={activeGroup}
+		{toon}
+		{chapterNumber}
+		seasonNumber={Number(season.get(season.primary, ['number'])) || 1}
+		locale={displayLocale}
+		{characters}
+		{choices}
+		presets={colorations}
+		{groupLabels}
+		chapterAudio={chapterData?.audio}
+		{librarySample}
+		{heldMusic}
+		onaddtext={(preset) => addDialog(undefined, preset)}
+		oncreatebox={createBoxForEvent}
+		onremove={removeSelected}
+		eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
+	/>
 		{/if}
 	</div>
 {/snippet}
 
 <style>
 	/* DESIGN.md "Brutalist tools": the reader's type sizes, 2px ink frames, selected = inverted, ≥ 44px controls.
-	   The AppShell runs in "fill" mode here: the editor is exactly the content area and scrolls its own columns. */
+	   The stage runs in "fill" mode here: the editor is exactly the stage and scrolls its own columns. */
 	.editor {
 		display: flex;
 		flex-direction: column;
@@ -1172,49 +1115,33 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 	}
-	.columns.has-inspector {
-		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
-	}
-	/* the inspector's region: its own scrolling, the border its Divider sits on */
-	.inspector-region {
-		min-width: 0;
+	.inspector-tab {
+		display: flex;
+		flex-direction: column;
 		min-height: 0;
-		overflow: auto;
-		overscroll-behavior: contain;
-		border-left: var(--border-width-regular) solid var(--ink);
 	}
-	/* narrower: the inspector goes below the canvas (sidebar 12rem + inspector 22rem + a 390px slice need ≈ 1280px) */
-	@media (max-width: 1279px) {
-		.columns.has-inspector {
-			grid-template-columns: minmax(0, 1fr);
-			grid-template-rows: minmax(0, 1fr) minmax(0, 50%);
-		}
-		.inspector-region {
-			border-left: 0;
-			border-top: var(--border-width-regular) solid var(--ink);
-		}
-		.columns :global(.inspector-resize) {
-			display: none;
-		}
+	.inspector-tab .slice-nav {
+		padding: 0 var(--editor-pad);
 	}
-	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
-	.columns.inspector-max .main {
-		grid-area: 1 / 1;
-		visibility: hidden;
+	.publish-menu {
+		display: flex;
+		gap: var(--space-05);
+		padding: var(--space-05);
 	}
-	.columns.inspector-max .inspector-region {
-		grid-area: 1 / 1 / -1 / -1;
-		z-index: 16;
-		border: 0;
-		background: var(--paper);
-	}
-	.columns.inspector-max :global(.inspector-resize) {
-		display: none;
-	}
+	/* a form is a sheet in the stage's middle; the slice canvas lies between the preset's panels (they float over it) */
 	.main {
 		overflow: auto;
-		padding: var(--space-1) var(--space-1) var(--space-3);
 		min-width: 0;
+	}
+	.main:not(.fit) {
+		box-sizing: border-box;
+		justify-self: center;
+		width: min(60rem, 100% - 2rem);
+		margin-bottom: var(--space-1);
+		padding: var(--space-1) var(--space-1) var(--space-3);
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-surface);
 	}
 	.canvas-scroll {
 		overflow: auto;
@@ -1227,7 +1154,7 @@
 	.main.fit {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: var(--space-1);
+		padding: var(--space-1) 27rem var(--space-1) 20rem;
 	}
 	.slice-room {
 		flex: 1;
@@ -1244,11 +1171,9 @@
 	.sub {
 		margin-top: var(--space-15);
 	}
-	/* the open page panel (in the shell's right dock: it sizes and places it) */
 	.side-panel {
 		box-sizing: border-box;
-		overflow: auto;
-		padding: var(--space-1) var(--space-1) var(--space-3);
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.pad {
 		padding: var(--space-1);

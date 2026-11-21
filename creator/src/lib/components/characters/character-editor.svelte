@@ -19,7 +19,7 @@
 	import { lookEdits } from '$lib/editor/look-edit.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import { shell, useLentPanels } from '$lib/shell/shell.svelte.ts';
+	import { shell, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import CharacterStage from '$lib/components/characters/character-stage.svelte';
 	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
@@ -130,7 +130,7 @@
 		{ value: 'look', icon: 'image', name: m['creator.characters_level_look'](), label: m['creator.characters_level_look']() }
 	]);
 
-	useLentPanels(() => (character && currentPersona ? { inspector, kanon: kanonTab, moods: currentLook ? moodsTab : null } : {}));
+	useTabs(() => (character && currentPersona ? { inspector, kanon: kanonTab, moods: currentLook ? moodsTab : null } : {}));
 </script>
 
 {#snippet inspector()}
@@ -203,7 +203,6 @@
 		min-height: 0;
 		height: 100%;
 		box-sizing: border-box;
-		padding-bottom: var(--ws-foot, 0);
 		background: var(--editor-stage);
 	}
 	.kanon {

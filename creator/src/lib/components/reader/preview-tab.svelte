@@ -4,7 +4,7 @@
 
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { CloseButton, DockFold, Segmented } from '@scutoons/ui';
+	import { Segmented } from '@scutoons/ui';
 	import { isReaderReady, readerShowMessage, type ReaderShow } from '@scutoons/content';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
@@ -12,16 +12,15 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The Reader in the shell's right dock (BACKLOG 10.49, UI-CONCEPTS E.6, agents/DOCKING.md "The Reader panel"): the
+	 * The Preview tab (the reader): the
 	 * viewer's draft preview (`?draft=1`) in a frame, a phone (390 × 844) or a desktop window (1440 × 810) scaled to the
-	 * panel. Docked with `kind: 'reader'`, so group → group and chapter → chapter keep this instance (and the frame) – the
-	 * place moves by message, the frame only reloads after a stored draft of this toon (any page, Ask too: draft-saves) or
+	 * panel. Group → group keeps this instance (and the frame) – the place moves by message, the frame only reloads after a stored draft of this toon (any page, Ask too: draft-saves) or
 	 * a change of the language / the screen. Messages (`@scutoons/content` reader-link.ts): the frame says "ready" →
 	 * this sends "show <group / slice>" – then on every new place. Both checked: only "ready" from the frame's own window
 	 * and the viewer's origin; "show" only to the viewer's origin. The frame signs in with the shared session cookie (the
 	 * creator and the viewer are one site: scutoons.com, locally localhost) – no token in the address or in a message.
 	 */
-	let { place, locale, onclose }: { place: ReaderShow; locale: string; onclose: () => void } = $props();
+	let { place, locale }: { place: ReaderShow; locale: string } = $props();
 
 	const VIEWER_ORIGIN = new URL(VIEWER_URL).origin;
 
@@ -49,8 +48,8 @@
 		ready = false;
 		frame.src = address();
 	}
-	// (re)load on mount, a new language or screen – keyed by value: the dock hands new props on every change of the
-	// page's place, the frame must not reload for those
+	// (re)load on mount, a new language or screen – keyed by value: the page hands new props on every change of its
+	// place, the frame must not reload for those
 	const frameKey = $derived(`${locale}|${screen}`);
 	$effect(() => {
 		void frameKey;
@@ -91,9 +90,8 @@
 	const mount = ++mounts;
 </script>
 
-<section class="reader-dock" data-testid="reader-dock" data-mount={mount} data-loads={loads} data-ready={ready}>
+<section class="preview-tab" data-testid="preview-tab" data-mount={mount} data-loads={loads} data-ready={ready}>
 	<header>
-		<h2>{m['creator.reader']()}</h2>
 		<Segmented
 			label={m['creator.strip_preview_screen']()}
 			value={screen}
@@ -103,8 +101,6 @@
 				{ value: 'desktop', icon: 'monitor', title: m['creator.strip_preview_desktop'](), testid: 'reader-desktop' }
 			]}
 		/>
-		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		<CloseButton label={m['creator.close']()} onclick={onclose} />
 	</header>
 	<div class="box">
 		<div class="fit" bind:clientWidth={boxWidth} bind:clientHeight={boxHeight}>
@@ -127,8 +123,8 @@
 </section>
 
 <style>
-	/* fills the dock edge to edge: the header, then the screen centred in the rest */
-	.reader-dock {
+	/* fills the tab: the screen pick, then the screen centred in the rest */
+	.preview-tab {
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
@@ -142,10 +138,6 @@
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	h2 {
-		margin: 0;
-		flex: 1;
 	}
 	.box {
 		flex: 1;

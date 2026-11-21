@@ -34,13 +34,15 @@
 	.toon-panel {
 		display: flex;
 		flex-direction: column;
-		padding: 0 0 var(--editor-pad);
+		gap: 1px;
+		/* rows inset in the panel, the hover ground inside it with the radius (the deck's tree row) */
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.row {
 		display: flex;
 		align-items: center;
 		min-height: var(--editor-tree-row);
-		padding: 0 var(--editor-pad);
+		padding: 0 0.5rem;
 		border-radius: var(--editor-radius);
 		color: var(--editor-text);
 		text-decoration: none;
@@ -53,7 +55,7 @@
 		background: var(--editor-selected);
 	}
 	.head {
-		padding: var(--editor-pad) var(--editor-pad) 0.2rem;
+		padding: var(--editor-pad) 0.5rem 0.2rem;
 		color: var(--editor-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);

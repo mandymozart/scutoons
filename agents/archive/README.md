@@ -11,6 +11,7 @@ trail). How things are now: the topic docs in agents/; how agents work: agents/R
 | COMPONENTS.md | the creator component refactor (2026-10-03), done; its 4.2 rules → RULES "Code" |
 | EXAMPLES.md | the "kitten looks for mama" example story in the dev DB (catpope / toptoy / yellowmouse) and its write log |
 | NEUTRAL.md | the language-neutral rewrite (2026-10-06): the decision "inline locale maps" + phase logs; now DATA.md §2 |
+| DOCKING.md | the docked layout model (AppShell: sidebar, bottom region, right dock); the creator left it 2026-11-21 (#751) for the workspace host – admin / embassy still use AppShell |
 | UI-CONCEPTS.md | UI concepts E.1–E.10, all built; how it is now: DESIGN.md / DOCKING.md |
 | PLAN.md | the Chapter-2 "Anger" plan + release 2026-10-04 (done); its `RULE:` sections → RULES.md "Product rules" / "Dev setup" |
 | MEMORY.md | facts & findings log 2026-09-28 … 10-04 (mostly the pre-platform state); its gotchas → GOTCHAS.md |

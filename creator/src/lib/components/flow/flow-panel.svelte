@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Segmented, shellDock } from '@scutoons/ui';
+	import { Segmented } from '@scutoons/ui';
+	import { stepBack } from '$lib/shell/shell.svelte.ts';
 	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type CharacterRegistry, type FlowNode, type ToonFacts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
@@ -90,9 +91,9 @@
 	$effect(() => {
 		pictures.registry = registry;
 	});
-	/** a box opens what it stands for in the main area – a maximized Flow steps back so it shows (owner 2026-10-06) */
+	/** a box opens what it stands for in the main area – a Flow on the stage steps back so it shows (owner 2026-10-06) */
 	function open(n: FlowNode) {
-		shellDock.restore();
+		stepBack('flow');
 		onopen(n);
 	}
 	/** the box of what's open: the group on the chapter level, the head of the group / slice level */

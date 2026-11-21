@@ -1,18 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { CloseIcon, Icon, clickOutside } from '@scutoons/ui';
-	import type { Crumb } from '$lib/nav.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 
 	/**
-	 * The open items' tabs (the deck's bar.rs tabs): kind icon, name, close; the front tab carries its path, each step a
-	 * way back up; the tabs that do not fit wait in the list (every tab, then Close others, Close all); ＋ opens the
+	 * The open items' tabs (the deck's bar.rs tabs): kind icon, name, close (the front tab's path is the bar's middle); the tabs that do not fit wait in the list (every tab, then Close others, Close all); ＋ opens the
 	 * Library. Closing the front tab goes to its neighbour, the last one to Home.
 	 */
-	let { path }: { path: Crumb[] } = $props();
-
 	let strip = $state<HTMLElement>();
 	let hidden = $state(0);
 	let listOpen = $state(false);
@@ -55,22 +51,10 @@
 		{#each ordered as tab (tab.address)}
 			{@const front = tab.address === shell.state.front}
 			<div class="item" class:front data-tab-pill title={tab.address} data-testid="tab" data-address={tab.address}>
-				{#if front && path.length > 1}
-					<span class="open" aria-current="page">
-						<Icon name={iconOf(tab.address)} size="1rem" />
-						<span class="path">
-							{#each path as step, i (step.href + i)}
-								{#if i > 0}<Icon name="chevron-right" size="0.75rem" />{/if}
-								{#if i < path.length - 1}<a class="step" href={step.href}>{step.label}</a>{:else}<span class="name">{step.label}</span>{/if}
-							{/each}
-						</span>
-					</span>
-				{:else}
-					<a class="open" href={tab.href} aria-current={front ? 'page' : undefined}>
-						<Icon name={iconOf(tab.address)} size="1rem" />
-						<span class="name">{tab.label}</span>
-					</a>
-				{/if}
+				<a class="open" href={tab.href} aria-current={front ? 'page' : undefined}>
+					<Icon name={iconOf(tab.address)} size="1rem" />
+					<span class="name">{tab.label}</span>
+				</a>
 				<button type="button" class="close" aria-label={m['shell.close_tab']({ name: tab.label })} title={m['shell.close_tab']({ name: tab.label })} onclick={() => closeTab(tab.address)}><CloseIcon size="0.8rem" /></button>
 			</div>
 		{/each}
@@ -105,7 +89,8 @@
 		padding: 0.2rem;
 		border: var(--editor-edge) solid var(--editor-line);
 		border-radius: 1.5rem;
-		background: var(--editor-surface);
+		background: var(--editor-panel-ground);
+		text-shadow: var(--editor-halo);
 	}
 	.strip {
 		display: flex;
@@ -128,6 +113,7 @@
 		max-width: 40rem;
 		background: var(--editor-pressed);
 		color: var(--editor-pressed-text);
+		text-shadow: none;
 	}
 	.item:not(.front):hover {
 		background: var(--editor-hover);
@@ -141,27 +127,6 @@
 		padding: 0 0.2rem 0 0.75rem;
 		color: inherit;
 		text-decoration: none;
-	}
-	.path {
-		display: flex;
-		align-items: center;
-		gap: 0.2rem;
-		min-width: 0;
-		overflow: hidden;
-	}
-	.step {
-		flex: 0 1 auto;
-		min-width: 2rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: inherit;
-		text-decoration: none;
-		opacity: 0.7;
-	}
-	.step:hover {
-		opacity: 1;
-		text-decoration: underline;
 	}
 	.name {
 		flex: 0 1 auto;

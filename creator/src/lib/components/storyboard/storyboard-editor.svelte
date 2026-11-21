@@ -9,10 +9,11 @@
 	import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Icon, panelHeight, Segmented, useDock } from '@scutoons/ui';
+	import { Icon, Segmented } from '@scutoons/ui';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { dockWidth, getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { shell, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import { splitMessage } from '$lib/editor/storyboard-shots.ts';
 	import { PANELS, READY_STEPS, SHOT_TABS, STEPS, stepOfKey, type PanelKind } from '$lib/editor/storyboard-steps.ts';
@@ -69,38 +70,21 @@
 		figures: [() => m['storyboard.tab_figures'](), () => m['storyboard.tab_figures']()]
 	} as const;
 
-	// every step's own panel widths (remembered per step and kind, sc-panel-width:storyboard-<step>-<kind>)
-	const sizes = Object.fromEntries(STEPS.map((s) => [s.id, Object.fromEntries(PANELS.map((p) => [p.kind, dockWidth(`storyboard-${s.id}-${p.kind}`, p.rem)]))]));
 	const bodies: Record<PanelKind, Snippet> = { shot: shotBody, script: scriptBody, rhythm: rhythmBody, generate: generateBody, handheld: handheldBody, output: outputBody };
-	/** the Shot panel names the shot (• = unsaved changes of the page) */
+	/** the Shot inspector names the shot */
 	const titleOf = (kind: PanelKind) => (kind === 'shot' && sb.sel ? `${PANEL_WORD.shot()} · ${sb.sel.id}` : PANEL_WORD[kind]());
-	// the squeeze floor (DOCKING "Running out of room"): the compact inspector's rows need about 18rem
-	PANELS.forEach((p, order) =>
-		useDock(() =>
-			sb.isOpen(p.kind) && (sb.sel || p.kind === 'rhythm')
-				? { kind: `storyboard-${p.kind}`, order, min: p.kind === 'shot' ? 18 : undefined, size: sizes[sb.step][p.kind], title: titleOf(p.kind), icon: p.icon, close: () => sb.setOpen(p.kind, false), panel: bodies[p.kind] }
-				: null
-		)
-	);
-
-	// the timeline along the bottom (#126): one height for every step, each step its own fold (TimelineState)
-	const timelineSize = panelHeight('sc-panel-height:storyboard-timeline', 10);
+	/** the studio's panels are tabs (the shot's inspector is the Inspector); a step opens its own set (`sb.isOpen`) */
+	const TAB_OF: Record<PanelKind, string> = { shot: 'inspector', script: 'script', rhythm: 'rhythm', generate: 'generate', handheld: 'handheld', output: 'output' };
+	useTabs(() => ({
+		tree: shotsNav,
+		timeline: sb.data ? timelineBody : null,
+		...Object.fromEntries(PANELS.map((p) => [TAB_OF[p.kind], sb.isOpen(p.kind) && (sb.sel || p.kind === 'rhythm') ? bodies[p.kind] : null]))
+	}));
 	usePageNav({
-		sidebar: shotsNav,
 		fill: true,
-		extra: () => [{ href: `/${toon}/chapter/${chapterNumber}/storyboard`, label: m['storyboard.title']() }],
-		bottom: () => (sb.data ? { panel: timelineBody, size: timelineSize, label: m['storyboard.tl_title'](), icon: 'film', resizeLabel: m['storyboard.tl_resize'](), unfoldLabel: m['storyboard.tl_unfold']() } : null)
+		extra: () => [{ href: `/${toon}/chapter/${chapterNumber}/storyboard`, label: m['storyboard.title']() }]
 	});
 	sb.tl.follow();
-	// a step shows its timeline folded or open; a fold by hand (the button, the rail, a drag) is the step's
-	$effect(() => {
-		const folded = sb.tl.here.folded;
-		untrack(() => timelineSize.folded !== folded && timelineSize.fold(folded));
-	});
-	$effect(() => {
-		const folded = timelineSize.folded;
-		untrack(() => sb.tl.setFolded(folded));
-	});
 	// the phone sees the current shot and whether its camera is on
 	$effect(() => {
 		void [sb.current, sb.sel?.shot.takes?.on];
@@ -122,12 +106,12 @@
 		if (id) sb.pick(id);
 	};
 
-	/** N: the step's panels fold to their rails – or come back; none open: the step's own set opens */
+	/** N: the studio's panels fold – or come back; none open: the step's own set opens */
 	function foldPanels() {
 		const open = PANELS.filter((p) => sb.isOpen(p.kind));
 		if (!open.length) return STEPS.find((s) => s.id === sb.step)?.panels.forEach((k) => sb.setOpen(k, true));
-		const fold = open.some((p) => !sizes[sb.step][p.kind].folded);
-		open.forEach((p) => sizes[sb.step][p.kind].fold(fold));
+		const f = shell.floats;
+		if (f?.spec('right')) f.setCollapsed('right', !f.collapsed('right'));
 	}
 	// 1–6, T, N, ← → – only outside text fields, controls with their own arrows and dialogs, without modifiers (Blender-like)
 	const typing = (el: Element | null) => !!el?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="spinbutton"], [role="radiogroup"], .sc-seg');
@@ -152,13 +136,13 @@
 {#snippet shotTabs()}
 	<Segmented label={m['storyboard.shot_tabs']()} stretch radio options={SHOT_TABS.map((t) => ({ value: t, label: TAB_WORD[t][0](), title: TAB_WORD[t][1]() }))} value={sb.layout.tab} onchange={(t) => sb.setTab(t)} testid="shot-tabs" />
 {/snippet}
-{#snippet shotBody()}<StoryboardPanel title={titleOf('shot')} icon="sliders" onclose={() => sb.setOpen('shot', false)} tabs={shotTabs} testid="panel-shot"><ShotInspector {sb} tab={sb.layout.tab} /></StoryboardPanel>{/snippet}
-{#snippet scriptBody()}<StoryboardPanel title={titleOf('script')} icon="file-text" onclose={() => sb.setOpen('script', false)} testid="panel-script"><ScriptPanel {sb} /></StoryboardPanel>{/snippet}
-{#snippet rhythmBody()}<StoryboardPanel title={titleOf('rhythm')} icon="activity" onclose={() => sb.setOpen('rhythm', false)} testid="panel-rhythm"><RhythmPanel {sb} /></StoryboardPanel>{/snippet}
-{#snippet handheldBody()}<StoryboardPanel title={titleOf('handheld')} icon="smartphone" onclose={() => sb.setOpen('handheld', false)} testid="panel-handheld"><HandheldPanel {sb} /></StoryboardPanel>{/snippet}
-{#snippet outputBody()}<StoryboardPanel title={titleOf('output')} icon="download" onclose={() => sb.setOpen('output', false)} testid="panel-output"><OutputPanel {sb} /></StoryboardPanel>{/snippet}
-{#snippet timelineBody()}<StoryboardTimeline {sb} onfold={() => timelineSize.fold(true)} />{/snippet}
-{#snippet generateBody()}<StoryboardPanel title={titleOf('generate')} icon="zap" onclose={() => sb.setOpen('generate', false)} testid="panel-generate"><GeneratePanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet shotBody()}<StoryboardPanel title={titleOf('shot')} icon="sliders" tabs={shotTabs} testid="panel-shot"><ShotInspector {sb} tab={sb.layout.tab} /></StoryboardPanel>{/snippet}
+{#snippet scriptBody()}<StoryboardPanel title={titleOf('script')} icon="file-text" testid="panel-script"><ScriptPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet rhythmBody()}<StoryboardPanel title={titleOf('rhythm')} icon="activity" testid="panel-rhythm"><RhythmPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet handheldBody()}<StoryboardPanel title={titleOf('handheld')} icon="smartphone" testid="panel-handheld"><HandheldPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet outputBody()}<StoryboardPanel title={titleOf('output')} icon="download" testid="panel-output"><OutputPanel {sb} /></StoryboardPanel>{/snippet}
+{#snippet timelineBody()}<StoryboardTimeline {sb} onfold={() => shell.floats?.setCollapsed('foot', true)} />{/snippet}
+{#snippet generateBody()}<StoryboardPanel title={titleOf('generate')} icon="zap" testid="panel-generate"><GeneratePanel {sb} /></StoryboardPanel>{/snippet}
 
 {#snippet stepper()}
 	{#if sb.order.length}

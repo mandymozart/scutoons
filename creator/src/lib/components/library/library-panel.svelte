@@ -128,7 +128,6 @@
 					<button type="button" class="chip" data-control-exempt="filter chip" role="radio" aria-checked={library.scope === s.id} onclick={() => library.setScope(s.id)} data-testid="scope-{s.id}">{s.label}<span class="n">{s.count}</span></button>
 				{/each}
 			</div>
-			<button type="button" class="round" title={m['library.open_browser']()} aria-label={m['library.open_browser']()} onclick={() => (library.browser = true)} data-testid="library-expand"><Icon name="maximize-2" size="0.9rem" /></button>
 		</div>
 		<div class="row">
 			<input bind:this={search} class="find" type="search" bind:value={library.query} placeholder={m['library.search']()} aria-label={m['library.search']()} data-testid="library-search" />
@@ -291,17 +290,6 @@
 	.n {
 		font-size: var(--editor-label);
 		opacity: 0.7;
-	}
-	.round {
-		flex: none;
-		width: var(--control-height);
-		border: 0;
-		border-radius: 50%;
-		background: none;
-		color: var(--editor-muted);
-		display: inline-grid;
-		place-items: center;
-		cursor: pointer;
 	}
 	.primary {
 		flex: none;

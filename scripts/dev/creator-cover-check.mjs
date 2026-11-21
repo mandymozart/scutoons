@@ -178,7 +178,20 @@ const centre = (selector) => js(`(() => { const el = document.querySelector(${JS
 async function mouse(type, x, y) {
 	await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 });
 }
+// the workspace host (#751): Save / Publish sit in the bar's Publish menu, Problems open from the status bar
+const IN_MENU = { 'save-draft': 'bar-publish', publish: 'bar-publish', 'scene-publish': 'bar-publish', 'sound-publish': 'bar-publish' };
+async function reach(selector) {
+	const id = /^\[data-testid="([^"]+)"\]$/.exec(selector)?.[1];
+	if (id === 'problems-toggle') return '[data-testid="status-counts"]';
+	if (id === 'undo' || id === 'redo') return `[data-testid="bar-${id}"]`;
+	if (id && IN_MENU[id] && !(await js(`!!document.querySelector('[data-testid="${id}"]')`))) {
+		await js(`document.querySelector('[data-testid="${IN_MENU[id]}"]')?.click(), true`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return selector;
+}
 async function click(selector) {
+	selector = await reach(selector);
 	const [x, y] = await centre(selector);
 	await mouse('mouseMoved', x, y);
 	await mouse('mousePressed', x, y);
@@ -250,13 +263,13 @@ try {
 	check(await until(`${q('cover-stage')}.querySelectorAll('.line').length === 2`), 'Default: two lines over the art');
 	let lines = await stageLines();
 	check(lines[0]?.text === titles.de.toon && lines[1]?.text === `"${titles.de.season}"`, `de: "${lines[0]?.text}" over ${lines[1]?.text} (from the text fields)`, JSON.stringify(lines));
-	check(await until(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`), 'the page is dirty');
+	check(await until(`!!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`), 'the page is dirty');
 	await shot('2-default-de');
 
 	// 2. the preview language
 	for (const l of [...LOCALES.slice(1), LOCALES[0]]) {
 		// the header's text language switch decides the preview language
-		await js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+		await js(`(async () => { if (!document.querySelector('[data-testid="text-language-select"]')) { window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', ctrlKey: true, bubbles: true })); await new Promise((r) => setTimeout(r, 400)); } const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 		await until(`${q('cover-stage')}.querySelector('.line .text')?.textContent === ${JSON.stringify(titles[l].toon)}`, 3000);
 		lines = await stageLines();
 		check(lines[0]?.text === titles[l].toon && lines[1]?.text === `"${titles[l].season}"` && lines[0]?.lang === l, `preview ${l}: ${lines.map((x) => x.text).join(' / ')}`, JSON.stringify(lines));
@@ -291,7 +304,7 @@ try {
 
 	// 5. an own line with a text per language: one language at a time (owner 2026-10-06 – the header's switch shows only
 	// the chosen one: one own-text field, one "as readers see it" preview)
-	const pick = (l) => js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+	const pick = (l) => js(`(async () => { if (!document.querySelector('[data-testid="text-language-select"]')) { window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', ctrlKey: true, bubbles: true })); await new Promise((r) => setTimeout(r, 400)); } const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 	await click('[data-testid="cover-add-line"]');
 	check(await until(`!!${q(`cover-custom-${LOCALES[0]}`)}`), 'Add line: an own text');
 	const fit = {};
@@ -322,7 +335,7 @@ try {
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
 	await answerDialog('button.primary'); // the note dialog: saved with its suggested note (version-note.ts)
-	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
+	await until(`!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const layout = stored.content.cover?.lettering?.square;
 	check(Array.isArray(layout) && layout.length === 3 && layout[0].text === 'toon' && layout[1].text === 'season' && layout[2].text === 'custom', 'Save draft: cover.lettering.square = 3 lines (toon, season, own)', JSON.stringify(stored.content.cover));

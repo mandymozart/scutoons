@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { coverLetteringOn, coverLines, entities, previewText, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
-	import { Icon, shellDock } from '@scutoons/ui';
+	import { Icon } from '@scutoons/ui';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
@@ -15,12 +15,12 @@
 	import { MediaSlot, MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 	import SupportersField from '$lib/components/fields/supporters-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
-	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { useTabs } from '$lib/shell/shell.svelte.ts';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { page } from '$app/state';
-	import FlowDock from '$lib/components/flow/flow-dock.svelte';
+	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 
 	/**
 	 * Season meta (the entity season:<toon>:<N>, ONE language-neutral document – agents/NEUTRAL.md), cleaned up like the
@@ -83,17 +83,13 @@
 		writeTrailer({ loop: next.src, variants: next.variants, sources: undefined }, 'trailer-media');
 	}
 
-	// the season's children in the sidebar: its chapters with their status per language
-	usePageNav({ sidebar: chapterNav, actions: flowToggle });
-	// the season's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it, and so
-	// does a Flow the last page docked (the same panel goes on with this season – UI-CONCEPTS E.3 b)
-	let flowOpen = $state(page.url.searchParams.get('flow') === '1' || shellDock.has('flow'));
-	const flowDock = { component: FlowDock, props: () => ({ input: { level: 'toon' as const, toon, season: number }, onclose: () => (flowOpen = false) }) };
+	// the season's chapters with their status per language are its Tree; its Flow a tab
+	useTabs(() => ({ tree: chapterNav, flow: flowTab }));
 	const nav = getCreatorNav();
 </script>
 
-{#snippet flowToggle()}
-	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_season_open']()} aria-label={m['creator.flow_season_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{#snippet flowTab()}
+	<FlowTab input={{ level: 'toon', toon, season: number }} />
 {/snippet}
 
 {#snippet chapterNav()}
@@ -118,8 +114,6 @@
 	companions={() => Object.values(chapters)}
 	beforeSave={() => syncChapters(chapters)}
 	tree={() => ({ scope: { kind: 'season', toon, number, chapters: numbers }, title: m['creator.publish_tree_title']({ name: m['creator.season']({ number }) }) })}
-	bind:dockOpen={flowOpen}
-	dock={flowDock}
 >
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
@@ -275,16 +269,19 @@
 	}
 	.nav-head {
 		margin: 0;
-		padding: 1rem 1rem 0.25rem; /* the sidebar's 1rem line (owner 2026-10-03) */
+		padding: var(--editor-pad) calc(var(--editor-pad) + 0.5rem) 0.25rem;
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		color: var(--muted);
 	}
 	.nav-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
 		list-style: none;
 		margin: 0;
-		padding: 0;
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	/* narrow sidebar: the badges drop to their own line instead of squeezing the title to "Är…" (owner 2026-10-03) */
 	.nav-list a {
@@ -293,15 +290,14 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.25rem 0.4rem;
-		/* text on the sidebar's 1rem line (the 3px marker inside it) */
-		padding: 0.35rem 1rem 0.35rem calc(1rem - 3px);
-		border-left: 3px solid transparent;
-		color: var(--ink);
+		/* the deck's tree row: inset in the panel, the hover ground with the radius */
+		padding: 0.35rem 0.5rem;
+		border-radius: var(--editor-radius);
+		color: var(--editor-text);
 		text-decoration: none;
 	}
 	.nav-list a:hover {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
+		background: var(--editor-hover);
 	}
 	.nav-title {
 		flex: 1 1 auto;

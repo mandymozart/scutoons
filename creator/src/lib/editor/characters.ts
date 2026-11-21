@@ -1,6 +1,6 @@
 // Characters editor: the platform-wide entities of the characters model (see @scutoons/content characters.ts) –
 // `characters`, `moods`, `asset-requests` – and the per-toon `cast:<toon>`, as ContentDocs with
-// the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
+// the single locale `_`, saved / published by the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
 import { CharacterRegistryDoc } from '$lib/editor/world-map-doc.svelte.ts';
 import { SvelteSet } from 'svelte/reactivity';

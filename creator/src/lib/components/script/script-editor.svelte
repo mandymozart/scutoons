@@ -96,11 +96,11 @@
 		queueMicrotask(fitHeight);
 	});
 	let outlineList = $state<HTMLElement>();
-	/** the text (and the index) reach down to 1rem above the bottom action bar – never under it */
+	/** the text (and the index) reach down to 1rem above the status bar – never under it */
 	function fitHeight() {
 		if (!area) return;
-		const bar = document.querySelector<HTMLElement>('.sc-action-bar');
-		const barHeight = bar ? bar.getBoundingClientRect().height : 0;
+		const bar = document.querySelector<HTMLElement>('[data-testid="status-bar"]');
+		const barHeight = bar ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) : 0;
 		textHeight = Math.max(15 * rem(), Math.floor(window.innerHeight - area.getBoundingClientRect().top - barHeight - rem()));
 		// the outline's list scrolls down to the bar exactly (owner 2026-10-03); its heading stays above it
 		if (outlineList) outlineHeight = Math.max(7.5 * rem(), Math.floor(window.innerHeight - outlineList.getBoundingClientRect().top - barHeight));

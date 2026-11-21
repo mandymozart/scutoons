@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, GroupBar, confirmDialog, shellDock, useDock, type GroupBarItem } from '@scutoons/ui';
+	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -17,24 +17,15 @@
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
-	import { flowWidth, getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import FlowDock from '$lib/components/flow/flow-dock.svelte';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
+	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
-	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it, and so
-	// does a Flow the last page docked (the same panel goes on with this toon – UI-CONCEPTS E.3 b)
-	let flowOpen = $state(page.url.searchParams.get('flow') === '1' || shellDock.has('flow'));
-	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider); mounted by the
-	// shell (`kind: 'flow'`), the next page's Flow takes it over
-	const flowSize = flowWidth();
-	const flowProps = () => ({ input: { level: 'toon' as const, toon: toonId }, onclose: () => (flowOpen = false) });
-	useDock(() =>
-		flowOpen ? { kind: 'flow', content: { component: FlowDock, props: flowProps }, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null
-	);
-	// the toon's settings are its Settings tab (CREATOR-NAV.md §2a – the toon pill went); the big title row stays gone
-	usePageNav({ actions: flowToggle });
+	// the toon's Flow is a tab; Save · Publish the bar's Publish menu
+	useTabs(() => ({ flow: flowTab }));
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
 
@@ -295,11 +286,7 @@
 		}
 	}
 
-	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Save · Publish; New chapter is the list's last row
-	const phoneItems = $derived<GroupBarItem[]>([
-		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: busy || !anyDirty, run: saveAll, testid: 'save-draft' },
-		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: busy, run: publishAll, testid: 'publish' }
-	]);
+	usePageDoc(() => ({ dirty: anyDirty, saving: busy, save: () => void saveAll(), publish: publishMenu }));
 </script>
 
 <div class="creator-page">
@@ -387,21 +374,28 @@
 			{#if error}<p class="error">{error}</p>{/if}
 		</section>
 	</main>
-	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season) -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet groups()}
-			<GroupBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-	</ActionBar>
 </div>
-{#snippet flowToggle()}
-	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{#snippet flowTab()}
+	<FlowTab input={{ level: 'toon', toon: toonId }} />
+{/snippet}
+{#snippet publishMenu()}
+	<div class="publish-menu">
+		<button type="button" class:primary={anyDirty} disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft"><Icon name="save" />{m['creator.save_short']()}</button>
+		<button type="button" disabled={busy} onclick={publishAll} data-testid="publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
+	</div>
 {/snippet}
 
 <style>
+	.publish-menu {
+		display: flex;
+		gap: var(--space-05);
+		padding: var(--space-05);
+	}
 	.browser {
+		box-sizing: border-box;
+		margin: 0 auto;
 		padding: 1.5rem 1rem;
-		max-width: 81rem;
+		max-width: 60rem;
 	}
 	.season-missing {
 		border: 2px dashed var(--border-muted);

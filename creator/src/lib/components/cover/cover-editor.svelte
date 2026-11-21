@@ -226,7 +226,7 @@
 	}
 	.work {
 		display: grid;
-		/* the art as big as the screen's height allows (top bar + toolbar + ActionBar), 36rem at most */
+		/* the art as big as the screen's height allows (bar + toolbar + status bar), 36rem at most */
 		grid-template-columns: minmax(0, min(36rem, max(18rem, calc(100dvh - 19rem)))) minmax(16rem, 1fr);
 		gap: var(--space-15);
 		align-items: start;

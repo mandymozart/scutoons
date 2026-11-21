@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { DockHold } from '@scutoons/ui';
 	import { entities, parseKanonSubject, type ToonLanguages } from '@scutoons/content';
 	import ScriptEditor from '$lib/components/script/script-editor.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
@@ -26,7 +25,6 @@
 {:else}
 	{#await languages}
 		<p class="pad">{m['creator.loading']()}</p>
-		<DockHold />
 	{:then langs}
 		{#if langs}
 			{#key `${subject}/${langs.languages.join(',')}`}
