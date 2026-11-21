@@ -63,6 +63,12 @@ pub struct WireWorld {
     /// a far source's address (#432)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    /// a MIDI source's input (1 …); none = any
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u8>,
+    /// a MIDI source's channel (1–16); none = omni
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -423,7 +429,7 @@ impl Played {
                         crate::world::Source::Generator => ("generator", None),
                         crate::world::Source::Far(a) => ("far", Some(a.to_string())),
                     };
-                    WireWorld { source, listen: w.listen, address }
+                    WireWorld { source, listen: w.listen, address, port: w.filter.port, channel: w.filter.channel }
                 }),
             })
             .collect::<Vec<WireNode>>();

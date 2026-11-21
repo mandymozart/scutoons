@@ -1,0 +1,41 @@
+name = "a held MIDI chord: note on at key down, note off at key up, on the world node's input and channel"
+about = "#734 (research/audio-nodes-foundation.md §5 step 1): a key down is a live note at once, held until its key up; the MIDI world node takes `port` and `channel` (omni allowed) and lets through only those; the recorded form (a note with a duration) is made from the live stream. This host has no module runtime (#290), so this is what the core lets through; the sound (analog plays at once, sounds while held, stops after release) is deck-native's tests/modules.rs"
+
+# the owner's demo: MIDI input 1, channel 1 – an A minor chord held for a second; a key on channel 2 and one on input 2 stay out
+[[step]]
+do = "midi_notes"
+[step.with]
+world = { source = "midi", listen = ["midi.note"], port = 1, channel = 1 }
+messages = [
+  { at = 0.0, port = 1, bytes = [0x90, 57, 100] },
+  { at = 0.0, port = 1, bytes = [0x90, 60, 100] },
+  { at = 0.0, port = 1, bytes = [0x90, 64, 100] },
+  { at = 0.25, port = 1, bytes = [0x91, 72, 100] },
+  { at = 0.25, port = 2, bytes = [0x90, 48, 100] },
+  { at = 1.0, port = 1, bytes = [0x80, 57, 0] },
+  { at = 1.0, port = 1, bytes = [0x80, 60, 0] },
+  { at = 1.0, port = 1, bytes = [0x90, 64, 0] },
+  { at = 1.0, port = 1, bytes = [0x81, 72, 0] },
+  { at = 1.0, port = 2, bytes = [0x80, 48, 0] },
+]
+[step.expect]
+heard = ["0.000 midi.note 57", "0.000 midi.note 60", "0.000 midi.note 64", "1.000 midi.note_off 57", "1.000 midi.note_off 60", "1.000 midi.note_off 64"]
+recorded = [{ note = 57.0, start = 0.0, dur = 1.0 }, { note = 60.0, start = 0.0, dur = 1.0 }, { note = 64.0, start = 0.0, dur = 1.0 }]
+
+# omni: every channel of input 1
+[[step]]
+do = "midi_notes"
+[step.with]
+world = { source = "midi", listen = ["midi.note"], port = 1, channel = "omni" }
+messages = [{ at = 0.5, bytes = [0x9F, 72, 100] }, { at = 0.75, bytes = [0x8F, 72, 0] }]
+[step.expect]
+heard = ["0.500 midi.note 72", "0.750 midi.note_off 72"]
+recorded = [{ note = 72.0, start = 0.5, dur = 0.25 }]
+
+# a channel outside 1–16 is refused with a sentence
+[[step]]
+do = "midi_notes"
+[step.with]
+world = { source = "midi", listen = ["midi.note"], channel = 17 }
+[step.expect]
+problem = { contains = "`channel` is 1–16 or \"omni\"" }

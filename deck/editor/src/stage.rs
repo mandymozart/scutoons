@@ -408,7 +408,7 @@ impl Stage {
             }
         };
         let far = handles.as_mut().and_then(|h| deck_native::space::far_table(h, &bundle.rig.subject));
-        let midi = handles.as_mut().map(|h| deck_events::adapters::midi::Midi::new(&mut h.core_mut().events.names.clone(), Some("midi:editor")));
+        let midi = handles.as_mut().map(|h| deck_events::adapters::midi::Midi::new(&mut h.core_mut().events.names.clone(), Some("midi:editor"), 1));
         let events = handles.as_mut().and_then(|h| h.start_events().map_err(|e| tracing::warn!("events: no thread ({e})")).ok().flatten());
         let controls = Controls::new(&graph, handles.as_mut().map(|h| h.core_mut()));
         let rate = handles.as_ref().map_or(48_000.0, |h| h.clock.rate as f64);

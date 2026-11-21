@@ -561,6 +561,52 @@ mod events {
         assert_eq!(seen.late, 1);
     }
 
+    /// a live MIDI key (a note with no length) is held until its key up; the world node hears its port and channel only
+    #[test]
+    fn a_live_midi_chord_is_held_until_its_keys_go_up_on_the_world_nodes_port_and_channel() {
+        use deck_events::adapters::midi::Midi;
+        let text = "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\nport=1\nchannel=1\n\
+                    [[node]]\nid=\"li\"\nkind=\"module:t_listener\"\n[[link]]\nfrom=\"w.events\"\nto=\"li.notes\"\n";
+        let (mut e, mut h, src) = build(text, 2);
+        let (mut one, mut two) = (Midi::new(&mut h.events.names, Some("midi:keys"), 1), Midi::new(&mut h.events.names, Some("midi:pads"), 2));
+        let routing = h.events.take_routing();
+        let mut outlets = routing.outlets;
+        let mut send = |m: &mut Midi, bytes: &[u8], frame: u64| {
+            let mut out = Vec::new();
+            assert!(m.feed(bytes, frame as f64 / f64::from(RATE), &mut out));
+            for ev in out {
+                for &t in routing.table.targets(ev.name) {
+                    outlets[t as usize].push(ev.clone()).unwrap();
+                }
+            }
+        };
+        for key in [60, 64, 67] {
+            send(&mut one, &[0x90, key, 100], 10);
+        }
+        send(&mut one, &[0x91, 72, 100], 10);
+        send(&mut two, &[0x90, 48, 100], 10);
+        for _ in 0..2 {
+            quantum(&mut e, 2);
+        }
+        for key in [60, 64, 67, 72] {
+            send(&mut one, &[0x80 | (key == 72) as u8, key, 0], 2 * Q as u64 + 5);
+        }
+        send(&mut two, &[0x80, 48, 0], 2 * Q as u64 + 5);
+        for _ in 0..2 {
+            quantum(&mut e, 2);
+        }
+        let seen = src.seen(0);
+        let seen = seen.lock().unwrap();
+        let q = Q as f64;
+        let got: Vec<(f64, u32, Option<EvKind>, f32)> = seen.events.iter().map(|(at, ev)| (*at, ev.frame, ev.kind(), ev.v[3])).collect();
+        let on = |key: f32| (0.0, 10, Some(EvKind::NoteOn), key);
+        assert_eq!(&got[..3], [on(60.0), on(64.0), on(67.0)], "the chord sounds on its frame and stays: no off from a length");
+        assert_eq!(got.len(), 6, "channel 2 and input 2 are not this node's: {got:?}");
+        assert!(got[3..].iter().all(|g| (g.0, g.1, g.2) == (2.0 * q, 5, Some(EvKind::NoteOff))), "the keys go up on their frame: {got:?}");
+        let ids = |kind: EvKind| seen.events.iter().filter(|(_, ev)| ev.kind() == Some(kind)).map(|(_, ev)| ev.id).collect::<Vec<_>>();
+        assert_eq!(ids(EvKind::NoteOn), ids(EvKind::NoteOff), "each off ends its own key");
+    }
+
     #[test]
     fn a_show_restart_goes_through_the_loader_lane_and_gets_the_held_notes_again() {
         let (mut e, mut h, src) = build("[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\n[[node]]\nid=\"r\"\nkind=\"module:t_restarting\"\n[[link]]\nfrom=\"w.events\"\nto=\"r.notes\"\n", 2);
