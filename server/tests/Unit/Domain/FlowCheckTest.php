@@ -43,7 +43,7 @@ final class FlowCheckTest extends TestCase
      */
     private static function chapter(array $events, array $more = []): array
     {
-        return ['number' => 2, 'groups' => [['label' => 'start', 'slices' => [[]], 'events' => $events], ...$more]];
+        return ['number' => 2, 'groups' => [['id' => 'start', 'slices' => [[]], 'events' => $events], ...$more]];
     }
 
     public function testQuestionsWhoseChoicesCanAllBeHidden(): void
@@ -56,7 +56,7 @@ final class FlowCheckTest extends TestCase
         self::assertSame([], $this->problems('chapter:catpope:2', self::chapter([$choice('A', ['variable' => 'x', 'op' => 'set']), $choice('Go on'), $show])), 'one unconditional choice');
         // the questions of a slice trigger and of a placed item's taps too; an unconditional divert ends a question's choices
         $slice = ['events' => [$choice('A', ['variable' => 'x', 'op' => 'set']), $show], 'items' => [['id' => 'i', 'item' => 'cucumber', 'action' => 'events', 'events' => [$choice('B', ['expr' => 'x']), $show]]]];
-        $doc = ['number' => 2, 'groups' => [['label' => 'start', 'slices' => [$slice], 'events' => [$choice('C'), ['type' => 'divert', 'params' => ['to' => 'p']], ['type' => 'label', 'params' => ['name' => 'p']], $choice('D', ['expr' => 'x']), $show]]]];
+        $doc = ['number' => 2, 'groups' => [['id' => 'start', 'slices' => [$slice], 'events' => [$choice('C'), ['type' => 'divert', 'params' => ['to' => 'p']], ['type' => 'label', 'params' => ['name' => 'p']], $choice('D', ['expr' => 'x']), $show]]]];
         $found = $this->problems('chapter:catpope:2', $doc);
         self::assertSame(['/groups/0/events/4', '/groups/0/slices/0/events/1', '/groups/0/slices/0/items/0/events/1'], array_map(fn($p) => explode(':', $p)[0], $found));
     }
@@ -64,8 +64,8 @@ final class FlowCheckTest extends TestCase
     public function testDivertsAndJumpsIntoNothing(): void
     {
         $this->store('toon:toptoy', ['id' => 'toptoy']);
-        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'hyper', 'slices' => [[]]], ['label' => 'boss', 'slices' => [[]]]]]);
-        $this->store('chapter:catpope:3', ['number' => 3, 'groups' => [['label' => 'forest', 'slices' => [[]]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['id' => 'hyper', 'slices' => [[]]], ['id' => 'boss', 'slices' => [[]]]]]);
+        $this->store('chapter:catpope:3', ['number' => 3, 'groups' => [['id' => 'forest', 'slices' => [[]]]]]);
         $jump = fn(array $target) => ['type' => 'jumpTo', 'params' => ['target' => $target]];
         $doc = self::chapter([
             ['type' => 'divert', 'params' => ['to' => 'nowhere']],
@@ -80,21 +80,21 @@ final class FlowCheckTest extends TestCase
             $jump(['type' => 'toon', 'value' => 'nobody']),
             ['type' => 'addChoice', 'params' => ['label' => ['de' => 'x'], 'onSelect' => [['divert' => ['to' => 'missing']], ['jumpTo' => ['target' => ['type' => 'chapter', 'value' => '3', 'label' => 'lake']]]]]],
             ['type' => 'showChoices'],
-        ], [['label' => 'later', 'slices' => [[]], 'end' => ['target' => ['type' => 'chapter', 'value' => '3', 'label' => 'cave']]]]);
+        ], [['id' => 'later', 'slices' => [[]], 'end' => ['target' => ['type' => 'chapter', 'value' => '3', 'label' => 'cave']]]]);
         $found = $this->problems('chapter:catpope:2', $doc);
         self::assertSame([
             '/groups/0/events/0/params/to: there is no point "nowhere" in this group\'s script (stuck:missing-point)',
-            '/groups/0/events/3/params/target/label: chapter 2 has no group labelled "gone" (stuck:missing-label)',
+            '/groups/0/events/3/params/target/label: chapter 2 has no group "gone" (stuck:missing-label)',
             '/groups/0/events/5/params/target/value: the toon has no chapter 9 (stuck:missing-chapter)',
-            '/groups/0/events/6/params/target/anyOf: toptoy chapter 1 has no group labelled "nope" (stuck:missing-label)',
+            '/groups/0/events/6/params/target/anyOf: toptoy chapter 1 has no group "nope" (stuck:missing-label)',
             '/groups/0/events/7/params/target/toon: there is no toon "nobody" (stuck:missing-toon)',
             '/groups/0/events/9/params/target/value: there is no toon "nobody" (stuck:missing-toon)',
             '/groups/0/events/10/params/onSelect/0/divert/to: there is no point "missing" in this group\'s script (stuck:missing-point)',
-            '/groups/0/events/10/params/onSelect/1/jumpTo/target/label: chapter 3 has no group labelled "lake" (stuck:missing-label)',
-            '/groups/1/end/target/label: chapter 3 has no group labelled "cave" (stuck:missing-label)',
+            '/groups/0/events/10/params/onSelect/1/jumpTo/target/label: chapter 3 has no group "lake" (stuck:missing-label)',
+            '/groups/1/end/target/label: chapter 3 has no group "cave" (stuck:missing-label)',
         ], $found);
         // the saved chapter: its own new labels count
-        self::assertSame([], $this->problems('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'big-boss', 'slices' => [[]], 'events' => [$jump(['type' => 'chapter', 'value' => '1', 'label' => 'big-boss'])]]]]));
+        self::assertSame([], $this->problems('chapter:toptoy:1', ['number' => 1, 'groups' => [['id' => 'big-boss', 'slices' => [[]], 'events' => [$jump(['type' => 'chapter', 'value' => '1', 'label' => 'big-boss'])]]]]));
         self::assertSame([], $this->problems('chapter:catpope:2:de', $doc), 'legacy per-locale documents are not checked');
     }
 
@@ -112,7 +112,7 @@ final class FlowCheckTest extends TestCase
             $container->set(Clock::class, $this->clock);
             return Kernel::app($container)->handle($request);
         };
-        $group = ['label' => 'start', 'renderer' => ['type' => 'vertical'], 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1]], 'events' => [
+        $group = ['id' => 'start', 'renderer' => ['type' => 'vertical'], 'slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1]], 'events' => [
             ['type' => 'addChoice', 'params' => ['label' => ['de' => 'A']], 'if' => ['variable' => 'x', 'op' => 'set']],
             ['type' => 'showChoices', 'params' => new \stdClass()],
         ]];

@@ -113,7 +113,7 @@ export const RULES: RuleResource[] = [
 				'',
 				'## Editing',
 				'',
-				'1. Find the document: `list_chapters` (groups, their labels and script points), `list_entities`, `search_content`.',
+				'1. Find the document: `list_chapters` (groups, their ids and script points), `list_entities`, `search_content`.',
 				'2. `read_entity` (draft) → note `version.id`: it is the `base` of your save.',
 				'3. Change it: `save_draft` with `ops` (set / insert / remove at a path) or the full `content`.',
 				'   It validates first (same checks as the creator) and refuses errors; warnings are returned.',

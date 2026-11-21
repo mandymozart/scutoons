@@ -129,7 +129,7 @@ try {
 	const chapters = await call(client, 'list_chapters', { toon: TOON, chapter: 2 });
 	const groups = chapters.json?.chapters?.[0]?.groups ?? [];
 	check(groups.length > GROUP && groups.every((g) => !g.scene), 'list_chapters: chapter 2 has its groups inline (no scene references)', chapters.raw.slice(0, 300));
-	check(groups.some((g) => typeof g.label === 'string' && g.label), 'list_chapters: inline groups with their labels', JSON.stringify(groups).slice(0, 300));
+	check(groups.some((g) => typeof g.id === 'string' && g.id), 'list_chapters: inline groups with their ids', JSON.stringify(groups).slice(0, 300));
 	check(chapters.json?.chapters?.[0]?.key === `chapter:${TOON}:2` && typeof chapters.json?.chapters?.[0]?.title === 'string', 'list_chapters: the language-neutral chapter, its title in the source language', chapters.raw.slice(0, 300));
 
 	// finding things: the document list, a full-text search in the screenplay (source language), a part of a long text

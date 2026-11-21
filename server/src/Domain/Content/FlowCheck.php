@@ -19,7 +19,7 @@ use stdClass;
  */
 final class FlowCheck
 {
-    /** @var array<string, list<string>|null> chapter `<toon>:<n>` → its group labels (null: no such chapter) */
+    /** @var array<string, list<string>|null> chapter `<toon>:<n>` → its group ids (null: no such chapter) */
     private array $labels = [];
     /** @var list<string> */
     private array $out = [];
@@ -147,7 +147,7 @@ final class FlowCheck
         if (is_string($target->label ?? null) && $target->label !== '') $wanted[] = ['label', $target->label];
         foreach (is_array($target->anyOf ?? null) ? $target->anyOf : [] as $l) if (is_string($l) && $l !== '') $wanted[] = ['anyOf', $l];
         foreach ($wanted as [$field, $label]) {
-            if (!in_array($label, $labels, true)) $this->out[] = "$at/$field: $where has no group labelled \"$label\" (stuck:missing-label)";
+            if (!in_array($label, $labels, true)) $this->out[] = "$at/$field: $where has no group \"$label\" (stuck:missing-label)";
         }
     }
 
@@ -158,7 +158,7 @@ final class FlowCheck
     }
 
     /**
-     * a chapter's group labels: the newest version of each document; the document being saved
+     * a chapter's group ids: the newest version of each document; the document being saved
      * with its new content – null when the chapter doesn't exist
      * @return list<string>|null
      */
@@ -172,7 +172,7 @@ final class FlowCheck
         $labels = [];
         foreach (is_array($chapter->groups ?? null) ? $chapter->groups : [] as $group) {
             if (!$group instanceof stdClass) continue;
-            if (is_string($group->label ?? null) && $group->label !== '') $labels[] = $group->label;
+            if (is_string($group->id ?? null) && $group->id !== '') $labels[] = $group->id;
         }
         return $this->labels[$id] = $labels;
     }

@@ -36,7 +36,7 @@ final class ItemLimitsTest extends TestCase
     {
         $items = [];
         for ($i = 0; $i < $n; $i++) $items[] = ['id' => "$item-x$i", 'item' => $item, 'rect' => ['x' => 0, 'y' => 0, 'width' => 10]];
-        return ['number' => $number, 'groups' => [['label' => 'a', 'slices' => [['image' => 'a.webp', 'width' => 390, 'height' => 625, 'items' => $items]]]]];
+        return ['number' => $number, 'groups' => [['id' => 'a', 'slices' => [['image' => 'a.webp', 'width' => 390, 'height' => 625, 'items' => $items]]]]];
     }
 
     private function limit(string $item, string $field, int $value): void
@@ -49,7 +49,7 @@ final class ItemLimitsTest extends TestCase
         $this->limit('cucumber', 'placements', 3);
         $this->store('chapter:catpope:1', self::chapter(1, 'cucumber', 1), 'published');
         $this->store('chapter:catpope:1', self::chapter(1, 'cucumber', 0)); // a newer draft removes it: the published one counts
-        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'boss', 'slices' => [['image' => 'b.webp', 'items' => [['id' => 'c', 'item' => 'cucumber']]]]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['id' => 'boss', 'slices' => [['image' => 'b.webp', 'items' => [['id' => 'c', 'item' => 'cucumber']]]]]]]);
         $this->store('chapter:catpope:1:de', self::chapter(1, 'cucumber', 5)); // a legacy per-locale document doesn't count
         $placements = $this->get(ItemPlacements::class);
         $report = $placements->report('cucumber');

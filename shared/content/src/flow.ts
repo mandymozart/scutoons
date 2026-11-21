@@ -103,7 +103,7 @@ export interface FlowNode {
 	group?: number;
 	/** where it lives in the chapter (groups.g, …events.i, …slices.s.events.j, …slices.s.items.x.events.j): what to open */
 	path?: (string | number)[];
-	/** group: its label (or the caller's `name`); label / divert: the point's name; chapter / toon: its title */
+	/** group: its id (or the caller's `name`); label / divert: the point's name; chapter / toon: its title */
 	name?: string;
 	/** group: slice count; choices: the number of choices; chapter: its groups; toon: its chapters */
 	count?: number;
@@ -119,7 +119,7 @@ export interface FlowNode {
 	slice?: number;
 	/** jump / exit: where to */
 	target?: JumpToTarget;
-	/** exit: the next chapter (the follow-up bar after the last chain or before an unlabelled group) */
+	/** exit: the next chapter (the follow-up bar after the last chain) */
 	next?: boolean;
 	/** group / slice level: drawn for context only (another group, a point of the group's script) */
 	stub?: boolean;
@@ -179,7 +179,7 @@ export interface FlowNode {
 export type FlowEdgeKind =
 	/** a linked group flows straight on (same page) */
 	| 'continues'
-	/** the follow-up bar leads to the next (labelled) group */
+	/** the follow-up bar leads to the next group */
 	| 'follow'
 	/** on through the script (or past a point) */
 	| 'then'
@@ -232,7 +232,7 @@ export interface FlowOptions {
 	facts?: ToonFacts;
 	/** the reach the caller computed already (same groups and facts) – else computed here */
 	reach?: ChapterReach;
-	/** a group's name (default its label, else "#n") */
+	/** a group's name (default its id, else "#n") */
 	name?: (group: any, index: number) => string;
 	/** a text (a choice's label: a string or a locale map) as shown – default the string or the map's first text */
 	text?: (value: unknown) => string;
@@ -378,11 +378,11 @@ class Builder {
 		readonly reach: ChapterReach
 	) {
 		this.text = options.text ?? firstText;
-		this.name = options.name ?? ((g: any, i: number) => (typeof g?.label === 'string' && g.label ? g.label : `#${i + 1}`));
+		this.name = options.name ?? ((g: any, i: number) => (typeof g?.id === 'string' && g.id ? g.id : `#${i + 1}`));
 		this.loops = new Set(reach.loops.map((p) => p.join('.')));
 		this.never = new Set(reach.neverTrue.map((p) => p.slice(0, -1).join('.')));
 		this.stuck = new Set((reach.stuck ?? []).map((p) => p.join('.')));
-		groups.forEach((g, gi) => typeof g?.label === 'string' && g.label && !this.labelled.has(g.label) && this.labelled.set(g.label, gi));
+		groups.forEach((g, gi) => typeof g?.id === 'string' && g.id && !this.labelled.has(g.id) && this.labelled.set(g.id, gi));
 	}
 
 	add(n: FlowNode): string {
@@ -410,7 +410,7 @@ class Builder {
 		const image = this.firstSlice(gi);
 		const faces = scriptFaces(g?.events);
 		const facts = this.options.facts;
-		const entry = gi > 0 && !!facts && typeof g?.label === 'string' && !!g.label && facts.labels.has(g.label);
+		const entry = gi > 0 && !!facts && typeof g?.id === 'string' && !!g.id && facts.labels.has(g.id);
 		return this.add({
 			id,
 			kind: 'group',
@@ -716,7 +716,7 @@ class Builder {
 			return;
 		}
 		const next = this.groups[gi + 1];
-		if (next && typeof next.label === 'string' && next.label) return link(this.group(gi + 1, true), 'follow');
+		if (next && typeof next.id === 'string' && next.id) return link(this.group(gi + 1, true), 'follow');
 		const nextChapter = this.options.nextChapter;
 		link(this.add({ id: 'x:next', kind: 'exit', status: 'unreachable', next: true, ...(nextChapter !== undefined ? { image: { kind: 'chapter', chapter: nextChapter } as FlowImage } : {}) }), 'follow');
 	}
@@ -1060,7 +1060,7 @@ export interface StoryEventEntry {
 	characters: string[];
 	/** the first text of the event, at most 80 characters; null without text */
 	excerpt: string | null;
-	/** the group's label, null when unlabelled */
+	/** the group's id */
 	group: string | null;
 	groupIndex: number;
 }
@@ -1071,7 +1071,7 @@ export interface StoryEventEntry {
  */
 export interface StoryChoiceEntry {
 	event: string | null;
-	/** the group's label, null when unlabelled */
+	/** the group's id */
 	group: string | null;
 	/** each option's id (null: none) and its whole label by locale */
 	options: { id: string | null; label: Record<string, string> }[];
@@ -1088,13 +1088,13 @@ export interface StoryEventsIndex {
 }
 
 /**
- * a chapter's jump places: its groups' labels, in order, each once (a jump `{ chapter, label }` lands at that group) – the
+ * a chapter's jump places: its groups' ids, in order, each once (a jump `{ chapter, label }` lands at that group) – the
  * creator's jump targets (jump-places.svelte.ts) and the conductor's linked-reader picker (#529) read the same list
  */
 export function jumpLabels(groups: readonly unknown[] | null | undefined): string[] {
 	const out: string[] = [];
 	for (const g of groups ?? []) {
-		const label = (g as { label?: unknown } | null)?.label;
+		const label = (g as { id?: unknown } | null)?.id;
 		if (typeof label === 'string' && label && !out.includes(label)) out.push(label);
 	}
 	return out;
@@ -1105,9 +1105,9 @@ export function chapterPictures(groups: readonly any[], thumbnail?: unknown): Ch
 	const labels: Record<string, string> = {};
 	const low = (g: any) => (Array.isArray(g?.slices) ? sliceImage(g.slices[0], 0) : undefined);
 	for (const g of groups) {
-		if (typeof g?.label !== 'string' || !g.label || g.label in labels) continue;
+		if (typeof g?.id !== 'string' || !g.id || g.id in labels) continue;
 		const image = low(g);
-		if (image?.kind === 'slice') labels[g.label] = image.path;
+		if (image?.kind === 'slice') labels[g.id] = image.path;
 	}
 	const first = low(groups[0]);
 	return {
@@ -1210,11 +1210,11 @@ export function incomingJumps(index: Pick<FlowIndex, 'edges'> | null | undefined
 
 // ── Dead things ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** where something dead is: chapter, group (index), its label */
+/** where something dead is: chapter, group (index), its id */
 export interface DeadPlace {
 	chapter: number;
 	group: number;
-	label?: string;
+	id?: string;
 }
 export interface DeadItem {
 	name: string;
@@ -1259,7 +1259,7 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 	const labels: DeadItem[] = [];
 	for (const c of chapters) {
 		c.groups.forEach((g, gi) => {
-			const at: DeadPlace = { chapter: c.number, group: gi, ...(typeof g?.label === 'string' && g.label ? { label: g.label } : {}) };
+			const at: DeadPlace = { chapter: c.number, group: gi, ...(typeof g?.id === 'string' && g.id ? { id: g.id } : {}) };
 			const named: string[] = [];
 			const diverted = new Set<string>();
 			// every object of the group once: events, choices, slices, items, text boxes
@@ -1288,11 +1288,11 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 				for (const key in o) if (key !== 'if') stack.push(o[key]);
 			}
 			for (const name of new Set(named)) if (!diverted.has(name)) points.push({ name, at: [at] });
-			// a group label: something refers to it, it starts the chapter, or the follow-up bar leads there
-			if (facts && at.label && gi > 0 && !facts.labels.has(at.label)) {
+			// a group id: something refers to it, it starts the chapter, or the follow-up bar leads there
+			if (facts && at.id && gi > 0 && !facts.labels.has(at.id)) {
 				const before = c.groups[gi - 1];
 				const bar = !before?.continues && !groupEnd(before);
-				if (!bar) labels.push({ name: at.label, at: [at] });
+				if (!bar) labels.push({ name: at.id, at: [at] });
 			}
 		});
 	}

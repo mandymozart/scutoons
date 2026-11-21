@@ -32,7 +32,7 @@ test('a namespace is never a variable domain: inventory.x / reader.x can not be 
 	assert.equal(isWrittenVariable('reader.name'), false);
 });
 
-const chapter = (events: object[]) => ({ number: 1, groups: [{ label: 'a', slices: [{ image: 'x.webp' }], events }] });
+const chapter = (events: object[]) => ({ number: 1, groups: [{ id: 'a', slices: [{ image: 'x.webp' }], events }] });
 const check = (events: object[], items?: string[]) =>
 	validateFile('chapter', chapter(events), 'de', { file: 'c', ...(items ? { items } : {}) } as never).filter((p) => /item|give|qty/.test(p.message));
 

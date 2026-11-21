@@ -65,7 +65,7 @@ final class AssetsApiTest extends TestCase
     {
         @mkdir($this->dir . '/cdn/catpope/videos', 0777, true);
         foreach (['480p', '720p'] as $m) file_put_contents($this->dir . "/cdn/catpope/videos/clip.$m.mp4", "\0\0\0\x18ftypmp42$m");
-        $this->get(EntityStore::class)->insertPublished(EntityKey::parse('chapter:catpope:1:de'), '{"groups":[{"slices":[{"video":{"src":"videos/clip.720p.mp4"}}]}]}', null);
+        $this->get(EntityStore::class)->insertPublished(EntityKey::parse('chapter:catpope:1:de'), '{"groups":[{"id":"g1","slices":[{"video":{"src":"videos/clip.720p.mp4"}}]}]}', null);
         $this->get(AssetImporter::class)->import($this->get(AssetStorages::class)->local());
         $this->get(AssetUsages::class)->rebuild();
     }
@@ -173,7 +173,7 @@ final class AssetsApiTest extends TestCase
         self::assertSame(0, self::json($this->request('GET', '/api/assets?kind=shape', $creator))['pagination']['total']);
 
         // a creator save re-indexes the entity: the chapter now uses the 480p file instead
-        $put = $this->request('PUT', '/api/entities/chapter:catpope:1:de', $creator + ['Content-Type' => 'application/json'], '{"content":' . self::chapterJson(['groups' => [['slices' => [['image' => 'images/s.webp', 'width' => 390, 'height' => 600, 'video' => ['src' => 'videos/clip.480p.mp4']]]]]]) . '}');
+        $put = $this->request('PUT', '/api/entities/chapter:catpope:1:de', $creator + ['Content-Type' => 'application/json'], '{"content":' . self::chapterJson(['groups' => [['id' => 'g1', 'slices' => [['image' => 'images/s.webp', 'width' => 390, 'height' => 600, 'video' => ['src' => 'videos/clip.480p.mp4']]]]]]) . '}');
         self::assertSame(200, $put->getStatusCode(), (string) $put->getBody());
         $detail = self::json($this->request('GET', "/api/assets/$id", $creator));
         self::assertEqualsCanonicalizing([['catpope/videos/clip.720p.mp4', 'published'], ['catpope/videos/clip.480p.mp4', 'draft']], array_map(fn($u) => [$u['path'], $u['state']], $detail['usages']));

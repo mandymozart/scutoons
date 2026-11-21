@@ -11,7 +11,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, HIGHLIGHTERS, isFxSoundChoice } from './fx.ts';
-import { linksToNext, scriptJumps } from './chains.ts';
+import { GROUP_ID_PATTERN } from './group-ids.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
@@ -135,7 +135,7 @@ export interface ValidateContext {
 	itemRespawn?: Record<string, ItemRespawn | null>;
 	/**
 	 * chapter files: what the whole toon says (`toonFacts` over its documents – the creator loads them): which labels
-	 * something jumps to, which variables something sets. None: every labelled group counts as reachable by a jump and no
+	 * something jumps to, which variables something sets. None: every group counts as reachable by a jump and no
 	 * condition is judged (reach.ts)
 	 */
 	facts?: ToonFacts;
@@ -159,7 +159,7 @@ export interface JumpTargets {
 	toons?: readonly string[];
 	/** a toon's chapter numbers */
 	chapters?: (toon: string) => readonly number[] | undefined;
-	/** a chapter's group labels (its scenes' included) */
+	/** a chapter's group ids (its scenes' included) */
 	labels?: (toon: string, chapter: number) => readonly string[] | undefined;
 }
 
@@ -354,7 +354,7 @@ function checkTarget(c: Collector, target: any, path: Path, ctx: ValidateContext
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
 	if (target.anyOf !== undefined) {
 		if (!Array.isArray(target.anyOf) || !target.anyOf.length || target.anyOf.some((l: unknown) => !isStr(l) || !l)) {
-			c.error([...path, 'anyOf'], 'anyOf must be a list of group labels (one of them is picked at random)');
+			c.error([...path, 'anyOf'], 'anyOf must be a list of group ids (one of them is picked at random)');
 		}
 	}
 	if (target.toon !== undefined) {
@@ -392,7 +392,7 @@ function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path,
 		return;
 	}
 	const field = isStr(target.label) && target.label ? 'label' : 'anyOf';
-	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group labelled "${l}"`);
+	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group "${l}"`);
 }
 
 /** what a script gives (`giveItem` / a choice's `give`): a catalog item, 1 … GIVE_ITEM_MAX pieces (BACKLOG 10.38) */
@@ -933,7 +933,8 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 		c.error([...path, 'renderer', 'type'], 'renderer.type must be vertical or horizontal (the reader shows "Renderer is missing")');
 	}
 	checkRendererParams(c, g, path);
-	if (!g.label) c.warn([...path, 'label'], 'group has no label (?label= links and jumpTo need one)');
+	if (!isStr(g.id) || !g.id) c.error([...path, 'id'], 'group needs an id (its address: jumps and ?label= links name it)');
+	else if (!GROUP_ID_PATTERN.test(g.id)) c.error([...path, 'id'], `group id "${g.id}": letters, digits, - and _ only, starting with a letter or digit`);
 	if (!Array.isArray(g.slices) && !Array.isArray(g.events)) c.error(path, 'group needs slices or events');
 	if (Array.isArray(g.slices)) {
 		if (!g.slices.length && !g.events) c.warn([...path, 'slices'], 'group has no slices');
@@ -1000,18 +1001,19 @@ function checkGroupLinks(c: Collector, g: any, path: Path, ctx: ValidateContext)
 }
 
 /**
- * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; a chain that isn't the chapter's start
- * needs a label on its first group (else nothing reaches it); a group whose script can jump away and continues needs a
- * label on the next group (whatever follows a jumpTo must be reachable by a label) – what can't be reached at all is
- * `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref (where known).
+ * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; group ids are unique in the chapter
+ * – what can't be reached at all is `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref.
  */
 function checkChains(c: Collector, groups: any[]) {
+	const seen = new Map<string, number>();
 	groups.forEach((g, i) => {
-		if (!isObj(g) || g.continues !== true) return;
-		if (i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
-		else if (scriptJumps(g) && isObj(groups[i + 1]) && !groups[i + 1].label)
-			c.warn(['groups', i + 1, 'label'], 'the group before can jump away (jumpTo) and continues into this one – give this group a label so a jump can lead back here');
-		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
+		if (!isObj(g)) return;
+		if (isStr(g.id) && g.id) {
+			const first = seen.get(g.id);
+			if (first !== undefined) c.error(['groups', i, 'id'], `group id "${g.id}" is taken by group ${first + 1} – ids are unique in a chapter`);
+			else seen.set(g.id, i);
+		}
+		if (g.continues === true && i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
 	});
 }
 
@@ -1021,7 +1023,7 @@ function checkChains(c: Collector, groups: any[]) {
  */
 function checkReach(c: Collector, groups: any[], facts: ToonFacts | undefined) {
 	const r = chapterReach(groups, facts);
-	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its label, and the content before it always leaves or never finishes)'));
+	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its id, and the content before it always leaves or never finishes)'));
 	r.slices.forEach((list, gi) => {
 		if (r.groups[gi] === 'unreachable') return;
 		list.forEach((reach, si) => reach === 'unreachable' && c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always leaves when it is seen'));

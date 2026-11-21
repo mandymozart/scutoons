@@ -18,7 +18,7 @@ test('questionsOf: the choices before each showChoices; an unconditional divert 
 
 test('stuckPoints: a question whose every choice is conditional – in scripts, slice triggers and item taps', () => {
 	const groups = [
-		{ label: 'a', slices: [{ events: [choice('x', set), show], items: [{ id: 'i', events: [choice('y', { expr: 'x > 1' }), show] }] }], events: [choice('ok'), choice('maybe', set), show, choice('z', set), show] }
+		{ id: 'a', slices: [{ events: [choice('x', set), show], items: [{ id: 'i', events: [choice('y', { expr: 'x > 1' }), show] }] }], events: [choice('ok'), choice('maybe', set), show, choice('z', set), show] }
 	];
 	assert.deepEqual(
 		stuckPoints(groups).map((p) => p.path.join('.')),
@@ -28,7 +28,7 @@ test('stuckPoints: a question whose every choice is conditional – in scripts, 
 });
 
 test('validation refuses it (an error at the showChoices); reach + the Flow graph mark it "stuck"', () => {
-	const data = { number: 1, groups: [{ label: 'a', renderer: { type: 'vertical' }, slices: [{ image: 'x.webp' }], events: [choice('A', set), choice('B', { expr: 'y' }), show] }] };
+	const data = { number: 1, groups: [{ id: 'a', renderer: { type: 'vertical' }, slices: [{ image: 'x.webp' }], events: [choice('A', set), choice('B', { expr: 'y' }), show] }] };
 	const problems = validateFile('chapter', data, 'de', { file: 'c' } as never).filter((p) => p.message.includes('every choice'));
 	assert.equal(problems.length, 1);
 	assert.equal(problems[0].level, 'error');

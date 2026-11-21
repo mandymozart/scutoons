@@ -10,6 +10,7 @@
 	import { useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { groupsClipHandler } from '$lib/editor/groups-clip.svelte.ts';
 	import { newGroup } from '$lib/editor/defaults.ts';
+	import { newGroupId } from '@scutoons/content';
 	import SliceList from '$lib/components/chapter/slice-list.svelte';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import Marks from '$lib/components/chapter/marks.svelte';
@@ -86,7 +87,7 @@
 	}
 	async function removeGroup(index: number) {
 		const g = groups[index];
-		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? index + 1}` })))) return;
+		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.id || index + 1}` })))) return;
 		chapter.edit((file) => file.groups.splice(index, 1));
 		view.groupIndex = Math.max(0, index - 1);
 		view.section = 'meta';
@@ -115,8 +116,7 @@
 
 	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
 	function addGroup() {
-		const label = `scene-${groups.length + 1}`;
-		chapter.edit((file) => file.groups.push(newGroup(label)));
+		chapter.edit((file) => file.groups.push(newGroup(newGroupId(file.groups))));
 		view.selectGroup(groups.length - 1);
 	}
 </script>

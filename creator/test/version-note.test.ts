@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chapterChanges, groupChanges, metaChanges, numberRange, summarizeChanges, type GroupRef, type NoteContext, type NoteWords } from '../src/lib/editor/version-note.ts';
 
-const groupName = (g: GroupRef) => ('label' in g ? `Gruppe ${g.label}` : `Gruppe ${g.number}`);
+const groupName = (g: GroupRef) => ('id' in g ? `Gruppe ${g.id}` : `Gruppe ${g.number}`);
 const one: Record<string, string> = { textbox: 'Textbox', item: 'Item', piece: 'Collage-Stück', tail: 'Zeiger', slice: 'Slice', group: 'Gruppe', event: 'Event', sound: 'Sound', entry: 'Eintrag' };
 const many: Record<string, string> = { textbox: 'Textboxen', item: 'Items', piece: 'Collage-Stücke', tail: 'Zeiger', slice: 'Slices', group: 'Gruppen', event: 'Events', sound: 'Sounds', entry: 'Einträge' };
 const verbs: Record<string, string> = { reordered: 'umsortiert', added: 'hinzugefügt', removed: 'entfernt', moved: 'verschoben', recoloured: 'eingefärbt', set: 'gesetzt', changed: 'geändert' };
@@ -31,7 +31,7 @@ const ctx: NoteContext = { languages: L, itemName: (id) => ({ camera: 'Kamera' }
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const box = (id: string, de: string, x = 10, en = '') => ({ id, rect: { x, y: 10, width: 50 }, text: en ? { de, en } : { de } });
 const slice = (image: string, extra: Record<string, unknown> = {}): Record<string, any> => ({ image, width: 390, height: 625, ...extra });
-const scene = (n: number): { label: string; slices: Record<string, any>[] } => ({ label: 'scene-17-24', slices: Array.from({ length: n }, (_, i) => slice(`s${i + 1}.webp`, { dialog: [box(`b${i}`, `Text ${i}`)] })) });
+const scene = (n: number): { id: string; slices: Record<string, any>[] } => ({ id: 'scene-17-24', slices: Array.from({ length: n }, (_, i) => slice(`s${i + 1}.webp`, { dialog: [box(`b${i}`, `Text ${i}`)] })) });
 
 test('one text box moved and its tail set on one slice: the slice in front, the box by its first words', () => {
 	const before = scene(14);
@@ -39,7 +39,7 @@ test('one text box moved and its tail set on one slice: the slice in front, the 
 	const after = clone(before);
 	(after.slices[11].dialog[0] as any).rect.x = 30;
 	(after.slices[11].dialog[0] as any).tail = { kind: 'speech', tip: { x: 20, y: 90 }, base: { side: 'bottom', at: 0.3 } };
-	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words);
+	const note = summarizeChanges(groupChanges(before, after, { id: 'scene-17-24' }, ctx), words);
 	assert.equal(note, "Slice 12: Textbox 'Na, servus…' verschoben, Zeiger gesetzt");
 });
 
@@ -47,7 +47,7 @@ test('three text boxes changed on different slices of one scene (the page has se
 	const before = scene(6);
 	const after = clone(before);
 	for (const i of [1, 3, 4]) (after.slices[i].dialog[0] as any).text.de = 'Neu';
-	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words, { multipleGroups: true });
+	const note = summarizeChanges(groupChanges(before, after, { id: 'scene-17-24' }, ctx), words, { multipleGroups: true });
 	assert.equal(note, '3 Textboxen in Gruppe scene-17-24 geändert');
 });
 
@@ -95,17 +95,17 @@ test('only the English texts changed: "Texte (en) übersetzt", not an edit of th
 	const before = scene(3);
 	const after = clone(before);
 	for (const s of after.slices) (s.dialog[0] as any).text.en = 'Translated';
-	assert.equal(summarizeChanges(groupChanges(before, after, { label: 'x' }, ctx), words, { multipleGroups: true }), 'Texte (en) übersetzt');
+	assert.equal(summarizeChanges(groupChanges(before, after, { id: 'x' }, ctx), words, { multipleGroups: true }), 'Texte (en) übersetzt');
 });
 
 test('a chapter: its settings by name, a group added, the order of groups, the sound', () => {
-	const before = { title: { de: 'Alt' }, description: { de: 'D' }, groups: [{ label: 'a', slices: [] }, { label: 'b', slices: [] }], audio: { music: 'a.mp3' } };
+	const before = { title: { de: 'Alt' }, description: { de: 'D' }, groups: [{ id: 'a', slices: [] }, { id: 'b', slices: [] }], audio: { music: 'a.mp3' } };
 	const after = clone(before) as any;
 	after.title.de = 'Neu';
 	after.release = { de: '2026-11-01' };
 	assert.equal(summarizeChanges(chapterChanges(before, after, ctx), words), 'Titel, Erscheinungsdatum geändert');
 	after.groups.reverse();
-	after.groups.push({ label: 'c', slices: [] });
+	after.groups.push({ id: 'c', slices: [] });
 	after.audio.music = 'b.mp3';
 	assert.equal(summarizeChanges(chapterChanges(before, after, ctx), words), "Gruppe 'c' hinzugefügt, Gruppen umsortiert, Sound geändert, …");
 	after.audio.music = 'a.mp3';
@@ -114,7 +114,7 @@ test('a chapter: its settings by name, a group added, the order of groups, the s
 });
 
 test('slice events and a text box added, all on one slice of a chapter with several groups: the group and slice in front', () => {
-	const before = { title: { de: 'T' }, groups: [{ label: 'intro', slices: [slice('a.webp')] }, { label: 'main', slices: [slice('b.webp'), slice('c.webp')] }] };
+	const before = { title: { de: 'T' }, groups: [{ id: 'intro', slices: [slice('a.webp')] }, { id: 'main', slices: [slice('b.webp'), slice('c.webp')] }] };
 	const after = clone(before) as any;
 	after.groups[1].slices[1].events = [{ id: 'e1', type: 'showMessage' }, { id: 'e2', type: 'fx' }];
 	after.groups[1].slices[1].dialog = [box('n', '')];
@@ -130,8 +130,8 @@ test('too long: whole phrases up to 90 characters, then "…"', () => {
 	(after.slices[3] as any).audio = { sfx: 'x' };
 	(after.slices[4] as any).events = [{ id: 'e' }];
 	after.slices.splice(6, 1);
-	(after as any).label = 'neu';
-	const note = summarizeChanges(groupChanges(before, after, { label: 'scene-17-24' }, ctx), words, { multipleGroups: true });
+	(after as any).id = 'neu';
+	const note = summarizeChanges(groupChanges(before, after, { id: 'scene-17-24' }, ctx), words, { multipleGroups: true });
 	assert.ok(note.length <= 90, note);
 	assert.ok(note.endsWith(', …'), note);
 	assert.ok(note.startsWith("Gruppe scene-17-24: Textbox 'Ein sehr l…' auf Slice 1 hinzugefügt, "), note);

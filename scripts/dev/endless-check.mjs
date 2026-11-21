@@ -485,8 +485,8 @@ async function sliver(name, dpr) {
 /** 10 – the pinned strip of an un-rewritten horizontal group pins and moves with the page scroll */
 async function pinned(name) {
 	if (PINNED === undefined) return check(`${name}: an un-rewritten horizontal group on the page`, ['none on this page (--pinned=<group index>)']);
-	const label = groups[PINNED].label;
-	const at = (top) => js(`(async () => { const s = document.querySelector('.chapter-view .strip[data-group-label=${JSON.stringify(label ?? '')}]'); if (!s) return null; scrollTo({ top: scrollY + s.getBoundingClientRect().top + ${top} * innerHeight, behavior: 'instant' }); await new Promise((r) => setTimeout(r, 300)); const pin = s.querySelector('.pin'), track = pin.querySelector('.track'); return { section: s.getBoundingClientRect().top, pin: pin.getBoundingClientRect().top, x: new DOMMatrix(getComputedStyle(track).transform).m41, range: s.offsetHeight - pin.offsetHeight }; })()`);
+	const label = groups[PINNED].id;
+	const at = (top) => js(`(async () => { const s = document.querySelector('.chapter-view .strip[data-group-id=${JSON.stringify(label ?? '')}]'); if (!s) return null; scrollTo({ top: scrollY + s.getBoundingClientRect().top + ${top} * innerHeight, behavior: 'instant' }); await new Promise((r) => setTimeout(r, 300)); const pin = s.querySelector('.pin'), track = pin.querySelector('.track'); return { section: s.getBoundingClientRect().top, pin: pin.getBoundingClientRect().top, x: new DOMMatrix(getComputedStyle(track).transform).m41, range: s.offsetHeight - pin.offsetHeight }; })()`);
 	const a = await at(0.5);
 	const b = a && (await at(1));
 	const p = [];

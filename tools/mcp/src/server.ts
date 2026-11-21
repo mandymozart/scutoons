@@ -336,7 +336,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'list_chapters',
 		{
 			description:
-				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, label, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
+				'The chapters of a toon (seasons, chapter numbers, titles, status from the season in `locale`) with their groups: index, id, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed. `key` = the document to read / save (language-neutral: `chapter:<toon>:<n>`).',
 			inputSchema: z.object({
 				toon: z.string(),
 				chapter: z.number().int().min(0).optional().describe('only this chapter'),
@@ -372,7 +372,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 				for (const [i, g] of ((doc.content?.groups ?? []) as Json[]).entries()) {
 					groups.push({
 						index: i,
-						label: g?.label ?? null,
+						id: g?.id ?? null,
 						slices: Array.isArray(g?.slices) ? g.slices.length : 0,
 						events: Array.isArray(g?.events) ? g.events.length : 0,
 						points: scriptLabels(g?.events)

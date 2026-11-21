@@ -48,7 +48,7 @@ final class FlowIndexApiTest extends TestCase
         $this->store('toon:catpope', ['id' => 'catpope', 'status' => 'published', 'avatar' => 'avatar.webp', 'title' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope']]);
         $this->store('season:catpope:1', ['number' => 1, 'sequence' => [['number' => 2, 'status' => ['de' => 'draft']], ['number' => 3, 'status' => ['de' => 'draft']]]]);
         $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [
-            ['label' => 'start', 'continues' => true, 'slices' => [['events' => [['type' => 'jumpTo', 'params' => ['target' => $jump('product', 'vinyl')], 'trigger' => ['type' => 'click']]]]],
+            ['id' => 'start', 'continues' => true, 'slices' => [['events' => [['type' => 'jumpTo', 'params' => ['target' => $jump('product', 'vinyl')], 'trigger' => ['type' => 'click']]]]],
                 'events' => [
                     ['type' => 'setVariable', 'params' => ['variable' => 'searching', 'value' => 'yes']],
                     ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Zum {visits}. Mal']], 'if' => ['variable' => 'rocket', 'op' => 'set']],
@@ -61,11 +61,11 @@ final class FlowIndexApiTest extends TestCase
                     ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Wald'], 'onSelect' => ['jumpTo' => ['target' => $jump('chapter', '3', 'forest')]]]],
                     ['type' => 'showChoices'],
                 ]],
-            ['label' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
-            ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3', 'forest'), 'auto' => true]],
+            ['id' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
+            ['id' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3', 'forest'), 'auto' => true]],
         ]]);
         // a legacy per-locale chapter (no neutral document): read too
-        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['label' => 'city', 'slices' => [[]], 'end' => ['target' => $jump('toon', 'catpope')]]]]);
+        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['id' => 'city', 'slices' => [[]], 'end' => ['target' => $jump('toon', 'catpope')]]]]);
 
         self::assertSame(401, $this->request('/api/creator/flow-index')->getStatusCode());
         self::assertSame(403, $this->request('/api/creator/flow-index', $this->token('member'))->getStatusCode());
@@ -94,13 +94,13 @@ final class FlowIndexApiTest extends TestCase
         $dead = $index['dead']['catpope'];
         self::assertSame(['searching'], array_column($dead['unread'], 'name'));
         self::assertSame(['coins', 'gold', 'rocket'], array_column($dead['unset'], 'name'));
-        self::assertSame([['name' => 'lonely', 'at' => [['chapter' => 2, 'group' => 0, 'label' => 'start']]]], $dead['points']);
+        self::assertSame([['name' => 'lonely', 'at' => [['chapter' => 2, 'group' => 0, 'id' => 'start']]]], $dead['points']);
         // `middle` follows a linked group and nothing jumps there; `scene-9` gets the follow-up bar
         self::assertSame(['middle'], array_column($dead['labels'], 'name'));
 
         // the same versions: the cached answer; a new version: a new answer
         self::assertSame($index, (array) json_decode((string) $this->request('/api/creator/flow-index', $token)->getBody(), true));
-        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['label' => 'city', 'slices' => [[]]]]]);
+        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['id' => 'city', 'slices' => [[]]]]]);
         $again = (array) json_decode((string) $this->request('/api/creator/flow-index', $token)->getBody(), true);
         self::assertCount(4, $again['edges']);
     }
@@ -114,20 +114,20 @@ final class FlowIndexApiTest extends TestCase
         $into = fn(string $toon, string $chapter, string $label) => ['type' => 'chapter', 'value' => $chapter, 'toon' => $toon, 'label' => $label];
         // catpope: `middle` follows a linked group – only toptoy's jump names a label "middle" (toptoy's, not this one)
         $this->store('chapter:catpope:3', ['number' => 3, 'groups' => [
-            ['label' => 'forest', 'continues' => true, 'slices' => [[]], 'events' => [
+            ['id' => 'forest', 'continues' => true, 'slices' => [[]], 'events' => [
                 ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Hyper City'], 'onSelect' => ['jumpTo' => ['target' => $into('toptoy', '1', 'hyper')]]]],
                 ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Mitte'], 'onSelect' => ['jumpTo' => ['target' => $into('toptoy', '1', 'middle')]]]],
                 ['type' => 'showChoices'],
             ]],
-            ['label' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
-            ['label' => 'biker', 'slices' => [[]]],
+            ['id' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
+            ['id' => 'biker', 'slices' => [[]]],
         ]]);
         // toptoy: `hyper` and `middle` follow linked groups – reached from catpope only; `lost` from nowhere
         $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [
-            ['label' => 'city', 'continues' => true, 'slices' => [[]]],
-            ['label' => 'hyper', 'continues' => true, 'slices' => [[]]],
-            ['label' => 'middle', 'continues' => true, 'slices' => [[]]],
-            ['label' => 'lost', 'slices' => [[]], 'end' => ['target' => $into('catpope', '3', 'biker')]],
+            ['id' => 'city', 'continues' => true, 'slices' => [[]]],
+            ['id' => 'hyper', 'continues' => true, 'slices' => [[]]],
+            ['id' => 'middle', 'continues' => true, 'slices' => [[]]],
+            ['id' => 'lost', 'slices' => [[]], 'end' => ['target' => $into('catpope', '3', 'biker')]],
         ]]);
         $response = $this->request('/api/creator/flow-index', $this->token('creator'));
         self::assertSame(200, $response->getStatusCode());
@@ -151,13 +151,13 @@ final class FlowIndexApiTest extends TestCase
     public function testVariablesAcrossToons(): void
     {
         $set = fn(string $v) => ['type' => 'setVariable', 'params' => ['variable' => $v, 'value' => 1, 'op' => 'add']];
-        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'a', 'slices' => [[]], 'events' => [$set('global.mama_tips'), $set('lonely')]]]]);
-        $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [['label' => 'b', 'slices' => [[]], 'events' => [
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['id' => 'a', 'slices' => [[]], 'events' => [$set('global.mama_tips'), $set('lonely')]]]]);
+        $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [['id' => 'b', 'slices' => [[]], 'events' => [
             $set('global.mama_tips'),
             ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Mama!']], 'if' => ['variable' => 'global.mama_tips', 'op' => '>=', 'value' => 2]],
             ['type' => 'showMessage', 'params' => ['text' => ['de' => '{yellowmouse.rocket} {nowhere} {lonely}']]],
         ]]]]);
-        $this->store('chapter:yellowmouse:1', ['number' => 1, 'groups' => [['label' => 'c', 'slices' => [[]], 'events' => [$set('rocket')]]]]);
+        $this->store('chapter:yellowmouse:1', ['number' => 1, 'groups' => [['id' => 'c', 'slices' => [[]], 'events' => [$set('rocket')]]]]);
         $index = (array) json_decode((string) $this->request('/api/creator/flow-index', $this->token('creator'))->getBody(), true);
         self::assertSame(['set' => ['catpope', 'toptoy'], 'read' => ['catpope']], $index['variables']['mama_tips']);
         self::assertSame(['set' => ['yellowmouse'], 'read' => ['catpope']], $index['variables']['yellowmouse/rocket']);

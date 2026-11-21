@@ -35,7 +35,7 @@
 	/** the group's elements (display: contents – no box of its own, the renderers keep their layout) */
 	let root = $state<HTMLElement>();
 	// its slices find their group: a slice event's divert goes into this script, its text boxes are this group's
-	setGroupScope(() => ({ events: group.events, label: group.label ?? null, scope, done }));
+	setGroupScope(() => ({ events: group.events, id: group.id ?? null, scope, done }));
 </script>
 
 <div class="group" bind:this={root}>

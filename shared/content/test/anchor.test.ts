@@ -73,7 +73,7 @@ test('validation: the anchor enum; edge warnings use the drawn box', () => {
 	const chapter = (slice: object) => ({
 		title: 'P',
 		number: 2,
-		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }] }]
+		groups: [{ id: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }] }]
 	});
 	const problems = (slice: object) =>
 		validateFile('chapter', chapter(slice), 'de', { file: 'x' } as never)

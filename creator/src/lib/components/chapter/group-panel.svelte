@@ -5,10 +5,11 @@
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
+	import GroupIdField from '$lib/components/chapter/group-id-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * Group settings: label, layout (the renderer), linked groups (owner 2026-10-06: `continues`, and `end` on a group
+	 * Group settings: id, layout (the renderer), linked groups (owner 2026-10-06: `continues`, and `end` on a group
 	 * that doesn't continue – @scutoons/content chains.ts). Compact
 	 * (owner 2026-10-06): one tight field grid, explanations as the labels' tooltips.
 	 */
@@ -18,7 +19,9 @@
 		toon = '',
 		last = false,
 		chapterNumber = 0,
-		groupLabels = []
+		groupLabels = [],
+		idProblem,
+		onrename
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
@@ -27,8 +30,12 @@
 		last?: boolean;
 		/** the chapter's number (a new end points to the next chapter) */
 		chapterNumber?: number;
-		/** the chapter's group labels (the end's target group) */
+		/** the chapter's group ids (the end's target group) */
 		groupLabels?: string[];
+		/** why `to` can't be this group's id, or null */
+		idProblem: (from: string, to: string) => string | null;
+		/** renames this group's id along (every reference in the toon) */
+		onrename: (from: string, to: string) => void;
 	} = $props();
 
 	const group = $derived(doc.get(doc.primary, groupPath));
@@ -56,11 +63,10 @@
 </script>
 
 <section class="group-panel" data-testid="group-panel">
-	<!-- the label is the name; the scene's storage key is an internal ID (owner 2026-10-03) -->
-	<h3>{m['creator.group_named']({ label: group?.label ?? '' })}</h3>
+	<h3>{m['creator.group_named']({ label: group?.id ?? '' })}</h3>
 	<!-- compact (owner 2026-10-06): one tight grid, the explanations in the labels' tooltips -->
 	<div class="sc-fields" data-cols="fill" data-density="panel" data-align="end">
-		<PropField {doc} path={p('label')} label={m['creator.group_name']()} title={m['creator.group_name_hint']()} />
+		<GroupIdField id={group?.id ?? ''} problem={(to) => idProblem(group?.id ?? '', to)} onrename={(to) => onrename(group?.id ?? '', to)} />
 		<PropField {doc} path={p('renderer')} label={m['creator.group_layout']()} title={m['creator.group_layout_hint']()} type="select" options={layouts} required source={{ value: layout, write: setLayout }} testid="group-layout" />
 		{#if !last || group?.continues !== undefined}
 			<PropField {doc} path={p('continues')} label={m['creator.group_continues']()} title={m['creator.group_continues_hint']()} type="bool" placeholder="false" />

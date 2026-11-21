@@ -114,7 +114,7 @@ const chapterOf = async (n) => (chapterDocs[n] ??= await (await fetch(`${api}/li
 function sliceUnlocks(doc) {
 	return (doc?.groups ?? []).flatMap((g, gi) => (g.slices ?? []).flatMap((s, si) => (s.events ?? [])
 		.filter((e) => e?.type === 'unlockLocation' && e.trigger?.type === 'intersect' && !e.if && typeof e.params?.location === 'string')
-		.map((e) => ({ group: g.label, groupIndex: gi, slice: si, image: s.image ?? '', location: e.params.location, silent: !!e.params.silent }))));
+		.map((e) => ({ group: g.id, groupIndex: gi, slice: si, image: s.image ?? '', location: e.params.location, silent: !!e.params.silent }))));
 }
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -430,9 +430,9 @@ async function reading() {
 	// R1. chapter 1 (its scene groups are one chain = one page, #145): page slice k → "<group>#<slice in it>"
 	const c1 = await chapterOf(1);
 	const r1 = await readSlices(`${viewer}/catpope/chapter/1`);
-	const pageSlice = c1.groups.flatMap((g) => g.slices.map((_, i) => `${g.label}#${i + 1}`));
+	const pageSlice = c1.groups.flatMap((g) => g.slices.map((_, i) => `${g.id}#${i + 1}`));
 	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [pageSlice[k - 1] ?? `?#${k}`, v]));
-	const exp1 = want(c1, c1.groups.map((g) => g.label));
+	const exp1 = want(c1, c1.groups.map((g) => g.id));
 	checkRead('chapter 1', c1, got1, exp1, r1);
 	await shot('map-reading-chapter-1');
 	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing) – only when a guest can
@@ -448,12 +448,12 @@ async function reading() {
 		const toasts = new Set();
 		let mapOpened = false;
 		for (const g of c2.groups) {
-			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
-			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
+			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.id)}`);
+			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.id}#${k}`] = v;
 			r.toasts.forEach((t) => toasts.add(t));
 			mapOpened ||= r.mapOpened;
 		}
-		exp2 = want(c2, c2.groups.map((g) => g.label));
+		exp2 = want(c2, c2.groups.map((g) => g.id));
 		checkRead('chapter 2', c2, got2, exp2, { toasts, mapOpened });
 	}
 	await open(`${viewer}/catpope`);

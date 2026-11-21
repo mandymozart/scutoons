@@ -457,6 +457,17 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   | chapter 1 | 2839 → **2672 ms** | 1036 → **896 ms** | 86 → 78 | 14 → **4** |
   | sandbox chapter 5 (VN) | 1008 → **862 ms** | 808 → **740 ms** | 67 → 61 | 13 → **4** |
 
+## A group's id (2026-11-20, owner, #706)
+
+- **`Group.id`** (required) is the group's address in its chapter, `chapter:<n>.<id>` (address book kind `group`):
+  unique per chapter, slug-safe (`^[A-Za-z0-9][A-Za-z0-9_-]*$`, `GROUP_ID_PATTERN` in `@scutoons/content` group-ids.ts).
+  Jump targets (`JumpToTarget.label` / `anyOf`), the reader's `?label=`, the creator's `?group=` and the story-events
+  index name it. It replaced `Group.label` with no alias (migration 2026-11-21-group-ids: the label became the id, a
+  group without one got `g<n>`); saved reader progress is positional and needed nothing.
+- **Renaming** stays possible: the creator's group panel renames it along (`renameGroupId`) – every jump target into
+  that group in the toon's chapters is rewritten, an in-page confirmation lists them first; an id another group of the
+  chapter has, or one that isn't slug-safe, is refused. A new group gets `g<n>` (`newGroupId`).
+
 ## Linked groups and a group's end (2026-10-06, owner)
 
 - **`Group.continues: true`** – the group flows straight into the next one on the same reader page, no follow-up bar
@@ -469,7 +480,7 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   |---|---|
   | several scripts (`events`) in one chain | allowed. They run ONE AFTER ANOTHER through the one VN context (viewer `script-queue.ts`, `interactions/vn-page.svelte`): a script asks to start when its group's first slice is seen and starts once no other script of the page runs and nothing waits for the reader (no message waiting for its click, no choice open, no slice trigger running) – else it waits in line. The stage carries over between the scripts of a page (authors use join / leave; validation checks each script on its own, a chain can be entered in the middle). A script's label (random jumps, choices) = its own group's. |
   | when a script starts | a lone group (no chain): on mount (as before). In a chain – its first group too: when the group's first slice is seen; a group without slices: when the page slice before it is seen (at once when it is the page's first). |
-  | a script that can jump away (a `jumpTo` event, a choice whose `onSelect` jumps) in a group that `continues` | allowed (other scenes may jump back into the chain). Whatever follows a jump must be reachable by a label: the next group needs a `label` – a **warning** when it has none (`scriptJumps`); the creator reminds next to the script with a one-click "Give it a label". |
+  | a script that can jump away (a `jumpTo` event, a choice whose `onSelect` jumps) in a group that `continues` | allowed (other scenes may jump back into the chain). Every group has an id, so a jump can always lead back to what follows. |
   | slice events (triggers) | allowed in every group. A slice choice with jumpTo is the author's deliberate exit. |
   | a slice event's `divert` | goes into its OWN group's script (the slice's group context, viewer `group-scope.ts`); validation: that script needs the `label` point (`checkScriptPoints`, per group). |
   | text boxes revealed by scripts (`showTextBox params.dialog`) | kept per group on the page (`scope`: refs, revealed boxes, playing effects). Text box ids are unique within the chapter, its scenes included: the creator gives a new box an id no other box of the chapter has (ids stay hidden, never typed); validation **error** on a duplicate (safety net). |
@@ -486,9 +497,9 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   slices, script events, slice-event runs and placed items' tap events, named points, diverts, jumps, choices,
   conditions – walked with visited sets (iterative, O(nodes + edges), never runs a script; cycles are harmless). Every
   group / slice / script event is *reachable*, *only through a condition* or *unreachable*. Entry points: the chapter's
-  first group, a labelled chain start the follow-up bar leads to (the chain before can finish, no authored `end`), and a
-  labelled group something in the toon refers to (`toonFacts`: any jump target, end, random list or map place in the
-  toon's documents; without the facts every labelled group counts). Scrolling past a group needs its script to finish
+  first group, a chain start the follow-up bar leads to (the chain before can finish, no authored `end`), and a
+  group something in the toon refers to by its id (`toonFacts`: any jump target, end, random list or map place in the
+  toon's documents; without the facts every group counts). Scrolling past a group needs its script to finish
   (the page is frozen meanwhile) and past a slice its scroll triggers' runs. A condition whose variable is set nowhere in
   the toon (setVariable, a choice's set / add, a picked-up item) and that needs a value is *never true* – its branch
   counts as never taken; a divert / question loop with no end and no jump is an *endless loop*. Validation warns
@@ -501,8 +512,8 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
 - Stored like the group's `renderer` (`type` vertical / horizontal; `params` only `{ endless?: boolean }` – RendererParams
   is closed, the schemas refuse any other key; Swiper's keys left with 2026-10-16-endless-strip, FEATURES 10.100): on the
   group itself; the creator writes them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
-  that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
-  warning (unreachable); `end.target` is checked like a jumpTo target.
+  that continues = warning (ignored); a missing, invalid or duplicate group id = error; `end.target` is checked like a
+  jumpTo target.
 - **Jumps into another toon at a label** (owner 2026-10-06, "at label"): `JumpToTarget = { type, value, toon?, label?,
   anyOf? }` – `type: 'chapter'` + `toon` = a chapter of ANOTHER toon (`value` = its number, `label` / `anyOf` = its
   groups); no `toon` = this toon; `type: 'toon'` stays the toon's page. Only optional field added – no migration (dev DB

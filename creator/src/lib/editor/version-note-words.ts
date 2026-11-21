@@ -22,7 +22,7 @@ type Words = Record<string, ((params?: Record<string, unknown>) => string) | und
 const word = (key: string, params?: Record<string, unknown>) => (m as unknown as Words)[`creator.${key}`]?.(params);
 
 const groupName = (g: GroupRef) =>
-	'label' in g ? m['creator.note_group_label']({ name: g.label }) : m['creator.note_group_number']({ number: g.number });
+	'id' in g ? m['creator.note_group_label']({ name: g.id }) : m['creator.note_group_number']({ number: g.number });
 
 export const noteWords: NoteWords = {
 	subject: (kind: NoteKind, count: number) => (count === 1 ? (word(`note_${kind}`) ?? kind) : (word(`note_${kind}_many`, { count }) ?? `${count} ${kind}`)),

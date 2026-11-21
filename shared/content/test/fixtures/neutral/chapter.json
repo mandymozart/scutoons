@@ -36,7 +36,7 @@
 				}
 			},
 			{
-				"label": "inline",
+				"id": "inline",
 				"renderer": {
 					"type": "vertical"
 				},
@@ -173,7 +173,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},
@@ -298,7 +298,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},
@@ -420,7 +420,7 @@
 							}
 						},
 						{
-							"label": "inline",
+							"id": "inline",
 							"renderer": {
 								"type": "vertical"
 							},

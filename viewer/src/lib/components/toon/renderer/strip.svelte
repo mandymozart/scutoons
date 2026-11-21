@@ -181,7 +181,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios} {@attach viewportWidth} {@attach nearScreen(() => (near = true))}>
+<section class="strip" data-group-id={group.id} bind:this={section} style:--ratios={ratios} {@attach viewportWidth} {@attach nearScreen(() => (near = true))}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- data-fx-screen: in full screen a screen shake / punch moves the strip itself (fx/cues.ts onScreen) -->
 	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} data-fx-window bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>

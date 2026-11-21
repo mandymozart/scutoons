@@ -68,13 +68,13 @@ final class AddressBookApiTest extends TestCase
         // items: the toon's and the shared ones (the fixture catalog: catpope's and no toon's)
         self::assertSame(['de' => 'Kamera', 'en' => 'Camera'], $by['item:camera']['labels']);
         self::assertArrayHasKey('item:scutoons_tshirt', $by, 'a shared item');
-        // chapters by number, each followed by its groups (a label once; a label that is no address word gets a safe form), then
+        // chapters by number, each followed by its groups (an id once; an id that isn't slug-safe is left out), then
         // the variables of the one save game
         $chapters = array_values(array_filter($book['entries'], fn(array $e) => in_array($e['kind'], ['chapter', 'group'], true)));
-        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.Das-Ende', 'chapter:2.Das-Ende-2', 'chapter:10'], array_column($chapters, 'ref'));
+        self::assertSame(['chapter:2', 'chapter:2.intro', 'chapter:2.das-ende', 'chapter:10'], array_column($chapters, 'ref'));
         self::assertSame(['2', ['de' => 'Zwei']], [$by['chapter:2']['name'], $by['chapter:2']['labels']]);
-        self::assertSame(['kind' => 'group', 'name' => 'Das Ende?', 'parent' => 'chapter:2', 'labels' => [], 'origin' => ['key' => 'chapter:catpope:2', 'state' => 'published']],
-            array_diff_key($by['chapter:2.Das-Ende-2'], ['ref' => 1]), 'the name is the label as the event stores it');
+        self::assertSame(['kind' => 'group', 'name' => 'das-ende', 'parent' => 'chapter:2', 'labels' => [], 'origin' => ['key' => 'chapter:catpope:2', 'state' => 'published']],
+            array_diff_key($by['chapter:2.das-ende'], ['ref' => 1]), 'the name is the id as a jump stores it');
         $variables = array_values(array_filter($book['entries'], fn(array $e) => $e['kind'] === 'variable'));
         self::assertSame(array_fill(0, count($variables), 'variable'), array_column(array_slice($book['entries'], -count($variables)), 'kind'), 'variables last');
         self::assertSame(['variable:catpope.coins' => 'coins', 'variable:global.stars' => 'global.stars', 'variable:toptoy.luck' => 'toptoy.luck'],
@@ -119,7 +119,7 @@ final class AddressBookApiTest extends TestCase
         self::assertArrayNotHasKey('character:catpope.human', $by);
         // a variable another toon sets (one save game) changes it too
         $before = $changed->getHeaderLine('ETag');
-        $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['label' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
+        $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['id' => 'a', 'events' => [['type' => 'setVariable', 'params' => ['variable' => 'global.moons', 'value' => '1']]]]]], false);
         $moons = $this->request('/api/addresses/catpope', $creator, ['If-None-Match' => $before]);
         self::assertSame(200, $moons->getStatusCode());
         self::assertContains('variable:global.moons', array_column(self::json($moons)['entries'], 'ref'));
@@ -308,13 +308,13 @@ final class AddressBookApiTest extends TestCase
         $this->store('chapter:catpope:10', ['number' => 10, 'title' => ['de' => 'Zehn'], 'groups' => []]);
         $set = fn(string $variable) => ['type' => 'setVariable', 'params' => ['variable' => $variable, 'value' => '1']];
         $this->store('chapter:catpope:2', ['number' => 2, 'title' => ['de' => 'Zwei'], 'groups' => [
-            ['label' => 'intro', 'events' => [$set('coins')]],
-            ['label' => 'Das Ende.'],
-            ['label' => 'Das Ende?'],
-            ['label' => 'intro'],
+            ['id' => 'intro', 'events' => [$set('coins')]],
+            ['id' => 'das-ende'],
+            ['id' => 'Das Ende?'],
+            ['id' => 'intro'],
             ['events' => [$set('global.stars')]],
         ]]);
-        $this->store('chapter:toptoy:1', ['number' => 1, 'title' => ['de' => 'Eins'], 'groups' => [['label' => 'start', 'events' => [$set('luck')]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'title' => ['de' => 'Eins'], 'groups' => [['id' => 'start', 'events' => [$set('luck')]]]]);
     }
 
     /** @param array<mixed> $doc */

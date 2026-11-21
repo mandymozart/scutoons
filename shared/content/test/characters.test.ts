@@ -197,7 +197,7 @@ test('validation: default looks, neutral anchor, casts, VN scripts', () => {
 
 	const registry: CharacterRegistry = { characters: [catpope, mouse] };
 	const group = {
-		label: 'scene',
+		id: 'scene',
 		renderer: { type: 'vertical' },
 		events: [
 			{ type: 'joinScene', params: { characters: [{ name: 'catpope', persona: 'biker', look: 'helmet', mood: 'tripping', position: { variant: 'portrait' } }] } },
@@ -342,7 +342,7 @@ test('legacy ids and the new ref form', async () => {
 	// a group's VN script accepts both forms; an old id is info only
 	const registry: CharacterRegistry = { characters: [catpope] };
 	const group = {
-		label: 's',
+		id: 's',
 		renderer: { type: 'vertical' },
 		slices: [],
 		events: [

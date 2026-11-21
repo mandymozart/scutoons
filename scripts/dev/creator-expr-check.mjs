@@ -368,7 +368,7 @@ try {
 	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.primary');
 	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`, 5000);
 	saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
-	const stored = (await api('GET', `/entities/${KEY}?draft=1&wrap=1`)).content.groups.find((g) => g.label === GROUP)?.slices[0].dialog[0].text.de;
+	const stored = (await api('GET', `/entities/${KEY}?draft=1&wrap=1`)).content.groups.find((g) => g.id === GROUP)?.slices[0].dialog[0].text.de;
 	check(saved.some((w) => w.status === 200) && stored === 'Münzen {coins} {coins >= 3: reich|arm} {map.totl}', `Save draft with only a warning: stored (“${stored}”)`);
 
 	check(!errors.length, 'no uncaught exceptions on the page', errors.join(' | '));

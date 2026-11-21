@@ -3,6 +3,7 @@
 // neutral documents) once per editor. The open chapter's own documents are passed live by the editor (they change).
 import { api, contentIndex, getDraft } from '$lib/api.ts';
 import { incomingJumps, variablesElsewhere, type FlowIndex } from '@scutoons/content';
+import type { OtherChapter } from './group-rename.ts';
 
 /** the kinds whose documents can jump somewhere or set variables */
 const KINDS = new Set(['chapter', 'scene', 'map']);
@@ -46,4 +47,18 @@ export async function loadIncoming(toon: string): Promise<{ chapters: number[]; 
 	} catch {
 		return { chapters: [], labels: [], elsewhere: { sets: [], reads: [] } };
 	}
+}
+
+/**
+ * The toon's other chapters (neutral documents, newest versions) with the version each was read at – what a group
+ * rename along rewrites and saves (group-rename.ts). All or nothing: it throws when one doesn't load.
+ */
+export async function loadOtherChapters(toon: string, skip: string): Promise<OtherChapter[]> {
+	const index = (await contentIndex(toon)).entities.filter((e) => e.kind === 'chapter' && !e.locale && e.key !== skip);
+	return Promise.all(
+		index.map(async (e) => {
+			const r = await getDraft<OtherChapter['content']>(e.key);
+			return { key: e.key, number: Number(e.key.split(':').at(-1)), content: r.content, base: r.version?.id ?? null };
+		})
+	);
 }

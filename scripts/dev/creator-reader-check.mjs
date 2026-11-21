@@ -186,29 +186,29 @@ try {
 	}
 	const pageOffset = async (gi) => {
 		// the viewer's slice numbering restarts per page: read the group's first slice index from its renderer
-		return inFrame(`(() => { const label = ${JSON.stringify(groups[gi].label ?? '')}; const g = label && document.querySelector('.chapter-view [data-group-label="' + label + '"] [data-slice-index]'); return g ? Number(g.dataset.sliceIndex) : null; })()`);
+		return inFrame(`(() => { const label = ${JSON.stringify(groups[gi].id ?? '')}; const g = label && document.querySelector('.chapter-view [data-group-id="' + label + '"] [data-slice-index]'); return g ? Number(g.dataset.sliceIndex) : null; })()`);
 	};
 	await js(`${q(`group-${vertical}`)}.click(), true`);
 	await sleep(300);
 	let first = null;
 	for (let i = 0; i < 40 && first === null; i++) (first = await pageOffset(vertical)), first === null && (await sleep(250));
-	check(first !== null && (await viewerShows(first)), `group #${vertical} (${groups[vertical].label}): the reader scrolls to its first slice (page slice ${first})`, JSON.stringify(await viewerAt(first ?? 0)));
-	await nav(`/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(groups[vertical].label ?? String(vertical + 1))}&slice=2`);
+	check(first !== null && (await viewerShows(first)), `group #${vertical} (${groups[vertical].id}): the reader scrolls to its first slice (page slice ${first})`, JSON.stringify(await viewerAt(first ?? 0)));
+	await nav(`/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(groups[vertical].id ?? String(vertical + 1))}&slice=2`);
 	check(await viewerScrolledTo((first ?? 0) + 1), `slice 2 of the group: the reader scrolls to it (page slice ${(first ?? 0) + 1})`, JSON.stringify(await viewerAt((first ?? 0) + 1)));
-	const other = groups.findIndex((g, i) => i !== vertical && (g.slices?.length ?? 0) >= 1 && g.label);
+	const other = groups.findIndex((g, i) => i !== vertical && (g.slices?.length ?? 0) >= 1 && g.id);
 	if (other >= 0) {
 		await js(`${q(`group-${other}`)}.click(), true`);
 		await sleep(300);
 		let o = null;
 		for (let i = 0; i < 40 && o === null; i++) (o = await pageOffset(other)), o === null && (await sleep(250));
 		const ok = await viewerShows(o ?? -1);
-		check(o !== null && ok, `group → group #${other} (${groups[other].label}): the reader follows (page slice ${o})`, JSON.stringify(await viewerAt(o ?? 0)));
+		check(o !== null && ok, `group → group #${other} (${groups[other].id}): the reader follows (page slice ${o})`, JSON.stringify(await viewerAt(o ?? 0)));
 	}
 	const d1 = await dock();
 	check(d1.same && d1.frameSame && d1.mount === d0.mount && d1.loads === d0.loads, `group → group / slice: the same panel (mount #${d1.mount}) and frame, not reloaded (${d1.loads} load)`, JSON.stringify({ d0, d1 }));
 
 	// back to the vertical group for the screenshot: the Reader at its second slice
-	await nav(`/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(groups[vertical].label ?? String(vertical + 1))}&slice=2`);
+	await nav(`/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(groups[vertical].id ?? String(vertical + 1))}&slice=2`);
 	await viewerScrolledTo((first ?? 0) + 1);
 	await sleep(1500);
 	await shot(`e6-reader-${TOON}-ch${CHAPTER}.png`);
