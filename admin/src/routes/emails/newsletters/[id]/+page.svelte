@@ -14,7 +14,7 @@
 	import { getToaster } from '$lib/toasts.ts';
 	import { audienceLabel, newsletterError, newsletterStatus, statusTone } from '$lib/newsletter.ts';
 	import { insertButton, insertInline, insertParagraph, readerPath, type Inserted } from '$lib/newsletter-text.ts';
-	import { AssetPickerSheet, type PickedAsset } from '@scutoons/media';
+	import AssetPickerSheet, { type PickedAsset } from '$lib/components/assets/asset-picker-sheet.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**

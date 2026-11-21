@@ -9,10 +9,10 @@
 	import ScoreOverlay from '$lib/components/collage/score-overlay.svelte';
 	import CollageList from '$lib/components/collage/collage-list.svelte';
 	import PieceInspector from '$lib/components/collage/piece-inspector.svelte';
-	import CollagePickerSheet from '$lib/components/collage/collage-picker-sheet.svelte';
+	import { pickPiece } from '$lib/editor/library-drop.ts';
 	import { authApi } from '$lib/api.ts';
 	import { catalogKey, loadCatalogDoc } from '$lib/editor/catalog-docs.ts';
-	import { loadToons, moodsDoc, moodsOf, registryDoc, registryOf, type ToonInfo } from '$lib/editor/characters.ts';
+	import { moodsDoc, moodsOf, registryDoc, registryOf } from '$lib/editor/characters.ts';
 	import { pieceAt } from '$lib/editor/collage-edit.ts';
 	import type { PickedPiece } from '$lib/editor/collage-pick.ts';
 	import { pieceLabel, scoreViewLabels } from '$lib/editor/collage-words.ts';
@@ -23,7 +23,6 @@
 	import * as sc from '$lib/editor/score-collage.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -45,10 +44,8 @@
 	const registry = registryDoc();
 	const moods = moodsDoc();
 	const presets = presetsDoc();
-	let toons = $state<ToonInfo[]>([]);
 	onMount(() => {
 		void Promise.all([loadCatalogDoc(doc, 'items', id), registry.load(), moods.load(), presets.load()]);
-		void loadToons(getLocale()).then((list) => (toons = list));
 	});
 
 	const item = $derived(doc.loading ? null : ((doc.data[N] as Record<string, any> | null) ?? null));
@@ -102,7 +99,6 @@
 	// ── edits (each one undo step; a drag – its moves or its scales – checkpoints once: gestureEdit) ──
 	const edit = (change: (item: Record<string, any>) => void) => doc.edit(change);
 	const gesture = sc.gestureEdit(doc);
-	let picking = $state(false);
 	function add(picked: PickedPiece) {
 		const geo = geometries.get(page);
 		const place = geo && sc.centrePlace(geo);
@@ -150,7 +146,7 @@
 
 	// Delete / Backspace / Esc act on the live region only (DESIGN.md "Selection"): the stage, the focus on it or nowhere
 	function onkeydown(e: KeyboardEvent) {
-		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isField(e.target) || picking) return;
+		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isField(e.target)) return;
 		if (!liveRegion.is('score-stage') || !focusIn(e.target, stageEl)) return;
 		if ((e.key === 'Delete' || e.key === 'Backspace') && piece) remove(piece.id);
 		else if (e.key === 'Escape' && selected) selected = null;
@@ -223,14 +219,13 @@
 			{/if}
 			<CollageList {pieces} {selected} {missing} registry={registryOf(registry)} moods={moodsOf(moods)} onselect={(pieceId) => { selected = pieceId; turns++; }} onmove={reorder} />
 			<div class="adds">
-				<button type="button" class="secondary" disabled={!src || !bars} onclick={() => (picking = true)} data-testid="stage-add-piece"><Icon name="plus" /> {m['creator.add_slice_piece']()}</button>
+				<button type="button" class="secondary" disabled={!src || !bars} onclick={() => pickPiece(m['creator.collage_picker_title'](), registryOf(registry)?.characters ?? [], add)} data-testid="stage-add-piece"><Icon name="plus" /> {m['creator.add_slice_piece']()}</button>
 			</div>
 			{#if piece}
 				<PieceInspector {doc} path={piecePath} host="score" registry={registryOf(registry)} moods={moodsOf(moods)} {presets} onremove={() => remove(piece.id)} onpage={setPage} />
 			{/if}
 		</aside>
 	</div>
-	<CollagePickerSheet bind:open={picking} registry={registryOf(registry)} moods={moodsOf(moods)} {toons} onpick={add} />
 </MetaPage>
 
 <style>

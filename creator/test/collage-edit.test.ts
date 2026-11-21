@@ -21,7 +21,7 @@ import {
 	setPreset,
 	type ClearedEffects
 } from '../src/lib/editor/collage-edit.ts';
-import { allPages, assetRatio, figureImage, figureViews, filterShapes, imagePick, pickedToPiece, shapeTags, shapeTitle } from '../src/lib/editor/collage-pick.ts';
+import { allPages, assetRatio, figureImage, figureViews, libraryPiece, pickedToPiece, shapeTitle } from '../src/lib/editor/collage-pick.ts';
 
 const piece = (more: Partial<CollagePiece> = {}): CollagePiece => ({ id: 'piece-a', src: 'vectors/x.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...more });
 
@@ -221,16 +221,7 @@ test('pickedToPiece writes vectors/x.svg in catpope, ../catpope/vectors/x.svg in
 	assert.equal(a.rect.x, 50, 'the rect is copied');
 });
 
-test('the shapes: tags by frequency, search over title / slug / tags, ratio from the sizes', () => {
-	const shapes = [
-		{ title: 'Arc blue', slug: 'catpope/vectors/arc-blue', tags: ['line', 'arc'] },
-		{ title: 'Wreath', slug: 'catpope/vectors/wreath', tags: ['ornament', 'line'] },
-		{ title: 'Moon', slug: 'catpope/vectors/moon', tags: ['crescent'] }
-	];
-	assert.deepEqual(shapeTags(shapes).slice(0, 2), [{ tag: 'line', count: 2 }, { tag: 'arc', count: 1 }]);
-	assert.deepEqual(filterShapes(shapes, 'line').map((s) => s.title), ['Arc blue', 'Wreath']);
-	assert.deepEqual(filterShapes(shapes, 'WREATH orn').map((s) => s.title), ['Wreath']);
-	assert.deepEqual(filterShapes(shapes, '', 'crescent').map((s) => s.title), ['Moon']);
+test('a ratio from the sizes', () => {
 	assert.equal(assetRatio({ width: 178, height: 458 }), 0.3886);
 	assert.equal(assetRatio({ width: null, height: 10 }), null);
 });
@@ -260,19 +251,17 @@ test('allPages fetches the next pages until the total – a 501st shape stays in
 	assert.deepEqual(asked, [1, 2]);
 });
 
-test('an image pick prefers the WebP twin of a PNG', () => {
-	const asset: any = {
-		title: 'Halo',
-		slug: 'catpope/halo',
-		width: 400,
-		height: 200,
-		renditions: [
-			{ path: 'catpope/halo.png', mime: 'image/png', width: 400, height: 200 },
-			{ path: 'catpope/halo.webp', mime: 'image/webp', width: 400, height: 200 }
-		]
-	};
-	assert.deepEqual(imagePick(asset, asset.renditions[0], 'catpope/halo.png'), { src: 'catpope/halo.webp', ratio: 2, name: 'Halo' });
-	assert.equal(imagePick(asset, asset.renditions[1], 'catpope/halo.webp').src, 'catpope/halo.webp');
+test('a Library pick as a piece: the WebP twin of a PNG, the ratio, a character picture keeps its figure', () => {
+	const version = (path: string, ext: string) => ({ path, ext, label: ext, kind: 'image', size: 1, width: 400, height: 200, duration: null, quality: null, origin: 'imported', asset: 'a' }) as const;
+	const halo = { title: 'Halo', name: 'halo', width: 400, height: 200, versions: [version('catpope/halo.png', 'png'), version('catpope/halo.webp', 'webp')] };
+	assert.deepEqual(libraryPiece('catpope/halo.png', halo), { src: 'catpope/halo.webp', ratio: 2, name: 'Halo' });
+	assert.equal(libraryPiece('catpope/halo.webp', halo).src, 'catpope/halo.webp');
+	assert.deepEqual(libraryPiece('catpope/x.svg', null), { src: 'catpope/x.svg', ratio: undefined, name: 'x.svg' }, 'a file the Library does not hold');
+	const characters: any[] = [{ id: 'catpope', personas: [{ id: 'regular', looks: [{ id: 'default' }] }, { id: 'biker', looks: [{ id: 'helmet' }] }] }];
+	assert.deepEqual(libraryPiece('characters/catpope/catpope_portrait-happy.webp', null, characters).figure, { id: 'catpope', view: 'portrait', mood: 'happy' });
+	assert.deepEqual(libraryPiece('characters/catpope-biker/catpope-biker_helmet_full-sad.webp', null, characters).figure, { id: 'catpope', view: 'full', mood: 'sad', persona: 'biker', look: 'helmet' });
+	assert.equal(libraryPiece('characters/catpope/catpope_apose.webp', null, characters).figure, undefined, 'an A-pose is art, not a figure');
+	assert.equal(libraryPiece('characters/boy/boy_portrait-happy.webp', null, characters).figure, undefined, 'a character the registry lacks');
 });
 
 test('moveLayerRows refuses piece ↔ stack and reorders within the pieces and within the stack', () => {

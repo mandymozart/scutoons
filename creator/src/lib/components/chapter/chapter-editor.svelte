@@ -18,7 +18,7 @@
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { onLibrarySet, shareUses } from '$lib/editor/library-hook.svelte.ts';
 	import { toonAssetRef } from '@scutoons/content';
-	import { defaultMoodVocabulary, entities, getAt, deleteAt, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
+	import { entities, getAt, deleteAt, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, sceneCastSuggestions, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -62,7 +62,7 @@
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
-	import CollagePickerSheet from '$lib/components/collage/collage-picker-sheet.svelte';
+	import { pickPiece } from '$lib/editor/library-drop.ts';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
@@ -756,6 +756,12 @@
 		view.select(edits.addSliceItem(t, itemId, spot));
 	}
 	/** a picked collage piece at the piece tool's spot (research/COLLAGE.md §3: a click = centred there, a drag = its rect) */
+	// the piece tool / "+ piece" asks the Library for a picture
+	$effect(() => {
+		if (!view.pickingPiece) return;
+		view.pickingPiece = false;
+		untrack(() => pickPiece(m['creator.collage_picker_title'](), choices?.registry?.characters ?? [], addPiece));
+	});
 	function addPiece(picked: PickedPiece) {
 		const place = view.pieceSpot ?? piecePlace(null);
 		view.pieceSpot = null;
@@ -1025,7 +1031,6 @@
 		</div>
 		{#if view.section === 'slice' && activeSlice}
 			<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
-			<CollagePickerSheet bind:open={view.pickingPiece} {toon} registry={choices?.registry ?? null} moods={choices?.moods ?? defaultMoodVocabulary()} cast={choices?.cast} toons={choices?.toons} onpick={addPiece} />
 		{/if}
 	{/if}
 

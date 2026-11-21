@@ -99,7 +99,7 @@
 
 <div class="group">
 	<!-- the welcome (agents/MAP.md §8.10): the sign behind, the representative (or the narrator) says the greeting -->
-	<MediaSlot toon="" value={region.sign?.src || undefined} label={m['creator.region_sign']()} place={`catpope/map/regions/${region.id}/`} webp onchange={(path) => set('sign', path ? { src: path } : undefined)} testid="region-sign" />
+	<MediaSlot toon="" value={region.sign?.src || undefined} label={m['creator.region_sign']()} place={`catpope/map/regions/${region.id}/`} onchange={(path) => set('sign', path ? { src: path } : undefined)} testid="region-sign" />
 	<LocaleMapField value={region.greeting ?? {}} {languages} label={m['creator.region_greeting']()} multiline testid="region-greeting" onchange={(v) => set('greeting', v)} />
 	<label class="field">
 		<span>{m['creator.region_representative']()}</span>

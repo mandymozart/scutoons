@@ -27,6 +27,7 @@
 	import { ADMIN_URL, VIEWER_URL } from '$lib/config.ts';
 	import { setupCatalog } from '@scutoons/catalog';
 	import { setupMedia } from '@scutoons/media';
+	import { libraryHost } from '$lib/editor/library-drop.ts';
 	import { assetsApi, library } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -46,7 +47,7 @@
 	let { children }: { children: Snippet } = $props();
 
 	const session = setCreatorSession();
-	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale });
+	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale, host: libraryHost });
 	setupCatalog({ locale: getLocale, locales, adminUrl: ADMIN_URL });
 	provideUiLabels({
 		get reset() { return m['creator.field_reset'](); },

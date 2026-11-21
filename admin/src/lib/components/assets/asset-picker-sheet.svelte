@@ -9,34 +9,33 @@
 		path: string;
 	}
 	export type AssetPickerKind = AssetKind | '';
-
-	/** 1234567 → "1.2 MB" */
-	export function bytes(n: number): string {
-		if (n < 1024) return `${n} B`;
-		const units = ['KB', 'MB', 'GB'];
-		let v = n / 1024;
-		let i = 0;
-		while (v >= 1024 && i < units.length - 1) {
-			v /= 1024;
-			i++;
-		}
-		return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
-	}
 </script>
 
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
 	import { Button, CloseButton, confirmDialog, gridArrows, Icon, IconButton, Sheet } from '@scutoons/ui';
-	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
-	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
-	import { uploadOrReplace } from './media-upload.ts';
-	import ModelThumb from './model-thumb.svelte';
-	import { checkMedia, standardName, toStandard } from './media-standard.ts';
+	import {
+		ModelThumb,
+		bestAudioSource,
+		bytes,
+		checkMedia,
+		decodeAudio,
+		encodeMp3,
+		mediaAssets,
+		mediaText,
+		mediaUrl as cdnAsset,
+		nearestKbps,
+		planAudioUpload,
+		standardName,
+		toStandard,
+		uploadOrReplace,
+		type AudioUploadPlan
+	} from '@scutoons/media';
 
 	/**
-	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
+	 * The admin's asset picker (the newsletter's pictures; TODO(#771): the Library once the admin moves) – a searchable grid of the media
 	 * in the asset registry (thumbnails, one line of name, size / dimensions / uses), filters (folder = the toon by
 	 * default, kind, unused), the chosen asset's files (renditions: 480p / 720p / 1080p, WebP …) and an upload. Picking
 	 * hands back a CDN-root path – the caller writes the same stable paths content always had.
