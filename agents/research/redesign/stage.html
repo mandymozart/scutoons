@@ -1,0 +1,459 @@
+<!-- Status: draft for the owner's review (#759, epic #626), 2026-11-21 – concept only, no build; the owner picks a variant, the build is a follow-up ticket. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taking the stage</title>
+<!-- How a panel tab takes the stage and comes back (#759). Starting point: panels.html (?main= / ?over=) and the
+     host #751 built (creator/src/lib/shell/panels.ts, presets.ts, shared/ui/src/editor/floating-panel.svelte).
+     Colours: shared/tokens/editor.css, night and day, copied 1:1 – nothing else. Night first; T = day.
+     ?v=A|B|C|over · ?main=<tab> starts with that tab on the stage · ?theme=day · ?dur=<ms> slows the motion · ?quiet folds the notes.
+     Keys: M = ◱ for the last panel you touched · O = ⤢ · Esc = back · 1–4 = variant · T = day / night · N = notes. Open at 1440×900. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+/* shared/tokens/editor.css – night */
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;
+  --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+}
+/* shared/tokens/editor.css – day */
+[data-theme=day]{
+  --stage:#000000;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;
+  --ground:rgb(243 243 240 / 0.8);--halo:none;
+}
+:root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── the bar: pills on the stage ── */
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap)}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--surface);box-shadow:0 0 0 1px rgb(0 0 0/.2),0 .2rem .6rem rgb(0 0 0/.2)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap}
+.pill button:hover{background:var(--hover)}
+.pill button.on{background:var(--pressed);color:var(--pressed-text)}
+.pill .round{padding:0;justify-content:center}
+.middle{flex:1;display:flex;justify-content:center}
+.path{display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--muted);font-size:var(--small);box-shadow:0 0 0 1px rgb(0 0 0/.2)}
+.path b{color:var(--text);font-weight:400}
+
+/* ── the stage and what is on it ── */
+.box{position:fixed;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--surface);overflow:hidden;transition:opacity .12s}
+.box.arriving{opacity:0}
+.box.full{border-radius:0}
+.boxhead{flex:none;display:flex;align-items:center;gap:.4rem;height:2.6rem;padding:0 .4rem 0 1rem;border-bottom:1px solid var(--line)}
+.boxhead .title{font-size:var(--small)}
+.boxhead .sp{flex:1}
+.boxbody{flex:1;overflow:auto;padding:1rem 1.2rem}
+.full .boxbody{padding:1rem 1.2rem}
+.seg{display:inline-flex;gap:.15rem;padding:.15rem;border-radius:1rem;background:var(--control)}
+.seg button{height:1.75rem;padding:0 .75rem;border:0;border-radius:.9rem;background:transparent;font-size:var(--small);display:flex;align-items:center;gap:.35rem}
+.seg button:hover{background:var(--hover)}
+.seg button.on{background:var(--pressed);color:var(--pressed-text)}
+.divider{position:fixed;z-index:5;width:.7rem;margin-left:-.35rem;cursor:col-resize;display:flex;justify-content:center}
+.divider::before{content:"";width:1px;height:100%;background:var(--line)}
+.divider:hover::before,.divider.dragging::before{background:var(--accent)}
+.drop{position:fixed;z-index:60;border-radius:var(--radius);outline:2px dashed var(--accent);outline-offset:-2px;display:grid;place-items:center;pointer-events:none}
+.drop span{padding:.3rem .8rem;border-radius:1rem;background:var(--surface);color:var(--accent);font-size:var(--small)}
+.stagepill{position:fixed;z-index:30;transform:translateX(-50%)}
+.ghost{position:fixed;z-index:95;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--accent),0 .6rem 2rem rgb(0 0 0/.45);padding:.6rem .9rem;overflow:hidden;pointer-events:none}
+.ghost .label{color:var(--text)}
+
+/* ── panels (floating-panel.svelte's look) ── */
+.panel{position:fixed;z-index:10;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--ground);box-shadow:0 0 0 1px rgb(0 0 0/.25),0 .3rem 1rem rgb(0 0 0/.25);overflow:hidden;text-shadow:var(--halo)}
+.panel.droptarget{box-shadow:0 0 0 1px var(--accent),0 .3rem 1rem rgb(0 0 0/.25)}
+.head{display:flex;align-items:center;gap:.15rem;min-height:2.35rem;padding:.3rem .3rem .3rem .15rem;background:var(--head);user-select:none}
+.grip{width:.9rem;color:var(--muted);text-align:center;font-size:.8rem}
+.tabs{flex:1;display:flex;align-items:center;gap:.15rem;min-width:0;overflow:hidden}
+.tab{flex:none;height:1.75rem;padding:0 .65rem;border:0;border-radius:.9rem;background:transparent;font-size:var(--small);display:flex;align-items:center;gap:.35rem}
+.tab:hover{background:var(--hover)}
+.tab.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.tab.dragging{opacity:.4}
+.dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--accent);flex:none}
+.words{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--accent);white-space:nowrap;padding:0 .3rem}
+.hb{width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:var(--radius);background:transparent;color:var(--muted);display:grid;place-items:center;flex:none}
+.hb:hover{background:var(--hover);color:var(--text)}
+.hb.on{background:var(--pressed);color:var(--pressed-text)}
+.content{flex:1;overflow:auto;padding:var(--pad);transition:opacity .12s}
+.content.arriving,.head.arriving{opacity:0}
+
+/* rows, fields, tiles – the kit's */
+.rows{display:flex;flex-direction:column;gap:1px}
+.row{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:0 .5rem;border-radius:var(--radius);font-size:var(--small)}
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--selected)}
+.row .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.group{margin:.7rem .5rem .25rem}
+.field{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.8rem}
+.field input,.field textarea{width:100%;height:var(--row);padding:0 .55rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);color:var(--text);font:inherit;font-size:var(--small)}
+.field textarea{height:5rem;padding:.45rem .55rem;resize:none}
+.field.warn textarea{border-color:var(--warn)}
+.field .hint{font-size:var(--small);color:var(--warn)}
+.cols{display:grid;grid-template-columns:1fr 7rem;gap:1rem}
+.slot{display:grid;place-items:center;width:9rem;aspect-ratio:390/624;border:1px dashed var(--line);border-radius:var(--radius);color:var(--muted);font-size:var(--small)}
+.btn{height:var(--row);padding:0 var(--pad);border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small)}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.5rem,1fr));gap:.4rem}
+.tile{aspect-ratio:1;border-radius:var(--radius);background:linear-gradient(150deg,var(--selected),var(--within))}
+.prob{display:flex;align-items:center;gap:.6rem;min-height:var(--tree-row);padding:.2rem .5rem;border-radius:var(--radius);font-size:var(--small)}
+.prob:hover{background:var(--hover)}
+.lvl{flex:none;width:4.2rem;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.lvl.e{color:var(--danger)}.lvl.w{color:var(--warn)}
+.prob .go{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.flow{position:relative;width:100%;height:100%;min-height:12rem}
+.flow svg{position:absolute;inset:0;width:100%;height:100%}
+.flow line{stroke:var(--accent);stroke-width:1.5}
+.node{position:absolute;transform:translate(-50%,-50%);padding:.35rem .65rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);white-space:nowrap;text-shadow:none}
+.node.sel{border-color:var(--accent)}
+.phone{margin:0 auto;height:100%;max-height:36rem;aspect-ratio:390/624;border-radius:.3rem;background:linear-gradient(170deg,var(--within),var(--selected));position:relative;overflow:hidden}
+.phone .bubble{position:absolute;left:12%;top:10%;padding:.4rem .7rem;border-radius:1rem;background:var(--control);color:var(--text);font-size:var(--small);text-shadow:none}
+.phone .fig{position:absolute;left:30%;bottom:0;width:40%;height:55%;border-radius:45% 45% 0 0;background:var(--line)}
+
+/* ── over everything ── */
+.dialog{position:fixed;z-index:80;inset:0;display:none;background:rgb(0 0 0/.55)}
+.dialog.open{display:block}
+.dialog .box{inset:calc(var(--top) * .6) 2.5rem 2.5rem;z-index:81;box-shadow:0 1rem 3rem rgb(0 0 0/.5)}
+
+/* ── the draft's notes (not part of the design) ── */
+.notes{position:fixed;z-index:90;left:var(--gap);bottom:var(--gap);width:28rem;max-height:calc(100vh - var(--top) - 2rem);overflow:auto;padding:.8rem 1rem;border:1px dashed var(--muted);border-radius:var(--radius);background:var(--head);color:var(--text);font-size:var(--small);box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
+.notes.min .more{display:none}
+.notes h3{margin:0 0 .5rem;font-size:1rem;font-weight:400;display:flex;align-items:center;gap:.5rem}
+.notes h3 .sp{flex:1}
+.notes p{margin:.35rem 0}
+.notes dl{margin:.3rem 0;display:grid;grid-template-columns:5.2rem 1fr;gap:.2rem .6rem}
+.notes dt{color:var(--muted)}
+.notes dd{margin:0}
+.notes .rec{margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--line)}
+.notes .btn{white-space:nowrap}
+.notes kbd{font:inherit;font-size:var(--label);padding:0 .3rem;border:1px solid var(--line);border-radius:.2rem}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="pill"><button class="round" title="Main menu">☰</button><button class="round" title="Home">⌂</button></div>
+  <div class="pill"><button class="on">Cat Pope › Chapter 2</button><button>Katzenpapst</button><button class="round" title="Open">+</button></div>
+  <div class="middle"><span class="path">Cat Pope › <b>Chapter 2</b></span></div>
+  <div class="pill"><button class="on">Edit</button><button>Play</button></div>
+  <div class="pill"><button>Views</button><button>History</button><button>Publish</button></div>
+  <div class="pill"><button>tilman</button></div>
+</div>
+
+<div id="stage"></div>
+<div id="panels"></div>
+<div class="dialog" id="dialog"></div>
+<div id="dropzone"></div>
+
+<div class="notes" id="notes"></div>
+
+<script>
+const q = new URLSearchParams(location.search);
+const DUR = +(q.get('dur') ?? 180);
+const rem = 14, GAP = rem, TOP = 3.6 * rem;
+const $ = s => document.querySelector(s);
+const ICON = {
+  main:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="6" y="8" width="12" height="8" rx="1" fill="currentColor" stroke="none" opacity=".35"/></svg>',
+  back:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8" width="6" height="8" rx="1"/></svg>',
+  over:'<svg class="i" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>',
+  fold:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  unfold:'<svg class="i" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
+  close:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  form:'<svg class="i" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>'
+};
+const NAMES = {tree:'Tree',toon:'Toon',problems:'Problems',flow:'Flow',preview:'Preview',library:'Library'};
+const VIEW = 'Chapter';   // the workspace's own view: the chapter form
+const CANVAS = ['flow','preview'];   // in A a canvas spans the window, a page centres on it
+
+// ── content, small (in a panel) and big (on the stage) ──
+const NODES = [['Arrival',14,22],['Cathedral',40,50],['Confession',68,24],['Altar',72,76],['Ending',92,52]];
+const WIRES = [[0,1],[1,2],[1,3],[2,4],[3,4]];
+const body = {
+  tree: () => `<div class="rows">${['Group 1 – Arrival','Group 2 – The cathedral','Group 3 – Confession','Group 4 – Altar','Group 5 – Ending'].map((g,i)=>`<div class="row ${i==1?'sel':''}">${g}<span class="n">${[4,6,3,5,2][i]}</span></div>`).join('')}</div>`,
+  toon: () => `<div class="rows">${['Stories','Cast','Script','Credits'].map((r,i)=>`<div class="row ${i==0?'sel':''}">${r}</div>`).join('')}</div><div class="group label">Season 1</div><div class="rows">${['Chapter 1 – Feilchen','Chapter 2 – Die Kathedrale','Chapter 3'].map((r,i)=>`<div class="row ${i==1?'sel':''}">${r}</div>`).join('')}</div>`,
+  problems: big => {
+    const all = [['e','Slice 2.3 has no image','Group 2'],['e','Group 4 jumps to a group that is gone','Group 4'],['w','Persona "Biker" has no voice','Cast'],['w','Description is short for the reader\'s card','Chapter'],['w','Slice 2.6: lettering runs past the safe area','Group 2'],['w','Group 5 is reached from nowhere','Flow']];
+    const list = big ? all : all.slice(0,4);
+    return (big ? `<div class="label" style="margin:0 .5rem .6rem">2 errors · 4 warnings</div>` : '') + list.map(([l,t,w])=>`<div class="prob"><span class="lvl ${l}">${l=='e'?'Error':'Warning'}</span>${t}${big?`<span class="go">${w} ›</span>`:''}</div>`).join('');
+  },
+  flow: () => `<div class="flow"><svg>${WIRES.map(([a,b])=>`<line x1="${NODES[a][1]}%" y1="${NODES[a][2]}%" x2="${NODES[b][1]}%" y2="${NODES[b][2]}%"/>`).join('')}</svg>${NODES.map(([n,x,y],i)=>`<div class="node ${i==1?'sel':''}" style="left:${x}%;top:${y}%">${n}</div>`).join('')}</div>`,
+  preview: () => `<div class="phone"><div class="bubble">Ich bin der Papst.</div><div class="fig"></div></div>`,
+  library: big => `<div style="display:flex;gap:.4rem;margin-bottom:.5rem"><button class="btn" style="flex:1;text-align:left;color:var(--muted)">Search name, folder…</button><button class="btn primary">Upload</button></div><div class="tiles">${Array.from({length:big?36:9},()=>'<div class="tile"></div>').join('')}</div>`
+};
+const chapterForm = () => `
+  <div class="cols"><div class="field"><span class="label">Title</span><input value="Die Kathedrale"></div><div class="field"><span class="label">Number</span><input value="2"></div></div>
+  <div class="field"><span class="label">Season</span><div class="seg" style="align-self:flex-start"><button class="on">Season 1</button><button>Season 2</button></div></div>
+  <div class="field warn"><span class="label">Description</span><textarea>Cat Pope enters the cathedral.</textarea><span class="hint">Short for the reader's card – two sentences read better.</span></div>
+  <div class="field"><span class="label">Cover</span><div class="slot">Cover slot</div></div>
+  <div class="field"><span class="label">Groups</span><div class="rows">${['Arrival','The cathedral','Confession','Altar','Ending'].map((g,i)=>`<div class="row">Group ${i+1} – ${g}<span class="n">${[4,6,3,5,2][i]} slices</span></div>`).join('')}</div></div>
+  <div class="field"><span class="label">State</span><span style="font-size:var(--small)">Draft · not live yet</span></div>`;
+
+// ── the chapter preset (presets.ts: left Toon/Tree, right Problems/Flow, Preview, the Library folded) ──
+const SPEC = [
+  {id:'left', tabs:['tree','toon']},
+  {id:'right', tabs:['problems','flow']},
+  {id:'preview', tabs:['preview']},
+  {id:'library', tabs:['library'], folded:true}
+];
+let state;
+function reset(v){
+  state = {v, main:null, from:null, dialog:null, dialogFrom:null, split:.5, focus:'right',
+    panels: SPEC.map(s=>({id:s.id, tabs:[...s.tabs], on:s.tabs[0], folded:!!s.folded}))};
+}
+const panel = id => state.panels.find(p=>p.id===id);
+const holder = tab => state.panels.find(p=>p.tabs.includes(tab));
+const headOnly = p => p.folded || (state.main && state.from===p.id && p.on===state.main);
+
+// geometry: two columns of panels, the free room between them
+function geom(){
+  const W = innerWidth, H = innerHeight;
+  const leftW = 18*rem, rightW = 25*rem, headH = 2.35*rem;
+  const g = {W, H, rects:{}};
+  g.rects.left = {x:GAP, y:TOP+GAP, w:leftW, h:H-TOP-2*GAP};
+  const rx = W-GAP-rightW, top = TOP+GAP, bottom = H-GAP;
+  const lib = {x:rx, y:bottom-headH, w:rightW, h:headH};
+  const avail = lib.y - GAP - top;
+  const r = panel('right'), pv = panel('preview');
+  let rh = r && headOnly(r) ? headH : avail*.56;
+  let ph = pv ? (headOnly(pv) ? headH : avail - rh - GAP) : 0;
+  if (r && !headOnly(r) && pv && headOnly(pv)) rh = avail - headH - GAP;
+  g.rects.right = {x:rx, y:top, w:rightW, h:rh};
+  g.rects.preview = {x:rx, y:top+rh+GAP, w:rightW, h:pv && headOnly(pv) ? headH : ph};
+  g.rects.library = lib;
+  for (const p of state.panels) if (!g.rects[p.id]) g.rects[p.id] = {x:W/2-10*rem, y:H-GAP-16*rem, w:20*rem, h:16*rem};
+  g.free = {x:GAP+leftW+GAP, y:TOP+GAP, w:rx-GAP-(GAP+leftW+GAP), h:H-TOP-2*GAP};
+  g.full = {x:0, y:TOP, w:W, h:H-TOP};
+  return g;
+}
+const css = r => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
+
+// the stage rect a tab takes in this variant – the drop target too
+function stageRect(g){
+  if (state.v==='A') return g.full;
+  if (state.v==='C'){ const lw = Math.round(g.free.w*state.split); return {x:g.free.x+lw, y:g.free.y, w:g.free.w-lw, h:g.free.h}; }
+  if (state.v==='over') return {x:2.5*rem, y:TOP*.6, w:g.W-5*rem, h:g.H-TOP*.6-2.5*rem};
+  return g.free;
+}
+
+function render(){
+  const g = geom(), v = state.v, m = state.main;
+  let st = '';
+  if (!m || v==='over'){
+    st = `<div class="box" id="view" style="${css(g.free)}"><div class="boxhead">${ICON.form}<span class="title">${VIEW}</span><span class="label" style="margin-left:.4rem">the workspace's own view</span></div><div class="boxbody">${chapterForm()}</div></div>`;
+  } else if (v==='A'){
+    st = `<div class="box full" id="stagetab" style="${css(g.full)}"><div class="boxbody"><div style="${CANVAS.includes(m)?'height:100%':'max-width:48rem;margin:0 auto'}">${body[m](true)}</div></div></div>
+      <div class="stagepill pill" style="left:${g.free.x+g.free.w/2}px;bottom:${GAP}px"><button id="viewpill" data-back title="Back to the workspace's view (Esc)">${ICON.form}${VIEW}</button><button class="on" draggable="true" data-stagechip title="${NAMES[m]} on the stage – drag it back onto a panel, or ◱ / Esc">${NAMES[m]}</button><button class="round" data-back title="Back into its panel (Esc)">${ICON.back}</button></div>`;
+  } else if (v==='B'){
+    st = `<div class="box" id="stagetab" style="${css(g.free)}"><div class="boxhead"><div class="seg"><button data-back data-seg="view" title="Back to the workspace's view (Esc)">${ICON.form}${VIEW}</button><button class="on" draggable="true" data-stagechip title="Drag back onto a panel">${NAMES[m]}</button></div><span class="sp"></span><button class="hb" data-overstage title="Over everything">${ICON.over}</button><button class="hb on" data-back title="Back into its panel (Esc)">${ICON.back}</button></div><div class="boxbody">${body[m](true)}</div></div>`;
+  } else if (v==='C'){
+    const lw = Math.round(g.free.w*state.split), L = {x:g.free.x, y:g.free.y, w:lw, h:g.free.h}, R = stageRect(g);
+    st = `<div class="box" id="view" style="${css(L)};border-radius:var(--radius) 0 0 var(--radius)"><div class="boxhead">${ICON.form}<span class="title">${VIEW}</span></div><div class="boxbody">${chapterForm()}</div></div>
+      <div class="box" id="stagetab" style="${css(R)};border-radius:0 var(--radius) var(--radius) 0"><div class="boxhead"><span class="tab on" draggable="true" data-stagechip style="cursor:grab" title="Drag back onto a panel">${NAMES[m]}</span><span class="sp"></span><button class="hb" data-overstage title="Over everything">${ICON.over}</button><button class="hb on" data-back title="Back into its panel (Esc)">${ICON.back}</button><button class="hb" data-back title="Close the split">${ICON.close}</button></div><div class="boxbody">${body[m](true)}</div></div>
+      <div class="divider" id="divider" style="left:${R.x}px;top:${R.y}px;height:${R.h}px" title="Drag: share the room"></div>`;
+  }
+  $('#stage').innerHTML = st;
+
+  $('#panels').innerHTML = state.panels.map(p=>{
+    const r = g.rects[p.id], only = headOnly(p), onStage = state.main && state.from===p.id;
+    const mainHere = onStage && p.on===state.main;
+    const btns = p.folded ? `<button class="hb" data-fold="${p.id}" title="Unfold">${ICON.unfold}</button>`
+      : `<button class="hb" data-over="${p.id}" title="Over everything: ${NAMES[p.on]} (O)">${ICON.over}</button>`+
+        (v==='over' ? '' : `<button class="hb ${mainHere?'on':''}" data-main="${p.id}" aria-pressed="${mainHere}" title="${mainHere?'Back into its panel (Esc)':'Main: '+NAMES[p.on]+' takes the stage (M)'}">${mainHere?ICON.back:ICON.main}</button>`)+
+        (mainHere ? '' : `<button class="hb" data-fold="${p.id}" title="Fold">${ICON.fold}</button><button class="hb" title="Close">${ICON.close}</button>`);
+    const words = mainHere && v!=='A' ? `<span class="words">on the stage</span>` : '';
+    return `<div class="panel" data-panel="${p.id}" style="${css({...r, h: only ? 2.35*rem : r.h})}">
+      <div class="head" data-head="${p.id}"><div class="grip">⠿</div>
+        <div class="tabs">${p.tabs.map(t=>`<button class="tab ${t===p.on && !(onStage && t===state.main && v==='A')?'on':''}" draggable="true" data-tab="${t}" data-from="${p.id}" ${t===state.main&&onStage?'title="On the stage"':''}>${t===state.main&&onStage?'<span class="dot"></span>':''}${NAMES[t]}</button>`).join('')}${words}</div>
+        ${btns}
+      </div>
+      ${only ? '' : `<div class="content">${body[p.on](false)}</div>`}
+    </div>`;
+  }).join('');
+
+  const d = $('#dialog');
+  d.classList.toggle('open', !!state.dialog);
+  d.innerHTML = state.dialog ? `<div class="box" id="dialogbox"><div class="boxhead"><span class="tab on" style="text-shadow:none">${NAMES[state.dialog]}</span><span class="label" style="margin-left:.4rem">over everything</span><span class="sp"></span><button class="hb" data-closeover title="Back into its panel (Esc)">${ICON.back}</button><button class="hb" data-closeover title="Close">${ICON.close}</button></div><div class="boxbody">${body[state.dialog](true)}</div></div>` : '';
+  notes();
+}
+
+// ── motion: a ghost flies from the old rect to the new one (~180 ms), the target fades in under it ──
+const rectOf = el => { const r = el.getBoundingClientRect(); return {x:r.left, y:r.top, w:r.width, h:r.height}; };
+function fly(from, to, label){
+  const g = document.createElement('div'); g.className = 'ghost'; g.innerHTML = `<span class="label">${label}</span>`;
+  document.body.append(g);
+  const k = r => ({left:r.x+'px', top:r.y+'px', width:r.w+'px', height:r.h+'px'});
+  Object.assign(g.style, k(to));
+  return g.animate([k(from), k(to)], {duration:DUR, easing:'cubic-bezier(.2,.7,.2,1)'}).finished.then(()=>g.remove());
+}
+function move(mutate, plan){
+  const froms = plan.map(p=>{ const el = p.from(); return el ? rectOf(el) : null; });
+  mutate(); render();
+  const tos = plan.map(p=>p.to());
+  tos.forEach(t=>t && t.classList.add('arriving'));
+  Promise.all(plan.map((p,i)=>froms[i] && tos[i] ? fly(froms[i], rectOf(tos[i]), p.label) : null))
+    .then(()=>tos.forEach(t=>t && t.classList.remove('arriving')));
+}
+const panelEl = id => document.querySelector(`[data-panel="${id}"]`);
+const tabSrc = (pid, tab) => { const p = panel(pid); return p && p.on===tab && !headOnly(p) ? panelEl(pid).querySelector('.content') : panelEl(pid)?.querySelector(`[data-tab="${tab}"]`) ?? panelEl(pid); };
+const panelDst = pid => panelEl(pid)?.querySelector('.content') ?? panelEl(pid);
+const viewParked = () => state.v==='A' ? $('#viewpill') : state.v==='B' ? $('[data-seg="view"]') : $('#view');
+
+function send(tab, pid){
+  if (state.v==='over') return over(tab, pid);
+  if (state.main===tab && state.from===pid) return back();
+  const plan = [];
+  if (state.main){ const old = state.main, oldP = state.from; plan.push({from:()=>$('#stagetab'), to:()=>tabSrc(oldP, old), label:NAMES[old]}); }
+  else plan.push({from:()=>$('#view'), to:viewParked, label:VIEW});
+  plan.push({from:()=>tabSrc(pid, tab), to:()=>$('#stagetab'), label:NAMES[tab]});
+  move(()=>{ state.main = tab; state.from = pid; panel(pid).on = tab; panel(pid).folded = false; state.focus = pid; }, plan);
+}
+function back(){
+  if (!state.main) return;
+  const tab = state.main, pid = state.from;
+  move(()=>{ state.main = null; }, [
+    {from:()=>$('#stagetab'), to:()=>panelDst(pid), label:NAMES[tab]},
+    {from:viewParked, to:()=>$('#view'), label:VIEW}]);
+}
+function over(tab, pid){
+  move(()=>{ state.dialog = tab; state.dialogFrom = pid; }, [{from:()=>pid ? tabSrc(pid, tab) : $('#stagetab'), to:()=>$('#dialogbox'), label:NAMES[tab]}]);
+}
+function closeOver(){
+  const tab = state.dialog, pid = state.dialogFrom;
+  const fromRect = rectOf($('#dialogbox'));
+  state.dialog = null; render();
+  const to = pid && panelEl(pid) ? (headOnly(panel(pid)) ? panelEl(pid) : panelDst(pid)) : $('#stagetab');
+  if (to){ to.classList.add('arriving'); fly(fromRect, rectOf(to), NAMES[tab]).then(()=>to.classList.remove('arriving')); }
+}
+
+// ── clicks ──
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  const ph = t.closest('[data-panel]'); if (ph) state.focus = ph.dataset.panel;
+  if (d.variant){ return setVariant(d.variant); }
+  if (d.tab && d.from){ const p = panel(d.from); p.on = d.tab; p.folded = false; return render(); }
+  if (d.main){ const p = panel(d.main); return send(p.on, p.id); }
+  if (d.over){ const p = panel(d.over); return over(p.on, p.id); }
+  if (d.overstage !== undefined){ const tab = state.main, pid = state.from; state.main = null; render(); return over(tab, pid); }
+  if (d.fold){ const p = panel(d.fold); p.folded = !p.folded; return render(); }
+  if (d.back !== undefined) return back();
+  if (d.closeover !== undefined) return closeOver();
+  if (t.id==='notesmin') return $('#notes').classList.toggle('min');
+  if (t.id==='themebtn') return toggleTheme();
+});
+$('#dialog').addEventListener('click', e=>{ if (e.target.id==='dialog') closeOver(); });
+
+// ── keys ──
+function toggleTheme(){ const h = document.documentElement; h.dataset.theme = h.dataset.theme==='day' ? 'night' : 'day'; }
+document.addEventListener('keydown', e=>{
+  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { if (e.key==='Escape') document.activeElement.blur(); return; }
+  const k = e.key.toLowerCase();
+  if (k==='escape'){ if (state.dialog) closeOver(); else back(); }
+  else if (k==='m'){ const p = panel(state.focus) ?? panel('right'); if (state.v==='over') over(p.on, p.id); else send(p.on, p.id); }
+  else if (k==='o'){ const p = panel(state.focus) ?? panel('right'); if (state.dialog) closeOver(); else over(p.on, p.id); }
+  else if ('1234'.includes(k) && k) setVariant(['A','B','C','over'][+k-1]);
+  else if (k==='t') toggleTheme();
+  else if (k==='n') $('#notes').classList.toggle('min');
+});
+document.addEventListener('focusin', e=>{ const p = e.target.closest?.('[data-panel]'); if (p) state.focus = p.dataset.panel; });
+
+// ── drag a tab onto the stage; drag the stage's chip back onto a panel ──
+let moving = null;
+const dz = $('#dropzone');
+function showDrop(r, text){ dz.innerHTML = r ? `<div class="drop" style="${css(r)}"><span>${text}</span></div>` : ''; }
+document.addEventListener('dragstart', e=>{
+  const t = e.target.closest('[data-tab],[data-stagechip]'); if (!t) return;
+  moving = t.dataset.tab ? {tab:t.dataset.tab, from:t.dataset.from} : {tab:state.main, from:'stage'};
+  t.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', moving.tab);
+});
+document.addEventListener('dragover', e=>{
+  if (!moving) return; e.preventDefault();
+  document.querySelectorAll('.droptarget').forEach(x=>x.classList.remove('droptarget'));
+  const p = e.target.closest('[data-panel]');
+  if (moving.from==='stage'){ showDrop(null); if (p) p.classList.add('droptarget'); return; }
+  if (p || e.target.closest('.bar')) return showDrop(null);
+  const verb = state.v==='over' ? 'goes over everything' : state.main ? `takes the stage from ${NAMES[state.main]}` : 'takes the stage';
+  showDrop(stageRect(geom()), `${NAMES[moving.tab]} ${verb}`);
+});
+document.addEventListener('drop', e=>{
+  if (!moving) return; e.preventDefault();
+  const m = moving; moving = null; showDrop(null);
+  const p = e.target.closest('[data-panel]');
+  if (m.from==='stage'){
+    if (!p) return render();
+    const into = panel(p.dataset.panel), origin = panel(state.from);
+    if (into!==origin){ origin.tabs = origin.tabs.filter(t=>t!==m.tab); if (origin.on===m.tab) origin.on = origin.tabs[0]; into.tabs.push(m.tab); into.folded = false; state.from = into.id; if (!origin.tabs.length) state.panels = state.panels.filter(x=>x!==origin); }
+    into.on = m.tab; return back();
+  }
+  if (p || e.target.closest('.bar')) return render();
+  send(m.tab, m.from);
+});
+document.addEventListener('dragend', ()=>{ moving = null; showDrop(null); document.querySelectorAll('.dragging,.droptarget').forEach(x=>x.classList.remove('dragging','droptarget')); });
+
+// ── C's divider ──
+let split = null;
+document.addEventListener('pointerdown', e=>{ if (e.target.id==='divider'){ split = true; e.target.classList.add('dragging'); e.target.setPointerCapture(e.pointerId); } });
+document.addEventListener('pointermove', e=>{ if (!split) return; const g = geom(); state.split = Math.min(.75, Math.max(.25, (e.clientX - g.free.x)/g.free.w)); render(); $('#divider')?.classList.add('dragging'); });
+document.addEventListener('pointerup', ()=>{ if (split){ split = null; render(); } });
+addEventListener('resize', ()=>render());
+
+// ── the notes: per variant what it does, what it's good for, what it costs; the recommendation ──
+const NOTE = {
+  A: {name:'A · Swap', in:'◱ on the head, or drag a tab onto the stage: the tab fills the whole stage under the bar; the panels float over it as over the 3D canvas; its panel folds to its head (a dot marks the tab); the chapter form parks in a pill at the bottom.',
+      back:'◱ again, Esc, "Chapter" in the pill, or drag the pill\'s tab onto any panel head.',
+      second:'replaces the first; the first flies back into its panel.',
+      good:'canvases that want every pixel – Flow, the Preview in Play.',
+      cost:'the panels lie over the tab: a page centres on the window, not on the free room, and anything wide (the Library grid, Flow\'s far nodes) runs under them; where things are is said in two places (head and pill).'},
+  B: {name:'B · Sheet between the panels', in:'◱ or drag onto the stage: the tab becomes a sheet in exactly the room between the panels, clear of the bar; nothing covers it; its panel shrinks to a slim head with the words "on the stage".',
+      back:'◱ (pressed) on the sheet or on the head, Esc, "Chapter" in the sheet\'s own head, or drag the tab chip onto a panel.',
+      second:'replaces the first (it flies back); the sheet\'s head always reads Chapter | <tab>.',
+      good:'pages – Problems, Library, History, a form: the tab gets the room, the way back is in view.',
+      cost:'on a small window the room between the panels is narrow, so panels have to fold first; a canvas doesn\'t get the whole window.'},
+  C: {name:'C · Split', in:'◱ or drag onto the stage: the room between the panels splits – the chapter form left, the tab right, a hairline divider to drag; its panel shrinks to a slim head.',
+      back:'◱ or × on the tab\'s half, Esc, or drag the tab chip onto a panel.',
+      second:'replaces the tab\'s half; the form keeps its half.',
+      good:'working side by side – the form next to its Problems, fixing while reading.',
+      cost:'at 1440 the room is ~780 px: two halves of ~390 px, each a phone column; one more control (the divider); it doesn\'t fit a smaller window.'},
+  over: {name:'⤢ · Over everything', in:'⤢ on the head, O, or drag onto the stage: the tab opens as a dialog over everything, the bar too (OSCT\'s asset manager).',
+      back:'Esc, the head\'s ◱ / ×, or a click beside it.',
+      second:'not possible while it is open – it is modal; after closing, ⤢ on another tab.',
+      good:'a browse or a pick that ends – the Library.',
+      cost:'nothing else can be touched while it is open; not a place to work in.'}
+};
+function notes(){
+  const n = NOTE[state.v], el = $('#notes'), min = el.classList.contains('min');
+  el.innerHTML = `<h3><span>Taking the stage – ${n.name}</span><span class="sp"></span><button class="btn" id="themebtn" title="T">Day / Night</button><button class="btn" id="notesmin" title="N">${min?'+':'–'}</button></h3>
+    <div class="seg">${Object.keys(NOTE).map((k,i)=>`<button class="${k===state.v?'on':''}" data-variant="${k}" title="${i+1}">${k==='over'?'⤢ over':k}</button>`).join('')}</div>
+    <div class="more"><dl><dt>Way in</dt><dd>${n.in}</dd><dt>Way back</dt><dd>${n.back}</dd><dt>Second tab</dt><dd>${n.second}</dd><dt>Good for</dt><dd>${n.good}</dd><dt>Costs</dt><dd>${n.cost}</dd></dl>
+    <p class="rec"><span class="label">Recommendation</span><br>B. It answers each point of the review: the panels never cover the tab, the sheet starts clear of the bar, the panel left behind is a slim head that says "on the stage", the sheet's head names the chapter form as the way back, and the flight shows where the tab went. Later, one refinement from A: a canvas tab (Flow, the Preview in Play) may fill the whole stage – a page is a sheet, a canvas is the stage. ⤢ stays for browse-and-pick.</p>
+    <p style="color:var(--muted)">Keys: <kbd>M</kbd> ◱ · <kbd>O</kbd> ⤢ · <kbd>Esc</kbd> back · <kbd>1</kbd>–<kbd>4</kbd> variant · <kbd>T</kbd> day · <kbd>N</kbd> notes. Not real data.</p></div>`;
+}
+function setVariant(v){
+  if (!NOTE[v]) v = 'B';
+  const main = state?.main, from = state?.from;
+  reset(v);
+  const u = new URL(location.href); u.searchParams.set('v', v); history.replaceState(null, '', u);
+  render();
+  if (main && v!=='over') send(main, from);
+}
+
+if (q.get('theme')==='day') document.documentElement.dataset.theme = 'day';
+if (q.has('quiet')) $('#notes').classList.add('min');
+reset(NOTE[q.get('v')] ? q.get('v') : 'A');
+const start = q.get('main');
+if (start && holder(start)){ const p = holder(start); p.on = start;
+  if (state.v==='over'){ state.dialog = start; state.dialogFrom = p.id; } else { state.main = start; state.from = p.id; } }
+render();
+</script>
+</body>
+</html>
