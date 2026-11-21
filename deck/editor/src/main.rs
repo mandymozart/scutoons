@@ -536,7 +536,7 @@ enum Hit {
     GainText(mixer::Target),
     /// a mixer strip: selects what it is the level of; moving its fader does not
     StripSelect(mixer::Target),
-    Fader(mixer::Target, Rect),
+    Fader(mixer::Target, controls::Fader),
     Mute(usize),
     Solo(usize),
     /// the selected track armed or disarmed
@@ -603,8 +603,8 @@ enum Hit {
 #[derive(Clone, Copy, PartialEq)]
 enum Drag {
     Knob(usize, f32, f32),
-    /// a strip's fader: which, its travel's rect
-    Fader(mixer::Target, Rect),
+    /// a strip's fader: which, the hand on it
+    Fader(mixer::Target, controls::FaderGrip),
     /// a strip's pan: which, the pointer's start, the start's value, now
     Balance(usize, f32, f32, f32),
     /// a node's parameter: node, port, the pointer's start, the start's 0..1
@@ -1446,10 +1446,10 @@ impl App {
             Hit::GainText(_) => Help::new("Level", "In dB. Double click to type a value, enter to set it, esc to leave it."),
             Hit::StripSelect(_) => Help::new("Strip", "Click to show what it belongs to in the inspector and on the stage."),
             Hit::MixerTab(_) => Help::new("Level", "The mixer at this level of the tree: the rig's tracks, or the gains inside a track."),
-            Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Drag it; it goes into the draft when you let go."),
+            Hit::Fader(mixer::Target::Track(i), _) => Help::new(self.stage.strips.get(i)?.track.clone(), "The track's level. Press anywhere on it or drag it; it goes into the draft when you let go."),
             Hit::Fader(mixer::Target::Inner(i), _) => {
                 let s = self.stage.inner.get(i)?;
-                Help::new(format!("{}:{}", s.track, s.label), format!("How much of {} goes on. Drag it; it goes into the draft when you let go.", s.source))
+                Help::new(format!("{}:{}", s.track, s.label), format!("How much of {} goes on. Press anywhere on it or drag it; it goes into the draft when you let go.", s.source))
             }
             Hit::Balance(i) => Help::new(format!("Pan {}", self.stage.strips.get(i)?.track), "Left and right on a stereo pair. Drag it; it applies when you let go."),
             Hit::Peak(_) => Help::new("Highest peak", "The loudest moment in dB, red once it went over 0. Click to clear it."),
@@ -1567,7 +1567,7 @@ impl App {
                 let s = self.scale();
                 self.stage.pointer(x * s, y * s);
             }
-            Some(Drag::Fader(i, r)) => self.fader_to(i, r, y),
+            Some(Drag::Fader(i, grip)) => self.fader_to(i, grip.at(y)),
             Some(Drag::Balance(i, x0, v0, _)) => self.panel.drag = Some(Drag::Balance(i, x0, v0, (v0 + (x - x0) / 40.0).clamp(-1.0, 1.0))),
             Some(Drag::Right(lx, ly)) => {
                 if (x - lx).abs() + (y - ly).abs() > 3.0 {
@@ -1838,9 +1838,12 @@ impl App {
                 }
             }
             Hit::Peak(None) => self.stage.master_max = 0.0,
-            Hit::Fader(i, r) => {
-                self.panel.drag = Some(Drag::Fader(i, r));
-                self.fader_to(i, r, y);
+            Hit::Fader(i, f) => {
+                let (grip, jumped) = f.press(y);
+                self.panel.drag = Some(Drag::Fader(i, grip));
+                if let Some(to) = jumped {
+                    self.fader_to(i, to);
+                }
             }
             Hit::Balance(i) => {
                 if let Some(s) = self.stage.strips.get(i) {
@@ -2280,9 +2283,8 @@ impl App {
         }
     }
 
-    /// a fader under the pointer: the engine at once
-    fn fader_to(&mut self, target: mixer::Target, r: Rect, y: f32) {
-        let f = (1.0 - (y - r.y) / r.h).clamp(0.0, 1.0);
+    /// a fader at `f` of its track: the engine at once
+    fn fader_to(&mut self, target: mixer::Target, f: f32) {
         let gain = mixer::position_gain(f);
         match target {
             mixer::Target::Track(i) => {
