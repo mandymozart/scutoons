@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { projectXr } from '../src/network.ts';
 import { doc } from './network-fixture.ts';
 
-const file = new URL('../../../server/schema/api/network-view.vectors.json', import.meta.url);
+const file = new URL('../../../server/schema/api/spore-network.vectors.json', import.meta.url);
 const text = readFileSync(file, 'utf8');
 const view = projectXr(doc, 'experience:demo/scene:poster');
 const mark = '\n\t\t{\n\t\t\t"scope": "xr"';
@@ -18,4 +18,4 @@ const entry = JSON.stringify(view, null, '\t')
 	.join('\n');
 writeFileSync(file, `${base.slice(0, end)},\n${entry}${base.slice(end)}`);
 JSON.parse(readFileSync(file, 'utf8'));
-console.log(`xr view: ${view.nodes.length} nodes, ${view.edges.length} edges, ${view.stubs.length} stubs, ${view.problems.length} problems`);
+console.log(`xr view: ${view.spores.length} spores, ${view.threads.length} threads, ${view.stubs.length} stubs, ${view.problems.length} problems`);

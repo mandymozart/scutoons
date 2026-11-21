@@ -1,4 +1,4 @@
-import type { NetworkView } from '@scutoons/api';
+import type { Spores } from '@scutoons/api';
 import { pluginCodeUses } from '../osct/editor/src/lib/logic/plugin-code';
 import { levelName } from '../osct/editor/src/lib/logic/navigation';
 import { levelsOf, project, type LogicContent, type LogicScene } from '../osct/editor/src/lib/logic/project';
@@ -14,7 +14,7 @@ const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
 /** OSCT's signals in the deck's one table (#763 contract): `value` is `control`, `node` an `address`, `media` a `picture` */
-const SIGNAL: Record<Signal, NetworkView.Signal> = { event: 'event', value: 'control', node: 'address', scene: 'scene', address: 'address', far: 'far', media: 'picture' };
+const SIGNAL: Record<Signal, Spores.Signal> = { event: 'event', value: 'control', node: 'address', scene: 'scene', address: 'address', far: 'far', media: 'picture' };
 
 /** The experience document as OSCT's logic model reads it: the scenes with their targets' trees, rules, groups, plugins */
 function logicContent(document: unknown): { content: LogicContent; id: string; configuration: Obj } {
@@ -107,7 +107,7 @@ function pointerOf(configuration: Obj, home: Home): string | null {
 	return `${root}${home.path.map((i) => `/children/${i}`).join('')}/components/${home.component}/rules/${home.rule}${tail}`;
 }
 
-const port = (p: PortSpec): NetworkView.Port => ({
+const port = (p: PortSpec): Spores.Port => ({
 	id: p.id,
 	label: p.label ?? '',
 	signal: SIGNAL[p.signal],
@@ -133,59 +133,59 @@ export const projectXr: typeof api.projectXr = (document, address) => {
 		if (pick?.kind === 'group') return `${root}/group:${pick.group}`;
 		return `${addressOf(root, context)}/box:${n.id}`;
 	};
-	const nodes: NetworkView.Node[] = view.nodes.map((n) => ({
+	const spores: Spores.Spore[] = view.nodes.map((n) => ({
 		id: n.id,
 		kind: n.kind,
 		family: n.far ? 'far' : (coreRegistry.get(n.kind)?.family ?? 'plugin'),
 		label: n.label,
 		...(n.detail ? { detail: n.detail } : {}),
 		address: nodeAddress(n),
-		runtime: 'xr',
+		driver: 'xr',
 		ports: n.ports.map(port),
 		...(n.enter ? { enter: addressOf(root, n.enter) } : {}),
 		...(n.preview ? { picture: n.preview } : {}),
 		...(n.group ? { group: n.group } : {})
 	}));
-	const edge = (e: GraphEdge): NetworkView.Edge => {
+	const thread = (e: GraphEdge): Spores.Thread => {
 		const path = e.home ? pointerOf(configuration, e.home) : null;
 		return {
 			id: e.id,
-			from: { node: e.from[0], port: e.from[1] },
-			to: { node: e.to[0], port: e.to[1] },
+			from: { spore: e.from[0], port: e.from[1] },
+			to: { spore: e.to[0], port: e.to[1] },
 			signal: SIGNAL[e.signal],
 			...(e.label ? { label: e.label } : {}),
 			...(path ? { home: { doc, path } } : {}),
 			crosses: 'same'
 		};
 	};
-	const edges = view.edges.map(edge);
-	const ids = new Set(nodes.map((n) => n.id));
-	// a cable that leaves the level: its outside end becomes a far node named by where it goes
-	const stubs: NetworkView.Stub[] = view.stubs.map((s, i) => {
+	const threads = view.edges.map(thread);
+	const ids = new Set(spores.map((n) => n.id));
+	// a thread that leaves the level: its outside end becomes a far spore named by where it goes
+	const stubs: Spores.Stub[] = view.stubs.map((s, i) => {
 		const far = addressOf(root, s.far);
 		const farId = `far-${i}`;
 		const inside = s.side === 'out' ? s.edge.from : s.edge.to;
 		const signal = SIGNAL[s.edge.signal];
-		nodes.push({ id: farId, kind: 'stub', family: 'far', label: s.label, address: far, runtime: 'xr', ports: [{ id: s.side === 'out' ? 'in' : 'out', label: '', signal: 'far', dir: s.side === 'out' ? 'in' : 'out' }] });
+		spores.push({ id: farId, kind: 'stub', family: 'far', label: s.label, address: far, driver: 'xr', ports: [{ id: s.side === 'out' ? 'in' : 'out', label: '', signal: 'far', dir: s.side === 'out' ? 'in' : 'out' }] });
 		const id = ids.has(s.edge.id) ? `${s.edge.id}-stub-${i}` : s.edge.id;
 		const path = s.edge.home ? pointerOf(configuration, s.edge.home) : null;
-		edges.push({
+		threads.push({
 			id,
-			from: s.side === 'out' ? { node: inside[0], port: inside[1] } : { node: farId, port: 'out' },
-			to: s.side === 'out' ? { node: farId, port: 'in' } : { node: inside[0], port: inside[1] },
+			from: s.side === 'out' ? { spore: inside[0], port: inside[1] } : { spore: farId, port: 'out' },
+			to: s.side === 'out' ? { spore: farId, port: 'in' } : { spore: inside[0], port: inside[1] },
 			signal,
 			...(s.edge.label ? { label: s.edge.label } : {}),
 			...(path ? { home: { doc, path } } : {}),
 			crosses: s.far.level === 'scene' || s.far.level === 'entity' ? (s.edge.signal === 'scene' ? 'navigation' : 'savegame') : 'same'
 		});
-		return { edge: id, side: s.side, far, label: s.label };
+		return { thread: id, side: s.side, far, label: s.label };
 	});
 	return {
 		scope: 'xr',
 		context: addressOf(root, context),
 		levels: levelsOf(content, context).map((l) => ({ address: addressOf(root, l), label: l.level === 'experience' ? str(obj(configuration.experience)?.title) || id : levelName(content, l) })),
-		nodes,
-		edges,
+		spores,
+		threads,
 		stubs,
 		problems: view.problems.map((p) => ({ at: p.node ?? '', severity: p.severity, text: p.short ?? p.message }))
 	};

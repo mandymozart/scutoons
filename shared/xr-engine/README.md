@@ -28,8 +28,8 @@ Once OSCT publishes the engine and the contract as packages with a tag, this cop
   own page (owner 2026-11-21: no sandbox – the member is trusted, as with the API). The app serves the files of
   `osct/editor/static` (`options.stageBase`). `src/load.ts` reads a configuration and loads the plugins' code for both entries.
 - **The XR scope of the one network is `@scutoons/xr-engine/network`** (`src/network.ts`, types `src/network-api.ts`):
-  `projectXr(document, context)` gives one level of an experience's logic as the contract's view (`@scutoons/api`
-  `NetworkView`, #763): OSCT's projection (`osct/editor/src/lib/logic/project.ts`) translated – OSCT's signals into the deck's
+  `projectXr(document, context)` gives one level of an experience's logic as the spore network's weave (`@scutoons/api`
+  `Spores`, #763): OSCT's projection (`osct/editor/src/lib/logic/project.ts`) translated – OSCT's signals into the deck's
   table, rule homes into JSON pointers into the experience document, stubs as far nodes. `npm run test` here runs it against
   `test/network-fixture.ts` and the contract's shared vectors (`test/write-xr-vector.ts` writes the `xr` view anew).
 - The copied files import each other through `@shared/*`, the editor's also through `@engine/*` and `#lib/*`. An app
