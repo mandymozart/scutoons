@@ -74,7 +74,7 @@ Copy all and Save stay (for bug reports).
 
 ## 6. Questions for the owner
 
-1. **Problems inside the Log, or beside it?** The concept puts them in as standing lines with a "Problems" preset filter. The alternative is that the Log only holds passing lines and Problems stays its own tab, sharing the scope pills.
+1. ~~Problems inside the Log, or beside it?~~ **Answered 2026-11-21: inside, as a filter** (owner: *"Inside, as a filter"*). Problems are standing lines of the one Log; "Problems" is its preset filter.
 2. **Default scope of the status bar's counts:** Item (this concept), or the workspace's context (the whole chapter in the chapter workspace)?
 3. **Server events:** pull them into the Log for the scope (others' publishes and generations visible to you), or session-only lines for now?
 4. **The deck editor:** take the scope pills and standing lines there too (its show, rig and scene addresses), as one model, or creator first?
