@@ -297,3 +297,101 @@ fn thirty_two_channels_render_without_allocating() {
         assert!(loud >= 3, "the 32 speakers carry the panned source (and the send): {loud} channels are loud");
     }
 }
+
+/// A held MIDI chord through a MIDI world node's port and channel into a module's note input: the event host's live
+/// notes (on at key down, off at key up) cost no allocation – a stand-in module that counts what it is given
+#[cfg(all(feature = "events", feature = "modules"))]
+mod live_notes {
+    use super::*;
+    use deck_engine::{register_module, DeckConfig, ModuleInstance, ModuleSource, Opened, Seams, Sequencing};
+    use deck_module_host::{Ev, EvKind, InBind, Layout};
+    use std::sync::atomic::AtomicU32;
+
+    const KEYS: &str = r#"{"abi":2,"name":"t_keys","version":"1","params":[],"ports":[
+        {"name":"notes","dir":"in","type":"event","names":["music.note"],"capacity":16},
+        {"name":"out","dir":"out","type":"audio","channels":2}]}"#;
+
+    static ONS: AtomicU32 = AtomicU32::new(0);
+    static OFFS: AtomicU32 = AtomicU32::new(0);
+
+    struct Keys;
+
+    impl ModuleInstance for Keys {
+        fn silenced(&self) -> bool {
+            false
+        }
+        fn set_character(&mut self, _: &str, _: &str, _: &str) {}
+        fn set_vars(&mut self, _: &[(String, f32)]) {}
+        fn set_tempo(&mut self, _: &deck_core::tempo::TempoMap) {}
+        fn set_param(&mut self, _: usize, _: f32) {}
+        fn set_control_in(&mut self, _: usize, _: f32) {}
+        fn set_audio_in(&mut self, _: usize, _: &[&[f32]]) {}
+        fn process(&mut self, _: f64, _: u32) -> bool {
+            true
+        }
+        fn read_audio_out(&mut self, _: usize, _: usize, dst: &mut [f32]) {
+            dst.fill(0.0);
+        }
+        fn set_events_in(&mut self, _: usize, events: &[Ev]) -> usize {
+            for e in events {
+                match e.kind() {
+                    Some(EvKind::NoteOn) => ONS.fetch_add(1, Ordering::Relaxed),
+                    Some(EvKind::NoteOff) => OFFS.fetch_add(1, Ordering::Relaxed),
+                    _ => 0,
+                };
+            }
+            events.len()
+        }
+    }
+
+    struct Source(Layout);
+
+    impl ModuleSource for Source {
+        fn open(&self, _: deck_space::modreg::ModuleKind, _: f64, _: u64) -> anyhow::Result<Opened> {
+            let params = self.0.inputs.iter().filter(|b| matches!(b, InBind::Param(_))).count();
+            Ok(Opened { instance: Box::new(Keys), layout: self.0.clone(), params })
+        }
+    }
+
+    #[test]
+    fn a_held_midi_chord_into_a_module_renders_without_allocating() {
+        use deck_events::adapters::midi::Midi;
+        let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        let d: deck_catalog::Descriptor = serde_json::from_str(KEYS).unwrap();
+        let layout = Layout::of(&d).unwrap();
+        register_module(&d, &layout);
+        let scene = "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\nport=1\nchannel=1\n\
+                     [[node]]\nid=\"k\"\nkind=\"module:t_keys\"\n[[link]]\nfrom=\"w.events\"\nto=\"k.notes\"\n";
+        let graph = Graph::build(&Scene::parse(scene).unwrap()).unwrap();
+        let mut seams = Seams::with_deck(DeckConfig::device(2));
+        seams.modules = Some(Arc::new(Source(layout)));
+        let (mut engine, mut handles) = Engine::build_seams(&graph, 48_000.0, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
+        let mut midi = Midi::new(&mut handles.events.names, None, 1);
+        let routing = handles.events.take_routing();
+        let mut outlets = routing.outlets;
+        let mut buf = vec![0.0f32; 128 * 2];
+        let mut frame = 0usize;
+        CALLS.store(0, Ordering::SeqCst);
+        for round in 0..20 {
+            // the platform's side, outside the measure: the bytes through the adapter into the dispatcher's rings
+            let mut out = Vec::new();
+            for key in [57, 60, 64, 72] {
+                let status = if round % 2 == 0 { 0x90 } else { 0x80 } | u8::from(key == 72);
+                midi.feed(&[status, key, 100], (frame + 5) as f64 / 48_000.0, &mut out);
+            }
+            for ev in out {
+                for &t in routing.table.targets(ev.name) {
+                    outlets[t as usize].push(ev.clone()).unwrap();
+                }
+            }
+            measure(true);
+            for _ in 0..8 {
+                engine.render(&mut buf, 2, |x| x);
+                frame += 128;
+            }
+            measure(false);
+        }
+        assert_eq!(CALLS.load(Ordering::SeqCst), 0, "allocations / frees in the event host's live notes");
+        assert_eq!((ONS.load(Ordering::Relaxed), OFFS.load(Ordering::Relaxed)), (30, 30), "ten chords on channel 1, each held and released; channel 2 stays out");
+    }
+}

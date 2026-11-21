@@ -9,7 +9,9 @@
 //!   one still ahead waits. A `generator` world node runs its deck-events patch itself (walk.rs `Host`) and sends its
 //!   notes down its cables like a module's outputs, so two generators stay apart.
 //! - **Notes.** `music.note` / `midi.note` become `NOTE_ON` with a host-assigned id, and a note with a duration gets its
-//!   `NOTE_OFF` from the host at its end – a module never counts beats to end a note. Its pitch both ways: the Hz or the
+//!   `NOTE_OFF` from the host at its end – a module never counts beats to end a note. A note with no length (a live
+//!   MIDI key) is held until its `midi.note_off` (the same port, channel and key) ends it; a MIDI world node's ring
+//!   lets through only its `port` and `channel`. Its pitch both ways: the Hz or the
 //!   key the source gave, the other filled from the deck's tuning (`deck_events::Tuning`; `Seams::tuning`). A velocity
 //!   the source lacks is 1.
 //! - **Module to module, by cable (#430).** An event output reaches exactly the inputs its cables name (`Graph::links` of
@@ -34,7 +36,7 @@ use deck_events::{Event, Match, Names, Route, Sym, Time, Tuning};
 use deck_events::rt::RtEvent;
 use deck_module_host::{Ev, EvKind};
 use deck_space::graph::{Graph, Kind, PortType};
-use deck_space::world::{self, Source, NOTE_NAMES};
+use deck_space::world::{self, Filter, Source, NOTE_NAMES, NOTE_OFF};
 
 /// records a ring holds (a link's, the world's, the outbox's)
 const RING: usize = 512;
@@ -56,6 +58,19 @@ struct Keys {
     note: Sym,
     /// the event names a note comes as
     notes: [Sym; 2],
+    /// a live note's end
+    off: Sym,
+    ch: Sym,
+    port: Sym,
+}
+
+impl Keys {
+    /// the port, channel and key a live note and its off share
+    fn which(&self, e: &Event) -> u32 {
+        let get = |k: Sym| e.props.get(k).filter(|v| v.is_finite()).unwrap_or(0.0).round() as u32;
+        let key = if e.props.get(self.key).is_some() { get(self.key) } else { get(self.note) };
+        ((get(self.port) & 0xff) << 16) | ((get(self.ch) & 0xff) << 8) | (key & 0xff)
+    }
 }
 
 /// An output (a module's, a generator world node's) cabled to a module's input: its records go one block late, names and
@@ -78,13 +93,16 @@ struct In {
     props: Vec<Sym>,
     /// the index of the port's note name, if it takes notes
     note: Option<u16>,
-    /// the world's rings into this input: the dispatcher's (a MIDI world node's cable), a far deck's (#442) – any number
-    world: Vec<rtrb::Consumer<Event>>,
+    /// the world's rings into this input: the dispatcher's (a MIDI world node's cable, its port and channel), a far
+    /// deck's (#442) – any number
+    world: Vec<(rtrb::Consumer<Event>, Filter)>,
     links: Vec<rtrb::Consumer<(u64, Ev)>>,
     /// (absolute frame, the record) not due yet, in arrival order
     pending: Vec<(u64, Ev)>,
     /// the notes delivered and not ended
     held: Vec<Ev>,
+    /// the live notes (no length) waiting for their off: (`Keys::which`, the id)
+    live: Vec<(u32, u32)>,
     next_id: u32,
 }
 
@@ -114,9 +132,9 @@ pub(crate) struct Ports {
 pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Events, tuning: Tuning) -> Result<()> {
     let keys = {
         let mut key = |s: &str| ev.names.key(s).map_err(|e| anyhow!("{s}: {e:?}"));
-        let (pitch, vel, glide, k, note) = (key("pitch")?, key("vel")?, key("glide")?, key("key")?, key("note")?);
+        let (pitch, vel, glide, k, note, ch, port) = (key("pitch")?, key("vel")?, key("glide")?, key("key")?, key("note")?, key("ch")?, key("port")?);
         let mut event = |s: &str| ev.names.event(s).map_err(|e| anyhow!("{s}: {e:?}"));
-        Keys { pitch, vel, glide, key: k, note, notes: [event(NOTE_NAMES[0])?, event(NOTE_NAMES[1])?] }
+        Keys { pitch, vel, glide, key: k, note, notes: [event(NOTE_NAMES[0])?, event(NOTE_NAMES[1])?], off: event(NOTE_OFF)?, ch, port }
     };
     let mut all: Vec<Option<Ports>> = (0..prepared.len()).map(|_| None).collect();
     for (i, p) in prepared.iter().enumerate() {
@@ -129,7 +147,7 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         let mut ins = Vec::new();
         for (port, e) in l.events_in.iter().enumerate() {
             let (names, note, props) = intern(&mut ev.names, &e.names, &e.props, &at(&e.name))?;
-            ins.push(In { port, names, props, note, world: Vec::new(), links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), next_id: 1 });
+            ins.push(In { port, names, props, note, world: Vec::new(), links: Vec::new(), pending: Vec::with_capacity(PENDING), held: Vec::with_capacity(HELD), live: Vec::with_capacity(HELD), next_id: 1 });
         }
         let mut outs = Vec::new();
         for (port, e) in l.events_out.iter().enumerate() {
@@ -142,7 +160,7 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
         all[i] = Some(Ports { ins, outs, scratch: Vec::with_capacity(PENDING + HELD), keys, tuning });
     }
     // the cables (in the scene's order – deterministic)
-    let mut world_rings: Vec<((usize, usize), usize)> = Vec::new();
+    let mut world_rings: Vec<((usize, usize, Filter), usize)> = Vec::new();
     let mut specs = Vec::new();
     let mut generators: Vec<(usize, usize, usize, Vec<u16>)> = Vec::new();
     for l in graph.links.iter().filter(|l| l.ty == PortType::Event) {
@@ -156,23 +174,26 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
             let w = world::World::of(&graph.nodes[a])?;
             match &w.source {
                 Source::Midi => {
-                    let outlet = match world_rings.iter().find(|(at, _)| *at == (b, k)) {
+                    let outlet = match world_rings.iter().find(|(at, _)| *at == (b, k, w.filter)) {
                         Some(&(_, t)) => t,
                         None => {
                             let (tx, rx) = rtrb::RingBuffer::new(RING);
                             let t = ev.outlets.len();
                             ev.outlets.push(tx);
-                            all[b].as_mut().expect("wired above").ins[k].world.push(rx);
-                            world_rings.push(((b, k), t));
+                            all[b].as_mut().expect("wired above").ins[k].world.push((rx, w.filter));
+                            world_rings.push(((b, k, w.filter), t));
                             t
                         }
                     };
                     for name in &w.listen {
                         let s = ev.names.event(name).map_err(|e| anyhow!("{name}: {e:?}"))?;
                         let inp = &all[b].as_ref().expect("wired above").ins[k];
-                        let takes = inp.names.contains(&s) || (keys.notes.contains(&s) && inp.note.is_some());
-                        if takes && !ev.routes.iter().any(|r| r.on == Match::Name(s) && r.to == outlet) {
-                            ev.routes.push(Route { on: Match::Name(s), to: outlet });
+                        let note = keys.notes.contains(&s) && inp.note.is_some();
+                        let takes = inp.names.contains(&s) || note;
+                        for on in [Some(s), note.then_some(keys.off)].into_iter().flatten().filter(|_| takes) {
+                            if !ev.routes.iter().any(|r| r.on == Match::Name(on) && r.to == outlet) {
+                                ev.routes.push(Route { on: Match::Name(on), to: outlet });
+                            }
                         }
                     }
                 }
@@ -185,7 +206,7 @@ pub(crate) fn wire(graph: &Graph, prepared: &mut [Option<Prepared>], ev: &mut Ev
                 // address and the filter for the link to match on
                 Source::Far(a) => {
                     let (tx, rx) = rtrb::RingBuffer::new(RING);
-                    all[b].as_mut().expect("wired above").ins[k].world.push(rx);
+                    all[b].as_mut().expect("wired above").ins[k].world.push((rx, Filter::default()));
                     ev.far.push((a.to_string(), w.listen.clone(), tx));
                 }
             }
@@ -265,6 +286,16 @@ impl In {
 
     /// a world event (deck-events) as records on this port (a note is a note whatever name it comes as)
     fn take(&mut self, e: &Event, map: &TempoMap, start: f64, keys: &Keys, tuning: &Tuning) {
+        if e.name == keys.off {
+            let which = keys.which(e);
+            if let Some(k) = self.live.iter().position(|l| l.0 == which) {
+                let (_, id) = self.live.remove(k);
+                let mut off = Ev::note_off(0, id);
+                off.port = self.port as u8;
+                self.queue(e.frame(map, start).max(0.0).round() as u64, off);
+            }
+            return;
+        }
         let idx = match self.names.iter().position(|s| *s == e.name) {
             Some(i) => i,
             None if keys.notes.contains(&e.name) => match self.note {
@@ -284,6 +315,12 @@ impl In {
             on.v[2] = get(keys.glide);
             on.port = self.port as u8;
             self.queue(at, on);
+            if e.dur.is_none() {
+                if self.live.len() == self.live.capacity() {
+                    self.live.remove(0);
+                }
+                self.live.push((keys.which(e), id));
+            }
             let dur = e.dur_frames(map);
             if dur > 0.0 {
                 let mut off = Ev::note_off(0, id);
@@ -327,9 +364,11 @@ impl Ports {
         let swapping = inst.swapping();
         for inp in &mut self.ins {
             let mut worlds = std::mem::take(&mut inp.world);
-            for w in &mut worlds {
+            for (w, filter) in &mut worlds {
                 while let Ok(e) = w.pop() {
-                    inp.take(&e, map, start, &self.keys, &self.tuning);
+                    if filter.passes(e.props.get(self.keys.port), e.props.get(self.keys.ch)) {
+                        inp.take(&e, map, start, &self.keys, &self.tuning);
+                    }
                 }
             }
             inp.world = worlds;
