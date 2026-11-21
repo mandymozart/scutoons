@@ -1,4 +1,4 @@
-Status: research + design drafts 2026-11-21 for #763 (epic #626), round 2 for the owner's review (§9) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C).
+Status: research + design drafts 2026-11-21 for #763 (epic #626), round 3 for the owner's review (§10) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C, ?v=7–9 round 3: B + Reception).
 
 # One network, many scopes: Flow, Logic and the deck's nodes as one view
 
@@ -223,4 +223,41 @@ moves the story's rules too. xyflow would remain OSCT's only.
 
 If Q11 is yes, the steps of §6 reorder: 1 the contract · 2 the tab in deck-kit with the show and rig scopes it already draws, and its
 wasm host in the creator · 3 the story projector feeding it · 4 the network level C · 5 XR · 6 live feedback.
+
+## 10 · Round 3: the logic and the reception are two views, side by side
+
+The owner, 2026-11-21, on round 2 (thought aloud): *"maybe C and B somehow. cause the devices are sort of additional in terms of
+organisation. have to see what will be useful in the long run. i need a radically different view. maybe those two dont mix ... if we
+have a secondary view that can go along side if we want to see where events are received on devices connected and potential. because
+also this view mode we would also figure out which user iis receviing what or which user group"*.
+
+**The split.** The logic stays **B** (nested scopes, readable). Devices are a second organisation, so they get **their own view** beside
+it on the split stage (#765's two-way split), instead of rows inside the graph. Drafts `?v=7`–`9`.
+
+- **One question, two directions.** Select a box or cable in B and the Reception view shows *who receives it and what it fires*:
+  received now, sent from here, potential, or filtered out with the reason. Select a receiver in Reception and B dims to what reaches it.
+- **Receivers come from facts that exist.** The relay tests every cell's reach against the show row's `where` (by outlet, protocol
+  `Filter`: `group` – the QR's or a deck's outlet –, `device` – browser / native / phone –, `account` – guest / member / creator / admin /
+  live –, `approved`) and a role's `for` (`Admits`, #478). So the view groups readers by **group** and **account** (the "user group"),
+  decks by **role**, and can name one person where an account is signed in. *Potential* = would be admitted but isn't there (a group
+  with 0 now), or is there but not admitted (an unapproved deck); *filtered* = there, but a `where` fact excludes it.
+- **Three ways to show the same answer** (one switch in the view's head):
+  - **Matrix** (`?v=7`): receivers (grouped) × what the selection fires; a cell is a mark, a count, a latency, or the excluding fact. For
+    checking that the right user group gets the right thing.
+  - **Constellation** (`?v=8`): the audience as it is – readers as dot clouds per group, decks as squares by role, the conductor; the
+    selection in the middle, lines to who received, dashed to potential, the excluding fact in red. For the live show.
+  - **Timeline** (`?v=9`): one lane per receiver, time running to *now* on the beat grid; taps sending the event, the row firing on the
+    beat, each reception with its latency. For order and lag.
+- **Where the numbers come from.** Outside a session: from the documents (roles, `where`, the toons' groups) – only *potential*.
+  Inside one: the relay's counts and receipts (`here` per role already exists; per-message receipts would be new), posted by address.
+- **Deck-first still holds** (§9): both views are deck-kit material; the Reception view is close to what a conductor needs anyway.
+
+**Questions**
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q13 | B as the logic view, Reception as a separate view beside it (instead of C's rows)? | yes – C stays as a drawing option only if the Reception view isn't enough |
+| Q14 | Which Reception form first: Matrix, Constellation or Timeline? | Matrix first (exact, works outside a session from the documents), Timeline second for live debugging; Constellation for the conductor's screen later |
+| Q15 | Per-message receipts from the relay (who received what, with latency) – wanted, at what cost? | counts per role and group first (cheap, partly there); receipts sampled, only while the Reception view is open |
+| Q16 | Show single users (signed-in accounts) in the Reception view, or groups only? | groups by default; a user only on search, and only for the show's creators (privacy) |
 

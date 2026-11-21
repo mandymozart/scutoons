@@ -1,4 +1,4 @@
-<!-- Status: design drafts round 2 for the owner's review (#763, epic #626), 2026-11-21 – C (?v=5/6) after the owner liked B's readability and A's rows; concept only, no build. Research: NETWORK.md. -->
+<!-- Status: design drafts round 3 for the owner's review (#763, epic #626), 2026-11-21 – C (?v=5/6) after the owner liked B's readability and A's rows; concept only, no build. Research: NETWORK.md. -->
 <!doctype html>
 <html lang="en" data-theme="night">
 <head>
@@ -8,6 +8,7 @@
 <!-- The one Flow tab over every scope (#763). The tab is shown on the stage (#765 "taking the stage").
      ?v=1 chapter level (story scope) · 2 the network, A runtime lanes · 3 the network, B nested scopes · 4 a rig (deck scope, audio context)
      · round 2: 5 the network, C nested scopes in where-it-shows rows (roles) · 6 the same rows as devices now
+     · round 3: B beside a Reception view (who receives what): 7 matrix · 8 constellation · 9 timeline
      ?theme=day · ?quiet folds the notes. Keys: 1–4 views · T day / night · N notes · L live feedback on / off. Open at 1440×900.
      Colours: shared/tokens/editor.css; signals: deck/kit/src/base/signal.rs (night + day), copied 1:1. -->
 <style>
@@ -61,6 +62,31 @@ svg#g{position:absolute;inset:0;width:100%;height:100%}
 .notes li{margin:.2rem 0}
 .notes code{font-size:.8rem;color:var(--muted)}
 body.quiet .notes{display:none}
+#side{position:fixed;z-index:30;top:0;bottom:0;left:56vw;right:0;display:none;overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:calc(var(--top) + 2.9rem) 1.2rem 4.2rem}
+body.split #side{display:block}
+body.split .notes{left:var(--gap);right:auto;top:auto;bottom:4rem;width:calc(56vw - 3rem);max-height:11.5rem}
+.rx-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem}
+.rx-head h3{margin:0;font-size:1rem;font-weight:400}
+.rx-head h3 b{font-weight:700}
+.rx-head .grow{flex:1}
+.rx-key{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:var(--small);color:var(--muted);margin:0 0 .8rem}
+.rx-key span{display:flex;align-items:center;gap:.3rem}
+table.rx{border-collapse:collapse;width:100%;table-layout:fixed;font-size:var(--label)}
+table.rx col.who{width:8.6rem}
+table.rx th{font-weight:400;color:var(--muted);text-align:left;vertical-align:bottom;padding:.3rem .35rem;border-bottom:1px solid var(--line);font-size:var(--label);line-height:1.25}
+table.rx th.hot{color:var(--text)}
+table.rx td{padding:.38rem .35rem;border-bottom:1px solid var(--within);vertical-align:top}
+table.rx td.who{overflow:hidden;text-overflow:ellipsis}
+table.rx td.who small{white-space:normal}
+table.rx td.who small{display:block;color:var(--muted);font-size:var(--label)}
+table.rx tr.grp td{color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;padding-top:.8rem;border-bottom:1px solid var(--line)}
+table.rx td.hot,table.rx th.hot{background:var(--within)}
+.c{display:flex;align-items:flex-start;gap:.25rem;line-height:1.2}
+.c svg,.c .x{flex:none;margin-top:.1rem}
+.c.pot,.c.no{color:var(--muted)}
+.c .x{color:var(--danger);font-weight:700}
+svg.rx{display:block}
+
 /* svg text */
 .t{font:400 11.5px "Noto Sans",system-ui,sans-serif;fill:var(--text)}
 .tm{font:400 10.5px "Noto Sans",system-ui,sans-serif;fill:var(--muted)}
@@ -88,6 +114,7 @@ body.live .lit{filter:drop-shadow(0 0 3px currentColor)}
 <div class="pill views" id="views"></div>
 <div class="pill waits" id="waits"></div>
 <aside class="notes" id="notes"></aside>
+<section id="side"></section>
 
 <script>
 const R = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -312,6 +339,120 @@ V[6] = {
   <li>Outside a session the tab shows roles (5); inside one, devices (6) – or a switch, as here.</li></ul>`,
 };
 
+/* round 3: B stays the logic; a second, different view beside it answers who receives what */
+const SHAPE_SVG = s => `<svg width="11" height="11" viewBox="-6 -6 12 12">${shapeSvg(s)}</svg>`;
+const RX = [
+  ['Readers · by group', [
+    ['hall', 'audience-hall', '380 · guest · phone · group hall'],
+    ['mem', 'members', '32 · member · phone'],
+    ['kids', 'toptoy-kids', '0 now · group toptoy · potential', true]]],
+  ['Decks · by role', [
+    ['d2', 'deck-2', 'native · approved · role left'],
+    ['cb', 'crow-box', 'native · approved · role sound'],
+    ['b1', 'bridge-1', 'device · DMX · role lamps'],
+    ['d3', 'deck-3', 'browser · not approved · no role', true]]],
+  ['Conductor', [['t', 'Tilman', 'live · laptop']]],
+];
+const COLS = [['storm', 'storm', 'story event', 'event'], ['r4', 'row 4', 'fires', 'event'], ['left', 'left', 'scene dunes', 'scene'], ['sound', 'sound', 'crow notes', 'event'],
+  ['lamps', 'lamps', 'look storm', 'address'], ['ph', 'phones', 'picture storm', 'picture'], ['vote', 'vote', 'dig / wait', 'vote']];
+const HOT = new Set(['storm', 'r4', 'left', 'sound', 'lamps', 'ph']);
+const M = {
+  hall: { storm: ['up', '212 sent'], ph: ['no', 'account = member'], vote: ['now', '380'] },
+  mem: { storm: ['up', '20 sent'], ph: ['now', '32 · 41 ms'], vote: ['now', '32'] },
+  kids: { ph: ['pot', 'group toptoy'], vote: ['pot', 'if they join'] },
+  d2: { left: ['now', '18 ms'] }, cb: { sound: ['now', '22 ms'] }, b1: { lamps: ['now', '9 ms'] },
+  d3: { left: ['pot', 'admits approved'] },
+  t: { storm: ['now', 'sees all'], r4: ['now', 'GO on beat'], vote: ['now', 'tally 61 %'] },
+};
+function mark(k, s) {
+  const c = `var(--s-${s})`;
+  if (k === 'now') return `<svg width="10" height="10" viewBox="-5 -5 10 10"><circle r="4" fill="${c}"/></svg>`;
+  if (k === 'up') return `<svg width="10" height="10" viewBox="-5 -5 10 10"><path d="M0,-4 L4,3.5 L-4,3.5Z" fill="${c}"/></svg>`;
+  if (k === 'pot') return `<svg width="10" height="10" viewBox="-5 -5 10 10"><circle r="3.6" fill="none" stroke="${c}" stroke-width="1.4" stroke-dasharray="2 1.6"/></svg>`;
+  return '<span class="x">×</span>';
+}
+const KEY = `<div class="rx-key"><span>${mark('now', 'control')} received now</span><span>${mark('up', 'event')} sent from here</span><span>${mark('pot', 'control')} potential (absent, or not admitted)</span><span>${mark('no')} filtered out (why)</span></div>`;
+const rxHead = v => `<div class="rx-head"><h3>Reception · <b>row 4 · storm</b> <span style="color:var(--muted)">and what it fires</span></h3><span class="grow"></span>
+  <div class="pill">${[[7, 'Matrix'], [8, 'Constellation'], [9, 'Timeline']].map(([i, t]) => `<button class="${i === v ? 'on' : ''}" data-v="${i}">${t}</button>`).join('')}</div></div>` + KEY;
+
+function matrix() {
+  let h = rxHead(7) + '<table class="rx"><colgroup><col class="who"></colgroup><tr><th>who</th>' + COLS.map(([id, a, b, s]) => `<th class="${HOT.has(id) ? 'hot' : ''}">${SHAPE_SVG(s)} ${a}<br>${b}</th>`).join('') + '</tr>';
+  for (const [g, items] of RX) {
+    h += `<tr class="grp"><td colspan="${COLS.length + 1}">${g}</td></tr>`;
+    for (const [id, name, facts, pot] of items) {
+      h += `<tr><td class="who" style="${pot ? 'color:var(--muted)' : ''}">${name}<small>${facts}</small></td>` + COLS.map(([c, , , s]) => {
+        const m = (M[id] || {})[c];
+        return `<td class="${HOT.has(c) ? 'hot' : ''}">${m ? `<div class="c ${m[0]}">${mark(m[0], s)} ${m[1]}</div>` : ''}</td>`;
+      }).join('') + '</tr>';
+    }
+  }
+  return h + '</table>';
+}
+
+function constellation() {
+  const W = 600, H = 470, cx = 300, cy = 220;
+  let g = '';
+  const rnd = (i => () => (i = (i * 16807) % 2147483647) / 2147483647)(7);
+  const disc = (x0, y0, rad, n, fill, op) => { let o = ''; for (let i = 0; i < n; i++) { const a = rnd() * 6.283, d = Math.sqrt(rnd()) * rad; o += `<circle cx="${(x0 + Math.cos(a) * d).toFixed(1)}" cy="${(y0 + Math.sin(a) * d).toFixed(1)}" r="1.7" fill="${fill}" opacity="${op}"/>`; } return o; };
+  g += `<line x1="${cx}" y1="${cy}" x2="250" y2="70" stroke="var(--s-picture)" stroke-width="1.6"/><line x1="${cx}" y1="${cy}" x2="160" y2="150" stroke="var(--muted)" stroke-dasharray="2 5" opacity=".6"/><line x1="${cx}" y1="${cy}" x2="120" y2="330" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".6"/>`;
+  g += `<circle cx="110" cy="105" r="78" fill="var(--surface)" stroke="var(--line)"/>` + disc(110, 105, 72, 380, 'var(--muted)', .45);
+  g += `<text x="110" y="200" class="tm" text-anchor="middle">audience-hall · 380 guests</text><text x="110" y="213" class="tm" text-anchor="middle" style="fill:var(--danger)">× picture · where account = member</text>`;
+  g += `<circle cx="250" cy="70" r="30" fill="var(--surface)" stroke="var(--s-picture)"/>` + disc(250, 70, 26, 32, 'var(--s-picture)', .95);
+  g += `<text x="250" y="114" class="tm" text-anchor="middle">members · 32 · picture 41 ms</text>`;
+  g += `<circle cx="120" cy="330" r="34" fill="var(--surface)" stroke="var(--muted)" stroke-dasharray="3 4"/><text x="120" y="334" class="tm" text-anchor="middle">toptoy-kids · 0</text><text x="120" y="380" class="tm" text-anchor="middle">potential: picture, vote</text>`;
+  [['deck-2', 'left', 440, 90, 'scene', 1], ['crow-box', 'sound', 505, 195, 'event', 1], ['bridge-1', 'lamps', 470, 300, 'address', 1], ['deck-3', 'no role', 515, 395, 'far', 0]].forEach(([n, role, x, y, s, on]) => {
+    g += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--s-${s})" stroke-width="${on ? 1.6 : 1}" ${on ? '' : 'stroke-dasharray="3 4" opacity=".6"'}/>`;
+    g += `<rect x="${x - 13}" y="${y - 13}" width="26" height="26" rx="3" fill="${on ? `var(--s-${s})` : 'var(--surface)'}" stroke="var(--s-${s})" ${on ? '' : 'stroke-dasharray="3 3"'}/>`;
+    g += `<text x="${x}" y="${y + 28}" class="t" text-anchor="middle">${n}</text><text x="${x}" y="${y + 41}" class="tm" text-anchor="middle">${on ? 'role ' + role : 'would take left · not approved'}</text>`;
+  });
+  g += `<line x1="${cx}" y1="${cy}" x2="300" y2="398" stroke="var(--s-event)" stroke-width="1.4"/>`;
+  g += `<path d="M300,398 l14,14 l-14,14 l-14,-14z" fill="var(--s-event)"/><text x="300" y="444" class="tm" text-anchor="middle">Tilman · conductor · GO on beat</text>`;
+  g += [44, 70, 96].map((r, i) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--accent)" opacity="${.5 - i * .14}"/>`).join('');
+  g += `<rect x="${cx - 54}" y="${cy - 18}" width="108" height="36" rx="18" fill="var(--head)" stroke="var(--accent)"/><text x="${cx}" y="${cy - 1}" class="th" text-anchor="middle">row 4 · storm</text><text x="${cx}" y="${cy + 12}" class="tm" text-anchor="middle">fired 3.6 s ago</text>`;
+  return rxHead(8) + `<svg class="rx" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`;
+}
+
+function timeline() {
+  const rows = RX.flatMap(([, items]) => items), W = 600, top = 30, rh = 38, L = 120, H = top + rows.length * rh + 26;
+  const t2x = t => L + (t + 6) / 6 * (W - L - 10);
+  let g = '';
+  rows.forEach(([id, name, facts, pot], i) => {
+    const y = top + i * rh;
+    if (i % 2 === 0) g += `<rect x="0" y="${y + 2}" width="${W}" height="${rh - 4}" fill="var(--within)" opacity=".6"/>`;
+    g += `<text x="6" y="${y + 17}" class="t" ${pot ? 'style="fill:var(--muted)"' : ''}>${name}</text><text x="6" y="${y + 30}" class="tm">${facts.split(' · ').slice(0, 2).join(' · ')}</text>`;
+  });
+  for (let t = -6; t <= 0; t += .5) g += `<line x1="${t2x(t)}" x2="${t2x(t)}" y1="${top - 4}" y2="${H - 22}" stroke="var(--line)" opacity="${Number.isInteger(t) ? .9 : .35}"/>` + (Number.isInteger(t) ? `<text x="${t2x(t)}" y="${H - 8}" class="tm" text-anchor="middle">${t === 0 ? 'now' : t + ' s'}</text>` : '');
+  g += `<text x="${t2x(-6)}" y="12" class="tm">beats at 120 BPM</text>`;
+  const tick = (t, i, s, k = 'now', w = 3) => {
+    const x = t2x(t), y = top + i * rh + rh / 2;
+    if (k === 'pot') return `<rect x="${x - 5}" y="${y - 8}" width="10" height="16" fill="none" stroke="var(--s-${s})" stroke-dasharray="2 2" opacity=".8"/>`;
+    if (k === 'up') return `<path d="M${x},${y - 7} L${x + 6},${y + 6} L${x - 6},${y + 6}Z" fill="var(--s-${s})"/>`;
+    return `<rect x="${x - w / 2}" y="${y - 9}" width="${w}" height="18" rx="1" fill="var(--s-${s})"/>`;
+  };
+  for (let k = 0; k < 26; k++) g += tick(-4.6 + Math.sin(k * 7.3) * .35, 0, 'event', 'now', 1.2);
+  for (let k = 0; k < 6; k++) g += tick(-4.5 + Math.sin(k * 3.1) * .25, 1, 'event', 'now', 1.2);
+  g += `<text x="${t2x(-5.95)}" y="${top + 31}" class="tm">taps send storm</text>`;
+  g += tick(-4.15, 7, 'event', 'up') + tick(-3.5, 7, 'event', 'now', 4);
+  g += `<line x1="${t2x(-3.5)}" x2="${t2x(-3.5)}" y1="${top}" y2="${H - 22}" stroke="var(--accent)" stroke-dasharray="3 3"/><text x="${t2x(-3.5) + 4}" y="${top - 10}" class="tm" style="fill:var(--accent)">row 4 fires (on beat)</text>`;
+  g += tick(-3.482, 3, 'scene') + tick(-3.491, 5, 'address') + tick(-3.459, 1, 'picture', 'now', 4);
+  g += tick(-3.46, 2, 'picture', 'pot') + tick(-3.48, 6, 'scene', 'pot');
+  for (let k = 0; k < 8; k++) g += tick(-3.478 + k * .25, 4, 'event', 'now', 1.6);
+  g += `<text x="${t2x(-3.3)}" y="${top + 1 * rh + 24}" class="tm">picture 41 ms</text><text x="${t2x(-3.3)}" y="${top + 3 * rh + 24}" class="tm">scene 18 ms</text><text x="${t2x(-1.4)}" y="${top + 4 * rh + 24}" class="tm">notes · 2 bars</text><text x="${t2x(-3.3)}" y="${top + 5 * rh + 24}" class="tm">look 9 ms</text>`;
+  g += `<text x="${t2x(-3.3)}" y="${top + 24}" class="tm" style="fill:var(--danger)">× picture: members only</text>`;
+  g += tick(-1.5, 0, 'vote', 'now', 5) + tick(-1.5, 1, 'vote', 'now', 5) + tick(-1.5, 2, 'vote', 'pot') + tick(-1.5, 7, 'vote', 'now', 5) + `<text x="${t2x(-1.35)}" y="${top + 13}" class="tm">vote asked</text>`;
+  return rxHead(9) + `<svg class="rx" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`;
+}
+
+const B_EDGES = V[3].edges.map(e => e[0] === 'c2.e' ? [e[0], e[1], e[2], e[3], { ...e[4], sel: true }] : e);
+const R_NOTES = `<h2>7–9 · B beside a Reception view</h2>
+  <p>The logic stays B (nested scopes, left). Devices are another organisation, so they get <b>their own view beside it</b> on the split stage (#765), not rows inside it. Select a box or cable on the left (here: the <i>storm</i> cable) and the right shows <b>who receives it and what it fires</b>: connected now, potential, or filtered out by the show's <code>where</code> facts (group, device, account, approved). Select a receiver on the right and the left dims to what reaches it.</p>
+  <p>Three different ways to give the same answer: <b>Matrix</b> (who × what, exact, for checking a user group), <b>Constellation</b> (the audience as it is, for the live show), <b>Timeline</b> (when each one received it, for latency and order).</p>`;
+const RB = { items: [['Home'], ['Chapter 2 · Dunes'], ['rig crow'], ['Sandbox demo', true]], path: [['Universe'], ['Show · Sandbox demo', 'b']], follows: 'pinned · show + toon', pinned: true, waits: 'Show waits ↓',
+  frames: V[3].frames, nodes: V[3].nodes, edges: B_EDGES, notes: R_NOTES };
+V[7] = { ...RB, side: matrix };
+V[8] = { ...RB, side: constellation };
+V[9] = { ...RB, side: timeline };
+
 /* ── drawing ─────────────────────────────────────────────────────────── */
 const HEAD = 2.1, ROW = 1.55;
 function geom(n) {
@@ -360,6 +501,7 @@ function draw() {
     const lit = live && o.lit;
     const w = el('path', { d: dpath, class: 'wire' + (lit ? ' lit' : ' dim'), stroke: col(s), 'stroke-width': o.count ? 2.6 : (s === 'event' ? 1.8 : 1.5), style: `color:${col(s)}` });
     if (s === 'far' || B.far || A.far) w.setAttribute('stroke-dasharray', '1 0');
+    if (o.sel) wires.append(el('path', { d: dpath, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 7, opacity: .3 }));
     wires.append(w);
     if (lit) for (let k = 0; k < 3; k++) {
       const c = el('circle', { r: 2, fill: col(s), opacity: .85 });
@@ -400,7 +542,7 @@ function draw() {
   // fit everything into the free area (left of the notes, between the toolbars)
   top.removeAttribute('transform');
   const bb = top.getBBox(), quiet = document.body.classList.contains('quiet');
-  const L = r, T = 6.6 * r, W = innerWidth - (quiet ? 2 * r : 21.5 * r) - L, H = innerHeight - T - 4 * r;
+  const L = r, T = 6.6 * r, W = d.side ? innerWidth * .56 - 2 * r : innerWidth - (quiet ? 2 * r : 21.5 * r) - L, H = innerHeight - T - 4 * r - (d.side && !quiet ? 12.5 * r : 0);
   const s = Math.min(W / bb.width, H / bb.height, 1.25);
   top.setAttribute('transform', `translate(${L + (W - bb.width * s) / 2 - bb.x * s}, ${T + (H - bb.height * s) / 2 - bb.y * s}) scale(${s})`);
   wires.append(...beads);
@@ -419,10 +561,12 @@ function chrome() {
   document.getElementById('legend').innerHTML = ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far'].map(s => {
     const svg = `<svg width="12" height="12" viewBox="-6 -6 12 12">${shapeSvg(s)}</svg>`; return `<span>${svg}${s}</span>`;
   }).join('');
-  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4, 5].map(i => `<button class="${i === view || (i === 5 && view === 6) ? 'on' : ''}" data-v="${i}">${['Chapter', 'Network A', 'Network B', 'Rig', 'Network C'][i - 1]}</button>`).join('');
+  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4, 5, 7].map(i => `<button class="${i === view || (i === 5 && view === 6) || (i === 7 && view > 7) ? 'on' : ''}" data-v="${i}">${{1: 'Chapter', 2: 'Network A', 3: 'Network B', 4: 'Rig', 5: 'Network C', 7: 'B + Reception'}[i]}</button>`).join('');
   document.getElementById('waits').innerHTML = `<button>${d.waits}</button>`;
   document.getElementById('notes').innerHTML = d.notes;
-  document.querySelectorAll('#views button, #tool button[data-v]').forEach(b => b.onclick = () => go(+b.dataset.v));
+  document.body.classList.toggle('split', !!d.side);
+  document.getElementById('side').innerHTML = d.side ? d.side() : '';
+  document.querySelectorAll('#views button, #tool button[data-v], #side button[data-v]').forEach(b => b.onclick = () => go(+b.dataset.v));
   document.getElementById('livebtn').onclick = toggleLive;
 }
 function shapeSvg(s) {
@@ -436,7 +580,7 @@ function shapeSvg(s) {
 function go(v) { view = v; q.set('v', v); history.replaceState(null, '', '?' + q); chrome(); draw(); }
 function toggleLive() { live = !live; document.body.classList.toggle('live', live); chrome(); draw(); }
 addEventListener('keydown', e => {
-  if (e.key >= '1' && e.key <= '6') go(+e.key);
+  if (e.key >= '1' && e.key <= '9') go(+e.key);
   else if (e.key === 't' || e.key === 'T') { const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; draw(); }
   else if (e.key === 'n' || e.key === 'N') { document.body.classList.toggle('quiet'); draw(); }
   else if (e.key === 'l' || e.key === 'L') toggleLive();
