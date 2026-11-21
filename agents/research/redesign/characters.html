@@ -1,0 +1,564 @@
+<!-- Status: draft round 1 for the owner's review (#773, epic #626), 2026-11-21 – the character workspace (A / B / C), the 3D place, the AI canvas hook in four states; concept only, no build. Write-up: AI-HOOKS.md. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character workspace</title>
+<!-- The character workspace on the panel model (#751 / #765), a 3D place for a rigged model, and the AI canvas hook (#773).
+     Starting point: stage.html (the stage under the bar, a tab taking the stage, the two-way split) and panels.html.
+     Colours: shared/tokens/editor.css, night and day, copied 1:1 – nothing else for the UI (the figure, the model, the
+     floor are content and have their own colours, as in stage.html). Night first; T = day.
+     ?v=a|b|c the variant · ?view=sheet|expr|3d the character's own view · ?split=1 the two-way split · ?take=<section> a section on the stage ·
+     ?hook=closed|open|running|landed the featured hook's state · ?empty=1 the 3D place before a model (the way in) · ?skel=0 hides the skeleton ·
+     ?theme=day · ?quiet folds the notes.
+     Keys: 1 / 2 / 3 = A / B / C · V = next view (sheet → expressions → 3D) · S = split on / off · G = Generations takes the stage ·
+     H = the hook's next state · E = the 3D way in on / off · K = skeleton · Esc = back to the view · T = day / night · N = notes. Open at 1440×900. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+/* shared/tokens/editor.css – night */
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;--go:#4cc35a;--stop:#e5483b;
+  --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+}
+/* shared/tokens/editor.css – day */
+[data-theme=day]{
+  --stage:#000000;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;--go:#2e8a3e;--stop:#d63a2d;
+  --ground:rgb(243 243 240 / 0.8);--halo:none;
+}
+:root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── the bar: pills floating on the stage ── */
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap);pointer-events:none}
+.bar>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line),0 .2rem .6rem rgb(0 0 0/.2)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap;font-size:var(--small)}
+.pill button:hover{background:var(--hover)}
+.pill button.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.pill .round{padding:0;justify-content:center}
+.pill .sep{width:1px;height:1.2rem;background:var(--line);margin:0 .15rem}
+.pill .lab{padding:0 .4rem;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.middle{flex:1;display:flex;justify-content:center;pointer-events:none}
+.path{pointer-events:auto;display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);color:var(--muted);font-size:var(--small);box-shadow:0 0 0 1px var(--line)}
+.path b{color:var(--text);font-weight:400}
+.face{width:1.2rem;height:1.2rem;border-radius:50%;background:#4f5747;display:inline-block;flex:none;box-shadow:inset 0 0 0 2px #e8eae2}
+
+/* ── the stage ── */
+.box{position:fixed;overflow:hidden}
+.box.canvas{background:var(--stage)}
+.box.page{background:var(--surface);overflow:auto}
+.pagebody{padding-top:calc(var(--top) + var(--gap));padding-bottom:calc(var(--row) + 3 * var(--gap))}
+.pagecol{max-width:46rem;margin:0 auto}
+.pagehead{display:flex;align-items:center;gap:.5rem;margin:0 0 1rem}
+.pagehead .t{font-size:var(--title)}
+.divider{position:fixed;z-index:6;top:0;bottom:0;width:.8rem;margin-left:-.4rem;display:flex;justify-content:center}
+.divider::before{content:"";width:1px;height:100%;background:var(--line)}
+.stagepill{position:fixed;z-index:30;transform:translateX(-50%)}
+.dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--accent);flex:none}
+.tag{position:absolute;padding:.2rem .55rem;border-radius:1rem;background:var(--ground);color:var(--text);text-shadow:var(--halo);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.quiet{position:absolute;padding:.3rem .6rem;border-radius:var(--radius);background:var(--ground);color:var(--muted);font-size:var(--small);text-shadow:var(--halo);line-height:1.6}
+.quiet b{font-weight:400;color:var(--warn)}
+.art{position:absolute;inset:0}
+.art svg{position:absolute;inset:0;width:100%;height:100%}
+.ground2d{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 50% 48%,#22281f,var(--stage) 75%)}
+svg .cap{fill:#a7af9b;font:400 11px "Noto Sans",sans-serif;letter-spacing:.15em;text-transform:uppercase}
+svg .jn{fill:#a7af9b;font:400 10px "Noto Sans",sans-serif}
+
+/* the expressions grid on the stage */
+.grid{position:absolute;display:grid;grid-template-columns:repeat(6,1fr);gap:.6rem}
+.cell{position:relative;aspect-ratio:1;border-radius:var(--radius);background:#1a1c18;box-shadow:0 0 0 1px #3a4034;overflow:hidden}
+.cell svg{position:absolute;inset:0;width:100%;height:100%}
+.cell .nm{position:absolute;left:.4rem;bottom:.3rem;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:#a7af9b}
+.cell.empty{background:transparent;box-shadow:none;border:1px dashed var(--line);display:grid;place-items:center;color:var(--muted);font-size:var(--small)}
+.cell.cnd{box-shadow:0 0 0 1px var(--accent)}
+.cell .chip{position:absolute;right:.35rem;top:.35rem}
+
+/* the 3D place */
+.s3d{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse 70% 45% at 50% 45%,#1b2a30,var(--stage) 70%);perspective:80rem;perspective-origin:50% 25%}
+.floor{position:absolute;left:50%;top:54%;width:150rem;height:110rem;margin-left:-75rem;transform-origin:50% 0;transform:rotateX(72deg);
+  background-image:linear-gradient(rgb(0 209 255/.22) 1px,transparent 1px),linear-gradient(90deg,rgb(0 209 255/.22) 1px,transparent 1px);background-size:6rem 6rem}
+.horizon{position:absolute;left:0;right:0;top:0;height:56%;background:linear-gradient(var(--stage) 35%,transparent);pointer-events:none}
+.clips{position:absolute;display:flex;align-items:center;gap:.25rem}
+.clips .bar2{position:relative;width:14rem;height:.3rem;border-radius:.15rem;background:var(--line);margin:0 .5rem}
+.clips .bar2 i{position:absolute;left:0;top:0;bottom:0;width:38%;border-radius:.15rem;background:var(--accent)}
+.drop{position:absolute;border:1px dashed var(--line);border-radius:.6rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;text-align:center}
+.drop .big{font-size:var(--title)}
+.drop .row3{display:flex;gap:.5rem}
+
+/* ── panels (floating-panel.svelte's look) ── */
+.panel{position:fixed;z-index:10;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--ground);box-shadow:0 0 0 1px rgb(0 0 0/.25),0 .3rem 1rem rgb(0 0 0/.25);overflow:hidden;text-shadow:var(--halo);backdrop-filter:blur(6px)}
+.head{display:flex;align-items:center;gap:.15rem;min-height:2.35rem;padding:.3rem .3rem .3rem .15rem;background:var(--head);user-select:none}
+.grip{width:.9rem;color:var(--muted);text-align:center;font-size:.8rem}
+.tabs{flex:1;display:flex;align-items:center;gap:.15rem;min-width:0;overflow:hidden}
+.tab{flex:none;height:1.75rem;padding:0 .6rem;border:0;border-radius:.9rem;background:transparent;font-size:var(--small);display:flex;align-items:center;gap:.35rem}
+.tab:hover{background:var(--hover)}
+.tab.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.hb{width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:var(--radius);background:transparent;color:var(--muted);display:grid;place-items:center;flex:none}
+.hb:hover{background:var(--hover);color:var(--text)}
+.content{flex:1;overflow:auto;padding:var(--pad)}
+.rows{display:flex;flex-direction:column;gap:1px}
+.row{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:0 .5rem;border-radius:var(--radius);font-size:var(--small)}
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--selected)}
+.row .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.group{margin:.7rem .5rem .25rem}
+.field{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.8rem}
+.field input,.field textarea,.field .ro{width:100%;min-height:var(--row);padding:.45rem .55rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);color:var(--text);font:inherit;font-size:var(--small)}
+.field textarea{height:5.5rem;resize:none}
+.btn{height:var(--row);padding:0 var(--pad);border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);white-space:nowrap;text-shadow:none}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
+.btn.q{border-color:transparent;background:transparent;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:.3rem;height:1.35rem;padding:0 .5rem;border-radius:.7rem;background:var(--control);box-shadow:0 0 0 1px var(--line);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted);white-space:nowrap;text-shadow:none}
+.chip.c{color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem}
+.thumb{aspect-ratio:1;border-radius:var(--radius);background:linear-gradient(150deg,var(--selected),var(--within))}
+
+/* ── the AI canvas hook: one shape everywhere ── */
+.hook{position:absolute;z-index:20;display:flex;align-items:center;gap:.4rem;height:1.85rem;padding:0 .7rem 0 .3rem;border:0;border-radius:.95rem;background:var(--ground);box-shadow:0 0 0 1px var(--accent);color:var(--text);font-size:var(--small);text-shadow:var(--halo);white-space:nowrap}
+.hook:hover{background:var(--hover)}
+.hook .io{color:var(--muted)}
+.hook .io b{font-weight:400;color:var(--text)}
+.socket{position:relative;width:1.3rem;height:1.3rem;border-radius:50%;border:1.5px solid var(--accent);flex:none}
+.socket::after{content:"";position:absolute;left:50%;top:50%;width:.4rem;height:.4rem;margin:-.2rem;border-radius:50%;background:var(--accent)}
+.hook.running .socket{border-color:var(--line);border-top-color:var(--accent);animation:spin 1.1s linear infinite}
+.hook.running .socket::after{display:none}
+.hook .prog{width:4.5rem;height:.25rem;border-radius:.13rem;background:var(--line);position:relative;overflow:hidden}
+.hook .prog i{position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--accent)}
+.hook .x{color:var(--muted);margin-left:.2rem}
+.hook.landed .socket{background:var(--accent)}
+.hook.landed .socket::after{background:var(--stage)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hookcard{position:absolute;z-index:25;width:25rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--accent),0 .8rem 2rem rgb(0 0 0/.5);font-size:var(--small);overflow:hidden}
+.hookcard .hh{display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;background:var(--head)}
+.hookcard .hh .sp{flex:1}
+.hookcard .hb2{padding:.7rem}
+.hookcard .lane{display:grid;grid-template-columns:5.2rem 1fr;gap:.5rem;align-items:start;margin-bottom:.7rem}
+.hookcard .lane>.label{padding-top:.25rem}
+.tools{display:flex;flex-direction:column;gap:1px}
+.tool{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:.2rem .5rem;border-radius:var(--radius)}
+.tool.sel{background:var(--selected)}
+.tool .r{width:.8rem;height:.8rem;border-radius:50%;border:1px solid var(--muted);flex:none}
+.tool.sel .r{border:4px solid var(--text)}
+.tool .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.hookcard textarea{width:100%;height:3.6rem;padding:.4rem .5rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);color:var(--text);font:inherit;font-size:var(--small);resize:none}
+.hookcard .foot{display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;border-top:1px solid var(--line)}
+.hookcard .foot .sp{flex:1}
+.cand{position:absolute;z-index:18;width:19rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--accent),0 .5rem 1.5rem rgb(0 0 0/.45);font-size:var(--small);overflow:hidden}
+.cand .pic{height:9rem;background:radial-gradient(ellipse at 50% 70%,#1b2a30,#000)}
+.cand .pic svg{width:100%;height:100%}
+.cand .meta{padding:.5rem .6rem;display:flex;flex-direction:column;gap:.25rem}
+.cand .meta .m{color:var(--muted);font-size:var(--label)}
+.cand .acts{display:flex;gap:.35rem;padding:0 .6rem .6rem}
+.wire{position:absolute;inset:0;pointer-events:none;z-index:17}
+.wire path{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 4}
+
+/* ── the draft's notes (not part of the design) ── */
+.notes{position:fixed;z-index:90;left:var(--gap);bottom:var(--gap);width:30rem;max-height:calc(100vh - var(--top) - 2rem);overflow:auto;padding:.8rem 1rem;border:1px dashed var(--muted);border-radius:var(--radius);background:var(--head);color:var(--text);font-size:var(--small);box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
+.notes.min{width:auto}
+.notes.min .more{display:none}
+.notes h3{margin:0 0 .5rem;font-size:1rem;font-weight:400;display:flex;align-items:center;gap:.5rem}
+.notes.min h3{margin:0}
+.notes h3 .sp{flex:1}
+.notes p{margin:.35rem 0}
+.notes dl{margin:.3rem 0;display:grid;grid-template-columns:5.6rem 1fr;gap:.25rem .6rem}
+.notes dt{color:var(--muted)}
+.notes dd{margin:0}
+.notes kbd{font:inherit;font-size:var(--label);padding:0 .3rem;border:1px solid var(--line);border-radius:.2rem}
+.notes .vs{display:flex;gap:.3rem;margin:.4rem 0}
+</style>
+</head>
+<body>
+
+<div id="stage"></div>
+
+<div class="bar">
+  <div class="pill"><button class="round" title="Main menu">☰</button><button class="round" title="Home">⌂</button><button title="Library">Library</button></div>
+  <div class="pill"><button class="on"><span class="face"></span>Katzenpapst</button><button>Cat Pope › Chapter 2</button><button class="round" title="Open from the Library">+</button></div>
+  <div class="middle"><span class="path">Cat Pope › Characters › <b>Katzenpapst</b></span></div>
+  <div class="pill"><button class="on">Edit</button><button>Play</button></div>
+  <div class="pill"><button id="presetbtn" title="The preset this workspace opened with – Views lists the others">Views</button><button>History</button><button>Publish</button></div>
+  <div class="pill"><button>tilman</button></div>
+</div>
+
+<div id="panels"></div>
+<div class="notes" id="notes"></div>
+
+<script>
+const q = new URLSearchParams(location.search);
+const rem = 14, GAP = rem, TOP = 3.6 * rem, HEADH = 2.35 * rem;
+const $ = s => document.querySelector(s);
+const ICON = {
+  take:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="6" y="8" width="12" height="8" rx="1" fill="currentColor" stroke="none" opacity=".35"/></svg>',
+  back:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8" width="6" height="8" rx="1"/></svg>',
+  split:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/></svg>',
+  fold:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  close:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  sheet:'<svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 10v8M12 10v8M18 10v8"/></svg>',
+  expr:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  cube:'<svg class="i" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>',
+  play:'<svg class="i" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>'
+};
+const SECTIONS = {kanon:'Kanon', expr:'Expressions', rig:'Rig', voice:'Voice', cast:'Cast', gens:'Generations', library:'Library'};
+const VIEWS = {sheet:'Sheet', expr:'Expressions', '3d':'3D'};
+const VORDER = ['sheet','expr','3d'];
+
+// ── the three variants: the same sections, three presets ──
+const VARIANTS = {
+  a: {name:'A – one section panel, the sheet on the stage', view:'sheet',
+      panels:[{id:'sections', at:'right', tabs:['kanon','expr','rig','voice','cast','gens'], on:'kanon', h:.62}, {id:'library', at:'right-foot', tabs:['library'], folded:true}],
+      good:'The quietest. Every character has a sheet; the 3D model is one view of it, not the start. One panel holds all six sections as tabs – the preset is that panel plus the view.',
+      bad:'Six tabs in one head are tight at 744 px; the 3D model needs a key or the view switch to show up.'},
+  b: {name:'B – who / make, the model on the stage', view:'3d',
+      panels:[{id:'who', at:'left', tabs:['kanon','voice','cast'], on:'kanon', h:.55}, {id:'make', at:'right', tabs:['rig','expr','gens'], on:'rig', h:.7}],
+      good:'The 3D place first: model, skeleton, clips and spots on the whole window; "who the character is" left, "what it is made of" right. The conference picture.',
+      bad:'A character without a model opens on the way in (drop a GLB), not on its art – most of the cast today. Two panels cover more of the stage.'},
+  c: {name:'C – split stage, sections as a pill row', view:'sheet', split:true,
+      panels:[], pills:['kanon','expr','rig','voice','cast','gens'], openPill:'gens',
+      good:'Art and model side by side (2D sheet | 3D) – checks a model against its sheet at a glance, and shows where a generated candidate came from. No panel stays open: a section opens over its half and folds back.',
+      bad:'Each half is narrow for the expressions grid; a section is one click further away.'}
+};
+
+let S, took = false, LIM = {x:0, w:innerWidth};
+function reset(keepHook){
+  const v = VARIANTS[S?.v ?? q.get('v') ?? 'a'] ? (S?.v ?? q.get('v') ?? 'a') : 'a';
+  const V = VARIANTS[v];
+  const main = 'view:' + (S ? V.view : (q.get('view') ?? V.view));
+  const split = S ? !!V.split : (q.has('split') ? q.get('split') === '1' : !!V.split);
+  S = {v, main, second: split ? (main === 'view:3d' ? 'view:sheet' : 'view:3d') : null,
+       hook: keepHook ?? (q.get('hook') ?? 'closed'), empty: q.get('empty') === '1', skel: q.get('skel') !== '0',
+       panels: V.panels.map(p => ({...p, tabs:[...p.tabs]})), openPill: V.openPill ?? null};
+  const take = q.get('take');
+  if (take && !took){ takeStage(take); took = true; }
+}
+const variant = () => VARIANTS[S.v];
+
+// ── geometry ──
+function geom(){
+  const W = innerWidth, H = innerHeight, g = {W, H, rects:{}};
+  const leftW = 19*rem, rightW = 25*rem, avail = H - TOP - 2*GAP;
+  let l = 0, r = 0;
+  for (const p of S.panels){
+    if (p.at === 'left'){ g.rects[p.id] = {x:GAP, y:TOP+GAP, w:leftW, h:p.folded ? HEADH : avail*p.h}; l = leftW + GAP; }
+    if (p.at === 'right'){ g.rects[p.id] = {x:W-GAP-rightW, y:TOP+GAP, w:rightW, h:p.folded ? HEADH : avail*p.h}; r = rightW + GAP; }
+    if (p.at === 'right-foot'){ g.rects[p.id] = {x:W-GAP-rightW, y:H-GAP-HEADH, w:rightW, h:HEADH}; r = rightW + GAP; }
+  }
+  g.l = l + GAP; g.r = r + GAP;           // what the panels cover on each side, plus a gap
+  const sx = Math.round(W/2);
+  g.boxes = S.second ? [{x:0,y:0,w:sx,h:H}, {x:sx,y:0,w:W-sx,h:H}] : [{x:0,y:0,w:W,h:H}];
+  return g;
+}
+const css = r => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
+// the free part of a box (inside its own coordinates): clear of the bar, the panels and the bottom pills
+function free(box, g){
+  const x0 = Math.max(box.x, g.l) - box.x, x1 = Math.min(box.x + box.w, g.W - g.r) - box.x;
+  return LIM = {x:x0, y:TOP + GAP, w:x1 - x0, h:box.h - TOP - GAP - (2*GAP + 2.15*rem + GAP), cx:(x0 + x1)/2};
+}
+
+// ── the figure (content art: its own colours, as in stage.html) ──
+function figure(cx, gy, s, view='front', opts={}){
+  const side = view === 'side', back = view === 'back';
+  const bw = side ? 62 : 95, eyes = back ? '' : side ? `<circle cx="34" cy="-415" r="9" fill="#b4ff32"/>` : `<circle cx="-26" cy="-415" r="9" fill="#b4ff32"/><circle cx="26" cy="-415" r="9" fill="#b4ff32"/>`;
+  const cross = back || side ? '' : `<path d="M-14 -340 V0 M-60 -230 H60" stroke="#b4932f" stroke-width="10"/>`;
+  const arms = side ? `<path d="M10 -280 C40 -200 40 -150 30 -110" stroke="#d9decf" stroke-width="34" fill="none" stroke-linecap="round"/>`
+    : `<path d="M-${bw} -280 C-${bw+60} -230 -${bw+75} -170 -${bw+60} -110" stroke="#e8eae2" stroke-width="34" fill="none" stroke-linecap="round"/><path d="M${bw} -280 C${bw+60} -230 ${bw+75} -170 ${bw+60} -110" stroke="#e8eae2" stroke-width="34" fill="none" stroke-linecap="round"/>`;
+  return `<g transform="translate(${cx} ${gy}) scale(${s})" opacity="${opts.ghost ? .35 : 1}">
+    <ellipse cx="0" cy="0" rx="${bw+40}" ry="22" fill="rgb(0 0 0/.55)"/>
+    <path d="M-${bw} 0 C-${bw+5} -160 -${bw*.85} -330 0 -340 C${bw*.85} -330 ${bw+5} -160 ${bw} 0 Z" fill="${back ? '#d9decf' : '#e8eae2'}" stroke="#a7af9b" stroke-width="3"/>
+    ${cross}
+    <circle cx="0" cy="-410" r="78" fill="#4f5747"/>
+    <path d="M-62 -460 L-78 -530 L-40 -488 Z M62 -460 L78 -530 L40 -488 Z" fill="#4f5747"/>
+    <path d="M-50 -470 C-50 -600 50 -600 50 -470 Z" fill="#f3f3f0" stroke="#b4932f" stroke-width="6"/>
+    ${eyes}${arms}</g>`;
+}
+// figures.js joint names (CHARACTERS3D.md: the contract for artists' models), in figure units (0 = feet, up = +)
+const JOINTS = [['head',0,410],['neck',0,335],['chest',0,250],['spine',0,170],['pelvis',0,95],
+  ['sh L',95,285],['el L',150,200],['wr L',155,115],['sh R',-95,285],['el R',-150,200],['wr R',-155,115],
+  ['hip L',45,90],['kn L',48,48],['an L',50,8],['hip R',-45,90],['kn R',-48,48],['an R',-50,8],['robe',0,40]];
+const BONES = [['head','neck'],['neck','chest'],['chest','spine'],['spine','pelvis'],['chest','sh L'],['sh L','el L'],['el L','wr L'],['chest','sh R'],['sh R','el R'],['el R','wr R'],
+  ['pelvis','hip L'],['hip L','kn L'],['kn L','an L'],['pelvis','hip R'],['hip R','kn R'],['kn R','an R'],['pelvis','robe']];
+function skeleton(cx, gy, s, labels){
+  const P = Object.fromEntries(JOINTS.map(([n,x,y]) => [n, [cx + x*s, gy - y*s]]));
+  return BONES.map(([a,b]) => `<line x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}" stroke="#00d1ff" stroke-width="2" opacity=".85"/>`).join('')
+    + JOINTS.map(([n]) => `<circle cx="${P[n][0]}" cy="${P[n][1]}" r="5" fill="#000" stroke="#00d1ff" stroke-width="1.5"/>${labels && !/^(robe|spine)$/.test(n) ? `<text class="jn" x="${P[n][0] + (n.endsWith('R') ? -10 : 10)}" y="${P[n][1] + 3}" text-anchor="${n.endsWith('R') ? 'end' : 'start'}">${n}</text>` : ''}`).join('');
+}
+function face(i){
+  const eye = [['M-14 -6 h8 M6 -6 h8'],['M-14 -4 q4 -6 8 0 M6 -4 q4 -6 8 0'],['circle'],['M-14 -8 l8 4 M14 -8 l-8 4'],['M-14 -5 h8 M6 -5 h8'],['circle']][i % 6][0];
+  const mouth = ['M-8 10 q8 6 16 0','M-8 12 q8 -6 16 0','M-6 10 h12','M-6 8 q6 10 12 0','M-8 10 q8 10 16 0 z','M-4 10 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0'][i % 6];
+  const eyes = eye === 'circle' ? '<circle cx="-10" cy="-6" r="3.5" fill="#b4ff32"/><circle cx="10" cy="-6" r="3.5" fill="#b4ff32"/>' : `<path d="${eye}" stroke="#b4ff32" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+  return `<svg viewBox="-40 -44 80 80"><path d="M-22 -24 L-28 -40 L-14 -30 Z M22 -24 L28 -40 L14 -30 Z" fill="#4f5747"/><circle r="26" fill="#4f5747"/>${eyes}<path d="${mouth}" stroke="#e8eae2" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
+}
+
+// ── the hook: one shape (closed · open · running · landed) ──
+// spec: what goes out, the tool category, what comes back, where it lands
+function hookHTML(h, x, y, state, flip){
+  const io = `<span class="io">${h.out} → <b>${h.tool}</b> → ${h.back}</span>`;
+  const pw = (state === 'running' ? h.tool.length + h.via.length + 22 : (h.out + h.tool + h.back).length + 8) * 7 + 40;
+  x = Math.max(LIM.x + 4, Math.min(x, LIM.x + LIM.w - pw));   // the pill stays inside its half and clear of the panels
+  if (state === 'running') return `<button class="hook running" style="left:${x}px;top:${y}px" title="Running – the result lands as a candidate"><span class="socket"></span>${h.tool} · ${h.via}<span class="prog"><i></i></span><span class="io">1:12</span><span class="x" title="Cancel">✕</span></button>`;
+  if (state === 'landed') return `<button class="hook landed" style="left:${x}px;top:${y}px" title="A candidate landed – accept it into the Library"><span class="socket"></span>${h.tool} · ${h.count ?? 1} candidate${(h.count ?? 1) > 1 ? "s" : ""}</button>`;
+  let s = `<button class="hook" style="left:${x}px;top:${y}px" title="AI hook: ${h.out} → ${h.tool} → ${h.back}"><span class="socket"></span>${io}</button>`;
+  if (state === 'open'){
+    const cx = Math.max(LIM.x + 4, Math.min(flip ? x - 15*rem : x, LIM.x + LIM.w - 25*rem - 4)), cy = Math.max(TOP + GAP, Math.min(y + 2.4*rem, innerHeight - 30*rem));
+    s += `<div class="hookcard" style="left:${cx}px;top:${cy}px">
+      <div class="hh"><span class="socket"></span><span>${h.out} → ${h.tool}</span><span class="sp"></span><span class="label">hook</span><button class="hb" title="Close">${ICON.close}</button></div>
+      <div class="hb2">
+        <div class="lane"><span class="label">Sends</span><div style="display:flex;gap:.35rem;flex-wrap:wrap">${h.sends.map((t,i)=>`<span class="chip ${i<2?'c':''}">${i<2?'✓ ':''}${t}</span>`).join('')}</div></div>
+        <div class="lane"><span class="label">Tool</span><div class="tools">${h.tools.map(([n,k,m],i)=>`<div class="tool ${i==0?'sel':''}"><span class="r"></span>${n}<span class="n">${k}</span></div>`).join('')}</div></div>
+        <div class="lane"><span class="label">Asks</span><textarea>${h.prompt}</textarea></div>
+        <div class="lane"><span class="label">Comes back</span><span>${h.lands}</span></div>
+      </div>
+      <div class="foot"><span class="label">your key · your budget</span><span class="sp"></span><button class="btn q">Copy inputs</button><button class="btn primary">Send</button></div></div>`;
+  }
+  return s;
+}
+const HOOKS = {
+  img3d: {out:'image', tool:'3D', back:'model', via:'local GPU', sends:['Front A-pose','Side view','Back view','Kanon: Look'],
+    tools:[['Local GPU · image → mesh','free · e.g. TripoSR'],['Service · image → 3D','paid · e.g. Tripo'],['By hand','copy out, drop the GLB back']],
+    prompt:'Katzenpapst, regular look. Low poly, A-pose, faces +z, feet on the floor, metres.', lands:'a GLB → a candidate beside the sheet (Generations), from: the front A-pose'},
+  variants: {out:'image', tool:'variants', back:'images', via:'local GPU', sends:['The sheet','Kanon: Look','Style refs'],
+    tools:[['Local GPU · image edit','free · e.g. comfy-local'],['Service · image with refs','paid · e.g. luma uni-1'],['By hand','copy out, drop the images back']],
+    prompt:'Three looks for winter: a fur cassock, a scarf, snow boots. Same face, same proportions.', lands:'n images → candidates in a row under the sheet, from: the sheet'},
+  exprsheet: {count:3, out:'text', tool:'expression sheet', back:'images', via:'service', sends:['Missing: sleepy, scared, singing','Face refs (6)','Kanon: Who'],
+    tools:[['Service · image with refs','paid · e.g. luma uni-1'],['Local GPU · image edit','free · e.g. comfy-local'],['By hand','copy the prompt, drop the files back']],
+    prompt:'Katzenpapst – sleepy, scared, singing. Same head, same lighting as the refs; one face per square.', lands:'3 images → candidates in the empty squares, named <character>_<view>-<mood>'},
+  rig: {out:'model', tool:'rig / retarget', back:'rigged model', via:'service', sends:['catpope_regular.glb v3','Joint names (figures.js)','Front A-pose'],
+    tools:[['Service · auto-rig','paid · e.g. AccuRIG / Mixamo'],['Local · rig script','free · Blender'],['By hand','export, rig in Blender, drop back']],
+    prompt:'Add a face rig (jaw, eyes, ears); keep the body joints and their names; ≤ 48 bones.', lands:'a rigged GLB → a candidate version v4 beside v3, from: v3'},
+  clip: {out:'video', tool:'motion', back:'clip', via:'service', sends:['A take (phone, 6 s)','Joint names','The rig v3'],
+    tools:[['Service · video → motion','paid · e.g. a mocap service'],['Local GPU · pose from video','free'],['By hand','drop a clip (GLB / BVH)']],
+    prompt:'The blessing, from the take of 2026-11-20. Loop the last second.', lands:'a clip → a candidate on the strip, from: the take'}
+};
+
+// ── the views on the stage ──
+function sheetView(box, g, featured){
+  const landed = featured && S.hook === 'landed', n = landed ? 4 : 3, f = free(box, g);
+  const s = Math.min(f.h * .7 / 620, f.w / (n * 400)), gy = f.y + f.h * .93, step = Math.min(f.w / n, 460*s);
+  const slot = i => f.cx + (i - (n - 1)/2) * step;
+  const xs = landed ? [slot(0), slot(2), slot(3)] : [slot(0), slot(1), slot(2)];
+  const views = ['front','side','back'], caps = ['front · A-pose','side','back'];
+  let svg = views.map((v,i) => figure(xs[i], gy, s, v) + `<text class="cap" x="${xs[i]}" y="${gy + 40*s + 22}" text-anchor="middle">${caps[i]}</text>`).join('');
+  let over = `<span class="tag" style="left:${f.cx - 6*rem}px;top:${f.y}px">Regular · cassock · sheet v2</span>`;
+  // personas and looks: faces in a pill, top of the free part
+  over += `<div class="pill" style="position:absolute;left:${f.cx - 13*rem}px;top:${f.y + 2.2*rem}px"><span class="lab">persona</span><button class="on"><span class="face"></span>Regular</button><button><span class="face"></span>Biker</button><button><span class="face"></span>Nun</button><span class="sep"></span><span class="lab">look</span><button class="on">Cassock</button><button>Summer</button></div>`;
+  let hooks = '', extra = '';
+  const hx = xs[0] + 120*s, hy = gy - 470*s;
+  hooks += hookHTML(HOOKS.img3d, hx, hy, featured ? S.hook : 'closed', false);
+  hooks += hookHTML(HOOKS.variants, f.cx + 10*rem, f.y - .2*rem, "closed", true);
+  if (landed){
+    const cx = slot(1) - 7.5*rem, cy = gy - 300*s - 7*rem;
+    extra += `<svg class="wire"><path d="M${xs[0] + 190*s},${gy - 200*s} C${cx - 20},${gy - 200*s} ${cx - 20},${cy + 5*rem} ${cx},${cy + 5*rem}"/></svg>`;
+    extra += candidate(cx, cy, 'GLB · 3D model', 'from: front A-pose · image → 3D (local) · take 1', 'Accept into the Library');
+  }
+  return `<div class="ground2d"></div><div class="art"><svg>${svg}</svg></div>${over}${hooks}${extra}`;
+}
+function candidate(x, y, kind, from, accept){
+  const mini = `<svg viewBox="0 0 200 140">${skeleton(100, 128, .2, false)}<g opacity=".6">${figure(100,128,.2,'front')}</g></svg>`;
+  return `<div class="cand" style="left:${x}px;top:${y}px"><div class="pic">${mini}</div><div class="meta"><span style="display:flex;align-items:center;gap:.4rem"><span class="chip c">candidate</span>${kind}</span><span class="m">${from}</span><span class="m">18.2k tris · no rig yet · 2.4 MB</span></div><div class="acts"><button class="btn primary">${accept}</button><button class="btn q">Again</button><button class="btn q">Discard</button></div></div>`;
+}
+function exprView(box, g, featured){
+  const f = free(box, g), cols = 6, gw = Math.min(f.w - 2*GAP, (f.h - 4*rem) * 2), gx = f.cx - gw/2, gy = f.y + 3.4*rem;
+  const moods = ['neutral','happy','angry','sad','surprised','blessing','smug','tired','shouting','whisper','laughing','thinking','annoyed','proud','shy','sleepy','scared','singing'];
+  const landed = featured && S.hook === 'landed';
+  const cells = moods.map((m,i) => i >= 15
+    ? (landed ? `<div class="cell cnd">${face(i)}<span class="nm">${m}</span><span class="chip c">candidate</span></div>` : `<div class="cell empty">${m}</div>`)
+    : `<div class="cell">${face(i)}<span class="nm">${m}</span></div>`).join('');
+  const cellW = (gw - 5*.6*rem) / 6, hy = gy + 2*(cellW + .6*rem) + cellW + .8*rem;
+  let s = `<div class="ground2d"></div><span class="tag" style="left:${f.cx - 7*rem}px;top:${f.y}px">Regular · cassock · 15 of 18 moods</span>`;
+  s += `<div class="grid" style="left:${gx}px;top:${gy}px;width:${gw}px">${cells}</div>`;
+  s += hookHTML(HOOKS.exprsheet, gx + gw - 3*cellW - 1.2*rem, Math.min(hy, box.h - 9*rem), featured ? S.hook : 'closed', true);
+  if (landed) s += `<div class="pill" style="position:absolute;left:${gx + gw - 3*cellW}px;top:${Math.min(hy, box.h - 9*rem) + 2.6*rem}px"><button class="on" style="background:var(--primary);color:var(--primary-ink)">Accept 3 into the Library</button><button>Again</button><button>Discard</button></div>`;
+  return s;
+}
+function view3d(box, g, featured){
+  const f = free(box, g);
+  if (S.empty) return wayIn(box, g, f, featured);
+  const s = Math.min(f.h * .0013, f.w * .0011), cx = f.cx, gy = f.y + f.h * .88;
+  let svg = `<ellipse cx="${cx}" cy="${gy}" rx="${f.w*.3}" ry="${f.h*.06}" fill="none" stroke="#3a4034"/><ellipse cx="${cx}" cy="${gy}" rx="${f.w*.18}" ry="${f.h*.035}" fill="none" stroke="#3a4034"/>`;
+  svg += `<g opacity="${S.skel ? .55 : 1}">${figure(cx, gy, s, 'front')}</g>`;
+  if (S.skel) svg += skeleton(cx, gy, s, f.w > 500);
+  // spots (#724): empties named spot_* on the model, shown as small diamonds with their address
+  const spot = (x, y, n) => `<path d="M${x} ${y-7} l7 7 l-7 7 l-7 -7 z" fill="none" stroke="#b4ff32" stroke-width="1.5"/><text class="jn" x="${x + 11}" y="${y + 4}" style="fill:#b4ff32">${n}</text>`;
+  svg += spot(cx + 160*s, gy - 100*s, 'spot:hand_l') + spot(cx, gy - 610*s, 'spot:head_top') + spot(cx - 220*s, gy - 4*s, 'spot:floor_left');
+  // orbit gizmo, top right of the free part
+  const ox = f.x + f.w - 4*rem, oy = f.y + 8*rem;
+  svg += `<g transform="translate(${ox} ${oy})"><circle r="34" fill="rgb(0 0 0/.35)" stroke="#3a4034"/><path d="M0 0V-26" stroke="#4cc35a" stroke-width="2"/><path d="M0 0H26" stroke="#e5483b" stroke-width="2"/><path d="M0 0L-17 15" stroke="#00d1ff" stroke-width="2"/><text class="jn" x="0" y="50" text-anchor="middle">orbit · 30°</text></g>`;
+  let s2 = `<div class="s3d"><div class="floor"></div><div class="horizon"></div></div><div class="art"><svg>${svg}</svg></div>`;
+  s2 += `<span class="tag" style="left:${f.cx - 9*rem}px;top:${f.y}px">catpope_regular.glb · v3 · 18.2k tris · 54 bones</span>`;
+  // what's missing: quiet words, bottom left of the free part
+  s2 += `<div class="quiet" style="left:${f.x + GAP}px;top:${gy - 5.5*rem}px">no face rig<br><b>54 bones – the deck takes 48</b><br>2 clips without root motion</div>`;
+  // actions: attach / replace / version
+  s2 += `<div class="pill" style="position:absolute;left:${f.cx - 15.5*rem}px;top:${f.y + 2.2*rem}px"><span class="lab">attached to</span><button class="on"><span class="face"></span>Regular · cassock</button><span class="sep"></span><button>Replace…</button><button>New version</button><button>v1 · v2 · <b style="font-weight:400">v3</b></button></div>`;
+  // the clip strip, above the stage pill
+  const by = box.h - 2*GAP - 2.15*rem - GAP - 2.15*rem;
+  s2 += `<div class="clips pill" style="left:${f.cx - 21*rem}px;top:${by}px"><button class="round" title="Play">${ICON.play}</button><button class="on">idle · 2.0 s</button><button>walk · 1.2 s</button><button>bless · 3.4 s</button><button>sing · 4.0 s</button><span class="bar2"><i></i></span><span class="lab">0.8 s</span></div>`;
+  s2 += hookHTML(HOOKS.rig, cx + 110*s, gy - 470*s, featured ? S.hook : 'closed', false);
+  s2 += hookHTML(HOOKS.clip, f.cx + 8*rem, by - 2.7*rem, 'closed', true);
+  if (featured && S.hook === 'landed'){
+    const x = cx + 330*s, y = gy - 520*s;
+    s2 += `<svg class="wire"><path d="M${cx + 150*s},${gy - 300*s} C${x - 40},${gy - 300*s} ${x - 40},${y + 5*rem} ${x},${y + 5*rem}"/></svg>`;
+    s2 += candidate(x, y, 'v4 · face rig', 'from: v3 · rig / retarget (service) · take 1', 'Accept as v4');
+  }
+  return s2;
+}
+function wayIn(box, g, f, featured){
+  const w = Math.min(f.w - 4*rem, 44*rem), h = Math.min(f.h - 6*rem, 26*rem), x = f.cx - w/2, y = f.y + 3*rem;
+  let s = `<div class="s3d"><div class="floor"></div><div class="horizon"></div></div>`;
+  s += `<span class="tag" style="left:${f.cx - 7*rem}px;top:${f.y}px">Regular · cassock · no model yet</span>`;
+  s += `<div class="drop" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:rgb(0 0 0/.35)">
+    <span style="color:var(--accent)">${ICON.cube.replace('class="i"','class="i" style="width:2.4rem;height:2.4rem"')}</span>
+    <span class="big">Drop a GLB here</span>
+    <span class="label">rigged · A-pose · figures.js joint names · metres · faces +z · feet on y = 0</span>
+    <div class="row3"><button class="btn">Upload…</button><button class="btn">Pick from the Library</button></div>
+    <span style="color:var(--muted);font-size:var(--small)">No model? The figure stands in as 2D on every stage.</span></div>`;
+  s += hookHTML(HOOKS.img3d, f.cx - 9*rem, y + h + 1.2*rem, featured ? S.hook : 'closed', false);
+  return s;
+}
+
+// ── section pages (a section that took the stage) and the small panel contents ──
+const SEC = {
+  kanon: big => `${big ? `<div class="pagehead"><span class="t">Kanon · Katzenpapst</span><span class="label">draft</span></div>` : ''}
+    <div class="field"><span class="label">Who</span><div class="ro">The cat who became pope by accident. Blesses everything that moves, sings when nervous.</div></div>
+    <div class="field"><span class="label">Look</span><div class="ro">White cassock, gold cross, mitre one size too big. Lime eyes.</div></div>
+    ${big ? `<div class="field"><span class="label">Backstory</span><textarea>Found in the cathedral's organ loft …</textarea></div><div class="field"><span class="label">Rules</span><textarea>Never runs. Never says no to a song.</textarea></div>` : '<div class="field"><span class="label">Rules</span><div class="ro">Never runs. Never says no to a song.</div></div>'}`,
+  expr: () => `<div class="thumbs">${Array.from({length:9},(_,i)=>`<div class="thumb" style="position:relative">${face(i)}</div>`).join('')}</div><p class="label" style="margin:.6rem .2rem">15 of 18 · 3 missing</p>`,
+  rig: () => S.empty ? `<p class="label" style="margin:.5rem;text-transform:none;letter-spacing:0">No model yet – the joints, clips and spots come with it.</p>` : `<div class="rows">${['pelvis','spine','chest','neck','head','sh / el / wr  L R','hip / kn / an  L R','robe'].map((n,i)=>`<div class="row ${i==4?'sel':''}">${n}<span class="n">${['root','','','','jaw –','6','6','1'][i]}</span></div>`).join('')}</div><div class="group label">Clips</div><div class="rows">${['idle 2.0 s','walk 1.2 s','bless 3.4 s','sing 4.0 s'].map(n=>`<div class="row">${n}</div>`).join('')}</div><div class="group label">Spots</div><div class="rows">${['spot:hand_l','spot:head_top','spot:floor_left'].map(n=>`<div class="row">${n}</div>`).join('')}</div>`,
+  voice: () => `<div class="field"><span class="label">Voice</span><div class="ro">Tenor, slow, Viennese</div></div><div class="field"><span class="label">Samples</span><div class="rows"><div class="row">${ICON.play} blessing.wav<span class="n">0:04</span></div><div class="row">${ICON.play} song-chorus.wav<span class="n">0:22</span></div></div></div>`,
+  cast: () => `<div class="rows">${[['Cat Pope › Chapter 1','12 slices'],['Cat Pope › Chapter 2','8 slices'],['Show · Kathedrale live','rig'],['Poster · winter','XR']].map(([a,b])=>`<div class="row">${a}<span class="n">${b}</span></div>`).join('')}</div>`,
+  gens: big => {
+    const rows = [['GLB · 3D model','from front A-pose','image → 3D · local','candidate'],['3 faces','from text: sleepy, scared, singing','expression sheet · service','candidate'],['Rig v3','from v2','rig / retarget · service','accepted'],['Winter looks ×3','from the sheet','variants · local','discarded']];
+    return `${big ? `<div class="pagehead"><span class="t">Generations · Katzenpapst</span><span class="label">every hook's results, newest first</span></div>` : ''}
+    <div class="rows">${rows.map(([a,b,c,d],i)=>`<div class="row" style="min-height:${big?3.2:2.6}rem"><span class="thumb" style="width:${big?2.6:2}rem;flex:none"></span><span style="display:flex;flex-direction:column"><span>${a}</span><span class="label" style="text-transform:none;letter-spacing:0">${b} · ${c}</span></span><span class="n"><span class="chip ${d=='candidate'?'c':''}">${d}</span></span></div>`).join('')}</div>
+    ${big ? `<p class="label" style="margin-top:1rem;text-transform:none;letter-spacing:0">A candidate keeps where it came from (from), the tool and the take; accepting puts it into the Library as a version of what it came from. Discarded ones stay in History.</p>` : ''}`;
+  },
+  library: () => `<div class="thumbs">${Array.from({length:6},()=>'<div class="thumb"></div>').join('')}</div>`
+};
+
+// ── stage items ──
+function itemOf(id){
+  const [k, n] = id.split(':');
+  if (k === 'view') return {kind:'canvas', render: n === 'sheet' ? sheetView : n === 'expr' ? exprView : view3d, name: VIEWS[n]};
+  if (n === 'expr') return {kind:'canvas', render: exprView, name:'Expressions'};
+  if (n === 'rig') return {kind:'canvas', render: view3d, name:'Rig'};
+  return {kind:'page', render: () => SEC[n](true), name: SECTIONS[n]};
+}
+function takeStage(tab){
+  if (S.second) S.second = 'tab:' + tab; else S.main = 'tab:' + tab;
+  const p = S.panels.find(p => p.tabs.includes(tab)); if (p) p.taken = tab;
+}
+function backToView(){
+  const V = variant();
+  S.main = 'view:' + V.view; S.second = V.split ? 'view:3d' : null;
+  S.panels.forEach(p => delete p.taken);
+}
+
+function render(){
+  document.documentElement.dataset.theme = theme;
+  const g = geom(), items = [S.main, S.second].filter(Boolean);
+  let st = '';
+  items.forEach((id, i) => {
+    const box = g.boxes[i], it = itemOf(id);
+    if (it.kind === 'canvas') st += `<div class="box canvas" style="${css(box)}">${it.render(box, g, i === 0 || (i === 1 && !items[0].startsWith('view')))}</div>`;
+    else { const f = free(box, g); st += `<div class="box page" style="${css(box)}"><div class="pagebody" style="padding-left:${f.x + GAP}px;padding-right:${box.w - f.x - f.w + GAP}px"><div class="pagecol">${it.render()}</div></div></div>`; }
+  });
+  if (items.length === 2) st += `<div class="divider" style="left:${g.boxes[1].x}px"></div>`;
+  // the stage pill: the character's own view, the split, and what took the stage
+  const mainView = S.main.startsWith('view:') ? S.main.slice(5) : null;
+  const taken = items.filter(id => id.startsWith('tab:'));
+  const fx = (g.l + g.W - g.r) / 2;
+  st += `<div class="stagepill pill" style="left:${fx}px;bottom:${GAP}px"><span class="lab">${variant().name.slice(0,1)} · character</span>`
+    + VORDER.map(v => `<button class="${mainView === v ? 'on' : ''}" data-view="${v}">${ICON[v === '3d' ? 'cube' : v]}${VIEWS[v]}</button>`).join('')
+    + `<span class="sep"></span><button class="round ${S.second ? 'on' : ''}" data-split title="Split the stage in two (S)">${ICON.split}</button>`
+    + taken.map(id => `<span class="sep"></span><button class="on"><span class="dot"></span>${SECTIONS[id.slice(4)]}</button><button class="round" data-back title="Back into its panel (Esc)">${ICON.back}</button>`).join('')
+    + `</div>`;
+  // C: the sections as a pill row, bottom right; the open one floats above it
+  if (variant().pills){
+    st += `<div class="pill" style="position:fixed;z-index:30;right:${GAP}px;bottom:${GAP}px">${variant().pills.map(t => `<button class="${S.openPill === t ? 'on' : ''}" data-pill="${t}">${SECTIONS[t]}</button>`).join('')}</div>`;
+  }
+  $('#stage').innerHTML = st;
+
+  let ps = S.panels.map(p => {
+    const r = g.rects[p.id], on = p.on;
+    return `<div class="panel" style="${css(r)}"><div class="head"><span class="grip">⋮</span><div class="tabs">${p.tabs.map(t => `<button class="tab ${t === on ? 'on' : ''}" data-tab="${p.id}:${t}">${t === p.taken ? '<span class="dot"></span>' : ''}${SECTIONS[t]}</button>`).join('')}</div>
+      ${p.folded ? '' : `<button class="hb" data-take="${on}" title="${SECTIONS[on]} takes the stage">${ICON.take}</button>`}<button class="hb" title="Fold">${ICON.fold}</button></div>
+      ${p.folded ? '' : `<div class="content">${p.taken === on ? `<p class="label" style="margin:.5rem">${SECTIONS[on]} is on the stage</p>` : SEC[on](false)}</div>`}</div>`;
+  }).join('');
+  if (variant().pills && S.openPill){
+    const w = 25*rem, h = 18*rem;
+    ps += `<div class="panel" style="left:${g.W - GAP - w}px;top:${g.H - GAP - 2.15*rem - GAP - h}px;width:${w}px;height:${h}px"><div class="head"><span class="grip">⋮</span><div class="tabs"><button class="tab on">${SECTIONS[S.openPill]}</button></div><button class="hb" data-take="${S.openPill}" title="Takes the stage">${ICON.take}</button><button class="hb" data-pill="${S.openPill}" title="Fold back into the row">${ICON.fold}</button></div><div class="content">${SEC[S.openPill](false)}</div></div>`;
+  }
+  $('#panels').innerHTML = ps;
+  $('#presetbtn').textContent = 'Views · ' + ({a:'Character', b:'Character 3D', c:'Character split'})[S.v];
+  notes();
+}
+
+// ── notes ──
+let theme = q.get('theme') === 'day' ? 'day' : 'night', notesMin = q.has('quiet');
+function notes(){
+  const V = variant();
+  $('#notes').className = 'notes' + (notesMin ? ' min' : '');
+  $('#notes').innerHTML = `<h3><span>${notesMin ? "#773 · " + S.v.toUpperCase() : "Draft #773 · " + V.name}</span><span class="sp"></span><button class="btn q" id="nmin">${notesMin ? 'Notes' : 'Fold'}</button></h3>
+  <div class="more">
+    <div class="vs">${Object.keys(VARIANTS).map(k => `<button class="btn ${k === S.v ? 'primary' : ''}" data-v="${k}">${k.toUpperCase()}</button>`).join('')}
+      <span style="flex:1"></span><button class="btn" data-hookstep>Hook: ${S.hook}</button><button class="btn" data-empty>${S.empty ? '3D: model' : '3D: way in'}</button></div>
+    <dl><dt>Good for</dt><dd>${V.good}</dd><dt>Costs</dt><dd>${V.bad}</dd>
+    <dt>The preset</dt><dd>${V.pills ? 'No panels: a split stage (sheet | 3D) and one pill row of sections.' : S.panels.filter(p => !p.folded).map(p => p.tabs.map(t => SECTIONS[t]).join(' · ')).join(' | ') + ' + the view ' + VIEWS[V.view] + '.'} Views lists the presets; ◱ puts a section on the stage, S splits.</dd>
+    <dt>The hook</dt><dd>The cyan socket pill: what goes out → the tool → what comes back. Open it to pick a tool and see what it sends; the result lands as a candidate next to its source, to accept into the Library.</dd></dl>
+    <p style="color:var(--muted)">Keys: <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> variant · <kbd>V</kbd> view · <kbd>S</kbd> split · <kbd>G</kbd> Generations on the stage · <kbd>H</kbd> hook state · <kbd>E</kbd> 3D way in · <kbd>K</kbd> skeleton · <kbd>Esc</kbd> back · <kbd>T</kbd> day · <kbd>N</kbd> notes</p>
+  </div>`;
+}
+
+// ── input ──
+const HSTATES = ['closed','open','running','landed'];
+const act = {
+  variant(k){ S.v = k; reset(S.hook); render(); },
+  view(v){ if (S.main.startsWith('view:')) S.main = 'view:' + v; else S.main = 'view:' + v; S.panels.forEach(p => delete p.taken); if (S.second === S.main) S.second = S.main === 'view:3d' ? 'view:sheet' : 'view:3d'; render(); },
+  split(){ S.second = S.second ? null : (S.main === 'view:3d' ? 'view:sheet' : 'view:3d'); render(); },
+  hook(){ S.hook = HSTATES[(HSTATES.indexOf(S.hook) + 1) % 4]; render(); }
+};
+addEventListener('click', e => {
+  const b = e.target.closest('button,[data-tab]'); if (!b) return;
+  const d = b.dataset;
+  if (d.v) return act.variant(d.v);
+  if (d.view) return act.view(d.view);
+  if ('split' in d) return act.split();
+  if ('back' in d){ backToView(); return render(); }
+  if (d.take){ takeStage(d.take); return render(); }
+  if (d.tab){ const [pid, t] = d.tab.split(':'); const p = S.panels.find(p => p.id === pid); p.on = t; if (p.folded) p.folded = false; return render(); }
+  if (d.pill){ S.openPill = S.openPill === d.pill ? null : d.pill; return render(); }
+  if ('hookstep' in d) return act.hook();
+  if ('empty' in d){ S.empty = !S.empty; return render(); }
+  if (b.id === 'nmin'){ notesMin = !notesMin; return render(); }
+  if (b.classList.contains('hook')) return act.hook();
+});
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === '1' || k === '2' || k === '3') act.variant('abc'[+k - 1]);
+  else if (k === 'v'){ const cur = S.main.startsWith('view:') ? S.main.slice(5) : 'sheet'; act.view(VORDER[(VORDER.indexOf(cur) + 1) % 3]); }
+  else if (k === 's') act.split();
+  else if (k === 'g'){ takeStage('gens'); render(); }
+  else if (k === 'h') act.hook();
+  else if (k === 'e'){ S.empty = !S.empty; render(); }
+  else if (k === 'k'){ S.skel = !S.skel; render(); }
+  else if (k === 'escape'){ backToView(); render(); }
+  else if (k === 't'){ theme = theme === 'day' ? 'night' : 'day'; render(); }
+  else if (k === 'n'){ notesMin = !notesMin; render(); }
+});
+addEventListener('resize', () => render());
+reset(); render();
+</script>
+</body>
+</html>
