@@ -36,12 +36,20 @@ impl Host {
         })
     }
 
-    /// Pieces let go at (x, y): on a cell the first selects it and becomes its piece, each next one the piece of the cell
-    /// below (as far as the rows go), or the core says why not, there; the last cell landed on stays selected. False = no
-    /// cell there.
+    /// Pieces let go at (x, y): on a cell of the rows band, or in the node view where the core says the first lands
+    /// (node_drop.rs), the first selects the cell and becomes its piece, each next one the piece of the cell below (as
+    /// far as the rows go), or the core says why not, there; the last cell landed on stays selected. False = neither a
+    /// cell nor the node view there.
     pub fn drop_pieces(&mut self, pieces: &[String], x: f32, y: f32) -> bool {
-        let Some((r, c)) = self.drop_target(x, y) else { return false };
         let plan = view::plan(self.shown());
+        let in_nodes = || pieces.first().and_then(|p| self.node_drop(p, (x, y)));
+        let target = self.drop_target(x, y).map(Ok).or_else(in_nodes);
+        let (r, c) = match target {
+            Some(Ok(_)) if self.locked => return self.drop_refused(super::live::LOCKED.into(), (x, y)),
+            Some(Ok(at)) => at,
+            Some(Err(why)) => return self.drop_refused(why, (x, y)),
+            None => return false,
+        };
         let Some(column) = plan.columns.get(c).map(|x| x.id.clone()) else { return true };
         let rows: Vec<String> = plan.rows.iter().skip(r).take(pieces.len()).map(|x| x.id.clone()).collect();
         for (k, (row, piece)) in rows.into_iter().zip(pieces).enumerate() {
@@ -51,6 +59,12 @@ impl Host {
                 break;
             }
         }
+        true
+    }
+
+    fn drop_refused(&mut self, why: String, at: (f32, f32)) -> bool {
+        self.refuse(why);
+        self.refused = Some(at);
         true
     }
 
@@ -134,7 +148,7 @@ pub(in crate::show) mod tests {
         lib.browser.press(r.x + 4.0, r.y + 4.0, now);
         let at = cell_at(host, row, column);
         lib.browser.drag_to(at.0, at.1);
-        assert!(lib.carrying().is_some(), "Show takes a scene");
+        assert!(lib.carried().is_some_and(|(_, takes)| takes.is_ok()), "Show takes a scene");
         let Some(Did::Drop { entry, at }) = lib.browser.release(at.0, at.1) else { panic!("a drop") };
         assert!(host.drop_pieces(&[lib.entries[entry].address.clone()], at.0, at.1), "a cell under the pointer");
         at

@@ -244,7 +244,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.accent);
             }
             // a library card being dragged: the cell under the pointer is where it lands
-            if host.carrying && at.has(pointer.0, pointer.1) {
+            if host.carrying() && at.has(pointer.0, pointer.1) {
                 d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.color.go);
             }
         }
