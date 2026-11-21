@@ -33,7 +33,8 @@
 						status: (status, message) => post({ kind: 'status', status, message: message ?? null }),
 						found: (targets) => post({ kind: 'found', targets: [...targets] }),
 						subtitle: (text) => post({ kind: 'subtitle', text }),
-						picked: (ref) => post({ kind: 'picked', ref: ref ? { target: ref.target, path: ref.path ? [...ref.path] : null } : null })
+						picked: (ref) => post({ kind: 'picked', ref: ref ? { target: ref.target, path: ref.path ? [...ref.path] : null } : null }),
+						placed: (ref, placement) => post({ kind: 'placed', ref: { target: ref.target, path: ref.path ? [...ref.path] : null }, placement })
 					}
 				});
 				if ('problems' in opened) return post({ kind: 'problems', problems: opened.problems });
@@ -51,6 +52,7 @@
 			if (request?.kind === 'view') stage?.view(request.view);
 			else if (request?.kind === 'select') stage?.select(request.ref);
 			else if (request?.kind === 'entity') stage?.override(request.target, request.entity);
+			else if (request?.kind === 'tool') stage?.tool(request.tool, request.handles);
 			else if (request?.kind === 'open' && !asked) {
 				asked = true;
 				void open(request);

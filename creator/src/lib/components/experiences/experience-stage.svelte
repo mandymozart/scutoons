@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { openRequest, readStageEvent, STAGE_FRAME_PATH, STAGE_LOADING, STAGE_SANDBOX, stageAfter, stageMessage, type StageRef, type StageShown, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { openRequest, readStageEvent, STAGE_FRAME_PATH, STAGE_LOADING, STAGE_SANDBOX, stageAfter, stageMessage, type StagePlacement, type StageRef, type StageShown, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -19,6 +19,9 @@
 		selected,
 		onpick,
 		edited,
+		tool,
+		handles,
+		onplace,
 		shown = $bindable(STAGE_LOADING)
 	}: {
 		content: unknown;
@@ -30,6 +33,10 @@
 		onpick: (ref: StageRef | null) => void;
 		/** the last edit: the targets whose entity changed, with their trees as they are now */
 		edited: { at: number; trees: Record<string, object> } | null;
+		tool: StageTool;
+		/** the gizmo's handles show even with select (the setting) */
+		handles: boolean;
+		onplace: (ref: StageRef, placement: StagePlacement) => void;
 		shown?: StageShown;
 	} = $props();
 
@@ -41,6 +48,7 @@
 		const e = readStageEvent(event.data);
 		if (!e) return;
 		if (e.kind === 'picked') return onpick(e.ref);
+		if (e.kind === 'placed') return onplace(e.ref, e.placement);
 		if (e.kind !== 'ready') return void (shown = stageAfter(shown, e));
 		// a frame loaded anew takes the experience as it is now
 		const request = openRequest($state.snapshot(content), scene, asset(assets), getLocale());
@@ -52,6 +60,10 @@
 	$effect(() => {
 		const next = view;
 		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'view', view: next }), '*');
+	});
+	$effect(() => {
+		const request = stageMessage({ kind: 'tool', tool, handles });
+		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(request, '*');
 	});
 	$effect(() => {
 		const edit = edited;

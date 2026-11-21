@@ -11,6 +11,14 @@ export const STAGE_FILES_PATH = '/xr-stage/';
 const TAG = 'scutoons-xr-stage';
 
 export const STAGE_VIEWS = ['reader', 'top', 'low', 'far'] as const;
+export const STAGE_TOOLS = ['select', 'translate', 'rotate', 'scale'] as const;
+export type StageTool = (typeof STAGE_TOOLS)[number];
+/** a node's placement as the configuration stores it */
+export interface StagePlacement {
+	position: [number, number, number];
+	rotation: [number, number, number];
+	scale: number | [number, number, number];
+}
 export type StageView = (typeof STAGE_VIEWS)[number];
 const STATUSES = ['idle', 'loading', 'ready', 'starting', 'running', 'paused', 'error'] as const;
 export type StageStatus = (typeof STATUSES)[number];
@@ -32,6 +40,7 @@ export type StageRequest =
 	| { kind: 'open'; configuration: object; plugins: StagePlugin[]; scene: string; assets: string; language: string }
 	| { kind: 'view'; view: StageView }
 	| { kind: 'select'; ref: StageRef | null }
+	| { kind: 'tool'; tool: StageTool; handles: boolean }
 	/** a target's entity with edited values, shown at once (null: as the configuration has it) */
 	| { kind: 'entity'; target: string; entity: object | null };
 
@@ -42,7 +51,8 @@ export type StageEvent =
 	| { kind: 'problems'; problems: string[] }
 	| { kind: 'found'; targets: string[] }
 	| { kind: 'subtitle'; text: string | null }
-	| { kind: 'picked'; ref: StageRef | null };
+	| { kind: 'picked'; ref: StageRef | null }
+	| { kind: 'placed'; ref: StageRef; placement: StagePlacement };
 
 type Obj = Record<string, unknown>;
 const tagged = (data: unknown): Obj | null => (!!data && typeof data === 'object' && (data as Obj).tag === TAG ? (data as Obj) : null);
@@ -59,6 +69,17 @@ function refOf(v: unknown): StageRef | null | undefined {
 	const path = r.path;
 	if (!Array.isArray(path) || path.length > 64 || !path.every((i) => Number.isInteger(i) && i >= 0 && i < 100000)) return undefined;
 	return { target: r.target, path: [...(path as number[])] };
+}
+
+const triple = (v: unknown): [number, number, number] | null =>
+	Array.isArray(v) && v.length === 3 && v.every((x) => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) < 1e6) ? [v[0], v[1], v[2]] : null;
+/** a placement from the frame: three finite numbers each, a scale one number or three */
+function placementOf(v: unknown): StagePlacement | null {
+	const p = v && typeof v === 'object' ? (v as Obj) : null;
+	const position = triple(p?.position);
+	const rotation = triple(p?.rotation);
+	const scale = typeof p?.scale === 'number' && Number.isFinite(p.scale) && Math.abs(p.scale) < 1e6 ? p.scale : triple(p?.scale);
+	return position && rotation && scale !== null ? { position, rotation, scale } : null;
 }
 
 export const stageMessage = (message: StageRequest | StageEvent): object => ({ tag: TAG, ...message });
@@ -80,6 +101,7 @@ export function readStageRequest(data: unknown): StageRequest | null {
 	const d = tagged(data);
 	if (!d) return null;
 	if (d.kind === 'view') return STAGE_VIEWS.includes(d.view as StageView) ? { kind: 'view', view: d.view as StageView } : null;
+	if (d.kind === 'tool') return STAGE_TOOLS.includes(d.tool as StageTool) && typeof d.handles === 'boolean' ? { kind: 'tool', tool: d.tool as StageTool, handles: d.handles } : null;
 	if (d.kind === 'entity') {
 		if (typeof d.target !== 'string' || !d.target || d.target.length > 200) return null;
 		if (d.entity === null) return { kind: 'entity', target: d.target, entity: null };
@@ -112,6 +134,11 @@ export function readStageEvent(data: unknown): StageEvent | null {
 		return targets ? { kind: 'found', targets } : null;
 	}
 	if (d.kind === 'subtitle') return d.text === null || typeof d.text === 'string' ? { kind: 'subtitle', text: text(d.text, 500) } : null;
+	if (d.kind === 'placed') {
+		const ref = refOf(d.ref);
+		const placement = placementOf(d.placement);
+		return ref && ref.path && placement ? { kind: 'placed', ref, placement } : null;
+	}
 	if (d.kind === 'picked') {
 		const ref = refOf(d.ref);
 		return ref === undefined ? null : { kind: 'picked', ref };

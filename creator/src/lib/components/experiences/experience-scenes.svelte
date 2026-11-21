@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ToolGroup } from '@scutoons/ui/editor';
 	import { contentUrl, type OutlineScene } from '$lib/editor/experiences.ts';
-	import { STAGE_VIEWS, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { STAGE_TOOLS, STAGE_VIEWS, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 
@@ -14,10 +14,11 @@
 		current,
 		assets,
 		view = $bindable(),
+		tool = $bindable(),
 		playing,
 		onpick,
 		onreplay
-	}: { scenes: OutlineScene[]; current: string; assets: string; view: StageView; playing: boolean; onpick: (id: string) => void; onreplay: () => void } = $props();
+	}: { scenes: OutlineScene[]; current: string; assets: string; view: StageView; tool: StageTool; playing: boolean; onpick: (id: string) => void; onreplay: () => void } = $props();
 
 	const viewName: Record<StageView, () => string> = {
 		reader: m['creator.experiences_stage_view_reader'],
@@ -27,6 +28,14 @@
 	};
 	const ICONS: Record<StageView, string> = { reader: 'smartphone', top: 'arrow-down', low: 'minus', far: 'maximize' };
 	const views = STAGE_VIEWS.map((v) => ({ value: v, name: viewName[v](), label: viewName[v](), icon: ICONS[v] }));
+	const TOOL_ICONS: Record<StageTool, string> = { select: 'mouse-pointer', translate: 'move', rotate: 'rotate-cw', scale: 'maximize-2' };
+	const toolName: Record<StageTool, () => string> = {
+		select: m['creator.experiences_tool_select'],
+		translate: m['creator.experiences_tool_move'],
+		rotate: m['creator.experiences_tool_rotate'],
+		scale: m['creator.experiences_tool_scale']
+	};
+	const tools = STAGE_TOOLS.map((t) => ({ value: t, name: toolName[t](), label: toolName[t](), icon: TOOL_ICONS[t] }));
 	const picture = (s: OutlineScene) => {
 		const entry = [...s.surfaces.flatMap((x) => x.entries), ...s.loose].find((e) => e.target?.image);
 		return entry?.target ? contentUrl(assets, entry.target.image, asset) : null;
@@ -35,6 +44,7 @@
 
 <div class="scenes-tab">
 	<div class="tools">
+		<span class:idle={!playing} data-testid="experience-tools"><ToolGroup label={m['creator.experiences_stage_tool']()} options={tools} value={tool} expanded onchoose={(t) => (tool = t as StageTool)} /></span>
 		<span class:idle={!playing}><ToolGroup label={m['creator.experiences_stage_view']()} options={views} value={view} expanded onchoose={(v) => (view = v as StageView)} /></span>
 		<button type="button" class="replay" onclick={onreplay} data-testid="experience-stage-replay">{m['creator.experiences_stage_replay']()}</button>
 	</div>

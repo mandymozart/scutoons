@@ -127,6 +127,8 @@ test('machine settings: day by default (owner 2026-11-21), every field checked',
 	assert.equal(DEFAULTS.theme, 'day');
 	assert.deepEqual(readSettings({ theme: 'night', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'night', scale: 1.5, reopenTabs: false });
 	assert.equal(readSettings({ theme: 'dusk' }).theme, 'day');
+	assert.equal(DEFAULTS.gizmoAlways, false);
+	assert.equal(readSettings({ gizmoAlways: true }).gizmoAlways, true);
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);

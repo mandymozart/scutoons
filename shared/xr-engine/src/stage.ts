@@ -1,4 +1,5 @@
 import { MockStage } from '#lib/stage/mock-stage.js';
+import { Gizmo } from '../osct/editor/src/lib/stage/gizmo';
 import { MockTracker } from '../osct/editor/src/lib/stage/mock-tracker';
 import { getPreview, setPreviewActive, subscribePreview, updatePreview } from '../osct/editor/src/lib/stage/preview';
 import { deviceStorage } from '../osct/editor/src/lib/storage';
@@ -54,7 +55,30 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 	const picking = stagePicking(() => view.inspect(), scene);
 	const planes = () => tracker?.targetPlanes() ?? [];
 	let selected: XrNodeRef | null = null;
-	const onClick = (event: MouseEvent) => handlers.picked(picking.pick(container, event.clientX, event.clientY, planes()));
+	// the gizmo (OSCT's: three.js TransformControls in the node's own space); its drags report the placement
+	let gizmo: Gizmo | null = null;
+	let tool: api.XrStageTool = 'select';
+	let always = false;
+	const handles = () => {
+		if (!gizmo) return;
+		if (tool !== 'select') gizmo.mode = tool;
+		gizmo.handles = tool !== 'select' || always;
+	};
+	const inspection = view.inspect();
+	if (inspection) {
+		gizmo = new Gizmo(inspection, (at, placement) => handlers.placed({ target: at.targetId, path: [...at.path] }, placement as api.XrPlacement));
+		handles();
+	}
+	if (tracker) (tracker as MockTracker).ignorePointer = () => !!gizmo?.busy;
+	const outlineSelection = () => {
+		// a node: the gizmo holds and outlines it; a print: the picking's outline
+		gizmo?.select(selected?.path ? { targetId: selected.target, path: selected.path } : null);
+		picking.select(selected && !selected.path ? selected : null, planes());
+	};
+	const onClick = (event: MouseEvent) => {
+		if (gizmo?.recentlyDragged()) return;
+		handlers.picked(picking.pick(container, event.clientX, event.clientY, planes()));
+	};
 	container.addEventListener('click', onClick);
 
 	return {
@@ -62,15 +86,22 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 			view: (preset) => updatePreview({ view: preset }),
 			select: (ref) => {
 				selected = ref;
-				picking.select(ref, planes());
+				outlineSelection();
+			},
+			tool: (next, on) => {
+				tool = next;
+				always = on;
+				handles();
 			},
 			// the engine builds the target's entity anew: the selection's outline goes onto the new objects
 			override: (target, entity) => {
 				view.overrideEntity(target, (entity ?? null) as EntityData | null);
-				picking.select(selected, planes());
+				gizmo?.sync();
+				outlineSelection();
 			},
 			dispose: async () => {
 				container.removeEventListener('click', onClick);
+				gizmo?.dispose();
 				picking.dispose();
 				off.forEach((stop) => stop());
 				await view.dispose();

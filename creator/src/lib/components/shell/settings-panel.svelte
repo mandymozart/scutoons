@@ -97,6 +97,7 @@
 	</Section>
 	<Section id="shell-layout" label={m['shell.layout']()}>
 		<div class="row"><span>{m['shell.reopen_tabs']()}</span><Toggle on={s.reopenTabs} label={m['shell.reopen_tabs']()} onchange={(on) => shell.change({ reopenTabs: on })} /></div>
+		<div class="row"><span>{m['shell.gizmo_always']()}</span><Toggle on={s.gizmoAlways} label={m['shell.gizmo_always']()} onchange={(on) => shell.change({ gizmoAlways: on })} /></div>
 		<div class="row actions">
 			<button type="button" class="pill" onclick={onreset} data-testid="reset-workspace">{m['shell.reset_workspace']()}</button>
 			<button type="button" class="pill" onclick={resetAll}>{m['shell.reset_all']()}</button>

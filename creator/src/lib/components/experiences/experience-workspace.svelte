@@ -9,7 +9,7 @@
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
-	import { STAGE_LOADING, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { shell, usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
@@ -33,6 +33,7 @@
 	let doc = $state.raw<ContentDoc | null>(null);
 	let picked = $state('');
 	let view = $state<StageView>('reader');
+	let tool = $state<StageTool>('select');
 	let run = $state(0);
 	let shown = $state(STAGE_LOADING);
 	let problems = $state<string[]>([]);
@@ -100,6 +101,19 @@
 		if (!doc || !ref || !node) return;
 		doc.set([...node, ...at], value);
 		showEdits(ref.target);
+		scheduleSave();
+	}
+
+	/**
+	 * A gizmo drag on the stage: the node's placement goes into the document (one undo step per drag: the edits of one
+	 * drag merge), saved like an Inspector edit; the stage already shows it, so nothing is sent back while it lasts.
+	 */
+	function onplace(ref: NodeRef, placement: StagePlacement) {
+		const node = nodeDocPath(configuration, ref);
+		if (!doc || !node) return;
+		const before = doc.get(NEUTRAL_LOCALE, [...node, 'params', 'scale']);
+		const scale = typeof placement.scale === 'number' && Array.isArray(before) ? [placement.scale, placement.scale, placement.scale] : placement.scale;
+		doc.set([...node, 'params'], { ...((doc.get(NEUTRAL_LOCALE, [...node, 'params']) as object | undefined) ?? {}), position: placement.position, rotation: placement.rotation, scale }, `gizmo:${node.join('.')}`);
 		scheduleSave();
 	}
 
@@ -181,12 +195,12 @@
 {/snippet}
 
 {#snippet strip()}
-	{#if facts}<ExperienceScenes {scenes} current={scene} assets={facts.assets} bind:view playing={shown.phase === 'playing'} onpick={(s) => ((picked = s), (view = 'reader'), (selected = null))} onreplay={() => ((run += 1), (view = 'reader'))} />{/if}
+	{#if facts}<ExperienceScenes {scenes} current={scene} assets={facts.assets} bind:view bind:tool playing={shown.phase === 'playing'} onpick={(s) => ((picked = s), (view = 'reader'), (selected = null))} onreplay={() => ((run += 1), (view = 'reader'))} />{/if}
 {/snippet}
 
 <div class="xr-workspace" data-testid="experience-workspace">
 	{#if facts && scene}
-		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} {edited} bind:shown />
+		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} {edited} {tool} handles={shell.settings.gizmoAlways} {onplace} bind:shown />
 	{:else}
 		<div class="empty">
 			{#if !id}

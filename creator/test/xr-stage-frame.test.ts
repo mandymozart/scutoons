@@ -55,6 +55,16 @@ test('a pick and a selection cross only as a short target id and a small path', 
 	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'select', ref: 'catpope' }), null);
 });
 
+test('a gizmo drag crosses as a node and three finite numbers each; the tool as one of four', () => {
+	const placement = { position: [0.1, 0.2, 0.3], rotation: [0, 90, 0], scale: 1.5 };
+	assert.deepEqual(readStageEvent(stageMessage({ kind: 'placed', ref: { target: 'catpope', path: [3] }, placement } as never)), { kind: 'placed', ref: { target: 'catpope', path: [3] }, placement });
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'placed', ref: { target: 'catpope', path: null }, placement }), null);
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'placed', ref: { target: 'catpope', path: [3] }, placement: { ...placement, position: [1, 2] } }), null);
+	assert.equal(readStageEvent({ tag: 'scutoons-xr-stage', kind: 'placed', ref: { target: 'catpope', path: [3] }, placement: { ...placement, scale: Infinity } }), null);
+	assert.deepEqual(readStageRequest(stageMessage({ kind: 'tool', tool: 'rotate', handles: false })), { kind: 'tool', tool: 'rotate', handles: false });
+	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'tool', tool: 'fly', handles: false }), null);
+});
+
 test('an edited entity crosses as an object for one target', () => {
 	const entity = { type: 'group', children: [] };
 	assert.deepEqual(readStageRequest(stageMessage({ kind: 'entity', target: 'catpope', entity })), { kind: 'entity', target: 'catpope', entity });

@@ -13,6 +13,16 @@ export interface XrNodeRef {
 	path: number[] | null;
 }
 
+/** the tool in hand: select (no handles), or the gizmo's move / rotate / scale */
+export type XrStageTool = 'select' | 'translate' | 'rotate' | 'scale';
+
+/** a node's placement as the configuration stores it: position, rotation in degrees, scale (one number when even) */
+export interface XrPlacement {
+	position: [number, number, number];
+	rotation: [number, number, number];
+	scale: number | [number, number, number];
+}
+
 /** where the stage's camera stands: as a reader holds the phone, from above, low, from afar */
 export type XrStageView = 'reader' | 'top' | 'low' | 'far';
 
@@ -25,6 +35,8 @@ export interface XrStageHandlers {
 	subtitle(text: string | null): void;
 	/** a click on the stage picked this (null: nothing there) */
 	picked(ref: XrNodeRef | null): void;
+	/** a drag of the gizmo moved, turned or scaled the selected node (while it lasts) */
+	placed(ref: XrNodeRef, placement: XrPlacement): void;
 }
 
 export interface XrStageOptions {
@@ -40,6 +52,8 @@ export interface XrStage {
 	view(view: XrStageView): void;
 	/** outline this node or print on the stage (null: nothing selected) */
 	select(ref: XrNodeRef | null): void;
+	/** the tool in hand; `handles`: the gizmo's handles show even with select (a setting, off by default) */
+	tool(tool: XrStageTool, handles: boolean): void;
 	/** show a target's entity with these values (a live edit); null: as the configuration has it */
 	override(target: string, entity: unknown): void;
 	dispose(): Promise<void>;
