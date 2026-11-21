@@ -1,12 +1,13 @@
 # decisions/xr — XR: experiences, the reader's XR mode, the XR editor in the creator
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[xr]` 57 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
+Keys here: `[xr]` 58 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
 
 Opened 2026-11-10 by the XR session (#482). The ten `[xr]` lines before it, all of 2026-11-10, stay where they were written:
 `grep -n '\[xr\]' agents/decisions/deck.md` (summary: research/XR.md §5). From here on every XR statement of the owner goes into this file.
 
 ## 2026-11
+- 2026-11-21 · platform · [xr] **Asked: one name for the node view, or one concept named by where it is used?** Debated on #763 the same day: Blender / Unreal name one editor per domain, Houdini / TouchDesigner keep one network with families; SCUTOONS's cables cross scopes, so one tab name, and the breadcrumb and a scope chip name the place (Story · XR · Deck · Studio). Not decided. Owner: *"debate the terminology of our view a bit more. or is it more of a concept and depending where it is used it has a name ?"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Thought aloud: the one node view may be called "Wiring" – as opposed to the view (what is shown).** If so, the proposal's deck kind needs another word (it was "Wiring" for the deck's continuous graphs). Not decided. Owner: *"its maybe wiring since that is oppossed to view"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Not "Flow" as the name of the one node view (nodes, signals, canvas, logic).** Said on the naming proposal (the tab "Flow"); the umbrella name is open again – candidates put to him the same day: Network, Patch, Graph, Nodes. Owner: *"i dont like the work flow... somehow"* · *"no i mean to call the nodes/signals/nodes/canvas/logic flow"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Thought aloud: the text engine has to be tackled; in the long run the slice editor moves to the deck and the reader becomes a widget too (a native app later).** Said after the deck-kit widget was chosen for the Flow canvas (#763 Q11). Filed the same day: #775 (research: a text engine for the deck-kit widgets – shaping, rich text, editing, IME, accessibility); the slice editor and the reader as widgets went to #764 as input. Owner: *"also i get the text engine issue. we should really takle this. on the long run i got a feeling we will also move the slice editor to the deck. since it's very close to our deck just has a different target...webtoon platforms and our reader. which renders currently in html, but we could create a widget for that as well. which also would make it much easier on the long long game to render a native app."* · → #775, #764, #763
