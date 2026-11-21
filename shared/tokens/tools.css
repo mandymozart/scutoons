@@ -109,6 +109,13 @@ html:has(.sc-tool[data-theme='day']) body {
 	}
 }
 
+/* the reader's base.css sets body, headings and paragraphs in the mono face; the tools are the deck editor's sans
+   throughout (#750) – mono only for code, addresses and numbers a component marks so */
+.sc-tool :where(h1, h2, h3, h4, h5, h6, p),
+.sc-tool .sc-tooltip {
+	font-family: var(--editor-sans);
+}
+
 /* ── Headings: one bold page title, then regular uppercase labels (no heading scale; bold only rarely, owner
    2026-10-02). `.sc-tool` (0,1,0) beats base.css's h1–h6 rule; a component's own class still wins ── */
 .sc-tool :where(h1) {
