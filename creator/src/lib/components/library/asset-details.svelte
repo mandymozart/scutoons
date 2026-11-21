@@ -197,6 +197,7 @@
 	}
 	h2 {
 		margin: 0.6rem 0 0.1rem;
+		font-family: var(--editor-sans);
 		font-size: var(--editor-title, 1.15rem);
 		font-weight: 400;
 	}

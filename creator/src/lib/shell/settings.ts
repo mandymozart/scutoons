@@ -17,7 +17,7 @@ export interface MachineSettings {
 	reopenTabs: boolean;
 }
 
-export const DEFAULTS: MachineSettings = { theme: 'night', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true };
+export const DEFAULTS: MachineSettings = { theme: 'day', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true };
 
 export const SCALE_MIN = 0.8;
 export const SCALE_MAX = 1.5;
@@ -34,7 +34,7 @@ export function readSettings(raw: unknown): MachineSettings {
 	const v = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
 	const bool = (key: keyof MachineSettings) => (typeof v[key] === 'boolean' ? (v[key] as boolean) : (DEFAULTS[key] as boolean));
 	return {
-		theme: v.theme === 'day' ? 'day' : 'night',
+		theme: v.theme === 'night' ? 'night' : 'day',
 		scale: typeof v.scale === 'number' ? clampScale(v.scale) : DEFAULTS.scale,
 		panelTransitions: bool('panelTransitions'),
 		reduceMotion: bool('reduceMotion'),
