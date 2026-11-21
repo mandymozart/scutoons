@@ -1,9 +1,12 @@
 # decisions/creator — the creator app, text boxes, the timeline
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[creator]` 80 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
+Keys here: `[creator]` 83 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
 
 ## 2026-11
+- 2026-11-21 · creator · [creator] **#763's taxonomy: the tab is "Spores", connecting is "weaving"; a node is a spore, plugins and components (etc.) define spore types; a port stays a port where it connects to cybernetics and is a pore where it connects to organic matter; the whole thing is still the network (the spore network); what runs spores is a driver – the runtimes ("runtime" is fine too).** Owner: *"let use spores and call the action weaving"* · *"ports are still good. we can use both , if we connect to organic matter we use pores if we connect to cybernetics we use port. spore, the entire thing is still called network (spore network) and a driver not spore driver since it is implied are the runtimes yes. but runtime is also fine. plugins and components etc will also define spore types"* · → #763, the contract renamed (thread for a cable, proposed and not objected to)
+- 2026-11-21 · creator · [creator] **Thought aloud on #763's naming, continued: "spores" and "spore drives" are great terms; "Poja Driver".** Owner: *"Spores / and spore drives are a great term / Poja Driver"* · → #763 (a taxonomy proposed back for confirmation)
+- 2026-11-21 · creator · [creator] **Thought aloud on #763's naming: not "nodes" but "spores" – more organic, since generators are in there too; "spores weaving"; Poja (Korean 포자, spore).** Owner: *"Spores weaving / Poja (Korean) / not nodes but spores... more organic ..since we got generators in there as well."* · → #763 (the contract's identifiers wait for the confirmed taxonomy)
 - 2026-11-21 · creator · [creator] **The one network / Flow tab / Reception work (#763) starts once the XR-in-SCUTOONS work (#482) reaches its logic parts – not before.** Owner: *"lets start this once the XR in Scutoons session is getting to the logic parts."* · → #763, #482
 - 2026-11-21 · creator · [creator] **Latency compensation adapts per device, not per group: each device's own one-way and output latency.** Owner: *"the latency adapt needs to actually be per device otherwise this is kind of a weird approximation"* · → #763, research/redesign/NETWORK.md §12
 - 2026-11-21 · creator · [creator] **#763 Q22: a venue concept is part of the stage environment, its plan an image slot there (not a Library asset kind of its own).** Owner: *"q22 yes"* · → #763, research/redesign/NETWORK.md §12
