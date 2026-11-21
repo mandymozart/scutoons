@@ -400,7 +400,7 @@ fn read_scene(args: &Args) -> Result<scene::Scene> {
         Some(p) => switcher::read(p, args.scenes.as_deref()),
         None if deck_native::live::config::configured(outlet_settings(args)) => scene::Scene::parse(scene::OUTLET_SCENE),
         None => scene::Scene::parse(scene::IDLE_SCENE),
-    }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)))
+    }).map(|s| deck_native::live::config::with_join(s, &outlet_settings(args)).with_metronome())
 }
 
 /// #264: the outputs of the scene before, on their way into the next one (or out): `Show::load` takes them over when the

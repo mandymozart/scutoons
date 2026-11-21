@@ -353,6 +353,9 @@ pub fn validate(show: &Show) -> Vec<Problem> {
     if let Some(e) = show.background.as_ref().and_then(deck_space::Background::check) {
         out.push(refused(&Spot::Show, format!("background: {e}")));
     }
+    if let Some(e) = show.tempo.as_ref().and_then(crate::document::Tempo::check) {
+        out.push(refused(&Spot::Show, e));
+    }
     // outlets and seats are the matrix's columns, one name for each
     let mut columns = BTreeSet::new();
     unique("outlet", show.outlets.iter().map(|o| &o.id), &mut columns, &mut out);

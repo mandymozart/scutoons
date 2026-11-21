@@ -175,6 +175,17 @@ impl Host {
         }
     }
 
+    /// The shown show's id and the tempo it keeps.
+    pub fn tempo(&self) -> (String, Option<deck_show::Tempo>) {
+        let show = self.shown();
+        (show.id.clone(), show.tempo)
+    }
+
+    /// The play pill's tempo kept in the shown show (saved with it); refused in its words.
+    pub fn keep_tempo(&mut self, to: deck_show::Tempo) -> bool {
+        self.shown().tempo == Some(to) || self.edit_rows(&deck_show::rows::Edit::Tempo { to: Some(to) })
+    }
+
     /// The prompt asked now, in deck-show's words.
     fn ask_prompt(&self) -> Option<deck_show::choose::Prompt> {
         match self.asking.as_ref()? {

@@ -35,6 +35,47 @@ pub struct Show {
     /// the stage background on every stage outlet, over what its pieces set
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<deck_space::Background>,
+    /// the master tempo the show starts with (the play pill's BPM and source); none: the clock as it is
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tempo: Option<Tempo>,
+}
+
+/// A show's master tempo: the BPM on the deck's own clock and the source the clock follows (`SOURCES`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Tempo {
+    pub bpm: f64,
+    #[serde(default = "own_clock")]
+    pub source: deck_core::tempo::Source,
+}
+
+fn own_clock() -> deck_core::tempo::Source {
+    deck_core::tempo::Source::Internal
+}
+
+impl Tempo {
+    /// the sources a show keeps: the deck's own clock, MIDI clock in, Link (the show clock is the show's own; OSC is a scene's)
+    pub const SOURCES: [deck_core::tempo::Source; 3] = [deck_core::tempo::Source::Internal, deck_core::tempo::Source::Midi, deck_core::tempo::Source::Link];
+
+    /// the tempo a show keeps from the pill's: the BPM within the clock's range, a source it cannot keep as the own clock
+    pub fn of(bpm: f64, source: deck_core::tempo::Source) -> Tempo {
+        let source = if Tempo::SOURCES.contains(&source) { source } else { deck_core::tempo::Source::Internal };
+        Tempo { bpm: deck_core::tempo::clamp_bpm(bpm), source }
+    }
+
+    /// what the clock is told when the show opens
+    pub fn event(&self) -> deck_core::tempo::What {
+        deck_core::tempo::What::Saved(self.bpm, self.source)
+    }
+
+    /// the problem with it, in words
+    pub fn check(&self) -> Option<String> {
+        use deck_core::tempo::{MAX_BPM, MIN_BPM};
+        if !self.bpm.is_finite() || !(MIN_BPM..=MAX_BPM).contains(&self.bpm) {
+            return Some(format!("tempo: {} BPM is out of {MIN_BPM:.0}-{MAX_BPM:.0}", self.bpm));
+        }
+        (!Tempo::SOURCES.contains(&self.source)).then(|| format!("tempo: the source '{}' is none a show keeps (internal, midi, link)", self.source.name()))
+    }
 }
 
 /// what a document saved before #708 (one `toon`, no `toons`) is told: its stored versions were migrated, so a file that

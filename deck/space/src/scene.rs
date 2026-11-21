@@ -25,6 +25,11 @@ pub const TEST_PATTERN_SCENE: &str = include_str!("../../native/scenes/test-patt
 pub const STAGING_SCENE: &str = include_str!("../../native/scenes/staging.toml");
 
 /// the system scenes in the list's order (the first is the stage's default)
+/// the metronome's nodes (`Scene::with_metronome`) and its level
+pub const METRONOME: &str = "metronome";
+pub const METRONOME_OUT: &str = "metronome_out";
+pub const METRONOME_GAIN: f64 = 0.3;
+
 pub const BUILTIN: [&str; 4] = ["idle", "silent", "outlet", "test-pattern"];
 
 /// the source of a system scene by name (the deck's F5 list and `--scene`, the browser's `?scene=`, a cell's `scene:<name>`)
@@ -378,6 +383,21 @@ impl Scene {
         (out, page.into_iter().map(|(n, _)| n).collect(), dropped.into_iter().map(|(l, _)| l).collect())
     }
 
+    /// The scene with the metronome (#585) when it sounds and has no click of its own: a `click` node on the tempo clock
+    /// into an outlet of its own group, `click` (`device_preset::CLICK`) – a bus of its own, on main's channels until the
+    /// deck's channel map routes it. It ticks only while the clock's click is on.
+    pub fn with_metronome(mut self) -> Scene {
+        let sounds = self.nodes.iter().any(|n| n.kind == "out" || n.kind == "audio_out");
+        if !sounds || self.nodes.iter().any(|n| n.kind == "click" || n.id == METRONOME || n.id == METRONOME_OUT) {
+            return self;
+        }
+        let node = |id: &str, kind: &str, params: &[(&str, toml::Value)]| NodeDef { id: id.into(), kind: kind.into(), params: params.iter().map(|(k, v)| (k.to_string(), v.clone())).collect() };
+        self.nodes.push(node(METRONOME, "click", &[("gain", toml::Value::Float(METRONOME_GAIN))]));
+        self.nodes.push(node(METRONOME_OUT, "out", &[("group", toml::Value::String(crate::device_preset::CLICK.into()))]));
+        self.links.push(LinkDef { from: format!("{METRONOME}.out"), to: format!("{METRONOME_OUT}.in"), scale: 1.0, offset: 0.0, map: Vec::new() });
+        self
+    }
+
     /// The scene without its module nodes whose module is not registered (`modreg`: no wasm loaded) and the links that
     /// touch them: a module node plays only once its module is loaded
     pub fn loaded_part(&self) -> Scene {
@@ -415,6 +435,21 @@ pub fn set_file(sets: &Path, id: &str, quality: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_sounding_scene_gets_the_metronome_once() {
+        let sounding = Scene::parse("[[node]]\nid=\"o\"\nkind=\"osc\"\n[[node]]\nid=\"out\"\nkind=\"out\"\n").unwrap();
+        let with = sounding.clone().with_metronome();
+        let kinds: Vec<(&str, &str)> = with.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())).collect();
+        assert_eq!(&kinds[2..], [(METRONOME, "click"), (METRONOME_OUT, "out")]);
+        assert_eq!(with.nodes[3].params.get("group").and_then(|g| g.as_str()), Some(crate::device_preset::CLICK));
+        assert_eq!((with.links.last().unwrap().from.as_str(), with.links.last().unwrap().to.as_str()), ("metronome.out", "metronome_out.in"));
+        assert_eq!(with.clone().with_metronome(), with, "once");
+        let silent = Scene::parse("[[node]]\nid=\"o\"\nkind=\"osc\"\n").unwrap();
+        assert_eq!(silent.clone().with_metronome(), silent, "a scene that does not sound gets none");
+        let own = Scene::parse("[[node]]\nid=\"c\"\nkind=\"click\"\n[[node]]\nid=\"out\"\nkind=\"out\"\n").unwrap();
+        assert_eq!(own.clone().with_metronome(), own, "a scene with its own click keeps it");
+    }
 
     #[test]
     fn the_default_scene_parses() {

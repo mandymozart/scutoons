@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 /// the most device channels (the engine's channel limit, plan 2.6)
 pub const MAX_DEVICE_CHANNELS: usize = 32;
 
+/// the metronome's outlet group (`Scene::with_metronome`): its own bus, on main's channels until a map routes it
+pub const CLICK: &str = "click";
+
+/// a group that plays on main's channels without an entry (`main` itself, the metronome); an empty entry silences it
+pub fn on_main_by_default(group: &str) -> bool {
+    group == "main" || group == CLICK
+}
+
 /// The device channels an outlet group plays on, counted from 1, in the group's channel order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
