@@ -1,4 +1,4 @@
-<!-- status: draft concept 2026-11-21; §0 the owner's direction (spore canvases instead of the hook dialog) supersedes §1's card – thought aloud, not built. #773, #763. -->
+<!-- status: draft concept 2026-11-21; §0 the owner's direction (spore canvases instead of the hook dialog) supersedes §1's card – thought aloud, not built; drawn in spores.html. #773, #763. -->
 Status 2026-11-21: concept for the owner (#773, epic #626) – nothing decided, nothing built. Pictures: characters.html (`?hook=closed|open|running|landed`).
 
 # AI canvas hooks – where external generative tools plug into the creator
@@ -25,6 +25,17 @@ What that means, in the network's words (#763: a node is a **spore**, connecting
   - by hand: open the canvas, run it, and pick one of its outputs, which is assigned to the slot;
   - automated: the output point *is* the asset; each run's result fills the slot (as a new version, the generation record's `from` pointing at the generator and its run).
 - **Nothing fits?** If no asset and no generator fits the slot, the picker offers **Create new**: a new generator that starts **with the required output spore** already in it, set to what the slot takes (a GLB slot → a GLB output). You weave toward it (owner: *"with the required output node"*).
+
+**Drawn in spores.html** (2026-11-22, a draft to choose from; `?step=1…9`, ← / →):
+1. **The slot picker:** Katzenpapst · Summer · 3D model (takes GLB · rigged · ≤ 48 bones) opens the Library pick with assets and spore generators side by side. A generator tile shows its output spore's format. Misfits are greyed with the core's sentence ("Its output spore is MP4 – this slot takes a GLB model.").
+2. **Create new:** narrowed to Katzenpapst, nothing fits, and the pick offers Create new.
+3. **A new generator:** the spore canvas fills the stage under the bar and opens as a tab of its own in the bar. The Summer front sheet (Library) and the required GLB output spore are already placed, with the output's settings locked by the slot. The ＋ lists our own spores and gen-AI spores.
+4. **Woven:** Library → crop / pose → upscale → image → 3D → auto-rig → condition → output, with a Kanon text into the prompt. Pores (round) carry pictures and models; ports (diamonds, dashed) carry text and signals. A spore's settings, driver included, are a panel tab.
+5. **A run:** progress on the spores (done, running, waiting), plus the Runs tab.
+6. **Candidates at the output:** take 3 fails the condition with the core's sentence. Assign take 2 to the slot.
+7. **The slot filled:** the picked output with `from: generator v1, run 3 · take 2`.
+8. **The slot with the generator as a stand-in:** automated; waiting / running / yielded v2; on: sheet changed (a job signal).
+9. **The generator in the Library:** a tile of its own kind, a version stack (v1, v2), and where it's used.
 
 This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
