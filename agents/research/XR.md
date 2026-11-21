@@ -1,4 +1,4 @@
-Status 2026-11-20: research and concepts, refined against OSCT 3.21.0 (`develop` 41ed6673, content schema 4.3) and SCUTOONS `develop` 61850d66; nothing built (#482; a possible start of the build is 2026-11-25; posters go to print in December, #674). Owned by the XR session (branch `wip/482-xr-experiences-7f10f7`); the owner's statements are in decisions/xr.md. §0 says what the refinement changed; §1 and §2 are read from the code of both projects; §3 the ways in; §4 the model and where it lands; §5 is decided by the owner; §6 is open; §7 the order; §8 the concepts, proposals until the owner answers them; §9 what only the owner can decide. The drafts 2 to 10 (2026-11-10/11) were drawn against OSCT's schema 2.x: their trees and stage sets are replaced by §4 and §8.1, their screens of the reader still hold. Draft 11 (2026-11-20, the XR session's notes folder `482-xr/`) draws §4: what is stored, the editor's two stacks, the types as presets, the words, share or copy.
+**The goal (owner 2026-11-21): the Cat Pope poster, a test scene on it as the proof, rolled out before new year: §10. Everything else here waits behind it.** OSCT moved again since the refinement (2026-11-21: app 4.1.0, content schema 5.1, `develop` 8525607b): scene and experience rules, `goto`, expressions and typed variables are in, and it reads no 4.x content; where this file says 4.3 or "coming", read 5.1 and "there". Status 2026-11-20: research and concepts, refined against OSCT 3.21.0 (`develop` 41ed6673, content schema 4.3) and SCUTOONS `develop` 61850d66; nothing built (#482; a possible start of the build is 2026-11-25; posters go to print in December, #674). Owned by the XR session (branch `wip/482-xr-experiences-7f10f7`); the owner's statements are in decisions/xr.md. §0 says what the refinement changed; §1 and §2 are read from the code of both projects; §3 the ways in; §4 the model and where it lands; §5 is decided by the owner; §6 is open; §7 the order; §8 the concepts, proposals until the owner answers them; §9 what only the owner can decide. The drafts 2 to 10 (2026-11-10/11) were drawn against OSCT's schema 2.x: their trees and stage sets are replaced by §4 and §8.1, their screens of the reader still hold. Draft 11 (2026-11-20, the XR session's notes folder `482-xr/`) draws §4: what is stored, the editor's two stacks, the types as presets, the words, share or copy.
 
 # XR — taking over OSCT's XR methods into SCUTOONS
 
@@ -195,3 +195,42 @@ Draft 9 (the creator's XR area and a record in the workspace) and draft 10 (the 
 4. **The first screen of the reader's XR page; where what is found is kept; what the list tells of unfound targets** (§8.3).
 5. **The posters** (#674): which, sizes, what they do, dates, the printed URL; and whether the first poster is authored in OSCT's editor until SCUTOONS's exists (§7).
 6. Fallen away: the editor's look and place (the redesign), rooms and poster walls as things of their own (they are scenes), a record's disc label (any area is a surface), which surfaces Concert reading and Exhibition take (presets, §4.2), who posts on osct#255 (OSCT's own research did).
+
+## 10 · The goal: the Cat Pope poster, rolled out before new year (owner 2026-11-21)
+
+Owner: *"Goal for xr is the poster which i alreaxy downloaded from Giulia Ratti in the Proton drive scutoons folder ..if not it is in the download folder. As psd file. So that test scene for the catpope toon. Is the proof and we need to roll this out before new year"*. Reading: XR's goal is this one poster; a test scene for the toon Cat Pope on it is the proof that XR works in SCUTOONS; it is live for readers before 2027-01-01 (#674 said January). Not read as the word to start the build.
+
+### 10.1 The poster as it is
+- **The file:** `C:\Users\Nutzer\Downloads\scutoons poster.psd` (2026-11-16, 596 MB; not in the Proton Drive folder). A3 upright, 297 × 420 mm, 7016 × 9921 px at 600 dpi, RGB 8 bit, exactly the trim size (no bleed). 58 layers in the groups final outline (cat pope, pope 1 to 3, crows, tiger + folks, stairs), light dark, colori, col tonalizzato, colori base, sphinx.
+- **The figures as files of their own**, same folder: `color cat.psd`, `color_ 3 popes.psd`, `color tiger and folks.psd`, `stairs color.psd`, `color_ poster background.psd`. They are what an entity can lift off the paper.
+- **No type and no QR in it.** The draft with type (`giulia-ratti-draft-with-typo-v2.png`, 2026-11-04) has the title across the top third, a green footer with the event line and a QR code. Its date reads "5.2.2026": to check before print.
+- Previews: the XR session's notes folder `482-xr/` (`poster-a3-psd-preview.jpg`, `poster-draft-typo-v2-preview.jpg`). The files stay where they are, not in the repo.
+
+### 10.2 The proof, as small as it can be
+One experience (`experience:poster-catpope`, type Poster, toon `catpope`), one scene, one surface of 297 × 420 mm, one target (the printed poster), one entity that plays on it. A reader scans the poster's QR, the reader opens `/xr/poster-catpope`, the camera finds the poster, the scene plays. **Done** means: this works on an iPhone and on an Android phone against a printed poster, on production.
+
+- The target is made from **what is printed** (the art with its type), not from the art alone: the title covers the top third. For the test the art alone does.
+- The QR's URL is final at print (RULES I1). It goes through the QR type `xr`, so where it leads can still change after print.
+- **Left out of the proof:** the editor in the creator (the workspace Experiences), the list of what is found, an entry's items and story events, several scenes, world tracking. The poster is authored in OSCT's editor until the workspace exists (§7's proposal).
+
+### 10.3 The way there
+
+| step | what | needs |
+|---|---|---|
+| 1 · the test scene | a draft on OSCT's staging: scene, surface, target, an entity from the layer files. Shows whether this art is found and what plays. The session can author it over OSCT's connection (drafts only, it never publishes) | the owner's yes to a draft experience on OSCT's staging; what plays |
+| 2 · the data | the catalog kind `experience` holding OSCT's configuration (5.1) with SCUTOONS's fields beside it (§7.1); step 1's configuration imported; its assets on SCUTOONS's storage | the owner's go for the build |
+| 3 · the reader | `/xr/<experience>` with OSCT's engine and contract at one recorded commit (§7.2): camera, found, lost, back to the reader | step 2 |
+| 4 · print | the final print file gives the final target; the QR | the print file and the print date |
+| 5 · rollout | on production, tested against a printed proof on two phones | the owner publishes |
+
+### 10.4 Dates, counted back (proposal)
+Until 25 November: step 1. 25 November to 9 December: steps 2 and 3 on the session's own stack, tested on a phone. By the print date: step 4. By 16 December: step 5. Two weeks stay as a reserve until new year.
+
+### 10.5 Share or copy, for this goal
+OSCT has no packages and no tag yet, and went from schema 4.3 to 5.1 in one day. For the poster: an **unchanged** copy of the engine and the contract at one recorded commit, replaced by the pinned package once OSCT has it. No edit in the copy keeps both of the owner's options open (§9.1).
+
+### 10.6 For the owner
+1. What plays on the poster. Proposal: the poster's own layers lift off the paper in depth (the stairs, the popes, the tiger and folks, Cat Pope in front); sound later. If "that test scene" means the deck scene `scene:nave` (Cat Pope in the cathedral), that is another and longer way (#681).
+2. May the session author the test scene as a draft on OSCT's staging?
+3. The print file with type, the print date, where the QR leads.
+4. The go for the build.
