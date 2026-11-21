@@ -1,3 +1,4 @@
+<!-- status: draft concept 2026-11-21; §0 the owner's direction (spore canvases instead of the hook dialog) supersedes §1's card – thought aloud, not built. #773, #763. -->
 Status 2026-11-21: concept for the owner (#773, epic #626) – nothing decided, nothing built. Pictures: characters.html (`?hook=closed|open|running|landed`).
 
 # AI canvas hooks – where external generative tools plug into the creator
@@ -9,6 +10,23 @@ conference around 2026-11-30.
 **In one sentence:** a hook is a small, visible socket on the canvas, at the thing it works on. It says what goes out, which
 kind of tool does the work, and what comes back. The result always lands as a **candidate** next to its source, and only a
 person's Accept puts it into the Library.
+
+## 0. The owner's direction (2026-11-21, thinking aloud): a generation is a spore canvas, not a dialog
+
+> *"the generation i imagined differently not dialog but when entering a generation we enter a spore view which has gen ai and other spores in it. it a creative tool a mix of comfy ui and flora and runway workflows and lumalabs canvas."* · *"once i pick an out asset that asset is assigned to the slot. if the workflow is automated the out point becomes the asset … the ui on the slot side pick like an asset from the library but you can also pick a spore chain … a spore generator"* · *"so we have a document for it which can be found and versioned and driven from our tools."* · *"so picking a spore is a standin for the asset needed. i assume the output node in that spore canvas defines the format and compatibility of the spore to the asset. so if glb is required the spore needs glb as output. if no asset is found and no spore, we offer create new"*
+
+What that means, in the network's words (#763: a node is a **spore**, connecting is **weaving**, ports / pores, what runs it is a **driver**):
+
+- **Entering a generation opens a spore canvas.** It's a weave of gen-AI spores (image, video, 3D, rig, voice …) and our own spores (the Library, a character's sheet, a crop, a pose, a condition). It's a creative tool in its own right, in the family of node and workflow canvases, not a modal form.
+- **A spore chain is a document:** a *spore generator*. It's findable in the Library, versioned like every document, and drivable from our tools (a slot, a night run, a publish, another spore).
+- **A slot picks either an asset or a spore generator.** A picked generator is a **stand-in for the asset**: the slot holds the generator until it yields.
+- **The output spore defines the fit.** Its format and kind (GLB, PNG, MP4, a rigged model …) are what the core's `takes` checks, exactly as for an asset. A slot that needs a GLB only takes a generator whose output is GLB. The same misfit sentence applies.
+- **Two ways to yield:**
+  - by hand: open the canvas, run it, and pick one of its outputs, which is assigned to the slot;
+  - automated: the output point *is* the asset; each run's result fills the slot (as a new version, the generation record's `from` pointing at the generator and its run).
+- **Nothing fits?** If no asset and no generator fits the slot, the picker offers **Create new**: a new generator that starts **with the required output spore** already in it, set to what the slot takes (a GLB slot → a GLB output). You weave toward it (owner: *"with the required output node"*).
+
+This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
 ## 1. One shape
 
