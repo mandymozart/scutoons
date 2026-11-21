@@ -12,11 +12,7 @@ const FILES: Record<string, string> = {
 const BASE = '/xr-stage/';
 const FOLDER = fileURLToPath(new URL('../../shared/xr-engine/osct/editor/static/', import.meta.url));
 
-/**
- * The XR stage's desk, its textures and its sky at /xr-stage/ (src/lib/editor/xr-stage-frame.ts): they stay with the
- * engine's copy, so the app serves them from there. The stage's frame has an opaque origin and asks for them across
- * origins: public files, any origin may read them.
- */
+/** The XR stage's desk, its textures and its sky at /xr-stage/ (src/lib/editor/xr-stage.ts): they stay with the engine's copy, so the app serves them from there. */
 export function xrStageFiles(): Plugin {
 	const read = (name: string) => readFileSync(FOLDER + name);
 	return {
@@ -27,7 +23,6 @@ export function xrStageFiles(): Plugin {
 				const name = path.startsWith(BASE) ? path.slice(BASE.length) : '';
 				if (!Object.hasOwn(FILES, name)) return next();
 				res.setHeader('Content-Type', FILES[name]);
-				res.setHeader('Access-Control-Allow-Origin', '*');
 				res.end(read(name));
 			});
 		},

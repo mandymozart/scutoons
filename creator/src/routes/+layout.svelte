@@ -20,9 +20,7 @@
 	// window narrowed later keeps the page mounted but hidden, so nothing unsaved is lost. The handheld page is a phone's.
 	const narrow = new MediaQuery('width < 744px');
 	const handheld = $derived(page.route.id?.startsWith('/h/') ?? false);
-	// the XR stage's frame (/xr-stage-frame, in a sandboxed iframe of any width): the page alone, none of the creator's cores
-	const stageFrame = $derived(page.route.id === '/xr-stage-frame');
-	const away = $derived(narrow.current && !handheld && !stageFrame);
+	const away = $derived(narrow.current && !handheld);
 	let started = $state(false);
 	$effect.pre(() => {
 		if (!away) started = true;
@@ -38,16 +36,12 @@
 	if (typeof window !== 'undefined') window.addEventListener('vite:preloadError', () => location.reload());
 </script>
 
-{#if stageFrame}
-	{@render children()}
-{:else}
-	{#if started || !away}
-		<div class="page" class:away><CoreUnitsProvider>{@render children()}</CoreUnitsProvider></div>
-	{/if}
-	<CoreHistoryProvider />
-	<CorePlacesProvider />
-	{#if away}<DesktopNotice />{/if}
+{#if started || !away}
+	<div class="page" class:away><CoreUnitsProvider>{@render children()}</CoreUnitsProvider></div>
 {/if}
+<CoreHistoryProvider />
+<CorePlacesProvider />
+{#if away}<DesktopNotice />{/if}
 
 <style>
 	.page {

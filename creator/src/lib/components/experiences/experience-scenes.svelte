@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ToolGroup } from '@scutoons/ui/editor';
 	import { contentUrl, type OutlineScene } from '$lib/editor/experiences.ts';
-	import { STAGE_TOOLS, STAGE_VIEWS, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { STAGE_TOOLS, STAGE_VIEWS, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 

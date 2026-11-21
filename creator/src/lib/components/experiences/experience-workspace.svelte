@@ -9,7 +9,7 @@
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
-	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { shell, usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { toast } from '$lib/toasts.ts';

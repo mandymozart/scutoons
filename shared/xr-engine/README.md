@@ -22,11 +22,10 @@ Once OSCT publishes the engine and the contract as packages with a tag, this cop
   none of OSCT's files: an app's own TypeScript settings (the viewer's NodeNext) refuse them, so they are only checked
   here. `reader.ts` must fit those declarations; `npm run check` says when it does not.
 - **The editor's stage is `@scutoons/xr-engine/stage`** (`src/stage.ts`, types `src/stage-api.ts`): `openStage(container,
-  configuration, plugins, scene, options)` plays a scene on OSCT's desk without a camera (its simulated tracker), view
-  only. It runs the experience's plugins, which are unchecked code: an app opens it only in a document without a
-  session, a frame sandboxed without `allow-same-origin` (the creator: `src/lib/editor/xr-stage-frame.ts`). The app
-  serves the files of `osct/editor/static` (`options.stageBase`). `src/load.ts` reads a configuration and loads the
-  plugins' code for both entries.
+  configuration, plugins, scene, options)` plays a scene on OSCT's desk without a camera (its simulated tracker), with
+  picking, the selection's outline, OSCT's gizmo and live entity overrides. It runs the experience's plugins in the app's
+  own page (owner 2026-11-21: no sandbox – the member is trusted, as with the API). The app serves the files of
+  `osct/editor/static` (`options.stageBase`). `src/load.ts` reads a configuration and loads the plugins' code for both entries.
 - The copied files import each other through `@shared/*`, the editor's also through `@engine/*` and `#lib/*`. An app
   that imports this package maps `@shared` to `shared/xr-engine/osct/shared` and, for the stage, `@engine` to
   `shared/xr-engine/osct/engine/src` (SvelteKit: `kit.alias`), as this package's `tsconfig.json` does; `#lib/*` is this

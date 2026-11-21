@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { openRequest, readStageEvent, STAGE_FRAME_PATH, STAGE_LOADING, STAGE_SANDBOX, stageAfter, stageMessage, type StagePlacement, type StageRef, type StageShown, type StageTool, type StageView } from '$lib/editor/xr-stage-frame.ts';
+	import { onMount, untrack } from 'svelte';
+	import type { XrStage } from '@scutoons/xr-engine/stage';
+	import { STAGE_FILES_PATH, STAGE_LOADING, stageAfter, stageInput, type StagePlacement, type StageRef, type StageShown, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 
 	/**
-	 * The workspace's stage: one scene of the experience on the desk, filling its parent. The engine and the experience's
-	 * plugins run in the sandboxed frame (lib/editor/xr-stage-frame.ts); this element only carries it and its notes.
-	 * A new `scene` or `run` loads the frame anew; `view` turns the camera of the frame that plays; `selected` is outlined
-	 * there, a click on the stage reports what it picked (`onpick`).
+	 * The workspace's stage: one scene of the experience on the desk, filling its parent – the engine and the
+	 * experience's plugins run in the creator's page (owner 2026-11-21: no sandbox). A new `scene` or `run` opens the
+	 * stage anew; `view`, `tool`, `selected` and `edited` reach the stage that plays; a click reports what it picked, a
+	 * gizmo drag the node's placement.
 	 */
 	let {
 		content,
@@ -40,48 +42,76 @@
 		shown?: StageShown;
 	} = $props();
 
-	let frame = $state<HTMLIFrameElement>();
+	let host = $state<HTMLDivElement>();
+	let stage = $state.raw<XrStage | null>(null);
+	let opening = 0;
 
-	function onMessage(event: MessageEvent) {
-		const target = frame?.contentWindow;
-		if (!target || event.source !== target) return;
-		const e = readStageEvent(event.data);
-		if (!e) return;
-		if (e.kind === 'picked') return onpick(e.ref);
-		if (e.kind === 'placed') return onplace(e.ref, e.placement);
-		if (e.kind !== 'ready') return void (shown = stageAfter(shown, e));
-		// a frame loaded anew takes the experience as it is now
-		const request = openRequest($state.snapshot(content), scene, asset(assets), getLocale());
-		shown = request ? STAGE_LOADING : { ...STAGE_LOADING, phase: 'failed' };
-		// the frame's origin is opaque, so it cannot be named; what goes there is the experience it is to play
-		if (request) target.postMessage(stageMessage(request), '*');
+	async function open(container: HTMLDivElement, key: number) {
+		shown = STAGE_LOADING;
+		const input = stageInput($state.snapshot(content));
+		if (!input) return void (shown = { ...STAGE_LOADING, phase: 'failed' });
+		try {
+			const { openStage } = await import('@scutoons/xr-engine/stage');
+			const opened = await openStage(container, input.configuration, input.plugins, scene, {
+				assetsBase: asset(assets),
+				stageBase: STAGE_FILES_PATH,
+				language: getLocale,
+				handlers: {
+					status: (status, message) => (shown = stageAfter(shown, status, message ?? null)),
+					found: () => {},
+					subtitle: (text) => (shown = { ...shown, subtitle: text }),
+					picked: (ref) => onpick(ref ? { target: ref.target, path: ref.path ? [...ref.path] : null } : null),
+					placed: (ref, placement) => onplace({ target: ref.target, path: ref.path ? [...ref.path] : null }, placement)
+				}
+			});
+			if ('problems' in opened) return void (shown = { ...STAGE_LOADING, phase: 'failed', problems: opened.problems });
+			if (key !== opening) return void opened.stage.dispose();
+			stage = opened.stage;
+		} catch (e) {
+			console.error('[xr-stage]', e);
+			shown = { ...STAGE_LOADING, phase: 'failed', problems: [e instanceof Error ? e.message : String(e)] };
+		}
 	}
 
+	// a new experience folder, scene or replay: the stage opens anew in an emptied element
 	$effect(() => {
-		const next = view;
-		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'view', view: next }), '*');
+		void `${assets}|${scene}|${run}`;
+		const container = host;
+		if (!container) return;
+		const key = ++opening;
+		untrack(() => void open(container, key));
+		return () => {
+			const old = stage;
+			stage = null;
+			void old?.dispose();
+			container.replaceChildren();
+		};
+	});
+
+	$effect(() => {
+		if (stage && shown.phase === 'playing') stage.view(view);
 	});
 	$effect(() => {
-		const request = stageMessage({ kind: 'tool', tool, handles });
-		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(request, '*');
-	});
-	$effect(() => {
-		const edit = edited;
-		if (!edit || shown.phase !== 'playing') return;
-		for (const [target, entity] of Object.entries(edit.trees)) frame?.contentWindow?.postMessage(stageMessage({ kind: 'entity', target, entity }), '*');
+		if (stage && shown.phase === 'playing') stage.tool(tool, handles);
 	});
 	$effect(() => {
 		const ref = selected ? { target: selected.target, path: selected.path ? [...selected.path] : null } : null;
-		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'select', ref }), '*');
+		if (stage && shown.phase === 'playing') stage.select(ref);
+	});
+	$effect(() => {
+		const edit = edited;
+		if (!edit || !stage || shown.phase !== 'playing') return;
+		for (const [target, entity] of Object.entries(edit.trees)) stage.override(target, entity);
+	});
+
+	onMount(() => () => {
+		opening++;
+		void stage?.dispose();
 	});
 </script>
 
-<svelte:window onmessage={onMessage} />
-
 <div class="stage" data-testid="experience-stage" data-phase={shown.phase}>
-	{#key `${assets}|${scene}|${run}`}
-		<iframe bind:this={frame} src={STAGE_FRAME_PATH} sandbox={STAGE_SANDBOX} title={m['creator.experiences_stage_frame']()}></iframe>
-	{/key}
+	<div class="host" bind:this={host}></div>
 	{#if shown.phase === 'loading'}
 		<p class="note" role="status">{m['creator.experiences_stage_loading']()}</p>
 	{:else if shown.phase === 'failed'}
@@ -99,12 +129,15 @@
 		inset: 0;
 		background: var(--editor-stage, var(--ink));
 	}
-	iframe {
+	.host {
 		position: absolute;
 		inset: 0;
+		overflow: hidden;
+	}
+	.host :global(canvas) {
+		display: block;
 		width: 100%;
 		height: 100%;
-		border: 0;
 	}
 	.note {
 		position: absolute;

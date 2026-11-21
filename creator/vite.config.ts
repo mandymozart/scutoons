@@ -1,7 +1,7 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { cdnFonts } from '@scutoons/tokens/vite';
-import { defaultAllowedOrigins, defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import { ENGINE_PATH } from './src/lib/isolation.ts';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
@@ -48,13 +48,10 @@ export default defineConfig(({ command }) => ({
 		// 127.0.0.1, not the default `localhost` (= ::1 alone on Windows; Firefox then loses Vite's HMR socket – viewer/vite.config.ts)
 		host: '127.0.0.1',
 		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
-		fs: { allow: ['../shared'] },
-		// the XR stage's frame (src/lib/editor/xr-stage-frame.ts) has an opaque origin: it asks for the app's scripts with `Origin: null`
-		cors: { origin: [defaultAllowedOrigins, 'null'] }
+		fs: { allow: ['../shared'] }
 	},
 	preview: {
 		port: ports.creator,
-		strictPort: true,
-		cors: { origin: [defaultAllowedOrigins, 'null'] }
+		strictPort: true
 	}
 }));
