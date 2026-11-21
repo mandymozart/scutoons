@@ -163,6 +163,8 @@ impl Pictures {
 struct Assets {
     shelf: Option<Shelf>,
     list: Vec<Entry>,
+    /// every file its own entry (the browser's single levels)
+    singles: Vec<Entry>,
     /// where their paths are served from (the answer's `cdn`)
     cdn: String,
     rx: Option<Receiver<Result<Answer, String>>>,
@@ -186,6 +188,7 @@ impl Assets {
     fn take(&mut self, (mut shelf, cdn): Answer, context: &Context) {
         shelf.set_context(context.clone());
         self.list = shelf.families(false).iter().map(|f| f.entry_on(&cdn)).collect();
+        self.singles = shelf.families(true).iter().map(|f| f.entry_on(&cdn)).collect();
         (self.shelf, self.cdn) = (Some(shelf), cdn);
     }
 }
@@ -224,11 +227,17 @@ pub struct Library {
     context: Context,
     /// counts the shelf's and its context's changes (the browser asks its view again)
     stamp: u64,
+    /// the API the assets came from (an upload goes there, then they are asked again)
+    base: String,
+    /// a dropped file on its way: the path it lands at, or why not
+    uploading: Option<Receiver<Result<String, String>>>,
+    /// the file just uploaded: its card is chosen once the assets come back
+    fresh: Option<String>,
 }
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None, context: Context::default(), stamp: 0 }
+        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None, context: Context::default(), stamp: 0, base: String::new(), uploading: None, fresh: None }
     }
 
     /// the workspace's entries this frame, only the kinds its purpose loads
@@ -248,6 +257,7 @@ impl Library {
         if std::mem::replace(&mut self.assets.asked, true) {
             return;
         }
+        self.base = base.to_string();
         let (tx, rx) = channel();
         let api = Api::new(base.to_string());
         std::thread::spawn(move || {
@@ -273,8 +283,9 @@ impl Library {
         crate::module::entries(&text).map_err(|e| tracing::warn!("--catalog modules: {e}")).ok()
     }
 
+    /// the assets' entries: one per family, or one per file when the browser shows the levels single
     pub fn assets(&self) -> Vec<Entry> {
-        self.assets.list.clone()
+        if self.browser.single { self.assets.singles.clone() } else { self.assets.list.clone() }
     }
 
     /// where the assets' paths are served from (empty until they are known)
@@ -282,17 +293,61 @@ impl Library {
         &self.assets.cdn
     }
 
-    pub fn poll(&mut self) {
+    /// what the threads brought; a word for the status line when an upload ended
+    pub fn poll(&mut self) -> Option<String> {
         self.pictures.poll();
         if let Some(Ok(r)) = self.assets.rx.as_ref().map(Receiver::try_recv) {
             match r {
                 Ok(a) => {
                     self.assets.take(a, &self.context);
                     self.stamp += 1;
+                    self.choose_fresh();
                 }
                 Err(e) => tracing::info!("the library's assets: {e}"),
             }
             self.assets.rx = None;
+        }
+        let done = self.uploading.as_ref().and_then(|rx| rx.try_recv().ok())?;
+        self.uploading = None;
+        Some(match done {
+            Ok(path) => {
+                self.fresh = Some(path.clone());
+                self.assets.asked = false;
+                let base = self.base.clone();
+                self.ask_assets(&base);
+                format!("{path} uploaded")
+            }
+            Err(e) => format!("the upload: {e}"),
+        })
+    }
+
+    /// Where a file dropped on the editor lands: the core's upload path for the open item (its folder, else the toon's).
+    pub fn upload_target(&self, file_name: &str) -> Option<String> {
+        self.assets.shelf.as_ref()?.upload_path(file_name, None)
+    }
+
+    /// a file dropped on the editor: uploaded to the open item's folder on a thread; the path it goes to, or why not
+    pub fn upload(&mut self, file: &std::path::Path) -> Result<String, String> {
+        if self.uploading.is_some() {
+            return Err("one upload at a time: the last one is still on its way".into());
+        }
+        let name = file.file_name().and_then(|n| n.to_str()).ok_or("the file has no name")?;
+        let path = self.upload_target(name).ok_or("no folder for it: open a scene of a toon or a character's rig first")?;
+        let bytes = std::fs::read(file).map_err(|e| format!("{}: {e}", file.display()))?;
+        let (tx, rx) = channel();
+        let (api, to) = (Api::new(self.base.clone()), path.clone());
+        std::thread::spawn(move || {
+            let _ = tx.send(api.upload_asset(&to, &bytes));
+        });
+        self.uploading = Some(rx);
+        Ok(path)
+    }
+
+    /// the file just uploaded, chosen once its family is on the shelf
+    fn choose_fresh(&mut self) {
+        let Some(path) = self.fresh.take() else { return };
+        if let Some(f) = self.assets.shelf.as_ref().and_then(|s| s.family_in(&path, self.browser.single)) {
+            self.browser.chosen = vec![f.main.clone()];
         }
     }
 
@@ -347,7 +402,7 @@ impl Library {
 
     /// the family of a file's entry
     pub fn family(&self, e: &Entry) -> Option<&deck_catalog::library::family::Family> {
-        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address))
+        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, self.browser.single))
     }
 
     /// whether this workspace takes `e`: a file by its family (its kind, then the fit), anything else by its kind
@@ -385,6 +440,9 @@ pub fn of_show(scenes: Vec<deck_show::rows::PieceView>, book: Option<&deck_space
 
 /// a check run's drag: the card's address, where it is let go (none: the stage's middle), kept in the hand
 pub type ScriptDrag = (String, Option<(f32, f32)>, bool);
+
+/// several cards dropped at once land this far apart, down and to the right
+const DROP_STEP: f32 = 28.0;
 
 /// seconds since the editor started: the browser's clock for a second press
 pub fn now() -> f64 {
@@ -437,7 +495,9 @@ pub fn of_scene(modules: &[serde_json::Value], book: Option<&deck_space::rig::bo
 impl crate::App {
     pub(crate) fn follow_library(&mut self) {
         use crate::show::Workspace;
-        self.library.poll();
+        if let Some(word) = self.library.poll() {
+            self.note(word);
+        }
         let purpose = match self.workspace {
             Workspace::Stage if self.scene.as_ref().is_some_and(|v| v.inside.is_none()) => Purpose::Scene,
             Workspace::Stage => Purpose::Build,
@@ -505,12 +565,32 @@ impl crate::App {
         }
     }
 
+    /// A file dropped on the window: where the Library lists the toon's files (Build, a scene), uploaded to the open
+    /// item's folder.
+    pub(crate) fn library_file(&mut self, file: &std::path::Path) {
+        if !matches!(self.library.purpose, Purpose::Build | Purpose::Scene) || !matches!(self.workspace, crate::show::Workspace::Stage) {
+            self.note("files are added where the Library lists the toon's files: Build or a scene".into());
+            return;
+        }
+        if self.auth.token().is_none() {
+            self.note("sign in to add files".into());
+            return;
+        }
+        let word = match self.library.upload(file) {
+            Ok(path) => format!("uploading to {path}"),
+            Err(e) => e,
+        };
+        self.note(word);
+    }
+
     /// the pointer moved: a card dragged far enough goes into the one hand
     pub(crate) fn library_drag_to(&mut self, x: f32, y: f32) {
         self.library.browser.drag_to(x, y);
         if self.carry.is_none() {
             if let Some(e) = self.library.browser.dragging().and_then(|i| self.library.entries.get(i)) {
-                self.carry = Some(deck_kit::editor::carry::Carry::new(&e.address, &e.label));
+                let more = self.library.browser.carried().len().saturating_sub(1);
+                let label = if more > 0 { format!("{} + {more}", e.label) } else { e.label.clone() };
+                self.carry = Some(deck_kit::editor::carry::Carry::new(&e.address, &label));
             }
         }
     }
@@ -525,20 +605,36 @@ impl crate::App {
         }
     }
 
-    /// a card let go at `at`: Build's stage takes a module or an instrument as a track, Show's cell a piece
+    /// Cards let go at `at` (several when chosen cards were dragged): what this workspace takes lands, one after the
+    /// other a little apart (Show: one cell down each); what it does not take is said once.
     fn library_drop(&mut self, entry: usize, at: (f32, f32)) {
-        let Some(e) = self.library.entries.get(entry).cloned() else { return };
         if self.library.browser.hit(at.0, at.1).is_some() {
             return;
         }
-        if let Err(why) = self.library.takes(&e) {
+        let mut list: Vec<Entry> = self.library.browser.dropped().iter().filter_map(|&i| self.library.entries.get(i).cloned()).collect();
+        if list.is_empty() {
+            list.extend(self.library.entries.get(entry).cloned());
+        }
+        let (fit, refused): (Vec<Entry>, Vec<Entry>) = list.into_iter().partition(|e| self.library.takes(e).is_ok());
+        if let Some(why) = refused.first().and_then(|e| self.library.takes(e).err()) {
+            let why = if fit.is_empty() && refused.len() == 1 { why } else { format!("{} of {} not dropped: {why}", refused.len(), refused.len() + fit.len()) };
             self.refuse(why, at.0, at.1);
+        }
+        if self.workspace == crate::show::Workspace::Show {
+            let pieces: Vec<String> = fit.iter().map(|e| e.address.clone()).collect();
+            self.show.drop_pieces(&pieces, at.0, at.1);
             return;
         }
+        for (k, e) in fit.iter().enumerate() {
+            let step = DROP_STEP * k as f32;
+            self.library_drop_one(e, (at.0 + step, at.1 + step));
+        }
+    }
+
+    /// one card that fits let go at `at`: Build's stage takes a module or an instrument as a track, a scene its slots'
+    /// and layers' pieces
+    fn library_drop_one(&mut self, e: &Entry, at: (f32, f32)) {
         match self.workspace {
-            crate::show::Workspace::Show => {
-                self.show.drop_piece(&e.address, at.0, at.1);
-            }
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
@@ -592,9 +688,11 @@ impl crate::App {
             if let Some(q) = self.args.library_find.clone() {
                 self.library.browser.filter.query = q;
             }
+            self.library.browser.chosen = self.args.library_choose.clone();
             if self.args.library_list {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }
+            self.library.browser.single |= self.args.library_single;
         }
         if self.frames == 2 && self.args.library_related {
             self.library.browser.filter.related = Some(String::new());
@@ -682,6 +780,31 @@ mod tests {
         let files = lib.assets();
         assert_eq!(lib.takes(&files[1]), Ok(()), "a picture fits a scene's layer");
         assert!(lib.takes(&files[0]).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
+        lib.browser.single = true;
+        let singles = lib.assets();
+        assert_eq!(singles.len(), 4, "single levels: every file its own entry");
+        let two = singles.iter().find(|e| e.address == "cat/s1/c1/hills.2x.webp").expect("the 2x on its own");
+        assert_eq!(lib.family(two).map(|f| f.versions.len()), Some(1), "its family is the file alone");
+        assert_eq!(lib.takes(two), Ok(()));
+    }
+
+    #[test]
+    fn a_dropped_file_lands_in_the_open_items_folder() {
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-upload-{}", std::process::id())));
+        let text = serde_json::json!({ "items": [{ "id": "a1", "kind": "image", "path": "cat/s1/c2/sky.webp" }] }).to_string();
+        assert_eq!(lib.upload_target("x.png"), None, "no assets yet: nowhere");
+        lib.assets.take(answer(&text).unwrap(), &Context::default());
+        assert_eq!(lib.upload_target("Sun Set.PNG"), None, "nothing open and no toon: the person picks a folder");
+        lib.set_context(rig_context("yellowmouse.kid", Some("cat")));
+        assert_eq!(lib.upload_target("Sun Set.PNG").as_deref(), Some("characters/yellowmouse/sun-set.png"), "a rig: its character's folder");
+        lib.set_context(scene_context("nave", &[], Vec::new(), Some("cat")));
+        assert_eq!(lib.upload_target("bell.mp3").as_deref(), Some("cat/bell.mp3"), "a scene: its toon's folder");
+        assert!(lib.upload(std::path::Path::new("Z:/nowhere/bell.mp3")).unwrap_err().contains("nowhere"), "an unreadable file says so");
+        let fresh = serde_json::json!({ "items": [{ "id": "a1", "kind": "image", "path": "cat/s1/c2/sky.webp" }, { "id": "a2", "kind": "image", "renditions": [{ "path": "cat/sun.webp" }, { "path": "cat/sun.2x.webp" }] }] }).to_string();
+        lib.fresh = Some("cat/sun.2x.webp".into());
+        lib.assets.take(answer(&fresh).unwrap(), &lib.context.clone());
+        lib.choose_fresh();
+        assert_eq!(lib.browser.chosen, ["cat/sun.webp"], "the new file's card is chosen");
     }
 
     #[test]

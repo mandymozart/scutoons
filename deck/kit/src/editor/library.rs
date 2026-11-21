@@ -67,10 +67,16 @@ pub enum Hit {
     Place(Place),
     /// the selection's cross: none chosen
     Unselect,
+    /// the places per item: open or fold their list
+    Items,
+    /// one item's files, by its place in the list drawn (again: all of the scope)
+    Item(usize),
     /// the next grouping: by use, by kind, none
     Grouping,
     /// the next order: name, newest, biggest, most used
     Sort,
+    /// the levels stacked (one card per family) or single (every file its own)
+    Levels,
     /// a card, by its entry's index
     Card(usize),
 }
@@ -92,9 +98,9 @@ impl<'a> Source<'a> {
         Source { entries, shelf: None, stamp: 0, now_ms: 0.0 }
     }
 
-    /// how many versions the card of `e` stacks (1: a single file or no family)
-    pub fn stack(&self, e: &Entry) -> usize {
-        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_of(&e.address)).map_or(1, |f| f.versions.len())
+    /// how many versions the card of `e` stacks (1: a single file, single levels or no family)
+    pub fn stack(&self, e: &Entry, single: bool) -> usize {
+        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, single)).map_or(1, |f| f.versions.len())
     }
 }
 
@@ -149,7 +155,17 @@ pub struct Browser {
     pub scope: Scope,
     pub grouping: Grouping,
     pub sort: Sort,
+    /// every file on its own instead of the families' stacks (its owner lists the single files then)
+    pub single: bool,
     pub place: Option<Place>,
+    /// the one item whose files are shown (a place of its own, beside `place`)
+    pub item: Option<String>,
+    /// the list of places per item is open
+    pub items_open: bool,
+    /// the items listed, in their order (an item row's press)
+    items: Vec<String>,
+    /// the cards the last drop let go of, in the order shown (several when a chosen card was dragged)
+    dropped: Vec<usize>,
     /// the cards chosen (by address) and the one a Shift run starts from
     pub chosen: Vec<String>,
     anchor: Option<String>,
@@ -167,7 +183,7 @@ pub struct Browser {
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, place: None, chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, item: None, items_open: false, items: Vec::new(), dropped: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
     }
 }
 
@@ -243,6 +259,17 @@ impl Browser {
             }
             Hit::Place(p) => {
                 self.place = if self.place == Some(p) { None } else { Some(p) };
+                self.item = None;
+                Did::Taken
+            }
+            Hit::Items => {
+                self.items_open = !self.items_open;
+                Did::Taken
+            }
+            Hit::Item(n) => {
+                let picked = self.items.get(n).cloned();
+                self.item = if self.item == picked { None } else { picked };
+                self.place = None;
                 Did::Taken
             }
             Hit::Grouping => {
@@ -262,6 +289,11 @@ impl Browser {
                 };
                 Did::Taken
             }
+            Hit::Levels => {
+                self.single = !self.single;
+                (self.chosen, self.anchor) = (Vec::new(), None);
+                Did::Taken
+            }
             Hit::Fold(n) => {
                 if let Some((key, folded)) = self.folded.get(n).cloned() {
                     self.folds.insert(key, !folded);
@@ -270,7 +302,9 @@ impl Browser {
             }
             Hit::Card(i) => {
                 let (shift, toggle) = self.keys;
-                if let Some(id) = self.order.iter().find(|(j, _)| *j == i).map(|(_, a)| a.clone()) {
+                // a plain press on one of several chosen cards keeps them: it may drag them all (a click narrows on release)
+                let keep = |b: &Browser, id: &str| !shift && !toggle && b.chosen.len() > 1 && b.chosen.iter().any(|c| c == id);
+                if let Some(id) = self.order.iter().find(|(j, _)| *j == i).map(|(_, a)| a.clone()).filter(|id| !keep(self, id)) {
                     let order: Vec<String> = self.order.iter().map(|(_, a)| a.clone()).collect();
                     (self.chosen, self.anchor) = select(&self.chosen, self.anchor.as_deref(), &id, &order, shift, toggle);
                 }
@@ -301,10 +335,41 @@ impl Browser {
         self.held.filter(|h| h.dragging).map(|h| h.entry)
     }
 
-    /// The button let go: a dragged card is dropped where the pointer is (its owner decides what takes it).
+    /// The cards in the hand: every chosen card in the order shown when the one held is among several chosen, else the
+    /// one held.
+    pub fn carried(&self) -> Vec<usize> {
+        let Some(h) = self.held else { return Vec::new() };
+        let address = self.order.iter().find(|(i, _)| *i == h.entry).map(|(_, a)| a.as_str());
+        if self.chosen.len() < 2 || !address.is_some_and(|a| self.chosen.iter().any(|c| c == a)) {
+            return vec![h.entry];
+        }
+        let mut out: Vec<usize> = Vec::new();
+        for (i, a) in &self.order {
+            if self.chosen.contains(a) && !out.contains(i) {
+                out.push(*i);
+            }
+        }
+        out
+    }
+
+    /// the cards the last drop let go of (`Did::Drop` names the one under the pointer)
+    pub fn dropped(&self) -> &[usize] {
+        &self.dropped
+    }
+
+    /// The button let go: dragged cards are dropped where the pointer is (its owner decides what takes them); a press on
+    /// one of several chosen cards that did not move chooses that one.
     pub fn release(&mut self, x: f32, y: f32) -> Option<Did> {
+        self.dropped = self.carried();
         let h = self.held.take()?;
-        Some(if h.dragging { Did::Drop { entry: h.entry, at: (x, y) } } else { Did::Click(h.entry) })
+        if h.dragging {
+            return Some(Did::Drop { entry: h.entry, at: (x, y) });
+        }
+        self.dropped.clear();
+        if let Some(id) = self.order.iter().find(|(i, _)| *i == h.entry).map(|(_, a)| a.clone()).filter(|_| self.chosen.len() > 1) {
+            (self.chosen, self.anchor) = (vec![id.clone()], Some(id));
+        }
+        Some(Did::Click(h.entry))
     }
 
     /// The browser in `a`: the find field, the chips, the cards – the owner's entries, then the toon's files in the
@@ -362,6 +427,12 @@ impl Browser {
             }
             y += used + 6.0;
         }
+        if let Some(text) = self.drop_line(src) {
+            let h = small * 1.4 + 4.0;
+            d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &text, a.w), t.color.muted);
+            y += h + 2.0;
+        }
+        y = self.item_places(d, t, (a, pointer), y);
         if self.chosen.len() > 1 {
             let h = small * 1.4 + 6.0;
             let text = format!("{} selected", self.chosen.len());
@@ -376,6 +447,7 @@ impl Browser {
             d.sans(a.x, y + 4.0, small, why, t.color.muted);
             return;
         }
+        let plain: Vec<Cell> = plain.into_iter().map(|i| Cell { tiles: vec![Tile::Card(i)], frame: None }).collect();
         y = self.cards(d, t, (a, pointer), y, src, &plain, picture);
         self.folded.clear();
         for (n, g) in groups.iter().enumerate() {
@@ -386,7 +458,7 @@ impl Browser {
                     d.rect(r.x, r.y, r.w, r.h, t.color.hover);
                 }
                 d.icon(r.x + 2.0, r.y + (h - 12.0) * 0.5, 12.0, if g.folded { "next" } else { "down" }, t.color.muted);
-                let count = g.cards.len().to_string();
+                let count = g.cells.iter().map(|c| c.tiles.len()).sum::<usize>().to_string();
                 let cw = d.sans_width(small, &count);
                 d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &g.title, r.w - cw - 28.0), t.color.text);
                 d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &count, t.color.muted);
@@ -396,7 +468,7 @@ impl Browser {
             }
             self.folded.push((g.key.clone(), g.folded));
             if !g.folded {
-                y = self.cards(d, t, (a, pointer), y, src, &g.cards, picture);
+                y = self.cards(d, t, (a, pointer), y, src, &g.cells, picture);
             }
         }
     }
@@ -413,7 +485,7 @@ impl Browser {
             self.view = None;
             return Vec::new();
         }
-        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.place.map(Place::special), query: f.query.clone(), related: f.related.clone(), now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
+        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.item.clone().map(Special::Item).or(self.place.map(Place::special)), query: f.query.clone(), related: f.related.clone(), single: self.single, now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
         if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
             self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
         }
@@ -423,18 +495,58 @@ impl Browser {
         view.groups
             .iter()
             .filter_map(|g| {
-                let cards: Vec<usize> = g
-                    .cells
-                    .iter()
-                    .flat_map(|c| &c.keys)
-                    .filter_map(|k| shelf.family_of(k))
-                    .filter_map(|fam| by_address.get(fam.main.as_str()).copied())
-                    .filter(|&i| f.kinds.is_empty() || f.kinds.contains(&src.entries[i].kind))
-                    .collect();
+                let cells: Vec<Cell> = g.cells.iter().filter_map(|c| cell((shelf, self.single), c, &by_address, src.entries, f)).collect();
                 let folded = !searching && self.folds.get(&g.key).copied().unwrap_or(g.folded);
-                (!cards.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cards })
+                (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
             })
             .collect()
+    }
+
+    /// The places per item (the shelf's one-item places): a heading that opens the list, each item's address and how many
+    /// of the scope's files it has; the one shown is lit. Where it ends.
+    fn item_places(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32) -> f32 {
+        let list: Vec<(String, usize)> = self.view.as_ref().map(|(_, _, v)| v.specials.items.clone()).unwrap_or_default();
+        self.items = list.iter().map(|(i, _)| i.clone()).collect();
+        if list.is_empty() {
+            return y;
+        }
+        let small = t.size.small;
+        let h = small * 1.4 + 6.0;
+        let head = Rect { x: a.x, y, w: a.w, h };
+        if head.has(pointer.0, pointer.1) {
+            d.rect(head.x, head.y, head.w, head.h, t.color.hover);
+        }
+        d.icon(head.x + 2.0, head.y + (h - 12.0) * 0.5, 12.0, if self.items_open { "down" } else { "next" }, t.color.muted);
+        let title = match &self.item {
+            Some(i) => format!("by item: {i}"),
+            None => format!("by item {}", list.len()),
+        };
+        d.sans(head.x + 18.0, head.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &title, head.w - 22.0), if self.item.is_some() { t.color.text } else { t.color.muted });
+        self.hits.push((head, Hit::Items));
+        y += h;
+        if self.items_open {
+            for (n, (item, count)) in list.iter().enumerate() {
+                let r = Rect { x: a.x, y, w: a.w, h };
+                if self.item.as_deref() == Some(item.as_str()) {
+                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
+                } else if r.has(pointer.0, pointer.1) {
+                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                }
+                let c = count.to_string();
+                let cw = d.sans_width(small, &c);
+                d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, item, r.w - cw - 28.0), t.color.text);
+                d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &c, t.color.muted);
+                self.hits.push((r, Hit::Item(n)));
+                y += h;
+            }
+        }
+        y + 4.0
+    }
+
+    /// where a file dropped on the editor goes (the core's folder for the open item), when the workspace lists files
+    fn drop_line(&self, src: &Source) -> Option<String> {
+        let to = src.shelf.filter(|_| self.view.is_some()).and_then(Shelf::upload_folder)?;
+        Some(format!("files dropped here go to {to}"))
     }
 
     /// the shelf's chips after the kinds: its scopes with their counts, the places, the grouping and the order
@@ -469,64 +581,125 @@ impl Browser {
         };
         out.push((grouping.to_string(), false, Hit::Grouping));
         out.push((sort.to_string(), false, Hit::Sort));
+        out.push((if self.single { "levels single" } else { "levels stacked" }.to_string(), self.single, Hit::Levels));
         out
     }
 
-    /// The cards of `list` from `y` on, in the grid or the list; where they end.
+    /// The cells of `list` from `y` on, in the grid or the list, a frame's tiles together inside its outline; where they end.
     #[allow(clippy::too_many_arguments)]
-    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[usize], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
+    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[Cell], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
         if list.is_empty() {
             return y;
         }
-        let (entries, small) = (src.entries, t.size.small);
-        let held = self.held.map(|h| h.entry);
-        match self.mode {
-            Mode::Grid => {
-                let gap = 8.0;
-                let cols = (((a.w + gap) / (CARD_W + gap)).floor() as usize).max(1);
-                if src.shelf.is_some() {
-                    y += SHEET_STEP * SHEETS as f32;
-                }
-                let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
-                let ch = CARD_PREVIEW + small * 1.4 * 2.0 + 8.0;
-                for (n, &i) in list.iter().enumerate() {
-                    let e = &entries[i];
-                    let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * (ch + gap), w: cw, h: ch };
-                    let lit = held == Some(i) || self.chosen.contains(&e.address);
-                    self.order.push((i, e.address.clone()));
-                    sheets(d, t, r, src.stack(e));
-                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.surface_head });
-                    preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
-                    let ty = r.y + CARD_PREVIEW + 4.0;
-                    d.sans(r.x + 6.0, ty, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.w - 12.0), t.color.text);
-                    d.sans(r.x + 6.0, ty + small * 1.45, small, &controls::fit_sans(d, small, &e.detail, r.w - 12.0), t.color.muted);
-                    self.hits.push((r, Hit::Card(i)));
-                }
-                y + list.len().div_ceil(cols) as f32 * (ch + gap)
+        let small = t.size.small;
+        let (gap, row_h) = (8.0, ROW_PREVIEW.1 + 6.0);
+        let grid = self.mode == Mode::Grid;
+        let cols = if grid { (((a.w + gap) / (CARD_W + gap)).floor() as usize).max(1) } else { 1 };
+        if grid && src.shelf.is_some() {
+            y += SHEET_STEP * SHEETS as f32;
+        }
+        let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
+        let ch = if grid { CARD_PREVIEW + small * 1.4 * 2.0 + 8.0 } else { row_h };
+        let step = if grid { ch + gap } else { row_h };
+        let slot = |n: usize| Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * step, w: cw, h: ch };
+        let mut n = 0;
+        for c in list {
+            let first = n;
+            for tile in &c.tiles {
+                self.tile(d, t, (slot(n), pointer), src, tile, picture);
+                n += 1;
             }
-            Mode::List => {
-                let h = ROW_PREVIEW.1 + 6.0;
-                for (n, &i) in list.iter().enumerate() {
-                    let e = &entries[i];
-                    let r = Rect { x: a.x, y: y + n as f32 * h, w: a.w, h };
-                    self.order.push((i, e.address.clone()));
-                    if held == Some(i) || self.chosen.contains(&e.address) {
-                        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
-                    } else if r.has(pointer.0, pointer.1) {
-                        d.rect(r.x, r.y, r.w, r.h, t.color.hover);
-                    }
-                    let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
-                    sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, src.stack(e));
-                    preview(d, t, p, e, picture);
-                    let x = r.x + ROW_PREVIEW.0 + 10.0;
-                    let dw = d.sans_width(small, &e.detail).min(r.w * 0.4);
-                    d.sans(x, r.y + (h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.x + r.w - dw - 12.0 - x), t.color.text);
-                    d.sans(r.x + r.w - dw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
-                    self.hits.push((r, Hit::Card(i)));
-                }
-                y + list.len() as f32 * h + 4.0
+            if c.frame.is_some() {
+                frame(d, t, (first..n).map(slot).collect(), if grid { gap * 0.5 - 1.0 } else { 1.0 });
             }
         }
+        y + n.div_ceil(cols) as f32 * step + if grid { 0.0 } else { 4.0 }
+    }
+
+    /// one tile in `r`: an owner's card (pressed, dragged, chosen) or a frame's part the owner does not list (drawn only)
+    fn tile(&mut self, d: &mut DrawList, t: &Tokens, (r, pointer): (Rect, (f32, f32)), src: &Source, tile: &Tile, picture: &dyn Fn(&Preview) -> Option<u64>) {
+        let small = t.size.small;
+        let (e, i) = match tile {
+            Tile::Card(i) => (&src.entries[*i], Some(*i)),
+            Tile::Part(e) => (e, None),
+        };
+        let lit = i.is_some_and(|i| self.held.map(|h| h.entry) == Some(i) || self.chosen.contains(&e.address));
+        let hover = i.is_some() && r.has(pointer.0, pointer.1);
+        let stack = if i.is_some() { src.stack(e, self.single) } else { 1 };
+        match self.mode {
+            Mode::Grid => {
+                sheets(d, t, r, stack);
+                d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if lit { t.color.selected } else if hover { t.color.hover } else { t.color.surface_head });
+                preview(d, t, Rect { x: r.x + 4.0, y: r.y + 4.0, w: r.w - 8.0, h: CARD_PREVIEW - 4.0 }, e, picture);
+                let ty = r.y + CARD_PREVIEW + 4.0;
+                d.sans(r.x + 6.0, ty, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.w - 12.0), t.color.text);
+                d.sans(r.x + 6.0, ty + small * 1.45, small, &controls::fit_sans(d, small, &e.detail, r.w - 12.0), t.color.muted);
+            }
+            Mode::List => {
+                if lit {
+                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
+                } else if hover {
+                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                }
+                let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
+                sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, stack);
+                preview(d, t, p, e, picture);
+                let x = r.x + ROW_PREVIEW.0 + 10.0;
+                let dw = d.sans_width(small, &e.detail).min(r.w * 0.4);
+                d.sans(x, r.y + (r.h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &e.label, r.x + r.w - dw - 12.0 - x), t.color.text);
+                d.sans(r.x + r.w - dw - 4.0, r.y + (r.h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
+            }
+        }
+        if let Some(i) = i {
+            self.order.push((i, e.address.clone()));
+            self.hits.push((r, Hit::Card(i)));
+        }
+    }
+}
+
+/// what one place in the files shows: an owner's card, or a frame's part the owner does not list
+#[derive(Debug, Clone, PartialEq)]
+enum Tile {
+    Card(usize),
+    Part(Entry),
+}
+
+/// one cell: one card, or a frame's main and its parts
+#[derive(Debug, Clone)]
+struct Cell {
+    tiles: Vec<Tile>,
+    frame: Option<Kind>,
+}
+
+/// The shelf's cell as tiles: each family the owner's entry (by its main file); a frame's part the owner does not list is
+/// drawn from its family. A kind chip picks by the cell's main. None = nothing of it is shown.
+fn cell((shelf, single): (&Shelf, bool), c: &deck_catalog::library::shelf::Cell, by_address: &HashMap<&str, usize>, entries: &[Entry], f: &Filter) -> Option<Cell> {
+    let mut tiles = Vec::new();
+    for k in &c.keys {
+        let Some(fam) = shelf.family_in(k, single) else { continue };
+        match by_address.get(fam.main.as_str()).copied() {
+            Some(i) => tiles.push(Tile::Card(i)),
+            None if !tiles.is_empty() => tiles.push(Tile::Part(fam.entry())),
+            None => return None,
+        }
+    }
+    let Some(Tile::Card(main)) = tiles.first() else { return None };
+    (f.kinds.is_empty() || f.kinds.contains(&entries[*main].kind)).then(|| Cell { frame: c.frame.filter(|_| tiles.len() > 1), tiles })
+}
+
+/// a frame's outline around its tiles: in the grid one per row they take, in the list one around its rows
+fn frame(d: &mut DrawList, t: &Tokens, slots: Vec<Rect>, pad: f32) {
+    let mut rows: Vec<Rect> = Vec::new();
+    for r in slots {
+        match rows.last_mut() {
+            Some(last) if last.y == r.y => last.w = r.x + r.w - last.x,
+            // the list: one row under the other
+            Some(last) if last.x == r.x && last.w == r.w => last.h = r.y + r.h - last.y,
+            _ => rows.push(r),
+        }
+    }
+    for r in rows {
+        d.outline(r.x - pad, r.y - pad, r.w + 2.0 * pad, r.h + 2.0 * pad, (t.size.radius + pad, 1.0), t.color.accent);
     }
 }
 
@@ -537,8 +710,8 @@ struct Shown {
     /// a heading over it (not over the one group of an ungrouped view)
     header: bool,
     folded: bool,
-    /// the owner's entries, in the shelf's order
-    cards: Vec<usize>,
+    /// the owner's entries in the shelf's order, a frame's together
+    cells: Vec<Cell>,
 }
 
 /// a group's heading
@@ -724,7 +897,8 @@ mod tests {
         let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 0, now_ms: 0.0 };
         let hills = entries.iter().position(|e| e.label == "hills").expect("hills");
         let sky = entries.iter().position(|e| e.label == "sky").expect("sky");
-        assert_eq!((src.stack(&entries[hills]), src.stack(&entries[sky])), (3, 1));
+        assert_eq!((src.stack(&entries[hills], false), src.stack(&entries[sky], false)), (3, 1));
+        assert_eq!(src.stack(&entries[hills], true), 1, "single levels: no stack");
         let mut b = Browser::default();
         b.filter.query = "hills".into();
         let d = draw_src(&mut b, &src);
@@ -830,6 +1004,152 @@ mod tests {
         b.press(x, y, 3.0);
         draw_src(&mut b, &src);
         assert_eq!((b.place, names(&b).len()), (None, 3), "the same place again: all of the scope");
+    }
+
+    /// the toon's files with a video and its subtitles (a file kind no workspace lists)
+    fn framed() -> Shelf {
+        let items = r#"{ "items": [
+            { "id": "v", "kind": "video", "usages": 1, "renditions": [{ "path": "cat/s1/speak.720p.mp4", "width": 1280, "height": 720 }, { "path": "cat/s1/speak.480p.mp4", "width": 854, "height": 480 }] },
+            { "id": "s", "kind": "other", "usages": 1, "renditions": [{ "path": "cat/s1/speak.en.vtt" }] },
+            { "id": "h", "kind": "image", "usages": 1, "renditions": [{ "path": "cat/s1/hills.webp" }, { "path": "cat/s1/hills.2x.webp" }] }
+        ] }"#;
+        Shelf::from_json(items).expect("the answer")
+    }
+
+    /// a video and its subtitles stand in one frame: the subtitles drawn from their family though the owner lists no
+    /// files of their kind, outlined together with the video's card
+    #[test]
+    fn a_video_and_its_subtitles_stand_in_one_frame() {
+        let shelf = framed();
+        let entries: Vec<Entry> = shelf.families(false).iter().filter(|f| f.kind != Kind::File).map(|f| f.entry()).collect();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(cards(&b).len(), 2, "the part is drawn, not a card of the owner's");
+        let video = entries.iter().position(|e| e.kind == Kind::Video).unwrap();
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
+        let tiles = |d: &DrawList, r: Rect| d.prims().iter().filter(|p| matches!(p, Prim::Rect { y, w, h, .. } if *y == r.y && *w == r.w && *h == r.h)).count();
+        assert_eq!(tiles(&d, r), 3, "the video, its subtitles' tile, the hills");
+        assert!(d.prims().iter().any(|p| matches!(p, Prim::Icon { name, .. } if *name == Kind::File.icon())), "the subtitles show their kind");
+        let framed = d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, w, .. } if *x < r.x && *y < r.y && *w > 2.0 * r.w));
+        assert!(framed, "one outline around the video and its subtitles");
+        b.mode = Mode::List;
+        let d = draw_src(&mut b, &src);
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
+        assert!(d.prims().iter().any(|p| matches!(p, Prim::Outline { y, h, .. } if *y < r.y && *h > 2.0 * r.h)), "in the list: one outline around both rows");
+    }
+
+    /// the levels chip: stacked one card per family, single every file its own card (the owner lists the single files)
+    #[test]
+    fn the_levels_show_stacked_or_single() {
+        let shelf = shelf();
+        let stacked: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let single: Vec<Entry> = shelf.families(true).iter().map(|f| f.entry()).collect();
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        let d = draw_src(&mut b, &Source { entries: &stacked, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 });
+        assert!(d.texts().contains(&"levels stacked"));
+        assert_eq!(cards(&b).len(), 3);
+        let (x, y) = at(&b, Hit::Levels);
+        b.chosen = vec!["cat/bells.128.mp3".into()];
+        b.press(x, y, 0.0);
+        assert!(b.single && b.chosen.is_empty(), "single, and the stacked selection gone");
+        let src = Source { entries: &single, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().contains(&"levels single"));
+        assert_eq!(cards(&b).len(), 5, "hills' 2x and 3x stand alone");
+        let three = single.iter().position(|e| e.address == "cat/s1/c1/hills.3x.webp").expect("the 3x");
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(three)).unwrap();
+        assert!(!d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP && *y == r.y - SHEET_STEP)), "no sheets behind a single file");
+    }
+
+    #[test]
+    fn the_browser_says_where_a_dropped_file_goes() {
+        let mut shelf = shelf();
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let mut b = Browser::default();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src), None, "nothing open, no toon: no folder");
+        assert!(!d.texts().iter().any(|s| s.starts_with("fil")));
+        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("character:catpope".into()), toon: Some("cat".into()), by_home: true, ..Default::default() });
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 2, now_ms: 0.0 };
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src).as_deref(), Some("files dropped here go to characters/catpope/"));
+        assert!(d.texts().iter().any(|s| s.starts_with("fil")), "drawn (cut to the panel's width): {:?}", d.texts());
+        let modules = list();
+        let src = Source { entries: &modules, shelf: Some(&shelf), stamp: 3, now_ms: 0.0 };
+        draw_src(&mut b, &src);
+        assert_eq!(b.drop_line(&src), None, "a workspace that lists no files takes none");
+    }
+
+    /// every item with files is a place of its own: listed with its count, pressed it shows only its files
+    #[test]
+    fn each_item_is_a_place_listed_with_its_count() {
+        let mut shelf = shelf();
+        let used = |path: &str, item: &str| deck_catalog::library::shelf::Use { path: path.into(), item: item.into(), part: String::new(), at: String::new() };
+        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("scene:nave".into()), toon: Some("cat".into()), uses: vec![used("cat/s1/c2/sky.webp", "scene:nave"), used("cat/s1/c1/hills.2x.webp", "scene:dunes")], ..Default::default() });
+        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
+        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
+        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
+        draw_src(&mut b, &src);
+        assert!(!b.hits.iter().any(|(_, h)| matches!(h, Hit::Item(_))), "folded at first");
+        let (x, y) = at(&b, Hit::Items);
+        b.press(x, y, 0.0);
+        let d = draw_src(&mut b, &src);
+        assert_eq!(b.items, ["chapter:cat:1", "chapter:cat:2", "scene:dunes", "scene:nave", "toon:cat"], "every item with files, in natural order");
+        assert!(d.texts().iter().filter(|s| **s == "1").count() >= 4, "each with its count: {:?}", d.texts());
+        let dunes = b.items.iter().position(|i| i == "scene:dunes").unwrap();
+        let (x, y) = at(&b, Hit::Item(dunes));
+        b.press(x, y, 1.0);
+        draw_src(&mut b, &src);
+        assert_eq!(cards(&b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>(), ["hills"], "only the files scene:dunes uses");
+        let (x, y) = at(&b, Hit::Place(Place::Credits));
+        b.press(x, y, 2.0);
+        assert_eq!((b.item.as_deref(), b.place), (None, Some(Place::Credits)), "a place replaces the item");
+        let (x, y) = at(&b, Hit::Item(dunes));
+        b.press(x, y, 3.0);
+        b.press(x, y, 4.0);
+        draw_src(&mut b, &src);
+        assert_eq!((b.item.as_deref(), b.place, cards(&b).len()), (None, None, 3), "the same item again: all of the scope");
+    }
+
+    /// several chosen cards go into the hand together when one of them is dragged; a click on one narrows to it
+    #[test]
+    fn a_drag_of_a_chosen_card_carries_every_chosen_card() {
+        let e = list();
+        let mut b = Browser::default();
+        drawn(&mut b, &e, &|_| None);
+        let pick = |b: &mut Browser, i: usize, keys: (bool, bool)| {
+            let (x, y) = at(b, Hit::Card(i));
+            b.keys = keys;
+            b.press(x, y, 0.0);
+            b.release(x, y);
+        };
+        pick(&mut b, 0, (false, false));
+        pick(&mut b, 2, (false, true));
+        pick(&mut b, 3, (false, true));
+        assert_eq!(b.chosen.len(), 3);
+        b.keys = (false, false);
+        let (x, y) = at(&b, Hit::Card(3));
+        b.press(x, y, 100.0);
+        assert_eq!(b.chosen.len(), 3, "a plain press on a chosen card keeps the others");
+        b.drag_to(x + 200.0, y + 100.0);
+        assert_eq!(b.carried(), [0, 2, 3], "every chosen card, in the order shown");
+        assert_eq!(b.release(x + 200.0, y + 100.0), Some(Did::Drop { entry: 3, at: (x + 200.0, y + 100.0) }));
+        assert_eq!(b.dropped(), [0, 2, 3]);
+        let (x1, y1) = at(&b, Hit::Card(1));
+        b.press(x1, y1, 200.0);
+        b.drag_to(x1 + 200.0, y1);
+        assert_eq!(b.carried(), [1], "a card not chosen: only itself, the choice starts again");
+        b.release(x1 + 200.0, y1);
+        assert_eq!(b.dropped(), [1]);
+        pick(&mut b, 0, (false, true));
+        assert_eq!(b.chosen, ["module:torso", "module:walk"]);
+        let (x, y) = at(&b, Hit::Card(0));
+        b.keys = (false, false);
+        b.press(x, y, 300.0);
+        assert_eq!(b.release(x, y), Some(Did::Click(0)));
+        assert_eq!((b.chosen.as_slice(), b.dropped()), (["module:walk".to_string()].as_slice(), [].as_slice()), "a click without a move narrows to that card");
     }
 
     #[test]
