@@ -36,6 +36,7 @@ pub mod portrait;
 pub mod post;
 #[cfg(feature = "gpu")]
 pub mod post_gpu;
+pub mod spots;
 pub mod stream;
 pub mod sync;
 pub mod values;

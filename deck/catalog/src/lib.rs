@@ -16,9 +16,11 @@ pub mod groups;
 pub mod layer;
 pub mod library;
 pub mod slot;
+pub mod spot;
 mod builtin;
 pub use background::Background;
 pub use layer::Layer;
+pub use spot::{Spot, Spots};
 pub use builtin::builtin_kinds;
 
 pub const CATALOG_VERSION: u32 = 1;

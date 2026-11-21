@@ -220,6 +220,8 @@ export {
 	type MigrationStatement,
 	type MigrationStatus
 } from './dev.ts';
+// one level of the one network (#763), what every canvas draws, generated from server/schema/api/network-view.schema.json
+export type * as NetworkView from './network-view.ts';
 // the address book's shape (#477), generated from server/schema/api/address-book.schema.json
 export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabels, Origin as AddressOrigin, OriginState as AddressOriginState } from './address-book.ts';
 // the stored scene document `scene:<id>` (#243), generated from server/schema/content/scene.schema.json (itself from deck-space's Rust)

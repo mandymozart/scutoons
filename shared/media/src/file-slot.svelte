@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { rootPath, toonRelativePath } from '@scutoons/api';
-	import { mediaText, mediaUrl } from './setup.ts';
-	import AssetPickerSheet from './asset-picker-sheet.svelte';
+	import { mediaHost, mediaText, mediaUrl } from './setup.ts';
+	import { slotFit } from './slot-host.ts';
+	import { SlotDrop } from './slot-drop.svelte.ts';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 
 	/**
-	 * A media field that has no picture (audio, a ZIP download, a 3D model) as a slot like MediaSlot (UI rule: media fields are
-	 * slots, not path text fields): the file's name is the button that opens the asset picker (that kind; `document` = a PDF, a score's MusicXML), an empty
-	 * dashed slot when nothing is set, the path as the tooltip; × clears it. Audio plays in a small player under it.
+	 * A media field that has no picture (audio, a ZIP download, a 3D model, a PDF) as a slot like MediaSlot: the file's name
+	 * is the button that asks the app's host for a file of that kind, an empty dashed slot when nothing is set, the path
+	 * as the tooltip; a file dragged from the host drops on it; × clears it. Audio plays in a small player under it.
 	 * Paths are CDN-root paths (the catalog's) unless a `toon` is given: then toon-relative, like MediaSlot (chapter audio).
 	 */
 	let {
@@ -27,6 +28,7 @@
 		value: string | null | undefined;
 		kind: 'audio' | 'archive' | 'model' | 'document';
 		label: string;
+		/** where a new file for this slot belongs (a CDN-root folder, e.g. catpope/s1/) */
 		place?: string;
 		onchange: (path: string | null) => void;
 		testid?: string;
@@ -39,15 +41,30 @@
 	} = $props();
 
 	const t = $derived(mediaText());
-	let open = $state(false);
+	const fit = $derived(slotFit(kind));
+	const take = (path: string) => onchange(toonRelativePath(path, toon));
+	const drop = new SlotDrop(() => fit, take);
 	const name = $derived(value ? value.split('/').pop() : '');
 	const root = $derived(value ? rootPath(value, toon) : '');
+	const pick = () => mediaHost()?.pick({ ...fit, label, value: root, place, onpick: take });
 </script>
 
 <div class="file-slot" data-testid={testid}>
 	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
 	<div class="row">
-		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${t.chooseHint}` : t.chooseHint} aria-label="{label}: {value ?? t.choose}">
+		<button
+			type="button"
+			class="slot"
+			class:empty={!value}
+			class:fits={drop.answer?.ok}
+			class:misfit={drop.answer && !drop.answer.ok}
+			onclick={pick}
+			ondragover={drop.over}
+			ondragleave={drop.leave}
+			ondrop={drop.drop}
+			title={value ? `${value}\n${t.chooseHint}` : t.chooseHint}
+			aria-label="{label}: {value ?? t.choose}"
+		>
 			{#if value}<Icon name={kind === 'audio' ? 'music' : kind === 'model' ? 'box' : kind === 'document' ? 'file-text' : 'archive'} /> <span class="name">{name}</span>{:else}<Icon name="plus" />{/if}
 		</button>
 		{#if value && clearable}
@@ -57,7 +74,7 @@
 	{#if value && kind === 'audio' && player}
 		<audio controls preload="none" src={mediaUrl(root)}></audio>
 	{/if}
-	<AssetPickerSheet bind:open {toon} {kind} value={root} {place} title={label} onpick={(picked) => onchange(toonRelativePath(picked.path, toon))} />
+	{#if drop.answer && !drop.answer.ok}<span class="sc-caption misfit" data-testid="slot-misfit">{drop.answer.why}</span>{/if}
 </div>
 
 <style>
@@ -92,6 +109,17 @@
 		justify-content: center;
 		border-style: dashed;
 		color: var(--muted);
+	}
+	.slot.fits {
+		outline: var(--border-width-focus) dashed var(--editor-accent);
+		outline-offset: 2px;
+	}
+	.slot.misfit {
+		outline: var(--border-width-focus) dashed var(--error);
+		outline-offset: 2px;
+	}
+	.misfit {
+		color: var(--error);
 	}
 	.name {
 		overflow: hidden;

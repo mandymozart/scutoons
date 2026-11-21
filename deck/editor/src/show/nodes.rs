@@ -6,6 +6,7 @@
 //! on the empty canvas selects by a box, a click on a wire pins its value (node_pick.rs). Pins are wired by dragging,
 //! wires cut, a node dropped on a wire (node_wire.rs). The painting is node_paint.rs.
 use super::node_card;
+use super::node_drop;
 use super::node_paint::{self, Cam, Frame, Reveal};
 use super::node_pick::{self, Boxing};
 use super::node_wire::{self, Hand};
@@ -529,6 +530,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
         node_pick::draw_box(d, t, b);
     }
     node_wire::draw(d, t, host, &cam, canvas);
+    node_drop::draw(d, t, host, canvas);
     d.clip(None);
     if let Some((Typing::NodeGroup(id), field)) = &typing {
         if let Some(f) = frames.iter().find(|f| f.id == *id) {

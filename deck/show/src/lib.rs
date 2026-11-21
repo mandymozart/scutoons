@@ -21,6 +21,8 @@ pub mod choose;
 pub mod conductor;
 pub mod dialog;
 pub mod document;
+/// a Library piece let go on the row's node view: the cell it becomes the piece of
+pub mod drops;
 pub mod face;
 pub mod far;
 pub mod flash;

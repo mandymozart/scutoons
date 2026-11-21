@@ -52,5 +52,12 @@ analog-module = { path = "../modules/analog" }
 bob-module = { path = "../modules/bob" }
 dolly-module = { path = "../modules/dolly" }
 fixture-module = { path = "../modules/fixture" }
+env-module = { path = "../modules/env" }
+vca-module = { path = "../modules/vca" }
+filter-module = { path = "../modules/filter" }
+noise-module = { path = "../modules/noise" }
+osc-module = { path = "../modules/osc" }
+mixer-module = { path = "../modules/mixer" }
+transpose-module = { path = "../modules/transpose" }
 # paused time in the service tests: the queue and its waits are exact, not wall-clock sleeps
 tokio = { workspace = true, features = ["test-util"] }

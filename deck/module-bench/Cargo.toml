@@ -7,6 +7,7 @@
 #   cargo run --release -p module-bench -- compare   every results/*.json as one table + the issue's gates
 #   cargo run --release -p module-bench -- variants  wasmtime settings and module builds side by side (#396)
 #   cargo run --release -p module-bench -- wiring    wired modules vs merged vs native, and the engine's batches (#393)
+#   cargo run --release -p module-bench -- factory   the small audio modules, a row each
 [package]
 name = "module-bench"
 version.workspace = true

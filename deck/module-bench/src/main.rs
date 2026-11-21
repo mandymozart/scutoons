@@ -8,6 +8,8 @@
 //!                                        row (#396) → results/variants/
 //!   wiring [--label pc] [--blocks N] [--rounds 3]   wired modules vs merged vs native, the engine's batches (#393)
 //!                                        → results/wiring/
+//!   factory [--label pc] [--blocks N]    the small audio modules (env, vca, filter, noise, osc, mixer, transpose), a row
+//!                                        each under wasmtime → results/factory/
 use anyhow::{anyhow, bail, Context, Result};
 use module_bench::{report, run_suite, Config, Device, Modules, Results, Size};
 use std::io::{Read, Write};
@@ -504,6 +506,39 @@ fn wiring_cmd(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// builds the small audio modules for wasm32 (the suite's plain build) and runs each under wasmtime
+fn factory_cmd(args: &[String]) -> Result<()> {
+    use module_bench::factory;
+    let label = arg(args, "--label").unwrap_or_else(|| "pc".into());
+    let blocks = arg(args, "--blocks").map_or(Ok(5000), |n| n.parse())?;
+    let target = deck_target().join("bench-wasm");
+    let packages: Vec<String> = factory::NAMES.iter().map(|n| format!("{n}-module")).collect();
+    let mut build = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
+    for p in &packages {
+        build.extend(["-p", p.as_str()]);
+    }
+    cargo(&build, &target, "")?;
+    let engine = deck_module_host::wasmtime_backend::WasmtimeEngine::new(None);
+    let mut rows = Vec::new();
+    for name in factory::NAMES {
+        let wasm = std::fs::read(target.join("wasm32-unknown-unknown/release").join(format!("{name}_module.wasm")))?;
+        let row = factory::workload::<deck_module_host::wasmtime_backend::Wasmtime>(&engine, name, &wasm, blocks);
+        rows.push(row.unwrap_or_else(|e| module_bench::Workload { name: name.into(), frames: 128, error: Some(format!("{e:#}")), ..Default::default() }));
+    }
+    let md = format!(
+        "The small audio modules, each alone and busy (src/factory.rs), {blocks} calls of 128 frames at 48 kHz (budget {:.0} µs). {} · {}\n\n{}",
+        module_bench::BUDGET_US,
+        cpu(),
+        now_utc(),
+        factory::markdown(&label, "wasmtime", &rows)
+    );
+    println!("{md}");
+    let dir = here().join("results/factory");
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(format!("{label}.md")), &md)?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -511,6 +546,7 @@ fn main() -> Result<()> {
         Some("compare") => compare(&args),
         Some("variants") => variants(&args),
         Some("wiring") => wiring_cmd(&args),
+        Some("factory") => factory_cmd(&args),
         Some("run") | None => run(&args),
         Some(x) => {
             bail!("unknown command {x}: prepare | run | compare (the header of src/main.rs)")

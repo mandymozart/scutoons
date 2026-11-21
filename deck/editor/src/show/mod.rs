@@ -32,6 +32,7 @@ pub mod demos;
 mod events;
 pub mod nodes;
 mod node_card;
+mod node_drop;
 mod node_paint;
 mod node_pick;
 mod node_wire;
@@ -300,9 +301,9 @@ pub struct Host {
     /// the phones' pose, Record and Recenter heard this frame (Build's DOP panel records a take from them)
     pub hands: Vec<protocol::Envelope>,
     pub book_why: Option<String>,
-    /// a library card a cell would take is in the hand (the cell under the pointer shows it); the core's refusal where
-    /// one was dropped
-    pub carrying: bool,
+    /// the library card in the hand: the piece a cell would take (the cell or node under the pointer shows it), else
+    /// the core's sentence why Show takes no such card; the core's refusal where one was dropped
+    pub carried: Option<Result<String, String>>,
     pub refused: Option<(f32, f32)>,
     /// #539: the toon whose story events a row's event is picked from (`--toon`; else the book's), the events once asked
     /// (`GET /api/creator/story-events`, read by deck-show story.rs) or why there are none, the picker's typed query;
@@ -425,7 +426,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carrying: false, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carried: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -449,6 +450,11 @@ impl Host {
 
     /// the relay link's line
     /// why not: the status, as a refusal
+    /// a library card a cell would take is in the hand
+    pub(crate) fn carrying(&self) -> bool {
+        matches!(self.carried, Some(Ok(_)))
+    }
+
     pub(crate) fn refuse(&mut self, why: String) {
         self.status = why;
         self.bad = true;

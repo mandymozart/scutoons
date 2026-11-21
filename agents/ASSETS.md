@@ -37,7 +37,7 @@ way we could even migrate in the future or run various systems behind it. Long-t
 | Table | What | Key columns |
 |---|---|---|
 | `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
-| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, created/by |
+| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, `spots` (JSON, #724: the model's spots – "Spots" below), created/by |
 | `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_shapes` | the vector library (migration `2026-10-17-asset-shapes`) | `asset_id` (1:1), `tile` x / y / null, `mask`, `colors` (JSON, measured), `source` / `derived` (JSON, provenance) – an asset with a row is a shape: `GET /api/assets?kind=shape`, each row + `shape: { tile, mask, colors }` (research/VECTORS.md §5a) |
@@ -88,6 +88,20 @@ Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice i
 3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
 slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (owner 2026-10-07: keep `../` –
 the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, from the CDN root).
+
+## Spots (#724, migration `2026-11-21-asset-spots`)
+
+Named points on a model (a light, an emitter, a sound source, a target, a camera, a module's port, a mark) live on the
+**asset version**: `asset_versions.spots` holds what the deck's core wrote (deck-catalog `spot.rs` `Spots`) –
+`file: { nodes, bones, spots }`, what the core read from that version's GLB (the names a spot can attach to; the file's own
+spots from its empties `spot_<name>[.<kind>]` / `port_<name>`, deck-space `space/spots.rs`), and `hand: [..]`, the hand edits
+(a spot added, or a file spot `of` moved, renamed or hidden). A spot is `{ name, kind, attach: root | node:<n> | bone:<n>,
+at: [x, y, z], turn: [x, y, z, w], port? }`; `Spots::resolved` is the list a deck uses, `space::spots::world` where one is at
+a clip's time. `PUT /api/assets/{id}` `spots` (null = none) writes the current version's, `GET` carries each version's; the
+server keeps no rule: `AssetSpots` asks the core (`/validate` kind `spots`: names, doubles, a hand edit of a spot the file
+lacks, a missing bone or node, a module body's port spots against its ports) and stores what it was sent. A new version
+starts without spots: the deck reads the file and carries the old hand edits over (`Spots::carried` names the ones that no
+longer resolve). Address: `character:<id>/spot:<name>`, `item:<id>/spot:<name>`, relative `spot:<name>` (address.rs `SpotRef`).
 
 ## Edits (#651, migration `2026-11-20-asset-edits`)
 
@@ -314,21 +328,15 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, res
 
 ## UI
 
-- **Creator – the asset picker** (`@scutoons/media` `AssetPickerSheet`, `shared/media/src/asset-picker-sheet.svelte` since 2026-10-04, like the character
-  picker): search, folder (the toon first), kind, resolution (`res`: a file labelled 480p / 720p / 1080p / 1440p / 2x / 3x,
-  or an unlabelled one whose short side is in that band – owner 2026-10-16), unused-only; a grid of thumbnails with the
-  file name wrapped, up to three lines (owner 2026-10-16: the cut names were hard to read; the chosen asset and its
-  files show the whole name and path), size / dimensions / "unused". The controls sit in ONE sticky bar at the bottom
-  (owner 2026-10-16): upload icon · search · filter icon (folder, kind, resolution, unused open above the bar; a dot
-  when narrower than the field's own) · grid / list switch (remembered per browser, `sc-asset-view`). Previews: images
-  themselves, 3D models a rendered still, videos their poster or else their smallest file at 1 s (loaded when the card
-  comes near the screen), edge to edge in the card. Filters also: files = originals only / with versions (`files=single|several`). The field's current file: the card's border in cyan. The chosen asset: picture + whole name in one row, the facts under it, its files as tiles named by their resolution (the original: a star, like the source language), Use across; the chosen asset's files
-  (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
-  editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
-  "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's
-  480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
-  one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
-  asset, chips per level replace / clear one file.
+- **Creator – slots pick through the Library** (#752): a media slot (`MediaSlot`, `FileSlot`, `MediaVariantsSlot` from
+  @scutoons/media) asks the app's host for a file (`setupMedia({ host })`, slot-host.ts) and hands a drag over it to the
+  host (slot-drop.svelte.ts); the creator's host is the Library (`libraryHost`, creator/src/lib/editor/library-drop.ts):
+  a press opens the Library panel in pick mode on what the slot takes (`slotFit`; the core's `takes` decides), "Use here"
+  fills it; a Library tile dragged over a slot lights it when it fits, else the slot shows why (`misfitWords`). A
+  variants slot fills every level from the picked file's family (480p / 720p / 1080p → `variants` low / medium / high,
+  720p the default); a level chip picks a file for that level only. A collage piece ("+ piece", the score stage) is a
+  Library pick of any picture; a character picture keeps its figure. Upload is the Library's (into the slot's folder:
+  TODO #701). The old asset picker lives on only in the admin's newsletter (#771).
 - **Map tiles** (owner 2026-10-16: "thousands … really hard to find anything"; research/ASSET-LISTS.md): a file
   `<set>/<z>/<x>_<y>.<ext>` below a `/map/` folder (`AssetPaths::tileSet` / `TILE_SQL`, MAP.md §8.9a) is a map tile.
   Every list hides them (`tiles=hide`, the API default – the picker, the library, the MCP's search); "Map tiles" in the

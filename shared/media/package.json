@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS media tooling for the tools (creator, admin): the asset picker sheet, media slot, media-variants slot, WebP encoding + upload-or-replace, de/en texts; the app provides the assets API, CDN and locale once (setupMedia)",
+	"description": "SCUTOONS media tooling for the tools (creator, admin): the media slots (they ask the app's host for a pick), media-variants slot, WebP encoding + upload-or-replace, de/en texts; the app provides the assets API, CDN and locale once (setupMedia)",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"

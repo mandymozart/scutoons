@@ -1,0 +1,18 @@
+# filter – a state-variable filter with drive and key tracking. Build for the deck / browser:
+# `cargo build --release --target wasm32-unknown-unknown -p filter-module`
+[package]
+name = "filter-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-module = { path = "../../module", features = ["host"] }

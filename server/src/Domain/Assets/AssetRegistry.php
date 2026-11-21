@@ -601,7 +601,7 @@ final class AssetRegistry
                 'created_at' => Time::iso($v['created_at']),
                 'created_by' => $v['created_by'],
                 'renditions' => array_map([self::class, 'rendition'], $this->renditions((int) $v['id'])),
-            ];
+            ] + (($spots = AssetSpots::of($v)) !== null ? ['spots' => $spots] : []);
         }
         $paths = $this->currentPaths($id);
         $jobs = $this->db->all('SELECT id, kind, status, created_at, finished_at FROM asset_jobs WHERE asset_id = ? ORDER BY id DESC LIMIT 20', [$id]);
