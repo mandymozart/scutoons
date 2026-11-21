@@ -4,8 +4,9 @@
 //! how it is shown and typed. Each dimension has a base the conversions go through:
 //!
 //! - **time:** seconds; ms; frames (at the source's frame rate); beats and bars (at a tempo and its beats a bar)
-//! - **length:** parts of a reference (0..1); % of it; px (the reference's pixels, whole); m (the reference's metres);
+//! - **length:** parts of a reference (0..1); % of it; px (the reference's pixels, whole);
 //!   on a web reference (a slice at 1x) pt (4/3 px) and rem (16 px); on a font size, em (the reference itself) in place of %
+//! - **distance:** metres in the world (the stage, the scene); cm; ft
 //! - **angle:** degrees of a vertical field of view; mm (the focal length that sees it on a full-frame sensor)
 //! - **level:** dB; % (the linear gain, 100 % = 0 dB); × (the linear gain itself, 1 = 0 dB)
 //! - **tempo:** BPM
@@ -19,6 +20,8 @@ pub const SILENT_DB: f64 = -120.0;
 /// CSS px in a point and in a rem
 pub const CSS_PX_PER_PT: f64 = 4.0 / 3.0;
 pub const CSS_PX_PER_REM: f64 = 16.0;
+/// metres in an international foot
+pub const M_PER_FOOT: f64 = 0.3048;
 /// the beats a bar when the tempo's own is not known
 pub const PER_BAR: u32 = 4;
 
@@ -26,18 +29,21 @@ pub const PER_BAR: u32 = 4;
 pub enum Dimension {
     Time,
     Length,
+    /// real-world distances (the stage, a camera's height): base metres, needs no reference
+    Distance,
     Angle,
     Level,
     Tempo,
 }
 
 impl Dimension {
-    pub const ALL: [Dimension; 5] = [Dimension::Time, Dimension::Length, Dimension::Angle, Dimension::Level, Dimension::Tempo];
+    pub const ALL: [Dimension; 6] = [Dimension::Time, Dimension::Length, Dimension::Distance, Dimension::Angle, Dimension::Level, Dimension::Tempo];
 
     pub fn id(self) -> &'static str {
         match self {
             Dimension::Time => "time",
             Dimension::Length => "length",
+            Dimension::Distance => "distance",
             Dimension::Angle => "angle",
             Dimension::Level => "level",
             Dimension::Tempo => "tempo",
@@ -52,7 +58,8 @@ impl Dimension {
     pub fn units(self) -> &'static [Unit] {
         match self {
             Dimension::Time => &[Unit::Seconds, Unit::Milliseconds, Unit::Frames, Unit::Beats, Unit::Bars],
-            Dimension::Length => &[Unit::Pixels, Unit::Percent, Unit::Em, Unit::Points, Unit::Rem, Unit::Metres],
+            Dimension::Length => &[Unit::Pixels, Unit::Percent, Unit::Em, Unit::Points, Unit::Rem],
+            Dimension::Distance => &[Unit::Metres, Unit::Centimetres, Unit::Feet],
             Dimension::Angle => &[Unit::Millimetres, Unit::Degrees],
             Dimension::Level => &[Unit::Decibels, Unit::Gain, Unit::Linear],
             Dimension::Tempo => &[Unit::Bpm],
@@ -80,7 +87,11 @@ pub enum Unit {
     Points,
     /// CSS rem: 16 px
     Rem,
+    /// a distance in the world, the distance's base
     Metres,
+    Centimetres,
+    /// international feet: 0.3048 m
+    Feet,
     Degrees,
     Millimetres,
     Decibels,
@@ -92,14 +103,13 @@ pub enum Unit {
 }
 
 /// What a conversion needs to know besides the value: the source's frame rate, the tempo and its beats a bar, the
-/// reference a length is a part of in pixels and in metres. None = not known: the units that need it are not offered.
+/// reference a length is a part of in pixels. None = not known: the units that need it are not offered.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Refs {
     pub fps: Option<f64>,
     pub bpm: Option<f64>,
     pub per_bar: Option<u32>,
     pub pixels: Option<f64>,
-    pub metres: Option<f64>,
     /// the pixels are a web reference at 1x: pt and rem are offered
     pub web: bool,
     /// the reference is a font size: em is offered, % is not
@@ -111,11 +121,11 @@ fn positive(v: Option<f64>) -> Option<f64> {
 }
 
 impl Refs {
-    /// From its wire form `[fps, bpm, per_bar, pixels, metres, web, em]` (the web kit's, through space-web): NaN, ≤ 0 or left
+    /// From its wire form `[fps, bpm, per_bar, pixels, unused, web, em]` (the web kit's, through space-web): NaN, ≤ 0 or left
     /// out = not known.
     pub fn from_wire(w: &[f64]) -> Refs {
         let at = |i: usize| positive(w.get(i).copied());
-        Refs { fps: at(0), bpm: at(1), per_bar: at(2).map(|b| b.round() as u32), pixels: at(3), metres: at(4), web: at(5).is_some(), em: at(6).is_some() }
+        Refs { fps: at(0), bpm: at(1), per_bar: at(2).map(|b| b.round() as u32), pixels: at(3), web: at(5).is_some(), em: at(6).is_some() }
     }
 
     fn fps(&self) -> Option<f64> {
@@ -130,13 +140,10 @@ impl Refs {
     fn pixels(&self) -> Option<f64> {
         positive(self.pixels)
     }
-    fn metres(&self) -> Option<f64> {
-        positive(self.metres)
-    }
 }
 
 impl Unit {
-    pub const ALL: [Unit; 17] = [
+    pub const ALL: [Unit; 19] = [
         Unit::Seconds,
         Unit::Milliseconds,
         Unit::Frames,
@@ -148,6 +155,8 @@ impl Unit {
         Unit::Points,
         Unit::Rem,
         Unit::Metres,
+        Unit::Centimetres,
+        Unit::Feet,
         Unit::Degrees,
         Unit::Millimetres,
         Unit::Decibels,
@@ -159,7 +168,8 @@ impl Unit {
     pub fn dimension(self) -> Dimension {
         match self {
             Unit::Seconds | Unit::Milliseconds | Unit::Frames | Unit::Beats | Unit::Bars => Dimension::Time,
-            Unit::Pixels | Unit::Percent | Unit::Em | Unit::Points | Unit::Rem | Unit::Metres => Dimension::Length,
+            Unit::Pixels | Unit::Percent | Unit::Em | Unit::Points | Unit::Rem => Dimension::Length,
+            Unit::Metres | Unit::Centimetres | Unit::Feet => Dimension::Distance,
             Unit::Degrees | Unit::Millimetres => Dimension::Angle,
             Unit::Decibels | Unit::Gain | Unit::Linear => Dimension::Level,
             Unit::Bpm => Dimension::Tempo,
@@ -180,6 +190,8 @@ impl Unit {
             Unit::Points => "pt",
             Unit::Rem => "rem",
             Unit::Metres => "m",
+            Unit::Centimetres => "cm",
+            Unit::Feet => "ft",
             Unit::Degrees => "deg",
             Unit::Millimetres => "mm",
             Unit::Decibels => "db",
@@ -207,6 +219,8 @@ impl Unit {
             Unit::Points => "pt",
             Unit::Rem => "rem",
             Unit::Metres => "m",
+            Unit::Centimetres => "cm",
+            Unit::Feet => "ft",
             Unit::Degrees => "°",
             Unit::Millimetres => "mm",
             Unit::Decibels => "dB",
@@ -223,9 +237,9 @@ impl Unit {
     /// the decimals it is shown with
     pub fn decimals(self) -> usize {
         match self {
-            Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Millimetres | Unit::Degrees => 0,
+            Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Millimetres | Unit::Degrees | Unit::Centimetres => 0,
             Unit::Percent | Unit::Gain | Unit::Decibels | Unit::Bpm => 1,
-            Unit::Seconds | Unit::Beats | Unit::Bars | Unit::Metres | Unit::Em | Unit::Points | Unit::Linear => 2,
+            Unit::Seconds | Unit::Beats | Unit::Bars | Unit::Metres | Unit::Feet | Unit::Em | Unit::Points | Unit::Linear => 2,
             Unit::Rem => 3,
         }
     }
@@ -248,7 +262,6 @@ impl Unit {
             Unit::Points | Unit::Rem => refs.web && refs.pixels().is_some(),
             Unit::Percent => !refs.em,
             Unit::Em => refs.em,
-            Unit::Metres => refs.metres().is_some(),
             _ => true,
         }
     }
@@ -266,7 +279,9 @@ impl Unit {
             Unit::Em => v,
             Unit::Points => v * CSS_PX_PER_PT / refs.pixels()?,
             Unit::Rem => v * CSS_PX_PER_REM / refs.pixels()?,
-            Unit::Metres => v / refs.metres()?,
+            Unit::Metres => v,
+            Unit::Centimetres => v / 100.0,
+            Unit::Feet => v * M_PER_FOOT,
             Unit::Millimetres => fov_deg(v),
             Unit::Gain if v <= 0.0 => SILENT_DB,
             Unit::Gain => (20.0 * libm::log10(v / 100.0)).max(SILENT_DB),
@@ -288,7 +303,9 @@ impl Unit {
             Unit::Em => b,
             Unit::Points => b * refs.pixels()? / CSS_PX_PER_PT,
             Unit::Rem => b * refs.pixels()? / CSS_PX_PER_REM,
-            Unit::Metres => b * refs.metres()?,
+            Unit::Metres => b,
+            Unit::Centimetres => b * 100.0,
+            Unit::Feet => b / M_PER_FOOT,
             Unit::Millimetres => focal_mm(b),
             Unit::Gain if b <= SILENT_DB => 0.0,
             Unit::Gain => 100.0 * libm::pow(10.0, b / 20.0),
@@ -373,7 +390,7 @@ mod tests {
     }
 
     fn every() -> Refs {
-        Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(4), pixels: Some(1920.0), metres: Some(3.0), web: true, em: false }
+        Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(4), pixels: Some(1920.0), web: true, em: false }
     }
 
     #[test]
@@ -414,6 +431,19 @@ mod tests {
         assert_eq!(Dimension::Length.offered(&font), [Unit::Pixels, Unit::Em, Unit::Points, Unit::Rem]);
         assert!(close(convert(0.5, Unit::Em, Unit::Pixels, &font).unwrap(), 8.0));
         assert_eq!(Dimension::Length.offered(&Refs { pixels: Some(1920.0), ..Refs::default() }), [Unit::Pixels, Unit::Percent], "a picture has no pt / rem");
+    }
+
+    #[test]
+    fn a_distance_is_metres_or_centimetres_or_feet_and_needs_no_reference() {
+        let none = Refs::default();
+        assert_eq!(Dimension::Distance.offered(&none), [Unit::Metres, Unit::Centimetres, Unit::Feet]);
+        assert_eq!(convert(1.8, Unit::Metres, Unit::Centimetres, &none).map(|v| Unit::Centimetres.round(v)), Some(180.0));
+        assert!(close(convert(3.0, Unit::Feet, Unit::Metres, &none).unwrap(), 0.9144));
+        assert_eq!(number(convert(1.8, Unit::Metres, Unit::Feet, &none).unwrap(), Unit::Feet), "5.91");
+        assert_eq!(convert(1.0, Unit::Metres, Unit::Percent, &none), None, "a world distance is no part of a picture");
+        assert_eq!(parse("180 cm", Unit::Metres), Some((180.0, Unit::Centimetres)));
+        assert_eq!(parse("6ft", Unit::Metres), Some((6.0, Unit::Feet)));
+        assert_eq!(show(1.8, Unit::Metres), "1.80 m");
     }
 
     #[test]
@@ -473,7 +503,7 @@ mod tests {
 
     #[test]
     fn the_wire_form_leaves_out_what_is_not_known() {
-        assert_eq!(Refs::from_wire(&[25.0, 120.0, 3.0, 1920.0, f64::NAN]), Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(3), pixels: Some(1920.0), metres: None, web: false, em: false });
+        assert_eq!(Refs::from_wire(&[25.0, 120.0, 3.0, 1920.0, f64::NAN]), Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(3), pixels: Some(1920.0), web: false, em: false });
         assert_eq!(Refs::from_wire(&[f64::NAN, f64::NAN, f64::NAN, 390.0, f64::NAN, 1.0, 1.0]), Refs { pixels: Some(390.0), web: true, em: true, ..Refs::default() });
         assert_eq!(Refs::from_wire(&[0.0, -1.0]), Refs::default());
     }

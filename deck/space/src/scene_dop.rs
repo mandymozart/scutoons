@@ -3,6 +3,7 @@
 use crate::scene_camera::{Ease, Length, Lens, MoveDef, MoveKind, MoveSpec, Phones, SceneCamera, ShotDef, Source, Take, Track, TrackPoint};
 use deck_ui::filter::{open_admits, Fact};
 use crate::scene_edit::SceneEdit;
+use deck_core::units::Unit;
 
 impl SceneEdit {
     /// the scene's camera as edited (none yet: the default)
@@ -180,6 +181,19 @@ impl SceneEdit {
         })
     }
 
+    /// every point's time counted in `unit` at `bpm` and `per_bar` (a track's times share one unit), in one change
+    pub fn set_track_unit(&mut self, unit: Unit, per_bar: u32, bpm: f64) -> Result<(), String> {
+        self.camera_change(|c| {
+            let t = c.track.as_mut().ok_or("the scene has no track")?;
+            for p in &mut t.points {
+                if let Some(l) = p.time {
+                    p.time = Some(l.to_unit(unit, per_bar, bpm).ok_or("a time that cannot be counted in that unit")?);
+                }
+            }
+            Ok(())
+        })
+    }
+
     /// the ease of the way to point `i` (none: an even speed)
     pub fn set_point_ease(&mut self, i: usize, ease: Option<Ease>) -> Result<(), String> {
         self.camera_change(|c| {
@@ -273,6 +287,7 @@ mod tests {
     use crate::scene_camera::*;
     use crate::scene_document::SceneDocument;
     use crate::scene_edit::SceneEdit;
+    use deck_core::units::Unit;
     use crate::scene_resolve::{core_rigs, no_sets};
 
     fn view(yaw: f32) -> ShotDef {
@@ -311,6 +326,15 @@ mod tests {
         assert!(e.set_point_time(0, Some(Length::Bars(1.0))).unwrap_err().contains("the start has no time"), "the core's words");
         assert!(e.set_point_time(2, Some(Length::Bars(1.0))).unwrap_err().contains("arrives before"));
         assert_eq!(e.camera().track.unwrap().points[1].time, Some(Length::Bars(2.0)));
+        e.add_track_point(1).unwrap();
+        e.set_point_time(2, Some(Length::Bars(3.0))).unwrap();
+        e.set_track_unit(Unit::Seconds, 4, 120.0).unwrap();
+        let times: Vec<_> = e.camera().track.unwrap().points.iter().map(|p| p.time).collect();
+        assert_eq!(times, [None, Some(Length::Seconds(4.0)), Some(Length::Seconds(6.0)), None], "all the times in one unit, at the tempo");
+        e.set_track_unit(Unit::Beats, 4, 120.0).unwrap();
+        assert_eq!(e.camera().track.unwrap().points[2].time, Some(Length::Beats(12.0)));
+        e.remove_track_point(2).unwrap();
+        e.set_track_unit(Unit::Bars, 4, 120.0).unwrap();
         let fly = e.add_move(MoveSpec::of(MoveKind::Fly), "shot2").unwrap();
         let crane = e.add_move(MoveSpec::of(MoveKind::CraneDown), "shot1").unwrap();
         assert_eq!(e.camera().moves[crane].id, "crane1");
