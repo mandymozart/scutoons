@@ -85,6 +85,9 @@
 	.card {
 		display: flex;
 		flex-direction: column;
+		align-items: stretch;
+		justify-content: flex-start;
+		gap: 0;
 		width: 9rem;
 		height: 100%;
 		min-height: 5rem;
@@ -109,6 +112,10 @@
 		background: var(--surface-panel);
 	}
 	.name {
+		display: block;
+		width: 100%;
+		box-sizing: border-box;
+		text-align: left;
 		padding: 0.15rem 0.4rem;
 		overflow: hidden;
 		text-overflow: ellipsis;

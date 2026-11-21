@@ -109,7 +109,7 @@
 	{:else}
 		<div class="empty">
 			{#if !id}
-				<p>{m['creator.experiences_from_library']()}</p>
+				<p>{m['creator.experiences_from_library']({ chip: m['library.entities']() })}</p>
 				<button type="button" onclick={() => shell.open('library')} data-testid="experience-open-library"><Icon name="grid" />{m['shell.library']()}</button>
 			{:else if doc?.error}
 				<p role="alert">{doc.error}</p>

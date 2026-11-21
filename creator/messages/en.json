@@ -1687,7 +1687,7 @@
 		"experiences_plugins": "Plugins",
 		"experiences_plugin_line": "API {api} · {kb} KB",
 		"experiences_versions": "Versions",
-		"experiences_from_library": "Open an experience from the Library (Entities).",
+		"experiences_from_library": "Open an experience from the Library ({chip}).",
 		"experiences_open_reader": "Open in reader",
 		"experiences_stage": "Stage",
 		"experiences_stage_frame": "The scene on the stage",
