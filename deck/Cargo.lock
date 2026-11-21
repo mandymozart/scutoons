@@ -4516,6 +4516,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reverb-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4795,6 +4802,7 @@ dependencies = [
  "noise-module",
  "osc-module",
  "proc-macro2",
+ "reverb-module",
  "serde",
  "serde_json",
  "sha2 0.10.9",
