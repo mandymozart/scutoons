@@ -46,6 +46,9 @@ pub fn pins(g: &Graph, placed: &[Placed], cam: &Cam, canvas: Rect, reach: f32) -
     out
 }
 
+/// a check run's stroke: from, to, the press that starts it (none: a cut)
+type Stroke = ((f32, f32), (f32, f32), Option<Hit>);
+
 /// a short path across the wire near its middle, `half` long to each side (between two of its samples)
 fn across(w: &Wire, half: f32) -> ((f32, f32), (f32, f32)) {
     let (m, a, b) = (w.at(0.47), w.at(0.46), w.at(0.48));
@@ -187,7 +190,7 @@ impl Host {
             g.links.iter().position(|l| l.from == (a.0, a.2) && l.to == (b.0, b.2))
         };
         let wire = |host: &Host, i: usize| host.nodes.wires.iter().find(|(k, _)| *k == i).map(|(_, w)| *w);
-        let path: Option<((f32, f32), (f32, f32), Option<Hit>)> = match kind {
+        let path: Option<Stroke> = match kind {
             "wire" | "lift" => rest.split_once('>').and_then(|(a, b)| {
                 let from = pin(a, kind == "wire")?;
                 let at = self.nodes.pin_place(from)?;
