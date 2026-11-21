@@ -17,5 +17,5 @@
 			"@shared/*": ["./osct/shared/*"]
 		}
 	},
-	"include": ["osct/**/*.ts"]
+	"include": ["osct/**/*.ts", "src/**/*.ts"]
 }

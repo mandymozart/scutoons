@@ -14,6 +14,8 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({ fallback: 'index.html' }),
+		// the XR engine's files import its content contract as @shared/… (shared/xr-engine/README.md)
+		alias: { '@shared': '../shared/xr-engine/osct/shared' },
 		// the build's name = the service worker's cache name (agents/research/PWA.md): package version + the git sha
 		// version.json reports (deploy/version.mjs) + the build time, so every build is a new version
 		version: { name: `${pkg.version}-${gitSha().slice(0, 12)}-${process.env.SCUTOONS_BUILD_ID}` },

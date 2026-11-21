@@ -24,7 +24,8 @@ const SCHEMAS = {
 	// the language-neutral documents chapter:<toon>:<n>, season:<toon>:<n> (neutral.ts)
 	'chapter-doc': 'ChapterDoc',
 	'season-doc': 'SeasonDoc',
-	catalog: 'Catalog',
+	// + the catalog kinds served one by one, outside the reader's catalog: their definitions beside Catalog's
+	catalog: ['Catalog', 'XrExperience'],
 	credits: 'ToonCredits',
 	people: 'PeopleRegistry',
 	roles: 'RoleVocabulary',
@@ -63,12 +64,14 @@ const generator = createGenerator({
 const check = process.argv.includes('--check');
 const stale = [];
 
-for (const [name, type] of Object.entries(SCHEMAS)) {
+for (const [name, types] of Object.entries(SCHEMAS)) {
+	const [type, ...more] = [types].flat();
 	const schema = {
 		$id: `https://scutoons.com/schema/${name}.schema.json`,
 		title: type,
 		...generator.createSchema(type)
 	};
+	for (const extra of more) Object.assign(schema.definitions, generator.createSchema(extra).definitions);
 	// doc comments carry the checkout's line endings (CRLF on Windows): the same schema on every machine
 	const text = JSON.stringify(schema, (_key, value) => (typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value), '\t') + '\n';
 	for (const file of [join(root, 'schema', `${name}.schema.json`), join(serverCopy, `${name}.schema.json`)]) {

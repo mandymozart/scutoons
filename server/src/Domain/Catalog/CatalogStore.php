@@ -40,6 +40,8 @@ final class CatalogStore
         'device-presets' => ['table' => 'catalog_device_presets', 'columns' => [], 'label' => 'device-preset', 'data_id' => true],
         // a named set of every knob of one rig (migration 2026-11-20-rig-presets): deck-space's RigPreset; `rig` = its subject
         'rig-presets' => ['table' => 'catalog_rig_presets', 'columns' => ['rig' => 'rig'], 'label' => 'rig-preset', 'data_id' => true],
+        // an XR experience (migration 2026-11-21-xr-experiences): OSCT's game configuration with SCUTOONS's fields
+        'experiences' => ['table' => 'catalog_experiences', 'columns' => [], 'label' => 'experience', 'data_id' => true],
         'products' => ['table' => 'catalog_products', 'columns' => ['toon' => 'toon', 'item_id' => 'item_id', 'edition_id' => 'edition_id'], 'label' => 'product', 'data_id' => true],
         'editions' => ['table' => 'catalog_editions', 'columns' => ['toon' => 'toon'], 'label' => 'edition', 'data_id' => true],
         'featured' => ['table' => 'catalog_featured', 'columns' => ['product_id' => 'product', 'variant_id' => 'variant'], 'label' => 'featured', 'data_id' => false],

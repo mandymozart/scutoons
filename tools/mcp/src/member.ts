@@ -19,6 +19,7 @@ import { registerLocalGenerationTools } from './storyboard-local.ts';
 import { registerStoryboardTools } from './storyboard.ts';
 import { pendingUpdate, takeUpdateOnce } from './update.ts';
 import { registerVectorTools } from './vectors.ts';
+import { registerXrTools } from './xr.ts';
 
 /** = tools/mcp/package.json version (bump both; GET /api/mcp/version compares it – update.ts) */
 export const VERSION = '0.5.0';
@@ -73,6 +74,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 		registerSceneTools(server, config, { write: services.content === 'write', links });
 		// the live shows over their own route (/api/shows, role `live`) – drafts only, the member publishes in the editor
 		registerShowTools(server, config, { write: services.content === 'write' });
+		// XR experiences: a published OSCT content version as a draft (research/XR.md §10.8)
+		registerXrTools(server, config, { write: services.content === 'write', links });
 		// the chapter storyboards and their generations (#122) – an admin who isn't a creator reads
 		registerStoryboardTools(server, config, { write: services.content === 'write', links });
 		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write

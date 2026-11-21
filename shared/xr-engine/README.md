@@ -16,6 +16,10 @@ engine, the experience's configuration (scenes, surfaces, entries, targets, enti
 Once OSCT publishes the engine and the contract as packages with a tag, this copy is replaced by that pin.
 
 ## Using it
+- **An app imports `@scutoons/xr-engine/reader`** (`src/reader.ts`, SCUTOONS's own): `openXr(container, configuration,
+  scene, options)` reads a configuration and builds one scene. Its types come from `src/reader-api.ts`, which imports
+  none of OSCT's files: an app's own TypeScript settings (the viewer's NodeNext) refuse them, so they are only checked
+  here. `reader.ts` must fit those declarations; `npm run check` says when it does not.
 - The copied files import each other through `@shared/*`. An app that imports this package maps `@shared` to
   `shared/xr-engine/osct/shared` (SvelteKit: `kit.alias`), as this package's `tsconfig.json` does.
 - `@scutoons/xr-engine/scene` is the scene (`ArScene`), `…/tracker` the 8th Wall image tracker (kept apart so only
