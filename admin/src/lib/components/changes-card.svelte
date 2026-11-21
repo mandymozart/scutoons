@@ -271,7 +271,6 @@
 	}
 	.new {
 		font-size: var(--type-caption-size);
-		font-weight: 600;
 		color: var(--accent, currentColor);
 		margin-inline-end: 0.5em;
 	}

@@ -35,6 +35,7 @@ The AI never publishes, sends or applies. It saves a draft and hands back the li
 | tool | saves | the member, in the browser |
 | --- | --- | --- |
 | `save_draft` / `restore_version` | a new draft version (append-only, restorable) | checks it in the creator, **Publish** |
+| `revert_change` / `revert_to` | a new draft: one earlier change taken back (the core plans it, later changes stay) / the document of an earlier version (#687; `revert_change` needs the core's wasm on the machine: `SCUTOONS_CORE_DIR` or a checkout's `shared/live-deck/wasm`, nothing is downloaded – else it points to the creator's History) | checks it in the creator, **Publish** |
 | `draft_mail` | a mail draft on the organisation (`/api/embassy/orgs/{id}/drafts`, checked like a send) | `embassy…/orgs/<id>?draft=<id>`: edits, **Send** (its author only) |
 | `propose_changes` | a proposal (`/api/admin/proposals`) | `admin…/proposals/<id>`: before → after, **Apply** or Dismiss |
 

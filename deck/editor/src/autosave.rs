@@ -12,6 +12,18 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 pub const IDLE: Duration = Duration::from_secs(2);
+
+/// the versions this editor stored in this session (the server's ids, one sequence over every document): the History's
+/// own steps (history.rs)
+static MINE: std::sync::Mutex<std::collections::BTreeSet<u64>> = std::sync::Mutex::new(std::collections::BTreeSet::new());
+
+pub fn remember(id: u64) {
+    MINE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id);
+}
+
+pub fn mine(id: u64) -> bool {
+    MINE.lock().unwrap_or_else(std::sync::PoisonError::into_inner).contains(&id)
+}
 pub const RETRY: Duration = Duration::from_secs(10);
 
 /// a change not on the server yet: what it is, the server's version it was made on, what goes up
@@ -270,6 +282,7 @@ impl<T: Send + 'static> Autosave<T> {
         self.job = None;
         let sent = self.sent.take();
         if let Ok(v) = r {
+            remember(*v);
             (self.version, self.state) = (Some(*v), State::Clean);
             return;
         }

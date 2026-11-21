@@ -34,7 +34,7 @@ pub mod nodes;
 mod node_card;
 mod node_paint;
 mod node_pick;
-mod flash;
+pub(crate) mod flash;
 mod link;
 pub mod live;
 pub mod new_scene;
@@ -731,6 +731,11 @@ impl Host {
         }
         let lib: BTreeMap<deck_show::Pinned, Show> = self.library.values().map(|s| (deck_show::Pinned { id: s.id.clone(), version: s.version }, s.clone())).collect();
         deck_show::resolve(self.sub.conductor().show(), &lib).map_err(|problems| format!("not flashed: {}", problems.iter().map(ToString::to_string).collect::<Vec<_>>().join("; ")))
+    }
+
+    /// the shown document's newest again (a revert stored it)
+    pub fn reload(&mut self) {
+        self.load();
     }
 
     /// the server's newest of the shown document; a local copy not sent yet stays open, one in conflict gives way

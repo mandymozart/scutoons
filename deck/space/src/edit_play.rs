@@ -2,6 +2,7 @@
 //! live: the item's clock, far events, values and MIDI drive it. Only the person's own hand is saved; a value from outside
 //! is a live layer over the hand's, shown beside it and never saved, dropped on Stop or when Edit is left. Play runs the
 //! item as a deck from the start and Stop returns to Edit. The mixer's solos and the armed track hold for the session.
+use deck_core::solo;
 use std::collections::BTreeSet;
 
 /// One control input the live layer holds: the hand's value under it (what is saved) and the live one (what plays).
@@ -92,10 +93,14 @@ impl Monitor {
         self.armed.as_deref() == Some(track)
     }
 
-    /// Whether `track` is heard: as the engine's bus solo, a solo silences the tracks not soloed; arming turns on a
-    /// track's monitoring, so the armed one is heard through another's solo.
-    pub fn heard(&self, track: &str) -> bool {
-        self.solo.is_empty() || self.soloed(track) || self.is_armed(track)
+    /// Whether `track` is heard: the engine's one solo rule (deck-core `solo`) over the tracks' audio sends (from, to);
+    /// arming turns on a track's monitoring, so the armed one is heard through another's solo.
+    pub fn heard(&self, track: &str, sends: &[(String, String)]) -> bool {
+        let soloed = |list: Vec<String>| list.iter().any(|t| self.soloed(t));
+        let track = track.to_string();
+        let first: Vec<String> = sends.iter().filter(|(from, _)| *from == track).map(|(_, to)| to.clone()).collect();
+        let (up, down) = (solo::upstream(sends, &track), solo::downstream(sends, &first, &track));
+        solo::heard(!self.solo.is_empty(), self.soloed(&track), soloed(up), soloed(down)) || self.is_armed(&track)
     }
 
     /// the solos and the arm of tracks the item no longer has are forgotten
@@ -185,18 +190,35 @@ mod tests {
     #[test]
     fn a_solo_silences_the_others_but_not_the_armed_track() {
         let mut m = Monitor::default();
-        assert!(m.heard("drums") && m.heard("bass"));
+        let heard = |m: &Monitor, t: &str| m.heard(t, &[]);
+        assert!(heard(&m, "drums") && heard(&m, "bass"));
         assert!(m.solo("drums"));
-        assert!(m.heard("drums") && !m.heard("bass") && !m.heard("keys"));
+        assert!(heard(&m, "drums") && !heard(&m, "bass") && !heard(&m, "keys"));
         assert!(m.arm("keys"));
-        assert!(m.heard("keys"), "arming monitors it");
+        assert!(heard(&m, "keys"), "arming monitors it");
         assert!(m.arm("bass") && !m.is_armed("keys"), "one armed at a time");
         assert!(!m.arm("bass") && m.armed().is_none());
-        assert!(!m.solo("drums") && m.heard("bass"), "the solo off: all heard");
+        assert!(!m.solo("drums") && heard(&m, "bass"), "the solo off: all heard");
         m.solo("gone");
         m.arm("gone");
         m.keep_only(&["drums"]);
         assert!(!m.soloed("gone") && m.armed().is_none());
+    }
+
+    #[test]
+    fn a_solo_keeps_the_send_and_the_folder_it_feeds() {
+        // keys send into reverb; drums play into the kit folder; bass stands alone
+        let sends: Vec<(String, String)> = [("keys", "reverb"), ("drums", "kit")].iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+        let mut m = Monitor::default();
+        m.solo("keys");
+        assert!(m.heard("keys", &sends) && m.heard("reverb", &sends), "its send stays");
+        assert!(!m.heard("drums", &sends) && !m.heard("kit", &sends) && !m.heard("bass", &sends));
+        m.solo("keys");
+        m.solo("kit");
+        assert!(m.heard("kit", &sends) && m.heard("drums", &sends), "a folder keeps its children");
+        assert!(!m.heard("keys", &sends) && !m.heard("reverb", &sends) && !m.heard("bass", &sends));
+        m.arm("bass");
+        assert!(m.heard("bass", &sends), "the armed track is heard through any solo");
     }
 
     #[test]

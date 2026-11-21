@@ -21,10 +21,12 @@ use stdClass;
  *   GET  /api/shows                      every show, the newest draft of each
  *   GET  /api/shows/published[?toon=]    the published shows (public, like the published scenes: a deck plays one on its
  *                                        own); never a draft
- *   GET  /api/shows/<id>[?draft=1]       published / newest (wrapped); ?v=<n>: the document at that version
+ *   GET  /api/shows/<id>[?draft=1]       published / newest (wrapped); ?v=<n>: the document at that version; ?draft=1&at=<id>:
+ *                                        the stored version <id> (wrapped)
  *   GET  /api/shows/<id>/versions?limit=
  *   PUT  /api/shows/<id> { content, base?, message? }  a new draft; the server stamps `version`
  *   POST /api/shows/<id>/publish { version? }   after the core's check of the whole tree
+ *   POST /api/shows/<id>/revert { version, content, base } · /revert-to { version, base }   the History (#687), stamped
  *   POST /api/live/sessions { show? }    a code and the relay's session tokens
  */
 final class ShowsController
@@ -58,7 +60,7 @@ final class ShowsController
             return Json::response($response, 200, ['status' => 'success', 'show' => $doc]);
         }
         $key = (string) EntityKey::parse('show:' . $args['id']);
-        return Json::response($response, 200, $this->store->wrapped($this->store->read($key, ($query['draft'] ?? '') === '1', 0)));
+        return Json::response($response, 200, $this->store->wrapped($this->store->read($key, ($query['draft'] ?? '') === '1', (int) ($query['at'] ?? 0))));
     }
 
     /** @param array{id: string} $args */
@@ -82,6 +84,16 @@ final class ShowsController
         $this->live($request);
         $body = $this->body($request);
         return Json::response($response, 200, $this->shows->publish((string) EntityKey::parse('show:' . $args['id']), isset($body->version) ? (int) $body->version : null));
+    }
+
+    /** @param array{id: string, action: string} $args */
+    public function revert(Request $request, Response $response, array $args): Response
+    {
+        $user = $this->live($request);
+        $key = EntityKey::parse('show:' . $args['id']);
+        $body = $this->body($request);
+        $result = $args['action'] === 'revert' ? $this->store->revert($user, $key, $body, 'show') : $this->store->revertTo($user, $key, $body, 'show');
+        return Json::response($response, 200, $result);
     }
 
     public function open(Request $request, Response $response): Response

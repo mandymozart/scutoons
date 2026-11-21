@@ -265,6 +265,34 @@ pub fn units_parse(text: &str, unit: &str) -> Vec<String> {
     Unit::of_id(unit).and_then(|u| parse(text, u)).map_or_else(Vec::new, |(v, u)| vec![v.to_string(), u.id().to_string()])
 }
 
+/// deck-core `history` for the creator's History (#687): `versions` = `[{ id, author, at_ms, message }]` → its steps as JSON
+#[wasm_bindgen]
+pub fn history_steps(versions: &str) -> Result<String, JsValue> {
+    let v: Vec<deck_core::history::Saved> = serde_json::from_str(versions).map_err(err)?;
+    Ok(json(&deck_core::history::steps(&v)))
+}
+
+/// what changed between two documents, in words (deck-core `history::describe`) as JSON
+#[wasm_bindgen]
+pub fn history_describe(before: &str, after: &str) -> Result<String, JsValue> {
+    let (a, b): (serde_json::Value, serde_json::Value) = (serde_json::from_str(before).map_err(err)?, serde_json::from_str(after).map_err(err)?);
+    Ok(json(&deck_core::history::describe(&a, &b)))
+}
+
+/// the change `before` → `after` undone on `current` (deck-core `history::revert`): `{ doc, applied, kept }` as JSON
+#[wasm_bindgen]
+pub fn history_revert(before: &str, after: &str, current: &str) -> Result<String, JsValue> {
+    let parse = |s: &str| serde_json::from_str::<serde_json::Value>(s).map_err(err);
+    Ok(json(&deck_core::history::revert(&parse(before)?, &parse(after)?, &parse(current)?)))
+}
+
+/// the prompt's numbers for going back to version `point` (deck-core `history::back_to`) as JSON
+#[wasm_bindgen]
+pub fn history_back_to(versions: &str, point: f64, me: &str) -> Result<String, JsValue> {
+    let v: Vec<deck_core::history::Saved> = serde_json::from_str(versions).map_err(err)?;
+    Ok(json(&deck_core::history::back_to(&v, point as i64, me)))
+}
+
 /// #412: a bundle's face (deck-space `Rig::describe`): its tracks and what a code rig's policy owns of them, as JSON – the
 /// Assignment tab marks the rows from it.
 #[wasm_bindgen]

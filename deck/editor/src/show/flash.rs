@@ -201,8 +201,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     host.hits.extend(hits);
 }
 
-/// a prompt of deck-show's (the flash's, #478 a role's remove, a kick) over `a`: its confirm and its back press `yes`, `no`
-pub(super) fn prompt(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect, hits: &mut Vec<(Rect, Hit)>, (yes, no): (Hit, Hit)) {
+/// a prompt of deck-show's (the flash's, a role's remove, a kick, the History's revert) over `a`: its confirm and its back press `yes`, `no`
+pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect, hits: &mut Vec<(Rect, H)>, (yes, no): (H, H)) {
     let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
     d.rect(a.x, a.y, a.w, a.h, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.7]);
     let w = (a.w - 4.0 * pad).min(640.0);

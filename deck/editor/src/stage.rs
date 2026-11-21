@@ -80,6 +80,8 @@ pub struct Stage {
     pub strips: Vec<Strip>,
     /// the gains inside the tracks
     pub inner: Vec<Inner>,
+    /// the audio sends between tracks (from, to): what the solo rule follows
+    sends: Vec<(String, String)>,
     master: Option<(usize, usize)>,
     pub master_peak: [f32; 2],
     pub master_max: f32,
@@ -449,6 +451,15 @@ impl Stage {
                 Some(Strip { track: s.track.clone(), node, port, name, owned: s.owned, from: (fnode, fport), peak: [0.0; 2], max: 0.0 })
             })
             .collect();
+        let track_of = |n: usize| ports.iter().find(|p| p.node == graph.nodes[n].id).map(|p| p.track.clone());
+        let mut sends: Vec<(String, String)> = Vec::new();
+        for l in graph.links.iter().filter(|l| l.ty == PortType::Audio) {
+            if let (Some(a), Some(b)) = (track_of(l.from.0), track_of(l.to.0)) {
+                if a != b && !sends.contains(&(a.clone(), b.clone())) {
+                    sends.push((a, b));
+                }
+            }
+        }
         // the gains inside each track: a node's `gain` (its output's level), a mixer's `gainK` (what feeds its `inK`)
         let mut inner = Vec::new();
         for (n, node) in graph.nodes.iter().enumerate() {
@@ -476,7 +487,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, sends, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
     }
 
     /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
@@ -635,7 +646,7 @@ impl Stage {
             .filter(|s| !s.owned)
             .map(|s| {
                 let stored = self.bundle.rig.tracks.iter().find(|t| t.id == s.track).map_or(1.0, |t| t.gain);
-                (s.node, s.port, if self.monitor.heard(&s.track) { stored } else { 0.0 })
+                (s.node, s.port, if self.monitor.heard(&s.track, &self.sends) { stored } else { 0.0 })
             })
             .collect();
         for (node, port, gain) in set {

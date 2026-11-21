@@ -2,6 +2,8 @@
 //! (ms since the epoch) and does what `take` says (dial, send, close; the status and what the app hears as JSON). Every
 //! decision is relay.rs's; this crate only converts JSON at the edge. Natively empty.
 #![cfg(target_arch = "wasm32")]
+mod take;
+
 use deck_space::relay::{Client, Options};
 use deck_space::rig::Stream;
 use wasm_bindgen::prelude::*;

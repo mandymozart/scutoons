@@ -475,6 +475,55 @@ final class EntityStore
         return ['status' => 'success', 'version' => self::meta((array) $this->byId($id), isset($user['email']) ? (string) $user['email'] : null)];
     }
 
+    /**
+     * POST <key>/revert { version, content, base } → { status, unchanged, version } – one change undone (#687): `content`
+     * is the core's revert of `version`'s step on the newest document, stored as a new draft "revert #<version>" (409
+     * conflict when `base` is not the newest; 422 when `version` is the document's first – nothing before it); `$stamped`
+     * names a document whose `version` the server stamps (saveStamped: a deck scene, a show)
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function revert(array $user, EntityKey $key, stdClass $body, string $stamped = ''): array
+    {
+        $changed = $this->changeOf((string) $key, $body);
+        if (!property_exists($body, 'content')) throw new ApiError(400, 'missing_content', 'content is required.');
+        $first = $this->db->one('SELECT MIN(id) AS id FROM entity_versions WHERE entity_key = ?', [(string) $key]);
+        if ((int) ($first['id'] ?? 0) === (int) $changed['id']) throw new ApiError(422, 'nothing_before', 'The first version has nothing before it to go back to.');
+        $save = new stdClass();
+        $save->content = $body->content;
+        $save->base = $body->base;
+        $save->message = 'revert #' . $changed['id'];
+        return $stamped === '' ? $this->save($user, $key, $save) : $this->saveStamped($user, $key, $save, $stamped);
+    }
+
+    /**
+     * POST <key>/revert-to { version, base } → { status, unchanged, version } – back to a point (#687): that version's
+     * document as a new draft "back to #<version>"; every later version stays (409 conflict when `base` is not the newest)
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function revertTo(array $user, EntityKey $key, stdClass $body, string $stamped = ''): array
+    {
+        $point = $this->changeOf((string) $key, $body);
+        $save = new stdClass();
+        $save->content = json_decode((string) $point['json']);
+        $save->base = $body->base;
+        $save->message = 'back to #' . $point['id'];
+        return $stamped === '' ? $this->save($user, $key, $save) : $this->saveStamped($user, $key, $save, $stamped);
+    }
+
+    /**
+     * the version a revert names – of this key – and a `base` it was planned on
+     * @return array<string, mixed>
+     */
+    private function changeOf(string $key, stdClass $body): array
+    {
+        if (!property_exists($body, 'base')) throw new ApiError(400, 'missing_base', 'base (the newest version the revert was planned on) is required.');
+        $row = isset($body->version) ? $this->byId((int) $body->version) : null;
+        if (!$row || $row['entity_key'] !== $key) throw new ApiError(404, 'not_found', 'Unknown version.');
+        return $row;
+    }
+
     private static function message(mixed $value): ?string
     {
         if (!is_string($value)) return null;

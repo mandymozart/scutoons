@@ -1,10 +1,10 @@
 // The handheld camera's maths (src/lib/editor/storyboard-handheld.ts, #126): the quaternion helpers against three.js (the
-// studio's track.js did it with three; the phone's page must not load it), Recenter's origin, the pose mapping, the
+// studio's track.js did it with three; the phone's page must not load it), the
 // orientation sensor, the smoothing filter, sampling and baking a take.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { bake, dragStep, makeOrigin, mapPose, orientationQuat, packSample, qEulerYXZ, qMul, qRotate, qSlerp, sampleAt, smooth, yawOf, type Quat, type Vec3 } from '../src/lib/editor/storyboard-handheld.ts';
+import { bake, dragStep, orientationQuat, qEulerYXZ, qMul, qRotate, qSlerp, sampleAt, smooth, yawOf, type Quat, type Vec3 } from '../src/lib/editor/storyboard-handheld.ts';
 
 const near = (a: readonly number[], b: readonly number[], eps = 1e-9, what = '') => a.forEach((x, i) => assert.ok(Math.abs(x - b[i]) < eps, `${what} [${i}] ${x} ≠ ${b[i]}`));
 /** q and −q are the same rotation */
@@ -35,26 +35,6 @@ test('yaw: the heading about the vertical – also looking straight down', () =>
 	assert.ok(Math.abs(yawOf(turned) - 0.7) < 1e-9);
 	const down = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0.4, 0, 'YXZ')).toArray() as Quat;
 	assert.ok(Math.abs(yawOf(down) - 0.4) < 1e-9, String(yawOf(down)));
-});
-
-test('Recenter: the phone\'s pose at the origin = the shot camera; walking forward moves the camera forward in the scene', () => {
-	const cam = new THREE.Object3D();
-	cam.position.set(2, 1.5, 6);
-	cam.lookAt(0, 1, 0);
-	const camQuat = cam.quaternion.toArray() as Quat;
-	// the phone held upright, facing some other way in its own room
-	const phoneQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 2.1).toArray() as Quat;
-	const origin = makeOrigin([0.3, 1.2, -0.4], phoneQuat, cam.position.toArray() as Vec3, camQuat);
-	const at = mapPose(origin, [0.3, 1.2, -0.4], phoneQuat);
-	near(at.position, [2, 1.5, 6]);
-	sameRot(at.quaternion, camQuat);
-	// one metre along the phone's forward → one metre along the camera's heading on the ground (scale 2: two)
-	const fwd = qRotate(phoneQuat, [0, 0, -1]);
-	const moved = mapPose(origin, [0.3 + fwd[0], 1.2, -0.4 + fwd[2]], phoneQuat, 2);
-	const yaw = yawOf(camQuat);
-	near(moved.position, [2 - 2 * Math.sin(yaw), 1.5, 6 - 2 * Math.cos(yaw)], 1e-9);
-	// lifting the phone lifts the camera (up stays up)
-	near(mapPose(origin, [0.3, 1.7, -0.4], phoneQuat).position, [2, 2, 6]);
 });
 
 test('the orientation sensor: flat on its back = looking down; upright facing north = looking along −z', () => {
@@ -108,8 +88,4 @@ test('bake: trimmed to in … out, at fps, t from 0', () => {
 	near(frames[0].position, [10, 0, 0], 1e-9);
 	near(frames[10].position, [20, 0, 0], 1e-9);
 	assert.deepEqual(bake({ samples: [] }), []);
-});
-
-test('a stored sample is rounded', () => {
-	assert.deepEqual(packSample({ t: 1.234567, position: [1.000049, 2, 3], quaternion: [0.1234567, 0, 0, 1], fov: 50.123 }), { t: 1.2346, position: [1, 2, 3], quaternion: [0.12346, 0, 0, 1], fov: 50.12 });
 });

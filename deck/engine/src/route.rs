@@ -143,7 +143,7 @@ impl Block for Bus {
         let (post, pre) = (&mut post[0], &mut pre[0]);
         let any_solo = self.solos.all.iter().any(|s| s.get() > 0.5);
         let soloed = |list: &[Param]| list.iter().any(|s| s.get() > 0.5);
-        let heard = !any_solo || self.solo.get() > 0.5 || soloed(&self.solos.upstream) || soloed(&self.solos.downstream);
+        let heard = deck_core::solo::heard(any_solo, self.solo.get() > 0.5, soloed(&self.solos.upstream), soloed(&self.solos.downstream));
         let open = self.mute.get() <= 0.5 && heard;
         let target = if open { 1.0 } else { 0.0 };
         let from = if self.gate.is_nan() { target } else { self.gate };

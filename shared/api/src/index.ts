@@ -226,3 +226,4 @@ export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabel
 export { SCENE_FORMAT, type SceneDocument, type SceneUse } from './scene.ts';
 // the scenes' own route (`/api/scenes`, #490): list, drafts, versions, save, publish, restore
 export { createScenesApi, isSceneKey, sceneFacts, sceneMatches, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState, type SceneWhere, type ScenesApi } from './scenes.ts';
+export { createHistory, savedOf, type History, type KeyHistory, type RevertPlan } from './history.ts';

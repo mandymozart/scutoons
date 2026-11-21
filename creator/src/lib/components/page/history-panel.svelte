@@ -1,146 +1,189 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
-	import { confirmDialog, DockFold } from '@scutoons/ui';
-	import { CloseIcon } from '@scutoons/ui';
-	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
+	import { confirmDialog, DockFold, CloseIcon } from '@scutoons/ui';
+	import { ApiError, publishVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { CollectionDoc } from '$lib/editor/world-map-doc.svelte.ts';
+	import { applyBackTo, applyRevert, baseOf, contentOf, describeStep, historyCore, historyFiles, loadFile, planRevert, saved, type Description, type FileHistory, type HistoryFile, type Step } from '$lib/editor/history.svelte.ts';
+	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	/**
-	 * Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. A document
-	 * made of many documents (the world map, the characters – CollectionDoc) shows the SELECTED entry's history (owner
-	 * D5: "what is selected gets a history"; `place:<id>`, `character:<id>`), else its anchor's.
+	 * The History (#687): the saved changes of the open item's files as steps – time, who, what in words, before → after –
+	 * with Revert (that change, as a new draft) and Back to here, always after a prompt; publish / unpublish per step.
+	 * Pre-filtered to the open item's first file, widened to all its files. `bare`: in a floating panel.
 	 */
-	/** `bare`: in a floating panel – its head is the panel's (no fold or close of its own) */
-	let { doc, onclose, bare = false }: { doc: ContentDoc; onclose?: () => void; bare?: boolean } = $props();
+	let { doc, docs, onclose, bare = false }: { doc?: ContentDoc; docs?: ContentDoc[]; onclose?: () => void; bare?: boolean } = $props();
 
-	const collection = $derived(doc instanceof CollectionDoc ? doc : null);
-	/** the stored key a locale's history is of */
-	const keyOf = (locale: string) => collection?.historyKey ?? doc.key(locale);
-	/** a selected entry (not the anchor): its own versions, removal goes through the page, not unpublish */
-	const entry = $derived(!!collection && collection.historyKey !== collection.spec.key);
-	/** the version the editor is based on */
-	const baseOf = (locale: string) => (collection && entry ? (collection.versions[collection.historyKey]?.latest ?? null) : doc.base[locale]);
-	/** the heading: the entry by its name, else the file */
-	const title = $derived.by(() => {
-		if (!collection || !entry) return fileLabel(doc.entity);
-		const name = collection.entryName(collection.historyKey);
-		const text = typeof name === 'string' ? name : name && typeof name === 'object' ? ((name as Record<string, unknown>)[getLocale()] ?? Object.values(name)[0]) : null;
-		return typeof text === 'string' && text ? `${fileLabel(doc.entity)} · ${text}` : fileLabel(collection.historyKey);
-	});
+	const session = getCreatorSession();
+	const me = $derived(session.user?.email ?? '');
+	const all = $derived(docs ?? (doc ? [doc] : []));
+	const files = $derived(historyFiles(all));
+	let wide = $state(false);
+	const shown = $derived(wide ? files : files.slice(0, 1));
+	const label = (f: HistoryFile) => `${fileLabel(f.key)}${f.locale !== NEUTRAL_LOCALE && f.doc.locales.length > 1 ? ` · ${f.locale}` : ''}`;
 
-	let versions = $state<Record<string, ContentVersion[]>>({});
+	let histories = $state<FileHistory[]>([]);
+	let words = $state<Record<string, Description | null>>({});
 	let error = $state<string | null>(null);
 	let busy = $state(false);
 
+	type Row = { h: FileHistory; step: Step; versions: ContentVersion[] };
+	const rows = $derived(
+		histories
+			.flatMap((h) => h.steps.map((step) => ({ h, step, versions: h.versions.filter((v) => v.id >= step.first && v.id <= step.last) })))
+			.sort((a, b) => b.step.at_ms - a.step.at_ms)
+			.slice(0, 60)
+	);
+
+	let asked = 0;
 	async function load() {
 		error = null;
+		const mine = ++asked;
 		try {
-			const out: Record<string, ContentVersion[]> = {};
-			await Promise.all(
-				doc.locales.map(async (l) => {
-					out[l] = doc.source[l] === 'store' ? (await listVersions(keyOf(l))).versions : [];
-				})
-			);
-			versions = out;
+			const next = await Promise.all(shown.map(loadFile));
+			if (mine === asked) histories = next;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
 	}
 
 	$effect(() => {
-		void [doc.entity, doc.base[doc.primary], doc.published[doc.primary], collection?.historyKey, collection && JSON.stringify(collection.versions[collection.historyKey] ?? null)];
+		void [shown.map((f) => `${f.key}@${baseOf(f)}`).join(), all.map((d) => d.published[d.primary]).join()];
 		load();
 	});
+
+	// what each step changed, in words: the newest rows (versions never change, so once is enough)
+	$effect(() => {
+		for (const r of rows.slice(0, 25)) {
+			const id = `${r.step.before}-${r.step.last}`;
+			if (untrack(() => id in words)) continue;
+			words[id] = null;
+			describeStep(r.h.file.key, r.step).then((d) => (words[id] = d), () => {});
+		}
+	});
+
+	const reviewed = $derived(all.some((d) => reviews.needsReview(d.toon)));
+	const inReview = $derived(new Set([...(reviews.overview?.to_review ?? []), ...(reviews.overview?.mine ?? [])].filter((r) => r.state === 'pending').map((r) => r.version)));
+
+	const when = (ms: number) => (ms ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms)) : '');
+	const who = (author: string | null) => (!author ? m['creator.history_import']() : author === me ? m['history.you']() : author);
+	const lines = (d: Description | null | undefined, max = 8) => (!d ? '' : [...d.lines.slice(0, max).map((l) => `${l.place}: ${l.before || '–'} → ${l.after || '–'}`), ...(d.lines.length > max || d.more ? [m['history.more']({ count: d.lines.length - Math.min(max, d.lines.length) + d.more })] : [])].join('\n'));
+	const unsaved = (f: HistoryFile) => (f.doc.dirtyLocales.includes(f.locale) ? `\n\n${m['history.unsaved']()}` : '');
 
 	async function act(work: () => Promise<unknown>) {
 		busy = true;
 		error = null;
 		try {
 			await work();
-			await doc.load();
-			await load();
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
+			error = e instanceof ApiError && e.status === 409 ? m['history.conflict']() : e instanceof Error ? e.message : String(e);
 		} finally {
 			busy = false;
+			await load();
 		}
 	}
 
-	// review before publish: accounts that need a review submit through the page's button (no publish / unpublish here);
-	// versions waiting for a review are marked
-	const reviewed = $derived(reviews.needsReview(doc.toon));
-	const inReview = $derived(new Set([...(reviews.overview?.to_review ?? []), ...(reviews.overview?.mine ?? [])].filter((r) => r.state === 'pending').map((r) => r.version)));
+	const revert = (r: Row) =>
+		act(async () => {
+			const plan = await planRevert(r.h.file, r.step.before!, r.step.last);
+			if (!plan) return;
+			if (!plan.applied) {
+				await confirmDialog({ title: m['history.revert_title'](), message: m['history.nothing'](), confirmLabel: m['creator.close']() });
+				return;
+			}
+			const d = (await historyCore()).describe(await contentOf(r.h.file.key, plan.base), plan.doc);
+			const kept = plan.kept.length ? `\n\n${m['history.kept']({ places: plan.kept.slice(0, 6).join(', ') })}` : '';
+			const message = `${m['history.revert_message']({ when: when(r.step.at_ms), who: who(r.step.author) })}\n\n${lines(d)}${kept}${unsaved(r.h.file)}`;
+			if (!(await confirmDialog({ title: m['history.revert_title'](), message, confirmLabel: m['history.revert']() }))) return;
+			await applyRevert(r.h.file, r.step.last, plan);
+		});
 
-	/** a language-neutral document's version holds every language (chapters, scenes, seasons: the toon's) */
-	const lang = (locale: string) => (locale === NEUTRAL_LOCALE ? (doc.texts?.languages.join(', ') ?? '–') : locale);
+	const backTo = (r: Row) =>
+		act(async () => {
+			const base = baseOf(r.h.file);
+			if (base === null) return;
+			const n = (await historyCore()).backTo(saved(r.h.versions), r.step.last, me);
+			const others = n.others.length ? `\n\n${m['history.others']({ people: n.others.join(', ') })}` : '';
+			const message = `${m['history.back_message']({ when: when(r.step.at_ms), later: n.later })}${others}${unsaved(r.h.file)}`;
+			if (!(await confirmDialog({ title: m['history.back_title'](), message, confirmLabel: m['history.back_to']() }))) return;
+			await applyBackTo(r.h.file, r.step.last, base);
+		});
 
-	async function restore(locale: string, v: ContentVersion) {
-		// one question: unsaved changes in that language are lost, and the version becomes a new draft
-		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale: entry ? title : lang(locale) })}`;
-		if (!(await confirmDialog({ title: m['creator.restore_title'](), message, confirmLabel: m['creator.restore']() }))) return;
-		act(() => restoreVersion(keyOf(locale), v.id));
-	}
+	const publish = (r: Row) =>
+		act(async () => {
+			if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${label(r.h.file)} (${when(r.step.at_ms)})`, locales: r.h.file.locale }), confirmLabel: m['creator.publish']() }))) return;
+			await publishVersion(r.h.file.key, r.step.last);
+			await r.h.file.doc.load();
+		});
 
-	async function publish(locale: string, v: ContentVersion) {
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${title} (${when(v.created_at)})`, locales: lang(locale) }), confirmLabel: m['creator.publish']() }))) return;
-		act(() => publishVersion(keyOf(locale), v.id));
-	}
-
-	async function unpublish(locale: string) {
-		if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: fileLabel(doc.entity), locale: lang(locale) }), confirmLabel: m['creator.unpublish_label']() }))) return;
-		act(() => unpublishEntity(keyOf(locale)));
-	}
-
-	/** versions are told apart by date, author and note – never by their (store-wide) id */
-	const when = (iso: string) => {
-		const d = iso ? new Date(iso) : null;
-		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : (iso ?? '');
-	};
+	const unpublish = (r: Row) =>
+		act(async () => {
+			if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: label(r.h.file), locale: r.h.file.locale }), confirmLabel: m['creator.unpublish_label']() }))) return;
+			await unpublishEntity(r.h.file.key);
+			await r.h.file.doc.load();
+		});
 </script>
 
 <div class="history" data-testid="history-panel">
-	<header>
-		<h2>{bare ? title : `${m['creator.history']()} · ${title}`}</h2>
-		{#if !bare}
+	{#if !bare}
+		<header>
+			<h2>{m['creator.history']()}</h2>
 			<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 			{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
-		{/if}
-	</header>
+		</header>
+	{/if}
+	{#if files.length > 1}
+		<div class="scope" role="group">
+			<button class="chip" class:on={!wide} onclick={() => (wide = false)}>{files[0] ? label(files[0]) : m['history.this_file']()}</button>
+			<button class="chip" class:on={wide} onclick={() => (wide = true)} data-testid="history-all">{m['history.all_files']()}</button>
+		</div>
+	{/if}
 	{#if error}<p class="error">{error}</p>{/if}
-	{#each doc.locales as l (l)}
-		{#if l !== NEUTRAL_LOCALE}<h3>{l}</h3>{/if}
-		{#if !versions[l]?.length}
-			<p class="hint">{doc.source[l] === 'store' ? '…' : m['creator.static_file']()}</p>
-		{:else}
-			<ol>
-				{#each versions[l] as v (v.id)}
-					<li class:live={v.status === 'published'} class:current={v.id === baseOf(l)}>
-						<span class="what">
-							<span>{when(v.created_at)}</span>{#if v.id === baseOf(l)} <span class="tag">{m['creator.history_current']()}</span>{/if}{#if inReview.has(v.id)} <span class="tag">{m['creator.review_state_pending']()}</span>{/if}
-							<br />{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}
-							{#if v.message}<br /><i>{v.message}</i>{/if}
-						</span>
-						<span class="acts">
-							{#if v.status === 'published'}
-								<span>{m['creator.state_published']()}</span>
-								{#if !reviewed && !entry}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>{m['creator.unpublish_label']()}</button>{/if}
-							{:else if !reviewed}
-								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>
-							{/if}
-							{#if v.id !== baseOf(l)}
-								<button class="ghost" disabled={busy} onclick={() => restore(l, v)} data-testid="restore-{l}-{v.id}">{m['creator.restore']()}</button>
-							{/if}
-						</span>
-					</li>
-				{/each}
-			</ol>
-		{/if}
-	{/each}
+	{#if !files.length}
+		<p class="sc-empty">{m['creator.static_file']()}</p>
+	{/if}
+	<ol>
+		{#each rows as r (`${r.h.file.key}:${r.step.last}`)}
+			{@const base = baseOf(r.h.file)}
+			{@const live = r.versions.some((v) => v.status === 'published')}
+			{@const d = words[`${r.step.before}-${r.step.last}`]}
+			<li class:live data-testid="history-step-{r.step.last}">
+				<div class="head">
+					<span class="when">{when(r.step.at_ms)}</span>
+					<span class="who">{who(r.step.author)}</span>
+					{#if wide}<span class="tag">{label(r.h.file)}</span>{/if}
+					{#if r.step.count > 1}<span class="tag">{m['history.saves']({ count: r.step.count })}</span>{/if}
+					{#if r.step.last === base}<span class="tag">{m['creator.history_current']()}</span>{/if}
+					{#if live}<span class="tag">{m['creator.state_published']()}</span>{/if}
+					{#if inReview.has(r.step.last)}<span class="tag">{m['creator.review_state_pending']()}</span>{/if}
+				</div>
+				{#each r.versions.filter((v) => v.message) as v (v.id)}<i class="note">{v.message}</i>{/each}
+				{#if r.step.before === null}
+					<span class="muted">{m['history.created']()}</span>
+				{:else if d}
+					<ul class="what">
+						{#each d.lines.slice(0, 4) as l, i (i)}
+							<li><span class="place">{l.place}</span> <s>{l.before}</s> → <span>{l.after}</span></li>
+						{/each}
+						{#if d.lines.length > 4 || d.more}<li class="muted">{m['history.more']({ count: d.lines.length - Math.min(4, d.lines.length) + d.more })}</li>{/if}
+					</ul>
+				{/if}
+				<div class="acts">
+					{#if r.step.before !== null}<button class="ghost" disabled={busy} onclick={() => revert(r)} data-testid="revert-{r.step.last}">{m['history.revert']()}</button>{/if}
+					{#if r.step.last !== base}<button class="ghost" disabled={busy} onclick={() => backTo(r)} data-testid="back-to-{r.step.last}">{m['history.back_to']()}</button>{/if}
+					{#if !reviewed && live && !r.h.file.entry}
+						<button class="ghost" disabled={busy} onclick={() => unpublish(r)}>{m['creator.unpublish_label']()}</button>
+					{:else if !reviewed && !live}
+						<button class="ghost" disabled={busy} onclick={() => publish(r)}>{m['creator.publish']()}</button>
+					{/if}
+				</div>
+			</li>
+		{/each}
+	</ol>
 </div>
 
 <style>
@@ -153,40 +196,62 @@
 	h2 {
 		margin: 0.25rem 0;
 	}
-	h3 {
-		font-size: var(--type-caption-size);
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
-		margin: 0.6rem 0 0.2rem;
-		text-transform: uppercase;
+	.scope {
+		display: flex;
+		gap: 0.25rem;
+		margin: 0.4rem 0;
 	}
-	ol {
+	.chip {
+		font-size: var(--type-caption-size);
+	}
+	.chip.on {
+		outline: 1px solid var(--ink);
+	}
+	ol,
+	ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
-	li {
+	ol > li {
 		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 0.3rem;
-		padding: 0.25rem 0;
+		gap: 0.15rem;
+		padding: 0.35rem 0;
 		border-bottom: 1px solid var(--border-subtle);
-		align-items: start;
+	}
+	ol > li.live {
+		border-left: 3px solid var(--ink);
+		padding-left: 0.3rem;
+	}
+	.head {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		align-items: baseline;
+	}
+	.who,
+	.muted,
+	.note {
+		font-size: var(--type-caption-size);
+		color: var(--ink-muted, inherit);
 	}
 	.tag {
-		margin-left: 0.4rem;
 		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 		border: 1px solid var(--ink);
 	}
-	li.live {
-		border-left: 3px solid var(--ink);
-		padding-left: 0.2rem;
+	.what {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		overflow-wrap: anywhere;
+	}
+	.place {
+		opacity: 0.75;
 	}
 	.acts {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.2rem;
-		align-items: center;
 	}
 	.acts button {
 		font-size: var(--type-caption-size);

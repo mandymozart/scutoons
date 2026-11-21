@@ -315,6 +315,11 @@ impl Follow {
         self.recenter = true;
     }
 
+    /// Recenter on the camera the follow began from: the held view is let go, the phone's next pose is that camera again
+    pub fn reanchor(&mut self) {
+        (self.recenter, self.eye, self.rot, self.goal) = (true, None, None, None);
+    }
+
     /// Another phone took the camera: its first pose anchors on the view held now (its clock is its own)
     pub fn handover(&mut self) {
         (self.recenter, self.last_t) = (true, None);

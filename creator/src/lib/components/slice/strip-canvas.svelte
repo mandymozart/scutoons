@@ -14,7 +14,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import SliceCanvas, { type CanvasSelection, type ItemKind, type Tool } from './slice-canvas.svelte';
+	import SliceCanvas, { type CanvasSelection, type ItemKind, type Tool } from '$lib/components/slice/slice-canvas.svelte';
 	import type { Rect } from '$lib/editor/canvas-geometry.ts';
 	import { moveAcrossSeam, sliceAt, type DrawnBox } from '$lib/editor/strip-anchor.ts';
 

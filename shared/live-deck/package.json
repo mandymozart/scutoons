@@ -18,6 +18,10 @@
 			"types": "./src/units.ts",
 			"default": "./src/units.ts"
 		},
+		"./history": {
+			"types": "./src/history.ts",
+			"default": "./src/history.ts"
+		},
 		"./hand": {
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"

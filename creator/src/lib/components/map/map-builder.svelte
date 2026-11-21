@@ -1076,7 +1076,7 @@
 		align-items: center;
 		gap: 0.6rem;
 		width: 100%;
-		min-height: 2.75rem;
+		min-height: var(--control-height);
 		padding: 0 0.75rem;
 		cursor: pointer;
 	}

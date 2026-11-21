@@ -102,7 +102,7 @@
 		margin: 0;
 		z-index: 2;
 		pointer-events: none;
-		font-size: 0.625rem;
+		font-size: var(--type-nav-micro-size);
 		color: color-mix(in srgb, var(--paper) 60%, transparent);
 		white-space: nowrap;
 	}
