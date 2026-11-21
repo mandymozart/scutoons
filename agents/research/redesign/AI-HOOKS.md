@@ -37,6 +37,8 @@ What that means, in the network's words (#763: a node is a **spore**, connecting
 8. **The slot with the generator as a stand-in:** automated; waiting / running / yielded v2; on: sheet changed (a job signal).
 9. **The generator in the Library:** a tile of its own kind, a version stack (v1, v2), and where it's used.
 
+- **Accepting runs is a slot setting** (owner 2026-11-22: *"a slot can be marked as automatically accept runs."*). A slot marked *auto-accept* takes each run's yield straight in as a new version. An unmarked slot holds the yield as a candidate beside its current asset until someone accepts it. This answers the draft's question 1 (spores.html step 8).
+
 This replaces §1's hook *card* (a dialog). The pill on the canvas stays as the way in: pressing it opens the spore canvas for that slot, with the source already woven in. §2 (where hooks sit) and §3 (how results come back) stay true, read with generators in place of single tool calls.
 
 ## 1. One shape
