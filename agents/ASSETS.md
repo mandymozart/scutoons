@@ -37,7 +37,7 @@ way we could even migrate in the future or run various systems behind it. Long-t
 | Table | What | Key columns |
 |---|---|---|
 | `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
-| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, created/by |
+| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, `spots` (JSON, #724: the model's spots – "Spots" below), created/by |
 | `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_shapes` | the vector library (migration `2026-10-17-asset-shapes`) | `asset_id` (1:1), `tile` x / y / null, `mask`, `colors` (JSON, measured), `source` / `derived` (JSON, provenance) – an asset with a row is a shape: `GET /api/assets?kind=shape`, each row + `shape: { tile, mask, colors }` (research/VECTORS.md §5a) |
@@ -88,6 +88,20 @@ Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice i
 3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
 slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (owner 2026-10-07: keep `../` –
 the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, from the CDN root).
+
+## Spots (#724, migration `2026-11-21-asset-spots`)
+
+Named points on a model (a light, an emitter, a sound source, a target, a camera, a module's port, a mark) live on the
+**asset version**: `asset_versions.spots` holds what the deck's core wrote (deck-catalog `spot.rs` `Spots`) –
+`file: { nodes, bones, spots }`, what the core read from that version's GLB (the names a spot can attach to; the file's own
+spots from its empties `spot_<name>[.<kind>]` / `port_<name>`, deck-space `space/spots.rs`), and `hand: [..]`, the hand edits
+(a spot added, or a file spot `of` moved, renamed or hidden). A spot is `{ name, kind, attach: root | node:<n> | bone:<n>,
+at: [x, y, z], turn: [x, y, z, w], port? }`; `Spots::resolved` is the list a deck uses, `space::spots::world` where one is at
+a clip's time. `PUT /api/assets/{id}` `spots` (null = none) writes the current version's, `GET` carries each version's; the
+server keeps no rule: `AssetSpots` asks the core (`/validate` kind `spots`: names, doubles, a hand edit of a spot the file
+lacks, a missing bone or node, a module body's port spots against its ports) and stores what it was sent. A new version
+starts without spots: the deck reads the file and carries the old hand edits over (`Spots::carried` names the ones that no
+longer resolve). Address: `character:<id>/spot:<name>`, `item:<id>/spot:<name>`, relative `spot:<name>` (address.rs `SpotRef`).
 
 ## Edits (#651, migration `2026-11-20-asset-edits`)
 

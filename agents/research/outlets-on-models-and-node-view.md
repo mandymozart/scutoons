@@ -1,4 +1,4 @@
-Status: research 2026-11-21, plan for #712 – not built
+Status: research 2026-11-21, plan for #712 – built so far: A2 (#725, the anatomy), A1 (#724, spots in the core); the rest not built
 
 # Outlets on 3D models, and the node view's drag-and-drop with Blender-style sockets
 

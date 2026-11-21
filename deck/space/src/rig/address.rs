@@ -3,9 +3,12 @@
 //!
 //! ```text
 //! address := ["/"] { place "/" } leaf
-//! place   := <kind> ":" <id>              deck:left · scene:nave · character:catpope · item:incense (later toon:, chapter:, set:, spot: …)
+//! place   := <kind> ":" <id>              deck:left · scene:nave · character:catpope · item:incense (later toon:, chapter:, set: …)
 //! leaf    := <track>:<node>.<port> · <track>:@gain · <track>:@preset · being:<input> · policy:<port> · <node>.<port> · @<member>
+//!            · spot:<name>
 //! ```
+//! `spot:<name>` is a point on a model (deck-catalog spot.rs): `character:catpope/spot:hand_l`, `item:lantern/spot:flame`,
+//! and relative `spot:hand_l` inside the document that holds the model ([`SpotRef`]).
 //! The last segment is always the leaf, a `/` separates levels; without a leading `/` an address is relative to the document
 //! it stands in – so every path written before this file is a valid address unchanged. A bare `<node>` is its `out`.
 //! `character:catpope#2` (a second copy of a holder on one stage) is reserved and refused for now.
@@ -241,8 +244,36 @@ impl PhoneCamera {
     }
 }
 
-/// the reserved place of a set's spot (glb.rs `spots`), as a camera aims at it: `spot:<name>`
+/// the reserved scope of a named point on a model: `spot:<name>` – a spot of the model the address lands in (a leaf,
+/// [`Leaf::Spot`]; a place says where a thing is, a spot is a point on that thing) and, in a camera's aim, a spot of the
+/// scene's set (glb.rs `spots`). No track is called so.
 pub const SPOT: &str = "spot";
+
+/// A spot on a model as a light, an emitter, a sound source, a target or a cable's end names it: the spot `name` on
+/// the model of `holder` (`character:catpope/spot:hand_l`, `item:lantern/spot:flame`), or of the document the address
+/// stands in (`spot:hand_l`). Places before the holder (`/deck:left/scene:nave/…`) stay in `address`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpotRef {
+    pub address: Address,
+    pub name: String,
+}
+
+impl SpotRef {
+    pub fn parse(s: &str) -> Result<SpotRef, String> {
+        let address = Address::parse(s)?;
+        let Leaf::Spot(name) = &address.leaf else { return Err(format!("'{s}' names no spot ({SPOT}:<name>, character:<id>/{SPOT}:<name>, item:<id>/{SPOT}:<name>)")) };
+        let item = protocol::address_book::AddressKind::Item.as_str();
+        if let Some(holder) = address.places.last().filter(|p| p.kind != CHARACTER && p.kind != item) {
+            return Err(format!("'{s}': a spot is on a character's or an item's model, not on a {}", holder.kind));
+        }
+        Ok(SpotRef { name: name.clone(), address })
+    }
+
+    /// whose model: none = the document's own
+    pub fn holder(&self) -> Option<&Place> {
+        self.address.places.last()
+    }
+}
 
 /// What a scene camera's shot aims at, or a follow keeps in the shot (scene_camera.rs): a holder of the scene by its id
 /// (`duet_1`), who fills one by its place (`character:catpope`, `item:incense_burner`), or a spot of the set (`spot:altar`).
@@ -299,6 +330,8 @@ pub enum Leaf {
     Policy(String),
     /// `@<member>` – a holder's own state, read only (`character:catpope/@energy`)
     State(String),
+    /// `spot:<name>` – a named point on the model (`character:catpope/spot:hand_l`), a position, never a slot
+    Spot(String),
 }
 
 impl Leaf {
@@ -310,7 +343,7 @@ impl Leaf {
             Leaf::Port { track: None, node, port } => Some(format!("{node}.{port}")),
             Leaf::Policy(port) => Some(format!("{POLICY}.{port}")),
             Leaf::Source(scope, name) => source_slot(scope, name).map(String::from),
-            Leaf::Member { .. } | Leaf::Being(_) | Leaf::State(_) => None,
+            Leaf::Member { .. } | Leaf::Being(_) | Leaf::State(_) | Leaf::Spot(_) => None,
         }
     }
 }
@@ -325,6 +358,7 @@ impl fmt::Display for Leaf {
             Leaf::Source(scope, name) => write!(f, "{scope}:{name}"),
             Leaf::Policy(port) => write!(f, "{POLICY}:{port}"),
             Leaf::State(member) => write!(f, "@{member}"),
+            Leaf::Spot(name) => write!(f, "{SPOT}:{name}"),
         }
     }
 }
@@ -431,6 +465,10 @@ fn leaf(s: &str) -> Result<Leaf, String> {
             if scope == POLICY {
                 word(rest, "the policy's port")?;
                 return Ok(Leaf::Policy(rest.to_string()));
+            }
+            if scope == SPOT {
+                deck_catalog::spot::name(rest)?;
+                return Ok(Leaf::Spot(rest.to_string()));
             }
             if let Some(member) = rest.strip_prefix('@') {
                 word(member, "a track's member")?;
@@ -636,6 +674,41 @@ mod tests {
             let e = Address::parse(text).unwrap_err();
             assert!(e.contains(says), "{text:?}: {e}");
         }
+    }
+
+    #[test]
+    fn a_spot_on_a_model_is_named_by_its_holder_and_its_name() {
+        let hand = SpotRef::parse("character:catpope/spot:hand_l").unwrap();
+        assert_eq!((hand.holder(), hand.name.as_str()), (Some(&Place::new("character", "catpope")), "hand_l"));
+        assert_eq!(hand.address.leaf, Leaf::Spot("hand_l".into()));
+        assert_eq!(hand.address.to_string(), "character:catpope/spot:hand_l", "it writes back as it was");
+        let flame = SpotRef::parse("item:lantern/spot:flame").unwrap();
+        assert_eq!((flame.holder().unwrap().to_string(), flame.name.as_str()), ("item:lantern".to_string(), "flame"));
+        let own = SpotRef::parse("spot:hand_l").unwrap();
+        assert!(own.holder().is_none() && own.address.is_relative(), "inside the document that holds the model");
+        assert_eq!(Address::leaf("spot:hand_l").unwrap(), Leaf::Spot("hand_l".into()));
+        let far = SpotRef::parse("/deck:left/scene:nave/character:catpope/spot:head").unwrap();
+        assert_eq!((far.holder().unwrap().id.as_str(), far.address.places.len(), far.address.absolute), ("catpope", 3, true));
+        assert_eq!(Address::leaf("spot:flame").unwrap().slot(), None, "a position, no slot of the played scene");
+        for (text, says) in [
+            ("character:catpope/spot:", "is no spot name"),
+            ("character:catpope/spot:Hand", "is no spot name"),
+            ("character:catpope/spot:hand.l", "is no spot name"),
+            ("character:catpope/spot:hand_l/extra", "names no spot"),
+            ("spot:hand_l/voice:osc.out", "names no spot"),
+            ("scene:nave/spot:altar", "not on a scene"),
+            ("deck:left/spot:lens", "not on a deck"),
+            ("character:catpope/@energy", "names no spot"),
+            ("character:catpope", "names no spot"),
+            ("character:catpope.pope/spot:hand_l", "'.' in a place's id"),
+        ] {
+            let e = SpotRef::parse(text).unwrap_err();
+            assert!(e.contains(says), "{text:?}: {e}");
+        }
+        let ctx = Context { own: Place::of_subject("character.catpope") };
+        assert_eq!(resolve(&hand.address, &ctx, Reach::Wide).unwrap(), Resolved::Local(Leaf::Spot("hand_l".into())), "its own model");
+        assert!(resolve(&flame.address, &ctx, Reach::Wide).unwrap().is_far());
+        assert_eq!(Aim::parse("spot:altar"), Ok(Aim::Spot("altar".into())), "a camera's aim still names a set's spot");
     }
 
     #[test]

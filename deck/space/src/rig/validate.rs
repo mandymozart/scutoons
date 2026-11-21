@@ -17,7 +17,11 @@
 //!   and every filler in the book, each filler against its placeholder's `fill`, the scene resolved with them. The
 //!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors);
 //! - a device preset (kind `device-presets`): `DevicePreset` (unknown fields refused, id = the request's), its `problems`;
-//! - a rig preset (kind `rig-presets`): `RigPreset` (unknown fields refused, id = the request's), its `problems`.
+//! - a rig preset (kind `rig-presets`): `RigPreset` (unknown fields refused, id = the request's), its `problems`;
+//! - a model's spots (kind `spots`, `id` = the asset's id, the document a version's `spots`): deck-catalog `Spots`
+//!   (unknown fields refused), its `problems` – names, doubles, hand edits of what the file does not have, a bone or node
+//!   the model does not have – and, with the descriptor of the module this model is the body of in `modules`, its port
+//!   spots against the module's ports. Shared vectors: server/tests/fixtures/assets/spots.json.
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
 //! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -98,7 +102,8 @@ impl Request {
             "uses" => "use of scene",
             "device-presets" => "device preset",
             "rig-presets" => "rig preset",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets)")),
+            "spots" => "spots of asset",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets, spots)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
@@ -108,6 +113,7 @@ impl Request {
             "use of scene" => self.scene_use(&who).map(|_| Vec::new()),
             "device preset" => self.device_preset(&who).map(|_| Vec::new()),
             "rig preset" => self.rig_preset(&who).map(|_| Vec::new()),
+            "spots of asset" => self.spots(&who).map(|_| Vec::new()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -154,6 +160,17 @@ impl Request {
         if p.id != self.id {
             problems.push(format!("{who}: the document's id is \"{}\", the key's \"{}\"", p.id, self.id));
         }
+        if problems.is_empty() { Ok(()) } else { Err(problems) }
+    }
+
+    /// a model's spots' problems; `modules` holds the descriptor of the module this model is the body of, when it is one
+    fn spots(&self, who: &str) -> Result<(), Problems> {
+        let spots: deck_catalog::Spots = parse(who, &self.document)?;
+        let module: Option<Descriptor> = match self.modules.first() {
+            Some(v) => Some(parse(&format!("module {}", v.get("name").and_then(Value::as_str).unwrap_or("?")), v)?),
+            None => None,
+        };
+        let problems: Problems = spots.problems(module.as_ref()).into_iter().map(|s| format!("{who}: {s}")).collect();
         if problems.is_empty() { Ok(()) } else { Err(problems) }
     }
 
@@ -313,6 +330,32 @@ mod tests {
         }
         let wire: Value = serde_json::from_str(&problems_json(r#"{"kind":"uses","id":"stage","document":{"scene":"scene:stage","extra":1}}"#).unwrap()).unwrap();
         assert!(wire["problems"][0].as_str().unwrap().contains("unknown field `extra`"), "{wire}");
+    }
+
+    /// A model's spots as the API sends them (server/tests/fixtures/assets/spots.json) – the core's words for each; the
+    /// good ones pass, the others name their reason. `UPDATE_FIXTURES=1` writes the problems.
+    #[test]
+    fn spots_vectors() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/assets/spots.json");
+        let stored = std::fs::read_to_string(path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let request: Request = serde_json::from_value(case["request"].clone()).unwrap();
+            case["problems"] = serde_json::to_value(request.problems().unwrap()).unwrap();
+        }
+        let cases = set["cases"].as_array().unwrap();
+        let said = |name: &str| cases.iter().find(|c| c["name"] == name).unwrap_or_else(|| panic!("no case {name}"))["problems"].to_string();
+        assert_eq!(said("a character's spots: the file's and two hand edits"), "[]");
+        assert_eq!(said("a module body whose port spots match"), "[]");
+        assert!(said("a bad name").contains("is no spot name"));
+        assert!(said("a missing bone").contains("the model has no bone 'wrist_l'"));
+        assert!(said("a port mismatch").contains("renamed?"));
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "spots.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space spots_vectors");
+        }
     }
 
     fn v<T: Serialize>(x: &T) -> Value {

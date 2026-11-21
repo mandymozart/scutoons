@@ -86,6 +86,25 @@ final class CoreValidator
     }
 
     /**
+     * #724: the core's problems of a model version's spots (deck-catalog spot.rs `Spots::problems`, kind `spots`): names,
+     * doubles, hand edits of what the file does not have, a bone or node the model does not have – and, with the
+     * descriptor of the module this model is the body of, its port spots against the module's ports; the requests and
+     * answers: server/tests/fixtures/assets/spots.json
+     * @param array<string, mixed> $spots the document as sent
+     * @param list<mixed> $modules the module's descriptor, when the model is a module's body
+     * @return list<string>
+     */
+    public function spotProblems(string $assetId, array $spots, array $modules = []): array
+    {
+        $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
+        $token = $this->settings->get('MODULE_BUILD_TOKEN');
+        if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks spots is not set up.');
+        $request = ['kind' => 'spots', 'id' => $assetId, 'document' => $spots];
+        if ($modules !== []) $request['modules'] = $modules;
+        return $this->ask($url, $token, $request, "the spots of asset $assetId");
+    }
+
+    /**
      * @param array<string, mixed> $request
      * @return list<string>
      */

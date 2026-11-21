@@ -1,0 +1,260 @@
+{
+  "cases": [
+    {
+      "name": "a character's spots: the file's and two hand edits",
+      "problems": [],
+      "request": {
+        "document": {
+          "file": {
+            "bones": [
+              "head",
+              "wrist_l"
+            ],
+            "nodes": [
+              "rig",
+              "lantern"
+            ],
+            "spots": [
+              {
+                "at": [
+                  0.0,
+                  0.25,
+                  0.0
+                ],
+                "attach": "node:lantern",
+                "kind": "light",
+                "name": "flame"
+              },
+              {
+                "at": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "attach": "bone:wrist_l",
+                "kind": "mark",
+                "name": "Hand L"
+              }
+            ]
+          },
+          "hand": [
+            {
+              "name": "hand_l",
+              "of": "Hand L"
+            },
+            {
+              "at": [
+                0.5,
+                0.0,
+                0.0
+              ],
+              "attach": "bone:head",
+              "kind": "sound",
+              "name": "ear",
+              "turn": [
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        "id": "asset-1",
+        "kind": "spots"
+      }
+    },
+    {
+      "name": "a bad name",
+      "problems": [
+        "spots of asset asset-1: spot 'Hand L' is no spot name (one lowercase word: a letter first, then letters, digits or '_')",
+        "spots of asset asset-1: spot 'tip' is there twice"
+      ],
+      "request": {
+        "document": {
+          "hand": [
+            {
+              "name": "Hand L"
+            },
+            {
+              "name": "tip"
+            },
+            {
+              "name": "tip"
+            }
+          ]
+        },
+        "id": "asset-1",
+        "kind": "spots"
+      }
+    },
+    {
+      "name": "a missing bone",
+      "problems": [
+        "spots of asset asset-1: the hand edit 'old' changes the file's spot 'flame', which this version's file does not have",
+        "spots of asset asset-1: spot 'hand_l': the model has no bone 'wrist_l'",
+        "spots of asset asset-1: spot 'lamp': the model has no node 'lantern'"
+      ],
+      "request": {
+        "document": {
+          "file": {
+            "bones": [
+              "head"
+            ],
+            "nodes": [
+              "rig"
+            ],
+            "spots": []
+          },
+          "hand": [
+            {
+              "attach": "bone:wrist_l",
+              "name": "hand_l"
+            },
+            {
+              "attach": "node:lantern",
+              "name": "lamp"
+            },
+            {
+              "name": "old",
+              "of": "flame"
+            }
+          ]
+        },
+        "id": "asset-1",
+        "kind": "spots"
+      }
+    },
+    {
+      "name": "a module body whose port spots match",
+      "problems": [],
+      "request": {
+        "document": {
+          "file": {
+            "bones": [],
+            "nodes": [
+              "body"
+            ],
+            "spots": [
+              {
+                "at": [
+                  0.0,
+                  0.0,
+                  0.5
+                ],
+                "kind": "port",
+                "name": "in"
+              },
+              {
+                "at": [
+                  0.0,
+                  0.0,
+                  -0.5
+                ],
+                "kind": "port",
+                "name": "nozzle",
+                "port": "out"
+              }
+            ]
+          }
+        },
+        "id": "asset-2",
+        "kind": "spots",
+        "modules": [
+          {
+            "domain": "audio",
+            "name": "claw",
+            "ports": [
+              {
+                "dir": "in",
+                "name": "in",
+                "type": "audio"
+              },
+              {
+                "dir": "out",
+                "name": "out",
+                "type": "audio"
+              }
+            ],
+            "version": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a port mismatch",
+      "problems": [
+        "spots of asset asset-2: the port spot 'output' names no port of the module 'claw', and its port 'out' has no spot – renamed?"
+      ],
+      "request": {
+        "document": {
+          "file": {
+            "bones": [],
+            "nodes": [
+              "body"
+            ],
+            "spots": [
+              {
+                "at": [
+                  0.0,
+                  0.0,
+                  0.5
+                ],
+                "kind": "port",
+                "name": "in"
+              },
+              {
+                "at": [
+                  0.0,
+                  0.0,
+                  -0.5
+                ],
+                "kind": "port",
+                "name": "output"
+              }
+            ]
+          }
+        },
+        "id": "asset-2",
+        "kind": "spots",
+        "modules": [
+          {
+            "domain": "audio",
+            "name": "claw",
+            "ports": [
+              {
+                "dir": "in",
+                "name": "in",
+                "type": "audio"
+              },
+              {
+                "dir": "out",
+                "name": "out",
+                "type": "audio"
+              }
+            ],
+            "version": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "not such a document",
+      "problems": [
+        "spots of asset asset-1: 'limb:arm' is no attachment (root, node:<name>, bone:<name>)"
+      ],
+      "request": {
+        "document": {
+          "hand": [
+            {
+              "attach": "limb:arm",
+              "name": "a"
+            }
+          ]
+        },
+        "id": "asset-1",
+        "kind": "spots"
+      }
+    }
+  ]
+}
