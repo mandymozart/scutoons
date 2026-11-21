@@ -4,8 +4,10 @@
 //! (EXT_texture_webp), quantized attributes (KHR_mesh_quantization), meshopt-compressed buffer views
 //! (EXT_meshopt_compression, meshopt.rs) and empty nodes as named spots (`spot_*`, `view`). Everything is flattened
 //! at load into one world-space vertex / index list with a draw range per material – the GPU side (gpu.rs) draws it
-//! unlit with a depth buffer. Normals, tangents, skins, morph targets, animations and cameras are ignored; sparse
+//! unlit with a depth buffer, in the rest pose. Beside it the model keeps its anatomy (anatomy.rs): the node tree, the
+//! parts, the skins and the animation clips. Normals, tangents, morph targets and cameras are ignored; sparse
 //! accessors are refused.
+use super::anatomy::{Anatomy, Channel, Influence, Interpolation, Node, Part, Path as Target, Skin};
 use anyhow::{bail, ensure, Context, Result};
 use glam::{Mat4, Quat, Vec3};
 use serde::Deserialize;
@@ -53,6 +55,7 @@ pub struct Model {
     pub spots: Vec<(String, Vec3)>,
     pub min: Vec3,
     pub max: Vec3,
+    pub anatomy: Anatomy,
 }
 
 impl Model {
@@ -79,6 +82,46 @@ struct Doc {
     materials: Vec<Material>,
     textures: Vec<Texture>,
     images: Vec<ImageDef>,
+    skins: Vec<SkinDef>,
+    animations: Vec<AnimationDef>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct SkinDef {
+    name: Option<String>,
+    joints: Vec<usize>,
+    inverse_bind_matrices: Option<usize>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct AnimationDef {
+    name: Option<String>,
+    channels: Vec<ChannelDef>,
+    samplers: Vec<SamplerDef>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct ChannelDef {
+    sampler: usize,
+    target: TargetDef,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct TargetDef {
+    node: Option<usize>,
+    path: String,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct SamplerDef {
+    input: usize,
+    output: usize,
+    interpolation: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -93,6 +136,7 @@ struct NodeDef {
     name: Option<String>,
     children: Vec<usize>,
     mesh: Option<usize>,
+    skin: Option<usize>,
     matrix: Option<[f32; 16]>,
     translation: Option<[f32; 3]>,
     rotation: Option<[f32; 4]>,
@@ -223,6 +267,11 @@ pub fn encoded_images(bytes: &[u8]) -> Result<Vec<(usize, Vec<u8>)>> {
     Ok(out)
 }
 
+/// A model's anatomy alone (a check, a headless host): the file read without decoding its images.
+pub fn anatomy(bytes: &[u8]) -> Result<Anatomy> {
+    Ok(parse_with(bytes, 1, &[], &mut |_, _| Ok(image::RgbaImage::new(1, 1)))?.anatomy)
+}
+
 /// `parse` with the images' decoder given: (the glTF image index, its encoded bytes) → RGBA8
 pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Model> {
     let (doc, bin) = split_glb(bytes)?;
@@ -231,13 +280,15 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
         ensure!(SUPPORTED.contains(&e.as_str()), "the file requires the glTF extension {e}, which the stage does not read");
     }
     let mut views: HashMap<usize, Vec<u8>> = HashMap::new();
-    let mut room = Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY };
+    let mut room = Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY, anatomy: Anatomy::default() };
     // materials → images (a texture's source, WebP's through its extension)
     let mut image_of: HashMap<usize, usize> = HashMap::new();
     let roots = doc.scenes.get(doc.scene.unwrap_or(0)).map(|s| s.nodes.clone()).unwrap_or_else(|| (0..doc.nodes.len()).collect());
     let mut stack: Vec<(usize, Mat4)> = roots.iter().map(|&n| (n, Mat4::IDENTITY)).collect();
     // per material: (vertices, indices) gathered, then concatenated in material order
-    let mut parts: Vec<(Option<usize>, Vec<RoomVertex>, Vec<u32>)> = Vec::new();
+    let mut groups: Vec<(Option<usize>, Vec<RoomVertex>, Vec<u32>)> = Vec::new();
+    // each with its group, its ranges still counted inside that group
+    let mut parts: Vec<(usize, Part)> = Vec::new();
     while let Some((n, parent)) = stack.pop() {
         let node = doc.nodes.get(n).with_context(|| format!("no node {n}"))?;
         let m = parent * local(node);
@@ -251,8 +302,9 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
         if node.name.as_ref().is_some_and(|n| hide.contains(n)) {
             continue;
         }
+        let mesh_at = mesh;
         let mesh = doc.meshes.get(mesh).with_context(|| format!("no mesh {mesh}"))?;
-        for prim in &mesh.primitives {
+        for (prim_at, prim) in mesh.primitives.iter().enumerate() {
             if prim.mode.unwrap_or(4) != 4 {
                 continue; // points / lines: not a room's
             }
@@ -302,14 +354,37 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
                 }
                 None => None,
             };
-            let part = match parts.iter().position(|p| p.0 == image) {
-                Some(i) => &mut parts[i],
+            let influences = match (node.skin, prim.attributes.get("JOINTS_0"), prim.attributes.get("WEIGHTS_0")) {
+                (Some(_), Some(&j), Some(&w)) => {
+                    let (joints, weights) = (read(&doc, bin, &mut views, j)?, read(&doc, bin, &mut views, w)?);
+                    ensure!(joints.len() == n_verts && weights.len() == n_verts, "a primitive's attributes differ in length");
+                    joints.iter().zip(&weights).map(|(j, w)| Influence { joints: j.map(|x| x as u16), weights: *w }).collect()
+                }
+                _ => Vec::new(),
+            };
+            let group = match groups.iter().position(|p| p.0 == image) {
+                Some(i) => i,
                 None => {
-                    parts.push((image, Vec::new(), Vec::new()));
-                    parts.last_mut().expect("pushed")
+                    groups.push((image, Vec::new(), Vec::new()));
+                    groups.len() - 1
                 }
             };
+            let part = &mut groups[group];
             let base = part.1.len() as u32;
+            let first = part.2.len() as u32;
+            parts.push((
+                group,
+                Part {
+                    node: n,
+                    mesh: mesh_at,
+                    primitive: prim_at,
+                    image,
+                    vertices: base..base + n_verts as u32,
+                    indices: first..first + indices.len() as u32,
+                    skin: node.skin.filter(|_| !influences.is_empty()),
+                    influences,
+                },
+            ));
             for k in 0..n_verts {
                 let p = m.transform_point3(Vec3::from_slice(&positions[k][..3]));
                 room.min = room.min.min(p);
@@ -325,14 +400,86 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
             part.2.extend(indices.iter().map(|i| i + base));
         }
     }
-    for (image, verts, idx) in parts {
+    let mut starts = Vec::with_capacity(groups.len());
+    for (image, verts, idx) in groups {
         let base = room.vertices.len() as u32;
+        starts.push((base, room.indices.len() as u32));
         room.draws.push(Draw { first: room.indices.len() as u32, count: idx.len() as u32, image });
         room.vertices.extend(verts);
         room.indices.extend(idx.iter().map(|i| i + base));
     }
     ensure!(!room.indices.is_empty(), "the room has no triangles");
+    let parts = parts
+        .into_iter()
+        .map(|(group, mut p)| {
+            let (v, i) = starts[group];
+            p.vertices = p.vertices.start + v..p.vertices.end + v;
+            p.indices = p.indices.start + i..p.indices.end + i;
+            p
+        })
+        .collect();
+    room.anatomy = anatomy_of(&doc, bin, &mut views, roots, parts)?;
     Ok(room)
+}
+
+/// the file's tree, skins and animations around the parts the flattening found
+fn anatomy_of(doc: &Doc, bin: &[u8], views: &mut HashMap<usize, Vec<u8>>, roots: Vec<usize>, parts: Vec<Part>) -> Result<Anatomy> {
+    let nodes = doc.nodes.iter().map(|n| Node::new(n.name.clone().unwrap_or_default(), n.children.clone(), local(n), n.skin)).collect();
+    let mut skins = Vec::with_capacity(doc.skins.len());
+    for s in &doc.skins {
+        let inverse_bind = match s.inverse_bind_matrices {
+            Some(a) => read_mat4(doc, bin, views, a)?,
+            None => vec![Mat4::IDENTITY; s.joints.len()],
+        };
+        skins.push(Skin { name: s.name.clone().unwrap_or_default(), joints: s.joints.clone(), inverse_bind });
+    }
+    for p in &parts {
+        let joints = p.skin.and_then(|s| skins.get(s)).map_or(0, |s| s.joints.len());
+        let known = |i: &Influence| i.joints.iter().zip(i.weights).all(|(&j, w)| w <= 0.0 || (j as usize) < joints);
+        ensure!(p.influences.iter().all(known), "mesh {} is weighted to a joint its skin does not have", p.mesh);
+    }
+    let mut clips = Vec::with_capacity(doc.animations.len());
+    for a in &doc.animations {
+        let name = a.name.clone().unwrap_or_default();
+        let mut channels = Vec::new();
+        for c in &a.channels {
+            let path = match c.target.path.as_str() {
+                "translation" => Target::Translation,
+                "rotation" => Target::Rotation,
+                "scale" => Target::Scale,
+                _ => continue, // morph weights
+            };
+            let Some(node) = c.target.node else { continue };
+            let s = a.samplers.get(c.sampler).with_context(|| format!("the animation {name:?} has no sampler {}", c.sampler))?;
+            let interpolation = match s.interpolation.as_deref() {
+                None | Some("LINEAR") => Interpolation::Linear,
+                Some("STEP") => Interpolation::Step,
+                Some("CUBICSPLINE") => Interpolation::Cubic,
+                Some(i) => bail!("the animation {name:?} uses the interpolation {i}"),
+            };
+            let times = read(doc, bin, views, s.input)?.iter().map(|v| v[0]).collect();
+            let values = read(doc, bin, views, s.output)?;
+            channels.push(Channel::new(node, path, interpolation, times, values).with_context(|| format!("in the animation {name:?}"))?);
+        }
+        clips.push((name, channels));
+    }
+    Anatomy::new(nodes, roots, parts, skins, clips)
+}
+
+/// an accessor of 4 × 4 float matrices (a skin's inverse bind matrices)
+fn read_mat4(doc: &Doc, bin: &[u8], views: &mut HashMap<usize, Vec<u8>>, a: usize) -> Result<Vec<Mat4>> {
+    let acc = doc.accessors.get(a).with_context(|| format!("no accessor {a}"))?;
+    ensure!(acc.ty == "MAT4" && acc.component_type == 5126 && acc.sparse.is_none(), "accessor {a} is not a plain list of float matrices");
+    let bv = acc.buffer_view.with_context(|| format!("accessor {a} has no data"))?;
+    let (bytes, stride) = view(doc, bin, views, bv)?;
+    let stride = stride.unwrap_or(64);
+    let mut out = Vec::with_capacity(acc.count);
+    for i in 0..acc.count {
+        let at = acc.byte_offset + i * stride;
+        let e = bytes.get(at..at + 64).with_context(|| format!("accessor {a}: element {i} past its view"))?;
+        out.push(Mat4::from_cols_array(&std::array::from_fn(|k| f32::from_le_bytes([e[4 * k], e[4 * k + 1], e[4 * k + 2], e[4 * k + 3]]))));
+    }
+    Ok(out)
 }
 
 /// a node's local matrix (`matrix`, else T · R · S)

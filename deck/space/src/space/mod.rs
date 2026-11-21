@@ -15,6 +15,7 @@
 //! deck-space (#198): the same code on the deck (deck-native) and in the browser (deck/space-web). What is native stays
 //! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-native (the relay link, a
 //! `Wire`); a host without threads hands a set in with `set_arrived`.
+pub mod anatomy;
 pub mod backdrop;
 pub mod being;
 pub mod camera;
@@ -2471,7 +2472,7 @@ to = "burner_look.pulse"
             // the set "loaded": its spots, no file read (the loader thread's answer is dropped)
             space.set_rx = None;
             let spots = vec![("spot_left".to_string(), Vec3::new(-2.0, 0.0, 0.0)), ("spot_right".to_string(), Vec3::new(2.0, 0.0, 0.0))];
-            space.set_arrived(Ok(glb::Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots, min: Vec3::ZERO, max: Vec3::ONE }));
+            space.set_arrived(Ok(glb::Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots, min: Vec3::ZERO, max: Vec3::ONE, anatomy: Default::default() }));
         }
         let ctl = Table::new(&g);
         (g, space, ctl)
