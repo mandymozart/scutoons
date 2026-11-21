@@ -1,4 +1,4 @@
-Status: research + design drafts 2026-11-21 for #763 (epic #626), round 4 for the owner's review (§10–§12) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C, ?v=7–9 and 11–12 round 3: B + the Reception tab, ?v=10 the scope, ?v=13 latency), restyled to the node-canvas dogma; the maps in the kit's own look.
+Status: research + design drafts 2026-11-21 for #763 (epic #626), round 4 for the owner's review (§10–§12) – nothing built; the build starts once #482 (XR in SCUTOONS) reaches its logic parts (owner 2026-11-21). Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C, ?v=7–9 and 11–12 round 3: B + the Reception tab, ?v=10 the scope, ?v=13 latency), restyled to the node-canvas dogma; the maps in the kit's own look.
 
 # One network, many scopes: Flow, Logic and the deck's nodes as one view
 

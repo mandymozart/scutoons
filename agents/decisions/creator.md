@@ -1,9 +1,10 @@
 # decisions/creator — the creator app, text boxes, the timeline
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[creator]` 79 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
+Keys here: `[creator]` 80 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
 
 ## 2026-11
+- 2026-11-21 · creator · [creator] **The one network / Flow tab / Reception work (#763) starts once the XR-in-SCUTOONS work (#482) reaches its logic parts – not before.** Owner: *"lets start this once the XR in Scutoons session is getting to the logic parts."* · → #763, #482
 - 2026-11-21 · creator · [creator] **Latency compensation adapts per device, not per group: each device's own one-way and output latency.** Owner: *"the latency adapt needs to actually be per device otherwise this is kind of a weird approximation"* · → #763, research/redesign/NETWORK.md §12
 - 2026-11-21 · creator · [creator] **#763 Q22: a venue concept is part of the stage environment, its plan an image slot there (not a Library asset kind of its own).** Owner: *"q22 yes"* · → #763, research/redesign/NETWORK.md §12
 - 2026-11-21 · creator · [creator] **#763 Q19–Q21 answered: readers on the map always a coarse cell (the owner asked what coarse means – a grid cell of ~250 m, the count shown, never a point, sparse cells merged); the send time may differ per group while `at` stays one moment; the map style is the MapLibre spec (GL JS first, the deck reads the subset later).** Owner: *"readers on the map always a coarse cell? I'd say yes. coarse means"* · *"may the send time differ per group while the play time at stays one moment? I'd say yes. yes"* · *"q21 yes"* · → #763, research/redesign/NETWORK.md §12
