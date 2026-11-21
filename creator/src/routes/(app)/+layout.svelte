@@ -229,7 +229,7 @@
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
-		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} data-testid="stage">
+		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
@@ -280,6 +280,16 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100%;
+	}
+	/* a page that scrolls (a form, a board) is a sheet in the stage's middle; the panels float beside it */
+	.stage.sheet .stage-page {
+		box-sizing: border-box;
+		width: min(60rem, 100% - 2rem);
+		min-height: 0;
+		margin: 0 auto 1rem;
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-surface);
 	}
 	.stage.fill .stage-page {
 		flex: 1;

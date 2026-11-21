@@ -42,12 +42,12 @@
 </BarMenu>
 
 <style>
-	.tab {
+	.line.tab {
 		padding-left: 2.2rem;
 		color: var(--editor-muted);
 		font-size: var(--editor-small);
 	}
-	.tab.front {
+	.line.tab.front {
 		color: var(--editor-text);
 	}
 	.mark {

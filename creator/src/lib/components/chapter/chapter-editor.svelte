@@ -1128,11 +1128,20 @@
 		gap: var(--space-05);
 		padding: var(--space-05);
 	}
-	/* a form in the stage's middle; the slice canvas between the preset's panels (they float over the stage) */
+	/* a form is a sheet in the stage's middle; the slice canvas lies between the preset's panels (they float over it) */
 	.main {
 		overflow: auto;
-		padding: var(--space-1) max(var(--space-1), calc((100% - 56rem) / 2)) var(--space-3);
 		min-width: 0;
+	}
+	.main:not(.fit) {
+		box-sizing: border-box;
+		justify-self: center;
+		width: min(60rem, 100% - 2rem);
+		margin-bottom: var(--space-1);
+		padding: var(--space-1) var(--space-1) var(--space-3);
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-surface);
 	}
 	.canvas-scroll {
 		overflow: auto;

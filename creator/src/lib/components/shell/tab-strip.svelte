@@ -113,6 +113,7 @@
 		max-width: 40rem;
 		background: var(--editor-pressed);
 		color: var(--editor-pressed-text);
+		text-shadow: none;
 	}
 	.item:not(.front):hover {
 		background: var(--editor-hover);

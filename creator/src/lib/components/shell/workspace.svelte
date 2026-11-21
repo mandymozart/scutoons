@@ -178,6 +178,15 @@
 	.on-stage.clear .stage-body {
 		padding-top: var(--shell-top);
 	}
+	/* the tab as a sheet in the stage's middle, the panels beside it; its head pill floats at the foot */
+	.stage-body > .ws-tab {
+		width: min(60rem, 100% - 2rem);
+		margin: 0 auto calc(var(--control-height) + 1.5rem);
+		border: var(--editor-edge) solid var(--editor-line);
+		border-radius: var(--editor-radius);
+		background: var(--editor-surface);
+		overflow: auto;
+	}
 	.stage-head {
 		position: absolute;
 		z-index: 2;

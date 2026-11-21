@@ -135,18 +135,18 @@
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-05);
-		padding: var(--space-05) 0 var(--space-05) var(--space-075);
-		border-left: var(--border-width-focus) solid var(--border-muted);
+		padding: var(--space-05) 0;
 		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
-	li.level-error {
-		border-left-color: var(--error);
+	/* the level as the place's text colour (no side bar, RULES H10) */
+	li.level-error .where {
+		color: var(--editor-stop);
 	}
-	li.level-warning {
-		border-left-color: var(--warn);
+	li.level-warning .where {
+		color: var(--editor-warn);
 	}
-	li.is-accepted {
-		border-left-color: var(--border-muted);
+	li.is-accepted .where {
+		color: var(--muted);
 	}
 	li.is-accepted .msg {
 		color: var(--muted);
@@ -156,7 +156,10 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-start;
 		gap: var(--space-025);
+		min-height: 0;
 		padding: 0;
 		border: 0;
 		background: none;
