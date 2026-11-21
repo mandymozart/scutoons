@@ -28,7 +28,7 @@ static ALLOC: Counting = Counting;
 #[port(output, control, name = "peak")]
 #[port(output, event, name = "beats", names = "music.beat", props = "n", capacity = 4)]
 struct Gain {
-    #[param(range = 0.0..2.0, default = 1.0, unit = "x", doc = "the gain")]
+    #[param(range = 0.0..2.0, default = 1.0, unit = "×", doc = "the gain")]
     amount: f32,
     #[param(range = -1.0..1.0, default = -0.25)]
     offset: f32,
@@ -216,7 +216,7 @@ fn the_layout_hash_of_the_fixture_modules_is_frozen() {
 fn the_derive_writes_the_descriptor() {
     let d = parse(Gain::DESCRIPTOR).unwrap();
     assert_eq!((d.abi, d.name.as_ref(), d.version.as_ref(), d.doc.as_ref(), d.domain), (Some(2), "gain", env!("CARGO_PKG_VERSION"), "a gain", CatalogDomain::Audio));
-    assert_eq!((d.params[0].unit.as_ref(), d.params[0].doc.as_ref(), d.params[0].port), ("x", "the gain", true));
+    assert_eq!((d.params[0].unit.as_ref(), d.params[0].doc.as_ref(), d.params[0].port), ("×", "the gain", true));
     assert_eq!(d.reads.iter().map(|s| s.as_ref()).collect::<Vec<_>>(), ["story.act"]);
     let beats = d.ports_of(Dir::Out, PortType::Event).next().unwrap();
     assert_eq!((beats.names[0].as_ref(), beats.props[0].as_ref(), beats.capacity), ("music.beat", "n", 4));

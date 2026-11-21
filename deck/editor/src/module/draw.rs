@@ -2,16 +2,18 @@
 //! happened last, its Parameters –, the last build's Problems, the info; the catalog's modules are the library's (main.rs).
 use super::{fraction, problems, shown, Hit, Module};
 use crate::stage::Stage;
+use deck_core::units::{self, Refs};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::info::Help;
+use deck_kit::editor::units::{self as unit_field, Prefs};
 
 fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h): (f32, f32), pointer: (f32, f32), help: Option<&Help>) {
+pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, (stage, prefs): (&Stage, &Prefs), (w, h): (f32, f32), pointer: (f32, f32), help: Option<&Help>) {
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     m.hits.clear();
     let problems_h = t.size.tree_row * (1.0 + m.problems.len().max(1) as f32);
@@ -44,7 +46,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
 
     // the module open
     if let Some(o) = m.panels.open(d, t, "module", pointer, m.hits.len()) {
-        open_module(d, t, m, stage, o.area, pointer);
+        open_module(d, t, m, (stage, prefs), o.area, pointer);
         m.panels.close(d, o, &mut m.hits);
     }
 
@@ -65,7 +67,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, (w, h):
 /// what the module panel says before one is open
 pub const PICK: &str = "Pick a module in the Library.";
 
-fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: Rect, _pointer: (f32, f32)) {
+fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, (stage, prefs): (&Stage, &Prefs), a: Rect, _pointer: (f32, f32)) {
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.row);
     let (x0, pw) = (a.x, a.w);
     let mut y = a.y;
@@ -97,10 +99,20 @@ fn open_module(d: &mut DrawList, t: &Tokens, m: &mut Module, stage: &Stage, a: R
         return;
     };
     let hot = m.drag.map(|(i, ..)| i);
+    let none = Refs::default();
     for (i, p) in desc.params.iter().enumerate() {
         let v = m.value(i, stage);
-        let field = controls::scrub(d, t, Rect { x: x0, y, w: pw, h: row }, &p.name, &shown(p, v), fraction(p, v), hot == Some(i));
-        m.hits.push((field, Hit::Param(i)));
+        let at = Rect { x: x0, y, w: pw, h: row };
+        if let Some((kind, stored, offered)) = super::switchable(p) {
+            let unit = prefs.unit(kind, stored, &none);
+            let read = units::convert(f64::from(v), stored, unit, &none).unwrap_or(f64::from(v));
+            let (field, segs) = unit_field::scrub(d, t, at, &p.name, read, unit, offered, fraction(p, v), hot == Some(i));
+            m.hits.push((field, Hit::Param(i)));
+            m.hits.extend(segs.into_iter().map(|(r, u)| (r, Hit::Unit(kind, u))));
+        } else {
+            let field = controls::scrub(d, t, at, &p.name, &shown(p, v), fraction(p, v), hot == Some(i));
+            m.hits.push((field, Hit::Param(i)));
+        }
         y += row;
     }
 }

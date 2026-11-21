@@ -1681,6 +1681,9 @@ impl App {
                 return;
             }
         } else if self.workspace == show::Workspace::Module {
+            if let Some(module::Hit::Unit(kind, unit)) = self.module.hit(x, y) {
+                return self.change_settings(|s| s.units.set(kind, unit));
+            }
             if let Some(h) = self.module.hit(x, y) {
                 return self.module.press(h, x, &self.stage);
             }
@@ -3197,7 +3200,7 @@ impl App {
             self.show.flow = self.settings.motion.allows(self.settings.motion.signal_flow).then(|| self.started.elapsed().as_secs_f32());
             match self.workspace {
                 show::Workspace::Show => show::author::draw(ui, t, &mut self.show, wf, hf, self.cursor),
-                show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, &self.stage, (wf, hf), self.cursor, help.as_ref()),
+                show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, (&self.stage, &self.settings.units), (wf, hf), self.cursor, help.as_ref()),
                 show::Workspace::Home => {
                     self.home_panels.layout(ui, t, ((wf, hf), bar_bottom), &[], &[]);
                     if let Some((recent, library, deck, why)) = &home_page {
