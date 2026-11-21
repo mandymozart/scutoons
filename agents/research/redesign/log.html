@@ -142,6 +142,9 @@ const LINES = [
 	{ k: 'problem', lvl: 'warn', scope: 'chapter/2/group/2/slice/6', where: 'Group 2 › Slice 6', text: 'Lettering runs past the safe area' },
 	{ k: 'problem', lvl: 'warn', scope: 'chapter/2', where: 'Chapter', text: "Description is short for the reader's card" },
 	{ k: 'problem', lvl: 'warn', scope: 'season/1', where: 'Season 1', text: 'Season 1 has no cover', accepted: true },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2', where: 'Chapter 2 › Group 2 · event:bell', text: 'bell fired – choice "Ring it?" → yes; heard by Group 4, the show', t: '4 s', type: 'logic' },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3 · event:has_key', text: 'has_key set true – the condition on Group 3 opens', t: '6 s', type: 'logic' },
+	{ k: 'event', lvl: 'warn', scope: 'show', where: 'Experience "Cathedral XR" · plugin Bells · event:toll', text: 'toll fired, nobody listens to it', t: '7 s', type: 'logic' },
 	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved', t: '12 s', type: 'save' },
 	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3', text: 'Generation started – 4 variants', t: '1 min', type: 'generation' },
 	{ k: 'event', lvl: 'error', scope: 'chapter/2/group/2/slice/2', where: 'Slice 2.2', text: 'Generation failed – the model timed out', t: '3 min', type: 'generation' },
@@ -159,11 +162,12 @@ const ICON = {
 	generation: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z"/>',
 	library: '<rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="M20 15l-5-5-9 9"/>',
 	show: '<path d="M7 4l12 8-12 8z"/>',
+	logic: '<circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l6-6M11 12l6 6"/>',
 	sync: '<path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/>',
 	technical: '<path d="M4 7l5 5-5 5M12 18h8"/>',
 };
 const icon = (t) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[t]}</svg>`;
-const TYPES = [['save', 'Saves', 'an autosave of the item'], ['publish', 'Publishes', 'made live for readers'], ['history', 'History', 'a version restored'], ['generation', 'Generations', 'image / video jobs'], ['library', 'Library', 'uploads, replaces, deletes'], ['show', 'Show', 'cues, devices, the conductor'], ['sync', 'Sync', 'connection, saving again'], ['technical', 'Technical', 'the app and the core']];
+const TYPES = [['logic', 'Logic', 'an address-book event fired in a chapter, experience or plugin'], ['save', 'Saves', 'an autosave of the item'], ['publish', 'Publishes', 'made live for readers'], ['history', 'History', 'a version restored'], ['generation', 'Generations', 'image / video jobs'], ['library', 'Library', 'uploads, replaces, deletes'], ['show', 'Show', 'cues, devices, the conductor'], ['sync', 'Sync', 'connection, saving again'], ['technical', 'Technical', 'the app and the core']];
 const SCOPES = [['selection', 'Selection'], ['item', 'Item'], ['chapter', 'Chapter'], ['season', 'Season'], ['toon', 'Toon'], ['show', 'Show'], ['all', 'All']];
 const inScope = (l, s) => s === 'all' ? true
 	: s === 'show' ? l.scope === 'show'

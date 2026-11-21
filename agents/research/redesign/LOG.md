@@ -51,6 +51,16 @@ Copy all and Save stay (for bug reports).
 - **Event types** (owner: *"filter events by type… with their legends"*): Saves, Publishes, History, Generations, Library, Show, Sync, Technical. Every event line carries its type's icon. The Type pills show the same icons and pick several types at once (none picked = all). A legend under the list says what each type means. Problems carry no type; they're the standing part.
 - The type belongs to the line in the core's model (`kind` / `type` beside `level` and `scope`), so the deck editor's Log gets the same filter.
 
+## 2b. Logic events (owner thinking aloud, 2026-11-21)
+
+> *"events i am also talking about logic events. which are coming from the osct logic view"* · *"and from the deck editor node view. since this is the all unifying logic across scutoons."* · *"i am working on unifying logic and flow... we got address book word which is also a type of event. and we got events within the logic of a plugin and the experience and within a chapter for example."*
+
+- **Logic** is an event type of the Log (the first in the Type pills). A logic line is an event of the one logic firing: a story event, a choice answered, a variable set and a condition opening, a plugin's or an experience's own event.
+- Its name is its **address-book entry**, kind `event` (#707: story events and choice questions joined the book, so shows and XR scenes declare theirs the same way). The line carries the `ref` (`event:bell`), so a press jumps to the event, its usages and its listeners.
+- Its **scope** is where it fired: a chapter (group, slice), an experience, a plugin's logic, the show. The scope pills grow by the scopes the address book has (Experience, Plugin) when the logic unification names them (NETWORK.md: "a scope is a place in the address book").
+- Who it reached is part of the line ("heard by Group 4, the show"); an event nobody listens to is a warning.
+- The same lines feed the deck editor's node view and OSCT's logic view as their trace. The Log is one reader of the logic, not its model; the model is the owner's logic / flow unification (#707, the node view tickets #716–#723, NETWORK.md).
+
 ## 3. Where it shows
 
 - **Owner, 2026-11-21, thinking aloud:** *"maybe a tab in shared panel. i think."* Read as: the Log is a shell tab like Toon, Library and Settings (`SHELL_TABS` in presets.ts). It's there in every workspace and lives in a panel shared across workspaces, not one per workspace.
