@@ -10,8 +10,9 @@ engine, the experience's configuration (scenes, surfaces, entries, targets, enti
 | source | the OSCT repository (the owner's), branch `develop` |
 | commit | `8525607b` (2026-11-21): app 4.1.0, content schema 5.1, plugin API 3.1 |
 | copied | `engine/src` without its tests (58 files) and the files of `shared/` it imports, followed through (25 files) |
+| copied for the stage | of OSCT's editor (`editor/src/lib`): the stage's twelve files (`stage/mock-tracker.ts`, `mock-stage.ts`, `preview.ts`, `placement.ts`, `surfaces.ts`, `origin.ts`, `snap.ts`, `shading.ts`, `sky.ts`, `plywood.ts`, `oak.ts`, `linoleum.ts`), `storage.ts`, `library-place.ts`, and what those reach only through types (`api.ts`, `publish-plugins.ts`, `plugins/compile.ts`, four files of `shared/api`); of `editor/static`: the desk, its two textures and one sky, with their READMEs (sources and licences) |
 | tests | OSCT's own (`engine/src/**/__tests__`, vitest) stay there; `npm run check` here is the type check against SCUTOONS's three.js |
-| three.js | SCUTOONS's one version (0.186.1); OSCT builds against 0.174. The copy type-checks unchanged |
+| three.js | SCUTOONS's one version (0.186.1); OSCT builds against 0.174. The copy type-checks unchanged, but for one file: `editor/…/stage/mock-stage.ts` reads a texture's `image`, which the types of 0.186 call `unknown`. It is left out of the check (`tsconfig.json` `exclude`) and declared by `src/osct-mock-stage.d.ts`; the code that runs is OSCT's |
 
 Once OSCT publishes the engine and the contract as packages with a tag, this copy is replaced by that pin.
 
@@ -20,14 +21,23 @@ Once OSCT publishes the engine and the contract as packages with a tag, this cop
   scene, options)` reads a configuration and builds one scene. Its types come from `src/reader-api.ts`, which imports
   none of OSCT's files: an app's own TypeScript settings (the viewer's NodeNext) refuse them, so they are only checked
   here. `reader.ts` must fit those declarations; `npm run check` says when it does not.
-- The copied files import each other through `@shared/*`. An app that imports this package maps `@shared` to
-  `shared/xr-engine/osct/shared` (SvelteKit: `kit.alias`), as this package's `tsconfig.json` does.
+- **The editor's stage is `@scutoons/xr-engine/stage`** (`src/stage.ts`, types `src/stage-api.ts`): `openStage(container,
+  configuration, plugins, scene, options)` plays a scene on OSCT's desk without a camera (its simulated tracker), view
+  only. It runs the experience's plugins, which are unchecked code: an app opens it only in a document without a
+  session, a frame sandboxed without `allow-same-origin` (the creator: `src/lib/editor/xr-stage-frame.ts`). The app
+  serves the files of `osct/editor/static` (`options.stageBase`). `src/load.ts` reads a configuration and loads the
+  plugins' code for both entries.
+- The copied files import each other through `@shared/*`, the editor's also through `@engine/*` and `#lib/*`. An app
+  that imports this package maps `@shared` to `shared/xr-engine/osct/shared` and, for the stage, `@engine` to
+  `shared/xr-engine/osct/engine/src` (SvelteKit: `kit.alias`), as this package's `tsconfig.json` does; `#lib/*` is this
+  package's own `imports` (`package.json`).
 - `@scutoons/xr-engine/scene` is the scene (`ArScene`), `…/tracker` the 8th Wall image tracker (kept apart so only
   the page that scans loads it), `…/content` the configuration loader, `…/contract` the configuration's types.
 - The tracker loads the 8th Wall engine's files (`xr.js`, `xr-tracking.js`, npm `@8thwall/engine` 0.1.0, MIT) from
   the app's own origin; the app serves them with their LICENSE.
 
 ## Taking a newer OSCT
-Export `engine` and `shared` at the new commit (`git archive <commit> engine shared`), copy `engine/src` without
-`__tests__` and every `shared/` file it imports into `osct/`, write the commit into the table above, run
+Export `engine`, `shared` and `editor` at the new commit (`git archive <commit> engine shared editor/src/lib
+editor/static`), copy `engine/src` without `__tests__`, the editor's stage files named above and every file they import
+(followed through) into `osct/`, write the commit into the table above, run
 `npm run check -w @scutoons/xr-engine`. A content schema MAJOR needs the stored experiences migrated first.

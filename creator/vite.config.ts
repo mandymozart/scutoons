@@ -1,10 +1,11 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { cdnFonts } from '@scutoons/tokens/vite';
-import { defineConfig } from 'vite';
+import { defaultAllowedOrigins, defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import { ENGINE_PATH } from './src/lib/isolation.ts';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
+import { xrStageFiles } from './vite/xr-stage-files.ts';
 
 /**
  * Cross-origin isolation in dev (#298; production: static/.htaccess, the same paths): the engine's routes get COOP + COEP,
@@ -35,6 +36,7 @@ const engineIsolation = {
 export default defineConfig(({ command }) => ({
 	plugins: [
 		engineIsolation,
+		xrStageFiles(), // the XR stage's desk and sky at /xr-stage/
 		cdnFonts(), // @font-face from the CDN (VITE_CDN_URL), the bundled copy as fallback
 		sveltekit(),
 		paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })
@@ -46,10 +48,13 @@ export default defineConfig(({ command }) => ({
 		// 127.0.0.1, not the default `localhost` (= ::1 alone on Windows; Firefox then loses Vite's HMR socket – viewer/vite.config.ts)
 		host: '127.0.0.1',
 		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
-		fs: { allow: ['../shared'] }
+		fs: { allow: ['../shared'] },
+		// the XR stage's frame (src/lib/editor/xr-stage-frame.ts) has an opaque origin: it asks for the app's scripts with `Origin: null`
+		cors: { origin: [defaultAllowedOrigins, 'null'] }
 	},
 	preview: {
 		port: ports.creator,
-		strictPort: true
+		strictPort: true,
+		cors: { origin: [defaultAllowedOrigins, 'null'] }
 	}
 }));

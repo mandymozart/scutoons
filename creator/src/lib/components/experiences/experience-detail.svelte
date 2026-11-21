@@ -9,6 +9,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import ExperienceOutline from '$lib/components/experiences/experience-outline.svelte';
+	import ExperienceStage from '$lib/components/experiences/experience-stage.svelte';
 
 	/** One experience, read only: what Publish answered, its facts, its contents and its versions. */
 	let {
@@ -84,6 +85,8 @@
 		<dt>{m['creator.experiences_assets']()}</dt>
 		<dd><code>{f.assets}</code></dd>
 	</dl>
+
+	<ExperienceStage {content} assets={f.assets} />
 
 	<ExperienceOutline {content} assets={f.assets} />
 

@@ -24,6 +24,14 @@
 	</If>
 </IfModule>
 
+# The XR stage's frame (src/lib/editor/xr-stage-frame.ts) is sandboxed, its origin opaque: it asks for the app's scripts and
+# the stage's files across origins. Public static files: any origin may read them.
+<IfModule mod_headers.c>
+	<If "%{REQUEST_URI} =~ m#^/(_app|xr-stage)/#">
+		Header set Access-Control-Allow-Origin "*"
+	</If>
+</IfModule>
+
 # installable web app (agents/research/PWA-APPS.md): the manifest's type; what names the build is always asked again (a 304
 # is cheap) so a deploy and the service worker's update reach every open tool; hashed app files never change
 AddType application/manifest+json .webmanifest

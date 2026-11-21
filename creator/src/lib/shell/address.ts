@@ -59,7 +59,7 @@ export const AREAS = {
 } as const;
 
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit']);
+const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit', 'xr-stage-frame', 'xr-stage']);
 
 /**
  * The address a creator URL edits: one item per tab, so a toon's own pages (its board, cast, script, credits,

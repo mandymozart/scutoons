@@ -14,8 +14,12 @@
 		"noEmit": true,
 		"types": ["three"],
 		"paths": {
-			"@shared/*": ["./osct/shared/*"]
+			"@shared/*": ["./osct/shared/*"],
+			"@engine/*": ["./osct/engine/src/*"],
+			"#lib/stage/mock-stage.js": ["./src/osct-mock-stage.d.ts"],
+			"#lib/*": ["./osct/editor/src/lib/*"]
 		}
 	},
-	"include": ["osct/**/*.ts", "src/**/*.ts"]
+	"include": ["osct/**/*.ts", "src/**/*.ts"],
+	"exclude": ["osct/editor/src/lib/stage/mock-stage.ts"]
 }

@@ -4,10 +4,17 @@
 	"private": true,
 	"type": "module",
 	"description": "OSCT's XR engine (three.js and image tracking) with its content contract: an unchanged copy at one recorded OSCT commit (osct/, see README.md) – the reader's XR mode runs it (#482)",
+	"imports": {
+		"#lib/*": "./osct/editor/src/lib/*"
+	},
 	"exports": {
 		"./reader": {
 			"types": "./src/reader-api.ts",
 			"default": "./src/reader.ts"
+		},
+		"./stage": {
+			"types": "./src/stage-api.ts",
+			"default": "./src/stage.ts"
 		},
 		"./scene": "./osct/engine/src/scene/index.ts",
 		"./tracker": "./osct/engine/src/scene/xr8-tracker.ts",
