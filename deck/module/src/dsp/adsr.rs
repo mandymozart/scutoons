@@ -1,7 +1,7 @@
 //! The ADSR envelope. Attack is linear to 1; decay and release are exponential and take exactly their time: the level
 //! has fallen to 0.1 % of the way's distance at the end (an analog RC's "time to 99.9 %"), then it is snapped to the
 //! target. Times are read when a stage begins; the sustain level is live.
-use super::math::exp2;
+use super::arith::exp2;
 
 /// log2(0.001): the exponent that makes a decay of `n` samples end 0.1 % short of its target
 const LOG2_THOUSANDTH: f64 = -9.965_784_284_662_087;

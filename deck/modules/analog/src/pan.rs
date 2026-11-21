@@ -1,5 +1,5 @@
 //! The pan law: constant power. Centre is −3 dB on each side, so a source keeps its loudness across the field.
-use super::math::{cos_turns, sin_turns};
+use deck_module::dsp::arith::{cos_turns, sin_turns};
 
 /// (left, right) gains for `pan` in −1 (left) … 1 (right): cos θ, sin θ with θ = (pan + 1) π/4
 pub fn gains(pan: f32) -> (f32, f32) {

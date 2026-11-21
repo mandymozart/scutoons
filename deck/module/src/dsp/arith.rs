@@ -1,5 +1,6 @@
-//! Maths from `+ − × ÷ floor` only – IEEE-exact and so identical on every target – instead of the platform's
-//! `exp` / `sin` / `powf` / `tan` (ENGINE-REFACTOR-PLAN §3.4: native ≠ wasm there). Accuracy is far better than f32 needs.
+//! Maths from `+ − × ÷ floor` only, in f64 – IEEE-exact and so identical on every target. The units that came from the
+//! analog synth (`osc`, `svf`, `adsr`) compute with these and their renders are these bits; `math` (libm, f32) is the
+//! other deterministic set, for everything else.
 
 pub const LN2: f64 = core::f64::consts::LN_2;
 /// middle C in Hz: where key tracking is neutral

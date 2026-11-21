@@ -19,7 +19,7 @@ in Rust, native ≡ wasm, no allocation on the audio path, no second copy).
 | The engine | `deck/engine/src/lib.rs` | One audio graph, blocks of ≤ `MAX_BLOCK` = 1024 frames, nodes split into dependency levels, every buffer allocated at build; `tests/no_alloc.rs` proves the render allocates nothing. |
 | Built-in audio kinds | `deck/space/src/graph.rs` (`Kind`), `deck/engine/src/blocks.rs`, `voices.rs` | `osc` (sine / saw / square / triangle, cv in), `noise` (white / pink + lowpass), `fm` (2-op), `seq` (pitch + gate as cv), `walk`, `events`, `mixer` (4 stereo in, a gain each), `fft`, `click`, `chapter_music`, `module:<name>`. |
 | Routing | `deck/engine/src/route.rs`, `deck/core/src/solo.rs` | `bus` (sum, fader, mute / solo, sends from `pre` / `out`, folder buses), `pan` (equal power, VBAP, DBAP), `downmix`, `out`, `feedback` (one block late). One solo rule (Reaper's) for buses and the rig's mixer strips (#683). |
-| DSP units in the core | `deck/core/src/dsp.rs` | Band-limited wavetable saw / square / triangle, seeded white + pink noise, Simper SVF lowpass; FFT-tested against analytic targets; pure-Rust `libm`, same bits native and wasm. |
+| DSP units in the SDK (#736) | `deck/module/src/dsp/` | One copy for modules and the engine: PolyBLEP and wavetable oscillators, seeded white + pink noise, the SVF (four modes; the lowpass per sample), ADSR, one-pole, follower, delay line, allpass, comb, FFT; tested against analytic targets; same bits native and wasm. |
 | Limiter, meters, analysis | `deck/core/src/limiter.rs`, `meters.rs`, `analysis.rs` | Look-ahead soft limiter last before the device (1.3 ms); one meter model; `Analyzer`: level + bass / mid / high in 0–1, aligned to the heard moment. |
 | Control half | `deck/engine/src/control.rs` | Stepped once per 128-frame quantum inside the render (~375 / s at 48 kHz): `lfo`, `smooth`, `mul`, `add`, control outputs of modules (one block late). |
 | Events | `deck/events/src/` (`generators/arp.rs`, `pulse.rs`, `random_walk.rs`, `adapters/midi.rs`, `route.rs`, `tuning.rs`) | Timed events, the dispatcher (lock-free, drop-and-count), an **arpeggiator generator** (root × chord ratios, up / down / up-down, steps a beat), the MIDI adapter (`midi.note`, `midi.cc` with `ch`). |
@@ -45,7 +45,7 @@ OSCT (C:\Development\osct\osct) has no audio nodes to look at (only a logic regi
 3. **No delay, no reverb, no convolution, no chorus** anywhere (the master FX of `deck/space/src/controls.rs` – `master.delay`, `master.reverb` –
    are labels with no DSP; the stage environment `deck/engine/src/config.rs` `StageEnvironment` is a pass-through, #330).
 4. **No standalone envelope, VCA or envelope follower**: ADSRs live inside analog and inside the engine's `osc` / `fm`.
-5. **Two copies of the DSP**: analog carries its own `svf.rs`, `adsr.rs`, `osc.rs`, `math.rs`, the core has `dsp.rs` (SVF, oscillators).
+5. **Two copies of the DSP** (done, #736: both moved into `deck_module::dsp`): analog carried its own `svf.rs`, `adsr.rs`, `osc.rs`, `math.rs`, the core had `dsp.rs` (SVF, oscillators).
    A module compiles as flat `src/*.rs` against the SDK only, so it cannot use deck-core. A6 says one copy: the units belong in the SDK.
 6. **The arpeggiator** is a deck-events generator (root × ratios), not a module; it does not play held notes, has no gate, no
    transpose, no note-value rate.

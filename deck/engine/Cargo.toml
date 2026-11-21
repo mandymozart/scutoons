@@ -19,7 +19,7 @@ default = []
 # deck-events inside the engine: the `walk` / `events` hosts, the sequencer's windows, the dispatcher's routing tables
 events = ["dep:deck-events"]
 # rig modules as audio nodes (`module:<name>`): the module host's `Instance` behind the `ModuleSource` seam
-modules = ["dep:deck-module-host", "dep:deck-module"]
+modules = ["dep:deck-module-host"]
 # the control domain as deck-space's `Knobs` (the 3D space reads the knobs through it)
 space = ["deck-space/being"]
 
@@ -29,7 +29,8 @@ deck-space = { path = "../space", default-features = false }
 deck-catalog = { path = "../catalog" }
 deck-events = { path = "../events", optional = true }
 deck-module-host = { path = "../module-host", default-features = false, optional = true }
-deck-module = { path = "../module", optional = true }
+# the DSP units (`deck_module::dsp`): the one copy the modules use too
+deck-module = { path = "../module" }
 anyhow.workspace = true
 serde.workspace = true
 toml.workspace = true

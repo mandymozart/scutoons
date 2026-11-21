@@ -1,6 +1,6 @@
 //! The engine's kinds against analytic references (plan 3.2, #317): what the rewritten units and the true `fm` must do,
 //! measured on the engine's own output – through the graph, the envelope, the master and the limiter – with coherent FFTs.
-//! The units' own tests (harmonic levels to 0.0004 dB, aliasing, the filter's bilinear response) are in deck-core's dsp.rs;
+//! The units' own tests (harmonic levels to 0.0004 dB, aliasing, the filter's bilinear response) are in the module SDK's dsp units (deck/module/src/dsp);
 //! here is what only the engine can get wrong: the wiring (which wave is which), the frequency modulation and the noise
 //! nodes' lowpass.
 use deck_engine::{Build, Engine};

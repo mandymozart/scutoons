@@ -1380,7 +1380,7 @@ to=\"out.in\"
 
     /// The same scenes through the patcher (every node a block, scalar sines and FM) and the batch runtime, two seconds
     /// each, blocks of 128, 37 and 1024: the same samples, bit for bit. The patcher blocks are the reference the batches
-    /// are held to – two implementations of one arithmetic (deck-core's `sin_turns`, `START_PHASE`, the envelope, the
+    /// are held to – two implementations of one arithmetic (deck-core's `sin_turns`, the SDK's `START_PHASE`, the envelope, the
     /// glide), no outside library (fundsp, the old oracle, left with #317). Before it the batches were compared with
     /// fundsp's sines within 2e-7…1.7e-4; now the difference is exactly 0.
     #[test]
