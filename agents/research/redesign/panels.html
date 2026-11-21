@@ -31,24 +31,24 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 /* ── the bar: pills on the stage ── */
 .bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap)}
-.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--text)}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--text);box-shadow:0 0 0 1px rgb(0 0 0/.2),0 .2rem .6rem rgb(0 0 0/.2)}
 .pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent}
 .pill button:hover{background:var(--hover)}
 .pill button.on{background:var(--pressed);color:var(--pressed-text)}
 .pill .round{padding:0}
 .middle{flex:1;display:flex;justify-content:center}
 .find{width:min(34rem,100%);height:var(--row);padding:0 1rem;border:0;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--text);font:inherit}
-.path{display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--muted);font-size:var(--small)}
+.path{display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--muted);font-size:var(--small);box-shadow:0 0 0 1px rgb(0 0 0/.2),0 .2rem .6rem rgb(0 0 0/.2)}
 .path b{color:var(--text);font-weight:400}
 
-/* ── the stage ── */
-.stage{position:fixed;inset:var(--top) 0 0 0;display:flex;align-items:center;justify-content:center}
+/* ── the stage: the whole window – the bar's pills and the panels float on it (owner: "the stage is everything") ── */
+.stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 .stage.drop{outline:2px dashed var(--accent);outline-offset:-1rem}
 .onstage{position:absolute;inset:0;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--surface);overflow:hidden}
-.onstage .stagehead{position:absolute;z-index:20;left:50%;bottom:var(--gap);transform:translateX(-50%);display:flex;align-items:center;gap:.5rem;height:var(--row);padding:0 .3rem 0 1rem;border-radius:calc(var(--row)/2);background:var(--pressed);color:var(--pressed-text)}
+.onstage .stagehead{position:absolute;z-index:20;left:calc(50% + 10rem);bottom:var(--gap);display:flex;align-items:center;gap:.5rem;height:var(--row);padding:0 .3rem 0 1rem;border-radius:calc(var(--row)/2);background:var(--pressed);color:var(--pressed-text)}
 .onstage .stagehead .label{color:inherit;opacity:.7}
 .onstage .stagehead .hb{color:inherit}
-.onstage .body{flex:1;overflow:auto;padding:1rem}
+.onstage .body{flex:1;overflow:auto;padding:var(--top) 1rem 1rem}
 .canvas{display:flex;gap:1.2rem;align-items:flex-start;height:100%;padding:2rem 0;overflow:hidden}
 .slice{width:13rem;aspect-ratio:390/624;border-radius:.2rem;background:linear-gradient(160deg,#3b4a5e,#c9a87c);position:relative;flex:none}
 .slice:nth-child(2){background:linear-gradient(200deg,#20262e,#6c8a6a)}
@@ -147,7 +147,7 @@ code{font-size:.8rem;background:rgb(0 0 0/.06);padding:0 .2rem;border-radius:.2r
     <li>Panel head, right to left: <b>× close · – fold · ◱ main</b> (new: the front tab takes the stage) <b>· ⤢ over everything</b> (as OSCT's asset manager: a dialog over all, it takes priority).</li>
     <li>A tab on the stage has its own head: ◱ again puts it back into its panel.</li>
     <li><b>A workspace is a preset</b>: which panels, their tabs, their places, which tab is main. Switch presets above – nothing else changes between them.</li>
-    <li>Open or folded, every panel floats the same – the stage never gives way.</li>
+    <li><b>The stage is everything</b>: the whole window, under the bar too – the bar is pills floating on it, like the panels. Open or folded, every panel floats the same; the stage never gives way.</li>
     <li>Find sits in the bar's middle on Home; in an item it is the path. Language and Day / Night live in Settings only.</li>
   </ul>
   <p style="margin:.3rem 0 0;color:#666">T = day / night. Not real data.</p>
