@@ -109,7 +109,7 @@ footer { display: flex; gap: 0.5rem; align-items: center; }
 			<div class="lines"></div>
 			<div class="legend"></div>
 		</div>
-		<p class="note"><b>Event types with their legend:</b> every event carries its type's icon; the Type pills show the same icons and pick which kinds show (several at once, none = all); the legend under the list says what each means. Problems aren't typed – they're the standing part. <b>One place, one set of pills.</b> "Problems" is a filter of the Log: the default view shows what's wrong now on top (it stays until fixed), and below it what happened. One count, one list, one way to scope. <b>Cost:</b> a busy session puts many events under the problems; the Problems filter hides them.</p>
+		<p class="note"><b>Event types with their legend:</b> every event carries its type's icon; the Type pills show the same icons and pick which kinds show (several at once, none = all); the legend under the list says what each means. Problems aren't typed – they're the standing part. <b>One place, one set of pills.</b> "Problems" is a filter of the Log: the default view (All) shows the problems on top and the events below. One count, one list, one way to scope. <b>Cost:</b> a busy session puts many events under the problems; the Problems filter hides them.</p>
 	</section>
 
 	<section class="col">
@@ -199,7 +199,7 @@ function drawA() {
 	const lab = (t) => `<span class="lab">${t}</span>`;
 	pills(p.querySelector('[data-group=scope]'), SCOPES, s.scope, (v) => { s.scope = v; drawA(); });
 	p.querySelector('[data-group=scope]').insertAdjacentHTML('afterbegin', lab('Scope'));
-	pills(p.querySelector('[data-group=show]'), [['default', 'Now + what happened'], ['problems', 'Problems'], ['events', 'Events'], ['|'], ['find']], s.show, (v) => { s.show = v; drawA(); });
+	pills(p.querySelector('[data-group=show]'), [['default', 'All'], ['problems', 'Problems'], ['events', 'Events'], ['|'], ['find']], s.show, (v) => { s.show = v; drawA(); });
 	p.querySelector('[data-group=show]').insertAdjacentHTML('afterbegin', lab('Show'));
 	const typeRow = p.querySelector('[data-group=types]');
 	const typed = s.show !== 'problems';
@@ -213,7 +213,7 @@ function drawA() {
 	const happened = here.filter((l) => l.k !== 'problem' && (!s.types.size || s.types.has(l.type)));
 	const picked = s.types.size ? ' · ' + TYPES.filter(([v]) => s.types.has(v)).map(([, t]) => t.toLowerCase()).join(', ') : '';
 	let html = '';
-	if (s.show === 'default') html = group('Now – problems', probs, ' · stay until fixed') + group('What happened', happened, picked);
+	if (s.show === 'default') html = group('Problems', probs) + group('Events', happened, picked);
 	if (s.show === 'problems') html = group('Problems', probs);
 	if (s.show === 'events') html = group('Events', happened, picked);
 	p.querySelector('.lines').innerHTML = html || '<div class="empty">Nothing in this scope.</div>';
@@ -232,7 +232,7 @@ function drawB() {
 		p.querySelector('.lines').innerHTML = group('Problems', here.filter((l) => l.k === 'problem')) || '<div class="empty">Nothing in this scope.</div>';
 	} else {
 		pills(p.querySelector('[data-group=show]'), [['all', 'All'], ['error', 'Errors'], ['info', 'Info'], ['tech', 'Technical'], ['|'], ['find']], 'all', () => {});
-		p.querySelector('.lines').innerHTML = group('What happened', here.filter((l) => l.k !== 'problem')) || '<div class="empty">Nothing in this scope.</div>';
+		p.querySelector('.lines').innerHTML = group('Events', here.filter((l) => l.k !== 'problem')) || '<div class="empty">Nothing in this scope.</div>';
 	}
 	p.querySelector('[data-group=show]').insertAdjacentHTML('afterbegin', lab('Show'));
 }

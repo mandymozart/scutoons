@@ -47,7 +47,7 @@ Copy all and Save stay (for bug reports).
 ## 2a. Decided 2026-11-21 (draft: `log.html`, variant A)
 
 - **One Log.** Problems sit inside it as standing lines, and "Problems" is a filter, not its own tab. Two tabs sharing the scope pills read as "weird" to the owner.
-- **Show:** *Now + what happened* (the default: problems on top, then events), *Problems*, *Events*, plus find.
+- **Show:** *All* (the default: problems on top, then events), *Problems*, *Events*, plus find. The groups are named what they are: **Problems** and **Events** (owner: *"now and what happened is weird wording. just name it what it is problem events"*).
 - **Event types** (owner: *"filter events by type… with their legends"*): Saves, Publishes, History, Generations, Library, Show, Sync, Technical. Every event line carries its type's icon. The Type pills show the same icons and pick several types at once (none picked = all). A legend under the list says what each type means. Problems carry no type; they're the standing part.
 - The type belongs to the line in the core's model (`kind` / `type` beside `level` and `scope`), so the deck editor's Log gets the same filter.
 
