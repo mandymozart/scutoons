@@ -45,7 +45,7 @@ struct Deck {
 impl Deck {
     fn start(relay: &str, cfg: Config, name: &str) -> Deck {
         let show = Arc::new(ShowLink::default());
-        let link = Link::start(relay, Join::Deck, None, Some(name.into()), None, None, Some(show.clone())).unwrap();
+        let link = Link::start(relay, Join::Deck, None, Some(name.into()), None, None, Some(show.clone()), None).unwrap();
         let tempo = Arc::new(Mutex::new(Tempo::new(cfg.clone(), Arc::new(Shared::default()), 48_000.0)));
         tempo.lock().unwrap().set_source(cfg.source);
         let stop = Arc::new(AtomicBool::new(false));

@@ -601,7 +601,7 @@ impl Show {
                 None
             } else {
                 let relay = set.unwrap_or_else(|| deck_native::live::config::HOSTED_RELAY.to_owned());
-                let link = deck_native::space::link::Link::start(&relay, deck_native::space::Join::Deck, None, Some(scene.stage.name.clone()), None, None, Some(show_link.clone()));
+                let link = deck_native::space::link::Link::start(&relay, deck_native::space::Join::Deck, None, Some(scene.stage.name.clone()), None, None, Some(show_link.clone()), None);
                 link.map_err(|e| tracing::warn!("tempo: no relay link for the show clock: {e}")).ok()
             }
         };

@@ -103,8 +103,8 @@ fn a_listening_deck_s_scene_takes_a_readers_join_and_one_that_did_not_ask_hears_
     assert!(sides[0].listens() && !sides[1].listens());
     assert!(cast_of(&sides[0]).is_empty() && cast_of(&sides[1]).is_empty(), "the stage plays empty");
     let links = [
-        Link::start(&url, Join::Deck, None, Some("listens".into()), None, None, None).unwrap(),
-        Link::start(&url, Join::Deck, None, Some("quiet".into()), None, None, None).unwrap(),
+        Link::start(&url, Join::Deck, None, Some("listens".into()), None, None, None, None).unwrap(),
+        Link::start(&url, Join::Deck, None, Some("quiet".into()), None, None, None, None).unwrap(),
     ];
     for (l, s) in links.iter().zip(&sides) {
         l.story(s.listens());
@@ -164,8 +164,8 @@ fn a_scene_a_cell_launched_listens_like_one_started_with_scene() {
     }
     assert!(sides[0].listens(Some(&plays[0])) && !sides[1].listens(Some(&plays[1])), "the cell's scene listens as written");
     let links = [
-        Link::start(&url, Join::Deck, None, Some("cell-listens".into()), None, None, None).unwrap(),
-        Link::start(&url, Join::Deck, None, Some("cell-quiet".into()), None, None, None).unwrap(),
+        Link::start(&url, Join::Deck, None, Some("cell-listens".into()), None, None, None, None).unwrap(),
+        Link::start(&url, Join::Deck, None, Some("cell-quiet".into()), None, None, None, None).unwrap(),
     ];
     for (i, l) in links.iter().enumerate() {
         l.story(sides[i].listens(Some(&plays[i])));

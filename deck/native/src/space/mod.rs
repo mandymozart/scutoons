@@ -42,7 +42,7 @@ impl Connect for Space {
         let relay = relay.filter(|r| !r.trim().is_empty()).unwrap_or(crate::live::config::HOSTED_RELAY);
         let graph = self.wire_graph();
         let sync = sync.filter(|_| self.join == Join::Deck);
-        self.attach(link::Link::start_for(relay, self.join, token, nick, graph, sync, show, self.column.clone()).map(|l| Box::new(l) as Box<dyn wire::Wire>));
+        self.attach(link::Link::start(relay, self.join, token, nick, graph, sync, show, self.column.clone()).map(|l| Box::new(l) as Box<dyn wire::Wire>));
         if let Some(t) = far {
             self.wire_far(t);
         }
