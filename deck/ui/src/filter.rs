@@ -44,6 +44,25 @@ impl Fact {
         }
     }
 
+    /// The fact a typed `key:value` names (the flash list's typed filter, #553): `device:phone` (`kind:` is the same word),
+    /// `group:left`, `account:member`, `approved`. None: not a fact word.
+    pub fn typed(key: &str, value: Option<&str>) -> Option<Fact> {
+        match (key, value) {
+            ("device" | "kind", Some(v)) => Some(Fact::Device(v.to_string())),
+            ("group", Some(v)) => Some(Fact::Group(v.to_string())),
+            ("account", Some(v)) => ACCOUNTS.iter().find(|a| a.as_str() == v).map(|a| Fact::Account(*a)),
+            ("approved", None) => Some(Fact::Approved),
+            _ => None,
+        }
+    }
+
+    /// the filter that asks only this fact (a typed condition is tested by the one evaluator, protocol `filter::passes`)
+    pub fn filter(&self) -> Filter {
+        let mut f = Filter::default();
+        self.flip_filter(&mut f);
+        f
+    }
+
     /// does a role's filter name it?
     pub fn in_admits(&self, a: &Admits) -> bool {
         match self {
@@ -299,6 +318,15 @@ mod tests {
         assert_eq!(cell.fact(cell.chip("device phone").unwrap()), Some(Fact::Device("phone".into())));
         let (names, on) = address.chips();
         assert_eq!((names.len(), on.iter().filter(|x| **x).count()), (address.toggles.len(), 1));
+    }
+
+    #[test]
+    fn a_typed_word_is_a_fact_and_its_filter() {
+        assert_eq!(Fact::typed("device", Some("phone")), Some(Fact::Device("phone".into())));
+        assert_eq!(Fact::typed("kind", Some("phone")), Fact::typed("device", Some("phone")));
+        assert_eq!(Fact::typed("account", Some("member")), Some(Fact::Account(Account::Member)));
+        assert_eq!((Fact::typed("approved", None), Fact::typed("seat", Some("x")), Fact::typed("account", Some("king"))), (Some(Fact::Approved), None, None));
+        assert_eq!(filter_words(Some(&Fact::Group("left".into()).filter())), "group left");
     }
 
     #[test]
