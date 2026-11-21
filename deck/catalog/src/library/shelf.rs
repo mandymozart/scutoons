@@ -62,6 +62,17 @@ pub enum Special {
     /// the families lacking a version they should have (shown on demand)
     Missing,
     Item(String),
+    /// the files made for the characters of one cast (a season's: `season:catpope:1`)
+    Cast(String),
+}
+
+/// one cast: whose files belong to it (a toon season's cast, read from its document by the caller)
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Cast {
+    /// the cast's address (`season:catpope:1`)
+    pub address: String,
+    /// the characters in it (`catpope`, or a persona `catpope.biker`)
+    pub characters: Vec<String>,
 }
 
 /// what a slot takes: its kinds, a square picture (a mood's portrait)
@@ -152,6 +163,8 @@ pub struct Context {
     pub uses: Vec<Use>,
     /// (main file, part file) links read from documents: frames
     pub links: Vec<(String, String)>,
+    /// the casts the places offer as a facet
+    pub casts: Vec<Cast>,
 }
 
 /// what a group of the grid is
@@ -210,6 +223,8 @@ pub struct Specials {
     pub missing: usize,
     /// every item with files, its address and how many
     pub items: Vec<(String, usize)>,
+    /// every cast with files made for its characters, its address and how many (the context's order)
+    pub casts: Vec<(String, usize)>,
 }
 
 /// what a view shows
@@ -482,7 +497,13 @@ impl Shelf {
             Special::Credits => f.credits == Some(false),
             Special::Missing => !f.missing.is_empty(),
             Special::Item(item) => self.items_of(f, uses).iter().any(|i| i == item),
+            Special::Cast(cast) => self.context.casts.iter().find(|c| &c.address == cast).is_some_and(|c| Self::in_cast(f, c)),
         }
+    }
+
+    /// whether a family is made for one of the cast's characters
+    fn in_cast(f: &Family, cast: &Cast) -> bool {
+        cast.characters.iter().any(|c| crate::made_for(&f.made_for, c))
     }
 
     /// every item a family counts for in the places: the items its uses name and its home
@@ -536,6 +557,13 @@ impl Shelf {
                 v.sort_by(|a, b| natural(&a.0, &b.0));
                 v
             },
+            casts: self
+                .context
+                .casts
+                .iter()
+                .map(|c| (c.address.clone(), searched.iter().filter(|&&i| Self::in_cast(&list[i], c)).count()))
+                .filter(|(_, n)| *n > 0)
+                .collect(),
         };
         let placed: Vec<usize> = searched.iter().copied().filter(|&i| q.special.as_ref().is_none_or(|s| self.special(s, &list[i], &idx[i], q.now_ms))).collect();
         let origins = Origin::ALL.iter().map(|&o| (o, placed.iter().filter(|&&i| list[i].origin == o).count())).collect();
@@ -695,7 +723,7 @@ pub fn fit_of(v: &Value) -> Option<Fit> {
     v.is_object().then(|| Fit { kinds: kinds_of(&v["kinds"]), square: v["square"] == Value::Bool(true) })
 }
 
-/// a view's query as JSON: `{ scope, grouping, sort, query, kind, special: "recent" | "credits" | "item:<address>",
+/// a view's query as JSON: `{ scope, grouping, sort, query, kind, special: "recent" | "credits" | "item:<address>" | "cast:<address>",
 /// origin, fit, related, single, now, within }`
 pub fn query_of(v: &Value) -> Query {
     let s = |k: &str| v[k].as_str().unwrap_or("");
@@ -723,7 +751,7 @@ pub fn query_of(v: &Value) -> Query {
             "recent" => Some(Special::Recent),
             "credits" => Some(Special::Credits),
             "missing" => Some(Special::Missing),
-            x => x.strip_prefix("item:").map(|i| Special::Item(i.to_string())),
+            x => x.strip_prefix("item:").map(|i| Special::Item(i.to_string())).or_else(|| x.strip_prefix("cast:").map(|c| Special::Cast(c.to_string()))),
         },
         origin: Origin::of_id(s("origin")),
         fit: fit_of(&v["fit"]),
@@ -734,7 +762,8 @@ pub fn query_of(v: &Value) -> Query {
     }
 }
 
-/// the open item and its uses as JSON: `{ open, toon, byHome, uses: [{ path, item, part, at }], links: [[main, part]] }`
+/// the open item and its uses as JSON: `{ open, toon, byHome, uses: [{ path, item, part, at }], links: [[main, part]],
+/// casts: [{ address, characters }] }`
 pub fn context_of(v: &Value) -> Context {
     let s = |x: &Value| x.as_str().map(str::to_string);
     Context {
@@ -746,6 +775,10 @@ pub fn context_of(v: &Value) -> Context {
             .map(|a| a.iter().filter_map(|u| Some(Use { path: s(&u["path"])?, item: s(&u["item"])?, part: s(&u["part"]).unwrap_or_default(), at: s(&u["at"]).unwrap_or_default() })).collect())
             .unwrap_or_default(),
         links: v["links"].as_array().map(|a| a.iter().filter_map(|l| Some((s(&l[0])?, s(&l[1])?))).collect()).unwrap_or_default(),
+        casts: v["casts"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|c| Some(Cast { address: s(&c["address"])?, characters: c["characters"].as_array().map(|x| x.iter().filter_map(|n| n.as_str().map(str::to_string)).collect()).unwrap_or_default() })).collect())
+            .unwrap_or_default(),
     }
 }
 

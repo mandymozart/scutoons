@@ -229,6 +229,7 @@
 	class="creator sc-tool sc-desktop-only"
 	style:--ws-left="{shell.insets.left}rem"
 	style:--ws-right="{shell.insets.right}rem"
+	style:--ws-foot="{shell.insets.foot}rem"
 	data-testid="creator"
 >
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>

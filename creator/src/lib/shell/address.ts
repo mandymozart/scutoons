@@ -45,7 +45,6 @@ export function iconOf(address: string): string {
 /** the areas' own addresses (a list, not one item): what their tab is called before an item is picked */
 export const AREAS = {
 	characters: 'characters:all',
-	moods: 'characters:moods',
 	wanted: 'characters:wanted',
 	map: 'map:world',
 	scenes: 'scenes:all',
@@ -58,7 +57,7 @@ const TOON = /^[a-z0-9][a-z0-9_-]*$/;
 const RESERVED = new Set(['characters', 'map', 'scenes', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit']);
 
 /**
- * The address a creator URL edits: one item per tab, so a toon's own pages (its board, cast, script, credits,
+ * The address a creator URL edits: one item per tab, so a toon's own pages (its board, script, credits,
  * settings) are the toon's tab, a season's cover and script the season's, a chapter's script the chapter's. Home (`/`,
  * `/toons`) and anything unknown: null.
  */
@@ -72,7 +71,7 @@ export function addressOf(pathname: string, search = ''): string | null {
 			const id = params.get('id');
 			if (id) return `character:${id}`;
 			const tab = params.get('tab');
-			return tab === 'moods' ? AREAS.moods : tab === 'wanted' ? AREAS.wanted : AREAS.characters;
+			return tab === 'wanted' ? AREAS.wanted : AREAS.characters;
 		}
 		case 'map':
 			return AREAS.map;
@@ -106,7 +105,6 @@ export function hrefOf(address: string): string | null {
 	const [kind, ...rest] = address.split(':');
 	const id = rest.join(':');
 	if (address === AREAS.characters) return '/characters';
-	if (address === AREAS.moods) return '/characters?tab=moods';
 	if (address === AREAS.wanted) return '/characters?tab=wanted';
 	if (address === AREAS.map || kind === 'place' || kind === 'route' || kind === 'region') return kind === 'map' ? '/map' : `/map?${kind === 'place' ? 'location' : kind}=${encodeURIComponent(id)}`;
 	if (address === AREAS.scenes) return '/scenes';

@@ -20,7 +20,8 @@
 
 	const hasTree = $derived(!!tree);
 	const hasDoc = $derived(!!shell.doc);
-	const floats = $derived(new Floats(`creator-${kind}`, panelSpecs(kind, { tree: hasTree, doc: hasDoc }), tabSpecs()));
+	const lent = $derived(Object.keys(shell.lent).sort().join(' '));
+	const floats = $derived(new Floats(`creator-${kind}`, panelSpecs(kind, { tree: hasTree, doc: hasDoc, lent: lent ? lent.split(' ') : [] }), tabSpecs()));
 
 	// the Library follows the front item: its context is the workspace's pre-filter
 	$effect(() => library.follow(kind === 'home' ? null : (shell.front?.address ?? null), toon));
@@ -29,12 +30,16 @@
 		if (library.pick) shell.open('library');
 	});
 
+	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it)
 	$effect(() => {
 		const id = shell.wanted;
-		if (!id || !floats.spec(id)) return;
-		floats.reopen(id);
-		floats.setCollapsed(id, false);
-		floats.front(id);
+		if (!id) return;
+		const panel = floats.spec(id) ? id : floats.specs.find((s) => floats.tabsOf(s.id).includes(id))?.id;
+		if (!panel) return;
+		floats.reopen(panel);
+		floats.setCollapsed(panel, false);
+		floats.front(panel);
+		if (panel !== id) floats.select(panel, id);
 		shell.wanted = null;
 	});
 
@@ -62,18 +67,24 @@
 		const { area, metrics, views } = floats;
 		let left = 0;
 		let right = 0;
+		let foot = 0;
 		if (area.w > 0) {
 			for (const [id, view] of Object.entries(views)) {
 				if (view.collapsed || floats.closed(id)) continue;
 				const r = view.rect;
+				// a strip (the Moods along the foot) lies over the page: a background that wants it free keeps its foot clear
+				if (r.w > 2 * r.h) {
+					if (area.y + area.h - (r.y + r.h) < 1) foot = Math.max(foot, area.y + area.h - r.y + metrics.gap);
+					continue;
+				}
 				if (r.x - area.x < 1) left = Math.max(left, r.x + r.w - area.x + metrics.gap);
 				if (area.x + area.w - (r.x + r.w) < 1) right = Math.max(right, area.x + area.w - r.x + metrics.gap);
 			}
 		}
 		const rem = metrics.rem || 14;
-		shell.insets = { left: left / rem, right: right / rem, bottom: bottom / rem };
+		shell.insets = { left: left / rem, right: right / rem, bottom: bottom / rem, foot: foot / rem };
 	});
-	$effect(() => () => (shell.insets = { left: 0, right: 0, bottom: 0 }));
+	$effect(() => () => (shell.insets = { left: 0, right: 0, bottom: 0, foot: 0 }));
 
 	/** the main menu's list: the panels that can close, ticked = open */
 	$effect(() => {
@@ -112,6 +123,8 @@
 						<LibraryPanel />
 					{:else if id === 'settings'}
 						<SettingsPanel onreset={() => floats.reset()} />
+					{:else if shell.lent[id]}
+						{@render shell.lent[id]()}
 					{/if}
 				</div>
 			{/snippet}

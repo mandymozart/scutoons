@@ -3,14 +3,13 @@
 
 	/**
 	 * The Characters area's pages as tabs (research/CHARACTER-PAGE.md §2: "the area's own tabs", the same row as a toon's
-	 *): Characters · Moods · Wanted images, each with its count. Links (`?tab=`), so back / forward and
-	 * the menu's Characters entry work; the page follows the URL.
+	 *): Characters · Wanted images, each with its count (the mood words are a tab of the Moods panel). Links (`?tab=`), so
+	 * back / forward and the menu's Characters entry work; the page follows the URL.
 	 */
-	let { tab, counts }: { tab: string; counts: { characters: number; moods: number; wanted: number } } = $props();
+	let { tab, counts }: { tab: string; counts: { characters: number; wanted: number } } = $props();
 
 	const tabs = $derived([
 		{ id: 'characters', href: '/characters', label: m['creator.characters'](), n: counts.characters },
-		{ id: 'moods', href: '/characters?tab=moods', label: m['creator.characters_moods'](), n: counts.moods },
 		{ id: 'wanted', href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), n: counts.wanted }
 	]);
 </script>

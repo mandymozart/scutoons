@@ -5,13 +5,12 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { places } from '$lib/shell/places.svelte.ts';
 
-	/** The toon workspace's own pages: its board (seasons › chapters), cast, script, credits, settings, and its seasons */
+	/** The toon workspace's own pages: its board (seasons › chapters), script, credits, settings, and its seasons */
 	let { toon }: { toon: string } = $props();
 
 	const path = $derived(page.url.pathname);
 	const pages = $derived([
 		{ href: `/${toon}`, label: m['creator.toon_stories'](), testid: 'nav-stories' },
-		{ href: `/${toon}/cast`, label: m['creator.cast'](), testid: 'nav-cast' },
 		{ href: `/${toon}/script`, label: m['creator.script'](), testid: 'nav-script' },
 		{ href: `/${toon}/credits`, label: m['creator.credits'](), testid: 'nav-credits' },
 		{ href: `/${toon}/toon`, label: m['creator.toon_settings'](), testid: 'nav-toon-settings' }

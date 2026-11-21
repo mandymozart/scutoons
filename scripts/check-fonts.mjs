@@ -95,7 +95,6 @@ async function pages() {
 		{ app: 'creator', name: 'toon overview', path: `/${toon}`, auth: true },
 		{ app: 'creator', name: 'toon settings', path: `/${toon}/toon`, auth: true },
 		{ app: 'creator', name: 'cast', path: `/${toon}/cast`, auth: true },
-		{ app: 'creator', name: 'cast: character picker', path: `/${toon}/cast`, auth: true, open: click('[data-testid="cast-add"]'), wait: '[data-testid="character-picker-sheet"]' },
 		{ app: 'creator', name: 'season', path: `/${toon}/season/1`, auth: true },
 		{ app: 'creator', name: 'chapter editor', path: `/${toon}/chapter/1`, auth: true },
 		{ app: 'creator', name: 'draft preview', path: `/${toon}/chapter/1/preview`, auth: true },

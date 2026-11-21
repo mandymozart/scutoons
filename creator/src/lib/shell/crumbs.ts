@@ -19,7 +19,6 @@ export function routeCrumbs(route: string, params: Record<string, string | undef
 	if (route === '/guide') out.push({ href: '/guide', label: m['creator.style_guide']() });
 	if (route === '/characters') {
 		out.push({ href: '/characters', label: m['creator.characters']() });
-		if (tab === 'moods') out.push({ href: '/characters?tab=moods', label: m['creator.characters_moods']() });
 		if (tab === 'wanted') out.push({ href: '/characters?tab=wanted', label: m['creator.characters_wanted']() });
 	}
 	if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
@@ -52,7 +51,6 @@ export function routeCrumbs(route: string, params: Record<string, string | undef
 		if (route === '/[toonId]/chapter/[chapterNumber]/script') out.push({ href: `/${toonId}/chapter/${n}/script`, label: m['creator.script']() });
 		if (route === '/[toonId]/chapter/[chapterNumber]/storyboard') out.push({ href: `/${toonId}/chapter/${n}/storyboard`, label: m['storyboard.title']() });
 	}
-	if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 	if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });
 	if (route === '/[toonId]/script') out.push({ href: `/${toonId}/script`, label: m['creator.script']() });
 	if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: m['creator.toon_settings']() });

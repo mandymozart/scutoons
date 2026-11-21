@@ -35,10 +35,13 @@
 	let name = $state('');
 	let input = $state<HTMLInputElement>();
 
-	// the picked one comes into view (a pick from elsewhere: the URL, a new persona)
+	// the picked one comes into view sideways (a pick from elsewhere: the URL, a new persona) – the panel around stays put
 	$effect(() => {
 		const el = scroller?.querySelector<HTMLElement>(`[data-id="${CSS.escape(value)}"]`);
-		el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		if (!el || !scroller) return;
+		const left = el.offsetLeft - scroller.offsetLeft;
+		if (left < scroller.scrollLeft) scroller.scrollLeft = left;
+		else if (left + el.offsetWidth > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = left + el.offsetWidth - scroller.clientWidth;
 	});
 	function startAdd() {
 		adding = true;
