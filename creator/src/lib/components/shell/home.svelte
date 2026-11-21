@@ -132,7 +132,7 @@
 			{#if pending.length}
 				<h2 data-testid="dash-not-live">{m['creator.dash_not_live']()} <span class="n">{pending.length}</span></h2>
 				<ul class="rows">
-					{#each pending.slice(0, SHOWN) as e (e.key)}
+					{#each pending as e (e.key)}
 						<li>
 							<a href={placeHref(e.key)}>
 								<Icon name={iconOf(e.key)} size="1rem" />
@@ -143,7 +143,6 @@
 						</li>
 					{/each}
 				</ul>
-				{#if pending.length > SHOWN}<p class="meta">{m['creator.dash_more']({ count: pending.length - SHOWN })}</p>{/if}
 			{:else if !waiting}
 				<p class="meta">{m['shell.nothing_waiting']()}</p>
 			{/if}

@@ -35,8 +35,8 @@
 	}
 
 	const toReview = $derived(group(reviews.overview?.to_review ?? []));
-	// own submits: open and sent back (the newest 10), published ones only in the mail
-	const mine = $derived(group((reviews.overview?.mine ?? []).filter((r) => r.state === 'pending' || r.state === 'returned')).slice(0, 10));
+	// own submits: open and sent back, every one; published ones only in the mail
+	const mine = $derived(group((reviews.overview?.mine ?? []).filter((r) => r.state === 'pending' || r.state === 'returned')));
 
 	const files = (g: Group) => fileLabels([...new Set(g.items.map((r) => entityOf(r.key)))]);
 	const locales = (g: Group) => [...new Set(g.items.map((r) => r.locale).filter(Boolean))].sort().join(', ');
