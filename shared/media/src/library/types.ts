@@ -130,6 +130,22 @@ export interface LibraryView {
 
 export type LibraryFitAnswer = { ok: true } | { ok: false; wants: LibraryKind[]; got: LibraryKind; square: boolean } | { ok: false; unknown: true };
 
+/** the editors sharing the Library's open rule */
+export type LibraryEditor = 'deck' | 'creator';
+
+/** what opening an address means: the tab address and the workspace (the editor's own name for it), or why not */
+export type LibraryOpening = { ok: true; address: string; workspace: string } | { ok: false; why: string };
+
+/** a kind the Library lists (the word before `:`), how a list names it, and where it opens or why not */
+export interface LibraryOpenKind {
+	kind: string;
+	words: string;
+	workspace?: string;
+	/** how a sentence names the workspace ("the map") */
+	opens?: string;
+	why?: string;
+}
+
 /** a tile's duration: `0:12`, `2:10`, `1:02:05` */
 export function formatDuration(seconds: number | null): string {
 	if (!seconds || seconds <= 0) return '';

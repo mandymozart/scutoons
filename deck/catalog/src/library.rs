@@ -10,6 +10,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 pub mod family;
+pub mod open;
 pub mod shelf;
 #[cfg(test)]
 mod asset_tests;

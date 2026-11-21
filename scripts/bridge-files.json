@@ -38,6 +38,7 @@
 		"shared/live-deck/src/places.ts": "adapter: space-web's jump_labels (deck-core places: a chapter's jump places) as a list for the creator's jump targets (#534)",
 		"shared/live-deck/src/history.ts":"adapter: space-web's history_* (deck-core history: steps, describe, revert, back_to) as JSON for the creator's History (#687)",
 		"shared/media/src/library/core.ts": "adapter: space-web's Library (deck-catalog library::shelf – families, scope, groups, fits, selection, upload path) as JSON for the creator's Library panel, browser and picker (#698)",
+		"shared/media/src/library/opener.ts": "adapter: space-web's library_open / library_open_kinds (deck-catalog library::open – where an address opens in an editor, or why not) as JSON for the creator's Items to open (#770)",
 		"shared/live-deck/src/assign.ts": "adapter: space-web's assignment rules (rig_coverage, rig_catalog_bundle, rig_face, rig_policy_template – deck-space rig::assign, face, template) for the creator's Assignment and Rust tabs (#283, #412)",
 		"shared/live-deck/src/client.ts": "adapter: the WebSocket and one timer under deck-space's relay client (relay-web, #366); a deck's link",
 		"shared/live-deck/src/controls.ts": "adapter: the controls (DeckControls) on the deck's values, the mappings in localStorage, the arc's drawing",

@@ -18,7 +18,11 @@ export interface LibraryModule {
 	Library: new (assets: string) => ShelfHandle;
 	library_select(request: string): string;
 	library_start_kind(fit: string): string;
+	library_open(address: string, editor: string): string;
+	library_open_kinds(editor: string): string;
 }
+
+export { libraryOpener, type LibraryOpener } from './opener.ts';
 
 export interface LibraryCore {
 	families(single: boolean): AssetFamily[];

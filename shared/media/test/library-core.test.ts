@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { libraryCore, type LibraryModule } from '../src/library/core.ts';
+import { libraryCore, libraryOpener, type LibraryModule } from '../src/library/core.ts';
 import type { LibraryQuery } from '../src/library/types.ts';
 
 const dir = new URL('../../live-deck/wasm/', import.meta.url);
@@ -50,4 +50,13 @@ test('the core: families, the open item pinned, fits, selection, upload path', {
 	assert.deepEqual(lib.select(['a'], 'a', 'c', ['a', 'b', 'c'], { shift: true }), { chosen: ['a', 'b', 'c'], anchor: 'a' });
 	assert.equal(lib.uploadPath('New Bell.MP3'), 'catpope/s1/c1/new-bell.mp3');
 	lib.free();
+});
+
+test('the open rule: where an address opens in the creator, or why not', { skip: NO_CORE || false }, async () => {
+	const opener = libraryOpener(await core(), 'creator');
+	assert.deepEqual(opener.open('place:harbour'), { ok: true, address: 'place:harbour', workspace: 'map' });
+	assert.deepEqual(opener.open('instrument:organ'), { ok: false, why: 'instruments have no workspace yet' });
+	const kinds = opener.kinds();
+	assert.deepEqual(kinds.find((k) => k.kind === 'character'), { kind: 'character', words: 'characters', workspace: 'character', opens: 'the character workspace' });
+	assert.ok(kinds.some((k) => k.kind === 'show' && k.why));
 });

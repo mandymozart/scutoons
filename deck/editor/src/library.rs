@@ -617,13 +617,12 @@ impl crate::App {
         }
     }
 
-    /// an entry opened in its tab: a scene in a Scene tab, a character's rig, a module or a medium in an Asset tab
+    /// an entry opened in its tab where the Library's open rule says, else its sentence
     fn library_open_entry(&mut self, i: usize) {
         let Some(e) = self.library.entries.get(i).cloned() else { return };
-        match e.kind {
-            Kind::Module | Kind::Scene | Kind::Character => self.open_item(&e.address, &e.label),
-            Kind::Video | Kind::Image | Kind::Audio | Kind::Model => self.open_item(&format!("{}:{}", crate::media::word_of(e.kind), e.address), &e.label),
-            _ => self.note(format!("{} has no Asset view yet", e.label)),
+        match deck_catalog::library::open::open_entry(e.kind, &e.address, deck_catalog::library::open::Editor::Deck) {
+            Ok(o) => self.open_item(&o.address, &e.label),
+            Err(why) => self.note(format!("{}: {why}", e.label)),
         }
     }
 
