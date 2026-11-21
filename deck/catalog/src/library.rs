@@ -174,18 +174,22 @@ impl Purpose {
         }
     }
 
-    /// whether an entry of `kind` dropped here lands (where exactly is the target's to say), else the sentence why not
+    /// where a drop lands in this workspace (none: entries are only opened here)
+    pub fn view(self) -> Option<crate::drop::View> {
+        match self {
+            Purpose::Build => Some(crate::drop::View::Rig),
+            Purpose::Show => Some(crate::drop::View::ShowRow),
+            Purpose::Scene => Some(crate::drop::View::Scene),
+            Purpose::Module => None,
+        }
+    }
+
+    /// whether an entry of `kind` dropped here lands (where exactly is the target's to say), else the sentence why not:
+    /// the drop plan's answer
     pub fn takes(self, kind: Kind) -> Result<(), String> {
-        let (ok, here) = match self {
-            Purpose::Build => (matches!(kind, Kind::Module | Kind::Instrument), "on a rig: its tracks play modules and instruments"),
-            Purpose::Show => (matches!(kind, Kind::Scene | Kind::Character | Kind::Item), "on a cell: a cell plays a scene, a character or an item"),
-            Purpose::Module => (false, "here: a double click opens a module"),
-            Purpose::Scene => (matches!(kind, Kind::Character | Kind::Item | Kind::Image | Kind::Module), "on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules"),
-        };
-        if ok {
-            Ok(())
-        } else {
-            Err(format!("{} cannot be dropped {here}", kind.word()))
+        match self.view() {
+            Some(view) => crate::drop::lands(view, kind).map(|_| ()),
+            None => Err(format!("{} cannot be dropped here: a double click opens a module", kind.word())),
         }
     }
 }
@@ -405,7 +409,11 @@ mod tests {
     fn a_drop_lands_where_its_kind_is_played_or_says_why_not() {
         assert_eq!(Purpose::Build.takes(Kind::Module), Ok(()));
         assert_eq!(Purpose::Show.takes(Kind::Scene), Ok(()));
-        assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: its tracks play modules and instruments".into()));
+        assert_eq!(Purpose::Build.takes(Kind::Scene), Err("scenes cannot be dropped on a rig: a show's row plays it, a rig plays modules and instruments".into()));
+        assert_eq!(Purpose::Build.takes(Kind::Character), Err("characters on a rig become a world node: not built yet".into()), "planned, not landing yet");
+        assert_eq!(Purpose::Show.takes(Kind::Place), Ok(()), "a place is a piece");
+        assert_eq!(Purpose::Show.takes(Kind::Module), Err("modules cannot be dropped in a Show row: a row holds pieces: scenes, characters, items and places".into()));
+        assert_eq!(Purpose::Module.takes(Kind::Module), Err("modules cannot be dropped here: a double click opens a module".into()));
         assert!(Purpose::Module.takes(Kind::Module).is_err());
         assert_eq!(Purpose::Scene.takes(Kind::Item), Ok(()));
         assert_eq!(Purpose::Scene.takes(Kind::Module), Ok(()), "a module lands on an entity's Modules slot");

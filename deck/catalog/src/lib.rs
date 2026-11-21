@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod background;
+pub mod drop;
 pub mod groups;
 pub mod layer;
 pub mod library;
