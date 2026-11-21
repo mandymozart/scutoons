@@ -111,7 +111,7 @@
 		color: var(--muted);
 	}
 	.slot.fits {
-		outline: var(--border-width-focus) dashed var(--primary);
+		outline: var(--border-width-focus) dashed var(--editor-accent);
 		outline-offset: 2px;
 	}
 	.slot.misfit {

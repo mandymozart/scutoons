@@ -125,7 +125,7 @@
 		outline-offset: 2px;
 	}
 	.slot.fits {
-		outline: var(--border-width-focus) dashed var(--primary);
+		outline: var(--border-width-focus) dashed var(--editor-accent);
 		outline-offset: 2px;
 	}
 	.slot.misfit {
@@ -133,6 +133,7 @@
 		outline-offset: 2px;
 	}
 	.misfit {
+		max-width: 8rem;
 		color: var(--error);
 	}
 	.slot img,
