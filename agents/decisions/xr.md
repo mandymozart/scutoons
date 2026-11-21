@@ -1,12 +1,13 @@
 # decisions/xr — XR: experiences, the reader's XR mode, the XR editor in the creator
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[xr]` 58 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
+Keys here: `[xr]` 59 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
 
 Opened 2026-11-10 by the XR session (#482). The ten `[xr]` lines before it, all of 2026-11-10, stay where they were written:
 `grep -n '\[xr\]' agents/decisions/deck.md` (summary: research/XR.md §5). From here on every XR statement of the owner goes into this file.
 
 ## 2026-11
+- 2026-11-21 · platform · [xr] **Thought aloud on the name: TouchDesigner's "network" is the closer model; since it also crosses devices, a broader word – "mycelium" – or "narration", "wiring", "mushroom network".** Not decided; the identifiers stay provisional (the contract is one schema and a regenerate). Owner: *"so touch designers network is more close. i assume since we also cross devices we could use a broder term mycelium ? haha"* · *"narration wiring mushroom network"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Asked: one name for the node view, or one concept named by where it is used?** Debated on #763 the same day: Blender / Unreal name one editor per domain, Houdini / TouchDesigner keep one network with families; SCUTOONS's cables cross scopes, so one tab name, and the breadcrumb and a scope chip name the place (Story · XR · Deck · Studio). Not decided. Owner: *"debate the terminology of our view a bit more. or is it more of a concept and depending where it is used it has a name ?"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Thought aloud: the one node view may be called "Wiring" – as opposed to the view (what is shown).** If so, the proposal's deck kind needs another word (it was "Wiring" for the deck's continuous graphs). Not decided. Owner: *"its maybe wiring since that is oppossed to view"* · → #763, #482
 - 2026-11-21 · platform · [xr] **Not "Flow" as the name of the one node view (nodes, signals, canvas, logic).** Said on the naming proposal (the tab "Flow"); the umbrella name is open again – candidates put to him the same day: Network, Patch, Graph, Nodes. Owner: *"i dont like the work flow... somehow"* · *"no i mean to call the nodes/signals/nodes/canvas/logic flow"* · → #763, #482

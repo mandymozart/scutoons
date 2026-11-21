@@ -20,14 +20,19 @@
 		"./tracker": "./osct/engine/src/scene/xr8-tracker.ts",
 		"./types": "./osct/engine/src/types/index.ts",
 		"./content": "./osct/engine/src/content/game-config.ts",
-		"./contract": "./osct/shared/types/game-config.ts"
+		"./contract": "./osct/shared/types/game-config.ts",
+		"./network": {
+			"types": "./src/network-api.ts",
+			"default": "./src/network.ts"
+		}
 	},
 	"files": [
 		"osct",
 		"src"
 	],
 	"scripts": {
-		"check": "tsc --noEmit -p ./tsconfig.json"
+		"check": "tsc --noEmit -p ./tsconfig.json",
+		"test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test test/network.test.ts"
 	},
 	"peerDependencies": {
 		"three": "0.186.1"
@@ -36,5 +41,8 @@
 		"@types/three": "0.186.0",
 		"three": "0.186.1",
 		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@scutoons/api": "*"
 	}
 }

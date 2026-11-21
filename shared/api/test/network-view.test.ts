@@ -7,7 +7,7 @@ import type { View } from '../src/network-view.ts';
 const file = JSON.parse(readFileSync(new URL('../../../server/schema/api/network-view.vectors.json', import.meta.url), 'utf8')) as { views: View[] };
 
 test('every scope the projectors have so far has a vector', () => {
-	assert.deepEqual(file.views.map((v) => v.scope), ['story', 'rig', 'network']);
+	assert.deepEqual(file.views.map((v) => v.scope), ['story', 'rig', 'network', 'xr']);
 });
 
 test('every edge joins ports that exist, out to in, with the edge’s signal (a far end takes any)', () => {

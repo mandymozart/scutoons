@@ -94,6 +94,404 @@
 			],
 			"stubs": [],
 			"problems": []
+		},
+		{
+			"scope": "xr",
+			"context": "experience:demo/scene:poster",
+			"levels": [
+				{
+					"address": "experience:demo",
+					"label": "Demo"
+				},
+				{
+					"address": "experience:demo/scene:poster",
+					"label": "Poster"
+				}
+			],
+			"nodes": [
+				{
+					"id": "rule:cat/0#0",
+					"kind": "rule",
+					"family": "rule",
+					"label": "head · rule 1",
+					"detail": "always",
+					"address": "experience:demo/scene:poster/target:cat/node:0",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "on",
+							"label": "on",
+							"signal": "event",
+							"dir": "in"
+						},
+						{
+							"id": "when",
+							"label": "when",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "do:0",
+							"label": "set",
+							"signal": "control",
+							"dir": "out"
+						},
+						{
+							"id": "do:1",
+							"label": "emit",
+							"signal": "event",
+							"dir": "out"
+						},
+						{
+							"id": "do",
+							"label": "+",
+							"signal": "address",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "event:cat/0:tap",
+					"kind": "event",
+					"family": "event",
+					"label": "tap",
+					"detail": "head",
+					"address": "experience:demo/scene:poster/target:cat/node:0",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "out",
+							"label": "",
+							"signal": "event",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "var:hasKey",
+					"kind": "variable",
+					"family": "variable",
+					"label": "hasKey",
+					"detail": "variable · experience",
+					"address": "experience:demo/scene:poster/box:var:hasKey",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "set",
+							"label": "set",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "get",
+							"label": "get",
+							"signal": "control",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "event:keyRattled",
+					"kind": "event",
+					"family": "event",
+					"label": "keyRattled",
+					"detail": "scene event",
+					"address": "experience:demo/scene:poster/box:event:keyRattled",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "out",
+							"label": "",
+							"signal": "event",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "rule:scene:poster#0",
+					"kind": "rule",
+					"family": "rule",
+					"label": "scene rule 1",
+					"detail": "always",
+					"address": "experience:demo/scene:poster",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "on",
+							"label": "on",
+							"signal": "event",
+							"dir": "in"
+						},
+						{
+							"id": "when",
+							"label": "when",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "do:0",
+							"label": "goto",
+							"signal": "scene",
+							"dir": "out"
+						},
+						{
+							"id": "do",
+							"label": "+",
+							"signal": "address",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "plugin:spin",
+					"kind": "plugin",
+					"family": "plugin",
+					"label": "spin",
+					"detail": "plugin",
+					"address": "experience:demo/plugin:spin",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "hears",
+							"label": "hears",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "reads",
+							"label": "reads",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "arrives",
+							"label": "arrives",
+							"signal": "scene",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "emits",
+							"label": "emits",
+							"signal": "event",
+							"dir": "out",
+							"many": true
+						},
+						{
+							"id": "sets",
+							"label": "sets",
+							"signal": "control",
+							"dir": "out",
+							"many": true
+						},
+						{
+							"id": "goto",
+							"label": "goto",
+							"signal": "scene",
+							"dir": "out",
+							"many": true
+						},
+						{
+							"id": "drives",
+							"label": "drives",
+							"signal": "address",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "far-0",
+					"kind": "stub",
+					"family": "far",
+					"label": "hasKey → read in the rules of Back",
+					"address": "experience:demo/scene:back",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "far",
+							"dir": "in"
+						}
+					]
+				},
+				{
+					"id": "far-1",
+					"kind": "stub",
+					"family": "far",
+					"label": "→ Back · goto",
+					"address": "experience:demo/scene:back",
+					"runtime": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "far",
+							"dir": "in"
+						}
+					]
+				}
+			],
+			"edges": [
+				{
+					"id": "event:cat/0:tap:out>rule:cat/0#0:on",
+					"from": {
+						"node": "event:cat/0:tap",
+						"port": "out"
+					},
+					"to": {
+						"node": "rule:cat/0#0",
+						"port": "on"
+					},
+					"signal": "event",
+					"label": "on",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/on"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "rule:cat/0#0:do:0>var:hasKey:set",
+					"from": {
+						"node": "rule:cat/0#0",
+						"port": "do:0"
+					},
+					"to": {
+						"node": "var:hasKey",
+						"port": "set"
+					},
+					"signal": "control",
+					"label": "set = true",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/do/0"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "rule:cat/0#0:do:1>event:keyRattled:in",
+					"from": {
+						"node": "rule:cat/0#0",
+						"port": "do:1"
+					},
+					"to": {
+						"node": "event:keyRattled",
+						"port": "in"
+					},
+					"signal": "event",
+					"label": "emit",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/do/1"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "event:keyRattled:out>rule:scene:poster#0:on",
+					"from": {
+						"node": "event:keyRattled",
+						"port": "out"
+					},
+					"to": {
+						"node": "rule:scene:poster#0",
+						"port": "on"
+					},
+					"signal": "event",
+					"label": "on",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/scenes/0/logic/rules/0/on"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "event:keyRattled:out>plugin:spin:hears",
+					"from": {
+						"node": "event:keyRattled",
+						"port": "out"
+					},
+					"to": {
+						"node": "plugin:spin",
+						"port": "hears"
+					},
+					"signal": "event",
+					"label": "hears",
+					"crosses": "same"
+				},
+				{
+					"id": "stub:var:hasKey>far:logic:back:hasKey",
+					"from": {
+						"node": "var:hasKey",
+						"port": "get"
+					},
+					"to": {
+						"node": "far-0",
+						"port": "in"
+					},
+					"signal": "control",
+					"label": "hasKey",
+					"crosses": "savegame"
+				},
+				{
+					"id": "goto:rule:scene:poster#0:do:0>back",
+					"from": {
+						"node": "rule:scene:poster#0",
+						"port": "do:0"
+					},
+					"to": {
+						"node": "far-1",
+						"port": "in"
+					},
+					"signal": "scene",
+					"label": "goto",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/scenes/0/logic/rules/0/do/0"
+					},
+					"crosses": "navigation"
+				}
+			],
+			"stubs": [
+				{
+					"edge": "stub:var:hasKey>far:logic:back:hasKey",
+					"side": "out",
+					"far": "experience:demo/scene:back",
+					"label": "hasKey → read in the rules of Back"
+				},
+				{
+					"edge": "goto:rule:scene:poster#0:do:0>back",
+					"side": "out",
+					"far": "experience:demo/scene:back",
+					"label": "→ Back · goto"
+				}
+			],
+			"problems": []
 		}
 	]
 }

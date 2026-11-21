@@ -27,6 +27,11 @@ Once OSCT publishes the engine and the contract as packages with a tag, this cop
   picking, the selection's outline, OSCT's gizmo and live entity overrides. It runs the experience's plugins in the app's
   own page (owner 2026-11-21: no sandbox – the member is trusted, as with the API). The app serves the files of
   `osct/editor/static` (`options.stageBase`). `src/load.ts` reads a configuration and loads the plugins' code for both entries.
+- **The XR scope of the one network is `@scutoons/xr-engine/network`** (`src/network.ts`, types `src/network-api.ts`):
+  `projectXr(document, context)` gives one level of an experience's logic as the contract's view (`@scutoons/api`
+  `NetworkView`, #763): OSCT's projection (`osct/editor/src/lib/logic/project.ts`) translated – OSCT's signals into the deck's
+  table, rule homes into JSON pointers into the experience document, stubs as far nodes. `npm run test` here runs it against
+  `test/network-fixture.ts` and the contract's shared vectors (`test/write-xr-vector.ts` writes the `xr` view anew).
 - The copied files import each other through `@shared/*`, the editor's also through `@engine/*` and `#lib/*`. An app
   that imports this package maps `@shared` to `shared/xr-engine/osct/shared` and, for the stage, `@engine` to
   `shared/xr-engine/osct/engine/src` (SvelteKit: `kit.alias`), as this package's `tsconfig.json` does; `#lib/*` is this
