@@ -3,7 +3,7 @@
 	import type { AssetFamily, LibraryScope } from '@scutoons/media';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { NEEDS, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
+	import { deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { matches, places, type Place } from '$lib/shell/places.svelte.ts';
 	import AssetDetails from '$lib/components/library/asset-details.svelte';
@@ -150,7 +150,6 @@
 			<div class="selection" data-testid="library-selection">
 				<span>{m['library.n_selected']({ count: library.chosen.length })}</span>
 				<button type="button" class="quiet" onclick={() => downloadFamilies(library.chosenFamilies)}><Icon name="download" size="0.85rem" />{m['library.download']()}</button>
-				<button type="button" class="quiet" disabled title={NEEDS.credits()}>{m['library.credits']()}</button>
 				<button type="button" class="quiet danger" onclick={() => deleteFamilies(library.chosenFamilies)}><Icon name="trash-2" size="0.85rem" />{m['library.delete']()}</button>
 				<CloseButton label={m['library.clear_selection']()} onclick={() => library.clearSelection()} />
 			</div>

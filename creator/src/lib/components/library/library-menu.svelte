@@ -2,7 +2,7 @@
 	import { Icon } from '@scutoons/ui';
 	import type { AssetFamily } from '@scutoons/media';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { NEEDS, copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
+	import { copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -43,14 +43,13 @@
 
 <div bind:this={el} class="menu" role="menu" tabindex="-1" style:left="{at.left}rem" style:top="{at.top}rem" onkeydown={keys} data-testid="library-menu">
 	{#if one}
-		<button type="button" role="menuitem" onclick={() => run(() => library.use(one))}><Icon name="check" size="0.9rem" />{library.pick ? m['library.use_here']() : m['library.use']()}<kbd>↵</kbd></button>
+		{#if library.pick}<button type="button" role="menuitem" onclick={() => run(() => library.use(one))}><Icon name="check" size="0.9rem" />{m['library.use_here']()}<kbd>↵</kbd></button>{/if}
 		<button type="button" role="menuitem" onclick={() => run(() => (library.details = true))}><Icon name="info" size="0.9rem" />{m['library.details']()}</button>
 		<button type="button" role="menuitem" onclick={() => run(() => renameFamily(one))}><Icon name="edit-2" size="0.9rem" />{m['library.rename']()}<kbd>F2</kbd></button>
 		<button type="button" role="menuitem" onclick={() => run(() => onreplace(one))}><Icon name="repeat" size="0.9rem" />{m['library.replace']()}</button>
 		<button type="button" role="menuitem" onclick={() => run(() => copyPath(one))}><Icon name="copy" size="0.9rem" />{m['library.copy_path']()}</button>
 	{/if}
 	<button type="button" role="menuitem" onclick={() => run(() => downloadFamilies(families))}><Icon name="download" size="0.9rem" />{families.length > 1 ? m['library.download_n']({ count: families.length }) : m['library.download']()}</button>
-	<button type="button" role="menuitem" disabled title={NEEDS.credits()}><Icon name="award" size="0.9rem" />{m['library.credits']()}</button>
 	<hr />
 	<button type="button" role="menuitem" class="danger" onclick={() => run(() => deleteFamilies(families))}><Icon name="trash-2" size="0.9rem" />{families.length > 1 ? m['library.delete_n']({ count: families.length }) : m['library.delete']()}<kbd>Del</kbd></button>
 </div>
