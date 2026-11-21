@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { Section } from '@scutoons/ui/editor';
-	import { inspection, type NodeRef } from '$lib/editor/xr-nodes.ts';
+	import { ScrubNumber, Section } from '@scutoons/ui/editor';
+	import { inspection, type Field, type NodeRef } from '$lib/editor/xr-nodes.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The Inspector tab: what is selected on the stage or in the Tree, as the experience stores it – a node's placement,
-	 * files, light and components with their parameters; a target's place and picture with its entry. Read only so far.
+	 * The Inspector tab: what is selected on the stage or in the Tree, as the experience stores it – a node's name,
+	 * placement, light and each component's parameters as fields (a change shows on the stage at once and is saved a
+	 * moment later); its files, and a target with its entry, read only so far.
 	 */
-	let { configuration, selected }: { configuration: unknown; selected: NodeRef | null } = $props();
+	let { configuration, selected, onedit }: { configuration: unknown; selected: NodeRef | null; onedit: (at: (string | number)[], value: string | number | boolean) => void } = $props();
 
 	const shown = $derived(inspection(configuration, selected));
+	const step = (f: Field) => (f.at.includes('scale') ? 0.01 : f.at.includes('rotation') ? 1 : f.at.includes('position') ? 0.001 : undefined);
 </script>
 
 <div class="inspector" data-testid="experience-inspector">
@@ -17,17 +19,27 @@
 		<p class="sc-empty">{m['creator.experiences_inspector_none']()}</p>
 	{:else}
 		<p class="head"><strong>{shown.title}</strong> <span class="muted">{shown.kind}</span></p>
-		{#each shown.groups as g, i (i)}
+		{#each shown.groups as g, i (`${i}-${g.label}`)}
 			<Section id="xr-inspector-{g.label}" label={g.label} open>
-				<dl>
-					{#each g.fields as f, j (j)}
-						<dt>{f.label}</dt>
-						<dd>{f.value}</dd>
+				<div class="rows">
+					{#each g.fields as f (f.at.join('.'))}
+						{@const id = `xr-${f.at.join('-')}`}
+						<label class="label" for={id}>{f.label}</label>
+						{#if f.kind === 'number'}
+							<ScrubNumber {id} value={f.value as number} label={f.label} step={step(f)} onchange={(v) => v !== undefined && onedit(f.at, v)} testid="xr-field-{f.at.join('.')}" />
+						{:else if f.kind === 'text'}
+							<input {id} type="text" value={f.value} onchange={(e) => onedit(f.at, e.currentTarget.value)} data-testid="xr-field-{f.at.join('.')}" />
+						{:else if f.kind === 'color'}
+							<input {id} type="color" value={f.value} oninput={(e) => onedit(f.at, e.currentTarget.value)} data-testid="xr-field-{f.at.join('.')}" />
+						{:else if f.kind === 'bool'}
+							<input {id} type="checkbox" checked={f.value as boolean} onchange={(e) => onedit(f.at, e.currentTarget.checked)} data-testid="xr-field-{f.at.join('.')}" />
+						{:else}
+							<span {id} class="value">{f.value}</span>
+						{/if}
 					{/each}
-				</dl>
+				</div>
 			</Section>
 		{/each}
-		<p class="muted note">{m['creator.experiences_inspector_read_only']()}</p>
 	{/if}
 </div>
 
@@ -47,23 +59,33 @@
 	.muted {
 		color: var(--editor-muted, var(--text-muted));
 	}
-	dl {
+	.rows {
 		display: grid;
-		grid-template-columns: minmax(5rem, max-content) 1fr;
+		grid-template-columns: minmax(5rem, max-content) minmax(0, 1fr);
+		align-items: center;
 		gap: 0.25rem 0.75rem;
-		margin: 0;
 	}
-	dt {
+	.label {
 		color: var(--editor-muted, var(--text-muted));
+		overflow-wrap: anywhere;
 	}
-	dd {
-		margin: 0;
+	.value {
 		min-width: 0;
 		overflow-wrap: anywhere;
-		font-variant-numeric: tabular-nums;
 	}
-	.note {
-		margin: 0.5rem 0 0;
-		font-size: var(--editor-label, 0.85em);
+	input[type='text'] {
+		min-width: 0;
+		margin: 0;
+	}
+	input[type='checkbox'] {
+		justify-self: start;
+		margin: 0;
+	}
+	input[type='color'] {
+		justify-self: start;
+		margin: 0;
+		inline-size: var(--control-height);
+		block-size: var(--control-height);
+		padding: 0;
 	}
 </style>

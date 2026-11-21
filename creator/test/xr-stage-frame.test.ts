@@ -55,6 +55,14 @@ test('a pick and a selection cross only as a short target id and a small path', 
 	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'select', ref: 'catpope' }), null);
 });
 
+test('an edited entity crosses as an object for one target', () => {
+	const entity = { type: 'group', children: [] };
+	assert.deepEqual(readStageRequest(stageMessage({ kind: 'entity', target: 'catpope', entity })), { kind: 'entity', target: 'catpope', entity });
+	assert.deepEqual(readStageRequest(stageMessage({ kind: 'entity', target: 'catpope', entity: null })), { kind: 'entity', target: 'catpope', entity: null });
+	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'entity', target: 'catpope', entity: [1] }), null);
+	assert.equal(readStageRequest({ tag: 'scutoons-xr-stage', kind: 'entity', target: '', entity }), null);
+});
+
 test('the panel shows loading until the scene runs, and why it failed', () => {
 	const running = stageAfter(STAGE_LOADING, { kind: 'status', status: 'running', message: null });
 	assert.equal(stageAfter(STAGE_LOADING, { kind: 'status', status: 'loading', message: null }).phase, 'loading');

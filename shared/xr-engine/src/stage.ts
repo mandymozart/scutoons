@@ -3,11 +3,13 @@ import { MockTracker } from '../osct/editor/src/lib/stage/mock-tracker';
 import { getPreview, setPreviewActive, subscribePreview, updatePreview } from '../osct/editor/src/lib/stage/preview';
 import { deviceStorage } from '../osct/editor/src/lib/storage';
 import { ArScene } from '../osct/engine/src/scene/index';
+import type { EntityData } from '../osct/engine/src/types';
 import { ArState } from '../osct/engine/src/types/scene';
 import { setDeviceStorage } from '../osct/engine/src/utils/device-storage';
 import { loadExperience, pageProgress } from './load';
 import { stagePicking } from './stage-pick';
 import type * as api from './stage-api';
+import type { XrNodeRef } from './stage-api';
 
 // OSCT's stage as its editor wires it (editor/src/lib/stage/stage-core.svelte.ts), the viewing half only.
 export const openStage: typeof api.openStage = async (container, configuration, plugins, scene, { assetsBase, stageBase, language, handlers }) => {
@@ -51,13 +53,22 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 	// a click (not the end of an orbit drag: the tracker swallows those) picks what lies under the pointer
 	const picking = stagePicking(() => view.inspect(), scene);
 	const planes = () => tracker?.targetPlanes() ?? [];
+	let selected: XrNodeRef | null = null;
 	const onClick = (event: MouseEvent) => handlers.picked(picking.pick(container, event.clientX, event.clientY, planes()));
 	container.addEventListener('click', onClick);
 
 	return {
 		stage: {
 			view: (preset) => updatePreview({ view: preset }),
-			select: (ref) => picking.select(ref, planes()),
+			select: (ref) => {
+				selected = ref;
+				picking.select(ref, planes());
+			},
+			// the engine builds the target's entity anew: the selection's outline goes onto the new objects
+			override: (target, entity) => {
+				view.overrideEntity(target, (entity ?? null) as EntityData | null);
+				picking.select(selected, planes());
+			},
 			dispose: async () => {
 				container.removeEventListener('click', onClick);
 				picking.dispose();

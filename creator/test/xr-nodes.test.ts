@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { entityOf, inspection, nodeAtPath, sameRef, sceneRows } from '../src/lib/editor/xr-nodes.ts';
+import { entityOf, inspection, nodeAtPath, nodeDocPath, sameRef, sceneRows, targetsSharing } from '../src/lib/editor/xr-nodes.ts';
 
 const configuration = {
 	scenes: [{ id: 'poster', surfaces: [{ id: 'a3', label: 'A3' }] }, { id: 'back', surfaces: [] }],
@@ -47,15 +47,40 @@ test('the same node or print', () => {
 	assert.ok(!sameRef({ target: 't', path: [1] }, null));
 });
 
-test('the Inspector shows a node as stored, and a print with its entry', () => {
+test('the Inspector: a node as editable rows, a list of numbers one row per axis, a print read only', () => {
 	const model = inspection(configuration, { target: 'catpope', path: [1] });
 	assert.equal(model?.kind, 'model');
 	assert.deepEqual(model?.groups.map((g) => g.label), ['node', 'placement', 'files', 'reveal']);
-	assert.deepEqual(model?.groups[1].fields, [{ label: 'scale', value: '1.4  1.4  0.84' }]);
-	assert.deepEqual(inspection(configuration, { target: 'catpope', path: [0] })?.groups.map((g) => g.label), ['node', 'placement', 'light']);
+	assert.deepEqual(model?.groups[1].fields, [
+		{ label: 'scale x', kind: 'number', value: 1.4, at: ['params', 'scale', 0] },
+		{ label: 'scale y', kind: 'number', value: 1.4, at: ['params', 'scale', 1] },
+		{ label: 'scale z', kind: 'number', value: 0.84, at: ['params', 'scale', 2] }
+	]);
+	assert.deepEqual(
+		model?.groups[3].fields.map((f) => [f.label, f.kind, f.at.join('.')]),
+		[
+			['look', 'text', 'components.0.look'],
+			['duration', 'number', 'components.0.duration']
+		]
+	);
+	assert.equal(model?.groups[2].fields[0].kind, 'readonly');
+	const light = inspection(configuration, { target: 'catpope', path: [0] });
+	assert.deepEqual(light?.groups.map((g) => g.label), ['node', 'placement', 'light']);
+	assert.deepEqual(light?.groups[0].fields[1], { label: 'name', kind: 'text', value: 'key', at: ['name'] });
 	const print = inspection(configuration, { target: 'catpope', path: null });
 	assert.equal(print?.kind, 'target');
-	assert.ok(print?.groups[0].fields.some((f) => f.label === 'entity' && f.value === 'overlay'));
+	assert.ok(print?.groups.every((g) => g.fields.every((f) => f.kind === 'readonly')));
 	assert.equal(inspection(configuration, { target: 'nobody', path: [] }), null);
 	assert.equal(inspection(configuration, null), null);
+});
+
+test('a node lives in the shared entity or in the target own; every target of a shared entity changes with it', () => {
+	assert.deepEqual(nodeDocPath(configuration, { target: 'catpope', path: [1] }), ['configuration', 'entities', 'overlay', 'children', 1]);
+	assert.deepEqual(nodeDocPath(configuration, { target: 'note', path: [] }), ['configuration', 'entries', 1, 'target', 'entity']);
+	assert.equal(nodeDocPath(configuration, { target: 'catpope', path: [9] }), null);
+	assert.equal(nodeDocPath(configuration, { target: 'catpope', path: null }), null);
+	const two = { ...configuration, entries: [...configuration.entries, { id: 'b', scene: 'back', target: { id: 'second', entity: { ref: 'overlay' } } }] };
+	assert.deepEqual(targetsSharing(two, 'catpope'), ['catpope', 'second']);
+	assert.deepEqual(targetsSharing(two, 'note'), ['note']);
+	assert.deepEqual(targetsSharing(two, 'nobody'), []);
 });

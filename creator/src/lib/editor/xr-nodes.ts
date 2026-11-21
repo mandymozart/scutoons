@@ -83,30 +83,44 @@ export function sceneRows(configuration: unknown, scene: string, folded: Readonl
 	return rows;
 }
 
+export type FieldKind = 'number' | 'text' | 'bool' | 'color' | 'readonly';
+
+/** one row of the Inspector: `at` is the value's path inside the node (or the target / entry when read only) */
 export interface Field {
 	label: string;
-	value: string;
+	kind: FieldKind;
+	value: string | number | boolean;
+	at: (string | number)[];
 }
 export interface Group {
 	label: string;
 	fields: Field[];
 }
 
-const show = (v: unknown): string => {
-	if (v === null || v === undefined) return '';
-	if (typeof v === 'number') return String(Math.round(v * 10000) / 10000);
-	if (Array.isArray(v) && v.every((x) => typeof x === 'number')) return v.map(show).join('  ');
-	if (typeof v === 'object') return JSON.stringify(v);
-	return String(v);
-};
-const fieldsOf = (o: Obj | null, skip: readonly string[] = []): Field[] =>
-	Object.entries(o ?? {})
+const AXES = ['x', 'y', 'z', 'w'];
+const COLOR = /^#[0-9a-f]{6}$/i;
+const round = (v: number) => Math.round(v * 10000) / 10000;
+const shown = (v: unknown): string => (v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+
+/** a value's rows: numbers, words, switches and colours can be edited; a list of numbers is one row per axis; anything else is shown */
+function fieldsOf(o: Obj | null, base: (string | number)[], skip: readonly string[] = [], editable = true): Field[] {
+	return Object.entries(o ?? {})
 		.filter(([k]) => !skip.includes(k))
-		.map(([label, value]) => ({ label, value: show(value) }));
+		.flatMap(([label, value]): Field[] => {
+			const at = [...base, label];
+			if (!editable) return [{ label, kind: 'readonly', value: shown(value), at }];
+			if (typeof value === 'number') return [{ label, kind: 'number', value: round(value), at }];
+			if (typeof value === 'boolean') return [{ label, kind: 'bool', value, at }];
+			if (typeof value === 'string') return [{ label, kind: COLOR.test(value) ? 'color' : 'text', value, at }];
+			if (Array.isArray(value) && value.length && value.length <= 4 && value.every((x) => typeof x === 'number'))
+				return value.map((x: number, i) => ({ label: `${label} ${AXES[i]}`, kind: 'number' as const, value: round(x), at: [...at, i] }));
+			return [{ label, kind: 'readonly', value: shown(value), at }];
+		});
+}
 
 /**
- * What the Inspector shows of a selection, as it is stored: a node's placement, its files, a light's values, each
- * component with its parameters; a target's place and picture with its entry's facts. Empty: nothing found.
+ * What the Inspector shows of a selection, as it is stored: a node's name, placement, files, a light's values, each
+ * component with its parameters (editable); a target's place and picture with its entry (read only for now).
  */
 export function inspection(configuration: unknown, ref: NodeRef | null): { title: string; kind: string; groups: Group[] } | null {
 	if (!ref) return null;
@@ -115,22 +129,70 @@ export function inspection(configuration: unknown, ref: NodeRef | null): { title
 	const target = obj(entry?.target);
 	if (!entry || !target) return null;
 	if (ref.path === null) {
+		const shared = str(obj(target.entity)?.ref);
 		const groups: Group[] = [
-			{ label: 'target', fields: [{ label: 'id', value: ref.target }, { label: 'imageSrc', value: str(target.imageSrc) }, ...fieldsOf(obj(target.place)), ...(str(obj(target.entity)?.ref) ? [{ label: 'entity', value: str(obj(target.entity)?.ref) }] : [])] },
-			{ label: 'entry', fields: fieldsOf(entry, ['target']) }
+			{
+				label: 'target',
+				fields: [
+					{ label: 'id', kind: 'readonly', value: ref.target, at: ['id'] },
+					{ label: 'imageSrc', kind: 'readonly', value: str(target.imageSrc), at: ['imageSrc'] },
+					...fieldsOf(obj(target.place), ['place'], [], false),
+					...(shared ? [{ label: 'entity', kind: 'readonly' as const, value: shared, at: ['entity'] }] : [])
+				]
+			},
+			{ label: 'entry', fields: fieldsOf(entry, [], ['target'], false) }
 		];
 		return { title: ref.target, kind: 'target', groups };
 	}
 	const node = nodeAtPath(entityOf(c, target), ref.path);
 	if (!node) return null;
-	const groups: Group[] = [{ label: 'node', fields: [{ label: 'type', value: str(node.type) }, { label: 'name', value: str(node.name) }] }];
-	const params = obj(node.params);
-	if (params) groups.push({ label: 'placement', fields: fieldsOf(params) });
+	const groups: Group[] = [
+		{
+			label: 'node',
+			fields: [
+				{ label: 'type', kind: 'readonly', value: str(node.type), at: ['type'] },
+				{ label: 'name', kind: 'text', value: str(node.name), at: ['name'] }
+			]
+		}
+	];
+	if (obj(node.params)) groups.push({ label: 'placement', fields: fieldsOf(obj(node.params), ['params']) });
 	const files = list(node.assets).map(obj).filter((a): a is Obj => !!a);
-	if (files.length) groups.push({ label: 'files', fields: files.map((a) => ({ label: str(a.assetType) || str(a.id), value: str(a.src) })) });
-	if (obj(node.light)) groups.push({ label: 'light', fields: fieldsOf(obj(node.light)) });
-	for (const component of list(node.components).map(obj).filter((x): x is Obj => !!x)) groups.push({ label: str(component.type) || 'component', fields: fieldsOf(component, ['type']) });
-	const other = fieldsOf(node, ['type', 'name', 'params', 'assets', 'light', 'components', 'children']);
+	if (files.length) groups.push({ label: 'files', fields: files.map((a, i) => ({ label: str(a.assetType) || str(a.id), kind: 'readonly' as const, value: str(a.src), at: ['assets', i, 'src'] })) });
+	if (obj(node.light)) groups.push({ label: 'light', fields: fieldsOf(obj(node.light), ['light']) });
+	list(node.components).forEach((component, i) => {
+		const o = obj(component);
+		if (o) groups.push({ label: str(o.type) || 'component', fields: fieldsOf(o, ['components', i], ['type']) });
+	});
+	const other = fieldsOf(node, [], ['type', 'name', 'params', 'assets', 'light', 'components', 'children'], false);
 	if (other.length) groups.push({ label: 'more', fields: other });
 	return { title: nodeName(node), kind: str(node.type), groups };
+}
+
+/**
+ * Where a node lives in the experience's document: in the shared entity the target refers to (every target that shows
+ * it changes with it) or in the target's own entity. Null: no such node.
+ */
+export function nodeDocPath(configuration: unknown, ref: NodeRef): (string | number)[] | null {
+	if (ref.path === null) return null;
+	const c = obj(configuration) ?? {};
+	const entries = list(c.entries).map(obj);
+	const index = entries.findIndex((e) => str(obj(e?.target)?.id) === ref.target);
+	const target = obj(entries[index]?.target);
+	if (index < 0 || !target || !nodeAtPath(entityOf(c, target), ref.path)) return null;
+	const shared = str(obj(target.entity)?.ref);
+	const root: (string | number)[] = shared ? ['configuration', 'entities', shared] : ['configuration', 'entries', index, 'target', 'entity'];
+	return [...root, ...ref.path.flatMap((i) => ['children', i])];
+}
+
+/** the targets whose entity is the same tree as this one's (a shared entity: all that refer to it) */
+export function targetsSharing(configuration: unknown, target: string): string[] {
+	const c = obj(configuration) ?? {};
+	const entries = list(c.entries).map(obj);
+	const own = obj(entries.find((e) => str(obj(e?.target)?.id) === target)?.target);
+	const shared = str(obj(own?.entity)?.ref);
+	if (!shared) return own ? [target] : [];
+	return entries.flatMap((e) => {
+		const t = obj(e?.target);
+		return t && str(obj(t.entity)?.ref) === shared ? [str(t.id)] : [];
+	});
 }

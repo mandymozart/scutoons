@@ -5,7 +5,7 @@
 	import { publishMany } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
-	import type { NodeRef } from '$lib/editor/xr-nodes.ts';
+	import { entityOf, nodeDocPath, targetsSharing, type NodeRef } from '$lib/editor/xr-nodes.ts';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
@@ -39,6 +39,9 @@
 	let busy = $state(false);
 	/** the one selection: the Tree, the stage and the Inspector share it */
 	let selected = $state.raw<NodeRef | null>(null);
+	/** the last edit's trees for the stage (each target whose entity changed) */
+	let edited = $state.raw<{ at: number; trees: Record<string, object> } | null>(null);
+	let saveTimer = 0;
 
 	$effect(() => {
 		const current = id;
@@ -46,6 +49,7 @@
 			problems = [];
 			picked = '';
 			selected = null;
+			edited = null;
 			doc = current ? neutralDoc(experienceKey(current)) : null;
 			void doc?.load();
 		});
@@ -86,8 +90,74 @@
 		await open.load();
 	}
 
+	/**
+	 * An Inspector field changed: the document takes it (one undo step per field, ContentDoc), the stage shows every
+	 * target of the edited entity at once, and the draft is saved a moment after the last change (autosave, #760).
+	 */
+	function onedit(at: (string | number)[], value: string | number | boolean) {
+		const ref = selected;
+		const node = ref ? nodeDocPath(configuration, ref) : null;
+		if (!doc || !ref || !node) return;
+		doc.set([...node, ...at], value);
+		showEdits(ref.target);
+		scheduleSave();
+	}
+
+	function showEdits(target: string) {
+		const now = (content as { configuration?: unknown } | null)?.configuration;
+		const entries = ((now as { entries?: { target?: { id?: string } }[] } | undefined)?.entries ?? []).map((e) => e.target);
+		const trees: Record<string, object> = {};
+		for (const id of targetsSharing(now, target)) {
+			const tree = entityOf(now, entries.find((t) => t?.id === id));
+			if (tree) trees[id] = $state.snapshot(tree) as object;
+		}
+		edited = { at: Date.now(), trees };
+	}
+
+	function scheduleSave() {
+		window.clearTimeout(saveTimer);
+		saveTimer = window.setTimeout(() => void save(), 1200);
+	}
+
+	/** one save at a time: a change during a save is saved right after it (two at once would refuse each other, 409) */
+	let inFlight = false;
+	let again = false;
+	async function save() {
+		window.clearTimeout(saveTimer);
+		saveTimer = 0;
+		if (inFlight) return void (again = true);
+		if (!doc?.dirty) return;
+		inFlight = true;
+		try {
+			await doc.save(m['creator.experiences_saved_by_editor']());
+			problems = [];
+		} catch (e) {
+			problems = [e instanceof Error ? e.message : String(e)];
+		} finally {
+			inFlight = false;
+			if (again) {
+				again = false;
+				void save();
+			}
+		}
+	}
+
+	function step(back: boolean) {
+		if (!doc) return;
+		if (back) doc.undo();
+		else doc.redo();
+		if (selected) showEdits(selected.target);
+		scheduleSave();
+	}
+	$effect(() => () => {
+		// leaving: what is not saved yet goes now
+		if (saveTimer) void save();
+	});
+
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
-	usePageDoc(() => (doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length } : null));
+	usePageDoc(() =>
+		doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length, dirty: doc.dirty, saving: doc.saving, save: () => void save(), undo: () => step(true), redo: () => step(false) } : null
+	);
 	useTabs(() => ({ tree: facts ? tree : null, inspector: facts ? inspector : null, experience: facts ? meta : null, scenes: facts && scenes.length ? strip : null }));
 </script>
 
@@ -103,7 +173,7 @@
 {/snippet}
 
 {#snippet inspector()}
-	<ExperienceInspector {configuration} {selected} />
+	<ExperienceInspector {configuration} {selected} {onedit} />
 {/snippet}
 
 {#snippet meta()}
@@ -116,7 +186,7 @@
 
 <div class="xr-workspace" data-testid="experience-workspace">
 	{#if facts && scene}
-		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} bind:shown />
+		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} {edited} bind:shown />
 	{:else}
 		<div class="empty">
 			{#if !id}

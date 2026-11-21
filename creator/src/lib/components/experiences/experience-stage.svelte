@@ -18,8 +18,20 @@
 		run,
 		selected,
 		onpick,
+		edited,
 		shown = $bindable(STAGE_LOADING)
-	}: { content: unknown; assets: string; scene: string; view: StageView; run: number; selected: StageRef | null; onpick: (ref: StageRef | null) => void; shown?: StageShown } = $props();
+	}: {
+		content: unknown;
+		assets: string;
+		scene: string;
+		view: StageView;
+		run: number;
+		selected: StageRef | null;
+		onpick: (ref: StageRef | null) => void;
+		/** the last edit: the targets whose entity changed, with their trees as they are now */
+		edited: { at: number; trees: Record<string, object> } | null;
+		shown?: StageShown;
+	} = $props();
 
 	let frame = $state<HTMLIFrameElement>();
 
@@ -40,6 +52,11 @@
 	$effect(() => {
 		const next = view;
 		if (shown.phase === 'playing') frame?.contentWindow?.postMessage(stageMessage({ kind: 'view', view: next }), '*');
+	});
+	$effect(() => {
+		const edit = edited;
+		if (!edit || shown.phase !== 'playing') return;
+		for (const [target, entity] of Object.entries(edit.trees)) frame?.contentWindow?.postMessage(stageMessage({ kind: 'entity', target, entity }), '*');
 	});
 	$effect(() => {
 		const ref = selected ? { target: selected.target, path: selected.path ? [...selected.path] : null } : null;

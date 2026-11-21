@@ -31,7 +31,9 @@ export interface StagePlugin {
 export type StageRequest =
 	| { kind: 'open'; configuration: object; plugins: StagePlugin[]; scene: string; assets: string; language: string }
 	| { kind: 'view'; view: StageView }
-	| { kind: 'select'; ref: StageRef | null };
+	| { kind: 'select'; ref: StageRef | null }
+	/** a target's entity with edited values, shown at once (null: as the configuration has it) */
+	| { kind: 'entity'; target: string; entity: object | null };
 
 /** frame → page */
 export type StageEvent =
@@ -78,6 +80,11 @@ export function readStageRequest(data: unknown): StageRequest | null {
 	const d = tagged(data);
 	if (!d) return null;
 	if (d.kind === 'view') return STAGE_VIEWS.includes(d.view as StageView) ? { kind: 'view', view: d.view as StageView } : null;
+	if (d.kind === 'entity') {
+		if (typeof d.target !== 'string' || !d.target || d.target.length > 200) return null;
+		if (d.entity === null) return { kind: 'entity', target: d.target, entity: null };
+		return d.entity && typeof d.entity === 'object' && !Array.isArray(d.entity) ? { kind: 'entity', target: d.target, entity: d.entity } : null;
+	}
 	if (d.kind === 'select') {
 		const ref = refOf(d.ref);
 		return ref === undefined ? null : { kind: 'select', ref };

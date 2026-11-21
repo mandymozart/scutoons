@@ -1,12 +1,15 @@
 # decisions/xr — XR: experiences, the reader's XR mode, the XR editor in the creator
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[xr]` 41 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
+Keys here: `[xr]` 44 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
 
 Opened 2026-11-10 by the XR session (#482). The ten `[xr]` lines before it, all of 2026-11-10, stay where they were written:
 `grep -n '\[xr\]' agents/decisions/deck.md` (summary: research/XR.md §5). From here on every XR statement of the owner goes into this file.
 
 ## 2026-11
+- 2026-11-21 · platform · [xr] **Next in the XR workspace: editing in the Inspector.** Built the same day: a node's name, placement, light and component parameters are fields; a change shows on the stage at once (every target of a shared entity) and is saved as a draft a moment later (autosave, as #760 wants); undo / redo in the bar. Owner, asked what next after the stage picking: *"Yes, editing"* · → #482
+- 2026-11-21 · platform · [xr] **The wire ideas belong to OSCT's Logic view; relayed to its session.** Owner: *"send the wires idea to the osct session. i need it to be done there. was my mistake to write it here"* · → #482, #763
+- 2026-11-21 · platform · [xr] **Stage picking fixed.** Owner: *"Fix stage picking"* · → #482, research/XR.md §10.8
 - 2026-11-21 · platform · [xr] **The Tree is the scene's tree, nothing else.** On the first slice's Tree (contents, shared entities, plugins): only what makes up the scene belongs there – surfaces, entries, targets, the entity's nodes. Built the same day: the Tree is an outliner of the open scene; a target that shows a shared entity names it on its row; the plugins moved to the Experience tab. (Asked what "shared entities" are: an entity defined once in the experience and shown by several targets – the target refers to it by name.) Owner: *"btw, this view is a bit confusing, why do we list so much stuff that somehow has nothing much to do with the tree of the scene?"* · *"whats the shared entities?"* · → #482
 - 2026-11-21 · platform · [xr] **Thought aloud: eventually everything can be opened from the Library, each asset in its own workspace, as the deck editor does it.** Said on the Library's "Items to open"; a matter of the Library (#752, the redesign), passed to its session. Owner: *"under “Items to open” eventually everything can be opened. each asset in its respecitive workspace. see hoch deck editor is handling this."* · → #482, #752
 - 2026-11-21 · platform · [xr] **Follow OSCT's editor closely: its tabs and views are ahead in usability for XR.** The owner keeps improving them in OSCT; the XR workspace takes them from there (the copy follows OSCT's newer commits, the Tree and the Inspector start from OSCT's current ones). Owner: *"follow the updates i am doing to all those tabs and view in osct closely. its a head a this point in terms of useability for xr. so ther eis some good input."* · → #482

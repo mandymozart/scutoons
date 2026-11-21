@@ -40,6 +40,8 @@ export interface XrStage {
 	view(view: XrStageView): void;
 	/** outline this node or print on the stage (null: nothing selected) */
 	select(ref: XrNodeRef | null): void;
+	/** show a target's entity with these values (a live edit); null: as the configuration has it */
+	override(target: string, entity: unknown): void;
 	dispose(): Promise<void>;
 }
 

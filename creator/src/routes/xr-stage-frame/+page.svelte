@@ -50,6 +50,7 @@
 			const request = readStageRequest(event.data);
 			if (request?.kind === 'view') stage?.view(request.view);
 			else if (request?.kind === 'select') stage?.select(request.ref);
+			else if (request?.kind === 'entity') stage?.override(request.target, request.entity);
 			else if (request?.kind === 'open' && !asked) {
 				asked = true;
 				void open(request);
