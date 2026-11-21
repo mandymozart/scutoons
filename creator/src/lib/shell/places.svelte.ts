@@ -21,7 +21,7 @@ export interface Place {
 }
 
 /**
- * What the existing APIs give to open: the areas (characters, moods, wanted, the map, scenes, the flow, the catalog's
+ * What the existing APIs give to open: the areas (characters, wanted, the map, scenes, the flow, the catalog's
  * kinds, the guide) and every toon with its seasons and chapters (its content index, read once per toon on demand).
  */
 class Places {
@@ -47,7 +47,6 @@ class Places {
 		const area = (address: string, label: string, keywords: string): Place => ({ address, label, href: hrefOf(address)!, icon: iconOf(address), keywords, group: 'area' });
 		return [
 			area(AREAS.characters, m['creator.characters'](), 'characters figuren'),
-			area(AREAS.moods, m['creator.characters_moods'](), 'moods'),
 			area(AREAS.wanted, m['creator.characters_wanted'](), 'wanted images'),
 			area(AREAS.map, m['creator.map'](), 'map karte places'),
 			area(AREAS.scenes, m['creator.scenes'](), 'scenes szenen deck'),

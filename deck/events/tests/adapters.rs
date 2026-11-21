@@ -1,6 +1,6 @@
 //! The adapters (EVENTS.md §12): the story's events (no TypeScript copy any more, #377; shared/live-deck/test/fixtures/
 //! events.json is written from here and a stale file fails), the relay's moments, raw MIDI, the big-payload guard.
-use deck_events::adapters::midi::{hz, Midi};
+use deck_events::adapters::midi::{hz, Midi, Recorder, NOTE_OFF};
 use deck_events::adapters::relay::{self, RelayClock};
 use deck_events::adapters::story::from_story;
 use deck_events::adapters::{to_json, AdapterError};
@@ -132,18 +132,20 @@ fn a_cue_carries_its_actions_as_children() {
 }
 
 #[test]
-fn midi_note_on_and_off_become_one_note_with_a_duration() {
+fn midi_key_down_is_a_held_note_and_key_up_its_off() {
     let mut n = Names::new();
-    let mut m = Midi::new(&mut n, Some("midi:keys"));
+    let mut m = Midi::new(&mut n, Some("midi:keys"), 1);
     let mut out = Vec::new();
     assert!(m.feed(&[0x91, 69, 127], 1.0, &mut out));
-    assert!(out.is_empty(), "a note is born when it ends");
+    let on = &out[0];
+    assert_eq!((n.name(on.name), on.start, on.dur), ("midi.note", Time::Seconds(1.0), None), "a key down plays at once, held");
+    let p = |e: &deck_events::Event, k: &str| e.props.get(n.get(k).unwrap()).unwrap();
+    assert_eq!((p(on, "pitch"), p(on, "vel"), p(on, "note"), p(on, "ch"), p(on, "port")), (440.0, 1.0, 69.0, 1.0, 1.0));
+    assert_eq!(on.source.as_deref(), Some("midi:keys"));
     assert!(m.feed(&[0x81, 69, 0], 1.75, &mut out));
-    let e = &out[0];
-    assert_eq!((n.name(e.name), e.start, e.dur), ("midi.note", Time::Seconds(1.0), Some(Time::Seconds(0.75))));
-    let p = |k: &str| e.props.get(n.get(k).unwrap()).unwrap();
-    assert_eq!((p("pitch"), p("vel"), p("note"), p("ch")), (440.0, 1.0, 69.0, 1.0));
-    assert_eq!(e.source.as_deref(), Some("midi:keys"));
+    let off = &out[1];
+    assert_eq!((n.name(off.name), off.start, off.dur), (NOTE_OFF, Time::Seconds(1.75), None));
+    assert_eq!((p(off, "note"), p(off, "ch"), p(off, "port")), (69.0, 1.0, 1.0));
     assert!((hz(60) - 261.6256).abs() < 1e-3);
 
     // note on with velocity 0 is an off; an off without an on is ignored (consumed, no event)
@@ -151,23 +153,48 @@ fn midi_note_on_and_off_become_one_note_with_a_duration() {
     m.feed(&[0x90, 60, 64], 2.0, &mut out);
     m.feed(&[0x90, 60, 0], 2.5, &mut out);
     assert!(m.feed(&[0x80, 60, 0], 3.0, &mut out));
-    assert_eq!(out.len(), 1);
+    assert_eq!(out.iter().map(|e| n.name(e.name)).collect::<Vec<_>>(), ["midi.note", NOTE_OFF]);
     assert_eq!(out[0].props.get(n.get("vel").unwrap()), Some(64.0 / 127.0));
+}
+
+#[test]
+fn the_recorder_makes_the_live_stream_one_note_with_a_duration() {
+    let mut n = Names::new();
+    let mut m = Midi::new(&mut n, Some("midi:keys"), 2);
+    let mut rec = Recorder::new(&mut n);
+    let (mut live, mut recorded) = (Vec::new(), Vec::new());
+    m.feed(&[0x91, 69, 127], 1.0, &mut live);
+    m.feed(&[0x91, 72, 100], 1.25, &mut live);
+    m.feed(&[0x81, 69, 0], 1.75, &mut live);
+    for e in &live {
+        assert!(rec.take(e, &mut recorded));
+    }
+    assert_eq!(recorded.len(), 1, "a note is recorded when it ends");
+    let e = &recorded[0];
+    assert_eq!((n.name(e.name), e.start, e.dur), ("midi.note", Time::Seconds(1.0), Some(Time::Seconds(0.75))));
+    let p = |k: &str| e.props.get(n.get(k).unwrap()).unwrap();
+    assert_eq!((p("pitch"), p("vel"), p("note"), p("ch"), p("port")), (440.0, 1.0, 69.0, 1.0, 2.0));
+    assert_eq!(e.source.as_deref(), Some("midi:keys"));
+    rec.end_all(Time::Seconds(2.0), &mut recorded);
+    assert_eq!(recorded[1].dur, Some(Time::Seconds(0.75)), "the one still held ends at the end");
+    let done = recorded[1].clone();
+    assert!(!rec.take(&done, &mut recorded), "a recorded note is no live event");
 }
 
 #[test]
 fn midi_retrigger_release_cc_and_the_rest() {
     let mut n = Names::new();
-    let mut m = Midi::new(&mut n, None);
+    let mut m = Midi::new(&mut n, None, 1);
     let mut out = Vec::new();
+    let names = |out: &[deck_events::Event], n: &Names| out.iter().map(|e| n.name(e.name).to_string()).collect::<Vec<_>>();
     m.feed(&[0x90, 50, 100], 0.0, &mut out);
     m.feed(&[0x90, 50, 90], 1.0, &mut out);
-    assert_eq!((out.len(), out[0].dur), (1, Some(Time::Seconds(1.0))), "struck again: the first ends there");
+    assert_eq!(names(&out, &n), ["midi.note", NOTE_OFF, "midi.note"], "struck again: the first ends there");
     m.feed(&[0x90, 52, 80], 1.5, &mut out);
     m.release_all(2.0, &mut out);
-    assert_eq!(out.len(), 3, "the two held notes end");
+    assert_eq!(names(&out[4..], &n), [NOTE_OFF, NOTE_OFF], "the two held notes end");
     m.release_all(3.0, &mut out);
-    assert_eq!(out.len(), 3, "nothing is held any more");
+    assert_eq!(out.len(), 6, "nothing is held any more");
 
     out.clear();
     assert!(m.feed(&[0xB2, 7, 127], 4.0, &mut out));

@@ -1313,6 +1313,7 @@ name = "deck-headless"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-events",
  "deck-show",
  "deck-space",
  "deck-ui",

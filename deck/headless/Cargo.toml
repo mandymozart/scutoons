@@ -29,6 +29,8 @@ deck-space = { path = "../space", default-features = false, features = ["being"]
 deck-ui = { path = "../ui" }
 # #467: the show's conductor fires a show document's rows at this deck (the `show` / `fire` / `go` steps) – its cells
 deck-show = { path = "../show" }
+# #734: the MIDI adapter and its recorded form (the `midi_notes` step)
+deck-events = { path = "../events" }
 protocol = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true

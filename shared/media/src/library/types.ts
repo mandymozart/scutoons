@@ -71,6 +71,13 @@ export interface LibraryContext {
 	uses: LibraryUse[];
 	/** (main file, part file) links read from documents: frames */
 	links?: [string, string][];
+	/** the casts the places offer as a facet: a toon season's (`season:catpope:1`) characters */
+	casts?: LibraryCast[];
+}
+
+export interface LibraryCast {
+	address: string;
+	characters: string[];
 }
 
 /** what a slot takes */
@@ -85,7 +92,7 @@ export interface LibraryQuery {
 	sort: LibrarySort;
 	query: string;
 	kind: LibraryKind | null;
-	/** `recent`, `credits`, `missing` or `item:<address>` */
+	/** `recent`, `credits`, `missing`, `item:<address>` or `cast:<address>` */
 	special: string | null;
 	origin: LibraryOrigin | null;
 	fit: SlotFit | null;
@@ -114,7 +121,7 @@ export interface LibraryGroup {
 export interface LibraryView {
 	scopes: Record<LibraryScope, number>;
 	kinds: [LibraryKind, number][];
-	specials: { recent: number; credits: number | null; missing: number; items: [string, number][] };
+	specials: { recent: number; credits: number | null; missing: number; items: [string, number][]; casts: [string, number][] };
 	origins: [LibraryOrigin, number][];
 	groups: LibraryGroup[];
 	order: string[];

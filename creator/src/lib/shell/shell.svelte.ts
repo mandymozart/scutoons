@@ -1,4 +1,4 @@
-import type { Snippet } from 'svelte';
+import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
@@ -47,7 +47,9 @@ class Shell {
 	settings = $state<MachineSettings>(typeof localStorage === 'undefined' ? DEFAULTS : readSettings(readJson(SETTINGS_KEY)));
 	/** the front page's document (null: the page saves on its own, or has nothing to save) */
 	doc = $state.raw<PageDoc | null>(null);
-	/** asked by a menu line or ＋: a panel to open in the front workspace (the workspace takes it and clears it) */
+	/** the panel tabs the front page draws (the character's Inspector, its Moods …), by tab id (lib/shell/panels.ts) */
+	lent = $state.raw<Record<string, Snippet>>({});
+	/** asked by a menu line or ＋: a panel – or a panel tab – to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
 	/** a panel of the front workspace to open or close (the main menu's list) */
 	toggled = $state<string | null>(null);
@@ -55,8 +57,9 @@ class Shell {
 	panels = $state<{ id: string; name: string; open: boolean }[]>([]);
 	/** the front workspace's layout back to its defaults */
 	resetAsked = $state(false);
-	/** what the open panels at the walls and the page's bottom bar take (rem): the page host gives way */
-	insets = $state({ left: 0, right: 0, bottom: 0 });
+	/** what the open panels at the walls and the page's bottom bar take (rem): the page host gives way; `foot` = a strip
+	 *  panel along the bottom, over the page (`--ws-foot` for a background that keeps it clear) */
+	insets = $state({ left: 0, right: 0, bottom: 0, foot: 0 });
 
 	readonly front = $derived(frontTab(this.state));
 
@@ -101,6 +104,23 @@ class Shell {
 }
 
 export const shell = shared('creator-shell', () => new Shell());
+
+/**
+ * A page or a part of it draws these panel tabs while it is mounted (call during component init); a missing one is not
+ * offered. Several parts may lend: each takes back only its own.
+ */
+export function useLentPanels(tabs: () => Record<string, Snippet | null | undefined>) {
+	$effect(() => {
+		const mine = Object.entries(tabs()).filter((e): e is [string, Snippet] => !!e[1]);
+		untrack(() => (shell.lent = { ...shell.lent, ...Object.fromEntries(mine) }));
+		return () =>
+			untrack(() => {
+				const next = { ...shell.lent };
+				for (const [id, snippet] of mine) if (next[id] === snippet) delete next[id];
+				shell.lent = next;
+			});
+	});
+}
 
 /** The page hands its document to the shell while it is mounted (call during component init) */
 export function usePageDoc(doc: () => PageDoc | null) {

@@ -14,6 +14,7 @@
 		personaIds,
 		pickText,
 		findPersona,
+		castSeasons,
 		searchCharacters,
 		validateAssetRequests,
 		validateFile,
@@ -27,11 +28,12 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { CloseIcon, Icon, type GroupBarItem } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
 		castDoc,
+		castWithStar,
 		castOf,
 		characterLanguages,
 		edit,
@@ -50,21 +52,23 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { library } from '$lib/editor/library.svelte.ts';
+	import { useLentPanels } from '$lib/shell/shell.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import CharacterEditor from '$lib/components/characters/character-editor.svelte';
 	import CharacterCards from '$lib/components/characters/character-cards.svelte';
 	import AreaTabs from '$lib/components/characters/character-area-tabs.svelte';
-	import type { InspectorTab } from '$lib/components/characters/character-inspector.svelte';
+	import CharacterTree from '$lib/components/characters/character-tree.svelte';
 	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import { mapDoc, mapOf, mapPlaces } from '$lib/editor/map.ts';
 
 	/**
-	 * The global Characters page (research/CHARACTER-PAGE.md E + K3, owner 2026-10-20): the area's tabs Characters ·
-	 * Moods · Wanted images; Characters = the registry (entity `characters`) as cards (search, toon filter, missing
-	 * images) – a card opens the character's editor (CharacterEditor: face rows, stage, inspector). Casts of every toon
-	 * are read for "appears in", the filters and the validation.
+	 * The Characters area: the registry (entity `characters`) as cards (search, toon filter, missing images) with the
+	 * Wanted images beside it; a card opens the character's workspace (CharacterEditor) with the characters as the Tree.
+	 * Every toon's cast is read for "appears in", the filters, the Library's cast facet and the validation – and edited in
+	 * a character's Links (saved with the page). The mood words are the Moods panel's Vocabulary tab.
 	 */
 	const registry = registryDoc();
 	const moods = moodsDoc();
@@ -91,7 +95,7 @@
 	});
 	let persona = $state<string>(params.get('persona') ?? REGULAR_PERSONA);
 	let look = $state<string>(params.get('look') ?? '');
-	let tab = $state<string>(['moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters');
+	let tab = $state<string>(params.get('tab') === 'wanted' ? 'wanted' : 'characters');
 	let query = $state('');
 	let toonFilter = $state<string>(params.get('toon') ?? '');
 	let missingOnly = $state(false);
@@ -113,6 +117,16 @@
 		castDocs = loaded;
 		closeArrivedRequests();
 	});
+	// the Library's cast facet: every toon season's characters
+	$effect(() => {
+		const list = Object.entries(casts).flatMap(([toon, cast]) => castSeasons(cast).map((s) => ({ address: entities.season(toon, s), characters: (cast?.seasons[String(s)] ?? []).map((e) => e.character) })));
+		untrack(() => library.setCasts(list));
+		return () => untrack(() => library.setCasts([]));
+	});
+	/** a cast edited in Links keeps its toon's star in every season */
+	function beforeSave() {
+		for (const [toon, doc] of Object.entries(castDocs)) if (doc.dirty) castWithStar(doc, registry, toon, castSeasons(castOf(doc)));
+	}
 
 	/** open requests whose file is now at the convention path are done (a draft edit of the wanted images) */
 	async function closeArrivedRequests() {
@@ -250,10 +264,13 @@
 
 	/** the toons a character is in: its own + the casts, each once */
 	const toonsOf = (c: RegistryCharacter) => [...new Set([c.own_toon, ...castsOf(c.id, casts)].filter((t): t is string => !!t))];
-	// the selected character is the deepest crumb (Creator / Characters / <name>)
+	// the selected character is the deepest crumb (Creator / Characters / <name>); an open one lists the others as the Tree
 	usePageNav({
 		get fill() {
 			return !!selectedCharacter;
+		},
+		get sidebar() {
+			return selectedCharacter ? tree : undefined;
 		},
 		extra: () => {
 			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
@@ -263,7 +280,7 @@
 	// URL → state (the Universe links in the sidebar, crumbs, back / forward); the effect below mirrors state → URL
 	$effect(() => {
 		const params = page.url.searchParams;
-		const nextTab = ['moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters';
+		const nextTab = params.get('tab') === 'wanted' ? 'wanted' : 'characters';
 		const nextId = params.get('id');
 		untrack(() => {
 			if (nextTab !== tab) tab = nextTab;
@@ -271,61 +288,37 @@
 			if ((nextId ?? '') !== selected && (nextId !== null || nextTab === 'characters')) selected = nextId ?? '';
 		});
 	});
-	// an open character is the selection: its inspector tabs, every mood, Delete in the Publish panel
-	let detail = $state<ReturnType<typeof CharacterEditor>>();
-	let inspectorTab = $state<InspectorTab>('profile');
-	let grid = $state(false);
 	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
-	const tabItem = (id: InspectorTab, icon: string, label: string): GroupBarItem => ({ id, icon, label, active: inspectorTab === id, run: () => (inspectorTab = id), testid: `sel-${id}` });
-	const selectionActions = $derived(
-		selectedCharacter
-			? {
-					label: shownCharacterName(selectedCharacter) || selectedCharacter.id,
-					items: [
-						tabItem('profile', 'user', m['creator.characters_tab_profile']()),
-						tabItem('kanon', 'file-text', m['creator.kanon']()),
-						tabItem('model', 'box', m['creator.characters_tab_model']()),
-						tabItem('wanted', 'inbox', m['creator.characters_wanted']()),
-						tabItem('prompts', 'sparkles', m['creator.prompts_title']()),
-						{ id: 'grid', icon: 'grid', label: m['creator.characters_all_moods'](), active: grid, run: () => (grid = !grid), testid: 'sel-grid' },
-						{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'sel-delete' }
-					]
-				}
-			: null
-	);
+	// the Moods panel's tabs: the mood words always, the moods once a character is open (its workspace lends them)
+	useLentPanels(() => ({ vocabulary: vocabularyTab, moods: selectedCharacter ? null : moodsHint }));
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters" selection={selectionActions}>
+{#snippet tree()}
+	<CharacterTree {characters} {selected} {imageIssues} onselect={(id) => select(id)} />
+{/snippet}
+
+{#snippet moodsHint()}
+	<p class="sc-empty hint-pad">{m['creator.characters_moods_pick']()}</p>
+{/snippet}
+
+{#snippet vocabularyTab()}
+	<MoodsPanel {moods} registry={file} languages={allLanguages} />
+{/snippet}
+
+<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => [...kanon.all(), ...Object.values(castDocs)]} {validate} {beforeSave} wide fill={!!selectedCharacter} help="characters">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
 	<div class="area" class:open={!!selectedCharacter}>
-		<div class="tabs-row"><AreaTabs {tab} counts={{ characters: characters.length, moods: vocabulary.moods.length, wanted: openRequests }} /></div>
-		{#if tab === 'moods'}
-			<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
-		{:else if tab === 'wanted'}
+		{#if !selectedCharacter}<div class="tabs-row"><AreaTabs {tab} counts={{ characters: characters.length, wanted: openRequests }} /></div>{/if}
+		{#if tab === 'wanted'}
 			<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
 		{:else if registry.loading}
 			<p class="hint pad-top">{m['creator.loading']()}</p>
 		{:else if selectedCharacter}
 			{#key selected}
-				<CharacterEditor
-					bind:this={detail}
-					{registry}
-					moodsDoc={moods}
-					requestsDoc={requests}
-					moods={vocabulary}
-					id={selected}
-					bind:persona
-					bind:look
-					bind:tab={inspectorTab}
-					bind:grid
-					{toons}
-					{casts}
-					{kanon}
-					onselect={(id) => select(id)}
-				/>
+				<CharacterEditor {registry} moodsDoc={moods} requestsDoc={requests} moods={vocabulary} id={selected} bind:persona bind:look {toons} {casts} {castDocs} {kanon} onselect={(id) => select(id)} />
 			{/key}
 		{:else}
 			{#if creating}
@@ -346,20 +339,21 @@
 		flex-direction: column;
 		min-height: 0;
 	}
-	/* an open character fills the page (MetaPage fill): the tabs on top, the editor the rest */
+	/* an open character fills the page (MetaPage fill): its picture is the workspace's background */
 	.area.open {
 		height: 100%;
 	}
-	/* the tabs run edge to edge: out of the page's padding (none while an open character fills the page) */
+	/* the tabs run edge to edge: out of the page's padding */
 	.tabs-row {
 		margin: -1rem -1rem 0;
 	}
-	.area.open .tabs-row {
-		margin: 0;
-	}
-	.area.open > :global(.char-editor) {
+	.area.open > :global(.char-workspace) {
 		flex: 1;
 		min-height: 0;
+	}
+	.hint-pad {
+		margin: 0;
+		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.pad-top {
 		padding-top: 0.75rem;

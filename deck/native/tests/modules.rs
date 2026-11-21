@@ -642,6 +642,56 @@ fn a_midi_world_node_cabled_to_a_synth_plays_it() {
     assert_eq!(play(false), 0.0, "without the cable nothing arrives");
 }
 
+/// A held chord on MIDI input 1, channel 1 plays analog at once, sounds while the keys are held and stops after they go
+/// up – the bytes through deck-events' MIDI adapter, the dispatcher's routes and the world node's port and channel
+#[cfg(feature = "events")]
+#[test]
+fn a_held_midi_chord_sounds_at_once_while_held_and_stops_on_release() {
+    use deck_events::adapters::midi::Midi;
+    Library::global().load(&analog()).unwrap();
+    let s = Scene::parse(
+        "[[node]]\nid=\"w\"\nkind=\"world\"\nsource=\"midi\"\nlisten=[\"midi.note\"]\nport=1\nchannel=1\n\
+         [[node]]\nid=\"a\"\nkind=\"module:analog\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n\
+         [[link]]\nfrom=\"a.out\"\nto=\"out.in\"\n[[link]]\nfrom=\"w.events\"\nto=\"a.notes\"\n",
+    )
+    .unwrap();
+    modules::check(&s).unwrap();
+    let g = Graph::build(&s).unwrap();
+    let (mut e, mut h) = engine(&g, Build::detect(), Sequencing::InBlock, 2);
+    let mut midi = Midi::new(&mut h.events.names, Some("midi:keys"), 1);
+    let routing = h.events.take_routing();
+    let mut outlets = routing.outlets;
+    let mut keys = |down: bool, frame: usize| {
+        let mut out = Vec::new();
+        for key in [57, 60, 64] {
+            midi.feed(&[if down { 0x90 } else { 0x80 }, key, 100], frame as f64 / RATE, &mut out);
+        }
+        for ev in out {
+            for &t in routing.table.targets(ev.name) {
+                outlets[t as usize].push(ev.clone()).unwrap();
+            }
+        }
+    };
+    const BLOCK: usize = 512;
+    let blocks = |n: usize, e: &mut Engine| {
+        let mut peaks = Vec::new();
+        for _ in 0..n {
+            let mut buf = vec![0.0f32; BLOCK * 2];
+            e.render(&mut buf, 2, |x| x);
+            peaks.push(buf.iter().fold(0.0f32, |m, x| m.max(x.abs())));
+        }
+        peaks
+    };
+    keys(true, 0);
+    let held = blocks(94, &mut e); // ~1 s
+    assert!(held[..2].iter().any(|&p| p > 0.01), "a key down sounds at once, not on release: {:?}", &held[..4]);
+    assert!(held[90..].iter().all(|&p| p > 0.05), "the chord still sounds while held: {:?}", &held[90..]);
+    keys(false, 94 * BLOCK);
+    let after = blocks(141, &mut e); // ~1.5 s
+    assert!(after[0] > 0.01, "the release starts from the held sound");
+    assert!(after[120..].iter().all(|&p| p < 1e-3), "the chord stops after its keys go up: {:?}", &after[120..]);
+}
+
 /// #430: a note source as a silent track of a rig: stepseq on a track of its own (no strip, no outlet), its event cable to
 /// a synth's track as a rig `route` – and only that track plays
 #[test]

@@ -3,7 +3,7 @@
 // selection, the folds the person changed, a blank slot's pick request. The rules are the core's; this holds and loads.
 import { createAssetLibrary, type AssetSummary } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
-import type { AssetFamily, LibraryFitAnswer, LibraryGrouping, LibraryKind, LibraryOrigin, LibraryQuery, LibraryScope, LibrarySort, LibraryUse, LibraryView, SlotFit } from '@scutoons/media';
+import type { AssetFamily, LibraryCast, LibraryFitAnswer, LibraryGrouping, LibraryKind, LibraryOrigin, LibraryQuery, LibraryScope, LibrarySort, LibraryUse, LibraryView, SlotFit } from '@scutoons/media';
 import { libraryCore, loadLibraryModule, type LibraryCore, type LibraryModule } from '@scutoons/media/library';
 import { assetsApi } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
@@ -63,6 +63,8 @@ class Library {
 	readonly toon: string | null = $derived(this.address ? (parseEntityKey(this.address)?.toon ?? this.toonHint) : this.toonHint);
 	/** the uses each open item's editor read from its document, by the item's address */
 	private usesBy = $state.raw<Record<string, LibraryUse[]>>({});
+	/** the casts an editor handed in (the seasons' characters): the places' cast facet */
+	private casts = $state.raw<LibraryCast[]>([]);
 
 	scope = $state<LibraryScope>('context');
 	grouping = $state<LibraryGrouping>('use');
@@ -150,7 +152,7 @@ class Library {
 	private sync() {
 		if (!this.core) return;
 		const uses = Object.values(this.usesBy).flat();
-		this.core.setContext({ open: this.address, toon: this.toon, byHome: !this.indexed, uses });
+		this.core.setContext({ open: this.address, toon: this.toon, byHome: !this.indexed, uses, casts: this.casts });
 		this.version++;
 	}
 
@@ -171,6 +173,12 @@ class Library {
 		if (uses) next[address] = uses;
 		else delete next[address];
 		this.usesBy = next;
+		this.sync();
+	}
+
+	/** the casts the places offer (every toon season's characters, read from the cast documents) */
+	setCasts(casts: LibraryCast[]) {
+		this.casts = casts;
 		this.sync();
 	}
 

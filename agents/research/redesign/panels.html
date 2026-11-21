@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en" data-theme="day">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panels, tabs, presets</title>
+<!-- #751, epic #626 – draft (owner 2026-11-21): "every section becomes a tab, sections take over the stage when asked …
+     close collapse main … the asset manager in osct as a dialog full over everything … workspaces are just presets for
+     panel and tabs". The deck's tokens (shared/tokens/editor.css), base 14px; the creator in day for now (night: ?theme=night or T).
+     Try: the workspace presets (top left of the notes), ◱ main on a panel's head, ⤢ over everything, drag a tab into another
+     panel or out onto the stage. Open at 1440×900. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root,[data-theme=night]{
+  --stage:#000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;
+  --primary-line:#9ce327;--primary-ink:#171916;--warn:#f0a030;--ground:rgb(26 28 24/.5);--ground-strong:rgb(26 28 24/.92);
+}
+[data-theme=day]{
+  --surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;--hover:#e4e8dc;
+  --pressed:#22271e;--pressed-text:#fff;--selected:#d5dbc9;--accent:#00728d;--warn:#b86e0c;
+  --ground:rgb(243 243 240/.8);--ground-strong:rgb(243 243 240/.97);
+}
+:root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--top:3.6rem}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.label{font-size:var(--label);letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+
+/* ── the bar: pills on the stage ── */
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap)}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--text);box-shadow:0 0 0 1px rgb(0 0 0/.2),0 .2rem .6rem rgb(0 0 0/.2)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent}
+.pill button:hover{background:var(--hover)}
+.pill button.on{background:var(--pressed);color:var(--pressed-text)}
+.pill .round{padding:0}
+.middle{flex:1;display:flex;justify-content:center}
+.find{width:min(34rem,100%);height:var(--row);padding:0 1rem;border:0;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--text);font:inherit}
+.path{display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--surface);color:var(--muted);font-size:var(--small);box-shadow:0 0 0 1px rgb(0 0 0/.2),0 .2rem .6rem rgb(0 0 0/.2)}
+.path b{color:var(--text);font-weight:400}
+
+/* ── the stage: the whole window – the bar's pills and the panels float on it (owner: "the stage is everything") ── */
+.stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.stage.drop{outline:2px dashed var(--accent);outline-offset:-1rem}
+.onstage{position:absolute;inset:0;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--surface);overflow:hidden}
+.onstage .stagehead{position:absolute;z-index:20;left:calc(50% + 10rem);bottom:var(--gap);display:flex;align-items:center;gap:.5rem;height:var(--row);padding:0 .3rem 0 1rem;border-radius:calc(var(--row)/2);background:var(--pressed);color:var(--pressed-text)}
+.onstage .stagehead .label{color:inherit;opacity:.7}
+.onstage .stagehead .hb{color:inherit}
+.onstage .body{flex:1;overflow:auto;padding:var(--top) 1rem 1rem}
+.canvas{display:flex;gap:1.2rem;align-items:flex-start;height:100%;padding:2rem 0;overflow:hidden}
+.slice{width:13rem;aspect-ratio:390/624;border-radius:.2rem;background:linear-gradient(160deg,#3b4a5e,#c9a87c);position:relative;flex:none}
+.slice:nth-child(2){background:linear-gradient(200deg,#20262e,#6c8a6a)}
+.slice:nth-child(3){background:linear-gradient(170deg,#5a3a4a,#e3c9a0)}
+.slice:nth-child(4){background:linear-gradient(190deg,#1d2b3a,#8aa3c2)}
+.slice span{position:absolute;left:.4rem;top:.3rem;font-size:var(--label);color:#fff;opacity:.8}
+.portrait{width:22rem;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 40%,#f2d0cf,#b98584 55%,transparent 56%),radial-gradient(circle at 50% 110%,#fff 0 45%,transparent 46%)}
+.map{width:70%;height:70%;border-radius:1rem;background:radial-gradient(circle at 30% 40%,#3c5a3a,transparent 30%),radial-gradient(circle at 70% 60%,#5a4a2a,transparent 35%),#1a2a30}
+
+/* ── panels ── */
+.panel{position:fixed;z-index:10;display:flex;flex-direction:column;min-width:12rem;border-radius:var(--radius);background:var(--ground);box-shadow:0 0 0 1px rgb(0 0 0/.25),0 .3rem 1rem rgb(0 0 0/.25);overflow:hidden}
+.panel.front{z-index:11}
+.head{display:flex;align-items:center;gap:.15rem;padding:.3rem .3rem .3rem .15rem;background:var(--head);cursor:grab;user-select:none}
+.grip{width:.9rem;color:var(--muted);text-align:center;font-size:.8rem}
+.tabs{flex:1;display:flex;gap:.15rem;min-width:0;overflow:hidden}
+.tab{flex:none;height:1.75rem;padding:0 .65rem;border:0;border-radius:.9rem;background:transparent;font-size:var(--small)}
+.tab:hover{background:var(--hover)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab.dragging{opacity:.4}
+.tabs.drop{box-shadow:inset 0 -2px 0 var(--accent)}
+.hb{width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:var(--radius);background:transparent;color:var(--muted);display:grid;place-items:center}
+.hb:hover{background:var(--hover);color:var(--text)}
+.hb svg{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.hb.new{color:var(--accent)}
+.content{flex:1;overflow:auto;padding:var(--pad)}
+.panel.folded{min-width:0}
+.panel.folded .content{display:none}
+.panel.folded .tabs .tab:not(.on){display:none}
+
+/* rows: inset, rounded, the hover ground inside the panel's padding (the Toon list's fix) */
+.rows{display:flex;flex-direction:column;gap:1px}
+.row{display:flex;align-items:center;gap:.5rem;height:var(--tree-row);padding:0 .5rem;border-radius:var(--radius);font-size:var(--small)}
+.row:hover{background:var(--hover)}
+.row.sel{background:var(--selected)}
+.row .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.group{margin:.6rem .5rem .2rem}
+.field{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.6rem}
+.field input,.field textarea{width:100%;height:var(--row);padding:0 .5rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);color:var(--text);font:inherit;font-size:var(--small)}
+.field textarea{height:4rem;padding:.4rem .5rem;resize:none}
+.sec{display:flex;align-items:center;gap:.4rem;margin:.5rem 0 .3rem;padding:.2rem 0;border-top:1px solid var(--line)}
+.sec .label{flex:1;padding-top:.3rem}
+.btn{height:var(--row);padding:0 var(--pad);border:1px solid transparent;border-radius:var(--radius);background:var(--control)}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.5rem,1fr));gap:.4rem}
+.tile{aspect-ratio:1;border-radius:var(--radius);background:linear-gradient(150deg,var(--selected),var(--hover))}
+.node-graph{position:relative;height:100%;min-height:12rem}
+.node{position:absolute;padding:.4rem .6rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small)}
+.wire{position:absolute;height:2px;background:var(--accent);transform-origin:0 0}
+.prev{margin:0 auto;width:100%;max-width:16rem;aspect-ratio:390/624;border-radius:.2rem;background:linear-gradient(160deg,#3b4a5e,#c9a87c)}
+.prob{display:flex;gap:.5rem;padding:.3rem .5rem;border-radius:var(--radius);font-size:var(--small)}
+.prob:hover{background:var(--hover)}
+.prob i{color:var(--warn);font-style:normal}
+
+/* ── over everything ── */
+.dialog{position:fixed;z-index:80;inset:0;display:none;background:rgb(0 0 0/.55)}
+.dialog.open{display:block}
+.dialog .box{position:absolute;inset:calc(var(--top) * .6) 2.5rem 2.5rem;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--ground-strong);box-shadow:0 1rem 3rem rgb(0 0 0/.5);overflow:hidden}
+.dialog .box .head{cursor:default}
+.dialog .box .content{padding:1rem}
+.dialog .tiles{grid-template-columns:repeat(auto-fill,minmax(8rem,1fr))}
+
+/* ── the draft's notes (not part of the design) ── */
+.notes{position:fixed;z-index:90;left:var(--gap);bottom:var(--gap);width:24rem;padding:.8rem 1rem;border-radius:var(--radius);background:#fffbe6;color:#222;font-size:var(--small);box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
+.notes.min p,.notes.min ul,.notes.min .presets{display:none}
+.notes h3{margin:0 0 .4rem;font-size:1rem;display:flex;justify-content:space-between}
+.notes h3 button{border:0;background:none;color:#555}
+.notes ul{margin:.3rem 0;padding-left:1.1rem}
+.notes li{margin:.15rem 0}
+.presets{display:flex;flex-wrap:wrap;gap:.3rem;margin:.4rem 0}
+.presets button{padding:.2rem .6rem;border:1px solid #aaa;border-radius:1rem;background:#fff;color:#222}
+.presets button.on{background:#222;color:#fff;border-color:#222}
+code{font-size:.8rem;background:rgb(0 0 0/.06);padding:0 .2rem;border-radius:.2rem}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="pill"><button class="round" title="Main menu">☰</button><button class="round" title="Home" data-home>⌂</button></div>
+  <div class="pill" id="doctabs"></div>
+  <div class="middle" id="middle"></div>
+  <div class="pill" id="playpill"></div>
+  <div class="pill"><button>tilman</button></div>
+</div>
+
+<div class="stage" id="stage"></div>
+<div id="panels"></div>
+<div class="dialog" id="dialog"><div class="box"><div class="head"><div class="grip"></div><div class="tabs" id="dtabs"></div><button class="hb" id="dback" title="Back into its panel"></button><button class="hb" id="dclose" title="Close"></button></div><div class="content" id="dbody"></div></div></div>
+
+<div class="notes" id="notes">
+  <h3>Draft: panels, tabs, presets <button id="notesmin">–</button></h3>
+  <div class="presets" id="presets"></div>
+  <ul>
+    <li><b>Every section is a tab</b> – Tree, Toon, Inspector, Flow, Preview, Problems, History, Library, Moods, Kanon … none is a dock.</li>
+    <li><b>Drag a tab</b> by its pill into another panel's head, or out onto the stage → a panel of its own. A panel whose last tab leaves closes.</li>
+    <li>Panel head, right to left: <b>× close · – fold · ◱ main</b> (new: the front tab takes the stage) <b>· ⤢ over everything</b> (as OSCT's asset manager: a dialog over all, it takes priority).</li>
+    <li>A tab on the stage has its own head: ◱ again puts it back into its panel.</li>
+    <li><b>A workspace is a preset</b>: which panels, their tabs, their places, which tab is main. Switch presets above – nothing else changes between them.</li>
+    <li><b>The stage is everything</b>: the whole window, under the bar too – the bar is pills floating on it, like the panels. Open or folded, every panel floats the same; the stage never gives way.</li>
+    <li>Find sits in the bar's middle on Home; in an item it is the path. Language and Day / Night live in Settings only.</li>
+  </ul>
+  <p style="margin:.3rem 0 0;color:#666">T = day / night. Not real data.</p>
+</div>
+
+<script>
+const ICON = {
+  close:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  fold:'<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  unfold:'<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>',
+  main:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="6" y="8" width="12" height="8" rx="1" fill="currentColor" stroke="none" opacity=".35"/></svg>',
+  back:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8" width="6" height="8" rx="1"/></svg>',
+  over:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>'
+};
+const NAMES = {tree:'Tree',toon:'Toon',inspector:'Inspector',flow:'Flow',preview:'Preview',problems:'Problems',history:'History',library:'Library',moods:'Moods',kanon:'Kanon',publish:'Publish',settings:'Settings',places:'Places'};
+
+const body = {
+  tree: () => `<div class="rows">${['Group 1 – Arrival','Group 2 – The cathedral','Group 3 – Confession','Group 4 – Altar'].map((g,i)=>`<div class="row ${i==1?'sel':''}">${g}<span class="n">${[4,6,3,5][i]}</span></div>`).join('')}</div>`,
+  toon: () => `<div class="rows">${['Stories','Cast','Script','Credits','Settings'].map((r,i)=>`<div class="row ${i==0?'sel':''}">${r}</div>`).join('')}</div><div class="group label">Seasons</div><div class="rows"><div class="row">Season 1<span class="n">6</span></div><div class="row">Season 2<span class="n">2</span></div></div>`,
+  inspector: () => state.preset==='character' ? `<div class="sec"><span class="label">Character</span></div><div class="field"><span class="label">Name</span><input value="Katzenpapst"></div><div class="field"><span class="label">Description</span><textarea>Zukünftiges Selbst</textarea></div><div class="sec"><span class="label">Persona</span></div><div class="pill" style="display:inline-flex;background:var(--control)"><button class="on">regular</button><button>Mensch</button><button>Katze</button></div><div class="sec"><span class="label">Links</span></div><div class="rows"><div class="row">Cat Pope · Season 1<span class="n">Star</span></div><div class="row">Top Toy · Season 1</div></div>` : state.preset==='map' ? `<div class="sec"><span class="label">Place</span></div><div class="field"><span class="label">Id</span><input value="cathedral"></div><div class="field"><span class="label">Name</span><input value="Kathedrale"></div>` : `<div class="sec"><span class="label">Group</span></div><div class="field"><span class="label">Id</span><input value="cathedral"></div><div class="field"><span class="label">Description</span><textarea>Cat Pope enters the cathedral.</textarea></div><div class="sec"><span class="label">Location</span></div><div class="field"><input value="place:cathedral"></div><button class="btn">Add slice</button>`,
+  flow: (big) => `<div class="node-graph">${[['Arrival',8,10],['Cathedral',38,40],['Confession',70,15],['Altar',70,70]].map(([n,x,y])=>`<div class="node" style="left:${x}%;top:${y}%">${n}</div>`).join('')}<div class="wire" style="left:20%;top:18%;width:${big?'22%':'25%'};transform:rotate(25deg)"></div><div class="wire" style="left:50%;top:45%;width:22%;transform:rotate(-30deg)"></div><div class="wire" style="left:50%;top:50%;width:22%;transform:rotate(28deg)"></div></div>`,
+  preview: () => `<div class="prev"></div>`,
+  problems: () => ['Slice 3: no image','Group 4: jump to a missing group','Persona "Biker": no voice'].map(p=>`<div class="prob"><i>!</i>${p}</div>`).join(''),
+  history: () => `<div class="rows">${['Today 11:02 · tilman','Today 10:40 · tilman','Yesterday · agent'].map(r=>`<div class="row">${r}</div>`).join('')}</div>`,
+  library: (big) => `<div style="display:flex;gap:.4rem;margin-bottom:.5rem"><button class="btn" style="flex:1;text-align:left;color:var(--muted)">Search name, folder…</button><button class="btn primary">Upload</button></div><div class="tiles">${Array.from({length:big?40:12},()=>'<div class="tile"></div>').join('')}</div>`,
+  moods: () => `<div style="display:flex;gap:.4rem;overflow:hidden">${Array.from({length:12},()=>'<div class="tile" style="width:4rem;flex:none"></div>').join('')}</div>`,
+  kanon: () => `<div class="field"><textarea style="height:9rem">## Vorgeschichte\n\n## Wer</textarea></div>`,
+  publish: () => `<p class="label">Not live yet</p><div class="rows"><div class="row">Chapter 2<span class="n">draft</span></div></div><button class="btn primary" style="margin-top:.5rem">Publish …</button>`,
+  places: () => `<div class="rows">${['Cathedral','Altar','Confession','The dunes'].map(r=>`<div class="row">${r}</div>`).join('')}</div>`,
+  settings: () => `<div class="sec"><span class="label">Look</span></div><div class="pill" style="display:inline-flex;background:var(--control)"><button class="on" data-theme-set="day">Day</button><button data-theme-set="night">Night</button></div><div class="sec"><span class="label">Language</span></div><div class="pill" style="display:inline-flex;background:var(--control)"><button class="on">DE ☆</button><button>EN</button></div>`
+};
+
+// A workspace = a preset: its background (what the stage shows when no tab is main) and its panels with their tabs.
+const PRESETS = {
+  home: {title:'Home', doc:null, bg:'home', panels:[
+    {tabs:['library'],x:'r',y:0,w:26,h:'fill'}]},
+  chapter: {title:'Chapter', doc:'Cat Pope › Chapter 2', bg:'canvas', play:true, panels:[
+    {tabs:['toon','tree'],x:0,y:0,w:18,h:'fill'},
+    {tabs:['inspector','flow','problems','history'],x:'r',y:0,w:27,h:28},
+    {tabs:['preview'],x:'r',y:'b',w:27,h:20,folded:false},
+    {tabs:['library','publish'],x:'mb',y:'b',w:22,h:24,folded:true}]},
+  character: {title:'Character', doc:'Katzenpapst', bg:'portrait', panels:[
+    {tabs:['tree'],x:0,y:0,w:16,h:'fill'},
+    {tabs:['inspector','kanon'],x:'r',y:0,w:24,h:'fill'},
+    {tabs:['moods'],x:'mb',y:'b',w:46,h:8},
+    {tabs:['library'],x:'mbr',y:'b',w:22,h:24,folded:true}]},
+  map: {title:'Map', doc:'Cat Pope · World map', bg:'map', panels:[
+    {tabs:['places','tree'],x:0,y:0,w:16,h:'fill'},
+    {tabs:['inspector','problems'],x:'r',y:0,w:22,h:'fill'}]}
+};
+
+let state;
+const rem = 14, gapPx = rem, TOP = 3.6*rem;
+function load(name){
+  const p = PRESETS[name];
+  state = {preset:name, main:null, dialog:null, panels:p.panels.map((s,i)=>({id:'p'+i, tabs:[...s.tabs], on:s.tabs[0], folded:!!s.folded, spec:s}))};
+  layout(); render();
+}
+function layout(){
+  const W = innerWidth, H = innerHeight - TOP;
+  let rightEdge = W - gapPx;
+  for (const p of state.panels){
+    const s = p.spec, w = s.w*rem, h = s.h==='fill' ? H - 2*gapPx : s.h*rem;
+    let x = s.x===0 ? gapPx : s.x==='r' ? W - gapPx - w : s.x==='r2' ? W - 2*gapPx - w - 24*rem : s.x==='mb' ? (W-w)/2 : s.x==='mbr' ? W/2 + 17*rem : s.x;
+    let y = s.y===0 ? TOP + gapPx : s.y==='b' ? innerHeight - gapPx - h : s.y;
+    if (s.x==='r' && s.y==='b') y = innerHeight - gapPx - h;
+    if (p.folded) y = innerHeight - gapPx - 2.6*rem;
+    p.x = p.x ?? x; p.y = p.y ?? y; p.w = p.w ?? w; p.h = p.h ?? h;
+  }
+  // the inspector and the preview share the right column
+  const right = state.panels.filter(p=>p.spec.x==='r');
+  if (right.length===2 && right[0].spec.h!=='fill'){ right[0].h = (innerHeight - TOP - 3*gapPx) * .58; right[1].y = right[0].y + right[0].h + gapPx; right[1].h = innerHeight - right[1].y - gapPx; }
+}
+function headButtons(id, tab){
+  return `<button class="hb new" data-over="${id}" title="Over everything (as OSCT's asset manager)">${ICON.over}</button>`+
+         `<button class="hb new" data-main="${id}" title="Main: ${NAMES[tab]} takes the stage">${ICON.main}</button>`+
+         `<button class="hb" data-fold="${id}" title="Fold">${ICON.fold}</button>`+
+         `<button class="hb" data-close="${id}" title="Close">${ICON.close}</button>`;
+}
+function render(){
+  const pre = PRESETS[state.preset];
+  // bar
+  document.getElementById('doctabs').innerHTML = pre.doc ? `<button class="on">${pre.doc}</button><button>${state.preset==='character'?'Cat Pope › Chapter 2':'Katzenpapst'}</button><button class="round" title="Open">+</button>` : `<button class="round" title="Open">+</button>`;
+  document.getElementById('middle').innerHTML = pre.doc ? `<span class="path">${pre.doc.split(' › ').map((s,i,a)=>i==a.length-1?`<b>${s}</b>`:s).join(' › ')}${state.preset==='chapter'?' › <b>Group 2</b>':''}</span>` : `<input class="find" placeholder="Find anything – by name or address: toon:catpope, chapter:catpope:3 …">`;
+  document.getElementById('playpill').innerHTML = pre.play ? `<button class="on">Edit</button><button>Play</button>` : '';
+  document.getElementById('playpill').style.display = pre.play ? '' : 'none';
+  // stage
+  const st = document.getElementById('stage');
+  if (state.main){
+    st.innerHTML = `<div class="onstage"><div class="stagehead"><span class="label">On the stage</span><span class="name">${NAMES[state.main]}</span><button class="hb" data-unmain title="Back into its panel">${ICON.back}</button></div><div class="body">${body[state.main](true)}</div></div>`;
+  } else {
+    st.innerHTML = pre.bg==='canvas' ? `<div class="canvas">${[1,2,3,4].map(n=>`<div class="slice"><span>2.${n}</span></div>`).join('')}</div>` : pre.bg==='portrait' ? '<div class="portrait"></div>' : pre.bg==='map' ? '<div class="map"></div>' : `<div style="color:var(--muted);text-align:center"><div class="label">Home</div><p>Continue · Waiting for you · Toons – as tabs of a Home panel set, or the stage itself</p></div>`;
+  }
+  // panels
+  document.getElementById('panels').innerHTML = state.panels.map(p=>`
+    <div class="panel ${p.folded?'folded':''}" data-panel="${p.id}" style="left:${p.x}px;top:${p.y}px;width:${p.folded?'auto':p.w+'px'};height:${p.folded?'auto':p.h+'px'}">
+      <div class="head" data-drag="${p.id}"><div class="grip">⠿</div>
+        <div class="tabs" data-tabs="${p.id}">${p.tabs.map(t=>`<button class="tab ${t===p.on?'on':''}" draggable="true" data-tab="${t}" data-from="${p.id}">${NAMES[t]}</button>`).join('')}</div>
+        ${p.folded ? `<button class="hb" data-fold="${p.id}" title="Unfold">${ICON.unfold}</button>` : headButtons(p.id, p.on)}
+      </div>
+      <div class="content">${state.main===p.on ? `<p class="label" style="padding:.5rem">On the stage</p>` : body[p.on]()}</div>
+    </div>`).join('');
+  // dialog
+  const d = document.getElementById('dialog');
+  d.classList.toggle('open', !!state.dialog);
+  if (state.dialog){
+    document.getElementById('dtabs').innerHTML = `<button class="tab on">${NAMES[state.dialog]}</button>`;
+    document.getElementById('dbody').innerHTML = body[state.dialog](true);
+    document.getElementById('dback').innerHTML = ICON.back; document.getElementById('dclose').innerHTML = ICON.close;
+  }
+  // presets
+  document.getElementById('presets').innerHTML = Object.entries(PRESETS).map(([k,v])=>`<button class="${k===state.preset?'on':''}" data-preset="${k}">${v.title}</button>`).join('');
+}
+const panel = id => state.panels.find(p=>p.id===id);
+
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.preset) return load(d.preset);
+  if (t.hasAttribute('data-home')) return load('home');
+  if (d.tab && d.from){ panel(d.from).on = d.tab; return render(); }
+  if (d.fold){ const p = panel(d.fold); p.folded = !p.folded; return render(); }
+  if (d.close){ const p = panel(d.close); if (state.main && p.tabs.includes(state.main)) state.main=null; state.panels = state.panels.filter(x=>x!==p); return render(); }
+  if (d.main){ const p = panel(d.main); state.main = state.main===p.on ? null : p.on; return render(); }
+  if (t.hasAttribute('data-unmain')){ state.main = null; return render(); }
+  if (d.over){ state.dialog = panel(d.over).on; return render(); }
+  if (d.themeSet){ document.documentElement.dataset.theme = d.themeSet; return; }
+  if (t.id==='dclose' || t.id==='dback'){ state.dialog = null; return render(); }
+  if (t.id==='notesmin'){ document.getElementById('notes').classList.toggle('min'); }
+});
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape' && state.dialog){ state.dialog=null; render(); }
+  if ((e.key==='t'||e.key==='T') && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){ const h=document.documentElement; h.dataset.theme = h.dataset.theme==='day'?'night':'day'; }
+});
+
+// move a panel by its head
+let drag=null;
+document.addEventListener('pointerdown', e=>{
+  const h = e.target.closest('[data-drag]'); if (!h || e.target.closest('button')) return;
+  const p = panel(h.dataset.drag); drag = {p, dx:e.clientX-p.x, dy:e.clientY-p.y};
+});
+document.addEventListener('pointermove', e=>{ if(!drag) return; drag.p.x = Math.max(gapPx, e.clientX-drag.dx); drag.p.y = Math.max(TOP, e.clientY-drag.dy); const el=document.querySelector(`[data-panel="${drag.p.id}"]`); el.style.left=drag.p.x+'px'; el.style.top=drag.p.y+'px'; });
+document.addEventListener('pointerup', ()=>drag=null);
+
+// a tab into another panel, or out onto the stage
+let moving=null;
+document.addEventListener('dragstart', e=>{ const t=e.target.closest('[data-tab]'); if(!t) return; moving={tab:t.dataset.tab, from:t.dataset.from}; t.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+document.addEventListener('dragover', e=>{ if(!moving) return; e.preventDefault(); document.querySelectorAll('.drop').forEach(x=>x.classList.remove('drop')); (e.target.closest('[data-tabs]') ?? (e.target.closest('.panel') ? null : document.getElementById('stage')))?.classList.add('drop'); });
+document.addEventListener('drop', e=>{
+  if(!moving) return; e.preventDefault();
+  const from = panel(moving.from), into = e.target.closest('[data-tabs]');
+  if (into && into.dataset.tabs===from.id){ moving=null; return render(); }
+  from.tabs = from.tabs.filter(t=>t!==moving.tab); if (from.on===moving.tab) from.on = from.tabs[0];
+  if (into){ const p=panel(into.dataset.tabs); p.tabs.push(moving.tab); p.on=moving.tab; p.folded=false; }
+  else if (!e.target.closest('.panel')){ state.panels.push({id:'p'+Date.now(), tabs:[moving.tab], on:moving.tab, folded:false, spec:{}, x:e.clientX-80, y:Math.max(TOP,e.clientY-16), w:20*rem, h:16*rem}); }
+  else { from.tabs.push(moving.tab); }
+  if (!from.tabs.length) state.panels = state.panels.filter(x=>x!==from);
+  moving=null; render();
+});
+document.addEventListener('dragend', ()=>{ moving=null; document.querySelectorAll('.drop,.dragging').forEach(x=>x.classList.remove('drop','dragging')); });
+
+const q = new URLSearchParams(location.search);
+if (q.get('theme')==='night') document.documentElement.dataset.theme='night';
+load(q.get('w') ?? 'chapter');
+if (q.get('main')) { state.main = q.get('main'); render(); }
+if (q.get('over')) { state.dialog = q.get('over'); render(); }
+if (q.has('quiet')) document.getElementById('notes').classList.add('min');
+</script>
+</body>
+</html>
