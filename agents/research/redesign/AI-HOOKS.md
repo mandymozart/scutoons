@@ -62,6 +62,29 @@ The owner's reading: *"we are pretty much at the same. even a bit more modular a
 - **Fed from the Library:** a chain can start from a character's sheet, its Kanon look (a skills spore), reference pictures, or parts already made, not only from one uploaded picture.
 - **Clone = a generator document copied as a new version** in another toon or character. It's not a separate template store.
 
+**Details from the owner's close-up** (the image wasn't saved as a file, so this is a description):
+- **Every node is a large preview card.** The step's result (mesh wireframe, textured part) fills the card. A small coloured pill above the card names the step and its count: *Generate Image (1)*, *Smart Mesh (4)*, *Smart UV (2)*, *Texture Generation (5)*. Each step type has one colour.
+- **Each part's prompt is a label pill** on its first card ("Lower body (legs), including shorts …", "All upper body parts, including the …"). It's the part's instruction, readable on the canvas.
+- **"Task instructions" with "Reuse instructions"** sits on a node. It's an instruction text that can be reused across nodes, much like our skills spore.
+- **The wires are thin and quiet**, and the cards carry the weight.
+
+For our spores:
+- a spore shows its result as its face;
+- its type is a coloured pill;
+- its instruction is readable on the canvas;
+- an instruction can be a shared skills spore woven into several spores.
+
+**Two more close-ups:**
+- **A result opens in a full viewer over the canvas:**
+  - the 3D model is big, with its stats (topology quad, faces, vertices), an axis gizmo, and light and grid toggles;
+  - a bar of view modes sits at the bottom (wireframe, clay, matcap, normals, environments);
+  - a filmstrip of every node's output lets you flip through the whole chain (← →).
+
+  For us, that's ⤢ over everything for a spore's result, with the run's outputs as a strip. It's the same viewer as the character's 3D place.
+- **The gather node is an agent with written instructions.** The final node ("AI 3D Lab") takes every part and holds a long, plain-language **task instruction**: assemble an editable character from the parts and the references; match each part's position, proportion and orientation; replace the dress with the original; hands palms-down with the right finger order; check from every side. The instruction can be copied and reused.
+
+  For us: an agentic spore whose behaviour is a skills spore (the instruction), woven to many inputs. The instruction is a versioned document, so a better one improves every generator that uses it.
+
 ## 1. One shape
 
 Every hook in the creator has the same four parts and the same four states. Only the words change.
