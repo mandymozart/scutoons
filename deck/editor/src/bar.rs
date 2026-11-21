@@ -322,7 +322,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         if on {
             d.round_rect(at.x, at.y, at.w, at.h, ir, t.color.pressed);
         }
-        out.click = inner_button(d, t, at, if on { "volume-2" } else { "volume-x" }, if on { t.color.pressed_text } else { t.color.muted }, b.pointer);
+        out.click = inner_button(d, t, at, if on { "metronome" } else { "metronome-off" }, if on { t.color.pressed_text } else { t.color.muted }, b.pointer);
     }
     out.tempo = tempo;
     out.bpm = Rect { x: bx - pad * 0.5, y, w: vw + pad, h };
@@ -669,9 +669,9 @@ mod tests {
         assert_eq!(inked(&on, t.color.text), 2, "{:?}", on.prims());
         assert_eq!(inked(&on, faded(t.color.muted, 0.3)), 3);
         assert_eq!(inked(&none, t.color.text), 0);
-        let icon = |d: &DrawList| d.prims().iter().find_map(|x| if let deck_kit::base::draw::Prim::Icon { name, .. } = *x { name.starts_with("volume").then_some(name) } else { None });
-        assert_eq!(icon(&on), Some("volume-2"));
-        assert_eq!(icon(&with_meter(Some((BEAT, false))).0), Some("volume-x"));
+        let icon = |d: &DrawList| d.prims().iter().find_map(|x| if let deck_kit::base::draw::Prim::Icon { name, .. } = *x { name.starts_with("metronome").then_some(name) } else { None });
+        assert_eq!(icon(&on), Some("metronome"));
+        assert_eq!(icon(&with_meter(Some((BEAT, false))).0), Some("metronome-off"));
         // the bar's first beat lit: the dot and its cell in the accent; a bar of 3 has three cells
         let first = deck_core::tempo::Beat { beat: 0, per_bar: 3, accent: true, ..BEAT };
         let (d, _) = with_meter(Some((first, false)));
