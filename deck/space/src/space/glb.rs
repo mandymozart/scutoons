@@ -755,6 +755,22 @@ mod tests {
     }
 
     #[test]
+    fn a_model_file_s_empties_are_its_spots() {
+        let json = TINY.replace(r#""nodes":[0,1]"#, r#""nodes":[0,1,2]"#).replace(
+            r#"{"name":"spot_a","translation":[1,2,3]}]"#,
+            r#"{"name":"spot_a","translation":[1,2,3]},{"name":"lamp","translation":[0,1,0],"children":[3,4]},{"name":"spot_flame.light","translation":[0,0.5,0]},{"name":"port_out","rotation":[0,1,0,0]}]"#,
+        );
+        let file = crate::space::spots::file(&anatomy(&pack(&json)).unwrap());
+        let got: Vec<_> = file.spots.iter().map(|s| (s.name.as_str(), s.kind.word(), s.attach.to_string(), s.at, s.turn)).collect();
+        let none = deck_catalog::spot::NO_TURN;
+        assert_eq!(
+            got,
+            [("a", "mark", "root".to_string(), [1.0, 2.0, 3.0], none), ("flame", "light", "node:lamp".to_string(), [0.0, 0.5, 0.0], none), ("out", "port", "node:lamp".to_string(), [0.0; 3], [0.0, 1.0, 0.0, 0.0])]
+        );
+        assert_eq!(file.nodes, ["lamp"], "the unnamed mesh node is nothing to attach to");
+    }
+
+    #[test]
     fn unknown_required_extensions_are_errors() {
         let json = r#"{"extensionsRequired":["KHR_draco_mesh_compression"],"asset":{"version":"2.0"}}"#;
         let mut glb = Vec::new();

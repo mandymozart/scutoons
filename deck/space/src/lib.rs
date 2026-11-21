@@ -5,6 +5,7 @@
 //! instruments, presets and character rigs a being's sound is made of (#191, research/INSTRUMENTS.md).
 pub use deck_catalog::{background, Background, Layer};
 pub mod asset_edits;
+pub mod asset_spots;
 pub mod cast;
 pub mod context;
 pub mod controls;

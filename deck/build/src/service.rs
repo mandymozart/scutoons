@@ -5,9 +5,10 @@
 //!   · `422 { errors: [{ file, line, column, level, message }] }` – the files break a rule, or rustc's errors
 //!   · `503 { error: "live_show" }` while the relay reports a live session · `503 { error: "busy" }` when the queue is full
 //!     or the wait too long · `401` without the token · `400` / `413` for a body that is not one
-//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs | scenes | uses, id, document, instruments?, presets?,
+//! `POST /validate` (header `X-Build-Token`, #313) `{ kind: instruments | presets | rigs | scenes | uses | spots, id, document, instruments?, presets?,
 //!   modules?, scenes?, book? }` (`modules`: a code rig's policy descriptor, #408; kind `scenes`: a `scene:<id>` document before its publish, #243;
-//!   kind `uses`: a use `{ scene, with }` with its scene in `scenes` and the toon's book in `book`, #504)
+//!   kind `uses`: a use `{ scene, with }` with its scene in `scenes` and the toon's book in `book`, #504; kind `spots`: a model
+//!   version's spots, `id` the asset's, with the module it is the body of in `modules`)
 //!   → `200 { problems: [..], warnings?: [..] }` (none = valid) – deck-space's own checks (rig/validate.rs), the words the creator shows;
 //!   the API asks before every catalog write of the three kinds. No queue and no live-show refusal: a check is
 //!   microseconds of the core, never rustc. `400` for a body that is not such a request, `401` without the token.
@@ -351,6 +352,20 @@ mod tests {
         eprintln!("validate: slowest fixture case {slowest:?}");
         assert!(slowest < Duration::from_millis(500), "{slowest:?}");
         assert_eq!(fake.started.load(Ordering::SeqCst), 0, "no compile");
+    }
+
+    /// a model's spots as the API sends them (server/tests/fixtures/assets/spots.json) through the route
+    #[tokio::test]
+    async fn validate_answers_a_models_spots_problems() {
+        let service = Service::new(config(0, 100), Fake::new());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/assets/spots.json");
+        let set: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        for case in set["cases"].as_array().unwrap() {
+            let r = service.handle(&validate(Some("sesame"), &case["request"].to_string())).await;
+            assert_eq!(r.status, 200, "{}: {}", case["name"], r.body);
+            let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
+            assert_eq!(v, json!({ "problems": case["problems"] }), "{}", case["name"]);
+        }
     }
 
     /// #414: a code rig as the API sends it – the rig, what it names and the descriptor of its policy module from the

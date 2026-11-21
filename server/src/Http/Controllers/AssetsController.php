@@ -10,6 +10,7 @@ use Scutoons\Domain\Assets\AssetImporter;
 use Scutoons\Domain\Assets\AssetJobs;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
+use Scutoons\Domain\Assets\AssetSpots;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
@@ -26,7 +27,8 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  *   GET  /api/assets?q=&folder=&kind=&tag=&state=used|unused&tiles=hide|only|all&page=&page_size=&sort=   list (map tiles hidden by default; kind=shape = the vector library)
  *   GET  /api/assets/lookup?path=                     the asset a path belongs to (null when unregistered)
  *   GET  /api/assets/{id}                             detail: versions, renditions, usages, jobs
- *   PUT  /api/assets/{id}                             { title?, tags?, shape? } (shape: { tile, mask, colors, source?, derived? } | null)
+ *   PUT  /api/assets/{id}                             { title?, tags?, shape?, spots? } (shape: { tile, mask, colors, source?, derived? } | null;
+ *                                                     spots: the current version's, as the deck's core wrote them | null – checked by the core, AssetSpots)
  *   PUT  /api/assets/upload?path=&title=               raw body = the file → 201 (409 exists)
  *   GET  /api/assets/missing · /api/assets/orphans    references to unknown files · files nothing references
  *   ── admin ──
@@ -50,6 +52,7 @@ final class AssetsController
         private readonly AssetJobs $jobs,
         private readonly AssetStorages $storages,
         private readonly Roles $roles,
+        private readonly AssetSpots $spots,
     ) {
     }
 
@@ -98,7 +101,9 @@ final class AssetsController
     public function update(Request $request, Response $response, array $args): Response
     {
         $this->editor($request);
-        $this->registry->updateMeta($args['id'], JsonBody::of($request));
+        $body = JsonBody::of($request);
+        if (array_key_exists('spots', $body)) $this->spots->save($args['id'], $body['spots']);
+        $this->registry->updateMeta($args['id'], $body);
         return Json::response($response, 200, $this->registry->detail($args['id']));
     }
 

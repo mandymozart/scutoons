@@ -276,6 +276,9 @@ impl Rig {
             if t.id == address::BEING {
                 out.push(&rig, format!("the track id '{}' is reserved for the being's look", t.id));
             }
+            if t.id == address::SPOT {
+                out.push(&rig, format!("the track id '{}' is reserved for a model's spots", t.id));
+            }
             if !lib.instruments.contains_key(&t.instrument) {
                 out.push(&rig, format!("unknown instrument \"{}\"", t.instrument));
             } else if let Some(p) = &t.preset {
@@ -354,6 +357,7 @@ impl Rig {
             Leaf::Policy(_) if self.policy.is_some() => Ok(()),
             Leaf::Policy(_) => Err(format!("'{end}': no track 'policy' and no policy in this rig")),
             Leaf::Member { .. } | Leaf::State(_) => Err(format!("'{end}' is not a port – a route joins ports (<track>:<node>.<port>)")),
+            Leaf::Spot(_) => Err(format!("'{end}' is a spot, a position on the model – a route joins ports (<track>:<node>.<port>)")),
         }
     }
 
