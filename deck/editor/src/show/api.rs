@@ -192,9 +192,15 @@ impl Api {
             Err(ureq::Error::Status(code, a)) => return Err(self.refused_words(&r.key(), code, &a.into_json().unwrap_or_default())),
             Err(e) => return Err(format!("{url}: {e}")),
         };
-        // /api/shows wraps the store's answer once more
-        let list = v["versions"].as_array().or_else(|| v.pointer("/versions/versions").and_then(|x| x.as_array())).cloned().unwrap_or_default();
+        let list = v["versions"].as_array().cloned().unwrap_or_default();
         Ok(list.iter().filter_map(Version::of).collect())
+    }
+
+    /// the signed-in member's email: how a version names its author (`GET /me`)
+    pub fn me(&self) -> Result<String, String> {
+        let url = format!("{}/me", self.base);
+        let v: serde_json::Value = self.auth(Self::agent().get(&url)).call().map_err(|e| format!("{url}: {e}"))?.into_json().map_err(|e| format!("{url}: {e}"))?;
+        v.pointer("/user/email").and_then(|e| e.as_str()).map(str::to_string).ok_or_else(|| "no email in the answer".into())
     }
 
     /// the stored version `id` of a document, as saved

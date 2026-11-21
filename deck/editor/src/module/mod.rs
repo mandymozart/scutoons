@@ -404,6 +404,26 @@ impl Module {
         }
     }
 
+    /// a revert stored the open module's newest draft: its sources replace the working copy, the next save names it
+    pub fn reopen(&mut self, draft: crate::show::api::Draft) -> Result<(), String> {
+        let Some(open) = self.open.clone() else { return Ok(()) };
+        let files = files_of(&draft.content);
+        let local = self.local()?;
+        copy::replace(&open.dir, &open.key(), draft.version, &files, &local.manifest(), &scutoons_build::determinism::clippy_toml()).map_err(|e| format!("{}: the working copy could not be written: {e}", open.key()))?;
+        self.descriptor = draft.content.get("descriptor").and_then(|d| serde_json::from_value(d.clone()).ok());
+        self.problems.clear();
+        if let Some(o) = self.open.as_mut() {
+            o.content = draft.content;
+            o.version = draft.version;
+        }
+        self.auto.open(draft.version);
+        self.auto.look(fingerprint(&files), Instant::now());
+        self.looked = None;
+        self.heard = false;
+        self.post(format!("{}: the working copy is the stored version – build to hear it", open.key()), false);
+        Ok(())
+    }
+
     /// the local builder, made once (the SDK baked into the cache)
     fn local(&self) -> Result<&Local, String> {
         let root = self.root.join(".build");
@@ -611,6 +631,25 @@ mod tests {
 
     fn param(json: Value) -> ParamDesc {
         serde_json::from_value(json).unwrap()
+    }
+
+    #[test]
+    fn a_reverted_module_replaces_the_working_copy_and_the_next_save_names_it() {
+        let root = std::env::temp_dir().join(format!("deck-editor-reopen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let mut m = Module::new("", &root, Script::default());
+        let dir = copy::folder(&m.root, "module:walk");
+        let files = Files::from([("lib.rs".to_string(), "// mine".to_string())]);
+        copy::replace(&dir, "module:walk", Some(3), &files, "[package]", "msrv").unwrap();
+        std::fs::write(dir.join("src/lib.rs"), "// unsaved").unwrap();
+        m.open = Some(Open { id: "walk".into(), factory: false, content: json!({ "id": "walk", "files": files }), version: Some(3), dir: dir.clone(), save_as: "my_walk".into() });
+        m.auto.open(Some(3));
+        let draft = crate::show::api::Draft { content: json!({ "id": "walk", "files": { "lib.rs": "// reverted" } }), version: Some(7) };
+        m.reopen(draft).expect("the local builder starts");
+        assert_eq!(copy::sources(&dir).unwrap()["lib.rs"], "// reverted");
+        assert_eq!((m.auto.version, m.open.as_ref().and_then(|o| o.version)), (Some(7), Some(7)));
+        assert!(!copy::changed(&dir));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

@@ -61,6 +61,38 @@ pub fn steps(versions: &[Saved]) -> Vec<Step> {
     out
 }
 
+/// a save of a document that rides along with the one whose steps are listed (a rig's instrument or preset), by its key
+#[derive(Debug, Clone)]
+pub struct SideSaved {
+    pub key: String,
+    pub saved: Saved,
+}
+
+/// a side document's save counts as part of a step when it came this long before the step's last save at most
+pub const SIDE_WINDOW_MS: i64 = 60_000;
+
+/// the side documents saved with each of `steps` (newest first, as `steps` gives them), as indices into `sides`: by the
+/// step's author, after the step before it and before its last save (version ids run over all documents), and not
+/// longer than `SIDE_WINDOW_MS` ahead of it
+pub fn with_sides(steps: &[Step], sides: &[SideSaved]) -> Vec<Vec<usize>> {
+    steps
+        .iter()
+        .enumerate()
+        .map(|(i, step)| {
+            let floor = steps.get(i + 1).map_or(i64::MIN, |older| older.last);
+            sides
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| {
+                    let v = &s.saved;
+                    v.id > floor && v.id < step.last && v.author == step.author && v.at_ms <= step.at_ms && step.at_ms - v.at_ms <= SIDE_WINDOW_MS
+                })
+                .map(|(n, _)| n)
+                .collect()
+        })
+        .collect()
+}
+
 /// one place a change touched: `None` = not there
 #[derive(Debug, Clone, PartialEq)]
 pub struct Change {
@@ -138,7 +170,7 @@ pub fn shown(v: Option<&Value>) -> String {
     let text = match v {
         None => return String::new(),
         Some(Value::Null) => "∅".to_string(),
-        Some(Value::String(s)) => format!("“{s}”"),
+        Some(Value::String(s)) => format!("“{}”", s.replace('\r', "").replace('\n', "\\n")),
         Some(Value::Array(a)) => format!("[{}]", a.len()),
         Some(Value::Object(o)) => format!("{{{}}}", o.len()),
         Some(other) => other.to_string(),
@@ -332,6 +364,29 @@ mod tests {
         assert_eq!(r.doc, json!({"l": [1]}));
         let kept = revert(&json!({"l": [1]}), &json!({"l": [1, 2]}), &json!({"l": [1, 2, 3]}));
         assert_eq!(kept.kept, vec!["l".to_string()]);
+    }
+
+    #[test]
+    fn a_text_of_several_lines_is_shown_on_one() {
+        assert_eq!(shown(Some(&json!("a\nb"))), "“a\\nb”");
+    }
+
+    #[test]
+    fn side_documents_belong_to_the_step_that_saved_them() {
+        let v = [saved(12, "a", 61_000), saved(8, "a", 30_000), saved(5, "a", 0)];
+        let steps = steps(&v);
+        assert_eq!(steps.iter().map(|s| s.last).collect::<Vec<_>>(), [12, 8, 5]);
+        let side = |key: &str, id: i64, who: &str, at_ms: i64| SideSaved { key: key.into(), saved: saved(id, who, at_ms) };
+        let sides = [
+            side("instrument:bell", 11, "a", 60_500),
+            side("preset:soft", 10, "a", 60_400),
+            side("instrument:bell", 7, "a", 29_900),
+            side("instrument:bell", 9, "b", 60_000),
+            side("instrument:bell", 6, "a", -90_000),
+            side("instrument:bell", 13, "a", 62_000),
+        ];
+        let got = with_sides(&steps, &sides);
+        assert_eq!(got, vec![vec![0, 1], vec![2], vec![]], "after the step before, before its last save, its author, a minute ahead at most");
     }
 
     #[test]

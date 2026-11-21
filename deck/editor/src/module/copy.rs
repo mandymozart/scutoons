@@ -46,6 +46,12 @@ pub fn checkout(dir: &Path, key: &str, version: Option<u64>, files: &Files, mani
     if changed(dir) {
         return Ok(Checkout::Kept);
     }
+    replace(dir, key, version, files, manifest, clippy)?;
+    Ok(Checkout::Fresh)
+}
+
+/// The server's `files` of `key` at `version` into the folder, whatever it holds (a revert's document comes back)
+pub fn replace(dir: &Path, key: &str, version: Option<u64>, files: &Files, manifest: &str, clippy: &str) -> std::io::Result<()> {
     let src = dir.join("src");
     std::fs::create_dir_all(&src)?;
     for entry in std::fs::read_dir(&src)?.flatten() {
@@ -58,8 +64,7 @@ pub fn checkout(dir: &Path, key: &str, version: Option<u64>, files: &Files, mani
     }
     std::fs::write(dir.join("Cargo.toml"), manifest)?;
     std::fs::write(dir.join("clippy.toml"), clippy)?;
-    std::fs::write(dir.join(BASE), serde_json::to_string_pretty(&Base { key: key.into(), version, files: files.clone() })?)?;
-    Ok(Checkout::Fresh)
+    std::fs::write(dir.join(BASE), serde_json::to_string_pretty(&Base { key: key.into(), version, files: files.clone() })?)
 }
 
 /// after a save: what was saved is the new base
@@ -93,6 +98,11 @@ mod tests {
         assert!(changed(&dir));
         assert_eq!(checkout(&dir, "module:walk", Some(3), &v1, "[package]", "msrv").unwrap(), Checkout::Kept);
         assert_eq!(sources(&dir).unwrap()["lib.rs"], "// mine");
+
+        let v5 = Files::from([("lib.rs".to_string(), "// five".to_string())]);
+        replace(&dir, "module:walk", Some(5), &v5, "[package]", "msrv").unwrap();
+        assert!(!changed(&dir), "a revert's document replaces even a change of its own");
+        assert_eq!(sources(&dir).unwrap(), v5);
 
         saved(&dir, "module:walk", 4).unwrap();
         assert!(!changed(&dir));
