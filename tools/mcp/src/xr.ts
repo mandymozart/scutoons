@@ -35,10 +35,11 @@ export function registerXrTools(server: McpServer, config: Config, options: { wr
 		'import_xr_experience',
 		{
 			description:
-				'Takes a PUBLISHED OSCT content version as the draft of a SCUTOONS XR experience (`experience:<id>`, played by the reader at /xr/<id>). `source` = the content base of the OSCT experience (the folder that holds latest.json, e.g. "https://…/osct/staging/demo"); `scene` = only this OSCT scene with its entries and the shared entities they use (without it the whole experience). Uploads the files the configuration uses to the asset manager under xr/<id>/<build>/ (a file already there is kept), puts the compiled plugins of the version\'s newest plugin API into the document as code, and saves a new draft version. `dry_run` only lists what it would take. Nothing is published: the member publishes the draft.',
+				'Takes a PUBLISHED OSCT content version as the draft of a SCUTOONS XR experience (`experience:<id>`, played by the reader at /xr/<id>). `source` = the content base of the OSCT experience (the folder that holds latest.json, e.g. "https://…/osct/staging/demo"); `build` = one published version instead of the latest (the OSCT editor names it in its publish log); `scene` = only this OSCT scene with its entries and the shared entities they use (without it the whole experience). Uploads the files the configuration uses to the asset manager under xr/<id>/<build>/ (a file already there is kept), puts the compiled plugins of the version\'s newest plugin API into the document as code, and saves a new draft version. `dry_run` only lists what it would take. Nothing is published: the member publishes the draft.',
 			inputSchema: z.object({
 				source: z.string().url().describe('the OSCT experience\'s content base URL'),
 				scene: z.string().optional().describe('one OSCT scene id'),
+				build: z.string().regex(/^[0-9a-f]{6,64}$/).optional().describe('one published version (its build); default: the one latest.json names'),
 				id: z.string().regex(EXPERIENCE_ID).describe('the SCUTOONS experience id, e.g. poster-catpope'),
 				type: z.enum(XR_EXPERIENCE_TYPES),
 				title: z.record(z.string(), z.string()).describe('{ "<locale>": "…" }'),
@@ -47,11 +48,12 @@ export function registerXrTools(server: McpServer, config: Config, options: { wr
 			}),
 			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
 		},
-		async ({ source, scene, id, type, title, toons, dry_run }): Promise<Result> => {
+		async ({ source, scene, build: wanted, id, type, title, toons, dry_run }): Promise<Result> => {
 			try {
 				if (!/^https?:\/\//i.test(source)) return fail('source must be http(s)');
 				const base = source.replace(/\/+$/, '');
-				const latest = (await (await download(`${base}/latest.json?t=${Date.now()}`)).json()) as Record<string, unknown>;
+				// the content base's latest may be another publisher's (OSCT's content build): an editor's version is named
+				const latest = wanted ? { build: wanted } : ((await (await download(`${base}/latest.json?t=${Date.now()}`)).json()) as Record<string, unknown>);
 				const build = String(latest.build ?? '');
 				if (!/^[0-9a-f]{6,64}$/.test(build)) return fail(`${base}/latest.json names no build – is this the content base of a published experience?`);
 				const versionUrl = `${base}/${build}`;

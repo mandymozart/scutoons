@@ -34,11 +34,18 @@ export interface XrRun {
 	dispose(): Promise<void>;
 }
 
+/** a compiled plugin of the experience: an ES module as text */
+export interface XrPluginCode {
+	id: string;
+	api: string;
+	code: string;
+}
+
 /** the scene, or why the configuration is not one this engine can read (one line each) */
 export type XrOpened = { run: XrRun } | { problems: string[] };
 
 /**
- * Reads `configuration` (OSCT's game configuration; its plugins' `src` are URLs the browser can import) and builds
- * `scene` in `container`. What the reader found lives as long as the page.
+ * Reads `configuration` (OSCT's game configuration, without plugins) with `plugins` as its plugins and builds `scene`
+ * in `container`. What the reader found lives as long as the page.
  */
-export declare function openXr(container: HTMLElement, configuration: unknown, scene: string, options: XrOptions): Promise<XrOpened>;
+export declare function openXr(container: HTMLElement, configuration: unknown, plugins: readonly XrPluginCode[], scene: string, options: XrOptions): Promise<XrOpened>;

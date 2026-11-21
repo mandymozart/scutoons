@@ -12,14 +12,15 @@
 
 	let stage = $state<HTMLElement>();
 	let run: XrRun | null = null;
-	let status = $state<XrStatus>('loading');
+	let status = $state<XrStatus>('idle');
+	let opened = $state(false);
 	let found = $state(0);
 	let failure = $state<XrFailure>('other');
 	let subtitle = $state<string | null>(null);
 	/** the camera runs or was asked for: a hidden page releases it, a shown one takes it again */
-	let wanted = false;
+	let wanted = $state(false);
 
-	const view = $derived(viewOf(status, found));
+	const view = $derived(viewOf(status, found, opened, wanted));
 	const title = $derived(data.experience.title[getLocale()] ?? data.experience.title.en ?? Object.values(data.experience.title)[0] ?? '');
 
 	function fail(kind: XrFailure) {
@@ -28,7 +29,8 @@
 	}
 
 	async function open(host: HTMLElement) {
-		status = 'loading';
+		status = 'idle';
+		opened = false;
 		try {
 			run = await openXr(host, data.experience, data.place.scene, getLocale, {
 				status: (next, code) => {
@@ -38,6 +40,7 @@
 				found: (count) => (found = count),
 				subtitle: (text) => (subtitle = text)
 			});
+			opened = true;
 		} catch (e) {
 			console.error('[xr]', e instanceof XrContentError ? e.problems.join('\n') : e);
 			fail(e instanceof XrContentError ? 'content' : 'other');

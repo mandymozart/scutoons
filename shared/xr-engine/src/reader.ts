@@ -1,14 +1,31 @@
-import { loadGameConfiguration } from '../osct/engine/src/content/game-config';
+import { getPlugins, loadGameConfiguration } from '../osct/engine/src/content/game-config';
 import { ArScene } from '../osct/engine/src/scene/index';
+import { loadPlugins } from '../osct/engine/src/scene/plugins';
 import { ImageTracker } from '../osct/engine/src/scene/xr8-tracker';
 import { ArState } from '../osct/engine/src/types/scene';
 import type * as api from './reader-api';
 
 type VarValue = string | number | boolean;
 
-export const openXr: typeof api.openXr = async (container, configuration, scene, { xr8Base, assetsBase, language, handlers }) => {
-	const failed = await loadGameConfiguration({ bundled: async () => configuration, assetsBase });
+/** every call names its plugins anew: the engine keeps a loaded module by its name */
+let opened = 0;
+
+export const openXr: typeof api.openXr = async (container, configuration, plugins, scene, { xr8Base, assetsBase, language, handlers }) => {
+	// the contract wants a plugin's `src` to be a .js file; the code is in the document, so each gets a name here
+	const run = ++opened;
+	const code = new Map(plugins.map((plugin) => [`xr-plugin/${run}/${plugin.id}.js`, plugin.code]));
+	const declared = plugins.map(({ id, api: version }) => ({ id, api: version, src: `xr-plugin/${run}/${id}.js` }));
+	const failed = await loadGameConfiguration({ bundled: async () => ({ ...(configuration as object), plugins: declared }), assetsBase });
 	if (failed) return { problems: failed.details ?? [failed.msg] };
+	// loaded here, from a blob each, before the scene asks for them by the same names
+	await loadPlugins(getPlugins(), async (src) => {
+		const url = URL.createObjectURL(new Blob([code.get(src) ?? ''], { type: 'text/javascript' }));
+		try {
+			return await import(/* @vite-ignore */ url);
+		} finally {
+			URL.revokeObjectURL(url);
+		}
+	});
 
 	const seen = new Set<string>();
 	const unlocked = new Set<string>();

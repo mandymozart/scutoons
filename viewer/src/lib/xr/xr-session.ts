@@ -1,9 +1,9 @@
 /**
- * What the XR page decides without the engine: where a URL lands in an experience, the configuration the engine
- * gets, and which of the page's states the engine's reports mean. The engine itself is lib/xr/xr-engine.ts.
+ * What the XR page decides without the engine: where a URL lands in an experience and which of the page's states the
+ * engine's reports mean. The engine itself is lib/xr/xr-engine.ts.
  */
 
-import type { XrGameConfiguration, XrPlugin } from '@scutoons/content';
+import type { XrGameConfiguration } from '@scutoons/content';
 import type { XrStatus } from '@scutoons/xr-engine/reader';
 
 export type { XrStatus };
@@ -40,25 +40,18 @@ export function placeIn(configuration: XrGameConfiguration, at?: string): XrPlac
 	return null;
 }
 
-/** the configuration with the document's plugins as modules the engine can import (`toUrl`: a blob URL of the code) */
-export function withPlugins(configuration: XrGameConfiguration, plugins: readonly XrPlugin[], toUrl: (code: string) => string): XrGameConfiguration {
-	return { ...configuration, plugins: plugins.map(({ id, api, code }) => ({ id, api, src: toUrl(code) })) };
-}
-
 export type XrView = 'loading' | 'ready' | 'starting' | 'scanning' | 'found' | 'paused' | 'failed';
 
-export function viewOf(status: XrStatus, found: number): XrView {
-	switch (status) {
-		case 'idle':
-		case 'loading':
-			return 'loading';
-		case 'running':
-			return found > 0 ? 'found' : 'scanning';
-		case 'error':
-			return 'failed';
-		default:
-			return status;
-	}
+/**
+ * `opened`: the experience is read; `asked`: the reader asked for the camera. The engine builds nothing before the
+ * camera is asked for (its status stays idle), so "ready" is the page's own: read, and not asked yet.
+ */
+export function viewOf(status: XrStatus, found: number, opened: boolean, asked: boolean): XrView {
+	if (status === 'error') return 'failed';
+	if (!opened) return 'loading';
+	if (!asked) return 'ready';
+	if (status === 'running') return found > 0 ? 'found' : 'scanning';
+	return status === 'paused' ? 'paused' : 'starting';
 }
 
 export type XrFailure = 'camera' | 'content' | 'other';

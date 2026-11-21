@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { XrGameConfiguration } from '@scutoons/content';
-import { failureOf, placeIn, viewOf, withPlugins } from '../src/lib/xr/xr-session.ts';
+import { failureOf, placeIn, viewOf } from '../src/lib/xr/xr-session.ts';
 
 const configuration: XrGameConfiguration = {
 	version: { schema: '5.0' },
@@ -36,22 +36,19 @@ test('an entry without a target, a target of a missing scene and an unknown name
 	assert.equal(placeIn(configuration, 'nowhere'), null);
 });
 
-test("the document's plugins become the configuration's modules", () => {
-	const made = withPlugins(configuration, [{ id: 'toon', api: '3.1', code: 'export {}' }], (code) => `blob:${code.length}`);
-	assert.deepEqual(made.plugins, [{ id: 'toon', api: '3.1', src: 'blob:9' }]);
-	assert.equal(made.scenes, configuration.scenes);
-	assert.equal(configuration.plugins, undefined);
-});
-
-test("the engine's status as the page's state", () => {
-	assert.equal(viewOf('idle', 0), 'loading');
-	assert.equal(viewOf('loading', 0), 'loading');
-	assert.equal(viewOf('ready', 0), 'ready');
-	assert.equal(viewOf('starting', 0), 'starting');
-	assert.equal(viewOf('running', 0), 'scanning');
-	assert.equal(viewOf('running', 2), 'found');
-	assert.equal(viewOf('paused', 1), 'paused');
-	assert.equal(viewOf('error', 1), 'failed');
+test("the page's state: read, asked for the camera, and what the engine reports", () => {
+	assert.equal(viewOf('idle', 0, false, false), 'loading');
+	// the engine stays idle until the camera is asked for
+	assert.equal(viewOf('idle', 0, true, false), 'ready');
+	assert.equal(viewOf('ready', 0, true, false), 'ready');
+	assert.equal(viewOf('idle', 0, true, true), 'starting');
+	assert.equal(viewOf('loading', 0, true, true), 'starting');
+	assert.equal(viewOf('starting', 0, true, true), 'starting');
+	assert.equal(viewOf('running', 0, true, true), 'scanning');
+	assert.equal(viewOf('running', 2, true, true), 'found');
+	assert.equal(viewOf('paused', 1, true, true), 'paused');
+	assert.equal(viewOf('error', 1, true, true), 'failed');
+	assert.equal(viewOf('error', 0, false, false), 'failed');
 });
 
 test('what a failure is to the reader', () => {
