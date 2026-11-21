@@ -287,6 +287,17 @@ pub fn edit(show: &Show, e: &Edit) -> Result<Edited, String> {
     edit_with(show, e, None)
 }
 
+/// `edits` made one after another as one change (one undo step): all of them or, at the first refused, none.
+pub fn edit_all(show: &Show, edits: &[Edit]) -> Result<Edited, String> {
+    let mut done = Edited { show: show.clone(), said: String::new(), row: None };
+    for e in edits {
+        let next = edit(&done.show, e)?;
+        let said = if done.said.is_empty() { next.said } else { format!("{}; {}", done.said, next.said) };
+        done = Edited { show: next.show, said, row: next.row.or(done.row) };
+    }
+    Ok(done)
+}
+
 /// [`edit`] with the knobs of the cell's piece (deck-space `piece::knobs`), which a value edit is checked against.
 pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited, String> {
     let before = crate::validate::validate(show);

@@ -122,6 +122,13 @@ pub fn to_line(points: &[(f32, f32)], p: (f32, f32)) -> f32 {
     }
 }
 
+/// whether the line through `a` crosses the line through `b` somewhere (a cut across a wire)
+pub fn crosses(a: &[(f32, f32)], b: &[(f32, f32)]) -> bool {
+    let side = |p: (f32, f32), q: (f32, f32), r: (f32, f32)| (q.0 - p.0) * (r.1 - p.1) - (q.1 - p.1) * (r.0 - p.0);
+    let cross = |p: (f32, f32), q: (f32, f32), r: (f32, f32), s: (f32, f32)| side(p, q, r) * side(p, q, s) < 0.0 && side(r, s, p) * side(r, s, q) < 0.0;
+    a.windows(2).any(|x| b.windows(2).any(|y| cross(x[0], x[1], y[0], y[1])))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,6 +155,15 @@ mod tests {
         assert!(near(v.to_screen(under), at), "the point under the pointer stays under it");
         v.zoom_at(at, -3.0);
         assert!((v.zoom - 1.0).abs() < 1e-4 && near(v.pan, (10.0, 20.0)), "back out: where it was");
+    }
+
+    #[test]
+    fn a_path_crosses_a_line_it_cuts_through_and_not_one_it_stops_short_of() {
+        let wire = [(0.0, 0.0), (10.0, 0.0), (20.0, 10.0)];
+        assert!(crosses(&[(5.0, -5.0), (5.0, 5.0)], &wire));
+        assert!(crosses(&[(30.0, -5.0), (16.0, 0.0), (14.0, 10.0)], &wire), "its second piece cuts the wire's second");
+        assert!(!crosses(&[(5.0, -5.0), (5.0, -1.0)], &wire), "short of it");
+        assert!(!crosses(&[(5.0, -5.0)], &wire) && !crosses(&[], &wire), "a point is no cut");
     }
 
     #[test]

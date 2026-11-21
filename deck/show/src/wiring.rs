@@ -63,7 +63,7 @@ pub fn wireable(pin: &Pin) -> bool {
     matches!(pin.signal, Signal::Event | Signal::Control)
 }
 
-fn ports_of(show: &Show, row: &Row, column: &str) -> (Vec<Pin>, Vec<Pin>) {
+pub(crate) fn ports_of(show: &Show, row: &Row, column: &str) -> (Vec<Pin>, Vec<Pin>) {
     match row.cells.get(column) {
         Some(cell) => ports(show, column, cell),
         None => (Vec::new(), Vec::new()),

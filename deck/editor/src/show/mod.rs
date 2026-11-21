@@ -34,6 +34,7 @@ pub mod nodes;
 mod node_card;
 mod node_paint;
 mod node_pick;
+mod node_wire;
 pub(crate) mod flash;
 mod link;
 pub mod live;
@@ -834,6 +835,8 @@ pub struct Script {
     pub node_box: Option<[f32; 4]>,
     /// the value of the n-th wire that has one pinned by a click
     pub node_pin: Option<usize>,
+    /// a wiring gesture in the node view (node_wire.rs `script_node_wire`)
+    pub node_wire: Option<String>,
     /// an edge of the rows band (`column:ID`, `row:ID`, `heads`) taken and moved by this many pixels, held for the
     /// screenshot (sizing.rs)
     pub band_drag: Option<(String, f32)>,
@@ -886,6 +889,11 @@ impl Host {
             }
             95 => self.script_nodes(&s.node_select, s.node_frame),
             96 => self.script_pick(s.node_box, s.node_pin),
+            98 | 104 => {
+                if let Some(spec) = &s.node_wire {
+                    self.script_node_wire(spec, frame == 104);
+                }
+            }
             97 => {
                 if let Some((edge, by)) = &s.band_drag {
                     self.script_band_drag(edge, *by);
@@ -956,7 +964,7 @@ impl Host {
             }
             43 => {
                 let Some(w) = self.wiring.clone() else { return };
-                let from = deck_show::view::plan(self.shown()).columns.iter().position(|c| c.id == w.from);
+                let from = deck_show::view::plan(self.shown()).columns.iter().position(|c| c.id == w.held.from);
                 if let Some((r, _)) = self.hits.iter().rev().find(|(_, h)| matches!(*h, Hit::Port(_, c, false, _) if Some(c) != from)) {
                     self.cursor = (r.x + r.w * 0.5, r.y + r.h * 0.5);
                 }
