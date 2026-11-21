@@ -1,6 +1,7 @@
 // This machine's settings of the creator (research/redesign/PLAN.md §2.5, the deck's settings.rs): the look, motion,
 // the layout – kept in this browser. Member settings (language, AI, notifications) live with the member. Pure:
 // test/shell.test.ts.
+import { clampSplit, readStage } from './stage.ts';
 
 /** where this browser keeps them */
 export const SETTINGS_KEY = 'sc-creator-settings';
@@ -15,13 +16,15 @@ export interface MachineSettings {
 	reduceMotion: boolean;
 	/** the last tabs come back when the creator starts */
 	reopenTabs: boolean;
-	/** per workspace: the tab on the stage, and whether its content keeps clear of the bar's row */
+	/** per workspace: the tabs on the stage, and whether its content keeps clear of the bar's row */
 	views: Record<string, ViewSettings>;
 }
 
 export interface ViewSettings {
-	/** the tab that took the stage (◱ main); absent: the preset's */
-	main?: string | null;
+	/** the tabs that took the stage (◱ main, a drop; two = a split), left to right; absent: the preset's */
+	stage?: string[];
+	/** where a split divides the stage (a share of the width) */
+	split?: number;
 	/** the content starts under the bar's row (the stage itself still runs under the bar); default on */
 	clear?: boolean;
 }
@@ -36,7 +39,9 @@ export function readViews(raw: unknown): Record<string, ViewSettings> {
 		if (typeof v !== 'object' || v === null) continue;
 		const r = v as Record<string, unknown>;
 		const view: ViewSettings = {};
-		if (typeof r.main === 'string' || r.main === null) view.main = r.main as string | null;
+		const stage = readStage(r.stage);
+		if (stage) view.stage = stage;
+		if (typeof r.split === 'number') view.split = clampSplit(r.split);
 		if (typeof r.clear === 'boolean') view.clear = r.clear;
 		out[kind] = view;
 	}

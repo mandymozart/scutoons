@@ -10,6 +10,7 @@
 	import LibraryBrowser from '$lib/components/library/library-browser.svelte';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
+	import Stage from '$lib/components/shell/stage.svelte';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
@@ -49,10 +50,39 @@
 		shell.wanted = null;
 	});
 
-	/** the tab on the stage, only while it has content */
-	const main = $derived(shell.main && available.has(shell.main) ? shell.main : null);
+	/** the tabs on the stage, only while they have content */
+	const staged = $derived(shell.stage.filter((t) => available.has(t)));
+	$effect(() => {
+		floats.staged = staged;
+	});
 	const over = $derived(shell.over && available.has(shell.over) ? shell.over : null);
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
+	let stage = $state<ReturnType<typeof Stage>>();
+	/** ◱: the tab alone on the stage, or back */
+	function onmain(tab: string) {
+		if (!staged.includes(tab)) stage?.take(tab);
+		shell.send(tab);
+	}
+	const typing = (e: KeyboardEvent) => {
+		const t = e.target as HTMLElement | null;
+		return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+	};
+	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: ◱ for the front panel's tab */
+	function onkeydown(e: KeyboardEvent) {
+		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e) || floats.heldTab || library.browser) return;
+		if (e.key === 'Escape') {
+			if (shell.over) shell.over = null;
+			else if (staged.length && !document.querySelector('[aria-modal="true"]')) shell.back(staged.at(-1));
+			else return;
+			e.preventDefault();
+		} else if (e.key === 'm' || e.key === 'M') {
+			const front = [...floats.order].reverse().find((id) => floats.spec(id) && !floats.closed(id) && floats.activeOf(id));
+			const tab = front && floats.activeOf(front);
+			if (!tab) return;
+			e.preventDefault();
+			onmain(tab);
+		}
+	}
 
 	function onover(tab: string) {
 		if (tab === 'library') library.browser = true;
@@ -60,11 +90,7 @@
 	}
 </script>
 
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape' && shell.over) shell.over = null;
-	}}
-/>
+<svelte:window {onkeydown} />
 
 {#snippet content(id: string)}
 	<div class="ws-tab" data-testid="panel-{id}">
@@ -80,29 +106,20 @@
 	</div>
 {/snippet}
 
-{#if main}
-	<div class="on-stage" class:clear={shell.clear} data-testid="on-stage" data-tab={main}>
-		<div class="stage-body">{@render content(main)}</div>
-		<div class="stage-head">
-			<span class="label">{m['shell.on_stage']()}</span>
-			<span class="name">{name(main)}</span>
-			<button type="button" class="back" onclick={() => shell.toggleMain(main)} aria-label={m['shell.main_back']()} title={m['shell.main_back']()} data-testid="stage-back"><Icon name="minimize-2" size="0.9rem" strokeWidth={2} /></button>
-		</div>
-	</div>
-{/if}
+<Stage bind:this={stage} {floats} stage={staged} {content} {name} />
 
 <div class="ws-overlay" data-workspace={kind} data-testid="workspace">
 	{#key floats}
 		<FloatingPanels
 			{floats}
-			{main}
-			onmain={(tab) => shell.toggleMain(tab)}
+			{onmain}
 			{onover}
+			stageDrop={{ zone: (t, x, y) => stage?.zone(t, x, y) ?? null, drop: (t, x, y) => stage?.drop(t, x, y) ?? false }}
 			labels={{ fold: m['creator.fold_panel'](), open: m['creator.unfold_panel'](), close: m['creator.close'](), main: m['shell.main'](), back: m['shell.main_back'](), over: m['shell.over']() }}
 		>
 			{#snippet tab(id)}
-				{#if id === main || id === over}
-					<p class="away">{id === main ? m['shell.on_stage']() : m['shell.over']()}</p>
+				{#if staged.includes(id) || id === over}
+					<p class="away">{id === over ? m['shell.over']() : m['shell.on_stage']()}</p>
 				{:else}
 					{@render content(id)}
 				{/if}
@@ -156,58 +173,6 @@
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
-	}
-	/* a tab on the stage: the whole window, under the bar too; the page stays mounted under it */
-	.on-stage {
-		position: fixed;
-		z-index: 30;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		background: var(--editor-stage);
-		color: var(--editor-text);
-	}
-	.stage-body {
-		flex: 1;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: auto;
-		padding-bottom: var(--status-room);
-	}
-	.on-stage.clear .stage-body {
-		padding-top: var(--shell-top);
-	}
-	/* the tab as a sheet in the stage's middle, the panels beside it; its head pill floats at the foot */
-	.stage-body > .ws-tab {
-		width: min(60rem, 100% - 2rem);
-		margin: 0 auto calc(var(--control-height) + 1.5rem);
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		overflow: auto;
-	}
-	.stage-head {
-		position: absolute;
-		z-index: 2;
-		left: 50%;
-		bottom: calc(var(--status-room) + 0.5rem);
-		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-height: var(--control-height);
-		padding: 0 0.2rem 0 1rem;
-		border-radius: 1.2rem;
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		font-family: var(--editor-sans);
-	}
-	.stage-head .label {
-		font-size: var(--editor-label);
-		letter-spacing: var(--editor-label-spacing);
-		text-transform: uppercase;
-		opacity: 0.7;
 	}
 	.back {
 		display: inline-grid;

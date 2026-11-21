@@ -1,35 +1,10 @@
-<script lang="ts" module>
-	import { dropTarget, markerX, type DropPanel, type DropTarget } from './panel-tabs.ts';
-	import type { Rect } from './floats.ts';
-
-	const box = (el: Element): Rect => {
-		const r = el.getBoundingClientRect();
-		return { x: r.left, y: r.top, w: r.width, h: r.height };
-	};
-
-	/** The tab-holding panels under the pointer, front to back, measured from the page, and where a tab would land */
-	function measureDrop(floats: Floats, x: number, y: number): { target: DropTarget; marker: Rect | null } {
-		const panels: DropPanel[] = [];
-		for (const el of document.querySelectorAll<HTMLElement>('[data-float][data-tabbed]')) {
-			const id = el.dataset.float!;
-			const strip = el.querySelector('[data-tab-strip]');
-			if (!strip) continue;
-			panels.push({ id, rect: box(el), strip: box(strip), tabs: [...strip.querySelectorAll('[data-tab]')].map(box) });
-		}
-		panels.sort((a, b) => floats.z(b.id) - floats.z(a.id));
-		const target = dropTarget(x, y, panels);
-		const p = target && panels.find((o) => o.id === target.panel);
-		if (!target || !p) return { target, marker: null };
-		return { target, marker: { x: markerX(p.tabs, p.strip, target.index) - 1, y: p.strip.y, w: 2, h: p.strip.h } };
-	}
-</script>
-
 <script lang="ts">
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import Icon from '../icon.svelte';
 	import CloseButton from '../close-button.svelte';
 	import type { Floats } from './floats.svelte.ts';
 	import type { Edge } from './floats.ts';
+	import { measureDrop } from './measure-drop.ts';
 
 	/**
 	 * One floating panel over the stage: no title bar – its head is a drag handle (the grip and the free room) with the
@@ -38,7 +13,8 @@
 	 * own. Open, the edges resize it and push the neighbours. An inline panel (a toolbar) is one row or one column. The
 	 * page lays the panels out in `floats`; this draws one. `children` = the front tab's content (or the toolbar's row).
 	 * With `onmain` the head offers ◱ main (the front tab takes the stage; pressed again it comes back), with `onover`
-	 * ⤢ over everything (the front tab as a dialog over all).
+	 * ⤢ over everything (the front tab as a dialog over all). While its front tab is on the stage (`floats.staged`) the
+	 * panel shows only its head, a dot on that tab.
 	 */
 	let {
 		floats,
@@ -49,7 +25,6 @@
 		openLabel = 'Open',
 		closeLabel = 'Close',
 		moveLabel = 'Move the panel – drag, or the arrow keys; Enter folds it',
-		main = null,
 		onmain,
 		onover,
 		mainLabel = 'On the stage',
@@ -64,8 +39,7 @@
 		openLabel?: string;
 		closeLabel?: string;
 		moveLabel?: string;
-		/** the tab on the stage (its panel shows the head's ◱ pressed) */
-		main?: string | null;
+
 		onmain?: (tab: string) => void;
 		onover?: (tab: string) => void;
 		mainLabel?: string;
@@ -76,6 +50,9 @@
 	const spec = $derived(floats.spec(id)!);
 	const view = $derived(floats.views[id]);
 	const collapsed = $derived(view?.collapsed ?? false);
+	/** the front tab is on the stage: the head only, ◱ pressed */
+	const staged = $derived(floats.isStaged(id));
+	const folded = $derived(collapsed && !staged);
 	const vertical = $derived(floats.vertical(id));
 	const held = $derived(floats.held?.id === id && floats.held.moved);
 	const tabs = $derived(floats.tabsOf(id));
@@ -173,6 +150,7 @@
 		class:inline={spec.inline}
 		class:vertical
 		class:collapsed
+		class:staged
 		class:held
 		aria-label={label ?? spec.name}
 		data-float={id}
@@ -234,12 +212,13 @@
 					<span class="grip" aria-hidden="true"></span>
 				</div>
 				<div class="strip" role="tablist" aria-label={spec.name} data-tab-strip>
-					{#each collapsed ? tabs.filter((t) => t === active) : tabs as tab, i (tab)}
+					{#each folded ? tabs.filter((t) => t === active) : tabs as tab, i (tab)}
 						{@const t = floats.tab(tab)}
+						{@const away = floats.staged.includes(tab)}
 						<button
 							type="button"
 							class="tab"
-							class:on={tab === active}
+							class:on={tab === active && !away}
 							class:dragged={tab === draggedTab}
 							role="tab"
 							aria-selected={tab === active}
@@ -251,41 +230,44 @@
 							onpointerup={() => floats.dropTab()}
 							onpointercancel={() => floats.cancelTab()}
 							onkeydown={(e) => tabKey(e, i)}
-							ondblclick={(e) => e.stopPropagation()}>{t?.name ?? tab}</button
+							ondblclick={(e) => e.stopPropagation()}
+							>{#if away}<span class="dot" aria-hidden="true"></span>{/if}{t?.name ?? tab}</button
 						>
 					{/each}
 				</div>
 				<span class="buttons">
-					{#if active && !collapsed && onover}
+					{#if active && !folded && onover}
 						<button type="button" class="icon" onclick={() => onover(active)} aria-label={overLabel} title={overLabel} data-testid="panel-over">
 							<Icon name="maximize-2" size="0.9rem" strokeWidth={2} />
 						</button>
 					{/if}
-					{#if active && !collapsed && onmain}
+					{#if active && !folded && onmain}
 						<button
 							type="button"
 							class="icon"
-							aria-pressed={main === active}
+							aria-pressed={staged}
 							onclick={() => onmain(active)}
-							aria-label={main === active ? backLabel : mainLabel}
-							title={main === active ? backLabel : mainLabel}
+							aria-label={staged ? backLabel : mainLabel}
+							title={staged ? backLabel : mainLabel}
 							data-testid="panel-main"
 						>
-							<Icon name="monitor" size="0.9rem" strokeWidth={2} />
+							<Icon name={staged ? 'minimize-2' : 'monitor'} size="0.9rem" strokeWidth={2} />
 						</button>
 					{/if}
-					<button
-						type="button"
-						class="icon"
-						aria-expanded={!collapsed}
-						onclick={() => floats.setCollapsed(id, !collapsed)}
-						aria-label={collapsed ? openLabel : foldLabel}
-						title={collapsed ? openLabel : foldLabel}
-					>
-						<Icon name={collapsed ? 'chevron-down' : 'minus'} size="1rem" strokeWidth={2} />
-					</button>
-					{#if !spec.essential}
-						<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
+					{#if !staged}
+						<button
+							type="button"
+							class="icon"
+							aria-expanded={!collapsed}
+							onclick={() => floats.setCollapsed(id, !collapsed)}
+							aria-label={collapsed ? openLabel : foldLabel}
+							title={collapsed ? openLabel : foldLabel}
+						>
+							<Icon name={collapsed ? 'chevron-down' : 'minus'} size="1rem" strokeWidth={2} />
+						</button>
+						{#if !spec.essential}
+							<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
+						{/if}
 					{/if}
 				</span>
 			</div>
@@ -398,6 +380,16 @@
 	}
 	.tab.dragged {
 		opacity: 0.4;
+	}
+	/* the tab is on the stage */
+	.dot {
+		display: inline-block;
+		width: 0.45rem;
+		height: 0.45rem;
+		margin-right: 0.35rem;
+		border-radius: 50%;
+		background: var(--editor-accent);
+		vertical-align: 0.05rem;
 	}
 	.tab:focus-visible,
 	.icon:focus-visible {

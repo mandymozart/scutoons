@@ -131,6 +131,8 @@
 		height: 100%;
 		min-height: 0;
 		overflow: hidden;
+		/* on the stage: the screen keeps clear of the bar and the panels (stage.svelte) */
+		padding: var(--stage-top, 0rem) var(--stage-right, 0rem) var(--stage-bottom, 0rem) var(--stage-left, 0rem);
 	}
 	header {
 		display: flex;

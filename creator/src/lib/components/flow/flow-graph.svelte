@@ -190,11 +190,16 @@
 	.graph :global(.flow-edge.from-unreachable path.svelte-flow__edge-path) {
 		stroke: var(--badge-warning);
 	}
+	/* on the stage the graph runs under the bar and the panels: its own controls keep clear of them (stage.svelte) */
 	.graph :global(.svelte-flow__minimap) {
 		border: var(--border-width-regular) solid var(--ink);
 		margin: var(--space-05);
+		margin-right: calc(var(--stage-right, 0rem) + var(--space-05));
+		margin-bottom: calc(var(--stage-bottom, 0rem) + var(--space-05));
 	}
 	.graph :global(.svelte-flow__panel.top.left) {
 		margin: var(--space-05);
+		margin-top: calc(var(--stage-top, 0rem) + var(--space-05));
+		margin-left: calc(var(--stage-left, 0rem) + var(--space-05));
 	}
 </style>

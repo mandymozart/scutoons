@@ -87,6 +87,10 @@ export class Floats {
 	order = $state<string[]>([]);
 	held = $state.raw<Held | null>(null);
 	heldTab = $state.raw<HeldTab | null>(null);
+	/** Tabs the page shows elsewhere (on its stage): a panel whose front tab is one of them lays out as its head */
+	staged = $state.raw<readonly string[]>([]);
+	/** The page takes a tab let go over the stage (true: taken – it does not become a panel of its own) */
+	dropOnStage: ((tab: string, x: number, y: number) => boolean) | null = null;
 	private pending: [number, number] | null = null;
 	private frame = 0;
 	/** How many layouts of the hand ran (one per animation frame) */
@@ -106,7 +110,13 @@ export class Floats {
 	/** The panels there are now, in the order of growth: the declared ones that hold tabs (or are toolbars), then the free ones */
 	readonly specs: PanelSpec[] = $derived.by(() => {
 		const a = this.arrangement;
-		const name = (id: string, fallback: string) => this.tab(activeOf(a, id) ?? '')?.name ?? fallback;
+		// a staged panel's head shows every tab: its pill is as wide as all their names (the gaps for the tabs' padding)
+		const name = (id: string, fallback: string) =>
+			this.staged.includes(activeOf(a, id) ?? '')
+				? tabsOf(a, id)
+						.map((t) => this.tab(t)?.name ?? t)
+						.join('    ')
+				: (this.tab(activeOf(a, id) ?? '')?.name ?? fallback);
 		const declared = this.panels
 			.filter((p) => !p.tabs || tabsOf(a, p.id).length)
 			.map((p) => (p.tabs ? { ...p, name: name(p.id, p.name), essential: p.essential || isEssential(a, p.id, this.tabs) } : p));
@@ -133,7 +143,18 @@ export class Floats {
 	);
 
 	get resolved(): Record<string, Place> {
-		return Object.fromEntries(this.specs.map((s) => [s.id, this.places[s.id] ?? defaultPlace(s, this.metrics)]));
+		return Object.fromEntries(
+			this.specs.map((s) => {
+				const place = this.places[s.id] ?? defaultPlace(s, this.metrics);
+				return [s.id, this.isStaged(s.id) ? { ...place, collapsed: true } : place];
+			})
+		);
+	}
+
+	/** The panel's front tab is on the page's stage: only its head shows */
+	isStaged(id: string): boolean {
+		const active = activeOf(this.arrangement, id);
+		return !!active && this.staged.includes(active);
 	}
 
 	spec(id: string): PanelSpec | undefined {
@@ -292,6 +313,7 @@ export class Floats {
 		if (!from) return;
 		if (!h.moved) return this.select(from, h.tab);
 		const [x, y] = h.at;
+		if (!h.target && this.dropOnStage?.(h.tab, x, y)) return;
 		if (h.target) {
 			this.arrangement = moveTab(this.arrangement, h.tab, h.target.panel, h.target.index);
 			this.front(h.target.panel);

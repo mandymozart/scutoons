@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
-import { PRESETS, availableTabs, mainOf, panelSpecs } from '../src/lib/shell/presets.ts';
+import { PRESETS, availableTabs, panelSpecs, stageOf } from '../src/lib/shell/presets.ts';
+import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn } from '../src/lib/shell/stage.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -145,13 +146,41 @@ test('a tab with content that no preset panel holds gets a closed panel of its o
 
 test('every workspace kind has a preset; the stage holds the person’s tab, else the preset’s', () => {
 	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
-	assert.equal(mainOf('chapter', {}), null);
-	assert.equal(mainOf('chapter', { main: 'flow' }), 'flow');
-	assert.equal(mainOf('chapter', { main: null }), null);
+	assert.deepEqual(stageOf('chapter', {}), []);
+	assert.deepEqual(stageOf('chapter', { stage: ['flow'] }), ['flow']);
+	assert.deepEqual(stageOf('chapter', { stage: [] }), []);
+	// a preset without `main`: its own view is the stage, full-bleed under the bar
+	for (const [kind, preset] of Object.entries(PRESETS)) if (!preset.main) assert.deepEqual(stageOf(kind, {}), [], kind);
+});
+
+test('taking the stage: ◱ alone, a drop splits, never more than two', () => {
+	assert.deepEqual(send([], 'flow'), ['flow']);
+	assert.deepEqual(send(['flow'], 'flow'), [], 'pressed again: back');
+	assert.deepEqual(send(['flow', 'preview'], 'problems'), ['problems'], 'this one alone; the others fly back');
+	assert.deepEqual(splitIn(['flow'], 'preview', 'right'), ['flow', 'preview']);
+	assert.deepEqual(splitIn(['flow'], 'preview', 'left'), ['preview', 'flow']);
+	assert.deepEqual(splitIn(['flow', 'preview'], 'problems', 'left'), ['problems', 'preview'], 'replaces that half');
+	assert.deepEqual(splitIn([], 'flow', 'left'), ['flow']);
+	assert.deepEqual(back(['flow', 'preview']), ['flow'], 'Esc: the last one');
+	assert.deepEqual(back(['flow', 'preview'], 'flow'), ['preview'], 'the other keeps the whole stage');
+	assert.deepEqual(leaving(['flow', 'preview'], ['problems']), ['flow', 'preview']);
+	assert.deepEqual(arriving(['flow'], ['flow', 'preview']), ['preview']);
+	assert.ok(isCanvas('flow') && isCanvas('preview') && !isCanvas('problems'));
+});
+
+test('a tab dragged over the stage: takes it, splits a half, replaces a half', () => {
+	assert.deepEqual(dropPlan([], 'flow', 0.2), { kind: 'take' });
+	assert.deepEqual(dropPlan(['flow'], 'preview', 0.7), { kind: 'split', side: 'right' });
+	assert.deepEqual(dropPlan(['flow', 'preview'], 'problems', 0.1), { kind: 'replace', side: 'left', out: 'flow' });
+	assert.equal(dropPlan(['flow'], 'flow', 0.5), null);
+	assert.equal(clampSplit(0.9), 0.75);
+	assert.equal(clampSplit(Number.NaN), 0.5);
+	assert.deepEqual(readStage(['a', 'a', 3, 'b', 'c']), ['a', 'b']);
+	assert.equal(readStage('flow'), undefined);
 });
 
 test('view settings: per workspace, every field checked', () => {
-	assert.deepEqual(readViews({ chapter: { main: 'flow', clear: false }, map: { main: 3, clear: 'no' }, bad: 1 }), { chapter: { main: 'flow', clear: false }, map: {} });
+	assert.deepEqual(readViews({ chapter: { stage: ['flow', 'preview'], split: 0.9, clear: false }, map: { stage: 3, clear: 'no' }, bad: 1 }), { chapter: { stage: ['flow', 'preview'], split: 0.75, clear: false }, map: {} });
 	assert.deepEqual(readViews([]), {});
 	assert.deepEqual(readSettings({ views: { home: { clear: true } } }).views, { home: { clear: true } });
 });
