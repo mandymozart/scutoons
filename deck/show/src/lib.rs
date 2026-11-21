@@ -48,7 +48,7 @@ pub mod vote;
 pub mod wiring;
 
 pub use conductor::{Ask, Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
-pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Values, Word};
+pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Tempo, Values, Word};
 pub use flash::Assignment;
 pub use subtree::{ClockChoice, Subtree};
 pub use validate::{resolve, validate, Library, Lock, Problem};

@@ -200,7 +200,7 @@ fn prepare(bundle: Bundle) -> Result<Ready> {
     }
     // a module whose build is not loaded yet leaves its node out: the rest of the rig sounds meanwhile
     let library = deck_native::module_host::Library::global();
-    let scene = Scene::parse(&turn.played.scene)?.modules_kept(|kind| library.get(kind.trim_start_matches(deck_space::modreg::PREFIX)).is_some());
+    let scene = Scene::parse(&turn.played.scene)?.modules_kept(|kind| library.get(kind.trim_start_matches(deck_space::modreg::PREFIX)).is_some()).with_metronome();
     let graph = Graph::build(&scene)?;
     let tempo = tempo::config_from_graph(&graph)?;
     let space_node = graph.first(Kind::Space).context("the rig's scene has a space node")?;
@@ -232,6 +232,7 @@ impl Stage {
     /// A scene the core resolved (Show's new scene) plays in the rig's place, the rig kept for `replay`: its cast sounds
     /// and stands at its spots; no knobs, no cables of a rig.
     pub fn play_scene(&mut self, id: &str, scene: Scene) -> Result<()> {
+        let scene = scene.with_metronome();
         let graph = Graph::build(&scene)?;
         let tempo = tempo::config_from_graph(&graph)?;
         let space_node = graph.first(Kind::Space).context("the scene has a space node")?;
@@ -516,8 +517,8 @@ impl Stage {
     /// the master BPM typed on the toolbar's pill (the core's rules: a follower is left for it, Link takes it)
     pub fn set_bpm(&mut self, bpm: f64) {
         // the item's own source gives way with the follower: Edit and Play go on with the typed tempo
-        if matches!(self.tempo.source, tempo::Source::Midi | tempo::Source::Relay) {
-            self.clock_source = tempo::Source::Internal;
+        if self.tempo.source.typed() != self.tempo.source {
+            self.clock_source = self.tempo.source.typed();
         }
         self.tempo.set_bpm(bpm);
     }
@@ -526,6 +527,17 @@ impl Stage {
     pub fn pick_clock(&mut self, s: tempo::Source) {
         self.clock_source = s;
         self.tempo.pick(s);
+    }
+
+    /// the metronome on or off (the pill's click button)
+    pub fn set_click(&mut self, on: bool) {
+        self.tempo.set_click(on);
+    }
+
+    /// a show's kept tempo takes the clock: its BPM, then its source, the item's own until another is picked
+    pub fn take_saved(&mut self, t: &deck_show::Tempo) {
+        self.clock_source = t.source;
+        self.tempo.send(t.event());
     }
 
     /// the sources the pill cycles through here: the show clock is the deck's, a stage has none of its own

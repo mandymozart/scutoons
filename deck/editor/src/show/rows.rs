@@ -581,6 +581,22 @@ pub(super) mod tests {
         assert_eq!(host.shown().background, None);
     }
 
+    /// the play pill's tempo kept in the show: in its document (saved with it), the same one twice changes nothing
+    #[test]
+    fn the_pills_tempo_is_kept_in_the_show() {
+        use deck_core::tempo::Source;
+        let mut host = Host::new(None, None, None, "http://127.0.0.1:9/api".into());
+        assert_eq!(host.tempo().1, None);
+        let to = deck_show::Tempo::of(96.0, Source::Midi);
+        assert!(host.keep_tempo(to));
+        assert_eq!(host.status, "the show's tempo: 96.0 BPM, midi");
+        assert_eq!(host.tempo(), (host.shown().id.clone(), Some(to)));
+        host.status.clear();
+        assert!(host.keep_tempo(to) && host.status.is_empty(), "unchanged: no edit");
+        let text = serde_json::to_string(host.shown()).unwrap();
+        assert_eq!(deck_show::document::open(&text).unwrap().tempo, Some(to), "it round-trips");
+    }
+
     /// #553: the one condition control, by the chips the operator presses – a role's admission (any one fact)
     #[test]
     fn the_condition_control_sets_who_may_take_a_role() {

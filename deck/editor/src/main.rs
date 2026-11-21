@@ -119,6 +119,8 @@ struct Args {
     screenshot: Option<PathBuf>,
     /// a check run types this on the toolbar's BPM (its screenshots)
     tempo_type: Option<String>,
+    /// a check run turns the metronome on (its screenshots)
+    click: bool,
     tokens: Option<PathBuf>,
     volume: f32,
     /// the window's logical size (the gate is measured at 1920,1080)
@@ -233,7 +235,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -259,6 +261,7 @@ fn args() -> Result<Args> {
             "--fullscreen" => a.fullscreen = true,
             "--panic" => a.panic = true,
             "--tempo-type" => a.tempo_type = Some(val()?),
+            "--click" => a.click = true,
             "--go-live" => a.go_live = val()?.split(',').map(str::to_string).collect(),
             "--lock" => a.lock = true,
             "--colour" => a.colour = Some(val()?),
@@ -466,7 +469,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -514,6 +517,8 @@ enum Hit {
     /// inside the tempo pill: the BPM (a press types on it), the source's word (a press picks the next source)
     TempoBpm,
     TempoSource,
+    /// the metronome's button in the tempo pill
+    TempoClick,
     Account,
     Meters,
     Tab(Tab),
@@ -798,6 +803,8 @@ struct App {
     /// #477: the toon's address book, of the toon open now (toon.rs) – the toon and whether signed in when it was asked
     book: book::Loader,
     book_key: (Vec<String>, bool),
+    /// the shown show and the tempo it keeps, as last taken by the clock
+    show_tempo: Option<(String, Option<deck_show::Tempo>)>,
     rig_toon: toon::RigToon,
     auth: sign_in::Auth,
     rigs: rigs::Rigs,
@@ -1061,6 +1068,7 @@ fn run() -> Result<i32> {
         show: app_show,
         book: app_book,
         book_key,
+        show_tempo: None,
         rig_toon,
         auth,
         rigs,
@@ -1359,6 +1367,10 @@ impl App {
         }
         Some(match self.hit(x, y) {
             Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; this view's panels; back to the deck's stage."),
+            Hit::TempoClick => Help::new(
+                if self.stage.pill.is_some_and(|p| p.click) { "Click on" } else { "Click off" },
+                "The metronome: a tick on every beat, higher on the bar's first, on its own bus (the click outlet group, on the main out until the Audio tab routes it). Click to turn it on or off.",
+            ),
             Hit::Tempo | Hit::TempoBpm | Hit::TempoSource => Help::new(format!("{} BPM", self.stage.beat.map_or_else(|| "–".to_string(), |(b, _)| format!("{b:.1}"))), match (self.stage.beat, self.stage.pill) {
                 _ if self.stage.held() => "LIVE: the live show's clock, locked – what plays here follows it.",
                 _ if self.stage.live => "LIVE: locked while the show is live; it follows the show's clock once the relay sends it.",
@@ -1726,6 +1738,7 @@ impl App {
             Hit::Tempo | Hit::Meters => {}
             Hit::TempoBpm => self.tempo_edit(x, y),
             Hit::TempoSource => self.tempo_pick(x, y),
+            Hit::TempoClick => self.tempo_click(),
             Hit::Ground => {}
             Hit::Crumb(i) if self.workspace != show::Workspace::Stage => self.show.press(show::Hit::Crumb(i)),
             Hit::Routing(f) => routing::act(&mut self.routing, &mut self.stage, &self.args.api, f),
@@ -2075,7 +2088,9 @@ impl App {
         let typed = parse(text, Unit::Bpm).and_then(|(v, u)| convert(v, u, Unit::Bpm, &Refs::default()));
         let Some(bpm) = typed.filter(|v| *v > 0.0) else { return self.refuse(format!("'{text}': a tempo in BPM"), x, y) };
         let held = deck_core::tempo::clamp_bpm(bpm);
+        let source = self.stage.pill.map_or(deck_core::tempo::Source::Internal, |p| p.source).typed();
         self.stage.set_bpm(held);
+        self.keep_tempo(held, source);
         let said = if (held - bpm).abs() > 1e-9 { format!("tempo: {held:.0} BPM ({bpm:.0} is out of {:.0}-{:.0})", deck_core::tempo::MIN_BPM, deck_core::tempo::MAX_BPM) } else { format!("tempo: {held:.1} BPM") };
         self.note(said);
     }
@@ -2088,10 +2103,45 @@ impl App {
         let now = self.stage.pill.map_or(deck_core::tempo::Source::Internal, |p| p.source);
         let next = now.next_pick(&stage::Stage::picks());
         self.stage.pick_clock(next);
+        if let Some((bpm, _)) = self.stage.beat {
+            self.keep_tempo(bpm, next);
+        }
         self.note(match next {
             deck_core::tempo::Source::Internal => "tempo: the deck's own clock".to_string(),
             s => format!("tempo: follows {} - it sets the BPM; type one to take it back", pick_name(s)),
         });
+    }
+
+    /// the metronome on or off (the pill's button)
+    fn tempo_click(&mut self) {
+        let on = !self.stage.pill.is_some_and(|p| p.click);
+        self.stage.set_click(on);
+        self.note(if on { "click on: the metronome on its own bus" } else { "click off" }.to_string());
+    }
+
+    /// in the Show workspace the pill's tempo is the show's: kept in its document, saved with it
+    fn keep_tempo(&mut self, bpm: f64, source: deck_core::tempo::Source) {
+        if self.workspace == show::Workspace::Show {
+            let to = deck_show::Tempo::of(bpm, source);
+            self.show.keep_tempo(to);
+            self.show_tempo = Some(self.show.tempo());
+        }
+    }
+
+    /// a show opened in the Show workspace sets the clock to the tempo it keeps (once per document and tempo; a live
+    /// show's clock holds it back)
+    fn take_show_tempo(&mut self) {
+        if self.workspace != show::Workspace::Show || self.stage.held() || self.stage.live {
+            return;
+        }
+        let kept = self.show.tempo();
+        if self.show_tempo.as_ref() == Some(&kept) {
+            return;
+        }
+        if let Some(t) = &kept.1 {
+            self.stage.take_saved(t);
+        }
+        self.show_tempo = Some(kept);
     }
 
     /// the rig's background as typed or picked: into the rig, the undo and the draft
@@ -2901,6 +2951,9 @@ impl App {
         if self.frames == 0 && self.args.panic {
             self.panic_pill();
         }
+        if self.frames == 2 && self.args.click {
+            self.tempo_click();
+        }
         if self.frames == 4 {
             if let Some(typed) = self.args.tempo_type.clone() {
                 self.tempo_edit(0.0, 0.0);
@@ -2910,6 +2963,7 @@ impl App {
                 }
             }
         }
+        self.take_show_tempo();
         let help = self.help_now();
         let preset_line = self.preset_line();
         self.show.help.clone_from(&help);
@@ -3084,6 +3138,7 @@ impl App {
             modes: if edits { Some((modes, usize::from(playing))) } else { shows.then_some((modes, live_on)) },
             play: None,
             beat: self.stage.beat,
+            meter: self.stage.pill.map(|p| (p.beat, p.click)),
             clock: match self.stage.pill {
                 _ if self.stage.live || self.stage.held() => bar::Clock::Live,
                 Some(p) if p.external => bar::Clock::Ext { locked: p.locked },
@@ -3110,6 +3165,9 @@ impl App {
         self.panel.hits.push((placed.tempo, Hit::Tempo));
         self.panel.hits.push((placed.bpm, Hit::TempoBpm));
         self.panel.hits.push((placed.source, Hit::TempoSource));
+        if placed.click.w > 0.0 {
+            self.panel.hits.push((placed.click, Hit::TempoClick));
+        }
         if let Some(r) = placed.meters {
             self.panel.hits.push((r, Hit::Meters));
         }

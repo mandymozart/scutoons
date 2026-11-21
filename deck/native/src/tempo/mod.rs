@@ -184,6 +184,16 @@ impl Tempo {
         let _ = self.tx.send(Event { at_ns: now_ns(), what: What::Bpm(bpm) });
     }
 
+    /// the metronome on or off
+    pub fn set_click(&self, on: bool) {
+        self.send(What::Click(on));
+    }
+
+    /// an event for the clock, stamped now
+    pub fn send(&self, what: What) {
+        let _ = self.tx.send(Event { at_ns: now_ns(), what });
+    }
+
     /// the pill's pick of a source (`Source::PICKS`)
     pub fn pick(&mut self, s: Source) {
         let (mut host, ctl) = self.host();

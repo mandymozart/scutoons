@@ -126,6 +126,8 @@ pub enum Edit {
     Take { row: String, column: String, positions: Vec<(String, f32)> },
     /// the show's stage background, over what its pieces set (none: theirs)
     Background { to: Option<deck_space::Background> },
+    /// the show's master tempo, kept from the play pill (none: the clock as it is)
+    Tempo { to: Option<crate::document::Tempo> },
     /// the show's home toon: first in its toons (moved there when it is named already)
     Toon { to: String },
     /// #708: a toon the show uses beside its home, added at the end – or taken out when it is named (the last one stays)
@@ -450,6 +452,11 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
             let said = to.as_ref().map_or_else(|| "the show's background: none – its scenes', else black".to_string(), |b| format!("the show's background: {} – over every scene", b.text()));
             (said, None)
         }
+        Edit::Tempo { to } => {
+            next.tempo = *to;
+            let said = to.map_or_else(|| "the show's tempo: none – the clock as it is".to_string(), |t| format!("the show's tempo: {:.1} BPM, {}", t.bpm, t.source.name()));
+            (said, None)
+        }
         Edit::Toon { to } => {
             let to = to.trim().to_string();
             if to.is_empty() {
@@ -751,6 +758,31 @@ mod tests {
         assert_eq!(edit(&show, &bad).unwrap_err(), "not changed: show: background: 'teal' is no colour: #rgb or #rrggbb");
         let off = ed(&set.show, Edit::Background { to: None });
         assert!(off.said.contains("none") && off.show.background.is_none());
+    }
+
+    #[test]
+    fn the_shows_tempo_is_kept_checked_and_round_trips() {
+        use crate::document::Tempo;
+        use deck_core::tempo::Source;
+        let show = parse(NOTHING).unwrap();
+        let set = ed(&show, Edit::Tempo { to: Some(Tempo { bpm: 96.0, source: Source::Midi }) });
+        assert_eq!(set.said, "the show's tempo: 96.0 BPM, midi");
+        let text = serde_json::to_string(&set.show).unwrap();
+        assert!(text.contains(r#""tempo":{"bpm":96.0,"source":"midi"}"#), "{text}");
+        assert_eq!(parse(&text).unwrap().tempo, Some(Tempo { bpm: 96.0, source: Source::Midi }));
+        assert!(!serde_json::to_string(&show).unwrap().contains("tempo"), "none: not written");
+        let slow = Edit::Tempo { to: Some(Tempo { bpm: 5.0, source: Source::Internal }) };
+        assert_eq!(edit(&show, &slow).unwrap_err(), "not changed: show: tempo: 5 BPM is out of 20-300");
+        let relay = Edit::Tempo { to: Some(Tempo { bpm: 120.0, source: Source::Relay }) };
+        assert!(edit(&show, &relay).unwrap_err().contains("the source 'relay' is none a show keeps"));
+        let off = ed(&set.show, Edit::Tempo { to: None });
+        assert!(off.show.tempo.is_none() && off.said.contains("none"));
+        assert_eq!(Tempo::of(900.0, Source::Osc), Tempo { bpm: 300.0, source: Source::Internal }, "kept within what a show keeps");
+        assert_eq!(Tempo::of(90.0, Source::Link), Tempo { bpm: 90.0, source: Source::Link });
+        // a source left out is the own clock
+        let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+        v["tempo"] = serde_json::json!({ "bpm": 110 });
+        assert_eq!(parse(&v.to_string()).unwrap().tempo, Some(Tempo { bpm: 110.0, source: Source::Internal }));
     }
 
     #[test]
