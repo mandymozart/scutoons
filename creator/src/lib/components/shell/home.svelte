@@ -26,7 +26,7 @@
 	$effect(() => places.load(nav.toons));
 
 	let query = $state('');
-	const all = $derived([...places.toons(nav.toons, (id) => nav.toonName(id)), ...places.areas()]);
+	const all = $derived([...places.toons(nav.toons, (id) => nav.toonName(id)), ...places.areas(), ...(query.trim() ? places.experiences() : [])]);
 	const found = $derived(query.trim() ? all.filter((p) => matches(p, query)).slice(0, 10) : []);
 	function find(event: SubmitEvent) {
 		event.preventDefault();

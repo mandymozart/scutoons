@@ -21,6 +21,8 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
+	assert.equal(addressOf('/experiences'), AREAS.experiences);
+	assert.equal(addressOf('/experiences/poster-catpope'), 'experience:poster-catpope');
 	assert.equal(addressOf('/flow'), AREAS.flow);
 	assert.equal(addressOf('/catalog/items'), 'catalog:items');
 	assert.equal(addressOf('/catalog/items', '?id=camera'), 'item:camera');
@@ -41,6 +43,8 @@ test('an address leads back to its page, and every route round-trips', () => {
 		['/characters', '?tab=wanted'],
 		['/map', ''],
 		['/scenes/duet', ''],
+		['/experiences', ''],
+		['/experiences/poster-catpope', ''],
 		['/flow', ''],
 		['/catalog/items', '?id=camera'],
 		['/catalog/recipes', ''],
@@ -59,7 +63,11 @@ test('every address has a workspace and an icon; a typed address resolves', () =
 	assert.equal(workspaceOf('item:camera'), 'catalog');
 	assert.equal(workspaceOf('module:walk'), 'sound');
 	assert.equal(workspaceOf('nothing'), null);
+	assert.equal(workspaceOf('experience:poster-catpope'), 'experience');
+	assert.equal(workspaceOf(AREAS.experiences), 'experience');
 	assert.equal(iconOf('character:catpope'), 'smile');
+	assert.equal(iconOf('experience:poster-catpope'), 'aperture');
+	assert.equal(resolveTyped('experience:poster-catpope'), '/experiences/poster-catpope');
 	assert.equal(resolveTyped(' chapter:catpope:2 '), '/catpope/chapter/2');
 	assert.equal(resolveTyped('catpope'), null);
 });

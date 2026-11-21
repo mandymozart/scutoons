@@ -24,6 +24,7 @@ const OPEN: Record<WorkspaceKind | 'home', readonly PanelId[]> = {
 	catalog: ['tree', 'document'],
 	map: ['tree', 'document'],
 	scene: ['tree'],
+	experience: ['tree'],
 	flow: ['document'],
 	sound: ['document'],
 	text: ['tree', 'document'],

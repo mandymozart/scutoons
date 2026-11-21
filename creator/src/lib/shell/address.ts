@@ -4,9 +4,10 @@
 import { CATALOG_DOC_KINDS, catalogDocKey, type CatalogDocKind } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
 import { editHref, parseEditKey } from '../editor/edit-key.ts';
+import { experienceHref } from '../editor/experiences.ts';
 
 /** what an opened item is edited in – one background and its default panels each */
-export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'flow' | 'sound' | 'text' | 'help';
+export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'experience' | 'flow' | 'sound' | 'text' | 'help';
 
 /** an item's kind → its workspace and the icon its tab carries */
 const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
@@ -20,6 +21,8 @@ const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
 	map: { workspace: 'map', icon: 'map' },
 	scene: { workspace: 'scene', icon: 'box' },
 	scenes: { workspace: 'scene', icon: 'box' },
+	experience: { workspace: 'experience', icon: 'aperture' },
+	experiences: { workspace: 'experience', icon: 'aperture' },
 	flow: { workspace: 'flow', icon: 'git-merge' },
 	rig: { workspace: 'sound', icon: 'sliders' },
 	module: { workspace: 'sound', icon: 'cpu' },
@@ -49,13 +52,14 @@ export const AREAS = {
 	wanted: 'characters:wanted',
 	map: 'map:world',
 	scenes: 'scenes:all',
+	experiences: 'experiences:all',
 	flow: 'flow:universe',
 	guide: 'guide:style',
 	notifications: 'notifications:push'
 } as const;
 
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED = new Set(['characters', 'map', 'scenes', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit']);
+const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit']);
 
 /**
  * The address a creator URL edits: one item per tab, so a toon's own pages (its board, cast, script, credits,
@@ -78,6 +82,8 @@ export function addressOf(pathname: string, search = ''): string | null {
 			return AREAS.map;
 		case 'scenes':
 			return second ? `scene:${second}` : AREAS.scenes;
+		case 'experiences':
+			return second ? `experience:${second}` : AREAS.experiences;
 		case 'flow':
 			return AREAS.flow;
 		case 'guide':
@@ -110,6 +116,7 @@ export function hrefOf(address: string): string | null {
 	if (address === AREAS.wanted) return '/characters?tab=wanted';
 	if (address === AREAS.map || kind === 'place' || kind === 'route' || kind === 'region') return kind === 'map' ? '/map' : `/map?${kind === 'place' ? 'location' : kind}=${encodeURIComponent(id)}`;
 	if (address === AREAS.scenes) return '/scenes';
+	if (address === AREAS.experiences) return '/experiences';
 	if (address === AREAS.flow) return '/flow';
 	if (address === AREAS.guide) return '/guide';
 	if (address === AREAS.notifications) return '/notifications';
@@ -131,6 +138,8 @@ export function hrefOf(address: string): string | null {
 			return `/characters?id=${encodeURIComponent(ref.id ?? '')}`;
 		case 'scene':
 			return `/scenes/${encodeURIComponent(ref.id ?? '')}`;
+		case 'experience':
+			return experienceHref(ref.id ?? '');
 		case 'kanon':
 			return `/kanon/${ref.id}`;
 	}
