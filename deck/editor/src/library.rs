@@ -413,9 +413,9 @@ impl Library {
         }
     }
 
-    /// the entry dragged now, if this workspace takes it
-    pub fn carrying(&self) -> Option<&Entry> {
-        self.browser.dragging().and_then(|i| self.entries.get(i)).filter(|e| self.takes(e).is_ok())
+    /// the entry dragged now, and whether this workspace takes it (else the core's sentence why not)
+    pub fn carried(&self) -> Option<(&Entry, Result<(), String>)> {
+        self.browser.dragging().and_then(|i| self.entries.get(i)).map(|e| (e, self.takes(e)))
     }
 }
 
@@ -438,8 +438,30 @@ pub fn of_show(scenes: Vec<deck_show::rows::PieceView>, book: Option<&deck_space
     out
 }
 
-/// a check run's drag: the card's address, where it is let go (none: the stage's middle), kept in the hand
-pub type ScriptDrag = (String, Option<(f32, f32)>, bool);
+/// where a check run lets its card go
+#[derive(Debug, Clone, PartialEq)]
+pub enum DragTo {
+    /// the stage's middle
+    Middle,
+    At(f32, f32),
+    /// Show's node view: `node:<id>` a node, `canvas` a free spot beside the nodes
+    Nodes(String),
+}
+
+impl DragTo {
+    /// `X,Y`, `node:<id>`, `canvas`, or nothing: the parts of `--library-drag` after the address (without `hold`)
+    pub fn parse(parts: &[&str]) -> anyhow::Result<DragTo> {
+        Ok(match parts {
+            [] => DragTo::Middle,
+            [to] if *to == "canvas" || to.starts_with("node:") => DragTo::Nodes(to.to_string()),
+            [x, y] => DragTo::At(x.parse()?, y.parse()?),
+            _ => anyhow::bail!("--library-drag ADDRESS[,X,Y | ,node:ID | ,canvas][,hold], not {}", parts.join(",")),
+        })
+    }
+}
+
+/// a check run's drag: the card's address, where it is let go, kept in the hand
+pub type ScriptDrag = (String, DragTo, bool);
 
 /// several cards dropped at once land this far apart, down and to the right
 const DROP_STEP: f32 = 28.0;
@@ -504,7 +526,7 @@ impl crate::App {
             Workspace::Module => Purpose::Module,
             Workspace::Show => Purpose::Show,
             Workspace::Home | Workspace::Media => {
-                self.show.carrying = false;
+                self.show.carried = None;
                 return;
             }
         };
@@ -531,7 +553,7 @@ impl crate::App {
         if let (Purpose::Build, Some(subject)) = (purpose, rig.as_deref()) {
             self.library.follow_rig(subject, character.as_deref(), crate::empty::is_empty(&self.stage.bundle));
         }
-        self.show.carrying = purpose == Purpose::Show && self.library.carrying().is_some();
+        self.show.carried = self.library.carried().filter(|_| purpose == Purpose::Show).map(|(e, takes)| takes.map(|()| e.address.clone()));
         if self.workspace == Workspace::Module {
             if let Some(j) = self.library_open.as_ref().and_then(|id| self.module.list.iter().position(|m| m.id == *id)) {
                 self.library_open = None;
@@ -697,11 +719,24 @@ impl crate::App {
         if self.frames == 2 && self.args.library_related {
             self.library.browser.filter.related = Some(String::new());
         }
-        let Some((address, at, hold)) = self.args.library_drag.clone() else { return };
-        let (x, y) = at.unwrap_or_else(|| {
+        let Some((address, to, hold)) = self.args.library_drag.clone() else { return };
+        if self.frames < START {
+            return;
+        }
+        let middle = || {
             let (w, h) = self.window_size();
             (w * 0.5, h * 0.45)
-        });
+        };
+        let (x, y) = match &to {
+            DragTo::Middle => middle(),
+            DragTo::At(x, y) => (*x, *y),
+            DragTo::Nodes(target) => self.show.node_drop_spot(target).unwrap_or_else(|| {
+                if self.frames == START {
+                    tracing::error!("--library-drag: no {target} in the node view of this row");
+                }
+                middle()
+            }),
+        };
         match self.frames {
             f if f == START => {
                 let card = self.library.entries.iter().position(|e| e.address == address).and_then(|i| self.library.browser.hits.iter().find(|(_, h)| *h == deck_kit::editor::library::Hit::Card(i)).map(|(r, _)| *r));
@@ -719,6 +754,11 @@ impl crate::App {
                 self.pointer(x0 + (x - x0) * k, y0 + (y - y0) * k);
             }
             f if f == START + 12 && !hold => self.release(),
+            f if f == START + 14 => {
+                let row = self.show.shown().rows.get(self.show.row);
+                let cells: Vec<String> = row.map(|r| r.cells.iter().map(|(c, cell)| format!("{c}: {}", deck_show::view::cell_text(cell))).collect()).unwrap_or_default();
+                tracing::info!("library-drag {address}: row {} [{}]", row.map_or("-", |r| r.id.as_str()), cells.join(", "));
+            }
             _ => {}
         }
     }

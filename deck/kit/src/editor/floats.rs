@@ -570,6 +570,11 @@ impl Floats {
         self.shown().any(|(_, p)| p.view.whole.has(x, y) || p.view.edge_at(x, y).is_some())
     }
 
+    /// is a shown panel other than `id` under the pointer
+    pub fn covered(&self, id: &str, x: f32, y: f32) -> bool {
+        self.shown().any(|(_, p)| p.spec.id != id && p.view.whole.has(x, y))
+    }
+
     /// a press on a handle takes the panel in the hand, on an edge resizes it, on the scrollbar scrolls it (the track
     /// jumps the thumb there and holds it), on a chevron folds or opens it, on the close closes it: whether the press
     /// was the chrome's

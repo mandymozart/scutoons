@@ -268,12 +268,9 @@ fn args() -> Result<Args> {
             "--library-drag" => {
                 let v = val()?;
                 let p: Vec<&str> = v.split(',').collect();
-                let hold = p.last() == Some(&"hold");
-                let at = match (p.get(1), p.get(2)) {
-                    (Some(x), Some(y)) if *x != "hold" => Some((x.parse()?, y.parse()?)),
-                    _ => None,
-                };
-                a.library_drag = Some((p[0].to_string(), at, hold));
+                let hold = p.len() > 1 && p.last() == Some(&"hold");
+                let to = library::DragTo::parse(&p[1..p.len() - usize::from(hold)])?;
+                a.library_drag = Some((p[0].to_string(), to, hold));
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
@@ -3732,9 +3729,6 @@ impl App {
                 }
             }
         }
-        if let Some(c) = &self.carry {
-            c.draw(ui, t, wf);
-        }
         // over everything else: what is being typed, the typeahead
         if let Some(e) = &self.edit {
             draw_edit(ui, t, e, font);
@@ -3762,6 +3756,10 @@ impl App {
                 }
                 show::Workspace::Home | show::Workspace::Media => self.library.browser.hits.clear(),
             }
+        }
+        // the card in the hand, over every workspace's panels
+        if let Some(c) = &self.carry {
+            c.draw(ui, t, wf);
         }
         // the tools pill, over the workspace's panels
         {
