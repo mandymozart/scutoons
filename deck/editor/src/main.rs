@@ -439,6 +439,7 @@ fn args() -> Result<Args> {
                 a.script.node_box = Some(v.try_into().map_err(|_| anyhow::anyhow!("--node-box X0,Y0,X1,Y1 (fractions of the canvas)"))?);
             }
             "--node-pin" => a.script.node_pin = Some(val()?.parse()?),
+            "--node-wire" => a.script.node_wire = Some(val()?),
             "--band-drag" => {
                 let v = val()?;
                 let (edge, by) = v.rsplit_once(',').context("--band-drag EDGE,PIXELS (column:ID, row:ID or heads)")?;
@@ -1287,7 +1288,9 @@ impl App {
     /// library.rs); a check run's pointer stays where it was put
     fn follow_nodes(&mut self) {
         let m = self.settings.motion;
-        self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
+        if self.args.script.node_wire.is_none() || self.show.nodes.hand.is_none() {
+            self.show.cursor = self.args.pointer.unwrap_or(self.cursor);
+        }
         let n = &mut self.show.nodes;
         n.secs = self.started.elapsed().as_secs_f32();
         n.motion = show::nodes::Motion { activity: m.allows(m.signal_flow), reveal: m.allows(m.hover_reveal), flash: m.allows(m.focus_flash), previews: m.allows(m.live_previews) };
@@ -1988,6 +1991,9 @@ impl App {
             return;
         }
         if self.workspace == show::Workspace::Show && button == MouseButton::Middle && self.show.nodes_grab(x, y) {
+            return;
+        }
+        if self.workspace == show::Workspace::Show && button == MouseButton::Right && self.mods.control_key() && self.show.nodes_cut(x, y) {
             return;
         }
         // #551: Show's right click on a cell of the rows band is the same typeahead, on the selected cells of a row

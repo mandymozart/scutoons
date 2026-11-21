@@ -24,9 +24,20 @@ impl Host {
         self.edit_rows_with(e, None)
     }
 
+    /// several edits as one change (one undo step), or none of them
+    pub(super) fn edit_rows_all(&mut self, edits: &[Edit]) -> bool {
+        let done = rows::edit_all(self.shown(), edits);
+        self.rows_edited(done)
+    }
+
     /// the same, with the knobs of the cell's piece a value edit is checked against
     pub(super) fn edit_rows_with(&mut self, e: &Edit, knobs: Option<&[deck_show::values::Knob]>) -> bool {
-        match rows::edit_with(self.shown(), e, knobs) {
+        let done = rows::edit_with(self.shown(), e, knobs);
+        self.rows_edited(done)
+    }
+
+    fn rows_edited(&mut self, done: Result<rows::Edited, String>) -> bool {
+        match done {
             Ok(done) => {
                 self.status = done.said;
                 if let Some(id) = &done.row {

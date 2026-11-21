@@ -9,17 +9,15 @@ use deck_kit::base::signal::Signal;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
 use deck_kit::editor::controls::Rect;
-use deck_show::wiring::{self, CellWire, Shown};
+use deck_show::wire_ops::{self, Held};
+use deck_show::wiring::{self, Shown};
 use deck_show::Show;
 
-/// a wire in the hand: from `from`'s outlet `out` (its signal), lifted off an inlet or new
+/// a wire in the hand in the rows band: its row, and what the core took (wire_ops.rs)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Wiring {
     pub row: usize,
-    pub from: String,
-    pub out: String,
-    pub signal: Signal,
-    pub lifted: Option<CellWire>,
+    pub held: Held,
 }
 
 /// One row of the band as laid: its index, its id, each column's cell box (none: kept, empty or inside a question).
@@ -48,6 +46,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
     let unit = t.size.rem(1.0);
     let r = t.size.rem(0.3);
     let held = host.wiring.clone();
+    let held = held.as_ref().map(|w| (w.row, &w.held));
     let mut pins: Vec<ShownPin> = Vec::new();
     for lay in rows {
         let Some(row) = show.rows.iter().find(|x| x.id == lay.id) else { continue };
@@ -82,7 +81,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
             }
         }
         // a wire in the hand: every inlet of the row it may go into
-        if let Some(w) = held.as_ref().filter(|w| w.row == lay.i) {
+        if let Some((_, w)) = held.filter(|w| w.0 == lay.i) {
             for (c, (ins, _)) in ports.iter().enumerate() {
                 if columns[c] == w.from {
                     continue;
@@ -96,7 +95,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
             match s {
                 Shown::One(n) => {
                     let p = &placed[n];
-                    if held.as_ref().is_some_and(|h| h.lifted.as_ref() == Some(&p.wire)) {
+                    if held.is_some_and(|(_, h)| h.lifted.as_ref() == Some(&p.wire)) {
                         continue;
                     }
                     let (Some(a), Some(b)) = (at(&p.wire.from), at(&p.wire.to)) else { continue };
@@ -130,7 +129,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
             }
         }
         // the wire in the hand follows the pointer from its outlet
-        if let Some(w) = held.as_ref().filter(|w| w.row == lay.i) {
+        if let Some((_, w)) = held.filter(|w| w.0 == lay.i) {
             if let Some(c) = at(&w.from) {
                 if let (Some(b), Some(k)) = (rect(c), ports[c].1.iter().position(|p| p.label == w.out)) {
                     let from = port_at(t, &b, true, k, ports[c].1.len());
@@ -175,18 +174,11 @@ impl Host {
         let Some(cell) = r.cells.get(&column) else { return };
         let (ins, outs) = wiring::ports(&show, &column, cell);
         self.row = row;
-        if out {
-            let Some(p) = outs.get(k) else { return };
-            self.wiring = Some(Wiring { row, from: column, out: p.label.clone(), signal: p.signal, lifted: None });
-            return;
+        let Some(p) = (if out { outs.get(k) } else { ins.get(k) }) else { return };
+        match wire_ops::take(&show, r, &column, out, &p.label) {
+            Ok(held) => self.wiring = Some(Wiring { row, held }),
+            Err(why) => self.status = why,
         }
-        let Some(p) = ins.get(k) else { return };
-        let Some(w) = r.wires.iter().rev().find(|w| w.to == column && w.into == p.label).cloned() else {
-            self.status = format!("{column} {}: drag from an outlet into it to wire it", p.label);
-            return;
-        };
-        let signal = wiring::ports(&show, &w.from, r.cells.get(&w.from).unwrap_or(&deck_show::Cell::Keep)).1.iter().find(|o| o.label == w.out).map_or(p.signal, |o| o.signal);
-        self.wiring = Some(Wiring { row, from: w.from.clone(), out: w.out.clone(), signal, lifted: Some(w) });
     }
 
     /// The button let go with a wire in the hand: on an inlet it may go into it is wired (deck-show checks it); a lifted
@@ -203,21 +195,14 @@ impl Host {
             Hit::Port(i, c, false, k) if i == w.row => Some((c, k)),
             _ => None,
         });
-        let target = into.and_then(|(c, k)| {
+        let into = into.and_then(|(c, k)| {
             let column = m.columns.get(c)?.id.clone();
-            let cell = self.shown().rows.get(w.row)?.cells.get(&column)?.clone();
-            let pin = wiring::ports(self.shown(), &column, &cell).0.get(k)?.clone();
-            Some(CellWire { from: w.from.clone(), out: w.out.clone(), to: column, into: pin.label })
+            let cell = self.shown().rows.get(w.row)?.cells.get(&column)?;
+            let pin = wiring::ports(self.shown(), &column, cell).0.get(k)?.label.clone();
+            Some((column, pin))
         });
-        match (target, w.lifted) {
-            (Some(t), lifted) if lifted.as_ref() != Some(&t) => {
-                self.edit_rows(&deck_show::rows::Edit::Wire { row, wire: t, replaces: lifted });
-            }
-            (Some(_), _) => {}
-            (None, Some(lifted)) => {
-                self.edit_rows(&deck_show::rows::Edit::Unwire { row, wire: lifted });
-            }
-            (None, None) => {}
+        if let Some(e) = wire_ops::let_go(&row, &w.held, into.as_ref().map(|(c, p)| (c.as_str(), p.as_str()))) {
+            self.edit_rows(&e);
         }
     }
 }
@@ -281,7 +266,7 @@ mod tests {
         frame(&mut host);
         assert!(port(&host, Hit::Port(0, 1, false, 0)).is_some(), "a wire's ends show");
         host.press(Hit::Port(0, 1, false, 0));
-        assert!(host.wiring.as_ref().is_some_and(|w| w.lifted.is_some()));
+        assert!(host.wiring.as_ref().is_some_and(|w| w.held.lifted.is_some()));
         frame(&mut host);
         host.cursor = port(&host, Hit::Port(0, 2, false, 0)).expect("sky's fire takes it");
         host.wire_release();
