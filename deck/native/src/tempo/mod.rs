@@ -179,6 +179,28 @@ impl Tempo {
         let _ = self.tx.send(Event { at_ns: now_ns(), what: What::Key(k) });
     }
 
+    /// a tempo typed on the pill: the deck's own clock takes it (the core's rules: a follower is left, Link takes it)
+    pub fn set_bpm(&self, bpm: f64) {
+        let _ = self.tx.send(Event { at_ns: now_ns(), what: What::Bpm(bpm) });
+    }
+
+    /// the pill's pick of a source (`Source::PICKS`)
+    pub fn pick(&mut self, s: Source) {
+        let (mut host, ctl) = self.host();
+        ctl.pick(s, &mut host);
+    }
+
+    /// the picks this build can open (MIDI clock in and Link are optional modules)
+    pub fn offered() -> Vec<Source> {
+        Source::PICKS
+            .into_iter()
+            .filter(|s| match s {
+                Source::Midi | Source::Link => crate::modules::built(s.name()) == Some(true),
+                _ => true,
+            })
+            .collect()
+    }
+
     pub fn set_source(&mut self, s: Source) {
         let (mut host, ctl) = self.host();
         ctl.set_source(s, &mut host);

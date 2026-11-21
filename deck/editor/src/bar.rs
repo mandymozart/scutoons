@@ -155,6 +155,9 @@ pub struct Placed {
     /// the panic pill, in every workspace
     pub panic: Rect,
     pub tempo: Rect,
+    /// inside it: the BPM (typed on) and the source's word (cycles the pick)
+    pub bpm: Rect,
+    pub source: Rect,
     pub account: Rect,
     /// the load meters, where there was room for them
     pub meters: Option<Rect>,
@@ -273,6 +276,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         d.disc(wx + ww + mark * 0.6, mid - t.size.label * 0.3, mark * 0.25, t.color.warn);
     }
     out.tempo = tempo;
+    out.bpm = Rect { x: tempo.x + lead - pad * 0.5, y, w: vw + pad, h };
+    out.source = Rect { x: wx - pad * 0.5, y, w: ww + pad, h };
     // the panic: red, always there, beside the tempo; latched it is ringed and says RESUME
     let panic = Rect { x: tempo.x + clock_w + gap, y, w: panic_w, h };
     let hot = panic.has(b.pointer.0, b.pointer.1);
@@ -573,6 +578,16 @@ mod tests {
         assert!(ext.0.texts().contains(&"EXT"));
         assert_eq!(ext.1.tempo, placed.tempo, "the pill keeps its width whatever the source");
         assert_eq!(waiting.0.prims().len(), ext.0.prims().len() + 1, "a source not locked yet: a small mark");
+    }
+
+    #[test]
+    fn the_bpm_and_the_source_word_are_two_places_inside_the_tempo_pill() {
+        let (_, p) = drawn(Clock::Int, Signed::In, 1.0);
+        let inside = |r: Rect| r.x >= p.tempo.x && r.x + r.w <= p.tempo.x + p.tempo.w + 0.01 && r.w > 0.0;
+        assert!(inside(p.bpm) && inside(p.source), "{p:?}");
+        assert!(p.bpm.x + p.bpm.w <= p.source.x + 0.01, "the BPM first, then the word: {p:?}");
+        let (_, ext) = drawn(Clock::Ext { locked: true }, Signed::In, 1.0);
+        assert_eq!((ext.bpm, ext.source), (p.bpm, p.source), "they stay where they are whatever the source");
     }
 
     #[test]

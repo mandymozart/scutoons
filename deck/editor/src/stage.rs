@@ -90,6 +90,8 @@ pub struct Stage {
     pub groups: Vec<String>,
     /// the tempo clock's last frame: its BPM and whether it runs
     pub beat: Option<(f64, bool)>,
+    /// where that tempo comes from, as of the last frame (the toolbar's INT / EXT)
+    pub pill: Option<deck_core::tempo::Pill>,
     /// the clock's beats a bar
     pub per_bar: u32,
     /// a scene of Show's plays in the rig's place (`play_scene`): its id
@@ -487,7 +489,7 @@ impl Stage {
         let master = sum.as_deref().and_then(|s| slot(s, true)).map(|(n, p, _)| (n, p));
         let node_ids = graph.nodes.iter().map(|n| n.id.clone()).collect();
         let kinds = graph.nodes.iter().map(|n| n.kind).collect();
-        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, sends, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
+        Stage { controls, space, gpu: None, texture: None, pixel: None, pixel_buf: None, still: false, still_buf: None, tempo, handles, _audio: audio, _events: events, origin_ns: clock::now_ns(), rate, started: Instant::now(), knobs, audio: audio_name, base: bundle.clone(), bundle, visible: vec![true; ports.len()], ports, node_ids, kinds, strips, inner, sends, master, master_peak: [0.0; 2], master_max: 0.0, volume, path: Vec::new(), opened: Vec::new(), core_node: node, groups, reach, scene: None, played_scene: None, dark: false, silent: Default::default(), beat: None, pill: None, per_bar: deck_core::units::PER_BAR, own_background, over: None, playing, layer: LiveLayer::default(), monitor: Monitor::default(), on_cue, clock_source, far, midi, live, cue, cue_mix, prelisten: None }
     }
 
     /// A show went live or ended (#630): what plays here becomes a preview on the cue, or plays on its outlets again –
@@ -509,6 +511,26 @@ impl Stage {
         if held.is_some() || self.tempo.held() {
             self.tempo.hold(held);
         }
+    }
+
+    /// the master BPM typed on the toolbar's pill (the core's rules: a follower is left for it, Link takes it)
+    pub fn set_bpm(&mut self, bpm: f64) {
+        // the item's own source gives way with the follower: Edit and Play go on with the typed tempo
+        if matches!(self.tempo.source, tempo::Source::Midi | tempo::Source::Relay) {
+            self.clock_source = tempo::Source::Internal;
+        }
+        self.tempo.set_bpm(bpm);
+    }
+
+    /// the source picked on the toolbar's pill: the item's own now, until another is picked
+    pub fn pick_clock(&mut self, s: tempo::Source) {
+        self.clock_source = s;
+        self.tempo.pick(s);
+    }
+
+    /// the sources the pill cycles through here: the show clock is the deck's, a stage has none of its own
+    pub fn picks() -> Vec<tempo::Source> {
+        Tempo::offered().into_iter().filter(|s| *s != tempo::Source::Relay).collect()
     }
 
     /// whether the clock is the live show's
@@ -848,6 +870,7 @@ impl Stage {
         let moment = Moment::wall(clock::now_ns(), self.origin_ns, self.rate);
         let now = self.tempo.frame(&moment);
         self.beat = Some((now.bpm, now.running));
+        self.pill = Some(self.tempo.pill(moment.now_ns));
         self.per_bar = now.per_bar;
         self.controls.update(dt, moment.lead(), &now);
         let time = self.started.elapsed().as_secs_f32();
