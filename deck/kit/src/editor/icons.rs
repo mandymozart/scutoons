@@ -62,8 +62,8 @@ pub const ICONS: &[(&str, &str)] = &[
     // a panel's drag handle: two columns of dots
     ("grip", r##"<circle fill="#fff" cx="9" cy="5" r="1.6"></circle><circle fill="#fff" cx="15" cy="5" r="1.6"></circle><circle fill="#fff" cx="9" cy="12" r="1.6"></circle><circle fill="#fff" cx="15" cy="12" r="1.6"></circle><circle fill="#fff" cx="9" cy="19" r="1.6"></circle><circle fill="#fff" cx="15" cy="19" r="1.6"></circle>"##),
     // filled, for the one button that starts and stops (owner 2026-11-09: "a play icon and a stop icon like in unreal")
-    ("volume-2", r#"<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>"#),
-    ("volume-x", r#"<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>"#),
+    ("metronome", r#"<path d="M9 3h6l4 18H5L9 3z"></path><line x1="5.9" y1="17" x2="18.1" y2="17"></line><line x1="12" y1="17" x2="17" y2="6"></line><circle cx="15" cy="10.5" r="1"></circle>"#),
+    ("metronome-off", r#"<path d="M9 3h6l4 18H5L9 3z"></path><line x1="5.9" y1="17" x2="18.1" y2="17"></line><line x1="12" y1="17" x2="12" y2="7"></line><line x1="2" y1="2" x2="22" y2="22"></line>"#),
     ("play-fill", r##"<polygon fill="#fff" points="6 3 20 12 6 21 6 3"></polygon>"##),
     ("left-fill", r##"<polygon fill="#fff" points="19 4 7 12 19 20"></polygon>"##),
     ("stop-fill", r##"<rect fill="#fff" x="5" y="5" width="14" height="14" rx="1"></rect>"##),
