@@ -277,6 +277,8 @@ pub struct Space {
     /// the heads' sprites
     pub portraits: Portraits,
     pub join: Join,
+    /// the outlet (column) this deck plays for: an address filtered to a column's group reaches the link by it
+    pub column: Option<String>,
     /// a deck: what it streams of its being
     stream: Option<stream::Stream>,
     /// the session's relay link (deck-native's link.rs)
@@ -443,6 +445,7 @@ impl Space {
             graph: graph.clone(),
             portraits,
             join,
+            column: None,
             stream: None,
             link: None,
             note: String::new(),

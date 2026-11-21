@@ -562,6 +562,7 @@ impl Show {
             {
                 let relay = outlet_settings(args).relay.or_else(|| deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML)).relay);
                 use deck_native::space::Connect;
+                s.column = outlet_settings(args).outlet.or_else(|| deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML)).outlet).filter(|o| !o.is_empty());
                 // #195: a deck answers the conductor's pushes through its sync
                 #[cfg(feature = "sync")]
                 let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_native::space::link::Syncs>);
@@ -600,7 +601,7 @@ impl Show {
                 None
             } else {
                 let relay = set.unwrap_or_else(|| deck_native::live::config::HOSTED_RELAY.to_owned());
-                let link = deck_native::space::link::Link::start(&relay, deck_native::space::Join::Deck, None, Some(scene.stage.name.clone()), None, None, Some(show_link.clone()));
+                let link = deck_native::space::link::Link::start(&relay, deck_native::space::Join::Deck, None, Some(scene.stage.name.clone()), None, None, Some(show_link.clone()), None);
                 link.map_err(|e| tracing::warn!("tempo: no relay link for the show clock: {e}")).ok()
             }
         };
