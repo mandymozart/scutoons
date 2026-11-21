@@ -40,7 +40,7 @@ test('variablesElsewhere: what the OTHER toons set / read', () => {
 
 test('dead things across toons: set here + read in another toon = used; read here + set in another toon = set', () => {
 	// catpope sets global.mama_tips (read only in yellowmouse) and reads toptoy.visits_hypercity (set only in toptoy)
-	const groups = [{ label: 'a', slices: [{}], events: [set('global.mama_tips'), msg('{toptoy.visits_hypercity} mal'), set('lonely')] }];
+	const groups = [{ id: 'a', slices: [{}], events: [set('global.mama_tips'), msg('{toptoy.visits_hypercity} mal'), set('lonely')] }];
 	const alone = deadThings([{ number: 1, groups }], toonFacts([], { toon: 'catpope' }));
 	assert.deepEqual(alone.unread.map((d) => d.name), ['global.mama_tips', 'lonely']);
 	assert.deepEqual(alone.unset.map((d) => d.name), ['toptoy.visits_hypercity']);
@@ -49,7 +49,7 @@ test('dead things across toons: set here + read in another toon = used; read her
 	assert.deepEqual(dead.unread.map((d) => d.name), ['lonely'], 'mama_tips is read in yellowmouse');
 	assert.deepEqual(dead.unset.map((d) => d.name), [], 'visits_hypercity is set in toptoy');
 	// a bare name is this toon's: toptoy's visits_hypercity is another variable
-	const own = deadThings([{ number: 1, groups: [{ label: 'a', slices: [{}], events: [msg('{visits_hypercity} mal')] }] }], facts);
+	const own = deadThings([{ number: 1, groups: [{ id: 'a', slices: [{}], events: [msg('{visits_hypercity} mal')] }] }], facts);
 	assert.deepEqual(own.unset.map((d) => d.name), ['visits_hypercity']);
 });
 
@@ -69,7 +69,7 @@ test('similarVariable: a slip that makes a second variable', () => {
 });
 
 test('validation warns at the place a chapter sets / tests a look-alike name', () => {
-	const data = { number: 1, groups: [{ label: 'a', slices: [{ image: 'x.webp' }], events: [set('visits_harbor')] }] };
+	const data = { number: 1, groups: [{ id: 'a', slices: [{ image: 'x.webp' }], events: [set('visits_harbor')] }] };
 	const facts = toonFacts([], { toon: 'catpope', elsewhere: { sets: ['catpope/visits_harbour'], reads: [] } });
 	const problems = validateFile('chapter', data, 'de', { file: 'c', facts } as never).filter((p) => p.message.includes('looks like'));
 	assert.equal(problems.length, 1);

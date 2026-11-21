@@ -560,7 +560,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		}
 		// one group of the chapter: the texts are locale maps, de + en (ko not translated)
 		const script = events.map((e, k) => ({ id: `sb${number}-${label}-${k + 1}`, ...e }));
-		groupsOf.set(`${number}/${label}`, { label, renderer: { type: 'vertical' }, slices, events: script });
+		groupsOf.set(`${number}/${label}`, { id: label, renderer: { type: 'vertical' }, slices, events: script });
 		report.groups++;
 	}
 
@@ -572,7 +572,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			height: 693,
 			...(k === 0 ? { dialog: [{ id: `sb${number}-band-1`, rect: { x: 6, y: 6, width: 70 }, text: hint }] } : {})
 		}));
-		groupsOf.set(`${number}/band`, { label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, continues: true, slices });
+		groupsOf.set(`${number}/band`, { id: 'band', renderer: { type: 'horizontal', params: { endless: true } }, continues: true, slices });
 	}
 
 	/** one language-neutral chapter (chapter:sandbox:<n>) with its groups: title / description in de, en, ko; no status (the season's) */

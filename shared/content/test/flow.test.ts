@@ -18,16 +18,16 @@ test('conditionText: one line per test', () => {
 });
 
 test('chapterFlow: reading order – linked groups, the follow-up bar, an authored end, the next chapter', () => {
-	const f = chapterFlow([g({ label: 'a', continues: true }), g(), g({ label: 'c', end: { target: { type: 'chapter', value: '5', label: 'x' }, auto: true } }), g({ label: 'd' })], { chapter: 2 });
+	const f = chapterFlow([g({ id: 'a', continues: true }), g(), g({ id: 'c', end: { target: { type: 'chapter', value: '5', label: 'x' }, auto: true } }), g({ id: 'd' })], { chapter: 2 });
 	assert.deepEqual(out(f, 'g0'), ['continues:g1']);
-	// the chain a+b is through, c has a label: the follow-up bar leads there
+	// the chain a+b is through, c has an id: the follow-up bar leads there
 	assert.deepEqual(out(f, 'g1'), ['follow:g2']);
 	assert.deepEqual(out(f, 'g2'), ['end:x:chapter:5:x:(auto)']);
 	// the last group: the next chapter
 	assert.deepEqual(out(f, 'g3'), ['follow:x:next']);
 	assert.deepEqual(node(f, 'x:chapter:5:x:')?.target, { type: 'chapter', value: '5', label: 'x' });
 	assert.equal(node(f, 'x:next')?.status, 'reachable');
-	// an unlabelled group after a chain: the bar goes to the next chapter, the group is unreachable (as reach says)
+	// a group without an id after a chain: the bar goes to the next chapter, the group is unreachable (as reach says)
 	const h = chapterFlow([g(), g()], { chapter: 2, facts: toonFacts([]) });
 	assert.deepEqual(out(h, 'g0'), ['follow:x:next']);
 	assert.deepEqual(h.nodes.filter((n) => n.kind === 'group').map((n) => n.status), ['reachable', 'unreachable']);
@@ -44,7 +44,7 @@ test('chapterFlow: a script – points, questions, diverts, jumps (in and out of
 		{ ...jump('2', 'b'), if: { variable: 'left', op: 'set' } },
 		msg
 	];
-	const f = chapterFlow([g({ label: 'a', events, continues: true }), g({ label: 'b' })], { chapter: 2, text: (v) => (typeof v === 'string' ? v : (v as any)?.en ?? '') });
+	const f = chapterFlow([g({ id: 'a', events, continues: true }), g({ id: 'b' })], { chapter: 2, text: (v) => (typeof v === 'string' ? v : (v as any)?.en ?? '') });
 	assert.deepEqual(out(f, 'g0'), ['then:g0e1']);
 	assert.deepEqual(out(f, 'g0e1'), ['then:g0e5']);
 	assert.equal(node(f, 'g0e5')?.kind, 'choices');
@@ -87,11 +87,11 @@ test('chapterFlow: statuses come from chapterReach – unreachable, never true, 
 test('chapterFlow: slice triggers and item taps – a lone divert enters the script, random lists, exits', () => {
 	const groups = [
 		g({
-			label: 'a',
+			id: 'a',
 			events: [msg, { type: 'label', params: { name: 'p' } }, msg],
 			slices: [{ events: [{ type: 'divert', params: { to: 'p' }, trigger: { type: 'click' } }], items: [{ item: 'key', events: [{ type: 'jumpTo', params: { target: { type: 'chapter', value: '2', anyOf: ['b', 'zz'] } } }] }] }, {}]
 		}),
-		g({ label: 'b' })
+		g({ id: 'b' })
 	];
 	const f = chapterFlow(groups, { chapter: 2 });
 	assert.deepEqual(out(f, 'g0s0t0'), ['divert:g0e1']);
@@ -100,7 +100,7 @@ test('chapterFlow: slice triggers and item taps – a lone divert enters the scr
 	assert.deepEqual(out(f, 'g0s0t1e0'), ['random:g1', 'random:x:chapter:2:zz']);
 	assert.deepEqual(node(f, 'g0s0t1e0')?.path, ['groups', 0, 'slices', 0, 'items', 0, 'events', 0]);
 	// a cyclic big chapter stays fast
-	const big = (n: number) => Array.from({ length: n }, (_, i) => g({ label: `g${i}`, continues: i < n - 1, events: [{ type: 'label', params: { name: 'l' } }, { type: 'divert', params: { to: 'l' }, if: { variable: 'v', op: 'set' } }, jump('2', `g${(i + 7) % n}`)] }));
+	const big = (n: number) => Array.from({ length: n }, (_, i) => g({ id: `g${i}`, continues: i < n - 1, events: [{ type: 'label', params: { name: 'l' } }, { type: 'divert', params: { to: 'l' }, if: { variable: 'v', op: 'set' } }, jump('2', `g${(i + 7) % n}`)] }));
 	assert.equal(chapterFlow(big(300), { chapter: 2 }).nodes.filter((n) => n.kind === 'group').length, 300);
 	assertLinear((n) => chapterFlow(big(n), { chapter: 2 }), 400);
 });

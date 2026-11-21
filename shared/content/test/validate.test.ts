@@ -291,7 +291,7 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 	const chapter = (slice: object, events?: object[]) => ({
 		title: 'P',
 		number: 2,
-		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }], ...(events ? { events } : {}) }]
+		groups: [{ id: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }], ...(events ? { events } : {}) }]
 	});
 	const list = (data: object) => problems('chapter', data).filter((p) => p.includes('groups.0.'));
 	// a slice event revealing a box on its slice; an event without a box is an error (no own onomatopoeia any more)
@@ -309,12 +309,12 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 	const twoSlices = (first: object, second: object, more: object[] = []) => ({
 		title: 'P',
 		number: 2,
-		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...first }, { image: 's1/c2/b.webp', width: 390, height: 625, ...second }] }, ...more]
+		groups: [{ id: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...first }, { image: 's1/c2/b.webp', width: 390, height: 625, ...second }] }, ...more]
 	});
 	assert.deepEqual(list(twoSlices({ events: [ono({ dialog: 'b1' })] }, { dialog: [box()] })), []);
 	assert.deepEqual(list(twoSlices({ ...tapEventsOf('b1') }, { dialog: [box()] })), []);
 	assert.deepEqual(
-		problems('chapter', twoSlices({ events: [ono({ dialog: 'b1' })] }, {}, [{ label: 'h', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/c.webp', width: 390, height: 625, dialog: [box()] }] }])).filter((p) => p.includes('params.dialog')),
+		problems('chapter', twoSlices({ events: [ono({ dialog: 'b1' })] }, {}, [{ id: 'h', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/c.webp', width: 390, height: 625, dialog: [box()] }] }])).filter((p) => p.includes('params.dialog')),
 		['warning groups.0.slices.0.events.0.params.dialog']
 	);
 	// a group script may reveal a box on any of the group's slices
@@ -366,7 +366,7 @@ test('showTextBox event → text box (params.dialog); bubble frame + tail; outli
 });
 
 test('VN flow in a group: enter before speaking, choices added then shown (owner 2026-10-03)', () => {
-	const group = (events: object[], slices: object[] = []) => ({ label: 'g', renderer: { type: 'vertical' }, slices, events });
+	const group = (events: object[], slices: object[] = []) => ({ id: 'g', renderer: { type: 'vertical' }, slices, events });
 	const flow = (g: object) => groupFile(g).map((p) => `${p.level} ${p.path.join('.')}`).filter((p) => /^warning (events|slices\.\d+\.events)/.test(p));
 	const msg = (character: string) => ({ type: 'showMessage', params: { text: 'Hi', character } });
 	const join = (character: string) => ({ type: 'joinScene', params: { characters: [{ character, persona: 'regular', variant: 'avatar' }] } });
@@ -409,7 +409,7 @@ test('step 3 (EXPRESSIONS.md §5–6): repeat rules, event ids, askText, conditi
 	const at = (data: object) =>
 		groupFile(data).map((p) => `${p.level} ${p.path.join('.')}${p.code ? ` ${p.code}` : ''}`);
 	const slice = (events: object[], items: object[] = []) => ({ image: 'a.webp', width: 390, height: 625, events, items });
-	const group = (slices: object[], events: object[] = []) => ({ label: 's', renderer: { type: 'vertical' }, slices, events });
+	const group = (slices: object[], events: object[] = []) => ({ id: 's', renderer: { type: 'vertical' }, slices, events });
 	const msg = (extra: object = {}) => ({ type: 'showMessage', params: { text: 'Hi' }, ...extra });
 	// the old boolean once is gone (migration 2026-10-06-repeat)
 	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', once: true } })])])), ['error slices.0.events.0.trigger.once']);
@@ -525,7 +525,7 @@ test('slice pieces (research/COLLAGE.md §3, §12.5): checked on the slice host;
 
 test('slice.shot: an optional storyboard shot id (Scene · Shot · Slice, research/TEXT-ACROSS-SLICES.md §10)', () => {
 	const slice = (shot?: unknown) => ({ image: 'a.webp', width: 390, height: 625, ...(shot === undefined ? {} : { shot }) });
-	const shotErrors = (shot?: unknown) => groupFile({ label: 'g', renderer: { type: 'vertical' }, slices: [slice(shot)] }).filter((p) => p.path.at(-1) === 'shot').map((p) => p.level);
+	const shotErrors = (shot?: unknown) => groupFile({ id: 'g', renderer: { type: 'vertical' }, slices: [slice(shot)] }).filter((p) => p.path.at(-1) === 'shot').map((p) => p.level);
 	assert.deepEqual(shotErrors(), []);
 	assert.deepEqual(shotErrors('sb-25-4'), []);
 	assert.deepEqual(shotErrors('Shot 4'), ['error']);
@@ -536,6 +536,6 @@ test('placement ids are unique in the chapter (a pickup is remembered by its pla
 	const slice = (ids: string[]) => ({ image: 'a.webp', width: 390, height: 625, items: ids.map((id) => ({ id, item: 'cucumber', rect: { x: 1, y: 1, width: 10 } })) });
 	const chapter = (groups: object[]) => ({ title: 'x', author: 'a', description: '', thumbnail: '', groups });
 	const dup = (groups: object[]) => validateFile('chapter', chapter(groups), 'de', { file: 'x' } as never).filter((p) => p.path.at(-1) === 'id' && p.path.includes('items')).map((p) => p.path.join('.'));
-	assert.deepEqual(dup([{ label: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1']), slice(['c-2'])] }]), []);
-	assert.deepEqual(dup([{ label: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }, { label: 'b', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }]), ['groups.1.slices.0.items.0.id']);
+	assert.deepEqual(dup([{ id: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1']), slice(['c-2'])] }]), []);
+	assert.deepEqual(dup([{ id: 'a', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }, { id: 'b', renderer: { type: 'vertical' }, slices: [slice(['c-1'])] }]), ['groups.1.slices.0.items.0.id']);
 });

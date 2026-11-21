@@ -109,12 +109,12 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 		'read_flow',
 		{
 			description:
-				'The story flow as the creator\'s Flow panel shows it. No toon: SCUTOONS – one box per toon, the jumps between toons and to products / XR. A toon: its chapters (by season) and how they lead into each other, which can be reached (`status`). A chapter: its groups, labels, choices (with their texts and tests), jumps, triggers and exits, plus where readers can get stuck. A group (index or label): that group only. Node `path` → read_entity `path` on the chapter.',
+				'The story flow as the creator\'s Flow panel shows it. No toon: SCUTOONS – one box per toon, the jumps between toons and to products / XR. A toon: its chapters (by season) and how they lead into each other, which can be reached (`status`). A chapter: its groups, labels, choices (with their texts and tests), jumps, triggers and exits, plus where readers can get stuck. A group (index or id): that group only. Node `path` → read_entity `path` on the chapter.',
 			inputSchema: z.object({
 				toon: z.string().optional().describe('left out = all of SCUTOONS'),
 				season: z.number().int().optional().describe('toon level: only this season'),
 				chapter: z.number().int().optional(),
-				group: z.union([z.number().int(), z.string()]).optional().describe('with chapter: a group index or label'),
+				group: z.union([z.number().int(), z.string()]).optional().describe('with chapter: a group index or id'),
 				locale: z.string().optional().describe('the language texts are shown in (default the toon\'s source language)')
 			}),
 			annotations: read
@@ -144,8 +144,8 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 			const options = { chapter, toon, facts: src.input.facts, text: src.input.text };
 			let gi: number | undefined;
 			if (group !== undefined) {
-				gi = typeof group === 'number' ? group : groups.findIndex((g) => g?.label === group);
-				if (gi < 0 || gi >= groups.length) return fail(`chapter ${chapter} has no group ${JSON.stringify(group)} (${groups.length} groups; labels: ${groups.map((g) => g?.label).filter(Boolean).join(', ') || 'none'})`);
+				gi = typeof group === 'number' ? group : groups.findIndex((g) => g?.id === group);
+				if (gi < 0 || gi >= groups.length) return fail(`chapter ${chapter} has no group ${JSON.stringify(group)} (${groups.length} groups; ids: ${groups.map((g) => g?.id).filter(Boolean).join(', ') || 'none'})`);
 			}
 			const flow = gi === undefined ? chapterFlow(groups, options) : groupFlow(groups, gi, options);
 			return text({
@@ -183,7 +183,7 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 		'dead_things',
 		{
 			description:
-				'What nothing reaches or uses, judged across every toon (the creator\'s Flow lists the same): variables set but never read, variables read but never set, script points nothing diverts to, group labels nothing jumps to. One toon or all.',
+				'What nothing reaches or uses, judged across every toon (the creator\'s Flow lists the same): variables set but never read, variables read but never set, script points nothing diverts to, group ids nothing jumps to. One toon or all.',
 			inputSchema: z.object({ toon: z.string().optional() }),
 			annotations: read
 		},

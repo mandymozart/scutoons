@@ -19,7 +19,7 @@ use Scutoons\Infrastructure\Database\Database;
  * `variables` lists every storage key with the toons that set / read it, and the dead things judge variables across all
  * toons by key (shown as written in the toon). The browser draws it without loading
  * every toon. The Flow's pictures (owner 2026-10-06): each toon's `avatar` and per chapter its thumbnail and the low
- * variant of each labelled group's first slice (`chapters`, the same as @scutoons/content `chapterPictures`).
+ * variant of each group's first slice (`chapters`, the same as @scutoons/content `chapterPictures`).
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
  */
 final class FlowIndex
@@ -54,13 +54,13 @@ final class FlowIndex
      * per toon and chapter, the VN events of the newest chapter document (drafts included) in document order. An event:
      * `id` (the creator's hidden id; null when it has none – it is listed, a listener can only name it by type and
      * character), `type` (Generated\StoryEventTypes), `characters` (showMessage's `character`, joinScene / leaveScene's
-     * `characters`), `excerpt` (its first text, at most 80 characters; null without text), `group` (the group's label or
+     * `characters`), `excerpt` (its first text, at most 80 characters; null without text), `group` (the group's id or
      * null) and `groupIndex`. Events in scene documents are not walked here.
      * Per chapter also its `choices` (#550, research/SHOW.md §15 point 4 – the questions a show's vote can take): every
      * `showChoices` of the chapter's PUBLISHED version with the `addChoice`s before it in the same event list (since the
      * list's start, the last question or an unconditional divert / jumpTo – FlowCheck's grouping), as `{ event, group,
      * options: [{ id, label }], version }`: `event` the showChoices' id (null: none – listed, a show cannot name it),
-     * `group` the group's label or null, each option's id or null and its whole label by locale, `version` the chapter
+     * `group` the group's id or null, each option's id or null and its whole label by locale, `version` the chapter
      * version (entity_versions id) the choice was read from. Every option is listed, also one with an "Only if". A chapter
      * never published lists none.
      * @return array<string, mixed>
@@ -136,7 +136,7 @@ final class FlowIndex
 
     /**
      * the VN events in a chapter's groups, in document order: every array with a story event `type` (groups, slices,
-     * placed items, choices' events – anywhere in the document), each with its group's label and index
+     * placed items, choices' events – anywhere in the document), each with its group's id and index
      * @param array<mixed> $node
      * @param list<array<string, mixed>> $out
      */
@@ -145,9 +145,9 @@ final class FlowIndex
         foreach ($node as $k => $child) {
             if (!is_array($child)) continue;
             if ($group === null && array_is_list($node) && is_int($k)) {
-                // a top-level group: its label and index
-                $groupLabel = is_string($child['label'] ?? null) && $child['label'] !== '' ? $child['label'] : null;
-                self::collectEvents($child, $out, $k, $groupLabel);
+                // a top-level group: its id and index
+                $groupId = is_string($child['id'] ?? null) && $child['id'] !== '' ? $child['id'] : null;
+                self::collectEvents($child, $out, $k, $groupId);
                 continue;
             }
             if (!array_is_list($child) && is_string($child['type'] ?? null) && in_array($child['type'], StoryEventTypes::TYPES, true)) {
@@ -196,7 +196,7 @@ final class FlowIndex
         $out = [];
         foreach (is_array($doc['groups'] ?? null) ? array_values($doc['groups']) : [] as $group) {
             if (!is_array($group)) continue;
-            $label = is_string($group['label'] ?? null) && $group['label'] !== '' ? $group['label'] : null;
+            $label = is_string($group['id'] ?? null) && $group['id'] !== '' ? $group['id'] : null;
             $lists = [is_array($group['events'] ?? null) ? $group['events'] : []];
             foreach (is_array($group['slices'] ?? null) ? $group['slices'] : [] as $slice) {
                 if (!is_array($slice)) continue;
@@ -332,7 +332,7 @@ final class FlowIndex
             foreach ($byNumber as $number => $groups) {
                 foreach ($groups as $group) {
                     if (!is_array($group)) continue;
-                    $label = is_string($group['label'] ?? null) && $group['label'] !== '' ? $group['label'] : null;
+                    $label = is_string($group['id'] ?? null) && $group['id'] !== '' ? $group['id'] : null;
                     foreach ($this->ways($group) as $way) {
                         $edge = ['source' => ['toon' => $toon, 'chapter' => $number, 'group' => $label], 'target' => $way['target'], 'kind' => $way['kind']];
                         if ($way['label'] !== '') $edge['label'] = $way['label'];
@@ -565,8 +565,8 @@ final class FlowIndex
         foreach ($chapters as $number => $groups) {
             foreach ($groups as $gi => $group) {
                 if (!is_array($group)) continue;
-                $label = is_string($group['label'] ?? null) && $group['label'] !== '' ? $group['label'] : null;
-                $at = ['chapter' => $number, 'group' => $gi] + ($label !== null ? ['label' => $label] : []);
+                $label = is_string($group['id'] ?? null) && $group['id'] !== '' ? $group['id'] : null;
+                $at = ['chapter' => $number, 'group' => $gi] + ($label !== null ? ['id' => $label] : []);
                 $named = [];
                 $diverted = [];
                 $stack = [$group];
@@ -596,7 +596,7 @@ final class FlowIndex
                     foreach ($v as $k => $child) if ($k !== 'if') $stack[] = $child;
                 }
                 foreach (array_unique($named) as $name) if (!isset($diverted[$name])) $points[] = ['name' => $name, 'at' => [$at]];
-                // a group label: something refers to it, it starts the chapter, or the follow-up bar leads there
+                // a group id: something refers to it, it starts the chapter, or the follow-up bar leads there
                 if ($label !== null && $gi > 0 && !isset($facts['labels'][$label])) {
                     $before = $groups[$gi - 1] ?? null;
                     $bar = is_array($before) && empty($before['continues']) && !self::hasEnd($before);
@@ -634,7 +634,7 @@ final class FlowIndex
     }
 
     /**
-     * A chapter's pictures for the Flow (the same as @scutoons/content `chapterPictures`): its thumbnail, per group label
+     * A chapter's pictures for the Flow (the same as @scutoons/content `chapterPictures`): its thumbnail, per group id
      * the low variant of the group's first slice (where a jump to that label lands), the first group's first slice.
      * @param list<mixed> $groups
      * @return array{thumbnail?: string, labels?: array<string, string>, first?: string}
@@ -650,7 +650,7 @@ final class FlowIndex
         };
         $labels = [];
         foreach ($groups as $group) {
-            $label = is_array($group) && is_string($group['label'] ?? null) ? $group['label'] : '';
+            $label = is_array($group) && is_string($group['id'] ?? null) ? $group['id'] : '';
             if ($label === '' || isset($labels[$label])) continue;
             $image = $low($group);
             if ($image !== null) $labels[$label] = $image;

@@ -45,12 +45,12 @@ final class StoryEventsApiTest extends TestCase
         // Cat Pope's chapter 2: a joinScene in a slice's events (named by its persona's character), a showMessage without
         // an id, in the second group a leaveScene and a long message without a speaker
         $this->store('chapter:catpope:2', ['number' => 2, 'groups' => [
-            ['label' => 'start', 'continues' => true, 'slices' => [['events' => [
+            ['id' => 'start', 'continues' => true, 'slices' => [['events' => [
                 ['id' => 'join-cat', 'type' => 'joinScene', 'params' => ['characters' => [['character' => 'catpope', 'persona' => 'biker']]]],
             ]]], 'events' => [
                 ['type' => 'showMessage', 'params' => ['character' => 'catpope', 'text' => ['de' => 'Miau, Freunde!']]],
             ]],
-            ['label' => 'end', 'slices' => [[]], 'events' => [
+            ['id' => 'end', 'slices' => [[]], 'events' => [
                 ['id' => 'bye', 'type' => 'leaveScene', 'params' => ['characters' => [['character' => 'catpope'], ['name' => 'plf']]]],
                 ['id' => 'long', 'type' => 'showMessage', 'params' => ['text' => ['en' => str_repeat('a', 100)]]],
                 ['type' => 'jumpTo', 'params' => ['target' => ['type' => 'chapter', 'value' => '3']]],
@@ -58,7 +58,7 @@ final class StoryEventsApiTest extends TestCase
         ]]);
         // toptoy's chapter 1: a setVariable (a story event type too) with an id; a group without events
         $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [
-            ['label' => 'city', 'slices' => [[]], 'events' => [['id' => 'set1', 'type' => 'setVariable', 'params' => ['variable' => 'visits', 'value' => 1]]]],
+            ['id' => 'city', 'slices' => [[]], 'events' => [['id' => 'set1', 'type' => 'setVariable', 'params' => ['variable' => 'visits', 'value' => 1]]]],
         ]]);
         // a chapter of a toon without a story event: listed with no events
         $this->store('chapter:toptoy:2', ['number' => 2, 'groups' => [['slices' => [[]]]]]);
@@ -97,7 +97,7 @@ final class StoryEventsApiTest extends TestCase
     {
         $choice = fn(?string $id, array $label, array $extra = []) => ['type' => 'addChoice', 'params' => ['label' => $label]] + ($id !== null ? ['id' => $id] : []) + $extra;
         $published = $this->get(EntityStore::class)->insertPublished(EntityKey::parse('chapter:catpope:3'), (string) json_encode(['number' => 3, 'groups' => [
-            ['label' => 'nave', 'slices' => [['events' => [
+            ['id' => 'nave', 'slices' => [['events' => [
                 // a slice's question; its "Only if" option is listed too
                 $choice('stay', ['de' => 'Bleiben', 'en' => 'Stay']),
                 $choice('go', ['de' => 'Gehen', 'en' => 'Go', 'fr' => ' '], ['if' => ['variable' => 'brave', 'op' => '==', 'value' => true]]),
@@ -116,7 +116,7 @@ final class StoryEventsApiTest extends TestCase
         ]], JSON_UNESCAPED_UNICODE), null);
         // a newer draft changes the labels and adds a question: events come from it, choices stay the published version's
         $this->get(EntityStore::class)->insert(EntityKey::parse('chapter:catpope:3'), (string) json_encode(['number' => 3, 'groups' => [
-            ['label' => 'nave', 'events' => [$choice('stay', ['de' => 'Doch bleiben']), ['id' => 'ch3.draft', 'type' => 'showChoices']]],
+            ['id' => 'nave', 'events' => [$choice('stay', ['de' => 'Doch bleiben']), ['id' => 'ch3.draft', 'type' => 'showChoices']]],
         ]]), null, 'draft', null);
         // a chapter never published: no choices
         $this->get(EntityStore::class)->insert(EntityKey::parse('chapter:catpope:4'), (string) json_encode(['number' => 4, 'groups' => [

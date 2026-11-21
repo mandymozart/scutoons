@@ -458,7 +458,12 @@ export interface Checkpoint {
 }
 
 export interface Group extends AcceptedWarnings {
-	label?: string;
+	/**
+	 * The group's address inside its chapter (`chapter:<n>.<id>`): unique per chapter, slug-safe (`GROUP_ID_PATTERN`).
+	 * Jump targets, `?label=` links and the creator's `?group=` name it; renaming it rewrites them (`renameGroupId`).
+	 * @pattern ^[A-Za-z0-9][A-Za-z0-9_-]*$
+	 */
+	id: string;
 	renderer?: {
 		type: Renderer;
 		params?: RendererParams;

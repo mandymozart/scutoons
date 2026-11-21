@@ -127,7 +127,7 @@ const GROUP = process.env.SCUTOONS_CHAPTER_GROUP
 const slice = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].slices[SLICE];
 const sliceWidth = slice.width > 0 ? slice.width : 390;
 const dialogsBefore = (slice.dialog ?? []).length;
-const baselineGroupKey = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].label ?? String(GROUP + 1);
+const baselineGroupKey = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].id ?? String(GROUP + 1);
 if ((slice.events ?? []).length) console.log(`note: slice ${SLICE + 1} has events – the empty-slice event check is weaker`);
 
 /**
@@ -142,7 +142,7 @@ async function findVnScene() {
 			const doc = (await api('GET', `/entities/${key}?draft=1&wrap=1`)).content;
 			for (const [gi, g] of (doc?.groups ?? []).entries()) {
 				const slice = (g?.slices ?? []).findIndex((s) => (s?.events ?? []).length > 0);
-				if ((g?.events ?? []).length && slice >= 0) return { key, toon, chapter: Number(key.split(':')[2]), group: g.label ?? String(gi + 1), slice: slice + 1 };
+				if ((g?.events ?? []).length && slice >= 0) return { key, toon, chapter: Number(key.split(':')[2]), group: g.id ?? String(gi + 1), slice: slice + 1 };
 			}
 		}
 	}

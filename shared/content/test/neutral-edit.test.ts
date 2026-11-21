@@ -33,7 +33,7 @@ const chapterDoc = (over: Partial<ChapterDoc> = {}): ChapterDoc =>
 		thumbnail: 't.webp',
 		groups: [
 			{
-				label: 'g',
+				id: 'g',
 				renderer: { type: 'vertical' },
 				slices: [{ image: 'a.webp', width: 390, height: 625, dialog: [{ id: 'd1', rect, text: { de: 'Hallo', en: 'Hello' } }] }],
 				events: [
@@ -107,10 +107,10 @@ test('validateNeutral: a group in a chapter – its texts', () => {
 		lines(validateNeutral('chapter', { title: { de: 'K', en: 'C' }, groups: [group] }, L, { file: 'chapter:x:1' }))
 			.filter((l) => l.split(' ')[2]?.startsWith('groups.0.'))
 			.map((l) => l.replace(' groups.0.', ' '));
-	const scene = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ id: 'e1', type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
+	const scene = { id: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ id: 'e1', type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
 	assert.deepEqual(inChapter(scene), ['warning en events.0.params.text']);
 	// a message with no text in any language (chapter 2's `text: {}`): an empty box in the reader
-	const empty = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [{ image: 'a.webp', width: 390, height: 625, events: [{ id: 'e2', type: 'showMessage', params: { text: {}, wait: true }, trigger: { type: 'intersect' } }] }] } as unknown as GroupDoc;
+	const empty = { id: 'scene-1', renderer: { type: 'vertical' }, slices: [{ image: 'a.webp', width: 390, height: 625, events: [{ id: 'e2', type: 'showMessage', params: { text: {}, wait: true }, trigger: { type: 'intersect' } }] }] } as unknown as GroupDoc;
 	assert.deepEqual(inChapter(empty), ['warning - slices.0.events.0.params.text']);
 });
 
@@ -175,8 +175,8 @@ test('planConversion: published + newer draft, unchanged steps, the toon order',
 });
 
 test('visibleDifferences: what readers see, not the deprecated fields', () => {
-	const de = { title: 'Eins', number: 1, language: 'de', release: '2025-10-04', groups: [{ label: 'g', interaction: 'x', slices: [{ image: 'a.webp', dialog: [{ rect, text: 'Hallo', size: 4 }] }] }] };
-	const en = { ...de, language: 'en', groups: [{ label: 'g', slices: [{ image: 'a.webp', dialog: [{ rect, text: '', size: 5 }] }] }] };
+	const de = { title: 'Eins', number: 1, language: 'de', release: '2025-10-04', groups: [{ id: 'g', interaction: 'x', slices: [{ image: 'a.webp', dialog: [{ rect, text: 'Hallo', size: 4 }] }] }] };
+	const en = { ...de, language: 'en', groups: [{ id: 'g', slices: [{ image: 'a.webp', dialog: [{ rect, text: '', size: 5 }] }] }] };
 	const { report } = neutralizeChapter({ de, en } as never, 'de');
 	assert.deepEqual(
 		visibleDifferences(report).map((r) => `${r.kind} ${r.path}`),

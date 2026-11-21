@@ -32,7 +32,7 @@
 			.map(([key, , list]) => counts[key][list.length === 1 ? 0 : 1](list.length))
 			.join(' · ')
 	);
-	const where = (at: DeadPlace) => m['creator.flow_at']({ chapter: at.chapter, group: at.label ?? `#${at.group + 1}` });
+	const where = (at: DeadPlace) => m['creator.flow_at']({ chapter: at.chapter, group: at.id ?? `#${at.group + 1}` });
 </script>
 
 {#if dead && total}

@@ -166,7 +166,7 @@ for (let n = Number(opt.from || 1); n <= last; n++) {
 	const ch = await chapterFile(n);
 	for (const g of ch.groups) {
 		const group = g;
-		groups.push({ chapter: n, label: group.label, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [], expected: expectedScenes(group.events ?? []) });
+		groups.push({ chapter: n, label: group.id, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [], expected: expectedScenes(group.events ?? []) });
 	}
 }
 

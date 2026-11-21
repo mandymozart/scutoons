@@ -10,7 +10,7 @@ import { pieceName } from '@scutoons/content';
 export type NoteKind = 'textbox' | 'item' | 'piece' | 'tail' | 'slice' | 'group' | 'event' | 'sound' | 'text' | 'settings' | 'entry' | 'created';
 export type NoteAction = 'added' | 'removed' | 'moved' | 'recoloured' | 'set' | 'changed' | 'reordered' | 'translated';
 /** a group as the note names it: by its label, else its number */
-export type GroupRef = { label: string } | { number: number };
+export type GroupRef = { id: string } | { number: number };
 export interface NotePlace {
 	group?: GroupRef;
 	/** 1-based, within its group (the editor's "Slice n / m") */
@@ -262,9 +262,9 @@ export function groupChanges(before: any, after: any, ref: GroupRef | undefined,
 	return out;
 }
 
-/** the group's name for the note: its label, else its number */
+/** the group's name for the note: its id, else its number */
 export function groupRef(group: any, index: number): GroupRef {
-	return typeof group?.label === 'string' && group.label.trim() ? { label: group.label.trim() } : { number: index + 1 };
+	return typeof group?.id === 'string' && group.id.trim() ? { id: group.id.trim() } : { number: index + 1 };
 }
 
 /** a chapter's changes (its groups – `groupChanges`) */
@@ -275,7 +275,7 @@ export function chapterChanges(before: any, after: any, ctx: NoteContext): NoteC
 	fields(before, after, ['groups'], undefined, ctx.languages, out, langs);
 	const a = list(before.groups);
 	const b = list(after?.groups);
-	const key = (g: any) => (typeof g?.label === 'string' && g.label ? `label:${g.label}` : undefined);
+	const key = (g: any) => (typeof g?.id === 'string' && g.id ? `id:${g.id}` : undefined);
 	const pairs = pairById(a, b, key);
 	for (const [x, y, i, j] of pairs) {
 		if (!x) out.push({ kind: 'group', action: 'added', name: nameOfGroup(groupRef(y, j)) });
@@ -287,7 +287,7 @@ export function chapterChanges(before: any, after: any, ctx: NoteContext): NoteC
 	translated(langs, out);
 	return out;
 }
-const nameOfGroup = (g: GroupRef) => ('label' in g ? g.label : undefined);
+const nameOfGroup = (g: GroupRef) => ('id' in g ? g.id : undefined);
 
 // ── a meta page (cast, credits, toon settings, the catalog …) ─────────────────────────────────────────────────────
 const ENTRY_KEYS = ['id', 'character', 'key', 'slug', 'number', 'name'];

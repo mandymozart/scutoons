@@ -25,7 +25,7 @@ use stdClass;
  * - **regions**: every region of the world map (one map for all toons) – `region:<id>`; references
  * - **items**: the catalog's items of the toon and the shared ones (no toon) – `item:<id>`; addresses
  * - **seasons**: the toon's seasons – `season:<number>`; references
- * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<group>`; references
+ * - **chapters**: the toon's chapters – `chapter:<number>`, each followed by its **groups** – `chapter:<number>.<id>`; references
  * - **products**: the shop's products of the toon and the shared ones – `product:<id>`; references
  * - **toons**: every toon, this one first – `toon:<id>`; references (a jump's other toon; XR targets have no catalog to list)
  * - **scenes** (#487, research/SCENES.md §3 / §8): the deck scenes whose published version names the toon in its `toons` –
@@ -39,10 +39,9 @@ use stdClass;
  *   files, never in entity_versions)
  * - **variables**: every story variable of the one save game (the flow index's, every toon may set any) –
  *   `variable:<scope>.<name>`; references
- * The group and variable forms are proposals the owner has not confirmed (#477, slice B): cheap to change, here and in the
- * schema's AddressKind only. A group's `name` is its label exactly as an event stores it; its reference word is a safe form
- * of the label (letters, digits, `_` and `-`; anything else becomes `-`, a second label with the same form gets `-2` …). A
- * variable's `name` is the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
+ * A group is its chapter's `chapter:<number>.<id>`: its `name` is the group's `id` (slug-safe, unique in the chapter, the
+ * value a jump stores). The variable form is a proposal the owner has not confirmed (#477, slice B). A variable's `name` is
+ * the variable as written in this toon (`coins`, `global.coins`, `toptoy.coins`).
  * Not in it yet: sets (no toon in the catalog), XR targets (no catalog). Removed characters, places,
  * regions and toons (tombstones) are left out.
  *
@@ -65,6 +64,8 @@ final class AddressBook
      * persona and a look (the show's addressing, `picks_up`), a scene (a deck plays it, #487). Every other kind is a reference only.
      */
     private const ADDRESSED = ['character', 'persona', 'look', 'item', 'scene'];
+    /** a chapter group's id (@scutoons/content GROUP_ID_PATTERN, the chapter schema's pattern) */
+    private const GROUP_ID = '/^[A-Za-z0-9][A-Za-z0-9_-]*$/';
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
 
     public function __construct(private readonly Database $db, private readonly CatalogStore $catalog, private readonly Cache $cache, private readonly FlowIndex $flow)
@@ -290,13 +291,12 @@ final class AddressBook
             $origin = ['key' => $key, 'state' => $state];
             $chapter = "chapter:$m[1]";
             $chapters[(int) $m[1]] = [['ref' => $chapter, 'kind' => 'chapter', 'name' => $m[1], 'labels' => self::text($doc->title ?? null), 'origin' => $origin]];
-            $words = [];
+            $ids = [];
             foreach (self::objects($doc instanceof stdClass ? $doc->groups ?? null : null) as $group) {
-                $label = $group->label ?? null;
-                if (!is_string($label) || $label === '' || isset($words[$label])) continue;
-                $word = self::word($label, $words);
-                $words[$label] = $word;
-                $chapters[(int) $m[1]][] = ['ref' => "$chapter.$word", 'kind' => 'group', 'name' => $label, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
+                $id = $group->id ?? null;
+                if (!is_string($id) || preg_match(self::GROUP_ID, $id) !== 1 || isset($ids[$id])) continue;
+                $ids[$id] = true;
+                $chapters[(int) $m[1]][] = ['ref' => "$chapter.$id", 'kind' => 'group', 'name' => $id, 'parent' => $chapter, 'labels' => [], 'origin' => $origin];
             }
         }
         ksort($chapters);
@@ -406,20 +406,6 @@ final class AddressBook
             $out[] = $placeholder;
         }
         return $out;
-    }
-
-    /**
-     * A group label as a reference word (proposal, #477): letters, digits, `_` and `-` stay, every other run becomes `-`
-     * (the grammar's word may not hold `/ : . @ #` or white space); a form another label of the chapter already has gets `-2`, `-3` …
-     * @param array<string, string> $taken label → its word, this chapter's so far
-     */
-    private static function word(string $label, array $taken): string
-    {
-        $base = trim((string) preg_replace('/[^\p{L}\p{N}_-]+/u', '-', $label), '-');
-        if ($base === '') $base = 'group';
-        $word = $base;
-        for ($n = 2; in_array($word, $taken, true); $n++) $word = "$base-$n";
-        return $word;
     }
 
     /**

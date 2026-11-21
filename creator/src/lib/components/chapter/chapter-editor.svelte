@@ -2,7 +2,7 @@
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, GroupBar, type GroupBarItem, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, GroupBar, type GroupBarItem, Divider, Icon, MaximizeButton, confirmDialog, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -35,8 +35,9 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, factNames, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
-	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import { validateFile, validateNeutral, chapterReach, toonFacts, factNames, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
+	import { loadIncoming, loadOtherChapters, loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import { applyGroupRename, groupRenameProblem, planGroupRename } from '$lib/editor/group-rename.ts';
 	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import { type Tool } from '$lib/components/slice/slice-canvas.svelte';
@@ -54,7 +55,7 @@
 	import { setClipContext } from '$lib/editor/clip-context.ts';
 	import { countPlacements } from '$lib/editor/clip.ts';
 	import { itemName } from '$lib/editor/catalog.svelte.ts';
-	import { api } from '$lib/api.ts';
+	import { api, saveBatch } from '$lib/api.ts';
 	import type { ClipResult } from '$lib/editor/clipboard.svelte.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
@@ -504,12 +505,12 @@
 	const sliceItems = $derived<any[]>(activeSlice?.items ?? []);
 
 	// ── Navigation: the tree is the sidebar, group + slice are the deepest crumbs, the URL mirrors the selection ──
-	// (`?group=<label>&slice=<n>`, `?section=audio`; deep links and Alt+ArrowUp / crumbs work through the URL)
+	// (`?group=<id>&slice=<n>`, `?section=audio`; deep links and Alt+ArrowUp / crumbs work through the URL)
 	// the page re-creates this component per chapter ({#key})
 	// svelte-ignore state_referenced_locally
 	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
-	const groupKey = (g: any, i: number) => g?.label ?? String(i + 1);
-	const groupName = (g: any, i: number) => g?.label ?? `${m['creator.groups']()} ${i + 1}`;
+	const groupKey = (g: any, i: number) => g?.id || String(i + 1);
+	const groupName = (g: any, i: number) => g?.id || `${m['creator.groups']()} ${i + 1}`;
 	/** the ActionBar's not-live chip (E.1): the chapter, the season while it has something unpublished */
 	const liveFiles = $derived([
 		{ doc: chapter, label: fileLabel(chapter.entity) },
@@ -725,11 +726,12 @@
 	}
 
 	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
-	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
-	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
+	/** the chapter's group ids: a jump's group and the random list (CUTOVER 10.27) */
+	const groupIds = () => groups.map((g: any) => g?.id).filter((id: unknown): id is string => typeof id === 'string' && !!id);
+	const groupLabels = $derived(groupIds());
 	// the places jumps lead to (the target editor's toon → chapter → label; validation checks targets against them)
 	// svelte-ignore state_referenced_locally
-	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, () => groups.map((g) => g?.label).filter((l): l is string => typeof l === 'string' && !!l)));
+	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, groupIds));
 	$effect(() => {
 		jumpPlaces.toons = toonInfos.length ? toonInfos.map((t) => ({ id: t.id, name: t.name })) : null;
 	});
@@ -745,16 +747,32 @@
 	const sliceTarget = (): edits.SliceTarget | null =>
 		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice, taken: chapterDialogIds } : null;
 
-	// linked groups (owner 2026-10-06): a group whose script can jump away and that continues – the next group needs a
-	// label, else nothing leads back to it (a reminder with one click, next to the script)
-	const nextGroup = $derived(groups[view.groupIndex + 1]);
-	const needsNextLabel = $derived(!!activeGroup?.continues && scriptJumps(activeGroup) && !!nextGroup && !nextGroup.label);
-	function labelNextGroup() {
-		const index = view.groupIndex + 1;
-		const taken = new Set(groups.map((g: any) => g?.label).filter(Boolean));
-		let label = `scene-${index + 1}`;
-		for (let n = 2; taken.has(label); n++) label = `scene-${index + 1}-${n}`;
-		chapter.edit((file) => void (file.groups[index].label = label));
+	/**
+	 * Renames a group's id along (group-rename.ts): the toon's other chapters that refer to it are listed with the open
+	 * chapter's own references in an in-page confirmation, then saved in one batch; the open chapter changes in one edit step.
+	 */
+	async function renameGroup(from: string, to: string) {
+		const problem = groupRenameProblem(groups, from, to);
+		if (problem) return void toast(problem, { type: 'error' });
+		const input = { toon, chapter: chapterNumber, from, to };
+		try {
+			const others = await loadOtherChapters(toon, chapter.entity);
+			const plan = planGroupRename({ ...input, current: $state.snapshot(chapter.data[chapter.primary]) as any, others });
+			if (plan.lines.length) {
+				const list = plan.lines.map((l) => `· ${l}`).join('\n');
+				const ok = await confirmDialog({ title: m['creator.group_rename_title']({ from, to }), message: m['creator.group_rename_message']({ list }), confirmLabel: m['creator.group_rename_confirm']() });
+				if (!ok) return;
+			}
+			chapter.edit((file) => applyGroupRename(file, input));
+			// the server checks a save's jumps against the newest versions: the group's own chapter goes first
+			if (plan.saves.length) {
+				await chapter.save(`group "${from}" → "${to}"`);
+				await saveBatch(plan.saves, `group "${from}" → "${to}"`);
+			}
+			toast(m['creator.group_renamed']({ to, count: String(plan.lines.length) }));
+		} catch (e) {
+			toast(m['creator.group_rename_failed']({ error: e instanceof Error ? e.message : String(e) }), { type: 'error', timeout: 0 });
+		}
 	}
 	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect); the cursor goes to its text */
 	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset?: TextPreset) {
@@ -912,7 +930,7 @@
 			toon,
 			chapterNumber,
 			boxIds: chapterDialogIds,
-			groupLabels: () => groups.map((g: any) => g?.label).filter((l: unknown): l is string => typeof l === 'string' && !!l),
+			groupLabels: groupIds,
 			placementLimit
 		})
 	);
@@ -945,18 +963,12 @@
 
 </script>
 
-<!-- the open group: its form (label, layout, end …) and its script – the group section, and the slice editor's Group tab
+<!-- the open group: its form (id, layout, end …) and its script – the group section, and the slice editor's Group tab
      (the strip editor, TEXT-ACROSS-SLICES.md §4.1: the group and its slices on one screen) -->
 {#snippet groupBody()}
 	{#if activeDoc}
-		<GroupPanel doc={activeDoc} {groupPath} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
+		<GroupPanel doc={activeDoc} {groupPath} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} idProblem={(from, to) => groupRenameProblem(groups, from, to)} onrename={renameGroup} />
 		<h3 class="sub">{m['creator.vn']()}</h3>
-		{#if needsNextLabel}
-			<div class="sc-bar is-note" data-testid="next-label-hint">
-				<span>{m['creator.next_label_hint']()}</span>
-				<button class="secondary" onclick={labelNextGroup} data-testid="next-label-add">{m['creator.next_label_add']()}</button>
-			</div>
-		{/if}
 		{#if activeGroup?.events}
 			<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
 		{:else}

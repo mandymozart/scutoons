@@ -324,7 +324,7 @@ test('resetting the map: the merge drops what came before the reset – also fro
 
 test('unlockLocation: map open / toast or unset (owner 2026-10-11: chosen in the creator)', async () => {
 	const { validateFile } = await import('../src/validate.ts');
-	const doc = (params: unknown) => ({ groups: [{ label: 'g', events: [{ type: 'unlockLocation', params }] }] });
+	const doc = (params: unknown) => ({ groups: [{ id: 'g', events: [{ type: 'unlockLocation', params }] }] });
 	const errs = (params: unknown) => validateFile('chapter', doc(params), 'de', {}).filter((p) => p.level === 'error' && p.path.join('.').includes('params')).map((p) => p.path.at(-1));
 	assert.deepEqual(errs({ location: 'apartment' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'open' }), []);

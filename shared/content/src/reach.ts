@@ -380,15 +380,15 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 	});
 	groups.forEach((g, gi) => {
 		if (gi + 1 >= groups.length) return;
-		const nextLabel = groups[gi + 1]?.label;
-		// linked groups flow on; after a chain the follow-up bar leads to a labelled next group (no authored end)
+		const nextId = groups[gi + 1]?.id;
+		// linked groups flow on; after a chain the follow-up bar leads to the next group (no authored end; it needs an id)
 		if (linksToNext(groups as ChainGroupLike[], gi)) edge(gate[gi], gIn[gi + 1]);
-		else if (typeof nextLabel === 'string' && nextLabel && !groupEnd(g)) edge(gate[gi], gIn[gi + 1]);
+		else if (typeof nextId === 'string' && nextId && !groupEnd(g)) edge(gate[gi], gIn[gi + 1]);
 	});
 	if (groups.length) entries.push(gIn[0]);
 	groups.forEach((g, gi) => {
-		const label = g?.label;
-		if (gi > 0 && typeof label === 'string' && label && (!facts || facts.labels.has(label))) entries.push(gIn[gi]);
+		const id = g?.id;
+		if (gi > 0 && typeof id === 'string' && id && (!facts || facts.labels.has(id))) entries.push(gIn[gi]);
 	});
 
 	const walk = (withConditions: boolean): Uint8Array => {

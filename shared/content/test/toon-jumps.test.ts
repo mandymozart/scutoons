@@ -11,20 +11,20 @@ const out = (f: { edges: FlowEdge[] }, from: string) => f.edges.filter((e) => e.
 // catpope 3: choices into toptoy 1 at `hyper` and at toptoy's `middle`; catpope's own `middle` follows a linked group
 const catpope = [
 	{
-		label: 'forest',
+		id: 'forest',
 		continues: true,
 		slices: [{}],
 		events: [choice('Hyper City', { jumpTo: { target: into('toptoy', '1', 'hyper') } }), choice('Mitte', { jumpTo: { target: into('toptoy', '1', 'middle') } }), { type: 'showChoices' }]
 	},
-	{ label: 'middle', slices: [{}] }
+	{ id: 'middle', slices: [{}] }
 ];
 // toptoy 1: `city` ends into catpope 3; `hyper` (after the end) and `middle` (linked) only catpope's jumps reach; `lost`
 // (linked) no jump names
 const toptoy = [
-	{ label: 'city', slices: [{}], end: { target: into('catpope', '3', 'forest') } },
-	{ label: 'hyper', continues: true, slices: [{}] },
-	{ label: 'middle', continues: true, slices: [{}] },
-	{ label: 'lost', slices: [{}] }
+	{ id: 'city', slices: [{}], end: { target: into('catpope', '3', 'forest') } },
+	{ id: 'hyper', continues: true, slices: [{}] },
+	{ id: 'middle', continues: true, slices: [{}] },
+	{ id: 'lost', slices: [{}] }
 ];
 // the server's flow index (GET /api/creator/flow-index) lists these ways
 const index = {
@@ -86,7 +86,7 @@ test('flow: chapter / toon level exits into the other toon, toon reach entries, 
 });
 
 test('validation: toon only on chapter targets; toon / chapter / label checked where the caller knows them – a known missing place is an error (owner 2026-10-06)', () => {
-	const chapter = (target: object) => ({ number: 3, groups: [{ label: 'a', slices: [{ image: 'x.webp' }], end: { target } }] });
+	const chapter = (target: object) => ({ number: 3, groups: [{ id: 'a', slices: [{ image: 'x.webp' }], end: { target } }] });
 	const run = (target: object, targets?: object) =>
 		validateFile('chapter', chapter(target), 'de', { file: 'x', ...(targets ? { targets } : {}) } as never)
 			.filter((p) => p.path.includes('end'))
@@ -106,8 +106,8 @@ test('validation: toon only on chapter targets; toon / chapter / label checked w
 	assert.deepEqual(run({ type: 'toon', value: 'nobody' }, known), ['error target.value: there is no toon "nobody"']);
 	assert.deepEqual(run(into('toptoy', '7'), known), ['error target.value: toptoy has no chapter 7']);
 	assert.deepEqual(run({ type: 'chapter', value: '8' }, known), ['error target.value: the toon has no chapter 8']);
-	assert.deepEqual(run(into('toptoy', '1', undefined, { anyOf: ['hyper', 'gone'] }), known), ['error target.anyOf: toptoy chapter 1 has no group labelled "gone"']);
-	assert.deepEqual(run({ type: 'chapter', value: '2', label: 'nope' }, known), ['error target.label: chapter 2 has no group labelled "nope"']);
+	assert.deepEqual(run(into('toptoy', '1', undefined, { anyOf: ['hyper', 'gone'] }), known), ['error target.anyOf: toptoy chapter 1 has no group "gone"']);
+	assert.deepEqual(run({ type: 'chapter', value: '2', label: 'nope' }, known), ['error target.label: chapter 2 has no group "nope"']);
 	// this toon's chapter not loaded: no check; another toon the creator can't see: its labels can't be checked
 	assert.deepEqual(run({ type: 'chapter', value: '1', label: 'x' }, known), []);
 	assert.deepEqual(run(into('yellowmouse', '1', 'mama-boss'), known), [

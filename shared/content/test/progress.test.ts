@@ -109,11 +109,11 @@ test('nextStep: the follow-up bar after a group (agents/DESIGN.md "Follow-up bar
 		{ number: 2, status: 'draft' },
 		{ number: 3, status: 'coming-soon', release: '2025-12-01' }
 	];
-	const groups = [{ label: 'a' }, { label: 'b' }];
+	const groups = [{ id: 'a' }, { id: 'b' }];
 	// more groups follow → the next group
 	assert.deepEqual(nextStep({ groups, group: 0, chapter: 1, sequence, member: false }), { kind: 'group', label: 'b' });
-	// a following group without a label can't be addressed → the chapter's end
-	assert.deepEqual(nextStep({ groups: [{ label: 'a' }, {}], group: 0, chapter: 0, sequence, member: true }), { kind: 'chapter', chapter: 1 });
+	// a following group without an id can't be addressed → the chapter's end
+	assert.deepEqual(nextStep({ groups: [{ id: 'a' }, {}], group: 0, chapter: 0, sequence, member: true }), { kind: 'chapter', chapter: 1 });
 	// the prologue's end: chapter 1 for a member, the membership case for a guest
 	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 0, sequence, member: true }), { kind: 'chapter', chapter: 1 });
 	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 0, sequence, member: false }), { kind: 'members', chapter: 1 });
