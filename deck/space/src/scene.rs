@@ -210,13 +210,17 @@ pub fn look_id(prefix: &str) -> String {
 
 /// The `look` node of a member on a stage of several holders (#492, scene_resolve.rs; graph.rs `Kind::Look`): its params
 /// are the holder, who stands there (`who`: its place, `character:<id>` / `item:<id>` – cast.rs decides its form from it,
-/// #495), where it stands (`spot`, none = the scene's spot; `at`, metres from it) and its being's look (`being`, the
-/// character named for the head) – what the space draws there. Its inputs take its own rig's links to the being.
-pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+/// #495), the holder's chosen form (`form`, none = the stage's), where it stands (`spot`, none = the scene's spot; `at`,
+/// metres from it) and its being's look (`being`, the character named for the head) – what the space draws there. Its
+/// inputs take its own rig's links to the being.
+pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, form: Option<crate::cast::Form>, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
     let character = who.character();
     let mut params = toml::Table::new();
     params.insert("holder".into(), holder.into());
     params.insert("who".into(), who.place().into());
+    if let Some(f) = form {
+        params.insert("form".into(), f.word().into());
+    }
     if let Some(s) = spot {
         params.insert("spot".into(), s.into());
     }

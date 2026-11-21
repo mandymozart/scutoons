@@ -153,6 +153,8 @@ pub struct Cast {
     /// #495: who stands there, and as what (cast.rs `form`: the stage's 3D and who it is)
     pub who: Who,
     pub form: Form,
+    /// the form its holder chose (its look node's `form`); none = the stage's
+    pub chosen: Option<Form>,
     /// where its feet are: the spot on the set's floor (the being floats `lift` above it)
     pub feet: Vec3,
     /// its card's pictures: a character's full view per mood of its being, an item's one picture
@@ -213,7 +215,8 @@ impl Cast {
                     Who::Item(id) => vec![portraits.picture(cast::Picture::item(id))],
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
-                Cast { being, holder, spot, at, who, form: Form::Card, feet: Vec3::ZERO, pictures, moved: None }
+                let chosen = n.str("form").and_then(Form::parse);
+                Cast { being, holder, spot, at, who, form: Form::Card, chosen, feet: Vec3::ZERO, pictures, moved: None }
             })
             .collect()
     }
@@ -685,7 +688,7 @@ impl Space {
             let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
             c.feet = spot.unwrap_or(self.being.anchor - Vec3::Y * self.lift + row) + c.at;
             c.being.anchor = c.feet + Vec3::Y * self.lift;
-            let form = cast::form(&c.who, stage_3d);
+            let form = cast::form(&c.who, stage_3d, c.chosen);
             changed |= form != c.form;
             c.form = form;
         }
@@ -2420,6 +2423,11 @@ mod tests {
     /// burner (an item) whose own LFO kicks its pulse; with a 3D set (`set`, its spots handed in as if it had loaded) or
     /// none
     fn stage(set: bool) -> (Graph, Space, Table) {
+        stage_chosen(set, ["", ""])
+    }
+
+    /// the stage with the left and right holders' chosen forms (a `form = "card"` line on each look, or none)
+    fn stage_chosen(set: bool, forms: [&str; 2]) -> (Graph, Space, Table) {
         let text = format!(
             r#"
 [[node]]
@@ -2436,6 +2444,7 @@ id = "left_look"
 kind = "look"
 holder = "left"
 who = "character:catpope"
+{}
 spot = "spot_left"
 at = [0.0, 0.0, 0.0]
 being = {{ character = "catpope", expose = ["left_lfo.rate"] }}
@@ -2444,6 +2453,7 @@ id = "right_look"
 kind = "look"
 holder = "right"
 who = "character:mute"
+{}
 spot = "spot_right"
 being = {{ character = "mute" }}
 [[node]]
@@ -2463,7 +2473,9 @@ to = "left_look.glow"
 from = "burner_lfo"
 to = "burner_look.pulse"
 "#,
-            if set { "set = \"stage.glb\"" } else { "" }
+            if set { "set = \"stage.glb\"" } else { "" },
+            forms[0],
+            forms[1]
         );
         let scene = Scene::parse(&text).unwrap();
         let g = Graph::build(&scene).unwrap();
@@ -2539,6 +2551,16 @@ to = "burner_look.pulse"
         space.set_arrived(Err(anyhow::anyhow!("gone")));
         assert!(!space.stage_3d() && space.generation > generation, "the renderer sizes its buffers anew");
         assert_eq!((space.beings().count(), space.cards()), (0, 3));
+    }
+
+    /// a holder's chosen form wins over the stage: a card on a 3D stage, a look on a stage without a set
+    #[test]
+    fn a_holders_chosen_form_wins_over_the_stage() {
+        let (_g, space, _ctl) = stage_chosen(true, ["form = \"card\"", ""]);
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
+        let (_g, space, _ctl) = stage_chosen(false, ["", "form = \"look\""]);
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
+        assert_eq!((space.beings().count(), space.cards()), (1, 2));
     }
 
     /// #495 (owner 2026-11-12: "We fall back to 2d in all cases"): a stage with no set – every member a card, its feet on

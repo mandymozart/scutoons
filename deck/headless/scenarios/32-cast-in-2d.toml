@@ -35,6 +35,16 @@ do = "heard"
 path = "pope_look.pulse"
 expect = { value = 0.0 }
 
+# the holder chose a card: Cat Pope stands as her picture even in the cathedral's 3D set
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "headless/documents/nave-card.json"
+[step.expect]
+stage = { stage_3d = true, cast = [{ holder = "pope", look = "pope_look", character = "catpope", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "burner", look = "burner_look", character = "", who = "item:incense_burner", form = "card", picture = "items.incense_burner.picture" }] }
+
 # no set on the stage (scene:stage, its location's set not here yet): every member a card – her full view, the burner's picture
 [[step]]
 do = "reset"

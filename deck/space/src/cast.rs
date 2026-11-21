@@ -58,8 +58,10 @@ impl Who {
     }
 }
 
-/// how a member stands on the stage
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// how a member stands on the stage (a holder may choose it: `form = "card"` / `"look"`)
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Form {
     /// its 3D look: the being of its rig (#492)
     Look,
@@ -74,12 +76,21 @@ impl Form {
             Form::Card => "card",
         }
     }
+
+    /// a look node's `form` word; None for anything else
+    pub fn parse(word: &str) -> Option<Form> {
+        [Form::Look, Form::Card].into_iter().find(|f| f.word() == word)
+    }
 }
 
-/// The form of `who` on a stage that is 3D (`stage_3d`: its set's 3D is shown or on its way) or not.
-pub fn form(who: &Who, stage_3d: bool) -> Form {
-    match who {
-        Who::Character(_) if stage_3d => Form::Look,
+/// The form of `who` on a stage that is 3D (`stage_3d`: its set's 3D is shown or on its way) or not. A `chosen` form
+/// wins – `look` stays 3D on a stage without a set, `card` is always a card – except for an item, which has no being.
+pub fn form(who: &Who, stage_3d: bool, chosen: Option<Form>) -> Form {
+    // TODO(#704): the look's own form, which the holder's chosen form overrides
+    match (who, chosen) {
+        (Who::Item(_), _) => Form::Card,
+        (Who::Character(_), Some(f)) => f,
+        (Who::Character(_), None) if stage_3d => Form::Look,
         _ => Form::Card,
     }
 }
@@ -160,10 +171,20 @@ mod tests {
     fn a_character_is_3d_only_on_a_3d_stage_an_item_never() {
         let pope = Who::parse("character:catpope").unwrap();
         let burner = Who::parse("item:incense_burner").unwrap();
-        assert_eq!((form(&pope, true), form(&pope, false)), (Form::Look, Form::Card));
-        assert_eq!((form(&burner, true), form(&burner, false)), (Form::Card, Form::Card));
+        assert_eq!((form(&pope, true, None), form(&pope, false, None)), (Form::Look, Form::Card));
+        assert_eq!((form(&burner, true, None), form(&burner, false, None)), (Form::Card, Form::Card));
         assert_eq!(Who::parse("location:dom"), None);
         assert_eq!((pope.character(), burner.character(), burner.id()), ("catpope", "", "incense_burner"));
+    }
+
+    #[test]
+    fn a_chosen_form_wins_over_the_stage() {
+        let pope = Who::parse("character:catpope").unwrap();
+        let burner = Who::parse("item:incense_burner").unwrap();
+        assert_eq!(form(&pope, true, Some(Form::Card)), Form::Card, "a card on a 3D stage");
+        assert_eq!(form(&pope, false, Some(Form::Look)), Form::Look, "a look on a stage without a set");
+        assert_eq!(form(&burner, true, Some(Form::Look)), Form::Card, "an item has no being to draw");
+        assert_eq!((Form::parse("card"), Form::parse("look"), Form::parse("Card")), (Some(Form::Card), Some(Form::Look), None));
     }
 
     #[test]

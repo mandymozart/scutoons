@@ -847,7 +847,7 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
         .map(|n| {
             let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
             let who = word(n, "who").as_deref().and_then(Who::parse);
-            let form = who.as_ref().map(|w| cast::form(w, stage_3d));
+            let form = who.as_ref().map(|w| cast::form(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse)));
             let picture = match (&who, form) {
                 (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(c, cast::CARD_VIEW, "")),
                 (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
