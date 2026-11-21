@@ -57,7 +57,7 @@
 			const list = nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) }));
 			const result = await publishTree({ kind: 'all', toons: list }, m['creator.publish_tree_title_all']());
 			if (result) {
-				toast(result.message, { type: result.published.length ? 'success' : 'info' });
+				toast(result.message, { type: result.leftOut?.length ? 'error' : result.published.length ? 'success' : 'info' });
 				void loadPending();
 			}
 		} catch (e) {

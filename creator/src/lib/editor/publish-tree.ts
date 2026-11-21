@@ -24,8 +24,9 @@
  * whole transaction. `pendingFiles` still names them (the dashboard's "Not live yet" leads to the scene's page).
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
-import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
+import { catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
+import { publishTogether } from './publish-together.ts';
 import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
 import { inPublishBatch } from '$lib/editor/scenes.ts';
@@ -151,7 +152,7 @@ async function linesOf(files: ContentIndexEntity[]): Promise<Line[]> {
  * The checklist for a level, then publish / submit the ticked lines. Returns the message for the page (or null when
  * cancelled) and the keys that went live (whole or in part).
  */
-export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[] } | null> {
+export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[]; leftOut?: string[] } | null> {
 	const files = (await pendingFiles(scope)).filter((f) => inPublishBatch(f.key));
 	if (!files.length) return { message: m['creator.nothing_to_publish'](), published: [] };
 	const lines = await linesOf(files);
@@ -173,31 +174,21 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 	});
 	if (!picked?.length) return null;
 	const chosen = new Set(picked);
-	const done: string[] = [];
 	const forReview: { key: string; version: number }[] = [];
 	// the ticked files go live together, in one transaction (a route and the new place it runs through never half);
 	// the version the list showed – a newer save in between is not published unseen
-	let live: { key: string; version: number }[] = [];
+	const live: { key: string; version: number }[] = [];
 	for (const file of files) {
 		if (!chosen.has(file.key)) continue;
 		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version: file.latest });
 		else live.push({ key: file.key, version: file.latest });
 	}
 	// the catalog entries too (publishing writes the catalog table): the server's rules decide (a catalog entry's toon,
-	// a physical change – Reviews) and name the keys that need a review – nothing went out; those are submitted, the
-	// rest goes live together
-	while (live.length) {
-		try {
-			await publishMany(live);
-			done.push(...live.map((w) => w.key));
-			break;
-		} catch (e) {
-			const keys: unknown = e instanceof ApiError && e.code === 'review_required' ? e.body?.keys : null;
-			if (!Array.isArray(keys) || !keys.length) throw e;
-			forReview.push(...live.filter((w) => keys.includes(w.key)));
-			live = live.filter((w) => !keys.includes(w.key));
-		}
-	}
+	// a physical change – Reviews) and name the keys that need a review – those are submitted; an entry the catalog
+	// refuses is left out and named; the rest goes live together
+	const together = await publishTogether(live, publishMany);
+	const done = together.done;
+	forReview.push(...together.review);
 	let submitted = '';
 	if (forReview.length) {
 		const note = await askDialog({ title: m['creator.submit_title'](), label: m['creator.submit_note_label'](), placeholder: m['creator.submit_note_placeholder'](), confirmLabel: m['creator.submit_send'](), skipLabel: m['creator.submit_send']() });
@@ -207,6 +198,7 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 			submitted = m['creator.submitted']({ reviewers: result.reviewers.join(', ') });
 		}
 	}
-	const message = [done.length ? m['creator.publish_tree_done']({ count: done.length }) : '', submitted].filter(Boolean).join(' ');
-	return { message: message || m['creator.nothing_to_publish'](), published: done };
+	const leftOut = together.refused.length ? m['creator.publish_tree_left_out']({ count: together.refused.length, why: together.refused.map((r) => r.why).join(' · ') }) : '';
+	const message = [done.length ? m['creator.publish_tree_done']({ count: done.length }) : '', submitted, leftOut].filter(Boolean).join(' ');
+	return { message: message || m['creator.nothing_to_publish'](), published: done, leftOut: together.refused.map((r) => r.key) };
 }

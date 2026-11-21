@@ -94,6 +94,7 @@
 		"publish_tree_all": "Alle",
 		"publish_tree_none": "Keine",
 		"publish_tree_done": "{count} veröffentlicht.",
+		"publish_tree_left_out": "{count} ausgelassen, nicht veröffentlichbar: {why}",
 		"publish_tree_world": "Welt (Karte, Figuren, Einstellungen …)",
 		"publish_tree_title_all": "Veröffentlichen – alles",
 		"publish_tree_title": "Veröffentlichen – {name}",

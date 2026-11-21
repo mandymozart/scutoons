@@ -94,6 +94,7 @@
 		"publish_tree_all": "All",
 		"publish_tree_none": "None",
 		"publish_tree_done": "{count} published.",
+		"publish_tree_left_out": "{count} left out, cannot be published: {why}",
 		"publish_tree_world": "World (map, characters, settings …)",
 		"publish_tree_title_all": "Publish – everything",
 		"publish_tree_title": "Publish – {name}",
