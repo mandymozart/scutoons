@@ -5,16 +5,17 @@
 // can't check another toon's labels then.
 import { getContext, setContext } from 'svelte';
 import { contentIndex, getDraft } from '$lib/api.ts';
-import { jumpLabels, type JumpTargets } from '@scutoons/content';
+import type { JumpTargets } from '@scutoons/content';
 import { contextKey } from '$lib/utils/shared.ts';
+import { placesCore } from '$lib/editor/core-places.ts';
 
 const KEY = contextKey('jump-places');
 
-/** a chapter's group labels (its newest draft; @scutoons/content `jumpLabels`, the conductor's picker reads the same) */
+/** a chapter's group labels (its newest draft; the core's jump places, the conductor's picker reads the same) */
 async function chapterLabels(keys: { chapter: string | null }): Promise<string[]> {
 	if (!keys.chapter) return [];
 	const doc: any = (await getDraft(keys.chapter)).content;
-	return jumpLabels(Array.isArray(doc?.groups) ? doc.groups : []);
+	return (await placesCore()).jumpLabels(Array.isArray(doc?.groups) ? doc.groups : []);
 }
 
 export class JumpPlaces {

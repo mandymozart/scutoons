@@ -214,10 +214,10 @@ pub enum Hit {
     Sheet(Sheet),
     /// a line of the problems list: select what it points at
     Problem(usize),
-    /// #531, the Session sheet: a toon, a chapter of it, the label field, Copy link, Open here
+    /// #531, the Session sheet: a toon, a chapter of it, a label of it, Copy link, Open here
     SessionToon(usize),
     SessionChapter(usize),
-    SessionLabel,
+    SessionLabel(usize),
     SessionCopy,
     SessionOpen,
     /// a live camera of the list picked (again: the list) – the QR becomes its own
@@ -643,7 +643,7 @@ impl Host {
                 }
             }
             Hit::Problem(i) => self.select_problem(i),
-            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
+            Hit::SessionToon(_) | Hit::SessionChapter(_) | Hit::SessionLabel(_) | Hit::SessionCopy | Hit::SessionOpen | Hit::SessionCamera(_) => self.session_press(hit),
             Hit::Vote(v) => self.vote_press(v),
             Hit::Knob(k) => self.knob_press(k),
             Hit::CueMix => self.mix_press(),
@@ -1011,6 +1011,7 @@ impl Host {
                 }
                 if let Some(p) = &s.reader_place {
                     self.session_toon(&p.toon);
+                    self.session_labels(p.chapter);
                     self.session.place.chapter = p.chapter;
                     self.session.place.label = p.label.clone();
                 }

@@ -1,14 +1,11 @@
 //! The Session sheet (#531; agents/research/SCENE-EVENTS.md §6.3, §6.7): the editor as conductor offers its session to a
-//! linked reader – the code and the link's state, the place a reader starts at (a toon, a chapter, a label typed; the
-//! label picker is a ticket), the link and its QR, Copy link, Open here; then the linked readers and the last story heard;
+//! linked reader – the code and the link's state, the place a reader starts at (a toon, a chapter, one of its labels), the link and its QR, Copy link, Open here; then the linked readers and the last story heard;
 //! then the session's live cameras, who holds each, and the QR of their list a phone scans.
 //! What it says is deck-ui `session::Panel`, filled by deck-space `session_panel` (the core's `reader_link`, the relay
 //! client's `Readers`, the QR); this file fetches the public library's lists (HTTP), lays the panel out and does what a
 //! press says: the clipboard and the system's opener are the platform's (periphery).
-use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::draw::{self, DrawList};
-use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_space::linked::Readers;
@@ -21,6 +18,8 @@ use std::time::Duration;
 pub struct Session {
     pub place: Place,
     chapters: Vec<u32>,
+    /// the picked chapter's jump places (the core's `places`)
+    labels: Vec<String>,
     /// a check run's linked readers (`--linked`), in place of the relay's
     pub demo: Option<Readers>,
     /// a check run's live cameras (`--cameras`), in place of the relay's
@@ -62,7 +61,7 @@ impl Host {
         let state = self.link_line();
         let heard = self.link.as_ref().map(|l| l.cameras.lock().unwrap().clone());
         let cameras = self.session.demo_cameras.clone().or(heard).unwrap_or_default();
-        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, readers: &readers, cameras: &cameras, picked: self.session.camera.as_deref() })
+        session_panel::panel(&Facts { base: &base, code, relay, state: &state, place: &s.place, toons: &self.toons.list, chapters: &s.chapters, labels: &s.labels, readers: &readers, cameras: &cameras, picked: self.session.camera.as_deref() })
     }
 
     /// the sheet opened: the toons asked; the place starts at the show's toon
@@ -79,9 +78,20 @@ impl Host {
     pub(super) fn session_toon(&mut self, toon: &str) {
         self.session.place = Place { toon: toon.to_string(), chapter: None, label: String::new() };
         self.session.chapters.clear();
+        self.session.labels.clear();
         match get(&session_panel::toon_url(&self.api.base, toon)).and_then(|t| session_panel::chapters(&t)) {
             Ok(c) => self.session.chapters = c,
             Err(e) => self.refuse(format!("{toon}: {e}")),
+        }
+    }
+
+    /// the picked chapter's jump places, from the public library's chapter (the core reads them)
+    pub(super) fn session_labels(&mut self, chapter: Option<u32>) {
+        self.session.labels.clear();
+        let (Some(n), toon) = (chapter, self.session.place.toon.clone()) else { return };
+        match get(&session_panel::chapter_url(&self.api.base, &toon, n)).and_then(|t| session_panel::labels(&t)) {
+            Ok(l) => self.session.labels = l,
+            Err(e) => self.refuse(format!("{toon} {n}: {e}")),
         }
     }
 
@@ -98,9 +108,12 @@ impl Host {
             Hit::SessionChapter(i) => {
                 if let Some(n) = self.session.chapters.get(i).copied() {
                     self.session.place.chapter = Some(n);
+                    self.session.place.label.clear();
+                    self.session_labels(Some(n));
                 }
             }
-            Hit::SessionLabel => self.typing = Some((Typing::ReaderLabel, Field::with(&self.session.place.label))),
+            // the first chip is the chapter's start, the others its labels
+            Hit::SessionLabel(i) => self.session.place.label = i.checked_sub(1).and_then(|l| self.session.labels.get(l).cloned()).unwrap_or_default(),
             Hit::SessionCamera(i) => {
                 let id = self.session_panel().cameras.get(i).map(|c| c.id.clone());
                 self.session.camera = id.filter(|id| self.session.camera.as_ref() != Some(id));
@@ -204,23 +217,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
     let (rects, used) = pick(d, t, (x, y, cw), "Chapter", &chapters, chapter_on, if p.place.toon.is_empty() { "pick a toon" } else { "no chapters listed" });
     host.hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Hit::SessionChapter(i))));
     y += used;
-    // the label: typed (empty: the chapter's start)
-    let lw = d.advance(small) * 9.0;
-    d.text(x, y + (row - small * 1.25) * 0.5, small, "Label", t.color.muted);
-    let field = Rect { x: x + lw, y: y + 2.0, w: (cw - lw).min(320.0), h: row - 4.0 };
-    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::ReaderLabel).map(|(_, f)| format!("{}|", f.text));
-    d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
-    if typing.is_some() {
-        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.accent);
-    }
-    let (text, ink) = match (&typing, p.place.label.is_empty()) {
-        (Some(s), _) => (s.clone(), t.color.text),
-        (None, true) => ("the chapter's start".to_string(), t.color.muted),
-        (None, false) => (p.place.label.clone(), t.color.text),
-    };
-    d.text(field.x + 6.0, field.y + (field.h - font * 1.25) * 0.5, font, &fit(d, &text, font, field.w - 12.0), ink);
-    host.hits.push((field, Hit::SessionLabel));
-    y += row + pad * 0.5;
+    // the label: the chapter's start, or one of its labels (the core's jump places)
+    let names: Vec<String> = if p.place.chapter.is_some() { std::iter::once("start".to_string()).chain(p.labels.iter().cloned()).collect() } else { Vec::new() };
+    let label_on = if p.place.label.is_empty() { Some(0) } else { p.labels.iter().position(|l| *l == p.place.label).map(|i| i + 1) };
+    let (rects, used) = pick(d, t, (x, y, cw), "Label", &names, label_on, "pick a chapter");
+    host.hits.extend(rects.into_iter().enumerate().map(|(i, r)| (r, Hit::SessionLabel(i))));
+    y += used + pad * 0.5;
     d.text(x, y, font, &fit(d, &p.place_line(), font, cw), t.color.text);
     y += font * 1.6;
     d.text(x, y, small, &fit(d, &p.link_line(), small, cw), if p.has_link() { t.color.accent } else { t.color.muted });

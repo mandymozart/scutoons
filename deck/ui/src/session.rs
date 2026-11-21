@@ -59,6 +59,8 @@ pub struct Panel {
     /// the toons to pick (the public library's ids) and the picked toon's chapters (the numbers the library lists)
     pub toons: Vec<String>,
     pub chapters: Vec<u32>,
+    /// the picked chapter's jump places (its groups' labels, deck-core `places`) – where a reader can start
+    pub labels: Vec<String>,
     /// the address a linked reader opens – empty until a toon and a chapter are picked
     pub link: String,
     /// the link's QR (empty with no link)
