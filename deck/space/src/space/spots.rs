@@ -10,7 +10,7 @@ pub fn file(a: &Anatomy) -> File {
     let mut out = File::default();
     for (n, node) in a.nodes.iter().enumerate() {
         let empty = !node.joint && !a.parts.iter().any(|p| p.node == n);
-        let Some(mut found) = Some(&node.name).filter(|_| empty).and_then(|name| spot::of_file_name(name)) else {
+        let Some(mut found) = empty.then(|| spot::of_file_name(&node.name)).flatten() else {
             if !node.name.is_empty() && !node.joint && !out.nodes.contains(&node.name) {
                 out.nodes.push(node.name.clone());
             }
