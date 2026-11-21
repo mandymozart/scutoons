@@ -1,4 +1,4 @@
-Status: research + design drafts 2026-11-21 for #763 (epic #626), round 3 for the owner's review (§10) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C, ?v=7–9 round 3: B + Reception).
+Status: research + design drafts 2026-11-21 for #763 (epic #626), round 4 for the owner's review (§10–§12) – nothing built. Drafts: network.html (?v=1–4 round 1, ?v=5–6 round 2: C, ?v=7–9 and 11–12 round 3: B + the Reception tab, ?v=10 the scope, ?v=13 latency), restyled to the node-canvas dogma; the maps in the kit's own look.
 
 # One network, many scopes: Flow, Logic and the deck's nodes as one view
 
@@ -257,7 +257,105 @@ it on the split stage (#765's two-way split), instead of rows inside the graph. 
 | # | Question | Recommendation |
 |---|---|---|
 | Q13 | B as the logic view, Reception as a separate view beside it (instead of C's rows)? | yes – C stays as a drawing option only if the Reception view isn't enough |
-| Q14 | Which Reception form first: Matrix, Constellation or Timeline? | Matrix first (exact, works outside a session from the documents), Timeline second for live debugging; Constellation for the conductor's screen later |
+| Q14 | Which Reception form first: Matrix, Constellation or Timeline? | answered 2026-11-21: **all three are built**, one may be dropped later; the rendering stays modular – one reception model (receivers × what the selection fires, with now / sent / potential / filtered and the reason), one renderer per form |
 | Q15 | Per-message receipts from the relay (who received what, with latency) – wanted, at what cost? | counts per role and group first (cheap, partly there); receipts sampled, only while the Reception view is open |
 | Q16 | Show single users (signed-in accounts) in the Reception view, or groups only? | groups by default; a user only on search, and only for the show's creators (privacy) |
+
+## 11 · The scope drafted, Reception as a tab, its later maps, the style
+
+The owner, 2026-11-21: *"the reception view can also be its own tab of course. so we could use it in any workspace … and i havent
+seen the scoping idea properly drafted."* · *"for the receiption view we can introduce a world map later and a venue map ... venue map
+can work with a blueprint of a venue or a background picture we can pin devices to. and world view will show geo locations of
+recipience in real time."* · on the style: *"redesign so it matches our dogma"*.
+
+**The scope (`?v=10`, a storyboard).** One scope for the whole shell: an address (`chapter:sandbox/1/2`). Every universal tab reads it –
+Flow draws it, Reception lists who receives it, the Log filters its lines by the address prefix (LOG.md), the Library offers what fits
+it. Four moments:
+1. *Follow* – the front item is Chapter 2, the scope is Chapter 2 (selecting inside narrows it to a group or a cell).
+2. *Leave the item* – following the stub *→ show · row 4* moves the scope into the show; the workspace stays on Chapter 2, the path
+   pill says *scope ≠ item* and offers ↩.
+3. *Enter* – a double-click on *cell · sound* goes into the rig the cell plays (the deck's scope; rewiring opens the deck editor).
+4. *↑ to the top* – the network, with the trail of where you went lit; pinned until a new front item or ↩.
+The scope pills (Selection · Item · Chapter · Season · Toon · Show · All) are the Log's, a quick way to widen it.
+
+**Reception is a universal tab** (with Log and Library), any workspace may show it; split beside Flow is one arrangement, taking the
+stage another. One reception model, one renderer per form (Q14).
+
+**Later forms, drawn (`?v=11`, `?v=12`):**
+- **Venue:** the venue's own blueprint or a photo, uploaded once per stage environment; devices dragged onto it where they hang,
+  each lit in the colour of what it received; reader groups pinned to zones by their QR (a zone = a group), so a zone lights as one.
+- **World:** recipients by city, live – a dot per city sized by count, lit where the event arrived, dashed where it may; arcs from the
+  venue. City level only and only with consent (the reader's location is personal data; Q17).
+
+**The style** follows the deck's node canvas now: one card per node with its whole thin border in its kind's colour and a faintly
+tinted head (#648), groups on a dotted grid in their colour with a fold / swatch / label head (2026-11-16), wires that hang with a soft
+glow and small dim beads (2026-11-17), rows as hairlines edge to edge, see-through panels with the ink ring on the black stage.
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q17 | World map: where does a recipient's location come from? | answered 2026-11-21: the map is **zoomable**, OpenStreetMap in our own monochrome style, close enough to see where a device is (§12); readers stay a coarse cell, opt-in (Q19) |
+| Q18 | Venue map: zones as QR groups – one QR per zone printed in the venue? | answered 2026-11-21: **yes**, and the Reception view is the place to get a group's QR (§12) |
+
+## 12 · Round 4: QR per group, the map, latency and compensation, no extra load
+
+The owner, 2026-11-21: *"we got this so this is good place to retrieve the qrs specifically for a group. q17 i say this map is
+zoomable. a map we need some open world map with simplified monochrome view. so we can see pretty close were some device is. all of
+these views, i would love to see what real latency is or are... and if we got timed events later, when they will arrive with a count
+down. and if we can use these latencies and compentsate for them. somehow"* · *"also in this exploration please consider performance of
+the view and how we not additionally overload the relay"* · *"open street map i was meaning. perahse we find an alterantive that is
+possible to download ahead of a show and something we can run in the deck without a browser view present"* · with a screenshot of
+Maputnik's dark style: *"we can use this, give it our colors and give the entire thing a more cyber science fiction vibe matching our
+game. venue maps can be fictional maps, we can build based on real stage designs. and venue concepts."*
+
+**QR per group (`?v=11`).** A zone on the venue map is a group (protocol `Filter.group`, the QR's group); each zone carries its QR
+with *print*, so the Reception tab is where a group's join code is picked up.
+
+**Venue concepts (`?v=11`).** A venue map is a **venue concept**: real or fictional, built on real stage designs, drawn with the kit's
+tokens like every other view. It belongs to the **stage environment** (the per-venue layer, A11): devices
+pinned where they hang, zones as groups.
+
+**The map (`?v=12`).** OpenStreetMap data, zoomable to street level, in **our own style** – made in Maputnik (a MapLibre style:
+one JSON file) with the kit's tokens only, no extra decoration (owner 2026-11-21: *"just foloow our deck and creator ui kit dogma … basic. focused on point"*). Devices exact (they are ours),
+readers a count per ~250 m cell, never a point (Q19).
+- **Offline and native:** the show's region is cut **ahead of the show** into one vector-tile file and preloaded with the show's media
+  (the deck already preloads by horizon); the **deck draws it itself** (deck-kit painter, wgpu), no browser view, no relay. The world
+  overview is a small low-zoom file. Attribution *© OpenStreetMap contributors* stays visible (ODbL).
+- Candidates to check before a ticket (not verified here): Protomaps' PMTiles (one file of vector tiles, a region cut from the planet);
+  in Rust a PMTiles reader and an MVT decoder, drawn by our own painter; our Maputnik style read for the subset the deck draws (layers,
+  filters, colour / width / opacity by zoom). Open: whether to read the MapLibre style spec or keep a small style of our own.
+- **Browser first is possible** (owner 2026-11-21: *"maplibre also has a ts version for the browser. just in case our first
+  implemetnation is browser based"*): MapLibre GL JS draws the same Maputnik style over the same region file in the creator; the
+  deck's own renderer comes later and reads the same style and file – so a browser start costs no second style. (A browser map is UI,
+  A2; nothing it draws decides anything.)
+
+**Latency in every form, countdowns, compensation (`?v=13`, `?lead=adaptive`).**
+- Every receiver shows **network one-way + its own output latency** (projector lag, audio buffer, DMX frame).
+- A timed cue (a row on a bar) shows, as one quiet line, when it plays and who it will reach.
+- **What exists:** one shared clock (`ping` / `pong`, the offset's median of five), every cue carries `at = now + lead`, a client plays
+  at `at − offset`; ≤ 300 ms late plays at once, later only the state (research/LIVE.md B.6; the relay's `RELAY_LEAD_MS`, 150 hosted / 50 LAN);
+  the relay already tracks every link's smoothed round trip (`relay/src/link.rs`).
+- **New, per device** (owner 2026-11-21: *"the latency adapt needs to actually be per device otherwise this is kind of a weird
+  approximation"*): each device has its own **need** = its link's one-way p95 (the relay already smooths each link's round trip) + its
+  own output latency (reported once and on change: projector lag, audio buffer, DMX frame) + a small margin. A cue's lead is the
+  **largest need among the devices it reaches**, capped (e.g. 250 ms); the relay sends to all of them at once, and **each device starts at
+  `at − its own output`**. A device whose need is over the cap plays at once and is marked late – the show never waits for the slowest
+  phone. The lead moves like the deck's adaptive audio lead (deck-core `lead.rs`): take the margin at once, give it back slowly. Later:
+  an in-venue calibration (a clap / flash measured by a deck's microphone or camera) for output latencies.
+
+**Performance and relay load.**
+- **The relay sends nothing new per message to the audience.** It already measures each link; it keeps **aggregates per group**
+  (count, p50, p95, late, state-only) and sends them **only to a subscribed Reception tab**, at 1–2 / s, with the existing `presence`
+  and `vote.tally` traffic as the model (250 ms to the conductor today).
+- **Receipts:** full from decks and bridges (few, on the LAN), a **sample** of phones (e.g. 1 in 20, capped), riding the existing `pong`
+  / keepalive – never one message per phone per cue.
+- **Locations** are sent once at join (coarse, opt-in), not streamed; **map tiles** never go through the relay.
+- **The view:** crowds are density (one canvas, not a node per phone); level of detail by zoom; it pauses when hidden and drops to a
+  few frames a second when nothing moves; every animation can be switched off (2026-11-16 [design]).
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q19 | Readers on the map: exact with consent, or always a coarse cell? | answered 2026-11-21: **always a coarse cell** – a reader's place is snapped to a grid cell of about 250 m and only the cell's count is shown, never a point; a cell with fewer than 5 readers merges into its larger parent cell, so no single person can be picked out. Devices that are ours are exact |
+| Q20 | May the send time differ while `at` stays one moment? | answered 2026-11-21: **yes** – and the adaptation is **per device**, not per group: each device's own need, one lead per cue from the largest, each device starting at `at − its output` |
+| Q21 | Map style: read the MapLibre style spec in the deck (one style for web and deck), or a small style of our own? | answered 2026-11-21: **yes, the MapLibre spec** – GL JS in the browser first, the deck reads the subset later; Maputnik stays the editor |
+| Q22 | Venue concepts: a new asset kind in the Library, or part of the stage environment document? | answered 2026-11-21: **part of the stage environment**, the plan as its image slot |
 

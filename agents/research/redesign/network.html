@@ -8,7 +8,9 @@
 <!-- The one Flow tab over every scope (#763). The tab is shown on the stage (#765 "taking the stage").
      ?v=1 chapter level (story scope) · 2 the network, A runtime lanes · 3 the network, B nested scopes · 4 a rig (deck scope, audio context)
      · round 2: 5 the network, C nested scopes in where-it-shows rows (roles) · 6 the same rows as devices now
-     · round 3: B beside a Reception view (who receives what): 7 matrix · 8 constellation · 9 timeline
+     · round 4: 13 latency, a quiet next-cue line and compensation (?lead=adaptive) · 11 venue with QR per group · 12 the OpenStreetMap region, in the kit's tokens
+     · round 3: B beside a Reception view (who receives what): 7 matrix · 8 constellation · 9 timeline · 10 the scope (storyboard)
+     Style: the node canvas as the deck draws it – #648 one card, kind-coloured border; groups on a dotted grid in their colour; hanging wires.
      ?theme=day · ?quiet folds the notes. Keys: 1–4 views · T day / night · N notes · L live feedback on / off. Open at 1440×900.
      Colours: shared/tokens/editor.css; signals: deck/kit/src/base/signal.rs (night + day), copied 1:1. -->
 <style>
@@ -19,14 +21,14 @@
   --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
   --primary:#b4ff32;--danger:#c0392b;--warn:#f0a030;--ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
   --s-event:#f3f3f0;--s-control:#46d36a;--s-clock:#e5484d;--s-audio:#19b8d8;--s-picture:#6f9bff;--s-address:#b46bff;--s-vote:#ffb020;--s-scene:#ff6b8a;--s-far:#a7af9b;
-  --grid:#1c1f19;--outline:#000000;
+  --grid:#1c1f19;--outline:#000000;--card:#101210;
 }
 [data-theme=day]{
   --stage:#ffffff;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
   --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
   --primary:#b4ff32;--danger:#c0392b;--warn:#b86e0c;--ground:rgb(243 243 240 / 0.8);--halo:none;
   --s-event:#22271e;--s-control:#2f9e4a;--s-clock:#c23238;--s-audio:#0089a8;--s-picture:#3a63c9;--s-address:#8a4fd0;--s-vote:#b07800;--s-scene:#c8385a;--s-far:#6b7461;
-  --grid:#eceee8;--outline:#ffffff;
+  --grid:#eceee8;--outline:#ffffff;--card:#ffffff;
 }
 :root{--gap:1rem;--small:.86rem;--label:.72rem;--row:2.15rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
 *{box-sizing:border-box}
@@ -55,14 +57,42 @@ button{font:inherit;color:inherit;cursor:pointer}
 .waits{position:fixed;z-index:40;bottom:var(--gap);left:50%;transform:translateX(-50%);font-size:var(--small);color:var(--muted)}
 #canvas{position:fixed;inset:0;background-color:var(--stage);background-image:radial-gradient(var(--grid) 1px,transparent 1.2px);background-size:1rem 1rem}
 svg#g{position:absolute;inset:0;width:100%;height:100%}
-.notes{position:fixed;z-index:45;top:calc(var(--top) + 3rem);right:var(--gap);width:19rem;max-height:calc(100vh - var(--top) - 7rem);overflow:auto;padding:.8rem 1rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 .4rem 1.2rem rgb(0 0 0/.35);font-size:var(--small)}
+.notes{position:fixed;z-index:45;top:calc(var(--top) + 3rem);right:var(--gap);width:19rem;max-height:calc(100vh - var(--top) - 7rem);overflow:auto;padding:.8rem 1rem;border-radius:var(--radius);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line);font-size:var(--small)}
 .notes h2{font-size:1rem;margin:.1rem 0 .5rem;font-weight:700}
 .notes p{margin:.35rem 0}
 .notes ul{margin:.3rem 0;padding-left:1.1rem}
 .notes li{margin:.2rem 0}
 .notes code{font-size:.8rem;color:var(--muted)}
 body.quiet .notes{display:none}
-#side{position:fixed;z-index:30;top:0;bottom:0;left:56vw;right:0;display:none;overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:calc(var(--top) + 2.9rem) 1.2rem 4.2rem}
+#side{position:fixed;z-index:30;top:0;bottom:0;left:56vw;right:0;display:none;overflow:auto;background:var(--stage);border-left:1px solid var(--line);padding:calc(var(--top) + 2.9rem) 1.2rem 4.2rem}
+.tabs{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--line);margin-bottom:.9rem}
+.tabs button{height:var(--row);padding:0 .9rem;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted)}
+.tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+.tabs .grow{flex:1}
+.tabs small{color:var(--muted);font-size:var(--label);padding-right:.6rem}
+.pill button.later{color:var(--muted);opacity:.6}
+#story{position:fixed;z-index:20;display:none}
+body.story #story{display:block}
+.scopeband{position:absolute;left:0;right:0;top:0;padding:.6rem .9rem;border-radius:var(--radius);box-shadow:0 0 0 1px var(--line);background:var(--ground)}
+.sb-row{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;font-size:var(--small);flex-wrap:wrap}
+.sb-row .addr{font-family:ui-monospace,monospace;color:var(--accent);border:1px solid var(--accent);border-radius:1rem;padding:.1rem .6rem}
+.sb-row .arrow{color:var(--muted)}
+.sb-row .tabchip{border:1px solid var(--line);border-radius:.3rem;padding:.1rem .5rem}
+.sb-row .tabchip i{font-style:normal;color:var(--muted)}
+.sb-row .grow{flex:1}
+.sb-row .pillish{color:var(--muted);border:1px solid var(--line);border-radius:1rem;padding:.1rem .7rem}
+.step{position:absolute;margin:0;display:flex;flex-direction:column;border-radius:var(--radius);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.step figcaption{padding:.5rem .8rem .2rem;font-size:var(--small)}
+.step .num{display:inline-flex;align-items:center;justify-content:center;width:1.3rem;height:1.3rem;border-radius:50%;background:var(--pressed);color:var(--pressed-text);font-size:var(--label);margin-right:.45rem}
+.mini-path{display:flex;align-items:center;gap:.3rem;margin:.2rem .8rem;padding:.15rem .6rem;border-radius:1rem;box-shadow:0 0 0 1px var(--line);font-size:var(--label);color:var(--muted);background:var(--ground)}
+.mini-path b{color:var(--text);font-weight:400}
+.mini-path .scope{letter-spacing:var(--spacing);text-transform:uppercase;border:1px solid var(--line);border-radius:.6rem;padding:0 .35rem}
+.mini-path .scope:empty{display:none}
+.mini-path .grow{flex:1}
+.mini-path .st{display:flex;align-items:center;gap:.3rem}
+.mini-path .st.warn{color:var(--warn)}
+.step svg.mini{flex:1;width:100%;min-height:0}
+.step .foot{padding:.3rem .8rem .5rem;font-size:var(--label);color:var(--muted)}
 body.split #side{display:block}
 body.split .notes{left:var(--gap);right:auto;top:auto;bottom:4rem;width:calc(56vw - 3rem);max-height:11.5rem}
 .rx-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem}
@@ -115,11 +145,13 @@ body.live .lit{filter:drop-shadow(0 0 3px currentColor)}
 <div class="pill waits" id="waits"></div>
 <aside class="notes" id="notes"></aside>
 <section id="side"></section>
+<div id="story"></div>
 
 <script>
 const R = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
 const q = new URLSearchParams(location.search);
 let view = +(q.get('v') || 1);
+if (q.get('lead') === 'adaptive') setTimeout(() => { adaptive = true; chrome(); draw(); });
 if (q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
 if (q.has('quiet')) document.body.classList.add('quiet');
 let live = true; document.body.classList.add('live');
@@ -372,8 +404,8 @@ function mark(k, s) {
   return '<span class="x">×</span>';
 }
 const KEY = `<div class="rx-key"><span>${mark('now', 'control')} received now</span><span>${mark('up', 'event')} sent from here</span><span>${mark('pot', 'control')} potential (absent, or not admitted)</span><span>${mark('no')} filtered out (why)</span></div>`;
-const rxHead = v => `<div class="rx-head"><h3>Reception · <b>row 4 · storm</b> <span style="color:var(--muted)">and what it fires</span></h3><span class="grow"></span>
-  <div class="pill">${[[7, 'Matrix'], [8, 'Constellation'], [9, 'Timeline']].map(([i, t]) => `<button class="${i === v ? 'on' : ''}" data-v="${i}">${t}</button>`).join('')}</div></div>` + KEY;
+const rxHead = v => `<div class="tabs"><button class="on">Reception</button><button>Log</button><button>Library</button><span class="grow"></span><small>a universal tab – any workspace; here split beside Flow</small><button title="Take the stage">◱</button></div><div class="rx-head"><h3>Reception · <b>row 4 · storm</b> <span style="color:var(--muted)">and what it fires</span></h3><span class="grow"></span>
+  <div class="pill">${[[7, 'Matrix'], [8, 'Constellation'], [9, 'Timeline']].map(([i, t]) => `<button class="${i === v ? 'on' : ''}" data-v="${i}">${t}</button>`).join('')}<button class="${v === 13 ? 'on' : ''}" data-v="13">Latency</button><button class="${v === 11 ? 'on' : 'later'}" data-v="11" title="later: devices pinned on a venue's blueprint or picture">Venue</button><button class="${v === 12 ? 'on' : 'later'}" data-v="12" title="later: recipients' geo locations, live">World</button></div></div>` + KEY;
 
 function matrix() {
   let h = rxHead(7) + '<table class="rx"><colgroup><col class="who"></colgroup><tr><th>who</th>' + COLS.map(([id, a, b, s]) => `<th class="${HOT.has(id) ? 'hot' : ''}">${SHAPE_SVG(s)} ${a}<br>${b}</th>`).join('') + '</tr>';
@@ -444,14 +476,204 @@ function timeline() {
 }
 
 const B_EDGES = V[3].edges.map(e => e[0] === 'c2.e' ? [e[0], e[1], e[2], e[3], { ...e[4], sel: true }] : e);
-const R_NOTES = `<h2>7–9 · B beside a Reception view</h2>
+const R_NOTES = `<h2>7–9, 11–12 · B beside the Reception tab</h2>
   <p>The logic stays B (nested scopes, left). Devices are another organisation, so they get <b>their own view beside it</b> on the split stage (#765), not rows inside it. Select a box or cable on the left (here: the <i>storm</i> cable) and the right shows <b>who receives it and what it fires</b>: connected now, potential, or filtered out by the show's <code>where</code> facts (group, device, account, approved). Select a receiver on the right and the left dims to what reaches it.</p>
-  <p>Three different ways to give the same answer: <b>Matrix</b> (who × what, exact, for checking a user group), <b>Constellation</b> (the audience as it is, for the live show), <b>Timeline</b> (when each one received it, for latency and order).</p>`;
+  <p><b>Reception is a universal tab</b> like Log and Library: any workspace can open it; here it is split beside Flow, it can also take the stage. One reception model, one renderer per form; all are built and one may be dropped later. Forms: <b>Matrix</b> (who × what, exact, for checking a user group), <b>Constellation</b> (the audience as it is, for the live show), <b>Timeline</b> (when each one received it, for latency and order); later <b>Venue</b> (devices pinned on the venue's blueprint or picture, reader groups pinned to zones by their QR) and <b>World</b> (recipients by city, live, with consent).</p>`;
 const RB = { items: [['Home'], ['Chapter 2 · Dunes'], ['rig crow'], ['Sandbox demo', true]], path: [['Universe'], ['Show · Sandbox demo', 'b']], follows: 'pinned · show + toon', pinned: true, waits: 'Show waits ↓',
   frames: V[3].frames, nodes: V[3].nodes, edges: B_EDGES, notes: R_NOTES };
 V[7] = { ...RB, side: matrix };
+/* later Reception forms (owner 2026-11-21): a venue map – devices pinned on a blueprint or picture – and a world map of recipients, live */
+
 V[8] = { ...RB, side: constellation };
+/* round 4 (owner 2026-11-21): a group's QR from the venue map; a zoomable map in the kit's tokens; latency everywhere, the next timed cue
+   for timed events, and compensation – all from what the relay already knows (no extra load) */
+
+
+
+/* the maps in the kit's own look: the stage black, lines and labels from the editor tokens, receivers in their signal colours */
+const pinDev = (x, y, s, name, l, on = true) =>
+  `<rect x="${x - 6}" y="${y - 6}" width="12" height="12" rx="2" fill="${on ? `var(--s-${s})` : 'none'}" stroke="var(--s-${s})" ${on ? '' : 'stroke-dasharray="2 2"'}/>` +
+  `<text x="${x + 11}" y="${y - 1}" class="t">${name}</text><text x="${x + 11}" y="${y + 11}" class="tm">${l}</text>`;
+
+function world() {
+  const W = 600, H = 400;
+  let g = `<rect width="${W}" height="${H}" fill="var(--stage)"/>`;
+  g += `<path d="M-10,250 C120,230 200,300 330,270 S520,200 610,230 L610,262 C520,236 440,300 330,304 S120,262 -10,284Z" fill="var(--within)"/>`;
+  for (let i = 0; i < 30; i++) { const x = (i * 97) % 560 + 10, y = (i * 61) % 360 + 10; if (y > 236 && y < 312) continue; g += `<rect x="${x}" y="${y}" width="${18 + (i % 4) * 6}" height="${12 + (i % 3) * 5}" fill="var(--surface)"/>`; }
+  const road = (d, w) => `<path d="${d}" fill="none" stroke="var(--line)" stroke-width="${w}" stroke-linecap="round"/>`;
+  g += road('M0,120 L600,90', 5) + road('M40,400 L180,0', 4) + road('M300,400 L370,0', 4) + road('M0,350 L600,320', 3);
+  g += road('M0,40 L600,20', 1.5) + road('M0,200 L600,170', 1.5) + road('M110,400 L240,0', 1.5) + road('M470,400 L515,0', 1.5);
+  g += `<text x="20" y="112" class="tm">Ringstraße</text><text x="430" y="84" class="tm">Praterstraße</text><text x="470" y="262" class="tm">Donaukanal</text>`;
+  // readers: a count per grid cell (~250 m), never a point; sparse cells merge into larger ones
+  for (const [x, y, n, l] of [[330, 46, 14, '62 ms'], [490, 130, 9, '48 ms'], [150, 336, 6, '71 ms']])
+    g += `<rect x="${x - 24}" y="${y - 24}" width="48" height="48" fill="var(--s-picture)" fill-opacity=".12" stroke="var(--s-picture)"/><text x="${x}" y="${y - 2}" class="t" text-anchor="middle">${n}</text><text x="${x}" y="${y + 11}" class="tm" text-anchor="middle">${l}</text>`;
+  // the venue and its devices, exact
+  g += `<rect x="232" y="146" width="122" height="72" rx="4" fill="none" stroke="var(--text)" stroke-opacity=".6"/><text x="234" y="140" class="t">the venue</text>`;
+  g += pinDev(246, 162, 'scene', 'deck-2', '3+45 ms') + pinDev(246, 196, 'event', 'crow-box', '3+13 ms');
+  g += pinDev(446, 336, 'scene', 'deck-5', 'shop window · 11+60 ms');
+  return rxHead(12) + `<div class="rx-head" style="margin-top:-.2rem"><div class="pill"><button>−</button><button class="on">Vienna · zoom 16</button><button>+</button></div><span class="grow"></span><span class="tm" style="font-size:var(--label);color:var(--muted)">© OpenStreetMap contributors · the region cached for the show</span></div>
+    <svg class="rx" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>
+    <div class="rx-key" style="margin-top:.6rem"><span>${mark('now', 'scene')} devices: exact (they are ours)</span><span>${mark('now', 'picture')} readers: a count per ~250 m cell, never a point</span></div>`;
+}
+
+function venue() {
+  const W = 600, H = 460;
+  let g = `<rect width="${W}" height="${H}" fill="var(--stage)"/>`;
+  const ln = 'fill="none" stroke="var(--line)" stroke-width="1.5"';
+  g += `<rect x="40" y="30" width="520" height="380" rx="4" ${ln}/>`;
+  g += `<rect x="150" y="42" width="300" height="70" ${ln}/><text x="300" y="82" class="tm" text-anchor="middle">stage</text>`;
+  g += `<path d="M40,320 h120 M440,320 h120" ${ln} stroke-dasharray="5 4"/><text x="100" y="312" class="tm" text-anchor="middle">balcony</text>`;
+  g += `<rect x="470" y="140" width="80" height="120" ${ln}/><text x="510" y="204" class="tm" text-anchor="middle">bar</text>`;
+  g += `<text x="300" y="430" class="tm" text-anchor="middle">entrance</text>`;
+  // zones = groups, each with its QR
+  const zone = (x, y, w, h, s, label, sub, on) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${on ? `var(--s-${s})` : 'none'}" fill-opacity=".1" stroke="var(--s-${s})" ${on ? '' : 'stroke-dasharray="3 3"'}/>` +
+    `<text x="${x + 8}" y="${y + 16}" class="t">${label}</text><text x="${x + 8}" y="${y + 29}" class="tm">${sub}</text>`;
+  const qrMini = (x, y, group) => `<g><rect x="${x}" y="${y}" width="72" height="20" rx="3" fill="var(--card)" stroke="var(--line)"/><text x="${x + 36}" y="${y + 14}" class="tm" text-anchor="middle">QR ${group}</text></g>`;
+  g += zone(150, 150, 300, 150, 'event', 'hall-front · 220', 'p95 58 ms · × picture (members only)', true) + qrMini(370, 272, 'hall');
+  g += zone(50, 335, 110, 62, 'picture', 'members · 32', 'p95 41 ms', true) + qrMini(80, 370, 'members');
+  g += zone(440, 335, 110, 62, 'far', 'toptoy-kids · 0', 'potential', false) + qrMini(470, 370, 'toptoy');
+  g += pinDev(196, 77, 'scene', 'deck-2', '3+45 ms') + pinDev(64, 77, 'event', 'crow-box L', '3+13 ms') + pinDev(470, 77, 'event', 'crow-box R', '3+13 ms');
+  g += pinDev(300, 130, 'address', 'bridge-1', '2+23 ms') + pinDev(478, 280, 'far', 'deck-3', 'not approved', false);
+  return rxHead(11) + `<div class="rx-key"><span>a venue concept (real or fictional) from the stage environment · devices pinned where they hang · a zone is a group, its QR from here</span></div><svg class="rx" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`;
+}
+
+function latency() {
+  // one lane per DEVICE around the moment a cue plays (`at` = 0). Each device: its own one-way (p95 of its link), its own output
+  // latency; it needs one-way + output + 10 ms. Sent to all at once at −lead; each starts at `at − its output`; ▶ at 0.
+  const W = 600, L = 150, top = 60, rh = 30, t0 = -320, t1 = 150, x = t => L + (t - t0) / (t1 - t0) * (W - L - 8);
+  const rows = [
+    ['deck-2', 'LAN · projector', 3, 45, 'scene'], ['crow-box', 'LAN · audio buffer', 3, 13, 'event'], ['bridge-1', 'LAN · DMX frame', 2, 23, 'address'],
+    ['phone #117', 'hall · Wi-Fi · slowest there', 58, 16, 'picture'], ['phone #12', 'member · 4G', 112, 16, 'picture'], ['phone #3', 'Berlin', 41, 16, 'picture'], ['phone #1', 'Tokyo', 236, 16, 'picture'],
+  ];
+  const need = r => r[2] + r[3] + 10, CAP = 250;
+  const lead = adaptive ? Math.min(CAP, Math.max(...rows.map(need))) : 150;
+  const H = top + rows.length * rh + 44;
+  let g = '';
+  for (let t = -300; t <= 100; t += 50) g += `<line x1="${x(t)}" x2="${x(t)}" y1="${top - 8}" y2="${H - 38}" stroke="var(--line)" opacity="${t % 100 ? .3 : .8}"/><text x="${x(t)}" y="${H - 24}" class="tm" text-anchor="middle">${t === 0 ? 'at' : t + ' ms'}</text>`;
+  g += `<line x1="${x(-lead)}" x2="${x(-lead)}" y1="${top - 14}" y2="${H - 38}" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="${x(-lead)}" y="${top - 18}" class="tm" text-anchor="middle">sent to all · lead ${lead} ms</text>`;
+  g += `<line x1="${x(0)}" x2="${x(0)}" y1="${top - 14}" y2="${H - 38}" stroke="var(--accent)"/><text x="${x(0)}" y="${top - 18}" class="tm" text-anchor="middle" style="fill:var(--accent)">▶ plays</text>`;
+  rows.forEach((row, i) => {
+    const [n, how, net, out, s] = row, y = top + i * rh, cy = y + rh / 2, arrive = -lead + net, start = -out, late = arrive - start;
+    if (i % 2 === 0) g += `<rect x="0" y="${y + 2}" width="${W}" height="${rh - 4}" fill="var(--within)" opacity=".35"/>`;
+    g += `<text x="6" y="${cy - 1}" class="t">${n}</text><text x="6" y="${cy + 10}" class="tm">${how} · needs ${need(row)}</text>`;
+    g += `<rect x="${x(-lead)}" y="${cy - 3}" width="${Math.max(1, x(arrive) - x(-lead))}" height="6" rx="2" fill="var(--s-${s})" opacity=".85"/>`;
+    if (late <= 0) {
+      g += `<line x1="${x(arrive)}" x2="${x(start)}" y1="${cy}" y2="${cy}" stroke="var(--muted)" stroke-dasharray="1 3"/>`;
+      g += `<rect x="${x(start)}" y="${cy - 6}" width="${x(0) - x(start)}" height="12" rx="2" fill="none" stroke="var(--s-${s})"/>`;
+      g += `<text x="${x(0) + 6}" y="${cy + 4}" class="tm">${net}+${out} · ${-late} spare</text>`;
+    } else {
+      g += `<rect x="${x(start)}" y="${cy - 6}" width="${x(Math.min(arrive, 0)) - x(start)}" height="12" rx="2" fill="var(--danger)" opacity=".3"/>`;
+      g += `<text x="${x(Math.max(0, arrive)) + 6}" y="${cy + 4}" class="tm" style="fill:var(--danger)">late ${late} → ${late > 300 ? 'state only' : 'at once'}</text>`;
+    }
+  });
+  g += `<text x="6" y="${H - 6}" class="tm">phones: the slowest of each place shown; 405 more on time</text>`;
+  const clock = `<div class="tm" style="font-size:var(--small);color:var(--muted);margin:.2rem 0 .4rem">next timed cue: row 5 on bar 17 · in 2.4 s · 412 devices</div>`;
+  const tog = `<div class="rx-head" style="margin:.4rem 0 .2rem"><div class="pill"><button class="${adaptive ? '' : 'on'}" data-lead="0">lead fixed 150 ms</button><button class="${adaptive ? 'on' : ''}" data-lead="1">adaptive · per device</button></div><span class="grow"></span><span class="tm" style="font-size:var(--label);color:var(--muted)">${adaptive ? `each device needs its one-way p95 + its output + 10 ms; lead = the largest need of the devices the cue reaches, at most ${CAP} ms; each starts at at − its own output` : 'today: one lead for everyone (RELAY_LEAD_MS); no output latency'}</span></div>`;
+  return rxHead(13) + clock + tog + `<svg class="rx" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`;
+}
+let adaptive = false;
+const R_PERF = `<h2>13 · Latency and compensation</h2>
+  <p>Every form shows the real numbers: <b>network one-way + the device's own output latency</b> (projector lag, audio buffer, DMX frame). A timed cue (a row on a bar) shows, quietly, when it plays.</p>
+  <ul><li><b>Compensation exists in part:</b> one shared clock (ping / pong, the offset's median), every cue carries <code>at = now + lead</code>, a device plays at <code>at − offset</code>; ≤ 300 ms late plays at once, later only the state.</li>
+  <li><b>New, per device:</b> each device's need = its own link's one-way p95 + its own output latency (reported) + a margin; the cue's lead is the largest need among the devices it reaches, capped; the relay sends to all at once and each device starts at <code>at − its output</code>; one beyond the cap plays at once, marked late (take the margin at once, give it back slowly – the rule of the deck's audio lead).</li>
+  <li><b>No extra load on the relay:</b> it already measures every link's round trip; it sends the Reception tab <b>aggregates per group</b> (count, p50, p95, late, skipped) at 1–2 / s, only while a Reception tab subscribes; receipts come from decks and bridges (few) and from a <b>sample</b> of phones, riding the existing pong.</li>
+  <li><b>The view stays light:</b> crowds are drawn as density (one canvas, not a node per phone), the map tiles come from the CDN, the view pauses when hidden and drops to a few frames a second when nothing moves.</li></ul>`;
+V[13] = { ...RB, side: latency, notes: R_PERF };
+
 V[9] = { ...RB, side: timeline };
+V[11] = { ...RB, side: venue };
+V[12] = { ...RB, side: world };
+
+/* round 3b: the scope, drafted – one address the universal tabs share; it follows the front item, a stub moves it, ↑ climbs */
+const SC = {
+  chapter: {
+    nodes: [
+      { id: 'g2', x: 12, y: 2, w: 10, title: 'The well', kind: 'group', ins: [['i', 'enter', 'event']], outs: [['n', 'next', 'event']] },
+      { id: 'g3', x: 25, y: 2, w: 10, title: 'Dig or wait?', kind: 'group', ins: [['i', 'enter', 'event']], outs: [['a', 'dig', 'event'], ['b', 'wait', 'event']] },
+      { id: 'g5', x: 38, y: 5, w: 10, title: 'Storm', kind: 'group', ins: [['i', 'enter', 'event']], outs: [['e', 'storm', 'event']] },
+      { id: 'st', x: 51, y: 6.5, w: 12, far: true, title: '→ show · row 4', ins: [['i', '', 'far']] },
+    ],
+    edges: [['g2.n', 'g3.i', 'event', ''], ['g3.b', 'g5.i', 'event', 'wait'], ['g5.e', 'st.i', 'event', 'storm', { lit: true, sel: true }]],
+  },
+  show: {
+    nodes: [
+      { id: 'st', x: 0, y: 4, w: 11, far: true, title: '← Ch 2 · storm', outs: [['o', '', 'far']] },
+      { id: 'r4', x: 14, y: 2, w: 11, title: 'row 4 · storm', kind: 'row', sel: true, ins: [['e', 'fire on', 'event']], outs: [['l', 'cell left', 'scene'], ['s', 'cell sound', 'scene']] },
+      { id: 'cl', x: 29, y: 0, w: 11, title: 'cell · left', kind: 'cell', ins: [['p', 'play', 'scene']], outs: [['o', 'dunes', 'scene']] },
+      { id: 'cs', x: 29, y: 6.5, w: 11, title: 'cell · sound', kind: 'cell', ins: [['p', 'play', 'scene']], outs: [['o', 'notes', 'event']] },
+      { id: 'rg', x: 44, y: 8, w: 11, far: true, title: '→ rig crow', ins: [['i', '', 'far']] },
+    ],
+    edges: [['st.o', 'r4.e', 'event', 'storm', { lit: true }], ['r4.l', 'cl.p', 'scene', ''], ['r4.s', 'cs.p', 'scene', '', { lit: true, sel: true }], ['cs.o', 'rg.i', 'event', '', { lit: true }]],
+  },
+  rig: {
+    frames: [['Rig · crow', 12, 0, 38, 9, 'deck · audio context']],
+    nodes: [
+      { id: 'st', x: 0, y: 4, w: 10, far: true, title: '← row 4 · cell', outs: [['o', '', 'far']] },
+      { id: 'osc', x: 14, y: 2.6, w: 9, title: 'osc', kind: 'module', ins: [['n', 'note', 'event']], outs: [['o', 'out', 'audio']] },
+      { id: 'svf', x: 26, y: 2.6, w: 9, title: 'svf', kind: 'module', ins: [['i', 'in', 'audio']], outs: [['o', 'out', 'audio']] },
+      { id: 'sum', x: 38, y: 2.6, w: 10, title: 'sum', kind: 'bus', ins: [['i', 'in', 'audio']], outs: [['o', 'being', 'audio']] },
+      { id: 'bg', x: 52, y: 4.3, w: 9, far: true, title: '→ being', ins: [['i', '', 'far']] },
+    ],
+    edges: [['st.o', 'osc.n', 'event', 'note', { lit: true }], ['osc.o', 'svf.i', 'audio', '', { lit: true }], ['svf.o', 'sum.i', 'audio', '', { lit: true }], ['sum.o', 'bg.i', 'audio', '', { lit: true }]],
+  },
+  universe: {
+    frames: [['Toon · Sandbox', 0, 0, 24, 9, ''], ['Show · Sandbox demo', 28, 0, 15, 9, ''], ['Rig · crow', 47, 0, 14, 9, ''], ['Experience · dune-ar', 0, 12, 24, 7, '']],
+    nodes: [
+      { id: 'c1', x: 1.5, y: 2.8, w: 9, title: 'Ch 1', kind: 'chapter', outs: [['n', 'end', 'scene']] },
+      { id: 'c2', x: 13, y: 2.8, w: 9.5, title: 'Ch 2', kind: 'chapter', sel: true, ins: [['i', 'from', 'scene']], outs: [['e', 'storm', 'event']] },
+      { id: 'r4', x: 30, y: 2.8, w: 11, title: 'row 4', kind: 'row', sel: true, ins: [['e', 'fire on', 'event']], outs: [['s', 'sound', 'scene']] },
+      { id: 'rc', x: 49, y: 2.8, w: 10, title: 'voice', kind: 'track', sel: true, ins: [['p', 'note', 'event']] },
+      { id: 'w', x: 1.5, y: 14.6, w: 9, title: 'well', kind: 'scene', ins: [['i', 'enter', 'scene']] },
+    ],
+    edges: [['c1.n', 'c2.i', 'scene', ''], ['c2.e', 'r4.e', 'event', 'trail ①→②', { lit: true, sel: true }], ['r4.s', 'rc.p', 'scene', '②→③', { lit: true, sel: true }]],
+  },
+};
+const crumbs = (scope, parts, state) => `<div class="mini-path"><span class="scope">${scope}</span>${parts.map((p, i) => i === parts.length - 1 ? `<b>${p}</b>` : `${p} ›`).join(' ')}<span class="grow"></span>${state}</div>`;
+const FOLLOW = '<span class="st"><span class="dot"></span>follows the front item</span>';
+const LEFT = '<span class="st warn">scope ≠ item · ↩ back to Chapter 2</span>';
+const STEPS = [
+  ['1', 'The front item is Chapter 2: the scope follows it', crumbs('Story', ['Universe', 'sandbox', 'Season 1', 'Chapter 2'], FOLLOW), SC.chapter,
+    'Reception: who receives Chapter 2’s events · Log: lines under <code>chapter:sandbox/1/2</code> · Library: what fits a chapter'],
+  ['2', 'A stub is followed (→ show · row 4): the scope enters the show; the workspace stays on Chapter 2', crumbs('Show', ['Universe', 'Sandbox demo', 'row 4'], LEFT), SC.show,
+    'Every universal tab moves with it: Reception now lists who row 4 reaches, the Log shows the show’s lines'],
+  ['3', 'Double-click on cell · sound: into the rig the cell plays (the deck’s scope)', crumbs('Deck', ['Universe', 'Sandbox demo', 'row 4', 'cell sound', 'rig crow'], LEFT), SC.rig,
+    'Rewiring stays the deck editor’s: “Open in deck editor” · Reception: crow-box (role sound), 22 ms'],
+  ['4', '↑ to the top: the network, with the trail of where you were', crumbs('', ['Universe'], '<span class="st">📌 pinned</span>'), SC.universe,
+    'A new front item – or ↩ – brings the scope back to the item and drops the pin'],
+];
+function scoping() {
+  const r = R(), quiet = document.body.classList.contains('quiet');
+  const W = innerWidth - (quiet ? 2 * r : 21.5 * r) - r, T = 6.4 * r, H = innerHeight - T - 3.8 * r;
+  const host = document.getElementById('story');
+  const bandH = 6.2 * r, gh = (H - bandH - r) / 2, gw = (W - r) / 2;
+  host.style.cssText = `left:${r}px;top:${T}px;width:${W}px;height:${H}px`;
+  host.innerHTML = `<div class="scopeband" style="height:${bandH}px">
+      <div class="label">the scope · one address, shared</div>
+      <div class="sb-row"><span class="addr">chapter:sandbox/1/2</span>
+        <span class="arrow">→ read by every universal tab</span>
+        <span class="tabchip">Flow <i>draws it</i></span><span class="tabchip">Reception <i>who receives it</i></span><span class="tabchip">Log <i>lines under it</i></span><span class="tabchip">Library <i>what fits it</i></span>
+        <span class="grow"></span><span class="pillish">Selection · Item · Chapter · Season · Toon · Show · All</span></div>
+    </div>` + STEPS.map(([n, t, path, , foot], i) =>
+      `<figure class="step" style="left:${(i % 2) * (gw + r)}px;top:${bandH + r + Math.floor(i / 2) * (gh + r)}px;width:${gw}px;height:${gh}px">
+        <figcaption><span class="num">${n}</span>${t}</figcaption>${path}<svg class="mini" data-i="${i}"></svg><div class="foot">${foot}</div></figure>`).join('');
+  host.querySelectorAll('svg.mini').forEach(svg => {
+    const b = svg.getBoundingClientRect();
+    svg.setAttribute('width', b.width); svg.setAttribute('height', b.height);
+    drawInto(svg, STEPS[+svg.dataset.i][3], { L: 6, T: 6, W: b.width - 12, H: b.height - 12, max: .95 });
+  });
+}
+V[10] = {
+  items: [['Home'], ['Chapter 2 · Dunes', true], ['rig crow'], ['Sandbox demo']],
+  path: [['Story', 'scope'], ['Universe'], ['sandbox'], ['Season 1'], ['Chapter 2 · Dunes', 'b']], follows: 'chapter:sandbox/1/2', waits: 'Chapter view waits ↓',
+  nodes: [], edges: [], story: scoping,
+  notes: `<h2>10 · The scope, drafted</h2>
+  <p><b>One scope for the whole shell</b>: an address (<code>chapter:sandbox/1/2</code>). Every universal tab reads it – Flow draws it, Reception lists who receives it, the Log filters its lines by it (the address prefix, as in LOG.md), the Library offers what fits it. Any workspace can show any of these tabs.</p>
+  <ul><li><b>Follow</b> (the default): the scope is the front item; selecting inside it narrows it (a group, a cell).</li>
+  <li><b>Leave the item</b>: following a stub or entering a box moves the scope across scopes – story → show → deck – while the workspace stays where it is; the path pill says so and offers ↩.</li>
+  <li><b>Pin</b>: keeps the scope while you open other items; a new front item or ↩ unpins.</li>
+  <li><b>↑</b> climbs the levels up to the network; the trail of where you went stays lit.</li>
+  <li>The scope pills (Selection · Item · Chapter · Season · Toon · Show · All) are the same as the Log's: a quick way to widen it.</li></ul>`,
+};
 
 /* ── drawing ─────────────────────────────────────────────────────────── */
 const HEAD = 2.1, ROW = 1.55;
@@ -467,86 +689,134 @@ function portPos(n, id, side, r) {
   return [(side === 'in' ? n.x : n.x + n.w) * r, (n.y + HEAD + i * ROW + ROW / 2 + .25) * r];
 }
 
-function draw() {
-  const d = V[view], r = R(), svg = document.getElementById('g');
+// the node canvas as the deck draws it (#648 one card, 2026-11-16 group grids, 2026-11-17 hanging wires): one card per node,
+// its whole thin border in its kind's colour, the head only faintly tinted; groups on a dotted grid in their colour
+const kindOf = n => n.far ? 'far' : ((n.outs || [])[0] || (n.ins || [])[0] || [0, 0, 'far'])[2];
+function frameCol(t) {
+  if (/^Toon/.test(t)) return 'picture';
+  if (/^Experience/.test(t)) return 'address';
+  if (/^Show/.test(t)) return 'vote';
+  if (/^Deck scene/.test(t)) return 'scene';
+  return 'audio';
+}
+function icon(g, x, y, s, kind, c) {
+  const k = (kind || '').split(' ')[0], a = { fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+  if (/chapter|toon|group/.test(k)) { g.append(el('path', { ...a, d: `M${x},${y + 1} h${s * .45} v${s - 2} h${-s * .45}z M${x + s * .55},${y + 1} h${s * .45} v${s - 2} h${-s * .45}z` })); return; }
+  if (/scene|XR|deck|experience/.test(k)) { g.append(el('path', { ...a, d: `M${x + s / 2},${y} l${s / 2},${s / 4} v${s / 2} l${-s / 2},${s / 4} l${-s / 2},${-s / 4} v${-s / 2}z M${x},${y + s / 4} l${s / 2},${s / 4} l${s / 2},${-s / 4} M${x + s / 2},${y + s / 2} v${s / 2}` })); return; }
+  if (/row|cell/.test(k)) { g.append(el('path', { ...a, d: `M${x},${y + s * .2} h${s} M${x},${y + s * .5} h${s} M${x},${y + s * .8} h${s * .6}` })); return; }
+  if (/variable/.test(k)) { g.append(el('path', { ...a, d: `M${x + 1},${y + 1} l${s - 2},${s - 2} M${x + s - 1},${y + 1} l${-(s - 2)},${s - 2}` })); return; }
+  if (/world|device/.test(k)) { g.append(el('circle', { ...a, cx: x + s / 2, cy: y + s / 2, r: s / 2 - .5 })); g.append(el('circle', { cx: x + s / 2, cy: y + s / 2, r: 1.6, fill: c })); return; }
+  g.append(el('path', { ...a, d: `M${x + s * .3},${y} v${s} M${x + s * .7},${y} v${s}` }));
+  g.append(el('circle', { cx: x + s * .3, cy: y + s * .65, r: 1.7, fill: c })); g.append(el('circle', { cx: x + s * .7, cy: y + s * .3, r: 1.7, fill: c }));
+}
+function dots(defs, key, c, r) {
+  const id = 'dots-' + key;
+  if (defs.querySelector('#' + id)) return `url(#${id})`;
+  const p = el('pattern', { id, width: r, height: r, patternUnits: 'userSpaceOnUse' });
+  p.append(el('circle', { cx: r / 2, cy: r / 2, r: 1, fill: c, opacity: .42 }));
+  defs.append(p);
+  return `url(#${id})`;
+}
+
+function drawInto(svg, d, area) {
+  const r = R();
   svg.replaceChildren();
+  const defs = el('defs'); svg.append(defs);
   const byId = Object.fromEntries(d.nodes.map(n => [n.id, n]));
-  const top = el('g', { transform: `translate(0, ${1.5 * r})` });
+  const top = el('g');
   svg.append(top);
 
+  // rows: a hairline edge to edge and the row's head – no tinted bands
   for (const [t, y, h, sub] of d.lanes || []) {
-    top.append(el('rect', { 'data-lane': 1, x: 0, y: y * r, width: 90 * r, height: h * r, rx: .36 * r, fill: 'var(--within)', opacity: .45 }));
-    top.append(el('text', { x: 1.2 * r, y: (y + 1.2) * r, class: 'lane-t' }, t));
-    if (sub) top.append(el('text', { x: 1.2 * r, y: (y + 2.3) * r, class: 'tm' }, sub));
+    top.append(el('line', { 'data-lane': 1, x1: 0, x2: 90 * r, y1: y * r, y2: y * r, stroke: 'var(--line)' }));
+    top.append(el('text', { x: .2 * r, y: (y + 1.3) * r, class: 'lane-t' }, t));
+    if (sub) top.append(el('text', { x: .2 * r, y: (y + 2.4) * r, class: 'tm' }, sub));
   }
-  for (const [y, t] of d.seams || []) {
-    top.append(el('line', { x1: 0, x2: 90 * r, y1: (y + .5) * r, y2: (y + .5) * r, stroke: 'var(--line)', 'stroke-dasharray': '4 4' }));
-    top.append(el('text', { x: 89 * r, y: (y + .2) * r, class: 'tm', 'text-anchor': 'end' }, '↕ ' + t));
-  }
+  for (const [y, t] of d.seams || []) top.append(el('text', { x: 89 * r, y: (y + 1.3) * r, class: 'tm', 'text-anchor': 'end' }, '↕ ' + t));
+
+  // group frames: a dotted grid in the group's colour, its edge in the colour, a head with fold, swatch and label
   for (const [t, x, y, w, h, chip] of d.frames || []) {
-    top.append(el('rect', { x: x * r, y: y * r, width: w * r, height: h * r, rx: .5 * r, fill: 'none', stroke: 'var(--muted)', 'stroke-dasharray': '5 4', opacity: .8 }));
-    top.append(el('text', { x: (x + .7) * r, y: (y + 1.15) * r, class: 'lane-t' }, t));
-    if (chip) top.append(el('text', { x: (x + w - .7) * r, y: (y + 1.15) * r, class: 'tm', 'text-anchor': 'end' }, chip));
+    const c = col(frameCol(t)), X = x * r, Y = y * r;
+    top.append(el('rect', { x: X, y: Y, width: w * r, height: h * r, rx: .5 * r, fill: dots(defs, frameCol(t), c, r) }));
+    top.append(el('rect', { x: X, y: Y, width: w * r, height: h * r, rx: .5 * r, fill: 'none', stroke: c, 'stroke-opacity': .45 }));
+    top.append(el('path', { d: `M${X + .6 * r},${Y + .8 * r} l${.3 * r},${.3 * r} l${.3 * r},${-.3 * r}`, fill: 'none', stroke: c, 'stroke-width': 1.3 }));
+    top.append(el('circle', { cx: X + 1.75 * r, cy: Y + .95 * r, r: .28 * r, fill: c }));
+    top.append(el('text', { x: X + 2.35 * r, y: Y + 1.25 * r, class: 'th', style: `fill:${c}` }, t));
+    if (chip) top.append(el('text', { x: X + (w - .7) * r, y: Y + 1.25 * r, class: 'tm', 'text-anchor': 'end' }, chip));
   }
 
   const wires = el('g'), boxes = el('g'), labels = el('g'), beads = [];
   top.append(wires, boxes, labels);
 
+  // wires hang: they sag with the distance, a soft glow under each; beads small and dim in the wire's colour
   for (const [a, b, s, label, o = {}] of d.edges) {
     const [na, pa] = a.split('.'), [nb, pb] = b.split('.');
     const A = byId[na], B = byId[nb];
     const [x1, y1] = portPos(A, pa, 'out', r), [x2, y2] = portPos(B, pb, 'in', r);
-    const dx = Math.max(40, Math.abs(x2 - x1) * .45);
-    const dpath = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    const dist = Math.hypot(x2 - x1, y2 - y1), sag = Math.min(3.5 * r, dist * .12);
+    const dx = Math.max(2.5 * r, Math.abs(x2 - x1) * .4);
+    const dpath = `M${x1},${y1} C${x1 + dx},${y1 + sag} ${x2 - dx},${y2 + sag} ${x2},${y2}`;
     const lit = live && o.lit;
-    const w = el('path', { d: dpath, class: 'wire' + (lit ? ' lit' : ' dim'), stroke: col(s), 'stroke-width': o.count ? 2.6 : (s === 'event' ? 1.8 : 1.5), style: `color:${col(s)}` });
-    if (s === 'far' || B.far || A.far) w.setAttribute('stroke-dasharray', '1 0');
-    if (o.sel) wires.append(el('path', { d: dpath, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 7, opacity: .3 }));
-    wires.append(w);
+    if (o.sel) wires.append(el('path', { d: dpath, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 6, opacity: .28 }));
+    wires.append(el('path', { d: dpath, fill: 'none', stroke: col(s), 'stroke-width': lit ? 5 : 4, opacity: lit ? .22 : .1 }));
+    wires.append(el('path', { d: dpath, fill: 'none', stroke: col(s), 'stroke-width': o.count ? 2.2 : 1.4, opacity: lit ? 1 : .8 }));
     if (lit) for (let k = 0; k < 3; k++) {
-      const c = el('circle', { r: 2, fill: col(s), opacity: .85 });
-      const m = el('animateMotion', { dur: '2.4s', repeatCount: 'indefinite', begin: `-${k * .8}s`, path: dpath });
-      c.append(m); beads.push(c);
+      const c = el('circle', { r: 1.6, fill: col(s), opacity: .6 });
+      c.append(el('animateMotion', { dur: '2.4s', repeatCount: 'indefinite', begin: `-${k * .8}s`, path: dpath }));
+      beads.push(c);
     }
-    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 + sag * .75;
     const txt = (label || '') + (o.count ? `  ×${o.count}` : '');
-    if (txt.trim()) labels.append(el('text', { x: mx, y: my - 4, class: 'tl', fill: col(s), 'text-anchor': 'middle' }, txt));
-    if (o.crosses) labels.append(el('text', { x: mx, y: my + 11, class: 'tl', fill: 'var(--muted)', 'text-anchor': 'middle' }, '⇄ ' + o.crosses));
+    if (txt.trim()) labels.append(el('text', { x: mx, y: my - 5, class: 'tl', style: `fill:${col(s)}`, 'text-anchor': 'middle' }, txt));
+    if (o.crosses) labels.append(el('text', { x: mx, y: my + 10, class: 'tl', style: 'fill:var(--muted)', 'text-anchor': 'middle' }, '⇄ ' + o.crosses));
   }
 
   for (const n of d.nodes) {
-    const g = el('g'), { h } = geom(n), x = n.x * r, y = n.y * r, w = n.w * r;
+    const g = el('g'), { h } = geom(n), x = n.x * r, y = n.y * r, w = n.w * r, k = kindOf(n), c = col(k), rad = .36 * r;
+    const H = n.far ? 2 * r : h * r, hh = n.far ? 2 * r : HEAD * r;
+    // one card: the ground, the head faintly tinted, the whole thin border in the kind's colour (accent when selected)
+    g.append(el('rect', { x, y, width: w, height: H, rx: rad, fill: 'var(--card)' }));
+    g.append(el('path', { d: n.far ? `M${x},${y} h${w} v${H} h${-w}z` : `M${x + rad},${y} h${w - 2 * rad} a${rad},${rad} 0 0 1 ${rad},${rad} v${hh - rad} h${-w} v${-(hh - rad)} a${rad},${rad} 0 0 1 ${rad},${-rad} z`, fill: c, opacity: .07, 'clip-path': '' }));
+    if (!n.far) g.append(el('line', { x1: x, x2: x + w, y1: y + hh, y2: y + hh, stroke: c, 'stroke-opacity': .3 }));
+    if (n.sel) g.append(el('rect', { x: x - 2, y: y - 2, width: w + 4, height: H + 4, rx: rad + 2, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2 }));
+    g.append(el('rect', { x, y, width: w, height: H, rx: rad, fill: 'none', stroke: n.sel ? 'var(--accent)' : c, 'stroke-opacity': n.sel ? 1 : .75 }));
+    const s = .95 * r, iy = y + (hh - s) / 2;
     if (n.far) {
-      g.append(el('rect', { x, y, width: w, height: 2 * r, rx: r, fill: 'var(--surface)', stroke: 'var(--s-far)', 'stroke-dasharray': '3 3' }));
-      g.append(el('text', { x: x + w / 2, y: y + 1.32 * r, class: 'tm', 'text-anchor': 'middle' }, n.title));
+      g.append(el('text', { x: x + w / 2, y: y + 1.3 * r, class: 't', 'text-anchor': 'middle' }, n.title));
       if (n.ins) port(g, x, y + r, 'far'); if (n.outs) port(g, x + w, y + r, 'far');
       boxes.append(g); continue;
     }
-    g.append(el('rect', { x, y, width: w, height: h * r, rx: .36 * r, fill: 'var(--surface)', stroke: n.sel ? 'var(--accent)' : 'var(--line)', 'stroke-width': n.sel ? 1.5 : 1 }));
-    g.append(el('path', { d: `M${x + .36 * r},${y} h${w - .72 * r} a${.36 * r},${.36 * r} 0 0 1 ${.36 * r},${.36 * r} v${HEAD * r - .36 * r} h${-w} v${-(HEAD * r - .36 * r)} a${.36 * r},${.36 * r} 0 0 1 ${.36 * r},${-.36 * r} z`, fill: 'var(--head)' }));
-    let tx = x + .6 * r;
-    if (n.pic) { g.append(el('rect', { x: x + .45 * r, y: y + .35 * r, width: 1.4 * r, height: 1.4 * r, rx: .2 * r, fill: 'var(--within)', stroke: 'var(--line)' })); g.append(el('path', { d: `M${x + .55 * r},${y + 1.6 * r} l${.45 * r},${-.55 * r} l${.3 * r},${.3 * r} l${.4 * r},${-.5 * r} l${.1 * r},${.75 * r}z`, fill: 'var(--muted)', opacity: .6 })); tx += 1.5 * r; }
-    g.append(el('text', { x: tx, y: y + .95 * r, class: 'th' }, n.title));
-    g.append(el('text', { x: tx, y: y + 1.75 * r, class: 'tm' }, n.kind || ''));
-    if (n.problem) { g.append(el('circle', { cx: x + w - .7 * r, cy: y + .75 * r, r: .3 * r, fill: 'var(--warn)' })); g.append(el('title', {}, n.problem)); }
-    (n.ins || []).forEach(([id, label, s], i) => {
-      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x, py, s);
-      g.append(el('text', { x: x + .65 * r, y: py + 4, class: 't' }, label));
+    icon(g, x + .6 * r, iy, s, n.kind || n.title, c);
+    const kindTxt = (n.kind || '').split(' · ')[0], room = w - 3.6 * r, tw = n.title.length * 7, kw = kindTxt.length * 5.8 + 8;
+    const title = tw > room ? n.title.slice(0, Math.max(3, Math.floor(room / 7) - 1)) + '…' : n.title;
+    g.append(el('text', { x: x + 1.95 * r, y: y + 1.35 * r, class: 'th' }, title));
+    if (tw + kw <= room) g.append(el('text', { x: x + w - 1.5 * r, y: y + 1.33 * r, class: 'tm', 'text-anchor': 'end' }, kindTxt));
+    g.append(el('path', { d: `M${x + w - 1.05 * r},${y + .95 * r} l${.25 * r},${.25 * r} l${.25 * r},${-.25 * r}`, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.2 }));
+    if (n.problem) { g.append(el('circle', { cx: x + w, cy: y, r: .3 * r, fill: 'var(--warn)' })); g.append(el('title', {}, n.problem)); }
+    (n.ins || []).forEach(([id, label, sg], i) => {
+      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x, py, sg);
+      g.append(el('text', { x: x + .75 * r, y: py + 4, class: 't' }, label));
     });
-    (n.outs || []).forEach(([id, label, s], i) => {
-      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x + w, py, s);
-      g.append(el('text', { x: x + w - .65 * r, y: py + 4, class: 't', 'text-anchor': 'end' }, label));
+    (n.outs || []).forEach(([id, label, sg], i) => {
+      const py = y + (HEAD + i * ROW + ROW / 2 + .25) * r; port(g, x + w, py, sg);
+      g.append(el('text', { x: x + w - .75 * r, y: py + 4, class: 't', 'text-anchor': 'end' }, label));
     });
     boxes.append(g);
   }
   // fit everything into the free area (left of the notes, between the toolbars)
-  top.removeAttribute('transform');
-  const bb = top.getBBox(), quiet = document.body.classList.contains('quiet');
-  const L = r, T = 6.6 * r, W = d.side ? innerWidth * .56 - 2 * r : innerWidth - (quiet ? 2 * r : 21.5 * r) - L, H = innerHeight - T - 4 * r - (d.side && !quiet ? 12.5 * r : 0);
-  const s = Math.min(W / bb.width, H / bb.height, 1.25);
-  top.setAttribute('transform', `translate(${L + (W - bb.width * s) / 2 - bb.x * s}, ${T + (H - bb.height * s) / 2 - bb.y * s}) scale(${s})`);
+  const bb = top.getBBox(), { L, T, W, H } = area;
+  const sc = Math.min(W / bb.width, H / bb.height, area.max || 1.25);
+  top.setAttribute('transform', `translate(${L + (W - bb.width * sc) / 2 - bb.x * sc}, ${T + (H - bb.height * sc) / 2 - bb.y * sc}) scale(${sc})`);
   wires.append(...beads);
-  if (d.lanes) for (const rc of top.querySelectorAll('rect[data-lane]')) { rc.setAttribute('x', bb.x - r / s); rc.setAttribute('width', bb.width + 2 * r / s); }
+  if (d.lanes) for (const ln of top.querySelectorAll('line[data-lane]')) { ln.setAttribute('x1', bb.x - r / sc); ln.setAttribute('x2', bb.x + bb.width + r / sc); }
+}
+
+
+function draw() {
+  const d = V[view], r = R(), quiet = document.body.classList.contains('quiet');
+  const svg = document.getElementById('g');
+  if (d.story) { svg.replaceChildren(); return d.story(); }
+  drawInto(svg, d, { L: r, T: 6.6 * r, W: d.side ? innerWidth * .56 - 2 * r : innerWidth - (quiet ? 2 * r : 21.5 * r) - r, H: innerHeight - 6.6 * r - 4 * r - (d.side && !quiet ? 12.5 * r : 0) });
 }
 
 function chrome() {
@@ -561,12 +831,14 @@ function chrome() {
   document.getElementById('legend').innerHTML = ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far'].map(s => {
     const svg = `<svg width="12" height="12" viewBox="-6 -6 12 12">${shapeSvg(s)}</svg>`; return `<span>${svg}${s}</span>`;
   }).join('');
-  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4, 5, 7].map(i => `<button class="${i === view || (i === 5 && view === 6) || (i === 7 && view > 7) ? 'on' : ''}" data-v="${i}">${{1: 'Chapter', 2: 'Network A', 3: 'Network B', 4: 'Rig', 5: 'Network C', 7: 'B + Reception'}[i]}</button>`).join('');
+  document.getElementById('views').innerHTML = '<span class="label" style="padding:0 .4rem">draft</span>' + [1, 2, 3, 4, 5, 7, 10].map(i => `<button class="${i === view || (i === 5 && view === 6) || (i === 7 && view > 7 && view !== 10) ? 'on' : ''}" data-v="${i}">${{1: 'Chapter', 2: 'Network A', 3: 'Network B', 4: 'Rig', 5: 'Network C', 7: 'B + Reception', 10: 'Scope'}[i]}</button>`).join('');
   document.getElementById('waits').innerHTML = `<button>${d.waits}</button>`;
   document.getElementById('notes').innerHTML = d.notes;
   document.body.classList.toggle('split', !!d.side);
+  document.body.classList.toggle('story', !!d.story);
   document.getElementById('side').innerHTML = d.side ? d.side() : '';
   document.querySelectorAll('#views button, #tool button[data-v], #side button[data-v]').forEach(b => b.onclick = () => go(+b.dataset.v));
+  document.querySelectorAll('#side button[data-lead]').forEach(b => b.onclick = () => { adaptive = b.dataset.lead === '1'; chrome(); draw(); });
   document.getElementById('livebtn').onclick = toggleLive;
 }
 function shapeSvg(s) {
@@ -581,6 +853,10 @@ function go(v) { view = v; q.set('v', v); history.replaceState(null, '', '?' + q
 function toggleLive() { live = !live; document.body.classList.toggle('live', live); chrome(); draw(); }
 addEventListener('keydown', e => {
   if (e.key >= '1' && e.key <= '9') go(+e.key);
+  else if (e.key === '0') go(10);
+  else if (e.key === 'v' || e.key === 'V') go(11);
+  else if (e.key === 'w' || e.key === 'W') go(12);
+  else if (e.key === 'a' || e.key === 'A') go(13);
   else if (e.key === 't' || e.key === 'T') { const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; draw(); }
   else if (e.key === 'n' || e.key === 'N') { document.body.classList.toggle('quiet'); draw(); }
   else if (e.key === 'l' || e.key === 'L') toggleLive();
