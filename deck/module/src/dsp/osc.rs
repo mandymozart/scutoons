@@ -1,14 +1,13 @@
 //! Band-limited oscillators: saw, pulse (with pulse width), triangle and sine; a square sub-oscillator one octave down;
 //! hard sync. PolyBLEP (two samples) takes the aliasing out of the saw's and pulse's steps and, as PolyBLAMP, out of the
-//! triangle's corners (ENGINE-REFACTOR-PLAN §3.1: PolyBLEP is cheap and plain; the wavetable is cleaner, see
-//! ENGINE-ALIGNMENT §2a (d)).
+//! triangle's corners (cheap, and the pitch, the pulse width and a sync may move every sample; `wavetable` is cleaner for a plain wave).
 //!
 //! A step of height Δ at time x = 0 (x in samples, negative before it) is corrected by Δ/2 · B(x), B(x) = (1 + x)² for
 //! x in [−1, 0) and −(1 − x)² for x in [0, 1). A kink whose slope changes by s a sample, by s · L(x) with L(x) =
 //! (1 + x)³/6 before and (1 − x)³/6 after. A hard sync is a step that cannot be seen a sample ahead, so every
 //! oscillator here **delays its output by one sample**: the half of the correction that belongs to the sample before the
 //! event is added when that sample leaves.
-use super::math::sin_turns;
+use super::arith::sin_turns;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Wave {
@@ -189,44 +188,11 @@ impl Sub {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
+    use super::super::probe::spectrum;
     use super::*;
 
     const RATE: f64 = 48_000.0;
-
-    /// the magnitude spectrum of a power-of-two block (radix-2 FFT, no window: use it on coherent signals)
-    pub fn spectrum(x: &[f32]) -> Vec<f64> {
-        let n = x.len();
-        let mut re: Vec<f64> = x.iter().map(|&v| f64::from(v)).collect();
-        let mut im = vec![0.0f64; n];
-        let mut j = 0;
-        for i in 1..n {
-            let mut bit = n >> 1;
-            while j & bit != 0 {
-                j ^= bit;
-                bit >>= 1;
-            }
-            j ^= bit;
-            if i < j {
-                re.swap(i, j);
-            }
-        }
-        let mut len = 2;
-        while len <= n {
-            let ang = -core::f64::consts::TAU / len as f64;
-            for start in (0..n).step_by(len) {
-                for k in 0..len / 2 {
-                    let (wr, wi) = ((ang * k as f64).cos(), (ang * k as f64).sin());
-                    let (a, b) = (start + k, start + k + len / 2);
-                    let (tr, ti) = (re[b] * wr - im[b] * wi, re[b] * wi + im[b] * wr);
-                    (re[b], im[b]) = (re[a] - tr, im[a] - ti);
-                    (re[a], im[a]) = (re[a] + tr, im[a] + ti);
-                }
-            }
-            len <<= 1;
-        }
-        (0..n / 2).map(|i| (re[i] * re[i] + im[i] * im[i]).sqrt() * 2.0 / n as f64).collect()
-    }
 
     fn render(wave: Wave, dt: f64, pw: f64, n: usize) -> Vec<f32> {
         let mut o = Osc::default();

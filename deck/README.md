@@ -169,7 +169,7 @@ deck/
   bridge/             the bridge binary + venue.example.toml
   link/               deck-link: src/ (identity, link, http, pairing) · tests/link.rs (a fake server) · tests/boot_flow.rs (deck/os)
   update/             deck-update: src/ (manifest, sign, bundle, source = where from, apply, update = one run, serve)
-  core/               deck-core: the platform-free core (also wasm32) · src/stage.rs (the stage's modules) · src/dsp.rs (wavetable saw / square / triangle, noise, the lowpass)
+  core/               deck-core: the platform-free core (also wasm32) · src/stage.rs (the stage's modules)
   engine/             deck-engine: the audio engine and the control domain (#317) · conformance/engine-wasm = it behind raw wasm exports
   live-core/          deck-core as the browser's wasm (#184) · src/wire.rs (the boundary's records)
   scene-features/     deck-scene-features: scenes → cargo features

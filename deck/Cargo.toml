@@ -64,6 +64,10 @@ opt-level = 2
 [profile.dev.package.deck-core]
 opt-level = 2
 
+# the DSP units the engine's and the modules' audio paths run per sample
+[profile.dev.package.deck-module]
+opt-level = 2
+
 # the synth renders eight voices a sample; its tests render seconds of audio (#331)
 [profile.dev.package.analog-module]
 opt-level = 2

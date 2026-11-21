@@ -4,7 +4,7 @@
     "os": "windows x86_64",
     "cpu": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD",
     "user_agent": "module-bench native (wasmtime 38, wasmi 2.0, release)",
-    "when": "2026-11-04 22:05 UTC",
+    "when": "2026-11-21 16:34 UTC",
     "cores": 12,
     "notes": []
   },
@@ -17,15 +17,15 @@
           "name": "fm16",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 57885.899999999994,
-          "instantiate_us": 143.10000000000582,
-          "first_us": 131.60000000000582,
-          "p50_us": 87.80000000004657,
-          "p99_us": 165.3000000000029,
-          "max_us": 360.99999999998545,
-          "mean_us": 102.87955000000011,
+          "compile_us": 48516.6,
+          "instantiate_us": 113.40000000000146,
+          "first_us": 90.29999999999563,
+          "p50_us": 86.20000000001164,
+          "p99_us": 151.89999999996508,
+          "max_us": 960.6999999999825,
+          "mean_us": 103.43740000000008,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 6.19875000000011,
+          "p99_pct": 5.696249999998691,
           "units": null,
           "hash": "1b3d03e4a2d92145",
           "memory_bytes": 1114112,
@@ -35,15 +35,15 @@
           "name": "fm16",
           "frames": 1024,
           "samples": 250,
-          "compile_us": 51112.3,
-          "instantiate_us": 29.20000000001164,
-          "first_us": 687.5,
-          "p50_us": 931.8999999999651,
-          "p99_us": 1690.4000000000233,
-          "max_us": 2758.5999999999767,
-          "mean_us": 887.3056000000045,
+          "compile_us": 46937.399999999994,
+          "instantiate_us": 40.10000000009313,
+          "first_us": 991.5999999999767,
+          "p50_us": 971.7000000000116,
+          "p99_us": 1249.9000000000233,
+          "max_us": 1755.7999999999884,
+          "mean_us": 892.824399999999,
           "budget_us": 21333.333333333332,
-          "p99_pct": 7.923750000000109,
+          "p99_pct": 5.85890625000011,
           "units": null,
           "hash": "1b3d03e4a2d92145",
           "memory_bytes": 1114112,
@@ -53,15 +53,15 @@
           "name": "walk",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 54220.9,
-          "instantiate_us": 43.09999999997672,
-          "first_us": 25.5,
-          "p50_us": 12.399999999906868,
-          "p99_us": 26.599999999976717,
-          "max_us": 54.10000000009313,
-          "mean_us": 11.240549999999756,
+          "compile_us": 68360.40000000001,
+          "instantiate_us": 41.60000000009313,
+          "first_us": 24.600000000093132,
+          "p50_us": 10.70000000006985,
+          "p99_us": 25.20000000006985,
+          "max_us": 125.59999999997672,
+          "mean_us": 10.333049999999174,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 0.997499999999127,
+          "p99_pct": 0.9450000000026194,
           "units": null,
           "hash": "d074122c8c40a9a5",
           "memory_bytes": 1114112,
@@ -71,15 +71,15 @@
           "name": "analog x2",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 133707.4,
-          "instantiate_us": 39.95000000001164,
-          "first_us": 770.6999999999534,
-          "p50_us": 845.8999999999069,
-          "p99_us": 1948.4000000001397,
-          "max_us": 7897.299999999814,
-          "mean_us": 881.6609000000013,
+          "compile_us": 123760.5,
+          "instantiate_us": 54.14999999990687,
+          "first_us": 947.8000000000466,
+          "p50_us": 808.5,
+          "p99_us": 1232.2000000001863,
+          "max_us": 2264.0000000004657,
+          "mean_us": 868.8975499999996,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 73.06500000000524,
+          "p99_pct": 46.20750000000699,
           "units": null,
           "hash": "2fa5da638ccdb595",
           "memory_bytes": 1114112,
@@ -89,9 +89,9 @@
       "runaway": {
         "how": "epoch",
         "budget_ms": 2.0,
-        "stopped_after_us": 1606.3999999999069,
-        "over_budget_us": -393.60000000009313,
-        "restart_us": 116.0,
+        "stopped_after_us": 3215.7000000001863,
+        "over_budget_us": 1215.7000000001863,
+        "restart_us": 115.3000000002794,
         "fault": "dm_process ran past its time budget"
       },
       "grow": {
@@ -107,7 +107,7 @@
         ],
         "memory_before": 1114112,
         "memory_after": 1114112,
-        "us_per_call": 1.8374999999650754,
+        "us_per_call": 0.7625000000116415,
         "fault": null
       },
       "timer_us": 0.09999999999999964,
@@ -121,16 +121,16 @@
           "name": "fm16",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 2040.1,
-          "instantiate_us": 361.5,
-          "first_us": 393.0,
-          "p50_us": 377.8999999994412,
-          "p99_us": 619.8999999999069,
-          "max_us": 1505.0000000004657,
-          "mean_us": 396.28135000000776,
+          "compile_us": 1363.2,
+          "instantiate_us": 283.09999999962747,
+          "first_us": 388.0,
+          "p50_us": 430.10000000009313,
+          "p99_us": 534.9999999995343,
+          "max_us": 1623.0,
+          "mean_us": 419.4842000000048,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 23.246249999996508,
-          "units": 2410407.4565,
+          "p99_pct": 20.06249999998254,
+          "units": 2410427.4565,
           "hash": "1b3d03e4a2d92145",
           "memory_bytes": 1114112,
           "error": null
@@ -139,16 +139,16 @@
           "name": "fm16",
           "frames": 1024,
           "samples": 250,
-          "compile_us": 1136.8000000000002,
-          "instantiate_us": 306.10000000009313,
-          "first_us": 3203.2000000001863,
-          "p50_us": 3262.399999999441,
-          "p99_us": 4841.200000000186,
-          "max_us": 6365.799999999814,
-          "mean_us": 3290.671200000001,
+          "compile_us": 1242.6,
+          "instantiate_us": 353.59999999962747,
+          "first_us": 3690.6999999997206,
+          "p50_us": 3476.899999999907,
+          "p99_us": 3895.3000000002794,
+          "max_us": 4195.100000000559,
+          "mean_us": 3368.051200000012,
           "budget_us": 21333.333333333332,
-          "p99_pct": 22.693125000000876,
-          "units": 19283259.652,
+          "p99_pct": 18.25921875000131,
+          "units": 19283419.652,
           "hash": "1b3d03e4a2d92145",
           "memory_bytes": 1114112,
           "error": null
@@ -157,16 +157,16 @@
           "name": "walk",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 1404.8000000000002,
-          "instantiate_us": 330.70000000018626,
-          "first_us": 70.3999999994412,
-          "p50_us": 32.5,
-          "p99_us": 128.20000000018626,
-          "max_us": 438.5,
-          "mean_us": 30.68364999999339,
+          "compile_us": 1314.5,
+          "instantiate_us": 280.09999999962747,
+          "first_us": 61.5,
+          "p50_us": 32.299999999813735,
+          "p99_us": 59.5,
+          "max_us": 80.8999999994412,
+          "mean_us": 28.203800000018905,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 4.807500000006986,
-          "units": 60272.844,
+          "p99_pct": 2.23125,
+          "units": 60294.844,
           "hash": "d074122c8c40a9a5",
           "memory_bytes": 1114112,
           "error": null
@@ -175,16 +175,16 @@
           "name": "analog x2",
           "frames": 128,
           "samples": 2000,
-          "compile_us": 2800.0,
-          "instantiate_us": 253.39999999990687,
-          "first_us": 2147.5,
-          "p50_us": 2149.0,
-          "p99_us": 4569.899999999441,
-          "max_us": 9152.299999999814,
-          "mean_us": 2195.494299999996,
+          "compile_us": 2592.3,
+          "instantiate_us": 280.1999999997206,
+          "first_us": 3255.100000000559,
+          "p50_us": 2617.5,
+          "p99_us": 4965.699999999255,
+          "max_us": 10710.5,
+          "mean_us": 2679.8877500000126,
           "budget_us": 2666.6666666666665,
-          "p99_pct": 171.37124999997906,
-          "units": 12975421.536,
+          "p99_pct": 186.21374999997207,
+          "units": 10916856.696,
           "hash": "2fa5da638ccdb595",
           "memory_bytes": 1114112,
           "error": null
@@ -193,9 +193,9 @@
       "runaway": {
         "how": "fuel",
         "budget_ms": 2.0,
-        "stopped_after_us": 12626.700000001118,
-        "over_budget_us": 10626.700000001118,
-        "restart_us": 395.8000000026077,
+        "stopped_after_us": 11131.299999998882,
+        "over_budget_us": 9131.299999998882,
+        "restart_us": 382.6000000014901,
         "fault": "dm_process ran past its time budget"
       },
       "grow": {
@@ -211,7 +211,7 @@
         ],
         "memory_before": 1114112,
         "memory_after": 1114112,
-        "us_per_call": 2.4124999998603016,
+        "us_per_call": 3.7625000001862645,
         "fault": null
       },
       "timer_us": 0.09999999962747097,
@@ -221,78 +221,188 @@
   "sizes": [
     {
       "name": "analog.gas.wasm",
-      "bytes": 123908,
-      "gz": 35802
+      "bytes": 129117,
+      "gz": 36125
+    },
+    {
+      "name": "analog.loops-max.wasm",
+      "bytes": 115372,
+      "gz": 33627
     },
     {
       "name": "analog.loops.wasm",
-      "bytes": 113242,
-      "gz": 33379
+      "bytes": 115363,
+      "gz": 33623
+    },
+    {
+      "name": "analog.nan-light.wasm",
+      "bytes": 111877,
+      "gz": 33500
+    },
+    {
+      "name": "analog.nan-loops.wasm",
+      "bytes": 120219,
+      "gz": 33985
+    },
+    {
+      "name": "analog.nan.wasm",
+      "bytes": 116019,
+      "gz": 33743
+    },
+    {
+      "name": "analog.simd.wasm",
+      "bytes": 112932,
+      "gz": 33383
     },
     {
       "name": "analog.wasm",
-      "bytes": 112289,
-      "gz": 33395
+      "bytes": 114372,
+      "gz": 33635
     },
     {
       "name": "bench-web-wasmi.wasm",
-      "bytes": 1795456,
-      "gz": 468842
+      "bytes": 1818532,
+      "gz": 476516
     },
     {
       "name": "bench-web.wasm",
-      "bytes": 454163,
-      "gz": 167444
+      "bytes": 477266,
+      "gz": 173787
+    },
+    {
+      "name": "chain-merged.wasm",
+      "bytes": 27277,
+      "gz": 10914
+    },
+    {
+      "name": "chain-stage.wasm",
+      "bytes": 26361,
+      "gz": 10703
     },
     {
       "name": "fm16.gas.wasm",
-      "bytes": 35750,
-      "gz": 14440
+      "bytes": 35902,
+      "gz": 14485
+    },
+    {
+      "name": "fm16.loops-max.wasm",
+      "bytes": 31722,
+      "gz": 13198
     },
     {
       "name": "fm16.loops.wasm",
-      "bytes": 31573,
-      "gz": 13156
+      "bytes": 31713,
+      "gz": 13197
+    },
+    {
+      "name": "fm16.nan-light.wasm",
+      "bytes": 29529,
+      "gz": 13082
+    },
+    {
+      "name": "fm16.nan-loops.wasm",
+      "bytes": 32545,
+      "gz": 13309
+    },
+    {
+      "name": "fm16.nan.wasm",
+      "bytes": 29915,
+      "gz": 13126
+    },
+    {
+      "name": "fm16.simd.wasm",
+      "bytes": 32258,
+      "gz": 13777
     },
     {
       "name": "fm16.wasm",
-      "bytes": 30697,
-      "gz": 13108
+      "bytes": 30838,
+      "gz": 13153
     },
     {
       "name": "stress.gas.wasm",
-      "bytes": 28350,
-      "gz": 11236
+      "bytes": 28489,
+      "gz": 11275
+    },
+    {
+      "name": "stress.loops-max.wasm",
+      "bytes": 25146,
+      "gz": 10243
     },
     {
       "name": "stress.loops.wasm",
-      "bytes": 25010,
-      "gz": 10212
+      "bytes": 25137,
+      "gz": 10243
+    },
+    {
+      "name": "stress.nan-light.wasm",
+      "bytes": 23233,
+      "gz": 10114
+    },
+    {
+      "name": "stress.nan-loops.wasm",
+      "bytes": 25568,
+      "gz": 10293
+    },
+    {
+      "name": "stress.nan.wasm",
+      "bytes": 23273,
+      "gz": 10125
+    },
+    {
+      "name": "stress.simd.wasm",
+      "bytes": 26685,
+      "gz": 10953
     },
     {
       "name": "stress.wasm",
-      "bytes": 24365,
-      "gz": 10181
+      "bytes": 24493,
+      "gz": 10208
     },
     {
       "name": "walk.gas.wasm",
-      "bytes": 38935,
-      "gz": 15804
+      "bytes": 39091,
+      "gz": 15841
+    },
+    {
+      "name": "walk.loops-max.wasm",
+      "bytes": 34592,
+      "gz": 14561
     },
     {
       "name": "walk.loops.wasm",
-      "bytes": 34439,
-      "gz": 14527
+      "bytes": 34583,
+      "gz": 14559
+    },
+    {
+      "name": "walk.nan-light.wasm",
+      "bytes": 32823,
+      "gz": 14456
+    },
+    {
+      "name": "walk.nan-loops.wasm",
+      "bytes": 35706,
+      "gz": 14711
+    },
+    {
+      "name": "walk.nan.wasm",
+      "bytes": 33250,
+      "gz": 14523
+    },
+    {
+      "name": "walk.simd.wasm",
+      "bytes": 34844,
+      "gz": 15058
     },
     {
       "name": "walk.wasm",
-      "bytes": 33733,
-      "gz": 14472
+      "bytes": 33878,
+      "gz": 14506
     },
     {
       "name": "live_core.wasm",
-      "bytes": 1433693,
-      "gz": 509804
+      "bytes": 1784501,
+      "gz": 604230
     }
   ]
 }

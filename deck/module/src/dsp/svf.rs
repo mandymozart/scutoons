@@ -1,7 +1,9 @@
-//! The state-variable filter (a trapezoidal / zero-delay-feedback SVF): low-pass, band-pass, high-pass and notch from
-//! one pair of integrators, stable under fast cutoff modulation, with resonance up to self-oscillation's edge and a
-//! drive stage in front.
-use super::math::{exp2, soft, tan_pi};
+//! The state-variable filter (Andrew Simper's trapezoidal / zero-delay-feedback SVF): low-pass, band-pass, high-pass and
+//! notch from one pair of integrators, stable under fast cutoff modulation, with resonance up to self-oscillation's edge
+//! and a drive stage in front. Two ways in: `tick` with a `Coef` computed at control rate, `lowpass` with the cutoff and Q
+//! of every sample.
+use super::arith::{exp2, soft, tan_pi};
+use super::flush;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -55,22 +57,46 @@ pub struct Svf {
 }
 
 impl Svf {
+    pub fn new() -> Svf {
+        Svf::default()
+    }
+
     pub fn reset(&mut self) {
         *self = Svf::default();
     }
 
+    /// one sample through `mode` with the coefficients of a control-rate `Coef`
+    #[inline(always)]
     pub fn tick(&mut self, c: &Coef, mode: Mode, x: f32) -> f32 {
         let v3 = x - self.ic2;
         let v1 = c.a1 * self.ic1 + c.a2 * v3;
         let v2 = self.ic2 + c.a2 * self.ic1 + c.a3 * v3;
-        self.ic1 = 2.0 * v1 - self.ic1;
-        self.ic2 = 2.0 * v2 - self.ic2;
+        self.ic1 = flush(2.0 * v1 - self.ic1);
+        self.ic2 = flush(2.0 * v2 - self.ic2);
         match mode {
             Mode::Lp => v2,
             Mode::Bp => v1,
             Mode::Hp => x - c.k * v1 - v2,
             Mode::Notch => x - c.k * v1,
         }
+    }
+
+    /// one sample through the lowpass at `cutoff` Hz (clamped under Nyquist) with `q` (0.5 = critically damped, 0.707 =
+    /// Butterworth); `pi_over_rate` = π / sample rate. `g = tan(π fc / fs)` is the bilinear prewarp (libm's `tanf`), so
+    /// the response is exactly the bilinear transform of 1 / (1 + s/Q + s²).
+    #[inline(always)]
+    pub fn lowpass(&mut self, x: f32, cutoff: f32, q: f32, pi_over_rate: f32) -> f32 {
+        let g = libm::tanf((cutoff * pi_over_rate).min(1.5)); // < π/2: the prewarp stays finite
+        let k = 1.0 / q.max(0.05);
+        let a1 = 1.0 / (1.0 + g * (g + k));
+        let a2 = g * a1;
+        let a3 = g * a2;
+        let v3 = x - self.ic2;
+        let v1 = a1 * self.ic1 + a2 * v3;
+        let v2 = self.ic2 + a2 * self.ic1 + a3 * v3;
+        self.ic1 = flush(2.0 * v1 - self.ic1);
+        self.ic2 = flush(2.0 * v2 - self.ic2);
+        v2
     }
 }
 
@@ -176,11 +202,94 @@ mod tests {
     }
 
     #[test]
+    fn a_ringing_filter_fed_silence_ends_at_zero_not_in_the_denormals() {
+        for res in [0.0, 0.5, 0.99] {
+            let c = Coef::new(300.0, res, RATE);
+            let (mut a, mut b) = (Svf::new(), Svf::new());
+            let mut last = (1.0, 1.0);
+            for i in 0..400_000 {
+                let x = if i == 0 { 1.0 } else { 0.0 };
+                last = (a.tick(&c, Mode::Bp, x), b.lowpass(x, 300.0, 0.7 + 20.0 * res, core::f32::consts::PI / 48_000.0));
+                assert!((last.0 == 0.0 || last.0.is_normal()) && (last.1 == 0.0 || last.1.is_normal()), "res {res}, sample {i}: {last:?}");
+            }
+            assert_eq!(last, (0.0, 0.0), "res {res}");
+        }
+    }
+
+    #[test]
     fn drive_is_a_bypass_at_zero_and_saturates_above() {
         assert_eq!(drive(0.8, 0.0), 0.8);
         let loud = drive(4.0, 1.0);
         assert!(loud.abs() <= 2.0 && loud > 0.5, "{loud}");
         assert!(drive(0.5, 0.01) > 0.49 && drive(0.5, 0.01) < 0.51, "continuous at 0");
         assert_eq!(drive(0.3, 0.7), -drive(-0.3, 0.7));
+    }
+
+    // `lowpass`: the cutoff and Q of every sample
+
+    const RATE32: f32 = 48_000.0;
+    const PI: f64 = core::f64::consts::PI;
+
+    fn db(x: f64) -> f64 {
+        20.0 * x.max(1e-30).log10()
+    }
+
+    /// the filter's gain at `f` for a sine, measured after it settles
+    fn svf_gain(cutoff: f32, q: f32, f: f32) -> f64 {
+        let mut s = Svf::new();
+        let pr = core::f32::consts::PI / RATE32;
+        let n = 48_000;
+        let (mut num, mut den) = (0.0f64, 0.0f64);
+        for i in 0..n {
+            let x = libm::sinf(core::f32::consts::TAU * f * i as f32 / RATE32);
+            let y = s.lowpass(x, cutoff, q, pr);
+            if i >= n / 2 {
+                num += f64::from(y).powi(2);
+                den += f64::from(x).powi(2);
+            }
+        }
+        (num / den).sqrt()
+    }
+
+    /// the analogue 1 / (1 + s/Q + s²) through the bilinear transform: |H| at f for cutoff fc (prewarped at fc)
+    fn ideal_lowpass(fc: f64, q: f64, f: f64) -> f64 {
+        let fs = f64::from(RATE32);
+        let g = libm::tan(PI * fc / fs);
+        let w = libm::tan(PI * f / fs) / g;
+        1.0 / ((1.0 - w * w).powi(2) + (w / q).powi(2)).sqrt()
+    }
+
+    #[test]
+    fn the_lowpass_is_the_bilinear_second_order_response() {
+        for (fc, q) in [(1000.0f32, core::f32::consts::FRAC_1_SQRT_2), (1000.0, 2.0), (4000.0, 0.7), (200.0, 1.0)] {
+            for mult in [0.1f32, 0.5, 0.9, 1.0, 1.1, 2.0, 4.0] {
+                let f = fc * mult;
+                let (got, want) = (svf_gain(fc, q, f), ideal_lowpass(f64::from(fc), f64::from(q), f64::from(f)));
+                assert!((db(got) - db(want)).abs() < 0.05, "fc {fc} Q {q} at {f} Hz: {:.3} dB, ideal {:.3} dB", db(got), db(want));
+            }
+        }
+    }
+
+    #[test]
+    fn the_butterworth_lowpass_is_three_db_down_at_its_cutoff() {
+        let q = core::f32::consts::FRAC_1_SQRT_2;
+        let at = |f: f32| db(svf_gain(2000.0, q, f));
+        // −3.01 dB lies between 0.98 and 1.02 of the cutoff: the −3 dB point is within 2 %
+        assert!(at(1960.0) > -3.0103 && at(2040.0) < -3.0103, "{:.3} / {:.3} dB", at(1960.0), at(2040.0));
+        // and Q shapes the peak: Q = 2 rises above the passband at the cutoff, as 20·log10(Q) says
+        let peak = db(svf_gain(2000.0, 2.0, 2000.0));
+        assert!((peak - db(2.0)).abs() < 0.1, "peak {peak}");
+    }
+
+    #[test]
+    fn the_lowpass_survives_extreme_settings() {
+        let mut s = Svf::new();
+        let pr = core::f32::consts::PI / RATE32;
+        let mut w = super::super::noise::White::new(1);
+        for i in 0..100_000 {
+            let cutoff = if i % 2 == 0 { 20.0 } else { 40_000.0 };
+            let y = s.lowpass(w.sample(), cutoff, 0.05 + (i % 7) as f32, pr);
+            assert!(y.is_finite() && y.abs() < 1e3, "sample {i}: {y}");
+        }
     }
 }

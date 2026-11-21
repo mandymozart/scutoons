@@ -10,7 +10,7 @@
 //! tests compare the two paths.
 use super::{Buf, Param, QUANTUM};
 use deck_space::graph::{Kind, Node};
-use deck_core::dsp::START_PHASE;
+use deck_module::dsp::wavetable::START_PHASE;
 use deck_core::lanes::{self as v, F8, LANES};
 use deck_core::smooth::{Ramp, GLIDE, QUICK};
 
