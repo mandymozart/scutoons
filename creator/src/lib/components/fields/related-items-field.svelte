@@ -10,9 +10,9 @@
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 
 	/**
-	 * `related_items` of a season or a chapter (agents/ITEMS.md "Players, albums, related items"): catalog item ids in
-	 * order, language-neutral – one list written to every locale (like the season's download / trailer and the chapter's
-	 * featuring). Chips with the item's icon and name, reorder, remove; "Add an item …" opens the item selector.
+	 * A season's `related_items` (agents/ITEMS.md "Players, albums, related items"): catalog item ids in order,
+	 * language-neutral – one list written to every locale (like the season's download / trailer). Chips with the item's
+	 * icon and name, reorder, remove; "Add an item …" opens the item selector.
 	 */
 	let {
 		doc,

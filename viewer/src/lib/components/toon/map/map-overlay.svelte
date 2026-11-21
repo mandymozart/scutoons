@@ -1,20 +1,17 @@
 <script lang="ts">
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, fogRoutePoints, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, fogRoutePoints, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
-	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
-	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getHomesContext } from '$lib/contexts/homes.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { MAP_NETWORKS, RIDE_MS, RIDE_PRICES, WALK_MS, randomCarrier, ridePath, walkPath, walkPoints, type Point, type RideKind } from '@scutoons/content';
 	import MapAvatar from './map-avatar.svelte';
 	import RideActions from './ride-actions.svelte';
 	import HomeActions from './home-actions.svelte';
-	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import { untrack } from 'svelte';
 	import { MAP_FOCUS_EVENT, flightAt, loadMapView, openingView, readerHere, saveMapView, type StoredMapView } from './map-view.ts';
 
@@ -52,7 +49,6 @@
 	} = $props();
 
 	const world = getWorldContext();
-	const membership = getMembershipContext();
 	const view = new MapViewport();
 	const mapState = $derived(world?.map ?? { places: {}, routes: {}, positions: {} });
 
@@ -314,17 +310,7 @@
 	// ── place card ───────────────────────────────────────────────────────────────────────────────────────────
 	let selected = $state<string | null>(null);
 	const card = $derived(places.find((p) => p.id === selected) ?? null);
-	const sequence = $derived((page.data?.sequence ?? []) as LoadedSequenceItem[]);
 	const toonTitle = $derived((page.data?.toon as Toon | undefined)?.title ?? toon);
-	/** the chapter the card links: this toon's, listed and readable for this reader (never coming soon / locked) */
-	const cardChapter = $derived.by(() => {
-		const link = card?.chapter;
-		if (!link || link.toon !== toon) return null;
-		const item = sequence.find((s) => Number(s.number) === link.number);
-		if (!item || !isReadable(item)) return null;
-		if (!item.isPreview && !membership?.isValid) return null;
-		return link.number;
-	});
 	const here = $derived.by(() => {
 		const p = mapState.positions[toon];
 		return !!card && !!p && 'location' in p && p.location === card.id;
@@ -557,12 +543,6 @@
 			<h2>{card.name}</h2>
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
 			{#if here}<p>{m['map.you_are_here']({ name: toonTitle })}</p>{/if}
-			{#if cardChapter !== null}
-				<a class="read sc-control" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
-					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
-					<Icon name="chevron-right" size="1rem" />
-				</a>
-			{/if}
 			<RideActions networks={rideOptions.map((o) => o.network)} busy={!!walking} note={rideNote} onride={ride} />
 			<HomeActions place={card.id} at={avatarAt} home={homePlace} reachable={!!cardPath?.length} walking={!!walking} vr={hasVr} onwalk={walkTo} onenter={enterHome} />
 		</section>
@@ -1013,18 +993,6 @@
 	.muted {
 		color: var(--text-muted, #6b6b6b);
 		font-size: 0.75rem;
-	}
-	/* forward: the label, then the chevron (DESIGN.md "Direction arrows") */
-	.read {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		box-sizing: border-box;
-		min-height: var(--control-height);
-		background: #000;
-		color: #fff;
-		padding: 0 1rem;
-		text-decoration: none;
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.map,

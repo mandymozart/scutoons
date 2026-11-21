@@ -245,8 +245,7 @@
 	.kind-jump,
 	.kind-trigger,
 	.kind-run,
-	.kind-step,
-	.kind-place {
+	.kind-step {
 		border-width: var(--border-width-hairline);
 	}
 	/* only if its test holds (an askText step without one is solid) */

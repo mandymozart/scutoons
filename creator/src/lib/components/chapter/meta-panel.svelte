@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { HIGHLIGHTERS } from '@scutoons/content';
-	import type { Snippet } from 'svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { statusWord } from '$lib/editor/status-word.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -19,15 +18,14 @@
 	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, a locale map per sequence entry
 	 * (agents/NEUTRAL.md); this is the only place where it is changed (lists show it read-only as badges), in the
 	 * header's text language like the texts (source by default, all side by side, or one language; a language without
-	 * its own status shows the source's, like the reader). `featuring`: the chapter's featuring field (chapter editor).
+	 * its own status shows the source's, like the reader).
 	 */
 	let {
 		doc,
 		season = null,
 		number,
-		images = [],
-		featuring
-	}: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[]; featuring?: Snippet } = $props();
+		images = []
+	}: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[] } = $props();
 
 	const ch = $derived(doc.get(doc.primary, []));
 	/** the chapter's folder by the content rules – uploads from its fields land there (catpope/s1/c2/) */
@@ -105,8 +103,6 @@
 			<MediaSlot toon={doc.toon} {place} kind="video" label={m['creator.field_keyvisual_video']()} value={ch?.keyvisual?.video} onchange={(v) => doc.set(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
 		{/if}
 	</div>
-
-	{@render featuring?.()}
 </section>
 
 <style>

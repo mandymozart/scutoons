@@ -65,14 +65,14 @@ final class EntityStoreTest extends TestCase
     public function testKeyScheme(): void
     {
         foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de',
-            'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events', 'colorations',
+            'cast:catpope', 'credits:catpope', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events', 'colorations',
             'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1',
             'season-script:catpope:1:de', 'chapter-script:toptoy:0:en', 'kanon:toon.toptoy:de', 'kanon:character.catpope:en',
             'kanon:character.catpope.human.helmet:de', 'kanon:place.cathedral:de'] as $key) {
             self::assertSame($key, (string) EntityKey::parse($key), $key);
         }
         // chapter 0 = a season's prologue; seasons start at 1; no leading zeros
-        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:de', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de', 'script:catpope:de',
+        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'colorations:catpope', 'nope', 'scene:catpope:2', 'scene:catpope:2:scene-14', 'scene:catpope:2:scene-14:de', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'locations:catpope:de', 'routes:catpope:en', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de', 'script:catpope:de',
             'season-script:catpope:0:de', 'chapter-script:catpope:01:de', 'chapter-script:catpope', 'season-script:catpope:1', 'kanon', 'kanon:place.cathedral', 'kanon:toon.scutoons:de', 'kanon:place.a.b:de',
             'kanon:character.a.b.c.d:de', 'kanon:item.x:de', 'kanon:character.catpope:de:x', 'kanon:character.catpope:deu', 'kanon:place.Cathedral:de'] as $key) {
             self::assertFalse(EntityKey::isValid($key), $key);
@@ -100,7 +100,7 @@ final class EntityStoreTest extends TestCase
         $cases = [
             ['catpope', 'de', 'toon.json', 'toon-settings:catpope:de'], ['catpope', 'en', 'season1.json', 'season:catpope:1:en'],
             ['catpope', 'de', 'chapter2.json', 'chapter:catpope:2:de'], ['catpope', 'en', 'chapter0.json', 'chapter:catpope:0:en'],
-            ['catpope', 'de', 'locations.json', 'locations:catpope:de'], ['catpope', '_', 'cast.json', 'cast:catpope'],
+            ['catpope', '_', 'cast.json', 'cast:catpope'],
             ['catpope', '_', 'credits.json', 'credits:catpope'], ['scutoons', '_', 'characters.json', 'characters'], ['scutoons', '_', 'people.json', 'people'],
             ['scutoons', '_', 'colorations.json', 'colorations'],
             ['catpope', '_', 'chapter2.json', 'chapter:catpope:2'], ['catpope', '_', 'season1.json', 'season:catpope:1'],
@@ -111,7 +111,7 @@ final class EntityStoreTest extends TestCase
             self::assertSame($key, ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path");
             self::assertSame("$dir/$locale/$path", ContentFiles::pathOf(EntityKey::parse($key)), $key);
         }
-        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json'], ['catpope', '_', 'chapter2/scene-14.json'], ['catpope', 'de', 'chapter2/scene-14.json'], ['scutoons', '_', 'kanon/place.x.json'], ['scutoons', 'de', 'kanon/item.x.json'], ['catpope', 'de', 'season-script0.json'], ['catpope', '_', 'chapter-script1.json']] as [$dir, $locale, $path]) {
+        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', 'de', 'locations.json'], ['catpope', 'de', 'routes.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['scutoons', 'de', 'colorations.json'], ['catpope', '_', 'colorations.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json'], ['catpope', '_', 'chapter2/scene-14.json'], ['catpope', 'de', 'chapter2/scene-14.json'], ['scutoons', '_', 'kanon/place.x.json'], ['scutoons', 'de', 'kanon/item.x.json'], ['catpope', 'de', 'season-script0.json'], ['catpope', '_', 'chapter-script1.json']] as [$dir, $locale, $path]) {
             self::assertNull(ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path is no entity");
         }
         self::assertSame('toons.json', ContentFiles::pathOf(EntityKey::parse('toon:catpope')));

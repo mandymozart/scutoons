@@ -88,8 +88,6 @@ interface MapPlace {
 	toons: string[];
 	/** hidden until an event unlocks it (default: visible from the start, like today) */
 	hidden?: true;
-	/** the chapter the place's card links to (migrated from `chapterNumber`) */
-	chapter?: { toon: string; number: number };
 	/** how the reader's map frames it (§8.4): zoom 0.25–8 (default 2), the centre's shift from (x, y) (default none) */
 	view?: { zoom?: number; offset?: { x: number; y: number } };
 }
@@ -127,7 +125,6 @@ Why these fields, and nothing else (PLAN.md "keep the configuration small" – w
 | `x`, `y`, `name`, `image` | builder → place | reader map, toast, card |
 | `toons` | builder → "Toons" chips | library (per-toon view, visibility of draft toons), reader (labels), validation |
 | `hidden` | builder → "versteckt bis freigeschaltet" | reader state (§2.4) |
-| `chapter` | builder → place | reader card ("Kapitel 1 lesen →") |
 | `view` | builder → place ("Reader map view") | reader camera (here, ◎, focus – §8.4) |
 | route `waypoints`, `style`, `hidden` | builder → route | reader lines, travel animation, events |
 
@@ -147,8 +144,8 @@ position in this toon (§2.4), else the toon's optional start view, else the cen
 
 The toon's start view stays where it is today and shrinks to `map?: { center?: { x, y }, zoom?: number }` in
 `toon:<toon>` (the neutral fields, in flight). `width`/`height`/`layers` leave the toon (they belong to the world).
-For **older viewer builds** the library keeps filling `toon.map` with `{ layers: { terrain }, width, height, center }`
-from the world map + the toon's start view (one release, then drop).
+The old `toon.map` shape (`{ layers: { terrain }, width, height, center }`) for older viewer builds was dropped
+2026-11-21 (#711: older readers are to update).
 
 ### 2.3 API (library, reader-side)
 
@@ -157,9 +154,8 @@ from the world map + the toon's start view (one release, then drop).
   places/routes of **listed** toons (published; drafts only with `CONTENT_SHOW_DRAFTS` / `?draft=1`, like
   `Library::DEV_ONLY_TOONS` for the sandbox). An announced toon's places (Top Toy, Mausboss) stay out until the toon is
   published – they would announce chapter content. Same cache rules (ETag, `public, max-age=60`, keyed by version id).
-- `ToonBundle.locations` / `.routes` stay, **in today's shape** (`MapLocation { id, label, toonId, type, chapterNumber,
-  image, coordinates }`, `MapRoute { id, title, locations }`), computed from `map` for the toon, for older viewer
-  builds; the new viewer reads `/library/map` (lazily, when the map opens – §8 performance).
+- `ToonBundle.locations` / `.routes` (the old per-toon lists for older viewer builds) are gone since 2026-11-21 (#711);
+  the viewer reads `/library/map` (lazily, when the map opens – §8 performance).
 - Creator: `GET/PUT /api/entities/map` (+ versions, publish, restore) – nothing new.
 - Compare test (`entities-compare.php`): the bundle's `locations`/`routes` before and after the migration are equal
   (except the dangling `garden`, see 2.6) – this proves the values survived.
@@ -301,8 +297,8 @@ warning: it would hijack the scrolling). Toasts + the badge only.
   countdown stops by the existing rule. The two actions stay as they are (max 2). A VN `focusMap`/`travel show` always
   finishes before the bar can show (the bar waits for `eventsDone`).
 - **Place card:** a click on a place opens a small card (paper, 2px ink, square) at the top: name, the image, "Du bist
-  hier · Cat Pope" when it is the position, and "Kapitel 1 lesen →" when `chapter` is set and readable for this reader
-  (the same rules as the chapter list; never for coming-soon/locked). Replaces today's direct jump.
+  hier · Cat Pope" when it is the position. Replaces today's direct jump. (Its "Kapitel 1 lesen →" link went with the
+  place's `chapter` 2026-11-21, #710: progress and visited places are tracked otherwise.)
 
 ---
 
@@ -651,12 +647,11 @@ toon's start view (set in the builder) instead of a computed zoom.
   (the runtime rule, compared with the chapter checkpoint), `slice` = the unlocking slice's image path (§8.5), `scene` = the
   screenplay scene (the reference for the M3/M4 event). `unlock: null` = "not unlockable yet" (owner, the airport): valid;
   a hidden place with no `unlock` at all is a validation warning (nothing unlocks it – forgotten?).
-- The card's `chapter` link = the chapter that introduces the place (the old files said "1" everywhere).
+- The card's `chapter` link went 2026-11-21 (#710, migration 2026-11-21-place-chapter): no place names a chapter.
 - Toon entries keep only the start view `map: { center?, zoom? }`; toptoy / yellowmouse lost their empty placeholder. An
   entry still in the old shape (`layers` …) passes through unchanged.
-- The bundle's old fields for older viewer builds are computed from the world (`Library::legacyMapLists`,
-  `withLegacyMap`; TS `legacyToonMap`, `legacyToonMapSettings`): every place / route of the toon, **hidden ones too** (old
-  viewers have no unlock state and always showed every place).
+- The bundle's old fields for older viewer builds (`locations`, `routes`, the old `toon.map`) were dropped 2026-11-21
+  (#711), with `migrateLegacyMap` and the `locations:` / `routes:` entity kinds.
 - `/library/map?toon=` answers `view { center, zoom, color? }` (start view + the sea colour).
 - `/api/progress/scutoons/` **merges on the server too** (`ProgressService::mergeWorldState`, the rule of `mergeMapState`):
   a stale write still adds its discoveries (status `stale` + the merged state) – safe when two devices race.
@@ -1102,6 +1097,5 @@ production's map with `npm run dev:db -- seed`.)_
 3. On the owner's local store after merging: back up `server/db/local.sqlite`, then
    `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-map.ts` (imports `map`, rewrites the
    store's toon entries' `map` to the start view).
-4. Production: the seed's `map` statement (idempotent) or publish the map once from the creator. Older viewer builds keep
-   working (the bundle's old fields are computed).
+4. Production: the seed's `map` statement (idempotent) or publish the map once from the creator.
 5. Then the full suite on the merged tree + `node scripts/check-map.mjs`.

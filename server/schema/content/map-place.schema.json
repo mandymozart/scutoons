@@ -44,22 +44,6 @@
 					"type": "boolean",
 					"description": "hidden until the story's `unlockLocation` event unlocks it – default: visible from the start (owner 2026-10-11: places are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)"
 				},
-				"chapter": {
-					"type": "object",
-					"properties": {
-						"toon": {
-							"type": "string"
-						},
-						"number": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"toon",
-						"number"
-					],
-					"description": "the chapter the place's card links to"
-				},
 				"size": {
 					"type": "number",
 					"description": "its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`)"

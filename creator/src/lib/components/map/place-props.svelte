@@ -16,8 +16,7 @@
 
 	/**
 	 * The selected place (agents/MAP.md §4.3–4.5): id (editable until the first publish), names, position, toons, hidden
-	 * (an unlockLocation event unlocks it – owner 2026-10-11), the
-	 * card's chapter link, the reader map's view of it (zoom ≥ 200 % + a centre shift; "Use the current view" takes the
+	 * (an unlockLocation event unlocks it – owner 2026-10-11), the reader map's view of it (zoom ≥ 200 % + a centre shift; "Use the current view" takes the
 	 * canvas's), the image (PlaceImage), where it is used, delete.
 	 */
 	let {
@@ -158,21 +157,6 @@
 <div class="group">
 <label class="check"><input type="checkbox" checked={!!place.hidden} onchange={(e) => editPlace(doc, place.id, (p) => { if (e.currentTarget.checked) p.hidden = true; else delete p.hidden; })} data-testid="place-hidden" /> {m['creator.map_hidden']()}</label>
 {#if place.hidden}<p class="hint">{m['creator.map_hidden_by_event']()}</p>{/if}
-</div>
-
-<div class="group">
-<fieldset>
-	<legend>{m['creator.map_chapter_link']()}</legend>
-	<div class="row">
-		<select value={place.chapter?.toon ?? ''} onchange={(e) => editPlace(doc, place.id, (p) => { const t = e.currentTarget.value; if (!t) delete p.chapter; else p.chapter = { toon: t, number: p.chapter?.number ?? 1 }; })} aria-label={m['creator.map_chapter_link']()}>
-			<option value="">{m['creator.map_chapter_none']()}</option>
-			{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-		</select>
-		{#if place.chapter}
-			<label class="field small"><span>{m['creator.map_chapter']()}</span><input type="number" min="0" value={place.chapter.number} onchange={(e) => editPlace(doc, place.id, (p) => p.chapter && (p.chapter.number = Math.max(0, Math.round(Number(e.currentTarget.value)))))} /></label>
-		{/if}
-	</div>
-</fieldset>
 </div>
 
 <div class="group">

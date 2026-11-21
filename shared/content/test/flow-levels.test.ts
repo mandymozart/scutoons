@@ -107,8 +107,8 @@ test('sliceFlow: the slice, its triggers and item taps, the script points they d
 
 // a toon: season 1 = chapters 1, 2, 3, 4; chapter 2 always jumps to chapter 3's label (no follow-up bar), chapter 3
 // jumps to another toon or (only with coins) back to 1; chapter 4 is a draft only the order would reach; chapter 9 is in
-// no season but a jump of chapter 1 (through a condition) leads there; a visible map place opens chapter 4
-const toon = (places = true) => {
+// no season but a jump of chapter 1 (through a condition) leads there; another toon jumps into chapter 4
+const toon = (incoming = true) => {
 	const chapters: FlowChapter[] = [
 		{ number: 1, status: 'published', title: 'One', groups: [{ slices: [{}], events: [{ ...jump('9'), if: { variable: 'coins', op: 'set' } }] }] },
 		{ number: 2, status: 'draft', groups: [{ slices: [{}], events: [jump('3', 'forest')] }] },
@@ -124,7 +124,7 @@ const toon = (places = true) => {
 		{ number: 9, groups: [{ slices: [{}] }] }
 	];
 	const facts = toonFacts([...chapters.map((c) => c.groups), { type: 'setVariable', params: { variable: 'coins', value: 1 } }]);
-	return { toon: 'catpope', chapters, seasons: [{ number: 1, chapters: [1, 2, 3, 4] }], facts, places: places ? [{ id: 'well', name: 'Well', chapter: 4 }] : [] };
+	return { toon: 'catpope', chapters, seasons: [{ number: 1, chapters: [1, 2, 3, 4] }], facts, incoming: incoming ? [4] : [] };
 };
 
 test('chapterExits: the ways out of a chapter with the best status', () => {
@@ -137,17 +137,17 @@ test('chapterExits: the ways out of a chapter with the best status', () => {
 	assert.deepEqual(chapterExits(chapterFlow(t.chapters[0].groups, { chapter: 1, facts: t.facts })).map((x) => `${x.kind}:${x.next ? 'next' : x.target?.value}:${x.status}`), ['jump:9:conditional', 'order:next:reachable']);
 });
 
-test('toonReach: entries (season start, published, visible places), the season order, jumps; conditions', () => {
+test('toonReach: entries (season start, published, incoming jumps), the season order, jumps; conditions', () => {
 	const r = toonReach(toon(false));
 	assert.deepEqual([...r].map(([n, x]) => `${n}:${x.reach}`), ['1:reachable', '2:reachable', '3:reachable', '4:unreachable', '9:conditional']);
-	// chapter 2 never reaches its follow-up bar: chapter 4 only through a visible map place
+	// chapter 2 never reaches its follow-up bar: chapter 4 only through the other toon's jump
 	assert.equal(toonReach(toon()).get(4)?.reach, 'reachable');
 	// dead groups per chapter (chapterReach): chapter 3's first group can't get to its labelled second one … but it is the entry
 	assert.equal(r.get(3)?.dead, 0);
 	assert.equal(r.get(4)?.dead, 1, 'an unlabelled group after a group: the bar leads to the next chapter');
 });
 
-test('toonFlow: season level (its chapters, exits elsewhere) and toon level (every chapter, map places)', () => {
+test('toonFlow: season level (its chapters, exits elsewhere) and toon level (every chapter)', () => {
 	const season = toonFlow(toon(), { season: 1 });
 	assert.deepEqual(season.nodes.filter((n) => n.kind === 'chapter').map((n) => `${n.id}:${n.status}:${n.state}`), ['c1:reachable:published', 'c2:reachable:draft', 'c3:reachable:draft', 'c4:reachable:draft']);
 	assert.deepEqual(out(season, 'c1'), ['jump:x:chapter:9{}'.replace('{}', ''), 'order:c2']);
@@ -155,14 +155,11 @@ test('toonFlow: season level (its chapters, exits elsewhere) and toon level (eve
 	assert.deepEqual(out(season, 'c3'), ['jump:x:toon:toptoy[Top Toy]', 'jump:c1[back]']);
 	assert.equal(season.edges.find((e) => e.from === 'c3' && e.to === 'c1')?.status, 'conditional');
 	assert.equal(node(season, 'x:chapter:9')?.status, 'conditional');
-	assert.ok(!season.nodes.some((n) => n.kind === 'place'), 'no places on the season level');
 	const all = toonFlow(toon());
 	assert.deepEqual(all.nodes.filter((n) => n.kind === 'chapter').map((n) => n.id), ['c1', 'c2', 'c3', 'c4', 'c9']);
 	assert.deepEqual(out(all, 'c1'), ['jump:c9', 'order:c2']);
-	assert.deepEqual(node(all, 'p4')?.places, ['Well']);
-	assert.deepEqual(out(all, 'p4'), ['place:c4']);
 	// parallel ways between two chapters are merged and counted
-	const twice = toonFlow({ ...toon(), chapters: [{ number: 1, groups: [{ slices: [{}], events: [choice('a', { jumpTo: { target: { type: 'chapter', value: '2' } } }), choice('b', { jumpTo: { target: { type: 'chapter', value: '2' } } }), { type: 'showChoices' }] }] }, { number: 2, groups: [{ slices: [{}] }] }], seasons: [{ number: 1, chapters: [1, 2] }], places: [] });
+	const twice = toonFlow({ ...toon(), chapters: [{ number: 1, groups: [{ slices: [{}], events: [choice('a', { jumpTo: { target: { type: 'chapter', value: '2' } } }), choice('b', { jumpTo: { target: { type: 'chapter', value: '2' } } }), { type: 'showChoices' }] }] }, { number: 2, groups: [{ slices: [{}] }] }], seasons: [{ number: 1, chapters: [1, 2] }], incoming: [] });
 	assert.deepEqual(twice.edges.map((e) => `${e.from}>${e.to}:${e.kind}:${e.label}:${e.count ?? 1}`), ['c1>c2:jump:a · b:2']);
 });
 

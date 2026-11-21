@@ -32,13 +32,6 @@
 				},
 				"link": {
 					"type": "string"
-				},
-				"toon": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"description": "the toons the event belongs to (not shown yet)"
 				}
 			},
 			"required": [

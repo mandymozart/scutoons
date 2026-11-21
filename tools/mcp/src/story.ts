@@ -109,7 +109,7 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 		'read_flow',
 		{
 			description:
-				'The story flow as the creator\'s Flow panel shows it. No toon: SCUTOONS – one box per toon, the jumps between toons and to products / XR. A toon: its chapters (by season) and how they lead into each other, which can be reached (`status`), map places that lead in. A chapter: its groups, labels, choices (with their texts and tests), jumps, triggers and exits, plus where readers can get stuck. A group (index or label): that group only. Node `path` → read_entity `path` on the chapter.',
+				'The story flow as the creator\'s Flow panel shows it. No toon: SCUTOONS – one box per toon, the jumps between toons and to products / XR. A toon: its chapters (by season) and how they lead into each other, which can be reached (`status`). A chapter: its groups, labels, choices (with their texts and tests), jumps, triggers and exits, plus where readers can get stuck. A group (index or label): that group only. Node `path` → read_entity `path` on the chapter.',
 			inputSchema: z.object({
 				toon: z.string().optional().describe('left out = all of SCUTOONS'),
 				season: z.number().int().optional().describe('toon level: only this season'),

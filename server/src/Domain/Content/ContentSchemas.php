@@ -25,8 +25,6 @@ final class ContentSchemas
         'toon-settings' => 'toon',
         'season' => 'season',
         'chapter' => 'chapter',
-        'locations' => null,
-        'routes' => null,
         'cast' => 'cast',
         'credits' => 'credits',
         'season-script' => 'script',
