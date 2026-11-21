@@ -64,9 +64,16 @@ impl Link {
     /// Join `relay` (`ws://host:port/live/<code>`, or `wss://` – the hosted relay, #199) as `join`; a deck announces
     /// `graph` and hands pushes to `sync`.
     pub fn start(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>, show: Option<Arc<ShowLink>>) -> Result<Link, String> {
+        Link::start_for(relay, join, token, nick, graph, sync, show, None)
+    }
+
+    /// `start`, for the outlet `column` it plays beside: the addresses a show's cell filters to that column's group reach it
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_for(relay: &str, join: Join, token: Option<String>, nick: Option<String>, graph: Option<DeckGraph>, sync: Option<Box<dyn Syncs>>, show: Option<Arc<ShowLink>>, column: Option<String>) -> Result<Link, String> {
         let conductor = join == Join::Conductor;
         let mut o = Options::new(relay, if conductor { Role::Conductor } else { Role::Musician }, Some(GROUP));
         o.nick = nick;
+        o.filter_group = column;
         o.token = token.filter(|_| conductor);
         let mut client = Client::new(o)?;
         if let Some(g) = graph {

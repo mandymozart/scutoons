@@ -562,6 +562,7 @@ impl Show {
             {
                 let relay = outlet_settings(args).relay.or_else(|| deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML)).relay);
                 use deck_native::space::Connect;
+                s.column = outlet_settings(args).outlet.or_else(|| deck_native::live::config::Settings::read(std::path::Path::new(deck_native::live::config::DECK_TOML)).outlet).filter(|o| !o.is_empty());
                 // #195: a deck answers the conductor's pushes through its sync
                 #[cfg(feature = "sync")]
                 let hook = sync.clone().map(|y| Box::new(y) as Box<dyn deck_native::space::link::Syncs>);

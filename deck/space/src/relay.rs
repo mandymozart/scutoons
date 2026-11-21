@@ -200,11 +200,15 @@ pub struct Options {
     /// how long a QUIC dial nothing else waits for may take (`QUIC_GIVE_UP_MS` when none)
     #[serde(default)]
     pub quic_give_up_ms: Option<f64>,
+    /// the group an address filter is tested against when it is not the group the client joined (a deck's space link
+    /// joins `decks`; a show's cell names its outlet's column)
+    #[serde(default)]
+    pub filter_group: Option<String>,
 }
 
 impl Options {
     pub fn new(relay: &str, role: Role, group: Option<&str>) -> Options {
-        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None, quic_head_start_ms: None, quic_give_up_ms: None }
+        Options { relay: relay.into(), role, group: group.map(String::from), nick: None, token: None, resume: false, messages: false, device: None, proof: None, wait_proof: false, key: None, quic_head_start_ms: None, quic_give_up_ms: None, filter_group: None }
     }
 }
 
@@ -918,7 +922,7 @@ impl Client {
     fn passes(&self, filter: Option<&protocol::Filter>) -> bool {
         let Some(f) = filter else { return true };
         let mine = protocol::Filter { group: f.group.clone(), device: f.device.clone(), account: None, approved: None };
-        protocol::filter::passes(Some(&mine), &protocol::filter::Facts { group: self.o.group.as_deref(), device: self.o.device.as_deref(), ..Default::default() })
+        protocol::filter::passes(Some(&mine), &protocol::filter::Facts { group: self.o.filter_group.as_deref().or(self.o.group.as_deref()), device: self.o.device.as_deref(), ..Default::default() })
     }
 
     fn hello(&mut self) {
