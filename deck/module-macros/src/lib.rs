@@ -13,7 +13,7 @@
 //! Analog Four's way: descriptor metadata only))]`;
 //! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
-//! default, curve = log, unit, choices = "saw|pulse" (the value is the index), doc, section = "SRC/OSC 1", slot = 0..7
+//! default, curve = log, unit (a unit of deck-core's catalogue, by id or word: "Hz", "st", "dB" – the compile checks it), choices = "saw|pulse" (the value is the index), doc, section = "SRC/OSC 1", slot = 0..7
 //! (its knob on the page, two rows of four; without, the next free one))]`; `#[asset(name, kind, max_bytes,
 //! doc)]`; `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
 //!

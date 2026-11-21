@@ -9,7 +9,7 @@
 //! #[port(input, audio, name = "in", channels = "any")]
 //! #[port(output, audio, name = "out", channels = "any")]
 //! struct Gain {
-//!     #[param(range = 0.0..2.0, default = 1.0, unit = "x", doc = "the gain")]
+//!     #[param(range = 0.0..2.0, default = 1.0, unit = "×", doc = "the gain")]
 //!     amount: f32,
 //! }
 //!

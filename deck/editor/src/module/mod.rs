@@ -16,6 +16,7 @@ const LOOK: Duration = Duration::from_secs(1);
 use crate::show::api::Api;
 use crate::stage::Stage;
 use deck_catalog::{Curve, Descriptor, ParamDesc};
+use deck_core::units::{Dimension, Unit};
 use deck_kit::editor::controls::Rect;
 use deck_space::rig::{assign, Bundle};
 use scutoons_build::files::Files;
@@ -38,6 +39,8 @@ pub enum Hit {
     Build,
     Param(usize),
     Problem(usize),
+    /// a unit switch's segment: parameters of this kind are read in it
+    Unit(&'static str, Unit),
 }
 
 /// one module of the catalog
@@ -149,6 +152,19 @@ pub fn value_at(p: &ParamDesc, f: f32) -> f32 {
         Curve::Log if p.min > 0.0 => p.min * (p.max / p.min).powf(f),
         _ => p.min + f * (p.max - p.min),
     }
+}
+
+/// A parameter read in a unit of its choice: the kind its choice is kept under, the unit it is stored in, the units it
+/// can be read in. Frequencies and pitches only – the other dimensions' alternatives need a reference a module
+/// parameter does not have (beats a tempo, px a picture) or mean something else (mm is a focal length).
+pub fn switchable(p: &ParamDesc) -> Option<(&'static str, Unit, &'static [Unit])> {
+    let unit = Unit::named(&p.unit).filter(|_| p.choices.is_empty())?;
+    let kind = match unit.dimension() {
+        Dimension::Frequency => "module-frequency",
+        Dimension::Pitch => "module-pitch",
+        _ => return None,
+    };
+    Some((kind, unit, unit.dimension().units()))
 }
 
 /// a parameter's value in words
@@ -318,6 +334,7 @@ impl Module {
             Hit::Code => self.code(None),
             Hit::Build => self.build(),
             Hit::Problem(i) => self.code(Some(i)),
+            Hit::Unit(..) => {}
             Hit::Param(i) => {
                 if let Some(p) = self.descriptor.as_ref().and_then(|d| d.params.get(i)) {
                     self.drag = Some((i, x, fraction(p, self.value(i, stage))));
@@ -703,5 +720,17 @@ mod tests {
         assert_eq!(shown(&log, 147.0), "147 Hz");
         let wave = param(json!({ "name": "wave", "choices": ["saw", "pulse", "sine"], "default": 0 }));
         assert_eq!((fraction(&wave, 1.0), value_at(&wave, 0.9), shown(&wave, 2.0)), (0.5, 2.0, "sine".to_string()));
+    }
+
+    #[test]
+    fn frequencies_and_pitches_switch_their_unit() {
+        let cutoff = param(json!({ "name": "cutoff", "min": 20.0, "max": 20000.0, "unit": "Hz" }));
+        assert_eq!(switchable(&cutoff), Some(("module-frequency", Unit::Hertz, &[Unit::Hertz, Unit::Kilohertz][..])));
+        let fine = param(json!({ "name": "fine", "min": -100.0, "max": 100.0, "unit": "cent" }));
+        assert_eq!(switchable(&fine).map(|(k, u, o)| (k, u, o.len())), Some(("module-pitch", Unit::Cents, 3)));
+        let tilt = param(json!({ "name": "tilt", "min": 0.0, "max": 30.0, "unit": "°" }));
+        assert_eq!(switchable(&tilt), None, "a tilt is no field of view: no mm");
+        let period = param(json!({ "name": "period", "min": 1.0, "max": 16.0, "unit": "beats" }));
+        assert_eq!(switchable(&period), None);
     }
 }

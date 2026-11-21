@@ -10,6 +10,10 @@
 //! - **angle:** degrees of a vertical field of view; mm (the focal length that sees it on a full-frame sensor)
 //! - **level:** dB; % (the linear gain, 100 % = 0 dB); × (the linear gain itself, 1 = 0 dB)
 //! - **tempo:** BPM
+//! - **frequency:** Hz; kHz
+//! - **pitch:** semitones; cents (a hundredth of one); octaves (twelve)
+//! - **ratio:** × (a factor: a zoom, a playback rate, a frequency ratio)
+//! - **count:** steps; **step rate:** steps a beat
 //!
 //! A unit whose reference is unknown (frames without a frame rate, px without a picture) is not offered.
 
@@ -24,6 +28,9 @@ pub const CSS_PX_PER_REM: f64 = 16.0;
 pub const M_PER_FOOT: f64 = 0.3048;
 /// the beats a bar when the tempo's own is not known
 pub const PER_BAR: u32 = 4;
+/// cents in a semitone, semitones in an octave
+pub const CENTS_PER_ST: f64 = 100.0;
+pub const ST_PER_OCT: f64 = 12.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Dimension {
@@ -34,10 +41,32 @@ pub enum Dimension {
     Angle,
     Level,
     Tempo,
+    /// base Hz
+    Frequency,
+    /// an interval: base semitones
+    Pitch,
+    /// a factor, no unit to switch to
+    Ratio,
+    /// a number of steps (a pattern's length)
+    Count,
+    /// steps a beat (a sequencer's rate)
+    StepRate,
 }
 
 impl Dimension {
-    pub const ALL: [Dimension; 6] = [Dimension::Time, Dimension::Length, Dimension::Distance, Dimension::Angle, Dimension::Level, Dimension::Tempo];
+    pub const ALL: [Dimension; 11] = [
+        Dimension::Time,
+        Dimension::Length,
+        Dimension::Distance,
+        Dimension::Angle,
+        Dimension::Level,
+        Dimension::Tempo,
+        Dimension::Frequency,
+        Dimension::Pitch,
+        Dimension::Ratio,
+        Dimension::Count,
+        Dimension::StepRate,
+    ];
 
     pub fn id(self) -> &'static str {
         match self {
@@ -47,6 +76,11 @@ impl Dimension {
             Dimension::Angle => "angle",
             Dimension::Level => "level",
             Dimension::Tempo => "tempo",
+            Dimension::Frequency => "frequency",
+            Dimension::Pitch => "pitch",
+            Dimension::Ratio => "ratio",
+            Dimension::Count => "count",
+            Dimension::StepRate => "step_rate",
         }
     }
 
@@ -63,6 +97,11 @@ impl Dimension {
             Dimension::Angle => &[Unit::Millimetres, Unit::Degrees],
             Dimension::Level => &[Unit::Decibels, Unit::Gain, Unit::Linear],
             Dimension::Tempo => &[Unit::Bpm],
+            Dimension::Frequency => &[Unit::Hertz, Unit::Kilohertz],
+            Dimension::Pitch => &[Unit::Semitones, Unit::Cents, Unit::Octaves],
+            Dimension::Ratio => &[Unit::Times],
+            Dimension::Count => &[Unit::Steps],
+            Dimension::StepRate => &[Unit::StepsPerBeat],
         }
     }
 
@@ -100,6 +139,17 @@ pub enum Unit {
     /// a level as its linear gain, 1 = 0 dB
     Linear,
     Bpm,
+    Hertz,
+    Kilohertz,
+    Semitones,
+    /// a hundredth of a semitone
+    Cents,
+    /// twelve semitones
+    Octaves,
+    /// a factor (1 = as it is)
+    Times,
+    Steps,
+    StepsPerBeat,
 }
 
 /// What a conversion needs to know besides the value: the source's frame rate, the tempo and its beats a bar, the
@@ -143,7 +193,7 @@ impl Refs {
 }
 
 impl Unit {
-    pub const ALL: [Unit; 19] = [
+    pub const ALL: [Unit; 27] = [
         Unit::Seconds,
         Unit::Milliseconds,
         Unit::Frames,
@@ -163,6 +213,14 @@ impl Unit {
         Unit::Gain,
         Unit::Linear,
         Unit::Bpm,
+        Unit::Hertz,
+        Unit::Kilohertz,
+        Unit::Semitones,
+        Unit::Cents,
+        Unit::Octaves,
+        Unit::Times,
+        Unit::Steps,
+        Unit::StepsPerBeat,
     ];
 
     pub fn dimension(self) -> Dimension {
@@ -173,6 +231,11 @@ impl Unit {
             Unit::Degrees | Unit::Millimetres => Dimension::Angle,
             Unit::Decibels | Unit::Gain | Unit::Linear => Dimension::Level,
             Unit::Bpm => Dimension::Tempo,
+            Unit::Hertz | Unit::Kilohertz => Dimension::Frequency,
+            Unit::Semitones | Unit::Cents | Unit::Octaves => Dimension::Pitch,
+            Unit::Times => Dimension::Ratio,
+            Unit::Steps => Dimension::Count,
+            Unit::StepsPerBeat => Dimension::StepRate,
         }
     }
 
@@ -198,11 +261,25 @@ impl Unit {
             Unit::Gain => "gain",
             Unit::Linear => "linear",
             Unit::Bpm => "bpm",
+            Unit::Hertz => "hz",
+            Unit::Kilohertz => "khz",
+            Unit::Semitones => "st",
+            Unit::Cents => "cent",
+            Unit::Octaves => "oct",
+            Unit::Times => "ratio",
+            Unit::Steps => "steps",
+            Unit::StepsPerBeat => "steps/beat",
         }
     }
 
     pub fn of_id(id: &str) -> Option<Unit> {
         Unit::ALL.into_iter().find(|u| u.id() == id)
+    }
+
+    /// The unit a descriptor's unit string names: its id, else its word (`Hz`, `dB`, `°`); a word two units share (`%`,
+    /// `×`) names the first. None: no unit of the catalogue.
+    pub fn named(name: &str) -> Option<Unit> {
+        Unit::of_id(name).or_else(|| Unit::ALL.into_iter().find(|u| u.word() == name))
     }
 
     /// as a person reads it after a number
@@ -224,22 +301,30 @@ impl Unit {
             Unit::Degrees => "°",
             Unit::Millimetres => "mm",
             Unit::Decibels => "dB",
-            Unit::Linear => "×",
+            Unit::Linear | Unit::Times => "×",
             Unit::Bpm => "BPM",
+            Unit::Hertz => "Hz",
+            Unit::Kilohertz => "kHz",
+            Unit::Semitones => "st",
+            Unit::Cents => "cent",
+            Unit::Octaves => "oct",
+            Unit::Steps => "steps",
+            Unit::StepsPerBeat => "steps/beat",
         }
     }
 
     /// counted in whole steps (a source's pixels, its frames)
     pub fn whole(self) -> bool {
-        matches!(self, Unit::Pixels | Unit::Frames | Unit::Milliseconds)
+        matches!(self, Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Steps)
     }
 
     /// the decimals it is shown with
     pub fn decimals(self) -> usize {
         match self {
-            Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Millimetres | Unit::Degrees | Unit::Centimetres => 0,
+            Unit::Pixels | Unit::Frames | Unit::Milliseconds | Unit::Millimetres | Unit::Degrees | Unit::Centimetres | Unit::Cents | Unit::Steps => 0,
             Unit::Percent | Unit::Gain | Unit::Decibels | Unit::Bpm => 1,
             Unit::Seconds | Unit::Beats | Unit::Bars | Unit::Metres | Unit::Feet | Unit::Em | Unit::Points | Unit::Linear => 2,
+            Unit::Hertz | Unit::Kilohertz | Unit::Semitones | Unit::Octaves | Unit::Times | Unit::StepsPerBeat => 2,
             Unit::Rem => 3,
         }
     }
@@ -270,6 +355,10 @@ impl Unit {
     pub fn to_base(self, v: f64, refs: &Refs) -> Option<f64> {
         Some(match self {
             Unit::Seconds | Unit::Degrees | Unit::Decibels | Unit::Bpm => v,
+            Unit::Hertz | Unit::Semitones | Unit::Times | Unit::Steps | Unit::StepsPerBeat => v,
+            Unit::Kilohertz => v * 1000.0,
+            Unit::Cents => v / CENTS_PER_ST,
+            Unit::Octaves => v * ST_PER_OCT,
             Unit::Milliseconds => v / 1000.0,
             Unit::Frames => v / refs.fps()?,
             Unit::Beats => v * 60.0 / refs.bpm()?,
@@ -294,6 +383,10 @@ impl Unit {
     pub fn from_base(self, b: f64, refs: &Refs) -> Option<f64> {
         Some(match self {
             Unit::Seconds | Unit::Degrees | Unit::Decibels | Unit::Bpm => b,
+            Unit::Hertz | Unit::Semitones | Unit::Times | Unit::Steps | Unit::StepsPerBeat => b,
+            Unit::Kilohertz => b / 1000.0,
+            Unit::Cents => b * CENTS_PER_ST,
+            Unit::Octaves => b / ST_PER_OCT,
             Unit::Milliseconds => b * 1000.0,
             Unit::Frames => b * refs.fps()?,
             Unit::Beats => b * refs.bpm()? / 60.0,
@@ -348,6 +441,15 @@ pub fn pick(chosen: Option<Unit>, fallback: Unit, refs: &Refs) -> Unit {
     let dim = fallback.dimension();
     let fits = |u: &Unit| u.dimension() == dim && u.known(refs);
     chosen.filter(fits).or(Some(fallback).filter(fits)).or_else(|| dim.offered(refs).first().copied()).unwrap_or(fallback)
+}
+
+/// Every parameter of `d` that has a unit names one of the catalogue (`Unit::named`): the module validator's and the
+/// built-ins' check, so a field can read and switch it.
+pub fn check_params(d: &deck_catalog::Descriptor) -> Result<(), String> {
+    match d.params.iter().find(|p| !p.unit.is_empty() && Unit::named(&p.unit).is_none()) {
+        Some(p) => Err(format!("'{}': parameter '{}': unit '{}' is none of the catalogue's (s, ms, beats, Hz, kHz, st, cent, oct, dB, %, ×, ratio, m, °, px, steps …)", d.name, p.name, p.unit)),
+        None => Ok(()),
+    }
 }
 
 /// `v` (in `unit`) as its number on the unit's steps, a minus sign, no word
@@ -506,6 +608,60 @@ mod tests {
         assert_eq!(Refs::from_wire(&[25.0, 120.0, 3.0, 1920.0, f64::NAN]), Refs { fps: Some(25.0), bpm: Some(120.0), per_bar: Some(3), pixels: Some(1920.0), web: false, em: false });
         assert_eq!(Refs::from_wire(&[f64::NAN, f64::NAN, f64::NAN, 390.0, f64::NAN, 1.0, 1.0]), Refs { pixels: Some(390.0), web: true, em: true, ..Refs::default() });
         assert_eq!(Refs::from_wire(&[0.0, -1.0]), Refs::default());
+    }
+
+    #[test]
+    fn a_frequency_is_hz_or_khz() {
+        let none = Refs::default();
+        assert_eq!(Dimension::Frequency.offered(&none), [Unit::Hertz, Unit::Kilohertz]);
+        assert_eq!(convert(8000.0, Unit::Hertz, Unit::Kilohertz, &none), Some(8.0));
+        assert_eq!(convert(0.44, Unit::Kilohertz, Unit::Hertz, &none), Some(440.0));
+        assert_eq!(convert(440.0, Unit::Hertz, Unit::Semitones, &none), None, "a frequency is no interval");
+        assert_eq!(show(8000.0, Unit::Hertz), "8000.00 Hz");
+        assert_eq!(show(0.25, Unit::Hertz), "0.25 Hz", "an LFO's slow rate");
+        assert_eq!(parse("2.5 kHz", Unit::Hertz), Some((2.5, Unit::Kilohertz)));
+        assert_eq!(parse("440hz", Unit::Kilohertz), Some((440.0, Unit::Hertz)));
+    }
+
+    #[test]
+    fn a_pitch_is_semitones_cents_or_octaves() {
+        let none = Refs::default();
+        assert_eq!(Dimension::Pitch.offered(&none), [Unit::Semitones, Unit::Cents, Unit::Octaves]);
+        assert_eq!(convert(1.0, Unit::Octaves, Unit::Semitones, &none), Some(12.0));
+        assert_eq!(convert(7.0, Unit::Semitones, Unit::Cents, &none), Some(700.0));
+        assert_eq!(convert(-50.0, Unit::Cents, Unit::Semitones, &none), Some(-0.5));
+        assert_eq!(convert(1200.0, Unit::Cents, Unit::Octaves, &none), Some(1.0));
+        assert_eq!(show(-7.0, Unit::Semitones), "−7.00 st");
+        assert_eq!(show(12.4, Unit::Cents), "12 cent");
+        assert_eq!(parse("-1 oct", Unit::Semitones), Some((-1.0, Unit::Octaves)));
+        assert_eq!(parse("25 cent", Unit::Semitones), Some((25.0, Unit::Cents)));
+    }
+
+    #[test]
+    fn a_descriptor_string_names_a_unit_by_id_or_word() {
+        assert_eq!(Unit::named("Hz"), Some(Unit::Hertz));
+        assert_eq!(Unit::named("hz"), Some(Unit::Hertz));
+        assert_eq!(Unit::named("dB"), Some(Unit::Decibels));
+        assert_eq!(Unit::named("°"), Some(Unit::Degrees));
+        assert_eq!(Unit::named("deg"), Some(Unit::Degrees));
+        assert_eq!(Unit::named("st"), Some(Unit::Semitones));
+        assert_eq!(Unit::named("ratio"), Some(Unit::Times));
+        assert_eq!(Unit::named("steps/beat"), Some(Unit::StepsPerBeat));
+        assert_eq!(Unit::named("×"), Some(Unit::Linear), "a shared word names the first");
+        assert_eq!(Unit::named("x"), None);
+        assert_eq!(Unit::named("semitones"), None);
+    }
+
+    #[test]
+    fn every_built_in_parameter_names_a_catalogue_unit() {
+        for d in deck_catalog::builtin_kinds() {
+            check_params(d).unwrap();
+        }
+        let mut d = deck_catalog::builtin_kinds().iter().find(|d| !d.params.is_empty()).unwrap().clone();
+        let mut p = d.params[0].clone();
+        p.unit = "furlongs".into();
+        d.params = vec![p].into();
+        assert!(check_params(&d).unwrap_err().contains("unit 'furlongs'"));
     }
 
     #[test]
