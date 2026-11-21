@@ -1,12 +1,13 @@
 # decisions/xr — XR: experiences, the reader's XR mode, the XR editor in the creator
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[xr]` 44 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
+Keys here: `[xr]` 45 XR in SCUTOONS (#482): experiences, surfaces, targets, scenes, entries, the reader's XR mode, the editor
 
 Opened 2026-11-10 by the XR session (#482). The ten `[xr]` lines before it, all of 2026-11-10, stay where they were written:
 `grep -n '\[xr\]' agents/decisions/deck.md` (summary: research/XR.md §5). From here on every XR statement of the owner goes into this file.
 
 ## 2026-11
+- 2026-11-21 · platform · [xr] **Thought aloud: no fixed gizmo on the stage; a more dynamic way of moving things, as in Blender.** Said when the session started on the stage gizmo (OSCT's: TransformControls handles on the selection). The handles are always a bit in the way in the deck editor. A concept for Blender's modal transforms (G / R / S, axis keys, typed values, click to confirm, Esc to cancel, no handles) went to the owner the same day; nothing built before the answer. Owner: *"Gizmo on the stage"* · *"the gizmo needs some rethinking it is always a bit in the way in the deck editor. can we find a more dynamic way like in blender?"* · → #482
 - 2026-11-21 · platform · [xr] **Next in the XR workspace: editing in the Inspector.** Built the same day: a node's name, placement, light and component parameters are fields; a change shows on the stage at once (every target of a shared entity) and is saved as a draft a moment later (autosave, as #760 wants); undo / redo in the bar. Owner, asked what next after the stage picking: *"Yes, editing"* · → #482
 - 2026-11-21 · platform · [xr] **The wire ideas belong to OSCT's Logic view; relayed to its session.** Owner: *"send the wires idea to the osct session. i need it to be done there. was my mistake to write it here"* · → #482, #763
 - 2026-11-21 · platform · [xr] **Stage picking fixed.** Owner: *"Fix stage picking"* · → #482, research/XR.md §10.8
