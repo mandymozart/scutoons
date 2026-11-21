@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
-import { DEFAULTS, clampScale, readSettings } from '../src/lib/shell/settings.ts';
+import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
+import { PRESETS, availableTabs, mainOf, panelSpecs } from '../src/lib/shell/presets.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -120,4 +121,37 @@ test('machine settings: day by default (owner 2026-11-21), every field checked',
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);
+});
+
+const TABS = ['toon', 'tree', 'inspector', 'kanon', 'moods', 'flow', 'preview', 'problems', 'timeline', 'library', 'settings'].map((id) => ({ id, name: id, icon: 'x', about: '' }));
+
+test('a workspace is a preset: its panels hold only the tabs with content, Library and Settings everywhere', () => {
+	const specs = panelSpecs('chapter', availableTabs(['tree', 'flow', 'problems'], 'catpope'), TABS);
+	const ids = specs.map((p) => p.id);
+	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
+	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
+	assert.deepEqual(specs[1].tabs, ['problems', 'flow'], 'the inspector without content is not offered');
+	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
+	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
+});
+
+test('a tab with content that no preset panel holds gets a closed panel of its own', () => {
+	const specs = panelSpecs('map', availableTabs(['tree', 'flow'], null), TABS);
+	const flow = specs.find((p) => p.id === 'flow');
+	assert.deepEqual(flow?.tabs, ['flow']);
+	assert.equal(flow?.place.closed, true);
+	assert.ok(!specs.some((p) => p.tabs?.includes('toon')), 'the Toon only with a toon');
+});
+
+test('every workspace kind has a preset; the stage holds the person’s tab, else the preset’s', () => {
+	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
+	assert.equal(mainOf('chapter', {}), null);
+	assert.equal(mainOf('chapter', { main: 'flow' }), 'flow');
+	assert.equal(mainOf('chapter', { main: null }), null);
+});
+
+test('view settings: per workspace, every field checked', () => {
+	assert.deepEqual(readViews({ chapter: { main: 'flow', clear: false }, map: { main: 3, clear: 'no' }, bad: 1 }), { chapter: { main: 'flow', clear: false }, map: {} });
+	assert.deepEqual(readViews([]), {});
+	assert.deepEqual(readSettings({ views: { home: { clear: true } } }).views, { home: { clear: true } });
 });

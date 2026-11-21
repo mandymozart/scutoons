@@ -163,7 +163,20 @@ async function until(expression, ms = 15000) {
 }
 const q = (testid) => `document.querySelector('[data-testid="${testid}"]')`;
 /** a real mouse click in the middle of the element */
+// the workspace host (#751): Save / Publish sit in the bar's Publish menu, Problems open from the status bar
+const IN_MENU = { 'save-draft': 'bar-publish', publish: 'bar-publish', 'scene-publish': 'bar-publish', 'sound-publish': 'bar-publish' };
+async function reach(selector) {
+	const id = /^\[data-testid="([^"]+)"\]$/.exec(selector)?.[1];
+	if (id === 'problems-toggle') return '[data-testid="status-counts"]';
+	if (id === 'undo' || id === 'redo') return `[data-testid="bar-${id}"]`;
+	if (id && IN_MENU[id] && !(await js(`!!document.querySelector('[data-testid="${id}"]')`))) {
+		await js(`document.querySelector('[data-testid="${IN_MENU[id]}"]')?.click(), true`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return selector;
+}
 async function click(selector) {
+	selector = await reach(selector);
 	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
 	for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
 	await sleep(250);
@@ -185,8 +198,8 @@ async function answerPublish() {
 	}
 	await answerDialog('button[type="submit"]');
 }
-/** the header's text-language switch (the only language switch) */
-const setLanguage = (l) => js(`(() => { const s = ${q('text-language-select')}; s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+/** the text-language switch (the only one, in Settings) */
+const setLanguage = (l) => js(`(async () => { if (!document.querySelector('[data-testid="text-language-select"]')) { window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', ctrlKey: true, bubbles: true })); await new Promise((r) => setTimeout(r, 400)); } const s = ${q('text-language-select')}; s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 const value = () => js(`${area}?.value ?? null`);
 const writesSince = (n) => writes.slice(n);
 const historyButton = `[...document.querySelectorAll('button')].find((b) => ['History', 'Verlauf'].includes(b.textContent.trim()))`;
@@ -249,14 +262,14 @@ try {
 	edited[target[1] - 1] += EDIT;
 	text = await value();
 	check(text === edited.join('\n'), 'the edit is exactly one changed line');
-	check(await until(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`), 'the page is dirty after the debounce');
+	check(await until(`!!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`), 'the page is dirty after the debounce');
 
 	// 4. save draft, publish → the history has both versions
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
 	// Save draft asks for a note (askDialog), a suggestion pre-filled
 	await answerDialog('button.primary'); // saved with the suggested note (version-note.ts)
-	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•') && !${q('save-draft')}.disabled`);
+	await until(`!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`);
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT season-script:catpope:1:de 200', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
@@ -272,8 +285,7 @@ try {
 		'Publish publishes the edited German script; the English one stays the same version', JSON.stringify(published));
 	// the bar's History is a group (UI-CONCEPTS E.10, every width since 2026-10-12): its Versions opens the panel
 	await js(`${historyButton}?.click()`);
-	await until(`!!document.querySelector('[data-testid="history-versions"]')`, 3000);
-	await js(`document.querySelector('[data-testid="history-versions"]')?.click(), true`);
+	await js(`document.querySelector('[data-testid="bar-history"]')?.click(), true`);
 	check(await until(`!!document.querySelector('[data-testid="history-panel"]') && !!document.querySelector('[data-testid="restore-de-${baseline[KEYS[0]].id}"]')`), 'the history lists the edited and the original version');
 	const listed = await js(`[...document.querySelectorAll('[data-testid="history-panel"] li')].length`);
 	check(listed >= 3, `history entries: ${listed} (de + en)`);
@@ -286,7 +298,7 @@ try {
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');
 	await click('[data-testid="publish"]');
 	await answerPublish(); // the note first when unsaved, then Publish confirms in-page
-	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip') && !document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
+	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip') && !document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`);
 	const live = await api('GET', `/entities/${KEYS[0]}`);
 	check(live.text === source, 'the original is published again');
 
@@ -301,7 +313,7 @@ try {
 	// 7. a toon without a script: an empty page, nothing dirty
 	await send('Page.navigate', { url: `${CREATOR}/sandbox/season/1/script` });
 	const empty = await until(`!!${area} && !!${q('script-rules-link')}`);
-	check(empty && (await value()) === '' && !(await js(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`)), 'a toon without a script: empty editor, not dirty');
+	check(empty && (await value()) === '' && !(await js(`!!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`)), 'a toon without a script: empty editor, not dirty');
 	// 8. the toon's script list (#81): the Kanon text, a script per season and per chapter – season 1's published
 	await send('Page.navigate', { url: `${CREATOR}/${TOON}/script` });
 	const scriptsListed = await until(`document.querySelectorAll('[data-testid="scripts-link"]').length > 2`);

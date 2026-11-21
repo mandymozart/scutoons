@@ -21,7 +21,7 @@ Before 2026-11-03 this set was 312 lines / ≈ 7.6k tokens and was *followed* by
 | orchestrating / starting workers / a night shift | `agents/ORCHESTRATION.md` (brief template!), `C:\Development\agents\ORCHESTRATION.md` §1–§2, §5–§6, §11 (+ `guides/`), `agents/HANDOFF.md` | 85 · 199 · 90 |
 | merging deck / shared / viewer work, or auditing | `agents/AUDIT.md`, `research/BRIDGE-AUDIT.md` §1 table | ~70 · ~40 |
 | in trouble with a tool (Windows, vite, paraglide, browser pane, MCP restart) | `agents/GOTCHAS.md` (grep it) | 79 |
-| touching UI | `DESIGN.md` (the part you build), `DOCKING.md` | 1532 · 275 |
+| touching UI | `DESIGN.md` (the part you build); the creator's host: `research/redesign/panels.html` | 1532 |
 | touching stored data, API, server | `DATA.md`, `PLATFORM.md`, `CATALOG.md`; server/docs/DATABASE.md | 652 · 942 · 271 |
 | touching items, avatar, carrier bag | `ITEMS.md`, `CATALOG.md` | 1565 · 271 |
 | touching the map / places | `MAP.md` §8 | 1107 |

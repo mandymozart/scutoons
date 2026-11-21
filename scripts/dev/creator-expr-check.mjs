@@ -153,7 +153,20 @@ async function mouse(x, y, clickCount = 1) {
 async function centre(selector) {
 	return js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
 }
+// the workspace host (#751): Save / Publish sit in the bar's Publish menu, Problems open from the status bar
+const IN_MENU = { 'save-draft': 'bar-publish', publish: 'bar-publish', 'scene-publish': 'bar-publish', 'sound-publish': 'bar-publish' };
+async function reach(selector) {
+	const id = /^\[data-testid="([^"]+)"\]$/.exec(selector)?.[1];
+	if (id === 'problems-toggle') return '[data-testid="status-counts"]';
+	if (id === 'undo' || id === 'redo') return `[data-testid="bar-${id}"]`;
+	if (id && IN_MENU[id] && !(await js(`!!document.querySelector('[data-testid="${id}"]')`))) {
+		await js(`document.querySelector('[data-testid="${IN_MENU[id]}"]')?.click(), true`);
+		await new Promise((r) => setTimeout(r, 200));
+	}
+	return selector;
+}
 async function click(selector) {
+	selector = await reach(selector);
 	const at = await centre(selector);
 	if (!at) throw new Error(`no ${selector}`);
 	await mouse(...at);
@@ -366,7 +379,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
 	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.primary');
-	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`, 5000);
+	await until(`!document.querySelector('[data-testid="save-state"]')?.classList.contains('dirty')`, 5000);
 	saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
 	const stored = (await api('GET', `/entities/${KEY}?draft=1&wrap=1`)).content.groups.find((g) => g.id === GROUP)?.slices[0].dialog[0].text.de;
 	check(saved.some((w) => w.status === 200) && stored === 'Münzen {coins} {coins >= 3: reich|arm} {map.totl}', `Save draft with only a warning: stored (“${stored}”)`);

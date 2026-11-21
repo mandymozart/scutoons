@@ -35,8 +35,6 @@
 		"check:vn-safety": "node --experimental-transform-types --no-warnings scripts/dev/vn-safety-check.mjs",
 		"check:creator-reach": "node scripts/dev/creator-reach-check.mjs",
 		"check:creator-expr": "node scripts/dev/creator-expr-check.mjs",
-		"check:creator-dock": "node scripts/dev/creator-dock-check.mjs",
-		"check:creator-flow-dock": "node scripts/dev/creator-flow-dock-check.mjs",
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
 		"check:creator-collage": "node scripts/dev/creator-collage-check.mjs",
 		"check:creator-strip": "node scripts/dev/creator-strip-check.mjs",

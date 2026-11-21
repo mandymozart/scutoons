@@ -3,7 +3,7 @@
 	// workflows/scenes/storyboard.md "A shot"): one tab at a time – Shot (what it shows), Camera (format + camera), Light,
 	// Figures (figures-inspector.svelte); the step remembers the tab (storyboard-steps.ts). Rows = PropRow, numbers =
 	// ScrubNumber, small choices = Segmented, the rest PropSelect. Every change is an edit of the chapter's storyboard
-	// (undo, autosave, Save draft in the ActionBar); the words are @scutoons/content/storyboard's vocabulary.
+	// (undo, autosave, Save in the status bar); the words are @scutoons/content/storyboard's vocabulary.
 	import { PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
 	import { ANGLES, FORMATS, LIGHT, MOVES, PROJECTIONS, SIZES, SOURCES, VIEWS } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';

@@ -1,16 +1,13 @@
-import { getContext, setContext, type Snippet } from 'svelte';
-import { panelWidth, type PanelHeight } from '@scutoons/ui';
+import { getContext, setContext } from 'svelte';
 import { chapterPlace, toonName as entryName, type SeasonPlaces, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { contentIndex, getDraft } from '$lib/api.ts';
 import { contextKey } from '$lib/utils/shared.ts';
 
 /**
- * Creator navigation (agents/DESIGN.md "Creator navigation"): ONE top bar with the breadcrumb of the full path
- * (SCUTOONS / toon / season / chapter / group / slice – the logo is the root crumb, UI-CONCEPTS E.2), a left sidebar with the children of the current level (+ the
- * Universe section) and the content. The root layout builds the crumbs of the route; a page adds deeper levels it
- * owns itself (the chapter editor: group, slice) and may replace the sidebar with its own children (the chapter tree,
- * the season's chapters). Alt+ArrowUp goes to the parent crumb, Alt+ArrowDown to the first child in the sidebar.
+ * Creator navigation: the path of the open item (toon / season / chapter / group / slice) – the bar's middle. The root
+ * layout builds the crumbs of the route; a page adds deeper levels it owns itself (the chapter editor: group, slice).
+ * Alt+ArrowUp goes to the parent crumb. A page's list is its Tree tab (`useTabs`, lib/shell/shell.svelte.ts).
  */
 export interface Crumb {
 	href: string;
@@ -23,34 +20,14 @@ let nextOwner = 0;
  *  outside it), which SvelteKit keeps in `page.route.id` ("/(app)/map") but not in the URL ("/map") */
 export const routeId = (id: string | null | undefined): string => (id ?? '/').replace(/^\/\(app\)(?=\/|$)/, '') || '/';
 
-/** a page's bottom region in the shell (the storyboard's timeline, #126): its content, height and words */
-export interface PageBottom {
-	panel: Snippet;
-	size: PanelHeight;
-	label: string;
-	icon: string;
-	resizeLabel: string;
-	unfoldLabel: string;
-}
-
 export class CreatorNav {
 	/** the route's crumbs (set by the layout) */
 	base = $state<Crumb[]>([]);
 	/** deeper crumbs a page owns (chapter editor: group, slice) */
 	extra = $state<Crumb[]>([]);
-	/** the page's own sidebar (children of the current level); null = the layout's default for the route */
-	sidebar = $state<Snippet | null>(null);
-	/** the page's own round buttons in the top bar, left of the Ask button (the chapter editor: Flow) */
-	actions = $state<Snippet | null>(null);
-	/** a page control at the right end of the crumb row (the map builder's toon filter) */
-	crumbEnd = $state<Snippet | null>(null);
-	/** the page asks for the menu as its rail (the editor's workspaces: the room is theirs); the menu's own fold button still opens it for the visit, the remembered fold is not touched */
-	rail = $state(false);
-	/** editors that scroll their own columns (AppShell mode "fill") */
+	/** the page fills the stage and scrolls its own columns (a canvas, an editor); else the stage scrolls the page */
 	fill = $state(false);
-	/** the page's bottom region (AppShell `bottom`, fill mode only – the storyboard's timeline, #126) */
-	bottom = $state<PageBottom | null>(null);
-	/** which page registered `extra` / `sidebar` / `fill` (a page leaving must not clear the next page's entries) */
+	/** which page registered `extra` / `fill` (a page leaving must not clear the next page's entries) */
 	owner = 0;
 
 	/** every toon (library, drafts included), loaded by the layout once the creator is signed in */
@@ -120,24 +97,15 @@ export function getCreatorNav(): CreatorNav {
  * Registers a page's part of the navigation while the page is mounted (call during component init).
  * `extra` is a function so the crumbs follow the page's state.
  */
-export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crumbEnd?: Snippet; extra?: () => Crumb[]; fill?: boolean; rail?: boolean; bottom?: () => PageBottom | null }) {
+export function usePageNav(options: { extra?: () => Crumb[]; fill?: boolean }) {
 	const nav = getCreatorNav();
 	const owner = ++nextOwner;
 	$effect(() => {
 		nav.owner = owner;
-		nav.sidebar = options.sidebar ?? null;
-		nav.actions = options.actions ?? null;
-		nav.crumbEnd = options.crumbEnd ?? null;
 		nav.fill = !!options.fill;
-		nav.rail = !!options.rail;
 		return () => {
 			if (nav.owner !== owner) return;
-			nav.sidebar = null;
-			nav.actions = null;
-			nav.crumbEnd = null;
 			nav.fill = false;
-			nav.rail = false;
-			nav.bottom = null;
 			nav.extra = [];
 		};
 	});
@@ -145,14 +113,4 @@ export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; crum
 		const extra = options.extra?.() ?? [];
 		if (nav.owner === owner || nav.owner === 0) nav.extra = extra;
 	});
-	// the bottom region follows the page (null: none)
-	$effect(() => {
-		const bottom = options.bottom?.() ?? null;
-		if (nav.owner === owner || nav.owner === 0) nav.bottom = bottom;
-	});
 }
-
-/** the Flow panel's width (every level: one stored width, 28rem by default, drags wider up to half the window) */
-export const flowWidth = () => dockWidth('flow', 28);
-/** a page panel's width in the shell's right dock (@scutoons/ui `useDock`): remembered per kind, folds to a rail */
-export const dockWidth = (kind: string, normalRem: number) => panelWidth(`sc-panel-width:${kind}`, normalRem, undefined, { foldable: true });

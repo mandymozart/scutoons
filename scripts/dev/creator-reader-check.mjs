@@ -1,18 +1,13 @@
 #!/usr/bin/env node
-// The creator's dock Reader and the vertical strip preview (BACKLOG 10.49, UI-CONCEPTS E.6, agents/DOCKING.md "The Reader
-// panel") in headless Chrome (own profile, removed on exit) as the local test user:
+// The creator's Preview tab (the reader) and the vertical strip preview (BACKLOG 10.49, UI-CONCEPTS E.6) in headless Chrome (own profile, removed on exit) as the local test user:
 //   - a vertical group's strip preview: the slices stacked in one reader screen (no sideways track);
-//   - the Reader opens in the dock (the viewer's draft preview in a frame, signed in by the shared cookie), says "ready";
+//   - the Preview tab opens (the viewer's draft preview in a frame, signed in by the shared cookie), says "ready";
 //   - group → group, slice and chapter → chapter (another toon too) keep the SAME panel and frame (no remount, no reload),
 //     the reader scrolls to the selected group / slice;
 //   - a saved draft reloads the frame: a draft of a sandbox chapter is saved through the editor's Save (note
 //     "reader-check (removed again)") and its version rows deleted afterwards (the dev DB as before; an interrupted run's
 //     rows are swept first);
 //   - the viewer ignores a well-formed "show" from another origin (a page on the CDN's origin framing the viewer);
-//   - several panels (BACKLOG 10.57) at 1440 + 1920: Flow · Reader side by side in their places; not room for both
-//     next to a 24rem main: the Flow (opened first) folds to its rail, "Fold the page" gives both room; a Flow box moves the
-//     main and the Reader (same frame); maximize folds everything else to rails (the Reader keeps its frame, the
-//     ActionBar stays), Esc restores. DOCK2_SHOTS=<dir> (default READER_SHOTS): dock2-*.png
 //   node scripts/dev/creator-reader-check.mjs        (creator :10000, viewer :8000, API :9000, cdn :8001, MariaDB container)
 //   SCUTOONS_READER_TOON / _CHAPTER (default toptoy 1: vertical groups), SCUTOONS_READER_SAVE (default sandbox 2)
 //   READER_SHOTS=<dir>: e6-reader-<toon>-ch<n>.png (1440, the Reader open) + e6-strip-vertical.png
@@ -135,7 +130,7 @@ async function shot(name) {
 }
 /** the dock's Reader: the same element as tagged, its mount counter, its loads, ready */
 const dock = () =>
-	js(`(() => { const d = ${q('reader-dock')}; const f = ${q('reader-frame')}; return { here: !!d, same: !!d && d === window.__readerDock, frameSame: !!f && f === window.__readerFrame, mount: d?.dataset.mount ?? null, loads: Number(d?.dataset.loads ?? 0), ready: d?.dataset.ready === 'true' }; })()`);
+	js(`(() => { const d = ${q('preview-tab')}; const f = ${q('reader-frame')}; return { here: !!d, same: !!d && d === window.__readerDock, frameSame: !!f && f === window.__readerFrame, mount: d?.dataset.mount ?? null, loads: Number(d?.dataset.loads ?? 0), ready: d?.dataset.ready === 'true' }; })()`);
 /** the viewer: where it is, and how far the page slice `index` is from the top of its screen */
 const viewerAt = (index) =>
 	inFrame(`(() => { const el = document.querySelector('.chapter-view [data-slice-index="${index}"]'); return { path: location.pathname, search: location.search, top: el ? Math.round(el.getBoundingClientRect().top) : null, y: Math.round(scrollY), shows: Number(document.documentElement.dataset.creatorShows ?? 0), mark: document.documentElement.dataset.readerCheck ?? null }; })()`);
@@ -168,9 +163,9 @@ try {
 	await js(`${q(`group-${vertical}`)}.click(), true`);
 
 	// ── the Reader opens ──
-	await js(`${q('reader-toggle')}.click(), true`);
-	check(await until(`${q('reader-dock')}?.dataset.ready === 'true' ? true : null`, 30000), 'the Reader opens in the dock, the viewer says "ready"');
-	await js(`window.__readerDock = ${q('reader-dock')}, window.__readerFrame = ${q('reader-frame')}, true`);
+	await js(`${q('bar-views')}.click(), true`); await js(`${q('views-tab-preview')}.click(), true`);
+	check(await until(`${q('preview-tab')}?.dataset.ready === 'true' ? true : null`, 30000), 'the Preview tab opens, the viewer says "ready"');
+	await js(`window.__readerDock = ${q('preview-tab')}, window.__readerFrame = ${q('reader-frame')}, true`);
 	const d0 = await dock();
 	const v0 = await untilFrame(`document.querySelector('.chapter-view [data-slice-index]') ? { path: location.pathname, draft: !!document.querySelector('[data-testid="draft-preview-mark"], .draft-mark') || localStorage.getItem('scutoons.draft-preview') === '1' } : null`, 20000);
 	check(v0 && v0.path.endsWith(`/${TOON}/chapter/${CHAPTER}`) && v0.draft, `the frame reads ${TOON} ch${CHAPTER} in the draft preview (signed in by the cookie)`, JSON.stringify(v0));
@@ -225,15 +220,15 @@ try {
 	await inFrame(`document.documentElement.dataset.readerCheck = 'before-save', true`);
 	await until(`!!${q('meta-panel')}`, 10000);
 	const edited = await js(`(() => { const label = [...document.querySelectorAll('[data-testid="meta-panel"] label')].find((l) => /^\\s*(Author|Autor)/i.test(l.textContent)); const input = label?.querySelector('input') ?? (label?.htmlFor && document.getElementById(label.htmlFor)); if (!input) return false; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(input, input.value + ' '); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
-	check(edited && (await until(`${q('save-draft')}?.textContent.includes('•') ? true : null`, 5000)), 'an edit (the author + a space) marks the chapter dirty');
+	check(edited && (await until(`${q('save-state')}?.classList.contains('dirty') ? true : null`, 5000)), 'an edit (the author + a space) marks the chapter dirty');
 	restoreNeeded = true;
-	await js(`${q('save-draft')}.click(), true`);
+	await click('[data-testid="save-draft"]');
 	await until(`!!document.querySelector('dialog.sc-dialog[open] input, dialog.sc-dialog[open] textarea')`, 5000);
 	await js(`(() => { const f = document.querySelector('dialog.sc-dialog[open] input, dialog.sc-dialog[open] textarea'); const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f), 'value').set; set.call(f, ${JSON.stringify(NOTE)}); f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
 	await sleep(200);
 	await js(`document.querySelector('dialog.sc-dialog[open] button.primary').click(), true`);
-	check(await until(`!${q('save-draft')}?.textContent.includes('•') ? true : null`, 15000), 'Save: the draft stored');
-	check(await until(`Number(${q('reader-dock')}?.dataset.loads) > ${d2.loads} && ${q('reader-dock')}?.dataset.ready === 'true' ? true : null`, 20000), 'the frame reloaded after the save and said "ready" again');
+	check(await until(`!${q('save-state')}?.classList.contains('dirty') ? true : null`, 15000), 'Save: the draft stored');
+	check(await until(`Number(${q('preview-tab')}?.dataset.loads) > ${d2.loads} && ${q('preview-tab')}?.dataset.ready === 'true' ? true : null`, 20000), 'the frame reloaded after the save and said "ready" again');
 	const v3 = await viewerAt(0);
 	const d3 = await dock();
 	check(v3 && v3.mark === null && v3.path.endsWith(`/${SAVE_TOON}/chapter/${SAVE_CHAPTER}`) && d3.same && d3.mount === d0.mount, `the reload: a fresh page of the same chapter (the mark gone), the same panel`, JSON.stringify({ v3, d3 }));
@@ -251,92 +246,6 @@ try {
 	const vf = await inFrame(`({ path: location.pathname, y: Math.round(scrollY), shows: document.documentElement.dataset.creatorShows ?? null })`);
 	check(foreignReady && vf && vf.shows === null && vf.path.endsWith(`/${TOON}/chapter/${CHAPTER}`) && vf.y === 0, `a "show" from ${OTHER}: ignored (no request, the page stays)`, JSON.stringify(vf));
 	check((await js('window.__got.length')) === 0, `no "ready" reached the foreign page (sent only to the creator's origin)`);
-
-	// ── several panels side by side (BACKLOG 10.57, agents/DOCKING.md "Several panels"): Flow + Reader together,
-	//    a click in the Flow moves the Reader, the room running out folds the least recently used, maximize ──
-	const panelsAt = () =>
-		js(`(() => { const r = (e) => { const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; const docks = [...document.querySelectorAll('.sc-shell-dock')].map((e) => ({ kind: e.dataset.kind, rail: e.classList.contains('railed'), squeezed: !!e.querySelector('[data-testid="dock-rail-squeezed"]'), ...r(e) })); const bar = document.querySelector('.sc-action-bar'); return { docks, content: r(document.querySelector('.sc-shell-content')), mainRail: !!${q('main-rail')}, rem: parseFloat(getComputedStyle(document.documentElement).fontSize), bar: bar ? getComputedStyle(bar).visibility : null, max: !!document.querySelector('.sc-app-shell.max-dock') }; })()`);
-	/** the visible part of an element (clipped by its dock panel): its centre, or null when nothing of it shows there */
-	const visibleAt = `(e) => { const b = e.getBoundingClientRect(); const d = e.closest('.sc-shell-dock')?.getBoundingClientRect() ?? b; const l = Math.max(b.left, d.left), r = Math.min(b.right, d.right), t = Math.max(b.top, d.top), bt = Math.min(b.bottom, d.bottom); if (r - l < 8 || bt - t < 8) return null; const x = (l + r) / 2, y = t + Math.min((bt - t) / 2, 16); const hit = document.elementFromPoint(x, y); return hit && e.contains(hit) ? { x, y } : null; }`;
-	const click = async (expr) => {
-		const at = await js(`(() => { const e = ${expr}; return e ? (${visibleAt})(e) : null; })()`);
-		if (!at) return false;
-		for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
-		return true;
-	};
-	const DOCK2 = process.env.DOCK2_SHOTS ?? SHOTS;
-	const shot2 = async (name) => {
-		if (!DOCK2) return;
-		const r = await send('Page.captureScreenshot', { format: 'png' });
-		writeFileSync(join(DOCK2, name), Buffer.from(r.result.data, 'base64'));
-		console.log(`     shot ${name}`);
-	};
-	for (const w of [1440, 1920]) {
-		await send('Emulation.setDeviceMetricsOverride', { width: w, height: 1000, deviceScaleFactor: 1, mobile: false });
-		await go(`/${TOON}/chapter/${CHAPTER}?flow=1`, `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`);
-		await js(`['flow', 'reader'].forEach((k) => localStorage.removeItem('sc-panel-width:' + k)), true`);
-		await js(`${q('reader-toggle')}.click(), true`);
-		await until(`${q('reader-dock')}?.dataset.ready === 'true' ? true : null`, 30000);
-		await sleep(900);
-		let p = await panelsAt();
-		const min = 24 * p.rem;
-		const ordered = p.docks.length === 2 && p.docks[0].kind === 'flow' && p.docks[1].kind === 'reader' && p.content.r <= p.docks[0].l + 1 && p.docks[0].r <= p.docks[1].l + 1;
-		check(ordered, `${w}: Flow · Reader side by side in their places, the main left of them`, JSON.stringify(p));
-		const squeezed = p.docks.filter((d) => d.squeezed).map((d) => d.kind);
-		if (squeezed.length) {
-			// not room for both next to a main of 24rem: the least recently used (the Flow, opened first) folds to its rail
-			check(squeezed.join() === "flow" && !p.docks[1].rail && p.content.w >= min / 2 - 2, `${w}: the room runs out – the Flow (opened first) folds to its rail, the Reader stays, the main keeps at least half its 24rem (${p.content.w} px)`, JSON.stringify(p));
-			await shot2(`dock2-${w}-squeezed.png`);
-			// the author folds the main: the panels take its room
-			await js(`${q('page-fold')}.click(), true`);
-			await sleep(700);
-			p = await panelsAt();
-			check(p.mainRail && p.docks.every((d) => !d.rail) && p.bar === 'visible', `${w}: "Fold the page" – the main is a rail, Flow and Reader both open (${p.docks.map((d) => d.w).join(' + ')} px), the ActionBar stays`, JSON.stringify(p));
-		} else {
-			check(p.docks.every((d) => !d.rail) && p.content.w >= min - 2, `${w}: room for all: Flow ${p.docks[0].w} + Reader ${p.docks[1].w} px, the main keeps 24rem (${p.content.w} px)`, JSON.stringify(p));
-		}
-		await shot2(`dock2-${w}-flow-reader.png`);
-		// a click on a group box in the Flow moves the main AND the Reader (the same panel and frame)
-		await js(`window.__readerDock = ${q('reader-dock')}, window.__readerFrame = ${q('reader-frame')}, true`);
-		const shows0 = (await viewerAt(0))?.shows ?? 0;
-		const before = await js('location.search');
-		const boxes = await js(`[...document.querySelectorAll('.sc-shell-dock .box.kind-group')].length`);
-		// a group box after the first (the Reader already shows the chapter's start) that shows (not under a toast)
-		const clicked = await click(`[...document.querySelectorAll('.sc-shell-dock .box.kind-group')].slice(1).find((e) => !!(${visibleAt})(e))`);
-		const moved = await until(`location.search.includes('group=') && location.search !== ${JSON.stringify(before)} ? location.search : null`, 8000);
-		const shows1 = await untilFrame(`Number(document.documentElement.dataset.creatorShows ?? 0) > ${shows0} ? Number(document.documentElement.dataset.creatorShows) : null`, 15000);
-		const dk = await dock();
-		check(clicked && moved && shows1 && dk.same && dk.frameSame, `${w}: a Flow box opens its group in the main (${moved}) and the Reader follows (show #${shows1}, the same panel and frame)`, JSON.stringify({ boxes, moved, shows0, shows1, dk }));
-		if (squeezed.length) {
-			p = await panelsAt();
-			check(p.mainRail, `${w}: the main stays folded while the Flow navigates it`, JSON.stringify(p));
-		}
-	}
-	// maximize = fold everything else (owner 2026-10-07): the Flow fills, the main and the Reader are rails; the
-	// ActionBar stays; restore brings the layout back
-	const before = await panelsAt();
-	await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-maximize"]').click(), true`);
-	await sleep(600);
-	let mx = await panelsAt();
-	const flowBox = mx.docks.find((d) => d.kind === 'flow');
-	const readerBox = mx.docks.find((d) => d.kind === 'reader');
-	check(mx.max && mx.mainRail && readerBox.rail && !flowBox.rail && flowBox.w > 1920 / 2 && mx.bar === 'visible', `maximized Flow: everything else on its rail (main, Reader), the Flow ${flowBox.w} px, the ActionBar visible`, JSON.stringify(mx));
-	const fr = await dock();
-	check(fr.same && fr.frameSame, 'maximized: the Reader on its rail keeps its panel and frame (nothing unmounts)', JSON.stringify(fr));
-	await shot2('dock2-1920-flow-maximized.png');
-	await js(`document.activeElement?.blur(), true`);
-	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
-	await sleep(600);
-	mx = await panelsAt();
-	check(!mx.max && mx.mainRail === before.mainRail && mx.docks.map((d) => `${d.kind}:${d.rail}`).join() === before.docks.map((d) => `${d.kind}:${d.rail}`).join(), 'Esc: everything as before the maximize', JSON.stringify({ before, mx }));
-	// back to the normal page: unfold the main, close the Reader and the Flow
-	if (mx.mainRail) await js(`${q('main-rail')}.querySelector('button').click(), true`);
-	await sleep(300);
-	check(!(await panelsAt()).mainRail, 'the main\'s rail unfolds it');
-	await js(`${q('reader-toggle')}.click(), ${q('flow-toggle')}.click(), true`);
-	await sleep(500);
-	check((await panelsAt()).docks.length === 0, 'Reader and Flow closed: no panel left');
 
 	if (errors.length) check(false, `page errors: ${errors.length}`, errors.slice(0, 3).join(' | '));
 } catch (e) {

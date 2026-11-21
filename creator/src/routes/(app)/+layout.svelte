@@ -5,7 +5,6 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
-		AppShell,
 		CommandPalette,
 		languageCommand,
 		linkCommands,
@@ -42,6 +41,7 @@
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
+	import StatusBar from '$lib/components/shell/status-bar.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -225,39 +225,17 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div
-	class="creator sc-tool sc-desktop-only"
-	style:--ws-left="{shell.insets.left}rem"
-	style:--ws-right="{shell.insets.right}rem"
-	style:--ws-foot="{shell.insets.foot}rem"
-	data-testid="creator"
->
+<div class="creator sc-tool sc-desktop-only" data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
-		<!-- the page host: the area's page is the workspace's background until the areas move onto the stage; its dock
-		     and bottom region stay the page's own -->
-		<AppShell
-			mode={nav.fill ? 'fill' : 'page'}
-			minContent={24}
-			dockLabel={m['creator.dock_label']()}
-			dockResizeLabel={m['creator.resize_panel']()}
-			dockUnfoldLabel={m['creator.unfold_panel']()}
-			pageLabel={nav.crumbs.at(-1)?.label}
-			pageFoldLabel={m['creator.fold_page']()}
-			pageUnfoldLabel={m['creator.unfold_page']()}
-			bottom={nav.bottom ? pageBottom : undefined}
-			bottomSize={nav.bottom?.size}
-			bottomLabel={nav.bottom?.label}
-			bottomIcon={nav.bottom?.icon}
-			bottomResizeLabel={nav.bottom?.resizeLabel}
-			bottomUnfoldLabel={nav.bottom?.unfoldLabel}
-		>
-			{#snippet topbar()}
-				<ShellBar {path} languages={textLanguages.languages} source={textLanguages.source} {reader} page={nav.actions ?? undefined} />
-			{/snippet}
+		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
+		     panels and the status bar float on it, and the stage never gives way to them -->
+		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} data-testid="stage">
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
-			{#key toonId}{@render children()}{/key}
-		</AppShell>
-		<Workspace kind={workspace} tree={nav.sidebar} toon={toonId} />
+			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
+		</div>
+		<ShellBar {path} {reader} />
+		<Workspace kind={workspace} toon={toonId} />
+		<StatusBar />
 		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
@@ -266,31 +244,47 @@
 	<InstallBar {install} app={APP_NAME} labels={pwaLabels(getLocale())} hidden={pwa.updateReady} />
 </div>
 
-{#snippet pageBottom()}{@render nav.bottom?.panel()}{/snippet}
-
 <style>
 	.creator {
 		--cyan: var(--primary-cyan);
 		--muted: var(--text-muted);
 		--error: var(--state-error);
 		--warn: var(--state-warning);
-		--action-bar-height: var(--tool-bar-height);
 		/* the bar's row: the pills and a gap above and below (the panels start a gap under it) */
 		--shell-top: calc(var(--control-height) + 1.4rem);
 		--top: var(--shell-top);
+		/* the status bar along the bottom and the room it takes (the panels end above it) */
+		--status-height: calc(var(--control-height) + 0.2rem);
+		--status-room: calc(var(--status-height) + 1rem);
 		min-height: 100dvh;
 	}
-	/* the page gives way to the panels at the walls (Workspace sets the room) */
-	.creator :global(.sc-shell-frame) {
-		padding-left: var(--ws-left, 0);
-		padding-right: var(--ws-right, 0);
-		transition: padding 0.18s ease;
-	}
-	/* the bar lies over the panel layer (workspace.svelte, z 40), so its menus (☰, the tab list) open over every panel (#750) */
-	.creator :global(.sc-shell-top) {
-		z-index: 50;
-		border-bottom: 0;
+	.stage {
+		position: fixed;
+		inset: 0;
+		box-sizing: border-box;
+		padding-bottom: var(--status-room);
+		overflow: auto;
 		background: var(--editor-stage);
+		color: var(--editor-text);
+	}
+	/* a view clear of the bar keeps its content under the bar's row (the stage itself still runs under it) */
+	.stage.clear {
+		padding-top: var(--shell-top);
+	}
+	.stage.fill {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.stage-page {
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
+	}
+	.stage.fill .stage-page {
+		flex: 1;
+		min-height: 0;
+		height: 100%;
 	}
 	:global(html[data-motion='reduced'] *),
 	:global(html[data-panel-transitions='off'] [data-float]) {

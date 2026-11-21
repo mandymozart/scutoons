@@ -11,6 +11,7 @@
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
+	import PagePublish from '$lib/components/shell/page-publish.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
@@ -99,9 +100,7 @@
 	}
 	usePageNav({
 		fill: true,
-		rail: true,
-		extra: () => [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }],
-		actions: topBar
+		extra: () => [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }]
 	});
 
 	// ── the split: the deck on the right (remembered width, a Divider); below ~900 px they stack ──
@@ -114,10 +113,9 @@
 </script>
 
 {#snippet topBar()}
-	<button type="button" class="sc-round" disabled={!canPublish} onclick={publish} title={canPublish ? m['creator.sound_publish']() : m['creator.sound_publish_needs']()} aria-label={m['creator.sound_publish']()} data-testid="sound-publish">
-		<Icon name="upload-cloud" size="1rem" />
-	</button>
+	<button type="button" class:primary={canPublish} disabled={!canPublish} onclick={publish} title={canPublish ? m['creator.sound_publish']() : m['creator.sound_publish_needs']()} data-testid="sound-publish"><Icon name="upload-cloud" size="1rem" />{m['creator.sound_publish']()}</button>
 {/snippet}
+<PagePublish publish={topBar} />
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { ActionBar, Badge, GroupBar, confirmDialog, region, type GroupBarItem } from '@scutoons/ui';
+	import { Badge, Icon, confirmDialog, region } from '@scutoons/ui';
 	import type { ContentVersion, SceneDocument, WrappedContent } from '@scutoons/api';
 	import { scenesApi } from '$lib/api.ts';
 	import { NO_TOON, filterRows, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons, type PublishOutcome, type SceneFilter, type SceneRow } from '$lib/editor/scenes.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SceneDetail from '$lib/components/scenes/scene-detail.svelte';
@@ -102,20 +103,25 @@
 		await Promise.all([reload(), load(sceneId)]);
 	}
 
-	const items = $derived<GroupBarItem[]>([
-		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), primary: canPublish, disabled: !canPublish, run: () => void publish(), testid: 'scene-publish' }
-	]);
+	usePageDoc(() => ({ publish: publishMenu }));
 	const states = $derived([
 		{ value: 'all' as const, label: m['creator.scenes_all']() },
 		{ value: 'draft' as const, label: m['creator.scenes_draft']() },
 		{ value: 'published' as const, label: m['creator.scenes_published']() }
 	]);
 
-	usePageNav({ sidebar: list, extra: () => (row ? [{ href: sceneHref(row.id), label: sceneTitle(row.facts) }] : []) });
+	useTabs(() => ({ tree: list }));
+	usePageNav({ extra: () => (row ? [{ href: sceneHref(row.id), label: sceneTitle(row.facts) }] : []) });
 </script>
 
 {#snippet badge(state: SceneRow['state'])}
 	{#if state === 'published'}<Badge tone="published">{m['creator.scenes_published']()}</Badge>{:else if state === 'draft'}<Badge tone="draft">{m['creator.scenes_draft']()}</Badge>{:else}<span title={m['creator.scenes_unpublished']()}><Badge tone="soon">{m['creator.scenes_draft']()}</Badge></span>{/if}
+{/snippet}
+
+{#snippet publishMenu()}
+	<div class="publish-menu">
+		<button type="button" class:primary={canPublish} disabled={!canPublish} onclick={() => void publish()} data-testid="scene-publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
+	</div>
 {/snippet}
 
 {#snippet list()}
@@ -164,14 +170,13 @@
 			<p class="sc-empty">{m['creator.loading']()}</p>
 		{/if}
 	</main>
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet groups()}
-			<GroupBar {items} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-	</ActionBar>
 </div>
 
 <style>
+	.publish-menu {
+		display: flex;
+		padding: var(--space-05);
+	}
 	.scene-page {
 		padding: 1.5rem 1rem;
 		max-width: 60rem;

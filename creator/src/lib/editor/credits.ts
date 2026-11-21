@@ -1,6 +1,6 @@
 // Credits editor: three language-neutral entities edited on one page – the toon's `credits:<toon>` and the global
 // `people` + `roles` (see @scutoons/content credits.ts). All three are ContentDocs with the single locale `_`, saved /
-// published together through the page's ActionBar.
+// published together by the page.
 import {
 	entities,
 	NEUTRAL_LOCALE,

@@ -134,7 +134,7 @@ try {
 	const loop = await until(`(() => { const c = [...document.querySelectorAll('[data-testid="event-2"] .sc-chip')].map((x) => x.innerText.trim()); return c.length ? c : null; })()`, 8000);
 	check(loop?.some((x) => /endless loop|endlosschleife/i.test(x)), 'group C: the divert back with no way out is "endless loop"', JSON.stringify(loop));
 	// the Flow panel (owner 2026-10-06, read-only): the same statuses as the chips; a box opens its group
-	await js(`${q('flow-toggle')}.click(), true`);
+	await js(`${q('bar-views')}.click(), true`); await js(`${q('views-tab-flow')}.click(), true`);
 	// the level follows the selection (group C open: its group level, every event of its script); then up to the chapter
 	const groupLevel = await until(`document.querySelector('[data-testid="flow-panel"]')?.dataset.level === 'group' && document.querySelector('[data-testid="flow-node-g2e1"]')?.className.includes('kind-run') ? true : null`, 20000);
 	check(groupLevel, 'Flow panel: group C open – its group level (the message as a run)');

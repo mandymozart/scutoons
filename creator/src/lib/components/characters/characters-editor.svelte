@@ -53,7 +53,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { useLentPanels } from '$lib/shell/shell.svelte.ts';
+	import { useTabs } from '$lib/shell/shell.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import CharacterEditor from '$lib/components/characters/character-editor.svelte';
 	import CharacterCards from '$lib/components/characters/character-cards.svelte';
@@ -269,9 +269,6 @@
 		get fill() {
 			return !!selectedCharacter;
 		},
-		get sidebar() {
-			return selectedCharacter ? tree : undefined;
-		},
 		extra: () => {
 			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
 			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: shownCharacterName(c) || c.id }] : [];
@@ -290,7 +287,7 @@
 	});
 	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
 	// the Moods panel's tabs: the mood words always, the moods once a character is open (its workspace lends them)
-	useLentPanels(() => ({ vocabulary: vocabularyTab, moods: selectedCharacter ? null : moodsHint }));
+	useTabs(() => ({ tree: selectedCharacter ? tree : null, vocabulary: vocabularyTab, moods: selectedCharacter ? null : moodsHint }));
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
