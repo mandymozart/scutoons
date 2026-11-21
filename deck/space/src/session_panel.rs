@@ -22,6 +22,8 @@ pub struct Facts<'a> {
     pub place: &'a Place,
     pub toons: &'a [String],
     pub chapters: &'a [u32],
+    /// the picked chapter's jump places (`labels`)
+    pub labels: &'a [String],
     pub readers: &'a Readers,
     /// the session's live cameras as the relay client last heard them
     pub cameras: &'a [protocol::LiveCamera],
@@ -54,7 +56,7 @@ pub fn panel(f: &Facts) -> Panel {
         None => cameras_link(f.base, f.code, Some(f.relay)),
     };
     let cameras_qr = if cameras_link.is_empty() { Default::default() } else { crate::pairing::qr(&cameras_link) };
-    Panel { code: f.code.to_string(), state: f.state.to_string(), place: f.place.clone(), toons: f.toons.to_vec(), chapters: f.chapters.to_vec(), link, qr, readers, last, cameras, cameras_link, cameras_qr, picked }
+    Panel { code: f.code.to_string(), state: f.state.to_string(), place: f.place.clone(), toons: f.toons.to_vec(), chapters: f.chapters.to_vec(), labels: f.labels.to_vec(), link, qr, readers, last, cameras, cameras_link, cameras_qr, picked }
 }
 
 /// `GET <api>/library/toons` – the toons a reader sees (the public list, no draft)
@@ -65,6 +67,17 @@ pub fn toons_url(api: &str) -> String {
 /// `GET <api>/library/toons/<toon>` – a toon with its seasons and their listed chapters
 pub fn toon_url(api: &str, toon: &str) -> String {
     format!("{}/library/toons/{}", api.trim().trim_end_matches('/'), encode(toon.trim()))
+}
+
+/// `GET <api>/library/toons/<toon>/chapters/<n>` – a chapter with its groups
+pub fn chapter_url(api: &str, toon: &str, chapter: u32) -> String {
+    format!("{}/chapters/{chapter}", toon_url(api, toon))
+}
+
+/// a chapter's jump places (deck-core `places`: its groups' labels, in order, each once)
+pub fn labels(json: &str) -> Result<Vec<String>, String> {
+    let v: Value = serde_json::from_str(json).map_err(|e| format!("the chapter: {e}"))?;
+    Ok(deck_core::places::chapter_labels(&v))
 }
 
 /// the toons' ids in the list's order (`GET /library/toons`: `[{ id, … }]`)
@@ -122,7 +135,7 @@ mod tests {
         let r = readers();
         let place = Place { toon: "catpope".into(), chapter: Some(3), label: "dialog-start".into() };
         let (toons, chapters) = (vec!["catpope".to_string()], vec![0, 1, 2, 3]);
-        let f = Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "connected as c1", place: &place, toons: &toons, chapters: &chapters, readers: &r, cameras: &[], picked: None };
+        let f = Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "connected as c1", place: &place, toons: &toons, chapters: &chapters, labels: &[], readers: &r, cameras: &[], picked: None };
         let p = panel(&f);
         assert_eq!(p.driver().as_deref(), Some("Mira"), "the driving reader by name");
         assert_eq!(p.readers_line(), "2 linked readers · Mira drives");
@@ -138,7 +151,7 @@ mod tests {
     fn no_link_and_no_qr_until_a_toon_and_a_chapter_are_picked() {
         let r = Readers::default();
         for place in [Place::default(), Place { toon: "catpope".into(), chapter: None, label: "x".into() }, Place { toon: " ".into(), chapter: Some(1), label: String::new() }] {
-            let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &[], picked: None });
+            let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], labels: &[], readers: &r, cameras: &[], picked: None });
             assert_eq!((p.link.as_str(), p.qr.n), ("", 0), "{place:?}");
         }
         let start = Place { toon: "catpope".into(), chapter: Some(0), label: "  ".into() };
@@ -156,6 +169,18 @@ mod tests {
         assert!(toons("{}").is_err() && chapters("[]").is_err() && chapters("not json").is_err());
     }
 
+    #[test]
+    fn a_chapter_s_labels_are_the_panel_s_places_to_pick() {
+        assert_eq!(chapter_url("https://api.scutoons.com/api/", "cat pope", 3), "https://api.scutoons.com/api/library/toons/cat%20pope/chapters/3");
+        let chapter = r#"{ "number": 3, "groups": [{ "label": "dialog-start" }, {}, { "label": "harbour" }, { "label": "dialog-start" }] }"#;
+        let found = labels(chapter).unwrap();
+        assert_eq!(found, ["dialog-start", "harbour"], "in order, each once");
+        assert!(labels("not json").is_err());
+        let (place, r) = (Place { toon: "catpope".into(), chapter: Some(3), label: "harbour".into() }, Readers::default());
+        let p = panel(&Facts { base: "https://scutoons.com", code: "", relay: "", state: "", place: &place, toons: &[], chapters: &[3], labels: &found, readers: &r, cameras: &[], picked: None });
+        assert_eq!(p.labels, ["dialog-start", "harbour"], "the sheet lists the chapter's labels");
+    }
+
     /// the session's live cameras: each with its name and who holds it, the list's link a phone opens and its QR
     #[test]
     fn the_cameras_and_the_list_s_qr() {
@@ -166,13 +191,13 @@ mod tests {
         ]))
         .unwrap();
         let (place, r) = (Place::default(), Readers::default());
-        let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &cams, picked: None });
+        let p = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], labels: &[], readers: &r, cameras: &cams, picked: None });
         assert_eq!(p.cameras.iter().map(deck_ui::session::camera_line).collect::<Vec<_>>(), ["Duet · held by Mira", "scene:duet > shot:close · free", "scene:wide · c7 away"]);
         assert_eq!(p.cameras_link, "https://scutoons.com/live/cameras?live=A7K2");
         assert!(p.cameras_qr.n > 0);
-        let one = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &cams, picked: Some("scene:duet > shot:close") });
+        let one = panel(&Facts { base: "https://scutoons.com", code: "A7K2", relay: "", state: "", place: &place, toons: &[], chapters: &[], labels: &[], readers: &r, cameras: &cams, picked: Some("scene:duet > shot:close") });
         assert_eq!((one.picked, one.cameras_link.as_str()), (Some(1), "https://scutoons.com/live/cameras/scene%3Aduet%20%3E%20shot%3Aclose?live=A7K2"), "a camera picked: its own QR");
-        let none = panel(&Facts { base: "https://scutoons.com", code: "", relay: "", state: "", place: &place, toons: &[], chapters: &[], readers: &r, cameras: &[], picked: None });
+        let none = panel(&Facts { base: "https://scutoons.com", code: "", relay: "", state: "", place: &place, toons: &[], chapters: &[], labels: &[], readers: &r, cameras: &[], picked: None });
         assert!(none.cameras_link.is_empty() && none.cameras_qr.n == 0, "no session: no link");
     }
 }

@@ -1110,19 +1110,6 @@ export interface StoryEventsIndex {
 	toons: { id: string; chapters: { number: number; events: StoryEventEntry[]; choices: StoryChoiceEntry[] }[] }[];
 }
 
-/**
- * a chapter's jump places: its groups' labels, in order, each once (a jump `{ chapter, label }` lands at that group) – the
- * creator's jump targets (jump-places.svelte.ts) and the conductor's linked-reader picker (#529) read the same list
- */
-export function jumpLabels(groups: readonly unknown[] | null | undefined): string[] {
-	const out: string[] = [];
-	for (const g of groups ?? []) {
-		const label = (g as { label?: unknown } | null)?.label;
-		if (typeof label === 'string' && label && !out.includes(label)) out.push(label);
-	}
-	return out;
-}
-
 /** a chapter's pictures from its groups (scenes in place of their refs) and thumbnail – what the server's flow index lists */
 export function chapterPictures(groups: readonly any[], thumbnail?: unknown): ChapterPictures {
 	const labels: Record<string, string> = {};

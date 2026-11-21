@@ -25,8 +25,6 @@ pub enum Typing {
     Label(String),
     /// a client's name (its id)
     Nick(String),
-    /// #531: the label a linked reader starts at (the Session sheet)
-    ReaderLabel,
     /// #537: a row's name (its id); the piece picker's query (or, without a book, the piece typed)
     RowName(String),
     /// a column's name, a group's, typed in its head
@@ -142,7 +140,6 @@ impl Host {
                         self.status = said;
                         self.send(out);
                     }
-                    Typing::ReaderLabel => self.session.place.label = text.trim().to_string(),
                     Typing::RowName(id) => {
                         let at = self.shown().rows.iter().position(|r| r.id == id);
                         self.edit_rows(&deck_show::rows::Edit::Rename { id: id.clone(), to: text });

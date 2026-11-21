@@ -22,6 +22,10 @@
 			"types": "./src/history.ts",
 			"default": "./src/history.ts"
 		},
+		"./places": {
+			"types": "./src/places.ts",
+			"default": "./src/places.ts"
+		},
 		"./hand": {
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"

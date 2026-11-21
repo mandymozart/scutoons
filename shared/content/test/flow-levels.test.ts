@@ -2,7 +2,7 @@
 // SCUTOONS, dead things.   node --experimental-transform-types --no-warnings --test test/flow-levels.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterExits, jumpLabels, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, groupLayout, rendererOf, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
+import { chapterExits, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, groupLayout, rendererOf, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
 
 const msg = (text: string, character?: string) => ({ type: 'showMessage', params: { text, ...(character ? { character } : {}) } });
 const join = (character: string, persona?: string) => ({ type: 'joinScene', params: { characters: [{ character, ...(persona ? { persona } : {}), variant: 'avatar' }] } });
@@ -341,7 +341,3 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 	assert.deepEqual(targetPictures({ type: 'season', value: '2' }), {});
 });
 
-test("a chapter's jump places: its groups' labels in order, each once – unlabelled and empty ones are none (#529)", () => {
-	assert.deepEqual(jumpLabels([{ label: 'start' }, {}, { label: '' }, { label: 'harbour' }, { label: 'start' }, null, { label: 3 }]), ['start', 'harbour']);
-	assert.deepEqual(jumpLabels(undefined), []);
-});

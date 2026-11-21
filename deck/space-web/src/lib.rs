@@ -267,6 +267,13 @@ pub fn units_parse(text: &str, unit: &str) -> Vec<String> {
     Unit::of_id(unit).and_then(|u| parse(text, u)).map_or_else(Vec::new, |(v, u)| vec![v.to_string(), u.id().to_string()])
 }
 
+/// deck-core `places::jump_labels`: a chapter's `groups` (JSON list) → its jump places, in order, each once
+#[wasm_bindgen]
+pub fn jump_labels(groups: &str) -> Result<Vec<String>, JsValue> {
+    let g: Vec<serde_json::Value> = serde_json::from_str(groups).map_err(err)?;
+    Ok(deck_core::places::jump_labels(&g))
+}
+
 /// deck-core `history` for the creator's History (#687): `versions` = `[{ id, author, at_ms, message }]` → its steps as JSON
 #[wasm_bindgen]
 pub fn history_steps(versions: &str) -> Result<String, JsValue> {
