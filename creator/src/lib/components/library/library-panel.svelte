@@ -9,6 +9,8 @@
 	import AssetDetails from '$lib/components/library/asset-details.svelte';
 	import LibraryGrid from '$lib/components/library/library-grid.svelte';
 	import LibraryMenu from '$lib/components/library/library-menu.svelte';
+	import LibraryOpenings from '$lib/components/library/library-openings.svelte';
+	import { openings } from '$lib/shell/openings.svelte.ts';
 	import LibraryToolbar from '$lib/components/library/library-toolbar.svelte';
 
 	/**
@@ -51,6 +53,7 @@
 		const here = library.scope !== 'all' && library.toon ? all.filter((p) => p.toon === library.toon) : all;
 		return here.filter((p) => matches(p, library.query));
 	});
+	const openable = $derived(openings.groups(library.query, library.scope !== 'all' ? library.toon : null).reduce((n, g) => n + g.rows.length, 0));
 
 	const typing = (e: KeyboardEvent) => e.target instanceof HTMLElement && !!e.target.closest('input, textarea, select, [contenteditable]');
 
@@ -141,7 +144,7 @@
 				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k && !entitiesOpen} onclick={() => ((library.kind = k), (entitiesOpen = false))} data-testid="kind-{k}">{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
 			{/each}
 			{#if !library.pick}
-				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={entitiesOpen} onclick={() => (entitiesOpen = !entitiesOpen)} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length}</span></button>
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={entitiesOpen} onclick={() => (entitiesOpen = !entitiesOpen)} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length + openable}</span></button>
 			{/if}
 		</div>
 		<LibraryToolbar />
@@ -158,11 +161,7 @@
 
 	<div class="body">
 		{#if entitiesOpen}
-			<ul class="places">
-				{#each entities as p (p.address)}
-					<li><a href={p.href} title={p.address}><Icon name={p.icon} size="1rem" /><span class="name">{p.label}</span>{#if p.hint && p.group !== 'toon'}<span class="hint">{p.hint}</span>{/if}</a></li>
-				{/each}
-			</ul>
+			<LibraryOpenings places={entities} query={library.query} toon={library.scope !== 'all' ? library.toon : null} onkind={(k) => ((library.kind = k), (entitiesOpen = false))} onnote={(text) => (note = text)} />
 		{:else if library.status === 'error'}
 			<p class="sc-empty">{m['library.load_failed']({ reason: library.error })}</p>
 		{:else if library.status === 'ready' && !view?.total}
@@ -318,36 +317,5 @@
 		background: color-mix(in srgb, var(--editor-surface) 80%, transparent);
 		color: var(--editor-accent);
 		pointer-events: none;
-	}
-	.places {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-	.places a {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-height: var(--editor-tree-row);
-		padding: 0 0.3rem;
-		border-radius: var(--editor-radius);
-		color: var(--editor-text);
-		text-decoration: none;
-		text-shadow: var(--editor-halo);
-	}
-	.places a:hover {
-		background: var(--editor-hover);
-	}
-	.name {
-		flex: 1 1 auto;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.hint {
-		flex: none;
-		color: var(--editor-muted);
-		font-size: var(--editor-small);
 	}
 </style>

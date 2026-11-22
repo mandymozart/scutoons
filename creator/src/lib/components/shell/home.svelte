@@ -46,11 +46,11 @@
 			const list = nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) }));
 			const result = await publishTree({ kind: 'all', toons: list }, m['creator.publish_tree_title_all']());
 			if (result) {
-				toast(result.message, { type: result.leftOut?.length ? 'error' : result.published.length ? 'success' : 'info' });
+				toast(result.message, { type: result.leftOut?.length ? 'error' : result.published.length ? 'success' : 'info', kind: 'publish' });
 				void loadPending();
 			}
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'publish' });
 		} finally {
 			publishing = false;
 		}

@@ -144,6 +144,24 @@ export function hrefOf(address: string): string | null {
 	return null;
 }
 
+/**
+ * An address as the Log's scope: a path of `word/id` pairs, a toon's items under `toon/<id>`, a chapter under its season
+ * when `seasonOf` knows it (`chapter:catpope:3` → `toon/catpope/season/1/chapter/3`); any other `kind:id` → `kind/id`.
+ */
+export function scopeOf(address: string | null | undefined, seasonOf?: (toon: string, chapter: number) => number | null | undefined): string | null {
+	if (!address) return null;
+	const ref = parseEntityKey(address);
+	if (ref?.toon && (ref.kind === 'toon' || ref.kind === 'season' || ref.kind === 'chapter' || ref.kind === 'storyboard')) {
+		const toon = `toon/${ref.toon}`;
+		if (ref.kind === 'toon') return toon;
+		if (ref.kind === 'season') return `${toon}/season/${ref.number}`;
+		const season = seasonOf?.(ref.toon, ref.number ?? 0);
+		const chapter = `${toon}${season != null ? `/season/${season}` : ''}/chapter/${ref.number}`;
+		return ref.kind === 'storyboard' ? `${chapter}/storyboard` : chapter;
+	}
+	return address.split(':').filter(Boolean).join('/') || null;
+}
+
 /** an address typed by hand (`character:catpope`, `chapter:catpope:3`): its page when it is one */
 export function resolveTyped(text: string): string | null {
 	const address = text.trim();

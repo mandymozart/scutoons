@@ -1,27 +1,26 @@
 <script lang="ts">
-	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
 	import { Icon, type GroupBarItem } from '@scutoons/ui';
-	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
+	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import type { PublishScope } from '$lib/editor/publish-tree.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import { useProblems } from '$lib/log/problems.svelte.ts';
+	import { problemMessage, problemPlace } from '$lib/log/problem-words.ts';
 	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import type { HelpPage } from '$lib/components/page/page-help.svelte';
-	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
+	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
 
 	/**
-	 * The documents of a page (season, toon settings, characters, the map …): it hands the shell its save state, its
-	 * Publish and History (the bar's menus) and its Problems (a panel tab), autosave + recover, missing-locale
-	 * bars (only the blocking ones stay in the flow – E.1), the leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs`
+	 * The documents of a page (season, toon settings, characters, the map …): every edit saves on its own (useAutosave),
+	 * it hands the shell its Publish and History (the bar's menus) and its Problems (a panel tab), the local copy +
+	 * recover, missing-locale bars (only the blocking ones stay in the flow – E.1) and Ctrl+S / Ctrl+Z (outside a field). `docs`
 	 * are validated, saved and published; `companions()` are files that follow them (the chapter files whose status
 	 * mirrors the season) – saved when dirty, published with the docs; `along()` are files edited here along with them (a
 	 * score's custom collage presets) – companions that also keep a local copy while dirty and offer it back on the next
@@ -84,8 +83,8 @@
 	const redo = () => void pageRedo(docs);
 	const loaded = $derived(docs.every((d) => !d.loading));
 	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
-	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
+	useAutosave(session);
 
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
@@ -122,12 +121,9 @@
 	/** a page entry or a selection's action as a button (a group gives its actions) */
 	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
-	// the bar: ↶ ↷, Publish and History; the status bar: the save state and the counts; Problems is a panel tab
-	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, save: () => session.saveDraft(), publish: publishTab, docs, undo, redo }));
-	useTabs(() => ({ problems: loaded ? problemsTab : null }));
-
-	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
-	beforeNavigate(leaveGuard(() => anyDirty));
+	// the bar: ↶ ↷, Publish (its dot) and History; the status bar: "saving…" and the counts; Problems is a panel tab
+	usePageDoc(() => ({ saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, publish: publishTab, docs, undo, redo }));
+	useProblems(() => (loaded ? { problems, docs, home: main?.entity, place: (p) => problemPlace(p, main?.entity), message: problemMessage, ongoto } : null));
 
 	$effect(() => {
 		// the docs always (a clean one drops its copy); the files edited along only while dirty – their copy outlives a
@@ -138,8 +134,8 @@
 		return () => clearTimeout(timer);
 	});
 
-	/** Ctrl+S saves (with the note dialog); undo / redo outside a field (lib/editor/editor-keys.ts) */
-	const onKeydown = (event: KeyboardEvent) => editorKeys(event, { save: () => session.saveDraft(), undo, redo });
+	/** Ctrl+S saves at once (no wait for the pause); undo / redo outside a field (lib/editor/editor-keys.ts) */
+	const onKeydown = (event: KeyboardEvent) => editorKeys(event, { save: () => void session.flush(), undo, redo });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -160,10 +156,7 @@
 {#snippet publishTab()}
 	<div class="publish" data-testid="publish-panel">
 		<div class="row">
-			<button type="button" class:secondary={!anyDirty} disabled={anySaving} onclick={() => session.saveDraft()} data-testid="save-draft">
-				<Icon name="save" />{anySaving ? m['creator.saving']() : m['creator.save_short']()}{#if anyDirty}<span class="dot" aria-hidden="true"></span>{/if}
-			</button>
-			<button type="button" class="secondary" disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish">
+			<button type="button" onclick={() => session.publishAll()} data-testid="publish">
 				<Icon name="upload-cloud" />{publishLabel(toon)}{#if unpublished}<span class="dot" aria-hidden="true"></span>{/if}
 			</button>
 		</div>
@@ -189,9 +182,6 @@
 	</div>
 {/snippet}
 
-{#snippet problemsTab()}
-	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} /></div>
-{/snippet}
 
 <style>
 	.status-end {
@@ -229,10 +219,6 @@
 		min-height: 0;
 		padding: 0;
 		max-width: none;
-	}
-	.side-panel {
-		box-sizing: border-box;
-		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.publish {
 		display: flex;

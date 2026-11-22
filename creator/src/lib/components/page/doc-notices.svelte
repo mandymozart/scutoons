@@ -7,8 +7,8 @@
 
 	/**
 	 * An editor page's blocking problems – the only bars left in the page flow (UI-CONCEPTS E.1; COMPONENTS.md step 11:
-	 * meta pages and the chapter editor share it): an autosave to recover, a save conflict (Reload / Overwrite). Unsaved changes = the Save button's dot, the not-live languages = the ActionBar's
-	 * file-status chip, Saved / Published / errors = toasts (DocSession). Events' hidden ids: nothing shown.
+	 * meta pages and the chapter editor share it): a local copy to recover, a save conflict (Reload / Overwrite). Edits
+	 * save on their own, what is not live is the Publish pill's dot, Saved / Published / errors are Log lines (DocSession).
 	 */
 	let { session, docs }: { session: DocSession; docs: ContentDoc[] } = $props();
 

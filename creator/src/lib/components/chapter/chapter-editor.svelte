@@ -1,15 +1,14 @@
 <script lang="ts">
 	import type { VariantMedia } from '@scutoons/media';
-	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { onMount, tick, untrack } from 'svelte';
 	import { Icon, confirmDialog } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
-	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
+	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys, isField } from '$lib/editor/editor-keys.ts';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
@@ -70,7 +69,9 @@
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import { useProblems } from '$lib/log/problems.svelte.ts';
+	import { problemMessage, problemPlace } from '$lib/log/problem-words.ts';
+	import { log } from '$lib/log/log.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import PreviewTab from '$lib/components/reader/preview-tab.svelte';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
@@ -205,7 +206,6 @@
 		...(worldMap.dirty ? [worldMap] : []),
 		...(colorations.dirty ? [colorations] : [])
 	]);
-	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	/**
 	 * the Recover bars' documents: the page's, and the presets while clean – autosaved only while dirty, so a reload or a
 	 * crash leaves a copy that the load offers next to the chapter's, whose pieces may name its ids (research/COLLAGE.md
@@ -331,8 +331,16 @@
 		},
 		locale: readerLocale
 	});
-	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, groupLabel: (i: number) => groupName(groups[i], i), ongoto: gotoProblem });
-	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, problems: problemsTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
+	const groupLabel = (i: number) => groupName(groups[i], i);
+	useProblems(() => ({ problems, docs: allDocs, home: chapter.entity, place: (p) => problemPlace(p, chapter.entity, groupLabel), message: problemMessage, ongoto: gotoProblem }));
+	// the Log's Selection scope: the picked group or slice, as a problem's path inside the chapter
+	$effect(() => {
+		const item = log.item;
+		const group = view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1;
+		log.selection = item && group >= 0 ? `${item}/groups/${group}${view.section === 'slice' && view.sliceIndex >= 0 ? `/slices/${view.sliceIndex}` : ''}` : null;
+		return () => (log.selection = null);
+	});
+	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
 	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
@@ -419,7 +427,7 @@
 			area.removeEventListener('touchcancel', onEnd);
 		};
 	}
-	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
+	/** autosave / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
 		// Publish lists the chapter and its files with drafts (BACKLOG 10.60)
@@ -433,6 +441,7 @@
 		afterSave: () => refreshImages(),
 		errorCount: () => errorCount
 	});
+	useAutosave(session);
 
 	/** the edited document: the chapter (its groups inline – the scene documents went 2026-10-19) */
 	const activeDoc = $derived<ContentDoc | null>(chapter);
@@ -801,25 +810,19 @@
 		await clipboard.copyFromMenu(action === 'cut');
 		if (action === 'duplicate') await clipboard.pasteFromMenu(false);
 	}
-	/** the bar: Problems and the slice stepper, then Save · History (undo, redo, versions) · Publish · More */
-	// the bar: ↶ ↷, Publish and History; the status bar: the save state and the counts
+	// the bar: ↶ ↷, Publish (its dot) and History; the status bar: "saving…" and the counts
 	usePageDoc(() => ({
-		dirty: anyDirty,
-		saving: anySaving,
+		saving: anySaving || session.saving,
 		errors: errorCount,
 		warnings: warningCount,
 		unpublished: liveFiles.some((f) => f.doc.unpublished.length > 0),
-		save: () => session.saveDraft(),
 		publish: publishMenu,
 		docs: activeDoc && activeDoc !== chapter ? [activeDoc, chapter] : [chapter],
 		undo: undoLast,
 		redo: redoLast
 	}));
 
-	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
-	// unsaved changes: leaving asks in-page; lib/editor/ask.ts
-	beforeNavigate(leaveGuard(() => anyDirty));
-
+	// ── The local copy, keyboard ────────────────────────────────────────────────────────────────────────
 	$effect(() => {
 		const docs = allDocs;
 		for (const d of docs) void JSON.stringify(d.data);
@@ -894,9 +897,8 @@
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const key = event.key.toLowerCase();
-		// Ctrl+S saves (no note dialog); undo / redo only outside a field – in one, they are the browser's (owner
-		// 2026-10-03, COMPONENTS.md 4.4.1); lib/editor/editor-keys.ts
-		if (editorKeys(event, { save: () => session.saveAll(), undo: undoLast, redo: redoLast })) return;
+		// Ctrl+S saves at once; undo / redo only outside a field – in one, they are the browser's (lib/editor/editor-keys.ts)
+		if (editorKeys(event, { save: () => void session.flush(), undo: undoLast, redo: redoLast })) return;
 		if (isField(event.target) || view.section !== 'slice') return;
 		// the keys act on the LIVE region only (DESIGN.md "Selection", BACKLOG 10.40): the canvas + its inspector. A
 		// Delete in the slice list or the tree no longer removes the canvas's text box.
@@ -943,13 +945,9 @@
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
 {/snippet}
-{#snippet problemsTab()}
-	<div class="side-panel"><ProblemsPanel {...problemsProps()} /></div>
-{/snippet}
 {#snippet publishMenu()}
 	<div class="publish-menu" data-testid="publish-panel">
-		<button type="button" class:primary={anyDirty} disabled={!anyDirty || anySaving} onclick={() => session.saveDraft()} data-testid="save-draft"><Icon name="save" />{anySaving ? m['creator.saving']() : m['creator.save_short']()}</button>
-		<button type="button" disabled={anySaving} onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{publishLabel(toon)}</button>
+		<button type="button" onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{publishLabel(toon)}</button>
 	</div>
 {/snippet}
 
@@ -1175,10 +1173,6 @@
 	}
 	.sub {
 		margin-top: var(--space-15);
-	}
-	.side-panel {
-		box-sizing: border-box;
-		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.pad {
 		padding: var(--space-1);

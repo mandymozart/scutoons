@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
@@ -15,16 +14,16 @@
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
-	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
+	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
-	// the toon's Flow is a tab; Save · Publish the bar's Publish menu
+	// the toon's Flow is a tab; Publish the bar's Publish menu
 	useTabs(() => ({ flow: flowTab }));
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
@@ -46,8 +45,6 @@
 	let message = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let addLanguage = $state<string>('');
-	/** chapter docs saved on this page because their status follows the season (published with the season) */
-	let followersSaved = $state<ContentDoc[]>([]);
 
 	/** the edited (maybe unsaved) languages */
 	const edited = $derived<ToonLanguages | null>(index && !index.loading ? toonLanguages(index.data[NEUTRAL_LOCALE]) : null);
@@ -77,7 +74,6 @@
 			? sequence.filter((item) => chapters[item.number] && !chapters[item.number].loading && chapterSyncChanges(chapters[item.number]).length).map((item) => chapters[item.number])
 			: []
 	);
-	const anyDirty = $derived(pageDocs.some((d) => d.dirty) || followers.length > 0);
 
 	async function load() {
 		const doc = toonIndexDoc(toonId);
@@ -217,6 +213,8 @@
 		}
 		busy = true;
 		try {
+			// what waits is saved first: the season is saved below
+			if (!(await session.flush())) return;
 			const chapter = toonDoc(entities.chapter(toonId, number), langs);
 			chapter.create(() => newChapterDoc(number, langs!.languages, author));
 			season.edit((file) => {
@@ -234,59 +232,28 @@
 		}
 	}
 
-	/** Drops what a language-neutral chapter no longer stores and saves those chapters as drafts; returns them. */
-	async function saveFollowers(): Promise<ContentDoc[]> {
-		const changed: ContentDoc[] = [];
-		for (const item of sequence) {
-			const doc = chapters[item.number];
-			if (!doc || doc.loading || !season) continue;
-			if (syncChapter(doc) && doc.dirty) {
-				await doc.save('status from the season');
-				changed.push(doc);
-			}
+	// ── Autosave / publish: the toon's index entry (languages), the season, and the chapters whose fields follow it ──
+	/** the languages changed with this save: the files are edited in the new ones afterwards */
+	let reloadAfter = false;
+	/** chapters a language-neutral chapter's sync changed: saved along (published with the season) */
+	let synced: ContentDoc[] = [];
+	const session = new DocSession({
+		docs: () => pageDocs,
+		companions: () => synced,
+		beforeSave: () => {
+			reloadAfter = languagesChanged;
+			synced = followers.filter((doc) => syncChapter(doc) && doc.dirty);
+		},
+		afterSave: () => {
+			if (reloadAfter && index) void loadFiles(toonLanguages(index.data[NEUTRAL_LOCALE]));
+			reloadAfter = false;
 		}
-		return changed;
-	}
+	});
+	useAutosave(session);
+	// Publish on the toon page: everything of the toon with a draft as a list to tick (publish-tree.ts)
+	const publishAll = () => session.publishTree({ kind: 'toon', toon: toonId }, m['creator.publish_tree_title']({ name: toonName }));
 
-	// ── Save / publish: the toon's index entry (languages), the season ──────────────────────────────────
-	async function saveAll(): Promise<boolean> {
-		busy = true;
-		error = null;
-		try {
-			const reload = languagesChanged;
-			for (const doc of pageDocs) if (doc.dirty) await doc.save();
-			followersSaved = [...followersSaved, ...(await saveFollowers()).filter((d) => !followersSaved.includes(d))];
-			// changed languages: the files are edited in the new ones from now on
-			if (reload && index) await loadFiles(toonLanguages(index.data[NEUTRAL_LOCALE]));
-			return true;
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-			return false;
-		} finally {
-			busy = false;
-		}
-	}
-
-	// Publish on the toon page: everything of the toon with a draft as a list to tick (BACKLOG 10.60, publish-tree.ts) –
-	// the page's own files saved first; what went live reloads
-	async function publishAll() {
-		if (anyDirty && !(await saveAll())) return;
-		busy = true;
-		try {
-			const result = await publishTree({ kind: 'toon', toon: toonId }, m['creator.publish_tree_title']({ name: toonName }));
-			if (!result) return;
-			const live = new Set(result.published);
-			for (const doc of [...pageDocs, ...followersSaved]) if (doc.stored.some((l) => live.has(doc.key(l)))) await doc.load();
-			followersSaved = [];
-			message = result.message;
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		} finally {
-			busy = false;
-		}
-	}
-
-	usePageDoc(() => ({ dirty: anyDirty, saving: busy, save: () => void saveAll(), publish: publishMenu }));
+	usePageDoc(() => ({ saving: busy || session.anySaving, unpublished: pageDocs.some((d) => d.unpublished.length > 0), publish: publishMenu }));
 </script>
 
 <div class="creator-page">
@@ -314,7 +281,6 @@
 							>
 						</h2>
 					</div>
-					<FileStatus doc={season} />
 				</div>
 
 				<ol class="chapter-list" aria-label={m['creator.chapters']()} data-testid="chapter-list">
@@ -334,7 +300,7 @@
 							<ChapterBadges {season} number={item.number} {doc} />
 						</li>
 					{/each}
-					<!-- the list's add row (like the map's "+ Layer"): the bar keeps Save · Publish -->
+					<!-- the list's add row (like the map's "+ Layer") -->
 					<li class="chapter-row add-row">
 						<button type="button" class="ghost add" onclick={createChapter} disabled={busy || !season || season.loading || languagesChanged} data-testid="new-chapter"><Icon name="plus" /> {m['creator.new_chapter']()}</button>
 					</li>
@@ -366,8 +332,6 @@
 							</li>
 						{/if}
 					</ul>
-					<FileStatus doc={index} />
-					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
 				</section>
 			{/if}
 			{#if message}<p class="hint">{message}</p>{/if}
@@ -380,7 +344,6 @@
 {/snippet}
 {#snippet publishMenu()}
 	<div class="publish-menu">
-		<button type="button" class:primary={anyDirty} disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft"><Icon name="save" />{m['creator.save_short']()}</button>
 		<button type="button" disabled={busy} onclick={publishAll} data-testid="publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
 	</div>
 {/snippet}
@@ -490,10 +453,5 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.warn {
-		color: var(--ink);
-		border-left: 2px solid var(--primary-cyan);
-		padding-left: 0.5rem;
 	}
 </style>

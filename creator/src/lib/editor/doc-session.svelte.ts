@@ -1,15 +1,17 @@
-// One editor page's save / publish / conflict state (COMPONENTS.md step 11): the meta pages (meta-page.svelte) and the
-// chapter editor share it – before, the chapter editor had a copy that had drifted. The page passes its files; the
-// session saves the dirty ones (asking for a note first), publishes through the one checklist of every file with a
-// draft at the page's level (publish-tree.ts, BACKLOG 10.60 – owner 2026-10-11), says what happened as a toast (UI-CONCEPTS E.1:
-// Saved, Published, Nothing to save, errors – lib/toasts.ts) and keeps the conflict the page shows as a bar (DocNotices).
-import { askDialog, confirmDialog } from '@scutoons/ui';
+// One editor page's autosave / publish / conflict state: every page that edits documents (the meta pages, the chapter
+// editor, the toon page) shares it. Edits save on their own as draft versions (`useAutosave`), Publish lists every file
+// with a draft at the page's level (publish-tree.ts), each save / publish posts its typed Log line and a conflict stays
+// as the page's bar (DocNotices) until it is answered.
+import { confirmDialog } from '@scutoons/ui';
+import { beforeNavigate, goto } from '$app/navigation';
 import { publishTree, type PublishScope } from '$lib/editor/publish-tree.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
+import type { LogKind } from '@scutoons/content';
 import { suggestNote } from '$lib/editor/version-note-words.ts';
+import { AUTOSAVE_MS, Autosaver } from '$lib/editor/autosaver.ts';
 
 export interface DocSessionOptions {
 	/** the page's files (validated, saved, published) */
@@ -22,23 +24,28 @@ export interface DocSessionOptions {
 	afterSave?: () => void;
 	/** errors in the problem list: publishing asks once more */
 	errorCount?: () => number;
-	/**
-	 * the page's level in the tree (BACKLOG 10.60): Publish saves the page, then lists every file below it with a draft
-	 * to tick (publish-tree.ts) instead of only the page's own files; `title` = the dialog's title
-	 */
+	/** the page's level in the tree: Publish lists every file below it with a draft (publish-tree.ts); `title` = the dialog's */
 	tree?: () => { scope: PublishScope; title: string } | null;
 }
 
 export class DocSession {
 	conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
-	/** the optional note of the next save */
-	message = $state('');
+	/** a save runs (the status bar's "saving…") */
+	saving = $state(false);
 	/** companions saved on this page (published together with the docs) */
 	private savedCompanions: ContentDoc[] = [];
 	/** this page's last toast: a new save / publish replaces it (an old error must not outlive a good save) */
 	private lastToast: number | null = null;
+	/** the next save overwrites a conflicting version (the conflict bar's Overwrite) */
+	private force = false;
+	private readonly saver: Autosaver;
 
-	constructor(private readonly options: DocSessionOptions) {}
+	constructor(
+		private readonly options: DocSessionOptions,
+		delay = AUTOSAVE_MS
+	) {
+		this.saver = new Autosaver(() => this.saveAll(), delay);
+	}
 
 	private get docs() {
 		return this.options.docs();
@@ -46,91 +53,81 @@ export class DocSession {
 	private get companions() {
 		return this.options.companions?.() ?? [];
 	}
+	/** every file the session watches and saves */
+	get all(): ContentDoc[] {
+		return [...this.docs, ...this.companions];
+	}
 	get anyDirty() {
-		return this.docs.some((d) => d.dirty) || this.companions.some((d) => d.dirty);
+		return this.all.some((d) => d.dirty);
 	}
 	get anySaving() {
-		return this.docs.some((d) => d.saving);
+		return this.saving || this.docs.some((d) => d.saving);
 	}
 
-	/** this page's toast (the previous one goes) */
-	notify(message: string, type: 'info' | 'success' | 'error' = 'info') {
+	/** this page's Log line (the previous toast goes) */
+	notify(message: string, type: 'info' | 'success' | 'error' = 'info', kind?: LogKind) {
 		this.clearNotice();
-		this.lastToast = toast(message, { type });
+		this.lastToast = toast(message, { type, ...(kind ? { kind } : {}) });
 	}
 	private clearNotice() {
 		if (this.lastToast !== null) toaster.dismiss(this.lastToast);
 		this.lastToast = null;
 	}
 
-	/** saves every dirty file (the note as the versions' message); false on a conflict or an error (an error toast / the conflict bar) */
-	async saveAll(force = false): Promise<boolean> {
-		this.clearNotice();
-		this.conflict = null;
-		this.options.beforeSave?.();
-		for (const doc of [...this.docs, ...this.companions]) {
-			if (!doc.dirty) continue;
-			try {
-				await doc.save(this.message.trim() || undefined, force);
-				if (!this.docs.includes(doc) && !this.savedCompanions.includes(doc)) this.savedCompanions.push(doc);
-			} catch (e) {
-				if (e instanceof SaveConflict) this.conflict = { doc, error: e };
-				else this.notify(`${docLabel(doc)}${e instanceof SaveError ? ` (${e.locale})` : ''}: ${e instanceof Error ? e.message : String(e)}`, 'error');
-				return false;
-			}
+	/** saves a moment after the last change (a newer change restarts the wait) */
+	schedule() {
+		this.saver.schedule();
+	}
+	/** a save waits for its pause or runs */
+	get pending(): boolean {
+		return this.saver.pending || this.saver.busy;
+	}
+
+	/** saves what is unsaved now (one save at a time, Autosaver); nothing while a conflict waits for its answer; false on a conflict or an error */
+	flush(): Promise<boolean> {
+		if (this.conflict && !this.force) {
+			this.saver.cancel();
+			return Promise.resolve(false);
 		}
-		this.message = '';
-		this.notify(m['creator.saved'](), 'success');
+		return this.saver.flush();
+	}
+
+	/** saves every dirty file as a new draft version, its note what changed; false on a conflict or an error */
+	private async saveAll(): Promise<boolean> {
+		const force = this.force;
+		this.force = false;
+		this.options.beforeSave?.();
+		const dirty = this.all.filter((d) => d.dirty);
+		if (!dirty.length) return true;
+		this.conflict = null;
+		this.saving = true;
+		let note: string | undefined;
+		try {
+			note = suggestNote(dirty) || undefined;
+		} catch (e) {
+			// a note never stands in the way of saving
+			console.warn('version note suggestion failed', e);
+		}
+		try {
+			for (const doc of dirty) {
+				try {
+					await doc.save(note, force);
+					if (!this.docs.includes(doc) && !this.savedCompanions.includes(doc)) this.savedCompanions.push(doc);
+				} catch (e) {
+					if (e instanceof SaveConflict) this.conflict = { doc, error: e };
+					else this.notify(`${docLabel(doc)}${e instanceof SaveError ? ` (${e.locale})` : ''}: ${e instanceof Error ? e.message : String(e)}`, 'error', 'save');
+					return false;
+				}
+			}
+		} finally {
+			this.saving = false;
+		}
+		this.notify(note ? `${m['creator.saved']()} · ${note}` : m['creator.saved'](), 'success', 'save');
 		this.options.afterSave?.();
 		return true;
 	}
 
-	/** "Save draft": never a silent no-op (owner 2026-09-30); without a note, ask for one – it can be skipped (owner 2026-10-03) */
-	async saveDraft(): Promise<void> {
-		this.options.beforeSave?.();
-		if (!this.anyDirty) {
-			this.notify(m['creator.nothing_to_save']());
-			return;
-		}
-		if (!(await this.askNote())) return;
-		await this.saveAll();
-	}
-
-	/**
-	 * the versions' note before a save (Save draft, and Publish with unsaved changes – owner 2026-10-18: "Yes, please also
-	 * ask for a note on Publish"): pre-filled with what changed since the stored versions (version-note-words.ts, owner:
-	 * "an automatic suggestion every time that fits what was last done") and selected – typing replaces it, Enter takes
-	 * it, an emptied field saves without a note; false = cancelled
-	 */
-	private async askNote(): Promise<boolean> {
-		if (this.message.trim()) return true;
-		let suggestion = '';
-		try {
-			suggestion = suggestNote([...this.docs, ...this.companions]);
-		} catch (e) {
-			// a suggestion never stands in the way of saving
-			console.warn('version note suggestion failed', e);
-		}
-		const note = await askDialog({
-			title: m['creator.note_title'](),
-			message: m['creator.note_message'](),
-			label: m['creator.note_label'](),
-			placeholder: m['creator.note_placeholder'](),
-			value: suggestion,
-			select: true,
-			confirmLabel: m['creator.note_save'](),
-			skipLabel: m['creator.note_skip']()
-		});
-		if (note === null) return false;
-		this.message = note;
-		return true;
-	}
-
-	/**
-	 * "Publish" – one dialog everywhere (owner 2026-10-11: "kein eigenes Publishing-Interface für alles, sondern für alles
-	 * gleich"): the page saved first, then the checklist (publish-tree.ts) of every file with a draft at the page's level –
-	 * below it (`tree`: a chapter, a season, a toon) or the page's own files.
-	 */
+	/** "Publish" – one dialog everywhere: what waits is saved first, then the checklist of every file with a draft at the page's level */
 	async publishAll(): Promise<void> {
 		const tree = this.options.tree?.();
 		await this.publishTree(tree?.scope ?? null, tree?.title ?? m['creator.publish_tree_title']({ name: this.docs[0] ? docLabel(this.docs[0]) : '' }));
@@ -140,18 +137,17 @@ export class DocSession {
 	async publishTree(scope: PublishScope | null, title: string): Promise<void> {
 		this.options.beforeSave?.();
 		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
-		// unsaved changes are saved first, with their note (one dialog, the same as Save draft's)
-		if ([...this.docs, ...this.companions].some((d) => d.dirty) && (!(await this.askNote()) || !(await this.saveAll()))) return;
+		if ((this.anyDirty || this.pending) && !(await this.flush())) return;
 		try {
-			const own = [...this.docs, ...this.companions];
+			const own = this.all;
 			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);
 			if (!result) return;
 			const live = new Set(result.published);
-			for (const doc of [...this.docs, ...this.companions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
+			for (const doc of [...own, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
 			this.savedCompanions = [];
-			this.notify(result.message, result.published.length ? 'success' : undefined);
+			this.notify(result.message, result.published.length ? 'success' : 'info', 'publish');
 		} catch (e) {
-			this.notify(e instanceof Error ? e.message : String(e), 'error');
+			this.notify(e instanceof Error ? e.message : String(e), 'error', 'publish');
 		}
 	}
 
@@ -159,8 +155,65 @@ export class DocSession {
 	async resolveConflict(action: 'reload' | 'overwrite'): Promise<void> {
 		if (!this.conflict) return;
 		const { doc } = this.conflict;
-		this.conflict = null;
-		if (action === 'reload') await doc.load();
-		else await this.saveAll(true);
+		if (action === 'reload') {
+			this.conflict = null;
+			await doc.load();
+		} else {
+			this.force = true;
+			await this.flush();
+		}
 	}
+}
+
+/** what a set of documents holds now ('' while one loads) – a change of it is an edit */
+const signature = (docs: ContentDoc[]) => (docs.some((d) => d.loading) ? '' : docs.map((d) => JSON.stringify(d.data)).join('\u0000'));
+
+/**
+ * The creator's one autosave (call during component init): every edit of the session's documents saves as a draft
+ * version a moment (AUTOSAVE_MS) after the last change, one save at a time; leaving the page saves what waits (a conflict still
+ * asks before leaving; closing the tab with something unsaved keeps the browser's question). What a load brings in
+ * (a repaired value) is not an edit: it saves with the next one.
+ */
+export function useAutosave(session: DocSession) {
+	let seen: string | null = null;
+	$effect(() => {
+		const now = signature(session.all);
+		if (!now) {
+			seen = null;
+			return;
+		}
+		if (seen === null) {
+			seen = now;
+			return;
+		}
+		if (now === seen) return;
+		seen = now;
+		session.schedule();
+	});
+	let leaving = false;
+	beforeNavigate((navigation) => {
+		if (leaving) return;
+		if (navigation.type === 'leave') {
+			if (session.anyDirty || session.pending) {
+				navigation.cancel();
+				void session.flush();
+			}
+			return;
+		}
+		if (!session.conflict) {
+			if (session.anyDirty || session.pending) void session.flush();
+			return;
+		}
+		navigation.cancel();
+		const to = navigation.to?.url;
+		if (!to) return;
+		confirmDialog({ title: m['creator.leave_title'](), message: m['creator.leave_confirm'](), confirmLabel: m['creator.leave_label']() }).then((ok) => {
+			if (!ok) return;
+			leaving = true;
+			goto(to).finally(() => (leaving = false));
+		});
+	});
+	$effect(() => () => {
+		if (session.pending || session.anyDirty) void session.flush();
+	});
 }

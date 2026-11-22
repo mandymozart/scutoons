@@ -1,54 +1,48 @@
 <script lang="ts">
-	import { toaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { log } from '$lib/log/log.svelte.ts';
 
 	/**
 	 * The status bar along the window's bottom, as the deck editor's (deck/kit/src/editor/status.rs): one pill – left the
-	 * newest message (its level's dot, its words, its age), in the middle the open item's state as quiet chips, right the
-	 * error and warning counts. A press on the message or the counts opens Problems; the panels end above it.
+	 * Log's newest line (its level's dot, its words, its age), in the middle a short "saving…" while an autosave runs (Publish's dot says what is not live), right
+	 * the open item's error and warning counts (the Log's problems in the Item scope). A press on the line or the counts
+	 * opens the Log; the panels end above it.
 	 */
-	type Level = 'info' | 'success' | 'warning' | 'error';
-	let newest = $state<{ id: number; text: string; level: Level; at: number } | null>(null);
-	$effect(() => {
-		const last = toaster.items.at(-1);
-		if (last && last.id !== newest?.id) newest = { id: last.id, text: last.message, level: last.type, at: Date.now() };
-	});
 	let now = $state(Date.now());
 	$effect(() => {
-		const timer = setInterval(() => (now = Date.now()), 30_000);
+		const timer = setInterval(() => (now = Date.now()), 15_000);
 		return () => clearInterval(timer);
 	});
-	const age = $derived.by(() => {
-		if (!newest) return '';
-		const min = Math.floor((now - newest.at) / 60_000);
-		return min < 1 ? m['shell.ago_now']() : min < 60 ? m['shell.ago_min']({ n: min }) : m['shell.ago_h']({ n: Math.floor(min / 60) });
-	});
+	const newest = $derived(log.view({ show: 'events' }, '', now, 0).newest);
+	const counts = $derived(log.item ? log.counts({ show: 'problems', scope: log.item }) : null);
 	const doc = $derived(shell.doc);
-	const errors = $derived(doc?.errors ?? 0);
-	const warnings = $derived(doc?.warnings ?? 0);
-	const saveWord = $derived(!doc?.save ? null : doc.saving ? m['creator.saving']() : doc.dirty ? m['shell.unsaved']() : m['creator.saved']());
-	const openProblems = () => shell.open('problems');
+	const openLog = () => shell.open('log');
+	/** "saving…" stays long enough to be read (a save often takes less) */
+	let saving = $state(false);
+	$effect(() => {
+		if (doc?.saving) {
+			saving = true;
+			return;
+		}
+		const timer = setTimeout(() => (saving = false), 700);
+		return () => clearTimeout(timer);
+	});
 </script>
 
 <footer class="status-bar" data-testid="status-bar">
-	<button type="button" class="message" onclick={openProblems} title={m['shell.status_open_problems']()} data-testid="status-message">
+	<button type="button" class="message" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-message">
 		<span class="dot {newest?.level ?? 'none'}" aria-hidden="true"></span>
 		<span class="words">{newest?.text ?? m['shell.status_none']()}</span>
-		{#if newest}<span class="age">{age}</span>{/if}
+		{#if newest}<span class="age">{newest.age}</span>{/if}
 	</button>
 	<span class="chips">
-		{#if saveWord}
-			<button type="button" class="chip" class:dirty={doc?.dirty} disabled={doc?.saving} onclick={() => doc?.save?.()} title={m['creator.save_draft']()} data-testid="save-state">
-				<span class="dot" class:warning={doc?.dirty} class:success={!doc?.dirty} aria-hidden="true"></span>{saveWord}
-			</button>
-		{/if}
-		{#if doc?.unpublished}<span class="chip" data-testid="status-not-live">{m['shell.not_live']()}</span>{/if}
+		{#if saving}<span class="chip" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
 	</span>
-	{#if doc && (doc.errors !== undefined || doc.warnings !== undefined)}
-		<button type="button" class="counts" onclick={openProblems} title={m['shell.status_open_problems']()} data-testid="status-counts">
-			<span class:bad={errors > 0}>{m['creator.problems_errors']({ count: errors })}</span>
-			<span class:warn={warnings > 0}>{m['creator.problems_warnings']({ count: warnings })}</span>
+	{#if counts && (doc?.errors !== undefined || counts.errors || counts.warnings)}
+		<button type="button" class="counts" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-counts">
+			<span class:bad={counts.errors > 0}>{m['creator.problems_errors']({ count: counts.errors })}</span>
+			<span class:warn={counts.warnings > 0}>{m['creator.problems_warnings']({ count: counts.warnings })}</span>
 		</button>
 	{/if}
 </footer>
@@ -115,10 +109,13 @@
 		background: transparent;
 		box-shadow: inset 0 0 0 1px var(--editor-line);
 	}
-	.dot.success {
+	.dot.ok {
 		background: var(--editor-go);
 	}
-	.dot.warning {
+	.dot.info {
+		background: var(--editor-accent);
+	}
+	.dot.warn {
 		background: var(--editor-warn);
 	}
 	.dot.error {

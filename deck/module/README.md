@@ -121,13 +121,14 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 | `follower` | `Follower`: a signal's size as a level, attack and release times. |
 | `level` | `gain(db)`: a dB parameter as a factor, 0 at `OFF_DB` (−60) and below. |
 | `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
+| `fdn` | `Fdn`: eight delay lines, a Householder mix, a gain and a lowpass in every loop (`tick`); `gain` (a loop gain from RT60), `primes` (mutually prime lengths). |
 | `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
 | `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
 
 ## The small audio modules
 
-Seven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`. A level in dB is
+Eight factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -139,6 +140,8 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `filter` | `in` (any), `cutoff_mod` (control, oct), `notes` (event, key tracking) → `out` (any) | `mode` lp12 / lp24 / bp / hp / notch, `cutoff` Hz (log), `res` %, `drive` %, `key` % | acid |
 | `mixer` | `in1` … `in8` (2 each) → `out` (2), `send` (2) | per input `gain` dB, `pan` −1 … 1 (a balance), `send` dB, `mute`; `master` dB | pair |
 | `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
+| `delay` | `in` (2), `time_mod` (control, oct) → `out` (2) | `sync` free / 1/32 … 1/1 (triplets, dotted), `time` ms (log), `feedback` % (under 98), `damp` Hz, `pingpong` %, `spread` ms, `mix` %, `depth` ms + `rate` Hz (chorus at short times) | dub |
+| `reverb` | `in` (2) → `out` (2) | `size` %, `decay` s (RT60, 0.2–20, log), `damp` Hz (top: none), `predelay` ms, `width` %, `mix` % | hall |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven

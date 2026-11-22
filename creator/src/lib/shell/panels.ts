@@ -15,7 +15,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'vocabulary', name: m['shell.panel_vocabulary'](), icon: 'book-open', about: m['shell.panel_vocabulary_about']() },
 		{ id: 'flow', name: m['creator.flow'](), icon: 'git-merge', about: m['shell.panel_flow_about']() },
 		{ id: 'preview', name: m['shell.panel_preview'](), icon: 'smartphone', about: m['shell.panel_preview_about']() },
-		{ id: 'problems', name: m['creator.problems'](), icon: 'alert-triangle', about: m['shell.panel_problems_about']() },
+		{ id: 'log', name: m['shell.panel_log'](), icon: 'list', about: m['shell.panel_log_about'](), aliases: ['problems'] },
 		{ id: 'timeline', name: m['storyboard.tl_title'](), icon: 'film', about: m['shell.panel_timeline_about']() },
 		{ id: 'script', name: m['storyboard.panel_script'](), icon: 'file-text', about: m['storyboard.panel_script']() },
 		{ id: 'rhythm', name: m['storyboard.panel_rhythm'](), icon: 'activity', about: m['storyboard.panel_rhythm']() },

@@ -4,6 +4,7 @@
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { publishMany } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
 	import { entityOf, nodeDocPath, targetsSharing, type NodeRef } from '$lib/editor/xr-nodes.ts';
 	import { neutralDoc } from '$lib/editor/languages.ts';
@@ -42,7 +43,6 @@
 	let selected = $state.raw<NodeRef | null>(null);
 	/** the last edit's trees for the stage (each target whose entity changed) */
 	let edited = $state.raw<{ at: number; trees: Record<string, object> } | null>(null);
-	let saveTimer = 0;
 
 	$effect(() => {
 		const current = id;
@@ -73,13 +73,20 @@
 		'concert-reading': () => m['creator.experiences_type_concert_reading']()
 	};
 
-	/** the creator's one way to publish (publish-together.ts): the server's publish-many, refusals named */
+	/** the creator's one autosave (#760): the document is saved 1.2 s after the last edit, one save at a time, a Log line each */
+	const session = new DocSession({ docs: () => (doc ? [doc] : []) });
+	useAutosave(session);
+
+	/** the creator's one way to publish (publish-together.ts): the server's publish-many, refusals named; a pending save first */
 	async function publish() {
-		if (!doc || base === null || busy) return;
+		if (!doc || busy) return;
 		const open = doc;
 		busy = true;
 		try {
-			const together = await publishTogether([{ key: open.key(NEUTRAL_LOCALE), version: base }], publishMany);
+			if (!(await session.flush())) return;
+			const version = open.base[NEUTRAL_LOCALE];
+			if (version === null || version === undefined) return;
+			const together = await publishTogether([{ key: open.key(NEUTRAL_LOCALE), version }], publishMany);
 			problems = together.refused.map((r) => r.why);
 			if (together.done.length) toast(m['creator.experiences_publish_ok'](), { type: 'success' });
 		} catch (e) {
@@ -93,7 +100,7 @@
 
 	/**
 	 * An Inspector field changed: the document takes it (one undo step per field, ContentDoc), the stage shows every
-	 * target of the edited entity at once, and the draft is saved a moment after the last change (autosave, #760).
+	 * target of the edited entity at once, and the shared autosave (#760) saves the draft a moment after the last change.
 	 */
 	function onedit(at: (string | number)[], value: string | number | boolean) {
 		const ref = selected;
@@ -101,7 +108,6 @@
 		if (!doc || !ref || !node) return;
 		doc.set([...node, ...at], value);
 		showEdits(ref.target);
-		scheduleSave();
 	}
 
 	/**
@@ -114,7 +120,6 @@
 		const before = doc.get(NEUTRAL_LOCALE, [...node, 'params', 'scale']);
 		const scale = typeof placement.scale === 'number' && Array.isArray(before) ? [placement.scale, placement.scale, placement.scale] : placement.scale;
 		doc.set([...node, 'params'], { ...((doc.get(NEUTRAL_LOCALE, [...node, 'params']) as object | undefined) ?? {}), position: placement.position, rotation: placement.rotation, scale }, `gizmo:${node.join('.')}`);
-		scheduleSave();
 	}
 
 	function showEdits(target: string) {
@@ -128,49 +133,16 @@
 		edited = { at: Date.now(), trees };
 	}
 
-	function scheduleSave() {
-		window.clearTimeout(saveTimer);
-		saveTimer = window.setTimeout(() => void save(), 1200);
-	}
-
-	/** one save at a time: a change during a save is saved right after it (two at once would refuse each other, 409) */
-	let inFlight = false;
-	let again = false;
-	async function save() {
-		window.clearTimeout(saveTimer);
-		saveTimer = 0;
-		if (inFlight) return void (again = true);
-		if (!doc?.dirty) return;
-		inFlight = true;
-		try {
-			await doc.save(m['creator.experiences_saved_by_editor']());
-			problems = [];
-		} catch (e) {
-			problems = [e instanceof Error ? e.message : String(e)];
-		} finally {
-			inFlight = false;
-			if (again) {
-				again = false;
-				void save();
-			}
-		}
-	}
-
 	function step(back: boolean) {
 		if (!doc) return;
 		if (back) doc.undo();
 		else doc.redo();
 		if (selected) showEdits(selected.target);
-		scheduleSave();
 	}
-	$effect(() => () => {
-		// leaving: what is not saved yet goes now
-		if (saveTimer) void save();
-	});
 
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
 	usePageDoc(() =>
-		doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length, dirty: doc.dirty, saving: doc.saving, save: () => void save(), undo: () => step(true), redo: () => step(false) } : null
+		doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length, saving: session.saving, undo: () => step(true), redo: () => step(false) } : null
 	);
 	useTabs(() => ({ tree: facts ? tree : null, inspector: facts ? inspector : null, experience: facts ? meta : null, scenes: facts && scenes.length ? strip : null }));
 </script>

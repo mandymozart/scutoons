@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giant Popstar – sandbox</title>
+<!-- Offline: three.js comes from the repo's node_modules. Serve the repo root (launch config "sandbox-art", :8770)
+     and open /scripts/sandbox-art/popstar/. Refs #774 -->
+<script type="importmap">
+{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+<style>
+  :root { --bg: #0b0d14; --panel: #151826cc; --line: #2a2f45; --text: #e8e6f0; --dim: #8a8aa3; --gold: #f2c14e; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #ui { position: fixed; left: 12px; top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; max-width: 260px; backdrop-filter: blur(6px); }
+  #ui h1 { margin: 0; font-size: 14px; color: var(--gold); letter-spacing: .04em; }
+  #ui p { margin: 0; color: var(--dim); font-size: 12px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { background: #22263a; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font: inherit; cursor: pointer; }
+  button.on { border-color: var(--gold); color: var(--gold); }
+  #hint { position: fixed; right: 12px; bottom: 10px; color: var(--dim); font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>GIANT POPSTAR</h1>
+  <p>Sandbox study for #774 – low poly, one skeleton, walk + theme on a synth.</p>
+  <div class="row">
+    <button id="music">♪ Theme</button>
+    <button id="walk" class="on">Walk</button>
+    <button id="follow" class="on">Follow</button>
+  </div>
+  <div class="row">
+    <button data-cam="frog">frog</button>
+    <button data-cam="front">front</button>
+    <button data-cam="side">side</button>
+    <button data-cam="close">close</button>
+  </div>
+  <div class="row"><button id="export">Export .glb</button></div>
+</div>
+<div id="hint">drag to orbit · wheel to zoom</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+// ---------------------------------------------------------------- renderer, scene
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0d1c);
+scene.fog = new THREE.Fog(0x0b0d1c, 6, 22);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.75;
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 100);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0x8899ff, 0x221a33, 0.8));
+const key = new THREE.DirectionalLight(0xfff1d6, 1.5);
+key.position.set(2, 5, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 15 });
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xff4fd8, 1.4);
+rim.position.set(-3, 2.5, -3);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+fill.position.set(-1.5, 1.5, 5);
+scene.add(fill);
+
+// ---------------------------------------------------------------- the skeleton (metres, rest pose, facing +z)
+// The character is human-sized (≈ 1.95 m with hair); the city around her is tiny – that is the giant.
+const B = {};
+function bone(name, parent, x, y, z) {
+  const b = new THREE.Bone();
+  b.name = name;
+  b.position.set(x, y, z);
+  if (parent) B[parent].add(b);
+  B[name] = b;
+  return b;
+}
+bone('hips', null, 0, 1.0, 0);   // every part below is placed for this height: the joints must sit in their balls
+bone('spine', 'hips', 0, 0.12, 0);
+bone('chest', 'spine', 0, 0.22, 0);
+bone('neck', 'chest', 0, 0.2, 0);
+bone('head', 'neck', 0, 0.08, 0);
+for (const [s, x] of [['L', 1], ['R', -1]]) {
+  bone(`upperArm_${s}`, 'chest', 0.19 * x, 0.12, 0);
+  bone(`foreArm_${s}`, `upperArm_${s}`, 0, -0.27, 0);
+  bone(`hand_${s}`, `foreArm_${s}`, 0, -0.24, 0);
+  bone(`thigh_${s}`, 'hips', 0.09 * x, -0.05, 0);
+  bone(`shin_${s}`, `thigh_${s}`, 0, -0.44, 0);
+  bone(`foot_${s}`, `shin_${s}`, 0, -0.41, 0);
+}
+const bones = Object.values(B);
+const index = Object.fromEntries(bones.map((b, i) => [b.name, i]));
+B.hips.updateMatrixWorld(true);
+const restY = 1.0;
+
+// ---------------------------------------------------------------- the body: rigid low-poly parts, each on one bone
+// The look follows the owner's references (2026-11-21): a smooth mannequin-like doll in warm tan, a simple face (dark
+// eyes, thin brows, a small nose), a yellow headband, thick round yellow strands to the chest, a gold choker, two gold
+// bangles on each wrist, a strapless sequin mini dress with cups, a brown belt with a white star, gold ankle boots with
+// a spiky cuff, the mic with a silver head.
+function noiseTexture(size, fill) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const img = g.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) fill(img.data, i * 4);
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(14, 5);
+  return t;
+}
+// sequins: every texel its own tilt (normal map) and shine (roughness map)
+const sequinNormal = noiseTexture(128, (d, i) => { d[i] = 128 + (Math.random() - 0.5) * 200; d[i + 1] = 128 + (Math.random() - 0.5) * 200; d[i + 2] = 255; d[i + 3] = 255; });
+const sequinRough = noiseTexture(128, (d, i) => { const v = Math.random() < 0.3 ? 20 : 120; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; });
+// The face is a drawing on the head's texture, as the original's is (owner 2026-11-21: "her face eyes and brows are
+// also just texture"): eyes with lashes, thin brows, a hint of a nose, red lips. The mouth is redrawn per vowel.
+// The head is a sphere: its front (+z) is at u = 0.25, so the face sits around (256, 256) of a 1024 × 512 canvas.
+const SKIN = '#dba06c';
+const faceCanvas = document.createElement('canvas');
+faceCanvas.width = 1024; faceCanvas.height = 512;
+const fc = faceCanvas.getContext('2d');
+const faceTex = new THREE.CanvasTexture(faceCanvas);
+faceTex.colorSpace = THREE.SRGBColorSpace;
+// lips: [width, height] of the red, [width, height] of the opening (px)
+const MOUTHS = { closed: [58, 36, 0, 0], eh: [72, 42, 44, 12], oh: [48, 54, 22, 26], ah: [64, 62, 40, 34], uh: [42, 42, 14, 14] };
+const ell = (x, y, w, h, fill) => { fc.beginPath(); fc.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); fc.fillStyle = fill; fc.fill(); };
+let mouthNow = null;
+// the features are drawn 1.3 × around the middle of the face
+const big = () => { fc.translate(256, 275); fc.scale(1.3, 1.3); fc.translate(-256, -275); };
+function drawMouth(name) {
+  if (name === mouthNow) return;
+  mouthNow = name;
+  const [w, h, ow, oh] = MOUTHS[name], x = 256, y = 338;
+  fc.save(); big();
+  fc.fillStyle = SKIN;
+  fc.fillRect(x - 50, y - 42, 100, 84);
+  // a kiss: the upper lip's two bows with the dip between them, a fuller lower lip
+  const a = w / 2, t = h * 0.45, b = h * 0.55;
+  fc.beginPath();
+  fc.moveTo(x - a, y);
+  fc.bezierCurveTo(x - a * 0.75, y - t * 0.9, x - a * 0.35, y - t * 1.25, x, y - t * 0.62);
+  fc.bezierCurveTo(x + a * 0.35, y - t * 1.25, x + a * 0.75, y - t * 0.9, x + a, y);
+  fc.bezierCurveTo(x + a * 0.7, y + b * 1.15, x - a * 0.7, y + b * 1.15, x - a, y);
+  fc.fillStyle = '#d3162b';
+  fc.fill();
+  if (ow) ell(x, y + 1, ow, oh, '#3a0d12');
+  else { fc.strokeStyle = '#8c0f1f'; fc.lineWidth = 2.5; fc.beginPath(); fc.moveTo(x - a + 5, y); fc.quadraticCurveTo(x, y + 5, x + a - 5, y); fc.stroke(); }
+  ell(x + a * 0.25, y + b * 0.55, Math.max(8, w * 0.22), 4, 'rgba(255,255,255,0.4)');   // the light on the lower lip
+  fc.restore();
+  faceTex.needsUpdate = true;
+}
+function drawFace() {
+  fc.fillStyle = SKIN;
+  fc.fillRect(0, 0, 1024, 512);
+  fc.save(); big();
+  for (const sx of [1, -1]) {
+    const ex = 256 + 60 * sx, ey = 226;
+    ell(256 + 92 * sx, 292, 60, 34, 'rgba(226,110,96,0.22)');          // a blush
+    ell(ex, ey, 40, 27, '#fbf6ee');                                    // the eye
+    ell(ex + 1 * sx, ey + 1, 24, 25, '#3b2416');                       // iris and pupil, one dark disc
+    ell(ex - 5, ey - 6, 7, 7, '#ffffff');                              // its light
+    fc.strokeStyle = '#1c120c'; fc.lineCap = 'round';
+    fc.lineWidth = 5;                                                   // the upper lid, flicked out at the corner
+    fc.beginPath(); fc.moveTo(ex - 21 * sx, ey - 3); fc.quadraticCurveTo(ex, ey - 19, ex + 22 * sx, ey - 5); fc.lineTo(ex + 32 * sx, ey - 14); fc.stroke();
+    fc.lineWidth = 3;                                                   // lashes
+    for (const [dx, dy] of [[12, -14], [20, -11]]) { fc.beginPath(); fc.moveTo(ex + dx * sx, ey + dy + 4); fc.lineTo(ex + (dx + 7) * sx, ey + dy - 6); fc.stroke(); }
+    fc.lineWidth = 4; fc.strokeStyle = '#6b4526';                       // the brow, a thin arc
+    fc.beginPath(); fc.moveTo(ex - 24 * sx, ey - 30); fc.quadraticCurveTo(ex + 2 * sx, ey - 46, ex + 30 * sx, ey - 33); fc.stroke();
+  }
+  fc.strokeStyle = 'rgba(150,95,55,0.75)'; fc.lineWidth = 3; fc.lineCap = 'round';   // the nose: a small curve
+  fc.beginPath(); fc.moveTo(249, 282); fc.quadraticCurveTo(256, 289, 264, 282); fc.stroke();
+  fc.restore();
+  mouthNow = null;
+  drawMouth('closed');
+}
+drawFace();
+const sequinGlint = noiseTexture(128, (d, i) => { const v = Math.random() < 0.06 ? 255 : 0; d[i] = v; d[i + 1] = v * 0.95; d[i + 2] = v * 0.7; d[i + 3] = 255; });
+const mats = {
+  skin: new THREE.MeshStandardMaterial({ name: 'skin', color: 0xdba06c, roughness: 0.42 }),
+  gold: new THREE.MeshStandardMaterial({ name: 'sequins', color: 0xf3c23c, metalness: 0.85, roughness: 0.45, normalMap: sequinNormal, normalScale: new THREE.Vector2(0.5, 0.5), roughnessMap: sequinRough, emissive: 0xffffff, emissiveMap: sequinGlint, emissiveIntensity: 1.6, side: THREE.DoubleSide }),
+  jewel: new THREE.MeshStandardMaterial({ name: 'jewel', color: 0xf5c542, metalness: 1, roughness: 0.15 }),
+  hair: new THREE.MeshStandardMaterial({ name: 'hair', color: 0xeeb927, roughness: 0.4, side: THREE.DoubleSide }),
+  band: new THREE.MeshStandardMaterial({ name: 'band', color: 0xd99e1c, roughness: 0.35 }),
+  belt: new THREE.MeshStandardMaterial({ name: 'belt', color: 0x8a5428, roughness: 0.5 }),
+  white: new THREE.MeshStandardMaterial({ name: 'white', color: 0xf6f2e8, roughness: 0.4 }),
+  face: new THREE.MeshStandardMaterial({ name: 'face', map: faceTex, roughness: 0.42 }),
+  dark: new THREE.MeshStandardMaterial({ name: 'dark', color: 0x231a16, roughness: 0.35 }),
+  silver: new THREE.MeshStandardMaterial({ name: 'silver', color: 0xe6e9ef, metalness: 1, roughness: 0.25, flatShading: true, emissive: 0xffffff, emissiveIntensity: 0.6 }),
+};
+const parts = Object.fromEntries(Object.keys(mats).map((k) => [k, []]));
+function part(mat, boneName, geo, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) {
+  geo = geo.toNonIndexed();
+  geo.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz)));
+  parts[mat].push({ geo, bone: index[boneName] });
+}
+const cyl = (rt, rb, h, n = 10) => new THREE.CylinderGeometry(rt, rb, h, n);
+const ball = (r, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
+const ring = (r, t) => new THREE.TorusGeometry(r, t, 5, 16).rotateX(Math.PI / 2);   // lying flat (around y)
+
+// head and face
+part('face', 'head', ball(0.1, 20, 14), 0, 1.72, 0.01, 0.95, 1.12, 1);
+// the hair: a cap tilted back off the forehead, the headband over it, a mass behind the neck, and thick round strands
+for (const side of [1, -1]) {
+  const cap = new THREE.SphereGeometry(0.118, 10, 6, side > 0 ? 0.03 : Math.PI + 0.03, Math.PI - 0.06, 0, Math.PI / 2);
+  part('hair', 'head', cap, 0, 1.725, -0.006, 1, 1, 1, -0.62, 0, 0);
+}
+part('band', 'head', new THREE.TorusGeometry(0.12, 0.02, 6, 18, Math.PI), 0, 1.722, -0.004, 1, 1, 1.5, -0.42, 0, 0);
+part('hair', 'head', cyl(0.1, 0.14, 0.46, 10), 0, 1.53, -0.065, 1, 1, 0.5);
+const UP = new THREE.Vector3(0, 1, 0);
+function strand(points, r0, r1) {
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1], d = b.clone().sub(a), len = d.length();
+    const t0 = r0 + (r1 - r0) * (i / (points.length - 1)), t1 = r0 + (r1 - r0) * ((i + 1) / (points.length - 1));
+    const g = new THREE.CylinderGeometry(t0, t1, len + 0.014, 7).toNonIndexed();
+    g.applyMatrix4(new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(0.5), new THREE.Quaternion().setFromUnitVectors(UP, d.clone().negate().normalize()), new THREE.Vector3(1, 1, 1)));
+    parts.hair.push({ geo: g, bone: index.head });
+  }
+  const tip = new THREE.SphereGeometry(r1, 7, 5).toNonIndexed().translate(points.at(-1).x, points.at(-1).y, points.at(-1).z);
+  parts.hair.push({ geo: tip, bone: index.head });
+}
+// angle 0 = straight ahead (+z): the front strands start under the headband by the temples and hang in front of the
+// shoulders down to the chest, a slight wave in each
+for (const deg of [50, 63, 77, 92, 107, 122, 137, 152, 167, 180]) {
+  for (const side of [1, -1]) {
+    if (deg === 180 && side < 0) continue;
+    const a = THREE.MathUtils.degToRad(deg) * side;
+    const front = deg < 70;
+    const end = front ? 1.3 : deg < 110 ? 1.29 : 1.27;
+    const w = deg * 0.37;
+    const at = (r, y, k) => new THREE.Vector3(Math.sin(a) * r + 0.007 * Math.sin(w + k), y, Math.cos(a) * r * (front ? 0.95 : 1) - 0.01);
+    strand([at(0.113, 1.75, 0), at(0.13, 1.64, 1), at(0.146, 1.52, 2), at(0.156, 1.4, 3), at(0.16, end, 4)], 0.03, 0.025);
+  }
+}
+// neck and choker
+part('skin', 'neck', cyl(0.038, 0.044, 0.15), 0, 1.58, 0);
+part('jewel', 'neck', ring(0.043, 0.0055), 0, 1.57, 0);
+// the dress: a strapless bodice with two cups, the waist, the belt with its star, a short skirt
+part('gold', 'chest', cyl(0.14, 0.128, 0.24, 14), 0, 1.35, 0, 1, 1, 0.74);
+part('skin', 'chest', cyl(0.134, 0.138, 0.03, 14), 0, 1.475, 0, 1, 1, 0.72);
+for (const x of [1, -1]) part('gold', 'chest', ball(0.066, 10, 8), 0.06 * x, 1.405, 0.056, 1, 0.85, 0.85);
+part('gold', 'spine', cyl(0.128, 0.138, 0.16, 14), 0, 1.16, 0, 1, 1, 0.75);
+part('belt', 'spine', cyl(0.14, 0.142, 0.042, 16), 0, 1.115, 0, 1, 1, 0.78);
+const star = new THREE.Shape();
+for (let i = 0; i < 10; i++) {
+  const r = i % 2 ? 0.011 : 0.026, t = (i / 10) * Math.PI * 2 + Math.PI / 2;
+  star[i ? 'lineTo' : 'moveTo'](Math.cos(t) * r, Math.sin(t) * r);
+}
+part('white', 'spine', new THREE.ExtrudeGeometry(star, { depth: 0.008, bevelEnabled: false }), 0, 1.115, 0.108);
+const skirt = [[0.147, 1.1], [0.172, 1.05], [0.2, 0.98], [0.218, 0.88], [0.232, 0.75]].map(([r, y]) => new THREE.Vector2(r, y));
+// the slit: 14° left open over her right thigh (the lathe starts at +z and turns toward +x)
+part('gold', 'hips', new THREE.LatheGeometry(skirt, 20, THREE.MathUtils.degToRad(-33), THREE.MathUtils.degToRad(346)), 0, 0, 0, 1, 1, 0.9);
+// her hips under it
+part('skin', 'hips', ball(0.17, 14, 10), 0, 0.99, 0, 1.08, 0.7, 0.85);
+// arms: a ball at every joint, as a doll has
+for (const [s, x] of [['L', 1], ['R', -1]]) {
+  part('skin', `upperArm_${s}`, ball(0.056), 0.185 * x, 1.46, 0);
+  part('skin', `upperArm_${s}`, cyl(0.052, 0.044, 0.25), 0.19 * x, 1.33, 0);
+  part('skin', `foreArm_${s}`, ball(0.045), 0.19 * x, 1.19, 0);
+  part('skin', `foreArm_${s}`, cyl(0.043, 0.032, 0.22), 0.19 * x, 1.07, 0);
+  part('skin', `hand_${s}`, ball(0.032), 0.19 * x, 0.95, 0);
+  part('skin', `hand_${s}`, ball(0.04), 0.19 * x, 0.9, 0, 0.8, 1.3, 0.55);
+  for (const y of [0.985, 1.01]) part('jewel', `foreArm_${s}`, ring(0.04, 0.008), 0.19 * x, y, 0);
+  // legs, the ankle boots with their spiky cuff, the shoes
+  part('skin', `thigh_${s}`, cyl(0.085, 0.066, 0.42, 12), 0.09 * x, 0.69, 0);
+  part('skin', `shin_${s}`, ball(0.064), 0.09 * x, 0.51, 0);
+  part('skin', `shin_${s}`, cyl(0.062, 0.05, 0.3, 12), 0.09 * x, 0.36, 0);
+  part('gold', `shin_${s}`, cyl(0.064, 0.056, 0.13, 12), 0.09 * x, 0.165, 0);
+  for (let k = 0; k < 9; k++) {
+    const t = (k / 9) * Math.PI * 2;
+    part('gold', `shin_${s}`, new THREE.ConeGeometry(0.018, 0.06, 4), 0.09 * x + Math.sin(t) * 0.064, 0.245, Math.cos(t) * 0.064, 1, 1, 1, Math.cos(t) * 0.45, 0, -Math.sin(t) * 0.45);
+  }
+  part('gold', `foot_${s}`, ball(0.06), 0.09 * x, 0.045, 0.04, 0.85, 0.7, 1.7);
+}
+part('skin', 'hand_L', cyl(0.009, 0.011, 0.07, 6), 0.19, 0.83, 0.006);   // the pointing finger
+// the microphone, in the right hand: it continues the forearm past the hand
+part('dark', 'hand_R', cyl(0.019, 0.013, 0.15, 8), -0.19, 0.84, 0);
+part('silver', 'hand_R', new THREE.IcosahedronGeometry(0.032, 1), -0.19, 0.75, 0);
+
+const character = new THREE.Group();
+character.name = 'giant-popstar';
+const skeleton = new THREE.Skeleton(bones);
+for (const [mat, list] of Object.entries(parts)) {
+  const pos = [], nor = [], uv = [], si = [], sw = [];
+  for (const { geo, bone: b } of list) {
+    const p = geo.attributes.position.array, n = geo.attributes.normal.array, u = geo.attributes.uv.array;
+    for (let i = 0; i < p.length; i += 3) {
+      pos.push(p[i], p[i + 1], p[i + 2]);
+      nor.push(n[i], n[i + 1], n[i + 2]);
+      uv.push(u[(i / 3) * 2], u[(i / 3) * 2 + 1]);
+      si.push(b, 0, 0, 0);
+      sw.push(1, 0, 0, 0);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.normalizeNormals();
+  const m = new THREE.SkinnedMesh(g, mats[mat]);
+  m.name = `popstar-${mat}`;
+  m.castShadow = true;
+  m.frustumCulled = false;
+  if (mat === 'skin') m.add(B.hips);
+  character.add(m);
+}
+character.children[0].updateMatrixWorld(true);
+for (const m of character.children) m.bind(skeleton, new THREE.Matrix4());
+scene.add(character);
+
+// ---------------------------------------------------------------- the poses: aim a two-bone limb at points (chest-local rest space)
+const DOWN = new THREE.Vector3(0, -1, 0);
+const REST = Object.fromEntries(bones.map((b) => [b.name, b.getWorldPosition(new THREE.Vector3())]));
+function aim(upper, elbow, hand) {
+  const s = REST[upper];   // rest pose: world = chest-local here
+  const q1 = new THREE.Quaternion().setFromUnitVectors(DOWN, elbow.clone().sub(s).normalize());
+  const d2 = hand.clone().sub(elbow).normalize().applyQuaternion(q1.clone().invert());
+  const q2 = new THREE.Quaternion().setFromUnitVectors(DOWN, d2);
+  return [q1, q2];
+}
+const v = (x, y, z) => new THREE.Vector3(x, y, z);
+const q = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z));
+// the mic arm: elbow out and forward, the hand under the chin
+// Her three arm poses (owner 2026-11-21), as points the elbows and hands aim at (chest space), [elbow, hand]:
+//   hips – both hands on the hips · sing – the left arm in the air, the mic at her mouth · up – the mic arm up too
+const ARMS = {
+  hips: { L: [v(0.369, 1.26, -0.021), v(0.232, 1.13, 0.126)], R: [v(-0.369, 1.26, -0.021), v(-0.232, 1.13, 0.126)], micHand: q(-0.7, 0, 0) },   // the hands in front of the hips, clear of the skirt
+  sing: { L: [v(0.39, 1.47, 0.04), v(0.41, 1.75, 0.07)], R: [v(-0.225, 1.248, 0.165), v(-0.113, 1.46, 0.157)], micHand: q(0, 0, 0) },   // the mic's head ends 2–3 cm in front of her lips
+  up: { L: [v(0.39, 1.47, 0.04), v(0.41, 1.75, 0.07)], R: [v(-0.39, 1.47, 0.04), v(-0.41, 1.75, 0.07)], micHand: q(0.9, 0, 0) },
+};
+// the phrase is 4 bars (8 cycles): hands on hips · she sings · she sings · both arms up
+const PHRASE = ['hips', 'sing', 'sing', 'up'], BARS = PHRASE.length, PHRASE_CYCLES = BARS * 2;
+// which pose, and how far into the next: a change happens in the last 30 % of the last beat of a bar and lands on the bar line
+function arms(pc) {
+  const bar = Math.floor(pc / 2) % BARS, u = (pc / 2) % 1;
+  const e = Math.max(0, (u - 0.925) / 0.075), w = e * e * (3 - 2 * e);
+  return [ARMS[PHRASE[bar]], ARMS[PHRASE[(bar + 1) % BARS]], w, PHRASE[bar] === 'sing' ? 1 - w : PHRASE[(bar + 1) % BARS] === 'sing' ? w : 0];
+}
+
+// The walk (her walk: a slow strut – long steps placed toward the middle, the hips swinging, the free arm up and
+// pumping on every beat). One cycle = two steps = two beats.
+const BPM = 94, BEAT = 60 / BPM, CYCLE = 2 * BEAT, STRIDE = 0.836;   // 94: the reference's tempo, measured from its audio (≈ 93.5)
+// "tschuk schuk" (owner 2026-11-21): every step snaps. Measured on the reference short (hip position per frame against
+// the kick onsets of its audio): the hips start about 0.15–0.2 s BEFORE the beat and arrive ON it, then hold. So a step
+// holds for the first 72 % of its beat and moves in the last 28 %, landing exactly on the next beat.
+function snap(p) {
+  const h = Math.floor(p * 2), u = p * 2 - h, e = Math.max(0, (u - 0.72) / 0.28);
+  return (h + e * e * e * (e * (e * 6 - 15) + 10)) / 2;
+}
+function pose(pc, steps = 1) {
+  const raw = pc % 1;
+  const p = snap(raw), sinceBeat = (raw * 2) % 1, land = Math.exp(-sinceBeat * 9);   // land: 1 on the beat, gone soon after
+  const T = 2 * Math.PI, c = Math.cos(T * p);
+  const o = {};
+  // The hips, from the reference video: the whole pelvis swings out over the leg that lands and tilts up on that side,
+  // the waist and the shoulders lean back the other way, the head stays level; the legs stay close and upright under it.
+  // As measured there, it arrives on the beat at about four fifths of the way and creeps on to its end over the hold.
+  const over = c * (0.8 + 0.2 * (1 - Math.exp(-sinceBeat * 5)));
+  o.hipsX = 0.085 * over;
+  o.hips = q(0.03, 0.14 * c * steps, 0.27 * over);
+  o.spine = q(0.02, -0.08 * c * steps, -0.19 * over);
+  o.chest = q(-0.04 + 0.05 * land, -0.1 * c * steps, -0.14 * over);   // the shoulders answer the hips
+  o.neck = q(0.02, 0.05 * c * steps, 0.03 * over);
+  o.head = q(0.08 * land, 0.04 * c * steps, 0.05 * over);
+  for (const [side, sign] of [['L', 1], ['R', -1]]) {
+    const a = sign * c;                                // +1: this leg is forward at its strike
+    const swing = sign > 0 ? Math.max(0, Math.sin(T * (p - 0.5))) : Math.max(0, Math.sin(T * p));
+    const thigh = (-0.27 * a - 0.16 * swing) * steps;
+    const knee = 0.06 + 0.6 * swing * steps + (1 - steps) * 0.1 * Math.max(0, -a);   // standing: the free leg's knee gives
+    o[`thigh_${side}`] = q(thigh, 0, -0.03 * sign - 0.24 * over);    // upright under the tilted pelvis, close together
+    o[`shin_${side}`] = q(knee, 0, 0);
+    o[`foot_${side}`] = q(-(thigh + knee) - 0.03, 0, -0.03 * over);
+  }
+  // the arms: the pose of this bar, turning into the next one's just before the bar line; a raised arm jabs on the beat
+  const [A, N, w] = arms(pc);
+  const pt = (side, i) => A[side][i].clone().lerp(N[side][i], w).add(v(0, (i ? 0.05 : 0.02) * land * (A[side][1].y > 1.6 ? 1 : 0), 0));
+  for (const side of ['L', 'R']) {
+    const [u1, u2] = aim(`upperArm_${side}`, pt(side, 0), pt(side, 1));
+    o[`upperArm_${side}`] = u1;
+    o[`foreArm_${side}`] = u2;
+  }
+  o['hand_L'] = q(0, 0, 0);
+  o['hand_R'] = A.micHand.clone().slerp(N.micHand, w);
+  return o;
+}
+// the soles (foot-bone space): heel and toe of each shoe
+const SOLES = [new THREE.Vector3(0, -0.097, -0.05), new THREE.Vector3(0, -0.097, 0.13)];
+// Pose the skeleton and return how high the lowest sole point is: the clip lowers the hips by that, so in every frame
+// a foot stands on the ground (no floating, and the body's rise and fall comes from the legs).
+function soleHeight(o) {
+  for (const [k, val] of Object.entries(o)) if (B[k]) B[k].quaternion.copy(val);
+  B.hips.position.set(o.hipsX ?? 0, restY, 0);
+  B.hips.updateMatrixWorld(true);
+  let min = Infinity;
+  for (const f of ['foot_L', 'foot_R']) for (const pt of SOLES) min = Math.min(min, pt.clone().applyMatrix4(B[f].matrixWorld).y);
+  return min;
+}
+function clip(name, perCycle, sample) {
+  const times = [], tracks = {}, frames = perCycle * PHRASE_CYCLES;
+  for (let i = 0; i <= frames; i++) {
+    times.push((i / perCycle) * CYCLE);
+    const o = sample((i % frames) / perCycle);
+    const y = restY - soleHeight(o);
+    for (const [k, val] of Object.entries(o)) {
+      if (k === 'hipsX') continue;
+      (tracks[k] ??= []).push(...val.toArray());
+    }
+    (tracks.hipsPos ??= []).push(o.hipsX ?? 0, y, 0);
+  }
+  const list = Object.entries(tracks).map(([k, vals]) => k === 'hipsPos'
+    ? new THREE.VectorKeyframeTrack('hips.position', times, vals)
+    : new THREE.QuaternionKeyframeTrack(`${k}.quaternion`, times, vals));
+  return new THREE.AnimationClip(name, PHRASE_CYCLES * CYCLE, list);
+}
+const walkClip = clip('walk', 64, (pc) => pose(pc, 1));
+// standing: the same hips, arms and beat, the feet staying where they are
+const standClip = clip('stand', 64, (pc) => pose(pc, 0));
+const mixer = new THREE.AnimationMixer(character.children[0]);
+const walkAction = mixer.clipAction(walkClip, character.children[0]);
+const standAction = mixer.clipAction(standClip, character.children[0]);
+walkAction.play();
+standAction.play();
+standAction.weight = 0;
+
+// ---------------------------------------------------------------- the tiny city (she is the giant)
+const city = new THREE.Group();
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x1a1c2b, roughness: 0.95 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+city.add(ground);
+const street = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 60), new THREE.MeshStandardMaterial({ color: 0x2b2e40, roughness: 0.8 }));
+street.rotation.x = -Math.PI / 2;
+street.position.y = 0.001;
+city.add(street);
+const winCanvas = document.createElement('canvas');
+winCanvas.width = 64; winCanvas.height = 128;
+const wc = winCanvas.getContext('2d');
+wc.fillStyle = '#000'; wc.fillRect(0, 0, 64, 128);
+for (let y = 6; y < 128; y += 12) for (let x = 6; x < 64; x += 12) {
+  if (Math.random() < 0.55) { wc.fillStyle = ['#ffd27a', '#ffeebb', '#9fd8ff'][Math.floor(Math.random() * 3)]; wc.fillRect(x, y, 6, 7); }
+}
+const winTex = new THREE.CanvasTexture(winCanvas);
+winTex.colorSpace = THREE.SRGBColorSpace;
+const buildingMat = new THREE.MeshStandardMaterial({ color: 0x2a2f48, roughness: 0.7, emissive: 0xffffff, emissiveMap: winTex, emissiveIntensity: 0.9 });
+const rand = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+const blocks = [];
+for (let x = -9; x <= 9; x += 0.32) for (let z = -14; z <= 14; z += 0.32) {
+  if (Math.abs(x) < 0.55 || rand() < 0.25) continue;
+  const h = 0.04 + Math.pow(rand(), 2.2) * (Math.abs(x) < 1.5 ? 0.16 : Math.abs(x) < 3 ? 0.32 : 0.6);
+  blocks.push([x + (rand() - 0.5) * 0.06, z + (rand() - 0.5) * 0.06, 0.12 + rand() * 0.12, h, 0.12 + rand() * 0.12]);
+}
+const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), buildingMat, blocks.length);
+blocks.forEach(([x, z, w, h, d], i) => inst.setMatrixAt(i, new THREE.Matrix4().compose(v(x, 0, z), new THREE.Quaternion(), v(w, h, d))));
+inst.castShadow = inst.receiveShadow = true;
+city.add(inst);
+// tiny street lights along her path
+const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd27a });
+for (let z = -14; z <= 14; z += 0.6) for (const x of [-0.42, 0.42]) {
+  const l = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 4), lampMat);
+  l.position.set(x, 0.05, z);
+  city.add(l);
+}
+scene.add(city);
+// her spotlight, following her
+const spot = new THREE.SpotLight(0xfff4e0, 14, 12, 0.35, 0.6);
+spot.castShadow = true;
+scene.add(spot, spot.target);
+
+// ---------------------------------------------------------------- the theme (an original hook, ours) on a small synth
+let audio = null;
+// Our own hook, in the mode the meme's song is said to use (owner 2026-11-21): D Phrygian dominant
+// (D E♭ F♯ G A B♭ C) over D major · E♭ major · D major · C minor. A scale and its chords, not that song's melody.
+const NOTES = { D4: 293.66, Eb4: 311.13, 'F#4': 369.99, G4: 392, A4: 440, Bb4: 466.16, C5: 523.25, D5: 587.33, Eb5: 622.25, C2: 65.41, D2: 73.42, Eb2: 77.78 };
+// 4 bars of 8 eighths, '-' holds, '.' rests
+const LEAD = [
+  'D5 D5 C5 Bb4 A4 - F#4 A4', 'Bb4 Bb4 A4 G4 Eb4 - G4 .',
+  'D5 D5 Eb5 D5 C5 Bb4 A4 F#4', 'G4 - Eb4 . D4 - - .',
+].join(' ').split(' ');
+const BASS = ['D2', 'Eb2', 'D2', 'C2'];
+function startAudio() {
+  const ctx = new AudioContext();
+  const out = ctx.createGain();
+  out.gain.value = 0.5;
+  const comp = ctx.createDynamicsCompressor();
+  out.connect(comp).connect(ctx.destination);
+  const delay = ctx.createDelay(); delay.delayTime.value = BEAT * 0.75;
+  const fb = ctx.createGain(); fb.gain.value = 0.28;
+  delay.connect(fb).connect(delay); delay.connect(out);
+  const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+  noiseBuf.getChannelData(0).forEach((_, i, a) => { a[i] = Math.random() * 2 - 1; });
+  const start = ctx.currentTime + 0.1;
+  function lead(t, f, len) {
+    const g = ctx.createGain(), flt = ctx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.Q.value = 6;
+    flt.frequency.setValueAtTime(800, t); flt.frequency.exponentialRampToValueAtTime(4200, t + 0.02); flt.frequency.exponentialRampToValueAtTime(1200, t + len);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.01); g.gain.setTargetAtTime(0, t + len * 0.85, 0.05);
+    for (const det of [-9, 9]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det; o.connect(flt); o.start(t); o.stop(t + len + 0.3); }
+    const sq = ctx.createOscillator(); sq.type = 'square'; sq.frequency.value = f / 2; const sg = ctx.createGain(); sg.gain.value = 0.35; sq.connect(sg).connect(flt); sq.start(t); sq.stop(t + len + 0.3);
+    flt.connect(g); g.connect(out); g.connect(delay);
+  }
+  function bass(t, f) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), flt = ctx.createBiquadFilter();
+    o.type = 'square'; o.frequency.value = f; flt.type = 'lowpass'; flt.frequency.value = 420;
+    g.gain.setValueAtTime(0.22, t); g.gain.setTargetAtTime(0, t + BEAT * 0.4, 0.04);
+    o.connect(flt).connect(g).connect(out); o.start(t); o.stop(t + BEAT);
+  }
+  function kick(t) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.connect(g).connect(out); o.start(t); o.stop(t + 0.3);
+  }
+  function noise(t, len, hp, vol) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+    s.connect(f).connect(g).connect(out); s.start(t); s.stop(t + len);
+  }
+  let step = 0;
+  const E = BEAT / 2;
+  function schedule() {
+    while (start + step * E < ctx.currentTime + 0.25) {
+      const t = start + step * E, i = step % 32, bar = Math.floor(i / 8);
+      const n = LEAD[i];
+      if (n !== '-' && n !== '.') { let len = 1; while (LEAD[(i + len) % 32] === '-') len++; lead(t, NOTES[n], len * E); }
+      if (step % 2 === 0) { kick(t); bass(t, NOTES[BASS[bar]]); if ((step / 2) % 2 === 1) noise(t, 0.18, 1200, 0.35); }
+      else { noise(t, 0.05, 7000, 0.12); bass(t, NOTES[BASS[bar]] * 2); }
+      step++;
+    }
+  }
+  const timer = setInterval(schedule, 50);
+  schedule();
+  return { ctx, start, stop() { clearInterval(timer); ctx.close(); } };
+}
+
+// ---------------------------------------------------------------- UI
+let walking = true, following = true;
+const $ = (id) => document.getElementById(id);
+$('music').onclick = () => {
+  if (audio) { audio.stop(); audio = null; } else audio = startAudio();
+  $('music').classList.toggle('on', !!audio);
+};
+$('walk').onclick = () => { walking = !walking; $('walk').classList.toggle('on', walking); };
+$('follow').onclick = () => { following = !following; $('follow').classList.toggle('on', following); };
+const CAMS = { frog: [0.12, 0.03, 2.2, 1.3], front: [0, 1.2, 4.2, 1.0], side: [3.6, 1.1, 0.2, 1.0], close: [0.25, 1.62, 0.95, 1.55] };
+function cam(name) {
+  const [x, y, z, ty] = CAMS[name];
+  const p = character.position;
+  camera.position.set(p.x + x, y, p.z + z);
+  controls.target.set(p.x, ty, p.z);
+  document.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === name));
+}
+document.querySelectorAll('[data-cam]').forEach((b) => (b.onclick = () => cam(b.dataset.cam)));
+cam('front');
+$('export').onclick = () => {
+  character.position.set(0, 0, 0);
+  new GLTFExporter().parse(character, (glb) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+    a.download = 'giant-popstar.v1.glb';
+    a.click();
+  }, (e) => console.error(e), { binary: true, animations: [walkClip, standClip] });
+};
+let frozen = null;
+window.popstar = { freeze: (p) => { frozen = p; }, character, walkClip, standClip, skeleton, GLTFExporter, cam, pose: (t) => { mixer.setTime(t); } };
+
+// ---------------------------------------------------------------- loop
+const clock = new THREE.Clock();
+let wW = 1, lastProg = 0;
+const VOWELS = ['eh', 'oh', 'ah', 'eh', 'uh', 'eh'];
+
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  wW += ((walking ? 1 : 0) - wW) * Math.min(1, dt * 4);
+  walkAction.weight = wW;
+  standAction.weight = 1 - wW;
+  // on the theme, the steps land on the beat
+  if (audio) {
+    const t = Math.max(0, audio.ctx.currentTime - audio.start);
+    walkAction.time = standAction.time = t % (PHRASE_CYCLES * CYCLE);
+    mixer.update(0);
+  } else if (frozen !== null) { walkAction.time = standAction.time = frozen * CYCLE; mixer.update(0); }
+  else mixer.update(dt);
+  // the mouth: a vowel per note of the hook while the mic is at her mouth (eh oh ah eh uh eh …), closed otherwise
+  {
+    const pc = walkAction.time / CYCLE, sing = arms(pc)[3];
+    const i8 = Math.floor(pc * 4) % 32;
+    let n = i8, count = 0;
+    while (LEAD[n] === '-' && n > 0) n--;
+    for (let k = 0; k <= n; k++) if (LEAD[k] !== '-' && LEAD[k] !== '.') count++;
+    const open = LEAD[n] === '.' || sing < 0.5 ? null : VOWELS[(count - 1) % VOWELS.length];
+    drawMouth(open ?? 'closed');
+  }
+  const before = character.position.clone();
+  const prog = snap((walkAction.time / CYCLE) % 1);
+  let step = prog - lastProg;
+  if (step < -0.5) step += 1;
+  lastProg = prog;
+  if (frozen === null) character.position.z += wW * STRIDE * Math.max(0, step);
+  if (character.position.z > 12) character.position.z = -12;
+  const moved = character.position.clone().sub(before);
+  if (following && moved.lengthSq() < 1) { camera.position.add(moved); controls.target.add(moved); }
+  spot.position.set(character.position.x + 1.5, 4.5, character.position.z + 3);
+  spot.target.position.copy(character.position);
+  key.position.set(character.position.x + 2, 5, character.position.z + 4);
+  key.target.position.copy(character.position);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script>
+</body>
+</html>

@@ -19,7 +19,6 @@ deck-core = { workspace = true }
 deck-kit = { path = "../kit", features = ["live"] }
 # #546: the filter's model speaks the wire's facts (`Filter`, `Admits`, `Account`): serde types, no I/O
 protocol = { workspace = true }
-
-[dev-dependencies]
-# #546: the filter tests write filters as the documents do
+# the Log's lines and filters as JSON for the creator (messages.rs, through space-web)
+serde = { workspace = true }
 serde_json = { workspace = true }

@@ -1,6 +1,7 @@
 //! #698: the Library's shelf (deck-catalog `library::shelf`) for the creator's Library panel, browser and picker – the
 //! families, what the open item uses, the view, what a slot takes, the selection, where an upload lands. JSON in and
 //! out; the page holds no rule of its own (no GPU: it works when the 3D can't).
+use deck_catalog::library::open;
 use deck_catalog::library::shelf::{self, Shelf};
 use wasm_bindgen::prelude::*;
 
@@ -58,4 +59,16 @@ pub fn library_select(request: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn library_start_kind(fit: &str) -> String {
     shelf::start_kind_json(fit)
+}
+
+/// what opening an address means in an editor (`deck` | `creator`): `{ ok: true, address, workspace }` or `{ ok: false, why }`
+#[wasm_bindgen]
+pub fn library_open(address: &str, editor: &str) -> String {
+    open::open_json(address, editor)
+}
+
+/// every kind the Library lists and its answer in an editor: `[{ kind, words, workspace?, why? }]`
+#[wasm_bindgen]
+pub fn library_open_kinds(editor: &str) -> String {
+    open::kinds_json(editor)
 }

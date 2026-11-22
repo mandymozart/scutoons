@@ -53,17 +53,6 @@ impl Sort {
     }
 }
 
-/// a library asset's address word: `video`, `image`, `audio`, `model`
-pub fn word_of(kind: deck_catalog::library::Kind) -> &'static str {
-    use deck_catalog::library::Kind;
-    match kind {
-        Kind::Video => "video",
-        Kind::Image => "image",
-        Kind::Audio => "audio",
-        _ => "model",
-    }
-}
-
 /// the use the tab was opened from: a scene's `video` node, whose in and out points the trim moves
 #[derive(Debug, Clone, PartialEq)]
 pub struct Use {
