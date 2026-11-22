@@ -1764,6 +1764,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drumseq-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4820,6 +4827,7 @@ dependencies = [
  "deck-space",
  "delay-module",
  "dolly-module",
+ "drumseq-module",
  "env-module",
  "filter-module",
  "fixture-module",

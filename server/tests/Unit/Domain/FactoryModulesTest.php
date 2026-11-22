@@ -12,7 +12,8 @@ use Scutoons\Tests\TestCase;
 /**
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
- * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #780, 2026-11-22-factory-cloud: cloud) as
+ * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #780, 2026-11-22-factory-cloud: cloud;
+ * #743, 2026-11-22-factory-drumseq: drumseq) as
  * catalog documents marked `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte
  * (this test keeps the two equal: a change of a module's source needs a migration that brings it into the catalog), each
  * with its published version; each migration run twice, around a creator's own module of the same name.
@@ -25,6 +26,7 @@ final class FactoryModulesTest extends TestCase
     private const REVERB_MARKER = 'factory module (migration 2026-11-21-factory-reverb)';
     private const ARP_MARKER = 'factory module (migration 2026-11-22-factory-arp)';
     private const CLOUD_MARKER = 'factory module (migration 2026-11-22-factory-cloud)';
+    private const DRUMSEQ_MARKER = 'factory module (migration 2026-11-22-factory-drumseq)';
     /** every factory module and the marker of the migration that brought it */
     private const IDS = [
         'walk' => self::MARKER, 'analog' => self::MARKER, 'fixture' => self::MARKER,
@@ -34,6 +36,7 @@ final class FactoryModulesTest extends TestCase
         'reverb' => self::REVERB_MARKER,
         'arp' => self::ARP_MARKER,
         'cloud' => self::CLOUD_MARKER,
+        'drumseq' => self::DRUMSEQ_MARKER,
     ];
 
     /** @return array<string, string> the repository's sources of a module */
@@ -261,6 +264,51 @@ final class FactoryModulesTest extends TestCase
                 self::assertSame(['delay'], array_keys($rows), "$case, run $run");
                 self::assertSame($case === 'older published version', ModuleSource::isFactory(json_decode($rows['delay'], true)), "$case, run $run");
                 if ($case !== 'older published version') self::assertSame($mine, $rows['delay'], "run $run: the creator's delay stays");
+                self::assertSame($expected, $versions, "$case, run $run");
+                if ($after !== null) self::assertSame($after, $state(), "$case: a second run changes nothing");
+                $after = $state();
+            }
+        }
+    }
+
+    public function testTheDrumseqMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
+    {
+        $this->assertOneModuleMigration('drumseq', '2026-11-22-factory-drumseq', self::DRUMSEQ_MARKER);
+    }
+
+    /** a migration that brings one factory module: run twice over an older published version, and around a creator's own */
+    private function assertOneModuleMigration(string $id, string $migration, string $marker): void
+    {
+        $statements = MigrationRunner::statements(self::root() . "/migrations/mysql/$migration.mysql.sql");
+        self::assertCount(3, $statements);
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message FROM entity_versions WHERE kind = 'module' ORDER BY entity_key, id"),
+        ];
+        $mine = (string) json_encode(['id' => $id, 'files' => ['lib.rs' => '// mine']]);
+        $old = (string) json_encode(['id' => $id, 'files' => ['lib.rs' => '// old']]);
+        foreach (['older published version', "a creator's own"] as $case) {
+            $this->db->exec('DELETE FROM catalog_modules');
+            $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+            $older = $case === 'older published version';
+            if ($older) {
+                $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES (?, 'module', ?, UTC_TIMESTAMP(), 'published', NULL)", ["module:$id", $old]);
+                $expected = [
+                    ['entity_key' => "module:$id", 'status' => 'draft', 'message' => null],
+                    ['entity_key' => "module:$id", 'status' => 'published', 'message' => $marker],
+                ];
+            } else {
+                $this->db->run("INSERT INTO catalog_modules (id, position, data, updated_at) VALUES (?, 0, ?, UTC_TIMESTAMP())", [$id, $mine]);
+                $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES (?, 'module', ?, UTC_TIMESTAMP(), 'published', 'mine')", ["module:$id", $mine]);
+                $expected = [['entity_key' => "module:$id", 'status' => 'published', 'message' => 'mine']];
+            }
+            $after = null;
+            foreach ([1, 2] as $run) {
+                foreach ($statements as $statement) $this->db->exec($statement);
+                [$rows, $versions] = $state();
+                self::assertSame([$id], array_keys($rows), "$case, run $run");
+                self::assertSame($older, ModuleSource::isFactory(json_decode($rows[$id], true)), "$case, run $run");
+                if (!$older) self::assertSame($mine, $rows[$id], "run $run: the creator's module stays");
                 self::assertSame($expected, $versions, "$case, run $run");
                 if ($after !== null) self::assertSame($after, $state(), "$case: a second run changes nothing");
                 $after = $state();

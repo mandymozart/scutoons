@@ -63,3 +63,20 @@ fn process_never_allocates() {
     assert!(seen > 0.0, "the run was not silent: {seen}");
     assert!(b.rig.module().active_voices() <= analog_module::VOICES);
 }
+
+#[test]
+fn the_demo_presets_never_allocate() {
+    for name in ["hoover-dissonant", "kick", "snare", "hat-closed", "hat-open"] {
+        let mut b = Bench::new();
+        b.apply(&preset(name));
+        b.rig.set_tempo(0.0, 0.0, 160.0, 4, true);
+        let mut seen = 0.0f32;
+        for step in 0..64usize {
+            b.note_on(0, 220.0 * (1 + step % 3) as f32, if step % 4 == 0 { 1.0 } else { 0.7 });
+            seen = seen.max(b.run_peak(2250, 512));
+            b.note_off(0);
+            seen = seen.max(b.run_peak(2250, 333));
+        }
+        assert!(seen > 0.0, "{name} was silent");
+    }
+}

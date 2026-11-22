@@ -52,11 +52,12 @@ hard-sync sweep) · `glide`, `mono` (poly | mono | legato; at their defaults a r
 ## Presets
 
 **One factory preset in the descriptor** (research/ABI-V2.md §2, owner 2026-11-03): `pad` (`#[preset]` in `src/params.rs`) –
-the host's `Preset::apply` sets every parameter to its default, then its values. The other three – `bass`, `lead`,
-`sync lead` – are `preset:` documents: the module is the catalog's factory document `module:analog` (#350); until preset
+the host's `Preset::apply` sets every parameter to its default, then its values. The others – `bass`, `lead`,
+`sync lead`, and the three-crows demo's `hoover-dissonant`, `kick`, `snare`, `hat-closed`, `hat-open`
+(research/audio-nodes-foundation.md §4.3, §4.4; `tests/presets.rs`) – are `preset:` documents: the module is the catalog's factory document `module:analog` (#350); until preset
 files import (#346) they wait in **`analog.preset.json`** (format `scutoons.preset`, version 1, `module`, `module_version`, `presets: [{name, doc, values
 by parameter name}]`), the file the creator imports as drafts. A preset lists only what differs from the defaults. The tests
-apply all four (`tests/common`).
+apply all of them (`tests/common`).
 
 ## The DSP (the SDK's units, and `src/*.rs` beside `lib.rs`)
 
