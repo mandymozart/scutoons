@@ -1,10 +1,10 @@
 // The shell's pure parts (lib/shell): addresses ↔ routes, the tabs, this machine's settings.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, workspaceOf } from '../src/lib/shell/address.ts';
+import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
-import { PRESETS, availableTabs, panelSpecs, stageOf } from '../src/lib/shell/presets.ts';
+import { PRESETS, availableTabs, panelSpecs, stageOf, tabIdOf } from '../src/lib/shell/presets.ts';
 import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn } from '../src/lib/shell/stage.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
@@ -124,14 +124,14 @@ test('machine settings: day by default (owner 2026-11-21), every field checked',
 	assert.equal(clampScale(NaN), 1);
 });
 
-const TABS = ['toon', 'tree', 'inspector', 'kanon', 'moods', 'flow', 'preview', 'problems', 'timeline', 'library', 'settings'].map((id) => ({ id, name: id, icon: 'x', about: '' }));
+const TABS = ['toon', 'tree', 'inspector', 'kanon', 'moods', 'flow', 'preview', 'log', 'timeline', 'library', 'settings'].map((id) => ({ id, name: id, icon: 'x', about: '' }));
 
-test('a workspace is a preset: its panels hold only the tabs with content, Library and Settings everywhere', () => {
-	const specs = panelSpecs('chapter', availableTabs(['tree', 'flow', 'problems'], 'catpope'), TABS);
+test('a workspace is a preset: its panels hold only the tabs with content, Library, Settings and the Log everywhere', () => {
+	const specs = panelSpecs('chapter', availableTabs(['tree', 'flow'], 'catpope'), TABS);
 	const ids = specs.map((p) => p.id);
 	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
 	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
-	assert.deepEqual(specs[1].tabs, ['problems', 'flow'], 'the inspector without content is not offered');
+	assert.deepEqual(specs[1].tabs, ['log', 'flow'], 'the inspector without content is not offered; the Log is the shell’s own');
 	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
 	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
 });
@@ -142,6 +142,27 @@ test('a tab with content that no preset panel holds gets a closed panel of its o
 	assert.deepEqual(flow?.tabs, ['flow']);
 	assert.equal(flow?.place.closed, true);
 	assert.ok(!specs.some((p) => p.tabs?.includes('toon')), 'the Toon only with a toon');
+});
+
+test('the Log is in every workspace; its old id Problems still names it', () => {
+	for (const kind of Object.keys(PRESETS)) {
+		const specs = panelSpecs(kind as keyof typeof PRESETS, availableTabs([], null), TABS);
+		assert.ok(specs.some((p) => p.tabs?.includes('log')), kind);
+	}
+	assert.equal(panelSpecs('scene', availableTabs([], null), TABS).find((p) => p.id === 'log')?.place.closed, true, 'a workspace without it in its preset: a closed panel');
+	assert.equal(tabIdOf('problems'), 'log');
+	assert.deepEqual(stageOf('chapter', { stage: ['problems'] }), ['log'], 'a stored stage naming Problems');
+});
+
+test('an address as the Log’s scope: a toon’s items under the toon, a chapter under its season', () => {
+	const season = (toon: string, chapter: number) => (toon === 'catpope' && chapter === 3 ? 1 : null);
+	assert.equal(scopeOf('toon:catpope'), 'toon/catpope');
+	assert.equal(scopeOf('season:catpope:2'), 'toon/catpope/season/2');
+	assert.equal(scopeOf('chapter:catpope:3', season), 'toon/catpope/season/1/chapter/3');
+	assert.equal(scopeOf('chapter:catpope:4', season), 'toon/catpope/chapter/4', 'the season not known: none');
+	assert.equal(scopeOf('storyboard:catpope:3', season), 'toon/catpope/season/1/chapter/3/storyboard');
+	assert.equal(scopeOf('character:catpope'), 'character/catpope');
+	assert.equal(scopeOf(null), null);
 });
 
 test('every workspace kind has a preset; the stage holds the person’s tab, else the preset’s', () => {

@@ -91,7 +91,7 @@ impl App {
     pub(crate) fn press_log(&mut self, x: f32, y: f32) -> bool {
         let Some((at, p)) = self.log_hits.iter().find(|(r, _)| r.has(x, y)).copied() else { return false };
         match p {
-            log::Press::Filter(f) => self.log.filter = f,
+            log::Press::Filter(f) => self.log.filter.level = f,
             log::Press::Find => {
                 let mut field = text::Field::with(&self.log.find);
                 field.select_all();
@@ -101,7 +101,7 @@ impl App {
             log::Press::Copy => {
                 let all = self.log.text();
                 match arboard::Clipboard::new().and_then(|mut c| c.set_text(all)) {
-                    Ok(()) => log::post(Level::Ok, "log", format!("{} lines copied", self.log.all.shown(self.log.filter, &self.log.find).len())),
+                    Ok(()) => log::post(Level::Ok, "log", format!("{} lines copied", self.log.all.shown(&self.log.filter, &self.log.find).len())),
                     Err(e) => self.refuse(format!("not copied: {e}"), x, y),
                 }
             }

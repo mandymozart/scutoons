@@ -56,7 +56,7 @@
 		try {
 			ready = await gen.prepare();
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 			return;
 		} finally {
 			preparing = false;
@@ -73,9 +73,9 @@
 		if (!ok) return;
 		try {
 			const item = await gen.start(ready.body);
-			if (item) toast(m['storyboard.gen_started']({ model: model.label }), { type: 'success' });
+			if (item) toast(m['storyboard.gen_started']({ model: model.label }), { type: 'success', kind: 'generation' });
 		} catch (err) {
-			toast(err instanceof Error ? err.message : String(err), { type: 'error' });
+			toast(err instanceof Error ? err.message : String(err), { type: 'error', kind: 'generation' });
 		}
 	}
 	const text = (e: Event) => (e.currentTarget as HTMLTextAreaElement).value;

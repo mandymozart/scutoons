@@ -172,6 +172,16 @@ describe('panel tabs: the arrangement in this browser', () => {
 		expect(a.active.inspector).toBe('problems');
 		expect(a.free).toEqual({});
 	});
+
+	it('a tab stored under an old id (an alias) comes back as the tab', () => {
+		const panels: PanelSpec[] = PANELS.map((p) => (p.id === 'inspector' ? { ...p, tabs: ['inspector', 'log'] } : p));
+		const tabs: TabSpec[] = [...TABS.filter((t) => t.id !== 'problems'), { ...tab('log'), aliases: ['problems'] }];
+		const stored = { panels: { library: ['library', 'problems'], inspector: ['inspector'] }, active: { library: 'problems' }, free: {} };
+		const a = readArrangement(stored, panels, tabs);
+		expect(a.panels.library).toEqual(['library', 'log', 'wanted', 'info']);
+		expect(a.active.library).toBe('log');
+		expect(a.panels.inspector).toEqual(['inspector']);
+	});
 });
 
 describe('panel tabs: where a dragged tab lands', () => {

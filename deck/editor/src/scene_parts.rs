@@ -456,12 +456,12 @@ mod tests {
         view.sel = Part::Slot(s);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        let fields = crate::scene::inspect(&mut d, &t, area, &view, None);
+        let fields = crate::scene::inspect(&mut d, &t, area, &view, (None, true));
         let facts = fields.iter().filter(|(_, f)| matches!(f, Field::Fact(_))).count();
         assert_eq!(facts, HOLDER_KINDS.len(), "one chip a kind, nothing named yet");
         assert!([Field::Fill, Field::Empty, Field::Remove, Field::Refs, Field::Parent].iter().all(|f| fields.iter().any(|(_, x)| x == f)));
         view.edit.flip(s, &FillFact::Ref("item:incense_burner".into())).unwrap();
-        let named = crate::scene::inspect(&mut d, &t, area, &view, None).iter().filter(|(_, f)| matches!(f, Field::Fact(_))).count();
+        let named = crate::scene::inspect(&mut d, &t, area, &view, (None, true)).iter().filter(|(_, f)| matches!(f, Field::Fact(_))).count();
         assert_eq!(named, HOLDER_KINDS.len() + 1, "a reference on the list is a chip");
         assert!(view.edit.fill(s, "character:catpope").is_err(), "an item slot refuses a character");
         view.edit.fill(s, "item:incense_burner").unwrap();
@@ -470,12 +470,12 @@ mod tests {
         assert!(played.nodes.iter().any(|n| n.id.starts_with("slot_")), "the preview's rig plays: {:?}", played.nodes.iter().map(|n| &n.id).collect::<Vec<_>>());
         let v = view.edit.add_video("test_pattern").unwrap();
         view.sel = Part::Video(v);
-        let fields = crate::scene::inspect(&mut d, &t, area, &view, None);
+        let fields = crate::scene::inspect(&mut d, &t, area, &view, (None, true));
         assert!(fields.iter().any(|(_, f)| *f == Field::Plays) && fields.iter().any(|(_, f)| *f == Field::Knob(0)));
         let k = view.edit.video_knobs(v)[0].clone();
         video_knob_to(&mut view, v, 0, crate::SCRUB_PX, k.value);
         assert!(view.edit.video_knobs(v)[0].set, "a drag sets the scene's value");
-        assert!(crate::scene::inspect(&mut d, &t, area, &view, None).iter().any(|(_, f)| *f == Field::Clear(0)));
+        assert!(crate::scene::inspect(&mut d, &t, area, &view, (None, true)).iter().any(|(_, f)| *f == Field::Clear(0)));
         deck_space::graph::Graph::build(&view.scene().unwrap()).expect("the stage builds it");
     }
 }

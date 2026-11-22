@@ -541,8 +541,8 @@ enum Hit {
     Balance(usize),
     /// a highest-peak readout: a strip's, or the output's
     Peak(Option<mixer::Target>),
-    /// the Play / Wire switch (true = Wire)
-    Mode(bool),
+    /// the Edit / Play switch: a press flips it
+    Switch,
     /// a port, by its index in the stage's list
     Port(usize),
     /// a node's parameter group on its ring, by its index in this frame's list
@@ -887,7 +887,7 @@ fn run() -> Result<i32> {
     let stage = stage::Stage::new(base, plays, args.volume)?;
     let panels_file = args.frames.is_none().then(|| cache_dir().join("editor-panels.json"));
     let remembered = panels_file.as_deref().map(panels::load).unwrap_or_default();
-    let mut build = panels::Panels::new(&panels::BUILD);
+    let mut build = panels::Panels::with_play(&panels::BUILD, &panels::BUILD_PLAY);
     let settings_file = args.frames.is_none().then(|| settings::file(&cache));
     let app_colour = colour::Colour::load(args.frames.is_none().then(|| colour::file(&cache)));
     let mut app_settings = settings_file.as_deref().map(settings::load).unwrap_or_default();
@@ -940,12 +940,8 @@ fn run() -> Result<i32> {
         }
     }
     let app_published = published::Published::new(&args.api, &cache);
-    if let Some(p) = remembered.get("build") {
-        build.floats.restore(p);
-    }
-    if let Some(p) = remembered.get("module") {
-        app_module.panels.floats.restore(p);
-    }
+    build.recall("build", &remembered);
+    app_module.panels.recall("module", &remembered);
     if let Some(p) = remembered.get("show") {
         app_show.show_panels.floats.restore(p);
     }
@@ -1169,8 +1165,8 @@ impl App {
     fn remember_panels(&mut self) {
         let Some(file) = &self.panels_file else { return };
         let mut all = panels::Remembered::new();
-        all.insert("build".into(), self.build.floats.places());
-        all.insert("module".into(), self.module.panels.floats.places());
+        self.build.remember("build", &mut all);
+        self.module.panels.remember("module", &mut all);
         all.insert("show".into(), self.show.show_panels.floats.places());
         all.insert("home".into(), self.home_panels.floats.places());
         panels::save(file, &all);
@@ -1425,8 +1421,8 @@ impl App {
             Hit::Crumb(0) => Help::new("rig", "Back to the rig, every track one body."),
             Hit::Row(_) => Help::new("Tree", "The rig, its tracks and their nodes. In Wire a click goes to that level."),
             Hit::Crumb(d) => Help::new(self.stage.path.get(d - 1)?.clone(), "Back to this level. Esc or shift+tab goes one level up."),
-            Hit::Mode(false) => Help::new("Play", "Run it as a deck would: its clock follows its own source, what is addressed to it goes in, its events fire. What you change while playing is dropped on Stop."),
-            Hit::Mode(true) => Help::new("Edit", "Work on it: the body holds still, the ports show, one level of the tree at a time; inputs from outside only light their ports."),
+            Hit::Switch if self.playing() => Help::new("Edit · Play", "Playing: it runs as a deck would, the panels that play are out and Edit's rest. A click goes back to Edit, its panels as you left them; what you changed while playing is dropped unless you Keep it."),
+            Hit::Switch => Help::new("Edit · Play", "Editing: the body holds still, the ports show, inputs from outside only light their ports. A click plays it as a deck would, with Play's own panels – what you change there is remembered for this kind of tab."),
             Hit::Axis(Some(a)) => Help::new(format!("{}{}", if a < 3 { "+" } else { "-" }, ["X", "Y", "Z"][a % 3]), "Click to look along this axis, drag to orbit."),
             Hit::Axis(None) => Help::new("View", "Drag to orbit, click an axis to look along it."),
             Hit::Stage if self.wire => Help::new("Stage", "Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port."),
@@ -1783,7 +1779,7 @@ impl App {
                 self.panel.drag = Some(Drag::Select);
                 self.focus(true);
             }
-            Hit::Mode(on) => self.set_play(!on),
+            Hit::Switch => self.set_play(!self.playing()),
             Hit::Port(i) => {
                 let p = &self.stage.ports[i];
                 if p.input && !p.cables.is_empty() {
@@ -2972,6 +2968,7 @@ impl App {
             }
         }
         self.take_show_tempo();
+        self.play_panels();
         let help = self.help_now();
         let preset_line = self.preset_line();
         self.show.help.clone_from(&help);
@@ -3135,7 +3132,6 @@ impl App {
         let (live_words, live_on, live_presses) = live_tabs::switch(self.show.live(), self.show.locked);
         // Play on the stage: Keep takes what it changed into the working state
         let keeps = build && playing;
-        let modes: &[&str] = if keeps { &["Edit", "Play", "Keep"] } else if edits { &["Edit", "Play"] } else { live_words };
         let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
@@ -3143,7 +3139,7 @@ impl App {
             tabs: &tab_pills,
             front: self.tabs.front,
             path: &path,
-            modes: if edits { Some((modes, usize::from(playing))) } else { shows.then_some((modes, live_on)) },
+            modes: if edits { Some(bar::Modes::Switch { playing, keep: keeps }) } else { shows.then_some(bar::Modes::Pills(live_words, live_on)) },
             play: None,
             beat: self.stage.beat,
             meter: self.stage.pill.map(|p| (p.beat, p.click)),
@@ -3180,7 +3176,7 @@ impl App {
             self.panel.hits.push((r, Hit::Meters));
         }
         self.panel.hits.push((placed.home, Hit::Home));
-        let mode_hits: Vec<Hit> = if keeps { vec![Hit::Mode(true), Hit::Mode(false), Hit::Keep] } else if edits { vec![Hit::Mode(true), Hit::Mode(false)] } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
+        let mode_hits: Vec<Hit> = if edits { [Hit::Switch, Hit::Keep].into_iter().take(1 + usize::from(keeps)).collect() } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
         for (r, h) in placed.modes.iter().zip(mode_hits) {
             self.panel.hits.push((*r, h));
         }
@@ -3540,8 +3536,10 @@ impl App {
             let line = controls::fit(&line, ((pick.w - 12.0) / ui.advance(small)) as usize);
             ui.text(pick.x + 6.0, pick.y + (pick.h - small * 1.25) * 0.5, small, &line, t.color.text);
             self.panel.hits.push((pick, Hit::RigPick));
-            for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add"], usize::MAX).into_iter().zip([Hit::Add]) {
-                self.panel.hits.push((r, h));
+            if !self.play.playing() {
+                for (r, h) in controls::pills(ui, t, pick.x + pick.w + pad, y, row - 4.0, &["Add"], usize::MAX).into_iter().zip([Hit::Add]) {
+                    self.panel.hits.push((r, h));
+                }
             }
             y += row + pad / 2.0;
             if self.show.build.is_none() && self.scene.is_some() {
@@ -3580,7 +3578,7 @@ impl App {
                             Some(Drag::SceneKnob(i, ..)) => Some(scene::Field::Knob(i)),
                             _ => None,
                         };
-                        for (r, field) in scene::inspect(ui, t, area, view, hot) {
+                        for (r, field) in scene::inspect(ui, t, area, view, (hot, !self.play.playing())) {
                             let hit = match field {
                                 scene::Field::Knob(i) => Hit::SceneKnob(i),
                                 scene::Field::Clear(i) => Hit::SceneClear(i),
@@ -3598,7 +3596,7 @@ impl App {
                         }
                     } else {
                         let line = &preset_line;
-                        for (r, field) in inspector::draw(ui, t, area, (&self.stage, line), &self.sel, self.paging, hot) {
+                        for (r, field) in inspector::draw(ui, t, area, (&self.stage, line), &self.sel, (self.paging, !self.play.playing()), hot) {
                             let hit = match field {
                                 inspector::Field::Knob(i) => Hit::Knob(i),
                                 inspector::Field::Param(n, p) => Hit::Param(n, p),

@@ -17,7 +17,7 @@
 	const folder = $derived(sb.workspaceState === 'ready');
 	let over = $state(false);
 
-	const fail = (e: unknown) => toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+	const fail = (e: unknown) => toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 	/** the clipboard API, else (no permission – an embedded browser) the old way: the text selected and copied */
 	async function copy() {
 		try {
@@ -27,7 +27,7 @@
 			area?.select();
 			if (!area || !document.execCommand('copy')) throw e;
 		}
-		toast(m['storyboard.gen_copied'](), { type: 'success' });
+		toast(m['storyboard.gen_copied'](), { type: 'success', kind: 'generation' });
 	}
 	async function download(g: Generation) {
 		const blob = g.file && sb.localFiles.has(g.file) ? await sb.readLocal(g.file) : g.work_url ? await workFile(api, g.work_url) : null;
@@ -42,10 +42,10 @@
 	async function add(files: FileList | File[] | null | undefined) {
 		const file = files?.[0];
 		if (!file || gen.adding) return;
-		if (!folder) return void toast(m['storyboard.gen_needs_folder'](), { type: 'warning' });
+		if (!folder) return void toast(m['storyboard.gen_needs_folder'](), { type: 'warning', kind: 'generation' });
 		try {
 			const item = await gen.addManual(file);
-			toast(m['storyboard.gen_result_added']({ file: item.file ?? '' }), { type: 'success' });
+			toast(m['storyboard.gen_result_added']({ file: item.file ?? '' }), { type: 'success', kind: 'generation' });
 		} catch (e) {
 			fail(e);
 		}
