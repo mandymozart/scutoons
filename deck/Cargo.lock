@@ -1582,6 +1582,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "delay-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4516,6 +4523,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reverb-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4786,6 +4800,7 @@ dependencies = [
  "deck-module-host",
  "deck-show",
  "deck-space",
+ "delay-module",
  "dolly-module",
  "env-module",
  "filter-module",
@@ -4795,6 +4810,7 @@ dependencies = [
  "noise-module",
  "osc-module",
  "proc-macro2",
+ "reverb-module",
  "serde",
  "serde_json",
  "sha2 0.10.9",
