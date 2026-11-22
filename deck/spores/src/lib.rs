@@ -9,6 +9,7 @@ pub mod paint;
 pub mod pick;
 pub mod state;
 pub mod view;
+pub mod weave;
 
 pub use state::{At, Motion, State, FLASH};
 
