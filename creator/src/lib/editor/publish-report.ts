@@ -3,6 +3,8 @@
 export interface PublishRefusal {
 	key: string;
 	reason: string;
+	/** the server's code (`invalid_scene`, `dependency`, `not_publishable` …) */
+	code?: string;
 }
 
 export interface PublishNotice {

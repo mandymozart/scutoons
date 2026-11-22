@@ -21,6 +21,24 @@ final class PublishOrderTest extends TestCase
         self::assertSame(['item:spoon'], PublishOrder::refs(EntityKey::parse('recipe:soup'), ['inputs' => [['item' => 'spoon']], 'output' => ['item' => 'spoon']]));
     }
 
+    /** a deck scene names its modules (nodes, slots), its fillers, the rigs they play (pinned, else the filler's own) and rig presets */
+    public function testRefsOfAScene(): void
+    {
+        $scene = [
+            'node' => [['id' => 'space', 'kind' => 'space'], ['id' => 'walk', 'kind' => 'module:walkabout']],
+            'holder' => [
+                ['id' => 'pope', 'ref' => 'character:catpope', 'rig' => ['ref' => 'rig:character.catpope', 'version' => null], 'preset' => 'rig-preset:character.catpope.soft'],
+                ['id' => 'boy', 'ref' => 'character:boy', 'module' => [['slot' => 'motion', 'module' => 'dolly']]],
+                ['id' => 'who', 'fill' => ['kind' => ['character']]],
+                ['id' => 'thing', 'ref' => 'item:incense'],
+            ],
+        ];
+        self::assertSame(
+            ['module:walkabout', 'character:catpope', 'rig:character.catpope', 'rig-preset:character.catpope.soft', 'module:dolly', 'character:boy', 'rig:character.boy', 'item:incense', 'rig:item.incense'],
+            PublishOrder::refs(EntityKey::parse('scene:nave'), $scene),
+        );
+    }
+
     public function testUnitsGoAfterWhatTheyName(): void
     {
         $refs = [

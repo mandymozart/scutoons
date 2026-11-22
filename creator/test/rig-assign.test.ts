@@ -49,7 +49,7 @@ test('the suggested policy id is a module id', () => {
 	assert.match(policyIdFor(`character.${'Long-name'.repeat(10)}`), /^[a-z0-9][a-z0-9_-]{0,31}$/);
 });
 
-test('the store: a missing rig is null; a save builds on the loaded version; publish publishes the saved one', async () => {
+test('the store: a missing rig is null; a save builds on the loaded version', async () => {
 	const calls: string[] = [];
 	let stored: { id: number; content: unknown } | null = null;
 	const store = createRigStore({
@@ -62,18 +62,12 @@ test('the store: a missing rig is null; a save builds on the loaded version; pub
 			calls.push(`put ${key} on ${base}`);
 			stored = { id: (stored?.id ?? 0) + 1, content };
 			return { version: { id: stored.id } };
-		}) as never,
-		publishVersion: (async (key: string, version: number) => {
-			calls.push(`publish ${key} v${version}`);
-			return {};
 		}) as never
 	});
 	assert.deepEqual(await store.load('character.boy'), { ok: true, rig: null });
-	assert.deepEqual(await store.publish('character.boy'), { ok: false, message: 'rig:character.boy' }, 'nothing saved: nothing to publish');
 	const rig = { subject: 'character.boy', track: [{ id: 'drone', instrument: 'drone' }] };
 	assert.deepEqual(await store.save('character.boy', rig), { ok: true });
 	assert.deepEqual(await store.save('character.boy', rig), { ok: true });
-	assert.deepEqual(await store.publish('character.boy'), { ok: true });
 	assert.deepEqual(await store.load('character.boy'), { ok: true, rig });
-	assert.deepEqual(calls, ['get rig:character.boy', 'put rig:character.boy on null', 'put rig:character.boy on 1', 'publish rig:character.boy v2', 'get rig:character.boy']);
+	assert.deepEqual(calls, ['get rig:character.boy', 'put rig:character.boy on null', 'put rig:character.boy on 1', 'get rig:character.boy']);
 });

@@ -8,7 +8,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { STARTER_FILES, addTrack, emptyRig, type RigCoverage } from '@scutoons/rig-designer';
 	import { loadRigRules } from '@scutoons/live-deck/assign';
-	import { api, getDraft, library, publishVersion, putDraft } from '$lib/api.ts';
+	import { api, getDraft, library, putDraft } from '$lib/api.ts';
 	import { firstDraft, idProblem } from '$lib/editor/module-catalog.ts';
 	import { moduleKey } from '$lib/editor/module-store.ts';
 	import { coverageRequest, createRigStore, instrumentKey, moduleInstrumentRequest, rigLists, type CatalogEntryLike } from '$lib/editor/rig-assign.ts';
@@ -30,7 +30,7 @@
 	} = $props();
 
 	const rules = loadRigRules('/live/');
-	const store = createRigStore({ getDraft, putDraft, publishVersion });
+	const store = createRigStore({ getDraft, putDraft });
 	let loaded = $state(false);
 	let empty = $state(false);
 	let busy = $state(false);

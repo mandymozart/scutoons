@@ -218,6 +218,27 @@ final class ScenesApiTest extends TestCase
         self::assertSame('Nave', self::json($this->request('GET', '/api/scenes/nave'))['scene']['stage']['name']);
     }
 
+    /** #803: a scene's Publish takes the draft rig it plays along, first; a refused rig skips the scene with the reason */
+    public function testAScenesPublishTakesTheDraftsItPlays(): void
+    {
+        $creator = $this->session([Roles::CREATOR], 'creator@example.test');
+        self::assertSame(200, $this->request('PUT', '/api/scenes/nave', $creator, ['content' => self::nave()])->getStatusCode());
+        self::assertSame(200, $this->request('PUT', '/api/entities/rig:character.catpope', $creator, ['content' => ['subject' => 'character.catpope', 'track' => []]])->getStatusCode());
+        $plan = self::json($this->request('POST', '/api/entities/publish/plan', $creator, ['versions' => [['key' => 'scene:nave']]]));
+        self::assertSame(['rig:character.catpope' => 'scene:nave'], array_column($plan['entities'], 'needed_by', 'key'));
+        $publish = fn() => self::json($this->request('POST', '/api/entities/publish', $creator, ['versions' => [['key' => 'scene:nave']], 'partial' => true, 'with_dependencies' => true]));
+
+        $this->core->answer = fn(array $request): array => $request['kind'] === 'rigs' ? ['rig character.catpope: no track'] : [];
+        $r = $publish();
+        self::assertSame([], $r['published']);
+        self::assertSame(['rig:character.catpope' => 'rig character.catpope: no track', 'scene:nave' => 'needs rig character.catpope, which was refused'], array_column($r['refused'], 'reason', 'key'));
+
+        $this->core->answer = fn(array $request): array => [];
+        $r = $publish();
+        self::assertSame(['rig:character.catpope', 'scene:nave'], array_column($r['published'], 'key'), 'the rig first, the scene last');
+        self::assertSame([['key' => 'rig:character.catpope', 'needed_by' => 'scene:nave']], $r['added']);
+    }
+
     public function testPublishingAsksTheCoreAndRefusesWhatADeckCouldNotPlay(): void
     {
         $creator = $this->session([Roles::CREATOR], 'publish@example.test');

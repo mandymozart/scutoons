@@ -945,6 +945,9 @@ Three kinds, three places; none moves the layout:
 - **Save draft and Publish ask for the versions' note** in one dialog (`DocSession.askNote`, `askDialog`): Save draft
   always when something is unsaved; Publish only when it saves unsaved changes first – the note, then the publish
   checklist (publish-tree.ts); nothing unsaved = the checklist only. Cancel stops the save / publish.
+- **One Publish everywhere** (owner 2026-11-22, #803): every Publish button – the dashboard, the bar, a toon, a module, a rig, a scene,
+  a step of the History – is `publishAndLog` (publish-tree.ts): the scope's drafts plus the unpublished drafts they need (the server names them,
+  `POST /entities/publish/plan`), one checklist ("needed by …" on those lines), the ordered partial publish, the Log's Publishes lines.
 - **The field holds a suggestion, selected**: typing replaces it, Enter takes it, an emptied field saves without a note
   ("Save without note"). Deterministic, nothing sent anywhere: `creator/src/lib/editor/version-note.ts` diffs each
   dirty file's stored version against the edited one (`chapterChanges` / `groupChanges` / `metaChanges`), then

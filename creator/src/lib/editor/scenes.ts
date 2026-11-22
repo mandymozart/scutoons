@@ -2,7 +2,8 @@
 // own area "Scenes", a scene with no toon listed under "no toon"): the list's rows and filters, a scene's facts in
 // words, and what a Publish answered. Nothing here decides whether a scene plays – that is the core's check behind
 // Publish (RULES A2); these are the page's words for what the documents and the API say.
-import { ApiError, isSceneKey, sceneFacts, sceneMatches, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState } from '@scutoons/api';
+import { isSceneKey, sceneFacts, sceneMatches, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState } from '@scutoons/api';
+import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 
 /** the toon filter's value for the scenes with no toon (the templates) */
 export const NO_TOON = '__none';
@@ -78,24 +79,15 @@ export type PublishOutcome =
 	| { kind: 'unreachable' }
 	| { kind: 'error'; message: string };
 
-export function publishOutcome(error: unknown): PublishOutcome {
-	if (error === null || error === undefined) return { kind: 'published' };
-	if (error instanceof ApiError) {
-		if (error.status === 422) {
-			const problems = Array.isArray(error.body?.problems) ? error.body.problems.map(String) : [];
-			return { kind: 'problems', problems: problems.length ? problems : [error.message] };
-		}
-		if (error.status === 503) return { kind: 'unreachable' };
-		return { kind: 'error', message: error.message };
-	}
-	return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
+/** the scene's line of a Publish's answer (publish-tree.ts; null: not part of it – cancelled, or nothing to publish) */
+export function publishOutcome(key: string, result: { published: string[]; refused: PublishRefusal[] }): PublishOutcome | null {
+	if (result.published.includes(key)) return { kind: 'published' };
+	const refusal = result.refused.find((r) => r.key === key);
+	if (!refusal) return null;
+	if (refusal.code === 'no_build_service' || refusal.code === 'build_unavailable') return { kind: 'unreachable' };
+	if (refusal.code === 'invalid_scene' || refusal.code === 'invalid_content') return { kind: 'problems', problems: refusal.reason.split('; ') };
+	return { kind: 'error', message: refusal.reason };
 }
-
-/**
- * may the batch Publish (publish-tree.ts) offer this file? Not a deck scene (#493): it is published on its own page,
- * where the core's check answers – `/api/entities/publish` refuses it and with it the whole batch
- */
-export const inPublishBatch = (key: string) => !isSceneKey(key);
 
 /** the scene's page in the creator (the MCP's link: tools/mcp services.ts creatorHref) */
 export const sceneHref = (id: string) => `/scenes/${encodeURIComponent(id)}`;

@@ -4,6 +4,7 @@
 	import { Badge, Icon, confirmDialog, region } from '@scutoons/ui';
 	import type { ContentVersion, SceneDocument, WrappedContent } from '@scutoons/api';
 	import { scenesApi } from '$lib/api.ts';
+	import { publishItem } from '$lib/editor/publish-tree.ts';
 	import { NO_TOON, filterRows, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons, type PublishOutcome, type SceneFilter, type SceneRow } from '$lib/editor/scenes.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
@@ -14,8 +15,8 @@
 	/**
 	 * The creator's Scenes area (#490 – the first slice of draft 3, research/SCENES.md §9; owner 2026-11-12 [scenes]):
 	 * the list beside the menu (one search, the toon incl. "no toon", Draft / Published), the open scene's facts and its
-	 * versions, and Publish – the server asks the core's check first (422 its problems, listed here; 503 the check is
-	 * not reachable). No editing here: the member's AI saves drafts through the MCP, the scene editor comes later.
+	 * versions, and Publish – the one Publish (publish-tree.ts: the scene with the drafts it plays, the core's check last;
+	 * its problems listed here). No editing here: the member's AI saves drafts through the MCP, the scene editor comes later.
 	 */
 	let { id }: { id: string | null } = $props();
 
@@ -77,11 +78,9 @@
 		const sceneId = id;
 		busy = true;
 		try {
-			await scenesApi.publish(sceneId, draft.version.id);
-			outcome = publishOutcome(null);
-			toast(m['creator.scenes_publish_ok'](), { type: 'success', kind: 'publish' });
-		} catch (e) {
-			outcome = publishOutcome(e);
+			const result = await publishItem(`scene:${sceneId}`);
+			if (!result) return;
+			outcome = publishOutcome(`scene:${sceneId}`, result);
 		} finally {
 			busy = false;
 		}

@@ -314,6 +314,7 @@ return static function (App $app): void {
     // many documents at once (the world map's places / routes – agents/MAP-DOCUMENTS.md): one transaction each
     $app->post('/api/entities/batch', [EntitiesController::class, 'batch']);
     $app->post('/api/entities/publish', [EntitiesController::class, 'publishMany']);
+    $app->post('/api/entities/publish/plan', [EntitiesController::class, 'publishPlan']);
     $app->get('/api/entities/{key:[A-Za-z0-9:._-]+}', [EntitiesController::class, 'get']);
     $app->put('/api/entities/{key:[A-Za-z0-9:._-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[A-Za-z0-9:._-]+}/versions', [EntitiesController::class, 'versions']);

@@ -1,9 +1,10 @@
 # decisions/creator — the creator app, text boxes, the timeline
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[creator]` 84 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
+Keys here: `[creator]` 85 the creator app · `[text-boxes]` 9 text boxes · `[timeline]` 3 the timeline
 
 ## 2026-11
+- 2026-11-22 · creator publish · [creator] **One Publish everywhere: the dashboard, the bar, a toon, a module, a rig, a scene – the same collector of publishable drafts (with their draft dependencies) and the same ordered publish.** Owner: *"the dashboard and main publish is supposed to group those. we have scoped publish... perhaps best is we have the same publish algo everywhere. so we won't divert along the way again and keep missing stuff. the routes don't matter, it's more about the accumulation of publishable items and their APIs."* · → #803, server PublishDependencies + PublishOrder::refs, creator publish-tree.ts
 - 2026-11-22 · creator · [creator] **Pores are about organic matter, not media: a picture is data (a port); pores carry combined, complex data.** Asked whether pores carry media and ports text / signals / checks: *"no its about organic matter. a image is data and not organic. but pores carry combined complex data."* · → research/redesign/AI-HOOKS.md §0, spores.html step 4 (to redraw), #773, #763
 - 2026-11-22 · creator · [creator] **Thought aloud: the spore canvas is open to skills text files (skills.md, as Luma Labs uses them) and reference pictures – spores that hold them and weave into gen-AI spores.** Owner: *"lumalabs uses skills.md files in combination with reference pictures. i assume we can just have nodes that allow for skills text files and for reference images for example. so the canvas is pretty open to these formats as well."* · → research/redesign/AI-HOOKS.md §0, #773
 - 2026-11-22 · creator · [creator] **Decided: every run of a generator stays on its canvas until deleted by hand, or until a clean-up worker removes runs nothing uses.** Owner: *"all reruns are kept on the generator canvas. until manually deleted. or clean up workers remove unused runs."* · → research/redesign/AI-HOOKS.md §0, #773

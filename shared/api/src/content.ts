@@ -50,7 +50,12 @@ export interface PartialPublish {
 	published: { key: string; version: ContentVersion }[];
 	refused: { key: string; code: string; reason: string }[];
 	review: string[];
+	/** with `with_dependencies`: the draft dependencies it took along, each with the key that needs it */
+	added?: { key: string; needed_by: string }[];
 }
+
+/** a draft dependency a Publish takes along (`/entities/publish/plan`): its index row and the key that needs it */
+export type PublishDependency = ContentIndexEntity & { needed_by: string };
 
 /** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */
 export interface ContentReview {
@@ -214,12 +219,11 @@ export function createContentApi(client: ApiClient) {
 				message: message || undefined
 			}),
 
-		/** Several documents live at once (one transaction) */
-		publishMany: (versions: { key: string; version?: number }[]) =>
-			client.post<{ status: string; published: { key: string; version: ContentVersion }[] }>('/entities/publish', { versions }),
-
 		/** Several documents in dependency order, each unit on its own: what can go live goes live, the rest is named with its reason */
 		publishPartial: (versions: { key: string; version?: number }[]) => client.post<PartialPublish>('/entities/publish', { versions, partial: true }),
+
+		/** The unpublished draft dependencies a Publish of these takes along, transitively (the server's one rule) */
+		publishPlan: (versions: { key: string; version?: number }[]) => client.post<{ status: string; entities: PublishDependency[] }>('/entities/publish/plan', { versions }),
 
 		/** Every catalog entry of a kind as a document: its newest version, draft / live / physical */
 		catalogDocs: (kind: CatalogDocKind) => client.get<{ status: string; kind: CatalogDocKind; entries: CatalogDoc[] }>(`/catalog/docs/${kind}`),

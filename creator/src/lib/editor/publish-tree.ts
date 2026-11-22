@@ -26,14 +26,20 @@
  *
  * Deck scenes (`scene:<id>`) are lines too (owner 2026-11-22): the partial publish takes them last, through the core's
  * scene check (as their own page publishes them), after the modules, instruments, presets and rigs they play.
+ *
+ * Every Publish of the creator is this one (owner 2026-11-22: "the same publish algo everywhere"): a level, a page's
+ * files, one item (a module, a rig, a scene) or one older version – the scope's drafts plus the unpublished drafts they
+ * depend on, transitively, which the server names (`POST /entities/publish/plan`, the one dependency rule:
+ * PublishOrder::refs); those lines say what needs them.
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import { catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
-import { contentApi, contentIndex, publishPartial, withContent } from '$lib/api.ts';
+import { contentApi, contentIndex, publishPartial, publishPlan, withContent } from '$lib/api.ts';
 import { publishNotices, type PublishNotice, type PublishRefusal } from '$lib/editor/publish-report.ts';
 import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
+import { toast } from '$lib/toasts.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
@@ -43,7 +49,9 @@ export type PublishScope =
 	| { kind: 'files'; toon: string; keys: string[] }
 	| { kind: 'toon'; toon: string }
 	| { kind: 'season'; toon: string; number: number; chapters: number[] }
-	| { kind: 'chapter'; toon: string; number: number };
+	| { kind: 'chapter'; toon: string; number: number }
+	/** one file at a chosen version (a step of its history) */
+	| { kind: 'version'; toon: string; key: string; version: number };
 
 /** the platform-wide files a toon's, a season's and a chapter's list offer too (their pieces name them) */
 export const PLATFORM_ALONG: readonly string[] = ['colorations'];
@@ -63,6 +71,8 @@ export function inScope(key: string, scope: PublishScope): boolean {
 			return true;
 		case 'files':
 			return scope.keys.includes(key);
+		case 'version':
+			return key === scope.key;
 		case 'toon':
 			return !catalogDocKey(key) && (key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`);
 		case 'season':
@@ -98,6 +108,10 @@ function detail(e: ContentIndexEntity): string {
 
 /** the files with a draft at a level (the deck scenes too – the partial publish takes them last) */
 export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEntity[]> {
+	if (scope.kind === 'version') {
+		const row = (await contentIndex(scope.toon)).entities.find((e) => e.key === scope.key);
+		return row ? [{ ...row, latest: scope.version }] : [];
+	}
 	const toons = scope.kind === 'all' ? ['', ...scope.toons.map((t) => t.id)] : [scope.toon];
 	// a toon's index holds only its own rows: `PLATFORM_ALONG` from the platform's – those keys alone (a platform key like
 	// `character:catpope` would pass a toon's test)
@@ -112,6 +126,8 @@ interface Line {
 	file: ContentIndexEntity;
 	/** an entry of a collection (a place, a route, a character – agents/MAP-DOCUMENTS.md): its name and what the draft does */
 	part?: { kind: string; name: unknown; change: 'added' | 'changed' | 'removed' };
+	/** a draft dependency the server added: the key that needs it */
+	neededBy?: string;
 }
 
 /** an entry's name in the creator's language (a locale map or a string), else its id */
@@ -137,17 +153,22 @@ const CHANGE_WORD: Record<'added' | 'changed' | 'removed', () => string> = {
 	removed: () => m['creator.publish_part_removed']()
 };
 const lineLabel = (l: Line) => (l.part ? `${PART_WORD[l.part.kind]()}: ${nameOf(l.part.name, l.file.key.split(':')[1] ?? null)}` : label(l.file.key));
-const lineDetail = (l: Line) => (l.part ? `${CHANGE_WORD[l.part.change]()} · ${detail(l.file)}` : detail(l.file));
+const lineDetail = (l: Line) => {
+	const base = l.part ? `${CHANGE_WORD[l.part.change]()} · ${detail(l.file)}` : detail(l.file);
+	return l.neededBy ? `${m['creator.publish_tree_needed_by']({ name: label(l.neededBy) })} · ${base}` : base;
+};
 
 /** The lines for the files: one per file; an entry of the map / the registry by its name (one request for their names) */
-async function linesOf(files: ContentIndexEntity[]): Promise<Line[]> {
+async function linesOf(files: ContentIndexEntity[], neededBy: Map<string, string>): Promise<Line[]> {
 	const kinds = [...new Set(files.map((f) => f.kind).filter((k) => k in PART_WORD))];
 	const entries = kinds.length ? new Map((await withContent<{ name?: unknown; removed?: boolean }>(kinds, 'draft')).entities.map((e) => [e.key, e])) : null;
 	return files.map((file) => {
 		const entry = entries?.get(file.key);
-		if (!entry) return { id: file.key, file };
+		const needs = neededBy.get(file.key);
+		const line: Line = { id: file.key, file, ...(needs ? { neededBy: needs } : {}) };
+		if (!entry) return line;
 		const change = entry.content?.removed ? 'removed' : file.published === null ? 'added' : 'changed';
-		return { id: file.key, file, part: { kind: file.kind, name: entry.content?.name, change } };
+		return { ...line, part: { kind: file.kind, name: entry.content?.name, change } };
 	});
 }
 
@@ -163,11 +184,28 @@ export interface PublishTreeResult {
 
 const nothing = (): PublishTreeResult => ({ message: m['creator.nothing_to_publish'](), published: [], refused: [], notices: [{ type: 'info', text: m['creator.nothing_to_publish']() }] });
 
-/** The checklist for a level, then publish / submit the ticked lines (null when cancelled) */
+/**
+ * The one collector: the scope's drafts and the unpublished drafts they depend on, transitively (the server's rule) –
+ * each dependency with the key that needs it
+ */
+export async function collectPublishable(scope: PublishScope): Promise<{ files: ContentIndexEntity[]; neededBy: Map<string, string> }> {
+	const own = await pendingFiles(scope);
+	if (!own.length) return { files: [], neededBy: new Map() };
+	const have = new Set(own.map((f) => f.key));
+	const asked = own.map((f) => ({ key: f.key, version: f.latest }));
+	// the API takes 500 at a time
+	const chunks = Array.from({ length: Math.ceil(asked.length / 500) }, (_, i) => asked.slice(i * 500, i * 500 + 500));
+	const found = (await Promise.all(chunks.map((c) => publishPlan(c)))).flatMap((r) => r.entities);
+	const deps = [...new Map(found.filter((e) => !have.has(e.key) && hasDraft(e)).map((e) => [e.key, e])).values()];
+	const files = [...own, ...deps].sort(byTree);
+	return { files, neededBy: new Map(deps.map((d) => [d.key, d.needed_by])) };
+}
+
+/** The checklist for a scope (its drafts and what they need), then publish / submit the ticked lines (null when cancelled) */
 export async function publishTree(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
-	const files = await pendingFiles(scope);
+	const { files, neededBy } = await collectPublishable(scope);
 	if (!files.length) return nothing();
-	const lines = await linesOf(files);
+	const lines = await linesOf(files, neededBy);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());
 	const item = (l: Line) => ({ id: l.id, label: lineLabel(l), detail: lineDetail(l) });
 	const groups: ChecklistGroup[] =
@@ -220,3 +258,18 @@ export async function publishTree(scope: PublishScope, title: string): Promise<P
 	}, submitted);
 	return { message: notices[0]?.text ?? '', published: done, refused, notices };
 }
+
+/** Every Publish button: the checklist, the ordered partial publish, the Publishes lines in the Log (null when cancelled) */
+export async function publishAndLog(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
+	try {
+		const result = await publishTree(scope, title);
+		for (const n of result?.notices ?? []) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
+		return result;
+	} catch (e) {
+		toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'publish' });
+		return null;
+	}
+}
+
+/** one item's Publish (a module, a rig, a scene): itself and what it needs */
+export const publishItem = (key: string, title = m['creator.publish_tree_title']({ name: label(key) })) => publishAndLog({ kind: 'files', toon: '', keys: [key] }, title);

@@ -187,6 +187,33 @@ final class CatalogDocsTest extends TestCase
         self::assertSame([], $result['review']);
     }
 
+    /** #803: every Publish takes the unpublished drafts an item needs along, transitively – never a factory module */
+    public function testAPublishTakesItsDraftDependenciesAlong(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $this->get(CatalogStore::class)->save('modules', 'walkabout', (object) ['id' => 'walkabout', 'factory' => true, 'files' => ['lib.rs' => '// factory']], 'test');
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, status, created_at) VALUES ('module:walkabout', 'module', '{\"id\":\"walkabout\"}', 'draft', NOW())");
+        $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]]);
+        $this->put($writer, 'preset:drone.dark.deep', ['id' => 'drone.dark.deep', 'instrument' => 'drone', 'parent' => 'drone.dark', 'values' => ['drone.freq' => 30.0]]);
+        $this->put($writer, 'rig:character.boy', ['subject' => 'character.boy', 'track' => [['id' => 'pad', 'instrument' => 'drone', 'preset' => 'drone.dark.deep']]]);
+        $this->put($writer, 'module:boy_rig', ['id' => 'boy_rig', 'name' => 'boy_rig', 'files' => ['lib.rs' => '// a draft']]);
+        self::assertSame(200, $this->put($writer, 'rig:character.girl', ['subject' => 'character.girl', 'track' => [], 'policy' => ['module' => 'boy_rig']])->getStatusCode());
+        self::assertSame(200, $this->put($writer, 'rig:character.walker', ['subject' => 'character.walker', 'track' => [], 'policy' => ['module' => 'walkabout']])->getStatusCode());
+        $call = fn(string $path, array $body) => self::json($this->request('POST', $path, $this->bearer($writer), (string) json_encode($body)));
+
+        $plan = $call('/api/entities/publish/plan', ['versions' => [['key' => 'rig:character.boy'], ['key' => 'rig:character.walker']]]);
+        self::assertSame(['preset:drone.dark' => 'preset:drone.dark.deep', 'preset:drone.dark.deep' => 'rig:character.boy'], array_column($plan['entities'], 'needed_by', 'key'), 'transitively; the factory module never');
+
+        $result = $call('/api/entities/publish', ['versions' => [['key' => 'rig:character.boy']], 'partial' => true, 'with_dependencies' => true]);
+        self::assertSame(['preset:drone.dark', 'preset:drone.dark.deep', 'rig:character.boy'], array_column($result['published'], 'key'), 'in dependency order');
+        self::assertSame([['key' => 'preset:drone.dark.deep', 'needed_by' => 'rig:character.boy'], ['key' => 'preset:drone.dark', 'needed_by' => 'preset:drone.dark.deep']], $result['added']);
+        self::assertSame([], $call('/api/entities/publish/plan', ['versions' => [['key' => 'rig:character.boy']]])['entities'], 'published: nothing left to take along');
+
+        $girl = $call('/api/entities/publish', ['versions' => [['key' => 'rig:character.girl']], 'partial' => true, 'with_dependencies' => true]);
+        self::assertSame([], $girl['published']);
+        self::assertSame(['module:boy_rig' => 'not compiled yet – compile it first', 'rig:character.girl' => 'needs module boy_rig, which was refused'], array_column($girl['refused'], 'reason', 'key'));
+    }
+
     /** #803: a factory module is read-only – the index marks it, so no publish list offers an old draft of it */
     public function testTheIndexMarksFactoryModulesReadOnly(): void
     {

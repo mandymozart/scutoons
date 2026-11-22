@@ -26,6 +26,7 @@ export {
 	type WrappedContent,
 	type ContentIndexEntity,
 	type PartialPublish,
+	type PublishDependency,
 	type ContentEntityWithContent,
 	type BatchSave,
 	type ContentReview,
