@@ -13,6 +13,8 @@
 //! The cast's own 3D models (figure.rs) come after the room: a mesh per figure, skinned in the vertex shader by a
 //! palette per member in a uniform buffer (WebGL2 has no storage buffers there), lit like a card plus the beings' light.
 //!
+//! What modules draw (drawn.rs) follows the figures: the placeholder shapes, instanced, a draw per shape.
+//!
 //! Last, the buttons' labels (label.rs): one quad per character from a glyph atlas made once, a fixed size on the
 //! screen beside its button, at its button's depth (premultiplied alpha, depth-tested, not written) – their instances rewritten per frame from
 //! preallocated vectors.
@@ -199,6 +201,8 @@ pub struct SpaceGpu {
     figure_draws: Vec<FigureDraw>,
     figure_nodes: Vec<glam::Mat4>,
     figure_uniform: Box<FigureUniform>,
+    /// what modules draw (drawn.rs)
+    drawn: super::drawn::DrawnGpu,
 }
 
 impl SpaceGpu {
@@ -427,6 +431,8 @@ impl SpaceGpu {
         queue.write_buffer(&tube_ib, 0, bytemuck::cast_slice(&tube_idx));
         let backdrop = super::backdrop::BackdropGpu::new(device, &tex_layout, color);
         let planes_gpu = super::layers::PlanesGpu::new(device, &room_layout, color, DEPTH);
+        let mut drawn = super::drawn::DrawnGpu::new(device, queue, &module, &being_layout, color, DEPTH);
+        drawn.size(device, space.drawn_capacity());
         let mut gpu = SpaceGpu {
             room_pipe,
             solid_pipe,
@@ -490,6 +496,7 @@ impl SpaceGpu {
             figure_draws: Vec::new(),
             figure_nodes: Vec::new(),
             figure_uniform: Box::new(bytemuck::Zeroable::zeroed()),
+            drawn,
         };
         gpu.size_figures(device, space.figures_drawn());
         gpu
@@ -647,6 +654,7 @@ impl SpaceGpu {
             self.cards = Vec::with_capacity(cards);
             self.card_inst = Vec::with_capacity(cards);
             self.size_figures(device, space.figures_drawn());
+            self.drawn.size(device, space.drawn_capacity());
         }
     }
 
@@ -786,6 +794,7 @@ impl SpaceGpu {
         self.cards(space, eye);
         queue.write_buffer(&self.card_buf, 0, bytemuck::cast_slice(&self.card_inst));
         self.figures(queue, space, time);
+        self.drawn.write(queue, space);
         self.label_glyphs(space, eye, size.1 as f32);
         queue.write_buffer(&self.label_buf, 0, bytemuck::cast_slice(&self.glyphs));
         let mut lights = [[0.0; 8]; MAX_LIGHTS];
@@ -846,6 +855,7 @@ impl SpaceGpu {
                 }
             }
         }
+        self.drawn.draw(&mut rp);
         rp.set_pipeline(&self.solid_pipe);
         rp.set_vertex_buffer(0, self.unit_vb.slice(..));
         rp.set_vertex_buffer(1, self.inst_buf.slice(..));
