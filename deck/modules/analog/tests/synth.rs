@@ -93,7 +93,7 @@ fn one_factory_preset_in_the_descriptor_the_others_a_preset_file_inside_their_ra
     let file: serde_json::Value = serde_json::from_str(PRESET_FILE).unwrap();
     assert_eq!((file["format"].as_str(), file["version"].as_u64(), file["module"].as_str()), (Some("scutoons.preset"), Some(1), Some("analog")));
     let list = file["presets"].as_array().unwrap();
-    assert_eq!(list.iter().map(|p| p["name"].as_str().unwrap()).collect::<Vec<_>>(), ["bass", "lead", "sync lead"]);
+    assert_eq!(list.iter().map(|p| p["name"].as_str().unwrap()).collect::<Vec<_>>(), ["bass", "lead", "sync lead", "hoover-dissonant", "kick", "snare", "hat-closed", "hat-open"]);
     for p in list {
         assert!(p["doc"].as_str().unwrap().len() > 20);
         for (k, v) in p["values"].as_object().unwrap() {
