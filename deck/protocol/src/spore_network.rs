@@ -266,9 +266,6 @@ pub struct Spore {
 	/// An asset reference for the spore's image (a world spore's origin, a preview).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub picture: Option<String>,
-	/// The canvas group it sits in.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub group: Option<String>,
 }
 
 /// One end of a thread: a spore and one of its ports.
@@ -345,8 +342,10 @@ pub struct Problem {
 pub struct Group {
 	pub id: String,
 	pub label: String,
+	/// `#rrggbb`.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub colour: Option<String>,
+	/// The spores it frames – the one place a spore's group is kept.
 	pub spores: Vec<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub folded: Option<bool>,
@@ -356,7 +355,10 @@ pub struct Group {
 pub struct Note {
 	pub id: String,
 	pub text: String,
-	/// The spore it sits beside.
+	/// Who wrote it (the member's name).
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub author: Option<String>,
+	/// The spore it sits beside; none: after the weave.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub near: Option<String>,
 }
@@ -367,15 +369,16 @@ pub struct Point {
 	pub y: f64,
 }
 
-/// Authoring data beside the documents, never played: groups, notes, folds, positions pinned by hand (rem) over the auto layout.
+/// Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Canvas {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub groups: Option<Vec<Group>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub notes: Option<Vec<Note>>,
+	/// By spore id: folded (true) or opened (false) by hand; none: as it comes.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub folded: Option<Vec<String>>,
+	pub folded: Option<std::collections::HashMap<String, bool>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub placed: Option<std::collections::HashMap<String, Point>>,
 }

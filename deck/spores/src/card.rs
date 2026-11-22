@@ -1,8 +1,8 @@
-//! One node of the node view as a card: head and body share one border, the whole border thin in the kind's colour, the
+//! One spore as a card: head and body share one border, the whole border thin in the kind's colour, the
 //! head faintly tinted with the kind's icon, the name, the kind's word and the fold; the pins one row each on the card's
 //! edge in their signal's colour, a held value in mono beside its label. Folded, the card is its head alone.
-use super::node_paint::{faded, main_colour, mix, sans_fit, Cam};
-use super::nodes::NodeView;
+use crate::paint::{faded, main_colour, mix, sans_fit, Cam};
+use crate::Seen;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::graph::{Direction, Node, Placed};
 use deck_kit::base::tokens::Tokens;
@@ -24,7 +24,7 @@ pub struct Boxed {
 
 /// One node (`tint`: a folded group's colour instead of its kind's); selected an accent outline round the whole card,
 /// focused a flash and a skeleton shimmer.
-pub fn card(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<Rgb>), cam: &Cam, v: &NodeView) -> Boxed {
+pub fn card(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<Rgb>), cam: &Cam, v: &dyn Seen) -> Boxed {
     let z = cam.view.zoom;
     let body = cam.rect(p.rect);
     let (o, w, h) = ((body.x, body.y), body.w, body.h);
@@ -42,7 +42,7 @@ pub fn card(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<
     let fold = head_line(d, t, n, (o, w, head), kind, z);
     preview(d, t, n, (o, w, h), z, v);
     pins(d, t, n, p, cam, w);
-    if v.selected.contains(&n.id) {
+    if v.selected(&n.id) {
         d.outline(o.0 - 1.0, o.1 - 1.0, w + 2.0, h + 2.0, (radius + 1.0, 2.0), t.color.accent);
     }
     if let Some(a) = v.flashing(&n.id) {
@@ -78,14 +78,14 @@ fn head_line(d: &mut DrawList, t: &Tokens, n: &Node, (o, w, head): ((f32, f32), 
 }
 
 /// the picture of what it plays, under its pins
-fn preview(d: &mut DrawList, t: &Tokens, n: &Node, (o, w, h): ((f32, f32), f32, f32), z: f32, v: &NodeView) {
-    let (true, false, Some(key)) = (v.motion.previews, n.collapsed, n.picture.as_deref()) else { return };
+fn preview(d: &mut DrawList, t: &Tokens, n: &Node, (o, w, h): ((f32, f32), f32, f32), z: f32, v: &dyn Seen) {
+    let (true, false, Some(key)) = (v.previews(), n.collapsed, n.picture.as_deref()) else { return };
     let (small, pad) = (t.size.small * z, t.size.pad * z);
     let ph = (5.0 * t.size.rem(1.0) - t.size.pad) * z;
     let pw = (ph * 264.0 / 168.0).min(w - 2.0 * pad);
     let (px, py) = (o.0 + (w - pw) * 0.5, o.1 + h - ph - pad * 0.5);
-    match v.pictures.get(key) {
-        Some(id) => d.picture(px, py, pw, ph, *id),
+    match v.picture(key) {
+        Some(id) => d.picture(px, py, pw, ph, id),
         None => {
             d.round_rect(px, py, pw, ph, t.size.radius * z, t.color.within);
             if z >= 0.55 {
@@ -171,12 +171,39 @@ mod tests {
     use deck_kit::base::signal::Signal;
     use deck_kit::base::tokens::Theme;
 
+    /// a widget's state with nothing on but the selection
+    #[derive(Default)]
+    struct Still {
+        selected: Vec<String>,
+    }
+
+    impl Seen for Still {
+        fn selected(&self, id: &str) -> bool {
+            self.selected.iter().any(|s| s == id)
+        }
+        fn flashing(&self, _: &str) -> Option<f32> {
+            None
+        }
+        fn previews(&self) -> bool {
+            false
+        }
+        fn picture(&self, _: &str) -> Option<u64> {
+            None
+        }
+        fn secs(&self) -> f32 {
+            0.0
+        }
+        fn blob(&self) -> Option<(f32, f32)> {
+            None
+        }
+    }
+
     fn paint(n: &Node, selected: bool) -> DrawList {
         let t = Tokens::new(Theme::Night, 16.0);
         let mut d = DrawList::new(0.6);
         let cam = Cam { at: (0.0, 0.0), view: View::default(), unit: 16.0, dir: Direction::Lr };
         let p = Placed { rect: Rect { x: 0.0, y: 0.0, w: 320.0, h: 96.0 }, ins: vec![(0.0, 48.0); n.ins.len()], outs: vec![(320.0, 48.0); n.outs.len()] };
-        let mut v = NodeView::default();
+        let mut v = Still::default();
         if selected {
             v.selected.push(n.id.clone());
         }

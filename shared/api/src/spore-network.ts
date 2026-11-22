@@ -56,8 +56,6 @@ export interface Spore {
 	enter?: string;
 	/** An asset reference for the spore's image (a world spore's origin, a preview). */
 	picture?: string;
-	/** The canvas group it sits in. */
-	group?: string;
 }
 
 /** One end of a thread: a spore and one of its ports. */
@@ -109,7 +107,9 @@ export interface Problem {
 export interface Group {
 	id: string;
 	label: string;
+	/** `#rrggbb`. */
 	colour?: string;
+	/** The spores it frames – the one place a spore's group is kept. */
 	spores: string[];
 	folded?: boolean;
 }
@@ -117,7 +117,9 @@ export interface Group {
 export interface Note {
 	id: string;
 	text: string;
-	/** The spore it sits beside. */
+	/** Who wrote it (the member's name). */
+	author?: string;
+	/** The spore it sits beside; none: after the weave. */
 	near?: string;
 }
 
@@ -126,11 +128,12 @@ export interface Point {
 	y: number;
 }
 
-/** Authoring data beside the documents, never played: groups, notes, folds, positions pinned by hand (rem) over the auto layout. */
+/** Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout. */
 export interface Canvas {
 	groups?: Group[];
 	notes?: Note[];
-	folded?: string[];
+	/** By spore id: folded (true) or opened (false) by hand; none: as it comes. */
+	folded?: Record<string, boolean>;
 	placed?: Record<string, Point>;
 }
 

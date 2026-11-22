@@ -181,10 +181,6 @@
 				"picture": {
 					"type": "string",
 					"description": "An asset reference for the spore's image (a world spore's origin, a preview)."
-				},
-				"group": {
-					"type": "string",
-					"description": "The canvas group it sits in."
 				}
 			},
 			"required": [
@@ -333,13 +329,15 @@
 					"type": "string"
 				},
 				"colour": {
-					"type": "string"
+					"type": "string",
+					"description": "`#rrggbb`."
 				},
 				"spores": {
 					"type": "array",
 					"items": {
 						"type": "string"
-					}
+					},
+					"description": "The spores it frames – the one place a spore's group is kept."
 				},
 				"folded": {
 					"type": "boolean"
@@ -360,9 +358,13 @@
 				"text": {
 					"type": "string"
 				},
+				"author": {
+					"type": "string",
+					"description": "Who wrote it (the member's name)."
+				},
 				"near": {
 					"type": "string",
-					"description": "The spore it sits beside."
+					"description": "The spore it sits beside; none: after the weave."
 				}
 			},
 			"required": [
@@ -386,7 +388,7 @@
 			]
 		},
 		"Canvas": {
-			"description": "Authoring data beside the documents, never played: groups, notes, folds, positions pinned by hand (rem) over the auto layout.",
+			"description": "Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout.",
 			"type": "object",
 			"properties": {
 				"groups": {
@@ -402,10 +404,11 @@
 					}
 				},
 				"folded": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
+					"type": "object",
+					"additionalProperties": {
+						"type": "boolean"
+					},
+					"description": "By spore id: folded (true) or opened (false) by hand; none: as it comes."
 				},
 				"placed": {
 					"type": "object",

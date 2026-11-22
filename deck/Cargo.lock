@@ -1256,6 +1256,7 @@ dependencies = [
  "deck-outlet",
  "deck-show",
  "deck-space",
+ "deck-spores",
  "deck-ui",
  "egui-wgpu",
  "glam",
@@ -1560,6 +1561,14 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "wgpu",
+]
+
+[[package]]
+name = "deck-spores"
+version = "0.1.0"
+dependencies = [
+ "deck-kit",
+ "protocol",
 ]
 
 [[package]]

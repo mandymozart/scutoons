@@ -48,28 +48,8 @@ impl Default for Motion {
     }
 }
 
-/// a press in the node view
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NodeHit {
-    /// the empty canvas: the selection goes
-    Canvas,
-    /// a node drawn (its index in the graph shown), alone or added
-    Node(usize),
-    NodeAlso(usize),
-    /// a node's fold
-    Fold(usize),
-    /// the head's buttons: the selection grouped, a note added
-    Group,
-    Note,
-    /// a group's label, swatch and fold (its index in the row's canvas)
-    GroupName(usize),
-    GroupColour(usize),
-    GroupFold(usize),
-    /// a note (its index in the row's canvas)
-    NoteText(usize),
-    /// a pin of a node drawn: the node, whether an outlet, which of them
-    Pin(usize, bool, usize),
-}
+/// a press in the node view: the Spores widget's
+pub use deck_spores::Hit as NodeHit;
 
 /// the view's state: its zoom and pan (kept while the editor runs), the direction, the drag in the hand, what is
 /// selected and focused, the reveals fading
@@ -131,10 +111,41 @@ pub struct NodeView {
     pub hand: Option<Hand>,
 }
 
-/// how long a reveal fades in and out, the flash and its shimmer, secs
-pub const FADE_IN: f32 = 0.35;
-pub const FADE_OUT: f32 = 1.1;
+/// how long a reveal fades in and out (the widget's), the flash and its shimmer, secs
+pub use deck_spores::{FADE_IN, FADE_OUT};
 pub const FLASH: f32 = 0.6;
+
+impl deck_spores::Seen for NodeView {
+    fn selected(&self, id: &str) -> bool {
+        self.selected.iter().any(|s| s == id)
+    }
+    fn flashing(&self, id: &str) -> Option<f32> {
+        NodeView::flashing(self, id)
+    }
+    fn previews(&self) -> bool {
+        self.motion.previews
+    }
+    fn picture(&self, key: &str) -> Option<u64> {
+        self.pictures.get(key).copied()
+    }
+    fn secs(&self) -> f32 {
+        self.secs
+    }
+    fn blob(&self) -> Option<(f32, f32)> {
+        self.blob
+    }
+}
+
+/// a row's canvas as the Spores widget paints it (the spore contract's shape; deck-show keeps its own on the row)
+fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
+    use protocol::spore_network as sp;
+    sp::Canvas {
+        groups: Some(c.groups.iter().map(|g| sp::Group { id: g.id.clone(), label: g.label.clone(), colour: Some(g.colour.clone()), spores: g.nodes.clone(), folded: Some(g.folded) }).collect()),
+        notes: Some(c.notes.iter().map(|n| sp::Note { id: n.id.clone(), text: n.text.clone(), author: Some(n.author.clone()), near: n.node.clone() }).collect()),
+        folded: Some(c.folded.iter().map(|(k, v)| (k.clone(), *v)).collect()),
+        placed: None,
+    }
+}
 
 impl NodeView {
     fn frame(&mut self) {
@@ -424,6 +435,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     let metrics = Metrics { preview: if previews { 5.0 * unit } else { 0.0 }, ..Metrics::of(unit) };
     let placed = graph::layout(g, dir, &metrics);
     let doc = host.shown().rows.get(host.row).map(|r| r.nodes.clone()).unwrap_or_default();
+    let spores = spore_canvas(&doc);
     let typing = host.typing.clone();
     let cursor = host.cursor;
     let n = &mut host.nodes;
@@ -448,7 +460,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     d.rect(canvas.x, canvas.y, canvas.w, 1.0, t.color.line);
     host.hits.push((canvas, Hit::Nodes(NodeHit::Canvas)));
     let cam = Cam { at: (canvas.x, canvas.y), view: n.view, unit, dir };
-    let frames: Vec<Frame> = frames.iter().filter_map(|(k, members)| node_paint::frame_of(&doc, *k, members, g, &placed, &cam)).collect();
+    let frames: Vec<Frame> = frames.iter().filter_map(|(k, members)| node_paint::frame_of(&spores, *k, members, g, &placed, &cam)).collect();
     let wires = node_paint::wires(g, &placed, &cam);
     n.graph = g.clone();
     n.wires.clone_from(&wires);
@@ -507,7 +519,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
         Some((Typing::Note(x), field)) if x == id => Some(field.text.clone()),
         _ => None,
     };
-    let notes = node_paint::notes(d, t, (&doc, &n.drawn, n.bounds), &cam, &editing);
+    let notes = node_paint::notes(d, t, (&spores, &n.drawn, n.bounds), &cam, &editing);
     for (k, r) in notes {
         host.hits.push((r, Hit::Nodes(NodeHit::NoteText(k))));
     }

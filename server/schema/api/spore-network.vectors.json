@@ -283,10 +283,13 @@
 					{
 						"id": "n1",
 						"text": "a minor third above crow 1",
-						"near": "voice_osc"
+						"near": "voice_osc",
+						"author": "Tilman"
 					}
 				],
-				"folded": [],
+				"folded": {
+					"voice_sum": false
+				},
 				"placed": {
 					"midi": {
 						"x": 0.5,
