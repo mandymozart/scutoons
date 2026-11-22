@@ -1,7 +1,7 @@
 //! The three crows rave (#747, research/audio-nodes-foundation.md §4): the sandbox scene `crows-rave` through the whole
-//! engine with the real modules (arp, analog, delay, reverb as wasm in wasmtime). A held A3 on MIDI input 1, channel 1
-//! plays three crows in eighths a diminished triad apart on the 160 BPM clock; Stop stops them; two runs render the same
-//! samples. The headless host has no module runtime (#290), so this is the scene's scenario. `CROWS_OUT_DIR=<dir>` also
+//! engine with the real modules (arp, analog, drumseq, delay, reverb as wasm in wasmtime). A held A3 on MIDI input 1,
+//! channel 1 plays three crows in eighths a diminished triad apart on the 160 BPM clock; the drum machine plays the groove
+//! with the transport; Stop stops all four; two runs render the same samples. The headless host has no module runtime (#290), so this is the scene's scenario. `CROWS_OUT_DIR=<dir>` also
 //! writes 8 s of it as `<dir>/crows-rave.wav` and its scene document as `<dir>/crows-rave.scene.json` (the editor opens it).
 #![cfg(all(feature = "modules", feature = "events"))]
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
@@ -20,14 +20,14 @@ use std::sync::{Arc, OnceLock};
 const RATE: f64 = 48_000.0;
 const BLOCK: usize = 512;
 
-/// arp, analog, delay and reverb as release wasm, built once, loaded into the library
+/// arp, analog, drumseq, delay and reverb as release wasm, built once, loaded into the library
 fn load_modules() {
     static LOADED: OnceLock<()> = OnceLock::new();
     LOADED.get_or_init(|| {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
         let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("wasm-modules");
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let crates = ["arp", "analog", "delay", "reverb"];
+        let crates = ["arp", "analog", "drumseq", "delay", "reverb"];
         let mut args: Vec<String> = ["build", "--release", "--target", "wasm32-unknown-unknown"].map(String::from).to_vec();
         for c in crates {
             args.extend(["-p".into(), format!("{c}-module")]);
@@ -86,8 +86,9 @@ fn the_scene_is_the_plan_s() {
         }
     }
     assert_eq!((param(&s, "lizard-pan", "azimuth"), param(&s, "fox-pan", "azimuth")), (-15.0, 15.0), "pans −0.5 / +0.5 as the rig strip's ±30°");
-    for (lane, name) in [("kick", "kick"), ("snare", "snare"), ("hat-closed", "hat-closed"), ("hat-open", "hat-open")] {
-        assert_eq!(values(&format!("drum-{lane}")), preset(name), "the {lane} lane");
+    for (i, lane) in ["kick", "snare", "hat-closed", "hat-open"].into_iter().enumerate() {
+        assert_eq!(values(&format!("drum-{lane}")), preset(lane), "the {lane} lane");
+        assert!(s.links.iter().any(|l| l.from == format!("drumseq.lane{}", i + 1) && l.to == format!("drum-{lane}.notes")), "lane {} plays {lane}", i + 1);
     }
     assert!((20.0 * param(&s, "drums", "gain").log10() + 6.0).abs() < 0.01, "drums −6 dB");
     // the same graph is a scene document the API takes (the production form, saved as a draft)
@@ -175,20 +176,36 @@ fn a_held_a3_plays_three_crows_in_eighths_a_diminished_triad_apart() {
     assert_eq!(run.out, play(3.0, None).out, "two decks, one scene: the same samples");
 }
 
-/// §4.5: Stop stops the crows – no step after the transport stops, and the mix (voices, echoes, reverb) dies away
+/// §4.4: the drum machine plays the punk groove with the transport, one bar of 16ths again and again: the kick on 1 and 3
+/// with a push on the "and" of 3, the snare on 2 and 4, closed hats on the eighths but the last, the open hat on the last "and"
 #[test]
-fn stop_stops_every_crow() {
+fn the_drum_machine_plays_the_groove_with_the_transport() {
+    let run = play(2.95, None); // two bars at 160 BPM are 3 s: the last step heard is bar 2's open hat
+    let lane = |n: usize, bar: &[f64]| {
+        let heard: Vec<f64> = run.notes.get(&format!("drumseq.lane{n}")).unwrap_or_else(|| panic!("lane {n} played nothing")).iter().map(|n| n.1).collect();
+        let want: Vec<f64> = bar.iter().chain(bar.iter().map(|b| b + 4.0).collect::<Vec<_>>().iter()).copied().collect();
+        assert!(heard.len() == want.len() && heard.iter().zip(&want).all(|(h, w)| (h - w).abs() < 1e-6), "lane {n}: {heard:?}, not {want:?}");
+    };
+    lane(1, &[0.0, 2.0, 2.5]); // kick
+    lane(2, &[1.0, 3.0]); // snare
+    lane(3, &[0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]); // closed hat
+    lane(4, &[3.5]); // open hat
+}
+
+/// §4.5: Stop stops all four – no crow step and no drum after the transport stops, and the mix (voices, echoes, reverb)
+/// dies away
+#[test]
+fn stop_stops_every_crow_and_the_drums() {
     let run = play(7.0, Some(1.0));
-    for crow in ["wolf", "lizard", "fox"] {
-        let heard = &run.notes[&format!("{crow}-arp.out")];
-        let last = heard.last().unwrap().1;
-        assert!(last < 160.0 / 60.0 + 1e-6, "{crow}: a step at beat {last} after the stop at beat 2.67");
+    for slot in ["wolf-arp.out", "lizard-arp.out", "fox-arp.out", "drumseq.lane1", "drumseq.lane3"] {
+        let last = run.notes[slot].last().unwrap().1;
+        assert!(last < 160.0 / 60.0 + 1e-6, "{slot}: a note at beat {last} after the stop at beat 2.67");
     }
     let tail = &run.out[(6.0 * RATE) as usize * 2..];
     assert!(peak(tail) < 1e-3, "silent 5 s after the stop: {}", peak(tail));
 }
 
-/// `CROWS_OUT_DIR=<dir>`: 8 s of A3 held as `<dir>/crows-rave.wav` (48 kHz, stereo, 16-bit), the document as JSON
+/// `CROWS_OUT_DIR=<dir>`: 8 s of A3 held, the drums running, as `<dir>/crows-rave.wav` (48 kHz, stereo, 16-bit), the document as JSON
 #[test]
 fn render_the_scene_when_asked() {
     let Ok(dir) = std::env::var("CROWS_OUT_DIR") else { return };

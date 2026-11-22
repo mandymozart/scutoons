@@ -1,8 +1,8 @@
 # The three crows rave (#747, research/audio-nodes-foundation.md §4): MIDI input 1, channel 1 plays three crows, each an arp
 # (up, 1/8, two octaves) into analog's `hoover-dissonant` – the second a minor third up, the third a tritone up: a diminished
-# triad on every eighth at 160 BPM. The drum machine stands next to the fox crow: four analog lanes with the drum presets.
+# triad on every eighth at 160 BPM. The drum machine stands next to the fox crow: drumseq's groove into four analog lanes.
 # The analog values are analog.preset.json's presets written out (tests/crows_rave.rs holds them equal) until a node can
-# name a module preset (#346). Needs the `modules` build with arp, analog, delay and reverb in DECK_MODULES:
+# name a module preset (#346). Needs the `modules` build with arp, analog, drumseq, delay and reverb in DECK_MODULES:
 #   cargo run --release -p deck-native --features modules -- --dev --scene crows-rave
 [stage]
 name = "Three crows rave"
@@ -279,7 +279,15 @@ id = "fox-strip"
 kind = "bus"
 gain = 0.3548
 
-# the drum machine (a plain node for now): one analog a lane. TODO(#743): the `drumseq` node and its lane cables
+# the drum machine next to the fox (a plain node for now): drumseq's default pattern is §4.4's punk groove on lanes
+# 1–4, 16ths with the transport; a lane a cable into one analog with a drum preset; lanes 5–8 free
+
+[[node]]
+id = "drumseq"
+kind = "module:drumseq"
+steps = 16.0
+rate = 4.0
+swing = 0.0
 
 [[node]]
 id = "drum-kick"
@@ -522,16 +530,32 @@ to = "fx-space.in"
 scale = 0.3
 
 [[link]]
+from = "drumseq.lane1"
+to = "drum-kick.notes"
+
+[[link]]
 from = "drum-kick.out"
 to = "drums.in"
+
+[[link]]
+from = "drumseq.lane2"
+to = "drum-snare.notes"
 
 [[link]]
 from = "drum-snare.out"
 to = "drums.in"
 
 [[link]]
+from = "drumseq.lane3"
+to = "drum-hat-closed.notes"
+
+[[link]]
 from = "drum-hat-closed.out"
 to = "drums.in"
+
+[[link]]
+from = "drumseq.lane4"
+to = "drum-hat-open.notes"
 
 [[link]]
 from = "drum-hat-open.out"
