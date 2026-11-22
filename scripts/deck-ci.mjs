@@ -129,7 +129,7 @@ const steps = touched
 			...(touched.length
 				? [
 						step(`🦀 tests (${touched.join(' ')})`, 'cargo', ['test', ...pkgs(touched)], deck),
-						...(touched.includes('deck-native') ? [step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk'], deck)] : []),
+						...(touched.includes('deck-native') ? [step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk', '--test', 'crows_rave'], deck)] : []),
 						step(`🦀 clippy (${touched.join(' ')})`, 'cargo', ['clippy', ...pkgs(touched), '--all-targets', ...(touched.includes('deck-native') ? ['--features', 'deck-native/modules'] : []), '--', '-D', 'warnings'], deck),
 						...(touched.includes('deck-native') ? [leanStep] : [])
 					]
@@ -188,7 +188,7 @@ const steps = touched
 	// hosts' path the module generators build on. Not in the feature union
 	// of the tests (#524): with deck-native/modules the conformance tests keep the module nodes (deck_native::modules::carried_part)
 	// and their graph fails ("unknown kind 'module:stepseq'", control_rate) – that is a change of the tests, not of deck:ci
-	step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk'], deck),
+	step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk', '--test', 'crows_rave'], deck),
 	// #342: the engine's module node (channels, control outputs, control-domain modules, the event host) behind stand-ins
 	step('🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], deck),
 	// one clippy over the feature union (#524; was three runs: workspace, deck-native modules, deck-engine events + modules)
