@@ -96,14 +96,17 @@ holder = "pope"
 who = "character:catpope"
 
 [node.being]
+breath = 0.0
 bubbles = 1.0
 character = "catpope"
+drift = 0.0
 expose = ["pope_voice_voice.ratio", "pope_voice_voice.index", "pope_voice_voice.gain", "pope_voice_melody.spread", "pope_voice_melody.rate", "pope_voice_melody.glide", "pope_drone_drone.freq", "pope_drone_drone.gain"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
+wobble = 0.0
 
 [[node]]
 id = "burner_look"
@@ -113,14 +116,17 @@ holder = "burner"
 who = "item:incense_burner"
 
 [node.being]
+breath = 0.0
 bubbles = 1.0
 character = ""
+drift = 0.0
 expose = ["burner_air_hiss.cutoff", "burner_air_hiss.gain"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
+wobble = 0.0
 
 [[link]]
 from = "pope_voice_melody.cv"
@@ -190,6 +196,9 @@ offset = 0.0
 
 [being]
 size = 0.5
+drift = 0.0
+breath = 0.0
+wobble = 0.0
 hose = 1.0
 bubbles = 1.0
 expose = []
