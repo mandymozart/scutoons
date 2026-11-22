@@ -198,7 +198,7 @@ impl Join {
             Input::Press(..) => match on {
                 Some(Hit::Row(k)) => self.key(k),
                 Some(Hit::Back) => Step::Back { joining: false },
-                None => Step::Stay,
+                Some(Hit::Line(_)) | None => Step::Stay,
             },
         }
     }
