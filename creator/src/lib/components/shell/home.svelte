@@ -15,6 +15,7 @@
 	import { addressOf, iconOf } from '$lib/shell/address.ts';
 	import { places } from '$lib/shell/places.svelte.ts';
 	import ReviewList from '$lib/components/page/review-list.svelte';
+	import PagePublish from '$lib/components/shell/page-publish.svelte';
 
 	/**
 	 * Home (the deck editor's home.rs; research/redesign/workspaces2.html ?w=home): continue where this browser was, what waits for you (reviews, drafts not live yet), the areas, and the toons – a
@@ -73,6 +74,12 @@
 	const waiting = $derived((reviews.overview?.to_review?.length ?? 0) + (reviews.overview?.mine ?? []).filter((r) => r.state === 'pending' || r.state === 'returned').length);
 	const areas = $derived(places.areas().filter((p) => p.group === 'area' || p.address === 'catalog:items').map((p) => (p.address === 'catalog:items' ? { ...p, label: m['creator.catalog']() } : p)));
 </script>
+
+{#snippet topPublish()}
+	<!-- the bar's Publish on the dashboard is "publish everything" (nothing is open here to publish on its own) -->
+	<button type="button" class="primary" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="bar-publish-everything"><Icon name="upload-cloud" size="1rem" />{m['creator.publish']()} …</button>
+{/snippet}
+<PagePublish publish={topPublish} />
 
 <main class="home" data-testid="dashboard">
 	<div class="col main">
