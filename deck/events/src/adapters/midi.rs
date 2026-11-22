@@ -84,6 +84,11 @@ impl Midi {
     /// One message at `at` seconds; its events go to `out`. False when the message is not a note or a controller (or is
     /// malformed), so the caller can pass it on elsewhere.
     pub fn feed(&mut self, bytes: &[u8], at: f64, out: &mut Vec<Event>) -> bool {
+        self.feed_at(bytes, Time::Seconds(at), out)
+    }
+
+    /// `feed` at any time – `Time::Now` for a live input played as it arrives
+    pub fn feed_at(&mut self, bytes: &[u8], at: Time, out: &mut Vec<Event>) -> bool {
         let [status, a, b] = match bytes {
             [s, a, b] => [*s, *a, *b],
             _ => return false,
@@ -109,7 +114,7 @@ impl Midi {
                 true
             }
             0xB0 => {
-                let e = Event::new(self.cc, Time::Seconds(at)).with(self.cc_no, f32::from(a)).with(self.value, f32::from(b) / 127.0);
+                let e = Event::new(self.cc, at).with(self.cc_no, f32::from(a)).with(self.value, f32::from(b) / 127.0);
                 out.push(self.stamp(e, ch));
                 true
             }
@@ -119,6 +124,11 @@ impl Midi {
 
     /// end every held note at `at`
     pub fn release_all(&mut self, at: f64, out: &mut Vec<Event>) {
+        self.release_all_at(Time::Seconds(at), out);
+    }
+
+    /// `release_all` at any time
+    pub fn release_all_at(&mut self, at: Time, out: &mut Vec<Event>) {
         for slot in 0..self.held.len() {
             if std::mem::take(&mut self.held[slot]) {
                 out.push(self.off((slot / 128) as u8, (slot % 128) as u8, at));
@@ -126,13 +136,13 @@ impl Midi {
         }
     }
 
-    fn on(&self, ch: u8, note: u8, vel: u8, at: f64) -> Event {
-        let e = Event::new(self.note, Time::Seconds(at)).with(self.pitch, hz(note)).with(self.vel, f32::from(vel) / 127.0).with(self.key, f32::from(note));
+    fn on(&self, ch: u8, note: u8, vel: u8, at: Time) -> Event {
+        let e = Event::new(self.note, at).with(self.pitch, hz(note)).with(self.vel, f32::from(vel) / 127.0).with(self.key, f32::from(note));
         self.stamp(e, ch)
     }
 
-    fn off(&self, ch: u8, note: u8, at: f64) -> Event {
-        self.stamp(Event::new(self.off, Time::Seconds(at)).with(self.key, f32::from(note)), ch)
+    fn off(&self, ch: u8, note: u8, at: Time) -> Event {
+        self.stamp(Event::new(self.off, at).with(self.key, f32::from(note)), ch)
     }
 
     fn stamp(&self, e: Event, ch: u8) -> Event {
