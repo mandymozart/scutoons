@@ -1,0 +1,575 @@
+# The three crows rave (#747, research/audio-nodes-foundation.md §4): MIDI input 1, channel 1 plays three crows, each an arp
+# (up, 1/8, two octaves) into analog's `hoover-dissonant` – the second a minor third up, the third a tritone up: a diminished
+# triad on every eighth at 160 BPM. The drum machine stands next to the fox crow: four analog lanes with the drum presets.
+# The analog values are analog.preset.json's presets written out (tests/crows_rave.rs holds them equal) until a node can
+# name a module preset (#346). Needs the `modules` build with arp, analog, delay and reverb in DECK_MODULES:
+#   cargo run --release -p deck-native --features modules -- --dev --scene crows-rave
+[stage]
+name = "Three crows rave"
+
+[being]
+character = "crows"
+size = 0.5
+drift = 0.06
+breath = 0.04
+wobble = 0.025
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 160
+beats = 4
+source = "internal"
+
+[[node]]
+id = "midi"
+kind = "world"
+source = "midi"
+listen = ["midi.note"]
+port = 1
+channel = 1
+
+# crow wolf: the played note, pan 0.0
+
+[[node]]
+id = "wolf-arp"
+kind = "module:arp"
+mode = 0.0
+rate = 4.0
+gate = 50.0
+octaves = 2.0
+transpose = 0.0
+latch = 0.0
+
+[[node]]
+id = "wolf-voice"
+kind = "module:analog"
+volume = 0.55
+vel_pwm = 0.1
+glide = 0.06
+mono = 0.0
+o1_wave = 0.0
+o1_fine = -15.0
+o1_level = 0.75
+o1_route = 0.0
+o2_wave = 1.0
+o2_pw = 0.35
+o2_fine = 15.0
+o2_level = 0.7
+o2_sub = 0.45
+o2_route = 1.0
+sub2_route = 1.0
+noise_level = 0.04
+noise_route = 2.0
+f1_mode = 0.0
+f1_cutoff = 1800.0
+f1_res = 0.35
+f1_drive = 0.45
+f1_key = 0.4
+f1_env = 0.3
+f2_mode = 0.0
+f2_cutoff = 2400.0
+f2_res = 0.25
+f2_drive = 0.45
+f2_key = 0.4
+f2_env = 0.25
+fe1_a = 0.002
+fe1_d = 0.18
+fe1_s = 0.25
+fe1_r = 0.12
+fe2_a = 0.002
+fe2_d = 0.09
+fe2_s = 0.0
+fe2_r = 0.1
+fe2_p2 = -7.0
+a1_level = 0.8
+a1_pan = -0.45
+a1_vel = 0.3
+a2_level = 0.8
+a2_pan = 0.45
+a2_vel = 0.3
+ae1_a = 0.004
+ae1_d = 0.25
+ae1_s = 0.7
+ae1_r = 0.15
+ae2_a = 0.004
+ae2_d = 0.25
+ae2_s = 0.7
+ae2_r = 0.15
+l1_shape = 1.0
+l1_rate = 0.35
+l1_pwm = 0.25
+l2_shape = 0.0
+l2_sync = 2.0
+l2_f1 = 0.6
+l2_f2 = 0.6
+
+[[node]]
+id = "wolf-strip"
+kind = "bus"
+gain = 0.3548
+
+# crow lizard: +3 st, pan -0.5
+
+[[node]]
+id = "lizard-arp"
+kind = "module:arp"
+mode = 0.0
+rate = 4.0
+gate = 50.0
+octaves = 2.0
+transpose = 3.0
+latch = 0.0
+
+[[node]]
+id = "lizard-voice"
+kind = "module:analog"
+volume = 0.55
+vel_pwm = 0.1
+glide = 0.06
+mono = 0.0
+o1_wave = 0.0
+o1_fine = -15.0
+o1_level = 0.75
+o1_route = 0.0
+o2_wave = 1.0
+o2_pw = 0.35
+o2_fine = 15.0
+o2_level = 0.7
+o2_sub = 0.45
+o2_route = 1.0
+sub2_route = 1.0
+noise_level = 0.04
+noise_route = 2.0
+f1_mode = 0.0
+f1_cutoff = 1800.0
+f1_res = 0.35
+f1_drive = 0.45
+f1_key = 0.4
+f1_env = 0.3
+f2_mode = 0.0
+f2_cutoff = 2400.0
+f2_res = 0.25
+f2_drive = 0.45
+f2_key = 0.4
+f2_env = 0.25
+fe1_a = 0.002
+fe1_d = 0.18
+fe1_s = 0.25
+fe1_r = 0.12
+fe2_a = 0.002
+fe2_d = 0.09
+fe2_s = 0.0
+fe2_r = 0.1
+fe2_p2 = -7.0
+a1_level = 0.8
+a1_pan = -0.45
+a1_vel = 0.3
+a2_level = 0.8
+a2_pan = 0.45
+a2_vel = 0.3
+ae1_a = 0.004
+ae1_d = 0.25
+ae1_s = 0.7
+ae1_r = 0.15
+ae2_a = 0.004
+ae2_d = 0.25
+ae2_s = 0.7
+ae2_r = 0.15
+l1_shape = 1.0
+l1_rate = 0.35
+l1_pwm = 0.25
+l2_shape = 0.0
+l2_sync = 2.0
+l2_f1 = 0.6
+l2_f2 = 0.6
+
+[[node]]
+id = "lizard-pan"
+kind = "pan"
+azimuth = -15.0
+
+[[node]]
+id = "lizard-strip"
+kind = "bus"
+gain = 0.3548
+
+# crow fox: +6 st, pan 0.5
+
+[[node]]
+id = "fox-arp"
+kind = "module:arp"
+mode = 0.0
+rate = 4.0
+gate = 50.0
+octaves = 2.0
+transpose = 6.0
+latch = 0.0
+
+[[node]]
+id = "fox-voice"
+kind = "module:analog"
+volume = 0.55
+vel_pwm = 0.1
+glide = 0.06
+mono = 0.0
+o1_wave = 0.0
+o1_fine = -15.0
+o1_level = 0.75
+o1_route = 0.0
+o2_wave = 1.0
+o2_pw = 0.35
+o2_fine = 15.0
+o2_level = 0.7
+o2_sub = 0.45
+o2_route = 1.0
+sub2_route = 1.0
+noise_level = 0.04
+noise_route = 2.0
+f1_mode = 0.0
+f1_cutoff = 1800.0
+f1_res = 0.35
+f1_drive = 0.45
+f1_key = 0.4
+f1_env = 0.3
+f2_mode = 0.0
+f2_cutoff = 2400.0
+f2_res = 0.25
+f2_drive = 0.45
+f2_key = 0.4
+f2_env = 0.25
+fe1_a = 0.002
+fe1_d = 0.18
+fe1_s = 0.25
+fe1_r = 0.12
+fe2_a = 0.002
+fe2_d = 0.09
+fe2_s = 0.0
+fe2_r = 0.1
+fe2_p2 = -7.0
+a1_level = 0.8
+a1_pan = -0.45
+a1_vel = 0.3
+a2_level = 0.8
+a2_pan = 0.45
+a2_vel = 0.3
+ae1_a = 0.004
+ae1_d = 0.25
+ae1_s = 0.7
+ae1_r = 0.15
+ae2_a = 0.004
+ae2_d = 0.25
+ae2_s = 0.7
+ae2_r = 0.15
+l1_shape = 1.0
+l1_rate = 0.35
+l1_pwm = 0.25
+l2_shape = 0.0
+l2_sync = 2.0
+l2_f1 = 0.6
+l2_f2 = 0.6
+
+[[node]]
+id = "fox-pan"
+kind = "pan"
+azimuth = 15.0
+
+[[node]]
+id = "fox-strip"
+kind = "bus"
+gain = 0.3548
+
+# the drum machine (a plain node for now): one analog a lane. TODO(#743): the `drumseq` node and its lane cables
+
+[[node]]
+id = "drum-kick"
+kind = "module:analog"
+o1_level = 0.0
+o2_wave = 3.0
+o2_key = 0.0
+o2_semi = -24.0
+o2_level = 1.0
+o2_route = 1.0
+f2_cutoff = 8000.0
+f2_drive = 0.35
+fe2_a = 0.001
+fe2_d = 0.045
+fe2_s = 0.0
+fe2_r = 0.05
+fe2_p2 = 24.0
+a1_level = 0.0
+a2_level = 1.0
+a2_vel = 0.4
+ae2_a = 0.001
+ae2_d = 0.32
+ae2_s = 0.0
+ae2_r = 0.08
+
+[[node]]
+id = "drum-snare"
+kind = "module:analog"
+noise_level = 0.9
+noise_route = 0.0
+f1_mode = 2.0
+f1_cutoff = 1200.0
+ae1_a = 0.001
+ae1_d = 0.17
+ae1_s = 0.0
+ae1_r = 0.06
+a1_level = 0.8
+o1_level = 0.0
+o2_wave = 2.0
+o2_key = 0.0
+o2_semi = -5.0
+o2_level = 1.0
+o2_route = 1.0
+f2_cutoff = 6000.0
+fe2_a = 0.001
+fe2_d = 0.03
+fe2_s = 0.0
+fe2_p2 = 5.0
+ae2_a = 0.001
+ae2_d = 0.09
+ae2_s = 0.0
+ae2_r = 0.05
+a2_level = 0.6
+
+[[node]]
+id = "drum-hat-closed"
+kind = "module:analog"
+noise_level = 1.0
+noise_route = 0.0
+o1_wave = 1.0
+o1_key = 0.0
+o1_semi = 24.0
+o1_pw = 0.3
+o1_level = 0.25
+f1_mode = 2.0
+f1_cutoff = 7500.0
+f1_res = 0.25
+ae1_a = 0.001
+ae1_d = 0.045
+ae1_s = 0.0
+ae1_r = 0.03
+a1_level = 0.55
+a2_level = 0.0
+
+[[node]]
+id = "drum-hat-open"
+kind = "module:analog"
+noise_level = 1.0
+noise_route = 0.0
+o1_wave = 1.0
+o1_key = 0.0
+o1_semi = 24.0
+o1_pw = 0.3
+o1_level = 0.25
+f1_mode = 2.0
+f1_cutoff = 7500.0
+f1_res = 0.25
+ae1_a = 0.001
+ae1_d = 0.35
+ae1_s = 0.0
+ae1_r = 0.2
+a1_level = 0.55
+a2_level = 0.0
+
+[[node]]
+id = "drums"
+kind = "bus"
+gain = 0.5012
+
+# the FX buses; the snare room is a reverb send until the convolver (#742)
+
+[[node]]
+id = "fx-delay"
+kind = "bus"
+
+[[node]]
+id = "delay"
+kind = "module:delay"
+sync = 8.0
+feedback = 40.0
+damp = 3000.0
+pingpong = 100.0
+mix = 100.0
+
+[[node]]
+id = "fx-space"
+kind = "bus"
+
+[[node]]
+id = "reverb"
+kind = "module:reverb"
+size = 70.0
+decay = 2.5
+damp = 6000.0
+predelay = 20.0
+width = 100.0
+mix = 100.0
+
+[[node]]
+id = "main"
+kind = "bus"
+
+[[node]]
+id = "fft"
+kind = "fft"
+release = 0.35
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.7
+
+[[node]]
+id = "space"
+kind = "space"
+quality = "low"
+hue = 0.52
+glow = 0.6
+light = 0.85
+join = "alone"
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "midi.events"
+to = "wolf-arp.notes"
+
+[[link]]
+from = "wolf-arp.out"
+to = "wolf-voice.notes"
+
+[[link]]
+from = "wolf-voice.out"
+to = "wolf-strip.in"
+
+[[link]]
+from = "wolf-strip.out"
+to = "main.in"
+
+[[link]]
+from = "wolf-strip.out"
+to = "fx-delay.in"
+scale = 0.25
+
+[[link]]
+from = "wolf-strip.out"
+to = "fx-space.in"
+scale = 0.3
+
+[[link]]
+from = "midi.events"
+to = "lizard-arp.notes"
+
+[[link]]
+from = "lizard-arp.out"
+to = "lizard-voice.notes"
+
+[[link]]
+from = "lizard-voice.out"
+to = "lizard-pan.in"
+
+[[link]]
+from = "lizard-pan.out"
+to = "lizard-strip.in"
+
+[[link]]
+from = "lizard-strip.out"
+to = "main.in"
+
+[[link]]
+from = "lizard-strip.out"
+to = "fx-delay.in"
+scale = 0.25
+
+[[link]]
+from = "lizard-strip.out"
+to = "fx-space.in"
+scale = 0.3
+
+[[link]]
+from = "midi.events"
+to = "fox-arp.notes"
+
+[[link]]
+from = "fox-arp.out"
+to = "fox-voice.notes"
+
+[[link]]
+from = "fox-voice.out"
+to = "fox-pan.in"
+
+[[link]]
+from = "fox-pan.out"
+to = "fox-strip.in"
+
+[[link]]
+from = "fox-strip.out"
+to = "main.in"
+
+[[link]]
+from = "fox-strip.out"
+to = "fx-delay.in"
+scale = 0.25
+
+[[link]]
+from = "fox-strip.out"
+to = "fx-space.in"
+scale = 0.3
+
+[[link]]
+from = "drum-kick.out"
+to = "drums.in"
+
+[[link]]
+from = "drum-snare.out"
+to = "drums.in"
+
+[[link]]
+from = "drum-hat-closed.out"
+to = "drums.in"
+
+[[link]]
+from = "drum-hat-open.out"
+to = "drums.in"
+
+[[link]]
+from = "drum-snare.out"
+to = "fx-space.in"
+scale = 0.35
+
+[[link]]
+from = "drums.out"
+to = "main.in"
+
+[[link]]
+from = "fx-delay.out"
+to = "delay.in"
+
+[[link]]
+from = "delay.out"
+to = "main.in"
+
+[[link]]
+from = "fx-space.out"
+to = "reverb.in"
+
+[[link]]
+from = "reverb.out"
+to = "main.in"
+
+[[link]]
+from = "main.out"
+to = "out.in"
+
+[[link]]
+from = "main.out"
+to = "fft.in"
+
+[[link]]
+from = "space"
+to = "screen.in"
