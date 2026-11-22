@@ -1569,6 +1569,7 @@ dependencies = [
  "deck-core",
  "deck-kit",
  "protocol",
+ "serde",
  "serde_json",
 ]
 

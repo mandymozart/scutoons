@@ -4,7 +4,7 @@
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, fit_sans};
-use deck_ui::messages::{self, Filter, Level, Message, Messages};
+use deck_ui::messages::{self, Filter, Kind, Level, Levels, Message, Messages};
 use std::sync::Mutex;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::field::{Field, Visit};
@@ -92,7 +92,7 @@ impl<S: tracing::Subscriber> Layer<S> for Tech {
         let (text, more) = f.message.split_once('\n').map_or((f.message.as_str(), ""), |(a, b)| (a, b));
         let detail = std::iter::once(meta.target().to_string()).chain(f.rest).chain((!more.trim().is_empty()).then(|| more.split_whitespace().collect::<Vec<_>>().join(" "))).collect::<Vec<_>>().join(" ");
         if let Ok(mut inbox) = INBOX.lock() {
-            inbox.push(Message::new(level, messages::TECH, text.trim_end(), now()).with_detail(detail));
+            inbox.push(Message::new(level, messages::TECH, text.trim_end(), now()).with_detail(detail).with_kind(Kind::Technical));
         }
     }
 }
@@ -100,13 +100,14 @@ impl<S: tracing::Subscriber> Layer<S> for Tech {
 /// a press in the Log panel
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Press {
-    Filter(Filter),
+    Filter(Levels),
     Find,
     Copy,
     Save,
 }
 
 /// the messages, the Log's filter and find, the ring where a press was refused
+#[derive(Default)]
 pub struct Log {
     pub all: Messages,
     pub filter: Filter,
@@ -114,12 +115,6 @@ pub struct Log {
     refused: Option<((f32, f32), Instant)>,
     /// the conductor's newest log line taken in (its time and words)
     show_seen: Option<(u64, String)>,
-}
-
-impl Default for Log {
-    fn default() -> Self {
-        Log { all: Messages::default(), filter: Filter::All, find: String::new(), refused: None, show_seen: None }
-    }
 }
 
 impl Log {
@@ -141,7 +136,7 @@ impl Log {
         for (_, words) in &lines[from..] {
             // the conductor's words for what did not land
             let warn = words.contains("nobody") || words.contains("skipped") || words.contains("off the row");
-            self.all.push(Message::new(if warn { Level::Warn } else { Level::Info }, "show", words.clone(), now()));
+            self.all.push(Message::new(if warn { Level::Warn } else { Level::Info }, "show", words.clone(), now()).with_kind(Kind::Show).with_scope(messages::SHOW_SCOPE));
         }
         if let Some(last) = lines.last() {
             self.show_seen = Some(last.clone());
@@ -166,7 +161,7 @@ impl Log {
 
     /// what Copy all and Save write: what the panel shows, every line
     pub fn text(&self) -> String {
-        self.all.text(self.filter, &self.find)
+        self.all.text(&self.filter, &self.find)
     }
 
     /// the log as a file for a bug report: in Downloads, else the editor's cache; where it went
@@ -195,13 +190,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, log: &Log, typing: Option<&st
     let (pad, font, small) = (t.size.pad, t.size.font, t.size.small);
     let mut out = Vec::new();
     // the head: the filters left, Copy all and Save right, the find field between
-    let names = Filter::ALL.map(Filter::word);
-    let on = Filter::ALL.map(|f| f == log.filter);
+    let names = Levels::ALL.map(Levels::word);
+    let on = Levels::ALL.map(|f| f == log.filter.level);
     let bw = |d: &DrawList, s: &str| d.sans_width(small, s) + pad;
     let (copy_w, save_w) = (bw(d, "Copy all"), bw(d, "Save"));
     let filters_w = names.iter().map(|n| bw(d, n) + 4.0).sum::<f32>();
     let (rects, head) = controls::chips(d, t, (a.x, a.y, filters_w), &names, &on);
-    out.extend(rects.into_iter().zip(Filter::ALL).map(|(r, f)| (r, Press::Filter(f))));
+    out.extend(rects.into_iter().zip(Levels::ALL).map(|(r, f)| (r, Press::Filter(f))));
     let h = t.size.tree_row - 4.0;
     let mut x = a.x + a.w;
     for (word, w, press) in [("Save", save_w, Press::Save), ("Copy all", copy_w, Press::Copy)] {
@@ -227,7 +222,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, log: &Log, typing: Option<&st
     }
     // the lines, newest first
     let find_now = typing.unwrap_or(&log.find);
-    let shown = log.all.shown(log.filter, find_now);
+    let shown = log.all.shown(&log.filter, find_now);
     let mut y = a.y + head.max(h) + small * 0.6;
     d.rect(a.x, y - small * 0.3, a.w, 1.0, t.color.line);
     if shown.is_empty() {
@@ -272,12 +267,12 @@ mod tests {
         });
         let mut log = Log::default();
         log.take_inbox();
-        let tech: Vec<&Message> = log.all.shown(Filter::Technical, "").into_iter().filter(|m| m.text != "not asked for").collect();
+        let tech: Vec<&Message> = log.all.shown(&Filter { level: Levels::Technical, ..Filter::default() }, "").into_iter().filter(|m| m.text != "not asked for").collect();
         assert!(tech.iter().any(|m| m.level == Level::Error && m.text == "sync: refused"));
         let w = tech.iter().find(|m| m.level == Level::Warn).expect("the warning");
         assert_eq!(w.text, "autosave: the draft did not write");
         assert!(w.detail.as_deref().is_some_and(|d| d.contains("file=x.toml")), "{:?}", w.detail);
-        assert!(log.all.shown(Filter::All, "not asked for").is_empty(), "info only when asked");
+        assert!(log.all.shown(&Filter::default(), "not asked for").is_empty(), "info only when asked");
     }
 
     #[test]
@@ -290,6 +285,6 @@ mod tests {
         assert_eq!(log.all.len(), 2);
         entries.push(Entry { ms: 30, what: Logged::NoRow { event: "door".into() } });
         log.take_show(entries.iter());
-        assert_eq!(log.all.shown(Filter::All, "").len(), 3);
+        assert_eq!(log.all.shown(&Filter::default(), "").len(), 3);
     }
 }

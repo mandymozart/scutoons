@@ -24,15 +24,15 @@
 
 	async function save(): Promise<void> {
 		const r = await session.save();
-		if (!r.ok) toast(r.message, { type: 'error' });
+		if (!r.ok) toast(r.message, { type: 'error', kind: 'publish' });
 	}
 
 	async function publish(): Promise<void> {
 		if (!session.rig || session.dirty || session.busy) return;
 		if (!(await confirmDialog({ title: m['designer.assign_publish'](), message: m['designer.assign_publish_confirm']({ subject: session.subject }), confirmLabel: m['designer.assign_publish']() }))) return;
 		const r = await session.publish();
-		if (r.ok) toast(m['designer.assign_published']({ subject: session.subject }));
-		else toast(r.message, { type: 'error' });
+		if (r.ok) toast(m['designer.assign_published']({ subject: session.subject }), { kind: 'publish' });
+		else toast(r.message, { type: 'error', kind: 'publish' });
 	}
 </script>
 

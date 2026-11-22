@@ -12,7 +12,7 @@
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import PagePublish from '$lib/components/shell/page-publish.svelte';
-	import { toast } from '$lib/toasts.ts';
+	import { published } from '$lib/toasts.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
@@ -95,8 +95,8 @@
 		const ok = await confirmDialog({ title: m['creator.sound_publish'](), message: m['creator.sound_publish_confirm']({ id }), confirmLabel: m['creator.sound_publish']() });
 		if (!ok) return;
 		const r = await store.publish(id);
-		if (r.ok) toast(m['creator.sound_published']({ id }));
-		else toast(r.message, { type: 'error' });
+		if (r.ok) published(m['creator.sound_published']({ id }));
+		else published(r.message, 'error');
 	}
 	usePageNav({
 		fill: true,

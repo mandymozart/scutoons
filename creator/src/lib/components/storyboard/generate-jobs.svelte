@@ -24,8 +24,8 @@
 			if (busy) return;
 			busy = true;
 			gen.poll()
-				.then(({ saved }) => saved.forEach((g) => toast(m['storyboard.gen_saved']({ file: g.file ?? '' }), { type: 'success' })))
-				.catch((e) => toast(e instanceof Error ? e.message : String(e), { type: 'error' }))
+				.then(({ saved }) => saved.forEach((g) => toast(m['storyboard.gen_saved']({ file: g.file ?? '' }), { type: 'success', kind: 'generation' })))
+				.catch((e) => toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' }))
 				.finally(() => (busy = false));
 		}, POLL_MS);
 		return () => clearInterval(timer);
@@ -35,7 +35,7 @@
 		try {
 			await gen.cancel(g);
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		}
 	}
 	const status = (g: Generation) => (g.status === 'queued' ? m['storyboard.gen_status_queued']() : m['storyboard.gen_status_running']());

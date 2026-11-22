@@ -11,6 +11,11 @@
 	import { library } from '$lib/editor/library.svelte.ts';
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
+	import LogPanel from '$lib/components/shell/log-panel.svelte';
+	import CoreLogProvider from '$lib/components/shell/core-log-provider.svelte';
+	import { log } from '$lib/log/log.svelte.ts';
+	import { scopeOf } from '$lib/shell/address.ts';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
@@ -32,6 +37,16 @@
 
 	// the Library follows the front item: its context is the workspace's pre-filter
 	$effect(() => library.follow(kind === 'home' ? null : (shell.front?.address ?? null), toon));
+	// the Log follows the front item too: its scope (a chapter under its season) and its name
+	const nav = getCreatorNav();
+	$effect(() => {
+		const front = kind === 'home' ? null : shell.front;
+		log.follow(scopeOf(front?.address, (t, c) => nav.chapterSeason(t, c)), front?.label ?? '');
+	});
+	$effect(() => {
+		void log.load();
+		return log.listen();
+	});
 	// a blank slot's pick opens the Library panel
 	$effect(() => {
 		if (library.pick) shell.open('library');
@@ -98,6 +113,8 @@
 			<ToonPanel {toon} />
 		{:else if id === 'library'}
 			<LibraryPanel />
+		{:else if id === 'log'}
+			<LogPanel />
 		{:else if id === 'settings'}
 			<SettingsPanel onreset={() => shell.resetView()} />
 		{:else if shell.tabs[id]}
@@ -106,6 +123,7 @@
 	</div>
 {/snippet}
 
+<CoreLogProvider />
 <Stage bind:this={stage} {floats} stage={staged} {content} {name} />
 
 <div class="ws-overlay" data-workspace={kind} data-testid="workspace">

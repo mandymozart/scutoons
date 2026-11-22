@@ -79,7 +79,7 @@
 		try {
 			await scenesApi.publish(sceneId, draft.version.id);
 			outcome = publishOutcome(null);
-			toast(m['creator.scenes_publish_ok'](), { type: 'success' });
+			toast(m['creator.scenes_publish_ok'](), { type: 'success', kind: 'publish' });
 		} catch (e) {
 			outcome = publishOutcome(e);
 		} finally {
@@ -96,7 +96,7 @@
 		try {
 			await scenesApi.restore(sceneId, v.id);
 			outcome = null;
-			toast(m['creator.scenes_restored'](), { type: 'success' });
+			toast(m['creator.scenes_restored'](), { type: 'success', kind: 'history' });
 		} catch (e) {
 			toast(message(e), { type: 'error' });
 		}

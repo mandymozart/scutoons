@@ -29,9 +29,9 @@
 		busy = g.id;
 		try {
 			await job();
-			if (done) toast(done, { type: 'success' });
+			if (done) toast(done, { type: 'success', kind: 'generation' });
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		} finally {
 			busy = null;
 		}
@@ -61,7 +61,7 @@
 				{#if sb.workspaceState === 'ready'}
 					<div class="actions">
 						<span class="grow"></span>
-						<button type="button" class="secondary" title={m['storyboard.gen_save_hint']()} disabled={sb.gen.saving === g.id} onclick={() => run(g, async () => void toast(m['storyboard.gen_saved']({ file: (await sb.gen.save(g)).file ?? '' }), { type: 'success' }))} data-testid="save-{g.id}"><Icon name="download" /> {m['storyboard.gen_save']()}</button>
+						<button type="button" class="secondary" title={m['storyboard.gen_save_hint']()} disabled={sb.gen.saving === g.id} onclick={() => run(g, async () => void toast(m['storyboard.gen_saved']({ file: (await sb.gen.save(g)).file ?? '' }), { type: 'success', kind: 'generation' }))} data-testid="save-{g.id}"><Icon name="download" /> {m['storyboard.gen_save']()}</button>
 					</div>
 				{:else}
 					<p class="muted">{m['storyboard.gen_result_pick_folder']()}</p>

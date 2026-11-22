@@ -35,9 +35,9 @@
 		if (!entry || !take) return;
 		try {
 			await sb.hh.render(entry, take);
-			toast(m['storyboard.hh_rendered']({ take: take.id, shot: entry.id }), { type: 'success' });
+			toast(m['storyboard.hh_rendered']({ take: take.id, shot: entry.id }), { type: 'success', kind: 'generation' });
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		}
 	}
 	/** the take's time of day here (hh:mm) */
