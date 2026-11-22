@@ -104,9 +104,9 @@ test("a target's whole tree: the shared entity or its own, its own field cleared
 	assert.equal(entitySlot(configuration, 'missing'), null);
 });
 
-test('the files a new part can take: each once, from own and shared entities', () => {
+test('the files a new part can take: each once, from own and shared entities, then the targets pictures', () => {
 	const twice = { ...configuration, entries: [...configuration.entries, { id: 'x', target: { id: 'x', entity: { type: 'model', assets: [{ id: 'q', assetType: 'glb', src: '/assets/content/p0.glb' }, { id: 'v', assetType: 'video', src: '/assets/content/v.mp4' }] } } }] };
-	assert.deepEqual(experienceFiles(twice).map((f) => `${f.assetType}:${fileName(f.src)}`), ['glb:p0.glb', 'video:v.mp4']);
+	assert.deepEqual(experienceFiles(twice).map((f) => `${f.assetType}:${fileName(f.src)}`), ['glb:p0.glb', 'video:v.mp4', 'image:p.webp']);
 	assert.deepEqual(experienceFiles({}), []);
 });
 

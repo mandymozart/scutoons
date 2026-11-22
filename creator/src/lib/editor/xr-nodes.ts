@@ -237,8 +237,8 @@ export interface XrFile {
 const FILE_TYPES: readonly string[] = ['glb', 'gltf', 'video', 'image', 'audio'];
 
 /**
- * The files the experience's entities use, once each by `src` (in the order met): what a new part can take until files
- * can be added to the experience.
+ * The files the experience's entities use, then its targets' pictures, once each by `src` (in the order met): what a new
+ * part can take until files can be added to the experience.
  */
 export function experienceFiles(configuration: unknown): XrFile[] {
 	const c = obj(configuration) ?? {};
@@ -257,6 +257,12 @@ export function experienceFiles(configuration: unknown): XrFile[] {
 		if (entity && !str(entity.ref)) walk(entity);
 	}
 	Object.values(obj(c.entities) ?? {}).forEach((entity) => walk(obj(entity)));
+	// the targets' printed pictures are images of the experience too (an image part can show one)
+	for (const e of list(c.entries).map(obj)) {
+		const t = obj(e?.target);
+		const src = str(t?.imageSrc);
+		if (src && !seen.has(src)) seen.set(src, { id: str(t?.id) || src, assetType: 'image', src });
+	}
 	return [...seen.values()];
 }
 
