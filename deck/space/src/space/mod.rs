@@ -196,7 +196,9 @@ const CARD_HOP: f32 = 0.15;
 impl Cast {
     /// the cast of `graph`: a being per `look` node – the node's look (its `being` table), its body the nodes of its rig
     /// (the ids under its prefix, `<prefix>look`), its core the look node; empty = the scene's one being is the space's
-    pub fn of(graph: &Graph, portraits: &mut Portraits) -> Vec<Cast> {
+    /// each node's holder: the index of the `look` node whose rig it is part of (the ids under its prefix,
+    /// `<prefix>look`), none = the scene's own (its FX, buses, chains – drawn by the scene's being, #816)
+    pub fn owners(graph: &Graph) -> Vec<Option<usize>> {
         let looks: Vec<(usize, &str)> = graph
             .nodes
             .iter()
@@ -205,10 +207,18 @@ impl Cast {
             .map(|(i, n)| (i, n.id.strip_suffix(crate::scene::look_id("").as_str()).unwrap_or_default()))
             .collect();
         // a node is the being's whose prefix is the longest that names it (holders `a` and `a_b`: `a_b_voice` is a_b's)
-        let owner = |k: usize| looks.iter().filter(|(_, p)| !p.is_empty() && graph.nodes[k].id.starts_with(p)).max_by_key(|(_, p)| p.len()).map(|(i, _)| *i);
+        (0..graph.nodes.len())
+            .map(|k| looks.iter().filter(|(_, p)| !p.is_empty() && graph.nodes[k].id.starts_with(p)).max_by_key(|(_, p)| p.len()).map(|(i, _)| *i))
+            .collect()
+    }
+
+    pub fn of(graph: &Graph, portraits: &mut Portraits) -> Vec<Cast> {
+        let owners = Cast::owners(graph);
+        let owner = |k: usize| owners[k];
+        let looks: Vec<usize> = graph.nodes.iter().enumerate().filter(|(_, n)| n.kind == crate::graph::Kind::Look).map(|(i, _)| i).collect();
         looks
             .iter()
-            .map(|&(i, _)| {
+            .map(|&i| {
                 let n = &graph.nodes[i];
                 let look: Look = n.params.get("being").and_then(|v| v.clone().try_into().ok()).unwrap_or_default();
                 let mut being = Being::part(graph, &look, Some(i), &|k| owner(k) == Some(i));
@@ -393,6 +403,13 @@ fn load_set(path: PathBuf, _max: u32, _hide: Vec<String>, _gate: Option<Gate>) -
 }
 
 impl Space {
+    /// #816: on a stage of holders the scene's being is the scene's own graph – every node no holder's rig owns (its FX,
+    /// buses, chains), with its hoses, points and knobs; the holders' beings are their rigs'. None of its own: bodiless.
+    fn scene_part(graph: &Graph, look: &Look) -> Being {
+        let owners = Cast::owners(graph);
+        Being::part(graph, look, graph.first(crate::graph::Kind::Space), &|k| owners[k].is_none())
+    }
+
     /// The space node `node` of `graph`: its being from the graph + `look`, its set's 3D loading on a thread of its own
     /// (from `sets`, the `--sets` folder), its head's sprites from `portraits`.
     pub fn new(graph: &Graph, node: usize, look: &Look, sets: &Path, portraits: Portraits) -> Space {
@@ -403,7 +420,7 @@ impl Space {
     pub fn with_gate(graph: &Graph, node: usize, look: &Look, sets: &Path, mut portraits: Portraits, gate: Option<Gate>) -> Space {
         let n = &graph.nodes[node];
         let cast = Cast::of(graph, &mut portraits);
-        let mut being = if cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
+        let mut being = if cast.is_empty() { Being::new(graph, look) } else { Space::scene_part(graph, look) };
         being.head.sprites = portraits.request(&look.character, &being.moods);
         for p in &being.feel.problems {
             tracing::warn!("being: {p} – left out");
@@ -1366,7 +1383,7 @@ impl Space {
         self.cast = Cast::of(graph, &mut self.portraits);
         self.focus_outlets = focus::outlets(graph);
         self.picked = None;
-        let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
+        let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Space::scene_part(graph, look) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);
         being.anchor = self.being.anchor;
         self.being = being;
@@ -2608,7 +2625,9 @@ to = "burner_look.pulse"
         assert_eq!((space.cast[0].being.look.character.as_str(), space.cast[1].being.look.character.as_str()), ("catpope", "mute"));
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look, Form::Card]);
         assert_eq!((space.beings().count(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
-        assert!(space.being.points.is_empty() && space.being.buttons.is_empty(), "the space's own being has no body to draw or turn");
+        let owners = Cast::owners(&g);
+        assert!(space.being.points.iter().all(|p| owners[p.node].is_none()), "#816: the space's own being is the scene's own nodes, none of a holder's");
+        assert!(ids(&space.being).iter().all(|id| !id.starts_with("left_") && !id.starts_with("right_")), "{:?}", ids(&space.being));
         assert_eq!(space.cast[0].feet, Vec3::new(-2.0, 0.0, 0.0), "on its spot in the set");
         assert_eq!(space.cast[0].being.anchor, Vec3::new(-2.0, space.lift, 0.0), "the being floats over it");
         let mut glows = (Vec::new(), Vec::new());
