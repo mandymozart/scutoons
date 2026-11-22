@@ -44,7 +44,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 18] = [
+pub const SANDBOX: [&str; 19] = [
     "channel-walk",
     "cue-34",
     "surround-51",
