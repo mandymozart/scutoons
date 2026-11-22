@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Catalog\CatalogDocs;
 use Scutoons\Domain\Catalog\PublishOrder;
+use Scutoons\Domain\Live\Scenes;
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
@@ -56,7 +57,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs, private readonly Scenes $scenes)
     {
     }
 
@@ -239,6 +240,8 @@ final class EntitiesController
     private function publishPartial(array $user, array $list): array
     {
         $versions = [];
+        /** @var array<string, int|null> $scenes */
+        $scenes = [];
         $refused = [];
         $review = [];
         /** @var array<string, string> $failed key → what happened to it, for what depends on it */
@@ -252,7 +255,10 @@ final class EntitiesController
             $key = EntityKey::parse($raw);
             $version = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
             if ($key->kind === 'scene') {
-                $refuse((string) $key, 'scene_route', self::sceneRoute()->getMessage(), 'was refused');
+                // a deck scene goes last, through its own check (the core's, as its page publishes it): after the modules,
+                // instruments, presets and rigs it plays
+                if (!$this->roles->canEditContent($user)) $refuse((string) $key, 'forbidden', 'Only content editors publish scenes.', 'was refused');
+                else $scenes[(string) $key] = $version;
                 continue;
             }
             try {
@@ -316,6 +322,15 @@ final class EntitiesController
             }
         }
         if (array_filter($published, fn(array $p) => EntityKey::parse($p['key'])->isCatalog()) !== []) $this->docs->reindex();
+        foreach ($scenes as $key => $version) {
+            try {
+                $result = $this->scenes->publish(EntityKey::parse($key), $version);
+                $published[] = ['key' => $key, 'version' => $result['version'] ?? $result];
+            } catch (ApiError $e) {
+                $problems = is_array($e->extra['problems'] ?? null) ? implode('; ', array_map('strval', $e->extra['problems'])) : $e->getMessage();
+                $refuse($key, $e->errorCode, $problems, 'was refused');
+            }
+        }
         foreach ($published as $p) {
             $this->reviews->markPublished($user, $p['key'], (int) $p['version']['id']);
             $this->usages->reindexEntity($p['key']);
