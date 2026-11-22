@@ -1343,6 +1343,7 @@ dependencies = [
  "deck-core",
  "egui",
  "font8x8",
+ "resvg",
  "serde",
  "toml 0.8.23",
 ]
