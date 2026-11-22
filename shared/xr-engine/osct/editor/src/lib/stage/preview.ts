@@ -162,8 +162,7 @@ export interface PreviewState extends PreviewSettings {
 export const nodeKey = (targetId: string, path: readonly number[]): string => `${targetId}:${path.join(".")}`;
 
 /**
- * The most nodes kept hidden; a key is a target id (no spaces, no colon, up to 200 characters, as the frame protocol's
- * ids) and a path up to 16 deep – so the preview with all of them still crosses to the stage frame as one message
+ * The most nodes kept hidden; a key is a target id (no spaces, no colon, up to 200 characters) and a path up to 16 deep
  */
 export const MAX_HIDDEN_NODES = 50;
 const NODE_KEY = /^[^\s:]{1,200}:(?:\d{1,4}(?:\.\d{1,4}){0,15})?$/;
@@ -352,35 +351,6 @@ export const setNodeHidden = (targetId: string, path: readonly number[], hidden:
   const without = state.hiddenNodes.filter(k => k !== key);
   if (hidden && without.length >= MAX_HIDDEN_NODES) return;
   updatePreview({ hiddenNodes: hidden ? [...without, key] : without });
-};
-
-/**
- * The preview as the page and the stage frame keep it in step (#234): the settings, the hidden targets and nodes, the
- * surfaces' own grids, checked
- * and in one order – the same preview gives the same text on both sides. `active` is each side's own.
- */
-export const previewSync = (value: unknown = state): string => {
-  const { hidden, hiddenNodes, surfaceGrids } = (value ?? {}) as { hidden?: unknown; hiddenNodes?: unknown; surfaceGrids?: unknown };
-  return JSON.stringify({
-    ...parseSettings(value),
-    hidden: Array.isArray(hidden) ? hidden.filter((id): id is string => typeof id === "string") : [],
-    hiddenNodes: parseHiddenNodes(hiddenNodes),
-    surfaceGrids: parseSurfaceGrids(surfaceGrids),
-  });
-};
-
-/** Take the preview the other side sent (`previewSync`'s text, checked again here); false when it is the one shown already or no JSON */
-export const applyPreviewSync = (sync: string): boolean => {
-  let sent: unknown;
-  try {
-    sent = JSON.parse(sync);
-  } catch {
-    return false;
-  }
-  const checked = previewSync(sent);
-  if (checked === previewSync()) return false;
-  updatePreview(JSON.parse(checked) as Partial<PreviewState>);
-  return true;
 };
 
 export const subscribePreview = (listener: (state: PreviewState) => void): (() => void) => {

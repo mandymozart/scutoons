@@ -111,10 +111,14 @@ export type AssetType = (typeof ASSET_TYPES)[number];
  * **5.2** (#334 L-T7): the Logic canvas as the SCUTOONS deck draws it – a logic canvas may carry `positions` (box id →
  * `{ x, y }`: boxes pinned over the automatic layout) and a canvas group `colour` (`#rrggbb`) and `folded` (`./logic.ts`).
  * Authoring data only: a reader's configuration carries no canvas, so an app of 5.1 is not touched.
+ *
+ * **5.3** (#334): notes on the Logic canvas as the deck's – a canvas note may carry `box` (it stands beside that box, its
+ * `x`, `y` an offset), `author` and `view` (the target's view of a scene's canvas it is drawn in, `./logic.ts`). Authoring
+ * data only, like 5.2: an app of 5.2 is not touched.
  * Every change in shared/ needs a bump: shared/content-schema.json locks the checksum of shared/ to this
  * version (scripts: `npm run schema:lock`, checked by a test).
  */
-export const CONTENT_SCHEMA_VERSION = "5.2";
+export const CONTENT_SCHEMA_VERSION = "5.3";
 /** The oldest content schema MAJOR this contract reads – 5: no 4.x content is read (5.0 reshaped every rule's `when`) */
 export const OLDEST_READABLE_SCHEMA_MAJOR = 5;
 

@@ -270,4 +270,4 @@ export function experienceFiles(configuration: unknown): XrFile[] {
 export const fileName = (src: string): string => src.split(/[?#]/)[0].split('/').pop() || src;
 
 /** what the Tree's row menu and keys do to a part */
-export type PartAction = 'up' | 'down' | 'indent' | 'outdent' | 'duplicate' | 'remove';
+export type PartAction = 'up' | 'down' | 'indent' | 'outdent' | 'duplicate' | 'group' | 'remove';

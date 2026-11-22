@@ -652,48 +652,6 @@
 							"signal": "event",
 							"dir": "in",
 							"many": true
-						},
-						{
-							"id": "reads",
-							"label": "reads",
-							"signal": "control",
-							"dir": "in",
-							"many": true
-						},
-						{
-							"id": "arrives",
-							"label": "arrives",
-							"signal": "scene",
-							"dir": "in",
-							"many": true
-						},
-						{
-							"id": "emits",
-							"label": "emits",
-							"signal": "event",
-							"dir": "out",
-							"many": true
-						},
-						{
-							"id": "sets",
-							"label": "sets",
-							"signal": "control",
-							"dir": "out",
-							"many": true
-						},
-						{
-							"id": "goto",
-							"label": "goto",
-							"signal": "scene",
-							"dir": "out",
-							"many": true
-						},
-						{
-							"id": "drives",
-							"label": "drives",
-							"signal": "address",
-							"dir": "out",
-							"many": true
 						}
 					]
 				},

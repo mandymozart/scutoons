@@ -1,6 +1,9 @@
-import { ADD_PLACES, addNode, defaultAddPlace, indentNode, outdentNode, shiftNode } from '../osct/editor/src/lib/tree';
+import { ADD_PLACES, addNode, defaultAddPlace, duplicateNode, groupNode, indentNode, outdentNode, shiftNode } from '../osct/editor/src/lib/tree';
+import { filterTreeAdd, treeAddItems } from '../osct/editor/src/lib/tree-add';
+import { addSurface } from '../osct/editor/src/lib/surface-edit';
 import { newNode, nodeAt, removeNode } from '../osct/editor/src/lib/values';
-import { nodeAssetTypes, nodeTypes } from '../osct/shared/types/node-types';
+import { nodeAssetTypes, nodeTypes, pluginNodeTypes } from '../osct/shared/types/node-types';
+import type { SurfaceData } from '../osct/shared/types/game-config';
 import type { EntityData } from '../osct/engine/src/types';
 import type * as api from './tree-api';
 
@@ -27,3 +30,9 @@ export const xrNodeAt: typeof api.xrNodeAt = (root, path) => {
 	const at = nodeAt(root ? tree(root) : undefined, path);
 	return at ? node(at) : undefined;
 };
+export const xrDuplicateNode: typeof api.xrDuplicateNode = (root, path) => edit(duplicateNode(tree(root), path));
+export const xrGroupNode: typeof api.xrGroupNode = (root, path) => edit(groupNode(tree(root), path));
+export const xrTreeAddItems: typeof api.xrTreeAddItems = (context) => treeAddItems(context) as api.XrTreeAddItem[];
+export const xrFilterTreeAdd: typeof api.xrFilterTreeAdd = (items, query) => filterTreeAdd(items as Parameters<typeof filterTreeAdd>[0], query) as api.XrTreeAddItem[];
+export const xrPluginNodeTypes: typeof api.xrPluginNodeTypes = () => pluginNodeTypes();
+export const xrAddSurface: typeof api.xrAddSurface = (preset, surfaces) => addSurface(preset, surfaces as SurfaceData[]);

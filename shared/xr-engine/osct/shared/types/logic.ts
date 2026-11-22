@@ -27,7 +27,8 @@ import { type BehaviourRule, readRules, type RuleHome, rulesData, rulesProblems 
 /**
  * The Logic view's authoring data beside a list of rules (the editor builds its UI later, #334 L-T7) – kept small:
  * - `groups`: a frame around boxes of the view (`members`: the view's node ids), with a label;
- * - `notes`: a free text on the canvas at a point of the view (x, y in the view's units);
+ * - `notes`: a text on the canvas (`LogicCanvasNote`) – free at a point of the view, or beside a box (schema 5.3: `box`,
+ *   `author`, `view`);
  * - `folds`: the view's node ids that are folded to a pill;
  * - `exposed` (schema 5.1): the ports an author exposed on a box beyond its wired ones – box id → port ids. A box shows its
  *   wired ports and these; the rest of the ports its spec gives stay hidden behind its **+** (the Blender way, #334).
@@ -60,11 +61,21 @@ export interface LogicCanvasGroup {
   folded?: boolean;
 }
 
+/**
+ * A note on the canvas – an annotation, after the SCUTOONS deck's notes (#334): never logic, the engine and the reader
+ * ignore it. `x`, `y`: a free note's place in the view's px; a note with `box` (schema 5.3) stands beside that box and
+ * moves with it – `x`, `y` are then its offset from the box's top-left corner. `author` (schema 5.3): who wrote it, as the
+ * editor names them. `view` (schema 5.3): the target's view it is drawn in when its canvas is a scene's – `<target>` or
+ * `<target>/<node path>` (`door/0.1`); without one it is drawn at the scene's (or the experience's) own level.
+ */
 export interface LogicCanvasNote {
   id: string;
   text: string;
   x: number;
   y: number;
+  author?: string;
+  box?: string;
+  view?: string;
 }
 
 /** A scene's or the experience's logic in the content */
@@ -83,6 +94,8 @@ const isNumber = (value: unknown): value is number => typeof value === "number" 
 
 /** The fields a canvas has (`exposed` since schema 5.1, `positions` since 5.2) */
 const CANVAS_KEYS = ["groups", "notes", "folds", "exposed", "positions"];
+/** The fields a note has (`author`, `box` and `view` since schema 5.3) */
+const NOTE_KEYS = ["id", "text", "x", "y", "author", "box", "view"];
 /** A group's colour: `#rrggbb` */
 const COLOUR = /^#[0-9a-fA-F]{6}$/;
 
@@ -106,8 +119,15 @@ export const canvasProblems = (canvas: unknown, at: string): string[] => {
     if (group.folded !== undefined && typeof group.folded !== "boolean") wrong.push(`${path}.folded: expected true or false`);
     return wrong;
   });
-  list("notes", (note, path) =>
-    !isObject(note) || !isText(note.id) || !note.id || !isText(note.text) || !isNumber(note.x) || !isNumber(note.y) ? [`${path}: expected { id, text, x, y }`] : []);
+  list("notes", (note, path) => {
+    if (!isObject(note) || !isText(note.id) || !note.id || !isText(note.text) || !isNumber(note.x) || !isNumber(note.y)) return [`${path}: expected { id, text, x, y }`];
+    const wrong: string[] = [];
+    Object.keys(note).filter(key => !NOTE_KEYS.includes(key)).forEach(key => wrong.push(`${path}.${key}: unknown field of a note (${NOTE_KEYS.join(", ")})`));
+    for (const key of ["author", "box", "view"]) {
+      if (note[key] !== undefined && !(isText(note[key]) && note[key])) wrong.push(`${path}.${key}: expected a text`);
+    }
+    return wrong;
+  });
   list("folds", (fold, path) => (isText(fold) && fold ? [] : [`${path}: expected a node id`]));
   if (canvas.exposed !== undefined) {
     if (!isObject(canvas.exposed)) problems.push(`${at}.exposed: expected { <box id>: [port ids] }`);

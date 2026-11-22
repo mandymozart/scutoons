@@ -9,7 +9,21 @@
 	import { entityOf, entitySlot, experienceFiles, nodeDocPath, targetDocPath, targetPlace, targetsSharing, type NodeRef, type PartAction, type XrFile } from '$lib/editor/xr-nodes.ts';
 	import { projectXr } from '@scutoons/xr-engine/network';
 	import { sporeScope } from '$lib/spores/scope.svelte.ts';
-	import { xrAddNode, xrIndentNode, xrNewNode, xrNodeAt, xrOutdentNode, xrRemoveNode, xrShiftNode, type XrAddPlace, type XrNode } from '@scutoons/xr-engine/tree';
+	import {
+		xrAddNode,
+		xrAddSurface,
+		xrDefaultAddPlace,
+		xrDuplicateNode,
+		xrGroupNode,
+		xrIndentNode,
+		xrNewNode,
+		xrNodeAt,
+		xrOutdentNode,
+		xrRemoveNode,
+		xrShiftNode,
+		type XrNode,
+		type XrTreeAdd
+	} from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
@@ -28,8 +42,8 @@
 	/**
 	 * The XR editor's workspace (#482): the stage is the experience and fills the whole workspace; the panels lie over it –
 	 * the outline in the Tree, the meta in the Experience tab, the scenes strip with the stage's view in the Scenes tab;
-	 * Publish and History are the bar's, as everywhere. Experiences are opened from the Library. Parts are added in the
-	 * Inspector, moved, duplicated and removed in the Tree, placed with the gizmo.
+	 * Publish and History are the bar's, as everywhere. Experiences are opened from the Library. Parts and surfaces are added
+	 * with the Tree's footer, moved, duplicated, grouped and removed in the Tree, placed with the gizmo.
 	 */
 	let { id }: { id: string | null } = $props();
 
@@ -168,7 +182,11 @@
 		return slot?.tree ? ($state.snapshot(slot.tree) as unknown as XrNode) : null;
 	};
 
-	/** the Tree's row menu and keys on a part: moves keep it and its children; the root's removal clears the target */
+	/**
+	 * The Tree's row menu, keys and footer on a part: moves keep it and its children; duplicate copies it right after it
+	 * (its names free ones, its ids gone), group puts it into a new group in its place; the root's removal clears the
+	 * target's content.
+	 */
 	function onpart(ref: NodeRef, action: PartAction) {
 		const root = treeOf(ref.target);
 		if (!root) return;
@@ -178,23 +196,38 @@
 			else setTree(ref.target, xrRemoveNode(root, path), path.slice(0, -1));
 			return;
 		}
-		const copy = action === 'duplicate' ? xrNodeAt(root, path) : undefined;
 		const edit =
 			action === 'up' ? xrShiftNode(root, path, -1)
 			: action === 'down' ? xrShiftNode(root, path, 1)
 			: action === 'indent' ? xrIndentNode(root, path)
 			: action === 'outdent' ? xrOutdentNode(root, path)
-			: copy ? xrAddNode(root, path, structuredClone(copy), 'next')
+			: action === 'duplicate' ? xrDuplicateNode(root, path)
+			: action === 'group' ? xrGroupNode(root, path)
 			: null;
 		if (edit) setTree(ref.target, edit.tree, edit.path);
 	}
 
-	/** the Inspector's "add a part": a new node of the type with its file, next to the selected part or inside it */
-	function onadd(type: string, file: XrFile | null, place: XrAddPlace) {
+	/**
+	 * The footer's +: a part of the type (with its file) where OSCT's editor puts it – the target's root when it shows
+	 * nothing yet, else next to a part that holds a file or inside the selected part; a surface of a preset beside the
+	 * scene's row (the stage opens the scene anew to lay it out).
+	 */
+	function onadd(add: XrTreeAdd, file: XrFile | null) {
+		if (add.add === 'surface') {
+			const scenes = (configuration as { scenes?: { id?: string; surfaces?: unknown[] }[] } | undefined)?.scenes ?? [];
+			const index = scenes.findIndex((s) => s.id === scene);
+			if (!doc || index < 0) return;
+			const { surfaces } = xrAddSurface(add.preset, $state.snapshot(scenes[index].surfaces ?? []) as unknown[]);
+			doc.set(['configuration', 'scenes', index, 'surfaces'], surfaces);
+			run += 1;
+			return;
+		}
 		const ref = selected;
-		if (!ref) return;
-		const node = xrNewNode(type, file ? { id: `${ref.target}-${Date.now().toString(36)}`, assetType: file.assetType, src: file.src } : undefined);
-		const edit = xrAddNode(treeOf(ref.target), ref.path ?? [], node, place);
+		if (add.add !== 'node' || !ref) return;
+		const root = treeOf(ref.target);
+		const node = xrNewNode(add.type, file ? { id: `${ref.target}-${Date.now().toString(36)}`, assetType: file.assetType, src: file.src } : undefined);
+		const path = ref.path ?? [];
+		const edit = xrAddNode(root, path, node, xrDefaultAddPlace(root ? xrNodeAt(root, path) : undefined));
 		setTree(ref.target, edit.tree, edit.path);
 	}
 
@@ -203,10 +236,15 @@
 		if (place) moved = { at: Date.now(), target, place };
 	}
 
+	/** the open scene's surfaces as a key: an undo or redo that changes them opens the stage anew to lay them out */
+	const surfacesKey = () => JSON.stringify(((content as { configuration?: { scenes?: { id?: string; surfaces?: unknown }[] } } | null)?.configuration?.scenes ?? []).find((s) => s.id === scene)?.surfaces ?? null);
+
 	function step(back: boolean) {
 		if (!doc) return;
+		const before = surfacesKey();
 		if (back) doc.undo();
 		else doc.redo();
+		if (surfacesKey() !== before) run += 1;
 		if (selected) {
 			showEdits(selected.target);
 			showPlace(selected.target);
@@ -242,11 +280,11 @@
 {/snippet}
 
 {#snippet tree()}
-	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} {onpart} />{/if}
+	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} {onpart} {onadd} files={experienceFiles(configuration)} />{/if}
 {/snippet}
 
 {#snippet inspector()}
-	<ExperienceInspector {configuration} {selected} {onedit} {onadd} files={experienceFiles(configuration)} />
+	<ExperienceInspector {configuration} {selected} {onedit} />
 {/snippet}
 
 {#snippet meta()}

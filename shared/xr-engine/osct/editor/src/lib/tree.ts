@@ -92,6 +92,52 @@ export const moveNode = (root: EntityData, from: number[], onto: number[], zone:
   return { tree: insertAt(removeNode(root, from), parent, index, node), path: [...parent, index] };
 };
 
+/** Every name the tree's nodes carry */
+const namesOf = (node: EntityData, into = new Set<string>()): Set<string> => {
+  if (node.name?.trim()) into.add(node.name.trim());
+  for (const child of node.children ?? []) namesOf(child, into);
+  return into;
+};
+
+/** `name` with a number after it that no node of the tree carries yet: "door" → "door 2", "door 2" → "door 3" */
+export const freeName = (name: string, taken: ReadonlySet<string>): string => {
+  const base = name.trim().replace(/\s+\d+$/, "");
+  for (let n = 2; ; n++) if (!taken.has(`${base} ${n}`)) return `${base} ${n}`;
+};
+
+/** A copy of a node and its children for a duplicate: each name a free one (rules address nodes by name), no ids */
+const copied = (node: EntityData, taken: Set<string>): EntityData => {
+  const next: EntityData = structuredClone(node);
+  const walk = (n: EntityData) => {
+    delete n.id;
+    if (n.name?.trim()) { n.name = freeName(n.name, taken); taken.add(n.name); }
+    n.children?.forEach(walk);
+  };
+  walk(next);
+  return next;
+};
+
+/**
+ * Duplicate (#339, the Tree's footer): a copy of the node with its children right after it – the copy's names free
+ * ones, its ids gone. The root duplicated: the root is wrapped in a group first, the copy its second child.
+ */
+export const duplicateNode = (root: EntityData, path: number[]): TreeEdit | null => {
+  const node = nodeAt(root, path);
+  if (!node) return null;
+  return addNode(root, path, copied(node, namesOf(root)), "next");
+};
+
+/**
+ * Group (#339, the Tree's footer): the node goes into a new group in its place – a group's placement defaults to none,
+ * so the node stays where it is on the stage. The root grouped: the group becomes the root. The path is the group's.
+ */
+export const groupNode = (root: EntityData, path: number[]): TreeEdit | null => {
+  const node = nodeAt(root, path);
+  if (!node) return null;
+  const group: EntityData = { type: "group", assets: [], children: [node] };
+  return path.length ? { tree: withNode(root, path, group), path } : { tree: group, path: [] };
+};
+
 /** Indent: the node becomes the last child of the sibling before it (null for a first child or the root) */
 export const indentNode = (root: EntityData, path: number[]): TreeEdit | null => {
   const last = path[path.length - 1];

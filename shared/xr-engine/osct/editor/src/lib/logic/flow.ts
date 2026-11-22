@@ -3,7 +3,7 @@ import { LOGIC_SIZE, layoutLogic, type LayoutSize } from "./layout";
 import { neverFires, stubNeverFires } from "./navigation";
 import { CARD_HEAD, CARD_W, GRID, GROUP_COLOURS, PIN_ROW, deckSignal, snap, snapUp, type DeckSignal } from "./signals";
 import { typeWords } from "./spec-ports";
-import type { GraphNode, PortKind, PortSpec, Signal, Stub, View } from "./types";
+import type { Context, DisplayRow, GraphNode, PortKind, PortSpec, Signal, Stub, View } from "./types";
 
 /**
  * A level's `View` as boxes and wires to draw (#334 L-T3, L-T7): the rendering layer (`panels/LogicCanvas.svelte`,
@@ -20,10 +20,21 @@ import type { GraphNode, PortKind, PortSpec, Signal, Stub, View } from "./types"
  * only while wired or exposed: the hidden ones wait behind the box's **+** (`FlowBox.hidden`). The level's layout takes
  * the tallest box's height (`boxHeight`).
  *
+ * **Display rows** (#334, Tilman 2026-11-21): what a plugin's code uses that no wire can change – it reads, sets, drives – is
+ * text under the pins, below a thin divider (`reads hasKey, scene`), a 1.25rem row each; each name's box gets a **reference**
+ * (`FlowRef`): a fine dotted line from the row to the box, never a wire – nothing selects, deletes or lights it. The layout
+ * places along the references as along wires, and the card's height counts the rows.
+ *
  * **The canvas** (`LogicCanvas`, schema 5.2): a box the author dragged is **pinned** where it was let go (`positions`) over
  * the layout; a folded box (`folds`) is its head alone. A **group** (as the deck's) is a frame round its boxes at this
  * level – their bounds padded 1rem at the sides and below, 2rem on top for its head – in its colour; folded, it is one
  * **pill** instead of its boxes, and their wires to the rest end on the pill.
+ *
+ * **Notes** (schema 5.3, the deck's notes): the level's notes (`LogicCanvasNote.view` – a scene's canvas holds its targets'
+ * views too) as cards of their own, 12rem wide. A free note stands at its `x`, `y`; a note beside a box at the box's place
+ * plus its offset (a folded group's pill stands in for the box), joined to it by a fine dotted line (`FlowNote.link`) – no
+ * wire. A note is no logic: the layout, the wires and the issues never see it. A note whose box is not drawn here stands
+ * at its `x`, `y` as a free one.
  */
 
 export interface FlowPort {
@@ -81,6 +92,26 @@ export interface FlowBox {
   folded: boolean;
   /** The canvas group it is in */
   group?: string;
+  /** Its display rows (a plugin's reads, sets, drives – #334): text, no pins */
+  rows: FlowRow[];
+}
+
+/** A display row as drawn: its id and its text */
+export interface FlowRow {
+  id: DisplayRow["id"];
+  text: string;
+}
+
+/**
+ * A reference line (#334): from a box's display row (`sourceHandle` `ref:l:<row>` / `ref:r:<row>`, or the head's `ref:hl` /
+ * `ref:hr` when the box is folded) to the box it names (`ref:l` / `ref:r`) – the sides that face each other
+ */
+export interface FlowRef {
+  id: string;
+  source: string;
+  sourceHandle: string;
+  target: string;
+  targetHandle: string;
 }
 
 export interface FlowWire {
@@ -101,11 +132,30 @@ export interface FlowWire {
   back: boolean;
 }
 
+/** A note as drawn: where it stands (flow px) and, beside a box, the dotted line to it */
+export interface FlowNote {
+  id: string;
+  text: string;
+  author?: string;
+  x: number;
+  y: number;
+  /** The box it stands beside, when that box is drawn here */
+  box?: string;
+  /** Its offset from that box (what the canvas keeps) */
+  offset?: { x: number; y: number };
+  /** The dotted line to its box: the note's side and the box's that face each other */
+  link?: { target: string; sourceHandle: "note:l" | "note:r"; targetHandle: "ref:l" | "ref:r" };
+}
+
 export interface Flow {
   boxes: FlowBox[];
+  /** The level's notes (schema 5.3) – no logic */
+  notes: FlowNote[];
   wires: FlowWire[];
   /** The canvas groups at this level, folded ones included (their pill is a box) */
   groups: FlowGroup[];
+  /** The display rows' reference lines – not wires */
+  refs: FlowRef[];
 }
 
 /** The head of a box and one row of a named port, in px (the deck's 2rem and 1.5rem) */
@@ -116,6 +166,17 @@ export const FRAME_PAD = GRID;
 export const FRAME_HEAD = 2 * GRID;
 /** A folded group's pill id */
 export const pillId = (group: string): string => `fold:${group}`;
+/** A note's node id on the canvas – also how the canvas's selection names it (`note:<id>`) */
+export const NOTE_NODE = "note:";
+/** A note's width (12rem) and where a new note stands beside its box: right of it, at its head */
+export const NOTE_W = 12 * GRID;
+export const NOTE_BESIDE = { x: CARD_W + GRID, y: 0 } as const;
+/**
+ * The view a note of the level's canvas belongs to (`LogicCanvasNote.view`): a target's entity level `<target>` or
+ * `<target>/<path>` (`door/0.1`); the scene's and the experience's own level none
+ */
+export const noteView = (context: Context): string | undefined =>
+  context.level === "entity" ? `${context.target}${context.path.length ? `/${context.path.join(".")}` : ""}` : undefined;
 
 /** A port as drawn */
 const flowPort = ({ id, label, signal, dir, kind, type, owner }: PortSpec): FlowPort => ({
@@ -139,10 +200,18 @@ export const rowsOf = (ports: readonly FlowPort[]): { ins: FlowPort[]; outs: Flo
   return { ins, outs, count: Math.max(ins.length, outs.length) };
 };
 
-/** A box's height: its head and a row per named port, grown to the grid (folded: the head alone) */
-export const boxHeight = (ports: readonly FlowPort[], folded = false): number => {
+/** A display row's height (1.25rem) and the divider's room above the rows */
+export const DISPLAY_ROW = 1.25 * GRID;
+export const DIVIDER = GRID / 4;
+
+/** A display row's words: `reads hasKey, scene`, `goes to 3–4` */
+export const rowText = (row: DisplayRow): string => `${row.id === "goto" ? "goes to" : row.id} ${row.names.join(", ")}`;
+
+/** A box's height: its head, a row per named port and its display rows, grown to the grid (folded: the head alone) */
+export const boxHeight = (ports: readonly FlowPort[], folded = false, displayRows = 0): number => {
   const { count } = rowsOf(ports);
-  return folded || !count ? BOX_HEAD : snapUp(BOX_HEAD + count * PORT_ROW + GRID / 4);
+  if (folded || (!count && !displayRows)) return BOX_HEAD;
+  return snapUp(BOX_HEAD + count * PORT_ROW + (displayRows ? DIVIDER + displayRows * DISPLAY_ROW : 0) + GRID / 4);
 };
 
 /** A handle's id: the port's id with its side, so an inlet and an outlet of one name stay apart */
@@ -171,13 +240,16 @@ export const flowOf = (view: View, canvas: LogicCanvas | undefined = undefined, 
   const folds = new Set(canvas?.folds ?? []);
   const positions: Record<string, LogicCanvasPoint> = canvas?.positions ?? {};
   // The tallest box sets the rows' height: a box with exposed ports must not reach into the next one
-  const size = { ...base, h: Math.max(base.h, ...view.nodes.map(n => boxHeight(n.ports.filter(p => !p.hidden).map(flowPort), folds.has(n.id)))) };
+  const size = { ...base, h: Math.max(base.h, ...view.nodes.map(n => boxHeight(n.ports.filter(p => !p.hidden).map(flowPort), folds.has(n.id), n.rows?.length ?? 0))) };
+  // A reference places like a wire: a variable a plugin reads before it, one it sets after it
+  const refs = view.refs ?? [];
+  const refEdges = refs.map(r => (r.dir === "in" ? { from: r.to, to: r.from[0], label: r.from[1] } : { from: r.from[0], to: r.to, label: r.from[1] }));
   // The boxes without a wire (a scene without crossing logic, a plugin nobody's events touch) are no flow: `layout.ts` would
   // stack them all in its first column, so they sit in rows under the graph instead, in their order
-  const wired = new Set([...view.edges.flatMap(e => [e.from[0], e.to[0]]), ...view.stubs.map(s => (s.side === "in" ? s.edge.to[0] : s.edge.from[0]))]);
+  const wired = new Set([...view.edges.flatMap(e => [e.from[0], e.to[0]]), ...refEdges.flatMap(e => [e.from, e.to]), ...view.stubs.map(s => (s.side === "in" ? s.edge.to[0] : s.edge.from[0]))]);
   const loose = view.nodes.filter(n => !wired.has(n.id)).map(n => n.id);
   const graph = view.nodes.filter(n => wired.has(n.id)).map(n => n.id);
-  const flowLayout = layoutLogic(graph, view.edges.map(e => ({ from: e.from[0], to: e.to[0], label: e.label })), size);
+  const flowLayout = layoutLogic(graph, [...view.edges.map(e => ({ from: e.from[0], to: e.to[0], label: e.label })), ...refEdges], size);
   const perRow = Math.max(1, Math.ceil(Math.sqrt(loose.length * 2)), Math.round((flowLayout.width + size.gapX / 2) / (size.w + size.gapX / 2)));
   const below = graph.length ? flowLayout.height + 3 * size.gapY : 0;
   const looseRows = Math.ceil(loose.length / perRow);
@@ -231,16 +303,17 @@ export const flowOf = (view: View, canvas: LogicCanvas | undefined = undefined, 
     wires.push(stub.side === "in"
       ? { id: `${id}>`, edge: stub.edge.id, source: id, sourcePort: handleId(port), target: near[0], targetPort: handleId({ id: near[1], dir: "in" }), label: stub.edge.label, signal: stub.edge.signal, deck: port.deck, never, back: false }
       : { id: `>${id}`, edge: stub.edge.id, source: near[0], sourcePort: handleId({ id: near[1], dir: "out" }), target: id, targetPort: handleId(port), label: stub.edge.label, signal: stub.edge.signal, deck: port.deck, never, back: false });
-    return { id, x: snap(x), y: snap(y), node: null, stub, ports: [port], hidden: [], w: CARD_W, h: BOX_HEAD, colour: "far", pinned: false, folded: false };
+    return { id, x: snap(x), y: snap(y), node: null, stub, ports: [port], hidden: [], w: CARD_W, h: BOX_HEAD, colour: "far", pinned: false, folded: false, rows: [] };
   });
 
   let boxes: FlowBox[] = view.nodes.map(node => {
     const at = positions[node.id] ?? layout.nodes[node.id];
     const ports = portsOf(node.ports, used.get(node.id) ?? []);
     const folded = folds.has(node.id);
+    const rows = (node.rows ?? []).map(row => ({ id: row.id, text: rowText(row) }));
     return {
       id: node.id, x: snap(at.x), y: snap(at.y), node, stub: null, ports, hidden: node.ports.filter(p => p.hidden).map(flowPort),
-      w: CARD_W, h: boxHeight(ports, folded), colour: kindColour(node, ports), pinned: !!positions[node.id], folded,
+      w: CARD_W, h: boxHeight(ports, folded, rows.length), colour: kindColour(node, ports), pinned: !!positions[node.id], folded, rows,
     };
   });
   // A wire's colour is its source port's (a value's type: a number control, true / false a vote …)
@@ -267,7 +340,7 @@ export const flowOf = (view: View, canvas: LogicCanvas | undefined = undefined, 
     const id = pillId(group.id);
     group.members.forEach(m => pillOf.set(m, id));
     pills.push({
-      id, x: group.x + FRAME_PAD, y: group.y + FRAME_HEAD, node: null, stub: null, pill: group, hidden: [], w: CARD_W, h: BOX_HEAD, colour: null, pinned: false, folded: true,
+      id, x: group.x + FRAME_PAD, y: group.y + FRAME_HEAD, node: null, stub: null, pill: group, hidden: [], w: CARD_W, h: BOX_HEAD, colour: null, pinned: false, folded: true, rows: [],
       ports: [{ id: "in", label: "", signal: "event", deck: "event", dir: "in" }, { id: "out", label: "", signal: "event", deck: "event", dir: "out" }],
     });
   }
@@ -277,5 +350,33 @@ export const flowOf = (view: View, canvas: LogicCanvas | undefined = undefined, 
     if (source && source === target) return [];
     return [{ ...wire, ...(source ? { source, sourcePort: "out:out" } : {}), ...(target ? { target, targetPort: "in:in" } : {}) }];
   });
-  return { boxes: [...boxes.filter(b => !pillOf.has(b.id)), ...pills, ...stubBoxes], wires: shownWires, groups };
+  const refKey = (r: FlowRef) => `${r.source}|${r.sourceHandle}|${r.target}`;
+  // The references: from the row (the folded box's or the pill's head) to the box, on the sides that face each other
+  const shown = new Map([...boxes, ...pills].map(b => [b.id, b]));
+  const flowRefs: FlowRef[] = refs.flatMap(r => {
+    const source = pillOf.get(r.from[0]) ?? r.from[0];
+    const target = pillOf.get(r.to) ?? r.to;
+    const [a, b] = [shown.get(source), shown.get(target)];
+    if (!a || !b || source === target) return [];
+    const right = b.x + b.w / 2 >= a.x + a.w / 2;
+    const onRow = source === r.from[0] && !a.folded && a.rows.some(row => row.id === r.from[1]);
+    return [{
+      id: r.id, source, target, targetHandle: right ? "ref:l" : "ref:r",
+      sourceHandle: onRow ? `ref:${right ? "r" : "l"}:${r.from[1]}` : right ? "ref:hr" : "ref:hl",
+    }];
+  });
+  // The notes of this level's view: a free one where it stands, one beside a box at the box (or its group's pill)
+  const here = noteView(view.context);
+  const notes: FlowNote[] = (canvas?.notes ?? []).filter(n => n.view === here).map(note => {
+    const drawn = note.box ? shown.get(pillOf.get(note.box) ?? note.box) : undefined;
+    const base = { id: note.id, text: note.text, ...(note.author ? { author: note.author } : {}) };
+    if (!drawn) return { ...base, x: note.x, y: note.y };
+    const x = drawn.x + note.x;
+    const right = x + NOTE_W / 2 >= drawn.x + drawn.w / 2;
+    return {
+      ...base, x, y: drawn.y + note.y, box: drawn.id, offset: { x: note.x, y: note.y },
+      link: { target: drawn.id, sourceHandle: right ? "note:l" : "note:r", targetHandle: right ? "ref:r" : "ref:l" },
+    };
+  });
+  return { boxes: [...boxes.filter(b => !pillOf.has(b.id)), ...pills, ...stubBoxes], notes, wires: shownWires, groups, refs: flowRefs.filter((r, i) => flowRefs.findIndex(q => refKey(q) === refKey(r)) === i) };
 };

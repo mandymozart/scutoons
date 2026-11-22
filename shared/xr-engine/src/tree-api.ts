@@ -60,3 +60,50 @@ export declare function xrOutdentNode(root: XrNode, path: number[]): XrTreeEdit 
 
 /** the node at `path` (undefined: none there) */
 export declare function xrNodeAt(root: XrNode | undefined, path: number[]): XrNode | undefined;
+
+/** a copy of the node with its children right after it: the copy's names free ones (door → door 2), its ids gone */
+export declare function xrDuplicateNode(root: XrNode, path: number[]): XrTreeEdit | null;
+
+/** the node into a new group in its place (it stays where it is on the stage); the root grouped: the group is the root */
+export declare function xrGroupNode(root: XrNode, path: number[]): XrTreeEdit | null;
+
+/** what the Tree's + adds (OSCT's tree-add.ts): a surface of a preset, a target or an entry (their forms), a node of a type */
+export type XrTreeAdd = { add: 'surface'; preset: XrSurfacePreset } | { add: 'target' } | { add: 'entry' } | { add: 'node'; type: string };
+export type XrSurfacePreset = 'double' | 'single' | 'wall' | 'custom';
+
+export interface XrTreeAddItem {
+	key: string;
+	label: string;
+	detail: string;
+	/** `scene`, `nodes` or `plugin nodes` */
+	group: string;
+	/** why it cannot be added now; null when it can */
+	disabled: string | null;
+	add: XrTreeAdd;
+}
+
+export interface XrTreeAddContext {
+	/** the target a node would hang on (the selected target, or the selected node's); null for none */
+	target: string | null;
+	/** that target has content already: the node goes next to / inside the selected node, else it is the root */
+	hasEntity: boolean;
+	/** the selected node's name, when a node is selected */
+	node: string | null;
+	builtIn: readonly string[];
+	plugins: readonly string[];
+	takesFile: (type: string) => boolean;
+	canAddTarget: boolean;
+	canAddEntry: boolean;
+}
+
+/** every item of the + menu for the context: the scene's (surfaces, target, entry), the node types, the plugins' */
+export declare function xrTreeAddItems(context: XrTreeAddContext): XrTreeAddItem[];
+
+/** the items whose label, group or detail hold every typed word */
+export declare function xrFilterTreeAdd(items: readonly XrTreeAddItem[], query: string): XrTreeAddItem[];
+
+/** the plugins' node types (after the stage loaded the experience's plugins) */
+export declare function xrPluginNodeTypes(): string[];
+
+/** a scene's surfaces with a new one of the preset (beside the row, a wall behind it): the list and the new surface */
+export declare function xrAddSurface(preset: XrSurfacePreset, surfaces: readonly unknown[]): { surfaces: unknown[]; added: { id: string } };

@@ -314,7 +314,6 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
   const { node, port, dir } = from;
   if (a.context.level === "group") return [info("read-only", "nothing", "This level is read-only – open a scene or a target")];
   if (node.far) return [info("far", node.label, "That box stands for something elsewhere – open its level to connect there")];
-  if (node.kind === "plugin") return [info("plugin", node.label, `The plugin ${node.label}'s code decides what it hears, emits, reads and sets – change it in the Code tab`)];
   const { variables, events, sceneEvents, types } = known(a);
   const term = (name: string) => {
     const t = types.get(name);
@@ -332,6 +331,18 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
         detail: `a new rule on ${on} · on ${whereWords(a.content, p)}`, op: { op: "addRule", at: p, ...made },
       };
     });
+
+  // A plugin's two pins (#334): a rule on each event it emits, a rule emitting each event it hears – its rows make nothing
+  if (node.kind === "plugin") {
+    const code = info("plugin", node.label, `The plugin ${node.label}'s code decides what it reads, sets and drives – change it in the Code tab`);
+    if (dir === "out" && port === "emits" && node.bus?.emits.length) {
+      return node.bus.emits.flatMap(name => newRules("rule", `rule on ${name}`, `Rules – hearing ${node.label}'s event`, () => ({ on: name })));
+    }
+    if (dir === "in" && port === "hears" && node.bus?.hears.length) {
+      return node.bus.hears.flatMap(name => newRules("emit", `emit ${name}`, `Rules – emitting what ${node.label} hears`, () => ({ do: [{ action: "emit", event: name }] })));
+    }
+    return [code];
+  }
 
   if (node.kind === "rule" && node.home) {
     const ref = refOf(node.home);

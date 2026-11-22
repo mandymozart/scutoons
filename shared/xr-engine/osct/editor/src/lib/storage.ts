@@ -44,8 +44,12 @@ export const readStoredJson = (key: StorageKey): unknown => {
 /** Stores a value as JSON */
 export const writeStoredJson = (key: StorageKey, value: unknown): void => writeStored(key, JSON.stringify(value));
 
-/** The engine's switches for this device (`setDeviceStorage`) under `osct-<key>` – the keys the reader uses on this origin */
+/**
+ * The engine's switches for the editor's stage (`setDeviceStorage`) under `osct-editor-stage-<key>` – a namespace of its
+ * own (#340): the stage runs in the editor's page, on the reader's origin, and must not read or write the reader's
+ * switches (or anything else of the reader's, its progress included)
+ */
 export const deviceStorage: DeviceStorage = {
-  get: key => readStored(`osct-${key}`),
-  set: (key, value) => writeStored(`osct-${key}`, value),
+  get: key => readStored(`osct-editor-stage-${key}`),
+  set: (key, value) => writeStored(`osct-editor-stage-${key}`, value),
 };

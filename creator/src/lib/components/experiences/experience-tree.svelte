@@ -1,23 +1,35 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import { Icon, Menu } from '@scutoons/ui';
-	import { sameRef, sceneRows, type NodeRef, type PartAction, type TreeRow } from '$lib/editor/xr-nodes.ts';
+	import type { XrTreeAdd } from '@scutoons/xr-engine/tree';
+	import { sameRef, sceneRows, type NodeRef, type PartAction, type TreeRow, type XrFile } from '$lib/editor/xr-nodes.ts';
+	import ExperienceTreeFooter from './experience-tree-footer.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * The Tree tab: the open scene as an outliner (after OSCT's editor, panels/TreePanel.svelte) – its surfaces, each
 	 * entry, the entry's target and the target's entity as its node tree. A tap on a target or a node row selects it (the
 	 * stage outlines it, the Inspector shows it); the chevron folds a node; ↑ ↓ walk the selectable rows. A part's ⋯ menu
-	 * and the keys move it (Alt ↑ ↓ among its siblings, Tab into the part above, Shift Tab out of its parent), duplicate it
-	 * or remove it (Delete); on the target's row the menu removes the target's content.
+	 * and the keys move it (Alt ↑ ↓ among its siblings, Tab into the part above, Shift Tab out of its parent); Delete
+	 * removes it. The footer (OSCT's, as in Photoshop's layers panel) adds, duplicates, groups and removes.
 	 */
 	let {
 		configuration,
 		scene,
 		selected,
 		onselect,
-		onpart
-	}: { configuration: unknown; scene: string; selected: NodeRef | null; onselect: (ref: NodeRef | null) => void; onpart: (ref: NodeRef, action: PartAction) => void } = $props();
+		onpart,
+		onadd,
+		files
+	}: {
+		configuration: unknown;
+		scene: string;
+		selected: NodeRef | null;
+		onselect: (ref: NodeRef | null) => void;
+		onpart: (ref: NodeRef, action: PartAction) => void;
+		onadd: (add: XrTreeAdd, file: XrFile | null) => void;
+		files: XrFile[];
+	} = $props();
 
 	const folded = new SvelteSet<string>();
 	const rows = $derived(sceneRows(configuration, scene, folded));
@@ -70,6 +82,7 @@
 	}
 </script>
 
+<div class="tree-tab">
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div class="tree" role="tree" aria-label={m['shell.panel_tree']()} tabindex="0" {onkeydown} data-testid="experience-tree">
 	{#if !rows.length}<p class="sc-empty">{m['creator.experiences_scenes_none']()}</p>{/if}
@@ -87,25 +100,29 @@
 				{#if r.kind === 'target' && r.shared}<span class="hint">{m['creator.experiences_shows']({ entity: r.shared })}</span>{/if}
 				{#if r.kind === 'node'}<span class="hint">{r.type}</span>{/if}
 			</button>
-			{#if r.kind === 'node'}
+			{#if r.kind === 'node' && moves(r).length}
 				<span class="more">
 					<Menu label={m['creator.experiences_part_menu']({ name: r.label })} align="end">
 						{#snippet trigger()}<Icon name="more-horizontal" size="0.95em" />{/snippet}
 						{#each moves(r) as move (move.action)}
 							<button type="button" onclick={() => onpart(r.ref, move.action)} data-testid="part-{move.action}">{move.label}<span class="keys">{move.keys}</span></button>
 						{/each}
-						<button type="button" onclick={() => onpart(r.ref, 'duplicate')} data-testid="part-duplicate">{m['creator.experiences_part_duplicate']()}</button>
-						<button type="button" onclick={() => onpart(r.ref, 'remove')} data-testid="part-remove"
-							>{r.ref.path?.length ? m['creator.experiences_part_remove']() : m['creator.experiences_content_remove']()}<span class="keys">Delete</span></button
-						>
 					</Menu>
 				</span>
 			{/if}
 		</div>
 	{/each}
 </div>
+<ExperienceTreeFooter {configuration} {selected} {files} {onadd} {onpart} />
+</div>
 
 <style>
+	.tree-tab {
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
+		min-width: 0;
+	}
 	.tree {
 		display: flex;
 		flex-direction: column;

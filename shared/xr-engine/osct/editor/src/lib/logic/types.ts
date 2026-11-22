@@ -123,6 +123,31 @@ export interface GraphNode {
   home?: Home;
   /** A picture its body shows (an image node's file) – cheap previews only; the choice of preview is L-T15 */
   preview?: string;
+  /**
+   * Display rows (#334, Tilman 2026-11-21): what a plugin's code uses that no wire can change – what it reads, sets, drives –
+   * as plain text under the pins, each row's names joined to their boxes by a dotted reference line (`View.refs`)
+   */
+  rows?: DisplayRow[];
+  /** A plugin box: the events its `emits` outlet gives and its `hears` inlet takes (its declared uses) – a wire picks one */
+  bus?: { emits: string[]; hears: string[] };
+}
+
+/** A display row of a box: the verb (`reads`, `sets`, `drives`) and the names – the text `reads hasKey, scene` */
+export interface DisplayRow {
+  id: "reads" | "sets" | "drives" | "goto";
+  names: string[];
+}
+
+/**
+ * A reference from a box's display row to the box it names (#334): drawn as a fine dotted line, never a wire – not
+ * selectable, not deletable, no op names it. `dir` says which way the use runs for the layout: `in` – the row reads from the
+ * box (a variable read), `out` – the row reaches the box (a variable set, a node driven).
+ */
+export interface Reference {
+  id: string;
+  from: [node: string, row: DisplayRow["id"]];
+  to: string;
+  dir: "in" | "out";
 }
 
 export interface GraphEdge {
@@ -134,6 +159,11 @@ export interface GraphEdge {
   label: string;
   /** The document place it comes from; null = derived (a by-name join: the bus, a variable across scenes, a plugin's use) */
   home: Home | null;
+  /**
+   * The events or variables a derived edge joins by name, when its ends do not say it (a bundled wire between two scenes,
+   * a stub at the border) – the live feedback lights it when one of them fires or changes (`live.ts`, #334)
+   */
+  names?: readonly string[];
 }
 
 /** An edge leaving the level: drawn at its border, named by its far end; following it opens `far` */
@@ -182,6 +212,8 @@ export interface View {
   nodes: GraphNode[];
   edges: GraphEdge[];
   stubs: Stub[];
+  /** The display rows' references (#334): dotted lines, not wires */
+  refs: Reference[];
   problems: Problem[];
   canvas: Canvas;
 }
@@ -201,7 +233,10 @@ export type CanvasEdit =
   | { edit: "expose"; box: string; ports: string[] }
   /** Hide the ports nobody wired again – of one box, or of every box at the level (Blender's Ctrl+H) */
   | { edit: "hideUnused"; box?: string }
-  /** Pin boxes where they were let go (`LogicCanvas.positions`, schema 5.2 – on the 1rem grid), over the automatic layout */
+  /**
+   * Pin boxes where they were let go (`LogicCanvas.positions`, schema 5.2 – on the 1rem grid), over the automatic layout; a
+   * key `note:<id>` moves that note instead (its own place, or its offset from its box – schema 5.3)
+   */
   | { edit: "place"; positions: Record<string, { x: number; y: number }> }
   /** Drop the pins of the level's boxes: the automatic layout places them again (*Tidy*) */
   | { edit: "tidy" }
@@ -211,10 +246,19 @@ export type CanvasEdit =
   | { edit: "group"; boxes: string[] }
   /** Rename a group in place; an empty label removes the group (its boxes stay) */
   | { edit: "renameGroup"; group: string; label: string }
+  /** Remove these groups – their boxes stay where they are (the frame head's menu, Ctrl+Shift+G) */
+  | { edit: "ungroup"; groups: string[] }
   /** The group's next colour of the deck's six */
   | { edit: "groupColour"; group: string }
   /** Fold a group to one pill, or open it */
-  | { edit: "foldGroup"; group: string; folded: boolean };
+  | { edit: "foldGroup"; group: string; folded: boolean }
+  /**
+   * A new empty note (schema 5.3, the deck's `Note`): free at `at` (flow coordinates), or beside `box` (it moves with it);
+   * `author`: who writes it (the signed-in person, as the editor names them)
+   */
+  | { edit: "note"; at?: { x: number; y: number }; box?: string; author?: string }
+  /** A note's text; an empty text removes the note (the deck's `NoteText`) */
+  | { edit: "noteText"; note: string; text: string };
 
 /**
  * Where a new rule goes: a node of a target's tree (its first behaviour component; one is added when it has none), a
@@ -232,7 +276,8 @@ export type Op = (
   | { op: "addRule"; at: RulePlace; on?: string; when?: string | null; do?: BehaviourAction[] }
   /** What a rule hears (a wire dropped from its on on the empty canvas, #334) */
   | { op: "setEvent"; home: Home; on: string }
-  | { op: "connect"; from: [string, string]; to: [string, string]; verb?: BehaviourAction["action"] }
+  /** `event`: which of a plugin's events a wire to its `emits` or `hears` means (its first by default, #334) */
+  | { op: "connect"; from: [string, string]; to: [string, string]; verb?: BehaviourAction["action"]; event?: string }
   | { op: "disconnect"; edge: string }
   /** `when`: the condition's expression (null: always) – type-checked before it is written (B8) */
   | { op: "setCondition"; home: Home; when: string | null }

@@ -10,7 +10,7 @@ import { nodeLabel } from "#lib/tree.js";
 import type { PluginUses } from "./plugin-code";
 import { coreRegistry, type NodeRegistry } from "./registry";
 import { answersVerb, nodePorts, nodeSpecs } from "./spec-ports";
-import type { Context, GraphEdge, GraphNode, Home, LogicPick, Problem, RuleRef, Severity, Signal, Stub, View } from "./types";
+import type { Context, DisplayRow, GraphEdge, GraphNode, Home, LogicPick, Problem, Reference, RuleRef, Severity, Signal, Stub, View } from "./types";
 
 /**
  * `project(content, context)` → `View` (#334, research §6): the logic of the experience as a graph **for one level**, computed
@@ -334,6 +334,18 @@ const joinsOf = (uses: readonly Use[]): Join[] => {
   return joins;
 };
 
+/** The display rows in the order a card lists them */
+const ROW_ORDER: readonly DisplayRow["id"][] = ["reads", "sets", "goto", "drives"];
+
+/**
+ * A plugin box's params: the events its pins stand for (`registry.ts` draws a pin only for a side it has), and the ones a
+ * wire may pick – what it emits, and what it hears that a rule can emit (no core event)
+ */
+const pluginBus = (used: PluginUses | undefined) => ({
+  params: { emits: used?.emits ?? [], hears: used?.hears ?? [] },
+  bus: { emits: [...(used?.emits ?? [])], hears: (used?.hears ?? []).filter(name => !CORE.includes(name)) },
+});
+
 // ── The graph of a set of targets: the scene and the entity levels ────────────────────────────────────────────────
 
 /** Collects nodes and edges once each; edges with a home are kept each (an op needs every one), derived ones once */
@@ -343,6 +355,8 @@ class Graph {
   problems: Problem[] = [];
   /** The gotos of the rules drawn here: a stub each at the scene and entity levels */
   gotos: Array<{ from: [string, string]; scene: string; home: Home }> = [];
+  /** The display rows' references (#334): dotted lines from a plugin's row to the box it names */
+  refs: Reference[] = [];
   #ids = new Set<string>();
 
   constructor(private registry: NodeRegistry) {}
@@ -355,13 +369,32 @@ class Graph {
     return full;
   }
 
-  link(from: [string, string], to: [string, string], signal: Signal, label: string, home: Home | null): void {
+  link(from: [string, string], to: [string, string], signal: Signal, label: string, home: Home | null, names?: readonly string[]): void {
     if (!home && this.edges.some(e => !e.home && e.from.join() === from.join() && e.to.join() === to.join() && e.label === label)) return;
     const base = `${from.join(":")}>${to.join(":")}`;
     let id = base;
     for (let n = 2; this.#ids.has(id); n++) id = `${base}~${n}`;
     this.#ids.add(id);
-    this.edges.push({ id, from, to, signal, label, home });
+    this.edges.push({ id, from, to, signal, label, home, ...(names ? { names } : {}) });
+  }
+
+  /**
+   * A name on a box's display row and the row's reference to the box it names (#334, Tilman 2026-11-21): a plugin's read,
+   * set or driven type is a code fact – no wire, since a wire could not change it
+   */
+  refer(box: string, row: DisplayRow["id"], to: string, name: string, dir: Reference["dir"]): void {
+    const node = this.nodes.get(box);
+    if (!node) return;
+    const rows = (node.rows ??= []);
+    let known = rows.find(r => r.id === row);
+    if (!known) {
+      known = { id: row, names: [] };
+      rows.push(known);
+      rows.sort((x, y) => ROW_ORDER.indexOf(x.id) - ROW_ORDER.indexOf(y.id));
+    }
+    if (!known.names.includes(name)) known.names.push(name);
+    const id = `ref:${box}:${row}>${to}`;
+    if (!this.refs.some(r => r.id === id)) this.refs.push({ id, from: [box, row], to, dir });
   }
 
   /** A problem of a box: `short` is the message without the box's name (the issues bar shows the name beside it) */
@@ -527,7 +560,8 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
   const drawn = new Set<string>();
   const pluginNode = (id: string) => {
     drawn.add(id);
-    return g.add({ id: `plugin:${id}`, kind: "plugin", label: id, detail: pluginDetail(content, id, code), pick: { kind: "plugin", plugin: id } });
+    const { params, bus } = pluginBus(code[id]);
+    return g.add({ id: `plugin:${id}`, kind: "plugin", label: id, detail: pluginDetail(content, id, code), pick: { kind: "plugin", plugin: id }, bus }, params);
   };
   // The entity level: every node of the subtree with something of its own has a box, wired or not (its ports to expose)
   if (!enterEntities) {
@@ -549,7 +583,7 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
         ...(node.material ? [[pluginOfType(plugins, "materials", node.material.type), node.material.type] as [string | null, string]] : []),
       ];
       for (const [plugin, type] of types) {
-        if (plugin) g.link([pluginNode(plugin).id, "drives"], [entityNode(target.id, target.entity, path).id, "in"], "node", type, null);
+        if (plugin) g.refer(pluginNode(plugin).id, "drives", entityNode(target.id, target.entity, path).id, type, "out");
       }
     }
   }
@@ -561,8 +595,9 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
     const id = pluginNode(plugin.id).id;
     used.hears.forEach(e => g.link([g.eventNode(e).id, "out"], [id, "hears"], "event", "hears", null));
     used.emits.forEach(e => g.link([id, "emits"], [g.eventNode(e).id, "in"], "event", "emits", null));
-    used.reads.forEach(v => g.link([g.variableNode(v).id, "get"], [id, "reads"], "value", "reads", null));
-    used.sets.forEach(v => g.link([id, "sets"], [g.variableNode(v).id, "set"], "value", "sets", null));
+    // What it reads and sets: display rows with a reference each – a wire could not change its code
+    used.reads.forEach(v => g.refer(id, "reads", g.variableNode(v).id, v, "in"));
+    used.sets.forEach(v => g.refer(id, "sets", g.variableNode(v).id, v, "out"));
   }
   scopes.forEach((set, name) => { const node = g.nodes.get(`var:${name}`); if (node) node.detail = `variable · ${[...set].join(", ")}`; });
   // The events a node's components declare: wired to the event's box where the level has one (the bus joins them by name)
@@ -594,7 +629,8 @@ const flagNames = (g: Graph, content: LogicContent, uses: readonly Use[]): void 
   const hears = ruleUse("hears");
   const declared = new Set(Object.keys(content.variables ?? {}));
   for (const node of g.nodes.values()) {
-    if (node.kind === "variable" && g.edges.some(e => e.from[0] === node.id) && !sets.has(node.label) && !declared.has(node.label)) {
+    const read = g.edges.some(e => e.from[0] === node.id) || g.refs.some(r => r.to === node.id && r.from[1] === "reads");
+    if (node.kind === "variable" && read && !sets.has(node.label) && !declared.has(node.label)) {
       g.flag(node, `${node.label} is read, but nothing in the experience sets it`, "warning", "read, nothing sets it");
     }
     if (node.kind === "event" && node.id === `event:${node.label}` && !CORE.includes(node.label)) {
@@ -662,8 +698,8 @@ const nameStubs = (content: LogicContent, g: Graph, joins: readonly Join[], isNe
     const label = `${join.name} ${side === "in" ? "←" : "→"} ${JOIN_WORDS[join.kind][side]} ${words}`;
     if (stubs.some(s => s.label === label)) continue;
     const edge: GraphEdge = side === "in"
-      ? { id: `stub:${farId}>${box.id}:${join.name}`, from: [farId, ports.from], to: [box.id, ports.near.in], signal, label: join.name, home: null }
-      : { id: `stub:${box.id}>${farId}:${join.name}`, from: [box.id, ports.near.out], to: [farId, ports.to], signal, label: join.name, home: null };
+      ? { id: `stub:${farId}>${box.id}:${join.name}`, from: [farId, ports.from], to: [box.id, ports.near.in], signal, label: join.name, home: null, names: [join.name] }
+      : { id: `stub:${box.id}>${farId}:${join.name}`, from: [box.id, ports.near.out], to: [farId, ports.to], signal, label: join.name, home: null, names: [join.name] };
     stubs.push({ edge, side, far, label });
   }
   return stubs;
@@ -683,7 +719,7 @@ const gotoStubs = (content: LogicContent, g: Graph): Stub[] =>
 const sceneView = (content: LogicContent, context: Extract<Context, { level: "scene" | "entity" }>, uses: readonly Use[], registry: NodeRegistry): View => {
   const scene = sceneOf(content, context.scene);
   const levels = levelsOf(content, context);
-  if (!scene) return { context, levels, nodes: [], edges: [], stubs: [], problems: [], canvas: EMPTY_CANVAS() };
+  if (!scene) return { context, levels, nodes: [], edges: [], stubs: [], refs: [], problems: [], canvas: EMPTY_CANVAS() };
   const entity = context.level === "entity";
   const targets = entity ? scene.targets.filter(t => t.id === context.target).map(t => ({ ...t, under: context.path })) : scene.targets;
   const g = targetsGraph(content, uses, { scene: scene.id, targets, enterEntities: !entity, sceneRules: entity ? [] : scene.rules ?? [] }, registry);
@@ -693,7 +729,7 @@ const sceneView = (content: LogicContent, context: Extract<Context, { level: "sc
   const lists = logicRuleLists(content).filter(l => l.scene === scene.id && (!entity || l.target === context.target));
   const problems = [...g.problems, ...typeProblemsOf(lists, logicTypes(content))];
   const nodes = hideUnused([...g.nodes.values()], [...g.edges, ...stubs.map(s => s.edge)], scene.canvas?.exposed ?? {});
-  return { context, levels, nodes, edges: g.edges, stubs, problems, canvas: EMPTY_CANVAS() };
+  return { context, levels, nodes, edges: g.edges, stubs, refs: g.refs.filter(r => nodes.some(n => n.id === r.to)), problems, canvas: EMPTY_CANVAS() };
 };
 
 /**
@@ -727,7 +763,7 @@ const bundle = (joins: readonly Join[]) => {
     const names = [...p.names].sort();
     const label = names.length === 1 ? names[0] : plural(names.length, p.kind);
     const ports = JOIN_PORTS[p.kind];
-    const edge: GraphEdge = { id: `${p.kind}:${p.from}>${p.to}`, from: [p.from, ports.from], to: [p.to, ports.to], signal: p.kind === "variable" ? "value" : "event", label, home: null };
+    const edge: GraphEdge = { id: `${p.kind}:${p.from}>${p.to}`, from: [p.from, ports.from], to: [p.to, ports.to], signal: p.kind === "variable" ? "value" : "event", label, home: null, names };
     return { ...p, names, edge };
   });
 };
@@ -820,7 +856,7 @@ const groupView = (content: LogicContent, context: Extract<Context, { level: "gr
   for (const pair of bundle(joins)) {
     const fromIn = inside(pair.fromPlace);
     const toIn = inside(pair.toPlace);
-    if (fromIn && toIn) g.link(pair.edge.from, pair.edge.to, pair.edge.signal, pair.edge.label, null);
+    if (fromIn && toIn) g.link(pair.edge.from, pair.edge.to, pair.edge.signal, pair.edge.label, null, pair.names);
     else if (fromIn || toIn) {
       const side = toIn ? "in" : "out";
       const farPlace = toIn ? pair.fromPlace : pair.toPlace;
@@ -837,7 +873,7 @@ const groupView = (content: LogicContent, context: Extract<Context, { level: "gr
     else if (toIn) stubs.push({ edge, side: "in", far: { level: "scene", scene: pair.fromScene }, label: `← ${sceneLabel(content, pair.fromScene)} · goto` });
   }
   return {
-    context, levels: levelsOf(content, context), nodes: [...g.nodes.values()], edges: g.edges, stubs,
+    context, levels: levelsOf(content, context), nodes: [...g.nodes.values()], edges: g.edges, stubs, refs: g.refs,
     problems: scenesProblems(content, scenes, uses, registry), canvas: EMPTY_CANVAS(),
   };
 };
@@ -852,7 +888,8 @@ const experienceView = (content: LogicContent, context: Context, uses: readonly 
   }
   content.scenes.forEach(scene => sceneBox(g, scene, scene.group && groups.has(scene.group) ? scene.group : undefined));
   for (const plugin of content.plugins ?? []) {
-    g.add({ id: `plugin:${plugin.id}`, kind: "plugin", label: plugin.id, detail: pluginDetail(content, plugin.id, code), pick: { kind: "plugin", plugin: plugin.id } });
+    const { params, bus } = pluginBus(code[plugin.id]);
+    g.add({ id: `plugin:${plugin.id}`, kind: "plugin", label: plugin.id, detail: pluginDetail(content, plugin.id, code), pick: { kind: "plugin", plugin: plugin.id }, bus }, params);
   }
 
   // Variables that cross scenes: set in a wider scope than the scene's, or by a plugin – through their own box
@@ -873,7 +910,10 @@ const experienceView = (content: LogicContent, context: Context, uses: readonly 
   for (const use of uses) {
     const box = boxOf(use.place);
     if (!box) continue; // the experience's rules draw their own wires
-    if ((use.kind === "sets" || use.kind === "reads") && crossing.has(use.name)) {
+    if ((use.kind === "sets" || use.kind === "reads") && crossing.has(use.name) && use.place.plugin !== null) {
+      // A plugin's read or set: a display row and its reference (#334)
+      g.refer(box, use.kind, `var:${use.name}`, use.name, use.kind === "reads" ? "in" : "out");
+    } else if ((use.kind === "sets" || use.kind === "reads") && crossing.has(use.name)) {
       if (use.kind === "sets") count([box, "sets"], [`var:${use.name}`, "set"], "sets");
       else count([`var:${use.name}`, "get"], [box, "reads"], "reads");
     }
@@ -889,7 +929,7 @@ const experienceView = (content: LogicContent, context: Context, uses: readonly 
   // Events across places: one derived edge per pair (the bus joins them by name)
   const joins = joinsOf(uses).filter(j => j.kind === "event" && boxOf(j.from) !== boxOf(j.to));
   for (const pair of bundle(joins)) {
-    if (g.nodes.has(pair.from) && g.nodes.has(pair.to)) g.link(pair.edge.from, pair.edge.to, "event", pair.edge.label, null);
+    if (g.nodes.has(pair.from) && g.nodes.has(pair.to)) g.link(pair.edge.from, pair.edge.to, "event", pair.edge.label, null, pair.names);
   }
   // Gotos between scenes (derived), then the experience's own rules with theirs (written – editable here)
   for (const pair of gotoPairs(gotosOf(content))) {
@@ -901,7 +941,7 @@ const experienceView = (content: LogicContent, context: Context, uses: readonly 
   const lists = logicRuleLists(content);
   problems.push(...typeProblemsOf(lists, logicTypes(content)));
   return {
-    context, levels: [{ level: "experience" }], nodes: [...g.nodes.values()], edges: g.edges, stubs: [],
+    context, levels: [{ level: "experience" }], nodes: [...g.nodes.values()], edges: g.edges, stubs: [], refs: g.refs,
     problems: problems.filter((p, i) => problems.findIndex(q => q.message === p.message) === i), canvas: EMPTY_CANVAS(),
   };
 };
