@@ -1,11 +1,11 @@
-//! The golden table: the script through the cloud, every step's instance table hashed. A change of the hash is a change
-//! of the picture. And what the cloud does, measured: its count, its height over the place, the drift and the wrap,
+//! The golden table: the script through the cloud, every step's instance table, notes and control outputs hashed. A change
+//! of the hash is a change of the picture or the storm. And what the cloud does, measured: its count, its height over the place, the drift and the wrap,
 //! the seed's layout, the cut of the calls.
 mod common;
 use common::*;
 use deck_module::instances::shape;
 
-const GOLDEN: u64 = 0xbd68_ae15_58bf_4bc8;
+const GOLDEN: u64 = 0xad19_0e39_06aa_1762;
 
 #[test]
 fn the_table_is_the_golden_one() {
