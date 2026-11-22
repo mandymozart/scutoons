@@ -14,13 +14,20 @@ export type TabId =
 	| 'toon'
 	| 'inspector'
 	| 'kanon'
-	| 'moods'
-	| 'vocabulary'
+	/** a character's sections beside the Kanon: its moods' pictures, its model, its voice, where it is cast, how its pictures are made */
+	| 'expressions'
+	| 'rig'
+	| 'voice'
+	| 'cast'
+	| 'generations'
 	| 'flow'
 	| 'preview'
 	| 'log'
 	/** the Log's old id: stored layouts and presets naming it open the Log */
 	| 'problems'
+	/** the character's old Moods panel tabs: they open Expressions */
+	| 'moods'
+	| 'vocabulary'
 	| 'timeline'
 	| 'script'
 	| 'rhythm'
@@ -34,7 +41,7 @@ export type TabId =
 export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log'];
 
 /** old tab ids and the tab they name now */
-export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log' };
+export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log', moods: 'expressions', vocabulary: 'expressions' };
 /** a tab id with its alias resolved */
 export const tabIdOf = (id: string): string => TAB_ALIASES[id] ?? id;
 
@@ -72,7 +79,7 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
 	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
-	character: { panels: [left(['tree']), right(['inspector', 'kanon', 'log']), foot(['moods', 'vocabulary']), library()] },
+	character: { panels: [right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), library()], clear: false },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },

@@ -11,11 +11,11 @@
 	 * opens in a workspace with its rows (a press opens it as a tab), the file kinds that open in their asset details
 	 * (a press shows the Library's tiles of that kind), and the kinds without a workspace yet with the core's sentence.
 	 */
-	let { places, query, toon, onkind, onnote }: { places: Place[]; query: string; toon: string | null; onkind: (kind: LibraryKind) => void; onnote: (text: string) => void } = $props();
+	let { places, only = null, query, toon, onkind, onnote }: { places: Place[]; only?: string | null; query: string; toon: string | null; onkind: (kind: LibraryKind) => void; onnote: (text: string) => void } = $props();
 
 	$effect(() => void openings.load());
 
-	const groups = $derived(openings.groups(query, toon));
+	const groups = $derived(openings.groups(query, toon).filter((g) => !only || g.kind.kind === only));
 
 	function open(address: string) {
 		const answer = openings.open(address);
@@ -36,14 +36,14 @@
 			<li><button type="button" data-control-exempt="list row" title={p.address} onclick={() => open(p.address)}><Icon name={p.icon} size="1rem" /><span class="name">{p.label}</span></button></li>
 		{/each}
 	{/each}
-	{#if openings.files().length}
+	{#if !only && openings.files().length}
 		<li class="head" aria-hidden="true"></li>
 		{#each openings.files() as k (k.kind)}
 			<li><button type="button" data-control-exempt="list row" onclick={() => onkind(k.kind as LibraryKind)} data-testid="opens-{k.kind}"><Icon name="image" size="1rem" /><span class="name">{k.words}</span><span class="hint">{k.opens}</span></button></li>
 		{/each}
 	{/if}
 </ul>
-{#if openings.closed().length}
+{#if !only && openings.closed().length}
 	<ul class="closed" data-testid="library-closed">
 		{#each openings.closed() as k (k.kind)}
 			<li class="sc-empty" data-testid="closed-{k.kind}">{k.why}</li>

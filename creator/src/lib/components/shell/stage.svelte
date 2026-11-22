@@ -6,6 +6,7 @@
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { arriving, dropPlan, isCanvas, leaving, type Stage } from '$lib/shell/stage.ts';
+	import { freeOf } from '$lib/shell/shell.svelte.ts';
 	import { boxOf, fly, motionOn, type Box } from '$lib/shell/flight.ts';
 
 	/**
@@ -32,17 +33,7 @@
 	}
 
 	// the room the panels leave free (client px): the right edge of the left column, the left edge of the right one
-	const free = $derived.by(() => {
-		let left = 0;
-		let right = W;
-		for (const [id, v] of Object.entries(floats.views)) {
-			if (floats.closed(id) || !floats.shown.has(id)) continue;
-			const c = v.rect.x + v.rect.w / 2;
-			if (c < W / 2) left = Math.max(left, v.rect.x + v.rect.w);
-			else right = Math.min(right, v.rect.x);
-		}
-		return { left, right: Math.max(left, right) };
-	});
+	const free = $derived(freeOf(floats, W));
 	const boxes = $derived.by<Rect[]>(() => {
 		if (stage.length < 2) return [{ x: 0, y: 0, w: W, h: H }];
 		const sx = Math.round(W * shell.split);

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { characterImage, lookImage, moodLabel, type CharacterLook, type CharacterView, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -7,9 +6,9 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The character workspace's background: one picture of the current persona › look › mood · view, big (the Moods panel
-	 * picks the mood and the view). It zooms like a canvas: two fingers or Ctrl + wheel, drag to pan while zoomed, a double
-	 * click fits again. `grid` swaps the picture for `gridContent` (every mood × view of the look to fill).
+	 * The character's Sheet view: one picture of the current persona › look › mood · view, big (the Expressions tab picks
+	 * the mood and the view), in the room the panels leave (`--in-l` / `--in-r`). It zooms like a canvas: two fingers or
+	 * Ctrl + wheel, drag to pan while zoomed, a double click fits again.
 	 */
 	let {
 		character,
@@ -19,10 +18,8 @@
 		locale,
 		mood = 'neutral',
 		view = 'portrait',
-		grid = false,
 		bust = 0,
-		label,
-		gridContent
+		label
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -31,11 +28,9 @@
 		locale: string;
 		mood?: string;
 		view?: CharacterView;
-		grid?: boolean;
 		bust?: number;
 		/** the path shown on the stage: "Regular › päpstlich" */
 		label: string;
-		gridContent: Snippet;
 	} = $props();
 
 	const VIEW_LABELS: Record<CharacterView, () => string> = {
@@ -113,42 +108,73 @@
 	}
 </script>
 
-<div class="stage-wrap">
-	{#if grid}
-		<div class="grid-area">{@render gridContent()}</div>
-	{:else}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="stage view-{view}" bind:this={box} onwheel={wheel} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} ondblclick={fit} data-testid="character-stage">
-			{#if src}<img src={busted(src)} alt="" draggable="false" style:transform="translate({x}px, {y}px) scale({scale})" />{/if}
-			<span class="where" data-testid="stage-where">{label} › {moodLabel(mood, locale, moods)} · {VIEW_LABELS[view]()}</span>
-			{#if !own}<span class="fallback" title={m['creator.characters_stage_fallback_hint']()}>{m['creator.characters_stage_fallback']()}</span>{/if}
-			{#if scale > 1}<button type="button" class="sq fit" onclick={fit} title={m['creator.characters_stage_fit']()} aria-label={m['creator.characters_stage_fit']()}><Icon name="minimize" /></button>{/if}
-		</div>
-	{/if}
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="stage view-{view}" onwheel={wheel} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} ondblclick={fit} data-testid="character-stage">
+	<div class="frame" bind:this={box}>
+		{#if src}<img src={busted(src)} alt="" draggable="false" style:transform="translate({x}px, {y}px) scale({scale})" />{/if}
+	</div>
+	<span class="where" data-testid="stage-where">{label} › {moodLabel(mood, locale, moods)} · {VIEW_LABELS[view]()}</span>
+	{#if !own}<span class="fallback" title={m['creator.characters_stage_fallback_hint']()}>{m['creator.characters_stage_fallback']()}</span>{/if}
+	{#if scale > 1}<button type="button" class="sq fit" onclick={fit} title={m['creator.characters_stage_fit']()} aria-label={m['creator.characters_stage_fit']()}><Icon name="minimize" /></button>{/if}
 </div>
 
 <style>
-	.stage-wrap {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		min-width: 0;
-		flex: 1;
-	}
-	.where {
+	/* the whole box; the picture keeps to the room between the bar, the panels and the view pill */
+	.stage {
 		position: absolute;
-		left: 1rem;
-		top: 1rem;
-		max-width: calc(100% - 2rem);
+		inset: 0;
+		overflow: hidden;
+		background: var(--editor-stage);
+		touch-action: none;
+		user-select: none;
+	}
+	.frame {
+		position: absolute;
+		top: calc(var(--shell-top) + 2.5rem);
+		bottom: calc(var(--status-room) + var(--control-height) + 1.5rem);
+		left: var(--in-l, 1rem);
+		right: var(--in-r, 1rem);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.frame img {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+		transform-origin: center;
+		pointer-events: none;
+	}
+	.view-full img,
+	.view-portrait img {
+		height: 100%;
+	}
+	.view-avatar img {
+		max-width: min(24rem, 80%);
+		max-height: 80%;
+	}
+	.where,
+	.fallback {
+		position: absolute;
+		left: var(--in-l, 1rem);
+		max-width: calc(100% - var(--in-l, 1rem) - var(--in-r, 1rem));
 		padding: 0.25rem 0.6rem;
 		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground, var(--editor-surface));
-		color: var(--editor-text);
+		background: var(--editor-panel-ground);
+		text-shadow: var(--editor-halo);
 		font-size: var(--editor-small);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		min-width: 0;
+	}
+	.where {
+		top: calc(var(--shell-top) + 0.25rem);
+		color: var(--editor-text);
+	}
+	.fallback {
+		top: calc(var(--shell-top) + 2.25rem);
+		color: var(--editor-warn);
 	}
 	.sq {
 		all: unset;
@@ -165,54 +191,10 @@
 	.sq:focus-visible {
 		background: var(--editor-hover);
 	}
-	.stage {
-		position: relative;
-		flex: 1;
-		min-height: 12rem;
-		overflow: hidden;
-		background: var(--editor-stage);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		touch-action: none;
-		user-select: none;
-	}
-	.stage img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-		transform-origin: center;
-		pointer-events: none;
-	}
-	.stage.view-full img,
-	.stage.view-portrait img {
-		height: 100%;
-	}
-	.stage.view-avatar img {
-		max-width: min(24rem, 80%);
-		max-height: 80%;
-	}
-	.fallback {
-		position: absolute;
-		left: 1rem;
-		top: 3rem;
-		padding: 0.25rem 0.6rem;
-		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground, var(--editor-surface));
-		color: var(--editor-warn);
-		font-size: var(--editor-small);
-	}
 	.fit {
 		position: absolute;
-		right: 1rem;
-		top: 1rem;
-		background: var(--editor-panel-ground, var(--editor-surface));
-	}
-	.grid-area {
-		flex: 1;
-		min-height: 0;
-		overflow: auto;
-		padding: 1rem;
-		background: var(--editor-stage);
+		right: var(--in-r, 1rem);
+		top: calc(var(--shell-top) + 0.25rem);
+		background: var(--editor-panel-ground);
 	}
 </style>

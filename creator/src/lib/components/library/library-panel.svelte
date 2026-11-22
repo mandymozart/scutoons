@@ -32,7 +32,6 @@
 	let note = $state('');
 	let dropping = $state(false);
 	let menu = $state<{ x: number; y: number } | null>(null);
-	let entitiesOpen = $state(false);
 
 	const view = $derived(library.view);
 	const kindOfOpen = $derived.by(() => {
@@ -139,12 +138,12 @@
 			<input bind:this={replaceInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) replace(f); e.currentTarget.value = ''; }} />
 		</div>
 		<div class="chips">
-			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={!library.kind && !entitiesOpen} onclick={() => ((library.kind = null), (entitiesOpen = false))}>{m['library.kind_all']()}</button>
+			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={!library.kind && !library.openings} onclick={() => ((library.kind = null), (library.openings = false))}>{m['library.kind_all']()}</button>
 			{#each view?.kinds ?? [] as [k, n] (k)}
-				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k && !entitiesOpen} onclick={() => ((library.kind = k), (entitiesOpen = false))} data-testid="kind-{k}">{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k && !library.openings} onclick={() => ((library.kind = k), (library.openings = false))} data-testid="kind-{k}">{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
 			{/each}
 			{#if !library.pick}
-				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={entitiesOpen} onclick={() => (entitiesOpen = !entitiesOpen)} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length + openable}</span></button>
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.openings} onclick={() => (library.openings ? (library.openings = false) : library.showOpenings(null))} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length + openable}</span></button>
 			{/if}
 		</div>
 		<LibraryToolbar />
@@ -160,8 +159,8 @@
 	</div>
 
 	<div class="body">
-		{#if entitiesOpen}
-			<LibraryOpenings places={entities} query={library.query} toon={library.scope !== 'all' ? library.toon : null} onkind={(k) => ((library.kind = k), (entitiesOpen = false))} onnote={(text) => (note = text)} />
+		{#if library.openings}
+			<LibraryOpenings places={library.openKind ? [] : entities} only={library.openKind} query={library.query} toon={library.scope !== 'all' ? library.toon : null} onkind={(k) => ((library.kind = k), (library.openings = false))} onnote={(text) => (note = text)} />
 		{:else if library.status === 'error'}
 			<p class="sc-empty">{m['library.load_failed']({ reason: library.error })}</p>
 		{:else if library.status === 'ready' && !view?.total}
