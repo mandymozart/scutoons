@@ -13,7 +13,7 @@
 //! listen = [{ to = "arp.notes", name = "midi.note" }]   # routed in (route.rs): a `name` or a whole `domain`
 //! ```
 //! Kinds: `random_walk` (seed, base, spread, octaves, rate, length, glide), `pulse` (every, offset), `arp` (ratios,
-//! octaves, mode up · down · updown, rate, length). Notes are `music.note` with `pitch` (and `glide`).
+//! octaves, mode up · down · updown · played, rate, length – the arp module's rule). Notes are `music.note` with `pitch` (and `glide`).
 use crate::generator::Generator;
 use crate::generators::{Arp, ArpMode, Pulse, RandomWalk};
 use crate::graph::EventGraph;
@@ -137,18 +137,10 @@ fn gen(d: &GenDef, n: NoteNames, names: &mut Names) -> Result<Box<dyn Generator>
                 "up" => ArpMode::Up,
                 "down" => ArpMode::Down,
                 "updown" => ArpMode::UpDown,
-                m => return Err(format!("{}: unknown mode '{m}' (up, down, updown)", d.id)),
+                "played" => ArpMode::Played,
+                m => return Err(format!("{}: unknown mode '{m}' (up, down, updown, played)", d.id)),
             };
-            Box::new(Arp {
-                note: n.note,
-                pitch: n.pitch,
-                ratios,
-                octaves: f("octaves", 1.0) as u32,
-                mode,
-                per_beat: f("rate", 4.0),
-                length: f("length", 0.5),
-                root: None,
-            })
+            Box::new(Arp::new(n.note, n.pitch, ratios, f("octaves", 1.0) as u32, mode, f("rate", 4.0), f("length", 0.5)))
         }
         k => return Err(format!("generator '{}': unknown kind '{k}' (random_walk, pulse, arp)", d.id)),
     })

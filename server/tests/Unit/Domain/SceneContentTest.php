@@ -120,4 +120,34 @@ final class SceneContentTest extends TestCase
         self::assertSame(7, ((array) $sized['characters']['catpope']['full'])['neutral']['size']);
         self::assertSame(9, $sized['items']['candle']['picture']['size']);
     }
+    /**
+     * A look's own form and 3D model reach the deck beside its views: the look's model, else the persona's; a member
+     * with neither model nor picture gets both null and empty views (the deck draws its default character, Mellow
+     * Mantis). Written to fixtures/scenes/scene-content-characters.json, which deck-space's push.rs test and the
+     * headless scenario 32 read – `UPDATE_FIXTURES=1` writes it, a plain run fails when it is stale.
+     */
+    public function testALooksFormAndModelReachTheDeck(): void
+    {
+        $views = fn(string $id) => ['neutral' => ['portrait' => "characters/$id/{$id}_portrait-neutral.webp", 'full' => "characters/$id/{$id}_full-neutral.webp"]];
+        $registry = ['characters' => [
+            ['id' => 'catpope', 'personas' => [['id' => 'regular', 'model' => 'characters/catpope/catpope.glb', 'looks' => [
+                ['id' => 'default', 'default' => true, 'form' => 'card', 'model' => 'characters/catpope/catpope-robe.glb', 'images' => $views('catpope')],
+            ]]]],
+            ['id' => 'toptoy', 'personas' => [['id' => 'regular', 'model' => ' characters/toptoy/toptoy.glb ', 'looks' => [['id' => 'default', 'form' => 'cube', 'images' => $views('toptoy')]]]]],
+            ['id' => 'boy', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'model' => '', 'images' => []]]]]],
+            ['id' => 'mellowmantis', 'personas' => [['id' => 'regular', 'model' => 'characters/mellowmantis/mellowmantis.glb', 'looks' => [['id' => 'default', 'images' => $views('mellowmantis')]]]]],
+        ]];
+        $a = SceneContent::compose([], fn() => null, ['catpope', 'toptoy', 'boy', 'mellowmantis'], $registry);
+        $c = $a['characters'];
+        self::assertSame(['card', ['path' => 'characters/catpope/catpope-robe.glb', 'size' => null]], [$c['catpope']['form'], $c['catpope']['model']], "the look's form and model win");
+        self::assertSame([null, ['path' => 'characters/toptoy/toptoy.glb', 'size' => null]], [$c['toptoy']['form'], $c['toptoy']['model']], "no form word: null; the persona's model");
+        self::assertSame([null, null, '{}', '{}'], [$c['boy']['form'], $c['boy']['model'], json_encode($c['boy']['portraits']), json_encode($c['boy']['full'])], 'no art at all');
+        self::assertContains('characters/catpope/catpope-robe.glb', SceneContent::paths($a));
+        self::assertSame(3, SceneContent::withSizes($a, ['characters/toptoy/toptoy.glb' => 3])['characters']['toptoy']['model']['size']);
+
+        $pretty = json_encode(json_decode(SceneContent::json($a)), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
+        $file = dirname(__DIR__, 3) . '/tests/fixtures/scenes/scene-content-characters.json';
+        if (getenv('UPDATE_FIXTURES')) file_put_contents($file, $pretty);
+        self::assertSame(str_replace("\r", '', (string) @file_get_contents($file)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentTest (the decks read it)');
+    }
 }

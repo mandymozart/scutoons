@@ -4,7 +4,7 @@
 import { createAssetLibrary, type AssetSummary } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
 import type { AssetFamily, LibraryCast, LibraryFitAnswer, LibraryGrouping, LibraryKind, LibraryOrigin, LibraryQuery, LibraryScope, LibrarySort, LibraryUse, LibraryView, SlotFit } from '@scutoons/media';
-import { libraryCore, loadLibraryModule, type LibraryCore, type LibraryModule } from '@scutoons/media/library';
+import { libraryCore, libraryOpener, loadLibraryModule, type LibraryCore, type LibraryModule, type LibraryOpener } from '@scutoons/media/library';
 import { assetsApi } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
 
@@ -204,6 +204,12 @@ class Library {
 			this.error = e instanceof Error ? e.message : String(e);
 			this.status = 'error';
 		}
+	}
+
+	/** the core's open rule for the creator: where an address opens, or why not (no assets needed) */
+	async opener(): Promise<LibraryOpener> {
+		this.module ??= loadLibraryModule(WASM_BASE);
+		return libraryOpener(await this.module, 'creator');
 	}
 
 	detail(id: string) {

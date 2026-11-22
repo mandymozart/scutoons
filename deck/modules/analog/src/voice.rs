@@ -26,6 +26,8 @@ pub struct Note {
     /// the note counter: smaller = older
     pub age: u64,
     pub seed: u64,
+    /// the pitch a glide starts from (Hz; 0 = none)
+    pub from: f32,
 }
 
 fn fe_times(p: &Patch, n: usize) -> Times {
@@ -67,6 +69,11 @@ pub struct Voice {
     hz: f32,
     vel: f32,
     ctr: u32,
+    /// a glide: the pitch it ends on, the control steps left, where it is and its step (octaves)
+    target: f32,
+    glide_left: u32,
+    glide_oct: f64,
+    glide_step: f64,
     osc: [Osc; 2],
     sub: [Sub; 2],
     noise: White,
@@ -118,6 +125,9 @@ impl Voice {
         self.hz = n.hz.clamp(8.0, 12_000.0);
         self.base = self.hz;
         self.vel = n.vel.clamp(0.0, 1.0);
+        if n.from > 0.0 && p.glide > 0.0 {
+            self.slide(n.from, p.glide, rate);
+        }
         self.noise = White::new(mix(n.seed));
         self.lfo[0].start(mix(n.seed ^ 1));
         self.lfo[1].start(mix(n.seed ^ 2));
@@ -138,13 +148,83 @@ impl Voice {
         self.sustained = false;
     }
 
-    /// a legato pitch change (a note on for a sounding id, a bend)
+    /// a legato pitch change (a note on for a sounding id, a bend): at once
     pub fn set_pitch(&mut self, hz: f32) {
         let hz = hz.clamp(8.0, 12_000.0);
         match &mut self.pending {
             Some(n) => n.hz = hz,
-            None => self.hz = hz,
+            None => {
+                self.hz = hz;
+                self.glide_left = 0;
+            }
         }
+    }
+
+    /// amp envelope 1's level
+    pub fn env(&self) -> f32 {
+        self.aenv[0].level()
+    }
+
+    /// From `from` to the pitch it holds (`self.hz`) in `secs`, even steps in octaves, one per control step.
+    fn slide(&mut self, from: f32, secs: f32, rate: f64) {
+        let from = from.clamp(8.0, 12_000.0);
+        let steps = (f64::from(secs) * rate / f64::from(CTRL)).round() as u32;
+        self.target = self.hz;
+        if steps == 0 || from == self.hz {
+            self.glide_left = 0;
+            return;
+        }
+        self.glide_oct = log2(f64::from(from));
+        self.glide_step = (log2(f64::from(self.hz)) - self.glide_oct) / f64::from(steps);
+        self.glide_left = steps;
+        self.hz = from;
+    }
+
+    /// mono: the next note on the sounding voice – the envelopes start again from where they are, the pitch glides
+    pub fn retrigger(&mut self, n: Note, p: &Patch, rate: f64) {
+        if self.pending.is_some() {
+            self.steal(n);
+            return;
+        }
+        if !self.active {
+            self.start(n, p, rate);
+            return;
+        }
+        let from = self.hz;
+        self.age = n.age;
+        self.id = Some(n.id);
+        self.vel = n.vel.clamp(0.0, 1.0);
+        self.glide(from, n.hz, p, rate);
+        for k in 0..2 {
+            self.fenv[k].gate_on(&fe_times(p, k), rate);
+            self.aenv[k].gate_on(&ae_times(p, k), rate);
+        }
+    }
+
+    /// legato: another held note takes the sounding voice – only the pitch moves (glides), the envelopes go on
+    pub fn legato(&mut self, id: u32, hz: f32, p: &Patch, rate: f64) {
+        if let Some(n) = &mut self.pending {
+            n.id = id;
+            n.hz = hz.clamp(8.0, 12_000.0);
+            self.id = Some(id);
+            self.base = n.hz;
+            return;
+        }
+        let from = self.hz;
+        self.id = Some(id);
+        self.glide(from, hz, p, rate);
+    }
+
+    fn glide(&mut self, from: f32, to: f32, p: &Patch, rate: f64) {
+        self.hz = to.clamp(8.0, 12_000.0);
+        self.base = self.hz;
+        self.sustained = false;
+        self.glide_left = 0;
+        if p.glide > 0.0 {
+            self.slide(from, p.glide, rate);
+        }
+        // the new pitch is read at once, not at the next control step
+        self.ctr = 0;
     }
 
     /// the note off (or the pedal came up): release both envelopes
@@ -200,6 +280,11 @@ impl Voice {
             let trem = (1.0 + 0.5 * (f64::from(t1) * (lfo[0] - 1.0) + f64::from(t2) * (lfo[1] - 1.0))).max(0.0);
             self.amp[n] = (f64::from(level) * by_vel * by_key * trem) as f32;
             self.pan[n] = pan::gains(pn);
+        }
+        if self.glide_left > 0 {
+            self.glide_left -= 1;
+            self.glide_oct += self.glide_step;
+            self.hz = if self.glide_left == 0 { self.target } else { exp2(self.glide_oct) as f32 };
         }
     }
 

@@ -1,7 +1,7 @@
 //! The native deck plays a rig (#322, plan P9a) the way every deck does: deck-space's `Deck` (deck.rs, #368 – the browser's
-//! space-web `DeckState`, the headless host) plays it – `Bundle::play` flattens it (`Rig::flatten`) at the mood now, or
-//! plays no sound when the deck carries no such rig or it fails (#425: the core's silent scene – the being, no audio
-//! graph) – and replays it when the mood turns.
+//! space-web `DeckState`, the headless host) plays it – `Bundle::play` flattens it (`Rig::flatten`) at the mood now (a
+//! character the deck carries no rig of plays the default character rig), or plays no sound when an item has none or a rig fails (the
+//! core's silent scene – the being, no audio graph) – and replays it when the mood turns.
 //! This file only moves what the core says: the played scene is loaded like any scene (its sound through deck-engine – the
 //! browser's live-core plays the same `engine` part of it, bit for bit: deck-conformance tests/rig.rs), and a replay's
 //! values go into the control domain. Asked for as `--scene rig:<character | subject>[@<mood>]` (deck.toml's `scene`, the
@@ -225,17 +225,21 @@ mod tests {
         assert!(Player::of(Some(Path::new("rig:catpope")), &scene).is_some());
     }
 
-    /// no such rig (#425): the core plays the silent scene (said in the log) – the being in the deck's room, no audio
-    /// graph, nothing to replay. The cathedral is a test scene: no rig player, and no fallback either.
+    /// no such rig for an item: the core plays the silent scene (said in the log) – the being in the deck's room, no audio
+    /// graph, nothing to replay; a character without one plays the default character rig. The cathedral is a test scene: no rig player,
+    /// and no fallback either.
     #[test]
     fn a_rig_the_deck_lacks_plays_the_silent_scene() {
-        let scene = scene(Path::new("rig:nobody")).unwrap();
+        let fallback = scene(Path::new("rig:nobody")).unwrap();
+        assert_eq!(fallback.stage.name, "character.nobody");
+        assert!(fallback.nodes.iter().any(|n| n.kind == "voice"), "a character without a rig sings with the default character rig");
+        let scene = scene(Path::new("rig:item.nothing")).unwrap();
         let cathedral = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
         assert_eq!(scene.stage.name, "silent");
         assert!(scene.nodes.iter().all(|n| matches!(n.kind.as_str(), "space" | "screen")), "no audio node: {:?}", scene.nodes.iter().map(|n| &n.kind).collect::<Vec<_>>());
         let space = scene.nodes.iter().find(|n| n.kind == "space").unwrap();
         assert_eq!(space.params.get("set"), None, "the picture stays: the staging, no cathedral (#427)");
-        assert!(Player::of(Some(Path::new("rig:nobody")), &scene).is_none());
+        assert!(Player::of(Some(Path::new("rig:item.nothing")), &scene).is_none());
         assert!(Player::of(Some(Path::new("cathedral")), &cathedral).is_none());
     }
 

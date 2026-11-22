@@ -6,6 +6,9 @@ import { onMount } from 'svelte';
 import { emptyRig, policyOf, setPolicy, type ModuleFiles, type RigCoverage, type RigDesigner, type RigDoc, type RigFace } from '@scutoons/rig-designer';
 import { api, getDraft, library, publishVersion, putDraft } from '$lib/api.ts';
 import type { EditTarget } from '$lib/editor/edit-key.ts';
+import { Autosaver } from '$lib/editor/autosaver.ts';
+import { m } from '$lib/paraglide/messages.js';
+import { toast } from '$lib/toasts.ts';
 import { NO_RIG_LISTS, bundleRequest, coverageRequest, createRigStore, moduleIdsOf, rigLists, templateRequest, type CatalogEntryLike, type RigLists, type RigResult } from '$lib/editor/rig-assign.ts';
 
 /** the core's rig rules (shared/live-deck `assign`): JSON in and out, a throw carries the core's words */
@@ -35,6 +38,13 @@ export class RigSession {
 	/** the deck half's engine, once it runs */
 	host: PlayHost | null = null;
 	private saved = $state('null');
+	private lastSave: RigResult = { ok: true };
+	private readonly saver = new Autosaver(async () => {
+		if (!this.dirty) return true;
+		this.lastSave = await this.save();
+		toast(this.lastSave.ok ? `${m['creator.saved']()} · ${this.subject}` : this.lastSave.message, { type: this.lastSave.ok ? 'success' : 'error', kind: 'save' });
+		return this.lastSave.ok;
+	});
 	private characters: { id: string; personas?: { id: string }[] }[] = [];
 	private readonly store = createRigStore({ getDraft, putDraft, publishVersion });
 
@@ -114,9 +124,17 @@ export class RigSession {
 		await this.hear();
 	}
 
+	/** an edit: heard at once, saved as a draft a moment after the last one (the creator's autosave) */
 	change(next: RigDoc): void {
 		this.rig = next;
 		void this.hear();
+		this.saver.schedule();
+	}
+
+	/** saves what waits now, one save at a time (autosaver.ts); posts a Saves line */
+	async flush(): Promise<RigResult> {
+		const ok = await this.saver.flush();
+		return ok ? { ok: true } : this.lastSave;
 	}
 
 	create(): void {
@@ -126,10 +144,11 @@ export class RigSession {
 	async save(): Promise<RigResult> {
 		if (!this.rig || this.busy) return { ok: true };
 		this.busy = true;
-		const r = await this.store.save(this.subject, $state.snapshot(this.rig));
+		const draft = $state.snapshot(this.rig);
+		const r = await this.store.save(this.subject, draft);
 		this.busy = false;
 		if (!r.ok) return r;
-		this.saved = JSON.stringify(this.rig);
+		this.saved = JSON.stringify(draft);
 		await this.loadLists();
 		return r;
 	}

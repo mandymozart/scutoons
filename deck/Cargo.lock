@@ -231,6 +231,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arp-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1301,6 +1308,7 @@ name = "deck-events"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-module",
  "libm",
  "protocol",
  "serde",
@@ -1561,6 +1569,7 @@ dependencies = [
  "deck-core",
  "deck-kit",
  "protocol",
+ "serde",
  "serde_json",
 ]
 
@@ -1579,6 +1588,13 @@ dependencies = [
  "tempfile",
  "toml 0.8.23",
  "ureq",
+]
+
+[[package]]
+name = "delay-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
 ]
 
 [[package]]
@@ -1738,6 +1754,13 @@ checksum = "fd39dde40b6e196c2e8763f23d119ddb1a8714534bf7d77fa97a65b0feda3986"
 dependencies = [
  "libc",
  "linux-raw-sys 0.6.5",
+]
+
+[[package]]
+name = "drumseq-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
 ]
 
 [[package]]
@@ -4516,6 +4539,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "reverb-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4778,6 +4808,7 @@ version = "0.1.0"
 dependencies = [
  "analog-module",
  "anyhow",
+ "arp-module",
  "base64",
  "bob-module",
  "deck-catalog",
@@ -4786,7 +4817,9 @@ dependencies = [
  "deck-module-host",
  "deck-show",
  "deck-space",
+ "delay-module",
  "dolly-module",
+ "drumseq-module",
  "env-module",
  "filter-module",
  "fixture-module",
@@ -4795,6 +4828,7 @@ dependencies = [
  "noise-module",
  "osc-module",
  "proc-macro2",
+ "reverb-module",
  "serde",
  "serde_json",
  "sha2 0.10.9",

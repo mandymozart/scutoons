@@ -21,6 +21,8 @@ alone is ~100 KB). Tests: `cargo test -p analog-module` (native ≡ wasm bit for
 | `notes` | event in | **notes** (`music.note`, module ABI v2 #343): note on (pitch Hz, velocity 0…1) and note off, paired by the note's **id**; a bend per note (semitones, a note expression); a reset (all notes off). |
 | `sustain` | control in | ≥ 0.5 holds released notes (the pedal); letting go releases them. |
 | `out` | audio out | stereo (2 channels), the sum of the voices times `volume`. |
+| `env` | control out | amp envelope 1 of the newest sounding voice (0…1), at the end of each block. |
+| `level` | control out | the output's level (0…1): a follower on the louder channel, 5 ms up, 150 ms down, at the end of each block. |
 
 A note on starts a voice – or **steals the oldest** (a 1 ms fade-out first, no click) – keyed by its id, never by its pitch, so
 two notes of one pitch are two voices and an off ends only its own; a note's release tail keeps sounding while the next notes
@@ -29,9 +31,14 @@ pitch. Events take effect at their frame (the render cuts the block there). Eigh
 notes from the deck (MIDI, generators) and from other modules – `walk`'s `notes` play it directly (deck-native's
 tests/modules.rs). Until #343 notes came in as four cv lanes; they are gone.
 
+`mono` picks **poly** (the above), **mono** or **legato**: one voice (voice 0) plays the newest held note; its note off goes
+back to the newest note still held (16 are remembered, the oldest forgotten), the last one releases. Mono restarts the
+envelopes on every note (from the level they are at), legato only when no other note was held. `glide` (0…2 s, 0 = off)
+slides every new note – in poly too – from the last note's pitch to its own in even semitone steps, in exactly its time.
+
 ## Parameters
 
-91, one table (`src/params.rs`): every row is a `#[param(…)]` attribute – range or `choices`, default, `curve`, `unit`, `doc`
+93, one table (`src/params.rs`): every row is a `#[param(…)]` attribute – range or `choices`, default, `curve`, `unit`, `doc`
 – that the derive reads into the descriptor (the catalog's `Descriptor` carries units, choices and docs: the `deck.params`
 section of ABI v1 is gone), expanded into the module struct, the `Patch` the voices read and `PARAM_NAMES`. A switch is
 0/1, a mode 0..n with its `choices` in order (`saw|pulse|triangle|sine`; the value is the index). Groups: `volume` · `o1_*`,
@@ -40,22 +47,23 @@ section of ABI v1 is gone), expanded into the module struct, the `Patch` the voi
 amount, velocity to cutoff and to resonance) · `fe1_*`, `fe2_*` (filter ADSR) · `a1_*`, `a2_*` (level, pan, velocity, key) ·
 `ae1_*`, `ae2_*` (amp ADSR) · `l1_*`, `l2_*` (shape, rate, tempo sync, delay, attack, and the amounts to pitch / pulse width /
 cutoff 1 / cutoff 2 / amp 1 / amp 2) · `vel_pitch`, `vel_pwm`, `fe2_p2`, `l1_p2`, `l2_p2` (to oscillator 2 alone – the
-hard-sync sweep).
+hard-sync sweep) · `glide`, `mono` (poly | mono | legato; at their defaults a render is the one before them).
 
 ## Presets
 
 **One factory preset in the descriptor** (research/ABI-V2.md §2, owner 2026-11-03): `pad` (`#[preset]` in `src/params.rs`) –
-the host's `Preset::apply` sets every parameter to its default, then its values. The other three – `bass`, `lead`,
-`sync lead` – are `preset:` documents: the module is the catalog's factory document `module:analog` (#350); until preset
+the host's `Preset::apply` sets every parameter to its default, then its values. The others – `bass`, `lead`,
+`sync lead`, and the three-crows demo's `hoover-dissonant`, `kick`, `snare`, `hat-closed`, `hat-open`
+(research/audio-nodes-foundation.md §4.3, §4.4; `tests/presets.rs`) – are `preset:` documents: the module is the catalog's factory document `module:analog` (#350); until preset
 files import (#346) they wait in **`analog.preset.json`** (format `scutoons.preset`, version 1, `module`, `module_version`, `presets: [{name, doc, values
 by parameter name}]`), the file the creator imports as drafts. A preset lists only what differs from the defaults. The tests
-apply all four (`tests/common`).
+apply all of them (`tests/common`).
 
 ## The DSP (the SDK's units, and `src/*.rs` beside `lib.rs`)
 
 Flat files on purpose (#350): the build service compiles a module as flat `src/*.rs` files, and the catalog's factory
 document `module:analog` stores exactly these (migration 2026-11-05-factory-modules, last brought up to the repository by
-2026-11-21-analog-dsp-units; the server's FactoryModulesTest keeps the two equal). A sub-folder would make it a repository
+2026-11-21-analog-glide-mono; the server's FactoryModulesTest keeps the two equal). A sub-folder would make it a repository
 crate the service cannot build. The first four are the SDK's (`deck_module::dsp`, deck/module/README.md "DSP units"), shared
 with every other module; `tests/golden.rs` holds the render's hash.
 

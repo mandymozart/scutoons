@@ -113,6 +113,11 @@ pub fn listed(cached: &str) -> Option<(SceneRef, String)> {
     Some((SceneRef { id: k.scene, version: Some(k.version) }, name))
 }
 
+/// scene-content's answer a host's cache file keeps (what its cast is drawn by: each look's form and model); none = no copy
+pub fn content_of(cached: &str) -> Option<crate::push::Content> {
+    serde_json::from_str::<Kept>(cached).ok().and_then(|k| serde_json::from_value(k.content).ok())
+}
+
 /// a host's cache file as Play lists it (deck-ui start.rs): the kept version, the stage's name, the toons.
 pub fn kept(cached: &str) -> Option<deck_ui::start::Listed> {
     let k = serde_json::from_str::<Kept>(cached).ok().filter(|k| safe_id(&k.scene))?;
@@ -630,6 +635,15 @@ mod tests {
             "holder": [{ "id": "pope", "ref": "character:catpope" }],
             "stage": { "name": "Vigil" }, "node": [{ "id": "space", "kind": "space" }] })
         .to_string()
+    }
+
+    /// a kept copy's scene-content: what a browser deck draws its cast by
+    #[test]
+    fn a_kept_copy_gives_its_scene_content() {
+        let kept = serde_json::json!({ "scene": "nave", "version": 1, "document": {}, "content": { "characters": { "catpope": { "form": "look", "model": { "path": "characters/catpope/catpope-robe.glb" } } } } });
+        let c = content_of(&kept.to_string()).unwrap();
+        assert_eq!((c.look_form("catpope"), c.art("catpope").and_then(|a| a.model.as_ref()).map(|f| f.path.as_str())), (Some(crate::cast::Form::Look), Some("characters/catpope/catpope-robe.glb")));
+        assert!(content_of("not a copy").is_none());
     }
 
     /// Play's rows from the API's listing (a draft-only row has no content for a reader) and from a kept copy

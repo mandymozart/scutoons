@@ -1,7 +1,7 @@
-//! The small audio modules' rows: env, vca, filter, noise, osc, mixer and transpose, each alone under one
+//! The small audio modules' rows: env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp and drumseq, each alone under one
 //! runtime and as busy as a rig makes it – its factory preset, noise on two channels of every audio input, 0.5 on its
 //! control inputs, and on every event input a note on in each call (its off in the next), so an envelope retriggers
-//! and transpose has notes to move. A sample is one call of 128 frames; the table is the suite's, a row a module.
+//! and transpose and arp have notes to move. A sample is one call of 128 frames; the table is the suite's, a row a module.
 use super::{call, instance, load, now_us, stats, Fnv, Runtime, Workload, RATE};
 use anyhow::Result;
 use deck_module::dsp::noise::White;
@@ -9,7 +9,7 @@ use deck_module::{Ev, QUANTUM};
 use deck_module_host::Setup;
 use std::fmt::Write;
 
-pub const NAMES: [&str; 7] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose"];
+pub const NAMES: [&str; 11] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose", "delay", "reverb", "arp", "drumseq"];
 
 /// `n` calls of the module in `wasm`
 pub fn workload<B: Runtime>(engine: &B::Engine, name: &str, wasm: &[u8], n: usize) -> Result<Workload> {

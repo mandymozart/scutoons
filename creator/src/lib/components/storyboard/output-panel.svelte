@@ -25,9 +25,9 @@
 				await sb.hh.render(entry, take);
 				done++;
 			}
-			toast(m['storyboard.out_rendered']({ n: done }), { type: 'success' });
+			toast(m['storyboard.out_rendered']({ n: done }), { type: 'success', kind: 'generation' });
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		} finally {
 			busy = false;
 		}
@@ -43,7 +43,7 @@
 			a.click();
 			setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		}
 	}
 	const where = (r: OutputRow) =>

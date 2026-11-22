@@ -26,6 +26,8 @@ macro_rules! analog {
         #[port(input, event, name = "notes", names = "music.note", props = "pitch|vel|glide|key", capacity = 64, doc = "notes on and off (by id), a bend per note, a reset")]
         #[port(input, control, name = "sustain", doc = "the pedal: at 0.5 and above released notes hold")]
         #[port(output, audio, name = "out", channels = 2, doc = "stereo: the sum of the voices times volume")]
+        #[port(output, control, name = "env", doc = "amp envelope 1 of the newest sounding voice, 0…1, at the end of each block")]
+        #[port(output, control, name = "level", doc = "the output's level (a follower: 5 ms up, 150 ms down), 0…1, at the end of each block")]
         #[preset(name = "pad", doc = "A wide, slow pad: a detuned saw through filter 1 on the left and a pulse with a slow pulse-width sweep through filter 2 on the right, a long filter bloom and a slow filter wobble.", values(volume = 0.6, o1_wave = 0.0, o1_fine = -7.0, o1_level = 0.7, o1_route = 0.0, o2_wave = 1.0, o2_fine = 7.0, o2_pw = 0.5, o2_level = 0.6, o2_route = 1.0, f1_cutoff = 1400.0, f1_res = 0.2, f1_key = 0.5, f1_env = 0.35, f2_cutoff = 2200.0, f2_res = 0.1, f2_key = 0.5, f2_env = 0.2, fe1_a = 1.2, fe1_d = 1.5, fe1_s = 0.5, fe1_r = 1.5, fe2_a = 1.5, fe2_d = 2.0, fe2_s = 0.6, fe2_r = 1.5, a1_level = 0.8, a1_pan = -0.55, a1_vel = 0.3, a2_level = 0.8, a2_pan = 0.55, a2_vel = 0.3, ae1_a = 0.9, ae1_d = 0.8, ae1_s = 0.85, ae1_r = 2.0, ae2_a = 1.1, ae2_d = 0.8, ae2_s = 0.85, ae2_r = 2.2, l1_shape = 0.0, l1_rate = 0.25, l1_f1 = 0.5, l2_shape = 1.0, l2_rate = 0.17, l2_pwm = 0.3, l2_f2 = 0.4))]
         pub struct Analog {
             $( #[param($($meta)*)] pub $name: f32, )*
@@ -153,4 +155,7 @@ analog! {
     #[param(range = 0.0..1.0, default = 0.0, doc = "LFO 2 to amp 1 level (tremolo depth)", section = "LFO/LFO 2 DEST", slot = 6)] l2_a1;
     #[param(range = 0.0..1.0, default = 0.0, doc = "LFO 2 to amp 2 level (tremolo depth)", section = "LFO/LFO 2 DEST", slot = 7)] l2_a2;
     #[param(range = 0.0..12.0, default = 0.0, unit = "st", doc = "LFO 2 to oscillator 2 pitch only: semitones either way (sweeps a synced oscillator)", section = "LFO/LFO 2 DEST", slot = 1)] l2_p2;
+
+    #[param(range = 0.0..2.0, default = 0.0, unit = "s", doc = "glide: the time a note takes to slide from the last note's pitch to its own, in even semitone steps (0 = off)", section = "VOICE/VOICE", slot = 4)] glide;
+    #[param(choices = "poly|mono|legato", default = 0, doc = "poly: eight voices; mono: one voice, every note restarts the envelopes; legato: one voice, a note played while another is held only moves the pitch", section = "VOICE/VOICE", slot = 5)] mono;
 }

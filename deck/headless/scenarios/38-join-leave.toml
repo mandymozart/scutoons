@@ -42,7 +42,7 @@ mode = "base"
 do = "address"
 address = "scene:stage"
 action = "join:character:toptoy"
-expect = { did = "changed", holder = "centre", said = { contains = "character.toptoy" }, stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "centre", look = "centre_look", character = "toptoy", spot = "spot_centre", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] } }
+expect = { did = "changed", holder = "centre", said = { contains = "character:toptoy joined scene:stage at centre" }, stage = { cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "centre", look = "centre_look", character = "toptoy", spot = "spot_centre", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] } }
 
 [[step]]
 do = "run"
@@ -75,7 +75,7 @@ ms = 200
 [[step]]
 do = "run"
 ms = 500
-expect = { sound = false }
+expect = { sound = true }
 
 # a word for another scene, or another action, is not this scene's
 [[step]]

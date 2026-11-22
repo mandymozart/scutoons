@@ -259,6 +259,20 @@ impl crate::App {
         self.note(if dropped { "Stop: back to Edit, what Play changed is dropped".to_string() } else { "Stop: back to Edit".to_string() });
     }
 
+    /// The front workspace's panels as its mode wants them: Play's preset of the tab kind (scene, asset, module) while
+    /// it plays, Edit's otherwise; a change is remembered.
+    pub(crate) fn play_panels(&mut self) {
+        let changed = match self.workspace {
+            crate::show::Workspace::Stage => {
+                let kind = if self.scene.is_some() { "scene" } else { "asset" };
+                self.build.show_mode(self.play.playing().then_some(kind))
+            }
+            crate::show::Workspace::Module => self.module.panels.show_mode(self.module.heard.then_some("module")),
+            _ => false,
+        };
+        self.panels_moved |= changed;
+    }
+
     /// the front item's place and reach: a rig's, or the scene's with its cast
     fn reach_now(&self) -> (Option<Place>, Reach) {
         match self.scene.as_ref().filter(|v| v.inside.is_none()) {

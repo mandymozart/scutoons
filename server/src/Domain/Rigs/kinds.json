@@ -437,6 +437,12 @@
           "doc": "quantise levels per channel (< 2 = off)"
         },
         {
+          "name": "mouth",
+          "dir": "in",
+          "type": "control",
+          "doc": "how open the being's mouth is: wire the voice's level to it"
+        },
+        {
           "name": "out",
           "dir": "out",
           "type": "video",
@@ -552,6 +558,15 @@
           "curve": "lin",
           "port": true,
           "doc": "quantise levels per channel (< 2 = off)"
+        },
+        {
+          "name": "mouth",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "how open the being's mouth is, 0 = closed, 1 = wide open: wire the voice's level to it"
         }
       ]
     },
@@ -1030,6 +1045,143 @@
           "curve": "lin",
           "port": true,
           "doc": "level"
+        }
+      ]
+    },
+    {
+      "name": "voice",
+      "version": "1",
+      "domain": "audio",
+      "doc": "A singing voice: a band-limited glottal source (the saw table, softened) and breath noise through four parallel formant band-passes (a high voice's F1–F4), the vowel interpolated across ee · eh · ah · uh · oh · oo (0–5, front to back, so a glide passes the vowels between). Pitch glides linearly in semitones; vibrato fades in 0.25 s after a note starts. The gate is the `cv`'s right channel; `attack` / `release` like osc.",
+      "feature": "core",
+      "module": "synth",
+      "scope": "graph",
+      "ports": [
+        {
+          "name": "cv",
+          "dir": "in",
+          "type": "audio",
+          "channels": 2,
+          "engine": false,
+          "doc": "pitch in Hz on the left channel, gate on the right (a seq / walk / events output); overrides `freq`"
+        },
+        {
+          "name": "freq",
+          "dir": "in",
+          "type": "control",
+          "doc": "pitch"
+        },
+        {
+          "name": "gain",
+          "dir": "in",
+          "type": "control",
+          "doc": "level"
+        },
+        {
+          "name": "vowel",
+          "dir": "in",
+          "type": "control",
+          "doc": "0 ee · 1 eh · 2 ah · 3 uh · 4 oh · 5 oo, in between interpolated"
+        },
+        {
+          "name": "glide",
+          "dir": "in",
+          "type": "control",
+          "doc": "portamento: the time a new note takes to reach its pitch"
+        },
+        {
+          "name": "vibrato",
+          "dir": "in",
+          "type": "control",
+          "doc": "vibrato depth"
+        },
+        {
+          "name": "rate",
+          "dir": "in",
+          "type": "control",
+          "doc": "vibrato rate"
+        },
+        {
+          "name": "breath",
+          "dir": "in",
+          "type": "control",
+          "doc": "aspiration noise mixed into the source"
+        },
+        {
+          "name": "out",
+          "dir": "out",
+          "type": "audio",
+          "channels": 2,
+          "doc": "the voice"
+        }
+      ],
+      "params": [
+        {
+          "name": "freq",
+          "min": 60.0,
+          "max": 1600.0,
+          "default": 262.0,
+          "curve": "log",
+          "unit": "Hz",
+          "port": true,
+          "doc": "pitch"
+        },
+        {
+          "name": "gain",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "level"
+        },
+        {
+          "name": "vowel",
+          "min": 0.0,
+          "max": 5.0,
+          "default": 2.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "0 ee · 1 eh · 2 ah · 3 uh · 4 oh · 5 oo, in between interpolated"
+        },
+        {
+          "name": "glide",
+          "min": 0.0,
+          "max": 2.0,
+          "default": 0.05,
+          "curve": "lin",
+          "unit": "s",
+          "port": true,
+          "doc": "portamento: the time a new note takes to reach its pitch; 0 = jumps"
+        },
+        {
+          "name": "vibrato",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.3,
+          "curve": "lin",
+          "unit": "st",
+          "port": true,
+          "doc": "vibrato depth in semitones (peak)"
+        },
+        {
+          "name": "rate",
+          "min": 0.5,
+          "max": 10.0,
+          "default": 5.5,
+          "curve": "lin",
+          "unit": "Hz",
+          "port": true,
+          "doc": "vibrato rate"
+        },
+        {
+          "name": "breath",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.1,
+          "curve": "lin",
+          "port": true,
+          "doc": "aspiration noise mixed into the source: 0 = clean, 1 = a whisper"
         }
       ]
     },
@@ -2041,6 +2193,12 @@
           "dir": "in",
           "type": "control",
           "doc": "moves the body: wire the beat or the level to it"
+        },
+        {
+          "name": "mouth",
+          "dir": "in",
+          "type": "control",
+          "doc": "how open the mouth is: wire the voice's level or vowel to it"
         }
       ],
       "params": [
@@ -2079,6 +2237,15 @@
           "curve": "lin",
           "port": true,
           "doc": "moves the body: wire the beat or the level to it"
+        },
+        {
+          "name": "mouth",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "how open the mouth is, 0 = closed, 1 = wide open: wire the voice's level or vowel to it"
         }
       ]
     },

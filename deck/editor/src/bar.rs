@@ -60,6 +60,19 @@ pub struct TabPill<'a> {
     pub mark: Mark,
 }
 
+/// the front tab's switch beside the tabs
+#[derive(Debug, Clone, Copy)]
+pub enum Modes<'a> {
+    /// a Scene, Asset, Module or medium's Edit / Play: one switch, Keep beside it while `keep`; its places the switch, then Keep
+    Switch { playing: bool, keep: bool },
+    /// a Show tab's Go live, or End and Lock: one pill each, `on` the one lit
+    Pills(&'a [&'a str], usize),
+}
+
+pub const EDIT: &str = "Edit";
+pub const PLAY: &str = "Play";
+pub const KEEP: &str = "Keep";
+
 /// what the toolbar shows
 pub struct Bar<'a> {
     /// the items open, and the one in front (none: Home)
@@ -67,8 +80,8 @@ pub struct Bar<'a> {
     pub front: Option<usize>,
     /// the path inside the front tab, after its name: each step a pill that goes back to it
     pub path: &'a [String],
-    /// the front tab's own switch (a Show tab: Show · Perform) and the one on
-    pub modes: Option<(&'a [&'a str], usize)>,
+    /// the front tab's own switch
+    pub modes: Option<Modes<'a>>,
     /// the play button (Build): true = it starts playing
     pub play: Option<bool>,
     /// the tempo clock's BPM and whether it runs
@@ -383,13 +396,45 @@ fn tab_width(d: &DrawList, t: &Tokens, tab: &TabPill, path: &[String], h: f32) -
     pad + icon + pad * 0.6 + d.sans_width(px, tab.name) + steps + marks + pad * 0.3 + h
 }
 
+/// the Edit / Play switch's width: its track and the longer word
+fn switch_width(d: &DrawList, t: &Tokens, h: f32) -> f32 {
+    let word = d.sans_width(t.size.small, EDIT).max(d.sans_width(t.size.small, PLAY));
+    h * 1.5 + t.size.pad * 2.5 + word
+}
+
+/// Edit / Play as one switch: a track whose knob goes right and green in Play, the mode's word beside it; Keep a pill
+/// after it while `keep`. Its places: the switch, then Keep.
+fn edit_play(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), (playing, keep): (bool, bool), pointer: (f32, f32)) -> Vec<Rect> {
+    let w = switch_width(d, t, h);
+    let pill = Rect { x, y, w, h };
+    if pill.has(pointer.0, pointer.1) {
+        d.round_rect(x, y, w, h, h * 0.5, t.color.hover);
+    }
+    let th = h * 0.62;
+    let track = Rect { x: x + t.size.pad, y: y + (h - th) * 0.5, w: h * 1.5 - t.size.pad * 0.5, h: th };
+    controls::switch(d, t, track, playing);
+    let px = t.size.small;
+    let word = if playing { PLAY } else { EDIT };
+    d.sans(track.x + track.w + t.size.pad, y + (h - px * 1.25) * 0.5, px, word, if playing { t.color.go } else { t.color.text });
+    let mut out = vec![pill];
+    if keep {
+        out.extend(controls::pills_rounded(d, t, (x + w + 2.0, y, h), &[KEEP], usize::MAX, h * 0.5));
+    }
+    out
+}
+
 /// The tabs in `a` (the strip's inside): the front one always, the others in their order while they fit; the list's
 /// button at the end, counting the ones left out.
 fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
     let (px, pad, h) = (t.size.font, t.size.pad, a.h);
     let radius = h * 0.5;
     let list_w = h + d.sans_width(t.size.small, "+99");
-    let modes_w = b.modes.map_or(0.0, |(names, _)| names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * pad + 2.0).sum::<f32>() + pad);
+    let pills_w = |names: &[&str]| names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * pad + 2.0).sum::<f32>();
+    let modes_w = match b.modes {
+        None => 0.0,
+        Some(Modes::Pills(names, _)) => pills_w(names) + pad,
+        Some(Modes::Switch { keep, .. }) => switch_width(d, t, h) + 2.0 + if keep { pills_w(&[KEEP]) } else { 0.0 } + pad,
+    };
     let room = a.w - list_w - modes_w - 4.0;
     let widths: Vec<f32> = b.tabs.iter().enumerate().map(|(i, tab)| tab_width(d, t, tab, if Some(i) == b.front { b.path } else { &[] }, h) + 2.0).collect();
     let front_w = b.front.and_then(|f| widths.get(f)).copied().unwrap_or(0.0);
@@ -469,8 +514,10 @@ fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
         out.tabs.push((i, r, close));
         x += w + 2.0;
     }
-    if let Some((names, on)) = b.modes {
-        out.modes = controls::pills_rounded(d, t, (x + pad, a.y, h), names, on, radius);
+    match b.modes {
+        Some(Modes::Pills(names, on)) => out.modes = controls::pills_rounded(d, t, (x + pad, a.y, h), names, on, radius),
+        Some(Modes::Switch { playing, keep }) => out.modes = edit_play(d, t, (x + pad, a.y, h), (playing, keep), b.pointer),
+        None => {}
     }
     // the list: every tab, Close others, Close all; the count of the ones left out
     let list = Rect { x: a.x + a.w - list_w, y: a.y, w: list_w, h };
@@ -563,6 +610,33 @@ mod tests {
         let b = Bar { tabs: &TABS, front: Some(1), path: &path, modes: None, play: None, beat: None, meter: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: host.sub.panicked(), window: None };
         let placed = draw(&mut d, &t, 1600.0, &b);
         (placed.panic, d.texts().iter().map(|s| s.to_string()).collect())
+    }
+
+    /// the bar with `modes`: the places beside the tabs and the words drawn
+    fn modes_drawn(modes: Modes) -> (Placed, Vec<String>) {
+        let t = Tokens::default();
+        let mut d = DrawList::new(0.6);
+        let path = vec!["main".to_string()];
+        let b = Bar { tabs: &TABS, front: Some(0), path: &path, modes: Some(modes), play: None, beat: None, meter: None, clock: Clock::Int, account: Signed::In, pulse: 1.0, pointer: (0.0, 0.0), cpu: None, gpu: None, khz: None, fps: 60.0, slot: 0.0, panicked: false, window: None };
+        let placed = draw(&mut d, &t, 1600.0, &b);
+        (placed, d.texts().iter().map(|s| s.to_string()).collect())
+    }
+
+    #[test]
+    fn edit_and_play_are_one_switch_with_keep_beside_it_while_playing() {
+        let (edit, words) = modes_drawn(Modes::Switch { playing: false, keep: false });
+        assert_eq!(edit.modes.len(), 1, "one control");
+        assert!(words.iter().any(|w| w == EDIT) && !words.iter().any(|w| w == PLAY || w == KEEP), "{words:?}");
+        let (play, words) = modes_drawn(Modes::Switch { playing: true, keep: true });
+        assert_eq!(play.modes.len(), 2, "the switch, then Keep");
+        assert!(words.iter().any(|w| w == PLAY) && words.iter().any(|w| w == KEEP) && !words.iter().any(|w| w == EDIT), "{words:?}");
+        assert_eq!(play.modes[0], edit.modes[0], "the switch keeps its place");
+        assert!(play.modes[1].x >= play.modes[0].x + play.modes[0].w, "Keep after the switch");
+        let front = edit.tabs.iter().find(|t| t.0 == 0).unwrap().1;
+        assert!(edit.modes[0].x >= front.x + front.w, "after the tabs");
+        assert!(edit.list.is_none_or(|l| play.modes[1].x + play.modes[1].w <= l.x), "before the list");
+        let (show, _) = modes_drawn(Modes::Pills(&["Go live"], 0));
+        assert_eq!(show.modes.len(), 1, "a Show tab keeps its pills");
     }
 
     #[test]

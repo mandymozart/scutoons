@@ -47,6 +47,36 @@ fn process_never_allocates() {
         // strict: the Rig panics after a call that allocated
         seen = seen.max(b.run_peak(64 + (step % 7) * 150, 1024));
     }
+    // mono and legato with a glide: notes overlap and hand voice 0 over
+    b.apply(&preset("lead"));
+    b.set("glide", 0.05);
+    for step in 0..400usize {
+        b.set("mono", (1 + step / 200) as f32);
+        let lane = step % 4;
+        if step % 3 == 0 {
+            b.note_on(lane, 110.0 * (1 + step % 5) as f32, 0.8);
+        } else if step % 7 == 0 {
+            b.note_off(lane);
+        }
+        seen = seen.max(b.run_peak(64 + (step % 5) * 200, 1024));
+    }
     assert!(seen > 0.0, "the run was not silent: {seen}");
     assert!(b.rig.module().active_voices() <= analog_module::VOICES);
+}
+
+#[test]
+fn the_demo_presets_never_allocate() {
+    for name in ["hoover-dissonant", "kick", "snare", "hat-closed", "hat-open"] {
+        let mut b = Bench::new();
+        b.apply(&preset(name));
+        b.rig.set_tempo(0.0, 0.0, 160.0, 4, true);
+        let mut seen = 0.0f32;
+        for step in 0..64usize {
+            b.note_on(0, 220.0 * (1 + step % 3) as f32, if step % 4 == 0 { 1.0 } else { 0.7 });
+            seen = seen.max(b.run_peak(2250, 512));
+            b.note_off(0);
+            seen = seen.max(b.run_peak(2250, 333));
+        }
+        assert!(seen > 0.0, "{name} was silent");
+    }
 }

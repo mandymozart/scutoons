@@ -58,6 +58,9 @@ export type Fill = {
 /** One filler or several (a spawn zone's members). */
 export type Fillers = string | string[];
 
+/** how a member stands on the stage (a holder may choose it: `form = "card"` / `"look"`) */
+export type Form = 'look' | 'card';
+
 /** One place on the stage (SCENE-PACKAGE §2, SCENES.md §9.3). */
 export type Holder = {
 	/** a spawn zone's arrangement of its members within the spot (required with `take: many`) */
@@ -68,6 +71,8 @@ export type Holder = {
 	enter?: Enter;
 	/** a placeholder's filter – or `ref` */
 	fill?: Fill | null;
+	/** how its member stands (`card`: 2D, `look`: 3D) over what the stage gives (cast.rs `form`); none = the stage's */
+	form?: Form | null;
 	/** its name in the document and in a use's `with` (`left`, `who`); not an address – a filled holder's address is its filler's place (`scene:stage/character:catpope/…`), an empty one has none */
 	id: string;
 	/** a placeholder's name for people */

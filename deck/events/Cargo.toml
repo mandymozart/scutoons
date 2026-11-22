@@ -20,3 +20,5 @@ toml = { workspace = true }
 # adapters/: JSON in (the story's events, the relay's moments), the event's JSON out; protocol – the relay's envelope
 serde_json = { workspace = true }
 protocol = { workspace = true }
+# generators/arp.rs: the arp module's rule, one copy (`deck_module::dsp::arp`)
+deck-module = { path = "../module" }

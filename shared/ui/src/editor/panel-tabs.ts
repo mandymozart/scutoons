@@ -18,6 +18,8 @@ export interface TabSpec {
 	/** A free panel made from it asks for this size (rem) */
 	size?: { w: Dimension; h: Dimension };
 	min?: Size;
+	/** Ids it was remembered by before (a stored layout naming one of them places this tab) */
+	aliases?: readonly string[];
 }
 
 /** Which panel holds which tabs (in order), the front tab of each, and the free panels with the tab each was made from */
@@ -165,24 +167,28 @@ export const readArrangement = (stored: unknown, panels: readonly PanelSpec[], t
 	const s = stored as Partial<Record<keyof Arrangement, unknown>>;
 	const record = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 	const known = new Set(tabs.map((t) => t.id));
+	const alias = new Map(tabs.flatMap((t) => (t.aliases ?? []).map((a) => [a, t.id] as const)));
+	const idOf = (v: unknown): unknown => (typeof v === 'string' ? (alias.get(v) ?? v) : v);
 	const holders = new Set(panels.filter((p) => p.tabs).map((p) => p.id));
 	const free = record(s.free);
 	const seen = new Set<string>();
 	const out: Arrangement = { panels: {}, active: {}, free: {} };
 	for (const [panel, list] of Object.entries(record(s.panels))) {
-		const isFree = panel.startsWith(FREE_PREFIX) && typeof free[panel] === 'string' && known.has(free[panel] as string);
+		const madeFrom = idOf(free[panel]);
+		const isFree = panel.startsWith(FREE_PREFIX) && typeof madeFrom === 'string' && known.has(madeFrom);
 		if (!Array.isArray(list) || (!holders.has(panel) && !isFree)) continue;
 		const ids: string[] = [];
-		for (const t of list) {
+		for (const raw of list) {
+			const t = idOf(raw);
 			if (typeof t !== 'string' || !known.has(t) || seen.has(t)) continue;
 			seen.add(t);
 			ids.push(t);
 		}
 		if (!ids.length) continue;
 		out.panels[panel] = ids;
-		const active = record(s.active)[panel];
+		const active = idOf(record(s.active)[panel]);
 		out.active[panel] = typeof active === 'string' && ids.includes(active) ? active : ids[0];
-		if (isFree) out.free[panel] = free[panel] as string;
+		if (isFree) out.free[panel] = madeFrom as string;
 	}
 	for (const tab of tabs) {
 		if (seen.has(tab.id)) continue;

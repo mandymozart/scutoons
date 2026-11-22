@@ -1,0 +1,13 @@
+{
+  "sets": {},
+  "locations": {},
+  "characters": {
+    "catpope": {
+      "portraits": { "neutral": { "path": "characters/catpope/catpope_portrait-neutral.webp", "size": null } },
+      "full": { "neutral": { "path": "characters/catpope/catpope_full-neutral.webp", "size": null } },
+      "form": null,
+      "model": { "path": "characters/catpope/catpope-robe.glb", "size": null }
+    }
+  },
+  "missing": { "sets": [], "locations": [], "characters": [] }
+}

@@ -141,6 +141,37 @@ fn a_character_wanted_later_is_asked_for_then() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// a card's full view and the 3D model come like the portraits; a member without art gets the default character's
+/// files under its own name
+#[test]
+fn full_views_and_models_land_beside_the_portraits() {
+    let stub = stub_with_files();
+    let (full, model, mantis) = ("characters/catpope/catpope_full-neutral.png", "characters/catpope/catpope.glb", "characters/mellowmantis/mellowmantis_full-neutral.png");
+    {
+        let mut files = stub.files.lock().unwrap();
+        files.insert(full.into(), png());
+        files.insert(model.into(), glb("pope"));
+        files.insert(mantis.into(), png());
+    }
+    *stub.api.lock().unwrap() = format!(
+        r#"{{"characters":{{"catpope":{{"portraits":{{}},"full":{{"neutral":{{"path":"{full}"}}}},"form":"card","model":{{"path":"{model}"}}}},
+            "boy":{{"portraits":{{}},"full":{{}},"form":null,"model":null}},
+            "mellowmantis":{{"portraits":{{}},"full":{{"neutral":{{"path":"{mantis}"}}}},"model":null}}}}}}"#
+    );
+    let cache = dir("full");
+    let sync = DeckSync::start(stub.config(&cache));
+    let want_full = |c: &str| Want::Full { character: c.into(), mood: "neutral".into() };
+    assert!(sync.wait(want_full("catpope"), PATIENCE));
+    assert!(sync.wait(Want::Model { character: "catpope".into() }, PATIENCE));
+    assert!(sync.wait(want_full("boy"), PATIENCE));
+    let portraits = cache.join("portraits");
+    assert_eq!(std::fs::read(portraits.join("catpope/catpope_full-neutral.png")).unwrap(), png());
+    assert_eq!(std::fs::read(portraits.join("catpope/catpope_model.glb")).unwrap(), glb("pope"));
+    assert!(portraits.join("boy/boy_full-neutral.png").is_file(), "the default character's full view, under the member's name");
+    assert!(stub.hits("/cdn/").iter().any(|h| h.ends_with("mellowmantis_full-neutral.png")));
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// the space side: the set loader's gate fetches before it reads, the heads' Source fetches then decodes
 #[cfg(feature = "space")]
 #[test]

@@ -216,7 +216,7 @@ mod tests {
         let before = ids(&p);
         assert_eq!(join(&mut p, "character:toptoy"), Recast::Changed { holder: "centre".into(), ms: RECAST_MS });
         assert!(before.iter().all(|id| ids(&p).contains(id)), "what stood there stays as it was");
-        assert!(p.log().any(|l| l.contains("character.toptoy") && l.contains("silent")), "a rig the deck lacks: silent, said");
+        assert!(ids(&p).contains(&"centre_voice_voice".to_string()), "a character without a rig of its own sings with the default character rig: {:?}", ids(&p));
         // already on stage – any persona of her: nothing
         assert_eq!(join(&mut p, "character:catpope.pope"), Recast::Nothing);
         assert!(p.log().last().unwrap().contains("stands on scene:stage already"));

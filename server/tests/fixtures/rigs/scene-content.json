@@ -13,6 +13,8 @@
                 }
             },
             "full": {},
+            "form": null,
+            "model": null,
             "rig": {
                 "id": "character.catpope",
                 "version": "a72eca7ce6c0f563",
@@ -119,7 +121,94 @@
             "look": "default",
             "portraits": {},
             "full": {},
+            "form": null,
+            "model": null,
             "rig": null
+        },
+        "default": {
+            "character": "default",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {},
+            "full": {},
+            "form": null,
+            "model": null,
+            "rig": {
+                "id": "character.default",
+                "version": "c31d01585720b083",
+                "data": {
+                    "subject": "character.default",
+                    "track": [
+                        {
+                            "id": "voice",
+                            "instrument": "default_voice",
+                            "preset": "default_voice.base",
+                            "gain": 1.0,
+                            "pan": 0.0,
+                            "mute": false
+                        }
+                    ],
+                    "route": [
+                        {
+                            "from": "voice:ear.level",
+                            "to": "being:mouth",
+                            "scale": 4.0,
+                            "offset": 0.0
+                        }
+                    ],
+                    "moods": {
+                        "happy": {
+                            "values": {
+                                "voice:voice.vowel": 1.0
+                            }
+                        },
+                        "laughing": {
+                            "values": {
+                                "voice:voice.vowel": 0.0
+                            }
+                        },
+                        "sad": {
+                            "values": {
+                                "voice:voice.vibrato": 0.5,
+                                "voice:voice.vowel": 4.0
+                            }
+                        }
+                    },
+                    "rights": {
+                        "lent": [
+                            "play",
+                            "tweak"
+                        ],
+                        "owned": [
+                            "play",
+                            "tweak",
+                            "derive",
+                            "copy"
+                        ],
+                        "core": [
+                            "play",
+                            "tweak",
+                            "derive"
+                        ]
+                    },
+                    "sticks": [
+                        [
+                            "voice:voice.vowel",
+                            "voice:melody.spread"
+                        ],
+                        [
+                            "voice:voice.vibrato",
+                            "voice:voice.breath"
+                        ]
+                    ]
+                },
+                "instruments": [
+                    "default_voice"
+                ],
+                "presets": [
+                    "default_voice.base"
+                ]
+            }
         }
     },
     "items": {
@@ -260,6 +349,126 @@
                         "label": {
                             "de": "Gleiten",
                             "en": "glide"
+                        }
+                    }
+                ],
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "default_voice": {
+            "id": "default_voice",
+            "version": "44bec00a7a6022bc",
+            "data": {
+                "id": "default_voice",
+                "kind": "voice",
+                "name": {
+                    "de": "Stimme",
+                    "en": "Voice"
+                },
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "voice",
+                        "breath": 0.1,
+                        "freq": 262.0,
+                        "gain": 0.2,
+                        "glide": 0.08,
+                        "rate": 5.5,
+                        "vibrato": 0.3,
+                        "vowel": 2.0
+                    },
+                    {
+                        "id": "melody",
+                        "kind": "walk",
+                        "base": 262.0,
+                        "bpm": 84.0,
+                        "glide": 0.3,
+                        "octaves": 1.0,
+                        "rate": 1.0,
+                        "seed": 491,
+                        "spread": 0.4
+                    },
+                    {
+                        "id": "ear",
+                        "kind": "fft"
+                    }
+                ],
+                "link": [
+                    {
+                        "from": "melody.cv",
+                        "to": "voice.cv",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    },
+                    {
+                        "from": "voice.out",
+                        "to": "ear.in",
+                        "scale": 1.0,
+                        "offset": 0.0
+                    }
+                ],
+                "out": "voice",
+                "expose": [
+                    {
+                        "path": "voice.gain",
+                        "label": {
+                            "de": "Stimme",
+                            "en": "voice"
+                        },
+                        "range": [
+                            0.0,
+                            0.4
+                        ]
+                    },
+                    {
+                        "path": "voice.vowel",
+                        "label": {
+                            "de": "Vokal",
+                            "en": "vowel"
+                        }
+                    },
+                    {
+                        "path": "voice.vibrato",
+                        "label": {
+                            "de": "Vibrato",
+                            "en": "vibrato"
+                        }
+                    },
+                    {
+                        "path": "voice.breath",
+                        "label": {
+                            "de": "Atem",
+                            "en": "breath"
+                        }
+                    },
+                    {
+                        "path": "melody.spread",
+                        "label": {
+                            "de": "Weite",
+                            "en": "spread"
+                        }
+                    },
+                    {
+                        "path": "melody.rate",
+                        "label": {
+                            "de": "Schritte / Schlag",
+                            "en": "steps / beat"
                         }
                     }
                 ],
@@ -509,6 +718,34 @@
                     "voice.index": 1.0,
                     "voice.ratio": 0.5
                 },
+                "rights": {
+                    "lent": [
+                        "play",
+                        "tweak"
+                    ],
+                    "owned": [
+                        "play",
+                        "tweak",
+                        "derive",
+                        "copy"
+                    ],
+                    "core": [
+                        "play",
+                        "tweak",
+                        "derive"
+                    ]
+                }
+            }
+        },
+        "default_voice.base": {
+            "id": "default_voice.base",
+            "version": "3c48e9227ad15832",
+            "data": {
+                "id": "default_voice.base",
+                "instrument": "default_voice",
+                "tags": [
+                    "default"
+                ],
                 "rights": {
                     "lent": [
                         "play",

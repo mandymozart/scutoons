@@ -129,7 +129,7 @@ const steps = touched
 			...(touched.length
 				? [
 						step(`🦀 tests (${touched.join(' ')})`, 'cargo', ['test', ...pkgs(touched)], deck),
-						...(touched.includes('deck-native') ? [step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], deck)] : []),
+						...(touched.includes('deck-native') ? [step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk', '--test', 'crows_rave'], deck)] : []),
 						step(`🦀 clippy (${touched.join(' ')})`, 'cargo', ['clippy', ...pkgs(touched), '--all-targets', ...(touched.includes('deck-native') ? ['--features', 'deck-native/modules'] : []), '--', '-D', 'warnings'], deck),
 						...(touched.includes('deck-native') ? [leanStep] : [])
 					]
@@ -184,10 +184,11 @@ const steps = touched
 	// the headless deck host's scenarios run here (headless/tests/scenarios.rs, the same files and the same pass / xfail / FAIL
 	// as `cargo run -p deck-headless --bin deck-scenarios`), native ≡ wasm32 ≡ simd128 in its tests/wasm.rs
 	step('🦀 tests', 'cargo', ['test', '--workspace'], deck),
-	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305). Not in the feature union
+	// the stage's `modules` feature is not in its default, so the workspace run never builds it (#305); walk.rs again with it: the event
+	// hosts' path the module generators build on. Not in the feature union
 	// of the tests (#524): with deck-native/modules the conformance tests keep the module nodes (deck_native::modules::carried_part)
 	// and their graph fails ("unknown kind 'module:stepseq'", control_rate) – that is a change of the tests, not of deck:ci
-	step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules'], deck),
+	step('🧩 module tests', 'cargo', ['test', '-p', 'deck-native', '--features', 'modules', '--test', 'modules', '--test', 'walk', '--test', 'crows_rave'], deck),
 	// #342: the engine's module node (channels, control outputs, control-domain modules, the event host) behind stand-ins
 	step('🧩 engine module tests', 'cargo', ['test', '-p', 'deck-engine', '--features', 'events,modules', '--lib', 'module'], deck),
 	// one clippy over the feature union (#524; was three runs: workspace, deck-native modules, deck-engine events + modules)

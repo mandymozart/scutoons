@@ -2,6 +2,7 @@
 // The asking and the use are the core's (deck/space-web); here only the fetches and the browser's image decoder.
 import { fetchProof, fetchShowLink, type DeckLinkView, type SignedIn, type SignedView } from './deck-key.ts';
 export { fetchSceneAsks, joinScene, type PublishedView } from './published.ts';
+export { askCast, type FigureView } from './stage-figures.ts';
 export interface SetView {
 	give_set(glb: Uint8Array, images: unknown[]): void;
 	backend(): string;
