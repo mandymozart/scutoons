@@ -64,11 +64,20 @@ impl Figure {
     /// A model read in bind space (glb.rs `figure_with`) as a figure: its palette, its vertices weighted into it, its fit.
     pub fn of(model: Model) -> Result<Figure> {
         let a = &model.anatomy;
-        let mut bones = Vec::new();
-        let mut base = Vec::with_capacity(a.skins.len());
+        let mut bones: Vec<Bone> = Vec::new();
+        // a joint several skins share (one skeleton, a mesh per material) takes one palette slot
+        let mut slots: Vec<Vec<usize>> = Vec::with_capacity(a.skins.len());
         for s in &a.skins {
-            base.push(bones.len());
-            bones.extend(s.joints.iter().zip(&s.inverse_bind).map(|(&node, &inverse_bind)| Bone::Joint { node, inverse_bind }));
+            let skin = s.joints.iter().zip(&s.inverse_bind).map(|(&node, &inverse_bind)| {
+                match bones.iter().position(|b| matches!(b, Bone::Joint { node: n, inverse_bind: m } if *n == node && m.abs_diff_eq(inverse_bind, 1e-5))) {
+                    Some(i) => i,
+                    None => {
+                        bones.push(Bone::Joint { node, inverse_bind });
+                        bones.len() - 1
+                    }
+                }
+            });
+            slots.push(skin.collect());
         }
         let node_slot = |bones: &mut Vec<Bone>, n: usize| match bones.iter().position(|b| matches!(b, Bone::Node(m) if *m == n)) {
             Some(i) => i,
@@ -85,10 +94,10 @@ impl Figure {
             .collect();
         for p in &a.parts {
             let range = p.vertices.start as usize..p.vertices.end as usize;
-            match p.skin.and_then(|s| base.get(s)) {
-                Some(&b) if p.influences.len() == range.len() => {
+            match p.skin.and_then(|s| slots.get(s)) {
+                Some(skin) if p.influences.len() == range.len() => {
                     for (v, i) in vertices[range].iter_mut().zip(&p.influences) {
-                        v.joints = i.joints.map(|j| (b + j as usize).min(u8::MAX as usize) as u8);
+                        v.joints = i.joints.map(|j| skin.get(j as usize).copied().unwrap_or(0).min(u8::MAX as usize) as u8);
                         v.weights = quantized(i.weights);
                     }
                 }
@@ -433,6 +442,19 @@ mod tests {
         model.anatomy = anatomy;
         let e = Figure::of(model).err().unwrap();
         assert!(format!("{e:#}").contains("at most 128"), "{e:#}");
+    }
+
+    /// one skeleton under ten skinned meshes (a mesh per material, as three.js exports): its joints count once
+    #[test]
+    fn skins_sharing_a_skeleton_share_its_palette() {
+        let count = 17;
+        let nodes = (0..count).map(|_| Node::new(String::new(), vec![], Mat4::IDENTITY, None)).collect();
+        let skins = (0..10).map(|i| Skin { name: format!("mesh{i}"), joints: (0..count).collect(), inverse_bind: vec![Mat4::IDENTITY; count] }).collect();
+        let anatomy = Anatomy::new(nodes, (0..count).collect(), vec![], skins, vec![]).unwrap();
+        let mut model = glb::parse_with(&bones::glb(), 2048, &[], &mut no_images()).unwrap();
+        model.anatomy = anatomy;
+        let f = Figure::of(model).unwrap();
+        assert_eq!(f.joints(), count);
     }
 
     #[test]
