@@ -378,6 +378,20 @@ impl Graph {
             by_id.insert(n.id.clone(), nodes.len());
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
         }
+        for n in nodes.iter().filter(|n| n.params.contains_key(crate::node_assets::PARAM)) {
+            let slots = match n.kind {
+                Kind::Module(k) => k.spec().assets,
+                _ => {
+                    problems.push(format!("node '{}'", n.id), "only a module node has asset slots");
+                    continue;
+                }
+            };
+            if let Err(says) = crate::node_assets::of(&n.params, slots) {
+                for s in says {
+                    problems.push(format!("node '{}'", n.id), s);
+                }
+            }
+        }
         for n in nodes.iter().filter(|n| n.kind == Kind::World) {
             if let Err(e) = crate::world::World::of(n) {
                 problems.note(e);

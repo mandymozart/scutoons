@@ -52,7 +52,7 @@ use std::sync::{Arc, Mutex};
 use voices::{VoiceKind, Voices};
 
 #[cfg(feature = "modules")]
-pub use module::{register as register_module, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
+pub use module::{register as register_module, AssetLoader, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
 
 /// A block stamp: [frames rendered before the block, the monotonic moment (ns) its first frame is heard]
 pub type Stamp = SeqLock<2>;
@@ -268,6 +268,9 @@ pub struct Seams {
     /// the loaded rig modules (`module:<name>` nodes); without one such a node is a build error
     #[cfg(feature = "modules")]
     pub modules: Option<Arc<dyn ModuleSource>>,
+    /// where module nodes' slot assets load from; without one a module plays its own fallback
+    #[cfg(feature = "modules")]
+    pub assets: Option<Arc<dyn AssetLoader>>,
     /// the deck's tuning: the module event host fills a note's Hz from its key and back (#342)
     #[cfg(feature = "events")]
     pub tuning: deck_events::Tuning,

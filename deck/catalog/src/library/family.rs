@@ -169,7 +169,7 @@ pub struct Family {
     pub made_for: Vec<String>,
 }
 
-const LEAD: [Kind; 5] = [Kind::Video, Kind::Model, Kind::Audio, Kind::Image, Kind::File];
+pub(crate) const LEAD: [Kind; 5] = [Kind::Video, Kind::Model, Kind::Audio, Kind::Image, Kind::File];
 const VIDEO_LEVELS: [(&str, u32); 3] = [("480p", 480), ("720p", 720), ("1080p", 1080)];
 
 /// a chapter's folder (`<toon>/s<n>/c<n>`): its images are slices and key visuals, delivered as 1x / 2x / 3x
@@ -199,16 +199,22 @@ fn title_of(name: &str) -> String {
 
 /// the version a slot of the kind takes: a video's 720p (the default level), an audio's 128k, an image's 1x, else the source
 fn main_of(kind: Kind, versions: &[Version]) -> String {
-    let of_kind: Vec<&Version> = versions.iter().filter(|v| v.kind == kind).collect();
-    let by = |label: &str| of_kind.iter().find(|v| v.label == label).map(|v| v.path.clone());
-    let first = || of_kind.first().map(|v| v.path.clone());
+    let files: Vec<(&str, &str, Kind, &str)> = versions.iter().map(|v| (v.label.as_str(), v.ext.as_str(), v.kind, v.path.as_str())).collect();
+    main_path(kind, &files).unwrap_or_default().to_string()
+}
+
+/// `main_of` over (label, extension, kind, path) – the rendition rule's default file (`rendition::Media::of_files`)
+pub(crate) fn main_path<'a>(kind: Kind, files: &[(&'a str, &'a str, Kind, &'a str)]) -> Option<&'a str> {
+    let of_kind: Vec<&(&str, &str, Kind, &str)> = files.iter().filter(|f| f.2 == kind).collect();
+    let by = |label: &str| of_kind.iter().find(|f| f.0 == label).map(|f| f.3);
+    let first = || of_kind.first().map(|f| f.3);
     let picked = match kind {
         Kind::Video => by("720p").or_else(|| by("source")).or_else(first),
         Kind::Audio => by("128k").or_else(|| by("source")).or_else(first),
-        Kind::Image => by("1x").or_else(|| of_kind.iter().find(|v| v.label == "source" && v.ext == "webp").map(|v| v.path.clone())).or_else(|| by("source")).or_else(first),
+        Kind::Image => by("1x").or_else(|| of_kind.iter().find(|f| f.0 == "source" && f.1 == "webp").map(|f| f.3)).or_else(|| by("source")).or_else(first),
         _ => first(),
     };
-    picked.or_else(|| versions.first().map(|v| v.path.clone())).unwrap_or_default()
+    picked.or_else(|| files.first().map(|f| f.3))
 }
 
 /// The deck's preview rule for a family (`library::asset`): a picture or a video its smallest image, a model a still

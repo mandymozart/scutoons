@@ -58,6 +58,10 @@ fn seams(device_channels: usize, outlets: &[deck_engine::OutletMap]) -> deck_eng
     {
         seams.modules = Some(Arc::new(modules::Global));
     }
+    #[cfg(all(feature = "modules", feature = "chapter"))]
+    {
+        seams.assets = crate::assets::loader();
+    }
     seams
 }
 

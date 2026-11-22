@@ -5,7 +5,7 @@
 use crate::module_host::{note_silenced, Instance, Library};
 use anyhow::{anyhow, Result};
 use deck_engine::{ModuleSource, Opened, Restarts};
-use deck_module_host::Mode;
+use deck_module_host::{AssetData, Mode, Setup};
 use deck_space::modreg::{ModuleKind, PREFIX};
 use std::time::Duration;
 
@@ -13,11 +13,12 @@ use std::time::Duration;
 pub struct Global;
 
 impl ModuleSource for Global {
-    fn open(&self, kind: ModuleKind, rate: f64, seed: u64) -> Result<Opened> {
+    fn open(&self, kind: ModuleKind, rate: f64, seed: u64, assets: Vec<AssetData>) -> Result<Opened> {
         let loaded = Library::global()
             .of_kind(kind)
             .ok_or_else(|| anyhow!("the module '{}' is not loaded (DECK_MODULES)", kind.spec().kind.trim_start_matches(PREFIX)))?;
-        let instance = Instance::with_mode(&loaded, rate, seed, Mode::Show)?.into_host();
+        let setup = assets.into_iter().fold(Setup::new(rate, seed).mode(Mode::Show), Setup::asset);
+        let instance = Instance::with_setup(&loaded, setup)?.into_host();
         Ok(Opened { instance: Box::new(instance), layout: loaded.layout.clone(), params: loaded.desc.params.len() })
     }
 

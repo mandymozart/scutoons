@@ -1382,6 +1382,7 @@ dependencies = [
 name = "deck-media"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "libc",
  "matroska-demuxer",
  "rav1d",
@@ -1465,6 +1466,7 @@ dependencies = [
  "deck-engine",
  "deck-events",
  "deck-link",
+ "deck-media",
  "deck-media-hw",
  "deck-module-host",
  "deck-outlet",
@@ -1486,7 +1488,6 @@ dependencies = [
  "rusty_link",
  "serde",
  "serde_json",
- "symphonia",
  "tokio",
  "toml 0.8.23",
  "toml_edit 0.22.27",

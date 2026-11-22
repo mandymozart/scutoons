@@ -32,6 +32,8 @@ pub struct ModuleSpec {
     pub groups: &'static [(&'static str, &'static str)],
     /// its sections' pages in order (none: it groups by prefix)
     pub pages: &'static [PageSpec],
+    /// its asset slots in the descriptor's order (a slot's index is its place here): name, what it holds
+    pub assets: &'static [(&'static str, deck_catalog::AssetKind)],
 }
 
 /// One page of a module's sections as the graph keeps it: its area, its name, `area/page` (a cluster's name on a ring)
@@ -85,12 +87,14 @@ pub struct ModuleDef {
     pub groups: Vec<(String, String)>,
     /// its sections' pages, area by area
     pub pages: Vec<PageDef>,
+    /// its asset slots: name, what it holds
+    pub assets: Vec<(String, deck_catalog::AssetKind)>,
 }
 
 impl ModuleDef {
     /// an audio-domain module with these ports and no targets
     pub fn new(inputs: Vec<PortDef>, outputs: Vec<PortDef>, defaults: Vec<(String, f32)>) -> ModuleDef {
-        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new(), groups: Vec::new(), pages: Vec::new() }
+        ModuleDef { inputs, outputs, defaults, ranges: Vec::new(), domain: Domain::Audio, targets: Vec::new(), moods: Vec::new(), groups: Vec::new(), pages: Vec::new(), assets: Vec::new() }
     }
 
     /// What a module's descriptor registers: its graph ports as the catalog numbers them (`Descriptor::graph`, the
@@ -119,6 +123,7 @@ impl ModuleDef {
             moods: desc.moods.iter().map(|m| m.to_string()).collect(),
             groups: groups.iter().flat_map(|g| g.params.iter().map(move |p| (p.clone(), g.name.clone()))).collect(),
             pages: groups.iter().flat_map(|g| g.pages.iter().map(move |p| PageDef { area: g.name.clone(), page: p.clone() })).collect(),
+            assets: desc.assets.iter().map(|a| (a.name.to_string(), a.kind)).collect(),
         }
     }
 }
@@ -160,6 +165,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
             && s.groups.iter().map(|&(p, g)| (p, g)).eq(def.groups.iter().map(|(p, g)| (p.as_str(), g.as_str())))
             && s.pages.len() == def.pages.len()
             && s.pages.iter().zip(&def.pages).all(|(a, b)| a.area == b.area && a.page == b.page.name && a.slots.iter().zip(&b.page.slots).all(|(x, y)| *x == y.as_deref()))
+            && s.assets.iter().map(|&(n, k)| (n, k)).eq(def.assets.iter().map(|(n, k)| (n.as_str(), *k)))
     };
     if let Some(i) = reg.iter().rposition(|s| same(s)) {
         return ModuleKind(i as u32);
@@ -183,6 +189,7 @@ pub fn register(name: &str, def: &ModuleDef) -> ModuleKind {
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         ),
+        assets: Box::leak(def.assets.iter().map(|(n, k)| (leak(n), *k)).collect::<Vec<_>>().into_boxed_slice()),
     }));
     reg.push(spec);
     ModuleKind(reg.len() as u32 - 1)

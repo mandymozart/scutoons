@@ -7,7 +7,7 @@
 #![cfg(all(feature = "modules", feature = "events", feature = "outputs"))]
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
 use deck_events::{Event, Time};
-use deck_module_host::{Mode, Setup};
+use deck_module_host::{AssetData, Mode, Setup};
 use deck_native::audio::{Build, QUANTUM};
 use deck_native::graph::{Graph, PortType};
 use deck_native::module_host::{Instance, Library};
@@ -74,13 +74,14 @@ impl ModuleSource for Unbudgeted {
         kind: deck_space::modreg::ModuleKind,
         rate: f64,
         seed: u64,
+        assets: Vec<AssetData>,
     ) -> anyhow::Result<Opened> {
         let loaded = Library::global()
             .of_kind(kind)
             .ok_or_else(|| anyhow::anyhow!("the module '{}' is not loaded", kind.spec().kind))?;
         let instance = Instance::with_setup(
             &loaded,
-            Setup::new(rate, seed).mode(Mode::Show).unbudgeted(),
+            assets.into_iter().fold(Setup::new(rate, seed).mode(Mode::Show).unbudgeted(), Setup::asset),
         )?
         .into_host();
         Ok(Opened {
