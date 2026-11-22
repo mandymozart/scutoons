@@ -100,13 +100,18 @@ impl Request {
     /// module has no descriptor here is named – the process-wide registry may know it from another request, the answer
     /// must not depend on that
     fn scene_modules(&self, doc: &crate::scene_document::SceneDocument, who: &str) -> Result<(), Problems> {
+        self.node_modules(doc.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)
+    }
+
+    /// #803: the module kinds these nodes (id, kind) name, from the descriptors in `modules` – each one there is registered,
+    /// one that isn't is named; an instrument's and a preset's instrument's nodes as a scene's (never what another request
+    /// registered in this process)
+    fn node_modules<'a>(&self, nodes: impl Iterator<Item = (&'a str, &'a str)>, who: &str) -> Result<(), Problems> {
         let lib = Library::new(Vec::new(), Vec::new()).with_modules(self.descriptors()?);
-        let missing: Problems = doc
-            .nodes
-            .iter()
-            .filter_map(|n| {
-                let m = n.kind.strip_prefix(crate::modreg::PREFIX)?;
-                (!lib.modules.contains_key(m)).then(|| format!("{who}: node '{}': module:{m} isn't in the catalog yet", n.id))
+        let missing: Problems = nodes
+            .filter_map(|(id, kind)| {
+                let m = kind.strip_prefix(crate::modreg::PREFIX)?;
+                (!lib.modules.contains_key(m)).then(|| format!("{who}: node '{id}': module:{m} isn't in the catalog yet"))
             })
             .collect();
         if !missing.is_empty() {
@@ -154,6 +159,7 @@ impl Request {
     /// an instrument's problems, or its warnings
     fn instrument(&self, who: &str) -> Result<Vec<String>, Problems> {
         let i: Instrument = parse(who, &self.document)?;
+        self.node_modules(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
         i.check().map_err(said)?;
         Ok(i.warnings())
     }
@@ -164,6 +170,7 @@ impl Request {
         let Some(instrument) = instruments.iter().find(|i| i.id == p.instrument) else {
             return Err(vec![format!("{who}: unknown instrument \"{}\"", p.instrument)]);
         };
+        self.node_modules(instrument.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
         // the book as it will be: this preset counts with its new data
         let mut presets: Vec<Preset> = lookups::<Preset>("preset", &self.presets)?.into_iter().filter(|q| q.id != p.id).collect();
         presets.push(p.clone());
@@ -235,6 +242,9 @@ impl Request {
         let rig: Rig = parse(who, &self.document)?;
         let instruments: Vec<Instrument> = lookups("instrument", &self.instruments)?;
         let presets: Vec<Preset> = lookups("preset", &self.presets)?;
+        for i in &instruments {
+            self.node_modules(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
+        }
         let modules = self.descriptors()?;
         let lib = Library::new(instruments.clone(), presets.clone()).with_modules(modules.clone());
         rig.check(&lib).map_err(said)?;
@@ -262,6 +272,27 @@ pub fn problems_json(request: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #803: an instrument (and a preset of it) with a `module:` node is checked with the descriptors the request sends –
+    /// not with whatever another request registered in this process; without the descriptor the node is named
+    #[test]
+    fn an_instrument_with_a_module_node_takes_the_requests_descriptor() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/modules.json");
+        let set: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let analog = set["cases"][0]["request"]["modules"][0].clone();
+        assert_eq!(analog["name"], "analog");
+        let synth = serde_json::json!({"id": "synth803", "kind": "voice", "name": {"en": "Synth"}, "out": "voice",
+            "node": [{"id": "voice", "kind": "module:analog"}], "link": [], "expose": []});
+        let ask = |kind: &str, document: Value, instruments: Vec<Value>, modules: Vec<Value>| {
+            let id = document["id"].as_str().unwrap().to_owned();
+            Request { kind: kind.into(), id, document, instruments, presets: vec![], modules, ..Default::default() }.problems().unwrap()
+        };
+        assert_eq!(ask("instruments", synth.clone(), vec![], vec![analog.clone()]), Vec::<String>::new());
+        let without = ask("instruments", synth.clone(), vec![], vec![]);
+        assert!(without.iter().any(|p| p.contains("module:analog isn't in the catalog yet")), "{without:?}");
+        let preset = serde_json::json!({"id": "synth803.base", "instrument": "synth803", "values": {}});
+        assert_eq!(ask("presets", preset, vec![synth], vec![analog]), Vec::<String>::new());
+    }
 
     /// The fixture set (server/tests/fixtures/rigs/validate.json): the requests as the API builds them and the problems
     /// the retired PHP RigValidator gave on them – the core says the same words.
