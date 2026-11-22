@@ -234,9 +234,9 @@ trigger = "storm_cloud.gate"
 
 [being]
 size = 0.5
-drift = 0.05999999865889549
-breath = 0.03500000014901161
-wobble = 0.02500000037252903
+drift = 0.0
+breath = 0.0
+wobble = 0.0
 hose = 1.0
 bubbles = 1.0
 expose = ["storm_cloud.hold", "storm_cloud.rate", "storm_cloud.sync", "storm_cloud.rumble", "storm_cloud.thump", "storm_cloud.flash", "storm_cloud.rain", "storm_cloud.split", "storm_cloud.size"]

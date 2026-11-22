@@ -159,9 +159,9 @@ offset = 0.0
 
 [being]
 size = 0.5
-drift = 0.05999999865889549
-breath = 0.03500000014901161
-wobble = 0.02500000037252903
+drift = 0.0
+breath = 0.0
+wobble = 0.0
 hose = 1.0
 bubbles = 1.0
 expose = ["bamboo_forest.wind", "bamboo_forest.gust", "bamboo_forest.thin", "bamboo_forest.thick", "bamboo_forest.direction", "bamboo_forest.root", "bamboo_forest.scale", "bamboo_forest.debounce", "perc_knock.volume", "perc_knock.ae1_d", "perc_knock.f2_cutoff"]

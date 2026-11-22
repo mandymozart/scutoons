@@ -104,9 +104,9 @@ fn load_modules() {
 struct Unbudgeted;
 
 impl ModuleSource for Unbudgeted {
-    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64) -> anyhow::Result<Opened> {
+    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64, assets: Vec<deck_module_host::AssetData>) -> anyhow::Result<Opened> {
         let loaded = Library::global().of_kind(kind).ok_or_else(|| anyhow::anyhow!("the module '{}' is not loaded", kind.spec().kind))?;
-        let instance = Instance::with_setup(&loaded, Setup::new(rate, seed).mode(Mode::Show).unbudgeted())?.into_host();
+        let instance = Instance::with_setup(&loaded, assets.into_iter().fold(Setup::new(rate, seed).mode(Mode::Show).unbudgeted(), Setup::asset))?.into_host();
         Ok(Opened { instance: Box::new(instance), layout: loaded.layout.clone(), params: loaded.desc.params.len() })
     }
 }
