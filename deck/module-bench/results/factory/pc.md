@@ -12,6 +12,6 @@ The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128
 | pc | wasmtime | delay | 128 | 186.6 ms | 834 µs | 19 | 15.9 | 74.0 | 2305 | 19.6 | 2.78 % | 3264 | f0a91488 |
 | pc | wasmtime | reverb | 128 | 200.7 ms | 223 µs | 67 | 66.5 | 204.2 | 29200 | 113.0 | 7.66 % | 1536 | db60ac50 |
 | pc | wasmtime | arp | 128 | 77.2 ms | 54 µs | 3 | 0.5 | 0.8 | 441 | 0.7 | 0.03 % | 1088 | 7cb0d9c9 |
-| pc | wasmtime | cloud | 128 | 111.5 ms | 43 µs | 9 | 3.6 | 8.1 | 2923 | 4.5 | 0.30 % | 1088 | d4ed801b |
+| pc | wasmtime | cloud | 128 | 95.6 ms | 46 µs | 14 | 8.7 | 14.1 | 91 | 8.6 | 0.53 % | 1088 | 0212283c |
 
-The cloud row: 2026-11-22 07:12 UTC, the same PC (other builds were running; its other rows of that run were noisier and are not taken).
+The cloud row: 2026-11-22 ~07:40 UTC, the same PC – the storm preset now raining (0.8): 72 drops after the puffs (#780 slice 2; its other rows of that run are not taken).
