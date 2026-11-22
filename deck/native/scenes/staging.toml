@@ -10,9 +10,6 @@ name = "staging"
 # the being's look where a rig does not set its own (its drift, breath, wobble)
 [being]
 size = 0.5
-drift = 0.06
-breath = 0.04
-wobble = 0.025
 
 # the space without a set: the being in the middle, the camera's default orbit; hue / glow colour the being, light the
 # room once there is one, the post stack and the core's light as every deck's being has them; `join` = how a rig takes
