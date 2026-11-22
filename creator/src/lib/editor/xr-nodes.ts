@@ -120,7 +120,8 @@ function fieldsOf(o: Obj | null, base: (string | number)[], skip: readonly strin
 
 /**
  * What the Inspector shows of a selection, as it is stored: a node's name, placement, files, a light's values, each
- * component with its parameters (editable); a target's place and picture with its entry (read only for now).
+ * component with its parameters (editable); a target's place on its surface (editable, mm), its picture and its entry
+ * (read only).
  */
 export function inspection(configuration: unknown, ref: NodeRef | null): { title: string; kind: string; groups: Group[] } | null {
 	if (!ref) return null;
@@ -136,7 +137,8 @@ export function inspection(configuration: unknown, ref: NodeRef | null): { title
 				fields: [
 					{ label: 'id', kind: 'readonly', value: ref.target, at: ['id'] },
 					{ label: 'imageSrc', kind: 'readonly', value: str(target.imageSrc), at: ['imageSrc'] },
-					...fieldsOf(obj(target.place), ['place'], [], false),
+					...fieldsOf(obj(target.place), ['place'], ['surface']),
+					...(str(obj(target.place)?.surface) ? [{ label: 'surface', kind: 'readonly' as const, value: str(obj(target.place)?.surface), at: ['place', 'surface'] }] : []),
 					...(shared ? [{ label: 'entity', kind: 'readonly' as const, value: shared, at: ['entity'] }] : [])
 				]
 			},
@@ -184,6 +186,20 @@ export function nodeDocPath(configuration: unknown, ref: NodeRef): (string | num
 	return [...root, ...ref.path.flatMap((i) => ['children', i])];
 }
 
+/** where a target lives in the experience's document (its entry's `target`); null: no such target */
+export function targetDocPath(configuration: unknown, target: string): (string | number)[] | null {
+	const index = list(obj(configuration)?.entries).map(obj).findIndex((e) => str(obj(e?.target)?.id) === target);
+	return index < 0 ? null : ['configuration', 'entries', index, 'target'];
+}
+
+/** a target's place as stored (null: it has none) */
+export function targetPlace(configuration: unknown, target: string): { surface?: string; x: number; y: number; width: number; height?: number } | null {
+	const t = obj(list(obj(configuration)?.entries).map(obj).find((e) => str(obj(e?.target)?.id) === target)?.target);
+	const place = obj(t?.place);
+	if (!place || typeof place.x !== 'number' || typeof place.y !== 'number' || typeof place.width !== 'number') return null;
+	return { ...(str(place.surface) ? { surface: str(place.surface) } : {}), x: place.x, y: place.y, width: place.width, ...(typeof place.height === 'number' ? { height: place.height } : {}) };
+}
+
 /** the targets whose entity is the same tree as this one's (a shared entity: all that refer to it) */
 export function targetsSharing(configuration: unknown, target: string): string[] {
 	const c = obj(configuration) ?? {};
@@ -196,3 +212,56 @@ export function targetsSharing(configuration: unknown, target: string): string[]
 		return t && str(obj(t.entity)?.ref) === shared ? [str(t.id)] : [];
 	});
 }
+
+/**
+ * Where a target's whole entity lives in the document and what it is now: the shared entity it refers to (`shared`: its
+ * name; every target that shows it changes with it) or its own (`at` also when it has none yet). Null: no such target.
+ * `own` is the target's own `entity` field – removing the content clears it (a shared entity stays for the others).
+ */
+export function entitySlot(configuration: unknown, target: string): { at: (string | number)[]; own: (string | number)[]; tree: Obj | null; shared: string | null } | null {
+	const c = obj(configuration) ?? {};
+	const entries = list(c.entries).map(obj);
+	const index = entries.findIndex((e) => str(obj(e?.target)?.id) === target);
+	const t = obj(entries[index]?.target);
+	if (index < 0 || !t) return null;
+	const own: (string | number)[] = ['configuration', 'entries', index, 'target', 'entity'];
+	const shared = str(obj(t.entity)?.ref) || null;
+	return { at: shared ? ['configuration', 'entities', shared] : own, own, tree: entityOf(c, t), shared };
+}
+
+export interface XrFile {
+	id: string;
+	assetType: 'glb' | 'gltf' | 'video' | 'image' | 'audio';
+	src: string;
+}
+const FILE_TYPES: readonly string[] = ['glb', 'gltf', 'video', 'image', 'audio'];
+
+/**
+ * The files the experience's entities use, once each by `src` (in the order met): what a new part can take until files
+ * can be added to the experience.
+ */
+export function experienceFiles(configuration: unknown): XrFile[] {
+	const c = obj(configuration) ?? {};
+	const seen = new Map<string, XrFile>();
+	const walk = (node: Obj | null) => {
+		if (!node) return;
+		for (const a of list(node.assets).map(obj)) {
+			const src = str(a?.src);
+			const assetType = str(a?.assetType);
+			if (src && FILE_TYPES.includes(assetType) && !seen.has(src)) seen.set(src, { id: str(a?.id) || src, assetType: assetType as XrFile['assetType'], src });
+		}
+		list(node.children).forEach((child) => walk(obj(child)));
+	};
+	for (const e of list(c.entries).map(obj)) {
+		const entity = obj(obj(e?.target)?.entity);
+		if (entity && !str(entity.ref)) walk(entity);
+	}
+	Object.values(obj(c.entities) ?? {}).forEach((entity) => walk(obj(entity)));
+	return [...seen.values()];
+}
+
+/** a file's name for a list: the last part of its path */
+export const fileName = (src: string): string => src.split(/[?#]/)[0].split('/').pop() || src;
+
+/** what the Tree's row menu and keys do to a part */
+export type PartAction = 'up' | 'down' | 'indent' | 'outdent' | 'duplicate' | 'remove';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { entityOf, inspection, nodeAtPath, nodeDocPath, sameRef, sceneRows, targetsSharing } from '../src/lib/editor/xr-nodes.ts';
+import { entityOf, entitySlot, experienceFiles, fileName, inspection, targetDocPath, targetPlace, nodeAtPath, nodeDocPath, sameRef, sceneRows, targetsSharing } from '../src/lib/editor/xr-nodes.ts';
 
 const configuration = {
 	scenes: [{ id: 'poster', surfaces: [{ id: 'a3', label: 'A3' }] }, { id: 'back', surfaces: [] }],
@@ -47,7 +47,7 @@ test('the same node or print', () => {
 	assert.ok(!sameRef({ target: 't', path: [1] }, null));
 });
 
-test('the Inspector: a node as editable rows, a list of numbers one row per axis, a print read only', () => {
+test("the Inspector: a node as editable rows, a list of numbers one row per axis, a print's place editable, the rest read only", () => {
 	const model = inspection(configuration, { target: 'catpope', path: [1] });
 	assert.equal(model?.kind, 'model');
 	assert.deepEqual(model?.groups.map((g) => g.label), ['node', 'placement', 'files', 'reveal']);
@@ -69,7 +69,11 @@ test('the Inspector: a node as editable rows, a list of numbers one row per axis
 	assert.deepEqual(light?.groups[0].fields[1], { label: 'name', kind: 'text', value: 'key', at: ['name'] });
 	const print = inspection(configuration, { target: 'catpope', path: null });
 	assert.equal(print?.kind, 'target');
-	assert.ok(print?.groups.every((g) => g.fields.every((f) => f.kind === 'readonly')));
+	assert.deepEqual(
+		print?.groups[0].fields.filter((f) => f.kind !== 'readonly').map((f) => `${f.label}:${f.at.join('.')}`),
+		['x:place.x', 'y:place.y', 'width:place.width']
+	);
+	assert.ok(print?.groups[1].fields.every((f) => f.kind === 'readonly'));
 	assert.equal(inspection(configuration, { target: 'nobody', path: [] }), null);
 	assert.equal(inspection(configuration, null), null);
 });
@@ -83,4 +87,32 @@ test('a node lives in the shared entity or in the target own; every target of a 
 	assert.deepEqual(targetsSharing(two, 'catpope'), ['catpope', 'second']);
 	assert.deepEqual(targetsSharing(two, 'note'), ['note']);
 	assert.deepEqual(targetsSharing(two, 'nobody'), []);
+});
+
+test("a target's whole tree: the shared entity or its own, its own field cleared when its content goes", () => {
+	const shared = entitySlot(configuration, 'catpope');
+	assert.deepEqual(shared?.at, ['configuration', 'entities', 'overlay']);
+	assert.deepEqual(shared?.own, ['configuration', 'entries', 0, 'target', 'entity']);
+	assert.equal(shared?.shared, 'overlay');
+	assert.equal(shared?.tree?.name, 'overlay');
+	const own = entitySlot(configuration, 'note');
+	assert.deepEqual(own?.at, ['configuration', 'entries', 1, 'target', 'entity']);
+	assert.equal(own?.shared, null);
+	const empty = entitySlot({ entries: [{ id: 'e', target: { id: 't' } }] }, 't');
+	assert.deepEqual(empty?.at, ['configuration', 'entries', 0, 'target', 'entity']);
+	assert.equal(empty?.tree, null);
+	assert.equal(entitySlot(configuration, 'missing'), null);
+});
+
+test('the files a new part can take: each once, from own and shared entities', () => {
+	const twice = { ...configuration, entries: [...configuration.entries, { id: 'x', target: { id: 'x', entity: { type: 'model', assets: [{ id: 'q', assetType: 'glb', src: '/assets/content/p0.glb' }, { id: 'v', assetType: 'video', src: '/assets/content/v.mp4' }] } } }] };
+	assert.deepEqual(experienceFiles(twice).map((f) => `${f.assetType}:${fileName(f.src)}`), ['glb:p0.glb', 'video:v.mp4']);
+	assert.deepEqual(experienceFiles({}), []);
+});
+
+test('a target in the document and its place', () => {
+	assert.deepEqual(targetDocPath(configuration, 'note'), ['configuration', 'entries', 1, 'target']);
+	assert.equal(targetDocPath(configuration, 'missing'), null);
+	assert.deepEqual(targetPlace(configuration, 'catpope'), { x: 10, y: 20, width: 200 });
+	assert.equal(targetPlace(configuration, 'note'), null);
 });

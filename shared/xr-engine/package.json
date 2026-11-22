@@ -24,6 +24,10 @@
 		"./network": {
 			"types": "./src/network-api.ts",
 			"default": "./src/network.ts"
+		},
+		"./tree": {
+			"types": "./src/tree-api.ts",
+			"default": "./src/tree.ts"
 		}
 	},
 	"files": [
@@ -32,7 +36,7 @@
 	],
 	"scripts": {
 		"check": "tsc --noEmit -p ./tsconfig.json",
-		"test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test test/network.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test test/network.test.ts test/tree.test.ts"
 	},
 	"peerDependencies": {
 		"three": "0.186.1"

@@ -2,8 +2,8 @@
  * What an app sees of the editor's stage: the types of `./stage`, with no import of OSCT's files (as reader-api.ts for
  * `./reader`). src/stage.ts is the code and must fit these declarations.
  *
- * The stage runs the experience's plugins, which are unchecked code: an app opens it only in a document that holds no
- * session (a frame sandboxed without `allow-same-origin`, as OSCT's editor does).
+ * The stage runs the experience's plugins in the app's own page, with the signed-in person's rights (no sandbox – the
+ * owner's decision of 2026-11-21: the person trusts their own plugins; the risk stays within their own scope).
  */
 import type { XrPluginCode, XrStatus } from './reader-api.js';
 
@@ -21,6 +21,15 @@ export interface XrPlacement {
 	position: [number, number, number];
 	rotation: [number, number, number];
 	scale: number | [number, number, number];
+}
+
+/** where a target's print lies on its surface, in mm from the surface's top left corner (the configuration's `place`) */
+export interface XrTargetPlace {
+	surface?: string;
+	x: number;
+	y: number;
+	width: number;
+	height?: number;
 }
 
 /** where the stage's camera stands: as a reader holds the phone, from above, low, from afar */
@@ -56,6 +65,8 @@ export interface XrStage {
 	tool(tool: XrStageTool, handles: boolean): void;
 	/** show a target's entity with these values (a live edit); null: as the configuration has it */
 	override(target: string, entity: unknown): void;
+	/** lay a target out at this place (a live edit): its print, its outline and its content move with it */
+	place(target: string, place: XrTargetPlace): void;
 	dispose(): Promise<void>;
 }
 

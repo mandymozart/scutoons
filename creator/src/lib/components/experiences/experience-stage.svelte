@@ -21,6 +21,7 @@
 		selected,
 		onpick,
 		edited,
+		moved,
 		tool,
 		handles,
 		onplace,
@@ -34,7 +35,9 @@
 		selected: StageRef | null;
 		onpick: (ref: StageRef | null) => void;
 		/** the last edit: the targets whose entity changed, with their trees as they are now */
-		edited: { at: number; trees: Record<string, object> } | null;
+		edited: { at: number; trees: Record<string, object | null> } | null;
+		/** a target's place changed: the stage lays it out there */
+		moved: { at: number; target: string; place: { surface?: string; x: number; y: number; width: number; height?: number } } | null;
 		tool: StageTool;
 		/** the gizmo's handles show even with select (the setting) */
 		handles: boolean;
@@ -102,6 +105,10 @@
 		const edit = edited;
 		if (!edit || !stage || shown.phase !== 'playing') return;
 		for (const [target, entity] of Object.entries(edit.trees)) stage.override(target, entity);
+	});
+	$effect(() => {
+		const move = moved;
+		if (move && stage && shown.phase === 'playing') stage.place(move.target, move.place);
 	});
 
 	onMount(() => () => {

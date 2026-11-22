@@ -6,7 +6,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
-	import { entityOf, nodeDocPath, targetsSharing, type NodeRef } from '$lib/editor/xr-nodes.ts';
+	import { entityOf, entitySlot, experienceFiles, nodeDocPath, targetDocPath, targetPlace, targetsSharing, type NodeRef, type PartAction, type XrFile } from '$lib/editor/xr-nodes.ts';
+	import { xrAddNode, xrIndentNode, xrNewNode, xrNodeAt, xrOutdentNode, xrRemoveNode, xrShiftNode, type XrAddPlace, type XrNode } from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
@@ -25,7 +26,8 @@
 	/**
 	 * The XR editor's workspace (#482): the stage is the experience and fills the whole workspace; the panels lie over it –
 	 * the outline in the Tree, the meta in the Experience tab, the scenes strip with the stage's view in the Scenes tab;
-	 * Publish and History are the bar's, as everywhere. Experiences are opened from the Library. View only so far.
+	 * Publish and History are the bar's, as everywhere. Experiences are opened from the Library. Parts are added in the
+	 * Inspector, moved, duplicated and removed in the Tree, placed with the gizmo.
 	 */
 	let { id }: { id: string | null } = $props();
 
@@ -42,7 +44,9 @@
 	/** the one selection: the Tree, the stage and the Inspector share it */
 	let selected = $state.raw<NodeRef | null>(null);
 	/** the last edit's trees for the stage (each target whose entity changed) */
-	let edited = $state.raw<{ at: number; trees: Record<string, object> } | null>(null);
+	let edited = $state.raw<{ at: number; trees: Record<string, object | null> } | null>(null);
+	/** the last moved target's place for the stage */
+	let moved = $state.raw<{ at: number; target: string; place: NonNullable<ReturnType<typeof targetPlace>> } | null>(null);
 
 	$effect(() => {
 		const current = id;
@@ -51,6 +55,7 @@
 			picked = '';
 			selected = null;
 			edited = null;
+			moved = null;
 			doc = current ? neutralDoc(experienceKey(current)) : null;
 			void doc?.load();
 		});
@@ -104,6 +109,14 @@
 	 */
 	function onedit(at: (string | number)[], value: string | number | boolean) {
 		const ref = selected;
+		if (doc && ref && ref.path === null) {
+			// a target: its place on the surface (mm); the stage lays it out there at once
+			const target = targetDocPath(configuration, ref.target);
+			if (!target || at[0] !== 'place') return;
+			doc.set([...target, ...at], value);
+			showPlace(ref.target);
+			return;
+		}
 		const node = ref ? nodeDocPath(configuration, ref) : null;
 		if (!doc || !ref || !node) return;
 		doc.set([...node, ...at], value);
@@ -125,19 +138,77 @@
 	function showEdits(target: string) {
 		const now = (content as { configuration?: unknown } | null)?.configuration;
 		const entries = ((now as { entries?: { target?: { id?: string } }[] } | undefined)?.entries ?? []).map((e) => e.target);
-		const trees: Record<string, object> = {};
-		for (const id of targetsSharing(now, target)) {
+		const trees: Record<string, object | null> = {};
+		for (const id of new Set([target, ...targetsSharing(now, target)])) {
 			const tree = entityOf(now, entries.find((t) => t?.id === id));
-			if (tree) trees[id] = $state.snapshot(tree) as object;
+			trees[id] = tree ? ($state.snapshot(tree) as object) : null;
 		}
 		edited = { at: Date.now(), trees };
+	}
+
+	/**
+	 * A target's tree changed (a part added, removed, moved or duplicated): the document takes the whole tree as one undo
+	 * step – the shared entity when the target shows one, so every target that shows it changes – the stage shows it, the
+	 * selection follows the part. No tree: the target's content is removed (a shared entity stays for the others).
+	 */
+	function setTree(target: string, tree: XrNode | null, path: number[] | null) {
+		const slot = entitySlot(configuration, target);
+		if (!doc || !slot) return;
+		if (tree) doc.set(slot.at, tree);
+		else doc.set(slot.own, undefined);
+		selected = { target, path: tree ? path : null };
+		showEdits(target);
+	}
+
+	/** the tree of a target as it is now, a plain copy (the document's own objects stay untouched) */
+	const treeOf = (target: string) => {
+		const slot = entitySlot(configuration, target);
+		return slot?.tree ? ($state.snapshot(slot.tree) as unknown as XrNode) : null;
+	};
+
+	/** the Tree's row menu and keys on a part: moves keep it and its children; the root's removal clears the target */
+	function onpart(ref: NodeRef, action: PartAction) {
+		const root = treeOf(ref.target);
+		if (!root) return;
+		const path = ref.path ?? [];
+		if (action === 'remove') {
+			if (!path.length) setTree(ref.target, null, null);
+			else setTree(ref.target, xrRemoveNode(root, path), path.slice(0, -1));
+			return;
+		}
+		const copy = action === 'duplicate' ? xrNodeAt(root, path) : undefined;
+		const edit =
+			action === 'up' ? xrShiftNode(root, path, -1)
+			: action === 'down' ? xrShiftNode(root, path, 1)
+			: action === 'indent' ? xrIndentNode(root, path)
+			: action === 'outdent' ? xrOutdentNode(root, path)
+			: copy ? xrAddNode(root, path, structuredClone(copy), 'next')
+			: null;
+		if (edit) setTree(ref.target, edit.tree, edit.path);
+	}
+
+	/** the Inspector's "add a part": a new node of the type with its file, next to the selected part or inside it */
+	function onadd(type: string, file: XrFile | null, place: XrAddPlace) {
+		const ref = selected;
+		if (!ref) return;
+		const node = xrNewNode(type, file ? { id: `${ref.target}-${Date.now().toString(36)}`, assetType: file.assetType, src: file.src } : undefined);
+		const edit = xrAddNode(treeOf(ref.target), ref.path ?? [], node, place);
+		setTree(ref.target, edit.tree, edit.path);
+	}
+
+	function showPlace(target: string) {
+		const place = targetPlace((content as { configuration?: unknown } | null)?.configuration, target);
+		if (place) moved = { at: Date.now(), target, place };
 	}
 
 	function step(back: boolean) {
 		if (!doc) return;
 		if (back) doc.undo();
 		else doc.redo();
-		if (selected) showEdits(selected.target);
+		if (selected) {
+			showEdits(selected.target);
+			showPlace(selected.target);
+		}
 	}
 
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
@@ -155,11 +226,11 @@
 {/snippet}
 
 {#snippet tree()}
-	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} />{/if}
+	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} {onpart} />{/if}
 {/snippet}
 
 {#snippet inspector()}
-	<ExperienceInspector {configuration} {selected} {onedit} />
+	<ExperienceInspector {configuration} {selected} {onedit} {onadd} files={experienceFiles(configuration)} />
 {/snippet}
 
 {#snippet meta()}
@@ -172,7 +243,7 @@
 
 <div class="xr-workspace" data-testid="experience-workspace">
 	{#if facts && scene}
-		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} {edited} {tool} handles={shell.settings.gizmoAlways} {onplace} bind:shown />
+		<ExperienceStage {content} assets={facts.assets} {scene} {view} {run} {selected} onpick={(ref) => (selected = ref)} {edited} {moved} {tool} handles={shell.settings.gizmoAlways} {onplace} bind:shown />
 	{:else}
 		<div class="empty">
 			{#if !id}

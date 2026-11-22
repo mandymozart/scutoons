@@ -1,15 +1,23 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import { Icon } from '@scutoons/ui';
-	import { sameRef, sceneRows, type NodeRef, type TreeRow } from '$lib/editor/xr-nodes.ts';
+	import { Icon, Menu } from '@scutoons/ui';
+	import { sameRef, sceneRows, type NodeRef, type PartAction, type TreeRow } from '$lib/editor/xr-nodes.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * The Tree tab: the open scene as an outliner (after OSCT's editor, panels/TreePanel.svelte) – its surfaces, each
 	 * entry, the entry's target and the target's entity as its node tree. A tap on a target or a node row selects it (the
-	 * stage outlines it, the Inspector shows it); the chevron folds a node; ↑ ↓ walk the selectable rows.
+	 * stage outlines it, the Inspector shows it); the chevron folds a node; ↑ ↓ walk the selectable rows. A part's ⋯ menu
+	 * and the keys move it (Alt ↑ ↓ among its siblings, Tab into the part above, Shift Tab out of its parent), duplicate it
+	 * or remove it (Delete); on the target's row the menu removes the target's content.
 	 */
-	let { configuration, scene, selected, onselect }: { configuration: unknown; scene: string; selected: NodeRef | null; onselect: (ref: NodeRef | null) => void } = $props();
+	let {
+		configuration,
+		scene,
+		selected,
+		onselect,
+		onpart
+	}: { configuration: unknown; scene: string; selected: NodeRef | null; onselect: (ref: NodeRef | null) => void; onpart: (ref: NodeRef, action: PartAction) => void } = $props();
 
 	const folded = new SvelteSet<string>();
 	const rows = $derived(sceneRows(configuration, scene, folded));
@@ -25,7 +33,35 @@
 		else folded.add(key);
 	}
 
+	/** the part's moves as the menu offers them: what cannot be done now is left out */
+	function moves(r: Extract<TreeRow, { kind: 'node' }>): { action: PartAction; label: string; keys: string }[] {
+		const path = r.ref.path ?? [];
+		if (!path.length) return [];
+		const last = path[path.length - 1];
+		const siblings = rows.filter((x) => x.kind === 'node' && x.ref.target === r.ref.target && x.ref.path?.length === path.length && x.ref.path.slice(0, -1).join('.') === path.slice(0, -1).join('.')).length;
+		return [
+			...(last > 0 ? [{ action: 'up' as const, label: m['creator.experiences_part_up'](), keys: 'Alt ↑' }] : []),
+			...(last < siblings - 1 ? [{ action: 'down' as const, label: m['creator.experiences_part_down'](), keys: 'Alt ↓' }] : []),
+			...(last > 0 ? [{ action: 'indent' as const, label: m['creator.experiences_part_indent'](), keys: 'Tab' }] : []),
+			{ action: 'outdent', label: m['creator.experiences_part_outdent'](), keys: '⇧ Tab' }
+		];
+	}
+
+	const KEYS: Record<string, PartAction> = { Delete: 'remove', Backspace: 'remove' };
+
 	function onkeydown(event: KeyboardEvent) {
+		const part = selected && selected.path !== null ? selected : null;
+		const action: PartAction | undefined =
+			part && event.altKey && event.key === 'ArrowUp' ? 'up'
+			: part && event.altKey && event.key === 'ArrowDown' ? 'down'
+			: part && event.key === 'Tab' && part.path!.length ? (event.shiftKey ? 'outdent' : 'indent')
+			: part ? KEYS[event.key]
+			: undefined;
+		if (part && action) {
+			event.preventDefault();
+			onpart(part, action);
+			return;
+		}
 		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 		event.preventDefault();
 		const at = refs.findIndex((r) => sameRef(r, selected));
@@ -51,6 +87,20 @@
 				{#if r.kind === 'target' && r.shared}<span class="hint">{m['creator.experiences_shows']({ entity: r.shared })}</span>{/if}
 				{#if r.kind === 'node'}<span class="hint">{r.type}</span>{/if}
 			</button>
+			{#if r.kind === 'node'}
+				<span class="more">
+					<Menu label={m['creator.experiences_part_menu']({ name: r.label })} align="end">
+						{#snippet trigger()}<Icon name="more-horizontal" size="0.95em" />{/snippet}
+						{#each moves(r) as move (move.action)}
+							<button type="button" onclick={() => onpart(r.ref, move.action)} data-testid="part-{move.action}">{move.label}<span class="keys">{move.keys}</span></button>
+						{/each}
+						<button type="button" onclick={() => onpart(r.ref, 'duplicate')} data-testid="part-duplicate">{m['creator.experiences_part_duplicate']()}</button>
+						<button type="button" onclick={() => onpart(r.ref, 'remove')} data-testid="part-remove"
+							>{r.ref.path?.length ? m['creator.experiences_part_remove']() : m['creator.experiences_content_remove']()}<span class="keys">Delete</span></button
+						>
+					</Menu>
+				</span>
+			{/if}
 		</div>
 	{/each}
 </div>
@@ -110,6 +160,21 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.more {
+		flex: none;
+		opacity: 0;
+	}
+	.row:hover .more,
+	.row.on .more,
+	.more:focus-within {
+		opacity: 1;
+	}
+	.more :global(.keys) {
+		margin-left: auto;
+		padding-left: 1rem;
+		color: var(--editor-muted, var(--text-muted));
+		font-size: var(--editor-label, 0.85em);
 	}
 	.hint {
 		margin-left: auto;

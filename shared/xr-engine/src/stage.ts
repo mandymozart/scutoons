@@ -7,6 +7,7 @@ import { ArScene } from '../osct/engine/src/scene/index';
 import type { EntityData } from '../osct/engine/src/types';
 import { ArState } from '../osct/engine/src/types/scene';
 import { setDeviceStorage } from '../osct/engine/src/utils/device-storage';
+import { getTarget } from '../osct/engine/src/content/game-config';
 import { loadExperience, pageProgress } from './load';
 import { stagePicking } from './stage-pick';
 import type * as api from './stage-api';
@@ -96,6 +97,16 @@ export const openStage: typeof api.openStage = async (container, configuration, 
 			// the engine builds the target's entity anew: the selection's outline goes onto the new objects
 			override: (target, entity) => {
 				view.overrideEntity(target, (entity ?? null) as EntityData | null);
+				gizmo?.sync();
+				outlineSelection();
+			},
+			// the engine's content holds the target the tracker lays out: its place changes there, the desk is laid out anew
+			// (OSCT's MockTracker.relayout – the content as it is now, nothing loaded again, the found targets stay found)
+			place: (target, place) => {
+				const data = getTarget(target);
+				if (!data) return;
+				data.place = { ...place };
+				tracker?.relayout();
 				gizmo?.sync();
 				outlineSelection();
 			},
