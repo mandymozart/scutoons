@@ -150,4 +150,34 @@ final class SceneContentTest extends TestCase
         if (getenv('UPDATE_FIXTURES')) file_put_contents($file, $pretty);
         self::assertSame(str_replace("\r", '', (string) @file_get_contents($file)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentTest (the decks read it)');
     }
+
+    /**
+     * The three crows of crows-rave as they are published: crow-wolf's and crow-fox's model on the persona, crow-lizard's
+     * on its look – each found under its own id, never as a persona of the old `crows`. Written to
+     * fixtures/scenes/scene-content-crows.json, which the headless scenario 46 reads.
+     */
+    public function testTheThreeCrowsModelsAreFoundOnThePersonaAndOnTheLook(): void
+    {
+        $views = fn(string $id) => ['neutral' => ['portrait' => "characters/$id/{$id}_portrait-neutral.webp"]];
+        $persona = fn(string $id, array $look, ?string $model) => ['id' => $id, 'personas' => [['id' => 'regular', 'looks' => [$look]] + ($model === null ? [] : ['model' => $model])]];
+        $registry = ['characters' => [
+            ['id' => 'crows', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'images' => $views('crows')]]], ['id' => 'lizard', 'model' => 'characters/crows/wrong.glb', 'looks' => [['id' => 'default']]]]],
+            $persona('crow-wolf', ['id' => 'default', 'default' => true, 'images' => $views('crow-wolf')], 'characters/crow-wolf/crow-wolf-regular.glb'),
+            $persona('crow-lizard', ['id' => 'default', 'default' => true, 'model' => 'characters/crow-lizard/crow-lizard.glb', 'images' => $views('crow-lizard')], null),
+            $persona('crow-fox', ['id' => 'default', 'default' => true, 'images' => $views('crow-fox')], 'characters/crow-fox/crow-fox-regular.glb'),
+        ]];
+        $a = SceneContent::compose([], fn() => null, ['crow-wolf', 'crow-lizard', 'crow-fox'], $registry);
+        $models = array_map(fn(array $c) => [$c['character'], $c['model']['path'] ?? null], $a['characters']);
+        self::assertSame([
+            'crow-wolf' => ['crow-wolf', 'characters/crow-wolf/crow-wolf-regular.glb'],
+            'crow-lizard' => ['crow-lizard', 'characters/crow-lizard/crow-lizard.glb'],
+            'crow-fox' => ['crow-fox', 'characters/crow-fox/crow-fox-regular.glb'],
+        ], $models, "the persona's model (wolf, fox), the look's (lizard)");
+        self::assertSame([], $a['missing']['characters']);
+
+        $pretty = json_encode(json_decode(SceneContent::json($a)), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
+        $file = dirname(__DIR__, 3) . '/tests/fixtures/scenes/scene-content-crows.json';
+        if (getenv('UPDATE_FIXTURES')) file_put_contents($file, $pretty);
+        self::assertSame(str_replace("\r", '', (string) @file_get_contents($file)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentTest (the decks read it)');
+    }
 }
