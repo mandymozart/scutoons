@@ -1582,6 +1582,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "delay-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4786,6 +4793,7 @@ dependencies = [
  "deck-module-host",
  "deck-show",
  "deck-space",
+ "delay-module",
  "dolly-module",
  "env-module",
  "filter-module",

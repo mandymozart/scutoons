@@ -126,8 +126,8 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 
 ## The small audio modules
 
-Seven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`. A level in dB is
+Eight factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -139,6 +139,7 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `filter` | `in` (any), `cutoff_mod` (control, oct), `notes` (event, key tracking) → `out` (any) | `mode` lp12 / lp24 / bp / hp / notch, `cutoff` Hz (log), `res` %, `drive` %, `key` % | acid |
 | `mixer` | `in1` … `in8` (2 each) → `out` (2), `send` (2) | per input `gain` dB, `pan` −1 … 1 (a balance), `send` dB, `mute`; `master` dB | pair |
 | `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
+| `delay` | `in` (2), `time_mod` (control, oct) → `out` (2) | `sync` free / 1/32 … 1/1 (triplets, dotted), `time` ms (log), `feedback` % (under 98), `damp` Hz, `pingpong` %, `spread` ms, `mix` %, `depth` ms + `rate` Hz (chorus at short times) | dub |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven
