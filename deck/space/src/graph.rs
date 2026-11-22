@@ -212,7 +212,7 @@ impl Kind {
             let list = |d: &'static deck_catalog::Descriptor, dir: Dir| -> Vec<Port> {
                 d.ports
                     .iter()
-                    .filter(|p| p.dir == dir)
+                    .filter(|p| p.dir == dir && p.ty != T::Instances)
                     .map(|p| Port {
                         name: static_str(&p.name),
                         channels: p.channels,
@@ -221,6 +221,7 @@ impl Kind {
                             T::Control => PortType::Control,
                             T::Event => PortType::Event,
                             T::Video => PortType::Video,
+                            T::Instances => unreachable!("filtered: a table is drawn, not cabled"),
                         },
                         names: &[],
                     })

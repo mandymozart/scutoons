@@ -10,6 +10,7 @@
 //! channels the cables carry) and can be hashed and tested.
 use crate::ev::Ev;
 use crate::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::instances::{INSTANCE_SIZE, TABLE_HEAD_SIZE};
 use crate::motion::{TransformIn, TransformOut};
 use core::mem::size_of;
 
@@ -33,6 +34,8 @@ pub const MAX_VARS: usize = 256;
 pub const MAX_ASSETS: usize = 16;
 /// records per block an event port may declare (deck-catalog's `MAX_EVENT_CAPACITY`)
 pub const MAX_EVENT_CAPACITY: usize = 512;
+/// instances an instance table may declare (deck-catalog's `MAX_INSTANCE_CAPACITY`)
+pub const MAX_INSTANCE_CAPACITY: usize = 1024;
 /// every region starts on this many bytes
 pub const ALIGN: u32 = 16;
 
@@ -126,6 +129,8 @@ pub struct Shape {
     pub assets: u8,
     /// a `*.motion` slot's module: the transform regions (`motion`)
     pub motion: bool,
+    /// the instances its table holds (`instances`; 0 = no table)
+    pub instances: u16,
 }
 
 const fn count_u8(a: &[u8]) -> usize {
@@ -158,6 +163,7 @@ impl Shape {
         sensors: [None; MAX_SENSORS],
         assets: 0,
         motion: false,
+        instances: 0,
     };
 
     pub const fn audio_in_ports(&self) -> usize {
@@ -193,6 +199,9 @@ impl Shape {
         }
         if self.assets as usize > MAX_ASSETS {
             return Err("more than MAX_ASSETS asset slots");
+        }
+        if self.instances as usize > MAX_INSTANCE_CAPACITY {
+            return Err("an instance table above MAX_INSTANCE_CAPACITY");
         }
         let mut i = 0;
         while i < MAX_AUDIO_PORTS {
@@ -271,6 +280,8 @@ pub struct Layout {
     pub events_out: [u32; MAX_EVENT_PORTS],
     /// `TransformOut` (a motion module; 0 = none)
     pub motion_out: u32,
+    /// `TableHead`, then `Instance[instances]` (a module that draws; 0 = none)
+    pub instances_out: u32,
     /// all bytes, `inp` and `out`
     pub size: u32,
     /// `dm_layout()`: FNV-1a over the ABI version, the record sizes, the shape and every offset
@@ -388,6 +399,10 @@ impl Layout {
         if s.motion {
             at = up(at + TRANSFORM_OUT_SIZE);
         }
+        let instances_out = if s.instances > 0 { at } else { 0 };
+        if s.instances > 0 {
+            at = up(at + TABLE_HEAD_SIZE + INSTANCE_SIZE * s.instances as u32);
+        }
         let size = at;
 
         let mut h = fnv_all(0x811c_9dc5, &[ABI_VERSION, IN_HDR_SIZE, OUT_HDR_SIZE, EV_SIZE, ASSET_INFO_SIZE, q, ALIGN]);
@@ -417,6 +432,10 @@ impl Layout {
         if s.motion {
             h = fnv_all(h, &[TRANSFORM_IN_SIZE, TRANSFORM_OUT_SIZE, motion_in, motion_out]);
         }
+        // and one without a table the hash it had before tables existed
+        if s.instances > 0 {
+            h = fnv_all(h, &[TABLE_HEAD_SIZE, INSTANCE_SIZE, s.instances as u32, instances_out]);
+        }
 
         Layout {
             shape: s,
@@ -436,6 +455,7 @@ impl Layout {
             audio_out,
             events_out,
             motion_out,
+            instances_out,
             size,
             hash: h,
         }
@@ -502,6 +522,15 @@ mod from_descriptor {
                         *n += 1;
                     }
                     PortType::Video => {}
+                    PortType::Instances => {
+                        if p.dir != Dir::Out || s.instances > 0 {
+                            return Err(format!("{at}: a module has one instance table, an output"));
+                        }
+                        if !(1..=MAX_INSTANCE_CAPACITY).contains(&(p.capacity as usize)) {
+                            return Err(format!("{at}: capacity {}, 1 … {MAX_INSTANCE_CAPACITY} instances", p.capacity));
+                        }
+                        s.instances = p.capacity;
+                    }
                 }
             }
             (s.control_in, s.control_out) = (ci as u16, co as u16);
@@ -602,6 +631,20 @@ mod tests {
     }
 
     #[test]
+    fn a_table_is_the_last_region_of_out_its_head_then_its_records() {
+        let mut s = Shape::EMPTY;
+        s.control_out = 1;
+        let plain = Layout::of(&s);
+        s.instances = 256;
+        let l = Layout::of(&s);
+        assert_eq!((plain.instances_out, l.instances_out), (0, plain.size));
+        assert_eq!(l.size - l.instances_out, 16 + 256 * 64);
+        let mut too_big = Shape::EMPTY;
+        too_big.instances = MAX_INSTANCE_CAPACITY as u16 + 1;
+        assert!(too_big.check().is_err());
+    }
+
+    #[test]
     fn a_stereo_synth_is_a_few_kilobytes_each_way() {
         // §1.1: "A stereo synth is ≈ 5 KB each way (v1 ≈ 72 KB)"
         let mut s = Shape::EMPTY;
@@ -636,7 +679,7 @@ mod tests {
     fn the_hash_moves_with_any_number_of_the_shape() {
         let base = Layout::of(&Shape::EMPTY).hash;
         let mut seen = vec![base];
-        let edits: [fn(&mut Shape); 12] = [
+        let edits: [fn(&mut Shape); 13] = [
             |s| s.params = 1,
             |s| s.control_in = 1,
             |s| s.control_out = 1,
@@ -649,6 +692,7 @@ mod tests {
             |s| s.sensors[0] = Some(Sensor::Position),
             |s| s.sensors[0] = Some(Sensor::PositionPrecise),
             |s| s.motion = true,
+            |s| s.instances = 8,
         ];
         for edit in edits {
             let mut s = Shape::EMPTY;

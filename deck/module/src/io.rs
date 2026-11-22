@@ -3,6 +3,7 @@
 //! creating one costs nothing and allocates nothing. `Planar` / `PlanarMut` are an audio port's channels (§1.3).
 use crate::ev::Ev;
 use crate::hdr::{AssetInfo, InHdr, OutHdr};
+use crate::instances::{Instance, Table, TableHead, TABLE_HEAD_SIZE};
 use crate::motion::{TransformIn, TransformOut};
 use crate::layout::{Layout, MAX_ASSETS, MAX_AUDIO_PORTS, MAX_EVENT_PORTS, MAX_SENSORS, QUANTUM};
 use core::marker::PhantomData;
@@ -473,8 +474,33 @@ impl<'a> Out<'a> {
         self.layout.shape.motion.then(|| unsafe { &mut *self.at::<TransformOut>(self.layout.motion_out) })
     }
 
+    /// the instance table's records that hold (none for a module without one)
+    pub fn instances(&self) -> &[Instance] {
+        let n = self.layout.shape.instances as usize;
+        if n == 0 {
+            return &[];
+        }
+        let at = self.layout.instances_out;
+        // SAFETY: the region is the head, then `n` records (4-aligned in a 16-aligned region)
+        unsafe {
+            let len = (*self.at::<TableHead>(at)).len as usize;
+            slice::from_raw_parts(self.at::<Instance>(at + TABLE_HEAD_SIZE), len.min(n))
+        }
+    }
+
+    /// the instance table to fill (empty for a module without one)
+    pub fn table(&mut self) -> Table<'_> {
+        let n = self.layout.shape.instances as usize;
+        if n == 0 {
+            return Table::new(None, &mut []);
+        }
+        let at = self.layout.instances_out;
+        // SAFETY: as `instances`; head and records are disjoint, `&mut self` is the only access
+        unsafe { Table::new(Some(&mut *self.at::<TableHead>(at)), slice::from_raw_parts_mut(self.at::<Instance>(at + TABLE_HEAD_SIZE), n)) }
+    }
+
     /// at the start of a call: the header zeroed, no control output written, no event out, the audio outputs silent
-    /// for `frames` frames, no part of a transform written
+    /// for `frames` frames, no part of a transform written (the instance table holds)
     pub fn reset(&mut self, frames: usize) {
         *self.hdr_mut() = OutHdr::ZERO;
         if let Some(t) = self.transform_mut() {

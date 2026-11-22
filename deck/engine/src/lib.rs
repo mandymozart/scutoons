@@ -422,6 +422,8 @@ pub struct Handles {
     pub(crate) prepared: Vec<Option<module::Prepared>>,
     /// values written outside the control step: (node, output port, its Param) – modules' control outputs (#342)
     pub(crate) feeds: Vec<(usize, usize, Param)>,
+    /// the instance tables of the modules that draw: the space reads them each frame
+    pub instances: Vec<Arc<deck_space::instances::Table>>,
 }
 
 impl Handles {
@@ -489,6 +491,7 @@ impl Engine {
             #[cfg(feature = "modules")]
             prepared: Vec::new(),
             feeds: Vec::new(),
+            instances: Vec::new(),
         };
         // the scene's tempo until the frame thread takes over
         let tempo = tempo_config(graph)?;
