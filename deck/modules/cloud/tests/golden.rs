@@ -5,7 +5,7 @@ mod common;
 use common::*;
 use deck_module::instances::shape;
 
-const GOLDEN: u64 = 0x5350_8d80_b3bd_f9c4;
+const GOLDEN: u64 = 0xbd68_ae15_58bf_4bc8;
 
 #[test]
 fn the_table_is_the_golden_one() {

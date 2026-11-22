@@ -171,7 +171,7 @@ One factory module draws (`deck/modules/cloud`, a control module, see "Drawing")
 
 | module | ports → out | parameters | preset |
 |---|---|---|---|
-| `cloud` | → `shapes` (instances, 24) | `puffs` 3–24, `size` m, `drift` m/s (the wind along x, either way), `height` m, `range` m (it wraps after), `hue`, `tint` %, `light` %; its layout is the node's `seed` | storm |
+| `cloud` | → `shapes` (instances, 96: 24 puffs, then 72 drops) | `puffs` 3–24, `size` m (glides), `drift` m/s (the wind along x, either way), `height` m, `range` m (it wraps after), `hue`, `tint` %, `light` %, `rain` 0–1 (the share of the drops falling – segments from the underside to the place, each starting again under a puff), `split` 0–1 (slices of the cloud drift apart as smaller parts and back), `swell` 0–1 (slowly grows and shrinks); its layout is the node's `seed` | storm |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven
