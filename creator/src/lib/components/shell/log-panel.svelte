@@ -106,15 +106,20 @@
 			{/each}
 		{/if}
 		{#if show !== 'problems' && view.events.length}
-			<p class="group"><span>{words('events')}</span><span>{view.events.length}{kinds.length ? ` · ${kinds.map(label).join(', ').toLowerCase()}` : ''}</span></p>
+			<p class="group" data-testid="log-group-events"><span>{words('events')}</span><span>{view.events.length}{kinds.length ? ` · ${kinds.map(label).join(', ').toLowerCase()}` : ''}</span></p>
 			{#each view.events as line, i (i)}
 				{@const kind = line.kind}
 				<div class="line {line.level}" data-testid="log-event">
 					<span class="dot" aria-hidden="true"></span>
-					<button type="button" class="body" onclick={() => press(line)} disabled={!line.jump}>
+					{#snippet said()}
 						<span class="where">{#if kind}<span class="kind" title={label(kind)}><Icon name={KIND_ICONS[kind]} size="0.95em" strokeWidth={2} /></span>{/if}<span class="lvl">{line.level === 'ok' || line.level === 'info' ? '' : line.level}</span> {line.source}{line.ref ? ` · ${line.ref}` : ''}</span>
 						<span class="text">{line.text}{line.times > 1 ? ` ×${line.times}` : ''}</span>
-					</button>
+					{/snippet}
+					{#if line.jump}
+						<button type="button" class="body" onclick={() => press(line)} title={m['shell.log_jump']()}>{@render said()}</button>
+					{:else}
+						<div class="body">{@render said()}</div>
+					{/if}
 					<span class="age" title={line.clock}>{line.age}</span>
 				</div>
 			{/each}
@@ -170,7 +175,8 @@
 	.pill:hover:not(:disabled) {
 		background: var(--editor-hover);
 	}
-	.pill[aria-pressed='true'] {
+	.pill[aria-pressed='true'],
+	.pill[aria-pressed='true']:hover {
 		background: var(--editor-pressed);
 		color: var(--editor-pressed-text);
 		text-shadow: none;
@@ -238,10 +244,7 @@
 		text-align: left;
 		text-shadow: inherit;
 	}
-	.body:disabled {
-		cursor: default;
-	}
-	.body:not(:disabled):hover .text {
+	button.body:hover .text {
 		text-decoration: underline;
 	}
 	.where,
