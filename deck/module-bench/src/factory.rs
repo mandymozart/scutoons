@@ -1,7 +1,7 @@
-//! The small factory modules' rows: env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq, convolver, cloud and bamboo, each alone under one
+//! The small factory modules' rows: env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq, convolver, cloud, bamboo and sampler, each alone under one
 //! runtime and as busy as a rig makes it – its factory preset, noise on two channels of every audio input, 0.5 on its
 //! control inputs, and on every event input a note on in each call (its off in the next), so an envelope retriggers
-//! and transpose and arp have notes to move; the convolver plays a 4 s stereo response from its asset slot. A sample is one call of 128 frames; the table is the suite's, a row a module.
+//! and transpose and arp have notes to move; the convolver plays a 4 s stereo response from its asset slot, the sampler 2 s of a stereo sound from its. A sample is one call of 128 frames; the table is the suite's, a row a module.
 use super::{call, instance, load, now_us, stats, Fnv, Runtime, Workload, RATE};
 use anyhow::Result;
 use deck_module::dsp::noise::White;
@@ -9,7 +9,7 @@ use deck_module::{Ev, QUANTUM};
 use deck_module_host::{AssetData, Setup};
 use std::fmt::Write;
 
-pub const NAMES: [&str; 14] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose", "delay", "reverb", "arp", "drumseq", "convolver", "cloud", "bamboo"];
+pub const NAMES: [&str; 15] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose", "delay", "reverb", "arp", "drumseq", "convolver", "cloud", "bamboo", "sampler"];
 
 /// `n` calls of the module in `wasm`
 pub fn workload<B: Runtime>(engine: &B::Engine, name: &str, wasm: &[u8], n: usize) -> Result<Workload> {
@@ -19,6 +19,9 @@ pub fn workload<B: Runtime>(engine: &B::Engine, name: &str, wasm: &[u8], n: usiz
     let mut setup = Setup::new(RATE, 1).unbudgeted();
     if name == "convolver" {
         setup = setup.asset(long_response());
+    }
+    if name == "sampler" {
+        setup = setup.asset(stereo_sound());
     }
     let (mut i, inst) = instance(&loaded, setup)?;
     w.instantiate_us = inst;
@@ -93,6 +96,14 @@ fn long_response() -> AssetData {
     };
     let (l, r) = (side(5), side(6));
     AssetData::pcm(0, &[&l, &r], RATE as f32)
+}
+
+/// 2 s of a stereo sound at 44.1 kHz (read at the bench's rate): seeded noise
+fn stereo_sound() -> AssetData {
+    let n = 88_200;
+    let (mut a, mut b) = (White::new(7), White::new(8));
+    let (l, r): (Vec<f32>, Vec<f32>) = (0..n).map(|_| (a.sample() * 0.5, b.sample() * 0.5)).unzip();
+    AssetData::pcm(0, &[&l, &r], 44_100.0)
 }
 
 /// the rows as a table

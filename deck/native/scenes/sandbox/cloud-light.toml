@@ -8,7 +8,7 @@
 # [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
 # Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
-# From deck/ (modules: cloud, analog, mixer in DECK_MODULES):
+# From deck/ (modules: cloud, sampler, mixer in DECK_MODULES):
 #   cargo run -p deck-native --release --features modules -- --dev --scene cloud-light --windowed
 
 [stage]
@@ -35,69 +35,24 @@ tint = 60.0
 
 [[node]]
 id = "storm_thunder"
-kind = "module:analog"
-a1_level = 0.5
-a1_vel = 0.5
-a2_level = 1.0
-a2_vel = 0.5
-ae1_a = 0.001
-ae1_d = 0.3
-ae1_r = 0.2
-ae1_s = 0.0
-ae2_a = 0.02
-ae2_d = 2.5
-ae2_r = 1.5
-ae2_s = 0.0
-f1_cutoff = 500.0
-f1_env = 0.6
-f1_mode = 0.0
-f1_res = 0.1
-f1_vel = 0.3
-f2_cutoff = 90.0
-f2_drive = 0.5
-f2_env = 0.25
-f2_mode = 0.0
-f2_res = 0.3
-fe1_a = 0.001
-fe1_d = 0.25
-fe1_r = 0.2
-fe1_s = 0.0
-fe2_a = 0.01
-fe2_d = 1.5
-fe2_r = 1.0
-fe2_s = 0.0
-l1_a2 = 0.5
-l1_rate = 7.0
-l1_shape = 4.0
-noise_level = 1.0
-noise_route = 2.0
-o1_level = 0.0
-o2_level = 0.0
-volume = 0.9
+kind = "module:sampler"
+mode = 1.0
+pitch = 1.0
+release = 0.8
+velocity = 50.0
+
+[node.assets]
+sample = "scutoons/sounds/cloud-thunder.wav"
 
 [[node]]
 id = "storm_kick"
-kind = "module:analog"
-a1_level = 0.0
-a2_level = 1.0
-a2_vel = 0.4
-ae2_a = 0.001
-ae2_d = 0.32
-ae2_r = 0.08
-ae2_s = 0.0
-f2_cutoff = 8000.0
-f2_drive = 0.35
-fe2_a = 0.001
-fe2_d = 0.045
-fe2_p2 = 24.0
-fe2_r = 0.05
-fe2_s = 0.0
-o1_level = 0.0
-o2_key = 0.0
-o2_level = 1.0
-o2_route = 1.0
-o2_semi = -24.0
-o2_wave = 3.0
+kind = "module:sampler"
+pitch = 1.0
+velocity = 40.0
+voices = 2.0
+
+[node.assets]
+sample = "scutoons/sounds/cloud-kick.wav"
 
 [[node]]
 id = "storm_mix"
@@ -234,9 +189,9 @@ trigger = "storm_cloud.gate"
 
 [being]
 size = 0.5
-drift = 0.05999999865889549
-breath = 0.03500000014901161
-wobble = 0.02500000037252903
+drift = 0.0
+breath = 0.0
+wobble = 0.0
 hose = 1.0
 bubbles = 1.0
 expose = ["storm_cloud.hold", "storm_cloud.rate", "storm_cloud.sync", "storm_cloud.rumble", "storm_cloud.thump", "storm_cloud.flash", "storm_cloud.rain", "storm_cloud.split", "storm_cloud.size"]

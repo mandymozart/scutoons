@@ -1,12 +1,13 @@
 //! The bamboo forest (#780): the module rig `bamboo-forest` – a grove track (the bamboo module, the wind's sequencer) and
-//! a perc track (an analog knock its hits play) – and the sandbox `bamboo-delay`, the rig with the perc track's sound sent
+//! a perc track (a sampler's knock its hits play; the sound the stand-in, from a cache through the deck's loader, #804) – and the sandbox `bamboo-delay`, the rig with the perc track's sound sent
 //! at scene level to a delay bus (`fx-delay`, as crows-rave sends its crows). Through the whole engine with the real
-//! modules (bamboo, analog, delay as wasm in wasmtime): every hit is heard on the perc track at its frame, the delay
+//! modules (bamboo, sampler, delay as wasm in wasmtime): every hit is heard on the perc track at its frame, the delay
 //! echoes the hits a dotted eighth later, a run is the same twice.
 //! The sandbox is written by `the_sandbox_is_the_rig_with_a_delay_bus`, never by hand:
 //!   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test bamboo_forest
 //! `BAMBOO_OUT_DIR=<dir>` also writes 16 s of the sandbox (the wind rising and dying away) as `<dir>/bamboo-delay.wav`.
-#![cfg(all(feature = "modules", feature = "events"))]
+#![cfg(all(feature = "modules", feature = "events", feature = "chapter"))]
+mod stand_ins;
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
 use deck_events::{Event, Time};
 use deck_module_host::{Mode, Setup};
@@ -32,19 +33,19 @@ const HEADER: &str = "\
 # echoes join the mix on its second input – the scene's own spores, as crows-rave sends its crows.
 # Written by deck-native's tests/bamboo_forest.rs `the_sandbox_is_the_rig_with_a_delay_bus` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test bamboo_forest
-# From deck/ (modules: bamboo, analog, delay in DECK_MODULES):
+# From deck/ (modules: bamboo, sampler, delay in DECK_MODULES):
 #   cargo run -p deck-native --release --features modules -- --dev --scene bamboo-delay --windowed
 
 ";
 
-/// bamboo, analog and delay as release wasm, built once, loaded into the library
+/// bamboo, sampler and delay as release wasm, built once, loaded into the library
 fn load_modules() {
     static LOADED: OnceLock<()> = OnceLock::new();
     LOADED.get_or_init(|| {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
         let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("wasm-modules");
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let crates = ["bamboo", "analog", "delay"];
+        let crates = ["bamboo", "sampler", "delay"];
         let mut args: Vec<String> = ["build", "--release", "--target", "wasm32-unknown-unknown"].map(String::from).to_vec();
         for c in crates {
             args.extend(["-p".into(), format!("{c}-module")]);
@@ -62,9 +63,10 @@ fn load_modules() {
 struct Unbudgeted;
 
 impl ModuleSource for Unbudgeted {
-    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64) -> anyhow::Result<Opened> {
+    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64, assets: Vec<deck_module_host::AssetData>) -> anyhow::Result<Opened> {
         let loaded = Library::global().of_kind(kind).ok_or_else(|| anyhow::anyhow!("the module '{}' is not loaded", kind.spec().kind))?;
-        let instance = Instance::with_setup(&loaded, Setup::new(rate, seed).mode(Mode::Show).unbudgeted())?.into_host();
+        let setup = assets.into_iter().fold(Setup::new(rate, seed).mode(Mode::Show).unbudgeted(), Setup::asset);
+        let instance = Instance::with_setup(&loaded, setup)?.into_host();
         Ok(Opened { instance: Box::new(instance), layout: loaded.layout.clone(), params: loaded.desc.params.len() })
     }
 }
@@ -125,6 +127,8 @@ fn the_rig_is_a_grove_and_its_knock_on_two_tracks() {
     assert!(has_link(&s, "bamboo_forest.hits", "perc_knock.notes"), "the hits play the knock");
     assert!(has_link(&s, "perc_knock.out", "mix1.in1"), "the perc track on its strip");
     assert!(!s.links.iter().any(|l| l.from.starts_with("bamboo_forest.") && l.to.starts_with("mix")), "the grove is silent");
+    let knock = s.nodes.iter().find(|n| n.id == "perc_knock").unwrap();
+    assert_eq!((knock.kind.as_str(), knock.params["assets"]["sample"].as_str()), ("module:sampler", Some("scutoons/sounds/bamboo-knock.wav")));
     let b: deck_space::rig::Bundle = toml::from_str(deck_native::rig::MODULE_RIGS[3].1).unwrap();
     assert_eq!((b.rig.subject.as_str(), b.rig.tracks.len()), ("item.bamboo", 2));
     let sticks = b.rig.sticks.clone().unwrap();
@@ -166,6 +170,7 @@ fn run(s: &Scene, seconds: f64, mut play: impl FnMut(f64, &mut Controls, &Graph)
     let g = Graph::build(s).unwrap();
     let mut seams = Seams::with_deck(DeckConfig::device(2));
     seams.modules = Some(Arc::new(Unbudgeted));
+    seams.assets = Some(stand_ins::loader("bamboo-forest"));
     let (mut e, mut h) = Engine::build_seams(&g, RATE as f32, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
     let mut boxes = h.events.take_outbox_slots();
     let (m, _) = h.tempo.map().expect("a tempo");

@@ -3,9 +3,11 @@
 # (0.5 … 32 a second); each repeat flashes the cloud. The left stick is the storm: x the rate, y the hold (up past the
 # middle holds), so an X/Y pad, a MIDI fader or a game controller plays it. The cloud's `period`, `phase`, `pulse` and
 # `red` `green` `blue` outputs carry its time and colour out to lights and pictures.
-# The thunder and the kick are analog voices – the kick is analog.preset.json's `kick` written out, the thunder noise
-# through a cracking and a rumbling low-pass. TODO(#780): real thunder and kick samples once a sampler module exists.
-# Modules play only on a native deck built with the `modules` feature (cloud, analog and mixer in DECK_MODULES), so this
+# The thunder and the kick are samplers, each playing the sound its slot names at the sound's own pitch: the thunder held
+# for half a repeat, then fading, the kick a one-shot. A sound that cannot be had leaves its sampler silent (a log line).
+# TODO(#804): the sounds under scutoons/sounds/ are synthesized stand-ins (deck-native tests/stand_ins) until recordings
+# replace them under the same paths.
+# Modules play only on a native deck built with the `modules` feature (cloud, sampler and mixer in DECK_MODULES), so this
 # rig is in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:cloud-storm`.
 
 [rig]
@@ -20,8 +22,8 @@ name = { en = "Storm cloud", de = "Gewitterwolke" }
 out = "mix.out"
 node = [
   { id = "cloud", kind = "module:cloud", puffs = 18.0, size = 6.0, drift = 0.6, height = 6.0, light = 45.0, rain = 0.5, rate = 0.6, sync = 1.0, flash = 0.8 },
-  { id = "thunder", kind = "module:analog", volume = 0.9, o1_level = 0.0, o2_level = 0.0, noise_level = 1.0, noise_route = 2.0, f1_mode = 0.0, f1_cutoff = 500.0, f1_res = 0.1, f1_env = 0.6, f1_vel = 0.3, fe1_a = 0.001, fe1_d = 0.25, fe1_s = 0.0, fe1_r = 0.2, f2_mode = 0.0, f2_cutoff = 90.0, f2_res = 0.3, f2_drive = 0.5, f2_env = 0.25, fe2_a = 0.01, fe2_d = 1.5, fe2_s = 0.0, fe2_r = 1.0, a1_level = 0.5, a1_vel = 0.5, ae1_a = 0.001, ae1_d = 0.3, ae1_s = 0.0, ae1_r = 0.2, a2_level = 1.0, a2_vel = 0.5, ae2_a = 0.02, ae2_d = 2.5, ae2_s = 0.0, ae2_r = 1.5, l1_shape = 4.0, l1_rate = 7.0, l1_a2 = 0.5 },
-  { id = "kick", kind = "module:analog", o1_level = 0.0, o2_wave = 3.0, o2_key = 0.0, o2_semi = -24.0, o2_level = 1.0, o2_route = 1.0, f2_cutoff = 8000.0, f2_drive = 0.35, fe2_a = 0.001, fe2_d = 0.045, fe2_s = 0.0, fe2_r = 0.05, fe2_p2 = 24.0, a1_level = 0.0, a2_level = 1.0, a2_vel = 0.4, ae2_a = 0.001, ae2_d = 0.32, ae2_s = 0.0, ae2_r = 0.08 },
+  { id = "thunder", kind = "module:sampler", mode = 1.0, pitch = 1.0, velocity = 50.0, release = 0.8, assets = { sample = "scutoons/sounds/cloud-thunder.wav" } },
+  { id = "kick", kind = "module:sampler", pitch = 1.0, velocity = 40.0, voices = 2.0, assets = { sample = "scutoons/sounds/cloud-kick.wav" } },
   { id = "mix", kind = "module:mixer", gain1 = -3.0, gain2 = 0.0 },
 ]
 link = [
