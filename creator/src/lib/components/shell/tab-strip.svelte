@@ -105,15 +105,15 @@
 		align-items: center;
 		max-width: 16rem;
 		height: var(--editor-row);
-		border-radius: 1.2rem;
-		color: var(--editor-text);
+		border-radius: var(--editor-radius);
+		color: var(--editor-muted);
 	}
+	/* the front item: a thin outline, the others muted */
 	.item.front {
 		flex-shrink: 1;
 		max-width: 40rem;
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		text-shadow: none;
+		color: var(--editor-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
 	}
 	.item:not(.front):hover {
 		background: var(--editor-hover);
@@ -157,10 +157,7 @@
 	.round[aria-expanded='true'] {
 		background: var(--editor-hover);
 	}
-	.item.front .close:hover {
-		background: transparent;
-		opacity: 0.7;
-	}
+
 	.count {
 		font-size: var(--editor-small);
 	}

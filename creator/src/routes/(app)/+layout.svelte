@@ -246,7 +246,15 @@
 </div>
 
 <style>
+	/* day: the window and a page on it are white (the stage); panels and controls keep their surface */
+	:global(html[data-theme='day']:has(.creator) body),
+	:global(html[data-theme='day']) .creator {
+		--page-ground: var(--editor-stage);
+		--tool-ground: var(--editor-stage);
+		background: var(--editor-stage);
+	}
 	.creator {
+		--page-ground: var(--editor-surface);
 		--cyan: var(--primary-cyan);
 		--muted: var(--text-muted);
 		--error: var(--state-error);
@@ -290,7 +298,7 @@
 		margin: 0 auto 1rem;
 		border: var(--editor-edge) solid var(--editor-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: var(--page-ground);
 	}
 	.stage.fill .stage-page {
 		flex: 1;

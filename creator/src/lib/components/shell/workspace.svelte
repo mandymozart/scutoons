@@ -19,8 +19,8 @@
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
-	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats the same –
-	 * the stage never gives way. A tab can take the stage (◱ main) or open over everything (⤢).
+	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats over the
+	 * stage – the stage never gives way. The front panel's tab takes the stage with M, opens over everything with Shift M.
 	 */
 	let { kind, toon = null }: { kind: WorkspaceKind | 'home'; toon?: string | null } = $props();
 
@@ -73,7 +73,7 @@
 	const over = $derived(shell.over && available.has(shell.over) ? shell.over : null);
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
 	let stage = $state<ReturnType<typeof Stage>>();
-	/** ◱: the tab alone on the stage, or back */
+	/** the tab alone on the stage, or back */
 	function onmain(tab: string) {
 		if (!staged.includes(tab)) stage?.take(tab);
 		shell.send(tab);
@@ -82,7 +82,7 @@
 		const t = e.target as HTMLElement | null;
 		return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
 	};
-	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: ◱ for the front panel's tab */
+	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: the front panel's tab takes the stage, Shift M: over everything */
 	function onkeydown(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e) || floats.heldTab || library.browser) return;
 		if (e.key === 'Escape') {
@@ -95,7 +95,8 @@
 			const tab = front && floats.activeOf(front);
 			if (!tab) return;
 			e.preventDefault();
-			onmain(tab);
+			if (e.shiftKey) onover(tab);
+			else onmain(tab);
 		}
 	}
 
@@ -130,10 +131,8 @@
 	{#key floats}
 		<FloatingPanels
 			{floats}
-			{onmain}
-			{onover}
 			stageDrop={{ zone: (t, x, y) => stage?.zone(t, x, y) ?? null, drop: (t, x, y) => stage?.drop(t, x, y) ?? false }}
-			labels={{ fold: m['creator.fold_panel'](), open: m['creator.unfold_panel'](), close: m['creator.close'](), main: m['shell.main'](), back: m['shell.main_back'](), over: m['shell.over']() }}
+			labels={{ close: m['creator.close']() }}
 		>
 			{#snippet tab(id)}
 				{#if staged.includes(id) || id === over}

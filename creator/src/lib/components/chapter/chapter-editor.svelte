@@ -1144,7 +1144,7 @@
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		border: var(--editor-edge) solid var(--editor-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: var(--page-ground, var(--editor-surface));
 	}
 	.canvas-scroll {
 		overflow: auto;

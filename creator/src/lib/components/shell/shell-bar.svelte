@@ -126,8 +126,7 @@
 		background: var(--editor-hover);
 	}
 	.round[aria-current='page'] {
-		background: var(--editor-pressed) !important;
-		color: var(--editor-pressed-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
 	}
 	.pill {
 		padding: 0 0.85rem;
