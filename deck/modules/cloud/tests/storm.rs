@@ -1,6 +1,7 @@
 //! The storm's repeater, measured: with sync every repeat lands on its note value's grid of the tempo clock to the
 //! frame, however the calls are cut; free, the repeats follow the rate a second; a new rate glides through the values
-//! between; nothing fires while nothing is held; time, flash and colour leave on the control outputs.
+//! between; nothing fires while nothing is held; time, flash, gate and colour leave on the control outputs; the gate rises at
+//! every repeat at every rate.
 mod common;
 use cloud_module::DIVISIONS;
 use common::*;
@@ -175,4 +176,66 @@ fn time_flash_and_colour_go_out() {
     assert_eq!([0, 1, 2].map(|i| b.rig.control_out(Cloud::RED + i).0), [0.5, 0.0, 0.0], "red at half light");
     let hit = table_at_hit.expect("a repeat");
     assert!(hit[0].colour[1] > 0.2 && quiet.unwrap() < hit[0].colour[0], "the flash lights the puffs");
+}
+
+/// per call over `frames`: (a repeat in it, the gate, the phase), in calls of the sizes `cut` cycles through
+fn gates(b: &mut Bench<Cloud>, frames: usize, cut: &[usize]) -> Vec<(bool, f32, f32)> {
+    let mut calls = vec![];
+    let end = b.frame + frames as u64;
+    let mut k = 0;
+    while b.frame < end {
+        b.run(cut[k % cut.len()].min((end - b.frame) as usize));
+        let hit = b.rig.events_out(Cloud::KICK).iter().any(|e| e.kind() == Some(Kind::NoteOn));
+        calls.push((hit, b.rig.control_out(Cloud::GATE).0, b.rig.control_out(Cloud::PHASE).0));
+        k += 1;
+    }
+    calls
+}
+
+#[test]
+fn the_gate_rises_at_every_repeat_and_is_low_in_the_second_half() {
+    // 1/32 synced (3000 frames at 120 BPM) and 32 a second free (1500 frames): pulse never falls below 0.25 there
+    for (sync, what) in [(1.0, "1/32"), (0.0, "32 a second")] {
+        for cut in [&[128usize][..], &[37, 128, 5]] {
+            let mut b = held(1, sync, 1.0);
+            let calls = gates(&mut b, 48_000, cut);
+            let hits = calls.iter().filter(|c| c.0).count();
+            assert!(hits >= 16, "{what}: {hits} repeats");
+            let mut was = 0.0;
+            let mut rises = 0;
+            for (k, &(hit, gate, phase)) in calls.iter().enumerate() {
+                assert!(gate == 0.0 || gate == 1.0, "{what}: {gate}");
+                if gate > was {
+                    rises += 1;
+                    assert!(hit, "{what} {cut:?}: call {k} rises without a repeat");
+                }
+                if hit {
+                    assert_eq!(gate, 1.0, "{what} {cut:?}: call {k} has a repeat, the gate is up");
+                }
+                if phase >= 0.5 || (phase < 1e-5 && !hit) {
+                    assert_eq!(gate, 0.0, "{what} {cut:?}: call {k}: the second half of the period (phase {phase})");
+                } else if phase < 0.499 {
+                    assert_eq!(gate, 1.0, "{what} {cut:?}: call {k}: the first half of the period (phase {phase})");
+                }
+                was = gate;
+            }
+            assert_eq!(rises, hits, "{what} {cut:?}: one rise a repeat");
+        }
+    }
+}
+
+#[test]
+fn the_gate_is_low_while_not_held() {
+    for sync in [0.0, 1.0] {
+        let mut b = bench(2);
+        b.set("sync", sync).set("rate", 1.0);
+        assert!(gates(&mut b, 24_000, &[128]).iter().all(|c| c.1 == 0.0), "{sync}: not held");
+        b.set("hold", 1.0);
+        assert!(gates(&mut b, 12_000, &[128]).iter().any(|c| c.1 == 1.0));
+        b.set("hold", 0.0);
+        assert!(gates(&mut b, 24_000, &[128]).iter().all(|c| c.1 == 0.0), "{sync}: released");
+    }
+    let mut s = held(1, 1.0, 1.0);
+    s.rig.set_tempo(0.0, 0.0, 120.0, 4, false);
+    assert!(gates(&mut s, 24_000, &[128]).iter().all(|c| c.1 == 0.0), "a stopped clock: no repeats, no gate");
 }

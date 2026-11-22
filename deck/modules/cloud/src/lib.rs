@@ -7,8 +7,10 @@
 //! The storm: while `hold` is held a repeater fires – each repeat a note on `thunder` and on `kick` (a cable a voice) and
 //! a flash that lights and swells the puffs for a moment. `rate` (it glides) sets how fast: with `sync` on it picks a
 //! note value from 1/1 to 1/32 and every repeat lands on that grid of the tempo clock (a stopped clock: none); off, it
-//! runs free from 0.5 to 32 a second, the first repeat at the press. `period`, `phase` and `pulse` send the repeater's
-//! time out, `red` `green` `blue` the cloud's colour – for lights and pictures on the same beat.
+//! runs free from 0.5 to 32 a second, the first repeat at the press. `period`, `phase`, `pulse` and `gate` send the
+//! repeater's time out, `red` `green` `blue` the cloud's colour – for lights and pictures on the same beat. `gate` is 1
+//! from each repeat for the first half of the period and 0 for the second (0 while not held), so it rises at every repeat
+//! at every rate – a strobe's trigger; `pulse`'s fade does not fall far enough between fast repeats.
 //!
 //! Build: `cargo build --release --target wasm32-unknown-unknown -p cloud-module`.
 #![allow(clippy::duplicated_attributes)]
@@ -49,6 +51,7 @@ const KICK_KEY: f32 = 36.0;
 #[port(output, control, name = "period", doc = "the repeat's period in seconds")]
 #[port(output, control, name = "phase", doc = "how far into the period, 0 at a repeat … 1")]
 #[port(output, control, name = "pulse", doc = "the flash: 1 at a repeat, fading")]
+#[port(output, control, name = "gate", doc = "1 from each repeat for the first half of the period, 0 for the second; 0 while not held")]
 #[port(output, control, name = "red", doc = "the cloud's colour, red 0 … 1")]
 #[port(output, control, name = "green", doc = "the cloud's colour, green 0 … 1")]
 #[port(output, control, name = "blue", doc = "the cloud's colour, blue 0 … 1")]
@@ -113,6 +116,10 @@ struct Repeater {
     count: u32,
     /// the flash, 1 at a repeat
     pulse: f32,
+    /// a repeat has fired since the press
+    fired: bool,
+    /// frames from the last repeat to the end of the last call
+    since: f64,
 }
 
 /// each drop's way down (0 at the underside, 1 at the place) and how often it has fallen
@@ -161,6 +168,9 @@ impl Cloud {
         let held = self.hold >= 0.5;
         let pressed = held && !self.repeater.held;
         self.repeater.held = held;
+        if !held {
+            self.repeater.fired = false;
+        }
         let tempo = ctx.tempo();
         let (frame, frames) = (ctx.frame(), ctx.frames());
         let seconds_a_beat = 60.0 / tempo.bpm.max(1.0);
@@ -215,6 +225,10 @@ impl Cloud {
         }
         if n > 0 {
             self.repeater.pulse = 1.0;
+            self.repeater.fired = true;
+            self.repeater.since = f64::from(frames as u32 - hits[n - 1]);
+        } else {
+            self.repeater.since += frames as f64;
         }
         (period, phase)
     }
@@ -253,6 +267,9 @@ impl Module for Cloud {
         let rate = self.rated.step(Smooth::coef(RATE_GLIDE, dt as f32));
         let (period, phase) = self.repeat(ctx, out, rate);
         let pulse = self.repeater.pulse;
+        let ticking = self.sync < 0.5 || ctx.tempo().running;
+        // counted in frames from the repeat itself: a call ending on the grid is still the period's second half
+        let gate = self.repeater.held && self.repeater.fired && ticking && self.repeater.since < 0.5 * period * ctx.rate();
         let lit = self.flash.clamp(0.0, 1.0) * pulse;
         self.repeater.pulse = pulse * math::exp(-(dt as f32) / FLASH_FADE);
         // a slow swell, about twenty seconds a breath
@@ -266,6 +283,7 @@ impl Module for Cloud {
         out.set(Self::PERIOD, period as f32);
         out.set(Self::PHASE, phase as f32);
         out.set(Self::PULSE, pulse);
+        out.set(Self::GATE, if gate { 1.0 } else { 0.0 });
         out.set(Self::RED, shown[0]);
         out.set(Self::GREEN, shown[1]);
         out.set(Self::BLUE, shown[2]);
