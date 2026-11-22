@@ -143,7 +143,7 @@
 		{#if model.loading}
 			<p class="quiet">{m['character.place_reading']()}</p>
 		{:else if model.why}
-			<p class="quiet" data-testid="character-3d-why"><b>{model.why}</b></p>
+			<p class="quiet warn" data-testid="character-3d-why">{model.why}</p>
 		{:else if facts?.missing.length}
 			<p class="quiet" data-testid="character-3d-missing">{#each facts.missing as line, i (i)}{#if i}<br />{/if}{line}{/each}</p>
 		{/if}
@@ -284,7 +284,7 @@
 		font-size: var(--editor-small);
 		line-height: 1.6;
 	}
-	.quiet b {
+	.quiet.warn {
 		font-weight: inherit;
 		color: var(--editor-warn);
 	}
