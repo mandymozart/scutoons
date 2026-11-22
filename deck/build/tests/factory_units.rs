@@ -19,6 +19,7 @@ fn every_factory_module_passes_the_compile_check() {
         ("mixer", mixer_module::Mixer::DESCRIPTOR),
         ("transpose", transpose_module::Transpose::DESCRIPTOR),
         ("delay", delay_module::Delay::DESCRIPTOR),
+        ("reverb", reverb_module::Reverb::DESCRIPTOR),
     ] {
         check(json).unwrap_or_else(|e| panic!("{name}: {e}"));
     }

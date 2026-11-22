@@ -14,11 +14,13 @@
 //! | `follower` | envelope follower: attack, release |
 //! | `level` | decibels as a factor, silent at the bottom |
 //! | `delay` | delay line (whole and cubic fractional reads), allpass, damped comb |
+//! | `fdn` | eight-line feedback delay network (Householder), its loop gains and prime lengths |
 //! | `fft` | radix-2 FFT of real input, and back |
 //! | `arith` | f64 maths from arithmetic only |
 pub mod adsr;
 pub mod arith;
 pub mod delay;
+pub mod fdn;
 pub mod fft;
 pub mod follower;
 pub mod level;

@@ -1,4 +1,4 @@
-//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay): each built for
+//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb): each built for
 //! `wasm32-unknown-unknown` and run by the module host writes, bit for bit, what the same code writes natively through
 //! the SDK's `Rig` – every audio output, control output and event. One script for all, read off the module's shape:
 //! every parameter turned through its range, noise on two channels of every audio input, values on the control
@@ -22,7 +22,7 @@ fn wasm(name: &str) -> Vec<u8> {
     BUILD.get_or_init(|| {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut args = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
-        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module"] {
+        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module"] {
             args.extend(["-p", p]);
         }
         let out = std::process::Command::new(cargo).current_dir(&root).args(args).arg("--target-dir").arg(&dir).output().expect("running cargo");
@@ -211,4 +211,34 @@ modules! {
     mixer: mixer_module::Mixer,
     transpose: transpose_module::Transpose,
     delay: delay_module::Delay,
+    reverb: reverb_module::Reverb,
+}
+
+/// wasm has no flush-to-zero: the reverb's tail, played out in the host to silence, never passes through the denormals
+#[test]
+fn the_reverb_tail_ends_at_zero_in_wasm() {
+    let engine = WasmtimeEngine::new(None);
+    let loaded = Arc::new(Loaded::<Wasmtime>::load(&engine, &wasm("reverb")).unwrap());
+    let mut inst = Instance::new(&loaded, Setup::new(RATE, 3).unbudgeted()).unwrap();
+    let d = deck_module::host::parse(<reverb_module::Reverb as deck_module::Describe>::DESCRIPTOR).unwrap();
+    for (name, v) in [("size", 0.0), ("decay", 0.2), ("damp", 2000.0), ("mix", 100.0), ("predelay", 0.0)] {
+        inst.set_param(d.params.iter().position(|p| p.name == name).unwrap(), v);
+    }
+    inst.set_channels(true, 0, 2);
+    inst.set_channels(false, 0, 2);
+    let mut last = 1.0f32;
+    for k in 0..(12.0 * RATE / 128.0) as usize {
+        for c in 0..2 {
+            let x = inst.audio_in_mut(0, c);
+            x[..128].fill(0.0);
+            x[0] = if k == 400 { 1.0 } else { 0.0 };
+        }
+        assert!(inst.run((k * 128) as f64, 128), "call {k}: {:?}", inst.silenced());
+        let out = inst.audio_out(0);
+        for v in out.chan(0)[..128].iter().chain(&out.chan(1)[..128]) {
+            assert!(*v == 0.0 || v.is_normal(), "call {k}: {v:e}");
+        }
+        last = out.chan(0)[..128].iter().chain(&out.chan(1)[..128]).fold(0.0, |m, v| m.max(v.abs()));
+    }
+    assert_eq!(last, 0.0, "silent in the end");
 }
