@@ -1,0 +1,18 @@
+# bamboo – a grove of two kinds of bamboo swaying in a simulated wind; a knock (a note) whenever two stalks hit. Build for the deck /
+# browser: `cargo build --release --target wasm32-unknown-unknown -p bamboo-module`
+[package]
+name = "bamboo-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-module = { path = "../../module", features = ["host"] }

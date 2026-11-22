@@ -13,7 +13,7 @@ use Scutoons\Tests\TestCase;
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
  * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #780, 2026-11-22-factory-cloud: cloud;
- * #743, 2026-11-22-factory-drumseq: drumseq) as
+ * #780, 2026-11-22-factory-bamboo: bamboo; #743, 2026-11-22-factory-drumseq: drumseq) as
  * catalog documents marked `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte
  * (this test keeps the two equal: a change of a module's source needs a migration that brings it into the catalog), each
  * with its published version; each migration run twice, around a creator's own module of the same name.
@@ -26,6 +26,7 @@ final class FactoryModulesTest extends TestCase
     private const REVERB_MARKER = 'factory module (migration 2026-11-21-factory-reverb)';
     private const ARP_MARKER = 'factory module (migration 2026-11-22-factory-arp)';
     private const CLOUD_MARKER = 'factory module (migration 2026-11-22-factory-cloud)';
+    private const BAMBOO_MARKER = 'factory module (migration 2026-11-22-factory-bamboo)';
     private const DRUMSEQ_MARKER = 'factory module (migration 2026-11-22-factory-drumseq)';
     /** every factory module and the marker of the migration that brought it */
     private const IDS = [
@@ -36,6 +37,7 @@ final class FactoryModulesTest extends TestCase
         'reverb' => self::REVERB_MARKER,
         'arp' => self::ARP_MARKER,
         'cloud' => self::CLOUD_MARKER,
+        'bamboo' => self::BAMBOO_MARKER,
         'drumseq' => self::DRUMSEQ_MARKER,
     ];
 
@@ -191,6 +193,32 @@ final class FactoryModulesTest extends TestCase
             self::assertSame([
                 ['entity_key' => 'module:cloud', 'status' => 'draft', 'message' => null],
                 ['entity_key' => 'module:cloud', 'status' => 'published', 'message' => self::CLOUD_MARKER],
+            ], $versions, "run $run");
+            if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+            $after = $state();
+        }
+    }
+
+    public function testTheBambooMigrationRunsTwiceAndLeavesAnOlderVersionAsHistory(): void
+    {
+        $this->db->exec('DELETE FROM catalog_modules');
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:bamboo', 'module', '{\"id\":\"bamboo\",\"files\":{\"lib.rs\":\"// old\"}}', UTC_TIMESTAMP(), 'published', NULL)");
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message FROM entity_versions WHERE kind = 'module' ORDER BY id"),
+        ];
+        $statements = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-bamboo.mysql.sql');
+        self::assertCount(3, $statements);
+        $after = null;
+        foreach ([1, 2] as $run) {
+            foreach ($statements as $statement) $this->db->exec($statement);
+            [$rows, $versions] = $state();
+            self::assertSame(['bamboo'], array_keys($rows), "run $run");
+            self::assertTrue(ModuleSource::isFactory(json_decode($rows['bamboo'], true)));
+            self::assertSame([
+                ['entity_key' => 'module:bamboo', 'status' => 'draft', 'message' => null],
+                ['entity_key' => 'module:bamboo', 'status' => 'published', 'message' => self::BAMBOO_MARKER],
             ], $versions, "run $run");
             if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
             $after = $state();
