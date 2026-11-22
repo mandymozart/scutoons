@@ -59,7 +59,7 @@ pub const SHOW: [Spec; 14] = [
 
 pub const MODULE: [Spec; 9] = [
     spec("library", "Library", "grid", "The catalog's modules with their previews: a click opens one's working copy.", Place::at(TL, 0.0, 0.0)),
-    spec("drives", "Drives", "activity", "What the module drives while it plays: each control output as a lamp, its value and its trace.", Place::at(BL, 0.0, 200.0)),
+    spec("drives", "Drives", "activity", "What the module drives while it plays: each control output as a lamp, its value and its trace.", Place::at(BL, 0.0, 200.0).closed()),
     spec("module", "Module", "code", "The module open: its working copy, Open in editor, Build, its parameters.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("problems", "Problems", "alert", "The last build's problems: a click opens the code there.", Place::at(BL, 0.0, 0.0)),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BR, 0.0, 0.0).folded()),
@@ -68,6 +68,42 @@ pub const MODULE: [Spec; 9] = [
     LOG,
     SETTINGS_PANEL,
 ];
+
+/// A tab kind's Play preset before the viewer changed it: the panels that do nothing while playing close, the ones
+/// that play open where they are put.
+pub struct PlaySet {
+    pub kind: &'static str,
+    pub closes: &'static [&'static str],
+    pub opens: &'static [(&'static str, Place)],
+}
+
+/// a Scene or Asset tab playing: the tree's edits, the Library's drops and History's steps are dropped on Stop; only a
+/// scene has a camera to work
+pub const BUILD_PLAY: [PlaySet; 2] = [
+    PlaySet {
+        kind: "scene",
+        closes: &["tree", crate::library::PANEL, crate::history_panel::PANEL],
+        opens: &[("dop", Place::at(TL, 0.0, 0.0)), ("mixer", Place::at(BL, 0.0, 0.0)), ("info", Place::at(BR, 0.0, 0.0))],
+    },
+    PlaySet { kind: "asset", closes: &["tree", crate::library::PANEL, crate::history_panel::PANEL, "dop"], opens: &[("mixer", Place::at(BL, 0.0, 0.0)), ("info", Place::at(BR, 0.0, 0.0))] },
+];
+
+/// a module playing: what it drives shows, the catalog and History rest
+pub const MODULE_PLAY: [PlaySet; 1] = [PlaySet { kind: "module", closes: &[crate::library::PANEL, crate::history_panel::PANEL], opens: &[("drives", Place::at(BL, 0.0, 200.0))] }];
+
+/// Play's places over Edit's `edit`: the preset's panels closed and opened, the rest where Edit has them
+pub fn play_preset(edit: &BTreeMap<String, Place>, set: &PlaySet) -> BTreeMap<String, Place> {
+    let mut p = edit.clone();
+    for id in set.closes {
+        if let Some(place) = p.get_mut(*id) {
+            place.closed = true;
+        }
+    }
+    for (id, place) in set.opens {
+        p.insert((*id).to_string(), *place);
+    }
+    p
+}
 
 /// a running show's panels in a Show tab: closed until the show goes live (or the panel list opens one)
 pub const OPTIONAL: [&str; 3] = ["session", "now", "next"];
@@ -101,6 +137,12 @@ pub struct Panels {
     pub settings: Option<(f32, f32)>,
     /// the tools pill's content size (tools.rs)
     pub tools: Option<(f32, f32)>,
+    /// the workspace's Play presets, one per tab kind that plays
+    play: &'static [PlaySet],
+    /// Play shows for this tab kind; Edit's places kept aside until Stop
+    playing: Option<(String, BTreeMap<String, Place>)>,
+    /// Play's places per tab kind as the viewer left them
+    plays: BTreeMap<String, BTreeMap<String, Place>>,
 }
 
 /// the settings have a main menu line of their own, so the menu's panel list leaves them out
@@ -108,7 +150,60 @@ pub const SETTINGS: &str = "settings";
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
-        Panels { floats: Floats::new(specs), measured: HashMap::from([(crate::library::PANEL, LIBRARY_START)]), known: Vec::new(), grew: false, settings: None, tools: None }
+        Panels { floats: Floats::new(specs), measured: HashMap::from([(crate::library::PANEL, LIBRARY_START)]), known: Vec::new(), grew: false, settings: None, tools: None, play: &[], playing: None, plays: BTreeMap::new() }
+    }
+
+    /// a workspace that plays: Play shows its tab kind's own preset, remembered per tab kind
+    pub fn with_play(specs: &[Spec], sets: &'static [PlaySet]) -> Panels {
+        Panels { play: sets, ..Panels::new(specs) }
+    }
+
+    /// the tab kind whose Play preset shows, if one does
+    pub fn play_kind(&self) -> Option<&str> {
+        self.playing.as_ref().map(|(k, _)| k.as_str())
+    }
+
+    /// The panels as the mode wants them: Play for tab kind `kind` (its places as the viewer left them, else the preset
+    /// over Edit's), or Edit (none, or a kind without Play) – Play's places kept for its kind, Edit's back. True when
+    /// they changed.
+    pub fn show_mode(&mut self, kind: Option<&str>) -> bool {
+        let set = kind.and_then(|k| self.play.iter().find(|s| s.kind == k));
+        if self.play_kind() == set.map(|s| s.kind) {
+            return false;
+        }
+        if let Some((was, edit)) = self.playing.take() {
+            self.plays.insert(was, self.floats.places());
+            self.floats.restore(&edit);
+        }
+        if let Some(set) = set {
+            let edit = self.floats.places();
+            let play = self.plays.get(set.kind).cloned().unwrap_or_else(|| play_preset(&edit, set));
+            self.floats.restore(&play);
+            self.playing = Some((set.kind.to_string(), edit));
+        }
+        true
+    }
+
+    /// the places to keep under `name`: Edit's (also while Play shows), Play's per tab kind under `name.play.<kind>`
+    pub fn remember(&self, name: &str, all: &mut Remembered) {
+        let now = self.floats.places();
+        let kind = self.play_kind();
+        all.insert(name.to_string(), self.playing.as_ref().map_or_else(|| now.clone(), |(_, edit)| edit.clone()));
+        for (k, p) in self.plays.iter().filter(|(k, _)| Some(k.as_str()) != kind) {
+            all.insert(format!("{name}.play.{k}"), p.clone());
+        }
+        if let Some(k) = kind {
+            all.insert(format!("{name}.play.{k}"), now);
+        }
+    }
+
+    /// the places kept under `name`: Edit's shown, Play's per tab kind for when it plays
+    pub fn recall(&mut self, name: &str, all: &Remembered) {
+        if let Some(p) = all.get(name) {
+            self.floats.restore(p);
+        }
+        let prefix = format!("{name}.play.");
+        self.plays = all.iter().filter_map(|(k, p)| Some((k.strip_prefix(prefix.as_str())?.to_string(), p.clone()))).collect();
     }
 
     /// the main menu's panel list: the panels that close, and whether each is open
@@ -322,8 +417,8 @@ mod tests {
                     assert!(!open, "{name}: {id} starts closed");
                     continue;
                 }
-                if matches!(name, "show" | "live") && OPTIONAL.contains(&id) {
-                    assert!(!open, "{name}: {id} is a running show's, it starts closed");
+                if (matches!(name, "show" | "live") && OPTIONAL.contains(&id)) || (name == "module" && id == "drives") {
+                    assert!(!open, "{name}: {id} is a running show's or Play's, it starts closed");
                     p.flip(id);
                 }
                 assert!(p.listed().iter().any(|(i, _, open)| *i == id && *open), "{name}: {id} open");
@@ -370,6 +465,75 @@ mod tests {
         assert!(p.floats.press(pill.whole.x + 2.0, pill.whole.y + 2.0));
         p.floats.release();
         assert!(!p.floats.collapsed("tools"), "a click on the wrench opens it");
+    }
+
+    #[test]
+    fn play_shows_its_own_preset_and_stop_brings_edit_back() {
+        let mut p = Panels::with_play(&BUILD, &BUILD_PLAY);
+        p.floats.toggle("mixer");
+        let edit = p.floats.places();
+        assert!(p.show_mode(Some("scene")), "Play: the panels change");
+        assert_eq!(p.play_kind(), Some("scene"));
+        for id in BUILD_PLAY[0].closes {
+            assert!(p.floats.closed(id), "{id} rests in Play");
+        }
+        assert!(!p.floats.closed("dop") && !p.floats.collapsed("mixer") && !p.floats.closed("info"), "what plays is out");
+        assert_eq!(p.floats.places()["mixer"].corner, BL);
+        assert_eq!(p.floats.places()["dop"].corner, TL);
+        assert!(!p.show_mode(Some("scene")), "already Play: nothing changes");
+        p.floats.reopen("tree");
+        assert!(p.show_mode(None), "Stop");
+        assert_eq!(p.floats.places(), edit, "Edit's layout as it was");
+        assert!(p.show_mode(Some("scene")));
+        assert!(!p.floats.closed("tree"), "the viewer's own Play is remembered for scenes");
+        p.show_mode(None);
+        p.show_mode(Some("asset"));
+        assert!(p.floats.closed("tree"), "an asset tab has a Play of its own");
+        assert!(p.floats.closed("dop") && !p.floats.closed("mixer"), "no camera to work in an asset");
+        p.show_mode(None);
+        assert_eq!(p.floats.places(), edit);
+    }
+
+    #[test]
+    fn a_module_plays_with_its_drives_out() {
+        let mut p = Panels::with_play(&MODULE, &MODULE_PLAY);
+        assert!(p.floats.closed("drives"), "Edit: nothing drives yet");
+        p.show_mode(Some("module"));
+        assert!(!p.floats.closed("drives") && p.floats.closed(crate::library::PANEL));
+        p.show_mode(None);
+        assert!(p.floats.closed("drives") && !p.floats.closed(crate::library::PANEL));
+        for (specs, sets) in [(&BUILD[..], &BUILD_PLAY[..]), (&MODULE[..], &MODULE_PLAY[..])] {
+            for s in sets {
+                for id in s.closes.iter().chain(s.opens.iter().map(|(id, _)| id)) {
+                    assert!(specs.iter().any(|x| x.id == *id && !x.essential), "{}: {id} is a panel of its workspace that closes", s.kind);
+                }
+            }
+        }
+        let mut home = Panels::new(&HOME);
+        assert!(!home.show_mode(Some("x")) && home.play_kind().is_none(), "a workspace without Play stays");
+        assert!(!p.show_mode(Some("scene")) && p.play_kind().is_none(), "a kind without Play is Edit");
+    }
+
+    #[test]
+    fn edit_and_play_places_are_kept_apart_in_the_cache() {
+        let mut p = Panels::with_play(&BUILD, &BUILD_PLAY);
+        p.show_mode(Some("asset"));
+        p.floats.reopen(crate::library::PANEL);
+        p.show_mode(None);
+        p.show_mode(Some("scene"));
+        p.floats.toggle("mixer");
+        let mut all = Remembered::new();
+        p.remember("build", &mut all);
+        assert!(!all["build"]["tree"].closed, "Edit's places, also while Play shows");
+        assert!(all["build.play.scene"]["mixer"].collapsed && all["build.play.scene"]["tree"].closed);
+        assert!(!all["build.play.asset"][crate::library::PANEL].closed);
+        let mut q = Panels::with_play(&BUILD, &BUILD_PLAY);
+        q.recall("build", &all);
+        assert!(!q.floats.closed("tree"), "Edit shows at the start");
+        q.show_mode(Some("scene"));
+        assert!(q.floats.collapsed("mixer"), "Play as the viewer left it");
+        q.show_mode(Some("asset"));
+        assert!(!q.floats.closed(crate::library::PANEL));
     }
 
     #[test]

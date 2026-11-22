@@ -211,8 +211,9 @@ pub fn member_slots(view: &SceneView) -> Option<deck_space::scene_modules::On> {
     view.edit.doc.holders.iter().position(|h| h.id == member.holder).map(deck_space::scene_modules::On::Holder)
 }
 
-/// The inspector of the scene or of its selected member; where its fields landed.
-pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: Option<Field>) -> Vec<(Rect, Field)> {
+/// The inspector of the scene or of its selected member; where its fields landed. `edits` false (Play) leaves out the
+/// rows whose edits do not last: Add layer and the member's rig presets.
+pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, (hot, edits): (Option<Field>, bool)) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let mut y = area.y;
     let e = &view.edit;
@@ -234,10 +235,12 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         out.push((swatch, Field::BackgroundColour));
         out.push((at, Field::Background));
         controls::row(d, t, area, &mut y, "layers", &e.doc.stage.layers.len().to_string());
-        for (r, f) in controls::pills(d, t, area.x, y, t.size.row - 4.0, &["Parallax stack", "Add layer"], usize::MAX).into_iter().zip([Field::AddStack, Field::AddLayer]) {
-            out.push((r, f));
+        if edits {
+            for (r, f) in controls::pills(d, t, area.x, y, t.size.row - 4.0, &["Parallax stack", "Add layer"], usize::MAX).into_iter().zip([Field::AddStack, Field::AddLayer]) {
+                out.push((r, f));
+            }
+            y += t.size.row;
         }
-        y += t.size.row;
         for n in &e.notes {
             if y + t.size.row > area.y + area.h {
                 break;
@@ -264,7 +267,7 @@ pub fn inspect(d: &mut DrawList, t: &Tokens, area: Rect, view: &SceneView, hot: 
         }
         y += t.size.row;
         let (names, on) = preset_pills(e, m);
-        if names.len() > 1 {
+        if edits && names.len() > 1 {
             let shown = if on == 0 { "none · the rig's own values".to_string() } else { names[on].clone() };
             controls::row(d, t, area, &mut y, "rig preset", &shown);
             let names: Vec<&str> = names.iter().map(String::as_str).take(6).collect();
@@ -537,7 +540,7 @@ mod tests {
         view.sel = Part::Layer(l);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, (None, true)).into_iter().map(|(_, f)| f).collect();
         assert_eq!(fields, [Field::Picture, Field::Anchor, Field::Remove, Field::Knob(0)]);
         assert_eq!(view.scene().unwrap().stage.layers[l].image.as_deref(), Some("layers/hills.png"), "the stage plays it");
     }
@@ -553,20 +556,20 @@ mod tests {
         assert_eq!(tree.iter().map(|l| l.part).collect::<Vec<_>>(), [Part::Scene, Part::Member(0), Part::Member(1)]);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let area = Rect { x: 0.0, y: 0.0, w: 320.0, h: 2000.0 };
-        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, None).into_iter().map(|(_, f)| f).collect();
+        let fields: Vec<Field> = inspect(&mut d, &t, area, &view, (None, true)).into_iter().map(|(_, f)| f).collect();
         assert_eq!(fields, [Field::BackgroundColour, Field::Background, Field::AddStack, Field::AddLayer], "the scene's background, its swatch first, then the layers' pills");
         view.edit.set_background("#336699").unwrap();
         assert_eq!(view.scene().unwrap().stage.background, Some(deck_space::Background::colour("#336699")), "the stage plays it");
         view.edit.set_background("").unwrap();
         view.sel = Part::Member(0);
-        let fields = inspect(&mut d, &t, area, &view, None);
+        let fields = inspect(&mut d, &t, area, &view, (None, true));
         assert!(fields.iter().any(|(_, f)| *f == Field::Into));
         assert!(fields.iter().any(|(_, f)| *f == Field::Knob(0)) && !fields.iter().any(|(_, f)| matches!(f, Field::Clear(_))));
         let k = view.edit.members[0].knobs[0].clone();
         let v = if k.value == k.min { k.max } else { k.min };
         view.edit.set(0, &k.path, v).unwrap();
         assert!(view.line().ends_with(" · changed"));
-        assert!(inspect(&mut d, &t, area, &view, None).iter().any(|(_, f)| *f == Field::Clear(0)));
+        assert!(inspect(&mut d, &t, area, &view, (None, true)).iter().any(|(_, f)| *f == Field::Clear(0)));
         let played = view.scene().unwrap();
         let (node, port) = k.path.split_once('.').unwrap();
         let n = played.nodes.iter().find(|n| n.id == format!("catpope_{node}")).unwrap();
