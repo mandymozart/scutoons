@@ -189,11 +189,11 @@ impl Deck {
     }
 
     /// The core rig of a character (`catpope`) or a subject (`character.catpope`, `item.<id>`); a character the deck
-    /// carries no rig of plays the base rig. No sound when an item has none or a rig fails (the silent scene plays, the
+    /// carries no rig of plays the default character rig. No sound when an item has none or a rig fails (the silent scene plays, the
     /// note says which, `failed` that it failed).
     pub fn play_core(&mut self, character: &str, persona: &str) -> Turn {
         let subject = if character.contains('.') { character.to_string() } else { format!("character.{character}") };
-        let tried = match Bundle::core_or_base(&subject) {
+        let tried = match Bundle::core_or_default(&subject) {
             None => Ok(None),
             Some(b) => b.and_then(|b| self.play(Some(b), persona).map(Some)),
         };
@@ -418,7 +418,7 @@ mod tests {
         catpope["laughing"] = j(&quiet(&mut d).unwrap());
         let mut none = Deck::new();
         none.ladder.set_portraits(&MOODS.map(String::from));
-        // a character without a rig plays the base rig: an item without one is what stays silent
+        // a character without a rig plays the default character rig: an item without one is what stays silent
         let nobody = none.play_core("item.nothing", "");
         let silent = serde_json::json!({ "now": j(&none.now()), "nobody": j(&nobody), "room": none.room(), "sliders": j(&none.sliders("en")), "graph": j(&none.graph("yellowmouse")), "targets": targets(&none), "wiring": j(&none.wiring()) });
         let fixture = serde_json::json!({ "own": own, "silent": silent, "rigging_room": Deck::rigging().room(), "catpope": catpope });
@@ -596,7 +596,7 @@ mod tests {
     }
 
     /// No rig plays – no sound, the picture stays (the being in its space); a chosen character without a rig of its own
-    /// plays the base rig (it sings, wearing its own character), an item without one is silent
+    /// plays the default character rig (it sings, wearing its own character), an item without one is silent
     #[test]
     fn no_rig_means_no_sound() {
         let mut d = Deck::new();
@@ -606,8 +606,8 @@ mod tests {
         assert_eq!(d.room(), "", "in the staging: no home set yet, no cathedral (#427)");
         let t = d.play_core("nobody", "");
         assert!(t.rig && !t.failed && t.note.contains("played character.nobody"), "{}", t.note);
-        assert_eq!(t.played.character, "nobody", "the base rig wears the chosen character");
-        assert!(sounding(&t.played).iter().any(|id| id == "voice_voice"), "the base rig's voice sings: {:?}", sounding(&t.played));
+        assert_eq!(t.played.character, "nobody", "the default character rig wears the chosen character");
+        assert!(sounding(&t.played).iter().any(|id| id == "voice_voice"), "the default character rig's voice sings: {:?}", sounding(&t.played));
         let t = d.play_core("item.nothing", "");
         assert!(!t.rig && !t.failed && t.note.contains("no core rig for item.nothing") && t.note.contains("silent"), "{}", t.note);
         assert!(sounding(&t.played).is_empty() && t.played.engine.page.is_empty(), "an item without a rig is silent");

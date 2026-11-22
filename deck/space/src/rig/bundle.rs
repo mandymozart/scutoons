@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 /// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/native/rigs/).
 pub const CORE: [(&str, &str); 3] = [
-    ("character.base", include_str!("../../../native/rigs/base.toml")),
+    ("character.default", include_str!("../../../native/rigs/default.toml")),
     ("character.catpope", include_str!("../../../native/rigs/catpope.toml")),
     ("item.incense_burner", include_str!("../../../native/rigs/incense_burner.toml")),
 ];
@@ -324,13 +324,13 @@ impl Bundle {
     /// A rig for `subject` with nothing in it yet: what an editor opens for a character without a rig, silent until a
     /// track is added
     pub fn empty(subject: &str) -> Bundle {
-        let rig = Rig { subject: subject.to_string(), base: None, off: Vec::new(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
+        let rig = Rig { subject: subject.to_string(), extends: None, off: Vec::new(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
         Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new(), rig_presets: Vec::new() }
     }
 
     /// How a rig with no track yet shows its character on the stage: its 2D picture (a card) – none is drawn for a
     /// rig that has tracks (its being is its graph) or one that is no character's.
-    // TODO(#491): the base rig's 3D model before the picture, once there is one
+    // TODO(#491): the default character rig's 3D model before the picture, once there is one
     pub fn stands_as(&self) -> Option<crate::cast::Form> {
         let c = self.rig.subject.strip_prefix("character.")?;
         (self.rig.tracks.is_empty() && !c.is_empty()).then_some(crate::cast::Form::Card)
@@ -363,8 +363,8 @@ impl Bundle {
 
     /// `play` with presets chosen per track (track → preset: a code rig's `@preset` outputs, the deck's replay #410)
     pub fn play_with(&self, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Played> {
-        if self.rig.base.is_some() {
-            return self.based()?.play_with(persona, mood, chosen);
+        if self.rig.extends.is_some() {
+            return self.extended()?.play_with(persona, mood, chosen);
         }
         let lib = self.library();
         let character = self

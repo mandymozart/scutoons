@@ -271,11 +271,11 @@ export type Preset = {
 export type Rig = {
 	/** the stage's background while it plays, over its modules' and under a scene's or a show's */
 	background?: Background | null;
-	/** the core rig it builds on (`character.base`): that rig's tracks and routes play under this one's own (base.rs) */
-	base?: string | null;
+	/** the core rig it extends (`character.default`): that rig's tracks and routes play under this one's own (extend.rs) */
+	extends?: string | null;
 	/** mood (the `moods` registry's ids) → overrides (applied after the persona's) */
 	moods?: { [key: string]: Variant };
-	/** the base rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `["voice"]`) */
+	/** the extended rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `["voice"]`) */
 	off?: string[];
 	/** persona → overrides (applied first) */
 	personas?: { [key: string]: Variant };
@@ -341,7 +341,7 @@ export type Track = {
 	/** −1 left … 1 right */
 	pan?: number;
 	preset?: string | null;
-	/** the base rig's track this one takes over: that one is off, this one plays in its place */
+	/** the extended rig's track this one takes over: that one is off, this one plays in its place */
 	takes?: string | null;
 };
 

@@ -1,5 +1,5 @@
 name = "rig facts and the rig's lifecycle come from deck-space"
-about = "#368: deck-space's deck (deck.rs) plays a rig once for every deck: which paths stream, where a knob's value goes, which knobs the sticks turn, whether a mood's replay reloads the engine or only moves values (Played::diff), a character without a rig of its own plays the base rig (#491). Native and wasm give the same facts"
+about = "#368: deck-space's deck (deck.rs) plays a rig once for every deck: which paths stream, where a knob's value goes, which knobs the sticks turn, whether a mood's replay reloads the engine or only moves values (Played::diff), a character without a rig of its own plays the default character rig (#491). Native and wasm give the same facts"
 
 [[step]]
 do = "load"
@@ -11,7 +11,7 @@ do = "rig_facts"
 with = { subject = "character.catpope", from = "happy", to = "laughing" }
 expect = { rig = true, failed = false, audio_out = 1, mood = "laughing", reload = false, changed = { has = "voice_voice.index" }, sticks = { has = "voice_voice.ratio" }, streamed = { has = "mix1.out" }, targets = { has = "voice_melody.spread" } }
 
-# a character the deck carries no rig for plays the base rig (#491): its built-in voice sings, the voice's level opens the mouth
+# a character the deck carries no rig for plays the default character rig (#491): its built-in voice sings, the voice's level opens the mouth
 [[step]]
 do = "rig_facts"
 with = { subject = "nobody", from = "neutral", to = "happy" }

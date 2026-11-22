@@ -1,11 +1,11 @@
-# The base rig (deck-space rig/base.rs): one simple character rig – a built-in singing voice whose loudness opens the
-# being's mouth, no other instrument. A character without a rig of its own plays it; a scutoon's rig builds on it
-# (`base = "character.base"`), takes the voice over with a track of its own (`takes = "voice"`) or turns it off
-# (`off = ["voice"]`).
+# The default character rig (deck-space rig/extend.rs): one simple character rig – a built-in singing voice whose
+# loudness opens the being's mouth, no other instrument. A character without a rig of its own plays it; a scutoon's rig
+# extends it (`extends = "character.default"`), takes the voice over with a track of its own (`takes = "voice"`) or
+# turns it off (`off = ["voice"]`).
 
 [rig]
-subject = "character.base"
-track = [{ id = "voice", instrument = "base_voice", preset = "base_voice.base" }]
+subject = "character.default"
+track = [{ id = "voice", instrument = "default_voice", preset = "default_voice.base" }]
 route = [{ from = "voice:ear.level", to = "being:mouth", scale = 4.0 }]
 sticks = [["voice:voice.vowel", "voice:melody.spread"], ["voice:voice.vibrato", "voice:voice.breath"]]
 [rig.moods.happy]
@@ -16,7 +16,7 @@ values = { "voice:voice.vowel" = 0.0 }
 values = { "voice:voice.vowel" = 4.0, "voice:voice.vibrato" = 0.5 }
 
 [[instrument]]
-id = "base_voice"
+id = "default_voice"
 kind = "voice"
 name = { en = "Voice", de = "Stimme" }
 out = "voice"
@@ -37,6 +37,6 @@ expose = [
 ]
 
 [[preset]]
-id = "base_voice.base"
-instrument = "base_voice"
-tags = ["base"]
+id = "default_voice.base"
+instrument = "default_voice"
+tags = ["default"]

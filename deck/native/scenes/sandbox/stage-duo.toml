@@ -1,5 +1,5 @@
 # A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
-# Toy at `right` with no rig of its own (the base rig sings for it). The space draws one being per `look` node at its holder's spot (no location
+# Toy at `right` with no rig of its own (the default character rig sings for it). The space draws one being per `look` node at its holder's spot (no location
 # yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
 # breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
 # deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:

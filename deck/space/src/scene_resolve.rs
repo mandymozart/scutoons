@@ -98,9 +98,9 @@ pub fn no_sets(_: &str) -> Option<String> {
     None
 }
 
-/// the core rigs a deck carries (rig/bundle.rs `CORE`), any version; a character without one plays the base rig
+/// the core rigs a deck carries (rig/bundle.rs `CORE`), any version; a character without one plays the default character rig
 pub fn core_rigs(subject: &str, _: Option<&str>) -> Option<Bundle> {
-    Bundle::core_or_base(subject).and_then(Result::ok)
+    Bundle::core_or_default(subject).and_then(Result::ok)
 }
 
 /// the nodes every rig's scene has once and the holders share (graph.rs: one sink of each kind; the clock)
@@ -649,8 +649,8 @@ mod tests {
         let at: Vec<(&str, Option<&str>)> = r.cast.iter().map(|m| (m.holder.as_str(), m.spot.as_deref())).collect();
         assert_eq!(at, [("left", Some("spot_left")), ("right", Some("spot_right"))], "the empty ones have no member");
         assert_eq!(r.cast[0].enter, Enter::Join);
-        assert!(!r.notes.iter().any(|n| n.contains("character.toptoy")), "toptoy has no core rig of its own: it plays the base rig");
-        assert!(r.scene.nodes.iter().any(|n| n.id == "right_voice_voice" && n.kind == "voice"), "the base rig's voice sings for it");
+        assert!(!r.notes.iter().any(|n| n.contains("character.toptoy")), "toptoy has no core rig of its own: it plays the default character rig");
+        assert!(r.scene.nodes.iter().any(|n| n.id == "right_voice_voice" && n.kind == "voice"), "the default character rig's voice sings for it");
         let home = fixture("templates/avatar-home", None);
         assert_eq!(home.location_placeholder().unwrap().id, "home");
     }
@@ -882,7 +882,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
 
     const STAGE_DUO_HEAD: &str = "\
 # A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
-# Toy at `right` with no rig of its own (the base rig sings for it). The space draws one being per `look` node at its holder's spot (no location
+# Toy at `right` with no rig of its own (the default character rig sings for it). The space draws one being per `look` node at its holder's spot (no location
 # yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
 # breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
 # deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:

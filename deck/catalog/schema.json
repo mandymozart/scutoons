@@ -992,8 +992,8 @@
           ],
           "description": "the stage's background while it plays, over its modules' and under a scene's or a show's"
         },
-        "base": {
-          "description": "the core rig it builds on (`character.base`): that rig's tracks and routes play under this one's own (base.rs)",
+        "extends": {
+          "description": "the core rig it extends (`character.default`): that rig's tracks and routes play under this one's own (extend.rs)",
           "type": [
             "string",
             "null"
@@ -1007,7 +1007,7 @@
           "type": "object"
         },
         "off": {
-          "description": "the base rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `[\"voice\"]`)",
+          "description": "the extended rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `[\"voice\"]`)",
           "items": {
             "type": "string"
           },
@@ -1282,7 +1282,7 @@
           ]
         },
         "takes": {
-          "description": "the base rig's track this one takes over: that one is off, this one plays in its place",
+          "description": "the extended rig's track this one takes over: that one is off, this one plays in its place",
           "type": [
             "string",
             "null"

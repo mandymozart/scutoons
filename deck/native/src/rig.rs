@@ -1,6 +1,6 @@
 //! The native deck plays a rig (#322, plan P9a) the way every deck does: deck-space's `Deck` (deck.rs, #368 – the browser's
 //! space-web `DeckState`, the headless host) plays it – `Bundle::play` flattens it (`Rig::flatten`) at the mood now (a
-//! character the deck carries no rig of plays the base rig), or plays no sound when an item has none or a rig fails (the
+//! character the deck carries no rig of plays the default character rig), or plays no sound when an item has none or a rig fails (the
 //! core's silent scene – the being, no audio graph) – and replays it when the mood turns.
 //! This file only moves what the core says: the played scene is loaded like any scene (its sound through deck-engine – the
 //! browser's live-core plays the same `engine` part of it, bit for bit: deck-conformance tests/rig.rs), and a replay's
@@ -226,13 +226,13 @@ mod tests {
     }
 
     /// no such rig for an item: the core plays the silent scene (said in the log) – the being in the deck's room, no audio
-    /// graph, nothing to replay; a character without one plays the base rig. The cathedral is a test scene: no rig player,
+    /// graph, nothing to replay; a character without one plays the default character rig. The cathedral is a test scene: no rig player,
     /// and no fallback either.
     #[test]
     fn a_rig_the_deck_lacks_plays_the_silent_scene() {
-        let base = scene(Path::new("rig:nobody")).unwrap();
-        assert_eq!(base.stage.name, "character.nobody");
-        assert!(base.nodes.iter().any(|n| n.kind == "voice"), "a character without a rig sings with the base rig");
+        let fallback = scene(Path::new("rig:nobody")).unwrap();
+        assert_eq!(fallback.stage.name, "character.nobody");
+        assert!(fallback.nodes.iter().any(|n| n.kind == "voice"), "a character without a rig sings with the default character rig");
         let scene = scene(Path::new("rig:item.nothing")).unwrap();
         let cathedral = Scene::parse(crate::scene::CATHEDRAL_SCENE).unwrap();
         assert_eq!(scene.stage.name, "silent");
