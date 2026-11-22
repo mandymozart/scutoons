@@ -11,6 +11,7 @@
 //! load (the engine's `Names`); a name interned later has no receivers.
 //!
 //! The tables, the rings and the counters are deck-engine's (dispatch.rs there); this file is the queue and the thread.
+//! A scene whose routes take `midi.note` (a MIDI `world` node) also gets the live MIDI in (midi_in.rs) feeding the queue.
 use super::glitch::Glitches;
 use deck_engine::dispatch::{Counters, Events, Routing};
 use deck_events::{Event, Stats};
@@ -22,15 +23,35 @@ use std::time::Duration;
 /// events waiting for the dispatcher at most (more are dropped and counted)
 pub const QUEUE: usize = 1024;
 
-/// Start the threads a scene with hosts needs: the sequencer (thread mode) and the dispatcher. None without hosts.
+/// Start the threads a scene with hosts needs: the sequencer (thread mode), the dispatcher and – when a route takes
+/// `midi.note` – the live MIDI in. None without hosts.
 pub fn start(events: &mut Events, glitches: Arc<Glitches>) -> std::io::Result<Option<Running>> {
     let seq = events.take_sequencer();
     if seq.is_none() && !events.has_routes() {
         return Ok(None);
     }
     let seq = seq.map(|s| super::sequencer::spawn(s, glitches)).transpose()?;
-    let (d, inlet) = Dispatcher::new(events.take_routing(), events.counters.clone());
-    Ok(Some(Running { inlet, counters: events.counters.clone(), _dispatch: d.spawn()?, _seq: seq }))
+    let routing = events.take_routing();
+    let hears_midi = events.names.get("midi.note").is_some_and(|n| !routing.table.targets(n).is_empty());
+    let (d, inlet) = Dispatcher::new(routing, events.counters.clone());
+    let dispatch = d.spawn()?;
+    #[cfg(feature = "midi")]
+    let midi = match hears_midi {
+        true => Some(super::midi_in::spawn(super::midi_in::System, events.names.clone(), inlet.clone())?),
+        false => None,
+    };
+    #[cfg(not(feature = "midi"))]
+    if hears_midi {
+        tracing::warn!("MIDI in: this build has no `midi` feature – the MIDI world nodes hear nothing");
+    }
+    Ok(Some(Running {
+        inlet,
+        counters: events.counters.clone(),
+        #[cfg(feature = "midi")]
+        _midi: midi,
+        _dispatch: dispatch,
+        _seq: seq,
+    }))
 }
 
 enum Msg {
@@ -144,6 +165,8 @@ impl Drop for Thread {
 pub struct Running {
     pub inlet: Inlet,
     pub counters: Arc<Counters>,
+    #[cfg(feature = "midi")]
+    _midi: Option<super::midi_in::Thread>,
     _dispatch: Thread,
     _seq: Option<super::sequencer::Thread>,
 }

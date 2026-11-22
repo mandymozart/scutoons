@@ -223,3 +223,42 @@ fn a_story_event_reaches_another_deck_through_the_relay_and_is_adapted_there() {
     let typed: protocol::Envelope = serde_json::from_value(env).unwrap();
     assert!(matches!(typed.message, protocol::Message::Story(_)));
 }
+
+/// a deck's MIDI inputs as ports – the labels, the numbering at the first listing and after it, a device gone and back
+#[test]
+fn midi_inputs_are_numbered_by_label_and_keep_their_numbers() {
+    use deck_events::adapters::midi_in::{label, labels, Change, Inputs};
+    assert_eq!(label("Elektron Analog Four MKII:Elektron Analog Four MKII MIDI 1 24:0").as_deref(), Some("Elektron Analog Four MKII:Elektron Analog Four MKII MIDI 1"), "ALSA's client:port goes");
+    assert_eq!(label("Midi Through:Midi Through Port-0 14:0"), None, "ALSA's loopback is no input");
+    assert_eq!(label("Fireface UCX II (24057600)").as_deref(), Some("Fireface UCX II (24057600)"));
+    let l = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(labels(&l(&["Keys", "Keys"])), [Some("Keys".to_string()), Some("Keys #2".to_string())]);
+
+    let mut n = Names::new();
+    Midi::new(&mut n, None, 1); // the adapter's names, as the engine has them interned
+    let mut inputs = Inputs::new(n.clone());
+    let mut out = Vec::new();
+    let opened = |c: &[Change]| c.iter().filter_map(|c| if let Change::Opened { port, label, .. } = c { Some((*port, label.clone())) } else { None }).collect::<Vec<_>>();
+    let first = inputs.sync(&l(&["Fireface UCX II", "Midi Through Port-0 14:0", "Elektron Analog Four MKII"]), Time::Now, &mut out);
+    assert_eq!(opened(&first), [(1, "Elektron Analog Four MKII".to_string()), (2, "Fireface UCX II".to_string())], "sorted by label at the start");
+    assert!(matches!(first[0], Change::Opened { index: 2, .. }), "the index is the listing's");
+    assert!(inputs.sync(&l(&["Elektron Analog Four MKII", "Fireface UCX II"]), Time::Now, &mut out).is_empty(), "the same devices: nothing");
+
+    // port 2, channel 3: a held key, then the device goes – its note ends there, port 1's stays
+    assert!(inputs.feed(2, &[0x92, 60, 100], Time::Now, &mut out));
+    assert!(inputs.feed(1, &[0x90, 64, 100], Time::Now, &mut out));
+    let k = |e: &deck_events::Event, key: &str| e.props.get(n.get(key).unwrap()).unwrap();
+    assert_eq!((k(&out[0], "port"), k(&out[0], "ch"), k(&out[0], "note")), (2.0, 2.0, 60.0));
+    assert_eq!((out[0].start, out[0].source.as_deref()), (Time::Now, None), "live: now, nothing to free on the audio thread");
+    out.clear();
+    let gone = inputs.sync(&l(&["Elektron Analog Four MKII"]), Time::Now, &mut out);
+    assert_eq!(gone, [Change::Closed { port: 2, label: "Fireface UCX II".into() }]);
+    assert_eq!(out.len(), 1, "only the gone device's held note ends");
+    assert_eq!((n.name(out[0].name), k(&out[0], "port"), k(&out[0], "note")), (NOTE_OFF, 2.0, 60.0));
+    assert!(!inputs.feed(2, &[0x90, 60, 100], Time::Now, &mut out), "a gone device plays nothing");
+
+    // a new device takes the next number; the old one comes back on its own
+    let back = inputs.sync(&l(&["Keystep", "Elektron Analog Four MKII", "Fireface UCX II"]), Time::Now, &mut out);
+    assert_eq!(opened(&back), [(3, "Keystep".to_string()), (2, "Fireface UCX II".to_string())]);
+    assert_eq!(inputs.present().collect::<Vec<_>>(), [(1, "Elektron Analog Four MKII"), (2, "Fireface UCX II"), (3, "Keystep")]);
+}

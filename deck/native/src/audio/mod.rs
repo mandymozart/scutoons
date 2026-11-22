@@ -15,6 +15,8 @@ pub mod backend;
 pub mod deck_toml;
 #[cfg(feature = "events")]
 pub mod dispatch;
+#[cfg(feature = "events")]
+pub mod midi_in;
 pub mod glitch;
 #[cfg(feature = "modules")]
 pub mod modules;
