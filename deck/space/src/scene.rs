@@ -44,7 +44,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 20] = [
+pub const SANDBOX: [&str; 21] = [
     "channel-walk",
     "cue-34",
     "surround-51",
@@ -60,6 +60,7 @@ pub const SANDBOX: [&str; 20] = [
     "catpope-analog",
     "module-walk",
     "module-analog",
+    "sound-light",
     "stage-duo",
     "stage-cards",
     "crows-rave",
@@ -136,6 +137,8 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         // #406: they play compiled rig modules, so they need the `modules` build and the modules' wasm in `DECK_MODULES`
         "module-walk" => include_str!("../../native/scenes/sandbox/module-walk.toml"),
         "module-analog" => include_str!("../../native/scenes/sandbox/module-analog.toml"),
+        // drumseq, analog, env and stepseq – the `modules` build, as above
+        "sound-light" => include_str!("../../native/scenes/sandbox/sound-light.toml"),
         // #492: scene:stage resolved with two fillers – written by scene_resolve.rs's test, never by hand
         "stage-duo" => include_str!("../../native/scenes/sandbox/stage-duo.toml"),
         // #495: a 3D stage with a character's look and an item's card – written by scene_resolve.rs's test, never by hand

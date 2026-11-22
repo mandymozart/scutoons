@@ -45,6 +45,18 @@ impl Fft {
 
     /// the complex transform, in place
     pub fn forward(&self, re: &mut [f32], im: &mut [f32]) {
+        self.permute(re, im);
+        self.passes(re, im, 0, self.depth());
+    }
+
+    /// how many butterfly passes a transform takes: log2 of the length
+    pub fn depth(&self) -> u32 {
+        self.n.trailing_zeros()
+    }
+
+    /// `forward` in pieces, the same bits (to spread one transform over several calls): `permute`, then `passes` from
+    /// 0 up to `depth()` in any steps
+    pub fn permute(&self, re: &mut [f32], im: &mut [f32]) {
         let n = self.n;
         let (re, im) = (&mut re[..n], &mut im[..n]);
         for i in 0..n {
@@ -54,8 +66,15 @@ impl Fft {
                 im.swap(i, j);
             }
         }
-        let mut len = 2;
-        while len <= n {
+    }
+
+    /// the butterfly passes `from .. to` (pass s joins halves of 2^s points)
+    pub fn passes(&self, re: &mut [f32], im: &mut [f32], from: u32, to: u32) {
+        let n = self.n;
+        let (re, im) = (&mut re[..n], &mut im[..n]);
+        let mut len = 2usize << from.min(31);
+        let end = 2usize << to.min(self.depth()).max(from);
+        while len < end {
             let (half, stride) = (len / 2, n / len);
             let mut start = 0;
             while start < n {
@@ -163,5 +182,21 @@ mod tests {
         assert_eq!((Fft::new(0).len(), Fft::new(3).len(), Fft::new(1000).len(), Fft::new(1024).len()), (2, 4, 1024, 1024));
         let (a, b) = (Fft::new(512), Fft::new(512));
         assert!(a.cos == b.cos && a.sin == b.sin && a.rev == b.rev);
+    }
+
+    #[test]
+    fn the_transform_in_pieces_is_the_same_bits() {
+        let fft = Fft::new(2048);
+        assert_eq!(fft.depth(), 11);
+        let mut w = White::new(3);
+        let x: Vec<f32> = (0..2048).map(|_| w.sample()).collect();
+        let (mut re, mut im) = (x.clone(), vec![0.0f32; 2048]);
+        fft.forward(&mut re, &mut im);
+        let (mut re2, mut im2) = (x, vec![0.0f32; 2048]);
+        fft.permute(&mut re2, &mut im2);
+        for (a, b) in [(0, 4), (4, 4), (4, 9), (9, 11)] {
+            fft.passes(&mut re2, &mut im2, a, b);
+        }
+        assert!(re == re2 && im == im2);
     }
 }

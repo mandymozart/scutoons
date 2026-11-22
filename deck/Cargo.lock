@@ -786,6 +786,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "convolver-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "cookie-factory"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4827,6 +4834,7 @@ dependencies = [
  "base64",
  "bob-module",
  "cloud-module",
+ "convolver-module",
  "deck-catalog",
  "deck-core",
  "deck-module",

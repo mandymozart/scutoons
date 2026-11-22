@@ -24,6 +24,7 @@ fn every_factory_module_passes_the_compile_check() {
         ("cloud", cloud_module::Cloud::DESCRIPTOR),
         ("bamboo", bamboo_module::Bamboo::DESCRIPTOR),
         ("drumseq", drumseq_module::DrumSeq::DESCRIPTOR),
+        ("convolver", convolver_module::Convolver::DESCRIPTOR),
     ] {
         check(json).unwrap_or_else(|e| panic!("{name}: {e}"));
     }

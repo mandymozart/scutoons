@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Badge } from '@scutoons/ui';
 	import { Status } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { seasonStatusOf } from '$lib/editor/visibility.ts';
@@ -8,70 +7,62 @@
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
-	 * A chapter's row in a list (toon page, season editor) says only what is up (owner 2026-10-02: "only show badges when
-	 * something is up", "just the dot is a bit unclear"): filled badges with a word – visibility draft / coming soon (the
-	 * season's sequence), not published, not saved, missing – with the languages when only some are concerned
-	 * ("Draft · ko"). Everything published and saved: nothing. Any number of languages.
+	 * A chapter's row in a list (toon page, season editor) says only what is up, as quiet words: its visibility in the
+	 * season (draft / coming soon – content, not a save state) and a missing language (a problem, in the error colour),
+	 * with the languages when only some are concerned. Saving and publishing show nowhere here: edits save on their
+	 * own, the Publish pill's dot says what is not live.
 	 */
 	let { season, number, doc }: { season: ContentDoc; number: number; doc?: ContentDoc | null } = $props();
 
-	type Tone = 'draft' | 'soon' | 'info' | 'warning' | 'error';
-	interface Issue {
+	interface Mark {
 		word: string;
-		tone: Tone;
+		missing: boolean;
 		locales: string[];
 	}
 
-	const issues = $derived.by<Issue[]>(() => {
+	const marks = $derived.by<Mark[]>(() => {
 		const all = season.textLanguages;
-		const out: Issue[] = [];
-		const add = (word: string, tone: Tone, locale: string) => {
+		const out: Mark[] = [];
+		const add = (word: string, missing: boolean, locale: string) => {
 			// a language-neutral document's state concerns every language
 			const locales = locale === doc?.primary && doc?.neutral ? all : [locale];
-			const found = out.find((i) => i.word === word && i.tone === tone);
+			const found = out.find((i) => i.word === word);
 			if (found) found.locales.push(...locales);
-			else out.push({ word, tone, locales: [...locales] });
+			else out.push({ word, missing, locales: [...locales] });
 		};
 		for (const l of all) {
 			const status = seasonStatusOf(season, l, number);
-			if (status === Status.DRAFT) add(statusWord(status), 'draft', l);
-			else if (status === Status.COMING_SOON) add(statusWord(status), 'soon', l);
+			if (status === Status.DRAFT || status === Status.COMING_SOON) add(statusWord(status), false, l);
 		}
-		if (doc && !doc.loading) {
-			for (const l of doc.locales) {
-				const source = doc.source[l];
-				if (source === 'missing') add(m['creator.state_missing'](), 'error', l);
-				else if (source === 'new' || doc.dirtyLocales.includes(l)) add(m['creator.not_saved'](), 'warning', l);
-				else if (doc.published[l] == null || doc.base[l] !== doc.published[l]) add(m['creator.state_unpublished'](), 'info', l);
-			}
-		}
+		if (doc && !doc.loading) for (const l of doc.locales) if (doc.source[l] === 'missing') add(m['creator.state_missing'](), true, l);
 		return out;
 	});
-	/** the languages only when the issue doesn't concern all of them (the source marked with the star) */
-	const which = (issue: Issue) => (season.textLanguages.length > 1 && issue.locales.length < season.textLanguages.length ? [...new Set(issue.locales)] : []);
+	/** the languages only when the mark doesn't concern all of them (the source marked with the star) */
+	const which = (mark: Mark) => (season.textLanguages.length > 1 && mark.locales.length < season.textLanguages.length ? [...new Set(mark.locales)] : []);
 </script>
 
-{#if issues.length}
-	<span class="chapter-badges" data-testid="chapter-badges-{number}">
-		{#each issues as issue (issue.word + issue.tone)}
-			<Badge tone={issue.tone}
-				><span class="word"
-					>{issue.word}{#each which(issue) as l, i (l)}{i ? ', ' : ' · '}{l}{#if l === season.textSource}<SourceMark />{/if}{/each}</span
-				></Badge
+{#if marks.length}
+	<span class="chapter-marks" data-testid="chapter-badges-{number}">
+		{#each marks as mark (mark.word)}
+			<span class="mark" class:missing={mark.missing}
+				>{mark.word}{#each which(mark) as l, i (l)}{i ? ', ' : ' · '}{l}{#if l === season.textSource}<SourceMark />{/if}{/each}</span
 			>
 		{/each}
 	</span>
 {/if}
 
 <style>
-	.chapter-badges {
+	.chapter-marks {
 		display: inline-flex;
 		flex-wrap: wrap;
 		justify-content: flex-end;
-		gap: var(--space-025);
+		gap: var(--space-05);
 	}
-	.word {
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+	.mark {
+		color: var(--text-muted);
+		font-size: var(--type-caption-size);
+	}
+	.mark.missing {
+		color: var(--error);
 	}
 </style>

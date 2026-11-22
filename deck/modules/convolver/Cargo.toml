@@ -1,0 +1,18 @@
+# convolver – a convolution reverb: an impulse response from a sound asset, partitioned, 128 frames late. Build for the deck / browser:
+# `cargo build --release --target wasm32-unknown-unknown -p convolver-module`
+[package]
+name = "convolver-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-module = { path = "../../module", features = ["host"] }
