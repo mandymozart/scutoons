@@ -1,11 +1,14 @@
 //! The storm cloud's light (#780): the sandbox `cloud-light` is the rig `cloud-storm` flattened, held, tinted, with an
 //! `[outputs]` that pulses the deck's RGB wash (the Thunder Wash 600 RGBW at DMX 1) in the cloud's colour at every
 //! repeat – `storm_cloud.red` / `green` / `blue` → `wash.red` / `green` / `blue`, each gained by the top three quarters
-//! of `storm_cloud.pulse` (1 at a repeat, fading by 0.12 s), so it is dark again before the next eighth. Through the whole engine with the real modules and deck-outputs' engine as the test
-//! sink (no widget): each DMX value = colour × pulse in 8 bit at its 40 Hz frame, lit at each repeat, dark between.
+//! of `storm_cloud.pulse` (1 at a repeat, fading by 0.12 s), so it is dark again before the next eighth; and a strobe
+//! (the generic profile at DMX 10) triggered by `storm_cloud.gate` (1 for the first half of each period), so it flashes
+//! once at every repeat at every rate – the pulse's fade would not re-arm it between repeats faster than about 1/8.
+//! Through the whole engine with the real modules and deck-outputs' engine as the test sink (no widget): each DMX value =
+//! colour × pulse in 8 bit at its 40 Hz frame, lit at each repeat, dark between; one strobe flash a repeat at 1/8 and 1/32.
 //! The sandbox is written by `the_sandbox_is_the_rig_with_its_light`, never by hand:
 //!   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
-//! `CLOUD_OUT_DIR=<dir>` also writes a held second of the wash's channels as `<dir>/cloud-light.csv`.
+//! `CLOUD_OUT_DIR=<dir>` also writes a held second at 1/32 of the wash's channels and the strobe as `<dir>/cloud-light.csv`.
 #![cfg(all(feature = "modules", feature = "events", feature = "outputs"))]
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
 use deck_events::{Event, Time};
@@ -23,13 +26,17 @@ const RATE: f64 = 48_000.0;
 const SANDBOX: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/scenes/sandbox/cloud-light.toml");
 /// the wash's colour channels (address 1, profile 4CH_1)
 const RGB: [u16; 3] = [1, 2, 3];
+/// the strobe's flash channel (the generic profile's dimmer, address 10: clear of the wash's 1–4)
+const FLASH: u16 = 10;
 
 const HEADER: &str = "\
 # A sandbox (#780): the storm cloud's light – the rig `cloud-storm` flattened, held (its repeater plays a thunder and a
 # kick on every eighth) and tinted storm-blue, and the deck's RGB wash (Cameo Thunder Wash 600 RGBW, 4CH_1, DMX address 1 on the first USB-DMX
 # widget) flashing in the cloud's colour at the repeater's speed: red / green / blue each gained by the cloud's pulse
-# (its top three quarters, so the wash is dark again 0.17 s after a repeat).
-# The cloud's period, phase, pulse, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
+# (its top three quarters, so the wash is dark again 0.17 s after a repeat); and a generic strobe (profile `strobe`, DMX
+# address 10 – clear of the wash's 1–4) flashing 30 ms at every repeat, triggered by the cloud's gate (1 for the first half
+# of each period, so it re-arms between repeats at every rate, where the pulse's fade would not).
+# The cloud's period, phase, pulse, gate, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
 # [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
 # Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
@@ -61,6 +68,16 @@ to = [{ dmx = "wash.green" }]
 from = "storm_cloud.blue"
 gain = [{ from = "storm_cloud.pulse", in = [0.25, 1] }]
 to = [{ dmx = "wash.blue" }]
+
+[[fixture]]
+id = "strobe"
+profile = "strobe"
+address = 10
+
+[[strobe]]
+fixture = "strobe"
+trigger = "storm_cloud.gate"
+duration = 30
 "#;
 
 /// cloud, analog and mixer as release wasm, built once, loaded into the library
@@ -127,12 +144,16 @@ fn the_sandbox_is_the_rig_with_its_light() {
     modules::check(&s).unwrap();
     let g = Graph::build(&s).unwrap();
     let paths = deck_native::outputs::paths(&g);
-    for port in ["period", "phase", "pulse", "red", "green", "blue"] {
+    for port in ["period", "phase", "pulse", "gate", "red", "green", "blue"] {
         assert!(paths.contains(&format!("storm_cloud.{port}")), "storm_cloud.{port} in {paths:?}");
     }
     let plan = deck_outputs::parse(s.outputs.as_ref().unwrap(), Some(&paths), &|n| Err(n.to_owned())).unwrap();
-    assert_eq!(plan.paths, ["storm_cloud.red", "storm_cloud.pulse", "storm_cloud.green", "storm_cloud.blue"]);
+    assert_eq!(plan.paths, ["storm_cloud.gate", "storm_cloud.red", "storm_cloud.pulse", "storm_cloud.green", "storm_cloud.blue"]);
     assert_eq!(plan.targets.len(), 3);
+    assert_eq!(plan.strobes.len(), 1);
+    assert_eq!(plan.strobes[0].flash, FLASH);
+    assert!(plan.strobes[0].trigger.is_some(), "the gate's rise, not the grid");
+    assert_eq!(plan.strobes[0].rate.max_hz, None, "the generic profile: no cap");
     for (t, ch) in plan.targets.iter().zip(RGB) {
         assert!(matches!(t.wire, deck_outputs::config::Wire::Dmx { ch: c, fine: None } if c == ch), "{:?}", t.wire);
         assert_eq!(t.gains.len(), 1);
@@ -157,12 +178,15 @@ fn slot(g: &Graph, path: &str) -> Slot {
     Slot::Out(i, kind.output(port).filter(|&k| kind.outputs()[k].ty == PortType::Control).unwrap_or_else(|| panic!("no control {path}")))
 }
 
-/// One step of the outputs: when, the cloud's [pulse, red, green, blue] it saw, the wash's RGB after it
+/// One step of the outputs: when, the cloud's [pulse, red, green, blue] and gate it saw, the wash's RGB and the strobe's
+/// flash channel after it
 #[derive(Debug, PartialEq)]
 struct Frame {
     at: f64,
     seen: [f32; 4],
+    gate: f32,
     wash: [u8; 3],
+    strobe: u8,
     sent: Vec<Timed>,
 }
 
@@ -175,7 +199,19 @@ struct Run {
 }
 
 fn play(seconds: f64) -> Run {
-    let s = sandbox();
+    run(sandbox(), seconds)
+}
+
+/// the sandbox with the cloud's `rate` and `hold` set
+fn with(rate: f64, hold: f64) -> Scene {
+    let mut s = sandbox();
+    let cloud = s.nodes.iter_mut().find(|n| n.id == "storm_cloud").unwrap();
+    cloud.params.insert("rate".into(), toml::Value::Float(rate));
+    cloud.params.insert("hold".into(), toml::Value::Float(hold));
+    s
+}
+
+fn run(s: Scene, seconds: f64) -> Run {
     modules::check(&s).unwrap();
     let g = Graph::build(&s).unwrap();
     let plan = deck_outputs::parse(s.outputs.as_ref().unwrap(), Some(&deck_native::outputs::paths(&g)), &|n| Err(n.to_owned())).unwrap();
@@ -190,8 +226,9 @@ fn play(seconds: f64) -> Run {
     let cloud = g.nodes.iter().position(|n| n.id == "storm_cloud").unwrap();
     let port = |name: &str| g.nodes[cloud].kind.output(name).unwrap();
     let ports = [port("pulse"), port("red"), port("green"), port("blue")];
+    let gate = port("gate");
     let mut run = Run { frames: vec![], repeats: vec![], out: vec![] };
-    let (mut values, mut wake, mut wash) = (vec![0.0f32; slots.len()], 0.0f64, [0u8; 3]);
+    let (mut values, mut wake, mut wash, mut strobe) = (vec![0.0f32; slots.len()], 0.0f64, [0u8; 3], 0u8);
     for b in 0..(seconds * RATE) as usize / QUANTUM {
         let mut buf = vec![0.0f32; QUANTUM * 2];
         e.render(&mut buf, 2, |x| x);
@@ -222,9 +259,12 @@ fn play(seconds: f64) -> Run {
                     if let Some(i) = RGB.iter().position(|&c| c == ch) {
                         wash[i] = value;
                     }
+                    if ch == FLASH {
+                        strobe = value;
+                    }
                 }
             }
-            run.frames.push(Frame { at: now, seen, wash, sent });
+            run.frames.push(Frame { at: now, seen, gate: c.outputs(cloud)[gate], wash, strobe, sent });
         }
     }
     run
@@ -274,6 +314,46 @@ fn the_wash_flashes_at_each_repeat_and_is_dark_between() {
     }
 }
 
+/// when the strobe's flashes went out (s)
+fn flashes(run: &Run) -> Vec<f64> {
+    run.frames.iter().flat_map(|f| &f.sent).filter_map(|m| matches!(m.out, Out::Dmx { ch: FLASH, value, now: true } if value > 0).then_some(m.at)).collect()
+}
+
+/// The strobe flashes once at every repeat – at 1/8 and at 1/32 (62.5 ms at 120 BPM, where the pulse never falls
+/// below the trigger's 0.25 between repeats) – within a block and a poll after it
+#[test]
+fn the_strobe_flashes_once_at_each_repeat_at_1_8_and_1_32() {
+    for (rate, what, least) in [(0.6, "1/8", 10), (1.0, "1/32", 40)] {
+        let seconds = 3.0;
+        let run = run(with(rate, 1.0), seconds);
+        let r = &run.repeats;
+        assert!(r.len() >= least, "{what}: repeats {r:?}");
+        let on = flashes(&run);
+        let late = 2.0 * QUANTUM as f64 / RATE + deck_outputs::engine::POLL_S + 1e-6;
+        // the repeats a flash can follow inside the run
+        let seen: Vec<f64> = r.iter().copied().filter(|&t| t + late < seconds - QUANTUM as f64 / RATE).collect();
+        for (k, &t) in seen.iter().enumerate() {
+            let next = seen.get(k + 1).copied().unwrap_or(f64::INFINITY);
+            let mine: Vec<f64> = on.iter().copied().filter(|&f| f >= t - 1e-9 && f < next - 1e-9).collect();
+            assert_eq!(mine.len(), 1, "{what}: one flash for the repeat at {t} s: {mine:?}");
+            assert!(mine[0] - t < late, "{what}: the flash at {} s for the repeat at {t} s", mine[0]);
+        }
+        assert!(on.iter().all(|&f| f >= r[0] - 1e-9), "{what}: no flash before the first repeat");
+        assert!(on.len() >= seen.len() && on.len() <= r.len(), "{what}: {} flashes for {} repeats", on.len(), r.len());
+        let offs = run.frames.iter().flat_map(|f| &f.sent).filter(|m| matches!(m.out, Out::Dmx { ch: FLASH, value: 0, now: true })).count();
+        assert!(offs + 1 >= on.len(), "{what}: every flash ends");
+    }
+}
+
+/// Not held: no repeats, the gate low, the strobe dark
+#[test]
+fn no_flash_while_not_held() {
+    let run = run(with(1.0, 0.0), 1.5);
+    assert!(run.repeats.is_empty());
+    assert!(run.frames.iter().all(|f| f.gate == 0.0 && f.strobe == 0));
+    assert!(flashes(&run).is_empty());
+}
+
 /// two decks, one storm: the same light
 #[test]
 fn a_run_is_the_same_twice() {
@@ -281,12 +361,13 @@ fn a_run_is_the_same_twice() {
     assert_eq!(a, b);
 }
 
-/// `CLOUD_OUT_DIR=<dir>`: a held second of the wash's channels per 40 Hz frame as `<dir>/cloud-light.csv`
+/// `CLOUD_OUT_DIR=<dir>`: a held second at 1/32 of the wash's channels and the strobe per step of the outputs as
+/// `<dir>/cloud-light.csv`
 #[test]
 fn write_the_light_when_asked() {
     let Ok(dir) = std::env::var("CLOUD_OUT_DIR") else { return };
-    let run = play(1.0);
-    let mut csv = String::from("t_s,repeat,pulse,red,green,blue,dmx1_red,dmx2_green,dmx3_blue\n");
+    let run = run(with(1.0, 1.0), 1.0);
+    let mut csv = String::from("t_s,repeat,pulse,gate,red,green,blue,dmx1_red,dmx2_green,dmx3_blue,dmx10_strobe\n");
     let mut next = run.repeats.iter().peekable();
     for f in &run.frames {
         let mut repeat = String::new();
@@ -296,7 +377,7 @@ fn write_the_light_when_asked() {
         }
         let [p, r, g, b] = f.seen;
         let [d1, d2, d3] = f.wash;
-        csv += &format!("{:.4},{repeat},{p:.3},{r:.3},{g:.3},{b:.3},{d1},{d2},{d3}\n", f.at);
+        csv += &format!("{:.4},{repeat},{p:.3},{:.0},{r:.3},{g:.3},{b:.3},{d1},{d2},{d3},{}\n", f.at, f.gate, f.strobe);
     }
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(Path::new(&dir).join("cloud-light.csv"), csv).unwrap();

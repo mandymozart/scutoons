@@ -1,8 +1,10 @@
 # A sandbox (#780): the storm cloud's light – the rig `cloud-storm` flattened, held (its repeater plays a thunder and a
 # kick on every eighth) and tinted storm-blue, and the deck's RGB wash (Cameo Thunder Wash 600 RGBW, 4CH_1, DMX address 1 on the first USB-DMX
 # widget) flashing in the cloud's colour at the repeater's speed: red / green / blue each gained by the cloud's pulse
-# (its top three quarters, so the wash is dark again 0.17 s after a repeat).
-# The cloud's period, phase, pulse, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
+# (its top three quarters, so the wash is dark again 0.17 s after a repeat); and a generic strobe (profile `strobe`, DMX
+# address 10 – clear of the wash's 1–4) flashing 30 ms at every repeat, triggered by the cloud's gate (1 for the first half
+# of each period, so it re-arms between repeats at every rate, where the pulse's fade would not).
+# The cloud's period, phase, pulse, gate, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
 # [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
 # Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
@@ -190,6 +192,11 @@ address = 1
 id = "wash"
 profile = "thunderwash-600-rgbw"
 
+[[outputs.fixture]]
+address = 10
+id = "strobe"
+profile = "strobe"
+
 [[outputs.map]]
 from = "storm_cloud.red"
 
@@ -219,6 +226,11 @@ in = [0.25, 1]
 
 [[outputs.map.to]]
 dmx = "wash.blue"
+
+[[outputs.strobe]]
+duration = 30
+fixture = "strobe"
+trigger = "storm_cloud.gate"
 
 [being]
 size = 0.5
