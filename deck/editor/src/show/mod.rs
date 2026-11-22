@@ -31,9 +31,9 @@ pub(crate) mod condition;
 pub mod demos;
 mod events;
 pub mod nodes;
-mod node_card;
 mod node_drop;
-mod node_paint;
+// #763: the node view's painting is the Spores widget's (deck-spores), shared with the creator's Spores tab
+use deck_spores::{card as node_card, paint as node_paint};
 mod node_pick;
 mod node_wire;
 pub(crate) mod flash;

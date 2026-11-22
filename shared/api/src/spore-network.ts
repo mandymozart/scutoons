@@ -1,9 +1,9 @@
 // GENERATED from server/schema/api/spore-network.schema.json by server/schema/generate.ts – edit the source, run `npm run generate`.
 // One level of the spore network as a weave (#763, agents/research/redesign/NETWORK.md §4; owner 2026-11-21: the tab is "Spores", connecting is "weaving"): the spores and threads a scope's projector computes from its documents, drawn by every canvas – the creator's Spores tab, the native deck editor, the Reception tab, the MCP. The documents stay the truth; a weave is never stored (only its canvas). Each scope's projector lives where that scope's rules live (story: shared/content; XR: the OSCT logic package; show and rig: the Rust core). Edit this file, run `npm run generate` (server/schema/generate.ts writes the Rust and TS types), commit the outputs; spore-network.vectors.json holds the weaves every language reads.
-/** What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`. */
-export type Signal = 'event' | 'control' | 'clock' | 'audio' | 'picture' | 'address' | 'vote' | 'scene' | 'far';
+/** What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`. `job` is a run that starts, progresses and ends (a generation, a night run, a publish); `asset` is a reference to a Library asset of any kind (a picture that arrived, an approved text) – owner 2026-11-21: spores get job and asset signals. */
+export type Signal = 'event' | 'control' | 'clock' | 'audio' | 'picture' | 'address' | 'vote' | 'scene' | 'far' | 'job' | 'asset';
 
-/** Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events (generation done, approved, published …), `network` the spore network's levels above them all. */
+/** Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events that can trigger spores (a night run, a publish, a draft saved, a job triggered, a picture arriving in another spore, a budget authorized, a Kanon text or script approved, a storyboard cut, a chapter's status changed – owner 2026-11-21), `network` the spore network's levels above them all. */
 export type Scope = 'story' | 'xr' | 'show' | 'rig' | 'scene' | 'creator' | 'network';
 
 /** The driver that runs a spore (the runtimes): the `reader` (the VN runner), `xr` (OSCT's engine in the reader), the `conductor`, a `deck` (the engine, its own audio context), the `server` (jobs, generations), the `editor` (authoring-time nodes only, never at reading time). */
@@ -56,8 +56,6 @@ export interface Spore {
 	enter?: string;
 	/** An asset reference for the spore's image (a world spore's origin, a preview). */
 	picture?: string;
-	/** The canvas group it sits in. */
-	group?: string;
 }
 
 /** One end of a thread: a spore and one of its ports. */
@@ -109,7 +107,9 @@ export interface Problem {
 export interface Group {
 	id: string;
 	label: string;
+	/** `#rrggbb`. */
 	colour?: string;
+	/** The spores it frames – the one place a spore's group is kept. */
 	spores: string[];
 	folded?: boolean;
 }
@@ -117,7 +117,9 @@ export interface Group {
 export interface Note {
 	id: string;
 	text: string;
-	/** The spore it sits beside. */
+	/** Who wrote it (the member's name). */
+	author?: string;
+	/** The spore it sits beside; none: after the weave. */
 	near?: string;
 }
 
@@ -126,11 +128,12 @@ export interface Point {
 	y: number;
 }
 
-/** Authoring data beside the documents, never played: groups, notes, folds, positions pinned by hand (rem) over the auto layout. */
+/** Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout. */
 export interface Canvas {
 	groups?: Group[];
 	notes?: Note[];
-	folded?: string[];
+	/** By spore id: folded (true) or opened (false) by hand; none: as it comes. */
+	folded?: Record<string, boolean>;
 	placed?: Record<string, Point>;
 }
 

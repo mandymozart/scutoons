@@ -19,6 +19,8 @@ fn semitones(s: Signal) -> i32 {
         Signal::Vote => 0,     // A4
         Signal::Event => 3,    // C5
         Signal::Address => 5,  // D5
+        Signal::Job => 7,      // E5
+        Signal::Asset => 10,   // G5
     }
 }
 
@@ -27,14 +29,9 @@ pub fn pitch(s: Signal) -> f32 {
     440.0 * (semitones(s) as f32 / 12.0).exp2()
 }
 
-/// the signal a node is known by: its first outlet's, else its first inlet's
-pub fn signal_of(n: &Node) -> Option<Signal> {
-    n.outs.first().or(n.ins.first()).map(|p| p.signal)
-}
-
 /// the tone of a node, Hz; one without pins (a kept cell, a folded pill) sounds as a piece
 pub fn tone(n: &Node) -> f32 {
-    pitch(signal_of(n).unwrap_or(Signal::Scene))
+    pitch(n.signal().unwrap_or(Signal::Scene))
 }
 
 #[cfg(test)]

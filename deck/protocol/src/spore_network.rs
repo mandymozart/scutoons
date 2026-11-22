@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// A payload whose shape is not fixed yet: any JSON object.
 pub type Loose = serde_json::Map<String, serde_json::Value>;
 
-/// What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`.
+/// What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`. `job` is a run that starts, progresses and ends (a generation, a night run, a publish); `asset` is a reference to a Library asset of any kind (a picture that arrived, an approved text) – owner 2026-11-21: spores get job and asset signals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Signal {
 	#[serde(rename = "event")]
@@ -27,6 +27,10 @@ pub enum Signal {
 	Scene,
 	#[serde(rename = "far")]
 	Far,
+	#[serde(rename = "job")]
+	Job,
+	#[serde(rename = "asset")]
+	Asset,
 }
 
 impl Signal {
@@ -41,11 +45,13 @@ impl Signal {
 			Signal::Vote => "vote",
 			Signal::Scene => "scene",
 			Signal::Far => "far",
+			Signal::Job => "job",
+			Signal::Asset => "asset",
 		}
 	}
 }
 
-/// Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events (generation done, approved, published …), `network` the spore network's levels above them all.
+/// Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events that can trigger spores (a night run, a publish, a draft saved, a job triggered, a picture arriving in another spore, a budget authorized, a Kanon text or script approved, a storyboard cut, a chapter's status changed – owner 2026-11-21), `network` the spore network's levels above them all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Scope {
 	#[serde(rename = "story")]
@@ -260,9 +266,6 @@ pub struct Spore {
 	/// An asset reference for the spore's image (a world spore's origin, a preview).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub picture: Option<String>,
-	/// The canvas group it sits in.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub group: Option<String>,
 }
 
 /// One end of a thread: a spore and one of its ports.
@@ -339,8 +342,10 @@ pub struct Problem {
 pub struct Group {
 	pub id: String,
 	pub label: String,
+	/// `#rrggbb`.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub colour: Option<String>,
+	/// The spores it frames – the one place a spore's group is kept.
 	pub spores: Vec<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub folded: Option<bool>,
@@ -350,7 +355,10 @@ pub struct Group {
 pub struct Note {
 	pub id: String,
 	pub text: String,
-	/// The spore it sits beside.
+	/// Who wrote it (the member's name).
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub author: Option<String>,
+	/// The spore it sits beside; none: after the weave.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub near: Option<String>,
 }
@@ -361,15 +369,16 @@ pub struct Point {
 	pub y: f64,
 }
 
-/// Authoring data beside the documents, never played: groups, notes, folds, positions pinned by hand (rem) over the auto layout.
+/// Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Canvas {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub groups: Option<Vec<Group>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub notes: Option<Vec<Note>>,
+	/// By spore id: folded (true) or opened (false) by hand; none: as it comes.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub folded: Option<Vec<String>>,
+	pub folded: Option<std::collections::HashMap<String, bool>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub placed: Option<std::collections::HashMap<String, Point>>,
 }
