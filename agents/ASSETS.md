@@ -480,8 +480,8 @@ the level isn't known. The creator shows them as a `MediaVariantsSlot` with `kin
 **The pick rule is the core's** (`deck/catalog/src/rendition.rs`, #782): a level → its file, else the nearest lower, else `src`;
 a family's files by their markers (kbit/s, `p`, `.2x` / `.3x`, `.low` / `.medium` / `.high`). The deck's general-purpose loader
 (deck-media `asset.rs`) adds the cache: the picked file cached or fetched, else the nearest cached one (offline), then decodes;
-module slot assets load through it (a module node's `assets = { ir = "<cdn path>" | { src, variants } }`), the deck's chapter
-music and slices pick by the rule. The reader's `pickQualityVariant` is still a TS twin of it (#786).
+module slot assets, the deck's chapter music and its slices load through it (`Library::load`; a module node's
+`assets = { ir = "<cdn path>" | { src, variants } }`), module slots and music at the deck's quality (its governor ceiling) unless the music node names one, slices at the chapter node's. The reader's `pickQualityVariant` is still a TS twin of it (#786).
 **Lower levels are made in the browser** (`shared/media/src/audio-levels.ts`, `wasm-media-encoders` = LAME as WebAssembly,
 MIT wrapper, loaded only when encoding): an upload in the picker is decoded, its rate estimated (size / duration), the
 original stored as `<name>.<rate>.<ext>` and every level clearly below it encoded (CBR) and uploaded – a 320k upload gives
