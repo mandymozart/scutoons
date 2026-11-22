@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn a_click_picks_the_member_under_it_and_the_floor_drops_it() {
         let (g, mut space, mut ctl) = duo();
-        assert_eq!(space.hand().buttons.len(), 0, "nothing picked: the knobs reach no one");
+        assert_eq!(space.hand().buttons.len(), space.being.buttons.len(), "nothing picked: the knobs are the scene's own (#816)");
         let left = space.member_pixel("left").unwrap();
         let right = space.member_pixel("right").unwrap();
         assert!(left.0 < right.0, "left stands left: {left:?} {right:?}");
