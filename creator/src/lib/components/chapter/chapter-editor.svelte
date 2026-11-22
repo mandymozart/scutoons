@@ -70,7 +70,9 @@
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import { useProblems } from '$lib/log/problems.svelte.ts';
+	import { problemMessage, problemPlace } from '$lib/log/problem-words.ts';
+	import { log } from '$lib/log/log.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import PreviewTab from '$lib/components/reader/preview-tab.svelte';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
@@ -331,8 +333,16 @@
 		},
 		locale: readerLocale
 	});
-	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, groupLabel: (i: number) => groupName(groups[i], i), ongoto: gotoProblem });
-	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, problems: problemsTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
+	const groupLabel = (i: number) => groupName(groups[i], i);
+	useProblems(() => ({ problems, docs: allDocs, home: chapter.entity, place: (p) => problemPlace(p, chapter.entity, groupLabel), message: problemMessage, ongoto: gotoProblem }));
+	// the Log's Selection scope: the picked group or slice, as a problem's path inside the chapter
+	$effect(() => {
+		const item = log.item;
+		const group = view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1;
+		log.selection = item && group >= 0 ? `${item}/groups/${group}${view.section === 'slice' && view.sliceIndex >= 0 ? `/slices/${view.sliceIndex}` : ''}` : null;
+		return () => (log.selection = null);
+	});
+	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
 	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
@@ -943,9 +953,6 @@
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
 {/snippet}
-{#snippet problemsTab()}
-	<div class="side-panel"><ProblemsPanel {...problemsProps()} /></div>
-{/snippet}
 {#snippet publishMenu()}
 	<div class="publish-menu" data-testid="publish-panel">
 		<button type="button" class:primary={anyDirty} disabled={!anyDirty || anySaving} onclick={() => session.saveDraft()} data-testid="save-draft"><Icon name="save" />{anySaving ? m['creator.saving']() : m['creator.save_short']()}</button>
@@ -1175,10 +1182,6 @@
 	}
 	.sub {
 		margin-top: var(--space-15);
-	}
-	.side-panel {
-		box-sizing: border-box;
-		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.pad {
 		padding: var(--space-1);

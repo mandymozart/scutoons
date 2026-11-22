@@ -36,10 +36,12 @@
 //!   an audience phone, `device: phone`, its proof) on the light start (deck-space `stage::Light`: the ballot on deck-kit's
 //!   2D, no scene, no sound); the page brings the socket, the proof's fetch and the wake lock.
 //! - **The Library (#698):** `Library` – deck-catalog's shelf for the creator's Library (library.rs).
+//! - **The Log (#767):** `Log` – deck-ui's messages for the creator's Log tab and status bar (log.rs).
 #![cfg(target_arch = "wasm32")]
 
 mod library;
 mod link;
+mod log;
 mod outlet;
 mod scene;
 mod vote;

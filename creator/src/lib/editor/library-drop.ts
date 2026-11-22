@@ -45,7 +45,7 @@ export function dropAsset(e: DragEvent, fit: SlotFit, apply: (path: string, file
 	}
 	const answer = library.takes(path, fit);
 	if (answer.ok) apply(path, filesOf(library.familyOf(path)));
-	else toast(misfitWords(answer), { type: 'warning' });
+	else toast(misfitWords(answer), { type: 'warning', kind: 'library' });
 	return answer.ok;
 }
 

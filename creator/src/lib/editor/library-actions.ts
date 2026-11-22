@@ -24,7 +24,7 @@ export async function renameFamily(family: AssetFamily) {
 	try {
 		await library.rename(family, title.trim());
 	} catch (e) {
-		toast(m['library.upload_failed']({ reason: reason(e) }), { type: 'error' });
+		toast(m['library.upload_failed']({ reason: reason(e) }), { type: 'error', kind: 'library' });
 	}
 }
 
@@ -39,13 +39,13 @@ export async function deleteFamilies(families: AssetFamily[]) {
 			return;
 		}
 		if (check.blocking > 0) {
-			toast(m['library.delete_refused']({ what, count: check.blocking + check.drafts, issue: '#700' }), { type: 'error' });
+			toast(m['library.delete_refused']({ what, count: check.blocking + check.drafts, issue: '#700' }), { type: 'error', kind: 'library' });
 			return;
 		}
 		const anyway = await confirmDialog({ title: m['library.delete_used_title'](), message: m['library.delete_used']({ what, count: check.drafts }), confirmLabel: m['library.delete_anyway']() });
 		if (anyway) await library.remove(check.ids, true);
 	} catch (e) {
-		toast(m['library.upload_failed']({ reason: reason(e) }), { type: 'error' });
+		toast(m['library.upload_failed']({ reason: reason(e) }), { type: 'error', kind: 'library' });
 	}
 }
 

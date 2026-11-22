@@ -9,6 +9,7 @@ import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
+import type { LogKind } from '@scutoons/content';
 import { suggestNote } from '$lib/editor/version-note-words.ts';
 
 export interface DocSessionOptions {
@@ -54,9 +55,9 @@ export class DocSession {
 	}
 
 	/** this page's toast (the previous one goes) */
-	notify(message: string, type: 'info' | 'success' | 'error' = 'info') {
+	notify(message: string, type: 'info' | 'success' | 'error' = 'info', kind: LogKind = 'save') {
 		this.clearNotice();
-		this.lastToast = toast(message, { type });
+		this.lastToast = toast(message, { type, kind });
 	}
 	private clearNotice() {
 		if (this.lastToast !== null) toaster.dismiss(this.lastToast);
@@ -149,9 +150,9 @@ export class DocSession {
 			const live = new Set(result.published);
 			for (const doc of [...this.docs, ...this.companions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
 			this.savedCompanions = [];
-			this.notify(result.message, result.published.length ? 'success' : undefined);
+			this.notify(result.message, result.published.length ? 'success' : undefined, 'publish');
 		} catch (e) {
-			this.notify(e instanceof Error ? e.message : String(e), 'error');
+			this.notify(e instanceof Error ? e.message : String(e), 'error', 'publish');
 		}
 	}
 
