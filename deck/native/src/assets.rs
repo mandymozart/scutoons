@@ -1,35 +1,15 @@
-//! The native deck's side of the general-purpose loader: deck-media's `asset::load` over the library's disk cache
-//! and the CDN (`Files`), decoded for a module's slot – the pick, the fallback and the decode are the core's. The quality
-//! is the deck's render ceiling (`--quality`, then the governor's), medium until it is known. Decoded assets stay in
-//! memory by file, so a scene built again does not decode again.
-use crate::library::Library;
+//! A module's slot assets through the general-purpose loader (`Library::load`: deck-media's `asset::load` over the
+//! library's disk cache and the CDN), decoded for the slot – the pick, the fallback and the decode are the core's. The
+//! quality is the deck's (`library::quality`). Decoded assets stay in memory by file, so a scene built again does not
+//! decode again.
+use crate::library::{self, Library};
 use deck_catalog::rendition::{Media, Quality};
 use deck_catalog::AssetKind;
 use deck_engine::AssetLoader;
-use deck_media::asset::{self, Files};
+use deck_media::asset;
 use deck_module_host::AssetData;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-/// The library's cache and CDN as deck-media's `Files`: a CDN-root path `<folder>/<rest>` is `<cache>/cdn/<folder>/<rest>`.
-struct Disk<'a>(&'a Library);
-
-fn split(path: &str) -> Result<(&str, &str), String> {
-    path.split_once('/').ok_or_else(|| format!("'{path}' is no CDN path"))
-}
-
-impl Files for Disk<'_> {
-    fn cached(&self, path: &str) -> Option<Vec<u8>> {
-        let (folder, rest) = split(path).ok()?;
-        std::fs::read(self.0.file_cache_path(folder, rest).ok()?).ok()
-    }
-
-    fn fetch(&self, path: &str) -> Result<Vec<u8>, String> {
-        let (folder, rest) = split(path)?;
-        let file = self.0.file(folder, rest).map_err(|e| format!("{e:#}"))?;
-        std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))
-    }
-}
 
 /// The loader the engine asks for module slot assets.
 pub struct Assets {
@@ -60,21 +40,10 @@ impl Assets {
     }
 }
 
-static QUALITY: Mutex<Quality> = Mutex::new(Quality::Medium);
-
-fn quality() -> Quality {
-    *QUALITY.lock().unwrap_or_else(|e| e.into_inner())
-}
-
-/// the quality the next scenes' assets load at
-pub fn set_quality(q: Quality) {
-    *QUALITY.lock().unwrap_or_else(|e| e.into_inner()) = q;
-}
-
 impl AssetLoader for Assets {
     fn load(&self, slot: usize, media: &Media, kind: AssetKind) -> Result<AssetData, String> {
-        let q = self.fixed.unwrap_or_else(quality);
-        let got = asset::load(media, q, &Disk(&self.lib)).map_err(|e| e.0)?;
+        let q = self.fixed.unwrap_or_else(library::quality);
+        let got = self.lib.load(None, media, q).map_err(|e| format!("{e:#}"))?;
         if got.fallback {
             self.log(&format!("asset {}: {} could not be had at {} – {} plays", media.src, media.pick(q), q.name(), got.path));
         }

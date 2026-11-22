@@ -1074,8 +1074,8 @@ impl App {
                 let mut eff = self.presets.clone();
                 self.args.quality.over(&mut eff);
                 let g = self.governor.get_or_insert_with(|| Governor::with(&eff, gpu));
-                #[cfg(all(feature = "modules", feature = "chapter"))]
-                deck_native::assets::set_quality(g.ceiling().media());
+                #[cfg(feature = "chapter")]
+                deck_native::library::set_quality(g.ceiling().media());
                 let size = window.inner_size();
                 g.set_display(size.width, size.height);
                 tracing::info!("quality: {} ({}, the governor {})", g.ceiling().name(), if eff.level.is_some() { "chosen" } else { "by the GPU" }, if g.auto() { "on" } else { "off" });

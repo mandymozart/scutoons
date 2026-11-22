@@ -4,6 +4,7 @@ use crate::graph::Node;
 use crate::library::Library;
 use deck_space::chapter::{finish_slice, Dialog, Source};
 use anyhow::{bail, Context, Result};
+use deck_catalog::rendition::{Media, Quality};
 use image::RgbaImage;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
@@ -35,7 +36,8 @@ pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
                     }
                 }
             };
-            let slices = ch.strip(&quality);
+            let q = Quality::or_medium(&quality);
+            let slices: Vec<(Media, Vec<Dialog>)> = ch.slices().map(|s| (s.image_media(), s.dialog.clone())).collect();
             if slices.is_empty() {
                 set(format!("'{}' has no slices", ch.title));
                 return;
@@ -43,8 +45,9 @@ pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
             let count = slices.len();
             let mut failed = 0;
             for i in (start..).map(|k| k % count) {
-                let (path, dialog) = &slices[i];
-                match prepare(&lib, &toon, path, dialog, bake) {
+                let (media, dialog) = &slices[i];
+                let path = media.pick(q);
+                match prepare(&lib, &toon, media, q, dialog, bake) {
                     Ok((slice, caption)) => {
                         failed = 0;
                         if !rd.swap(true, Ordering::Relaxed) {
@@ -70,10 +73,11 @@ pub fn spawn(lib: Library, node: &Node, index: usize) -> ChapterFeed {
     ChapterFeed { node: index, rx, status, ready }
 }
 
-fn prepare(lib: &Library, toon: &str, path: &str, dialog: &[Dialog], bake: bool) -> Result<(RgbaImage, Option<RgbaImage>)> {
-    let file = lib.file(toon, path)?;
-    let bytes = std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
-    let img = image::load_from_memory(&bytes).with_context(|| format!("decoding {path}"))?.to_rgba8();
+/// the slice's image for `q` through the general-purpose loader (offline: the best rendition the cache holds), decoded
+fn prepare(lib: &Library, toon: &str, media: &Media, q: Quality, dialog: &[Dialog], bake: bool) -> Result<(RgbaImage, Option<RgbaImage>)> {
+    let got = lib.load(Some(toon), media, q)?;
+    let path = got.path;
+    let img = image::load_from_memory(&got.bytes).with_context(|| format!("decoding {path}"))?.to_rgba8();
     if img.width() == 0 || img.height() == 0 {
         bail!("{path}: an empty image");
     }

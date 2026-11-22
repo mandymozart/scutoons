@@ -44,10 +44,14 @@ pub struct Slice {
 }
 
 impl Slice {
-    /// the image at `quality` by the one pick rule (deck-catalog `rendition`)
+    /// the image's files as the one pick rule reads them (deck-catalog `rendition`)
+    pub fn image_media(&self) -> Media {
+        Media::of_variants(self.image.as_deref().unwrap_or(""), self.image_variants.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+    }
+
+    /// the image at `quality` by the one pick rule
     pub fn image_path(&self, quality: &str) -> Option<String> {
-        let media = Media::of_variants(self.image.as_deref().unwrap_or(""), self.image_variants.iter().map(|(k, v)| (k.as_str(), v.as_str())));
-        Some(media.pick(Quality::or_medium(quality))).filter(|p| !p.is_empty()).map(str::to_string)
+        Some(self.image_media().pick(Quality::or_medium(quality))).filter(|p| !p.is_empty()).map(str::to_string)
     }
 }
 
@@ -93,11 +97,16 @@ impl Chapter {
         self.slices().filter_map(|s| Some((s.image_path(quality)?, s.dialog.clone()))).collect()
     }
 
-    /// the track `id` (else the chapter's default track, else the first) at `quality` (else its plain path)
-    pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, String)> {
+    /// the track `id`, else the chapter's default track, else the first
+    pub fn music(&self, id: Option<&str>) -> Option<&MusicTrack> {
         let m = self.audio.as_ref()?.music.as_ref()?;
         let want = id.or(m.default_track.as_deref());
-        let t = want.and_then(|w| m.tracks.iter().find(|t| t.id == w)).or(m.tracks.first())?;
+        want.and_then(|w| m.tracks.iter().find(|t| t.id == w)).or(m.tracks.first())
+    }
+
+    /// that track's file at `quality` by the one pick rule
+    pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, String)> {
+        let t = self.music(id)?;
         Some((t.id.as_str(), t.media().pick(Quality::or_medium(quality)).to_string()))
     }
 }
