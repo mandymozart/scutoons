@@ -28,7 +28,7 @@ final class ModuleSource
     /** deck-module's names (host.rs `ident`) */
     private const IDENT = '#^[a-z_][a-z0-9_]{0,23}$#';
     private const DIRS = ['in', 'out'];
-    private const TYPES = ['audio', 'cv', 'control', 'event', 'video'];
+    private const TYPES = ['audio', 'cv', 'control', 'event', 'instances', 'video']; // #812: instances = a shape table (cloud, bamboo)
     /** what the derive writes (deck-catalog's `Descriptor`, deck-module-macros); deck/build's real_compile test checks these
      * lists against the service's real answers (#416: the derive's `port: true` on every param was missing here) */
     private const FIELDS = ['abi', 'name', 'version', 'domain', 'doc', 'needs', 'wants', 'reads', 'moods', 'characters', 'latency', 'params', 'ports', 'assets', 'preset', 'slot', 'sections', 'background'];
@@ -112,7 +112,7 @@ final class ModuleSource
                 $ok = is_array($port) && $extra === []
                     && is_string($port['name'] ?? null) && preg_match(self::IDENT, $port['name']) === 1
                     && in_array($port['dir'] ?? null, self::DIRS, true) && in_array($port['type'] ?? null, self::TYPES, true);
-                if (!$ok && !$extra) $p[] = "descriptor.ports[$i] must be { name, dir: in | out, type: audio | cv | control | event | video, … }";
+                if (!$ok && !$extra) $p[] = "descriptor.ports[$i] must be { name, dir: in | out, type: audio | cv | control | event | instances | video, … }";
             }
         }
         // #590: the entity slot a slot module attaches to (`camera.motion`); #622: its parameters' pages (the Analog Four's areas)
