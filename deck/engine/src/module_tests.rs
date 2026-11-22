@@ -41,6 +41,8 @@ enum Plays {
     Listener,
     /// call 1 traps; the restart's job returns 42; the swapped-in call takes the held notes again
     Restarting,
+    /// its table: one segment at x = the call's number (a control-domain module)
+    Drawer,
 }
 
 struct Fake {
@@ -62,6 +64,7 @@ struct Fake {
     persona: String,
     mood_index: u32,
     senses: (f32, f32, f32),
+    table: Vec<deck_module::Instance>,
 }
 
 struct Job(u32);
@@ -136,6 +139,7 @@ impl ModuleInstance for Fake {
                 self.trapped = true;
                 return false;
             }
+            Plays::Drawer => self.table = vec![deck_module::Instance::new(deck_module::instances::shape::SEGMENT, [self.calls as f32, 0.0, 0.0])],
             _ => {}
         }
         self.swap = false;
@@ -160,6 +164,9 @@ impl ModuleInstance for Fake {
     fn events_out(&self, port: usize) -> &[Ev] {
         self.ev_out.get(port).map_or(&[], |v| v.as_slice())
     }
+    fn instances(&self) -> &[deck_module::Instance] {
+        &self.table
+    }
     fn swapping(&self) -> bool {
         self.swap
     }
@@ -175,7 +182,7 @@ impl ModuleInstance for Fake {
 }
 
 /// the stand-in modules by name: descriptor JSON (ABI v2) and behaviour
-const MODULES: [(&str, &str, Plays); 5] = [
+const MODULES: [(&str, &str, Plays); 6] = [
     (
         "t_wide",
         r#"{"abi":2,"name":"t_wide","version":"1","params":[{"name":"p","min":0,"max":1,"default":0.5}],"ports":[
@@ -209,6 +216,12 @@ const MODULES: [(&str, &str, Plays); 5] = [
         r#"{"abi":2,"name":"t_restarting","version":"1","params":[],"ports":[
             {"name":"notes","dir":"in","type":"event","names":["music.note"]}]}"#,
         Plays::Restarting,
+    ),
+    (
+        "t_drawer",
+        r#"{"abi":2,"name":"t_drawer","version":"1","domain":"control","params":[],"ports":[
+            {"name":"shapes","dir":"out","type":"instances","capacity":4}]}"#,
+        Plays::Drawer,
     ),
 ];
 
@@ -256,6 +269,7 @@ impl ModuleSource for Source {
             persona: String::new(),
             mood_index: 0,
             senses: (0.0, 0.0, 0.0),
+            table: Vec::new(),
         };
         let params = layout.inputs.iter().filter(|b| matches!(b, InBind::Param(_))).count();
         Ok(Opened { instance: Box::new(fake), layout: layout.clone(), params })
@@ -358,6 +372,18 @@ fn a_control_module_steps_in_the_control_half() {
         let seen = seen.lock().unwrap();
     assert_eq!(seen.calls, [(0.0, Q as u32), (Q as f64, Q as u32), (2.0 * Q as f64, Q as u32), (3.0 * Q as f64, Q as u32)], "once per block");
     assert!(seen.control.iter().all(|&v| v == 0.7), "its control input from the control half's table: {:?}", seen.control);
+}
+
+/// a drawing module's table reaches the frame thread after each step: one table per node, the latest step's
+#[test]
+fn a_control_module_s_instance_table_goes_to_the_frame_thread_each_step() {
+    let text = format!("{POLICY}[[node]]\nid=\"sky\"\nkind=\"module:t_drawer\"\n");
+    let (mut e, h, _) = build(&text, 2);
+    assert_eq!(h.instances.iter().map(|t| (t.node.as_str(), t.capacity())).collect::<Vec<_>>(), [("sky", 4)], "the policy draws nothing");
+    for k in 1..=3 {
+        quantum(&mut e, 2);
+        assert_eq!(h.instances[0].with(|rows| rows.iter().map(|r| r.position[0]).collect::<Vec<_>>()), [k as f32]);
+    }
 }
 
 /// #409: the deck's live context reaches every module node at the next block's start – the audio half's block and the

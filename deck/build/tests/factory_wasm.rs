@@ -6,7 +6,7 @@
 //! the wasm that allocated in a call would fail here too.
 use deck_module::dsp::noise::White;
 use deck_module::testing::Rig;
-use deck_module::{Ev, Instance, Module, QUANTUM};
+use deck_module::{Ev, Module, QUANTUM};
 use deck_module_host::wasmtime_backend::{Wasmtime, WasmtimeEngine};
 use deck_module_host::{Instance, Loaded, Setup};
 use std::path::PathBuf;
@@ -45,7 +45,7 @@ impl Written {
         self.events.push((e.frame, e.kind, e.id, e.v.map(|v| if v.is_nan() { u32::MAX } else { v.to_bits() })));
     }
 
-    fn table(&mut self, rows: &[Instance]) {
+    fn table(&mut self, rows: &[deck_module::Instance]) {
         self.instances.push(rows.len() as u32);
         for i in rows {
             self.instances.push(i.shape);
