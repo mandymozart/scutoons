@@ -1,0 +1,184 @@
+# Sound → light and picture (#746, research/audio-nodes-foundation.md §3, step 14): three hooks, each a wire drawn here –
+# nothing moves by itself (decisions/deck.md 2026-11-12 [rigs]):
+#   the bass's `env` (its amp envelope) → the space node's `glow`  (a [[link]]: the room glows with each note)
+#   the bass's `level` (its output, followed) → a DMX dimmer      (an [[outputs.map]])
+#   drumseq lane 1 (the kick) → an `env` one-shot → the strobe     (an [[outputs.strobe]] with a `trigger`: one flash a kick)
+# 160 BPM; the drum machine plays its default groove (kick on 1, 3 and the "and" of 3), the kick on an analog voice; the
+# sequencer plays the bass line in eighths. Modules play on a deck built with `modules` and their wasm in DECK_MODULES:
+#   cargo build --release --target wasm32-unknown-unknown -p analog-module -p drumseq-module -p env-module -p stepseq-module --target-dir target/wasm-modules
+#   $env:DECK_MODULES = "$PWD\target\wasm-modules\wasm32-unknown-unknown\release"      (PowerShell)
+#   cargo run -p deck-native --features modules --release -- --scene sound-light --windowed
+# DMX goes to the first USB-DMX widget found (`dmx = "auto"`): the strobe at address 1 (built-in profile `strobe`), the
+# dimmer at 10 (built-in profile `dimmer`). The test (tests/sound_light.rs) runs it with no widget.
+[stage]
+name = "sound → light and picture (#746)"
+
+[[node]]
+id = "tempo"
+kind = "tempo"
+bpm = 160
+beats = 4
+
+[[node]]
+id = "drumseq"
+kind = "module:drumseq"
+
+# analog's `kick` preset (modules/analog/analog.preset.json)
+[[node]]
+id = "kick"
+kind = "module:analog"
+o1_level = 0.0
+o2_wave = 3.0
+o2_key = 0.0
+o2_semi = -24.0
+o2_level = 1.0
+o2_route = 1.0
+f2_cutoff = 8000.0
+f2_drive = 0.35
+fe2_a = 0.001
+fe2_d = 0.045
+fe2_s = 0.0
+fe2_r = 0.05
+fe2_p2 = 24.0
+a1_level = 0.0
+a2_level = 1.0
+a2_vel = 0.4
+ae2_a = 0.001
+ae2_d = 0.32
+ae2_s = 0.0
+ae2_r = 0.08
+
+# the kick's gate for the strobe: a one-shot that snaps open and is gone before the next kick (the "and" of 3 is 190 ms on)
+[[node]]
+id = "kickgate"
+kind = "module:env"
+mode = 1.0
+a = 0.001
+d = 0.12
+curve = 0.0
+
+# the bass line: eighths from A1, the sequencer's default phrase
+[[node]]
+id = "seq"
+kind = "module:stepseq"
+base = 55.0
+rate = 2.0
+gate = 0.6
+
+# analog's `bass` preset
+[[node]]
+id = "bass"
+kind = "module:analog"
+volume = 0.6
+o1_wave = 0.0
+o1_level = 0.55
+o1_sub = 0.6
+o1_route = 0.0
+sub1_route = 0.0
+o2_wave = 1.0
+o2_semi = -12.0
+o2_pw = 0.3
+o2_level = 0.4
+o2_route = 0.0
+f1_cutoff = 380.0
+f1_res = 0.35
+f1_drive = 0.35
+f1_key = 0.5
+f1_env = 0.6
+f1_vel = 0.3
+fe1_a = 0.002
+fe1_d = 0.22
+fe1_s = 0.12
+fe1_r = 0.15
+a1_level = 0.85
+a1_vel = 0.6
+ae1_a = 0.002
+ae1_d = 0.3
+ae1_s = 0.75
+ae1_r = 0.12
+
+[[node]]
+id = "mix"
+kind = "mixer"
+gain1 = 0.6
+gain2 = 0.5
+
+[[node]]
+id = "out"
+kind = "audio_out"
+volume = 0.7
+
+# the room: no set (the neutral staging's light), its glow driven by the bass
+[[node]]
+id = "space"
+kind = "space"
+quality = "low"
+hue = 0.62
+glow = 0.0
+light = 0.7
+join = "alone"
+post = ["bloom"]
+bloom = 0.7
+threshold = 0.5
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "drumseq.lane1"
+to = "kick.notes"
+
+[[link]]
+from = "drumseq.lane1"
+to = "kickgate.gate"
+
+[[link]]
+from = "seq.notes"
+to = "bass.notes"
+
+[[link]]
+from = "kick.out"
+to = "mix.in1"
+
+[[link]]
+from = "bass.out"
+to = "mix.in2"
+
+[[link]]
+from = "mix"
+to = "out.in"
+
+# hook 1: sound → picture
+[[link]]
+from = "bass.env"
+to = "space.glow"
+
+[[link]]
+from = "space"
+to = "screen.in"
+
+[outputs]
+lead = 20
+dmx = "auto"
+
+[[outputs.fixture]]
+id = "strobe"
+profile = "strobe"
+address = 1
+
+[[outputs.fixture]]
+id = "wash"
+profile = "dimmer"
+address = 10
+
+# hook 2: sound → light – the dimmer follows the bass's level (already a follower: 5 ms up, 150 ms down)
+[[outputs.map]]
+from = "bass.level"
+to = [{ dmx = "wash.dimmer" }]
+
+# hook 3: notes → light – one flash a kick
+[[outputs.strobe]]
+fixture = "strobe"
+trigger = "kickgate.env"
+duration = 30

@@ -1,0 +1,6 @@
+# A one-channel dimmer: a dimmer pack's channel, a single-channel LED par or a lamp on a DMX dimmer – the level of
+# whatever the scene maps to `<fixture>.dimmer`.
+name = "dimmer"
+
+[channels]
+dimmer = 1
