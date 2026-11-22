@@ -40,12 +40,6 @@
 			})
 		};
 	}
-	/** published when any language is; a draft when one has an unpublished version; else not written */
-	function state(r: Row): { cls: string; label: string } {
-		if (!r.stored.length) return { cls: 'is-off', label: m['creator.scripts_not_written']() };
-		if (r.stored.some((e) => e.latest !== e.published)) return { cls: 'is-draft', label: m['creator.status_draft']() };
-		return { cls: 'is-published', label: m['creator.status_published']() };
-	}
 </script>
 
 <div class="scripts" data-testid="scripts-list">
@@ -55,8 +49,7 @@
 	{:then all}
 		{@const r = rows(all)}
 		{#snippet line(row: Row)}
-			{@const s = state(row)}
-			<li><a href={row.href} data-testid="scripts-link">{row.label}</a> <span class="sc-chip {s.cls}">{s.label}</span></li>
+			<li><a href={row.href} data-testid="scripts-link">{row.label}</a>{#if !row.stored.length} <span class="sc-caption">{m['creator.scripts_not_written']()}</span>{/if}</li>
 		{/snippet}
 		<section class="sc-section">
 			<h2 class="sc-heading">{m['creator.kanon']()}</h2>
