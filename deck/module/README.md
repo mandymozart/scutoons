@@ -123,14 +123,15 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 | `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
 | `fdn` | `Fdn`: eight delay lines, a Householder mix, a gain and a lowpass in every loop (`tick`); `gain` (a loop gain from RT60), `primes` (mutually prime lengths). |
 | `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
+| `conv` | `Partitioned`: uniformly partitioned FFT convolution (overlap-save, a frequency-domain delay line), a block of `part` samples in and its result out, cut to fewer partitions live (`set_active`); `mac`: complex multiply-accumulate of split spectra. |
 | `grid` | `steps`: a sequencer's steps on the beat grid (step `k` at beat `k / per_beat`); `frame_in`: the call a beat lands in, one call whatever the cut. |
 | `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
 | `arp` | `Held`: the held notes (16, latch) and step `k`'s note by `Mode` (up / down / updown / played) through octaves; `steps`: the beat grid. The `arp` module and deck-events' `arp` generator both play it. |
 
 ## The small audio modules
 
-Eleven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb`, a drum rig played by `drumseq`. A level in dB is
+Twelve factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb` or a recorded room through `convolver`, a drum rig played by `drumseq`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -144,6 +145,7 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
 | `delay` | `in` (2), `time_mod` (control, oct) → `out` (2) | `sync` free / 1/32 … 1/1 (triplets, dotted), `time` ms (log), `feedback` % (under 98), `damp` Hz, `pingpong` %, `spread` ms, `mix` %, `depth` ms + `rate` Hz (chorus at short times) | dub |
 | `reverb` | `in` (2) → `out` (2) | `size` %, `decay` s (RT60, 0.2–20, log), `damp` Hz (top: none), `predelay` ms, `width` %, `mix` % | hall |
+| `convolver` | `in` (2) → `out` (2), asset `ir` (pcm, mono or stereo, ≤ 4 s; none = a built-in room), latency 128 | `mix` %, `gain` dB, `predelay` ms, `length` s (cuts the response) | room |
 | `arp` | `notes` (event, held: on at key down, off at key up) → `out` (event, a note a step on the beat grid) | `mode` up / down / updown / played, `rate` 1/1 … 1/32 (t = triplet; 1/8), `gate` %, `octaves` 1–4, `transpose` st, `latch` | crow |
 | `drumseq` | → `lane1` … `lane8` (event), `step` (control) | per lane and step `lNsM` off / on / accent; per lane `noteN` (MIDI key), `lengthN` % of a step; `steps`, `rate` steps/beat, `swing` %, `accent` %, `normal` % (velocities) | skank |
 

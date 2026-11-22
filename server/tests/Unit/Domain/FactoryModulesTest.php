@@ -12,7 +12,7 @@ use Scutoons\Tests\TestCase;
 /**
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
- * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq) as catalog documents marked
+ * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq; #742, 2026-11-22-factory-convolver: convolver) as catalog documents marked
  * `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte (this test keeps the two
  * equal: a change of a module's source needs a migration that brings it into the catalog), each with its published
  * version; each migration run twice, around a creator's own module of the same name.
@@ -25,6 +25,7 @@ final class FactoryModulesTest extends TestCase
     private const REVERB_MARKER = 'factory module (migration 2026-11-21-factory-reverb)';
     private const ARP_MARKER = 'factory module (migration 2026-11-22-factory-arp)';
     private const DRUMSEQ_MARKER = 'factory module (migration 2026-11-22-factory-drumseq)';
+    private const CONVOLVER_MARKER = 'factory module (migration 2026-11-22-factory-convolver)';
     /** every factory module and the marker of the migration that brought it */
     private const IDS = [
         'walk' => self::MARKER, 'analog' => self::MARKER, 'fixture' => self::MARKER,
@@ -34,6 +35,7 @@ final class FactoryModulesTest extends TestCase
         'reverb' => self::REVERB_MARKER,
         'arp' => self::ARP_MARKER,
         'drumseq' => self::DRUMSEQ_MARKER,
+        'convolver' => self::CONVOLVER_MARKER,
     ];
 
     /** @return array<string, string> the repository's sources of a module */
@@ -240,6 +242,11 @@ final class FactoryModulesTest extends TestCase
                 $after = $state();
             }
         }
+    }
+
+    public function testTheConvolverMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
+    {
+        $this->assertOneModuleMigration('convolver', '2026-11-22-factory-convolver', self::CONVOLVER_MARKER);
     }
 
     public function testTheDrumseqMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void

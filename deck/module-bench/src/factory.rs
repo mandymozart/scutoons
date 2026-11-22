@@ -1,22 +1,26 @@
-//! The small audio modules' rows: env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp and drumseq, each alone under one
+//! The small audio modules' rows: env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq and convolver, each alone under one
 //! runtime and as busy as a rig makes it – its factory preset, noise on two channels of every audio input, 0.5 on its
 //! control inputs, and on every event input a note on in each call (its off in the next), so an envelope retriggers
-//! and transpose and arp have notes to move. A sample is one call of 128 frames; the table is the suite's, a row a module.
+//! and transpose and arp have notes to move; the convolver plays a 4 s stereo response from its asset slot. A sample is one call of 128 frames; the table is the suite's, a row a module.
 use super::{call, instance, load, now_us, stats, Fnv, Runtime, Workload, RATE};
 use anyhow::Result;
 use deck_module::dsp::noise::White;
 use deck_module::{Ev, QUANTUM};
-use deck_module_host::Setup;
+use deck_module_host::{AssetData, Setup};
 use std::fmt::Write;
 
-pub const NAMES: [&str; 11] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose", "delay", "reverb", "arp", "drumseq"];
+pub const NAMES: [&str; 12] = ["env", "vca", "filter", "noise", "osc", "mixer", "transpose", "delay", "reverb", "arp", "drumseq", "convolver"];
 
 /// `n` calls of the module in `wasm`
 pub fn workload<B: Runtime>(engine: &B::Engine, name: &str, wasm: &[u8], n: usize) -> Result<Workload> {
     let mut w = Workload { name: name.into(), frames: QUANTUM as u32, ..Workload::default() };
     let loaded = load::<B>(engine, wasm)?;
     w.compile_us = loaded.compile.as_secs_f64() * 1e6;
-    let (mut i, inst) = instance(&loaded, Setup::new(RATE, 1).unbudgeted())?;
+    let mut setup = Setup::new(RATE, 1).unbudgeted();
+    if name == "convolver" {
+        setup = setup.asset(long_response());
+    }
+    let (mut i, inst) = instance(&loaded, setup)?;
     w.instantiate_us = inst;
     i.apply_factory_preset();
     let shape = i.io_layout().shape;
@@ -67,6 +71,24 @@ pub fn workload<B: Runtime>(engine: &B::Engine, name: &str, wasm: &[u8], n: usiz
     w.hash = h.hex();
     stats(&mut w, &samples, &[]);
     Ok(w)
+}
+
+/// 4 s of a stereo room at the bench's rate: seeded noise falling 60 dB in 3 s
+fn long_response() -> AssetData {
+    let n = (4.0 * RATE) as usize;
+    let k = (-3.0 * std::f64::consts::LN_10 / (3.0 * RATE)).exp() as f32;
+    let side = |seed| {
+        let (mut w, mut env) = (White::new(seed), 1.0f32);
+        (0..n)
+            .map(|_| {
+                let v = w.sample() * env;
+                env *= k;
+                v
+            })
+            .collect::<Vec<f32>>()
+    };
+    let (l, r) = (side(5), side(6));
+    AssetData::pcm(0, &[&l, &r], RATE as f32)
 }
 
 /// the rows as a table
