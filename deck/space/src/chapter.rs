@@ -2,6 +2,7 @@
 //! needs, what the node asks for, and a decoded slice made ready to show (its dialog set in, its caption rendered). Where
 //! the files come from is the host's: deck-native's library and disk cache, the page's fetch.
 use crate::graph::Node;
+use deck_catalog::rendition::{Media, Quality};
 pub use deck_outlet::text::Dialog;
 use deck_outlet::text;
 use image::RgbaImage;
@@ -43,8 +44,10 @@ pub struct Slice {
 }
 
 impl Slice {
-    pub fn image_path(&self, quality: &str) -> Option<&str> {
-        self.image_variants.get(quality).or(self.image.as_ref()).map(String::as_str)
+    /// the image at `quality` by the one pick rule (deck-catalog `rendition`)
+    pub fn image_path(&self, quality: &str) -> Option<String> {
+        let media = Media::of_variants(self.image.as_deref().unwrap_or(""), self.image_variants.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        Some(media.pick(Quality::or_medium(quality))).filter(|p| !p.is_empty()).map(str::to_string)
     }
 }
 
@@ -72,6 +75,13 @@ pub struct MusicTrack {
     pub variants: HashMap<String, String>,
 }
 
+impl MusicTrack {
+    /// the track's files as the one pick rule reads them
+    pub fn media(&self) -> Media {
+        Media::of_variants(&self.path, self.variants.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+    }
+}
+
 impl Chapter {
     /// the slices with an image, in reading order
     pub fn slices(&self) -> impl Iterator<Item = &Slice> {
@@ -80,15 +90,15 @@ impl Chapter {
 
     /// the slices' image paths at `quality` and their dialog
     pub fn strip(&self, quality: &str) -> Vec<(String, Vec<Dialog>)> {
-        self.slices().filter_map(|s| Some((s.image_path(quality)?.to_string(), s.dialog.clone()))).collect()
+        self.slices().filter_map(|s| Some((s.image_path(quality)?, s.dialog.clone()))).collect()
     }
 
     /// the track `id` (else the chapter's default track, else the first) at `quality` (else its plain path)
-    pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, &str)> {
+    pub fn music_path(&self, id: Option<&str>, quality: &str) -> Option<(&str, String)> {
         let m = self.audio.as_ref()?.music.as_ref()?;
         let want = id.or(m.default_track.as_deref());
         let t = want.and_then(|w| m.tracks.iter().find(|t| t.id == w)).or(m.tracks.first())?;
-        Some((t.id.as_str(), t.variants.get(quality).unwrap_or(&t.path).as_str()))
+        Some((t.id.as_str(), t.media().pick(Quality::or_medium(quality)).to_string()))
     }
 }
 

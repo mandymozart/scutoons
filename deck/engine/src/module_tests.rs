@@ -233,7 +233,7 @@ fn layouts() -> &'static [(ModuleKind, Layout, Plays)] {
 }
 
 impl ModuleSource for Source {
-    fn open(&self, kind: ModuleKind, _rate: f64, seed: u64) -> Result<Opened> {
+    fn open(&self, kind: ModuleKind, _rate: f64, seed: u64, _assets: Vec<deck_module_host::AssetData>) -> Result<Opened> {
         let (_, layout, plays) = layouts().iter().find(|(k, ..)| *k == kind).ok_or_else(|| anyhow!("not a stand-in"))?;
         let seen = Arc::new(Mutex::new(Seen { seed, ..Seen::default() }));
         self.opened.lock().unwrap().push((kind.spec().kind.to_string(), seen.clone()));

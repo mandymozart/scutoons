@@ -15,6 +15,7 @@ pub mod drop;
 pub mod groups;
 pub mod layer;
 pub mod library;
+pub mod rendition;
 pub mod slot;
 pub mod spot;
 mod builtin;

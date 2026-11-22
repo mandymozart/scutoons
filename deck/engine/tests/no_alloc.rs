@@ -366,7 +366,7 @@ mod live_notes {
     struct Source(Layout);
 
     impl ModuleSource for Source {
-        fn open(&self, _: deck_space::modreg::ModuleKind, _: f64, _: u64) -> anyhow::Result<Opened> {
+        fn open(&self, _: deck_space::modreg::ModuleKind, _: f64, _: u64, _: Vec<deck_module_host::AssetData>) -> anyhow::Result<Opened> {
             let params = self.0.inputs.iter().filter(|b| matches!(b, InBind::Param(_))).count();
             Ok(Opened { instance: Box::new(Keys), layout: self.0.clone(), params })
         }

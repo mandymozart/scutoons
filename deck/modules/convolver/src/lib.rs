@@ -1,8 +1,8 @@
 //! `convolver` – a convolution reverb: the stereo input through an impulse response, the sound of a real room (or a
 //! spring, a plate, a cabinet) recorded as a click's echo. The response is the sound asset in the slot `ir` (mono or
 //! stereo, up to 4 s); in `init` it is resampled to the deck's rate, cut to 4 s and normalised (the louder channel's
-//! energy 1), and its partitions of 128 frames are transformed once. Without an asset (a deck binds none yet:
-//! TODO(#782)) the built-in room plays: a second of seeded noise falling 60 dB in 0.8 s, two sides apart.
+//! energy 1), and its partitions of 128 frames are transformed once. Without an asset (the node names none, or it could
+//! not be had) the built-in room plays: a second of seeded noise falling 60 dB in 0.8 s, two sides apart.
 //!
 //! The convolution is the SDK's partitioned one (`dsp::conv::Split`: the first 2048 frames of the response in partitions
 //! of 128, the rest in partitions of 1024), a block of 128 frames at a time, so the whole

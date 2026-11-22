@@ -37,6 +37,8 @@ pub use deck_space::{build_label, graph, hud, pairing, params, scene, splash};
 
 #[cfg(feature = "chapter")]
 pub mod library;
+#[cfg(all(feature = "modules", feature = "chapter"))]
+pub mod assets;
 #[cfg(feature = "space")]
 pub mod space;
 #[cfg(feature = "sync")]

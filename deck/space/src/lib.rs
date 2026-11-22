@@ -25,6 +25,7 @@ pub mod library;
 pub mod world;
 pub mod modreg;
 pub mod mood;
+pub mod node_assets;
 pub mod params;
 pub mod piece;
 pub mod published;

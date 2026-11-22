@@ -9,6 +9,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# the one pick rule for a medium's files (asset.rs)
+deck-catalog = { path = "../catalog" }
 # MP4 / MOV (rerun's ISO BMFF reader: sample tables, fragmented files, unknown fourccs such as HAP's kept by name)
 re_mp4 = "0.5"
 # WebM / Matroska (no dependencies of its own)

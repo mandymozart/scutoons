@@ -49,7 +49,7 @@ impl Shelf for LibraryShelf {
         let c = self.chapter(toon, n)?;
         let count = c.slices().count();
         let s = c.slices().nth(index).ok_or_else(|| format!("{toon} {n} has {count} slices, not {}", index + 1))?;
-        let path = s.image_path(QUALITY).ok_or("a slice without an image")?.to_owned();
+        let path = s.image_path(QUALITY).ok_or("a slice without an image")?;
         let file = self.lib.file(toon, &path).map_err(|e| format!("{e:#}"))?;
         Ok(image::open(&file).map_err(|e| format!("{path}: {e}"))?.to_rgba8())
     }

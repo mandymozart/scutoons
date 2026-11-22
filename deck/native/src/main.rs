@@ -430,6 +430,9 @@ impl Show {
     fn load(args: &Args, scene: &scene::Scene, #[allow(unused_variables)] prev: &mut Prev) -> Result<Show> {
         modules::check(scene)?;
         let graph = graph::Graph::build(scene)?;
+        // module slot assets load from the scene's library cache and CDN
+        #[cfg(all(feature = "modules", feature = "chapter"))]
+        deck_native::assets::install(deck_native::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: args.cache.clone().unwrap_or_else(cache::default_dir) });
         tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
         let tempo_cfg = tempo::config_from_graph(&graph)?;
 
@@ -1071,6 +1074,8 @@ impl App {
                 let mut eff = self.presets.clone();
                 self.args.quality.over(&mut eff);
                 let g = self.governor.get_or_insert_with(|| Governor::with(&eff, gpu));
+                #[cfg(all(feature = "modules", feature = "chapter"))]
+                deck_native::assets::set_quality(g.ceiling().media());
                 let size = window.inner_size();
                 g.set_display(size.width, size.height);
                 tracing::info!("quality: {} ({}, the governor {})", g.ceiling().name(), if eff.level.is_some() { "chosen" } else { "by the GPU" }, if g.auto() { "on" } else { "off" });

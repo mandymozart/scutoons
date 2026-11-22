@@ -112,6 +112,15 @@ impl Level {
         }
     }
 
+    /// the media quality this rung loads files at (deck-catalog `rendition`): ultra takes the high files
+    pub fn media(self) -> deck_catalog::rendition::Quality {
+        match self {
+            Level::Low => deck_catalog::rendition::Quality::Low,
+            Level::Medium => deck_catalog::rendition::Quality::Medium,
+            Level::High | Level::Ultra => deck_catalog::rendition::Quality::High,
+        }
+    }
+
     /// the protocol's level (`deck.quality`)
     #[cfg(feature = "being")]
     pub fn wire(self) -> protocol::QualityLevel {

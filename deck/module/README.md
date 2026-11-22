@@ -86,6 +86,11 @@ vocabulary, `Descriptor::check`) and returns the `Shape` the layout comes from. 
 - **Assets** are read-only slots a descriptor declares (`#[asset]`, kind `pcm` planar f32 / `bytes` / `image` RGBA8). The host
   binds them from `Setup::asset(AssetData::pcm(..) | ::bytes(..))` **before `dm_new`**, through `dm_asset_buf(slot, len)`; a slot
   is filled once per instance. `ctx.asset(Self::KICK)` is `None` until ready - play silence, never wait. Resampling is the module's.
+  A scene's module node names its slots' media in `assets` – a CDN path or the content's `{ src, variants }`
+  (`assets = { ir = "scutoons/irs/plate.wav" }`); the graph checks slot and kind (deck-space `node_assets`). The engine asks the
+  platform's `AssetLoader` while it builds (never on the audio thread): the file for the deck's quality by the one pick rule
+  (deck-catalog `rendition`), from the cache or fetched, offline the nearest cached one (deck-media `asset`), decoded; one that
+  cannot be had is left out with a log line and the module plays its own fallback. A show's restart rebuilds with the same assets.
 - **Presets:** the descriptor holds one factory preset (`#[preset]`, only what differs from the defaults). `Preset::resolve(desc,
   name, values)` maps parameter names to indices and reports unknown ones; `Instance::apply_preset` / `apply_factory_preset` write
   defaults, then the values, without allocating. Other presets are documents (the module-preset form and its file import are

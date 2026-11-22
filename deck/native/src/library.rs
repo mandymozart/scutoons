@@ -1,7 +1,7 @@
 //! scutoons.com for the stage (CYBERDECKS.md §8): the public library API read-only and the CDN files, mirrored into a
 //! disk cache so a venue runs offline – `<cache>/api/toons/<toon>/chapters/<n>.json` (refreshed when online, the cached
 //! copy when not) and `<cache>/cdn/<toon>/<path>` (CDN paths are immutable – a changed file gets a new name – so a
-//! cached file is never fetched again). Decoding: symphonia (mp3, wav).
+//! cached file is never fetched again). Decoding: deck-media.
 use crate::audio::{MusicFeed, Track};
 use anyhow::{bail, Context, Result};
 use std::io::Read;
@@ -95,57 +95,13 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// decode a whole file (mp3 / wav) into a stereo track at its own rate; mono is doubled, more channels keep L + R
+/// decode a whole file (deck-media's decode) into a stereo track at its own rate; mono is doubled, more channels keep L + R
 pub fn decode(path: &Path) -> Result<Track> {
-    use symphonia::core::{audio::SampleBuffer, codecs::DecoderOptions, errors::Error, formats::FormatOptions,
-                          io::MediaSourceStream, meta::MetadataOptions, probe::Hint};
-    let file = std::fs::File::open(path).with_context(|| format!("opening {}", path.display()))?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
-    let mut hint = Hint::new();
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-        hint.with_extension(ext);
-    }
-    let probed = symphonia::default::get_probe().format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())?;
-    let mut format = probed.format;
-    let Some(track) = format.default_track() else { bail!("{}: no audio track", path.display()) };
-    let id = track.id;
-    let rate = track.codec_params.sample_rate.unwrap_or(44_100) as f32;
-    let mut dec = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default())?;
-    let (mut l, mut r) = (Vec::new(), Vec::new());
-    let mut buf: Option<SampleBuffer<f32>> = None;
-    loop {
-        let packet = match format.next_packet() {
-            Ok(p) => p,
-            Err(Error::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(e.into()),
-        };
-        if packet.track_id() != id {
-            continue;
-        }
-        let audio = match dec.decode(&packet) {
-            Ok(a) => a,
-            Err(Error::DecodeError(e)) => {
-                tracing::debug!("decode: skipping a bad packet ({e})");
-                continue;
-            }
-            Err(e) => return Err(e.into()),
-        };
-        let spec = *audio.spec();
-        let ch = spec.channels.count().max(1);
-        let sb = buf.get_or_insert_with(|| SampleBuffer::new(audio.capacity() as u64, spec));
-        if sb.capacity() < audio.capacity() * ch {
-            *sb = SampleBuffer::new(audio.capacity() as u64, spec);
-        }
-        sb.copy_interleaved_ref(audio);
-        for f in sb.samples().chunks_exact(ch) {
-            l.push(f[0]);
-            r.push(if ch > 1 { f[1] } else { f[0] });
-        }
-    }
-    if l.is_empty() {
-        bail!("{}: no samples decoded", path.display());
-    }
-    Ok(Track { rate, l, r })
+    let bytes = std::fs::read(path).with_context(|| format!("opening {}", path.display()))?;
+    let p = deck_media::asset::planar(bytes).map_err(|e| anyhow::anyhow!("{}: {}", path.display(), e.0))?;
+    let l = p.channels[0].clone();
+    let r = p.channels.get(1).cloned().unwrap_or_else(|| l.clone());
+    Ok(Track { rate: p.rate, l, r })
 }
 
 /// A chapter_music node's loader (a plain thread, off the frame and audio threads): chapter → track path → cached
@@ -167,7 +123,7 @@ pub fn spawn_music_loader(lib: Library, node: &crate::graph::Node, feed: MusicFe
         let r = (|| -> Result<String> {
             let (ch, source) = lib.chapter(&toon, n)?;
             let Some((id, path)) = ch.music_path(track.as_deref(), &quality) else { bail!("the chapter has no music") };
-            let (id, path) = (id.to_string(), path.to_string());
+            let id = id.to_string();
             set(format!("fetching '{id}'"));
             let file = lib.file(&toon, &path)?;
             set(format!("decoding '{id}'"));
@@ -198,12 +154,14 @@ mod tests {
     #[test]
     fn the_music_path_follows_track_default_and_quality() {
         let ch: Chapter = serde_json::from_str(CHAPTER).unwrap();
-        assert_eq!(ch.music_path(None, "high"), Some(("calmness", "s1/c1/c.320.mp3")));
-        assert_eq!(ch.music_path(None, "medium"), Some(("calmness", "s1/c1/c.128.mp3"))); // no variant: the path
-        assert_eq!(ch.music_path(Some("tension"), "low"), Some(("tension", "s1/c2/t.128.mp3")));
+        let at = |id: Option<&str>, q: &str| ch.music_path(id, q).map(|(i, p)| (i.to_string(), p));
+        assert_eq!(at(None, "high"), Some(("calmness".into(), "s1/c1/c.320.mp3".into())));
+        assert_eq!(at(None, "medium"), Some(("calmness".into(), "s1/c1/c.96.mp3".into())), "no medium variant: the nearest lower");
+        assert_eq!(at(Some("tension"), "low"), Some(("tension".into(), "s1/c2/t.128.mp3".into())), "no variants: the path");
         let slices: Vec<&Slice> = ch.slices().collect();
         assert_eq!(slices.len(), 1, "a slice without an image is skipped");
-        assert_eq!((slices[0].image_path("medium"), slices[0].image_path("high")), (Some("s1/c1/a.2x.webp"), Some("s1/c1/a.webp")));
+        let image = |q: &str| slices[0].image_path(q).unwrap();
+        assert_eq!((image("low"), image("medium"), image("high")), ("s1/c1/a.webp".into(), "s1/c1/a.2x.webp".into(), "s1/c1/a.2x.webp".into()), "high missing: the nearest lower");
         assert_eq!(slices[0].dialog[0].text(), "Leugnen");
         let none: Chapter = serde_json::from_str(r#"{"title":"x"}"#).unwrap();
         assert_eq!(none.music_path(None, "low"), None);

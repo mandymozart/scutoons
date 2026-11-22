@@ -7,6 +7,7 @@
 //! compile – its C-shaped API imports `libc::ptrdiff_t` / `off_t` / errno values, which the `libc` crate has no
 //! definitions for on that target – so there the software backend plays HAP only. TODO(#326): rav1d for the browser.
 pub mod annexb;
+pub mod asset;
 pub mod audio;
 pub mod backend;
 pub mod choose;
