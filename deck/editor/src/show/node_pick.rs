@@ -2,7 +2,7 @@
 //! selection), a click on a wire pins its value beside it and a click again lets it go, and a node focused or selected
 //! asks for its tone (deck-show focus.rs; main.rs plays it when the settings allow).
 // the box select, the pinned values and the tone request are the Spores widget's (deck-spores pick.rs, state.rs)
-pub use deck_spores::pick::{draw_box, wire_key, DRAG};
+pub use deck_spores::pick::DRAG;
 
 impl super::Host {
     /// a check run: a box from and to these fractions of the canvas, held; the `pin`-th wire with a value pinned
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(host.nodes.take_tone(), None);
         let i = host.nodes.drawn.iter().position(|(x, _)| x == "clock").unwrap();
         host.press(Hit::Nodes(NodeHit::Node(i)));
-        assert_eq!(host.nodes.take_tone(), Some(deck_show::focus::pitch(deck_kit::base::signal::Signal::Clock)));
+        assert_eq!(host.nodes.take_tone(), Some(deck_spores::focus::pitch(deck_kit::base::signal::Signal::Clock)));
         assert_eq!(host.nodes.take_tone(), None, "taken once");
         host.key(&winit::keyboard::Key::Named(winit::keyboard::NamedKey::Tab), false);
         assert!(host.nodes.take_tone().is_some(), "Tab too, a kept cell without pins as well");

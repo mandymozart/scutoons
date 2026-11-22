@@ -9,7 +9,7 @@ use super::nodes::{NodeHit, NodeView};
 use super::{Hit, Host};
 use deck_kit::base::canvas;
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::graph::{Direction, Graph, Placed};
+use deck_kit::base::graph::Direction;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
 use deck_kit::editor::controls::{self, Rect};
@@ -30,21 +30,6 @@ pub enum Hand {
     Node { node: String, from: (f32, f32) },
 }
 
-/// where the pins of the open nodes are pressed on screen (`reach` round each), those on the canvas only
-pub fn pins(g: &Graph, placed: &[Placed], cam: &Cam, canvas: Rect, reach: f32) -> Vec<(At, Rect)> {
-    let mut out = Vec::new();
-    for (i, (_, p)) in g.nodes.iter().zip(placed).enumerate().filter(|(_, (n, _))| !n.collapsed) {
-        for (spots, outlet) in [(&p.ins, false), (&p.outs, true)] {
-            for (k, q) in spots.iter().enumerate() {
-                let q = cam.s(*q);
-                if canvas.has(q.0, q.1) {
-                    out.push(((i, outlet, k), Rect { x: q.0 - reach, y: q.1 - reach, w: 2.0 * reach, h: 2.0 * reach }));
-                }
-            }
-        }
-    }
-    out
-}
 
 /// a check run's stroke: from, to, the press that starts it (none: a cut)
 type Stroke = ((f32, f32), (f32, f32), Option<Hit>);
