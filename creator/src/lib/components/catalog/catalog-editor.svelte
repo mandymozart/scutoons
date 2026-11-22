@@ -298,7 +298,7 @@
 										<span class="hint">{e.id}{(e.content as Data).toon ? ` · ${(e.content as Data).toon}` : ''}</span>
 									</span>
 									<span class="marks">
-										{#if e.removed}<Badge tone="error">{m['creator.catalog_state_removed']()}</Badge>{:else if !e.live}<Badge tone="soon">{m['creator.catalog_state_new']()}</Badge>{:else if e.draft}<Badge tone="draft">{m['creator.catalog_state_draft']()}</Badge>{/if}
+										{#if e.removed}<span class="removed">{m['creator.catalog_state_removed']()}</span>{/if}
 										{#if e.physical}<span title={m['creator.catalog_physical_hint']()}><Badge tone="info">{m['creator.catalog_physical']()}</Badge></span>{/if}
 									</span>
 								</button>
@@ -419,6 +419,10 @@
 		flex-direction: column;
 		align-items: flex-end;
 		gap: 0.15rem;
+	}
+	.removed {
+		color: var(--error);
+		font-size: var(--type-caption-size);
 	}
 	.detail {
 		display: flex;
