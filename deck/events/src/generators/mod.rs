@@ -18,13 +18,8 @@ pub fn unit(seed: u64, step: i64) -> f64 {
     (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
-/// the steps on a grid of `per_beat` steps a beat whose start falls in [from, to): (step, its beat)
-pub fn steps(from: f64, to: f64, per_beat: f64) -> impl Iterator<Item = (i64, f64)> {
-    let ok = per_beat > 0.0 && to > from;
-    let first = if ok { (from * per_beat).ceil() as i64 } else { 0 };
-    let end = if ok { (to * per_beat).ceil() as i64 } else { 0 };
-    (first..end).map(move |k| (k, k as f64 / per_beat))
-}
+/// the steps on a grid of `per_beat` steps a beat whose start falls in [from, to): (step, its beat) – the arp module's
+pub use deck_module::dsp::arp::steps;
 
 #[cfg(test)]
 mod tests {
@@ -37,14 +32,5 @@ mod tests {
         let mean = (0..10_000).map(|k| unit(1, k)).sum::<f64>() / 10_000.0;
         assert!((mean - 0.5).abs() < 0.02, "{mean}");
         assert!((0..1000).all(|k| (0.0..1.0).contains(&unit(9, k))));
-    }
-
-    #[test]
-    fn steps_cover_a_span_once() {
-        let a: Vec<i64> = steps(0.0, 1.0, 4.0).map(|(k, _)| k).collect();
-        let b: Vec<i64> = steps(0.0, 0.3, 4.0).chain(steps(0.3, 1.0, 4.0)).map(|(k, _)| k).collect();
-        assert_eq!(a, [0, 1, 2, 3]);
-        assert_eq!(a, b, "cut anywhere, the same steps");
-        assert_eq!(steps(1.0, 1.0, 4.0).count(), 0, "a stopped tempo has no steps");
     }
 }

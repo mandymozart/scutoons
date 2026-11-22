@@ -11,3 +11,4 @@ The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128
 | pc | wasmtime | transpose | 128 | 69.4 ms | 37 µs | 3 | 0.5 | 0.7 | 186 | 0.6 | 0.03 % | 1088 | ebbc8117 |
 | pc | wasmtime | delay | 128 | 186.6 ms | 834 µs | 19 | 15.9 | 74.0 | 2305 | 19.6 | 2.78 % | 3264 | f0a91488 |
 | pc | wasmtime | reverb | 128 | 200.7 ms | 223 µs | 67 | 66.5 | 204.2 | 29200 | 113.0 | 7.66 % | 1536 | db60ac50 |
+| pc | wasmtime | arp | 128 | 77.2 ms | 54 µs | 3 | 0.5 | 0.8 | 441 | 0.7 | 0.03 % | 1088 | 7cb0d9c9 |

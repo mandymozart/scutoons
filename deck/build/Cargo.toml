@@ -61,5 +61,6 @@ mixer-module = { path = "../modules/mixer" }
 transpose-module = { path = "../modules/transpose" }
 delay-module = { path = "../modules/delay" }
 reverb-module = { path = "../modules/reverb" }
+arp-module = { path = "../modules/arp" }
 # paused time in the service tests: the queue and its waits are exact, not wall-clock sleeps
 tokio = { workspace = true, features = ["test-util"] }

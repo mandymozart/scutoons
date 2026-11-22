@@ -17,8 +17,10 @@
 //! | `fdn` | eight-line feedback delay network (Householder), its loop gains and prime lengths |
 //! | `fft` | radix-2 FFT of real input, and back |
 //! | `arith` | f64 maths from arithmetic only |
+//! | `arp` | the arpeggiator's rule: held notes, latch, steps on the beat grid, the note a step plays |
 pub mod adsr;
 pub mod arith;
+pub mod arp;
 pub mod delay;
 pub mod fdn;
 pub mod fft;
