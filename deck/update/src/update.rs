@@ -167,9 +167,8 @@ impl Updater<'_> {
         if hash != m.bundle_sha256 {
             bail!("{} does not match the signed manifest", offer.bundle_url());
         }
-        let outcome = self.apply(m, &tarball, &from, &to, state)?;
+        let outcome = self.apply(&offer, &tarball, &from, &to, state)?;
         if matches!(outcome, Outcome::Updated { .. }) {
-            stage(&self.paths.current(), &offer.raw, &offer.signature, &tarball, &m.bundle)?;
             // a build forced in after a rollback is good now (the boot re-applies it)
             state.bad_builds.retain(|b| *b != m.build);
         }
@@ -177,7 +176,9 @@ impl Updater<'_> {
         Ok(outcome)
     }
 
-    fn apply(&self, m: &Manifest, tarball: &Path, from: &str, to: &str, state: &mut State) -> Result<Outcome> {
+    fn apply(&self, offer: &Offer, tarball: &Path, from: &str, to: &str, state: &mut State) -> Result<Outcome> {
+        let m = &offer.manifest;
+        let staged = || stage(&self.paths.current(), &offer.raw, &offer.signature, tarball, &m.bundle);
         let dir = self.paths.dir();
         let work = dir.join("work");
         let _ = fs::remove_dir_all(&work);
@@ -189,26 +190,35 @@ impl Updater<'_> {
         write_stamp(&self.paths, m)?;
         let acts = actions(&installed.changed, &installed.removed, m.reboot);
         if acts.reboot {
-            if acts.daemon_reload {
-                self.system.daemon_reload()?;
+            // staged before the reboot cuts this run off (a live stick puts it back at boot)
+            staged()?;
+            match apply::reboot(self.system, self.wait) {
+                Ok(()) => {
+                    return Ok(Outcome::Updated {
+                        from: from.into(),
+                        to: to.into(),
+                        changed: installed.changed,
+                        restarted: vec![],
+                        reboot: true,
+                    })
+                }
+                // the new build must run without a hand: the changed services are restarted instead
+                Err(e) => eprintln!("deck-update: {e:#} – restarting the changed services instead"),
             }
-            self.system.reboot()?;
-            return Ok(Outcome::Updated {
-                from: from.into(),
-                to: to.into(),
-                changed: installed.changed,
-                restarted: vec![],
-                reboot: true,
-            });
         }
         match apply::activate(self.system, &acts, &installed.changed, self.wait) {
-            Ok(()) => Ok(Outcome::Updated {
-                from: from.into(),
-                to: to.into(),
-                changed: installed.changed,
-                restarted: acts.restart,
-                reboot: false,
-            }),
+            Ok(()) => {
+                if !acts.reboot {
+                    staged()?;
+                }
+                Ok(Outcome::Updated {
+                    from: from.into(),
+                    to: to.into(),
+                    changed: installed.changed,
+                    restarted: acts.restart,
+                    reboot: false,
+                })
+            }
             Err(e) => {
                 apply::rollback(&self.paths.root, &installed)?;
                 match old_stamp {
@@ -320,9 +330,13 @@ mod tests {
     impl Deck {
         /// packs build `build` and serves it at `base`
         fn release(&self, fetch: &FakeFetch, base: &str, build: u64) -> Manifest {
+            self.release_with(fetch, base, build, false)
+        }
+
+        fn release_with(&self, fetch: &FakeFetch, base: &str, build: u64, reboot: bool) -> Manifest {
             let out = self.src.join(format!("out-{build}"));
             let files = collect(&self.src.join("bin"), &self.src.join("rootfs"), Some(&self.src.join("scenes"))).unwrap();
-            let opts = PackOptions { version: &format!("v{build}"), build, channel: "dev", reboot: false, notes: "" };
+            let opts = PackOptions { version: &format!("v{build}"), build, channel: "dev", reboot, notes: "" };
             let m = pack(&files, &opts, &self.key, &out).unwrap();
             fetch.put(&format!("{base}/{MANIFEST}"), fs::read(out.join(MANIFEST)).unwrap());
             fetch.put(&format!("{base}/{SIGNATURE}"), fs::read(out.join(SIGNATURE)).unwrap());
@@ -363,6 +377,42 @@ mod tests {
         let out = u.run(&Options { auto: true, ..Options::default() }, 1060).unwrap();
         assert_eq!(out, Outcome::UpToDate { version: "v200".into(), source: PC.into() });
         assert_eq!(sys.calls.borrow().len(), calls);
+    }
+
+    #[test]
+    fn a_reboot_bundle_reboots_after_staging() {
+        let d = deck();
+        let fetch = FakeFetch::default();
+        d.release_with(&fetch, PC, 200, true);
+        let sys = FakeSystem::default();
+        let lan = || vec![PC.to_string()];
+        let out = d.updater(&fetch, &sys, &lan).run(&Options::default(), 1000).unwrap();
+        let Outcome::Updated { restarted, reboot, .. } = &out else { panic!("{out:?}") };
+        assert!(*reboot && restarted.is_empty(), "{out:?}");
+        assert_eq!(sys.calls.borrow().as_slice(), ["reboot"]);
+        assert!(d.paths.current().join(MANIFEST).exists(), "staged before the reboot");
+    }
+
+    #[test]
+    fn a_reboot_that_does_not_happen_restarts_the_changed_services() {
+        for sys in [
+            FakeSystem { reboot_refused: true, ..FakeSystem::default() },
+            FakeSystem { reboot_ignored: true, ..FakeSystem::default() },
+        ] {
+            let d = deck();
+            let fetch = FakeFetch::default();
+            d.release_with(&fetch, PC, 200, true);
+            let lan = || vec![PC.to_string()];
+            let out = d.updater(&fetch, &sys, &lan).run(&Options::default(), 1000).unwrap();
+            let Outcome::Updated { restarted, reboot, .. } = &out else { panic!("{out:?}") };
+            assert!(!reboot, "{out:?}");
+            assert_eq!(restarted, &vec!["deck-relay.service", "deck-kiosk.service"]);
+            let calls = sys.calls.borrow();
+            assert_eq!(calls.first().map(String::as_str), Some("reboot"));
+            assert!(calls.iter().any(|c| c == "restart deck-kiosk.service"), "{calls:?}");
+            assert_eq!(fs::read(d.paths.root.join("usr/bin/deck")).unwrap(), b"stage v2");
+            assert!(d.paths.current().join(MANIFEST).exists());
+        }
     }
 
     #[test]

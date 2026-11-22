@@ -185,7 +185,9 @@ matches wins, when it is newer than `/usr/share/deck/build.json` (the image buil
 check, every tar entry checked against the manifest, files replaced by rename, `daemon-reload` when units changed,
 the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene; the kiosk's
 tty1 is switched to the front first – cage only takes the screen there); a restarted unit that is not up within 2
-minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. **Never during a
+minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. A `--reboot` bundle is staged and the deck reboots
+instead (inhibitor locks ignored – the show check came first); a reboot refused or not begun within 30 s restarts the
+changed services as above (#787). **Never during a
 show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
 in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
 A file the previous bundle listed and the new one drops is removed from the deck (only under the allowed paths; its old
