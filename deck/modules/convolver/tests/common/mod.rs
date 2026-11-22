@@ -68,8 +68,8 @@ pub fn play(b: &mut Bench<Convolver>, x: &[Vec<f32>; 2], block: usize) -> [Vec<f
     let mut at = 0;
     while at < x[0].len() {
         let n = block.min(x[0].len() - at);
-        for c in 0..2 {
-            b.rig.set_audio_in(Convolver::IN, c, &x[c][at..at + n]);
+        for (c, side) in x.iter().enumerate() {
+            b.rig.set_audio_in(Convolver::IN, c, &side[at..at + n]);
         }
         b.run(n);
         let o = b.rig.audio_out(Convolver::OUT);
