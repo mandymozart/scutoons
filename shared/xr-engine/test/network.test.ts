@@ -53,3 +53,16 @@ test('the xr vector in the contract’s shared vectors is what the projector giv
 	assert.ok(xr, 'an xr view in the vectors');
 	assert.deepEqual(projectXr(doc, xr.context), xr);
 });
+
+test('the experience level: its groups frame their scenes on the canvas, no spore keeps a group itself', () => {
+	const grouped = structuredClone(doc) as typeof doc & { configuration: { groups?: unknown[] } };
+	grouped.configuration.groups = [{ id: 'act1', label: 'Act one' }];
+	(grouped.configuration.scenes[0] as { group?: string }).group = 'act1';
+	const weave = projectXr(grouped, 'experience:demo');
+	const group = weave.canvas?.groups?.[0];
+	assert.equal(group?.id, 'act1');
+	assert.equal(group?.label, 'Act one');
+	assert.ok(group && group.spores.length > 0 && group.spores.every((s) => weave.spores.some((n) => n.id === s)));
+	assert.ok(weave.spores.every((s) => !('group' in s)));
+	assert.equal(projectXr(doc, 'experience:demo').canvas, undefined);
+});

@@ -143,8 +143,16 @@ export const projectXr: typeof api.projectXr = (document, address) => {
 		driver: 'xr',
 		ports: n.ports.map(port),
 		...(n.enter ? { enter: addressOf(root, n.enter) } : {}),
-		...(n.preview ? { picture: n.preview } : {}),
-		...(n.group ? { group: n.group } : {})
+		...(n.preview ? { picture: n.preview } : {})
+	}));
+	// the experience's groups frame their scenes on the canvas – the one place a spore's group is kept (#763); the group
+	// stays a spore too, the box its level is entered by (OSCT names the frame `group:<id>`, the canvas group `<id>`)
+	const framed = new Map<string, string[]>();
+	for (const n of view.nodes) if (n.group) framed.set(n.group.replace(/^group:/, ''), [...(framed.get(n.group.replace(/^group:/, '')) ?? []), n.id]);
+	const groups: Spores.Group[] = [...framed].map(([group, members]) => ({
+		id: group,
+		label: str(list(configuration.groups).map(obj).find((g) => str(g?.id) === group)?.label) || group,
+		spores: members
 	}));
 	const thread = (e: GraphEdge): Spores.Thread => {
 		const path = e.home ? pointerOf(configuration, e.home) : null;
@@ -187,6 +195,7 @@ export const projectXr: typeof api.projectXr = (document, address) => {
 		spores,
 		threads,
 		stubs,
-		problems: view.problems.map((p) => ({ at: p.node ?? '', severity: p.severity, text: p.short ?? p.message }))
+		problems: view.problems.map((p) => ({ at: p.node ?? '', severity: p.severity, text: p.short ?? p.message })),
+		...(groups.length ? { canvas: { groups } } : {})
 	};
 };
