@@ -119,6 +119,15 @@ pub enum Step {
     Left,
     Right,
     Enter,
+    /// the settings' value under the cursor up / down (Left / Right while changing it: the pad has no + and −)
+    More,
+    Less,
+}
+
+/// a page whose values the pad changes: A starts changing the one under the cursor, Left / Right step it, A or Up / Down
+/// end it
+fn changes(p: Page) -> bool {
+    p == Page::Settings
 }
 
 /// What the deck knows now, as plain values (the adapter reads its objects into it every frame).
@@ -327,6 +336,8 @@ pub struct Menu {
     under: usize,
     waiting: String,
     join: crate::join::Join,
+    /// the settings' value under the cursor is being changed (`changes`)
+    changing: bool,
     stand: Option<crate::start::Stand>,
     pub(crate) places: Vec<(deck_kit::base::draw::Rect, Hit)>,
     /// device pixels per logical one, as drawn
@@ -365,6 +376,7 @@ impl Menu {
 
     /// F4 / F5 / F6: their page directly, over the scene, as before the menu – or closed when it is on top.
     pub fn direct(&mut self, page: Page) {
+        self.changing = false;
         self.stack = if self.top() == Some(page) { vec![] } else { vec![page] };
     }
 
@@ -454,9 +466,16 @@ impl Menu {
     /// everything closed: back to the scene
     pub fn close(&mut self) {
         self.stack.clear();
+        self.changing = false;
+    }
+
+    /// whether a value of the settings is being changed with the pad
+    pub fn changing(&self) -> bool {
+        self.changing
     }
 
     fn back(&mut self) {
+        self.changing = false;
         if matches!(self.stack.pop(), Some(Page::Play | Page::Shutdown)) {
             self.cursor = self.under;
         }
@@ -511,6 +530,16 @@ impl Menu {
     /// an input on the deck's own page the menu shows (`on`: the place under the pointer)
     fn sheet_input(&mut self, p: Page, i: Input, on: Option<Hit>) -> Answer {
         let step = |s| Answer::Page(p, s);
+        match (changes(p), self.changing, i) {
+            (true, true, Input::Left) => return step(Step::Less),
+            (true, true, Input::Right) => return step(Step::More),
+            (true, _, Input::Enter) => {
+                self.changing = !self.changing;
+                return Answer::Yes;
+            }
+            (true, true, Input::Up | Input::Down) => self.changing = false,
+            _ => {}
+        }
         match (i, on) {
             (Input::Up, _) => step(Step::Up),
             (Input::Down, _) => step(Step::Down),
@@ -922,15 +951,42 @@ mod tests {
             down_to(&mut m, &f, row_of(&f, page));
             assert_eq!(m.input(Input::Enter, &f), Answer::Yes);
             assert_eq!((m.top(), m.own(&f)), (Some(page), Some(page)));
-            for (i, s) in [(Input::Up, Step::Up), (Input::Down, Step::Down), (Input::Left, Step::Left), (Input::Right, Step::Right), (Input::Enter, Step::Enter)] {
+            for (i, s) in [(Input::Up, Step::Up), (Input::Down, Step::Down), (Input::Left, Step::Left), (Input::Right, Step::Right)] {
                 assert_eq!(m.input(i, &f), Answer::Page(page, s), "{page:?}");
             }
+            // A: the page's Enter, on the settings the start of changing a value
+            let a = if page == Page::Settings { Answer::Yes } else { Answer::Page(page, Step::Enter) };
+            assert_eq!(m.input(Input::Enter, &f), a, "{page:?}");
             assert_eq!(m.input(Input::Back, &f), Answer::Yes, "B goes back");
             assert_eq!(m.top(), Some(Page::Main), "{page:?}: back on the main menu");
         }
         assert_eq!(Sheet::of((vec!["TITLE".into(), "A".into(), "B".into()], 2)), Sheet { lines: vec!["A".into(), "B".into()], cursor: 1 }, "the title line is the menu's head");
         let marked = Sheet::of((vec!["SCENES".into(), " *IDLE".into(), " -- PUBLISHED --".into(), ">  NAVE".into()], 3));
         assert_eq!(marked.lines, ["*IDLE", "-- PUBLISHED --", "  NAVE"], "the HUD's cursor column goes");
+    }
+
+    /// the pad changes a setting: A starts it, Left / Right step the value, A ends it; Up / Down end it and move
+    #[test]
+    fn the_pad_changes_a_setting_with_a_and_left_right() {
+        let f = Facts { sheet: Some(sheet(4)), ..native() };
+        let mut m = Menu::new(true);
+        m.direct(Page::Settings);
+        assert_eq!(m.input(Input::Left, &f), Answer::Page(Page::Settings, Step::Left), "not changing: Left moves");
+        assert_eq!(m.input(Input::Enter, &f), Answer::Yes);
+        assert!(m.changing());
+        assert_eq!(m.input(Input::Left, &f), Answer::Page(Page::Settings, Step::Less));
+        assert_eq!(m.input(Input::Right, &f), Answer::Page(Page::Settings, Step::More));
+        m.input(Input::Enter, &f);
+        assert!(!m.changing(), "A again ends it");
+        m.input(Input::Enter, &f);
+        assert_eq!(m.input(Input::Down, &f), Answer::Page(Page::Settings, Step::Down));
+        assert!(!m.changing(), "Down ends it and moves");
+        m.input(Input::Enter, &f);
+        m.input(Input::Back, &f);
+        assert!(!m.changing(), "B ends it with the page");
+        // the other pages take Enter as theirs
+        m.direct(Page::Scenes);
+        assert_eq!(m.input(Input::Enter, &f), Answer::Page(Page::Scenes, Step::Enter));
     }
 
     /// the Deck OS: QUIT is RESTART (deck-session starts the stage again), SHUTDOWN asks – A shuts down, B cancels

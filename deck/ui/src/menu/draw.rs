@@ -29,7 +29,7 @@ pub fn finger(lw: f32, lh: f32) -> bool {
 }
 
 /// what was drawn: the pages, the cursor, the facts, the screen, the show waited for (`Menu::drawn`)
-pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String, crate::join::Join);
+pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String, crate::join::Join, bool);
 
 /// the parts of a page's body that can be pressed, and where the body is
 struct Body<'a> {
@@ -89,7 +89,7 @@ impl Menu {
     /// layer, painted through egui: deck-space `Stage::set_menu`).
     pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Layer>> {
         let show = self.top().filter(|_| self.own(f).is_none() || f.sheet.is_some());
-        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone(), self.join.clone()));
+        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone(), self.join.clone(), self.changing()));
         let was: Option<Drawn> = self.drawn.take();
         if now == was {
             self.drawn = was;
@@ -239,7 +239,7 @@ impl Menu {
                 if b.finger {
                     y += b.foot_back(y, f);
                 } else {
-                    for keys in keys_of(p) {
+                    for keys in keys_of(p, self.changing()) {
                         y += b.line(y, keys, "", true);
                     }
                 }
@@ -289,10 +289,11 @@ fn sheet_lines(b: &mut Body, sheet: &Sheet, y: f32) -> f32 {
 }
 
 /// the keys of the deck's own page on a wide screen: the keyboard's and the pad's
-fn keys_of(p: Page) -> &'static [&'static str] {
+fn keys_of(p: Page, changing: bool) -> &'static [&'static str] {
     match p {
+        Page::Settings if changing => &["CHANGING: < > VALUE  ENTER (A) DONE"],
         Page::Scenes => &["ENTER (A) PLAY  S START  ESC (B) BACK"],
-        Page::Settings => &["ENTER (A) CHANGE  < > WHILE CHANGING", "+ - VALUE  P PX  R RESET  ESC (B) BACK"],
+        Page::Settings => &["ENTER (A) CHANGE  + - P=PX R=RESET", "ESC (B) BACK"],
         Page::Live => &["ENTER (A) TAKE  TYPE A NAME  (B) BACK"],
         _ => &[],
     }

@@ -279,7 +279,10 @@ impl App {
                 Step::Down => quality::Key::Down,
                 Step::Left => quality::Key::Left,
                 Step::Right => quality::Key::Right,
-                Step::Enter => quality::Key::Edit,
+                Step::More => quality::Key::More,
+                Step::Less => quality::Key::Less,
+                // A starts and ends changing a value: the menu's
+                Step::Enter => return false,
             }),
             Page::Live => {
                 let key = match k {

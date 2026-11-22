@@ -91,9 +91,6 @@ pub enum Key {
     Pixels,
     /// R: every preset back to its default (the level, the governor and the display stay)
     Reset,
-    /// the pad's A (the menu's Enter): flips a toggle; on a value, changing it – Left / Right are then − / +, any other
-    /// key ends it
-    Edit,
 }
 
 /// the page's rows
@@ -119,33 +116,12 @@ pub struct Page {
     pub open: bool,
     row: usize,
     col: usize,
-    /// a value is being changed (`Key::Edit`): Left / Right step it
-    editing: bool,
 }
 
 impl Page {
     /// One key on `p`; `modes` = the display's sizes, largest first; `display_h` = the display's height now (a scale ↔
     /// pixels). Returns whether `p` changed (the caller applies and saves it).
     pub fn key(&mut self, k: Key, p: &mut Presets, modes: &[(u32, u32)], display_h: u32) -> bool {
-        let k = match (self.editing, k) {
-            (true, Key::Left) => Key::Less,
-            (true, Key::Right) => Key::More,
-            (true, Key::More | Key::Less) => k,
-            (true, Key::Edit) => {
-                self.editing = false;
-                return false;
-            }
-            (true, _) => {
-                self.editing = false;
-                k
-            }
-            (false, Key::Edit) if matches!(ROWS[self.row], Row::Auto | Row::On | Row::Fxaa | Row::Bloom) => Key::Toggle,
-            (false, Key::Edit) => {
-                self.editing = true;
-                return false;
-            }
-            _ => k,
-        };
         let level = Level::ALL[self.col];
         let up = match k {
             Key::Up => {
@@ -169,7 +145,7 @@ impl Page {
                 return true;
             }
             Key::More | Key::Toggle | Key::Pixels => true,
-            Key::Less | Key::Edit => false,
+            Key::Less => false,
         };
         let pr = p.get_mut(level);
         match (ROWS[self.row], k) {
@@ -221,9 +197,7 @@ impl Page {
     /// largest mode, the table (the cursor's cell in brackets), the status. Returns the lines and the cursor's line.
     pub fn lines(&self, p: &Presets, now: &str, modes: &[(u32, u32)], status: &str) -> (Vec<String>, usize) {
         let mut out = vec!["QUALITY  F4 CLOSE  +/- P=PX R=RESET".to_string()];
-        // the cursor's cell in brackets, in < > while it is being changed
-        let (open, close) = if self.editing { ('<', '>') } else { ('[', ']') };
-        let mark = |row: Row, text: String| if ROWS[self.row] == row { format!("{open}{text}{close}") } else { text };
+        let mark = |row: Row, text: String| if ROWS[self.row] == row { format!("[{text}]") } else { text };
         let level = p.level.map_or("GPU".to_string(), |l| l.name().to_uppercase());
         out.push(format!("{} {}  NOW {now}", mark(Row::Level, format!("LEVEL {level}")), mark(Row::Auto, format!("AUTO {}", if p.auto { "ON" } else { "OFF" }))));
         let max = modes.first().map_or("?".into(), |(w, h)| format!("{w}X{h}"));
@@ -249,7 +223,7 @@ impl Page {
             let mut line = format!("{name:<8}");
             for (c, l) in Level::ALL.into_iter().enumerate() {
                 let v = cell(*row, l);
-                let v = if self.row == i && self.col == c { format!("{open}{v}{close}") } else { format!(" {v} ") };
+                let v = if self.row == i && self.col == c { format!("[{v}]") } else { format!(" {v} ") };
                 line.push_str(&format!("{v:<6}"));
             }
             if self.row == i {
@@ -334,34 +308,6 @@ mod tests {
         // reset: the presets, not the level
         assert!(key(&mut page, &mut p, Key::Reset));
         assert_eq!((p.high, p.level, p.auto), (Presets::default().high, Some(Level::Ultra), false));
-    }
-
-    /// the pad has no + and −: A flips a toggle, on a value it starts changing it – Left / Right step, A ends
-    #[test]
-    fn the_pad_changes_every_value_with_a_and_left_right() {
-        let mut page = Page::default();
-        let mut p = Presets::default();
-        let key = |page: &mut Page, p: &mut Presets, k| page.key(k, p, &MODES, 2160);
-        // FPS of HIGH: down to its row, A, Left steps it down, the cursor's cell in < >
-        for _ in 0..9 {
-            key(&mut page, &mut p, Key::Down);
-        }
-        page.col = 2;
-        assert!(!key(&mut page, &mut p, Key::Edit));
-        assert!(key(&mut page, &mut p, Key::Left));
-        assert_eq!(p.high.fps, 48);
-        let (lines, cursor) = page.lines(&p, "", &MODES, "");
-        assert!(lines[cursor].contains("<48>"), "{}", lines[cursor]);
-        assert!(key(&mut page, &mut p, Key::Right));
-        assert_eq!(p.high.fps, 60);
-        assert!(!key(&mut page, &mut p, Key::Edit), "A again ends it");
-        key(&mut page, &mut p, Key::Left);
-        assert_eq!((p.high.fps, page.col), (60, 1), "Left moves the column again");
-        // a toggle flips at once
-        key(&mut page, &mut p, Key::Up);
-        key(&mut page, &mut p, Key::Up);
-        assert!(key(&mut page, &mut p, Key::Edit));
-        assert_ne!(p.medium.bloom, Presets::default().medium.bloom);
     }
 
     #[test]
