@@ -155,6 +155,32 @@ final class ValidateByCoreTest extends TestCase
         return $set;
     }
 
+    /**
+     * #803: an instrument with a `module:` node, a preset of it and a rig that plays it are sent with the module's
+     * descriptor (the core knows a module kind only from what it is sent – walk, hum, analog_seq were refused in production)
+     */
+    public function testAnInstrumentsModuleNodesAreSentWithTheirDescriptors(): void
+    {
+        $store = $this->get(CatalogStore::class);
+        $module = json_decode('{"id":"walk","name":"walk","factory":true,"files":{"lib.rs":"// fixture"},"descriptor":{"abi":2,"name":"walk","domain":"audio","params":[],"ports":[]}}');
+        $store->save('modules', 'walk', $module, self::BY);
+        $instrument = json_decode('{"id":"walker","kind":"voice","name":{"en":"Walker"},"out":"m","node":[{"id":"m","kind":"module:walk"},{"id":"v","kind":"fm"}],"link":[],"expose":[]}');
+        $validator = $this->get(CatalogValidator::class);
+        $this->core->answer = fn(array $request): array => [];
+        $sentModules = function (string $kind, string $id, stdClass $doc) use ($validator): array {
+            $json = CatalogStore::encode($doc);
+            self::assertSame([], $validator->problems($kind, $id, json_decode($json, true), json_decode($json)));
+            $sent = $this->core->requests[count($this->core->requests) - 1]['request'];
+            return array_column($sent['modules'] ?? [], 'name');
+        };
+        self::assertSame(['walk'], $sentModules('instruments', 'walker', $instrument), 'the instrument itself');
+        $store->save('instruments', 'walker', $instrument, self::BY);
+        self::assertSame(['walk'], $sentModules('presets', 'walker.base', json_decode('{"id":"walker.base","instrument":"walker","values":{}}')), 'a preset of it');
+        $rig = json_decode('{"subject":"character.walkerkid","track":[{"id":"t","instrument":"walker"}]}');
+        self::assertSame(['walk'], $sentModules('rigs', 'character.walkerkid', $rig), 'a rig that plays it');
+        self::assertSame([], CatalogValidator::moduleKinds([json_decode('{"node":[{"id":"a","kind":"fm"}]}')]), 'no module node, no module');
+    }
+
     public function testACodeRigIsCheckedWithItsPolicyModulesDescriptor(): void
     {
         $case = $this->seedCodeRig();
