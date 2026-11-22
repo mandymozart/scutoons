@@ -239,6 +239,22 @@ final class CatalogValidator
         return [];
     }
 
+    /**
+     * The descriptors of these catalog modules, decoded with objects – the ones the catalog has, compiled, under their own
+     * name; for the rest the core names what is missing (a scene's module nodes)
+     * @param list<string> $ids
+     * @return list<stdClass>
+     */
+    public function moduleDescriptors(array $ids): array
+    {
+        $descriptors = [];
+        foreach (array_unique($ids) as $id) {
+            $descriptor = $this->rigEntry('modules', $id)->descriptor ?? null;
+            if ($descriptor instanceof stdClass && ($descriptor->name ?? null) === $id) $descriptors[] = $descriptor;
+        }
+        return $descriptors;
+    }
+
     /** an instrument / preset of the catalog decoded with objects (as deck-space reads it), null when there is none */
     public function rigEntry(string $kind, string $id): ?stdClass
     {

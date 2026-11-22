@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Live;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogValidator;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Rigs\CoreValidator;
@@ -22,8 +23,24 @@ use stdClass;
  */
 final class Scenes
 {
-    public function __construct(private readonly EntityStore $store, private readonly CoreValidator $core)
+    public function __construct(private readonly EntityStore $store, private readonly CoreValidator $core, private readonly CatalogValidator $catalog)
     {
+    }
+
+    /**
+     * The catalog's descriptors of the `module:<id>` kinds the scene's nodes name, what the core registers before it
+     * builds the graph (a module the catalog lacks is left out: the core names it)
+     * @return list<stdClass>
+     */
+    public function modules(?stdClass $doc): array
+    {
+        $nodes = $doc !== null && is_array($doc->node ?? null) ? $doc->node : [];
+        $ids = [];
+        foreach ($nodes as $node) {
+            $kind = $node instanceof stdClass ? ($node->kind ?? null) : null;
+            if (is_string($kind) && str_starts_with($kind, 'module:')) $ids[] = substr($kind, strlen('module:'));
+        }
+        return $this->catalog->moduleDescriptors($ids);
     }
 
     /**
@@ -74,7 +91,7 @@ final class Scenes
         $row = $this->store->read((string) $key, true, $version ?? 0);
         $doc = json_decode((string) $row['json']);
         if (!$doc instanceof stdClass) throw new ApiError(422, 'invalid_content', 'Not a scene document.', ['problems' => ['/: not an object']]);
-        $problems = $this->core->sceneProblems((string) $key->id, $doc);
+        $problems = $this->core->sceneProblems((string) $key->id, $doc, $this->modules($doc));
         if ($problems !== []) throw new ApiError(422, 'invalid_scene', 'This scene has problems a deck would not play.', ['problems' => $problems]);
         return $this->store->publish((string) $key, $version);
     }

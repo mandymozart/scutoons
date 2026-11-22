@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Http;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\AssetStorage\HttpClient;
 use Scutoons\Infrastructure\Clock\Clock;
@@ -216,6 +217,35 @@ final class ScenesApiTest extends TestCase
         $this->core->answer = fn(array $request): array => [];
         self::assertSame(200, $this->request('POST', '/api/scenes/nave/publish', $creator, [])->getStatusCode());
         self::assertSame(200, $this->request('GET', '/api/scenes/nave')->getStatusCode());
+    }
+
+    /**
+     * A scene's module nodes – the publish sends the catalog's descriptors of the modules they name; one the catalog
+     * lacks is not sent and the core's sentence naming it refuses the scene (fixtures/scenes/modules.json, the core's vectors)
+     */
+    public function testPublishingSendsTheDescriptorsOfTheScenesModules(): void
+    {
+        $creator = $this->session([Roles::CREATOR], 'modules@example.test');
+        $set = (array) json_decode((string) file_get_contents(self::root() . '/tests/fixtures/scenes/modules.json'), true);
+        $analog = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/modules/service-answer-analog.json'))->descriptor;
+        foreach ($set['cases'] as $case) {
+            $this->db->exec('DELETE FROM catalog_modules');
+            foreach ($case['catalog'] as $id) $this->get(CatalogStore::class)->save('modules', $id, (object) ['id' => $id, 'name' => $id, 'descriptor' => $analog], 'test');
+            $saved = $this->request('PUT', '/api/scenes/rave', $creator, ['content' => $case['request']['document']]);
+            self::assertSame(200, $saved->getStatusCode(), "{$case['name']}: " . $saved->getBody());
+            $this->core->answer = fn(array $request): array => $case['problems'];
+            $r = $this->request('POST', '/api/scenes/rave/publish', $creator, []);
+            $asked = $this->core->requests[count($this->core->requests) - 1]['request'];
+            unset($asked['document']['version']);
+            $expected = $case['request'];
+            if ($expected['modules'] === []) unset($expected['modules']);
+            self::assertEquals($expected, $asked, "{$case['name']}: the request the core's vectors answer");
+            if ($case['problems'] === []) {
+                self::assertSame(200, $r->getStatusCode(), "{$case['name']}: " . $r->getBody());
+            } else {
+                self::assertSame([422, 'invalid_scene', $case['problems']], [$r->getStatusCode(), self::json($r)['error'] ?? null, self::json($r)['problems'] ?? null], $case['name']);
+            }
+        }
     }
 
     public function testWithoutTheBuildServiceNothingIsPublished(): void
