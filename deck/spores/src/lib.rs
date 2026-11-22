@@ -4,6 +4,10 @@
 //! hands the widget its state through `Seen` and maps what was pressed (`Hit`) to its own documents.
 pub mod card;
 pub mod paint;
+pub mod pick;
+pub mod state;
+
+pub use state::{At, Motion, State, FLASH};
 
 /// how long a reveal fades in and out, secs
 pub const FADE_IN: f32 = 0.35;

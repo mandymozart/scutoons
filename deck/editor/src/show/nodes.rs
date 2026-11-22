@@ -7,12 +7,11 @@
 //! wires cut, a node dropped on a wire (node_wire.rs). The painting is node_paint.rs.
 use super::node_card;
 use super::node_drop;
-use super::node_paint::{self, Cam, Frame, Reveal};
-use super::node_pick::{self, Boxing};
+use super::node_paint::{self, Cam, Frame};
+use super::node_pick;
 use super::node_wire::{self, Hand};
 use super::roles::Typing;
 use super::{Hit, Host};
-use deck_kit::base::canvas::View;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::graph::{self, Direction, Graph, Metrics};
 use deck_kit::base::signal::Signal;
@@ -20,121 +19,37 @@ use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
 use deck_show::canvas::{self, Edit, GROUP};
-use std::collections::BTreeMap;
 use winit::keyboard::{Key, NamedKey};
 
-/// the direction, the canvas's size and the graph's extent a view was framed for
-type Framed = (Direction, (f32, f32), (f32, f32));
-
-/// a group's frame in the graph: its index in the row's canvas, its nodes
-pub type Frames = [(usize, Vec<usize>)];
-
-/// the settings' switches the view follows (settings.rs; "reduce motion" turns the first three off)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Motion {
-    /// what runs on the wires: pulses, streams, idle wires faint
-    pub activity: bool,
-    /// the latent grid under what the pointer is on
-    pub reveal: bool,
-    /// the border flash and shimmer of a focused node
-    pub flash: bool,
-    /// a node's picture of the piece it plays
-    pub previews: bool,
-}
-
-impl Default for Motion {
-    fn default() -> Motion {
-        Motion { activity: true, reveal: true, flash: true, previews: false }
-    }
-}
+/// the settings' switches, the frames of the groups: the Spores widget's
+pub use deck_spores::state::{Frames, Motion};
 
 /// a press in the node view: the Spores widget's
 pub use deck_spores::Hit as NodeHit;
 
-/// the view's state: its zoom and pan (kept while the editor runs), the direction, the drag in the hand, what is
-/// selected and focused, the reveals fading
+/// the view's state: the Spores widget's (zoom and pan, selection, focus, what was drawn), and what the show's hand
+/// holds – a wire, a cut or a node (node_wire.rs)
 #[derive(Debug, Clone, Default)]
 pub struct NodeView {
-    pub view: View,
-    pub direction: Direction,
-    /// framed for this direction, canvas size and graph extent: a new direction frames again, so does a new size or
-    /// graph (another row) until the view is zoomed or panned by hand
-    framed: Option<Framed>,
-    touched: bool,
-    /// the canvas drawn last, on screen; whether it was drawn this frame
-    pub(super) canvas: Rect,
-    pub(super) shown: bool,
-    bounds: Rect,
-    grab: Option<(f32, f32)>,
-    /// space is held: a left drag pans
-    pub space: bool,
-    /// shift is held (Tab goes back)
-    pub shift: bool,
-    /// a check run's zoom, round the canvas's middle whenever it frames itself
-    pub zoom_once: Option<f32>,
-    /// the selected nodes and the focused one, by id
-    pub selected: Vec<String>,
-    pub focus: Option<String>,
-    /// the node that flashed, and when (secs)
-    pub(super) flash: Option<(String, f32)>,
-    /// what the pointer is on (`node:<id>`, `group:<id>`, `wire:<n>`) and the reveals fading in and out
-    pub hover: Option<String>,
-    reveals: Vec<Reveal>,
-    /// the pointer as the latent grid follows it, slowly (canvas)
-    pub(super) blob: Option<(f32, f32)>,
-    /// the editor's clock, secs, and the settings' switches (main.rs sets them each frame)
-    pub secs: f32,
-    pub motion: Motion,
-    /// the pictures of the pieces the nodes play, by key, and the keys the last frame drew
-    pub pictures: BTreeMap<String, u64>,
-    pub wanted: Vec<String>,
-    /// the nodes drawn last: id and place on the canvas, in the graph's order; Tab's order through them; their tones
-    pub(super) drawn: Vec<(String, Rect)>,
-    pub(super) order: Vec<usize>,
-    pub(super) tones: Vec<f32>,
-    /// the wires drawn last, by link: the key a pin keeps (None: no value to pin) and the middle on screen
-    pub(super) wire_keys: Vec<Option<String>>,
-    pub(super) wire_mids: Vec<Option<(f32, f32)>>,
-    /// where the pinned values' tags were drawn last: the link and the tag's rect on screen
-    pub(super) pin_tags: Vec<(usize, Rect)>,
-    /// the wires whose value stays shown, by key
-    pub pinned: Vec<String>,
-    /// the box being drawn
-    pub boxing: Option<Boxing>,
-    /// the tone asked for (Hz), until main.rs takes it
-    pub(super) tone: Option<f32>,
-    /// the graph drawn last, where its open nodes' pins are pressed and its wires hang, on screen
-    pub(super) graph: Graph,
-    pub(super) pins: Vec<(deck_show::wire_ops::At, Rect)>,
-    pub(super) wires: Vec<(usize, deck_kit::base::wire::Wire)>,
-    /// a wire, a cut or a node in the hand (node_wire.rs)
+    pub state: deck_spores::State,
     pub hand: Option<Hand>,
 }
 
-/// how long a reveal fades in and out (the widget's), the flash and its shimmer, secs
-pub use deck_spores::{FADE_IN, FADE_OUT};
-pub const FLASH: f32 = 0.6;
-
-impl deck_spores::Seen for NodeView {
-    fn selected(&self, id: &str) -> bool {
-        self.selected.iter().any(|s| s == id)
-    }
-    fn flashing(&self, id: &str) -> Option<f32> {
-        NodeView::flashing(self, id)
-    }
-    fn previews(&self) -> bool {
-        self.motion.previews
-    }
-    fn picture(&self, key: &str) -> Option<u64> {
-        self.pictures.get(key).copied()
-    }
-    fn secs(&self) -> f32 {
-        self.secs
-    }
-    fn blob(&self) -> Option<(f32, f32)> {
-        self.blob
+impl std::ops::Deref for NodeView {
+    type Target = deck_spores::State;
+    fn deref(&self) -> &deck_spores::State {
+        &self.state
     }
 }
+
+impl std::ops::DerefMut for NodeView {
+    fn deref_mut(&mut self) -> &mut deck_spores::State {
+        &mut self.state
+    }
+}
+
+/// how long a reveal fades in and out, the flash and its shimmer, secs (the widget's)
+pub use deck_spores::{FADE_IN, FADE_OUT};
 
 /// a row's canvas as the Spores widget paints it (the spore contract's shape; deck-show keeps its own on the row)
 fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
@@ -147,42 +62,6 @@ fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
     }
 }
 
-impl NodeView {
-    fn frame(&mut self) {
-        self.frame_on(self.bounds);
-    }
-
-    fn frame_on(&mut self, r: Rect) {
-        self.view = View::framing(r, (self.canvas.w, self.canvas.h), self.canvas.w.min(self.canvas.h) * 0.06);
-    }
-
-    fn over(&self, x: f32, y: f32) -> bool {
-        self.canvas.w > 0.0 && self.canvas.has(x, y)
-    }
-
-    fn local(&self, x: f32, y: f32) -> (f32, f32) {
-        (x - self.canvas.x, y - self.canvas.y)
-    }
-
-    fn id(&self, i: usize) -> Option<String> {
-        self.drawn.get(i).map(|(id, _)| id.clone())
-    }
-
-    /// `id` alone selected and focused, flashing
-    fn focus_on(&mut self, id: String) {
-        self.selected = vec![id.clone()];
-        self.flash = Some((id.clone(), self.secs));
-        self.ask_tone(&id);
-        self.focus = Some(id);
-    }
-
-    /// the flash's age, while it runs
-    pub fn flashing(&self, id: &str) -> Option<f32> {
-        let (f, at) = self.flash.as_ref()?;
-        let age = self.secs - at;
-        (self.motion.flash && f == id && (0.0..FLASH).contains(&age)).then_some(age / FLASH)
-    }
-}
 
 impl Host {
     /// the wheel over the canvas: a notch (or a pinch) zooms round the pointer, a touchpad's two fingers pan
@@ -194,7 +73,10 @@ impl Host {
         n.touched = true;
         match fingers && !pinch {
             true => n.view.pan_by((dx * 40.0, dy * 40.0)),
-            false => n.view.zoom_at(n.local(x, y), dy),
+            false => {
+                let at = n.local(x, y);
+                n.view.zoom_at(at, dy)
+            }
         }
         true
     }
@@ -492,7 +374,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
         node_paint::ground(d, t, f, &cam, canvas);
     }
     for r in &n.reveals {
-        node_paint::reveal(d, r, (&n, &cam, canvas), (&frames, &wires, g, &placed));
+        node_paint::reveal(d, r, (&n.state, &cam, canvas), (&frames, &wires, g, &placed));
     }
     let pinned = |i: usize| n.wire_keys.get(i).cloned().flatten().is_some_and(|k| n.pinned.contains(&k));
     for (i, w) in wires.iter().filter(|(i, _)| Some(*i) != lifted) {
@@ -501,7 +383,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph,
     }
     for (i, (node, p)) in g.nodes.iter().zip(&placed).enumerate() {
         let tint = node.id.strip_prefix(GROUP).and_then(|id| doc.group(id)).and_then(|grp| deck_kit::editor::colour::rgb(&grp.colour));
-        let r = node_card::card(d, t, (node, p, tint), &cam, &n);
+        let r = node_card::card(d, t, (node, p, tint), &cam, &n.state);
         host.hits.push((r.body, Hit::Nodes(NodeHit::Node(i))));
         if let Some(f) = r.fold {
             host.hits.push((f, Hit::Nodes(NodeHit::Fold(i))));
