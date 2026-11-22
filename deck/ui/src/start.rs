@@ -145,6 +145,95 @@ pub fn play_count(play: &[Playable]) -> String {
     }
 }
 
+/// Where Play's listing from the API stands, for the words of an empty Play.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Listing {
+    /// answered (or not the deck's to fetch): an empty Play has nothing yet
+    #[default]
+    Answered,
+    /// asked, no answer yet
+    Loading,
+    /// the last ask failed: asked again later, the kept copies list meanwhile
+    Offline,
+}
+
+impl Listing {
+    /// PLAY's value while it lists nothing
+    pub fn empty_word(self) -> &'static str {
+        match self {
+            Listing::Answered => "NOTHING YET",
+            Listing::Loading => "LOADING",
+            Listing::Offline => "OFFLINE",
+        }
+    }
+}
+
+/// a failed listing is asked again after 2, 4, 8 … s, at most every this many seconds
+pub const LIST_RETRY_MAX: f32 = 60.0;
+/// an answered listing is asked again when Play opens, at most every this many seconds
+pub const LIST_REFRESH: f32 = 30.0;
+
+/// When the adapter asks the API for Play's listing (a deck may boot before its network is up): at once, then while
+/// it fails with a growing pause, and again when Play opens. The adapter runs one ask at a time and keeps the last
+/// good answer; times are the adapter's seconds.
+#[derive(Debug, Clone, Default)]
+pub struct Lister {
+    off: bool,
+    asking: bool,
+    answered: bool,
+    failures: u32,
+    next: f32,
+    answered_at: f32,
+}
+
+impl Lister {
+    /// a check run's: never asks
+    pub fn off() -> Lister {
+        Lister { off: true, answered: true, ..Lister::default() }
+    }
+
+    /// whether to start an ask now; true marks it under way
+    pub fn due(&mut self, now: f32) -> bool {
+        if self.off || self.asking || now < self.next {
+            return false;
+        }
+        self.asking = true;
+        true
+    }
+
+    /// the ask under way came back: `ok` = the API answered (its listing is the new one)
+    pub fn answered(&mut self, ok: bool, now: f32) {
+        self.asking = false;
+        if ok {
+            self.answered = true;
+            self.failures = 0;
+            self.answered_at = now;
+            self.next = f32::INFINITY;
+        } else {
+            self.failures += 1;
+            self.next = now + 2f32.powi(self.failures.min(6) as i32).min(LIST_RETRY_MAX);
+        }
+    }
+
+    /// Play opened: a failed listing is asked again at once, an answered one when it is older than [`LIST_REFRESH`]
+    pub fn opened(&mut self, now: f32) {
+        if self.off || self.asking {
+            return;
+        }
+        let at = if self.failures > 0 { now } else { self.answered_at + LIST_REFRESH };
+        self.next = self.next.min(at.max(now));
+    }
+
+    /// what an empty Play says: the last ask failed – offline; nothing answered yet – loading
+    pub fn listing(&self) -> Listing {
+        match (self.failures, self.answered) {
+            (0, true) => Listing::Answered,
+            (0, false) => Listing::Loading,
+            _ => Listing::Offline,
+        }
+    }
+}
+
 /// A show this deck plays on its own, as its own conductor: its name, the row playing (1-based; 0: none yet), how many
 /// rows it has.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -251,6 +340,45 @@ mod tests {
         assert_eq!(play_count(&p), "2 SCENES · 3 SHOWS");
         // a show and a scene of the same id are two rows
         assert_eq!(play_list(&[l("x", DEMO_TOON, true), l("x", DEMO_TOON, false)], &[]).len(), 2);
+    }
+
+    #[test]
+    fn a_deck_that_boots_offline_asks_again_until_the_listing_comes() {
+        let mut l = Lister::default();
+        assert_eq!(l.listing(), Listing::Loading);
+        assert!(l.due(0.0), "asked at once");
+        assert!(!l.due(0.5), "one ask at a time");
+        // offline: asked again after 2, 4, 8 … s, never more than a minute apart
+        l.answered(false, 1.0);
+        assert_eq!(l.listing(), Listing::Offline);
+        assert!(!l.due(2.9) && l.due(3.0));
+        l.answered(false, 3.0);
+        assert!(!l.due(6.9) && l.due(7.0));
+        for _ in 0..10 {
+            l.answered(false, 100.0);
+            assert!(l.due(100.0 + LIST_RETRY_MAX));
+        }
+        // Play opened while offline: at once
+        l.answered(false, 200.0);
+        l.opened(201.0);
+        assert!(l.due(201.0));
+        // the network is up: listed, no more asks until Play opens after the refresh time
+        l.answered(true, 202.0);
+        assert_eq!(l.listing(), Listing::Answered);
+        assert!(!l.due(10_000.0));
+        l.opened(210.0);
+        assert!(!l.due(231.9) && l.due(232.0));
+        // a refresh that fails keeps the list's words (the adapter keeps the last answer) but says offline when empty
+        l.answered(false, 233.0);
+        assert_eq!(l.listing().empty_word(), "OFFLINE");
+    }
+
+    #[test]
+    fn a_check_run_never_asks() {
+        let mut l = Lister::off();
+        l.opened(5.0);
+        assert!(!l.due(0.0) && !l.due(1e6));
+        assert_eq!(l.listing(), Listing::Answered);
     }
 
     #[test]

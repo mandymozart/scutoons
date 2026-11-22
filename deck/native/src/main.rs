@@ -56,7 +56,7 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME|scene:ID[@V]] [--audio auto
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--pick HOLDER] [--no-hud] [--hud-bar] [--dev] [--modules]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--pick HOLDER] [--hud|--hud-bar|--no-hud] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
            [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
@@ -122,9 +122,9 @@ struct Args {
     cdn: String,
     windowed: bool,
     frames: Option<u64>,
-    hud: bool,
-    /// #209: start with the collapsed stats bar instead of the full HUD (F1 cycles)
-    hud_bar: bool,
+    /// the HUD to start with: `--hud` the full one, `--hud-bar` the collapsed stats bar, `--no-hud` none; not given:
+    /// deck.toml's `hud`, else deck-ui's `Mode::at_start` (none – F1 cycles)
+    hud: Option<hud::Mode>,
     /// a local folder of sets (#195: else <cache>/sets, synced)
     sets: Option<PathBuf>,
     /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
@@ -181,8 +181,7 @@ fn args() -> Result<Args> {
         cdn: std::env::var("DECK_CDN").unwrap_or_else(|_| cache::CDN.into()),
         windowed: false,
         frames: None,
-        hud: true,
-        hud_bar: false,
+        hud: None,
         sets: std::env::var_os("DECK_SETS").map(PathBuf::from),
         portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
@@ -257,8 +256,9 @@ fn args() -> Result<Args> {
             }
             "--pick" => a.pick = Some(val()?),
             "--windowed" => a.windowed = true,
-            "--no-hud" => a.hud = false,
-            "--hud-bar" => a.hud_bar = true,
+            "--hud" => a.hud = Some(hud::Mode::Full),
+            "--no-hud" => a.hud = Some(hud::Mode::Off),
+            "--hud-bar" => a.hud = Some(hud::Mode::Bar),
             "--dev" => a.dev = true,
             "--relay" => a.relay = Some(val()?),
             "--outlet" => a.outlet = Some(val()?),
@@ -768,6 +768,8 @@ struct App {
     volume: volume::Volume,
     vol_overlay: volume::Overlay,
     vol_forced: bool,
+    /// the HUD's mode before an error or an open page showed the full HUD (it goes back to it after)
+    full_forced: Option<hud::Mode>,
     quality_note: String,
     modes: Vec<(u32, u32)>,
     /// #211: the outputs' MIDI for the conductor this frame (reused)
@@ -1237,6 +1239,17 @@ impl App {
             self.refusal = None;
             self.hud_at = -1.0;
         }
+        let paged = self.page.open || self.switcher.open || self.live.page.open;
+        // an error or an open page shows the full HUD; after it, the HUD goes back to what it was (off by default)
+        if self.error.is_some() || paged {
+            if self.hud.mode != hud::Mode::Full {
+                self.full_forced.get_or_insert(self.hud.mode);
+                self.hud.mode = hud::Mode::Full;
+            }
+        } else if let Some(mode) = self.full_forced.take() {
+            self.hud.mode = mode;
+            self.hud_at = -1.0;
+        }
         let forced = vol.is_some() || self.refusal.is_some();
         // #253: with the HUD off the bar carries the overlay for its second (or the refusal), then goes away again
         if forced && self.hud.mode == hud::Mode::Off {
@@ -1247,8 +1260,7 @@ impl App {
             self.vol_forced = false;
             self.hud_at = -1.0;
         }
-        let paged = self.page.open || self.switcher.open || self.live.page.open;
-        let hud_on = self.args.hud || self.error.is_some() || paged || forced;
+        let hud_on = self.hud.visible() || self.error.is_some() || paged || forced;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
@@ -1286,9 +1298,6 @@ impl App {
             }
             self.hud.set_lines(lines);
             self.hud.set_items(items);
-        }
-        if self.error.is_some() || paged {
-            self.hud.mode = hud::Mode::Full;
         }
         match self.hud.mode {
             hud::Mode::Full => self.hud.raster(),
@@ -1682,7 +1691,10 @@ fn run() -> Result<i32> {
     #[cfg(feature = "live")]
     let app_cache = args.cache.clone().unwrap_or_else(cache::default_dir);
     let mut app = App {
-        hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
+        hud: hud::Hud::with_mode(hud::Mode::at_start(args.hud.or_else(|| {
+            deck_native::live::config::hud(&deck_native::live::config::deck_toml()).and_then(|w| hud::Mode::parse(&w))
+        }))),
+        full_forced: None,
         menu: menu::Native::new(&args),
         args,
         started,

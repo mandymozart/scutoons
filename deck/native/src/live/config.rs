@@ -60,6 +60,17 @@ pub fn dont_flash(path: &Path) -> Option<String> {
     toml::from_str::<Keys>(&text).ok()?.dont_flash
 }
 
+/// deck.toml's `hud = "full" | "bar" | "off"`: the HUD this deck starts with (none: deck-ui's `Mode::at_start` decides)
+pub fn hud(path: &Path) -> Option<String> {
+    #[derive(Deserialize)]
+    struct Keys {
+        #[serde(default)]
+        hud: Option<String>,
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    toml::from_str::<Keys>(&text).ok()?.hud
+}
+
 /// #478: the Live page's choice in deck.toml – `role = "tenor"` (`""`: no role) and `nick = "Anna"`, the name it says; read
 /// at the start (the role over `outlet`, the name over the host's), written when the page changes them
 #[derive(Debug, Default, Deserialize, PartialEq)]

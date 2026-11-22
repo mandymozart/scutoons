@@ -115,6 +115,8 @@ pub struct Facts {
     pub top: f32,
     /// what Play lists (start.rs `play_list`)
     pub play: Vec<crate::start::Playable>,
+    /// where Play's listing stands (an empty Play says why)
+    pub listing: crate::start::Listing,
     /// the show this deck plays as its own conductor (none: none)
     pub showing: Option<crate::start::Showing>,
 }
@@ -232,7 +234,7 @@ pub fn words(row: Row, f: &Facts) -> (&'static str, String, bool) {
         Row::Open(Page::Equip) => later("EQUIP"),
         Row::Open(Page::Mappings) => later("MAPPINGS"),
         Row::Open(_) => ("", String::new(), true),
-        Row::Play if f.play.is_empty() => ("PLAY", "NOTHING YET".into(), false),
+        Row::Play if f.play.is_empty() => ("PLAY", f.listing.empty_word().into(), false),
         Row::Play => ("PLAY", crate::start::play_count(&f.play), false),
         Row::Join => ("JOIN A SHOW", f.session.as_ref().map_or("NO SESSION".into(), |_| f.who.to_uppercase()), false),
         Row::Pick(i) => match f.play.get(i) {
@@ -661,6 +663,12 @@ mod tests {
         assert_eq!(m.top(), Some(Page::Start));
         assert_eq!(start_rows(&f), [Row::Play, Row::Join, Row::Open(Page::Settings), Row::Creator, Row::Quit]);
         assert_eq!(words(Row::Play, &f), ("PLAY", "2 SCENES".into(), false));
+        // an empty Play says why
+        let empty = |listing| words(Row::Play, &Facts { listing, ..native() }).1;
+        assert_eq!(
+            [empty(crate::start::Listing::Loading), empty(crate::start::Listing::Offline), empty(crate::start::Listing::Answered)],
+            ["LOADING", "OFFLINE", "NOTHING YET"]
+        );
         assert_eq!(words(Row::Join, &f), ("JOIN A SHOW", "NO SESSION".into(), false));
         assert_eq!(m.input(Input::Down, &f), Answer::Yes);
         assert_eq!(m.input(Input::Enter, &f), Answer::Yes);
