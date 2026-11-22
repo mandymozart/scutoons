@@ -66,3 +66,12 @@ test('the experience level: its groups frame their scenes on the canvas, no spor
 	assert.ok(weave.spores.every((s) => !('group' in s)));
 	assert.equal(projectXr(doc, 'experience:demo').canvas, undefined);
 });
+
+test('SCUTOONS listens to events: no weave says hear (OSCT copy unchanged, translated at the edge)', () => {
+	for (const context of ['experience:demo', 'experience:demo/scene:poster', 'experience:demo/scene:back']) {
+		const weave = projectXr(doc, context);
+		assert.doesNotMatch(JSON.stringify(weave), /\bhear/i, context);
+	}
+	const plugin = projectXr(doc, 'experience:demo/scene:poster').spores.find((s) => s.kind === 'plugin');
+	assert.ok(plugin?.ports.some((p) => p.id === 'listens' && p.label === 'listens'));
+});

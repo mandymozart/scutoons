@@ -647,8 +647,8 @@
 					"driver": "xr",
 					"ports": [
 						{
-							"id": "hears",
-							"label": "hears",
+							"id": "listens",
+							"label": "listens",
 							"signal": "event",
 							"dir": "in",
 							"many": true
@@ -804,17 +804,17 @@
 					"crosses": "same"
 				},
 				{
-					"id": "event:keyRattled:out>plugin:spin:hears",
+					"id": "event:keyRattled:out>plugin:spin:listens",
 					"from": {
 						"spore": "event:keyRattled",
 						"port": "out"
 					},
 					"to": {
 						"spore": "plugin:spin",
-						"port": "hears"
+						"port": "listens"
 					},
 					"signal": "event",
-					"label": "hears",
+					"label": "listens",
 					"crosses": "same"
 				},
 				{
