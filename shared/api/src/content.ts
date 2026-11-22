@@ -40,6 +40,16 @@ export interface ContentIndexEntity {
 	latest_author?: string | null;
 	/** the newest version is the same document as the published one (a restore …): nothing new for readers (owner D6) */
 	same_as_published?: boolean;
+	/** a factory module: read-only, built in the catalog – never a line of a publish list */
+	read_only?: boolean;
+}
+
+/** a bulk publish's answer with `partial`: what went live, what was refused (and why), what needs a review */
+export interface PartialPublish {
+	status: string;
+	published: { key: string; version: ContentVersion }[];
+	refused: { key: string; code: string; reason: string }[];
+	review: string[];
 }
 
 /** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */
@@ -207,6 +217,9 @@ export function createContentApi(client: ApiClient) {
 		/** Several documents live at once (one transaction) */
 		publishMany: (versions: { key: string; version?: number }[]) =>
 			client.post<{ status: string; published: { key: string; version: ContentVersion }[] }>('/entities/publish', { versions }),
+
+		/** Several documents in dependency order, each unit on its own: what can go live goes live, the rest is named with its reason */
+		publishPartial: (versions: { key: string; version?: number }[]) => client.post<PartialPublish>('/entities/publish', { versions, partial: true }),
 
 		/** Every catalog entry of a kind as a document: its newest version, draft / live / physical */
 		catalogDocs: (kind: CatalogDocKind) => client.get<{ status: string; kind: CatalogDocKind; entries: CatalogDoc[] }>(`/catalog/docs/${kind}`),

@@ -46,7 +46,7 @@
 			const list = nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) }));
 			const result = await publishTree({ kind: 'all', toons: list }, m['creator.publish_tree_title_all']());
 			if (result) {
-				toast(result.message, { type: result.published.length ? 'success' : 'info', kind: 'publish' });
+				for (const n of result.notices) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
 				void loadPending();
 			}
 		} catch (e) {

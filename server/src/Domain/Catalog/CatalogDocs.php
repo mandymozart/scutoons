@@ -70,6 +70,35 @@ final class CatalogDocs
         if ($key->catalogKind() === 'modules' && ModuleSource::isFactory($this->publishedData($key))) throw ModuleSource::readOnly((string) $key->id);
     }
 
+    /**
+     * The `module:<id>` keys of the factory modules: read-only and built in the catalog, never a line of a publish list
+     * @return list<string>
+     */
+    public function factoryModuleKeys(): array
+    {
+        $keys = [];
+        foreach ($this->store->map('modules') as $id => $data) {
+            if (ModuleSource::isFactory(is_array($data) ? $data : null)) $keys[] = "module:$id";
+        }
+        return $keys;
+    }
+
+    /**
+     * Why a version can't go live without being attempted (a bulk publish): a factory module, or a module whose
+     * compile is not current (null: try it)
+     * @param array<string, mixed> $row an entity_versions row of a catalog document
+     */
+    public function publishBlocker(array $row): ?string
+    {
+        $key = EntityKey::parse((string) $row['entity_key']);
+        if ($key->catalogKind() !== 'modules') return null;
+        if (ModuleSource::isFactory($this->publishedData($key))) return 'a factory module – read-only, built in the catalog';
+        $compiled = $this->db->value("SELECT json FROM entity_versions WHERE entity_key = ? AND id <= ? AND message LIKE 'compiled %' ORDER BY id DESC LIMIT 1", [(string) $key, (int) $row['id']]);
+        $data = json_decode((string) $row['json'], true);
+        $was = $compiled !== null ? json_decode((string) $compiled, true) : null;
+        return PublishOrder::compileProblem(is_array($data) ? $data : null, is_array($was) ? $was : null);
+    }
+
     /** a removed entry's last version (`removed: true`) */
     public static function isTombstone(mixed $data): bool
     {
@@ -230,6 +259,12 @@ final class CatalogDocs
             return;
         }
         $this->admin->putIn((string) $key->catalogKind(), (string) $key->id, json_decode((string) $row['json']), $by, 'published v' . $row['id']);
+    }
+
+    /** after a rolled-back publishIn(): the table is read again (what was cached inside the transaction is gone) */
+    public function forget(): void
+    {
+        $this->store->forget();
     }
 
     /** The asset usage index after publishIn() (Reviews) */

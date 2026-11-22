@@ -10,12 +10,12 @@ import { log } from '$lib/log/log.svelte.ts';
  */
 export const toaster = createToaster();
 
-export type NoticeOptions = Omit<ToastInput, 'message'> & { kind?: LogKind };
+export type NoticeOptions = Omit<ToastInput, 'message'> & { kind?: LogKind; detail?: string };
 
 /** says something: a Log line, and a toast when it asks for an answer; returns the toast's id (for `toaster.dismiss`), else -1 */
 export function toast(message: string, options: NoticeOptions = {}): number {
-	const { kind, ...rest } = options;
-	log.post({ level: rest.type ?? 'info', text: message, ...(kind ? { kind } : {}) });
+	const { kind, detail, ...rest } = options;
+	log.post({ level: rest.type ?? 'info', text: message, ...(kind ? { kind } : {}), ...(detail ? { detail } : {}) });
 	return rest.action ? toaster.addToast({ message, ...rest }) : -1;
 }
 
