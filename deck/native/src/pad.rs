@@ -85,6 +85,11 @@ impl Pad {
                     continue;
                 }
             }
+            // the shoulder buttons step through the cast as Tab / Shift+Tab do (#496): RB the next, LB the one before
+            if let Some(back) = shoulder(&event.event) {
+                space.key("Tab", back);
+                continue;
+            }
             if let Some(input) = from_gilrs(&event.event) {
                 self.input(input);
             }
@@ -161,6 +166,15 @@ pub fn from_gilrs(event: &gilrs::EventType) -> Option<Input> {
         gilrs::EventType::ButtonPressed(button, _) => button_input(button, true),
         gilrs::EventType::ButtonReleased(button, _) => button_input(button, false),
         gilrs::EventType::Disconnected => Some(Input::Gone),
+        _ => None,
+    }
+}
+
+/// a pressed shoulder button as a step through the cast: Some(true) = LB (the one before), Some(false) = RB (the next)
+pub fn shoulder(event: &gilrs::EventType) -> Option<bool> {
+    match *event {
+        gilrs::EventType::ButtonPressed(gilrs::Button::LeftTrigger, _) => Some(true),
+        gilrs::EventType::ButtonPressed(gilrs::Button::RightTrigger, _) => Some(false),
         _ => None,
     }
 }
