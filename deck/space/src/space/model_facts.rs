@@ -99,12 +99,9 @@ fn failed(why: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "../../tests/fixtures/bones.rs"]
-mod bones;
-
-#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::space::anatomy::bones;
 
     #[test]
     fn the_two_bone_model_says_its_bones_clip_and_what_it_lacks() {
