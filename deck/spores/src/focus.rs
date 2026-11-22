@@ -1,4 +1,4 @@
-//! The node view's focus tone: a node focused or selected sounds a short tone pitched by its signal, so a run of Tab
+//! The focus tone: a spore focused or selected sounds a short tone pitched by its signal, so a run of Tab
 //! presses is heard as well as seen. The pitches are one major pentatonic over two octaves, a type to a note, so any
 //! two of them sound well together. The engine plays it (deck-core `ui_tone`); the editor's settings switch it.
 use deck_kit::base::graph::Node;

@@ -14,3 +14,7 @@ publish.workspace = true
 deck-kit = { path = "../kit", features = ["editor"] }
 # the weave: spores, threads, the canvas (server/schema/api/spore-network.schema.json)
 protocol = { workspace = true }
+
+[dev-dependencies]
+# the shared weaves (server/schema/api/spore-network.vectors.json)
+serde_json.workspace = true

@@ -24,30 +24,15 @@ fn pictures() -> Pictures {
     let logo = crate::logo::frames();
     let side = crate::logo::SIDE;
     let w = 10 * side;
-    let icon_cols = w / ICON;
-    let icons_h = (deck_kit::editor::icons::ICONS.len() as u32).div_ceil(icon_cols) * ICON;
+    let icons_h = deck_kit::editor::icons::raster_height(w, ICON);
     let logo_cols = w / side;
     let h = icons_h + (crate::logo::FRAMES as u32).div_ceil(logo_cols) * side;
     let mut pixels = vec![255u8; (w * h * 4) as usize];
     pixels.chunks_exact_mut(4).for_each(|p| p[3] = 0);
     let (wf, hf) = (w as f32, h as f32);
     let inset = |x: u32, y: u32, s: u32| Rect::from_min_max(pos2((x as f32 + 0.5) / wf, (y as f32 + 0.5) / hf), pos2(((x + s) as f32 - 0.5) / wf, ((y + s) as f32 - 0.5) / hf));
-    // the icons: Feather's stroke 2.5 and square caps
-    let mut icons = HashMap::new();
-    for (i, (name, body)) in deck_kit::editor::icons::ICONS.iter().enumerate() {
-        let (x0, y0) = (i as u32 % icon_cols * ICON, i as u32 / icon_cols * ICON);
-        let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\">{body}</svg>");
-        let scale = (ICON - 4) as f32 / 24.0;
-        let mut map = resvg::tiny_skia::Pixmap::new(ICON, ICON).expect("an icon's pixmap");
-        if let Ok(tree) = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()) {
-            resvg::render(&tree, resvg::tiny_skia::Transform::from_translate(2.0, 2.0).pre_scale(scale, scale), &mut map.as_mut());
-        }
-        for (k, p) in map.pixels().iter().enumerate() {
-            let (px, py) = (x0 + k as u32 % ICON, y0 + k as u32 / ICON);
-            pixels[((py * w + px) * 4 + 3) as usize] = p.alpha();
-        }
-        icons.insert(*name, inset(x0, y0, ICON));
-    }
+    // the icons: the kit's raster of Feather's
+    let icons = deck_kit::editor::icons::raster(&mut pixels, (w, h), ICON);
     // the logo's frames
     let mut frames = Vec::with_capacity(logo.len());
     for (i, f) in logo.iter().enumerate() {

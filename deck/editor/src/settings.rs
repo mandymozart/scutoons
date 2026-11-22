@@ -45,7 +45,7 @@ pub struct Sound {
 
 impl Default for Sound {
     fn default() -> Sound {
-        Sound { ui_sounds: true, focus_tone: deck_show::focus::ON, signal_ticks: false, volume: 0.35 }
+        Sound { ui_sounds: true, focus_tone: deck_spores::focus::ON, signal_ticks: false, volume: 0.35 }
     }
 }
 
@@ -252,14 +252,14 @@ mod tests {
     #[test]
     fn the_focus_tone_is_on_by_the_cores_default_and_ui_sounds_off_silences_it() {
         let mut s = Settings::default();
-        assert_eq!(s.sound.focus_tone, deck_show::focus::ON);
+        assert_eq!(s.sound.focus_tone, deck_spores::focus::ON);
         assert_eq!(s.sound.focus(), Some(s.sound.volume));
         s.press(Press::Switch(Switch::FocusTone));
         assert_eq!(s.sound.focus(), None);
         s.press(Press::Switch(Switch::FocusTone));
         s.press(Press::Switch(Switch::UiSounds));
         assert_eq!(s.sound.focus(), None, "UI sounds off: every UI sound");
-        assert_eq!(serde_json::from_str::<Settings>("{\"sound\":{\"ui_sounds\":true}}").unwrap().sound.focus_tone, deck_show::focus::ON, "an older file gets the default");
+        assert_eq!(serde_json::from_str::<Settings>("{\"sound\":{\"ui_sounds\":true}}").unwrap().sound.focus_tone, deck_spores::focus::ON, "an older file gets the default");
     }
 
     #[test]

@@ -3,7 +3,15 @@
 //! wasm, in the creator's Spores tab. The painting (`paint`, `card`) moved here from the editor's Show node view; a host
 //! hands the widget its state through `Seen` and maps what was pressed (`Hit`) to its own documents.
 pub mod card;
+pub mod focus;
+pub mod input;
 pub mod paint;
+pub mod pick;
+pub mod state;
+pub mod view;
+pub mod weave;
+
+pub use state::{At, Motion, State, FLASH};
 
 /// how long a reveal fades in and out, secs
 pub const FADE_IN: f32 = 0.35;
@@ -12,6 +20,9 @@ pub const FADE_OUT: f32 = 1.1;
 /// a press in the widget
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hit {
+    /// the head: the direction, Fit (frames the selection, else everything)
+    Flow(deck_kit::base::graph::Direction),
+    Fit,
     /// the empty canvas: the selection goes
     Canvas,
     /// a spore drawn (its index in the graph shown), alone or added

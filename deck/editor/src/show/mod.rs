@@ -33,7 +33,7 @@ mod events;
 pub mod nodes;
 mod node_drop;
 // #763: the node view's painting is the Spores widget's (deck-spores), shared with the creator's Spores tab
-use deck_spores::{card as node_card, paint as node_paint};
+use deck_spores::paint as node_paint;
 mod node_pick;
 mod node_wire;
 pub(crate) mod flash;
@@ -208,8 +208,6 @@ pub enum Hit {
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
     /// the node view: its direction, framing everything
-    NodeFlow(deck_kit::base::graph::Direction),
-    NodeFrame,
     /// a node, a group, a note or a button of the node view (nodes.rs)
     Nodes(nodes::NodeHit),
     /// the cue sheet or the problems list in the stage's place
@@ -627,7 +625,7 @@ impl Host {
             Hit::Load => self.load(),
             Hit::Flash => self.open_flash(),
             Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
-            Hit::NodeFlow(_) | Hit::NodeFrame | Hit::Nodes(_) => self.nodes_press(hit),
+            Hit::Nodes(_) => self.nodes_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
                 self.sheet = None;
