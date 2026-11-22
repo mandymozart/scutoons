@@ -44,7 +44,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 18] = [
+pub const SANDBOX: [&str; 19] = [
     "channel-walk",
     "cue-34",
     "surround-51",
@@ -63,6 +63,7 @@ pub const SANDBOX: [&str; 18] = [
     "stage-duo",
     "stage-cards",
     "crows-rave",
+    "cloud-light",
 ];
 
 /// What a bare scene name is (#427).
@@ -140,6 +141,8 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         "stage-cards" => include_str!("../../native/scenes/sandbox/stage-cards.toml"),
         // #747: arp, analog, delay and reverb modules – the `modules` build
         "crows-rave" => include_str!("../../native/scenes/sandbox/crows-rave.toml"),
+        // #780: the cloud, analog and mixer modules – the `modules` build; written by deck-native's cloud_light.rs test
+        "cloud-light" => include_str!("../../native/scenes/sandbox/cloud-light.toml"),
         _ => return None,
     })
 }

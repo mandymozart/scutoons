@@ -1,0 +1,234 @@
+# A sandbox (#780): the storm cloud's light – the rig `cloud-storm` flattened, held (its repeater plays a thunder and a
+# kick on every eighth) and tinted storm-blue, and the deck's RGB wash (Cameo Thunder Wash 600 RGBW, 4CH_1, DMX address 1 on the first USB-DMX
+# widget) flashing in the cloud's colour at the repeater's speed: red / green / blue each gained by the cloud's pulse
+# (its top three quarters, so the wash is dark again 0.17 s after a repeat).
+# The cloud's period, phase, pulse, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
+# [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
+# Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
+# From deck/ (modules: cloud, analog, mixer in DECK_MODULES):
+#   cargo run -p deck-native --release --features modules -- --dev --scene cloud-light --windowed
+
+[stage]
+name = "Cloud light"
+render_scale = 1.0
+transition = "fade"
+transition_secs = 0.4000000059604645
+
+[[node]]
+id = "storm_cloud"
+kind = "module:cloud"
+drift = 0.6
+flash = 0.8
+height = 6.0
+hold = 1.0
+hue = 0.62
+light = 45.0
+puffs = 18.0
+rain = 0.5
+rate = 0.6
+size = 6.0
+sync = 1.0
+tint = 60.0
+
+[[node]]
+id = "storm_thunder"
+kind = "module:analog"
+a1_level = 0.5
+a1_vel = 0.5
+a2_level = 1.0
+a2_vel = 0.5
+ae1_a = 0.001
+ae1_d = 0.3
+ae1_r = 0.2
+ae1_s = 0.0
+ae2_a = 0.02
+ae2_d = 2.5
+ae2_r = 1.5
+ae2_s = 0.0
+f1_cutoff = 500.0
+f1_env = 0.6
+f1_mode = 0.0
+f1_res = 0.1
+f1_vel = 0.3
+f2_cutoff = 90.0
+f2_drive = 0.5
+f2_env = 0.25
+f2_mode = 0.0
+f2_res = 0.3
+fe1_a = 0.001
+fe1_d = 0.25
+fe1_r = 0.2
+fe1_s = 0.0
+fe2_a = 0.01
+fe2_d = 1.5
+fe2_r = 1.0
+fe2_s = 0.0
+l1_a2 = 0.5
+l1_rate = 7.0
+l1_shape = 4.0
+noise_level = 1.0
+noise_route = 2.0
+o1_level = 0.0
+o2_level = 0.0
+volume = 0.9
+
+[[node]]
+id = "storm_kick"
+kind = "module:analog"
+a1_level = 0.0
+a2_level = 1.0
+a2_vel = 0.4
+ae2_a = 0.001
+ae2_d = 0.32
+ae2_r = 0.08
+ae2_s = 0.0
+f2_cutoff = 8000.0
+f2_drive = 0.35
+fe2_a = 0.001
+fe2_d = 0.045
+fe2_p2 = 24.0
+fe2_r = 0.05
+fe2_s = 0.0
+o1_level = 0.0
+o2_key = 0.0
+o2_level = 1.0
+o2_route = 1.0
+o2_semi = -24.0
+o2_wave = 3.0
+
+[[node]]
+id = "storm_mix"
+kind = "module:mixer"
+gain1 = -3.0
+gain2 = 0.0
+
+[[node]]
+id = "mix1"
+kind = "mixer"
+gain1 = 1.0
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[node]]
+id = "fft"
+kind = "fft"
+
+[[node]]
+id = "space"
+kind = "space"
+bloom = 0.6
+glow = 0.6
+glow_light = 1.0
+glow_range = 7.0
+hue = 0.52
+join = "deck"
+light = 0.85
+post = ["bloom", "curves", "pixelate", "fxaa"]
+quality = "low"
+threshold = 0.55
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "storm_cloud.thunder"
+to = "storm_thunder.notes"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_cloud.kick"
+to = "storm_kick.notes"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_thunder.out"
+to = "storm_mix.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_kick.out"
+to = "storm_mix.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_mix.out"
+to = "mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "fft.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "space"
+to = "screen.in"
+scale = 1.0
+offset = 0.0
+
+[outputs]
+dmx = "auto"
+
+[[outputs.fixture]]
+address = 1
+id = "wash"
+profile = "thunderwash-600-rgbw"
+
+[[outputs.map]]
+from = "storm_cloud.red"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.red"
+
+[[outputs.map]]
+from = "storm_cloud.green"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.green"
+
+[[outputs.map]]
+from = "storm_cloud.blue"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.blue"
+
+[being]
+size = 0.5
+drift = 0.05999999865889549
+breath = 0.03500000014901161
+wobble = 0.02500000037252903
+hose = 1.0
+bubbles = 1.0
+expose = ["storm_cloud.hold", "storm_cloud.rate", "storm_cloud.sync", "storm_cloud.rumble", "storm_cloud.thump", "storm_cloud.flash", "storm_cloud.rain", "storm_cloud.split", "storm_cloud.size"]
+character = ""
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+feel = []
+react = []
