@@ -189,11 +189,14 @@ mod tests {
     use deck_events::{Match, Route, Table};
     use std::sync::Mutex;
 
+    /// an opened fake device: its name, its port, where its bytes go
+    type Tap = (String, u8, SyncSender<Msg>);
+
     /// devices a test plugs in and out, and plays through the senders they were opened with
     #[derive(Clone, Default)]
     struct Fake {
         names: Arc<Mutex<Vec<String>>>,
-        taps: Arc<Mutex<Vec<(String, u8, SyncSender<Msg>)>>>,
+        taps: Arc<Mutex<Vec<Tap>>>,
     }
 
     impl Fake {
