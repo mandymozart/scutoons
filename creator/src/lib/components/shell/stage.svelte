@@ -213,7 +213,7 @@
 		--stage-top: var(--shell-top);
 	}
 	.box.page {
-		background: var(--editor-surface);
+		background: var(--page-ground, var(--editor-surface));
 		overflow: auto;
 	}
 	.page-body {

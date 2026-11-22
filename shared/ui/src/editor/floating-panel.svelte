@@ -252,7 +252,8 @@
 		min-width: 0;
 		border: var(--editor-edge) solid var(--editor-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground);
+		/* solid: a panel floats over the stage's content, which must not show through it */
+		background: var(--editor-surface);
 		color: var(--editor-text);
 		text-shadow: var(--editor-halo);
 		font-family: var(--editor-sans);
