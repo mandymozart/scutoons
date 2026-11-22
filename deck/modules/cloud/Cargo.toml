@@ -1,0 +1,18 @@
+# cloud – a low-poly cloud of puffs floating above its place, drifting with the wind and wrapping. Build for the deck /
+# browser: `cargo build --release --target wasm32-unknown-unknown -p cloud-module`
+[package]
+name = "cloud-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-module = { path = "../../module", features = ["host"] }

@@ -14,3 +14,9 @@ The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128
 | pc | wasmtime | arp | 128 | 85.1 ms | 56 µs | 3 | 0.5 | 0.7 | 30 | 0.5 | 0.03 % | 1088 | 7cb0d9c9 |
 | pc | wasmtime | drumseq | 128 | 69.3 ms | 72 µs | 6 | 0.6 | 1.4 | 263 | 0.9 | 0.05 % | 1088 | 0c3016e3 |
 | pc | wasmtime | convolver | 128 | 173.4 ms | 62437 µs | 281 | 620.5 | 1636.2 | 14098 | 613.7 | 61.36 % | 10432 | 99cc8ac6 |
+| pc | wasmtime | cloud | 128 | 95.6 ms | 46 µs | 14 | 8.7 | 14.1 | 91 | 8.6 | 0.53 % | 1088 | 0212283c |
+| pc | wasmtime | bamboo | 128 | 140.3 ms | 96 µs | 158 | 87.6 | 519.3 | 199900 | 275.2 | 19.47 % | 1152 | 56fe1a46 |
+
+The cloud row: 2026-11-22 ~07:40 UTC, the same PC – the storm preset now raining (0.8): 72 drops after the puffs (#780 slice 2; its other rows of that run are not taken).
+
+The bamboo row: 2026-11-22 ~10:06 UTC, the same PC under load from another session (every row of that run had a high p99, e.g. osc 476 µs) – the storm preset: 50 stalks (600 instances), two 64-frame ticks a call; p50 is the honest number (#780; its other rows of that run are not taken).

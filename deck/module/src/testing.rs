@@ -263,6 +263,11 @@ impl<M: Module> Rig<M> {
         self.out().transform().copied()
     }
 
+    /// the instance table as the last call left it
+    pub fn instances(&self) -> Vec<crate::Instance> {
+        self.out().instances().to_vec()
+    }
+
     /// event output `p`'s records of the last call
     pub fn events_out(&self, p: usize) -> Vec<Ev> {
         self.out().events_out(p).to_vec()

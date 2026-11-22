@@ -23,6 +23,11 @@ impl<'a> Outputs<'a> {
         }
     }
 
+    /// the instance table (`#[port(output, instances)]`): it holds what was last written – fill it, `clear` it
+    pub fn instances(&mut self) -> crate::instances::Table<'_> {
+        self.out.table()
+    }
+
     /// control output `i`'s value (the last written, held across calls)
     pub fn get(&self, i: usize) -> f32 {
         self.out.control_out().get(i).copied().unwrap_or(0.0)

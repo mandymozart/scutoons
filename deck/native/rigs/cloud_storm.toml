@@ -1,0 +1,43 @@
+# The storm cloud (#780): the cloud module above its place, and while its `hold` is held a repeater that plays a thunder
+# and a kick on every repeat – `rate` (it glides) on the tempo's grid with `sync` on (1/1 … 1/32), free with it off
+# (0.5 … 32 a second); each repeat flashes the cloud. The left stick is the storm: x the rate, y the hold (up past the
+# middle holds), so an X/Y pad, a MIDI fader or a game controller plays it. The cloud's `period`, `phase`, `pulse` and
+# `red` `green` `blue` outputs carry its time and colour out to lights and pictures.
+# The thunder and the kick are analog voices – the kick is analog.preset.json's `kick` written out, the thunder noise
+# through a cracking and a rumbling low-pass. TODO(#780): real thunder and kick samples once a sampler module exists.
+# Modules play only on a native deck built with the `modules` feature (cloud, analog and mixer in DECK_MODULES), so this
+# rig is in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:cloud-storm`.
+
+[rig]
+subject = "item.cloud"
+track = [{ id = "storm", instrument = "cloud_storm" }]
+sticks = [["storm:cloud.rate", "storm:cloud.hold"], ["storm:cloud.rain", "storm:cloud.split"]]
+
+[[instrument]]
+id = "cloud_storm"
+kind = "drum"
+name = { en = "Storm cloud", de = "Gewitterwolke" }
+out = "mix.out"
+node = [
+  { id = "cloud", kind = "module:cloud", puffs = 18.0, size = 6.0, drift = 0.6, height = 6.0, light = 45.0, rain = 0.5, rate = 0.6, sync = 1.0, flash = 0.8 },
+  { id = "thunder", kind = "module:analog", volume = 0.9, o1_level = 0.0, o2_level = 0.0, noise_level = 1.0, noise_route = 2.0, f1_mode = 0.0, f1_cutoff = 500.0, f1_res = 0.1, f1_env = 0.6, f1_vel = 0.3, fe1_a = 0.001, fe1_d = 0.25, fe1_s = 0.0, fe1_r = 0.2, f2_mode = 0.0, f2_cutoff = 90.0, f2_res = 0.3, f2_drive = 0.5, f2_env = 0.25, fe2_a = 0.01, fe2_d = 1.5, fe2_s = 0.0, fe2_r = 1.0, a1_level = 0.5, a1_vel = 0.5, ae1_a = 0.001, ae1_d = 0.3, ae1_s = 0.0, ae1_r = 0.2, a2_level = 1.0, a2_vel = 0.5, ae2_a = 0.02, ae2_d = 2.5, ae2_s = 0.0, ae2_r = 1.5, l1_shape = 4.0, l1_rate = 7.0, l1_a2 = 0.5 },
+  { id = "kick", kind = "module:analog", o1_level = 0.0, o2_wave = 3.0, o2_key = 0.0, o2_semi = -24.0, o2_level = 1.0, o2_route = 1.0, f2_cutoff = 8000.0, f2_drive = 0.35, fe2_a = 0.001, fe2_d = 0.045, fe2_s = 0.0, fe2_r = 0.05, fe2_p2 = 24.0, a1_level = 0.0, a2_level = 1.0, a2_vel = 0.4, ae2_a = 0.001, ae2_d = 0.32, ae2_s = 0.0, ae2_r = 0.08 },
+  { id = "mix", kind = "module:mixer", gain1 = -3.0, gain2 = 0.0 },
+]
+link = [
+  { from = "cloud.thunder", to = "thunder.notes" },
+  { from = "cloud.kick", to = "kick.notes" },
+  { from = "thunder.out", to = "mix.in1" },
+  { from = "kick.out", to = "mix.in2" },
+]
+expose = [
+  { path = "cloud.hold", label = { en = "hold", de = "Halten" } },
+  { path = "cloud.rate", label = { en = "rate", de = "Tempo" } },
+  { path = "cloud.sync", label = { en = "sync", de = "Takt" } },
+  { path = "cloud.rumble", label = { en = "thunder", de = "Donner" } },
+  { path = "cloud.thump", label = { en = "kick", de = "Kick" } },
+  { path = "cloud.flash", label = { en = "flash", de = "Blitz" } },
+  { path = "cloud.rain", label = { en = "rain", de = "Regen" } },
+  { path = "cloud.split", label = { en = "split", de = "Teilen" } },
+  { path = "cloud.size", label = { en = "size", de = "Größe" } },
+]

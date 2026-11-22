@@ -9,6 +9,8 @@
 //!   target alike (deck-space binds a path to its input as a link): the module writes a `Param`, the control half copies
 //!   it into the output's value slot at the next block's start. Unwritten = held. Events a module emits reach other
 //!   modules one block late at the same frame (evhost.rs). So the order the nodes run in never changes the sound.
+//! - **Drawing.** A control module's instance table goes to the frame thread after each step it ran (deck-space
+//!   `instances::Table`, `Handles::instances`); the space draws it from then on.
 //! - **Faults.** Strict (tests, Play): a trap or an overrun silences the node – zeros from then on, one report. In a show
 //!   (the platform opens its instances so) a trap restarts the instance: its rebuild goes to the platform's loader thread
 //!   through the node's `Restarts` lane (the engine starts no thread) and comes back swapped in with a fade; the event
@@ -29,6 +31,7 @@ use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
 use deck_module_host::{Backend, Ev, InBind, Layout, OutBind};
 use deck_space::context::mood_index;
+use deck_space::instances::Table;
 use deck_space::graph::{Graph, Kind, Node, MAX_CHANNELS};
 use deck_space::modreg::{self, ModuleDef, ModuleKind};
 use std::any::Any;
@@ -68,6 +71,10 @@ pub trait ModuleInstance: Send {
     fn add_late(&mut self, _n: u32) {}
     /// event output `port`'s records of the last call
     fn events_out(&self, _port: usize) -> &[Ev] {
+        &[]
+    }
+    /// the instance table as the last call left it
+    fn instances(&self) -> &[deck_module::Instance] {
         &[]
     }
     /// the next call swaps a rebuilt instance in (a show's restart)
@@ -141,6 +148,9 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
     }
     fn events_out(&self, port: usize) -> &[Ev] {
         deck_module_host::Instance::events_out(self, port)
+    }
+    fn instances(&self) -> &[deck_module::Instance] {
+        deck_module_host::Instance::instances(self)
     }
     fn swapping(&self) -> bool {
         deck_module_host::Instance::swapping(self)
@@ -280,6 +290,8 @@ struct Core {
     id: String,
     /// the module's own moods (A1): a live mood's `mood_index` counts in them
     moods: &'static [&'static str],
+    /// where its instance table goes (a module that draws)
+    table: Option<Arc<Table>>,
 }
 
 impl Core {
@@ -318,6 +330,8 @@ impl Core {
         let (jobs, rx) = rtrb::RingBuffer::new(RESTART_RING);
         let (tx, done) = rtrb::RingBuffer::new(RESTART_RING);
         h.restarts.push(Restarts { node: node.id.clone(), jobs: rx, done: tx });
+        let table = (layout.instances > 0).then(|| Table::new(&node.id, usize::from(layout.instances)));
+        h.instances.extend(table.clone());
         let core = Core {
             inst,
             source: source.clone(),
@@ -332,6 +346,7 @@ impl Core {
             ports,
             id,
             moods,
+            table,
         };
         (core, layout, params)
     }
@@ -378,6 +393,9 @@ impl Core {
                 if written {
                     p.set(v);
                 }
+            }
+            if let Some(t) = &self.table {
+                t.publish(self.inst.instances());
             }
         }
         #[cfg(feature = "events")]

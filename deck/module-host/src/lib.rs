@@ -163,6 +163,8 @@ pub struct Layout {
     pub targets: Vec<(usize, String, deck_catalog::Mode)>,
     /// `audio` runs in the engine's audio half (`dm_process`), `control` in its control half (`dm_control`)
     pub domain: Domain,
+    /// the instances its table holds (0 = it draws nothing)
+    pub instances: u16,
 }
 
 impl Layout {
@@ -179,6 +181,7 @@ impl Layout {
             events_out: Vec::new(),
             targets: graph.targets,
             domain: d.domain,
+            instances: 0,
         };
         let (mut audio_in, mut control_in) = (0, 0);
         let (mut audio_out, mut control_out) = (0, 0);
@@ -204,6 +207,7 @@ impl Layout {
                     };
                     if dir == Dir::In { l.events_in.push(e) } else { l.events_out.push(e) }
                 }
+                (_, PortType::Instances) => l.instances = p.capacity,
             }
         }
         l.inputs.extend((0..audio_in).map(InBind::Audio));

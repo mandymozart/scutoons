@@ -798,7 +798,7 @@
     "PortDesc": {
       "properties": {
         "capacity": {
-          "description": "event ports: records per block (1 … `MAX_EVENT_CAPACITY`)",
+          "description": "event ports: records per block (1 … `MAX_EVENT_CAPACITY`); an instance table: the instances it holds (1 …\n`MAX_INSTANCE_CAPACITY`)",
           "format": "uint16",
           "maximum": 65535,
           "minimum": 0,
@@ -888,6 +888,11 @@
         {
           "const": "event",
           "description": "events out (deck-events' model): a module's notes and triggers, not a graph cable",
+          "type": "string"
+        },
+        {
+          "const": "instances",
+          "description": "a control module's instance table (shapes placed, turned, scaled, coloured) the space draws – an output, not a\ngraph cable (deck-module `instances`)",
           "type": "string"
         }
       ]

@@ -220,7 +220,7 @@ export type Policy = {
 };
 
 export type PortDesc = {
-	/** event ports: records per block (1 … `MAX_EVENT_CAPACITY`) */
+	/** event ports: records per block (1 … `MAX_EVENT_CAPACITY`); an instance table: the instances it holds (1 … `MAX_INSTANCE_CAPACITY`) */
 	capacity?: number;
 	/** audio ports: how many channels the port carries */
 	channels?: Channels | null;
@@ -246,7 +246,7 @@ export type PortDesc = {
 };
 
 /** a port's type; a link joins ports of one type (`cv` = pitch / gate carried in an audio port, see `seq`) */
-export type PortType = "audio" | "control" | "cv" | "video" | "event";
+export type PortType = "audio" | "control" | "cv" | "video" | "event" | "instances";
 
 export type Preset = {
 	id: string;

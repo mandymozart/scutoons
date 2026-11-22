@@ -1,0 +1,47 @@
+# The bamboo forest (#780): two tracks. `bamboo` is the grove – the bamboo module, thin tall and thick short stalks
+# swaying in its simulated wind, a sequencer the wind plays: whenever two stalks hit it sends a knock (a note, the key
+# from the pair, the velocity from how fast they closed). `perc` is the percussive synth those knocks play – an analog
+# voice tuned to a hollow wooden knock – on its own strip, so a scene can take the perc track's sound (`perc_knock.out`)
+# further, to a delay bus (the sandbox bamboo-delay). The left stick is the weather (x wind, y gust), the right the two
+# kinds' multipliers (x thin, y thick).
+# Modules play only on a native deck built with the `modules` feature (bamboo and analog in DECK_MODULES), so this rig is
+# in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:bamboo-forest`.
+
+[rig]
+subject = "item.bamboo"
+track = [{ id = "bamboo", instrument = "bamboo_grove" }, { id = "perc", instrument = "bamboo_knock" }]
+route = [{ from = "bamboo:forest.hits", to = "perc:knock.notes" }]
+sticks = [["bamboo:forest.wind", "bamboo:forest.gust"], ["bamboo:forest.thin", "bamboo:forest.thick"]]
+
+# the grove: a silent track of knocks (no strip, wired by its event cable)
+[[instrument]]
+id = "bamboo_grove"
+kind = "pad"
+name = { en = "Bamboo forest", de = "Bambuswald" }
+node = [{ id = "forest", kind = "module:bamboo", thin = 1.5, thick = 1.0, wind = 0.5, gust = 0.6 }]
+expose = [
+  { path = "forest.wind", label = { en = "wind", de = "Wind" } },
+  { path = "forest.gust", label = { en = "gust", de = "Böen" } },
+  { path = "forest.thin", label = { en = "thin bamboo", de = "dünner Bambus" } },
+  { path = "forest.thick", label = { en = "thick bamboo", de = "dicker Bambus" } },
+  { path = "forest.direction", label = { en = "direction", de = "Richtung" } },
+  { path = "forest.root", label = { en = "pitch", de = "Tonhöhe" } },
+  { path = "forest.scale", label = { en = "scale", de = "Tonleiter" } },
+  { path = "forest.debounce", label = { en = "debounce", de = "Entprellen" } },
+]
+
+# the knock: a sine on the key with a short body, a triangle a twelfth up and a breath of noise through a bandpass for the
+# hollow tok, both gone in a quarter second
+[[instrument]]
+id = "bamboo_knock"
+kind = "drum"
+name = { en = "Bamboo knock", de = "Bambusklopfen" }
+out = "knock.out"
+node = [
+  { id = "knock", kind = "module:analog", volume = 0.8, o1_wave = 3.0, o1_level = 0.9, o1_route = 0.0, o2_wave = 2.0, o2_semi = 19.0, o2_level = 0.35, o2_route = 1.0, noise_level = 0.25, noise_route = 1.0, f1_mode = 0.0, f1_cutoff = 2500.0, f1_res = 0.1, f1_key = 0.5, f1_env = 0.0, f2_mode = 1.0, f2_cutoff = 1800.0, f2_res = 0.5, f2_key = 0.8, f2_env = 0.3, fe2_a = 0.001, fe2_d = 0.03, fe2_s = 0.0, fe2_r = 0.03, fe2_p2 = 7.0, a1_level = 0.9, a1_pan = -0.1, a1_vel = 0.7, ae1_a = 0.001, ae1_d = 0.22, ae1_s = 0.0, ae1_r = 0.12, a2_level = 0.6, a2_pan = 0.1, a2_vel = 0.7, ae2_a = 0.001, ae2_d = 0.05, ae2_s = 0.0, ae2_r = 0.04 },
+]
+expose = [
+  { path = "knock.volume", label = { en = "level", de = "Pegel" } },
+  { path = "knock.ae1_d", label = { en = "ring", de = "Klang" } },
+  { path = "knock.f2_cutoff", label = { en = "tok", de = "Tok" } },
+]

@@ -11,7 +11,7 @@
 //! entity's slot it attaches to – deck-catalog `slot`; a slot module runs in the control domain, a motion one has no ports
 //! and gets the transform regions), sections = ["SRC/OSC 1", "SRC/OSC 2", …] (its parameters' pages, area by area, the
 //! Analog Four's way: descriptor metadata only))]`;
-//! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|video, name, channels = n|"any",
+//! `#[reads("story.act", …)]`; `#[port(input|output, audio|cv|control|event|instances|video, name, channels = n|"any",
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit (a unit of deck-core's catalogue, by id or word: "Hz", "st", "dB" – the compile checks it), choices = "saw|pulse" (the value is the index), doc, section = "SRC/OSC 1", slot = 0..7
 //! (its knob on the page, two rows of four; without, the next free one))]`; `#[asset(name, kind, max_bytes,
@@ -284,6 +284,7 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
             "control" => p.kind = "control",
             "video" => p.kind = "video",
             "event" => p.kind = "event",
+            "instances" => p.kind = "instances",
             "name" => p.name = lit_str(&m)?.value(),
             "cv" => p.kind = "cv",
             "channels" => {
@@ -305,8 +306,8 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
             "capacity" => {
                 let e: Expr = m.value()?.parse()?;
                 let n = number(&e)?;
-                if !(1.0..=512.0).contains(&n) || n.fract() != 0.0 {
-                    return Err(Error::new(e.span(), "capacity = 1 … 512 records per block"));
+                if !(1.0..=1024.0).contains(&n) || n.fract() != 0.0 {
+                    return Err(Error::new(e.span(), "capacity = 1 … 512 records per block (an instance table: 1 … 1024)"));
                 }
                 p.capacity = Some(n as u16);
             }
@@ -322,7 +323,7 @@ fn parse_port(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
             }
             "choices" => p.choices = pipe_list(&lit_str(&m)?)?,
             "doc" => p.doc = lit_str(&m)?.value(),
-            _ => return Err(m.error("port(input|output, audio|cv|control|event|video, name = \"…\", …)")),
+            _ => return Err(m.error("port(input|output, audio|cv|control|event|instances|video, name = \"…\", …)")),
         }
         Ok(())
     })?;
@@ -563,15 +564,19 @@ fn unique_names(spec: &Spec) -> Result<(), Error> {
     Ok(())
 }
 
-/// the port's group for its index constant and the layout: audio (audio + cv), control, event, video
+/// the port's group for its index constant and the layout: audio (audio + cv), control, event, instances, video
 fn group(kind: &str) -> &'static str {
     match kind {
         "audio" | "cv" => "audio",
         "control" => "control",
         "event" => "event",
+        "instances" => "instances",
         _ => "video",
     }
 }
+
+/// the instances a table holds when its port does not say
+const INSTANCE_CAPACITY: u16 = 256;
 
 /// Each parameter's knob on its page: declared pages only, every parameter on one once there are sections, a free knob
 /// (without `slot` the next free one in declaration order), no page empty.
@@ -620,8 +625,18 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
     if let Some(p) = spec.ports.iter().find(|_| motion) {
         return Err(Error::new(p.span, "a motion module writes only its entity's transform: no ports"));
     }
+    if let Some(p) = spec.ports.iter().filter(|p| p.kind == "instances").nth(1) {
+        return Err(Error::new(p.span, "a module draws one instance table"));
+    }
     for p in &spec.ports {
         let event = p.kind == "event";
+        let table = p.kind == "instances";
+        if table && (p.dir != "out" || !control) {
+            return Err(Error::new(p.span, "an instance table is an output of a control-domain module"));
+        }
+        if event && p.capacity.is_some_and(|c| c > 512) {
+            return Err(Error::new(p.span, "capacity = 1 … 512 records per block"));
+        }
         let control_out = p.kind == "control" && p.dir == "out";
         let audio = group(p.kind) == "audio";
         if control && audio {
@@ -633,8 +648,11 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
         if p.sidechain && !(p.kind == "audio" && p.dir == "in") {
             return Err(Error::new(p.span, "sidechain is for audio inputs"));
         }
-        if !event && (!p.names.is_empty() || !p.props.is_empty() || p.capacity.is_some()) {
-            return Err(Error::new(p.span, "names, props and capacity are for event ports"));
+        if !event && (!p.names.is_empty() || !p.props.is_empty()) {
+            return Err(Error::new(p.span, "names and props are for event ports"));
+        }
+        if !event && !table && p.capacity.is_some() {
+            return Err(Error::new(p.span, "capacity is for event ports and instance tables"));
         }
         if p.props.len() > 6 {
             return Err(Error::new(p.span, "at most 6 props (deck-events' Event)"));
@@ -747,7 +765,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
                     s += &format!(",\"{key}\":{}", js_list(list));
                 }
             }
-            if let Some(c) = p.capacity {
+            if let Some(c) = p.capacity.or((p.kind == "instances").then_some(INSTANCE_CAPACITY)) {
                 s += &format!(",\"capacity\":{c}");
             }
             if !p.path.is_empty() {
@@ -814,6 +832,10 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
             }
         }
     }
+    if let Some(p) = spec.ports.iter().find(|p| p.kind == "instances") {
+        let cap = p.capacity.unwrap_or(INSTANCE_CAPACITY);
+        shape.push(quote! { s.instances = #cap; });
+    }
     for (i, n) in spec.needs.iter().chain(spec.wants.iter()).enumerate() {
         let msg = format!("ABI 2 knows no capability '{n}' (motion, position, position.precise, camera.face, camera.motion)");
         shape.push(quote! {
@@ -846,7 +868,7 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
         consts.push(quote! { pub const #c: usize = #i; });
     }
     for dir in ["in", "out"] {
-        for g in ["audio", "control", "event", "video"] {
+        for g in ["audio", "control", "event", "instances", "video"] {
             for (i, p) in spec.ports.iter().filter(|p| p.dir == dir && group(p.kind) == g).enumerate() {
                 let c = format_ident!("{}", upper(&p.name), span = p.span);
                 consts.push(quote! { pub const #c: usize = #i; });

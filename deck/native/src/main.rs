@@ -553,6 +553,9 @@ impl Show {
             let mut s = deck_native::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
             s.figures = figures;
             s.set_scene(scene);
+            if let Some(h) = handles.as_ref() {
+                s.set_tables(h.instances.clone());
+            }
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {

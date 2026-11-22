@@ -41,6 +41,7 @@ pub mod ev;
 /// a golden render's hash
 pub mod golden;
 pub mod hdr;
+pub mod instances;
 pub mod io;
 pub mod layout;
 pub mod motion;
@@ -62,6 +63,7 @@ pub use ctx::{Asset, AssetSlot, CameraMotion, Character, Ctx, Face, Motion, Posi
 pub use deck_module_macros::Module;
 pub use ev::{Ev, Expr, Kind};
 pub use hdr::{AssetInfo, AssetKind, InHdr, OutHdr};
+pub use instances::{Instance, Table};
 pub use io::{InpMut, Planar, PlanarMut};
 pub use layout::{Layout, Sensor, Shape, ABI_VERSION, QUANTUM};
 pub use motion::{TransformIn, TransformOut};

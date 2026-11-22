@@ -583,6 +583,14 @@ impl<B: Backend> Instance<B> {
         (v, w)
     }
 
+    /// the instance table as the last call left it (a module without one: none)
+    pub fn instances(&self) -> &[deck_module::Instance] {
+        let out = self.out();
+        let s = out.instances();
+        // SAFETY: `s` points into `self.io`, which outlives the returned borrow of `self`
+        unsafe { core::slice::from_raw_parts(s.as_ptr(), s.len()) }
+    }
+
     /// event output `p`'s records of the last call
     pub fn events_out(&self, p: usize) -> &[Ev] {
         // the view borrows `self.io`; its slice lives as long

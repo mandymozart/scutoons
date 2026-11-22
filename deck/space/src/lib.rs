@@ -18,6 +18,7 @@ pub mod fetched;
 pub mod gamepad;
 pub mod gesture;
 pub mod holders;
+pub mod instances;
 pub mod linked;
 pub mod live_cameras;
 pub mod graph;

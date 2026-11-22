@@ -21,6 +21,7 @@ pub mod being;
 pub mod camera;
 pub mod decks;
 pub mod dop;
+pub mod drawn;
 pub mod feel;
 pub mod figure;
 pub mod focus;
@@ -339,6 +340,8 @@ pub struct Space {
     /// the live camera it follows (its id: this scene's primary camera or one of its shots); a move played over it
     held_by: Option<String>,
     held_moved: bool,
+    /// the modules' instance tables (drawn.rs)
+    drawn: drawn::Drawn,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -489,6 +492,7 @@ impl Space {
             held: None,
             held_by: None,
             held_moved: false,
+            drawn: drawn::Drawn::default(),
         };
         space.place_cast();
         space
