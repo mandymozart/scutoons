@@ -63,6 +63,7 @@ pub const SANDBOX: [&str; 18] = [
     "sound-light",
     "stage-duo",
     "stage-cards",
+    "crows-rave",
 ];
 
 /// What a bare scene name is (#427).
@@ -140,6 +141,8 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         "stage-duo" => include_str!("../../native/scenes/sandbox/stage-duo.toml"),
         // #495: a 3D stage with a character's look and an item's card – written by scene_resolve.rs's test, never by hand
         "stage-cards" => include_str!("../../native/scenes/sandbox/stage-cards.toml"),
+        // #747: arp, analog, delay and reverb modules – the `modules` build
+        "crows-rave" => include_str!("../../native/scenes/sandbox/crows-rave.toml"),
         _ => return None,
     })
 }
