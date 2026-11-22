@@ -103,11 +103,12 @@ enum Msg {
     Push(SceneSync),
 }
 
-/// #195: the answer to the conductor's last push, numbered (the link sends each new one)
+/// #195: the answer to the conductor's last push, numbered (the link sends each new one); `looks`: the API's, for the frame
 #[derive(Default)]
-struct Answer {
+pub(crate) struct Answer {
     n: u64,
     last: Option<DeckSynced>,
+    pub(crate) looks: Option<Content>,
 }
 
 /// The handle (clone it freely; the worker ends with the last one).
@@ -115,10 +116,10 @@ struct Answer {
 pub struct DeckSync {
     tx: Sender<Msg>,
     pub board: Arc<Mutex<Board>>,
-    answer: Arc<Mutex<Answer>>,
+    pub(crate) answer: Arc<Mutex<Answer>>,
     sets: Option<PathBuf>,
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
-    portraits: Option<PathBuf>,
+    pub(crate) portraits: Option<PathBuf>,
 }
 
 impl DeckSync {
@@ -482,6 +483,7 @@ impl Worker {
                     self.known.insert((false, id.clone()));
                 }
                 self.content.merge(c);
+                let _ = self.answer.lock().map(|mut a| a.looks = Some(self.content.clone()));
                 self.api = Api::Answered;
                 self.publish(|b| b.offline = false);
                 if self.content.wants_default() && !characters.contains(&deck_space::cast::DEFAULT_CHARACTER) {

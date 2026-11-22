@@ -95,6 +95,34 @@ pub fn form(who: &Who, stage_3d: bool, chosen: Option<Form>, look: Option<Form>)
     }
 }
 
+/// What draws a member: its picture, its character's own 3D model (skinned and posed, figure.rs), or the being of its rig.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Drawing {
+    Card,
+    Model,
+    Being,
+}
+
+impl Drawing {
+    pub fn word(self) -> &'static str {
+        match self {
+            Drawing::Card => "card",
+            Drawing::Model => "model",
+            Drawing::Being => "being",
+        }
+    }
+}
+
+/// A member in its 3D look is drawn as its model when it has one (`model`: scene-content names it – on a deck, once it is
+/// loaded), else as its being; a card is its picture.
+pub fn drawing(form: Form, model: bool) -> Drawing {
+    match form {
+        Form::Card => Drawing::Card,
+        Form::Look if model => Drawing::Model,
+        Form::Look => Drawing::Being,
+    }
+}
+
 /// The character whose pictures and model draw a member that has neither, in 2D and 3D; the member keeps its own
 /// address – only its drawing falls back (push.rs `Content::drawn_as`).
 pub const DEFAULT_CHARACTER: &str = "mellowmantis";
@@ -198,6 +226,12 @@ mod tests {
         assert_eq!(form(&pope, false, None, Some(Form::Look)), Form::Look, "the look's 3D on a stage without a set");
         assert_eq!(form(&pope, true, Some(Form::Look), Some(Form::Card)), Form::Look, "the holder overrides the look");
         assert_eq!(form(&pope, false, Some(Form::Card), Some(Form::Look)), Form::Card);
+    }
+
+    #[test]
+    fn a_look_with_a_model_draws_the_model_a_card_never() {
+        assert_eq!([drawing(Form::Look, true), drawing(Form::Look, false), drawing(Form::Card, true)], [Drawing::Model, Drawing::Being, Drawing::Card]);
+        assert_eq!([Drawing::Model, Drawing::Being, Drawing::Card].map(Drawing::word), ["model", "being", "card"]);
     }
 
     #[test]

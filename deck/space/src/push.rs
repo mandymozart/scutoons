@@ -226,6 +226,17 @@ impl Content {
         self.characters.get(self.drawn_as(character))
     }
 
+    /// The character whose 3D model draws `character` (`drawn_as`), when the answer names a model; one drawn as the
+    /// default character before the default was answered counts on the default's (it has one, in 2D and 3D) – a fetch
+    /// that fails leaves the member its being.
+    pub fn model_of<'a>(&self, character: &'a str) -> Option<&'a str> {
+        let by = self.drawn_as(character);
+        match self.characters.get(by) {
+            Some(a) => a.model.as_ref().map(|_| by),
+            None => (by == crate::cast::DEFAULT_CHARACTER && by != character).then_some(by),
+        }
+    }
+
     /// the form `character`'s own look takes on a stage (cast.rs `form`'s `look`) – never the default character's
     pub fn look_form(&self, character: &str) -> Option<crate::cast::Form> {
         self.characters.get(character).and_then(|c| c.form)
@@ -1117,6 +1128,16 @@ mod tests {
         c.characters.remove(crate::cast::DEFAULT_CHARACTER);
         assert!(c.wants_default(), "the default is asked for once a member needs it");
         assert_eq!(c.file(&full("boy")), Ok(None), "not answered yet");
+    }
+
+    #[test]
+    fn a_member_s_model_is_its_own_else_the_default_character_s() {
+        let mut c = characters();
+        assert_eq!((c.model_of("catpope"), c.model_of("boy"), c.model_of("ghost")), (Some("catpope"), Some(crate::cast::DEFAULT_CHARACTER), None));
+        c.characters.remove(crate::cast::DEFAULT_CHARACTER);
+        assert_eq!(c.model_of("boy"), Some(crate::cast::DEFAULT_CHARACTER), "the default not answered yet: its model is fetched by its own entry");
+        c.characters.get_mut("catpope").unwrap().model = None;
+        assert_eq!(c.model_of("catpope"), None, "pictures only: its being");
     }
 
     #[test]
