@@ -35,7 +35,7 @@ export type TabId =
 	| 'settings';
 
 /** the tabs the shell draws itself (the others come from the front page) */
-export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log'];
+export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'spores'];
 
 /** old tab ids and the tab they name now */
 export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log' };
@@ -81,7 +81,7 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },
 	// the XR editor (#482): the stage is the experience, the whole window; the panels float over it
-	experience: { panels: [left(['tree']), right(['inspector', 'experience']), foot(['scenes']), library()], clear: false },
+	experience: { panels: [left(['tree']), right(['inspector', 'experience', 'spores']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['log'], FOLDED)] },
 	sound: { panels: [right(['log'], FOLDED), library()] },
 	text: { panels: [left(['tree']), right(['log'], FOLDED)] },

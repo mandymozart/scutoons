@@ -7,6 +7,8 @@
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
 	import { entityOf, entitySlot, experienceFiles, nodeDocPath, targetDocPath, targetPlace, targetsSharing, type NodeRef, type PartAction, type XrFile } from '$lib/editor/xr-nodes.ts';
+	import { projectXr } from '@scutoons/xr-engine/network';
+	import { sporeScope } from '$lib/spores/scope.svelte.ts';
 	import { xrAddNode, xrIndentNode, xrNewNode, xrNodeAt, xrOutdentNode, xrRemoveNode, xrShiftNode, type XrAddPlace, type XrNode } from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishTogether } from '$lib/editor/publish-together.ts';
@@ -210,6 +212,20 @@
 			showPlace(selected.target);
 		}
 	}
+
+	// the Spores tab (#763): the experience's logic as a weave from its top level (its scenes, groups, plugins and what
+	// joins them – OSCT's projection, `listens` where OSCT says hears), offered while the experience is open; read only
+	// until the scope's ops exist. A scene's own level is entered from there (its weave is empty without rules of its own).
+	const sporesAddress = $derived(id ? `experience:${id}` : '');
+	$effect(() => {
+		const address = sporesAddress;
+		if (!address) return;
+		sporeScope.set({
+			address,
+			weave: () => (content && id ? projectXr({ ...($state.snapshot(content) as object), id }, address) : null)
+		});
+		return () => sporeScope.drop(address);
+	});
 
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
 	usePageDoc(() =>

@@ -141,9 +141,10 @@ test('a workspace is a preset: its panels hold only the tabs with content, Libra
 	const ids = specs.map((p) => p.id);
 	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
 	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
-	assert.deepEqual(specs[1].tabs, ['log', 'flow'], 'the inspector without content is not offered; the Log is the shell’s own');
+	assert.deepEqual(specs[1].tabs, ['log', 'flow', 'spores'], 'the inspector without content is not offered; the Log and the Spores tab are the shell’s own');
 	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
 	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
+	assert.deepEqual(panelSpecs('experience', availableTabs(['tree', 'inspector', 'experience', 'scenes'], null), TABS).find((p) => p.id === 'right')?.tabs, ['inspector', 'experience', 'spores'], 'the XR workspace offers its weave (#763)');
 });
 
 test('a tab with content that no preset panel holds gets a closed panel of its own', () => {
