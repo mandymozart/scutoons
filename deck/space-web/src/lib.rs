@@ -324,9 +324,9 @@ pub fn rig_module_instrument(request: &str) -> Result<String, JsValue> {
     deck_space::rig::assign::module_instrument_json(request).map_err(|e| JsValue::from_str(&format!("{e:#}")))
 }
 
-/// a set's .glb and its images as the browser decoded them (`encoded_images`) into the space
-pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
-    let mut decoded: HashMap<usize, image::RgbaImage> = HashMap::new();
+/// a .glb's images as the browser decoded them (`encoded_images`): [index, width, height, RGBA8, …] by glTF index
+fn decoded_images(images: js_sys::Array) -> HashMap<usize, image::RgbaImage> {
+    let mut decoded = HashMap::new();
     let items: Vec<JsValue> = images.iter().collect();
     for c in items.chunks_exact(4) {
         let (Some(i), Some(w), Some(h)) = (c[0].as_f64(), c[1].as_f64(), c[2].as_f64()) else { continue };
@@ -335,6 +335,12 @@ pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys:
             decoded.insert(i as usize, img);
         }
     }
+    decoded
+}
+
+/// a set's .glb and its images as the browser decoded them (`encoded_images`) into the space
+pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys::Array) -> Result<(), JsValue> {
+    let mut decoded = decoded_images(images);
     let (max, hide) = space.set_options();
     let hide = hide.to_vec();
     let model = glb::parse_with(glb_bytes, max, &hide, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
@@ -349,14 +355,15 @@ pub(crate) fn set_from_page(space: &mut Space, glb_bytes: &[u8], images: js_sys:
 
 /// the pictures the stage asks for (the heads' portraits, #495 the cards' full views and item pictures), `ASK` values
 /// each: slot, then where scene-content holds it – the entry's kind (`characters`, `items`), its id, the field, the
-/// mood ("" = the field is the file); a media picture's kind is "" and its id its path – so the page only looks up and
-/// fetches what the core named
+/// mood ("" = the field is the file); a media picture's kind is "" and its id its path; a character without art is asked
+/// as the default character (the space's `drawn_as`) – so the page only looks up and fetches what the core named
 pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
     for (slot, p) in space.portraits.requests() {
+        let id = if p.kind == "characters" { space.drawn_as(&p.id) } else { &p.id };
         out.push(&JsValue::from(slot as u32));
         out.push(&JsValue::from_str(if p.kind == deck_space::cast::MEDIA { "" } else { p.kind }));
-        out.push(&JsValue::from_str(&p.id));
+        out.push(&JsValue::from_str(id));
         out.push(&JsValue::from_str(p.field()));
         out.push(&JsValue::from_str(&p.mood));
     }
@@ -365,6 +372,32 @@ pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
 
 /// the values of one ask in `portrait_asks`
 pub(crate) const ASK: usize = 5;
+
+/// the cast's 3D models the stage asks for, `FIGURE_ASK` values each: slot, then where scene-content holds the file – the
+/// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`)
+pub(crate) fn figure_asks(space: &mut Space) -> js_sys::Array {
+    let out = js_sys::Array::new();
+    for (slot, character) in space.figures.requests() {
+        out.push(&JsValue::from(slot as u32));
+        out.push(&JsValue::from_str("characters"));
+        out.push(&JsValue::from_str(&character));
+        out.push(&JsValue::from_str("model"));
+    }
+    out
+}
+
+/// the values of one ask in `figure_asks`
+pub(crate) const FIGURE_ASK: usize = 4;
+
+/// a figure's .glb and its images as the browser decoded them (`encoded_images`) into its slot
+pub(crate) fn figure_from_page(space: &mut Space, slot: usize, glb_bytes: &[u8], images: js_sys::Array) {
+    let mut decoded = decoded_images(images);
+    let figure = deck_space::space::figure::read(glb_bytes, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
+    if let Err(e) = &figure {
+        web_sys::console::warn_1(&JsValue::from_str(&format!("figure: {e:#} – the member keeps its being")));
+    }
+    space.figures.deliver(slot, figure.map_err(|e| format!("{e:#}")));
+}
 
 /// a set that does not come does not hold the splash longer than this (s)
 pub(crate) const SPLASH_AT_MOST: f32 = 5.0;

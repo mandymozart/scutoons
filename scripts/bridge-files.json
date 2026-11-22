@@ -63,6 +63,7 @@
 		"shared/live-deck/src/scene-stage.ts": "adapter: the canvas, its size and the animation frames a scene plays in (#463); the scene is the core's",
 		"shared/live-deck/src/vote-stage.ts": "adapter: the canvas, its size and the animation frames of the phone's voting screen, the socket, the proof's fetch, the pointer and keys passed on, the core's word for the wake lock (#549); joining, the ballot and the cast are the core's (deck-space audience.rs)",
 		"shared/live-deck/src/stage-assets.ts": "adapter: the fetches and the image decoder for what the core asks a stage to load (#465)",
+		"shared/live-deck/src/stage-figures.ts": "adapter: the fetches and the image decoder for the cast's pictures and 3D models the core asks a stage for (#491, #704); who is drawn how, and as whose model, is the core's",
 		"shared/live-deck/src/space.ts": "adapter: space-web in a canvas, the images, the pointer events forwarded whole (the gestures are deck-space's)",
 		"shared/live-deck/src/sync.ts": "adapter: the conductor's push – fetches what space-web DeckPush (deck-space push.rs) names, hands the replies back (#371)",
 		"shared/live/src/index.ts": "types: the relay protocol (generated)",

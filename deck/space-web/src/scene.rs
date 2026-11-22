@@ -23,7 +23,7 @@
 //! and a published scene a show's cell launched listens like a `?scene=`: the link's cast is the scene that plays (the
 //! core's piece.rs `Side::playing`), its changed cast switched to beside the outlet (`Side::recast`).
 use crate::outlet::Outlet;
-use crate::{err, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
+use crate::{err, figure_asks, figure_from_page, open_canvas, portrait_asks, set_from_page, CanvasGpu, SPLASH_AT_MOST};
 use deck_engine::control::Controls;
 use deck_show::face::Face;
 use deck_space::chapter::{finish_slice, Chapter, Dialog, Source};
@@ -306,12 +306,16 @@ impl SceneView {
     /// store loaded (a deck with an outlet plays no `?scene=` of its own: the idle scene has no outlet).
     fn cast_play(&self) {
         let Some(link) = self.cast.as_ref() else { return };
-        let kept = match (self.side.as_ref(), self.outlet.as_ref()) {
+        if let Err(e) = link.borrow_mut().play(self.kept_now()) {
+            web_sys::console::warn_1(&JsValue::from_str(&format!("scene: no cast words or story while it plays: {e}")));
+        }
+    }
+
+    /// the kept copy of the published scene that plays: the deck's own, or (#538) a cell's beside the outlet
+    fn kept_now(&self) -> Option<&str> {
+        match (self.side.as_ref(), self.outlet.as_ref()) {
             (Some(side), Some(o)) => side.playing(None).and_then(|p| SceneRef::parse(p)?.ok()).and_then(|r| o.fetched.kept(&r)),
             _ => self.kept.as_deref(),
-        };
-        if let Err(e) = link.borrow_mut().play(kept) {
-            web_sys::console::warn_1(&JsValue::from_str(&format!("scene: no cast words or story while it plays: {e}")));
         }
     }
 
@@ -634,6 +638,29 @@ impl SceneView {
         asks
     }
 
+    /// the cast's 3D models the stage asks for (lib.rs `figure_asks`: slot, kind, id, field, …) – the page fetches each
+    /// file and hands it in (`give_figure`)
+    pub fn figure_requests(&mut self) -> js_sys::Array {
+        let asks = self.show.space.as_mut().map(figure_asks).unwrap_or_default();
+        for i in (0..asks.length()).step_by(crate::FIGURE_ASK) {
+            asks.set(i, JsValue::from(self.numbered(asks.get(i).as_f64().unwrap_or(0.0) as usize)));
+        }
+        asks
+    }
+
+    /// a figure's .glb and its images, decoded by the browser (`SpaceView.encoded_images`)
+    pub fn give_figure(&mut self, slot: u32, glb_bytes: &[u8], images: js_sys::Array) {
+        if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
+            figure_from_page(s, slot, glb_bytes, images);
+        }
+    }
+
+    pub fn no_figure(&mut self, slot: u32, why: String) {
+        if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
+            s.figures.deliver(slot, Err(why));
+        }
+    }
+
     pub fn give_portrait(&mut self, slot: u32, width: u32, height: u32, rgba: Vec<u8>) {
         let img = image::RgbaImage::from_raw(width, height, rgba).ok_or_else(|| "a sprite of the wrong size".to_string());
         if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
@@ -767,6 +794,11 @@ impl SceneView {
             show.resize(&self.device, size);
         }
         self.show = show;
+        // what its cast is drawn by: scene-content's answer in the scene's kept copy (each look's form and model)
+        let content = self.kept_now().and_then(deck_space::published::content_of);
+        if let (Some(c), Some(s)) = (content, self.show.space.as_mut()) {
+            s.set_looks(&c);
+        }
         self.face.again();
         self.ballot.again();
         self.turn += 1;
