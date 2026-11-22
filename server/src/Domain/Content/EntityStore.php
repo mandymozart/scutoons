@@ -387,6 +387,26 @@ final class EntityStore
         } else {
             throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         }
+        return ['status' => 'success', 'entities' => $this->indexRows($where, $params)];
+    }
+
+    /**
+     * The index rows (as GET /entities) of these keys – the ones stored
+     * @param list<string> $keys
+     * @return list<array<string, mixed>>
+     */
+    public function indexOf(array $keys): array
+    {
+        if ($keys === []) return [];
+        return $this->indexRows('WHERE entity_key IN (' . implode(',', array_fill(0, count($keys), '?')) . ')', $keys);
+    }
+
+    /**
+     * @param list<mixed> $params
+     * @return list<array<string, mixed>>
+     */
+    private function indexRows(string $where, array $params): array
+    {
         $rows = $this->db->all("SELECT entity_key, MIN(kind) AS kind, MIN(toon) AS toon, MIN(locale) AS locale, MAX(id) AS latest,
             MAX(CASE WHEN status = 'published' THEN id END) AS published, COUNT(*) AS versions
             FROM entity_versions $where GROUP BY entity_key ORDER BY entity_key", $params);
@@ -403,7 +423,7 @@ final class EntityStore
             // migration – owner D6): nothing new for readers, so no line in the publish checklist
             foreach ($this->sameAsPublished($rows) as $id) $latest[$id]['same_as_published'] = true;
         }
-        return ['status' => 'success', 'entities' => array_map(fn(array $r) => [
+        return array_map(fn(array $r) => [
             'key' => $r['entity_key'],
             'kind' => $r['kind'],
             'toon' => $r['toon'],
@@ -411,7 +431,7 @@ final class EntityStore
             'latest' => (int) $r['latest'],
             'published' => $r['published'] !== null ? (int) $r['published'] : null,
             'versions' => (int) $r['versions'],
-        ] + ($latest[(int) $r['latest']] ?? []), $rows)];
+        ] + ($latest[(int) $r['latest']] ?? []), $rows);
     }
 
     /**

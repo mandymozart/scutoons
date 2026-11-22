@@ -4,12 +4,13 @@
 // (`rules.face`), the policy template (`rules.policyTemplate`), the coverage. This only holds the draft and asks.
 import { onMount } from 'svelte';
 import { emptyRig, policyOf, setPolicy, type ModuleFiles, type RigCoverage, type RigDesigner, type RigDoc, type RigFace } from '@scutoons/rig-designer';
-import { api, getDraft, library, publishVersion, putDraft } from '$lib/api.ts';
+import { api, getDraft, library, putDraft } from '$lib/api.ts';
+import { publishItem } from '$lib/editor/publish-tree.ts';
 import type { EditTarget } from '$lib/editor/edit-key.ts';
 import { Autosaver } from '$lib/editor/autosaver.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { toast } from '$lib/toasts.ts';
-import { NO_RIG_LISTS, bundleRequest, coverageRequest, createRigStore, moduleIdsOf, rigLists, templateRequest, type CatalogEntryLike, type RigLists, type RigResult } from '$lib/editor/rig-assign.ts';
+import { NO_RIG_LISTS, bundleRequest, coverageRequest, createRigStore, moduleIdsOf, rigKey, rigLists, templateRequest, type CatalogEntryLike, type RigLists, type RigResult } from '$lib/editor/rig-assign.ts';
 
 /** the core's rig rules (shared/live-deck `assign`): JSON in and out, a throw carries the core's words */
 export interface RigRules {
@@ -46,7 +47,7 @@ export class RigSession {
 		return this.lastSave.ok;
 	});
 	private characters: { id: string; personas?: { id: string }[] }[] = [];
-	private readonly store = createRigStore({ getDraft, putDraft, publishVersion });
+	private readonly store = createRigStore({ getDraft, putDraft });
 
 	constructor(
 		readonly subject: string,
@@ -153,12 +154,15 @@ export class RigSession {
 		return r;
 	}
 
-	async publish(): Promise<RigResult> {
+	/** the one Publish (publish-tree.ts): the rig with the drafts it plays, the checklist, the Log's Publishes lines */
+	async publish(): Promise<void> {
 		this.busy = true;
-		const r = await this.store.publish(this.subject);
-		this.busy = false;
-		if (r.ok) await this.loadLists();
-		return r;
+		try {
+			const result = await publishItem(rigKey(this.subject));
+			if (result?.published.length) await this.loadLists();
+		} finally {
+			this.busy = false;
+		}
 	}
 
 	/** the first files of a new policy `module:<id>` for this rig, written by the core from its tracks (throws its words) */

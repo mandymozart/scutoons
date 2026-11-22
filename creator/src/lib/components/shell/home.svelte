@@ -5,11 +5,10 @@
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
-	import { pendingFiles, publishTree } from '$lib/editor/publish-tree.ts';
+	import { pendingFiles, publishAndLog } from '$lib/editor/publish-tree.ts';
 	import { placeHref } from '$lib/editor/place-href.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { toast } from '$lib/toasts.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { addressOf, iconOf } from '$lib/shell/address.ts';
@@ -45,13 +44,7 @@
 		publishing = true;
 		try {
 			const list = nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) }));
-			const result = await publishTree({ kind: 'all', toons: list }, m['creator.publish_tree_title_all']());
-			if (result) {
-				for (const n of result.notices) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
-				void loadPending();
-			}
-		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'publish' });
+			if (await publishAndLog({ kind: 'all', toons: list }, m['creator.publish_tree_title_all']())) void loadPending();
 		} finally {
 			publishing = false;
 		}

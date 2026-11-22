@@ -2,7 +2,8 @@
 	import { untrack } from 'svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { confirmDialog } from '@scutoons/ui';
-	import { ApiError, publishVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
+	import { ApiError, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
+	import { publishAndLog } from '$lib/editor/publish-tree.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { applyBackTo, applyRevert, baseOf, contentOf, describeStep, historyCore, historyFiles, loadFile, planRevert, saved, type Description, type FileHistory, type HistoryFile, type Step } from '$lib/editor/history.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
@@ -10,7 +11,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
-	import { published, toast } from '$lib/toasts.ts';
+	import { toast } from '$lib/toasts.ts';
 
 	/**
 	 * The History (#687): the saved changes of the open item's files as steps – time, who, what in words, before → after –
@@ -119,10 +120,9 @@
 
 	const publish = (r: Row) =>
 		act(async () => {
-			if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${label(r.h.file)} (${when(r.step.at_ms)})`, locales: r.h.file.locale }), confirmLabel: m['creator.publish']() }))) return;
-			await publishVersion(r.h.file.key, r.step.last);
-			await r.h.file.doc.load();
-			published(`${m['creator.published']()}: ${label(r.h.file)} (${when(r.step.at_ms)})`);
+			const scope = { kind: 'version' as const, toon: r.h.file.doc.toon ?? '', key: r.h.file.key, version: r.step.last };
+			const result = await publishAndLog(scope, m['creator.publish_tree_title']({ name: `${label(r.h.file)} (${when(r.step.at_ms)})` }));
+			if (result?.published.length) await r.h.file.doc.load();
 		});
 
 	const unpublish = (r: Row) =>

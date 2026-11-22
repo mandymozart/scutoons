@@ -12,7 +12,7 @@ use Scutoons\Domain\Modules\ModuleSource;
  * so each entry's check sees what it depends on in the table. Entries that name each other (an item and its new
  * product) form one unit, published together; every other unit stands alone, so one refusal blocks only what depends on
  * it. The content documents (chapters, the map, shows …) are one unit at the end: a route and the new place it runs
- * through never go live half.
+ * through never go live half. Deck scenes go after everything, each through the core's scene check.
  */
 final class PublishOrder
 {
@@ -20,7 +20,9 @@ final class PublishOrder
     private const RANK = ['module', 'instrument', 'preset', 'rig', 'device-preset', 'rig-preset', 'edition', 'album', 'item', 'product', 'recipe', 'home-scene', 'airlift-carrier'];
 
     /**
-     * The catalog document keys a catalog document names (the table must have them before it can go live)
+     * The documents a document names that must be live before it: a catalog entry's catalog refs (the table must have
+     * them), a deck scene's modules, fillers, rigs and rig presets – the one dependency rule of every Publish
+     * (PublishDependencies collects the drafts among them)
      * @return list<string>
      */
     public static function refs(EntityKey $key, mixed $data): array
@@ -66,6 +68,23 @@ final class PublishOrder
                 break;
             case 'recipe':
                 foreach (CatalogValidator::recipeItems($data) as $id) $add('item', $id);
+                break;
+            case 'scene':
+                foreach (self::moduleKinds($data) as $id) $add('module', $id);
+                foreach (is_array($data['holder'] ?? null) ? $data['holder'] : [] as $holder) {
+                    if (!is_array($holder)) continue;
+                    foreach (is_array($holder['module'] ?? null) ? $holder['module'] : [] as $attach) {
+                        if (is_array($attach)) $add('module', $attach['module'] ?? null);
+                    }
+                    $filler = is_string($holder['ref'] ?? null) ? explode(':', $holder['ref'], 2) : [];
+                    if (count($filler) === 2 && in_array($filler[0], ['character', 'item'], true)) $add($filler[0], $filler[1]);
+                    // the rig its filler plays; none = the filler's own (scene.schema.json Holder.rig)
+                    $rig = is_array($holder['rig'] ?? null) ? ($holder['rig']['ref'] ?? null) : null;
+                    if (is_string($rig) && str_starts_with($rig, 'rig:')) $add('rig', substr($rig, 4));
+                    elseif ($rig === null && count($filler) === 2) $add('rig', "{$filler[0]}.{$filler[1]}");
+                    $preset = $holder['preset'] ?? null;
+                    if (is_string($preset)) $add('rig-preset', str_starts_with($preset, 'rig-preset:') ? substr($preset, 11) : $preset);
+                }
                 break;
         }
         unset($refs[(string) $key]);

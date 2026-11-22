@@ -1,16 +1,10 @@
 // The module's document `module:<id>` in the creator (#281 / #282): the designer's ModuleStore on the creator's content path –
-// `GET /entities/module:<id>?draft=1` and `PUT` (a new draft version, the history keeps the old ones; publish is the
-// catalog documents' own). It holds the version the next save builds on (a conflict answers 409, not a silent overwrite).
+// `GET /entities/module:<id>?draft=1` and `PUT` (a new draft version, the history keeps the old ones; Publish is the
+// creator's one Publish, publish-tree.ts). It holds the version the next save builds on (a conflict answers 409, not a silent overwrite).
 import { failureOf, readModuleContent, type Failure, type ModuleStore } from '@scutoons/rig-designer';
-import { ApiError, getDraft, publishVersion, putDraft } from '$lib/api.ts';
+import { ApiError, getDraft, putDraft } from '$lib/api.ts';
 
-type Drafts = { getDraft: typeof getDraft; putDraft: typeof putDraft; publishVersion: typeof publishVersion };
-
-/** the designer's store plus what the creator's top bar does with the document */
-export interface CreatorModuleStore extends ModuleStore {
-	/** publishes the version the next save builds on (the draft as it is stored) */
-	publish(id: string): Promise<{ ok: true } | Failure>;
-}
+type Drafts = { getDraft: typeof getDraft; putDraft: typeof putDraft };
 
 const fail = (e: unknown): Failure => {
 	if (e instanceof ApiError) return failureOf(e.status, { ...(typeof e.body === 'object' && e.body ? e.body : {}), error: e.code, message: e.message });
@@ -20,7 +14,7 @@ const fail = (e: unknown): Failure => {
 export const moduleKey = (id: string) => `module:${id}`;
 
 /** the draft store for `module:<id>`; `drafts` is the creator's api, tests pass fakes */
-export function createModuleStore(drafts: Drafts = { getDraft, putDraft, publishVersion }): CreatorModuleStore {
+export function createModuleStore(drafts: Drafts = { getDraft, putDraft }): ModuleStore {
 	const base = new Map<string, number | null>();
 	return {
 		async load(id) {
@@ -51,16 +45,6 @@ export function createModuleStore(drafts: Drafts = { getDraft, putDraft, publish
 		},
 		compiled(id, version) {
 			base.set(id, version);
-		},
-		async publish(id) {
-			const version = base.get(id);
-			if (version == null) return failureOf(404, { error: 'not_found', message: id });
-			try {
-				await drafts.publishVersion(moduleKey(id), version);
-				return { ok: true };
-			} catch (e) {
-				return fail(e);
-			}
 		}
 	};
 }
