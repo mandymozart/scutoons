@@ -24,9 +24,8 @@
  * the answer names what went live and every refusal with its reason – the Publishes lines of the Log. A factory module
  * (`read_only` in the index) is never a line: it is built in the catalog.
  *
- * Deck scenes (`scene:<id>`) are never in the checklist (#493): a scene is published on its own page, where the core's
- * check answers with its problems (`POST /api/scenes/<id>/publish`); `/api/entities/publish` refuses one and with it the
- * whole transaction. `pendingFiles` still names them (the dashboard's "Not live yet" leads to the scene's page).
+ * Deck scenes (`scene:<id>`) are lines too (owner 2026-11-22): the partial publish takes them last, through the core's
+ * scene check (as their own page publishes them), after the modules, instruments, presets and rigs they play.
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import { catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
@@ -34,7 +33,6 @@ import { contentApi, contentIndex, publishPartial, withContent } from '$lib/api.
 import { publishNotices, type PublishNotice, type PublishRefusal } from '$lib/editor/publish-report.ts';
 import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
-import { inPublishBatch } from '$lib/editor/scenes.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
@@ -98,7 +96,7 @@ function detail(e: ContentIndexEntity): string {
 	return [`v${e.latest}`, when, e.latest_author ?? '', e.latest_message ? `„${e.latest_message}“` : ''].filter(Boolean).join(' · ');
 }
 
-/** the files with a draft at a level (the deck scenes too – `inPublishBatch` drops them for the checklist) */
+/** the files with a draft at a level (the deck scenes too – the partial publish takes them last) */
 export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEntity[]> {
 	const toons = scope.kind === 'all' ? ['', ...scope.toons.map((t) => t.id)] : [scope.toon];
 	// a toon's index holds only its own rows: `PLATFORM_ALONG` from the platform's – those keys alone (a platform key like
@@ -167,7 +165,7 @@ const nothing = (): PublishTreeResult => ({ message: m['creator.nothing_to_publi
 
 /** The checklist for a level, then publish / submit the ticked lines (null when cancelled) */
 export async function publishTree(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
-	const files = (await pendingFiles(scope)).filter((f) => inPublishBatch(f.key));
+	const files = await pendingFiles(scope);
 	if (!files.length) return nothing();
 	const lines = await linesOf(files);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());

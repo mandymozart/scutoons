@@ -200,6 +200,24 @@ final class ScenesApiTest extends TestCase
         self::assertSame([], $this->core->requests, 'a save never asks the core');
     }
 
+    /** #803: "publish everything" (the partial publish) takes deck scenes too – last, through the core's scene check */
+    public function testThePartialPublishTakesAScene(): void
+    {
+        $creator = $this->session([Roles::CREATOR], 'creator@example.test');
+        self::assertSame(200, $this->request('PUT', '/api/scenes/nave', $creator, ['content' => self::nave()])->getStatusCode());
+        $publish = fn() => self::json($this->request('POST', '/api/entities/publish', $creator, ['versions' => [['key' => 'scene:nave']], 'partial' => true]));
+        $this->core->answer = fn(array $request): array => ["node 'a': unknown kind 'blender'"];
+        $r = $publish();
+        self::assertSame([], $r['published']);
+        self::assertSame([['key' => 'scene:nave', 'code' => 'invalid_scene', 'reason' => "node 'a': unknown kind 'blender'"]], $r['refused'], 'the core words');
+        self::assertSame('scenes', $this->core->requests[count($this->core->requests) - 1]['request']['kind']);
+        $this->core->answer = fn(array $request): array => [];
+        $r = $publish();
+        self::assertSame(['scene:nave'], array_column($r['published'], 'key'));
+        self::assertSame([], $r['refused']);
+        self::assertSame('Nave', self::json($this->request('GET', '/api/scenes/nave'))['scene']['stage']['name']);
+    }
+
     public function testPublishingAsksTheCoreAndRefusesWhatADeckCouldNotPlay(): void
     {
         $creator = $this->session([Roles::CREATOR], 'publish@example.test');
