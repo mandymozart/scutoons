@@ -11,11 +11,12 @@ use super::node_wire::{self, Hand};
 use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::graph::{self, Direction, Graph};
+use deck_kit::base::graph::{Direction, Graph};
 use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::Rect;
 use deck_show::canvas::{self, Edit, GROUP};
+use deck_spores::input::{Event, Gesture, Key as SporeKey};
 use winit::keyboard::{Key, NamedKey};
 
 /// the settings' switches, the frames of the groups: the Spores widget's
@@ -61,40 +62,23 @@ fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
 
 
 impl Host {
+    /// the view may take input: drawn in 2D, no sheet over it
+    fn nodes_free(&self) -> bool {
+        self.two_d && self.sheet.is_none()
+    }
+
     /// the wheel over the canvas: a notch (or a pinch) zooms round the pointer, a touchpad's two fingers pan
-    pub fn nodes_wheel(&mut self, (x, y): (f32, f32), (dx, dy): (f32, f32), fingers: bool, pinch: bool) -> bool {
-        let n = &mut self.nodes;
-        if !self.two_d || self.sheet.is_some() || !n.over(x, y) {
-            return false;
-        }
-        n.touched = true;
-        match fingers && !pinch {
-            true => n.view.pan_by((dx * 40.0, dy * 40.0)),
-            false => {
-                let at = n.local(x, y);
-                n.view.zoom_at(at, dy)
-            }
-        }
-        true
+    pub fn nodes_wheel(&mut self, at: (f32, f32), delta: (f32, f32), fingers: bool, pinch: bool) -> bool {
+        self.nodes_free() && self.nodes.handle(Event::Wheel { at, delta, fingers, pinch }).0
     }
 
     /// a press that pans (the middle button, or the left with space held) taken on the canvas
     pub fn nodes_grab(&mut self, x: f32, y: f32) -> bool {
-        let n = &mut self.nodes;
-        if !self.two_d || self.sheet.is_some() || !n.over(x, y) {
-            return false;
-        }
-        n.grab = Some((x, y));
-        n.touched = true;
-        true
+        self.nodes_free() && self.nodes.handle(Event::Grab { at: (x, y) }).0
     }
 
     pub(super) fn nodes_drag(&mut self, x: f32, y: f32) {
-        if let Some((gx, gy)) = self.nodes.grab {
-            self.nodes.view.pan_by((x - gx, y - gy));
-            self.nodes.grab = Some((x, y));
-        }
-        self.nodes.box_move((x, y));
+        self.nodes.handle(Event::Drag { at: (x, y) });
         self.hand_move((x, y));
     }
 
@@ -105,135 +89,85 @@ impl Host {
             return std::mem::take(&mut self.nodes.space);
         }
         let free = self.typing.is_none() && self.context.is_none() && self.flashing.is_none() && self.asking.is_none();
-        self.nodes.space = free && self.two_d && self.sheet.is_none() && self.nodes.over(x, y);
-        self.nodes.space
+        let take = free && self.nodes_free() && self.nodes.over(x, y);
+        self.nodes.handle(Event::Space(take)).0
     }
 
     pub(super) fn nodes_release(&mut self) {
-        self.nodes.grab = None;
-        self.nodes.box_end();
+        self.nodes.handle(Event::Release);
         self.hand_release();
     }
 
     /// F over the canvas frames the selected nodes, or everything when none is
     pub(super) fn nodes_frame(&mut self) -> bool {
-        let (x, y) = self.cursor;
-        if !self.two_d || self.sheet.is_some() || !self.nodes.over(x, y) {
-            return false;
-        }
-        let n = &mut self.nodes;
-        let picked: Vec<Rect> = n.drawn.iter().filter(|(id, _)| n.selected.contains(id)).map(|(_, r)| *r).collect();
-        match picked.is_empty() {
-            true => n.frame(),
-            false => n.frame_on(graph::bounds_of(picked)),
-        }
-        n.touched = true;
-        true
+        self.nodes_free() && self.nodes.handle(Event::Key { key: SporeKey::Frame, at: self.cursor }).0
     }
 
     /// The view's keys while it is drawn and nothing is typed: Tab (shift: back) moves the focus through the nodes,
     /// Escape lets the selection go; over the canvas ctrl+G groups the selection. True = taken.
     pub(super) fn nodes_key(&mut self, key: &Key, ctrl: bool) -> bool {
-        if !self.nodes.shown || !self.two_d || self.sheet.is_some() || self.typing.is_some() || self.context.is_some() {
+        if !self.nodes.shown || !self.nodes_free() || self.typing.is_some() || self.context.is_some() {
             return false;
         }
-        let (x, y) = self.cursor;
-        let n = &mut self.nodes;
-        match key {
-            Key::Named(NamedKey::Tab) if !n.order.is_empty() => {
-                let len = n.order.len();
-                let at = n.focus.as_ref().and_then(|f| n.order.iter().position(|&i| n.drawn.get(i).is_some_and(|(id, _)| id == f)));
-                let next = match (at, n.shift) {
-                    (None, false) => 0,
-                    (None, true) => len - 1,
-                    (Some(k), false) => (k + 1) % len,
-                    (Some(k), true) => (k + len - 1) % len,
-                };
-                if let Some(id) = n.id(n.order[next]) {
-                    n.focus_on(id);
-                }
-                true
-            }
-            Key::Named(NamedKey::Escape) if !n.selected.is_empty() => {
-                n.selected.clear();
-                n.focus = None;
-                true
-            }
-            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") && !n.selected.is_empty() && n.over(x, y) => {
-                self.nodes_hit(NodeHit::Group);
-                true
-            }
-            _ => false,
+        let key = match key {
+            Key::Named(NamedKey::Tab) => SporeKey::Tab,
+            Key::Named(NamedKey::Escape) => SporeKey::Escape,
+            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") => SporeKey::Group,
+            _ => return false,
+        };
+        let (took, gesture) = self.nodes.handle(Event::Key { key, at: self.cursor });
+        if let Some(g) = gesture {
+            self.nodes_gesture(g);
         }
+        took
     }
 
     pub(super) fn nodes_press(&mut self, hit: Hit) {
-        match hit {
-            Hit::Nodes(h) => self.nodes_hit(h),
-            _ => {}
+        if let Hit::Nodes(h) = hit {
+            self.nodes_hit(h);
         }
     }
 
     fn nodes_hit(&mut self, h: NodeHit) {
+        let (_, gesture) = self.nodes.handle(Event::Press { hit: h, at: self.cursor });
+        if let Some(g) = gesture {
+            self.nodes_gesture(g);
+        }
+    }
+
+    /// what the widget hands back, done to the row: its canvas through the core, the hand, the typing
+    fn nodes_gesture(&mut self, g: Gesture) {
         let c = self.shown().rows.get(self.row).map(|r| r.nodes.clone()).unwrap_or_default();
-        let cursor = self.cursor;
-        let n = &mut self.nodes;
-        match h {
-            NodeHit::Flow(d) => n.direction = d,
-            NodeHit::Fit => n.frame(),
-            NodeHit::Canvas => n.box_start(cursor),
-            NodeHit::Node(i) => {
-                if let Some(id) = n.id(i) {
-                    n.hand = Some(Hand::Node { node: id.clone(), from: cursor });
-                    n.focus_on(id);
-                }
+        match g {
+            Gesture::TakeSpore { id, from } => self.nodes.hand = Some(Hand::Node { node: id, from }),
+            Gesture::TakePin(at) => self.pin_press(at),
+            Gesture::Fold(node) => {
+                self.edit_canvas(&Edit::Fold { node });
             }
-            NodeHit::Pin(i, out, k) => self.pin_press((i, out, k)),
-            NodeHit::NodeAlso(i) => {
-                let Some(id) = n.id(i) else { return };
-                match n.selected.iter().position(|s| *s == id) {
-                    Some(k) => {
-                        n.selected.remove(k);
-                    }
-                    None => {
-                        n.selected.push(id.clone());
-                        n.flash = Some((id.clone(), n.secs));
-                        n.ask_tone(&id);
-                        n.focus = Some(id);
-                    }
-                }
-            }
-            NodeHit::Fold(i) => {
-                if let Some(node) = n.id(i) {
-                    self.edit_canvas(&Edit::Fold { node });
-                }
-            }
-            NodeHit::Group => {
-                let nodes: Vec<String> = n.selected.iter().filter(|s| !s.starts_with(GROUP)).cloned().collect();
+            Gesture::Group(nodes) => {
                 self.edit_canvas(&Edit::Group { nodes });
             }
-            NodeHit::Note => {
-                let node = n.focus.clone().or_else(|| n.selected.first().cloned()).filter(|s| !s.starts_with(GROUP));
+            Gesture::Note(node) => {
                 let author = self.api.who();
                 if self.edit_canvas(&Edit::Note { node, author }) {
                     let id = self.shown().rows.get(self.row).and_then(|r| r.nodes.notes.last()).map(|x| x.id.clone());
                     self.typing = id.map(|id| (Typing::Note(id), Field::with("")));
                 }
             }
-            NodeHit::GroupName(k) => {
+            Gesture::RenameGroup(k) => {
                 self.typing = c.groups.get(k).map(|g| (Typing::NodeGroup(g.id.clone()), Field::with(&g.label)));
             }
-            NodeHit::GroupColour(k) => {
+            Gesture::RecolourGroup(k) => {
                 if let Some(g) = c.groups.get(k) {
                     self.edit_canvas(&Edit::GroupColour { group: g.id.clone() });
                 }
             }
-            NodeHit::GroupFold(k) => {
+            Gesture::FoldGroup(k) => {
                 if let Some(g) = c.groups.get(k) {
                     self.edit_canvas(&Edit::Fold { node: format!("{GROUP}{}", g.id) });
                 }
             }
-            NodeHit::NoteText(k) => {
+            Gesture::EditNote(k) => {
                 self.typing = c.notes.get(k).map(|x| (Typing::Note(x.id.clone()), Field::with(&x.text)));
             }
         }

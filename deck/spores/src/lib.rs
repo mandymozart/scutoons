@@ -4,6 +4,7 @@
 //! hands the widget its state through `Seen` and maps what was pressed (`Hit`) to its own documents.
 pub mod card;
 pub mod focus;
+pub mod input;
 pub mod paint;
 pub mod pick;
 pub mod state;
