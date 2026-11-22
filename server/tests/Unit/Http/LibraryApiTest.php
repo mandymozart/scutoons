@@ -206,7 +206,7 @@ final class LibraryApiTest extends TestCase
         self::assertSame(['character' => 'catpope', 'persona' => 'regular', 'look' => 'default', 'portraits' => [
             'happy' => ['path' => 'characters/catpope/catpope_portrait-happy.webp', 'size' => null],
             'neutral' => ['path' => 'characters/catpope/catpope_portrait-neutral.webp', 'size' => null],
-        ], 'full' => []], array_diff_key($body['characters']['plf'], ['rig' => 1]), 'an old VN id → catpope');
+        ], 'full' => []], array_diff_key($body['characters']['plf'], ['rig' => 1, 'form' => 1, 'model' => 1]), 'an old VN id → catpope');
         // the rigs (#258): catpope's core rig of the migration 2026-11-01-rigs_core, the incense burner's (an item)
         self::assertSame(['character.catpope', ['cathedral_voice', 'drone']], [$body['characters']['plf']['rig']['id'], $body['characters']['plf']['rig']['instruments']]);
         self::assertSame(['incense'], $body['items']['incense_burner']['rig']['instruments']);

@@ -1268,6 +1268,10 @@
             {
               "name": "levels",
               "type": "control"
+            },
+            {
+              "name": "mouth",
+              "type": "control"
             }
           ],
           "kind": "space",
@@ -2667,6 +2671,10 @@
             {
               "name": "levels",
               "type": "control"
+            },
+            {
+              "name": "mouth",
+              "type": "control"
             }
           ],
           "kind": "space",
@@ -2754,7 +2762,7 @@
     },
     "nobody": {
       "failed": false,
-      "note": "no core rig for character.nobody – the deck is silent",
+      "note": "no core rig for item.nothing – the deck is silent",
       "played": {
         "character": "",
         "engine": {
@@ -3089,6 +3097,10 @@
             },
             {
               "name": "levels",
+              "type": "control"
+            },
+            {
+              "name": "mouth",
               "type": "control"
             }
           ],

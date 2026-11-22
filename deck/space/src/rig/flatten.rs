@@ -51,9 +51,18 @@ impl Rig {
 
     /// `flatten_with`, and where each link of the scene is written (#433, wiring.rs `Home`), one per link in order
     pub fn flatten_homes(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<(Scene, Vec<Home>)> {
+        match self.extended(lib)? {
+            Some((rig, lib)) => rig.flatten_plain(&lib, persona, mood, chosen, true),
+            None => self.flatten_plain(lib, persona, mood, chosen, false),
+        }
+    }
+
+    /// `flatten_homes` of a rig that extends none (`extended`: the rig it extended was folded in)
+    fn flatten_plain(&self, lib: &Library, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>, extended: bool) -> Result<(Scene, Vec<Home>)> {
         self.check(lib)?;
         let played = self.play_with(lib, persona, mood, chosen)?;
-        if played.is_empty() {
+        // an extended rig whose every track is off or taken over leaves the being alone; muting every own track is refused
+        if played.is_empty() && !(extended && self.tracks.is_empty()) {
             bail!("rig {}: every track is muted", self.subject);
         }
         let mut scene = Scene::parse("")?;

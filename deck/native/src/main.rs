@@ -540,7 +540,6 @@ impl Show {
         let space = graph.first(graph::Kind::Space).map(|n| {
             let faces = args.portraits.clone().unwrap_or_else(|| cache.join("portraits"));
             tracing::info!("space: sets in {}, portraits in {}", sets.display(), faces.display());
-            use deck_native::space::portrait::Portraits;
             // the one request for the scene goes out before the head asks for its first sprite
             #[cfg(feature = "sync")]
             if let Some(y) = &sync {
@@ -548,14 +547,11 @@ impl Show {
             }
             // through the sync (it fetches, then the folder is read), else the local folders as they are
             #[cfg(feature = "sync")]
-            let (portraits, gate) = match &sync {
-                Some(y) => (y.portraits().map_or_else(|| Portraits::local(&faces), |p| Portraits::new(Box::new(p))), Some(y.gate())),
-                None => (Portraits::local(&faces), None),
-            };
+            let (portraits, gate, figures) = deck_native::space::figures::loaders(sync.as_ref(), &faces);
             #[cfg(not(feature = "sync"))]
-            let (portraits, gate) = (Portraits::local(&faces), None);
-            #[cfg_attr(not(feature = "live"), allow(unused_mut))]
+            let (portraits, gate, figures) = deck_native::space::figures::local(&faces);
             let mut s = deck_native::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
+            s.figures = figures;
             s.set_scene(scene);
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
@@ -1195,6 +1191,8 @@ impl App {
         if let Some(s) = self.show.space.as_mut() {
             let meters = self.show.meters.as_deref();
             s.being.strain(dt, reduction);
+            #[cfg(feature = "sync")]
+            deck_native::space::figures::looks(self.show.sync.as_ref(), s);
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
             deck_native::rig::frame(self.show.rig.as_mut(), &s.being, &self.show.graph, &mut self.show.controls, dt);
             // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)

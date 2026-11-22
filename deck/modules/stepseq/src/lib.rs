@@ -9,6 +9,7 @@
 //! `target/wasm32-unknown-unknown/release/stepseq_module.wasm`).
 // one `#[port(…)]` a port: clippy takes them for duplicates (deck/module/README.md)
 #![allow(clippy::duplicated_attributes)]
+use deck_module::dsp::grid::steps;
 use deck_module::{math, Block, Ctx, Ev, Module};
 
 /// The default phrase: a minor-pentatonic figure over an octave (semitones 0 5 7 5 10 7 5 7 / 0 5 7 12 10 7 5 7 of
@@ -94,14 +95,6 @@ pub struct StepSeq {
     octaves: f32,
     #[param(choices = "off|on", default = 1, doc = "on: the pitch snaps to the nearest semitone; off: continuous")]
     snap: f32,
-}
-
-/// the steps on a grid of `per_beat` steps a beat whose start falls in [from, to): (step, its beat)
-fn steps(from: f64, to: f64, per_beat: f64) -> impl Iterator<Item = (i64, f64)> {
-    let ok = per_beat > 0.0 && to > from;
-    let first = if ok { (from * per_beat).ceil() as i64 } else { 0 };
-    let end = if ok { (to * per_beat).ceil() as i64 } else { 0 };
-    (first..end).map(move |k| (k, k as f64 / per_beat))
 }
 
 impl StepSeq {

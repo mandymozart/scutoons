@@ -38,6 +38,10 @@ pub const CASES: &[Case] = &[
         name: "lfo saw -> osc.freq",
         toml: scene!("[[node]]\nid = \"l\"\nkind = \"lfo\"\nshape = \"saw\"\nrate = 2.0\ndepth = 100.0\n[[node]]\nid = \"o\"\nkind = \"osc\"\ngain = 0.2\n[[link]]\nfrom = \"l\"\nto = \"o.freq\"\noffset = 300.0\n[[link]]\nfrom = \"o\"\nto = \"out.in\"\n"),
     },
+    Case {
+        name: "seq -> voice.cv (vowel, glide, vibrato, breath)",
+        toml: scene!("[[node]]\nid = \"s\"\nkind = \"seq\"\nbpm = 120.0\ndivision = 2\ngate = 0.8\nsteps = [64, 67, 0, 71]\n[[node]]\nid = \"v\"\nkind = \"voice\"\nvowel = 2.5\nglide = 0.06\nvibrato = 0.4\nbreath = 0.2\ngain = 0.3\n[[link]]\nfrom = \"s.cv\"\nto = \"v.cv\"\n[[link]]\nfrom = \"v\"\nto = \"out.in\"\n"),
+    },
     Case { name: "noise white", toml: scene!("[[node]]\nid = \"n\"\nkind = \"noise\"\ncutoff = 4000.0\ngain = 0.1\n[[link]]\nfrom = \"n\"\nto = \"out.in\"\n") },
     Case { name: "noise pink", toml: scene!("[[node]]\nid = \"n\"\nkind = \"noise\"\ncolor = \"pink\"\ncutoff = 4000.0\ngain = 0.1\n[[link]]\nfrom = \"n\"\nto = \"out.in\"\n") },
     Case {

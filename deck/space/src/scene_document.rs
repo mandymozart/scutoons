@@ -247,6 +247,9 @@ pub struct Holder {
     /// the modules on its member's slots (deck-catalog `slot`: an item's `motion`, on top of its spot)
     #[serde(default, rename = "module", skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<deck_catalog::slot::Attach>,
+    /// how its member stands (`card`: 2D, `look`: 3D) over what the stage gives (cast.rs `form`); none = the stage's
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub form: Option<crate::cast::Form>,
 }
 
 impl Holder {
@@ -956,6 +959,17 @@ mod tests {
         assert!(SceneDocument::parse_json(both).unwrap().check()[0].contains("`set` is refused"));
         let bare = r#"{"format":2,"id":"x","location":"location:dom"}"#;
         assert!(SceneDocument::parse_json(bare).unwrap().check()[0].contains("needs a `space` node"));
+    }
+
+    /// a holder's form is one of the cast's two words, written back as read
+    #[test]
+    fn a_holders_form_is_card_or_look() {
+        let doc = |form: &str| SceneDocument::parse_json(&format!(r#"{{"format":2,"id":"x","holder":[{{"id":"a","ref":"character:catpope","form":"{form}"}}]}}"#));
+        let card = doc("card").unwrap();
+        assert_eq!(card.holders[0].form, Some(crate::cast::Form::Card));
+        assert!(card.to_json().unwrap().contains(r#""form": "card""#));
+        assert_eq!(doc("look").unwrap().holders[0].form, Some(crate::cast::Form::Look));
+        assert!(doc("3d").is_err() && doc("Card").is_err(), "an unknown word is refused");
     }
 
     /// #517: a listener names a story event a deck hears, a character reference and join / leave; anything else in the core's words

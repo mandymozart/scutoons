@@ -17,6 +17,7 @@
 //! | `fdn` | eight-line feedback delay network (Householder), its loop gains and prime lengths |
 //! | `fft` | radix-2 FFT of real input, and back |
 //! | `conv` | uniformly partitioned FFT convolution (overlap-save), complex multiply-accumulate |
+//! | `grid` | a sequencer's steps on the beat grid |
 //! | `arith` | f64 maths from arithmetic only |
 //! | `arp` | the arpeggiator's rule: held notes, latch, steps on the beat grid, the note a step plays |
 pub mod adsr;
@@ -27,6 +28,7 @@ pub mod delay;
 pub mod fdn;
 pub mod fft;
 pub mod follower;
+pub mod grid;
 pub mod level;
 pub mod line;
 pub mod noise;

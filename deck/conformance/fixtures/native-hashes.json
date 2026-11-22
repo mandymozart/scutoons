@@ -37,6 +37,8 @@
     "osc triangle/128": "fa7a2e8380766a9a",
     "seq -> osc.cv/1024": "d5472db0840e8f5c",
     "seq -> osc.cv/128": "d5472db0840e8f5c",
+    "seq -> voice.cv (vowel, glide, vibrato, breath)/1024": "e00e64feb2fa338b",
+    "seq -> voice.cv (vowel, glide, vibrato, breath)/128": "e00e64feb2fa338b",
     "stereo scene/1024": "678df5f09cc92910",
     "stereo scene/128": "678df5f09cc92910",
     "tempo.pulse -> osc.gain (the beat)/1024": "03a1b3773f5bb7fd",

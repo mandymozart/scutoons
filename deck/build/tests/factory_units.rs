@@ -21,6 +21,7 @@ fn every_factory_module_passes_the_compile_check() {
         ("delay", delay_module::Delay::DESCRIPTOR),
         ("reverb", reverb_module::Reverb::DESCRIPTOR),
         ("arp", arp_module::Arp::DESCRIPTOR),
+        ("drumseq", drumseq_module::DrumSeq::DESCRIPTOR),
         ("convolver", convolver_module::Convolver::DESCRIPTOR),
     ] {
         check(json).unwrap_or_else(|e| panic!("{name}: {e}"));

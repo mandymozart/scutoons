@@ -30,7 +30,7 @@ fn wasm(file: &str) -> Vec<u8> {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let out = std::process::Command::new(cargo)
             .current_dir(&root)
-            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "stepseq-module", "-p", "context-probe-module", "-p", "catpope-rig-module", "--target-dir"])
+            .args(["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "walk-module", "-p", "fixture-module", "-p", "analog-module", "-p", "stepseq-module", "-p", "drumseq-module", "-p", "context-probe-module", "-p", "catpope-rig-module", "--target-dir"])
             .arg(&dir)
             .output()
             .expect("running cargo");
@@ -53,6 +53,10 @@ fn fixture() -> Vec<u8> {
 
 fn stepseq() -> Vec<u8> {
     wasm("stepseq_module.wasm")
+}
+
+fn drumseq() -> Vec<u8> {
+    wasm("drumseq_module.wasm")
 }
 
 fn analog() -> Vec<u8> {
@@ -576,6 +580,35 @@ fn the_stepseq_plays_the_analog_synth_and_a_slider_is_a_pitch() {
     let (low, high) = (key_of_third(0.25), key_of_third(0.75));
     assert_eq!(high[2] - low[2], 12.0, "an octave apart: {low:?} {high:?}");
     assert_eq!((low[0], low[1], low[3]), (high[0], high[1], high[3]), "the other steps do not move");
+}
+
+/// The drum machine rig's wiring: drumseq's lanes 1 – 4 cabled to four analog synths, at 160 BPM. Each synth alone starts
+/// to sound on its lane's first step of the default groove – the kick on step 1, the snare on 5, the closed hat on 1, the
+/// open hat on 15 (a step is 4500 frames) – and a lane with no cable plays nothing.
+#[test]
+fn the_drumseq_groove_plays_four_analog_lanes_on_the_clock() {
+    Library::global().load(&drumseq()).unwrap();
+    Library::global().load(&analog()).unwrap();
+    let scene = |heard: usize| {
+        let mut s = String::from("[[node]]\nid=\"tempo\"\nkind=\"tempo\"\nbpm=160\n[[node]]\nid=\"d\"\nkind=\"module:drumseq\"\n");
+        s += "[[node]]\nid=\"out\"\nkind=\"audio_out\"\nvolume=1\n";
+        for lane in 1..=4 {
+            s += &format!("[[node]]\nid=\"a{lane}\"\nkind=\"module:analog\"\n[[link]]\nfrom=\"d.lane{lane}\"\nto=\"a{lane}.notes\"\n");
+        }
+        if heard > 0 {
+            s += &format!("[[link]]\nfrom=\"a{heard}.out\"\nto=\"out.in\"\n");
+        }
+        Scene::parse(&s).unwrap()
+    };
+    let first = |lane: usize| render(&scene(lane), 2).iter().position(|v| v.abs() > 1e-6).map(|i| i / 2).unwrap_or_else(|| panic!("lane {lane} is silent"));
+    // the same synth on every lane: its sound starts the same time after its note (the event cable's quantum, the attack)
+    let late = first(1);
+    assert!(late < 2 * 128, "the kick sounds within two quanta of step 1: frame {late}");
+    for (lane, step) in [(2, 4), (3, 0), (4, 14)] {
+        let at = first(lane);
+        assert!(at.abs_diff(step * 4500 + late) <= 4, "lane {lane}: the first sound at frame {at}, its first step (step {}) at {}", step + 1, step * 4500);
+    }
+    assert!(render(&scene(0), 1).iter().all(|v| *v == 0.0), "nothing cabled to the output");
 }
 
 /// #430, the acceptance on the real modules: two stepseq + analog pairs in one graph stay apart – what the first synth plays

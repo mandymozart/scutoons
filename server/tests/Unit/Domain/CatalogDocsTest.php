@@ -116,7 +116,7 @@ final class CatalogDocsTest extends TestCase
             return [];
         };
         $rigs = self::json($this->request('GET', '/api/catalog/docs/rigs', $this->bearer($writer)));
-        self::assertSame(['character.catpope', 'item.incense_burner'], array_column($rigs['entries'], 'id'), 'the migrated core rigs (table data, no document yet)');
+        self::assertSame(['character.catpope', 'item.incense_burner', 'character.default'], array_column($rigs['entries'], 'id'), 'the migrated core rigs (table data, no document yet)');
         // a derivative whose parent is only a draft so far: saved, and published after its parent
         self::assertSame(200, $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]])->getStatusCode());
         self::assertSame(200, $this->put($writer, 'preset:drone.dark.deep', ['id' => 'drone.dark.deep', 'instrument' => 'drone', 'parent' => 'drone.dark', 'values' => ['drone.freq' => 30.0]])->getStatusCode());

@@ -45,7 +45,7 @@ expect = { value = { min = 0.17 } }
 do = "pick"
 click = "right"
 drag = "left_voice_voice.gain"
-expect = { picked = "right", reach = false, knobs = { has = "right_look.glow" } }
+expect = { picked = "right", reach = false, knobs = { has = "right_voice_voice.vowel" } }
 
 # the empty floor drops the pick: the master section
 [[step]]

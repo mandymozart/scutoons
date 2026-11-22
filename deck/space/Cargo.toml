@@ -19,8 +19,9 @@ default = ["being", "gpu", "native", "media"]
 being = ["dep:glam", "dep:ab_glyph", "dep:image", "dep:bytemuck"]
 # the GPU side: the space's passes and the scene renderer every deck draws with (stage.rs, wgpu)
 gpu = ["being", "dep:wgpu", "dep:deck-outlet", "dep:deck-link", "dep:font8x8", "dep:qrcodegen", "dep:resvg", "dep:deck-kit", "dep:egui-wgpu"]
-# loaders on threads and from files: a set's .glb, the portraits from a folder, images decoded in Rust (WebP, PNG)
-native = ["being", "image/png", "image/webp"]
+# loaders on threads and from files: a set's .glb, the portraits and character models from a folder, images decoded in
+# Rust (WebP, PNG, JPEG – a character model's texture)
+native = ["being", "image/png", "image/webp", "image/jpeg"]
 # the deck's own video playback (deck-media): the `video` node, a video background or layer – their frames through the
 # pictures' slots (portrait.rs) and the stage's passes; only a build whose scenes play video carries it
 media = ["being", "dep:deck-media"]
