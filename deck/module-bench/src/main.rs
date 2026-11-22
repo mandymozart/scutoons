@@ -8,7 +8,7 @@
 //!                                        row (#396) → results/variants/
 //!   wiring [--label pc] [--blocks N] [--rounds 3]   wired modules vs merged vs native, the engine's batches (#393)
 //!                                        → results/wiring/
-//!   factory [--label pc] [--blocks N]    the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb), a row
+//!   factory [--label pc] [--blocks N]    the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq), a row
 //!                                        each under wasmtime → results/factory/
 use anyhow::{anyhow, bail, Context, Result};
 use module_bench::{report, run_suite, Config, Device, Modules, Results, Size};

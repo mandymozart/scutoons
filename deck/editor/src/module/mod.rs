@@ -243,7 +243,7 @@ impl Module {
             problems: Vec::new(),
             bad: false,
             hits: Vec::new(),
-            panels: crate::panels::Panels::new(&crate::panels::MODULE),
+            panels: crate::panels::Panels::with_play(&crate::panels::MODULE, &crate::panels::MODULE_PLAY),
             drag: None,
             listing: None,
             building: None,

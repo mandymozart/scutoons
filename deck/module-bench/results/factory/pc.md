@@ -1,4 +1,4 @@
-The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128 frames at 48 kHz (budget 2667 µs). AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD · 2026-11-21 21:54 UTC
+The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128 frames at 48 kHz (budget 2667 µs). AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD · 2026-11-22 03:20 UTC
 
 | device | runtime | module | frames | compile | inst. | first µs | p50 µs | p99 µs | max µs | mean µs | p99 % budget | mem KB | hash |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -11,3 +11,5 @@ The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128
 | pc | wasmtime | transpose | 128 | 69.4 ms | 37 µs | 3 | 0.5 | 0.7 | 186 | 0.6 | 0.03 % | 1088 | ebbc8117 |
 | pc | wasmtime | delay | 128 | 186.6 ms | 834 µs | 19 | 15.9 | 74.0 | 2305 | 19.6 | 2.78 % | 3264 | f0a91488 |
 | pc | wasmtime | reverb | 128 | 200.7 ms | 223 µs | 67 | 66.5 | 204.2 | 29200 | 113.0 | 7.66 % | 1536 | db60ac50 |
+| pc | wasmtime | arp | 128 | 77.2 ms | 54 µs | 3 | 0.5 | 0.8 | 441 | 0.7 | 0.03 % | 1088 | 7cb0d9c9 |
+| pc | wasmtime | drumseq | 128 | 107.1 ms | 80 µs | 6 | 0.7 | 1.5 | 103 | 0.8 | 0.06 % | 1088 | 0c3016e3 |

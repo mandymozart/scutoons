@@ -10,10 +10,14 @@
 //! ghost sphere and the bubbles behind the face sit right. A sprite is a texture per portrait slot, uploaded when its
 //! loader has it.
 //!
+//! The cast's own 3D models (figure.rs) come after the room: a mesh per figure, skinned in the vertex shader by a
+//! palette per member in a uniform buffer (WebGL2 has no storage buffers there), lit like a card plus the beings' light.
+//!
 //! Last, the buttons' labels (label.rs): one quad per character from a glyph atlas made once, a fixed size on the
 //! screen beside its button, at its button's depth (premultiplied alpha, depth-tested, not written) – their instances rewritten per frame from
 //! preallocated vectors.
 use super::being::{Sphere, TubeVertex};
+use super::figure::{FigureDraw, FigureVertex, MAX_JOINTS};
 use super::label::{self, Atlas, Label, LABELS};
 use super::glb::{Image, Model, RoomVertex};
 use super::post::Effect;
@@ -57,6 +61,22 @@ struct CardInst {
     up: [f32; 3],
     pulse: f32,
     more: [f32; 4],
+}
+
+/// a member's figure for the GPU: its palette (model → world per joint) and its look's light (glow, hue, pulse, 0)
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct FigureUniform {
+    joints: [[f32; 16]; MAX_JOINTS],
+    look: [f32; 4],
+}
+
+/// a figure's mesh on the GPU: its vertices and indices, a draw per texture
+struct FigureMesh {
+    vb: wgpu::Buffer,
+    ib: wgpu::Buffer,
+    draws: Vec<(u32, u32, usize)>,
+    binds: Vec<wgpu::BindGroup>,
 }
 
 const SHADER: &str = include_str!("../shaders/space.wgsl");
@@ -170,6 +190,15 @@ pub struct SpaceGpu {
     post: Option<PostGpu>,
     /// #220: the quality rung's knobs this deck renders with (quality.rs – the governor sets them)
     quality: Rung,
+    /// the cast's figures: their pipeline, a mesh per figure slot, a palette buffer per member drawn as one (sized by
+    /// `Space::figures_drawn`), this frame's draws and the posing's scratch
+    figure_pipe: wgpu::RenderPipeline,
+    figure_layout: wgpu::BindGroupLayout,
+    figure_meshes: Vec<Option<FigureMesh>>,
+    figure_insts: Vec<(wgpu::Buffer, wgpu::BindGroup)>,
+    figure_draws: Vec<FigureDraw>,
+    figure_nodes: Vec<glam::Mat4>,
+    figure_uniform: Box<FigureUniform>,
 }
 
 impl SpaceGpu {
@@ -301,6 +330,24 @@ impl SpaceGpu {
             Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<CardInst>() as u64, step_mode: wgpu::VertexStepMode::Instance, attributes: &card_attrs }),
         ];
         let card_pipe = pipe("space card", &room_layout, "vs_card", "fs_card", &card_vbl, Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING), true, None);
+        let figure_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("space figure"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                count: None,
+            }],
+        });
+        let figure_pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("space figure"),
+            bind_group_layouts: &[Some(&frame_layout), Some(&tex_layout), Some(&figure_layout)],
+            immediate_size: 0,
+        });
+        let figure_attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x2, 3 => Uint8x4, 4 => Unorm8x4, 5 => Unorm8x4];
+        let figure_vbl = [Some(wgpu::VertexBufferLayout { array_stride: std::mem::size_of::<FigureVertex>() as u64, step_mode: wgpu::VertexStepMode::Vertex, attributes: &figure_attrs })];
+        // a character's file may be double sided: no culling, the shader turns the normal to the eye
+        let figure_pipe = pipe("space figure", &figure_pipe_layout, "vs_figure", "fs_figure", &figure_vbl, None, true, None);
 
         // the labels: a quad per character (six vertices from the vertex index) at its button's depth – a pillar in
         // front hides it, the being's own tubes and ghosts don't (they write no depth)
@@ -380,7 +427,7 @@ impl SpaceGpu {
         queue.write_buffer(&tube_ib, 0, bytemuck::cast_slice(&tube_idx));
         let backdrop = super::backdrop::BackdropGpu::new(device, &tex_layout, color);
         let planes_gpu = super::layers::PlanesGpu::new(device, &room_layout, color, DEPTH);
-        SpaceGpu {
+        let mut gpu = SpaceGpu {
             room_pipe,
             solid_pipe,
             ghost_pipe,
@@ -436,7 +483,60 @@ impl SpaceGpu {
                 p
             }),
             quality: Rung::default(),
+            figure_pipe,
+            figure_layout,
+            figure_meshes: Vec::new(),
+            figure_insts: Vec::new(),
+            figure_draws: Vec::new(),
+            figure_nodes: Vec::new(),
+            figure_uniform: Box::new(bytemuck::Zeroable::zeroed()),
+        };
+        gpu.size_figures(device, space.figures_drawn());
+        gpu
+    }
+
+    /// a palette buffer per member drawn as its figure
+    fn size_figures(&mut self, device: &wgpu::Device, n: usize) {
+        self.figure_insts = (0..n)
+            .map(|_| {
+                let buf = device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("space figure palette"),
+                    size: std::mem::size_of::<FigureUniform>() as u64,
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                let bind = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("space figure"), layout: &self.figure_layout, entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }] });
+                (buf, bind)
+            })
+            .collect();
+        self.figure_draws = Vec::with_capacity(n);
+    }
+
+    /// a figure's mesh on the GPU (its images sRGB, mipmapped on the CPU; a white one for the untextured draws)
+    fn upload_figure(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, slot: usize, f: &super::figure::Figure) {
+        let vb = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("figure vertices"),
+            size: (f.vertices.len() * std::mem::size_of::<FigureVertex>()).max(16) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&vb, 0, bytemuck::cast_slice(&f.vertices));
+        let ib = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("figure indices"),
+            size: (f.indices.len() * 4).max(16) as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&ib, 0, bytemuck::cast_slice(&f.indices));
+        let mut views: Vec<wgpu::TextureView> = f.images.iter().map(|i| texture(device, queue, i)).collect();
+        views.push(texture(device, queue, &Image { levels: vec![(1, 1, vec![255; 4])] }));
+        let white = views.len() - 1;
+        let binds = views.iter().map(|v| tex_bind(device, &self.tex_layout, v, &self.sampler)).collect();
+        let draws = f.draws.iter().map(|d| (d.first, d.count, d.image.unwrap_or(white))).collect();
+        if self.figure_meshes.len() <= slot {
+            self.figure_meshes.resize_with(slot + 1, || None);
         }
+        self.figure_meshes[slot] = Some(FigureMesh { vb, ib, draws, binds });
     }
 
     /// The post pass `effect` from new WGSL – its prelude `common` and its `source` (the dev mode's hot reload, #204):
@@ -497,6 +597,11 @@ impl SpaceGpu {
             #[cfg(not(target_arch = "wasm32"))]
             tracing::info!("room on the GPU in {:.0} ms", t.elapsed().as_secs_f32() * 1000.0);
         }
+        for slot in space.figures.take_fresh() {
+            if let Some(f) = space.figures.get(slot) {
+                self.upload_figure(device, queue, slot, f);
+            }
+        }
         for (slot, img) in space.portraits.take() {
             let view = texture(device, queue, &img);
             if self.sprites.len() <= slot {
@@ -541,6 +646,25 @@ impl SpaceGpu {
             self.card_buf = buffer("space cards", cards * std::mem::size_of::<CardInst>(), wgpu::BufferUsages::VERTEX);
             self.cards = Vec::with_capacity(cards);
             self.card_inst = Vec::with_capacity(cards);
+            self.size_figures(device, space.figures_drawn());
+        }
+    }
+
+    /// this frame's figures: each member's palette posed (its clip at the show's time) into its buffer – no allocation
+    /// once the scratch has grown to the largest figure
+    fn figures(&mut self, queue: &wgpu::Queue, space: &Space, time: f32) {
+        space.write_figures(&mut self.figure_draws);
+        self.figure_draws.truncate(self.figure_insts.len());
+        for (d, (buf, _)) in self.figure_draws.iter().zip(&self.figure_insts) {
+            let Some(f) = space.figures.get(d.slot) else { continue };
+            let n = f.anatomy.nodes.len();
+            if self.figure_nodes.len() < n {
+                self.figure_nodes.resize(n, glam::Mat4::IDENTITY);
+            }
+            let u = &mut *self.figure_uniform;
+            f.pose(time, d.world, &mut self.figure_nodes[..n], &mut u.joints);
+            u.look = [d.glow, d.hue, d.pulse, 0.0];
+            queue.write_buffer(buf, 0, bytemuck::bytes_of(u));
         }
     }
 
@@ -661,6 +785,7 @@ impl SpaceGpu {
         queue.write_buffer(&self.head_buf, 0, bytemuck::cast_slice(&self.layers));
         self.cards(space, eye);
         queue.write_buffer(&self.card_buf, 0, bytemuck::cast_slice(&self.card_inst));
+        self.figures(queue, space, time);
         self.label_glyphs(space, eye, size.1 as f32);
         queue.write_buffer(&self.label_buf, 0, bytemuck::cast_slice(&self.glyphs));
         let mut lights = [[0.0; 8]; MAX_LIGHTS];
@@ -706,6 +831,19 @@ impl SpaceGpu {
             for &(first, count, bind) in &room.draws {
                 rp.set_bind_group(1, &room.binds[bind], &[]);
                 rp.draw_indexed(first..first + count, 0, 0..1);
+            }
+        }
+        if !self.figure_draws.is_empty() {
+            rp.set_pipeline(&self.figure_pipe);
+            for (d, (_, inst)) in self.figure_draws.iter().zip(&self.figure_insts) {
+                let Some(Some(mesh)) = self.figure_meshes.get(d.slot) else { continue };
+                rp.set_bind_group(2, inst, &[]);
+                rp.set_vertex_buffer(0, mesh.vb.slice(..));
+                rp.set_index_buffer(mesh.ib.slice(..), wgpu::IndexFormat::Uint32);
+                for &(first, count, bind) in &mesh.draws {
+                    rp.set_bind_group(1, &mesh.binds[bind], &[]);
+                    rp.draw_indexed(first..first + count, 0, 0..1);
+                }
             }
         }
         rp.set_pipeline(&self.solid_pipe);

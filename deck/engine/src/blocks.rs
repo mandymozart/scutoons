@@ -64,6 +64,7 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
             gain: glide("gain"),
             env: Env::new(rate, node),
         }),
+        Kind::Voice => Box::new(super::voice::Voice::new(node, index, rate, p, tables)),
         Kind::Seq => {
             // a `bpm` of its own: free-running; else on the tempo clock's beat
             let beats = (!node.params.contains_key("bpm")).then(|| beats(h));
@@ -128,7 +129,7 @@ impl Tables {
         Tables { rate, made: Vec::new() }
     }
 
-    fn get(&mut self, wave: Wave) -> Arc<WaveTable> {
+    pub(super) fn get(&mut self, wave: Wave) -> Arc<WaveTable> {
         if let Some(t) = self.made.iter().find(|t| t.wave() == wave) {
             return t.clone();
         }
@@ -140,7 +141,7 @@ impl Tables {
 
 /// A noise node's seed: its `seed` param (default 1) and its place in the graph, so two noise nodes never play the same
 /// noise and a scene always plays the same (the seed rule, plan 3.4).
-fn noise_seed(node: &Node, index: usize) -> u64 {
+pub(super) fn noise_seed(node: &Node, index: usize) -> u64 {
     (node.f32("seed", 1.0) as u64).wrapping_mul(0x0001_0000_0001).wrapping_add(index as u64)
 }
 
@@ -149,7 +150,7 @@ fn write(out: &mut Buf, i: usize, v: f32) {
 }
 
 /// attack / release on a gate (seconds from `attack` / `release`, defaults 5 ms / 150 ms); no gate = always open
-struct Env {
+pub(super) struct Env {
     level: f32,
     att: f32,
     rel: f32,
@@ -162,11 +163,14 @@ pub(super) fn env_coefs(rate: f32, node: &Node) -> (f32, f32) {
 }
 
 impl Env {
-    fn new(rate: f32, node: &Node) -> Env {
+    pub(super) fn new(rate: f32, node: &Node) -> Env {
         let (att, rel) = env_coefs(rate, node);
         Env { level: 0.0, att, rel }
     }
-    fn next(&mut self, gate: f32) -> f32 {
+    pub(super) fn level(&self) -> f32 {
+        self.level
+    }
+    pub(super) fn next(&mut self, gate: f32) -> f32 {
         let target = if gate > 0.5 { 1.0 } else { 0.0 };
         let c = if target > self.level { self.att } else { self.rel };
         self.level += (target - self.level) * c;
@@ -201,12 +205,12 @@ impl Glide {
 
 /// a gliding input at sample `i`
 #[inline(always)]
-fn at((first, step): (f32, f32), i: usize) -> f32 {
+pub(super) fn at((first, step): (f32, f32), i: usize) -> f32 {
     first + step * i as f32
 }
 
 /// (pitch Hz, gate) for frame i: from the cv input (a seq) or the (gliding) freq param with the gate open
-fn pitch(cv: Option<&Buf>, freq: (f32, f32), i: usize) -> (f32, f32) {
+pub(super) fn pitch(cv: Option<&Buf>, freq: (f32, f32), i: usize) -> (f32, f32) {
     match cv {
         Some(c) => (c.ch(0)[i], c.ch(1)[i]),
         None => (at(freq, i), 1.0),

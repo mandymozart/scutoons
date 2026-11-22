@@ -63,9 +63,9 @@ test('#425: no rig, no sound – the deck on the core\'s silent scene: the being
 	assert.deepEqual(d.graph().nodes.map((n) => n.id), SILENT.nodes.map((n) => n.id), 'the picture: what the core played');
 	assert.ok(!d.paths.some((p) => p.startsWith('fft.')) && !d.graph().nodes.some((n) => n.kind === 'audio_out'), 'nothing sounds, nothing is analysed');
 	assert.equal(state.room(), DECK.silent.room, "the room is the core's");
-	const t = d.play('nobody', '', true);
+	const t = d.play('item.nothing', '', true);
 	assert.equal(t.rig, false);
-	assert.equal(d.rig, null, 'a character without a rig stays silent');
+	assert.equal(d.rig, null, 'an item without a rig stays silent (a character plays the default character rig)');
 	assert.ok(t.note.includes('silent'), t.note);
 	assert.deepEqual(d.graph().nodes.map((n) => n.id), SILENT.nodes.map((n) => n.id));
 });

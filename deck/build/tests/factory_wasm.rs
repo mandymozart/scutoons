@@ -1,4 +1,4 @@
-//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb): each built for
+//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq): each built for
 //! `wasm32-unknown-unknown` and run by the module host writes, bit for bit, what the same code writes natively through
 //! the SDK's `Rig` – every audio output, control output and event. One script for all, read off the module's shape:
 //! every parameter turned through its range, noise on two channels of every audio input, values on the control
@@ -22,7 +22,7 @@ fn wasm(name: &str) -> Vec<u8> {
     BUILD.get_or_init(|| {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut args = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
-        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module"] {
+        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "arp-module", "drumseq-module"] {
             args.extend(["-p", p]);
         }
         let out = std::process::Command::new(cargo).current_dir(&root).args(args).arg("--target-dir").arg(&dir).output().expect("running cargo");
@@ -185,7 +185,9 @@ fn the_wasm_writes_what_the_native_code_writes<M: Module>() {
     let steps = script::<M>();
     for preset in [false, true] {
         let (n, h) = (native::<M>(&steps, preset), hosted::<M>(engine, &steps, preset));
-        assert!(n.audio.iter().any(|b| *b << 1 != 0) || n.events.len() > 100, "{}: the script is not silent", M::NAME);
+        // the arp plays a step at a time on the beat grid: about twenty in the script's 2.6 s at 120 bpm
+        let busy = if M::NAME == "arp" { 10 } else { 100 };
+        assert!(n.audio.iter().any(|b| *b << 1 != 0) || n.events.len() > busy, "{}: the script is not silent ({} events)", M::NAME, n.events.len());
         let first = n.audio.iter().zip(&h.audio).position(|(a, b)| a != b);
         assert_eq!((first, n.audio.len()), (None, h.audio.len()), "{} (preset {preset}): the audio differs native ≡ wasm", M::NAME);
         assert!(n.control == h.control, "{} (preset {preset}): the control outputs differ", M::NAME);
@@ -212,6 +214,8 @@ modules! {
     transpose: transpose_module::Transpose,
     delay: delay_module::Delay,
     reverb: reverb_module::Reverb,
+    arp: arp_module::Arp,
+    drumseq: drumseq_module::DrumSeq,
 }
 
 /// wasm has no flush-to-zero: the reverb's tail, played out in the host to silence, never passes through the denormals

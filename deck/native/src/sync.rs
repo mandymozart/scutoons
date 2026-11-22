@@ -9,8 +9,9 @@
 //! - **Fetching:** only what is missing or changed: `<cache>/sync/index.json` remembers which CDN path each local file
 //!   came from; same path + same size = cached, skipped. A download goes to `.part`, is checked (the answer's size, the
 //!   file's magic: glTF / WebP / PNG) and only then renamed into place – a broken file is refused, the old one stays.
-//! - **Where:** `<sets>/<id>/<id>.<quality>.glb` (cache::set_file), `<portraits>/<char>/<char>_portrait-<mood>.<ext>`
-//!   and a stage background's image at its CDN path below `<portraits>` (portrait::LocalDir's layout; the path is its
+//! - **Where:** `<sets>/<id>/<id>.<quality>.glb` (cache::set_file), `<portraits>/<char>/<char>_portrait-<mood>.<ext>`,
+//!   a card's `<char>_full-<mood>.<ext>` and the 3D model `<char>_model.glb` beside them (a member without art: the
+//!   default character's files under its own name, push.rs `Content::drawn_as`), and a stage background's image at its CDN path below `<portraits>` (portrait::LocalDir's layout; the path is its
 //!   version, the API is not asked) – the loaders read them as before. `--sets` / `--portraits` (or their env) point at a
 //!   local folder instead: then that kind is not synced (local development).
 //! - **Waiting, never on the frame:** the set loader thread passes its file through `gate` and the portraits thread
@@ -102,11 +103,12 @@ enum Msg {
     Push(SceneSync),
 }
 
-/// #195: the answer to the conductor's last push, numbered (the link sends each new one)
+/// #195: the answer to the conductor's last push, numbered (the link sends each new one); `looks`: the API's, for the frame
 #[derive(Default)]
-struct Answer {
+pub(crate) struct Answer {
     n: u64,
     last: Option<DeckSynced>,
+    pub(crate) looks: Option<Content>,
 }
 
 /// The handle (clone it freely; the worker ends with the last one).
@@ -114,10 +116,10 @@ struct Answer {
 pub struct DeckSync {
     tx: Sender<Msg>,
     pub board: Arc<Mutex<Board>>,
-    answer: Arc<Mutex<Answer>>,
+    pub(crate) answer: Arc<Mutex<Answer>>,
     sets: Option<PathBuf>,
     #[cfg_attr(not(feature = "space"), allow(dead_code))]
-    portraits: Option<PathBuf>,
+    pub(crate) portraits: Option<PathBuf>,
 }
 
 impl DeckSync {
@@ -276,10 +278,8 @@ impl push::Cache for Config {
     fn has(&self, w: &Want) -> bool {
         match w {
             Want::Set { id, quality } => self.sets.as_ref().is_none_or(|d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
-            Want::Portrait { character, mood } => self.portraits.as_ref().is_none_or(|d| {
-                let stem = d.join(character).join(format!("{character}_portrait-{mood}"));
-                ["webp", "png"].iter().any(|ext| stem.with_extension(ext).is_file())
-            }),
+            Want::Model { .. } => self.portraits.as_ref().is_none_or(|d| character_file(d, w, "glb").is_some_and(|f| f.is_file())),
+            Want::Portrait { .. } | Want::Full { .. } => self.portraits.as_ref().is_none_or(|d| ["webp", "png"].iter().any(|ext| character_file(d, w, ext).is_some_and(|f| f.is_file()))),
             Want::Media { path } => self.portraits.as_ref().is_none_or(|d| push::media_file(d, path).is_some_and(|f| f.is_file())),
         }
     }
@@ -301,6 +301,18 @@ impl push::Cache for Config {
         moods.dedup();
         moods
     }
+}
+
+/// a character's file below the portraits folder (`LocalDir`'s layout): `<char>/<char>_portrait-<mood>.<ext>`,
+/// `<char>/<char>_full-<mood>.<ext>`, `<char>/<char>_model.<ext>`; None for any other want
+fn character_file(dir: &Path, w: &Want, ext: &str) -> Option<PathBuf> {
+    let (character, name) = match w {
+        Want::Portrait { character, mood } => (character, format!("{character}_portrait-{mood}")),
+        Want::Full { character, mood } => (character, format!("{character}_full-{mood}")),
+        Want::Model { character } => (character, format!("{character}_model")),
+        Want::Set { .. } | Want::Media { .. } => return None,
+    };
+    Some(dir.join(character).join(format!("{name}.{ext}")))
 }
 
 struct Worker {
@@ -471,8 +483,12 @@ impl Worker {
                     self.known.insert((false, id.clone()));
                 }
                 self.content.merge(c);
+                let _ = self.answer.lock().map(|mut a| a.looks = Some(self.content.clone()));
                 self.api = Api::Answered;
                 self.publish(|b| b.offline = false);
+                if self.content.wants_default() && !characters.contains(&deck_space::cast::DEFAULT_CHARACTER) {
+                    self.ask(&[], &[deck_space::cast::DEFAULT_CHARACTER]);
+                }
             }
             Err(api) => {
                 self.retry_at = Some(Instant::now() + RETRY);
@@ -494,7 +510,7 @@ impl Worker {
     fn fetch(&mut self, w: &Want) -> Result<Got, String> {
         let (is_set, id) = match w {
             Want::Set { id, .. } => (true, id.as_str()),
-            Want::Portrait { character, .. } => (false, character.as_str()),
+            Want::Portrait { character, .. } | Want::Full { character, .. } | Want::Model { character } => (false, character.as_str()),
             Want::Media { path } => {
                 let Some(dir) = &self.cfg.portraits else { return Ok(Got::Cached) };
                 let local = push::media_file(dir, path).ok_or_else(|| format!("{path}: not a media path"))?;
@@ -511,11 +527,11 @@ impl Worker {
         };
         let local = match w {
             Want::Set { id, quality } => dir.join(id).join(format!("{id}.{quality}.glb")),
-            Want::Portrait { character, mood } => {
-                let ext = Path::new(&file.path).extension().and_then(|e| e.to_str()).unwrap_or("webp");
-                dir.join(character).join(format!("{character}_portrait-{mood}.{ext}"))
+            _ => {
+                let fallback = if matches!(w, Want::Model { .. }) { "glb" } else { "webp" };
+                let ext = Path::new(&file.path).extension().and_then(|e| e.to_str()).unwrap_or(fallback);
+                character_file(dir, w, ext).ok_or("settled above")?
             }
-            Want::Media { .. } => unreachable!("settled above"),
         };
         self.download(&local, &file)
     }

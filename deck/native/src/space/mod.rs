@@ -2,6 +2,8 @@
 //! the deck has – the relay link on a thread (link.rs, the feature `live`) that `Connect::connect` attaches.
 pub use deck_space::space::*;
 
+/// the space's loaders and the cast's looks through the sync
+pub mod figures;
 #[cfg(feature = "live")]
 pub mod link;
 

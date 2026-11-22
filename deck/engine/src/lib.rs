@@ -33,6 +33,7 @@ mod route;
 pub mod sequencer;
 pub mod sound;
 mod tempo;
+pub mod voice;
 mod voices;
 #[cfg(feature = "events")]
 mod walk;

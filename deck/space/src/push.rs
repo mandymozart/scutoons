@@ -11,7 +11,8 @@
 //! - **The request** (`content_url`): one `GET <api>/library/scene-content?sets=…&characters=…` (server
 //!   SceneContent.php); its answer (`Content`, merged with what the deck already knew) is the plan's input.
 //! - **The plan** (`Push::plan`): a set's 3D at the deck's quality (`low` when it names none), a character's every
-//!   portrait (by mood, in order); or why an item can't be had – unknown to the API, no 3D at that quality, or the API
+//!   portrait and full view (by mood, in order) and its 3D model – a character answered with none of them gets the
+//!   default character's (`Content::drawn_as`); or why an item can't be had – unknown to the API, no 3D at that quality, or the API
 //!   wasn't reached and the deck's cache (`Cache`) has no copy.
 //! - **Progress** (`Push::settle`, `next_fetch`): each file settles once – fetched whole (its size and type checked:
 //!   `check`), already in the cache, failed (an HTTP status, a refused file) or offline.
@@ -43,6 +44,10 @@ const LINE_MAX: usize = 40;
 pub enum Want {
     Set { id: String, quality: String },
     Portrait { character: String, mood: String },
+    /// a character's whole figure in a mood (a card's picture)
+    Full { character: String, mood: String },
+    /// a character's 3D model
+    Model { character: String },
     /// a file named by its CDN path (a stage background's image): immutable, so the path is its version
     Media { path: String },
 }
@@ -117,6 +122,22 @@ pub struct CharacterContent {
     /// mood → its portrait
     #[serde(default)]
     pub portraits: BTreeMap<String, File>,
+    /// mood → its whole figure
+    #[serde(default)]
+    pub full: BTreeMap<String, File>,
+    /// how its look stands on a stage (cast.rs `form`); none = the stage decides
+    #[serde(default)]
+    pub form: Option<crate::cast::Form>,
+    /// its look's 3D model, else its persona's
+    #[serde(default)]
+    pub model: Option<File>,
+}
+
+impl CharacterContent {
+    /// it has something to draw it with: a picture or a model
+    pub fn has_art(&self) -> bool {
+        !self.portraits.is_empty() || !self.full.is_empty() || self.model.is_some()
+    }
 }
 
 /// a file on the CDN (immutable: a changed file gets a new path, so the path is the version)
@@ -166,8 +187,8 @@ impl Content {
         self.sets.get(set).map(|s| SetMedia { model: s.model.get(quality), video: s.video.get(quality), still: s.still.get(quality) })
     }
 
-    /// What the API named for `want`: its file; None – not answered (the cache's copy counts), or a mood without a
-    /// sprite (the head shows its nearest); or why it can't be had.
+    /// What the API named for `want`: its file (a character drawn as the default character: the default's); None – not
+    /// answered (the cache's copy counts), or a mood without a sprite (the head shows its nearest); or why it can't be had.
     pub fn file(&self, want: &Want) -> Result<Option<&File>, String> {
         match want {
             Want::Set { id, quality } => match self.sets.get(id) {
@@ -175,13 +196,56 @@ impl Content {
                 None if self.missing.sets.contains(id) => Err(format!("set {id} is unknown to the API")),
                 None => Ok(None),
             },
-            Want::Portrait { character, mood } => match self.characters.get(character) {
-                Some(c) => Ok(c.portraits.get(mood)),
-                None if self.missing.characters.contains(character) => Err(format!("character {character} is unknown to the API")),
-                None => Ok(None),
-            },
+            Want::Portrait { character, mood } => self.character_file(character, |a| a.portraits.get(mood)),
+            Want::Full { character, mood } => self.character_file(character, |a| a.full.get(mood)),
+            Want::Model { character } => self.character_file(character, |a| a.model.as_ref()),
             Want::Media { .. } => Ok(None),
         }
+    }
+
+    fn character_file<'a>(&'a self, character: &str, pick: impl Fn(&'a CharacterContent) -> Option<&'a File>) -> Result<Option<&'a File>, String> {
+        match self.characters.get(character) {
+            Some(_) => Ok(self.art(character).and_then(pick)),
+            None if self.missing.characters.iter().any(|c| c == character) => Err(format!("character {character} is unknown to the API")),
+            None => Ok(None),
+        }
+    }
+
+    /// The character whose pictures and model draw `character`: itself, or – answered with neither – the default
+    /// character (cast.rs `DEFAULT_CHARACTER`). Decided here, not in cast.rs: only scene-content's answer knows what art a
+    /// member has. One unknown to the API stays itself (its push item says why).
+    pub fn drawn_as<'a>(&self, character: &'a str) -> &'a str {
+        match self.characters.get(character) {
+            Some(c) if !c.has_art() && character != crate::cast::DEFAULT_CHARACTER => crate::cast::DEFAULT_CHARACTER,
+            _ => character,
+        }
+    }
+
+    /// what draws `character` (`drawn_as`), as answered; none = not answered yet
+    pub fn art(&self, character: &str) -> Option<&CharacterContent> {
+        self.characters.get(self.drawn_as(character))
+    }
+
+    /// The character whose 3D model draws `character` (`drawn_as`), when the answer names a model; one drawn as the
+    /// default character before the default was answered counts on the default's (it has one, in 2D and 3D) – a fetch
+    /// that fails leaves the member its being.
+    pub fn model_of<'a>(&self, character: &'a str) -> Option<&'a str> {
+        let by = self.drawn_as(character);
+        match self.characters.get(by) {
+            Some(a) => a.model.as_ref().map(|_| by),
+            None => (by == crate::cast::DEFAULT_CHARACTER && by != character).then_some(by),
+        }
+    }
+
+    /// the form `character`'s own look takes on a stage (cast.rs `form`'s `look`) – never the default character's
+    pub fn look_form(&self, character: &str) -> Option<crate::cast::Form> {
+        self.characters.get(character).and_then(|c| c.form)
+    }
+
+    /// a character answered without art is drawn as the default character, which the API has not answered yet
+    pub fn wants_default(&self) -> bool {
+        let d = crate::cast::DEFAULT_CHARACTER;
+        !self.characters.contains_key(d) && !self.missing.characters.iter().any(|c| c == d) && self.characters.values().any(|c| !c.has_art())
     }
 }
 
@@ -379,7 +443,13 @@ impl Push {
             let name = format!("character:{c}");
             let face = |mood: &str| Want::Portrait { character: c.clone(), mood: mood.to_string() };
             items.push(match (content.characters.get(c), content.file(&face(""))) {
-                (Some(cc), _) => item(name, cc.portraits.iter().map(|(mood, f)| slot(face(mood), Some(f))).collect()),
+                (Some(_), _) => {
+                    let art = content.art(c);
+                    let faces = art.into_iter().flat_map(|a| a.portraits.iter().map(|(mood, f)| slot(face(mood), Some(f))));
+                    let full = art.into_iter().flat_map(|a| a.full.iter().map(|(mood, f)| slot(Want::Full { character: c.clone(), mood: mood.clone() }, Some(f))));
+                    let model = art.and_then(|a| a.model.as_ref()).map(|f| slot(Want::Model { character: c.clone() }, Some(f)));
+                    item(name, faces.chain(full).chain(model).collect())
+                }
                 (None, Err(e)) => why(name, e),
                 (None, Ok(_)) => match cache.moods(c) {
                     moods if moods.is_empty() => why(name, unreached.clone()),
@@ -546,12 +616,14 @@ pub fn cdn_url(cdn: &str, path: &str) -> String {
 }
 
 /// what a picture's loader waits for in a deck's sync: a stage's media file (a still or a video) by its path, a head's
-/// portrait; a card's other views are not synced
+/// portrait, a card's full view; an item's picture is not synced
 pub fn want_of(p: &crate::cast::Picture) -> Option<Want> {
-    if p.kind == crate::cast::MEDIA {
-        Some(Want::Media { path: p.id.clone() })
-    } else {
-        (p.view == crate::cast::PORTRAIT_VIEW).then(|| Want::Portrait { character: p.id.clone(), mood: p.mood.clone() })
+    let (character, mood) = (p.id.clone(), p.mood.clone());
+    match p.view {
+        _ if p.kind == crate::cast::MEDIA => Some(Want::Media { path: character }),
+        crate::cast::PORTRAIT_VIEW => Some(Want::Portrait { character, mood }),
+        crate::cast::CARD_VIEW => Some(Want::Full { character, mood }),
+        _ => None,
     }
 }
 
@@ -1021,7 +1093,51 @@ mod tests {
         use crate::cast::{Picture, CARD_VIEW};
         assert_eq!(want_of(&Picture::media("live/x/loop.mov")), Some(Want::Media { path: "live/x/loop.mov".into() }));
         assert_eq!(want_of(&Picture::character("catpope", crate::cast::PORTRAIT_VIEW, "happy")), Some(Want::Portrait { character: "catpope".into(), mood: "happy".into() }));
-        assert_eq!(want_of(&Picture::character("catpope", CARD_VIEW, "happy")), None, "a card's view is not synced");
+        assert_eq!(want_of(&Picture::character("catpope", CARD_VIEW, "happy")), Some(Want::Full { character: "catpope".into(), mood: "happy".into() }));
+        assert_eq!(want_of(&Picture::item("incense_burner")), None, "an item's picture is not synced");
+    }
+
+    /// server SceneContentTest writes this answer: a look's form and model beside its views, a member without art
+    fn characters() -> Content {
+        Content::parse(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/scene-content-characters.json"))).unwrap()
+    }
+
+    #[test]
+    fn a_character_keeps_its_full_views_form_and_model() {
+        use crate::cast::Form;
+        let c = characters();
+        let pope = &c.characters["catpope"];
+        assert_eq!((pope.full["neutral"].path.as_str(), pope.form, pope.model.as_ref().map(|f| f.path.as_str())), ("characters/catpope/catpope_full-neutral.webp", Some(Form::Card), Some("characters/catpope/catpope-robe.glb")));
+        assert_eq!((c.look_form("catpope"), c.look_form("toptoy"), c.look_form("ghost")), (Some(Form::Card), None, None));
+        let p = Push::plan(&SceneSync { sets: None, ..push(&["catpope"]) }, &[], "", &c, &Api::Answered, &NoCache);
+        let full = Want::Full { character: "catpope".into(), mood: "neutral".into() };
+        assert_eq!(p.wants().cloned().collect::<Vec<_>>(), [Want::Portrait { character: "catpope".into(), mood: "neutral".into() }, full, Want::Model { character: "catpope".into() }], "portraits, full views, the model");
+    }
+
+    #[test]
+    fn a_member_without_art_is_drawn_as_the_default_character() {
+        let mut c = characters();
+        assert_eq!((c.drawn_as("boy"), c.drawn_as("catpope"), c.drawn_as("ghost")), (crate::cast::DEFAULT_CHARACTER, "catpope", "ghost"));
+        let full = |who: &str| Want::Full { character: who.into(), mood: "neutral".into() };
+        assert_eq!(c.file(&full("boy")).unwrap().map(|f| f.path.as_str()), Some("characters/mellowmantis/mellowmantis_full-neutral.webp"), "its own name, the default's file");
+        assert_eq!(c.file(&Want::Model { character: "boy".into() }).unwrap().map(|f| f.path.as_str()), Some("characters/mellowmantis/mellowmantis.glb"));
+        let p = Push::plan(&SceneSync { sets: None, ..push(&["boy"]) }, &[], "", &c, &Api::Answered, &NoCache);
+        assert_eq!(p.wants().count(), 3, "the default's portrait, full view and model, under its own name");
+        assert!(p.wants().all(|w| matches!(w, Want::Portrait { character, .. } | Want::Full { character, .. } | Want::Model { character } if character == "boy")));
+        assert!(!c.wants_default());
+        c.characters.remove(crate::cast::DEFAULT_CHARACTER);
+        assert!(c.wants_default(), "the default is asked for once a member needs it");
+        assert_eq!(c.file(&full("boy")), Ok(None), "not answered yet");
+    }
+
+    #[test]
+    fn a_member_s_model_is_its_own_else_the_default_character_s() {
+        let mut c = characters();
+        assert_eq!((c.model_of("catpope"), c.model_of("boy"), c.model_of("ghost")), (Some("catpope"), Some(crate::cast::DEFAULT_CHARACTER), None));
+        c.characters.remove(crate::cast::DEFAULT_CHARACTER);
+        assert_eq!(c.model_of("boy"), Some(crate::cast::DEFAULT_CHARACTER), "the default not answered yet: its model is fetched by its own entry");
+        c.characters.get_mut("catpope").unwrap().model = None;
+        assert_eq!(c.model_of("catpope"), None, "pictures only: its being");
     }
 
     #[test]

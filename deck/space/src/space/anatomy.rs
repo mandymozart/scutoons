@@ -286,7 +286,7 @@ impl Anatomy {
 
 #[cfg(test)]
 #[path = "../../tests/fixtures/bones.rs"]
-mod bones;
+pub(crate) mod bones;
 
 #[cfg(test)]
 mod tests {
