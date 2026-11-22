@@ -1,0 +1,65 @@
+{
+    "sets": {},
+    "locations": {},
+    "characters": {
+        "crow-wolf": {
+            "character": "crow-wolf",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/crow-wolf/crow-wolf_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {},
+            "form": null,
+            "model": {
+                "path": "characters/crow-wolf/crow-wolf-regular.glb",
+                "size": null
+            }
+        },
+        "crow-lizard": {
+            "character": "crow-lizard",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/crow-lizard/crow-lizard_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {},
+            "form": null,
+            "model": {
+                "path": "characters/crow-lizard/crow-lizard.glb",
+                "size": null
+            }
+        },
+        "crow-fox": {
+            "character": "crow-fox",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/crow-fox/crow-fox_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {},
+            "form": null,
+            "model": {
+                "path": "characters/crow-fox/crow-fox-regular.glb",
+                "size": null
+            }
+        }
+    },
+    "items": {},
+    "instruments": {},
+    "presets": {},
+    "missing": {
+        "sets": [],
+        "locations": [],
+        "characters": []
+    }
+}

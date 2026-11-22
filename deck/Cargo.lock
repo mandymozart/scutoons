@@ -1555,7 +1555,9 @@ name = "deck-space"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "analog-module",
  "anyhow",
+ "arp-module",
  "bytemuck",
  "deck-catalog",
  "deck-core",
@@ -1567,6 +1569,8 @@ dependencies = [
  "deck-module",
  "deck-outlet",
  "deck-ui",
+ "delay-module",
+ "drumseq-module",
  "egui-wgpu",
  "font8x8",
  "glam",
@@ -1575,6 +1579,7 @@ dependencies = [
  "protocol",
  "qrcodegen",
  "resvg",
+ "reverb-module",
  "rqrr",
  "schemars",
  "serde",
