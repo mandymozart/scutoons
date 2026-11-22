@@ -106,6 +106,10 @@ final class ModulesTest extends TestCase
         $d = self::compiled()['descriptor'];
         $d['ports'][0]['type'] = 'midi';
         $this->refused(['descriptor' => $d], 'descriptor.ports[0]');
+        // #812: a shape table (cloud's and bamboo's shapes) is a port type of its own
+        $d = self::compiled()['descriptor'];
+        $d['ports'][0] = ['name' => 'shapes', 'dir' => 'out', 'type' => 'instances', 'capacity' => 96];
+        self::assertSame([], $this->problems(['descriptor' => $d]));
         $d = self::compiled()['descriptor'];
         $d['params'][0]['min'] = 'low';
         $this->refused(['descriptor' => $d], 'descriptor.params[0]');
