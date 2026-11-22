@@ -4,7 +4,7 @@
 # echoes join the mix on its second input – the scene's own spores, as crows-rave sends its crows.
 # Written by deck-native's tests/bamboo_forest.rs `the_sandbox_is_the_rig_with_a_delay_bus` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test bamboo_forest
-# From deck/ (modules: bamboo, analog, delay in DECK_MODULES):
+# From deck/ (modules: bamboo, sampler, delay in DECK_MODULES):
 #   cargo run -p deck-native --release --features modules -- --dev --scene bamboo-delay --windowed
 
 [stage]
@@ -23,46 +23,13 @@ wind = 0.7
 
 [[node]]
 id = "perc_knock"
-kind = "module:analog"
-a1_level = 0.9
-a1_pan = -0.1
-a1_vel = 0.7
-a2_level = 0.6
-a2_pan = 0.1
-a2_vel = 0.7
-ae1_a = 0.001
-ae1_d = 0.22
-ae1_r = 0.12
-ae1_s = 0.0
-ae2_a = 0.001
-ae2_d = 0.05
-ae2_r = 0.04
-ae2_s = 0.0
-f1_cutoff = 2500.0
-f1_env = 0.0
-f1_key = 0.5
-f1_mode = 0.0
-f1_res = 0.1
-f2_cutoff = 1800.0
-f2_env = 0.3
-f2_key = 0.8
-f2_mode = 1.0
-f2_res = 0.5
-fe2_a = 0.001
-fe2_d = 0.03
-fe2_p2 = 7.0
-fe2_r = 0.03
-fe2_s = 0.0
-noise_level = 0.25
-noise_route = 1.0
-o1_level = 0.9
-o1_route = 0.0
-o1_wave = 3.0
-o2_level = 0.35
-o2_route = 1.0
-o2_semi = 19.0
-o2_wave = 2.0
-volume = 0.8
+kind = "module:sampler"
+gain = -2.0
+root = 60.0
+velocity = 70.0
+
+[node.assets]
+sample = "scutoons/sounds/bamboo-knock.wav"
 
 [[node]]
 id = "mix1"
@@ -164,7 +131,7 @@ breath = 0.0
 wobble = 0.0
 hose = 1.0
 bubbles = 1.0
-expose = ["bamboo_forest.wind", "bamboo_forest.gust", "bamboo_forest.thin", "bamboo_forest.thick", "bamboo_forest.direction", "bamboo_forest.root", "bamboo_forest.scale", "bamboo_forest.debounce", "perc_knock.volume", "perc_knock.ae1_d", "perc_knock.f2_cutoff"]
+expose = ["bamboo_forest.wind", "bamboo_forest.gust", "bamboo_forest.thin", "bamboo_forest.thick", "bamboo_forest.direction", "bamboo_forest.root", "bamboo_forest.scale", "bamboo_forest.debounce", "perc_knock.gain", "perc_knock.length", "perc_knock.tune"]
 character = ""
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 feel = []

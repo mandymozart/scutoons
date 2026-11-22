@@ -1,9 +1,10 @@
-//! The storm cloud (#780): the module rig `cloud-storm` through the whole engine with the real modules (cloud, analog,
-//! mixer as wasm in wasmtime). Held, the cloud's repeater plays a thunder and a kick on its note value's grid of the tempo
+//! The storm cloud (#780): the module rig `cloud-storm` through the whole engine with the real modules (cloud, sampler,
+//! mixer as wasm in wasmtime; the samplers' sounds the stand-ins, from a cache through the deck's loader, #804). Held, the cloud's repeater plays a thunder and a kick on its note value's grid of the tempo
 //! clock and the kick's onsets are heard on those frames; free, the repeats follow the rate; let go, it is silent; a run
 //! is the same twice. The headless host has no module runtime (#290), so this is the rig's scenario. `CLOUD_OUT_DIR=<dir>`
 //! also writes 10 s of it played by hand (held, the rate pushed up, synced and then free, let go) as `<dir>/cloud-storm.wav`.
-#![cfg(all(feature = "modules", feature = "events"))]
+#![cfg(all(feature = "modules", feature = "events", feature = "chapter"))]
+mod stand_ins;
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
 use deck_events::{Event, Time};
 use deck_module_host::{Mode, Setup};
@@ -20,14 +21,14 @@ use std::sync::{Arc, OnceLock};
 const RATE: f64 = 48_000.0;
 const BLOCK: usize = 512;
 
-/// cloud, analog and mixer as release wasm, built once, loaded into the library
+/// cloud, sampler and mixer as release wasm, built once, loaded into the library
 fn load_modules() {
     static LOADED: OnceLock<()> = OnceLock::new();
     LOADED.get_or_init(|| {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
         let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("wasm-modules");
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let crates = ["cloud", "analog", "mixer"];
+        let crates = ["cloud", "sampler", "mixer"];
         let mut args: Vec<String> = ["build", "--release", "--target", "wasm32-unknown-unknown"].map(String::from).to_vec();
         for c in crates {
             args.extend(["-p".into(), format!("{c}-module")]);
@@ -71,6 +72,7 @@ fn run(seconds: f64, mut play: impl FnMut(f64, &mut Controls, &Graph)) -> Run {
     let g = Graph::build(&s).unwrap();
     let mut seams = Seams::with_deck(DeckConfig::device(2));
     seams.modules = Some(Arc::new(Unbudgeted));
+    seams.assets = Some(stand_ins::loader("cloud-storm"));
     let (mut e, mut h) = Engine::build_seams(&g, RATE as f32, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
     let mut boxes = h.events.take_outbox_slots();
     let (m, _) = h.tempo.map().expect("a tempo");
@@ -109,6 +111,11 @@ fn the_rig_is_a_cloud_with_two_voices() {
     }
     for (from, to) in [("storm_cloud.thunder", "storm_thunder.notes"), ("storm_cloud.kick", "storm_kick.notes")] {
         assert!(s.links.iter().any(|l| l.from == from && l.to == to), "{from} → {to}");
+    }
+    for (id, sound) in [("storm_thunder", "scutoons/sounds/cloud-thunder.wav"), ("storm_kick", "scutoons/sounds/cloud-kick.wav")] {
+        let n = s.nodes.iter().find(|n| n.id == id).unwrap();
+        assert_eq!(n.kind, "module:sampler", "{id}");
+        assert_eq!(n.params["assets"]["sample"].as_str(), Some(sound), "{id} plays its sound");
     }
     let b: deck_space::rig::Bundle = toml::from_str(deck_native::rig::MODULE_RIGS[2].1).unwrap();
     assert_eq!(b.rig.subject, "item.cloud");
@@ -200,6 +207,12 @@ fn a_run_is_the_same_twice() {
     assert_eq!(a.out, b.out, "two decks, one storm: the same samples");
     let peak = a.out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
     assert!(peak > 0.05 && peak < 1.0, "it sounds, below full scale: {peak}");
+}
+
+/// `SAMPLER_OUT_DIR=<dir>`: the samplers' stand-in sounds (both rigs') as files, for upload under their CDN paths
+#[test]
+fn write_the_stand_ins_when_asked() {
+    stand_ins::write_when_asked();
 }
 
 /// `CLOUD_OUT_DIR=<dir>`: 10 s played by hand as `<dir>/cloud-storm.wav` (48 kHz, stereo, 16-bit): held at 0.5 s on

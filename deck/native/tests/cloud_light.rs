@@ -40,7 +40,7 @@ const HEADER: &str = "\
 # [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
 # Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
 #   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
-# From deck/ (modules: cloud, analog, mixer in DECK_MODULES):
+# From deck/ (modules: cloud, sampler, mixer in DECK_MODULES):
 #   cargo run -p deck-native --release --features modules -- --dev --scene cloud-light --windowed
 
 ";
@@ -80,14 +80,14 @@ trigger = "storm_cloud.gate"
 duration = 30
 "#;
 
-/// cloud, analog and mixer as release wasm, built once, loaded into the library
+/// cloud, sampler and mixer as release wasm, built once, loaded into the library
 fn load_modules() {
     static LOADED: OnceLock<()> = OnceLock::new();
     LOADED.get_or_init(|| {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_owned();
         let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).parent().unwrap().join("wasm-modules");
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let crates = ["cloud", "analog", "mixer"];
+        let crates = ["cloud", "sampler", "mixer"];
         let mut args: Vec<String> = ["build", "--release", "--target", "wasm32-unknown-unknown"].map(String::from).to_vec();
         for c in crates {
             args.extend(["-p".into(), format!("{c}-module")]);

@@ -4771,6 +4771,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sampler-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4859,6 +4866,7 @@ dependencies = [
  "osc-module",
  "proc-macro2",
  "reverb-module",
+ "sampler-module",
  "serde",
  "serde_json",
  "sha2 0.10.9",

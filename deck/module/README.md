@@ -157,8 +157,8 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 
 ## The small audio modules
 
-Twelve factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb` or a recorded room through `convolver`, a drum rig played by `drumseq`. A level in dB is
+Thirteen factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb` or a recorded room through `convolver`, a drum rig played by `drumseq`, a recorded sound played by notes through `sampler`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -175,6 +175,7 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `convolver` | `in` (2) → `out` (2), asset `ir` (pcm, mono or stereo, ≤ 4 s; none = a built-in room), latency 128 | `mix` %, `gain` dB, `predelay` ms, `length` s (cuts the response) | room |
 | `arp` | `notes` (event, held: on at key down, off at key up) → `out` (event, a note a step on the beat grid) | `mode` up / down / updown / played, `rate` 1/1 … 1/32 (t = triplet; 1/8), `gate` %, `octaves` 1–4, `transpose` st, `latch` | crow |
 | `drumseq` | → `lane1` … `lane8` (event), `step` (control) | per lane and step `lNsM` off / on / accent; per lane `noteN` (MIDI key), `lengthN` % of a step; `steps`, `rate` steps/beat, `swing` %, `accent` %, `normal` % (velocities) | skank |
+| `sampler` | `notes` (event; a bend per note) → `out` (2), asset `sample` (pcm, mono or stereo, ≤ 16 MiB; none = silent) | `mode` oneshot / gate / loop, `pitch` note / fixed, `root` (MIDI: the sound's own pitch), `tune` st, `gain` dB, `velocity` %, `start` % / `length` % (the part played, a loop's), `release` s (log), `voices` 1–8 (past them the oldest is taken); at its own pitch and rate the sound's samples as they are, between them a cubic | pad |
 
 Two factory modules draw (`deck/modules/cloud`, `deck/modules/bamboo`, control modules, see "Drawing"):
 

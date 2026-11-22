@@ -1,4 +1,4 @@
-//! Native ≡ wasm for the small factory modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq, convolver, cloud, bamboo): each built for
+//! Native ≡ wasm for the small factory modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, drumseq, convolver, cloud, bamboo; the sampler, silent without a sound, in its own test with one): each built for
 //! `wasm32-unknown-unknown` and run by the module host writes, bit for bit, what the same code writes natively through
 //! the SDK's `Rig` – every audio output, control output, event and instance table. One script for all, read off the module's shape:
 //! every parameter turned through its range, noise on two channels of every audio input, values on the control
@@ -22,7 +22,7 @@ fn wasm(name: &str) -> Vec<u8> {
     BUILD.get_or_init(|| {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut args = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
-        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "arp-module", "drumseq-module", "convolver-module", "cloud-module", "bamboo-module"] {
+        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "arp-module", "drumseq-module", "convolver-module", "cloud-module", "bamboo-module", "sampler-module"] {
             args.extend(["-p", p]);
         }
         let out = std::process::Command::new(cargo).current_dir(&root).args(args).arg("--target-dir").arg(&dir).output().expect("running cargo");
@@ -290,6 +290,51 @@ fn the_convolver_with_an_asset_writes_what_the_native_code_writes() {
             rig.set_audio_in(0, c, &x);
             inst.audio_in_mut(0, c)[..n].copy_from_slice(&x);
         }
+        rig.run(frame as f64, n as u32);
+        assert!(inst.run(frame as f64, n as u32), "call {k}: {:?}", inst.silenced());
+        frame += n;
+        let (a, b) = (rig.audio_out(0), inst.audio_out(0));
+        for c in 0..2 {
+            let (a, b) = (a.chan(c), &b.chan(c)[..n]);
+            assert!(a.iter().map(|v| v.to_bits()).eq(b.iter().map(|v| v.to_bits())), "call {k}, side {c}: native ≢ wasm");
+            heard = a.iter().fold(heard, |m, v| m.max(v.abs()));
+        }
+    }
+    assert!(heard > 0.01, "the run was not silent");
+}
+
+/// the sampler with a sound in its slot (stereo, 44.1 kHz: read at 48 kHz between its frames), played by notes in every
+/// mode, writes the same bits native and in wasm
+#[test]
+fn the_sampler_with_an_asset_writes_what_the_native_code_writes() {
+    use deck_module::AssetKind;
+    use sampler_module::Sampler;
+    let mut w = White::new(31);
+    let sound: Vec<Vec<f32>> = (0..2).map(|_| (0..30_000).map(|i| w.sample() * (1.0 - i as f32 / 30_000.0)).collect()).collect();
+    let bytes: Vec<u8> = sound.iter().flat_map(|c| c.iter().flat_map(|v| v.to_le_bytes())).collect();
+    let mut rig = Rig::<Sampler>::with(RATE, 3, |r| r.load_asset(Sampler::SAMPLE, AssetKind::Pcm, &bytes, 2, 30_000, 44_100.0));
+    let loaded = Arc::new(Loaded::<Wasmtime>::load(&WasmtimeEngine::new(None), &wasm("sampler")).unwrap());
+    let setup = Setup::new(RATE, 3).unbudgeted().asset(deck_module_host::AssetData::pcm(0, &[&sound[0], &sound[1]], 44_100.0));
+    let mut inst = Instance::new(&loaded, setup).unwrap();
+    rig.set_channels(false, 0, 2);
+    inst.set_channels(false, 0, 2);
+    let (mut frame, mut heard) = (0usize, 0.0f32);
+    for k in 0..900 {
+        let n = [128, 64, 100, 37][k % 4];
+        // mode, then tune: every mode, pitched up and down
+        for (p, v) in [(0, (k / 300) as f32), (3, (k / 75 % 4) as f32 * 5.0 - 7.0)] {
+            rig.set_param(p, v);
+            inst.set_param(p, v);
+        }
+        let mut events = vec![];
+        if k % 9 == 0 {
+            events.push(Ev::note_on((k % 30) as u32, k as u32, f32::NAN, 50.0 + (k % 19) as f32, 0.4 + (k % 5) as f32 * 0.1));
+        }
+        if k % 9 == 5 {
+            events.push(Ev::note_off(7, (k - 5) as u32));
+        }
+        rig.set_events_in(0, &events);
+        inst.set_events_in(0, &events);
         rig.run(frame as f64, n as u32);
         assert!(inst.run(frame as f64, n as u32), "call {k}: {:?}", inst.silenced());
         frame += n;
