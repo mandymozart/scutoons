@@ -19,13 +19,19 @@
  * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
  * a 403 review_required puts the line into the submit for review instead.
  *
+ * The ticked files go to the server in one request (`partial`): it publishes them in dependency order (modules →
+ * instruments → presets → rigs → … → the content), each unit on its own, so one refusal blocks only what depends on it;
+ * the answer names what went live and every refusal with its reason – the Publishes lines of the Log. A factory module
+ * (`read_only` in the index) is never a line: it is built in the catalog.
+ *
  * Deck scenes (`scene:<id>`) are never in the checklist (#493): a scene is published on its own page, where the core's
  * check answers with its problems (`POST /api/scenes/<id>/publish`); `/api/entities/publish` refuses one and with it the
  * whole transaction. `pendingFiles` still names them (the dashboard's "Not live yet" leads to the scene's page).
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
-import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
-import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
+import { catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
+import { contentApi, contentIndex, publishPartial, withContent } from '$lib/api.ts';
+import { publishNotices, type PublishNotice, type PublishRefusal } from '$lib/editor/publish-report.ts';
 import { parseEntityKey } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
 import { inPublishBatch } from '$lib/editor/scenes.ts';
@@ -48,7 +54,7 @@ const alongWith = (scope: PublishScope): scope is Extract<PublishScope, { kind: 
 	scope.kind === 'toon' || scope.kind === 'season' || scope.kind === 'chapter';
 
 /** a stored file with a draft newer than what readers see – a newer version that equals the published one is none (owner D6) */
-const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > e.published) && !e.same_as_published;
+const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > e.published) && !e.same_as_published && !e.read_only;
 
 /** is a key below the level (or the level's own file)? */
 export function inScope(key: string, scope: PublishScope): boolean {
@@ -72,7 +78,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
  * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
  * refer to each other (an item names its edition / album, a product its item, a recipe its items)
  */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'season-script', 'chapter-script', 'kanon', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'edition', 'album', 'item', 'product', 'recipe'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'season-script', 'chapter-script', 'kanon', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'colorations', 'show', 'module', 'instrument', 'preset', 'rig', 'device-preset', 'rig-preset', 'edition', 'album', 'item', 'product', 'recipe', 'home-scene', 'airlift-carrier'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -147,13 +153,22 @@ async function linesOf(files: ContentIndexEntity[]): Promise<Line[]> {
 	});
 }
 
-/**
- * The checklist for a level, then publish / submit the ticked lines. Returns the message for the page (or null when
- * cancelled) and the keys that went live (whole or in part).
- */
-export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[] } | null> {
+export interface PublishTreeResult {
+	/** the first Log line's text */
+	message: string;
+	/** the keys that went live (whole or in part) */
+	published: string[];
+	refused: PublishRefusal[];
+	/** the Publishes lines: what went live by name, one per refusal with its reason */
+	notices: PublishNotice[];
+}
+
+const nothing = (): PublishTreeResult => ({ message: m['creator.nothing_to_publish'](), published: [], refused: [], notices: [{ type: 'info', text: m['creator.nothing_to_publish']() }] });
+
+/** The checklist for a level, then publish / submit the ticked lines (null when cancelled) */
+export async function publishTree(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
 	const files = (await pendingFiles(scope)).filter((f) => inPublishBatch(f.key));
-	if (!files.length) return { message: m['creator.nothing_to_publish'](), published: [] };
+	if (!files.length) return nothing();
 	const lines = await linesOf(files);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());
 	const item = (l: Line) => ({ id: l.id, label: lineLabel(l), detail: lineDetail(l) });
@@ -174,29 +189,22 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 	if (!picked?.length) return null;
 	const chosen = new Set(picked);
 	const done: string[] = [];
+	const refused: PublishRefusal[] = [];
 	const forReview: { key: string; version: number }[] = [];
-	// the ticked files go live together, in one transaction (a route and the new place it runs through never half);
 	// the version the list showed – a newer save in between is not published unseen
-	let live: { key: string; version: number }[] = [];
+	const live: { key: string; version: number }[] = [];
 	for (const file of files) {
 		if (!chosen.has(file.key)) continue;
 		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version: file.latest });
 		else live.push({ key: file.key, version: file.latest });
 	}
-	// the catalog entries too (publishing writes the catalog table): the server's rules decide (a catalog entry's toon,
-	// a physical change – Reviews) and name the keys that need a review – nothing went out; those are submitted, the
-	// rest goes live together
-	while (live.length) {
-		try {
-			await publishMany(live);
-			done.push(...live.map((w) => w.key));
-			break;
-		} catch (e) {
-			const keys: unknown = e instanceof ApiError && e.code === 'review_required' ? e.body?.keys : null;
-			if (!Array.isArray(keys) || !keys.length) throw e;
-			forReview.push(...live.filter((w) => keys.includes(w.key)));
-			live = live.filter((w) => !keys.includes(w.key));
-		}
+	// the server's rules decide the rest (a catalog entry's toon, a physical change – Reviews): it names the keys that
+	// need a review (submitted below) and the refusals, and publishes what it can
+	if (live.length) {
+		const result = await publishPartial(live);
+		done.push(...result.published.map((p) => p.key));
+		refused.push(...result.refused);
+		forReview.push(...live.filter((w) => result.review.includes(w.key)));
 	}
 	let submitted = '';
 	if (forReview.length) {
@@ -207,6 +215,10 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 			submitted = m['creator.submitted']({ reviewers: result.reviewers.join(', ') });
 		}
 	}
-	const message = [done.length ? m['creator.publish_tree_done']({ count: done.length }) : '', submitted].filter(Boolean).join(' ');
-	return { message: message || m['creator.nothing_to_publish'](), published: done };
+	const notices = publishNotices(done, refused, label, {
+		done: (count, names) => m['creator.publish_tree_done_named']({ count, names }),
+		refused: (name, reason) => m['creator.publish_tree_refused']({ name, reason }),
+		nothing: () => m['creator.nothing_to_publish']()
+	}, submitted);
+	return { message: notices[0]?.text ?? '', published: done, refused, notices };
 }

@@ -149,6 +149,56 @@ final class CatalogDocsTest extends TestCase
         self::assertSame([422, ['rig character.boy: the policy module "boy_rig" is not in the catalog']], [$early->getStatusCode(), self::json($early)['problems'] ?? null], 'the publish asks again');
     }
 
+    /** #803: a bulk publish in dependency order, past a refusal; what depends on a refusal is skipped with the reason */
+    public function testAPartialPublishGoesInDependencyOrderPastARefusal(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $this->core->answer = function (array $r): array {
+            $parent = $r['document']['parent'] ?? null;
+            if ($r['kind'] === 'presets' && is_string($parent) && !in_array($parent, array_column($r['presets'], 'id'), true)) return ["preset {$r['id']}: unknown preset \"$parent\" (its parent)"];
+            if ($r['kind'] === 'presets' && isset($r['document']['values']['drone.cv'])) return ['instrument drone: drone.cv is not a control input of osc'];
+            return [];
+        };
+        $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]]);
+        $this->put($writer, 'preset:drone.dark.deep', ['id' => 'drone.dark.deep', 'instrument' => 'drone', 'parent' => 'drone.dark', 'values' => ['drone.freq' => 30.0]]);
+        $this->put($writer, 'preset:drone.bad', ['id' => 'drone.bad', 'instrument' => 'drone', 'values' => ['drone.cv' => 1.0]]);
+        $this->put($writer, 'preset:drone.bad.child', ['id' => 'drone.bad.child', 'instrument' => 'drone', 'parent' => 'drone.bad', 'values' => ['drone.freq' => 20.0]]);
+        $this->put($writer, 'rig:character.boy', ['subject' => 'character.boy', 'track' => [['id' => 'pad', 'instrument' => 'drone', 'preset' => 'drone.dark.deep']]]);
+        $this->put($writer, 'module:boy_rig', ['id' => 'boy_rig', 'name' => 'boy_rig', 'files' => ['lib.rs' => '// a draft']]);
+        self::assertSame(200, $this->put($writer, 'rig:character.girl', ['subject' => 'character.girl', 'track' => [], 'policy' => ['module' => 'boy_rig']])->getStatusCode());
+        $this->put($writer, 'item:spoon', self::item('spoon'));
+
+        // sent children first: the server orders them
+        $keys = ['rig:character.girl', 'rig:character.boy', 'preset:drone.bad.child', 'preset:drone.dark.deep', 'item:spoon', 'preset:drone.bad', 'preset:drone.dark', 'module:boy_rig'];
+        $response = $this->request('POST', '/api/entities/publish', $this->bearer($writer), (string) json_encode(['versions' => array_map(fn($k) => ['key' => $k], $keys), 'partial' => true]));
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getBody());
+        $result = self::json($response);
+        self::assertSame(['preset:drone.dark', 'preset:drone.dark.deep', 'rig:character.boy', 'item:spoon'], array_column($result['published'], 'key'));
+        self::assertTrue($this->inCatalog('rigs', 'character.boy'));
+        $refused = array_column($result['refused'], 'reason', 'key');
+        ksort($refused);
+        self::assertSame([
+            'module:boy_rig' => 'not compiled yet – compile it first',
+            'preset:drone.bad' => 'instrument drone: drone.cv is not a control input of osc',
+            'preset:drone.bad.child' => 'needs preset drone.bad, which was refused',
+            'rig:character.girl' => 'needs module boy_rig, which was refused',
+        ], $refused);
+        self::assertFalse($this->inCatalog('presets', 'drone.bad.child'));
+        self::assertSame([], $result['review']);
+    }
+
+    /** #803: a factory module is read-only – the index marks it, so no publish list offers an old draft of it */
+    public function testTheIndexMarksFactoryModulesReadOnly(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $this->get(CatalogStore::class)->save('modules', 'walkabout', (object) ['id' => 'walkabout', 'factory' => true, 'files' => ['lib.rs' => '// factory']], 'test');
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, status, created_at) VALUES ('module:walkabout', 'module', '{\"id\":\"walkabout\"}', 'draft', NOW())");
+        $this->put($writer, 'module:boy_rig', ['id' => 'boy_rig', 'name' => 'boy_rig', 'files' => ['lib.rs' => '// a draft']]);
+        $index = array_column(self::json($this->request('GET', '/api/entities?toon=', $this->bearer($writer)))['entities'], null, 'key');
+        self::assertTrue($index['module:walkabout']['read_only'] ?? false);
+        self::assertArrayNotHasKey('read_only', $index['module:boy_rig']);
+    }
+
     public function testAnAdminWriteBecomesThePublishedVersion(): void
     {
         $admin = $this->get(CatalogAdmin::class);

@@ -145,7 +145,8 @@ export class DocSession {
 			const live = new Set(result.published);
 			for (const doc of [...own, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
 			this.savedCompanions = [];
-			this.notify(result.message, result.published.length ? 'success' : 'info', 'publish');
+			this.clearNotice();
+			for (const n of result.notices) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
 		} catch (e) {
 			this.notify(e instanceof Error ? e.message : String(e), 'error', 'publish');
 		}

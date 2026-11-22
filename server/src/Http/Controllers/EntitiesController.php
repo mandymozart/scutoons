@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Catalog\CatalogDocs;
+use Scutoons\Domain\Catalog\PublishOrder;
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
@@ -30,7 +31,8 @@ use stdClass;
  *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? }   several new
  *                                                draft versions in one transaction (all or none; 409 / 422 name the `key`);
  *                                                `deletes`: never-published place / route / catalog keys (409 published otherwise)
- *   POST /api/entities/publish { versions: [{ key, version? }] }   several documents live at once (one transaction)
+ *   POST /api/entities/publish { versions: [{ key, version? }], partial? }   several documents live at once (one transaction);
+ *                                                `partial: true`: in dependency order, each unit on its own – refusals named
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
  *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
@@ -68,7 +70,11 @@ final class EntitiesController
             if (in_array('scene', $kinds, true)) throw self::sceneRoute();
             return Json::response($response, 200, ['status' => 'success', 'entities' => $this->store->withContent($kinds, ($query['content'] ?? 'draft') !== 'published')]);
         }
-        return Json::response($response, 200, $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null));
+        $index = $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null);
+        // a factory module is read-only and built in the catalog: an old draft of it is never something to publish
+        $factory = array_flip($this->docs->factoryModuleKeys());
+        if ($factory !== []) $index['entities'] = array_map(fn(array $e) => isset($factory[$e['key']]) ? $e + ['read_only' => true] : $e, $index['entities']);
+        return Json::response($response, 200, $index);
     }
 
     /** @param array{key: string} $args */
@@ -187,6 +193,7 @@ final class EntitiesController
         $body = $this->body($request);
         $list = is_array($body->versions ?? null) ? $body->versions : throw new ApiError(400, 'missing_versions', 'versions is required.');
         if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_versions', 'versions must hold 1–500 documents.');
+        if (($body->partial ?? false) === true) return Json::response($response, 200, $this->publishPartial($user, $list));
         $versions = [];
         $review = [];
         $catalog = false;
@@ -219,6 +226,101 @@ final class EntitiesController
             $this->usages->reindexEntity($p['key']);
         }
         return Json::response($response, 200, $result);
+    }
+
+    /**
+     * `partial: true` (the creator's "publish everything"): in dependency order (PublishOrder), each unit on its own –
+     * what can go live goes live; a refusal, a review or a skip is named with its reason, and what depends on it is skipped
+     * → { status, published: [{ key, version }], refused: [{ key, code, reason }], review: [key] }
+     * @param array<string, mixed> $user
+     * @param array<mixed> $list
+     * @return array<string, mixed>
+     */
+    private function publishPartial(array $user, array $list): array
+    {
+        $versions = [];
+        $refused = [];
+        $review = [];
+        /** @var array<string, string> $failed key → what happened to it, for what depends on it */
+        $failed = [];
+        $refuse = function (string $key, string $code, string $reason, string $why) use (&$refused, &$failed): void {
+            $refused[] = ['key' => $key, 'code' => $code, 'reason' => $reason];
+            $failed[$key] = $why;
+        };
+        foreach ($list as $v) {
+            $raw = $v instanceof stdClass ? ($v->key ?? null) : null;
+            $key = EntityKey::parse($raw);
+            $version = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
+            if ($key->kind === 'scene') {
+                $refuse((string) $key, 'scene_route', self::sceneRoute()->getMessage(), 'was refused');
+                continue;
+            }
+            try {
+                $this->reviews->guardPublish($user, $key, $version);
+            } catch (ApiError $e) {
+                if ($e->errorCode !== 'review_required') {
+                    $refuse((string) $key, $e->errorCode, $e->getMessage(), 'was refused');
+                    continue;
+                }
+                $review[] = (string) $key;
+                $failed[(string) $key] = 'waits for a review';
+                continue;
+            }
+            $versions[(string) $key] = $version;
+        }
+        $rows = [];
+        $refs = [];
+        foreach ($versions as $key => $version) {
+            $row = $version !== null ? $this->store->byId($version) : $this->store->latest($key);
+            if (!$row || $row['entity_key'] !== $key) {
+                $refuse($key, 'not_found', "Unknown version of $key.", 'was refused');
+                continue;
+            }
+            $rows[$key] = $row;
+            $parsed = EntityKey::parse($key);
+            if ($parsed->isCatalog()) $refs[$key] = PublishOrder::refs($parsed, json_decode((string) $row['json'], true));
+        }
+        $by = (string) ($user['email'] ?? $user['id'] ?? 'creator');
+        $published = [];
+        foreach (PublishOrder::units(array_keys($rows), $refs) as $unit) {
+            $blocked = null;
+            foreach ($unit as $key) {
+                foreach ($refs[$key] ?? [] as $ref) {
+                    if (isset($failed[$ref])) $blocked ??= 'needs ' . PublishOrder::label($ref) . ", which {$failed[$ref]}";
+                }
+            }
+            if ($blocked !== null) {
+                foreach ($unit as $key) $refuse($key, 'dependency', $blocked, 'was skipped');
+                continue;
+            }
+            foreach ($unit as $key) {
+                $blocker = $this->docs->publishBlocker($rows[$key]);
+                if ($blocker !== null) $blocked ??= [$key, $blocker];
+            }
+            if ($blocked !== null) {
+                [$which, $reason] = $blocked;
+                foreach ($unit as $key) $refuse($key, $key === $which ? 'not_publishable' : 'dependency', $key === $which ? $reason : 'goes together with ' . PublishOrder::label($which) . ", which $reason", 'was refused');
+                continue;
+            }
+            try {
+                $result = $this->store->publishMany(array_map(fn(string $k) => ['key' => $k, 'version' => (int) $rows[$k]['id']], $unit), function (array $row) use ($by): bool {
+                    if (!EntityKey::parse((string) $row['entity_key'])->isCatalog()) return false;
+                    $this->docs->publishIn($row, $by);
+                    return true;
+                });
+                $published = [...$published, ...$result['published']];
+            } catch (ApiError $e) {
+                $this->docs->forget();
+                $problems = is_array($e->extra['problems'] ?? null) ? implode('; ', array_map('strval', $e->extra['problems'])) : $e->getMessage();
+                foreach ($unit as $key) $refuse($key, $e->errorCode, $problems, 'was refused');
+            }
+        }
+        if (array_filter($published, fn(array $p) => EntityKey::parse($p['key'])->isCatalog()) !== []) $this->docs->reindex();
+        foreach ($published as $p) {
+            $this->reviews->markPublished($user, $p['key'], (int) $p['version']['id']);
+            $this->usages->reindexEntity($p['key']);
+        }
+        return ['status' => 'success', 'published' => $published, 'refused' => $refused, 'review' => $review];
     }
 
     /** @param array{id: string} $args */
