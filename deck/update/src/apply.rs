@@ -144,6 +144,8 @@ pub trait System {
     /// while tty2 was in front, it exited every 10 s)
     fn show_kiosk(&self);
     fn reboot(&self) -> Result<()>;
+    /// the system is shutting down (`systemctl is-system-running` = stopping): a reboot asked for has begun
+    fn stopping(&self) -> bool;
     /// a show runs: a conductor is on the deck's relay (LIVE.md B.4's freeze)
     fn busy(&self) -> bool;
 }
@@ -185,7 +187,15 @@ impl System for Systemd {
         let _ = std::process::Command::new("chvt").arg("1").status();
     }
     fn reboot(&self) -> Result<()> {
+        // `busy` already held a show off; a lock someone else holds must not keep the old build on stage
         Self::systemctl(&["reboot"])
+            .or_else(|e| Self::systemctl(&["reboot", "--check-inhibitors=no"]).with_context(|| format!("{e:#}")))
+    }
+    fn stopping(&self) -> bool {
+        std::process::Command::new("systemctl")
+            .arg("is-system-running")
+            .output()
+            .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).trim() == "stopping")
     }
     fn busy(&self) -> bool {
         relay_live("127.0.0.1:7700") > 0
@@ -199,12 +209,31 @@ pub struct Wait {
     pub deadline: Duration,
     /// then every unit up this long without an automatic restart (a stage that dies at start is back after 2 s)
     pub stable: Duration,
+    /// a reboot asked for must have begun by then, else the changed services are restarted instead
+    pub reboot: Duration,
 }
 
 impl Wait {
-    pub const DECK: Wait = Wait { deadline: Duration::from_secs(120), stable: Duration::from_secs(15) };
+    pub const DECK: Wait =
+        Wait { deadline: Duration::from_secs(120), stable: Duration::from_secs(15), reboot: Duration::from_secs(30) };
     /// tests: one look
-    pub const NONE: Wait = Wait { deadline: Duration::ZERO, stable: Duration::ZERO };
+    pub const NONE: Wait = Wait { deadline: Duration::ZERO, stable: Duration::ZERO, reboot: Duration::ZERO };
+}
+
+/// Asks for the reboot and waits until the system is shutting down; Err when it was refused or has not begun by
+/// `wait.reboot` – the caller then restarts the services instead
+pub fn reboot(sys: &dyn System, wait: Wait) -> Result<()> {
+    sys.reboot()?;
+    let start = Instant::now();
+    loop {
+        if sys.stopping() {
+            return Ok(());
+        }
+        if start.elapsed() >= wait.reboot {
+            bail!("the reboot did not begin within {} s", wait.reboot.as_secs());
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
 }
 
 /// `live` of the relay's `GET /status` (`{ "sessions": n, "live": n }`); 0 when it does not answer
@@ -291,6 +320,10 @@ pub(crate) mod tests {
         pub flapping: Vec<String>,
         pub busy: bool,
         pub polls: std::cell::Cell<u64>,
+        /// `systemctl reboot` fails
+        pub reboot_refused: bool,
+        /// the reboot is accepted but never begins
+        pub reboot_ignored: bool,
     }
 
     impl System for FakeSystem {
@@ -320,7 +353,13 @@ pub(crate) mod tests {
         }
         fn reboot(&self) -> Result<()> {
             self.calls.borrow_mut().push("reboot".into());
+            if self.reboot_refused {
+                bail!("systemctl reboot: Operation inhibited");
+            }
             Ok(())
+        }
+        fn stopping(&self) -> bool {
+            !self.reboot_refused && !self.reboot_ignored && self.calls.borrow().iter().any(|c| c == "reboot")
         }
         fn busy(&self) -> bool {
             self.busy
@@ -414,7 +453,7 @@ pub(crate) mod tests {
         assert!(activate(&sys, &actions, &changed, Wait::NONE).is_err());
 
         // up the whole window: fine; up but restarted by systemd in between: not
-        let wait = Wait { deadline: Duration::ZERO, stable: Duration::from_millis(600) };
+        let wait = Wait { stable: Duration::from_millis(600), ..Wait::NONE };
         assert!(activate(&FakeSystem::default(), &actions, &changed, wait).is_ok());
         let flapping = FakeSystem { flapping: vec!["deck-kiosk.service".into()], ..FakeSystem::default() };
         let err = activate(&flapping, &actions, &changed, wait).unwrap_err().to_string();

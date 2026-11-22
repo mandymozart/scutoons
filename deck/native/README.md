@@ -35,7 +35,7 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
 window pixel for a check run – a hovered button shows in the HUD; or `--pointer voice.index`: on that button) ·
-`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--hud-bar` (start with the collapsed stats bar) · `--dev` (hot reload, below) ·
+`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--hud` · `--hud-bar` (the collapsed stats bar) · `--no-hud` (the HUD to start with; none given: deck.toml's `hud = "full" | "bar" | "off"`, else off – deck-ui's `Mode::at_start`; F1 brings it, an error or an open page shows it anyway) · `--dev` (hot reload, below) ·
 `--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-native` (patcher | batch | batch AVX2, µs per block).
 

@@ -12,13 +12,14 @@
 //! (the configured relay or the hosted one, the deck's role), `start_frame` hands the relay client's answer to the page.
 //! the deck's start (the rules are deck-ui `start.rs`): what the deck hears – the conductor's push or cell, the
 //! relay's clock, a MIDI clock in – and whether its conductor is in, read every frame; the menu follows the stand. Play's
-//! list: the API's listing of the published scenes and the sandbox's published shows (a thread, once) and the copies this
+//! list: the API's listing of the published scenes and the sandbox's published shows (a thread, asked when deck-ui's
+//! `Lister` says – again while it fails, again when Play opens) and the copies this
 //! deck keeps. A show picked there plays on this deck as its own conductor (deck-show alone.rs): its scenes fetched
 //! first (a thread), then its rows' cells go to the piece side; the show page's GO fires the next row, LEAVE ends it.
 use crate::App;
 use deck_ui::join::Typed;
 use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
-use deck_ui::start::{self, Begin, Clock, Heard, Listed, Playable};
+use deck_ui::start::{self, Begin, Clock, Heard, Listed, Lister, Playable};
 use std::sync::{Arc, Mutex};
 use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -40,10 +41,14 @@ pub struct Native {
     pair: Pair,
     pair_at: f32,
     /// how the deck came up, whether the person at it left its session (LEAVE), the API's listing (filled by a
-    /// thread), what Play lists now
+    /// thread, the last answer kept), when to ask for it (deck-ui `Lister`), the ask under way, whether Play showed
+    /// last frame, what Play lists now
     begin: Begin,
     left: bool,
     listing: Arc<Mutex<Vec<Listed>>>,
+    lister: Lister,
+    asking: Option<std::sync::mpsc::Receiver<bool>>,
+    play_open: bool,
     play: Vec<Playable>,
     /// JOIN A SHOW under way: the relay, outlet and scene the deck had before (given back when the join fails)
     before: Option<(Option<String>, Option<String>, Option<std::path::PathBuf>)>,
@@ -101,11 +106,9 @@ impl Native {
         let listing = Arc::new(Mutex::new(Vec::new()));
         #[cfg(feature = "live")]
         let own = Own::default();
-        if !check {
-            fetch_listing(args.api.clone(), listing.clone());
-            #[cfg(feature = "live")]
-            fetch_shows(args.api.clone(), own.shows.clone());
-        }
+        #[cfg(feature = "live")]
+        shows_file(&own.shows);
+        let lister = if check || cfg!(not(feature = "sync")) { Lister::off() } else { Lister::default() };
         Native {
             menu: Menu::default(),
             ballot: Default::default(),
@@ -119,6 +122,9 @@ impl Native {
             begin,
             left: false,
             listing,
+            lister,
+            asking: None,
+            play_open: false,
             play: Vec::new(),
             before: None,
             #[cfg(feature = "live")]
@@ -135,31 +141,14 @@ impl Native {
     }
 }
 
-/// the sandbox's published shows for Play, once, on a thread: the API's answer kept whole (a pick plays from it); a check
-/// run reads it from the file `DECK_SHOWS`
+/// a check run's published shows for Play, from the file `DECK_SHOWS` (the API is not asked for them then)
 #[cfg(feature = "live")]
-fn fetch_shows(api: String, into: Arc<Mutex<String>>) {
+fn shows_file(into: &Arc<Mutex<String>>) {
     if let Some(file) = std::env::var_os("DECK_SHOWS") {
         if let (Ok(body), Ok(mut s)) = (std::fs::read_to_string(file), into.lock()) {
             *s = body;
         }
-        return;
     }
-    #[cfg(feature = "sync")]
-    std::thread::Builder::new()
-        .name("play-shows".into())
-        .spawn(move || {
-            let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(5)).timeout_read(std::time::Duration::from_secs(20)).build();
-            let path = deck_show::alone::path(start::DEMO_TOON);
-            let (status, body) = deck_native::published::get_with(&agent, &api, &path, deck_link::TokenSource::from_env().get());
-            tracing::info!("play: {} published shows listed ({status})", deck_show::alone::listing(&body).len());
-            if let (200, Ok(mut s)) = (status, into.lock()) {
-                *s = body;
-            }
-        })
-        .ok();
-    #[cfg(not(feature = "sync"))]
-    let _ = (api, into);
 }
 
 /// a check run's menu keys: up, down, left, right, enter, back, open, and `type:TEXT` (each character of it, a typed one)
@@ -180,23 +169,43 @@ fn menu_script(text: &str) -> std::collections::VecDeque<Result<Input, char>> {
     out
 }
 
-/// the API's published scenes for Play, once, on a thread (offline: none – Play lists the kept copies)
-fn fetch_listing(api: String, into: Arc<Mutex<Vec<Listed>>>) {
-    #[cfg(feature = "sync")]
+/// One ask for Play's listing on a thread: the API's published scenes and the sandbox's published shows (`shows`, its
+/// answer kept whole – a pick plays from it); only an answer replaces what was kept. The receiver gets whether the
+/// API answered.
+#[cfg(feature = "sync")]
+fn ask_listing(api: String, into: Arc<Mutex<Vec<Listed>>>, shows: Option<Arc<Mutex<String>>>) -> Option<std::sync::mpsc::Receiver<bool>> {
+    let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("play-listing".into())
         .spawn(move || {
             let agent = ureq::AgentBuilder::new().timeout_connect(std::time::Duration::from_secs(5)).timeout_read(std::time::Duration::from_secs(20)).build();
-            let (status, body) = deck_native::published::get_with(&agent, &api, "/scenes", deck_link::TokenSource::from_env().get());
-            let listed = if status == 200 { deck_space::published::catalog(&body) } else { vec![] };
-            tracing::info!("play: {} published scenes listed ({status})", listed.len());
-            if let Ok(mut l) = into.lock() {
-                *l = listed;
+            let token = deck_link::TokenSource::from_env().get();
+            let (status, body) = deck_native::published::get_with(&agent, &api, "/scenes", token.clone());
+            let mut ok = status == 200;
+            if ok {
+                let listed = deck_space::published::catalog(&body);
+                tracing::info!("play: {} published scenes listed", listed.len());
+                if let Ok(mut l) = into.lock() {
+                    *l = listed;
+                }
+            } else {
+                tracing::info!("play: the published scenes not listed ({status})");
             }
+            #[cfg(feature = "live")]
+            if let Some(shows) = shows.filter(|_| std::env::var_os("DECK_SHOWS").is_none()) {
+                let (status, body) = deck_native::published::get_with(&agent, &api, &deck_show::alone::path(start::DEMO_TOON), token);
+                tracing::info!("play: {} published shows listed ({status})", deck_show::alone::listing(&body).len());
+                if let (200, Ok(mut s)) = (status, shows.lock()) {
+                    *s = body;
+                    ok = true;
+                }
+            }
+            #[cfg(not(feature = "live"))]
+            let _ = (shows, token);
+            let _ = tx.send(ok);
         })
-        .ok();
-    #[cfg(not(feature = "sync"))]
-    let _ = (api, into);
+        .ok()?;
+    Some(rx)
 }
 
 impl App {
@@ -220,6 +229,7 @@ impl App {
             density: h / 1080.0,
             top: 0.0,
             play: self.menu.play.clone(),
+            listing: self.menu.lister.listing(),
             #[cfg(feature = "live")]
             showing: self.menu.own.playing.as_ref().map(deck_show::alone::Alone::showing),
             #[cfg(not(feature = "live"))]
@@ -320,8 +330,40 @@ impl App {
         }
     }
 
+    /// Play's listing asked for when deck-ui's `Lister` says: at once, again while it fails, again when Play opens
+    fn listing_frame(&mut self, time: f32) {
+        if let Some(rx) = &self.menu.asking {
+            match rx.try_recv() {
+                Ok(ok) => self.menu.lister.answered(ok, time),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => self.menu.lister.answered(false, time),
+                Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            }
+            self.menu.asking = None;
+        }
+        let open = self.menu.menu.top() == Some(Page::Play);
+        if open && !self.menu.play_open {
+            self.menu.lister.opened(time);
+        }
+        self.menu.play_open = open;
+        if !self.menu.lister.due(time) {
+            return;
+        }
+        #[cfg(feature = "sync")]
+        {
+            #[cfg(feature = "live")]
+            let shows = Some(self.menu.own.shows.clone());
+            #[cfg(not(feature = "live"))]
+            let shows = None;
+            self.menu.asking = ask_listing(self.args.api.clone(), self.menu.listing.clone(), shows);
+        }
+        if self.menu.asking.is_none() {
+            self.menu.lister.answered(false, time);
+        }
+    }
+
     /// the menu follows the start's stand (once a frame); Play's list while a start page shows (every 2 s)
     fn start_frame(&mut self, refresh: bool, time: f32) {
+        self.listing_frame(time);
         if self.menu.menu.joining() {
             self.join_answer(time);
         }

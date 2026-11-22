@@ -64,6 +64,22 @@ impl Mode {
             Mode::Off => Mode::Full,
         }
     }
+
+    /// What a deck shows at its start: what was asked for (a flag, deck.toml's `hud`), else nothing – the HUD is a
+    /// debugger, F1 brings it; an error or an open page shows it anyway.
+    pub fn at_start(asked: Option<Mode>) -> Mode {
+        asked.unwrap_or(Mode::Off)
+    }
+
+    /// deck.toml's `hud`: `full` · `bar` · `off`
+    pub fn parse(word: &str) -> Option<Mode> {
+        match word.trim() {
+            "full" => Some(Mode::Full),
+            "bar" => Some(Mode::Bar),
+            "off" => Some(Mode::Off),
+            _ => None,
+        }
+    }
 }
 
 /// one item of the bar: its text, and amber / red when it is out of the green (deck-core's monitor judges, #364)
@@ -350,6 +366,14 @@ mod tests {
     fn f1_cycles_full_bar_off() {
         assert_eq!([Mode::Full.next(), Mode::Bar.next(), Mode::Off.next()], [Mode::Bar, Mode::Off, Mode::Full]);
         assert_eq!(Mode::default(), Mode::Full);
+    }
+
+    #[test]
+    fn a_deck_starts_without_the_hud_unless_asked() {
+        assert_eq!(Mode::at_start(None), Mode::Off, "the debugger is F1's");
+        assert_eq!(Mode::at_start(Mode::parse("full")), Mode::Full);
+        assert_eq!(Mode::at_start(Mode::parse(" bar ")), Mode::Bar);
+        assert_eq!(Mode::at_start(Mode::parse("loud")), Mode::Off);
     }
 
     #[test]
