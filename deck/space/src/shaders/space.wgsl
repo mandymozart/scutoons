@@ -86,6 +86,64 @@ fn fs_room(i: RoomOut) -> @location(0) vec4<f32> {
     return vec4<f32>(to_srgb(fogged(lit, i.world)), 1.0);
 }
 
+// ---- a cast member's own 3D model: skinned by its palette, lit like its card plus the beings' light ----
+
+struct Figure {
+    // model → world per palette entry
+    joints: array<mat4x4<f32>, 128>,
+    // glow, hue, pulse, 0
+    look: vec4<f32>,
+};
+
+@group(2) @binding(0) var<uniform> figure: Figure;
+
+struct FigureOut {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) color: vec4<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) world: vec3<f32>,
+    @location(3) normal: vec3<f32>,
+};
+
+@vertex
+fn vs_figure(
+    @location(0) pos: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+    @location(3) joints: vec4<u32>,
+    @location(4) weights: vec4<f32>,
+    @location(5) color: vec4<f32>,
+) -> FigureOut {
+    let w = weights / max(dot(weights, vec4<f32>(1.0)), 1e-4);
+    let m = figure.joints[joints.x] * w.x + figure.joints[joints.y] * w.y + figure.joints[joints.z] * w.z + figure.joints[joints.w] * w.w;
+    let world = (m * vec4<f32>(pos, 1.0)).xyz;
+    var o: FigureOut;
+    o.clip = frame.view_proj * vec4<f32>(world, 1.0);
+    o.color = color;
+    o.uv = uv;
+    o.world = world;
+    o.normal = (m * vec4<f32>(normal, 0.0)).xyz;
+    return o;
+}
+
+@fragment
+fn fs_figure(i: FigureOut) -> @location(0) vec4<f32> {
+    let tex = textureSample(room_tex, room_smp, i.uv);
+    if tex.a * i.color.a < 0.5 {
+        discard;
+    }
+    let n0 = normalize(i.normal);
+    let n = select(-n0, n0, dot(n0, frame.eye.xyz - i.world) >= 0.0);
+    // a soft key light from above the eye, wrapped (a figure has no baked light as the room has)
+    let key = normalize(frame.eye.xyz - i.world + vec3<f32>(0.0, 2.0, 0.0));
+    let shade = 0.55 + 0.45 * max(dot(n, key), 0.0);
+    let glow = figure.look.x;
+    let tint = hsv(figure.look.y, 0.5, 1.0);
+    let base = tex.rgb * i.color.rgb;
+    let lit = base * (shade * frame.look.y * (0.85 + 0.15 * glow) + glow_light(i.world, n)) + tint * figure.look.z * 0.35;
+    return vec4<f32>(to_srgb(fogged(lit, i.world)), 1.0);
+}
+
 // ---- the spheres (one unit sphere, instanced) ----
 
 struct SphereOut {

@@ -75,6 +75,9 @@ pub enum Kind {
     Noise,
     /// two-operator FM
     Fm,
+    /// a singing voice: a band-limited glottal source and breath noise through four formant filters, the vowel
+    /// interpolated across a fixed table (engine voice.rs)
+    Voice,
     /// a step sequencer: `cv` = pitch in Hz on the left channel, gate 0 / 1 on the right (modular CV in an audio port)
     Seq,
     /// a generated melody (#236, deck-events): a seeded random walk on a continuous pitch scale, on the tempo clock,
@@ -121,7 +124,7 @@ pub enum Kind {
 
 impl Kind {
     /// every kind with its name in a scene: the `graph` kinds (`ALL`), then the internal control helpers
-    const NAMES: [(&'static str, Kind); 31] = [
+    const NAMES: [(&'static str, Kind); 32] = [
         ("test_pattern", Kind::TestPattern),
         ("shader", Kind::Shader),
         ("screen", Kind::Screen),
@@ -136,6 +139,7 @@ impl Kind {
         ("osc", Kind::Osc),
         ("noise", Kind::Noise),
         ("fm", Kind::Fm),
+        ("voice", Kind::Voice),
         ("seq", Kind::Seq),
         ("walk", Kind::Walk),
         ("events", Kind::Events),
@@ -155,10 +159,10 @@ impl Kind {
         ("look", Kind::Look),
     ];
     /// the `graph` kinds – what an author places (the catalog's `graph` scope, in its order)
-    pub const ALL: [Kind; 27] = {
-        let mut all = [Kind::Screen; 27];
+    pub const ALL: [Kind; 28] = {
+        let mut all = [Kind::Screen; 28];
         let mut i = 0;
-        while i < 27 {
+        while i < 28 {
             all[i] = Kind::NAMES[i].1;
             i += 1;
         }

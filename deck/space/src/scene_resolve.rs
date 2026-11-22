@@ -98,9 +98,9 @@ pub fn no_sets(_: &str) -> Option<String> {
     None
 }
 
-/// the core rigs a deck carries (rig/bundle.rs `CORE`), any version
+/// the core rigs a deck carries (rig/bundle.rs `CORE`), any version; a character without one plays the default character rig
 pub fn core_rigs(subject: &str, _: Option<&str>) -> Option<Bundle> {
-    Bundle::core(subject).and_then(Result::ok)
+    Bundle::core_or_default(subject).and_then(Result::ok)
 }
 
 /// the nodes every rig's scene has once and the holders share (graph.rs: one sink of each kind; the clock)
@@ -303,7 +303,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     // space's (so `scene:nave` plays the scene of format 1). Every other stage gives each character member a look of its
     // own (#492): a `look` node at its holder's spot that only its own rig's links to the being move – no rig, or a rig
     // with no mapping to the being, moves nothing (owner 2026-11-12 [rigs])
-    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3];
+    let chosen = |m: &Member| doc.holders.iter().find(|h| h.id == m.holder).and_then(|h| h.form);
+    // a chosen form needs a look of its own to stand in
+    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3] && chosen(&cast[0]).is_none();
     let prefixes: Vec<String> = (0..cast.len())
         .map(|i| {
             let m = &cast[i];
@@ -374,7 +376,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     if !alone {
         for (i, m) in cast.iter().enumerate() {
             let Some(w) = who(m) else { continue };
-            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
+            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, chosen(m), m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
         }
     }
 
@@ -647,7 +649,8 @@ mod tests {
         let at: Vec<(&str, Option<&str>)> = r.cast.iter().map(|m| (m.holder.as_str(), m.spot.as_deref())).collect();
         assert_eq!(at, [("left", Some("spot_left")), ("right", Some("spot_right"))], "the empty ones have no member");
         assert_eq!(r.cast[0].enter, Enter::Join);
-        assert!(r.notes.iter().any(|n| n.contains("character.toptoy")), "toptoy has no core rig: silent, said");
+        assert!(!r.notes.iter().any(|n| n.contains("character.toptoy")), "toptoy has no core rig of its own: it plays the default character rig");
+        assert!(r.scene.nodes.iter().any(|n| n.id == "right_voice_voice" && n.kind == "voice"), "the default character rig's voice sings for it");
         let home = fixture("templates/avatar-home", None);
         assert_eq!(home.location_placeholder().unwrap().id, "home");
     }
@@ -780,6 +783,34 @@ mod tests {
         Some(b)
     }
 
+    /// a holder's chosen form travels on its look node and wins in cast.rs; none leaves the stage's default – and a lone
+    /// member with a chosen form still gets a look of its own to stand in
+    #[test]
+    fn a_holders_form_travels_to_its_look() {
+        use crate::cast::{form, stage_3d, Form, Who};
+        let looks = |set: &str, forms: [&str; 2]| {
+            let holder = |who: &str, f: &str| format!(r#"{{"id":"{who}","ref":"character:{who}"{}}}"#, if f.is_empty() { String::new() } else { format!(r#","form":"{f}""#) });
+            let d = doc(&format!(r#"{{"format":2,"id":"duo","holder":[{},{}],"node":[{{"id":"space","kind":"space"{set}}}]}}"#, holder("catpope", forms[0]), holder("toptoy", forms[1])));
+            let r = resolve(&d, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
+            let s3 = stage_3d(&r.scene);
+            r.scene
+                .nodes
+                .iter()
+                .filter(|n| n.kind == "look")
+                .map(|n| {
+                    let chosen = n.params.get("form").and_then(|v| v.as_str()).and_then(Form::parse);
+                    form(&Who::parse(n.params["who"].as_str().unwrap()).unwrap(), s3, chosen, None)
+                })
+                .collect::<Vec<_>>()
+        };
+        let set = r#","set":"cathedral""#;
+        assert_eq!(looks(set, ["card", ""]), [Form::Card, Form::Look], "a card on a 3D stage; none = the stage's look");
+        assert_eq!(looks("", ["look", ""]), [Form::Look, Form::Card], "a look on a stage without a set; none = a card");
+        let lone = doc(r#"{"format":2,"id":"one","holder":[{"id":"a","ref":"character:catpope","form":"card"}],"node":[{"id":"space","kind":"space"}]}"#);
+        let r = resolve(&lone, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
+        assert_eq!(r.scene.nodes.iter().find(|n| n.kind == "look").and_then(|n| n.params["form"].as_str()), Some("card"));
+    }
+
     /// two rigs on one stage: prefixed by their holders, summed into the one `out` – each rig moves its own look, an
     /// item's too (#495: its card); no rig moves another's being (#492)
     #[test]
@@ -851,7 +882,7 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
 
     const STAGE_DUO_HEAD: &str = "\
 # A sandbox (#492): the template scene:stage resolved by the core with two fillers – Cat Pope at `left` with her core rig, Top
-# Toy at `right` with no rig at hand (silent). The space draws one being per `look` node at its holder's spot (no location
+# Toy at `right` with no rig of its own (the default character rig sings for it). The space draws one being per `look` node at its holder's spot (no location
 # yet: the neutral staging, side by side). Neither moves: her core rig wires nothing to her being and there is no default
 # breath (owner 2026-11-12) – wire `sound:level → being:pulse` in her rig and only her light breathes. Written by
 # deck-space's scene_resolve.rs test `the_stage_duo_sandbox_is_the_core_s_resolve` – never by hand:
@@ -908,8 +939,8 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         assert_eq!(Scene::parse(crate::scene::sandbox("stage-cards").unwrap()).unwrap(), scene, "what the decks read is what the core resolved");
         assert!(crate::cast::stage_3d(&scene), "the cathedral's set: a 3D stage");
         let who = |id: &str| crate::cast::Who::parse(scene.nodes.iter().find(|n| n.id == id).unwrap().params["who"].as_str().unwrap()).unwrap();
-        assert_eq!(crate::cast::form(&who("pope_look"), true), crate::cast::Form::Look);
-        assert_eq!(crate::cast::form(&who("burner_look"), true), crate::cast::Form::Card);
+        assert_eq!(crate::cast::form(&who("pope_look"), true, None, None), crate::cast::Form::Look);
+        assert_eq!(crate::cast::form(&who("burner_look"), true, None, None), crate::cast::Form::Card);
         assert!(scene.links.iter().any(|l| l.to == "burner_look.pulse"), "the burner's own wire moves its card");
     }
 

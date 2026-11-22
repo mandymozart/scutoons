@@ -18,13 +18,15 @@ final class SceneContentRigsTest extends TestCase
 {
     private const FIXTURE = '/tests/fixtures/rigs/scene-content.json';
 
-    /** @return array<mixed> the character registry: catpope with a biker persona, a boy without a rig */
+    /** @return array<mixed> the character registry: catpope with a biker persona, a boy without a rig, the default character rig's subject */
     private static function registry(): array
     {
         $look = ['id' => 'default', 'default' => true, 'images' => ['neutral' => ['portrait' => 'characters/catpope/catpope_portrait-neutral.webp']]];
+        $bare = ['id' => 'regular', 'looks' => [['id' => 'default', 'images' => []]]];
         return ['characters' => [
             ['id' => 'catpope', 'personas' => [['id' => 'regular', 'looks' => [$look]], ['id' => 'biker', 'looks' => [$look]]]],
-            ['id' => 'boy', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'images' => []]]]]],
+            ['id' => 'boy', 'personas' => [$bare]],
+            ['id' => 'default', 'personas' => [$bare]],
         ]];
     }
 
@@ -37,7 +39,7 @@ final class SceneContentRigsTest extends TestCase
     public function testTheCoreRigsAnswerAsTheDecksReadThem(): void
     {
         $store = $this->get(CatalogStore::class);
-        $answer = SceneContent::compose([], fn() => null, ['catpope', 'boy'], self::registry());
+        $answer = SceneContent::compose([], fn() => null, ['catpope', 'boy', 'default'], self::registry());
         $json = SceneContent::json(SceneContent::withRigs($answer, ['incense_burner', 'ghost'], fn(string $kind, string $id) => $store->row($kind, $id)['data'] ?? null));
         $pretty = json_encode(json_decode($json), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
         $path = self::root() . self::FIXTURE;
@@ -56,7 +58,8 @@ final class SceneContentRigsTest extends TestCase
         self::assertNull($a['characters']['boy']['rig'], 'a character without a rig');
         self::assertSame(['incense'], $a['items']['incense_burner']['rig']['instruments']);
         self::assertSame(['items' => ['ghost']], array_intersect_key($a['missing'], ['items' => 1]));
-        self::assertSame(['cathedral_voice', 'drone', 'incense'], array_keys($a['instruments']));
+        self::assertSame(['default_voice'], $a['characters']['default']['rig']['instruments'], 'the default character rig: its voice alone');
+        self::assertSame(['cathedral_voice', 'default_voice', 'drone', 'incense'], array_keys($a['instruments']));
         self::assertSame(['id' => 'drone.base', 'version' => SceneContent::version($this->stored('presets', 'drone.base'))], array_slice($a['presets']['drone.base'], 0, 2));
         self::assertStringContainsString('"freq":147.0', $json, '1.0 stays 1.0 – a node param stays a float in TOML');
     }

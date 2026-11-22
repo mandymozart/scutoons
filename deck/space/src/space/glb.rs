@@ -5,7 +5,8 @@
 //! (EXT_meshopt_compression, meshopt.rs) and empty nodes as named spots (`spot_*`, `view`). Everything is flattened
 //! at load into one world-space vertex / index list with a draw range per material – the GPU side (gpu.rs) draws it
 //! unlit with a depth buffer, in the rest pose. Beside it the model keeps its anatomy (anatomy.rs): the node tree, the
-//! parts, the skins and the animation clips. Normals, tangents, morph targets and cameras are ignored; sparse
+//! parts, the skins and the animation clips. A character's model (`figure_with`, figure.rs) keeps each part in its own
+//! mesh space instead – the bind space its skin poses. Tangents, morph targets and cameras are ignored; sparse
 //! accessors are refused.
 use super::anatomy::{Anatomy, Channel, Influence, Interpolation, Node, Part, Path as Target, Skin};
 use anyhow::{bail, ensure, Context, Result};
@@ -48,6 +49,8 @@ impl Image {
 
 pub struct Model {
     pub vertices: Vec<RoomVertex>,
+    /// per vertex, in the vertices' space; zero where the file has none
+    pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
     pub draws: Vec<Draw>,
     pub images: Vec<Image>,
@@ -234,8 +237,23 @@ struct ImageDef {
     uri: Option<String>,
 }
 
+/// a material's image and what uses it, gathered before the draw list is concatenated: vertices, normals, indices
+type Group = (Option<usize>, Vec<RoomVertex>, Vec<[f32; 3]>, Vec<u32>);
+
 /// the extensions a room may require
 const SUPPORTED: &[&str] = &["EXT_meshopt_compression", "KHR_mesh_quantization", "EXT_texture_webp", "KHR_materials_unlit"];
+
+/// A character's model in bind space (figure.rs): every part in its own mesh's space, nothing flattened, its images
+/// decoded here (WebP, PNG, JPEG).
+#[cfg(feature = "native")]
+pub fn figure(bytes: &[u8], max_texture: u32) -> Result<Model> {
+    figure_with(bytes, max_texture, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8()))
+}
+
+/// `figure` with the images' decoder given (a browser decodes them itself)
+pub fn figure_with(bytes: &[u8], max_texture: u32, decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Model> {
+    read_model(bytes, max_texture, &[], decode, false)
+}
 
 /// Load a room; `max_texture` caps the images' longer side (a bigger one is halved until it fits – the X1's memory);
 /// `hide` = node names whose mesh is left out (the scene's `hide`, owner 2026-10-30: the cathedral without its incense
@@ -246,7 +264,7 @@ pub fn load(path: &Path, max_texture: u32, hide: &[String]) -> Result<Model> {
     parse(&bytes, max_texture, hide).with_context(|| format!("in {}", path.display()))
 }
 
-/// `load` from the file's bytes, its images decoded here (WebP, PNG)
+/// `load` from the file's bytes, its images decoded here (WebP, PNG, JPEG)
 #[cfg(feature = "native")]
 pub fn parse(bytes: &[u8], max_texture: u32, hide: &[String]) -> Result<Model> {
     parse_with(bytes, max_texture, hide, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8()))
@@ -274,19 +292,24 @@ pub fn anatomy(bytes: &[u8]) -> Result<Anatomy> {
 
 /// `parse` with the images' decoder given: (the glTF image index, its encoded bytes) → RGBA8
 pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Model> {
+    read_model(bytes, max_texture, hide, decode, true)
+}
+
+/// `world`: every vertex through its node's world matrix (a room); else each part stays in its mesh's space (a figure)
+fn read_model(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>, world: bool) -> Result<Model> {
     let (doc, bin) = split_glb(bytes)?;
     let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
     for e in &doc.extensions_required {
         ensure!(SUPPORTED.contains(&e.as_str()), "the file requires the glTF extension {e}, which the stage does not read");
     }
     let mut views: HashMap<usize, Vec<u8>> = HashMap::new();
-    let mut room = Model { vertices: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY, anatomy: Anatomy::default() };
+    let mut room = Model { vertices: Vec::new(), normals: Vec::new(), indices: Vec::new(), draws: Vec::new(), images: Vec::new(), spots: Vec::new(), min: Vec3::INFINITY, max: Vec3::NEG_INFINITY, anatomy: Anatomy::default() };
     // materials → images (a texture's source, WebP's through its extension)
     let mut image_of: HashMap<usize, usize> = HashMap::new();
     let roots = doc.scenes.get(doc.scene.unwrap_or(0)).map(|s| s.nodes.clone()).unwrap_or_else(|| (0..doc.nodes.len()).collect());
     let mut stack: Vec<(usize, Mat4)> = roots.iter().map(|&n| (n, Mat4::IDENTITY)).collect();
-    // per material: (vertices, indices) gathered, then concatenated in material order
-    let mut groups: Vec<(Option<usize>, Vec<RoomVertex>, Vec<u32>)> = Vec::new();
+    // per material: (vertices, normals, indices) gathered, then concatenated in material order
+    let mut groups: Vec<Group> = Vec::new();
     // each with its group, its ranges still counted inside that group
     let mut parts: Vec<(usize, Part)> = Vec::new();
     while let Some((n, parent)) = stack.pop() {
@@ -320,7 +343,11 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
                 Some(&a) => read(&doc, bin, &mut views, a)?,
                 None => vec![[0.0; 4]; n_verts],
             };
-            ensure!(colors.len() == n_verts && uvs.len() == n_verts, "a primitive's attributes differ in length");
+            let normals = match prim.attributes.get("NORMAL") {
+                Some(&a) => read(&doc, bin, &mut views, a)?,
+                None => vec![[0.0; 4]; n_verts],
+            };
+            ensure!(colors.len() == n_verts && uvs.len() == n_verts && normals.len() == n_verts, "a primitive's attributes differ in length");
             let indices: Vec<u32> = match prim.indices {
                 Some(a) => read(&doc, bin, &mut views, a)?.iter().map(|v| v[0] as u32).collect(),
                 None => (0..n_verts as u32).collect(),
@@ -365,13 +392,13 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
             let group = match groups.iter().position(|p| p.0 == image) {
                 Some(i) => i,
                 None => {
-                    groups.push((image, Vec::new(), Vec::new()));
+                    groups.push((image, Vec::new(), Vec::new(), Vec::new()));
                     groups.len() - 1
                 }
             };
             let part = &mut groups[group];
             let base = part.1.len() as u32;
-            let first = part.2.len() as u32;
+            let first = part.3.len() as u32;
             parts.push((
                 group,
                 Part {
@@ -385,8 +412,11 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
                     influences,
                 },
             ));
+            let to = if world { m } else { Mat4::IDENTITY };
+            let turn = glam::Mat3::from_mat4(to).inverse().transpose();
             for k in 0..n_verts {
-                let p = m.transform_point3(Vec3::from_slice(&positions[k][..3]));
+                let p = to.transform_point3(Vec3::from_slice(&positions[k][..3]));
+                part.2.push((turn * Vec3::from_slice(&normals[k][..3])).normalize_or_zero().into());
                 room.min = room.min.min(p);
                 room.max = room.max.max(p);
                 let c = colors[k];
@@ -397,15 +427,16 @@ pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut 
                     uv: [uvs[k][0], uvs[k][1]],
                 });
             }
-            part.2.extend(indices.iter().map(|i| i + base));
+            part.3.extend(indices.iter().map(|i| i + base));
         }
     }
     let mut starts = Vec::with_capacity(groups.len());
-    for (image, verts, idx) in groups {
+    for (image, verts, normals, idx) in groups {
         let base = room.vertices.len() as u32;
         starts.push((base, room.indices.len() as u32));
         room.draws.push(Draw { first: room.indices.len() as u32, count: idx.len() as u32, image });
         room.vertices.extend(verts);
+        room.normals.extend(normals);
         room.indices.extend(idx.iter().map(|i| i + base));
     }
     ensure!(!room.indices.is_empty(), "the room has no triangles");

@@ -26,7 +26,8 @@ use stdClass;
  *   document is in `missing.locations`. Which set a scene plays is the deck core's (scene_resolve.rs), not this answer's.
  * - **Characters**: a registry id (`catpope`), an old VN id (`plf` → its character and persona, ContentTables::LEGACY_CHARACTER_IDS) or `<character>-<persona>`
  *   (`catpope-biker`, the deck's stand-ins) – that persona's (else `regular`'s) default look, its `portrait` per mood and
- *   (#495, a stage's card) its `full` view per mood.
+ *   (#495, a stage's card) its `full` view per mood; the look's `form` (`card` / `look`, null = the stage decides) and its
+ *   3D `model` (the look's, else the persona's, `{ path, size }`; null = none – the deck draws its default character).
  * - **Items** (#495): `items.<id>.picture` – the catalog item's picture (its `icon`), what a stage shows as the item's card;
  *   null when it has none. An item the catalog and the rigs both do not know is in `missing.items`.
  * - **Rigs** (#258, agents/research/INSTRUMENTS.md §6): each character's `rig` – the persona's own
@@ -49,6 +50,8 @@ final class SceneContent
     private const RIG_KINDS = ['instruments' => 'instruments', 'presets' => 'presets', 'rigs' => 'rigs', 'modules' => 'modules'];
     /** a set's media as scene-content names them (the render ladder's rungs 1–3) → the home scene's fields */
     private const SET_MEDIA = ['model' => 'model', 'video' => 'video', 'still' => 'image'];
+    /** a look's form words (deck-space cast.rs `Form`) */
+    private const FORMS = ['card', 'look'];
 
     public function __construct(
         private readonly Library $library,
@@ -355,7 +358,7 @@ final class SceneContent
                 $out['missing']['characters'][] = $id;
                 continue;
             }
-            [$character, $persona, $look] = $found;
+            [$character, $persona, $look, $personaModel] = $found;
             // per view: mood → file (the heads' portraits; #495 a stage's card shows the full view)
             $views = ['portrait' => [], 'full' => []];
             foreach (is_array($look['images'] ?? null) ? $look['images'] : [] as $mood => $files) {
@@ -372,9 +375,17 @@ final class SceneContent
                 'look' => is_string($look['id'] ?? null) ? $look['id'] : null,
                 'portraits' => (object) $views['portrait'],
                 'full' => (object) $views['full'],
+                'form' => in_array($look['form'] ?? null, self::FORMS, true) ? $look['form'] : null,
+                'model' => self::model($look['model'] ?? null) ?? self::model($personaModel),
             ];
         }
         return $out;
+    }
+
+    /** @return ?array{path: string, size: null} */
+    private static function model(mixed $path): ?array
+    {
+        return is_string($path) && trim($path) !== '' ? ['path' => trim($path), 'size' => null] : null;
     }
 
     /**
@@ -395,11 +406,11 @@ final class SceneContent
     }
 
     /**
-     * A deck's character name → [registry id, persona id, its default look]: the id itself, an old VN id, or
+     * A deck's character name → [registry id, persona id, its default look, the persona's model]: the id itself, an old VN id, or
      * `<character>-<persona>` (the first split whose left part is a character with that persona)
      *
      * @param array<string, array<mixed>> $byId
-     * @return array{0: string, 1: string, 2: array<mixed>}|null
+     * @return array{0: string, 1: string, 2: array<mixed>, 3: mixed}|null
      */
     private static function resolve(string $id, array $byId): ?array
     {
@@ -417,7 +428,7 @@ final class SceneContent
                 if (!is_array($p) || ($p['id'] ?? null) !== $persona) continue;
                 $looks = array_values(array_filter(is_array($p['looks'] ?? null) ? $p['looks'] : [], 'is_array'));
                 $default = array_values(array_filter($looks, fn(array $l) => ($l['default'] ?? false) === true))[0] ?? $looks[0] ?? [];
-                return [$character, $persona, $default];
+                return [$character, $persona, $default, $p['model'] ?? null];
             }
         }
         return null;
@@ -432,7 +443,10 @@ final class SceneContent
     {
         $paths = [];
         foreach ($answer['sets'] as $s) foreach (array_keys(self::SET_MEDIA) as $m) foreach ((array) ($s[$m] ?? []) as $f) $paths[] = $f['path'];
-        foreach ($answer['characters'] as $c) foreach ([...array_values((array) $c['portraits']), ...array_values((array) ($c['full'] ?? []))] as $f) $paths[] = $f['path'];
+        foreach ($answer['characters'] as $c) {
+            foreach ([...array_values((array) $c['portraits']), ...array_values((array) ($c['full'] ?? []))] as $f) $paths[] = $f['path'];
+            if (is_array($c['model'] ?? null)) $paths[] = $c['model']['path'];
+        }
         foreach ($answer['items'] ?? [] as $i) if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
         return array_values(array_unique($paths));
     }
@@ -455,6 +469,7 @@ final class SceneContent
         foreach ($answer['characters'] as $id => $c) {
             $answer['characters'][$id]['portraits'] = $fill($c['portraits']);
             if (isset($c['full'])) $answer['characters'][$id]['full'] = $fill($c['full']);
+            if (is_array($c['model'] ?? null)) $answer['characters'][$id]['model'] = ['path' => $c['model']['path'], 'size' => $sizes[$c['model']['path']] ?? null];
         }
         foreach ($answer['items'] ?? [] as $id => $i) {
             if (is_array($i['picture'] ?? null)) $answer['items'][$id]['picture'] = ['path' => $i['picture']['path'], 'size' => $sizes[$i['picture']['path']] ?? null];

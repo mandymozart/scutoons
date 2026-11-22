@@ -127,6 +127,25 @@ fn the_waves_and_the_noise_render_without_allocating() {
     }
 }
 
+/// the singing voice – its glide, vibrato, breath noise and formant updates on a seq's notes – allocates nothing either
+#[test]
+fn a_singing_voice_renders_without_allocating() {
+    let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let scene = Scene::parse(
+        "[[node]]\nid = \"s\"\nkind = \"seq\"\nbpm = 150.0\nsteps = [64, 0, 67, 71, 76]\n\
+         [[node]]\nid = \"sing\"\nkind = \"voice\"\nvowel = 1.5\nglide = 0.08\nbreath = 0.3\ngain = 0.2\n\
+         [[node]]\nid = \"sway\"\nkind = \"lfo\"\nrate = 0.7\ndepth = 2.5\n\
+         [[node]]\nid = \"v\"\nkind = \"fm\"\ngain = 0.1\n[[node]]\nid = \"fft\"\nkind = \"fft\"\n[[node]]\nid = \"m\"\nkind = \"mixer\"\n[[node]]\nid = \"out\"\nkind = \"audio_out\"\n\
+         [[link]]\nfrom = \"s.cv\"\nto = \"sing.cv\"\n[[link]]\nfrom = \"sway\"\nto = \"sing.vowel\"\noffset = 2.5\n\
+         [[link]]\nfrom = \"sing\"\nto = \"m.in1\"\n[[link]]\nfrom = \"v\"\nto = \"m.in2\"\n[[link]]\nfrom = \"m\"\nto = \"fft.in\"\n[[link]]\nfrom = \"m\"\nto = \"out.in\"\n",
+    )
+    .unwrap();
+    let graph = Graph::build(&scene).unwrap();
+    for build in [Build::detect(), Build { batch: true, avx2: false }] {
+        renders_without_allocating(&graph, build);
+    }
+}
+
 /// #319: the control half at block rate – LFOs of every shape on two levels, the helpers, a smoother on an FFT, an LFO
 /// into an oscillator's pitch and gain – with the frame thread turning bases, sending values and switching LFO shapes
 /// between the blocks

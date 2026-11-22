@@ -1,13 +1,13 @@
 // scene-stage.ts (#463, #465): a scene playing in an element – the renderer every deck draws with, compiled to wasm
 // (deck/space-web `SceneView`). Here only the canvas, its size, the animation frames and the fetches the core asks for.
 import { fetchVideos, sniff, spaceModule, stageCanvas, type SpaceModule, type VideoView } from './space.ts';
-import { askPortraits, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, joinScene, type ChapterView, type ContentEntry, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
+import { askCast, contentAt, fetchChapter, fetchOutletAsks, fetchSceneAsks, fetchSet, fetchSlice, joinScene, type ChapterView, type ContentEntry, type FigureView, type OutletView, type PublishedView, type SetView } from './stage-assets.ts';
 import { RelaySocket, type RelayCoreView } from './client.ts';
 import { driveLink, ensureLink, type Paired, type SignedIn } from './deck-key.ts';
 import { watchPanel, type PanelView } from './deck-panel.ts';
 import { LivePage, readKept, type LiveView } from './live-page.ts';
 
-export interface SceneView extends SetView, ChapterView, OutletView, PanelView, LiveView, PublishedView, VideoView {
+export interface SceneView extends SetView, FigureView, ChapterView, OutletView, PanelView, LiveView, PublishedView, VideoView {
 	join_outlet(relay: string, outlet: string, kept: string, reader: string, locale: string, api: string): boolean;
 	deck_link(why: string, code: string, app: string, signed: boolean): void;
 	set_request(): string;
@@ -112,7 +112,7 @@ export class SceneStage {
 		this.last = now;
 		const at = this.view.reloaded();
 		if (at >= 0) this.view.chapters().forEach((path, i) => void fetchChapter(this, this.o.api + path, at + i));
-		askPortraits(this, this.o.cdn, (kind, id) => contentAt(this.o.api, this.content, kind, id));
+		askCast(this, this.o.cdn, (kind, id) => contentAt(this.o.api, this.content, kind, id), this.spaceModule ? { encodedImages: this.spaceModule.SpaceView.encoded_images, sniff } : undefined);
 		fetchSceneAsks(this, this.o.api);
 		const asked = this.view.slice_requests();
 		for (let i = 0; i + 1 < asked.length; i += 2) void fetchSlice(this, this.o.cdn + (asked[i + 1] as string), asked[i] as number);
