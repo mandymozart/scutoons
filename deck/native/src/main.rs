@@ -1239,9 +1239,9 @@ impl App {
             self.refusal = None;
             self.hud_at = -1.0;
         }
-        let paged = self.page.open || self.switcher.open || self.live.page.open;
-        // an error or an open page shows the full HUD; after it, the HUD goes back to what it was (off by default)
-        if self.error.is_some() || paged {
+        // an error shows the full HUD; after it, the HUD goes back to what it was (off by default); the deck's own pages
+        // are the menu's (#796)
+        if self.error.is_some() {
             if self.hud.mode != hud::Mode::Full {
                 self.full_forced.get_or_insert(self.hud.mode);
                 self.hud.mode = hud::Mode::Full;
@@ -1260,36 +1260,20 @@ impl App {
             self.vol_forced = false;
             self.hud_at = -1.0;
         }
-        let hud_on = self.hud.visible() || self.error.is_some() || paged || forced;
+        let hud_on = self.hud.visible() || self.error.is_some() || forced;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
             // #374: the HUD's words are deck-ui's; this reads the deck's objects into its Status (hud_status.rs)
             let status = self.status();
-            // #220: the settings page instead of the HUD's lines, its cursor's line lit
-            let (lines, cursor) = if self.switcher.open {
-                let (l, c) = self.switcher.lines(self.current_scene());
-                (l, Some(c))
-            } else if self.page.open {
-                let now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
-                let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
-                (l, Some(c))
-            } else if self.live.page.open {
-                let (l, c) = self.live.lines(&self.show);
-                (l, Some(c))
-            } else {
-                (deck_ui::hud_lines(&status), None)
-            };
+            let lines = deck_ui::hud_lines(&status);
             let t = self.show.tempo.now();
             let row = deck_ui::beat_row(&lines);
             self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
             // #208: the glitch warning flashes at 2 Hz (the lines refresh every 0.25 s)
             let alert = deck_ui::alert_row(&lines);
             let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
-            self.hud.set_alert(match cursor {
-                Some(row) => Some(hud::Alert { row, lit: true }),
-                None => alert.map(|row| hud::Alert { row, lit }),
-            });
+            self.hud.set_alert(alert.map(|row| hud::Alert { row, lit }));
             let mut lines = lines;
             let mut items = deck_ui::bar_items(&status);
             if let Some(v) = &vol {
@@ -1538,33 +1522,8 @@ impl ApplicationHandler<Event> for App {
         if self.show.live.as_ref().is_some_and(|l| l.window_event(&event, self.switcher.open || self.page.open || self.live.page.open)) {
             return;
         }
-        // #386: the menu (Esc, F4 / F5 / F6, its pages' keys and the pointer on them – menu.rs)
+        // #386: the menu (Esc, F4 / F5 / F6, its pages – the deck's own too, #796 – their keys and the pointer – menu.rs)
         if self.menu_event(el, &event) {
-            return;
-        }
-        // #250 F5, #220 F4: the open scene list or settings page takes the keys (the arrows, + / −, Space would turn the
-        // camera and the tempo); pages.rs names them
-        if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if (self.switcher.open || self.page.open) && k.state == ElementState::Pressed && !pages::passes(&k.logical_key) {
-                self.hud_at = -1.0;
-                match (self.switcher.open, pages::switcher_key(&k.logical_key), pages::settings_key(&k.logical_key)) {
-                    (true, pages::Press::Key(key), _) => {
-                        if let Some(entry) = self.switcher.key(key) {
-                            self.change.ask(&entry.value);
-                        }
-                    }
-                    (true, pages::Press::Close, _) => self.switcher.open = false,
-                    (false, _, pages::Press::Key(key)) => self.page_key(key),
-                    (false, _, pages::Press::Close) => self.page.open = false,
-                    _ => {}
-                }
-                return;
-            }
-        }
-        // #478: the open Live page takes the keys and a press on its lines
-        let size = self.window.as_ref().map_or((1.0, 1.0), |w| (w.inner_size().width as f32, w.inner_size().height as f32));
-        if self.live.page.open && self.live.event(&self.show, &event, size) {
-            self.hud_at = -1.0;
             return;
         }
         #[cfg(feature = "space")]
@@ -1738,6 +1697,12 @@ fn run() -> Result<i32> {
         pieces: deck_native::live::piece::Side::at(app_cache),
     };
     app.watch = app.watch_files();
+    // a check run's page at the start, as the menu's (#796)
+    for (on, page) in [(app.args.switcher, deck_ui::menu::Page::Scenes), (args_settings, deck_ui::menu::Page::Settings), (app.args.live_page, deck_ui::menu::Page::Live)] {
+        if on {
+            app.menu.menu.direct(page);
+        }
+    }
     if app.args.switcher {
         app.open_switcher();
     }

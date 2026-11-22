@@ -1,9 +1,10 @@
 //! The deck's menu in the deck's window (#386; the model, its words and its picture are deck-ui `menu.rs`, built from
 //! deck-kit's live components): an adapter. Here only winit's keys, mouse and touch and the pad's buttons as the kit's
 //! `Input`, the deck's objects read into the menu's `Facts`, and what the menu answers done: the deck's own pages follow
-//! it (F4 the settings page, F5 the switcher, F6 the Live page – drawn as before on the HUD), QUIT ends the window, the
-//! page goes to the stage (a layer of deck-kit's egui screen, #485). Esc opens the menu when nothing is open; F4 / F5 /
-//! F6 still open their page directly. The corner card is gone: deck-link's pairing state (read every 2 s, a small file)
+//! it (F4 the settings page, F5 the switcher, F6 the Live page – their lines drawn by the menu, its keys, the pad's and
+//! the pointer handed to them here), QUIT ends the window (RESTART under deck-session, which starts the stage again),
+//! SHUTDOWN powers the deck off, the page goes to the stage (a layer of deck-kit's egui screen, #485). Esc opens the
+//! menu when nothing is open; F4 / F5 / F6 still open their page directly. The corner card is gone: deck-link's pairing state (read every 2 s, a small file)
 //! is the menu's "Pair this deck".
 //! #556: the ballot of a vote this deck may cast in (deck-ui `ballot.rs`, the layer under the menu) gets the inputs the
 //! menu leaves – the arrows, Enter, a click, a touch, the pad's d-pad and A – while no page of the deck is open; its
@@ -18,7 +19,7 @@
 //! first (a thread), then its rows' cells go to the piece side; the show page's GO fires the next row, LEAVE ends it.
 use crate::App;
 use deck_ui::join::Typed;
-use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair};
+use deck_ui::menu::{Answer, Facts, Input, Menu, Page, Pair, Sheet, Step};
 use deck_ui::start::{self, Begin, Clock, Heard, Listed, Lister, Playable};
 use std::sync::{Arc, Mutex};
 use winit::event::{ElementState, MouseButton, TouchPhase, WindowEvent};
@@ -50,6 +51,10 @@ pub struct Native {
     asking: Option<std::sync::mpsc::Receiver<bool>>,
     play_open: bool,
     play: Vec<Playable>,
+    /// the settings page's NOW line (the governor's level, scale, frame time), read every 0.25 s so the page is not
+    /// painted anew every frame
+    now: String,
+    now_at: f32,
     /// JOIN A SHOW under way: the relay, outlet and scene the deck had before (given back when the join fails)
     before: Option<(Option<String>, Option<String>, Option<std::path::PathBuf>)>,
     /// the show this deck conducts itself
@@ -126,6 +131,8 @@ impl Native {
             asking: None,
             play_open: false,
             play: Vec::new(),
+            now: String::new(),
+            now_at: -1.0,
             before: None,
             #[cfg(feature = "live")]
             own,
@@ -218,9 +225,12 @@ impl App {
         Facts {
             native: true,
             creator: deck_native::handoff::in_session(),
+            power: deck_native::handoff::in_session(),
             live_page: true,
             scenes_page: true,
             settings_page: true,
+            play_page: true,
+            sheet: self.sheet(),
             session: deck_ui::menu::session_line(&outlet, &s),
             who: deck_ui::live::who(&s),
             scene,
@@ -234,6 +244,114 @@ impl App {
             showing: self.menu.own.playing.as_ref().map(deck_show::alone::Alone::showing),
             #[cfg(not(feature = "live"))]
             showing: None,
+        }
+    }
+
+    /// the lines of the deck's own page on top (the switcher, the settings, Live), for the menu to draw
+    fn sheet(&self) -> Option<Sheet> {
+        let lines = match self.menu.menu.top()? {
+            Page::Scenes => self.switcher.lines(self.current_scene()),
+            Page::Settings => self.page.lines(&self.presets, &self.menu.now, &self.modes, &self.quality_note),
+            Page::Live => self.live.lines(&self.show),
+            _ => return None,
+        };
+        Some(Sheet::of(lines))
+    }
+
+    /// a key of the menu's (the pad's, the arrows, Enter) for the deck's own page `p`; whether a scene was loaded
+    fn page_step(&mut self, p: Page, k: Step) -> bool {
+        use deck_native::{quality, switcher};
+        match p {
+            Page::Scenes => {
+                let key = match k {
+                    Step::Up => switcher::Key::Up,
+                    Step::Down => switcher::Key::Down,
+                    Step::Enter => switcher::Key::Enter,
+                    _ => return false,
+                };
+                if let Some(entry) = self.switcher.key(key) {
+                    self.change.ask(&entry.value);
+                    return true;
+                }
+            }
+            Page::Settings => self.page_key(match k {
+                Step::Up => quality::Key::Up,
+                Step::Down => quality::Key::Down,
+                Step::Left => quality::Key::Left,
+                Step::Right => quality::Key::Right,
+                Step::More => quality::Key::More,
+                Step::Less => quality::Key::Less,
+                // A starts and ends changing a value: the menu's
+                Step::Enter => return false,
+            }),
+            Page::Live => {
+                let key = match k {
+                    Step::Up => deck_ui::live::Key::Up,
+                    Step::Down => deck_ui::live::Key::Down,
+                    Step::Enter => deck_ui::live::Key::Enter,
+                    _ => return false,
+                };
+                let did = self.live.page.key(key, &crate::pages::session(&self.show));
+                crate::pages::act(&self.show, did);
+            }
+            _ => {}
+        }
+        false
+    }
+
+    /// the pointer on line `n` of the deck's own page `p`: its cursor walks there (the page's own keys), a press takes
+    /// it as Enter; whether a scene was loaded
+    fn page_line(&mut self, p: Page, n: usize, press: bool) -> bool {
+        let at = |app: &App| app.sheet().map(|s| s.cursor);
+        for _ in 0..32 {
+            let Some(c) = at(self) else { return false };
+            if c == n {
+                return press && self.page_step(p, Step::Enter);
+            }
+            self.page_step(p, if c < n { Step::Down } else { Step::Up });
+            // past it (a heading, a line of words): it is no row
+            if at(self).is_some_and(|d| d != n && (c < n) != (d < n)) {
+                return false;
+            }
+        }
+        false
+    }
+
+    /// a typed key on the deck's own page the menu shows (S on the switcher, + - P R on the settings, a name's letters
+    /// and Backspace on Live); whether it was the page's
+    fn page_char(&mut self, p: Page, k: &Key) -> bool {
+        use crate::pages::{live_key, settings_key, switcher_key, Press};
+        match p {
+            Page::Scenes => match switcher_key(k) {
+                Press::Key(key) => {
+                    self.switcher.key(key);
+                }
+                _ => return false,
+            },
+            Page::Settings => match settings_key(k) {
+                Press::Key(key) => self.page_key(key),
+                _ => return false,
+            },
+            Page::Live => match live_key(k) {
+                Press::Key(key) => {
+                    let did = self.live.page.key(key, &crate::pages::session(&self.show));
+                    crate::pages::act(&self.show, did);
+                }
+                _ => return false,
+            },
+            _ => return false,
+        }
+        true
+    }
+
+    /// SHUTDOWN confirmed: the deck powers off (systemd's poweroff as the deck's own user in its seat – the Deck OS's
+    /// polkit rule allows it); refused, the HUD says why
+    fn shut_down(&mut self) {
+        tracing::info!("menu: shutdown");
+        match std::process::Command::new("systemctl").arg("poweroff").status() {
+            Ok(s) if s.success() => {}
+            Ok(s) => self.error = Some(format!("SHUTDOWN REFUSED ({s})")),
+            Err(e) => self.error = Some(format!("NO SHUTDOWN: {e}")),
         }
     }
 
@@ -361,7 +479,7 @@ impl App {
         }
     }
 
-    /// the menu follows the start's stand (once a frame); Play's list while a start page shows (every 2 s)
+    /// the menu follows the start's stand (once a frame); Play's list while a start page or the main menu shows (every 2 s)
     fn start_frame(&mut self, refresh: bool, time: f32) {
         self.listing_frame(time);
         if self.menu.menu.joining() {
@@ -371,7 +489,7 @@ impl App {
         let stand = start::stand(&self.menu.begin, &self.heard(), conductor, self.menu.left);
         let was = self.menu.menu.top();
         self.menu.menu.follow(&stand);
-        if refresh && self.menu.menu.top().is_some_and(Page::start) {
+        if refresh && self.menu.menu.top().is_some_and(|p| p.start() || p == Page::Main) {
             let cache = self.args.cache.clone().unwrap_or_else(crate::cache::default_dir);
             #[allow(unused_mut)]
             let mut listed = self.menu.listing.lock().map(|l| l.clone()).unwrap_or_default();
@@ -408,6 +526,18 @@ impl App {
                 self.switch("idle");
             }
             Answer::Join(code) => self.join_session(&code),
+            Answer::Shutdown => self.shut_down(),
+            // a scene picked on ON THIS DECK plays: the menu closes over it
+            Answer::Page(p, k) => {
+                if self.page_step(p, k) {
+                    self.menu.menu.close();
+                }
+            }
+            Answer::Line(p, n, press) => {
+                if self.page_line(p, n, press) {
+                    self.menu.menu.close();
+                }
+            }
             Answer::Yes | Answer::Started => {}
         }
         self.menu_sync(&facts);
@@ -521,7 +651,9 @@ impl App {
 
     /// A window event for the menu: true = it was the menu's (the deck's dialog, #481, had its turn before).
     pub(crate) fn menu_event(&mut self, el: &ActiveEventLoop, event: &WindowEvent) -> bool {
-        let drawn = self.menu.menu.open() && self.menu.menu.own(&self.menu_facts()).is_none();
+        // every page is drawn by the menu, the deck's own too (their lines, `sheet`)
+        let drawn = self.menu.menu.open();
+        let own = self.menu.menu.top().filter(|p| p.own());
         let input = match event {
             WindowEvent::KeyboardInput { event: kev, .. } if kev.state == ElementState::Pressed => match kev.logical_key.as_ref() {
                 // #496: Esc drops a picked cast member first (the core says whether it had one), then opens the menu
@@ -542,7 +674,18 @@ impl App {
                 // the code page: typed characters and Backspace are the code's (Esc goes back)
                 Key::Named(NamedKey::Backspace) if self.menu.menu.top() == Some(Page::Join) => return self.menu.menu.typed(Typed::Delete),
                 Key::Character(c) if self.menu.menu.top() == Some(Page::Join) && !self.mods.control_key() => return c.chars().fold(false, |_, c| self.menu.menu.typed(Typed::Char(c))),
-                // Backspace is the Live page's while it shows (a name is typed there)
+                // the deck's own page: its typed keys (Backspace is the Live page's name's, Back elsewhere)
+                Key::Character(_) | Key::Named(NamedKey::Space | NamedKey::Backspace) if own.is_some() && !self.mods.control_key() => {
+                    let k = kev.logical_key.clone();
+                    if own.is_some_and(|p| self.page_char(p, &k)) {
+                        self.hud_at = -1.0;
+                        return true;
+                    }
+                    if k != Key::Named(NamedKey::Backspace) {
+                        return true;
+                    }
+                    Input::Back
+                }
                 Key::Named(NamedKey::Backspace) if drawn => Input::Back,
                 Key::Named(NamedKey::ArrowUp) => Input::Up,
                 Key::Named(NamedKey::ArrowDown) => Input::Down,
@@ -575,6 +718,10 @@ impl App {
             self.menu.pair_at = time;
             let state = deck_link::pairing::read_state(&deck_link::pairing::run_dir());
             self.menu.pair = deck_native::pairing::of(state.as_ref(), &deck_link::pairing::app_url());
+        }
+        if time - self.menu.now_at >= 0.25 || time < self.menu.now_at {
+            self.menu.now_at = time;
+            self.menu.now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
         }
         self.start_frame(refresh, time);
         self.own_frame();

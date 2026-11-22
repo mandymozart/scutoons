@@ -18,6 +18,8 @@ chromium
 libxkbcommon
 noto-fonts
 noto-fonts-emoji
+# the stage's SHUTDOWN: logind asks polkit (rootfs/etc/polkit-1/rules.d/50-deck-power.rules)
+polkit
 ttf-dejavu
 
 # audio: PipeWire with a realtime config (rootfs/etc/pipewire), rtkit + the realtime group

@@ -3,7 +3,7 @@
 //! full screen the stage lays over the scene (deck-space `Stage::set_menu`, #485). Sizes are logical pixels (a cell of the pixel face): the
 //! HUD's scale makes 16 px glyphs on a 1080p screen, 40 columns; on a phone (narrow, upright) the rows are a finger's –
 //! 20 high, 40 px at 16 px glyphs, a value under its label. What can be pressed is kept for the pointer (`places`).
-use super::{rows_of, words, Facts, Hit, Menu, Page, Pair};
+use super::{rows_of, words, Facts, Hit, Menu, Page, Pair, Sheet, SCENES};
 use deck_kit::base::draw::{DrawList, Rect};
 pub use deck_kit::base::screen::Layer;
 use deck_kit::base::tokens::Tokens;
@@ -29,7 +29,7 @@ pub fn finger(lw: f32, lh: f32) -> bool {
 }
 
 /// what was drawn: the pages, the cursor, the facts, the screen, the show waited for (`Menu::drawn`)
-pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String, crate::join::Join);
+pub(crate) type Drawn = (Vec<Page>, usize, Facts, (f32, f32), String, crate::join::Join, bool);
 
 /// the parts of a page's body that can be pressed, and where the body is
 struct Body<'a> {
@@ -69,7 +69,7 @@ fn title(page: Page) -> &'static str {
         Page::Splash => "",
         Page::Main => "SCUTOONS DECK",
         Page::Live => "LIVE",
-        Page::Scenes => "SCENES",
+        Page::Scenes => SCENES,
         Page::Settings => "SETTINGS",
         Page::Pair => "PAIR THIS DECK",
         Page::Avatar => "AVATAR",
@@ -79,6 +79,7 @@ fn title(page: Page) -> &'static str {
         Page::Play => "PLAY",
         Page::Show => "SHOW",
         Page::Join => "JOIN A SHOW",
+        Page::Shutdown => "SHUTDOWN",
     }
 }
 
@@ -87,8 +88,8 @@ impl Menu {
     /// deck's own page shows); Some(layer) = this page over the whole screen, from its top left (the screen's menu
     /// layer, painted through egui: deck-space `Stage::set_menu`).
     pub fn paint(&mut self, f: &Facts, (w, h): (f32, f32)) -> Option<Option<Layer>> {
-        let show = self.top().filter(|_| self.own(f).is_none());
-        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone(), self.join.clone()));
+        let show = self.top().filter(|_| self.own(f).is_none() || f.sheet.is_some());
+        let now: Option<Drawn> = show.map(|_| (self.stack.clone(), self.cursor, f.clone(), (w, h), self.waiting.clone(), self.join.clone(), self.changing()));
         let was: Option<Drawn> = self.drawn.take();
         if now == was {
             self.drawn = was;
@@ -116,7 +117,9 @@ impl Menu {
             splash(d, &t, f, (lw, lh));
             return vec![];
         }
-        let w = if finger { lw - 2.0 * PAD - 8.0 } else { COLUMNS.min(lw - 2.0 * PAD - 8.0) };
+        // the deck's own pages: their 38 columns after the row's `>`
+        let wide = if top.own() && f.sheet.is_some() { COLUMNS + 2.0 * GLYPH } else { COLUMNS };
+        let w = if finger { lw - 2.0 * PAD - 8.0 } else { wide.min(lw - 2.0 * PAD - 8.0) };
         // the body once to measure it, then on its ground in the middle of what the host leaves free
         let mut scratch = look::list();
         let height = self.body(&mut Body { d: &mut scratch, t: &t, x: 0.0, w, finger, places: vec![] }, top, f, 0.0) + 2.0 * PAD;
@@ -145,7 +148,7 @@ impl Menu {
                 } else {
                     y += b.line(y, "UP DOWN CHOOSE  ENTER OPEN", "", true);
                     if f.native {
-                        y += b.line(y, "F4 SETTINGS F5 SCENES F6 LIVE", "", true);
+                        y += b.line(y, "F4 SETTINGS F5 ON THIS DECK F6 LIVE", "", true);
                     }
                 }
             }
@@ -200,6 +203,20 @@ impl Menu {
                     y += b.line(y, "ENTER GO  ESC CLOSE", "", true);
                 }
             }
+            Page::Shutdown => {
+                y += b.head(y, title(top), "ESC CANCEL");
+                y += b.rule(y);
+                y += b.line(y, "SHUT THE DECK DOWN?", "", false);
+                y += b.line(y, "IT STAYS OFF UNTIL ITS POWER BUTTON", "", true);
+                y += b.rule(y);
+                y += self.items(b, top, f, y);
+                y += b.rule(y);
+                if b.finger {
+                    y += b.foot_back(y, f);
+                } else {
+                    y += b.line(y, "ENTER (A) SHUT DOWN  ESC (B) CANCEL", "", true);
+                }
+            }
             Page::Pair => {
                 y += b.head(y, title(top), "ESC BACK");
                 y += b.line(y, f.pair.word(), "", true);
@@ -211,6 +228,20 @@ impl Menu {
                 }
                 if b.finger {
                     y += b.foot_back(y, f);
+                }
+            }
+            p if p.own() && f.sheet.is_some() => {
+                let sheet = f.sheet.clone().unwrap_or_default();
+                y += b.head(y, title(p), "ESC BACK");
+                y += b.rule(y);
+                y += sheet_lines(b, &sheet, y);
+                y += b.rule(y);
+                if b.finger {
+                    y += b.foot_back(y, f);
+                } else {
+                    for keys in keys_of(p, self.changing()) {
+                        y += b.line(y, keys, "", true);
+                    }
                 }
             }
             // a later page, or one of the deck's own pages this deck has not: empty, the boilerplate's slot
@@ -243,6 +274,28 @@ impl Menu {
             h += at.h;
         }
         h
+    }
+}
+
+/// The lines of the deck's own page from `y`, the cursor's chosen, each a place to point at; their height.
+fn sheet_lines(b: &mut Body, sheet: &Sheet, y: f32) -> f32 {
+    let mut h = 0.0;
+    for (i, l) in sheet.lines.iter().enumerate() {
+        let at = look::item(b.d, b.t, (b.x, y + h, b.w), Item { label: l, value: "", chosen: i == sheet.cursor, dim: false }, b.finger);
+        b.places.push((at, Hit::Line(i)));
+        h += at.h;
+    }
+    h
+}
+
+/// the keys of the deck's own page on a wide screen: the keyboard's and the pad's
+fn keys_of(p: Page, changing: bool) -> &'static [&'static str] {
+    match p {
+        Page::Settings if changing => &["CHANGING: < > VALUE  ENTER (A) DONE"],
+        Page::Scenes => &["ENTER (A) PLAY  S START  ESC (B) BACK"],
+        Page::Settings => &["ENTER (A) CHANGE  + - P=PX R=RESET", "ESC (B) BACK"],
+        Page::Live => &["ENTER (A) TAKE  TYPE A NAME  (B) BACK"],
+        _ => &[],
     }
 }
 
@@ -364,6 +417,38 @@ mod tests {
         assert!(text(&layer, "WAITING FOR CHOIR") && text(&layer, "LEAVE"));
         let (leave, _) = *m.places.iter().find(|(_, h)| *h == Hit::Row(0)).expect("leave");
         assert_eq!(m.input(Input::Press((leave.x + 4.0) * 2.0, (leave.y + 4.0) * 2.0), &f), Answer::Leave);
+    }
+
+    /// headless, each of the deck's own pages: painted in the menu's middle under its name, its cursor's line chosen; the
+    /// pointer on a line hands it to the page; the main menu's PLAY and the shutdown's question painted too
+    #[test]
+    fn the_decks_own_pages_are_painted_in_the_middle_and_pointed_at() {
+        use super::super::Sheet;
+        let text = |layer: &Layer, want: &str| layer.list.prims().iter().any(|p| matches!(*p, Prim::Text { start, end, .. } if layer.list.text_of(start, end) == want));
+        let sheet = Sheet { lines: vec!["  IDLE".into(), ">*CATHEDRAL".into(), " -- PUBLISHED --".into(), "  NAVE".into()], cursor: 1 };
+        let f = Facts { play_page: true, power: true, sheet: Some(sheet), ..native() };
+        for (page, name) in [(Page::Scenes, "ON THIS DECK"), (Page::Settings, "SETTINGS"), (Page::Live, "LIVE")] {
+            let mut m = Menu::new(true);
+            m.direct(page);
+            let layer = m.paint(&f, (1920.0, 1080.0)).flatten().unwrap_or_else(|| panic!("{page:?} painted by the menu"));
+            assert!(text(&layer, name) && text(&layer, ">*CATHEDRAL") && text(&layer, "ESC BACK"), "{page:?}");
+            let lines: Vec<Rect> = m.places.iter().filter(|(_, h)| matches!(h, Hit::Line(_))).map(|(r, _)| *r).collect();
+            assert_eq!(lines.len(), 4);
+            let w = COLUMNS + 2.0 * GLYPH;
+            assert!(lines.iter().all(|r| r.x == (960.0 - w) / 2.0 && r.w == w), "in the middle, two columns wider than the menu");
+            let red = Prim::Rect { x: lines[1].x, y: lines[1].y, w: lines[1].w, h: ROW, r: 0.0, color: [232.0 / 255.0, 48.0 / 255.0, 42.0 / 255.0, 1.0] };
+            assert!(layer.list.prims().contains(&red), "the cursor's line wears the red bar");
+            let (x, y) = ((lines[3].x + 4.0) * 2.0, (lines[3].y + 4.0) * 2.0);
+            assert_eq!(m.input(Input::Point(x, y), &f), Answer::Line(page, 3, false));
+            assert_eq!(m.input(Input::Press(x, y), &f), Answer::Line(page, 3, true));
+        }
+        let mut m = Menu::new(true);
+        m.input(Input::Open, &f);
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the main menu");
+        assert!(text(&layer, "PLAY") && text(&layer, "ON THIS DECK") && text(&layer, "RESTART") && text(&layer, "SHUTDOWN") && !text(&layer, "QUIT"));
+        m.direct(Page::Shutdown);
+        let layer = m.paint(&f, (1920.0, 1080.0)).flatten().expect("the question");
+        assert!(text(&layer, "SHUT THE DECK DOWN?") && text(&layer, "SHUT DOWN"));
     }
 
     #[test]
