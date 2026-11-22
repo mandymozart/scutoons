@@ -12,7 +12,7 @@ use Scutoons\Tests\TestCase;
 /**
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
- * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq; #742, 2026-11-22-factory-convolver: convolver;
+ * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq; #742, 2026-11-22-factory-convolver: convolver, its source brought up to date by 2026-11-22-update-convolver-asset-slot;
  * #780, 2026-11-22-factory-cloud: cloud; #780, 2026-11-22-factory-bamboo: bamboo) as catalog documents marked
  * `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte (this test keeps the two
  * equal: a change of a module's source needs a migration that brings it into the catalog), each with its published
@@ -304,6 +304,44 @@ final class FactoryModulesTest extends TestCase
     public function testTheConvolverMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
     {
         $this->assertOneModuleMigration('convolver', '2026-11-22-factory-convolver', self::CONVOLVER_MARKER);
+    }
+
+    public function testTheConvolverUpdateBringsTheRepositorysSourceTwiceAndLeavesACreatorsModule(): void
+    {
+        $insert = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-convolver.mysql.sql');
+        $update = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-update-convolver-asset-slot.mysql.sql');
+        self::assertCount(2, $update);
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message, json FROM entity_versions WHERE kind = 'module' ORDER BY entity_key, id"),
+        ];
+        foreach (['the factory row as 2026-11-22-factory-convolver left it', "a creator's own"] as $case) {
+            $this->db->exec('DELETE FROM catalog_modules');
+            $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+            $mine = (string) json_encode(['id' => 'convolver', 'files' => ['lib.rs' => '// mine TODO(#782)']]);
+            if ($case === "a creator's own") {
+                $this->db->run("INSERT INTO catalog_modules (id, position, data, updated_at) VALUES ('convolver', 0, ?, UTC_TIMESTAMP())", [$mine]);
+                $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:convolver', 'module', ?, UTC_TIMESTAMP(), 'published', 'mine')", [$mine]);
+            }
+            foreach ($insert as $statement) $this->db->exec($statement);
+            $before = $state();
+            $after = null;
+            foreach ([1, 2] as $run) {
+                foreach ($update as $statement) $this->db->exec($statement);
+                [$rows, $versions] = $state();
+                if ($case === "a creator's own") {
+                    self::assertSame($before, $state(), "run $run: the creator's convolver stays");
+                    continue;
+                }
+                $data = json_decode($rows['convolver'], true);
+                self::assertTrue(ModuleSource::isFactory($data), "run $run");
+                self::assertSame(self::repoFiles('convolver'), $data['files'], "run $run: the repository's source");
+                self::assertCount(1, $versions, "run $run: no new version");
+                self::assertSame(['published', self::CONVOLVER_MARKER, $data], [$versions[0]['status'], $versions[0]['message'], json_decode($versions[0]['json'], true)], "run $run");
+                if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+                $after = $state();
+            }
+        }
     }
 
     public function testTheDrumseqMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
