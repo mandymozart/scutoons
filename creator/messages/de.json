@@ -2437,7 +2437,7 @@
 		"place_no_model": "{where} · noch kein Modell",
 		"place_counts": "{tris} Dreiecke · {bones} Knochen",
 		"place_attached": "zugeordnet",
-		"place_from_persona": "das der Persona",
+		"place_from_persona": "von der Persona",
 		"place_replace": "Ersetzen …",
 		"place_skeleton": "Skelett",
 		"place_skeleton_keys": "Die Knochen und Gelenke über dem Modell",

@@ -79,7 +79,7 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
 	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
-	character: { panels: [right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), library()], clear: false },
+	character: { panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, library()], clear: false },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },

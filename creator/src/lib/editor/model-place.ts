@@ -22,6 +22,8 @@ export interface PlaceColours {
 export interface ModelPlace {
 	/** shows the skeleton and the joints, or hides them */
 	skeleton(on: boolean): void;
+	/** what covers the canvas at each side (px): the model is framed in the middle of the rest */
+	room(left: number, right: number): void;
 	/** plays clip `index` from `time` (null: the rest pose); `playing` false holds it at `time` */
 	clip(index: number | null, playing: boolean, time: number): void;
 	dispose(): void;
@@ -47,7 +49,8 @@ export async function mountModelPlace(
 	bytes: ArrayBuffer,
 	spots: readonly { at: readonly number[] }[],
 	colours: PlaceColours,
-	ontime: (seconds: number) => void
+	ontime: (seconds: number) => void,
+	start: { left: number; right: number } = { left: 0, right: 0 }
 ): Promise<ModelPlace> {
 	const { THREE, GLTFLoader, OrbitControls } = await three();
 	const gltf: GLTF = await new GLTFLoader().parseAsync(bytes.slice(0), '');
@@ -103,8 +106,11 @@ export async function mountModelPlace(
 		root.add(mark);
 	}
 
-	const camera = new THREE.PerspectiveCamera(30, 1, height * 0.01, height * 50);
-	camera.position.set(centre.x + height * 1.1, centre.y + height * 0.35, centre.z + height * 2.6);
+	const camera = new THREE.PerspectiveCamera(30, (canvas.clientWidth || 1) / (canvas.clientHeight || 1), height * 0.01, height * 50);
+	// far enough that the whole model fits, also in a narrow half of a split stage
+	const roomAspect = Math.max(1, (canvas.clientWidth || 1) - start.left - start.right) / (canvas.clientHeight || 1);
+	const fit = ((height * 0.62) / Math.tan(THREE.MathUtils.degToRad(15))) * Math.max(1, 0.8 / roomAspect);
+	camera.position.copy(centre).add(new THREE.Vector3(0.38, 0.12, 0.92).normalize().multiplyScalar(fit));
 	const controls = new OrbitControls(camera, canvas);
 	controls.target.copy(centre);
 	controls.enableDamping = true;
@@ -114,11 +120,16 @@ export async function mountModelPlace(
 	let action: Three.AnimationAction | null = null;
 	let running = false;
 
+	let covered = start;
 	const resize = () => {
 		const w = canvas.clientWidth || 1;
 		const h = canvas.clientHeight || 1;
 		renderer.setSize(w, h, false);
 		camera.aspect = w / h;
+		// the orbit's centre in the middle of the free room, not of the whole canvas
+		const shift = Math.round((covered.right - covered.left) / 2);
+		if (shift) camera.setViewOffset(w, h, shift, 0, w, h);
+		else camera.clearViewOffset();
 		camera.updateProjectionMatrix();
 	};
 	const ro = new ResizeObserver(resize);
@@ -142,6 +153,10 @@ export async function mountModelPlace(
 	tick();
 
 	return {
+		room(left, right) {
+			covered = { left, right };
+			resize();
+		},
 		skeleton(on) {
 			for (const o of overlay) o.visible = on;
 		},

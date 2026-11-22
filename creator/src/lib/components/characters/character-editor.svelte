@@ -249,8 +249,8 @@
 						{/key}
 					</div>
 				{/snippet}
-				{#snippet place()}
-					<CharacterModelCanvas {model} {where} {attached} onattach={(path) => edits.setModel(path)} />
+				{#snippet place(room: { left: number; right: number })}
+					<CharacterModelCanvas {model} {where} {attached} {room} onattach={(path) => edits.setModel(path)} />
 				{/snippet}
 			</CharacterViews>
 		{/if}
@@ -290,6 +290,7 @@
 		inset: 0;
 		overflow: auto;
 		box-sizing: border-box;
+		background: var(--editor-surface);
 		padding: calc(var(--shell-top) + 1rem) var(--in-r) calc(var(--status-room) + var(--control-height) + 1.5rem) var(--in-l);
 	}
 </style>

@@ -2437,7 +2437,7 @@
 		"place_no_model": "{where} · no model yet",
 		"place_counts": "{tris} triangles · {bones} bones",
 		"place_attached": "attached to",
-		"place_from_persona": "the persona's",
+		"place_from_persona": "from the persona",
 		"place_replace": "Replace …",
 		"place_skeleton": "Skeleton",
 		"place_skeleton_keys": "The bones and joints over the model",

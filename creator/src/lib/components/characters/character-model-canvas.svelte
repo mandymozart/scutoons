@@ -18,6 +18,7 @@
 		model,
 		where,
 		attached,
+		room,
 		onattach
 	}: {
 		model: CharacterModel;
@@ -25,6 +26,8 @@
 		where: string;
 		/** where the shown model sits: the look's own slot, the persona's, or none yet */
 		attached: 'look' | 'persona' | null;
+		/** what the panels cover at each side (px): the model stands in the middle of the rest */
+		room: { left: number; right: number };
 		/** a model file for the look's 3D slot */
 		onattach: (path: string) => void;
 	} = $props();
@@ -53,11 +56,12 @@
 		if (!el || !bytes) return;
 		let gone = false;
 		let mounted: ModelPlace | null = null;
-		void mountModelPlace(el, bytes, spots, colours(), (t) => (model.time = t))
+		void mountModelPlace(el, bytes, spots, colours(), (t) => (model.time = t), untrack(() => ({ left: room.left, right: room.right })))
 			.then((p) => {
 				if (gone) return p.dispose();
 				mounted = place = p;
 				p.skeleton(untrack(() => model.skeleton));
+				p.room(untrack(() => room.left), untrack(() => room.right));
 				p.clip(untrack(() => model.clip), untrack(() => model.playing), untrack(() => model.time));
 			})
 			.catch((e) => (model.why = e instanceof Error ? e.message : String(e)));
@@ -68,6 +72,7 @@
 		};
 	});
 	$effect(() => place?.skeleton(model.skeleton));
+	$effect(() => place?.room(room.left, room.right));
 	$effect(() => {
 		const c = model.clip;
 		const playing = model.playing;
@@ -203,6 +208,10 @@
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
 		white-space: nowrap;
+		max-width: calc(100% - var(--in-l) - var(--in-r));
+		overflow: hidden;
+		text-overflow: ellipsis;
+		box-sizing: border-box;
 	}
 	.pill {
 		display: flex;
@@ -258,6 +267,11 @@
 		top: calc(var(--shell-top) + 2.4rem);
 		left: calc((var(--in-l) + 100% - var(--in-r)) / 2);
 		transform: translateX(-50%);
+		flex-wrap: wrap;
+		justify-content: center;
+		width: max-content;
+		max-width: calc(100% - var(--in-l) - var(--in-r));
+		box-sizing: border-box;
 	}
 	.quiet {
 		left: calc(var(--in-l) + 0.25rem);
@@ -314,9 +328,10 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.8rem;
-		border: var(--editor-edge) dashed var(--editor-line);
+		border: var(--editor-edge) dashed var(--editor-muted);
 		border-radius: 0.6rem;
-		background: rgb(0 0 0 / 0.35);
+		background: var(--editor-panel-ground);
+		text-shadow: var(--editor-halo);
 		color: var(--editor-accent);
 		text-align: center;
 	}

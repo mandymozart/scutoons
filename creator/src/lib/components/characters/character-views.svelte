@@ -26,7 +26,8 @@
 		split?: boolean;
 		sheet: Snippet;
 		expressions: Snippet;
-		place: Snippet;
+		/** the 3D place, with the room its words keep clear of at each side (px) */
+		place: Snippet<[room: { left: number; right: number }]>;
 	} = $props();
 
 	let W = $state(1440);
@@ -73,7 +74,7 @@
 	{@const b = boxes[i]}
 	{@const c = clearOf(b)}
 	<div class="box" style:left={r(b.x)} style:width={r(b.w)} style:--in-l={r(c.l)} style:--in-r={r(c.rt)} data-view={id} data-testid="character-view-{id}">
-		{#if id === 'sheet'}{@render sheet()}{:else if id === 'expressions'}{@render expressions()}{:else}{@render place()}{/if}
+		{#if id === 'sheet'}{@render sheet()}{:else if id === 'expressions'}{@render expressions()}{:else}{@render place({ left: c.l, right: c.rt })}{/if}
 	</div>
 {/each}
 {#if shown.length === 2}
