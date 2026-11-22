@@ -4,7 +4,7 @@ import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
 import type { Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
-import { PRESETS, stageOf } from './presets.ts';
+import { PRESETS, stageOf, tabIdOf } from './presets.ts';
 import { back, clampSplit, send, splitIn, type Side, type Stage } from './stage.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
@@ -148,7 +148,7 @@ class Shell {
 	}
 
 	open(tab: string) {
-		this.wanted = tab;
+		this.wanted = tabIdOf(tab);
 	}
 }
 

@@ -141,7 +141,7 @@ export class ImproveState {
 		await this.ready(shot);
 		if (!frameStillOf(this.gen.model)) return void toast(m['storyboard.improve_no_still']({ model: this.gen.model?.label ?? '' }));
 		const url = await this.sb.board.fileOf(g);
-		if (!url) return void toast(m['storyboard.improve_no_file']({ name: nameOf(node) }), { type: 'error' });
+		if (!url) return void toast(m['storyboard.improve_no_file']({ name: nameOf(node) }), { type: 'error', kind: 'generation' });
 		this.cutting = true;
 		try {
 			const png = await cutFrame(url, (d) => frameSeconds(frame, d));
@@ -153,9 +153,9 @@ export class ImproveState {
 			this.sb.upsert(item);
 			if (ready) await this.sb.refreshLocal();
 			this.setStill(item.id);
-			toast(m['storyboard.improve_frame_done']({ name: shortName(item) }), { type: 'success' });
+			toast(m['storyboard.improve_frame_done']({ name: shortName(item) }), { type: 'success', kind: 'generation' });
 		} catch (e) {
-			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+			toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'generation' });
 		} finally {
 			this.cutting = false;
 		}

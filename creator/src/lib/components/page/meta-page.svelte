@@ -12,11 +12,12 @@
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import { useProblems } from '$lib/log/problems.svelte.ts';
+	import { problemMessage, problemPlace } from '$lib/log/problem-words.ts';
 	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import type { HelpPage } from '$lib/components/page/page-help.svelte';
-	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
+	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
 
 	/**
 	 * The documents of a page (season, toon settings, characters, the map …): it hands the shell its save state, its
@@ -124,7 +125,7 @@
 
 	// the bar: ↶ ↷, Publish and History; the status bar: the save state and the counts; Problems is a panel tab
 	usePageDoc(() => ({ dirty: anyDirty, saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, save: () => session.saveDraft(), publish: publishTab, docs, undo, redo }));
-	useTabs(() => ({ problems: loaded ? problemsTab : null }));
+	useProblems(() => (loaded ? { problems, docs, home: main?.entity, place: (p) => problemPlace(p, main?.entity), message: problemMessage, ongoto } : null));
 
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
@@ -189,9 +190,6 @@
 	</div>
 {/snippet}
 
-{#snippet problemsTab()}
-	<div class="side-panel"><ProblemsPanel {problems} {docs} home={main?.entity} {ongoto} /></div>
-{/snippet}
 
 <style>
 	.status-end {
@@ -229,10 +227,6 @@
 		min-height: 0;
 		padding: 0;
 		max-width: none;
-	}
-	.side-panel {
-		box-sizing: border-box;
-		padding: 0 var(--editor-pad) var(--editor-pad);
 	}
 	.publish {
 		display: flex;

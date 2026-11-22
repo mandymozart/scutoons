@@ -30,6 +30,10 @@
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"
 		},
+		"./log": {
+			"types": "./src/log.ts",
+			"default": "./src/log.ts"
+		},
 		"./vote-stage": {
 			"types": "./src/vote-stage.ts",
 			"default": "./src/vote-stage.ts"
