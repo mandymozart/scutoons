@@ -25,18 +25,16 @@ function writeJson(key: string, value: unknown): void {
 }
 
 /**
- * What the open item's page hands the shell: its save state and ↶ ↷ for the bar and the status bar, its Publish for the
- * bar's Publish menu and its documents for the bar's History menu (#687). A page without documents of its own (the
- * scenes, the toon board) hands only its Publish.
+ * What the open item's page hands the shell: whether an autosave runs (the status bar's "saving…") and ↶ ↷ for the bar,
+ * its Publish for the bar's Publish menu (its dot: something saved is not live) and its documents for the bar's History
+ * menu. A page without documents of its own (the scenes, the toon board) hands only its Publish.
  */
 export interface PageDoc {
-	dirty?: boolean;
 	saving?: boolean;
 	errors?: number;
 	warnings?: number;
-	/** something saved is not live yet */
+	/** something saved is not live yet: the Publish pill's dot */
 	unpublished?: boolean;
-	save?: () => void;
 	publish?: Snippet;
 	docs?: ContentDoc[];
 	undo?: () => void;

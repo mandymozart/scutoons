@@ -5,7 +5,7 @@
 
 	/**
 	 * The status bar along the window's bottom, as the deck editor's (deck/kit/src/editor/status.rs): one pill – left the
-	 * Log's newest line (its level's dot, its words, its age), in the middle the open item's state as quiet chips, right
+	 * Log's newest line (its level's dot, its words, its age), in the middle a short "saving…" while an autosave runs (Publish's dot says what is not live), right
 	 * the open item's error and warning counts (the Log's problems in the Item scope). A press on the line or the counts
 	 * opens the Log; the panels end above it.
 	 */
@@ -17,8 +17,17 @@
 	const newest = $derived(log.view({ show: 'events' }, '', now, 0).newest);
 	const counts = $derived(log.item ? log.counts({ show: 'problems', scope: log.item }) : null);
 	const doc = $derived(shell.doc);
-	const saveWord = $derived(!doc?.save ? null : doc.saving ? m['creator.saving']() : doc.dirty ? m['shell.unsaved']() : m['creator.saved']());
 	const openLog = () => shell.open('log');
+	/** "saving…" stays long enough to be read (a save often takes less) */
+	let saving = $state(false);
+	$effect(() => {
+		if (doc?.saving) {
+			saving = true;
+			return;
+		}
+		const timer = setTimeout(() => (saving = false), 700);
+		return () => clearTimeout(timer);
+	});
 </script>
 
 <footer class="status-bar" data-testid="status-bar">
@@ -28,12 +37,7 @@
 		{#if newest}<span class="age">{newest.age}</span>{/if}
 	</button>
 	<span class="chips">
-		{#if saveWord}
-			<button type="button" class="chip" class:dirty={doc?.dirty} disabled={doc?.saving} onclick={() => doc?.save?.()} title={m['creator.save_draft']()} data-testid="save-state">
-				<span class="dot" class:warn={doc?.dirty} class:ok={!doc?.dirty} aria-hidden="true"></span>{saveWord}
-			</button>
-		{/if}
-		{#if doc?.unpublished}<span class="chip" data-testid="status-not-live">{m['shell.not_live']()}</span>{/if}
+		{#if saving}<span class="chip" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
 	</span>
 	{#if counts && (doc?.errors !== undefined || counts.errors || counts.warnings)}
 		<button type="button" class="counts" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-counts">

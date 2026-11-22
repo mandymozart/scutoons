@@ -10,11 +10,13 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { published, toast } from '$lib/toasts.ts';
 
 	/**
 	 * The History (#687): the saved changes of the open item's files as steps – time, who, what in words, before → after –
 	 * with Revert (that change, as a new draft) and Back to here, always after a prompt; publish / unpublish per step.
-	 * Pre-filtered to the open item's first file, widened to all its files – the bar's History menu.
+	 * A restore saves a new version and posts a History line; a publish a Publishes line. Pre-filtered to the open item's
+	 * first file, widened to all its files – the bar's History menu.
 	 */
 	let { doc, docs }: { doc?: ContentDoc; docs?: ContentDoc[] } = $props();
 
@@ -100,6 +102,7 @@
 			const message = `${m['history.revert_message']({ when: when(r.step.at_ms), who: who(r.step.author) })}\n\n${lines(d)}${kept}${unsaved(r.h.file)}`;
 			if (!(await confirmDialog({ title: m['history.revert_title'](), message, confirmLabel: m['history.revert']() }))) return;
 			await applyRevert(r.h.file, r.step.last, plan);
+			toast(m['history.reverted']({ file: label(r.h.file), when: when(r.step.at_ms) }), { type: 'success', kind: 'history' });
 		});
 
 	const backTo = (r: Row) =>
@@ -111,6 +114,7 @@
 			const message = `${m['history.back_message']({ when: when(r.step.at_ms), later: n.later })}${others}${unsaved(r.h.file)}`;
 			if (!(await confirmDialog({ title: m['history.back_title'](), message, confirmLabel: m['history.back_to']() }))) return;
 			await applyBackTo(r.h.file, r.step.last, base);
+			toast(m['history.restored']({ file: label(r.h.file), when: when(r.step.at_ms) }), { type: 'success', kind: 'history' });
 		});
 
 	const publish = (r: Row) =>
@@ -118,6 +122,7 @@
 			if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${label(r.h.file)} (${when(r.step.at_ms)})`, locales: r.h.file.locale }), confirmLabel: m['creator.publish']() }))) return;
 			await publishVersion(r.h.file.key, r.step.last);
 			await r.h.file.doc.load();
+			published(`${m['creator.published']()}: ${label(r.h.file)} (${when(r.step.at_ms)})`);
 		});
 
 	const unpublish = (r: Row) =>
@@ -125,6 +130,7 @@
 			if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: label(r.h.file), locale: r.h.file.locale }), confirmLabel: m['creator.unpublish_label']() }))) return;
 			await unpublishEntity(r.h.file.key);
 			await r.h.file.doc.load();
+			toast(`${m['creator.unpublish_label']()}: ${label(r.h.file)}`, { type: 'success', kind: 'publish' });
 		});
 </script>
 
