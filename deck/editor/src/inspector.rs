@@ -282,8 +282,8 @@ fn port_line(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, p: &Port) {
     *y += t.size.tree_row;
 }
 
-/// draw it inside `area`; where its fields landed
-pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &PresetLine), sel: &Sel, paging: Paging, hot: Option<Field>) -> Vec<(Rect, Field)> {
+/// draw it inside `area`; `edits` false (Play) leaves out the rows whose edits do not last: presets, Remove
+pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &PresetLine), sel: &Sel, (paging, edits): (Paging, bool), hot: Option<Field>) -> Vec<(Rect, Field)> {
     let mut out = Vec::new();
     let mut y = area.y;
     let row = t.size.row;
@@ -301,7 +301,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &P
             // the first rect that has the pointer takes the press: the swatch before its row
             out.push((swatch, Field::BackgroundColour));
             out.push((at, Field::Background));
-            if line.shown && !stage.knobs.is_empty() {
+            if edits && line.shown && !stage.knobs.is_empty() {
                 presets(d, t, area, &mut y, line, &mut out);
             }
             knobs(d, t, stage, (area, &mut y), None, hot, &mut out);
@@ -330,7 +330,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &P
                     }
                     y += t.size.pad;
                 }
-                remove(d, t, area, &mut y, &mut out);
+                if edits {
+                    remove(d, t, area, &mut y, &mut out);
+                }
             }
             knobs(d, t, stage, (area, &mut y), Some(id), hot, &mut out);
         }
@@ -339,7 +341,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, (stage, line): (&Stage, &P
             let id = stage.node_ids.get(*node).cloned().unwrap_or_default();
             controls::row(d, t, area, &mut y, "name", &id);
             controls::row(d, t, area, &mut y, "kind", stage.kind_name(*node));
-            if stage.ports.iter().any(|q| q.node == id && !q.track.is_empty()) {
+            if edits && stage.ports.iter().any(|q| q.node == id && !q.track.is_empty()) {
                 remove(d, t, area, &mut y, &mut out);
             }
             if let Some((_, _, address)) = stage.far(*node) {
