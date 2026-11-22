@@ -992,12 +992,26 @@
           ],
           "description": "the stage's background while it plays, over its modules' and under a scene's or a show's"
         },
+        "base": {
+          "description": "the core rig it builds on (`character.base`): that rig's tracks and routes play under this one's own (base.rs)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "moods": {
           "additionalProperties": {
             "$ref": "#/$defs/Variant"
           },
           "description": "mood (the `moods` registry's ids) → overrides (applied after the persona's)",
           "type": "object"
+        },
+        "off": {
+          "description": "the base rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `[\"voice\"]`)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "personas": {
           "additionalProperties": {
@@ -1262,6 +1276,13 @@
           "type": "number"
         },
         "preset": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "takes": {
+          "description": "the base rig's track this one takes over: that one is off, this one plays in its place",
           "type": [
             "string",
             "null"

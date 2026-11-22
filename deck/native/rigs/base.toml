@@ -1,0 +1,42 @@
+# The base rig (deck-space rig/base.rs): one simple character rig – a built-in singing voice whose loudness opens the
+# being's mouth, no other instrument. A character without a rig of its own plays it; a scutoon's rig builds on it
+# (`base = "character.base"`), takes the voice over with a track of its own (`takes = "voice"`) or turns it off
+# (`off = ["voice"]`).
+
+[rig]
+subject = "character.base"
+track = [{ id = "voice", instrument = "base_voice", preset = "base_voice.base" }]
+route = [{ from = "voice:ear.level", to = "being:mouth", scale = 4.0 }]
+sticks = [["voice:voice.vowel", "voice:melody.spread"], ["voice:voice.vibrato", "voice:voice.breath"]]
+[rig.moods.happy]
+values = { "voice:voice.vowel" = 1.0 }
+[rig.moods.laughing]
+values = { "voice:voice.vowel" = 0.0 }
+[rig.moods.sad]
+values = { "voice:voice.vowel" = 4.0, "voice:voice.vibrato" = 0.5 }
+
+[[instrument]]
+id = "base_voice"
+kind = "voice"
+name = { en = "Voice", de = "Stimme" }
+out = "voice"
+# the melody: a seeded walk around middle C, so the voice sings by default; `ear` hears the voice for the mouth
+node = [
+  { id = "voice", kind = "voice", freq = 262.0, gain = 0.2, vowel = 2.0, glide = 0.08, vibrato = 0.3, rate = 5.5, breath = 0.1 },
+  { id = "melody", kind = "walk", seed = 491, base = 262.0, octaves = 1.0, bpm = 84.0, spread = 0.4, rate = 1.0, glide = 0.3 },
+  { id = "ear", kind = "fft" },
+]
+link = [{ from = "melody.cv", to = "voice.cv" }, { from = "voice.out", to = "ear.in" }]
+expose = [
+  { path = "voice.gain", label = { en = "voice", de = "Stimme" }, range = [0.0, 0.4] },
+  { path = "voice.vowel", label = { en = "vowel", de = "Vokal" } },
+  { path = "voice.vibrato", label = { en = "vibrato", de = "Vibrato" } },
+  { path = "voice.breath", label = { en = "breath", de = "Atem" } },
+  { path = "melody.spread", label = { en = "spread", de = "Weite" } },
+  { path = "melody.rate", label = { en = "steps / beat", de = "Schritte / Schlag" } },
+]
+
+[[preset]]
+id = "base_voice.base"
+instrument = "base_voice"
+tags = ["base"]

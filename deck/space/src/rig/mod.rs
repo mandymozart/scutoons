@@ -2,6 +2,7 @@
 //! - instrument.rs – a patch of the node graph with its exposed parameters and a kind (drum, lead, pad, voice …)
 //! - preset.rs – values + routing changes + mappings for one instrument, with a parent (derivatives, lineage)
 //! - rig_preset.rs – a named set of every knob of one rig, saved on purpose, factory ones derived (`origin`)
+//! - base.rs – the base rig (`character.base`): a rig built on it, its take-over tracks and off flags, the fallback
 //! - assign.rs – the assignment (#283): which characters have a default rig, a draft rig's bundle from the catalog
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
@@ -25,6 +26,7 @@
 //! lists every problem it finds at its cable, node or track (problem.rs), not the first alone.
 pub mod address;
 pub mod assign;
+pub mod base;
 /// #477: a toon's address book (the server's), narrowed for the deck editor's typeahead
 pub mod book;
 pub mod build;
@@ -122,6 +124,12 @@ impl Rights {
 pub struct Rig {
     /// whose rig: `character.<id>` (`character.<id>.<persona>` for a persona's own) or `item.<id>` – KANON's subjects
     pub subject: String,
+    /// the core rig it builds on (`character.base`): that rig's tracks and routes play under this one's own (base.rs)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    /// the base rig's tracks turned off – not compiled at all, so they cost nothing (the built-in voice: `["voice"]`)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub off: Vec<String>,
     #[serde(rename = "track")]
     pub tracks: Vec<Track>,
     /// sends and modulation between tracks, and to the being's look (`being:hue`) – everything is audiovisual
@@ -163,6 +171,9 @@ pub struct Track {
     pub pan: f32,
     #[serde(default)]
     pub mute: bool,
+    /// the base rig's track this one takes over: that one is off, this one plays in its place
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub takes: Option<String>,
 }
 
 fn one() -> f32 {
@@ -309,6 +320,9 @@ impl Rig {
                     out.push(&at, e);
                 }
             }
+        }
+        for e in self.base_problems() {
+            out.push(&rig, e);
         }
         if let Err(e) = self.check_policy(lib) {
             out.note(e);

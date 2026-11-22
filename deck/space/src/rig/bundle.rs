@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// The core rigs a deck carries without an account (#191 "core"): subject → the bundle's TOML (deck/native/rigs/).
-pub const CORE: [(&str, &str); 2] = [
+pub const CORE: [(&str, &str); 3] = [
+    ("character.base", include_str!("../../../native/rigs/base.toml")),
     ("character.catpope", include_str!("../../../native/rigs/catpope.toml")),
     ("item.incense_burner", include_str!("../../../native/rigs/incense_burner.toml")),
 ];
@@ -323,7 +324,7 @@ impl Bundle {
     /// A rig for `subject` with nothing in it yet: what an editor opens for a character without a rig, silent until a
     /// track is added
     pub fn empty(subject: &str) -> Bundle {
-        let rig = Rig { subject: subject.to_string(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
+        let rig = Rig { subject: subject.to_string(), base: None, off: Vec::new(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
         Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new(), rig_presets: Vec::new() }
     }
 
@@ -362,6 +363,9 @@ impl Bundle {
 
     /// `play` with presets chosen per track (track → preset: a code rig's `@preset` outputs, the deck's replay #410)
     pub fn play_with(&self, persona: Option<&str>, mood: Option<&str>, chosen: &BTreeMap<String, String>) -> Result<Played> {
+        if self.rig.base.is_some() {
+            return self.based()?.play_with(persona, mood, chosen);
+        }
         let lib = self.library();
         let character = self
             .rig

@@ -242,7 +242,7 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
             if !lib.instruments.contains_key(instrument) {
                 return Err(format!("{who}: unknown instrument \"{instrument}\""));
             }
-            r.tracks.push(Track { id: id.clone(), instrument: instrument.clone(), preset: preset.clone(), gain: 1.0, pan: 0.0, mute: false });
+            r.tracks.push(Track { id: id.clone(), instrument: instrument.clone(), preset: preset.clone(), gain: 1.0, pan: 0.0, mute: false, takes: None });
             Ok(())
         }
         Op::RemoveTrack { id } => {

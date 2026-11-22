@@ -335,7 +335,7 @@ fn a_rig_flattens_into_one_scene() {
 fn more_than_four_tracks_chain_the_mixers() {
     let (lib, mut rig) = set();
     for i in 0..4 {
-        rig.tracks.push(Track { id: format!("air{i}"), instrument: "incense".into(), preset: None, gain: 1.0, pan: 0.0, mute: false });
+        rig.tracks.push(Track { id: format!("air{i}"), instrument: "incense".into(), preset: None, gain: 1.0, pan: 0.0, mute: false, takes: None });
     }
     let s = rig.flatten(&lib, None, None).unwrap();
     assert!(has_link(&s, "air1_hiss.out", "mix1.in4"), "the first four on mix1");

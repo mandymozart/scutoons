@@ -253,6 +253,7 @@ fn build() -> Vec<Descriptor> {
             ci("gain", "curves: gain"),
             ci("pixel", "pixelation block size in render pixels"),
             ci("levels", "quantise levels per channel (< 2 = off)"),
+            ci("mouth", "how open the being's mouth is: wire the voice's level to it"),
             vo("out", "the rendered space"),
         ],
         &[
@@ -268,6 +269,7 @@ fn build() -> Vec<Descriptor> {
             lin("gain", 0.5, 2.0, 1.0, "", "curves: gain"),
             log("pixel", 1.0, 64.0, 1.0, "px", "pixelation block size in render pixels"),
             lin("levels", 0.0, 16.0, 0.0, "", "quantise levels per channel (< 2 = off)"),
+            lin("mouth", 0.0, 1.0, 0.0, "", "how open the being's mouth is, 0 = closed, 1 = wide open: wire the voice's level to it"),
         ],
     ),
     kind(

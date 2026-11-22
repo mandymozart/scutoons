@@ -189,7 +189,7 @@ fn the_strip_of_each_track_is_where_flatten_sums_it() {
     let mut b = declarative();
     b.rig.moods.clear();
     b.rig.sticks = None;
-    b.rig.tracks = (0..9).map(|i| Track { id: format!("d{i}"), instrument: "drone".into(), preset: None, gain: 1.0, pan: 0.0, mute: false }).collect();
+    b.rig.tracks = (0..9).map(|i| Track { id: format!("d{i}"), instrument: "drone".into(), preset: None, gain: 1.0, pan: 0.0, mute: false, takes: None }).collect();
     let p = b.play(None, None).unwrap();
     for i in 0..9 {
         let (n, k) = policy::strip(i);
@@ -203,7 +203,7 @@ fn routes_reach_the_policy_both_ways() {
         "ports": [{ "name": "push", "dir": "in", "type": "control" }, { "name": "swell", "dir": "out", "type": "control" }],
         "params": [{ "name": "heat", "min": 0.0, "max": 1.0, "default": 0.0 }] }"#);
     b.instruments.push(serde_json::from_value(serde_json::json!({ "id": "sway", "kind": "pad", "out": "o", "node": [{ "id": "o", "kind": "osc" }, { "id": "l", "kind": "lfo" }] })).unwrap());
-    b.rig.tracks.push(Track { id: "sway".into(), instrument: "sway".into(), preset: None, gain: 1.0, pan: 0.0, mute: false });
+    b.rig.tracks.push(Track { id: "sway".into(), instrument: "sway".into(), preset: None, gain: 1.0, pan: 0.0, mute: false, takes: None });
     b.rig.routes = vec![
         Route { from: "sway:l".into(), to: "policy:push".into(), scale: 1.0, offset: 0.0 },
         Route { from: "policy:swell".into(), to: "being:glow".into(), scale: 0.5, offset: 0.0 },
