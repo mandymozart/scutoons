@@ -79,7 +79,6 @@ threshold = 0.55
 [[node]]
 id = "right_voice_voice"
 kind = "voice"
-breath = 0.1
 freq = 262.0
 gain = 0.2
 glide = 0.08
@@ -120,17 +119,14 @@ spot = "spot_left"
 who = "character:catpope"
 
 [node.being]
-breath = 0.03500000014901161
 bubbles = 1.0
 character = "catpope"
-drift = 0.05999999865889549
 expose = ["left_voice_voice.ratio", "left_voice_voice.index", "left_voice_voice.gain", "left_voice_melody.spread", "left_voice_melody.rate", "left_voice_melody.glide", "left_drone_drone.freq", "left_drone_drone.gain"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
-wobble = 0.02500000037252903
 
 [[node]]
 id = "right_look"
@@ -141,17 +137,14 @@ spot = "spot_right"
 who = "character:toptoy"
 
 [node.being]
-breath = 0.03500000014901161
 bubbles = 1.0
 character = "toptoy"
-drift = 0.05999999865889549
 expose = ["right_voice_voice.gain", "right_voice_voice.vowel", "right_voice_voice.vibrato", "right_voice_voice.breath", "right_voice_melody.spread", "right_voice_melody.rate"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
-wobble = 0.02500000037252903
 
 [[link]]
 from = "left_voice_melody.cv"
@@ -233,9 +226,6 @@ offset = 0.0
 
 [being]
 size = 0.5
-drift = 0.05999999865889549
-breath = 0.03500000014901161
-wobble = 0.02500000037252903
 hose = 1.0
 bubbles = 1.0
 expose = []

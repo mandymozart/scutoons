@@ -129,9 +129,11 @@ impl Default for Look {
     fn default() -> Self {
         Look {
             size: 0.5,
-            drift: 0.06,
-            breath: 0.035,
-            wobble: 0.025,
+            // still by default (owner 2026-11-22: "why are still all knobs constantly moving around, its really hard to focus";
+            // 2026-11-09 [rigs]: no breath): a being only moves when its rig's author sets these or draws a wire to it
+            drift: 0.0,
+            breath: 0.0,
+            wobble: 0.0,
             hose: 1.0,
             bubbles: 1.0,
             expose: Vec::new(),

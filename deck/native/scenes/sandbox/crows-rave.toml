@@ -10,9 +10,6 @@ name = "Three crows rave"
 [being]
 character = "crows"
 size = 0.5
-drift = 0.06
-breath = 0.04
-wobble = 0.025
 
 [[node]]
 id = "tempo"
