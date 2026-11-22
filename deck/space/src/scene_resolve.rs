@@ -798,7 +798,7 @@ mod tests {
                 .filter(|n| n.kind == "look")
                 .map(|n| {
                     let chosen = n.params.get("form").and_then(|v| v.as_str()).and_then(Form::parse);
-                    form(&Who::parse(n.params["who"].as_str().unwrap()).unwrap(), s3, chosen)
+                    form(&Who::parse(n.params["who"].as_str().unwrap()).unwrap(), s3, chosen, None)
                 })
                 .collect::<Vec<_>>()
         };
@@ -938,8 +938,8 @@ node = [{ id = "midi", kind = "world", source = "midi", listen = ["midi.note"] }
         assert_eq!(Scene::parse(crate::scene::sandbox("stage-cards").unwrap()).unwrap(), scene, "what the decks read is what the core resolved");
         assert!(crate::cast::stage_3d(&scene), "the cathedral's set: a 3D stage");
         let who = |id: &str| crate::cast::Who::parse(scene.nodes.iter().find(|n| n.id == id).unwrap().params["who"].as_str().unwrap()).unwrap();
-        assert_eq!(crate::cast::form(&who("pope_look"), true, None), crate::cast::Form::Look);
-        assert_eq!(crate::cast::form(&who("burner_look"), true, None), crate::cast::Form::Card);
+        assert_eq!(crate::cast::form(&who("pope_look"), true, None, None), crate::cast::Form::Look);
+        assert_eq!(crate::cast::form(&who("burner_look"), true, None, None), crate::cast::Form::Card);
         assert!(scene.links.iter().any(|l| l.to == "burner_look.pulse"), "the burner's own wire moves its card");
     }
 

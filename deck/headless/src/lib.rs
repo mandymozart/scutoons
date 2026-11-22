@@ -833,7 +833,8 @@ fn quality(g: &Governor, changes: usize) -> Value {
 }
 
 /// #492: a resolved scene document's stage as facts – each member's look (#495: its form, the core's cast.rs, as the decks
-/// draw it, and a card's picture: scene-content's entry and field; a character's in its being's mood), the slots, the
+/// draw it – its holder's choice over its look's own –, and a card's picture: scene-content's entry and field, a member
+/// without art the default character's; a character's in its being's mood), the slots, the
 /// notes, the location and (#512) the set on the space node with its file per rung at the node's quality
 fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::push::Content) -> Value {
     use deck_space::cast::{self, Form, Picture, Who};
@@ -847,9 +848,10 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
         .map(|n| {
             let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
             let who = word(n, "who").as_deref().and_then(Who::parse);
-            let form = who.as_ref().map(|w| cast::form(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse)));
+            let look = who.as_ref().and_then(|w| content.look_form(w.character()));
+            let form = who.as_ref().map(|w| cast::form(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse), look));
             let picture = match (&who, form) {
-                (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(c, cast::CARD_VIEW, "")),
+                (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(content.drawn_as(c), cast::CARD_VIEW, "")),
                 (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
                 _ => None,
             }

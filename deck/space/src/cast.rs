@@ -83,17 +83,21 @@ impl Form {
     }
 }
 
-/// The form of `who` on a stage that is 3D (`stage_3d`: its set's 3D is shown or on its way) or not. A `chosen` form
-/// wins – `look` stays 3D on a stage without a set, `card` is always a card – except for an item, which has no being.
-pub fn form(who: &Who, stage_3d: bool, chosen: Option<Form>) -> Form {
-    // TODO(#704): the look's own form, which the holder's chosen form overrides
-    match (who, chosen) {
+/// The form of `who` on a stage that is 3D (`stage_3d`: its set's 3D is shown or on its way) or not: its holder's
+/// `chosen` form, else its character look's own (`look`, scene-content's `form`), else the stage's – a chosen `look`
+/// stays 3D on a stage without a set, `card` is always a card – except for an item, which has no being.
+pub fn form(who: &Who, stage_3d: bool, chosen: Option<Form>, look: Option<Form>) -> Form {
+    match (who, chosen.or(look)) {
         (Who::Item(_), _) => Form::Card,
         (Who::Character(_), Some(f)) => f,
         (Who::Character(_), None) if stage_3d => Form::Look,
         _ => Form::Card,
     }
 }
+
+/// The character whose pictures and model draw a member that has neither, in 2D and 3D; the member keeps its own
+/// address – only its drawing falls back (push.rs `Content::drawn_as`).
+pub const DEFAULT_CHARACTER: &str = "mellowmantis";
 
 /// Whether a scene's stage is 3D before its set has arrived: its space node names a set (rung 1). A stage with no set
 /// (the neutral staging, a location whose set is not here yet – 2·3) is not; a still or a video backdrop will not be.
@@ -171,8 +175,8 @@ mod tests {
     fn a_character_is_3d_only_on_a_3d_stage_an_item_never() {
         let pope = Who::parse("character:catpope").unwrap();
         let burner = Who::parse("item:incense_burner").unwrap();
-        assert_eq!((form(&pope, true, None), form(&pope, false, None)), (Form::Look, Form::Card));
-        assert_eq!((form(&burner, true, None), form(&burner, false, None)), (Form::Card, Form::Card));
+        assert_eq!((form(&pope, true, None, None), form(&pope, false, None, None)), (Form::Look, Form::Card));
+        assert_eq!((form(&burner, true, None, None), form(&burner, false, None, None)), (Form::Card, Form::Card));
         assert_eq!(Who::parse("location:dom"), None);
         assert_eq!((pope.character(), burner.character(), burner.id()), ("catpope", "", "incense_burner"));
     }
@@ -181,10 +185,19 @@ mod tests {
     fn a_chosen_form_wins_over_the_stage() {
         let pope = Who::parse("character:catpope").unwrap();
         let burner = Who::parse("item:incense_burner").unwrap();
-        assert_eq!(form(&pope, true, Some(Form::Card)), Form::Card, "a card on a 3D stage");
-        assert_eq!(form(&pope, false, Some(Form::Look)), Form::Look, "a look on a stage without a set");
-        assert_eq!(form(&burner, true, Some(Form::Look)), Form::Card, "an item has no being to draw");
+        assert_eq!(form(&pope, true, Some(Form::Card), None), Form::Card, "a card on a 3D stage");
+        assert_eq!(form(&pope, false, Some(Form::Look), None), Form::Look, "a look on a stage without a set");
+        assert_eq!(form(&burner, true, Some(Form::Look), Some(Form::Look)), Form::Card, "an item has no being to draw");
         assert_eq!((Form::parse("card"), Form::parse("look"), Form::parse("Card")), (Some(Form::Card), Some(Form::Look), None));
+    }
+
+    #[test]
+    fn the_holder_wins_over_the_look_and_the_look_over_the_stage() {
+        let pope = Who::parse("character:catpope").unwrap();
+        assert_eq!(form(&pope, true, None, Some(Form::Card)), Form::Card, "the look's card on a 3D stage");
+        assert_eq!(form(&pope, false, None, Some(Form::Look)), Form::Look, "the look's 3D on a stage without a set");
+        assert_eq!(form(&pope, true, Some(Form::Look), Some(Form::Card)), Form::Look, "the holder overrides the look");
+        assert_eq!(form(&pope, false, Some(Form::Card), Some(Form::Look)), Form::Card);
     }
 
     #[test]

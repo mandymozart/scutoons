@@ -220,7 +220,12 @@ export interface CharacterLook {
 	apose?: LookApose;
 	/** this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`personaModel`) */
 	model?: string;
+	/** how this look stands on a stage: `card` (its picture) or `look` (its 3D); none = the stage decides; a scene's holder may override it */
+	form?: LookForm;
 }
+
+/** the words of deck-space cast.rs `Form` */
+export type LookForm = 'card' | 'look';
 
 /** An image shown while a persona's look changes (the mouse taking her helmet off). */
 export interface LookTransition {

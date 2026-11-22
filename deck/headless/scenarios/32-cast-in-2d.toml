@@ -55,3 +55,26 @@ document = "../server/tests/fixtures/scenes/templates/stage.json"
 with = { where = "location:dom", left = "character:catpope", right = "character:toptoy" }
 [step.expect]
 stage = { stage_3d = false, cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "toptoy", spot = "spot_right", who = "character:toptoy", form = "card", picture = "characters.toptoy.full" }] }
+
+# the look's own form: scene-content says Cat Pope's look is a card – she stands as her picture in the 3D set, no holder chose
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "headless/documents/nave-cast.json"
+content = "../server/tests/fixtures/scenes/scene-content-characters.json"
+[step.expect]
+stage = { stage_3d = true, cast = [{ holder = "pope", look = "pope_look", character = "catpope", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "burner", look = "burner_look", character = "", who = "item:incense_burner", form = "card", picture = "items.incense_burner.picture" }] }
+
+# a member with neither model nor picture is drawn as the default character; it keeps its own address
+[[step]]
+do = "reset"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { where = "location:dom", left = "character:catpope", right = "character:boy" }
+content = "../server/tests/fixtures/scenes/scene-content-characters.json"
+[step.expect]
+stage = { stage_3d = false, cast = [{ holder = "left", look = "left_look", character = "catpope", spot = "spot_left", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "right", look = "right_look", character = "boy", spot = "spot_right", who = "character:boy", form = "card", picture = "characters.mellowmantis.full" }] }

@@ -153,8 +153,10 @@ pub struct Cast {
     /// #495: who stands there, and as what (cast.rs `form`: the stage's 3D and who it is)
     pub who: Who,
     pub form: Form,
-    /// the form its holder chose (its look node's `form`); none = the stage's
+    /// the form its holder chose (its look node's `form`); none = its look's
     pub chosen: Option<Form>,
+    /// the form its character's look takes (scene-content's `form`, `set_looks`); none = the stage's
+    pub look: Option<Form>,
     /// where its feet are: the spot on the set's floor (the being floats `lift` above it)
     pub feet: Vec3,
     /// its card's pictures: a character's full view per mood of its being, an item's one picture
@@ -216,7 +218,7 @@ impl Cast {
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
                 let chosen = n.str("form").and_then(Form::parse);
-                Cast { being, holder, spot, at, who, form: Form::Card, chosen, feet: Vec3::ZERO, pictures, moved: None }
+                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None }
             })
             .collect()
     }
@@ -688,13 +690,21 @@ impl Space {
             let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
             c.feet = spot.unwrap_or(self.being.anchor - Vec3::Y * self.lift + row) + c.at;
             c.being.anchor = c.feet + Vec3::Y * self.lift;
-            let form = cast::form(&c.who, stage_3d, c.chosen);
+            let form = cast::form(&c.who, stage_3d, c.chosen, c.look);
             changed |= form != c.form;
             c.form = form;
         }
         if changed {
             self.generation += 1;
         }
+    }
+
+    /// each character member's look form from scene-content's answer (cast.rs `form`: under its holder's choice)
+    pub fn set_looks(&mut self, content: &crate::push::Content) {
+        for c in &mut self.cast {
+            c.look = content.look_form(c.who.character());
+        }
+        self.place_cast();
     }
 
     /// #495: whether this stage is 3D – its set's 3D is shown or on its way (a set that failed to load is not)
@@ -2561,6 +2571,18 @@ to = "burner_look.pulse"
         let (_g, space, _ctl) = stage_chosen(false, ["", "form = \"look\""]);
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
         assert_eq!((space.beings().count(), space.cards()), (1, 2));
+    }
+
+    /// a character look's own form stands where its holder chose none; the holder's choice still wins
+    #[test]
+    fn a_looks_own_form_stands_under_the_holders() {
+        let content = crate::push::Content::parse(r#"{"characters":{"catpope":{"form":"card"},"mute":{"form":"look"}}}"#).unwrap();
+        let (_g, mut space, _ctl) = stage_chosen(true, ["", "form = \"card\""]);
+        space.set_looks(&content);
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Card, Form::Card], "her look's card on a 3D stage; the holder's card over the look's 3D");
+        let (_g, mut space, _ctl) = stage_chosen(false, ["", ""]);
+        space.set_looks(&content);
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card], "the look's 3D on a stage without a set");
     }
 
     /// #495 (owner 2026-11-12: "We fall back to 2d in all cases"): a stage with no set – every member a card, its feet on

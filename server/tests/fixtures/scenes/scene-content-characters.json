@@ -1,0 +1,89 @@
+{
+    "sets": {},
+    "locations": {},
+    "characters": {
+        "catpope": {
+            "character": "catpope",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/catpope/catpope_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {
+                "neutral": {
+                    "path": "characters/catpope/catpope_full-neutral.webp",
+                    "size": null
+                }
+            },
+            "form": "card",
+            "model": {
+                "path": "characters/catpope/catpope-robe.glb",
+                "size": null
+            }
+        },
+        "toptoy": {
+            "character": "toptoy",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/toptoy/toptoy_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {
+                "neutral": {
+                    "path": "characters/toptoy/toptoy_full-neutral.webp",
+                    "size": null
+                }
+            },
+            "form": null,
+            "model": {
+                "path": "characters/toptoy/toptoy.glb",
+                "size": null
+            }
+        },
+        "boy": {
+            "character": "boy",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {},
+            "full": {},
+            "form": null,
+            "model": null
+        },
+        "mellowmantis": {
+            "character": "mellowmantis",
+            "persona": "regular",
+            "look": "default",
+            "portraits": {
+                "neutral": {
+                    "path": "characters/mellowmantis/mellowmantis_portrait-neutral.webp",
+                    "size": null
+                }
+            },
+            "full": {
+                "neutral": {
+                    "path": "characters/mellowmantis/mellowmantis_full-neutral.webp",
+                    "size": null
+                }
+            },
+            "form": null,
+            "model": {
+                "path": "characters/mellowmantis/mellowmantis.glb",
+                "size": null
+            }
+        }
+    },
+    "items": {},
+    "instruments": {},
+    "presets": {},
+    "missing": {
+        "sets": [],
+        "locations": [],
+        "characters": []
+    }
+}

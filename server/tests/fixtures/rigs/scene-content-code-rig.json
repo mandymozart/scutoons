@@ -13,6 +13,8 @@
                 }
             },
             "full": {},
+            "form": null,
+            "model": null,
             "rig": {
                 "id": "character.catpope",
                 "version": "bc9707e5c4eacefd",
@@ -88,6 +90,8 @@
             "look": "default",
             "portraits": {},
             "full": {},
+            "form": null,
+            "model": null,
             "rig": null
         }
     },
