@@ -1,4 +1,4 @@
-//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp): each built for
+//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, arp, convolver): each built for
 //! `wasm32-unknown-unknown` and run by the module host writes, bit for bit, what the same code writes natively through
 //! the SDK's `Rig` – every audio output, control output and event. One script for all, read off the module's shape:
 //! every parameter turned through its range, noise on two channels of every audio input, values on the control
@@ -22,7 +22,7 @@ fn wasm(name: &str) -> Vec<u8> {
     BUILD.get_or_init(|| {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut args = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
-        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "arp-module"] {
+        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "arp-module", "convolver-module"] {
             args.extend(["-p", p]);
         }
         let out = std::process::Command::new(cargo).current_dir(&root).args(args).arg("--target-dir").arg(&dir).output().expect("running cargo");
@@ -215,6 +215,7 @@ modules! {
     delay: delay_module::Delay,
     reverb: reverb_module::Reverb,
     arp: arp_module::Arp,
+    convolver: convolver_module::Convolver,
 }
 
 /// wasm has no flush-to-zero: the reverb's tail, played out in the host to silence, never passes through the denormals
@@ -244,4 +245,44 @@ fn the_reverb_tail_ends_at_zero_in_wasm() {
         last = out.chan(0)[..128].iter().chain(&out.chan(1)[..128]).fold(0.0, |m, v| m.max(v.abs()));
     }
     assert_eq!(last, 0.0, "silent in the end");
+}
+
+/// the convolver with a response in its asset slot (stereo, 44.1 kHz: resampled in `init`) writes the same bits native
+/// and in wasm
+#[test]
+fn the_convolver_with_an_asset_writes_what_the_native_code_writes() {
+    use convolver_module::Convolver;
+    use deck_module::AssetKind;
+    let mut w = White::new(21);
+    let ir: Vec<Vec<f32>> = (0..2).map(|_| (0..22_050).map(|i| w.sample() * (-(i as f32) / 4000.0).exp()).collect()).collect();
+    let bytes: Vec<u8> = ir.iter().flat_map(|c| c.iter().flat_map(|v| v.to_le_bytes())).collect();
+    let mut rig = Rig::<Convolver>::with(RATE, 3, |r| r.load_asset(Convolver::IR, AssetKind::Pcm, &bytes, 2, 22_050, 44_100.0));
+    let loaded = Arc::new(Loaded::<Wasmtime>::load(&WasmtimeEngine::new(None), &wasm("convolver")).unwrap());
+    let setup = Setup::new(RATE, 3).unbudgeted().asset(deck_module_host::AssetData::pcm(0, &[&ir[0], &ir[1]], 44_100.0));
+    let mut inst = Instance::new(&loaded, setup).unwrap();
+    for (input, ch) in [(true, 2), (false, 2)] {
+        rig.set_channels(input, 0, ch);
+        inst.set_channels(input, 0, ch);
+    }
+    rig.set_param(0, 80.0);
+    inst.set_param(0, 80.0);
+    let (mut frame, mut heard) = (0usize, 0.0f32);
+    for k in 0..800 {
+        let n = [128, 64, 100, 37][k % 4];
+        for c in 0..2 {
+            let x: Vec<f32> = (0..n).map(|_| if k < 300 { w.sample() * 0.5 } else { 0.0 }).collect();
+            rig.set_audio_in(0, c, &x);
+            inst.audio_in_mut(0, c)[..n].copy_from_slice(&x);
+        }
+        rig.run(frame as f64, n as u32);
+        assert!(inst.run(frame as f64, n as u32), "call {k}: {:?}", inst.silenced());
+        frame += n;
+        let (a, b) = (rig.audio_out(0), inst.audio_out(0));
+        for c in 0..2 {
+            let (a, b) = (a.chan(c), &b.chan(c)[..n]);
+            assert!(a.iter().map(|v| v.to_bits()).eq(b.iter().map(|v| v.to_bits())), "call {k}, side {c}: native ≢ wasm");
+            heard = a.iter().fold(heard, |m, v| m.max(v.abs()));
+        }
+    }
+    assert!(heard > 0.01, "the run was not silent");
 }

@@ -1,14 +1,15 @@
-The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128 frames at 48 kHz (budget 2667 µs). AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD · 2026-11-21 21:54 UTC
+The small audio modules, each alone and busy (src/factory.rs), 5000 calls of 128 frames at 48 kHz (budget 2667 µs). AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD · 2026-11-22 05:58 UTC
 
 | device | runtime | module | frames | compile | inst. | first µs | p50 µs | p99 µs | max µs | mean µs | p99 % budget | mem KB | hash |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| pc | wasmtime | env | 128 | 72.9 ms | 156 µs | 10 | 2.7 | 3.4 | 992 | 3.0 | 0.13 % | 1088 | 6142333b |
-| pc | wasmtime | vca | 128 | 63.4 ms | 54 µs | 13 | 6.1 | 12.9 | 1409 | 6.9 | 0.48 % | 1088 | 8c63258c |
-| pc | wasmtime | filter | 128 | 168.7 ms | 63 µs | 27 | 22.5 | 49.9 | 1584 | 24.8 | 1.87 % | 1088 | aa735601 |
-| pc | wasmtime | noise | 128 | 69.6 ms | 44 µs | 7 | 4.1 | 8.7 | 13183 | 7.8 | 0.33 % | 1088 | 8d09631f |
-| pc | wasmtime | osc | 128 | 83.8 ms | 41 µs | 116 | 38.5 | 171.8 | 2456 | 45.0 | 6.44 % | 1088 | 2b669c72 |
-| pc | wasmtime | mixer | 128 | 68.5 ms | 53 µs | 34 | 32.3 | 111.0 | 2243 | 35.8 | 4.16 % | 1088 | 89b4935b |
-| pc | wasmtime | transpose | 128 | 69.4 ms | 37 µs | 3 | 0.5 | 0.7 | 186 | 0.6 | 0.03 % | 1088 | ebbc8117 |
-| pc | wasmtime | delay | 128 | 186.6 ms | 834 µs | 19 | 15.9 | 74.0 | 2305 | 19.6 | 2.78 % | 3264 | f0a91488 |
-| pc | wasmtime | reverb | 128 | 200.7 ms | 223 µs | 67 | 66.5 | 204.2 | 29200 | 113.0 | 7.66 % | 1536 | db60ac50 |
-| pc | wasmtime | arp | 128 | 77.2 ms | 54 µs | 3 | 0.5 | 0.8 | 441 | 0.7 | 0.03 % | 1088 | 7cb0d9c9 |
+| pc | wasmtime | env | 128 | 80.6 ms | 156 µs | 9 | 2.5 | 6.9 | 4961 | 3.9 | 0.26 % | 1088 | 6142333b |
+| pc | wasmtime | vca | 128 | 122.6 ms | 70 µs | 13 | 5.8 | 56.2 | 7939 | 12.6 | 2.11 % | 1088 | 8c63258c |
+| pc | wasmtime | filter | 128 | 194.6 ms | 78 µs | 26 | 20.9 | 145.4 | 15538 | 34.5 | 5.45 % | 1088 | aa735601 |
+| pc | wasmtime | noise | 128 | 119.2 ms | 45 µs | 7 | 3.8 | 12.9 | 4770 | 7.1 | 0.48 % | 1088 | 8d09631f |
+| pc | wasmtime | osc | 128 | 115.6 ms | 53 µs | 39 | 36.9 | 1075.7 | 18436 | 88.4 | 40.34 % | 1088 | 2b669c72 |
+| pc | wasmtime | mixer | 128 | 101.4 ms | 73 µs | 32 | 30.2 | 176.2 | 5964 | 39.7 | 6.61 % | 1088 | 89b4935b |
+| pc | wasmtime | transpose | 128 | 80.1 ms | 45 µs | 6 | 0.5 | 0.6 | 329 | 0.6 | 0.02 % | 1088 | ebbc8117 |
+| pc | wasmtime | delay | 128 | 139.0 ms | 971 µs | 18 | 15.6 | 53.4 | 920 | 17.5 | 2.00 % | 3264 | f0a91488 |
+| pc | wasmtime | reverb | 128 | 162.3 ms | 195 µs | 68 | 66.5 | 130.7 | 829 | 69.6 | 4.90 % | 1536 | db60ac50 |
+| pc | wasmtime | arp | 128 | 73.1 ms | 52 µs | 2 | 0.6 | 0.9 | 13 | 0.6 | 0.03 % | 1088 | 7cb0d9c9 |
+| pc | wasmtime | convolver | 128 | 157.2 ms | 54364 µs | 245 | 599.0 | 1627.3 | 27049 | 597.9 | 61.02 % | 10432 | 99cc8ac6 |
