@@ -16,6 +16,7 @@
 //! | `delay` | delay line (whole and cubic fractional reads), allpass, damped comb |
 //! | `fdn` | eight-line feedback delay network (Householder), its loop gains and prime lengths |
 //! | `fft` | radix-2 FFT of real input, and back |
+//! | `grid` | a sequencer's steps on the beat grid |
 //! | `arith` | f64 maths from arithmetic only |
 pub mod adsr;
 pub mod arith;
@@ -23,6 +24,7 @@ pub mod delay;
 pub mod fdn;
 pub mod fft;
 pub mod follower;
+pub mod grid;
 pub mod level;
 pub mod line;
 pub mod noise;

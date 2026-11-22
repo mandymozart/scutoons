@@ -1,4 +1,4 @@
-//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb): each built for
+//! Native ≡ wasm for the small audio modules (env, vca, filter, noise, osc, mixer, transpose, delay, reverb, drumseq): each built for
 //! `wasm32-unknown-unknown` and run by the module host writes, bit for bit, what the same code writes natively through
 //! the SDK's `Rig` – every audio output, control output and event. One script for all, read off the module's shape:
 //! every parameter turned through its range, noise on two channels of every audio input, values on the control
@@ -22,7 +22,7 @@ fn wasm(name: &str) -> Vec<u8> {
     BUILD.get_or_init(|| {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
         let mut args = vec!["build", "--release", "--target", "wasm32-unknown-unknown"];
-        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module"] {
+        for p in ["env-module", "vca-module", "filter-module", "noise-module", "osc-module", "mixer-module", "transpose-module", "delay-module", "reverb-module", "drumseq-module"] {
             args.extend(["-p", p]);
         }
         let out = std::process::Command::new(cargo).current_dir(&root).args(args).arg("--target-dir").arg(&dir).output().expect("running cargo");
@@ -212,6 +212,7 @@ modules! {
     transpose: transpose_module::Transpose,
     delay: delay_module::Delay,
     reverb: reverb_module::Reverb,
+    drumseq: drumseq_module::DrumSeq,
 }
 
 /// wasm has no flush-to-zero: the reverb's tail, played out in the host to silence, never passes through the denormals
