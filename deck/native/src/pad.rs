@@ -225,6 +225,56 @@ pub fn button_input(button: gilrs::Button, pressed: bool) -> Option<Input> {
     Some(Input::Button { index, pressed })
 }
 
+/// #813: the menu's own pad reader, for while no scene's pad is there – the deck starts idle (#787 / #788), and a scene's
+/// [`Pad`] only exists over a space. It hears only what the menu takes: Start, the d-pad, A, B and, while the menu is
+/// open, the left stick as its arrows. While a scene's pad reads, this one is only drained (nothing doubles, nothing old
+/// is left for later).
+pub struct MenuPad {
+    gilrs: gilrs::Gilrs,
+    pushed: [i8; 2],
+}
+
+impl MenuPad {
+    /// The reader, or None when the pad system can't start (logged once; the menu still has the keys)
+    pub fn new() -> Option<MenuPad> {
+        match gilrs::Gilrs::new() {
+            Ok(gilrs) => Some(MenuPad { gilrs, pushed: [0; 2] }),
+            Err(e) => {
+                tracing::warn!("menu gamepad off: {e}");
+                None
+            }
+        }
+    }
+
+    /// This frame's events as the menu's inputs (`open`: the menu shows, the left stick steps it)
+    pub fn poll(&mut self, open: bool) -> Vec<deck_ui::menu::Input> {
+        let mut to_menu = Vec::new();
+        while let Some(event) = self.gilrs.next_event() {
+            to_menu.extend(menu_event(&event.event, open, &mut self.pushed));
+        }
+        to_menu
+    }
+
+    /// This frame's events thrown away: a scene's pad reads them
+    pub fn drain(&mut self) {
+        while self.gilrs.next_event().is_some() {}
+        self.pushed = [0; 2];
+    }
+}
+
+/// one gilrs event as the menu takes it with no scene: a button (Start, d-pad, A, B), or while `open` a left-stick step
+pub fn menu_event(event: &gilrs::EventType, open: bool, pushed: &mut [i8; 2]) -> Option<deck_ui::menu::Input> {
+    if let gilrs::EventType::AxisChanged(axis, value, _) = *event {
+        let slot = match axis {
+            gilrs::Axis::LeftStickX => 0,
+            gilrs::Axis::LeftStickY => 1,
+            _ => return None,
+        };
+        return if open { stick_step(&mut pushed[slot], value, slot == 0) } else { None };
+    }
+    menu_input(event)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

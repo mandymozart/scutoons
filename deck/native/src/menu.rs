@@ -41,6 +41,9 @@ pub struct Native {
     at: (f32, f32),
     pair: Pair,
     pair_at: f32,
+    /// #813: the menu's own pad reader (made at the first frame), for while no scene's pad is there
+    #[cfg(feature = "gamepad")]
+    pad: Option<Option<deck_native::pad::MenuPad>>,
     /// how the deck came up, whether the person at it left its session (LEAVE), the API's listing (filled by a
     /// thread, the last answer kept), when to ask for it (deck-ui `Lister`), the ask under way, whether Play showed
     /// last frame, what Play lists now
@@ -124,6 +127,8 @@ impl Native {
             at: (0.0, 0.0),
             pair: Pair::Off,
             pair_at: -10.0,
+            #[cfg(feature = "gamepad")]
+            pad: None,
             begin,
             left: false,
             listing,
@@ -729,9 +734,16 @@ impl App {
         {
             // while the ballot shows, the d-pad and A are its own as they are the open menu's
             let open = self.menu.menu.open() || self.menu.ballot.top().is_some();
+            // #813: a scene's pad when one plays; else (the deck idle, a scene without a space) the menu's own reader
+            let own = self.menu.pad.get_or_insert_with(deck_native::pad::MenuPad::new);
             let pressed = match (self.show.pad.as_mut(), self.show.space.as_mut()) {
-                (Some(pad), Some(space)) => pad.poll(space, &mut self.show.controls, open),
-                _ => Vec::new(),
+                (Some(pad), Some(space)) => {
+                    if let Some(own) = own.as_mut() {
+                        own.drain();
+                    }
+                    pad.poll(space, &mut self.show.controls, open)
+                }
+                _ => own.as_mut().map_or_else(Vec::new, |own| own.poll(open)),
             };
             for i in pressed {
                 self.menu_input(el, i);
