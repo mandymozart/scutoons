@@ -45,13 +45,13 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
   `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
   max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one
   factory preset; every other preset is a document).
-- `#[port(input|output, audio|cv|control|event|video, name, channels = 2|"any", sidechain, names = "music.note", props =
+- `#[port(input|output, audio|cv|control|event|instances|video, name, channels = 2|"any", sidechain, names = "music.note", props =
   "pitch|vel", capacity = 64, path = "lead:@preset", mode = "set"|"add"|"mul", choices = "a|b", doc)]`; every port gets
-  `Self::<NAME>`, its index in its group (audio, control, event per direction).
+  `Self::<NAME>`, its index in its group (audio, control, event per direction). `instances`: see "Drawing" below.
 - `#[param(range, default, curve = log, unit = "Hz", choices = "saw|pulse", doc)]` on `f32` fields (choices: the value is the index).
 - `Block`: `audio_in(p) -> Planar` / `audio_out(p) -> PlanarMut` (`ch()`, `chan(c)`, `stereo()`), `events_in(p) -> &[Ev]`
   (sorted by frame; notes on / off paired by id, Hz and key both filled by the host), `control_in(i)`, `set(i, v)`,
-  `emit(port, Ev)`, `set_silent(p)`, `audio_out_with_events`. `Outputs` (control domain): `set`, `emit`. `Ctx`: times
+  `emit(port, Ev)`, `set_silent(p)`, `audio_out_with_events`. `Outputs` (control domain): `set`, `emit`, `instances`. `Ctx`: times
   (`frame`, `show_ms`, `tempo`, `beats`, `bar`), `seed`, `character()`, `var`, sensors (`motion()`, `position()`, `face()`,
   `camera_motion()` with a `Status`), `asset`, and the inputs `control_in` / `events_in`.
 - `ctx.character()` is **live** (#409): `id` (the node's `character`), `persona`, `mood` (strings), `mood_index` (the mood's
@@ -103,6 +103,28 @@ marks – a camera's shots, an item's spot) and `out.transform()` (`TransformOut
 `modules/dolly` (a camera) and `modules/bob` (an item) are the examples; `module-host/tests/motion.rs` proves them
 native ≡ wasm.
 
+## Drawing (the instance table)
+
+A control-domain module draws by declaring one table, `#[port(output, instances, name = "shapes", capacity = 256)]`
+(1 … 1024 instances, 256 when not said): `out.instances()` is its `Table` – `clear`, `push(Instance)`, `rows_mut`. An
+`Instance` (64 bytes, `repr(C)`) is a shape (`instances::shape`: `PUFF` a lumpy ball, `SEGMENT` an upright prism from its
+foot – the core's placeholders, about 1 m), a position (m, from the node's place), a turn (unit quaternion x y z w), a scale
+per axis and a linear RGBA colour. The table holds what the module last wrote. Its region (a `TableHead`, then the records)
+is the last of `out`, allocated with the module; the host copies it with the rest of `out` after every call, the engine
+publishes it after each step to deck-space's `instances::Table`, and the frame thread draws it the next frame (one block
+late, the latest table wins – the producer never waits). The space (`space/drawn.rs`) draws every table with one instanced
+pipeline, a draw per shape, at the module node's place: a node of a holder's rig stands at that member's feet (its motion
+module turns it), any other at the scene's spot on the floor.
+
+Why a port type and not a new domain or the `Item/Location.Object` slot: what a module draws must come from the same
+deterministic step its physics and its notes come from (the 128-frame control quantum, native ≡ wasm, golden-tested), so it
+is a control module's output like its control values and events – a port, declared in the descriptor, laid out by
+`Layout::of`, with no second call, no second scheduler and no render-thread module runtime. A domain would split a module
+that both sounds and draws (a bamboo forest: hits → notes, stalks → instances) into two; the Object slot runs on the render
+thread per drawn frame, which would make a simulation depend on the frame rate. The slot can later take a table too.
+TODO(#780): a shape may name a model asset (the owner's low-poly models) instead of a placeholder; the browser deck draws
+tables once it runs modules (#290).
+
 ## DSP units (`deck_module::dsp`)
 
 One copy for every module and the engine's built-in kinds (`src/dsp/`): build a unit in `init` (the ones with a buffer or a
@@ -144,6 +166,12 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `delay` | `in` (2), `time_mod` (control, oct) → `out` (2) | `sync` free / 1/32 … 1/1 (triplets, dotted), `time` ms (log), `feedback` % (under 98), `damp` Hz, `pingpong` %, `spread` ms, `mix` %, `depth` ms + `rate` Hz (chorus at short times) | dub |
 | `reverb` | `in` (2) → `out` (2) | `size` %, `decay` s (RT60, 0.2–20, log), `damp` Hz (top: none), `predelay` ms, `width` %, `mix` % | hall |
 | `arp` | `notes` (event, held: on at key down, off at key up) → `out` (event, a note a step on the beat grid) | `mode` up / down / updown / played, `rate` 1/1 … 1/32 (t = triplet; 1/8), `gate` %, `octaves` 1–4, `transpose` st, `latch` | crow |
+
+One factory module draws (`deck/modules/cloud`, a control module, see "Drawing"):
+
+| module | ports → out | parameters | preset |
+|---|---|---|---|
+| `cloud` | → `shapes` (instances, 24) | `puffs` 3–24, `size` m, `drift` m/s (the wind along x, either way), `height` m, `range` m (it wraps after), `hue`, `tint` %, `light` %; its layout is the node's `seed` | storm |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven

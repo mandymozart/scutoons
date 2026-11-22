@@ -696,6 +696,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4804,6 +4811,7 @@ dependencies = [
  "arp-module",
  "base64",
  "bob-module",
+ "cloud-module",
  "deck-catalog",
  "deck-core",
  "deck-module",

@@ -12,10 +12,10 @@ use Scutoons\Tests\TestCase;
 /**
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
- * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp) as catalog documents marked
- * `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte (this test keeps the two
- * equal: a change of a module's source needs a migration that brings it into the catalog), each with its published
- * version; each migration run twice, around a creator's own module of the same name.
+ * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #780, 2026-11-22-factory-cloud: cloud) as
+ * catalog documents marked `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte
+ * (this test keeps the two equal: a change of a module's source needs a migration that brings it into the catalog), each
+ * with its published version; each migration run twice, around a creator's own module of the same name.
  */
 final class FactoryModulesTest extends TestCase
 {
@@ -24,6 +24,7 @@ final class FactoryModulesTest extends TestCase
     private const DELAY_MARKER = 'factory module (migration 2026-11-21-factory-delay)';
     private const REVERB_MARKER = 'factory module (migration 2026-11-21-factory-reverb)';
     private const ARP_MARKER = 'factory module (migration 2026-11-22-factory-arp)';
+    private const CLOUD_MARKER = 'factory module (migration 2026-11-22-factory-cloud)';
     /** every factory module and the marker of the migration that brought it */
     private const IDS = [
         'walk' => self::MARKER, 'analog' => self::MARKER, 'fixture' => self::MARKER,
@@ -32,6 +33,7 @@ final class FactoryModulesTest extends TestCase
         'delay' => self::DELAY_MARKER,
         'reverb' => self::REVERB_MARKER,
         'arp' => self::ARP_MARKER,
+        'cloud' => self::CLOUD_MARKER,
     ];
 
     /** @return array<string, string> the repository's sources of a module */
@@ -160,6 +162,32 @@ final class FactoryModulesTest extends TestCase
             self::assertSame([
                 ['entity_key' => 'module:arp', 'status' => 'draft', 'message' => null],
                 ['entity_key' => 'module:arp', 'status' => 'published', 'message' => self::ARP_MARKER],
+            ], $versions, "run $run");
+            if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+            $after = $state();
+        }
+    }
+
+    public function testTheCloudMigrationRunsTwiceAndLeavesAnOlderVersionAsHistory(): void
+    {
+        $this->db->exec('DELETE FROM catalog_modules');
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:cloud', 'module', '{\"id\":\"cloud\",\"files\":{\"lib.rs\":\"// old\"}}', UTC_TIMESTAMP(), 'published', NULL)");
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message FROM entity_versions WHERE kind = 'module' ORDER BY id"),
+        ];
+        $statements = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-cloud.mysql.sql');
+        self::assertCount(3, $statements);
+        $after = null;
+        foreach ([1, 2] as $run) {
+            foreach ($statements as $statement) $this->db->exec($statement);
+            [$rows, $versions] = $state();
+            self::assertSame(['cloud'], array_keys($rows), "run $run");
+            self::assertTrue(ModuleSource::isFactory(json_decode($rows['cloud'], true)));
+            self::assertSame([
+                ['entity_key' => 'module:cloud', 'status' => 'draft', 'message' => null],
+                ['entity_key' => 'module:cloud', 'status' => 'published', 'message' => self::CLOUD_MARKER],
             ], $versions, "run $run");
             if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
             $after = $state();
