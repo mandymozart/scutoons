@@ -46,10 +46,8 @@
 			{ x: sx, w: W - sx }
 		];
 	});
-	const clearOf = (b: { x: number; w: number }) => {
-		const gap = rem();
-		return { l: Math.max(1.5 * gap, free.left - b.x + gap), rt: Math.max(1.5 * gap, b.x + b.w - free.right + gap) };
-	};
+	/** a view uses its whole box: the panels float over it, it keeps no room for them */
+	const clearOf = () => ({ l: 1.5 * rem(), rt: 1.5 * rem() });
 	/** a tab on the stage covers the view: its own pill and keys rest */
 	const covered = $derived(shell.stage.length > 0);
 
@@ -72,7 +70,7 @@
 
 {#each shown as id, i (id)}
 	{@const b = boxes[i]}
-	{@const c = clearOf(b)}
+	{@const c = clearOf()}
 	<div class="box" style:left={r(b.x)} style:width={r(b.w)} style:--in-l={r(c.l)} style:--in-r={r(c.rt)} data-view={id} data-testid="character-view-{id}">
 		{#if id === 'sheet'}{@render sheet()}{:else if id === 'expressions'}{@render expressions()}{:else}{@render place({ left: c.l, right: c.rt })}{/if}
 	</div>

@@ -7,44 +7,28 @@
 	import { measureDrop } from './measure-drop.ts';
 
 	/**
-	 * One floating panel over the stage: no title bar – its head is a drag handle (the grip and the free room) with the
-	 * panel's tabs, then fold and, unless essential, close. A double-click on the head or Enter on the grip folds it; a
-	 * tab dragged into another panel's head moves there (a marker shows where), onto the stage it becomes a panel of its
-	 * own. Open, the edges resize it and push the neighbours. An inline panel (a toolbar) is one row or one column. The
-	 * page lays the panels out in `floats`; this draws one. `children` = the front tab's content (or the toolbar's row).
-	 * With `onmain` the head offers ◱ main (the front tab takes the stage; pressed again it comes back), with `onover`
-	 * ⤢ over everything (the front tab as a dialog over all). While its front tab is on the stage (`floats.staged`) the
-	 * panel shows only its head, a dot on that tab.
+	 * One floating panel over the stage: its head is the panel's own surface with its tabs and – unless essential – the
+	 * close; the whole head drags the panel, a tab name dragged moves that tab (into another panel's head, a marker shows
+	 * where; onto the stage it becomes a panel of its own). A double-click on the head (or Enter on its keyboard handle)
+	 * folds and unfolds it. Open, the edges resize it – over its neighbours, never pushing them. An inline panel (a
+	 * toolbar) is one row or one column. The page lays the panels out in `floats`; this draws one. `children` = the front
+	 * tab's content (or the toolbar's row). While its front tab is on the stage (`floats.staged`) the panel shows only its
+	 * head, a dot on that tab.
 	 */
 	let {
 		floats,
 		id,
 		children,
 		label,
-		foldLabel = 'Fold',
-		openLabel = 'Open',
 		closeLabel = 'Close',
-		moveLabel = 'Move the panel – drag, or the arrow keys; Enter folds it',
-		onmain,
-		onover,
-		mainLabel = 'On the stage',
-		backLabel = 'Back into the panel',
-		overLabel = 'Over everything'
+		moveLabel = 'Move the panel – drag the head, or the arrow keys; Enter or a double-click folds it'
 	}: {
 		floats: Floats;
 		id: string;
 		children: Snippet<[tab: string | undefined]>;
 		label?: string;
-		foldLabel?: string;
-		openLabel?: string;
 		closeLabel?: string;
 		moveLabel?: string;
-
-		onmain?: (tab: string) => void;
-		onover?: (tab: string) => void;
-		mainLabel?: string;
-		backLabel?: string;
-		overLabel?: string;
 	} = $props();
 
 	const spec = $derived(floats.spec(id)!);
@@ -70,14 +54,16 @@
 		event.preventDefault();
 	};
 	const move = (event: PointerEvent) => floats.drag(event.clientX, event.clientY);
-	const release = (open = false) => {
-		const dragged = floats.drop();
-		if (open && !dragged) floats.setCollapsed(id, false);
-	};
-	/** The head's free room is a handle too: a press there (not on a tab or a button) moves the panel */
+	const release = () => floats.drop();
+	/** The whole head is the handle: a press anywhere but on a tab name or a button moves the panel */
 	const pressHead = (event: PointerEvent) => {
 		if ((event.target as Element).closest('button, [data-tab]')) return;
 		press(event);
+	};
+	/** A double-click on the head, its tab names too, folds or unfolds the panel */
+	const foldHead = (event: MouseEvent) => {
+		if ((event.target as Element).closest('button:not([data-tab])')) return;
+		floats.setCollapsed(id, !collapsed);
 	};
 
 	const handleKey = (event: KeyboardEvent) => {
@@ -203,14 +189,11 @@
 				onpointermove={move}
 				onpointerup={() => release()}
 				onpointercancel={() => release()}
-				ondblclick={(e) => {
-					if (!(e.target as Element).closest('button, [data-tab]')) floats.setCollapsed(id, !collapsed);
-				}}
+				ondblclick={foldHead}
 			>
+				<!-- the keyboard's handle: no glyph, the head's leading room -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-				<div class="handle" role="button" tabindex="0" aria-label="{spec.name}: {moveLabel}" title={spec.about} onkeydown={handleKey}>
-					<span class="grip" aria-hidden="true"></span>
-				</div>
+				<div class="handle" role="button" tabindex="0" aria-label="{spec.name}: {moveLabel}" title={spec.about} onkeydown={handleKey}></div>
 				<div class="strip" role="tablist" aria-label={spec.name} data-tab-strip>
 					{#each folded ? tabs.filter((t) => t === active) : tabs as tab, i (tab)}
 						{@const t = floats.tab(tab)}
@@ -230,46 +213,15 @@
 							onpointerup={() => floats.dropTab()}
 							onpointercancel={() => floats.cancelTab()}
 							onkeydown={(e) => tabKey(e, i)}
-							ondblclick={(e) => e.stopPropagation()}
-							>{#if away}<span class="dot" aria-hidden="true"></span>{/if}{t?.name ?? tab}</button
+							>{#if away}<span class="dot" aria-hidden="true"></span>{/if}<span class="label">{t?.name ?? tab}</span></button
 						>
 					{/each}
 				</div>
-				<span class="buttons">
-					{#if active && !folded && onover}
-						<button type="button" class="icon" onclick={() => onover(active)} aria-label={overLabel} title={overLabel} data-testid="panel-over">
-							<Icon name="maximize-2" size="0.9rem" strokeWidth={2} />
-						</button>
-					{/if}
-					{#if active && !folded && onmain}
-						<button
-							type="button"
-							class="icon"
-							aria-pressed={staged}
-							onclick={() => onmain(active)}
-							aria-label={staged ? backLabel : mainLabel}
-							title={staged ? backLabel : mainLabel}
-							data-testid="panel-main"
-						>
-							<Icon name={staged ? 'minimize-2' : 'monitor'} size="0.9rem" strokeWidth={2} />
-						</button>
-					{/if}
-					{#if !staged}
-						<button
-							type="button"
-							class="icon"
-							aria-expanded={!collapsed}
-							onclick={() => floats.setCollapsed(id, !collapsed)}
-							aria-label={collapsed ? openLabel : foldLabel}
-							title={collapsed ? openLabel : foldLabel}
-						>
-							<Icon name={collapsed ? 'chevron-down' : 'minus'} size="1rem" strokeWidth={2} />
-						</button>
-						{#if !spec.essential}
-							<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
-						{/if}
-					{/if}
-				</span>
+				{#if !staged && !spec.essential}
+					<span class="buttons">
+						<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
+					</span>
+				{/if}
 			</div>
 			{#if !collapsed}
 				<div class="body" role="tabpanel">{@render children(active)}</div>
@@ -315,6 +267,7 @@
 		align-items: center;
 		gap: 0.125rem;
 		min-width: 0;
+		overflow: hidden;
 		padding: 0.1875rem 0.1875rem 0.1875rem 0;
 		cursor: grab;
 		touch-action: none;
@@ -332,6 +285,9 @@
 		align-self: stretch;
 		color: var(--editor-line);
 		outline: none;
+	}
+	.head .handle {
+		width: 0.375rem;
 	}
 	.handle:focus-visible {
 		box-shadow: inset 0 0 0 2px var(--editor-accent);
@@ -355,34 +311,42 @@
 		min-width: 0;
 		overflow: hidden;
 	}
+	/* a small panel: every tab name shrinks and ends with an ellipsis, nothing wraps or spills out of the head */
 	.tab {
 		flex: 0 1 auto;
-		min-width: 2.5rem;
-		height: var(--control-height);
-		padding: 0 0.75rem;
+		display: inline-flex;
+		align-items: center;
+		min-width: 1.75rem;
+		height: calc(var(--control-height) - 0.25rem);
+		padding: 0 0.6rem;
 		border: 0;
-		border-radius: 1.2rem;
+		border-radius: var(--editor-radius);
 		background: none;
 		color: var(--editor-muted);
 		font: inherit;
 		font-size: var(--editor-small);
 		white-space: nowrap;
 		overflow: hidden;
-		text-overflow: ellipsis;
 		text-shadow: inherit;
 		cursor: pointer;
 		touch-action: none;
 	}
+	.label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	/* the front tab: a thin outline, the others muted */
 	.tab.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		text-shadow: none;
+		color: var(--editor-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
 	}
 	.tab.dragged {
 		opacity: 0.4;
 	}
 	/* the tab is on the stage */
 	.dot {
+		flex: none;
 		display: inline-block;
 		width: 0.45rem;
 		height: 0.45rem;
@@ -413,10 +377,6 @@
 		background: none;
 		color: var(--editor-muted);
 		cursor: pointer;
-	}
-	.icon[aria-pressed='true'] {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
 	}
 	.buttons :global(.panel-close) {
 		border-radius: 50%;

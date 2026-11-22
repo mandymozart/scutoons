@@ -11,7 +11,8 @@
 
 	/**
 	 * Taking the stage (research/redesign/stage.html): the tabs on the stage fill the whole window under the bar – a canvas
-	 * edge to edge, a page with its ground under the bar and its content clear of the bar's row and the panels; two tabs
+	 * edge to edge, a page with its ground under the bar and its content clear of the bar's row; the panels float over
+	 * both, the stage keeps no room for them; two tabs
 	 * share it with a hairline divider. The bottom pill holds the workspace's own view and the tabs on the stage. Every
 	 * move flies between the panel and the stage. `content(tab)` draws a tab; `stage` = the tabs on it that have content.
 	 */
@@ -32,7 +33,7 @@
 		}
 	}
 
-	// the room the panels leave free (client px): the right edge of the left column, the left edge of the right one
+	// the room the panels leave free (client px): the pill sits in its middle
 	const free = $derived(freeOf(floats, W));
 	const boxes = $derived.by<Rect[]>(() => {
 		if (stage.length < 2) return [{ x: 0, y: 0, w: W, h: H }];
@@ -42,11 +43,6 @@
 			{ x: sx, y: 0, w: W - sx, h: H }
 		];
 	});
-	/** a page's content keeps clear of the panels beside it */
-	const clearOf = (b: Rect) => {
-		const gap = rem();
-		return { l: Math.max(1.5 * gap, free.left - b.x + gap), rt: Math.max(1.5 * gap, b.x + b.w - free.right + gap) };
-	};
 
 	// ── the flight: measure, apply, measure again, fly ──
 	const stageEl = (tab: string) => document.querySelector(`[data-stage-box="${tab}"]`);
@@ -140,14 +136,12 @@
 	{#each stage as tab, i (tab)}
 		{@const b = boxes[i]}
 		{#if isCanvas(tab)}
-			{@const c = clearOf(b)}
-			<div class="box canvas" class:clear={shell.clear} style:--stage-left={r(c.l)} style:--stage-right={r(c.rt)} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
+			<div class="box canvas" class:clear={shell.clear} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
 				{@render content(tab)}
 			</div>
 		{:else}
-			{@const c = clearOf(b)}
 			<div class="box page" class:clear={shell.clear} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
-				<div class="page-body" style:padding-left={r(c.l)} style:padding-right={r(c.rt)}>
+				<div class="page-body">
 					<div class="page-col">{@render content(tab)}</div>
 				</div>
 			</div>
@@ -210,6 +204,8 @@
 	}
 	/* a canvas runs under the bar and the panels; its own controls read these to keep clear of them */
 	.box.canvas {
+		--stage-left: 1.5rem;
+		--stage-right: 1.5rem;
 		--stage-top: 0rem;
 		--stage-bottom: calc(var(--status-room) + var(--control-height) + 1rem);
 	}
@@ -222,7 +218,7 @@
 	}
 	.page-body {
 		box-sizing: border-box;
-		padding-top: 1rem;
+		padding: 1rem 1.5rem 0;
 		padding-bottom: calc(var(--status-room) + var(--control-height) + 1.5rem);
 	}
 	.box.page.clear .page-body {

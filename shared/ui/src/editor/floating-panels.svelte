@@ -14,8 +14,6 @@
 		tab,
 		toolbar,
 				children,
-		onmain,
-				onover,
 		stageDrop,
 		labels = {}
 	}: {
@@ -23,9 +21,6 @@
 		tab: Snippet<[tab: string]>;
 		toolbar?: Snippet<[panel: string]>;
 		children?: Snippet;
-				/** the head's ◱ main / ⤢ over everything (floating-panel.svelte); the tabs on the stage are `floats.staged` */
-		onmain?: (tab: string) => void;
-		onover?: (tab: string) => void;
 		/**
 		 * The page's stage takes a tab let go over it: `zone` says where it would land (client px) and what happens – drawn
 		 * while the tab is in the hand; `drop` takes it (true: taken, no panel of its own)
@@ -34,7 +29,7 @@
 			zone: (tab: string, x: number, y: number) => { rect: Rect; label: string } | null;
 			drop: (tab: string, x: number, y: number) => boolean;
 		};
-		labels?: { fold?: string; open?: string; close?: string; move?: string; main?: string; back?: string; over?: string };
+		labels?: { close?: string; move?: string };
 	} = $props();
 
 		let layer = $state<HTMLDivElement>();
@@ -85,15 +80,8 @@
 			<FloatingPanel
 								{floats}
 				id={spec.id}
-				{onmain}
-				{onover}
-				foldLabel={labels.fold}
-				openLabel={labels.open}
 				closeLabel={labels.close}
 				moveLabel={labels.move}
-				mainLabel={labels.main}
-				backLabel={labels.back}
-				overLabel={labels.over}
 			>
 				{#snippet children(active)}
 					{#if spec.inline}
