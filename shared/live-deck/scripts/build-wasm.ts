@@ -3,7 +3,8 @@
 // at the `wasm-web` profile (opt-level s) + wasm-bindgen --target web (the CLI is the crates' version: `cargo install
 // wasm-bindgen-cli --version 0.2.129`); live-core (the sound, #320) as shared/live-core builds it (no bindgen). `-- --relay`:
 // relay-web alone (deck:ci, before live-deck's tests). `-- --sandbox`: a dev build – space-web's `?scene=` plays the
-// sandbox scenes too (#427, deck/native/scenes/sandbox; the published build carries none). The files go to shared/live-deck/wasm/ (deck/lab's build copies them),
+// sandbox scenes too (#427, deck/native/scenes/sandbox; the published build carries none). `-- --spores`: spores-web alone (#763,
+// the creator's Spores tab: deck-spores in a canvas). The files go to shared/live-deck/wasm/ (deck/lab's build copies them),
 // viewer/static/live/ and creator/static/live/ (#298), all git-ignored. The deck's target folder: deckTarget() (#526).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
@@ -17,15 +18,16 @@ const web = `${deckTarget()}/wasm32-unknown-unknown/wasm-web`;
 const run = (cmd: string, args: string[], env = process.env) => execFileSync(cmd, args, { stdio: 'inherit', cwd: deck, env });
 const out = here('../wasm/');
 mkdirSync(out, { recursive: true });
-const crates = process.argv.includes('--relay') ? ['relay_web'] : ['relay_web', 'space_web'];
+const only = process.argv.includes('--relay') ? ['relay_web'] : process.argv.includes('--spores') ? ['spores_web'] : null;
+const crates = only ?? ['relay_web', 'space_web', 'spores_web'];
 const files: string[] = [];
 for (const c of crates) {
 	const dev = c === 'space_web' && process.argv.includes('--sandbox') ? ['--features', 'sandbox'] : [];
-	run('cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', c.replace('_', '-'), ...dev], c === 'space_web' ? { ...process.env, RUSTC_WRAPPER: '' } : process.env); // #526: no sccache – it expands web-sys's @argfile past Windows' 32 K command line (GOTCHAS)
+	run('cargo', ['build', '--profile', 'wasm-web', '--target', 'wasm32-unknown-unknown', '-p', c.replace('_', '-'), ...dev], c === 'relay_web' ? process.env : { ...process.env, RUSTC_WRAPPER: '' }); // #526: no sccache – it expands web-sys's @argfile past Windows' 32 K command line (GOTCHAS)
 	run('wasm-bindgen', ['--target', 'web', '--no-typescript', '--out-dir', out, `${web}/${c}.wasm`]);
 	files.push(`${c}.js`, `${c}_bg.wasm`);
 }
-if (crates.length > 1) {
+if (crates.includes('space_web')) {
 	const live = buildCommand();
 	run(live.cmd, live.args, live.env);
 	copyFileSync(wasmPath(), `${out}live_core.wasm`);

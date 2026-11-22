@@ -5224,6 +5224,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "spores-web"
+version = "0.1.0"
+dependencies = [
+ "deck-kit",
+ "deck-spores",
+ "egui-wgpu",
+ "protocol",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

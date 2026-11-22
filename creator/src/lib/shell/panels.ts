@@ -14,6 +14,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'moods', name: m['creator.characters_moods'](), icon: 'smile', about: m['shell.panel_moods_about']() },
 		{ id: 'vocabulary', name: m['shell.panel_vocabulary'](), icon: 'book-open', about: m['shell.panel_vocabulary_about']() },
 		{ id: 'flow', name: m['creator.flow'](), icon: 'git-merge', about: m['shell.panel_flow_about']() },
+		{ id: 'spores', name: m['shell.panel_spores'](), icon: 'share-2', about: m['shell.panel_spores_about']() },
 		{ id: 'preview', name: m['shell.panel_preview'](), icon: 'smartphone', about: m['shell.panel_preview_about']() },
 		{ id: 'log', name: m['shell.panel_log'](), icon: 'list', about: m['shell.panel_log_about'](), aliases: ['problems'] },
 		{ id: 'timeline', name: m['storyboard.tl_title'](), icon: 'film', about: m['shell.panel_timeline_about']() },

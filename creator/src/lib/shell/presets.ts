@@ -17,6 +17,8 @@ export type TabId =
 	| 'moods'
 	| 'vocabulary'
 	| 'flow'
+	/** #763: the front item's weave of the spore network */
+	| 'spores'
 	| 'preview'
 	| 'log'
 	/** the Log's old id: stored layouts and presets naming it open the Log */
@@ -70,7 +72,7 @@ const LOG: PresetPanel = { id: 'log', tabs: ['log'], place: at('bottom-right', 0
 export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	home: { panels: [library({})] },
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
-	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow']), preview(FOLDED), library()] },
+	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow', 'spores']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
 	character: { panels: [left(['tree']), right(['inspector', 'kanon', 'log']), foot(['moods', 'vocabulary']), library()] },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
