@@ -30,6 +30,7 @@ pub mod gpu;
 pub mod label;
 pub mod layers;
 pub mod meshopt;
+pub mod model_facts;
 pub mod motion;
 pub mod pick;
 pub mod place;

@@ -44,6 +44,17 @@ export function dropPlan(stage: Stage, tab: string, x: number): DropPlan | null 
 	return { kind: 'replace', side, out: stage[side === 'left' ? 0 : 1] };
 }
 
+/** the room the shown panels leave free across a window `W` wide: the right edge of the left column, the left edge of the right one */
+export function freeRoom(rects: Iterable<{ x: number; w: number }>, W: number): { left: number; right: number } {
+	let left = 0;
+	let right = W;
+	for (const r of rects) {
+		if (r.x + r.w / 2 < W / 2) left = Math.max(left, r.x + r.w);
+		else right = Math.min(right, r.x);
+	}
+	return { left, right: Math.max(left, right) };
+}
+
 /** the tabs that left the stage between two states (they fly back into their panels) */
 export const leaving = (was: Stage, now: Stage): string[] => was.filter((t) => !now.includes(t));
 /** the tabs that came onto the stage */

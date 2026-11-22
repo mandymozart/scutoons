@@ -37,11 +37,13 @@
 //!   2D, no scene, no sound); the page brings the socket, the proof's fetch and the wake lock.
 //! - **The Library (#698):** `Library` – deck-catalog's shelf for the creator's Library (library.rs).
 //! - **The Log (#767):** `Log` – deck-ui's messages for the creator's Log tab and status bar (log.rs).
+//! - **A model's facts (#773):** `model_facts` – a GLB's bones, clips, spots and what it lacks, for the creator's 3D place (model.rs).
 #![cfg(target_arch = "wasm32")]
 
 mod library;
 mod link;
 mod log;
+mod model;
 mod outlet;
 mod scene;
 mod vote;

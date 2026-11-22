@@ -5,7 +5,7 @@ import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarg
 import type { Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
 import { PRESETS, stageOf, tabIdOf } from './presets.ts';
-import { back, clampSplit, send, splitIn, type Side, type Stage } from './stage.ts';
+import { back, clampSplit, freeRoom, send, splitIn, type Side, type Stage } from './stage.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 
@@ -178,6 +178,17 @@ export function usePageDoc(doc: () => PageDoc | null) {
 			if (shell.doc === value) shell.doc = null;
 		};
 	});
+}
+
+/** the room a workspace's shown panels leave free across the window (client px) */
+export function freeOf(floats: Floats | null, W: number): { left: number; right: number } {
+	if (!floats) return { left: 0, right: W };
+	return freeRoom(
+		Object.entries(floats.views)
+			.filter(([id]) => !floats.closed(id) && floats.shown.has(id))
+			.map(([, v]) => v.rect),
+		W
+	);
 }
 
 /** a tab on the stage goes back into its panel (the Flow after a box opened its place: the page shows it) */

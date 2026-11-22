@@ -5,7 +5,7 @@ import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } 
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, stageOf, tabIdOf } from '../src/lib/shell/presets.ts';
-import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn } from '../src/lib/shell/stage.ts';
+import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn, freeRoom } from '../src/lib/shell/stage.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -198,6 +198,19 @@ test('a tab dragged over the stage: takes it, splits a half, replaces a half', (
 	assert.equal(clampSplit(Number.NaN), 0.5);
 	assert.deepEqual(readStage(['a', 'a', 3, 'b', 'c']), ['a', 'b']);
 	assert.equal(readStage('flow'), undefined);
+});
+
+test('the free room: between the left and the right column of panels', () => {
+	assert.deepEqual(freeRoom([], 1000), { left: 0, right: 1000 });
+	assert.deepEqual(freeRoom([{ x: 0, w: 200 }, { x: 700, w: 300 }, { x: 650, w: 350 }], 1000), { left: 200, right: 650 });
+	assert.deepEqual(freeRoom([{ x: 0, w: 600 }, { x: 550, w: 450 }], 1000), { left: 600, right: 600 }, 'never less than nothing');
+});
+
+test('the character workspace: its sections in one panel, the old Moods tabs open Expressions', () => {
+	assert.deepEqual(PRESETS.character.panels[0].tabs, ['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']);
+	assert.equal(PRESETS.character.clear, false);
+	assert.equal(tabIdOf('moods'), 'expressions');
+	assert.equal(tabIdOf('vocabulary'), 'expressions');
 });
 
 test('view settings: per workspace, every field checked', () => {

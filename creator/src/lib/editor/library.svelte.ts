@@ -90,6 +90,9 @@ class Library {
 	fresh = $state<string | null>(null);
 	/** the file of the tile being dragged (a drag's data can only be read on the drop) */
 	dragging = $state<string | null>(null);
+	/** the panel shows Items to open instead of the files; `openKind` narrows them to one kind's rows */
+	openings = $state(false);
+	openKind = $state<string | null>(null);
 
 	constructor() {
 		if (typeof localStorage !== 'undefined') Object.assign(this, readView());
@@ -264,6 +267,13 @@ class Library {
 		this.kind = this.core?.startKind(request) ?? (request.kinds.length === 1 ? request.kinds[0] : null);
 		this.query = '';
 		this.clearSelection();
+	}
+
+	/** Items to open, only `kind`'s rows (the characters, after the old list's address) */
+	showOpenings(kind: string | null) {
+		this.openings = true;
+		this.openKind = kind;
+		this.query = '';
 	}
 
 	cancelPick() {
