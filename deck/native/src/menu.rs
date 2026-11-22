@@ -245,6 +245,7 @@ impl App {
             top: 0.0,
             play: self.menu.play.clone(),
             listing: self.menu.lister.listing(),
+            refused: self.switcher.refused.clone(),
             #[cfg(feature = "live")]
             showing: self.menu.own.playing.as_ref().map(deck_show::alone::Alone::showing),
             #[cfg(not(feature = "live"))]

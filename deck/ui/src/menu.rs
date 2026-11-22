@@ -166,6 +166,8 @@ pub struct Facts {
     pub listing: crate::start::Listing,
     /// the show this deck plays as its own conductor (none: none)
     pub showing: Option<crate::start::Showing>,
+    /// #815: the last pick the stage refused – (its value, why): its Play entry says NOT LOADED and why
+    pub refused: Option<(String, String)>,
 }
 
 /// The session's line of the menu for the Live page's session: none = not in it.
@@ -309,12 +311,22 @@ pub fn words(row: Row, f: &Facts) -> (&'static str, String, bool) {
         Row::Play => ("PLAY", crate::start::play_count(&f.play), false),
         Row::Join => ("JOIN A SHOW", f.session.as_ref().map_or("NO SESSION".into(), |_| f.who.to_uppercase()), false),
         Row::Pick(i) => match f.play.get(i) {
+            Some(p) if f.refused.as_ref().is_some_and(|(v, _)| *v == p.value) => ("", refused_word(f.refused.as_ref().map_or("", |(_, why)| why)), false),
             Some(p) => ("", [p.demo.then_some("DEMO"), p.show.then_some("SHOW")].into_iter().flatten().collect::<Vec<_>>().join(" "), false),
             None => ("", String::new(), true),
         },
         Row::Leave => ("LEAVE", String::new(), false),
         Row::Go => ("GO", f.showing.as_ref().map(crate::start::Showing::next).unwrap_or_default(), f.showing.as_ref().is_none_or(|s| s.row >= s.rows)),
     }
+}
+
+/// #815: a refused pick's word on its Play entry – NOT LOADED and the reason's last part (the cause), short enough for a
+/// row; the whole reason is in the stage's log
+pub fn refused_word(why: &str) -> String {
+    let cause = why.rsplit(": ").next().unwrap_or(why).trim();
+    let short: String = cause.chars().take(48).collect();
+    let more = if cause.chars().count() > 48 { "…" } else { "" };
+    format!("NOT LOADED: {}{more}", short.to_uppercase())
 }
 
 /// What a place on the drawn page is (`menu_draw.rs` lays them out).
@@ -911,6 +923,16 @@ mod tests {
     }
 
     /// a playing deck: Esc, PLAY under CONTINUE – the start menu's Play page, its list and its rule
+    /// #815: a pick the stage refused says NOT LOADED and the cause on its Play entry; the others keep their words
+    #[test]
+    fn a_refused_pick_says_why_on_its_entry() {
+        let why = "scene:crows-rave: holder wolf: value 'voice:voice.gain': no track 'voice'";
+        let f = Facts { play_page: true, play: vec![playable("scene:crows-rave", "Crows", true), playable("scene:nave", "Nave", false)], refused: Some(("scene:crows-rave".into(), why.into())), ..native() };
+        assert_eq!(words(Row::Pick(0), &f).1, "NOT LOADED: NO TRACK 'VOICE'");
+        assert_eq!(words(Row::Pick(1), &f).1, "", "the others keep their own words");
+        assert!(refused_word(&"x".repeat(80)).ends_with('…'), "a long cause is cut");
+    }
+
     #[test]
     fn play_sits_under_continue_in_the_main_menu_and_opens_the_same_play_page() {
         let f = Facts { play_page: true, play: vec![playable("scene:sandy-dunes", "Dunes", true), playable("scene:nave", "Nave", false)], ..native() };

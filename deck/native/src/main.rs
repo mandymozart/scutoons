@@ -947,9 +947,13 @@ impl App {
         let checked = read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| ()));
         self.args.scene = old_scene;
         if let Err(e) = checked {
+            // #815: a refused pick says why – in the log and on its Play entry, not only on the switcher's line
+            tracing::warn!("switcher: {value} not loaded: {e:#}");
             self.switcher.status = format!("NOT LOADED: {e:#}");
+            self.switcher.refused = Some((value.to_string(), format!("{e:#}")));
             return;
         }
+        self.switcher.refused = None;
         // the picture fades to black and the sound out as long (PipeWire), then `load_switch`
         self.show.audio.iter().for_each(|a| a.fade_out());
         self.change.start(value);
@@ -965,7 +969,9 @@ impl App {
         if let Some(e) = self.error.take() {
             self.args.scene = old_scene;
             self.error = old_error;
+            tracing::warn!("switcher: {value} not loaded: {e}");
             self.switcher.status = format!("NOT LOADED: {e}");
+            self.switcher.refused = Some((value.to_string(), e.to_string()));
             return;
         }
         self.switcher.status = format!("LOADED {} IN {:.1}S", value.rsplit(['/', '\\']).next().unwrap_or(value), started.elapsed().as_secs_f32());

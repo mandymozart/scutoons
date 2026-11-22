@@ -109,6 +109,8 @@ pub struct Switcher {
     cursor: usize,
     /// what the last pick did (loaded · the start scene · the error)
     pub status: String,
+    /// #815: the last pick the stage refused – (its value, why); Play shows it on that entry, the log has it whole
+    pub refused: Option<(String, String)>,
 }
 
 impl Switcher {
