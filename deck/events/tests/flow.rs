@@ -33,16 +33,7 @@ fn deck(seed: u64) -> Deck {
         length: 1.0,
         glide: 0.5,
     });
-    let arp = graph.add(Arp {
-        note,
-        pitch,
-        ratios: vec![1.0, 1.2, 1.5],
-        octaves: 2,
-        mode: ArpMode::UpDown,
-        per_beat: 4.0,
-        length: 0.6,
-        root: None,
-    });
+    let arp = graph.add(Arp::new(note, pitch, vec![1.0, 1.2, 1.5], 2, ArpMode::UpDown, 4.0, 0.6));
     graph.connect((walk, "notes"), (arp, "notes"), false).unwrap();
     Deck { graph, arp, cv: GateCv::new(note, pitch, glide, 147.0), tempo: TempoMap::new(96.0, 4, RATE), note, pitch }
 }

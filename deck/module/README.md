@@ -123,11 +123,12 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 | `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
 | `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
 | `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
+| `arp` | `Held`: the held notes (16, latch) and step `k`'s note by `Mode` (up / down / updown / played) through octaves; `steps`: the beat grid. The `arp` module and deck-events' `arp` generator both play it. |
 
 ## The small audio modules
 
-Seven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `osc` → `filter` → `vca` ← `env`, summed by `mixer`. A level in dB is
+Eight factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -139,6 +140,7 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `filter` | `in` (any), `cutoff_mod` (control, oct), `notes` (event, key tracking) → `out` (any) | `mode` lp12 / lp24 / bp / hp / notch, `cutoff` Hz (log), `res` %, `drive` %, `key` % | acid |
 | `mixer` | `in1` … `in8` (2 each) → `out` (2), `send` (2) | per input `gain` dB, `pan` −1 … 1 (a balance), `send` dB, `mute`; `master` dB | pair |
 | `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
+| `arp` | `notes` (event, held: on at key down, off at key up) → `out` (event, a note a step on the beat grid) | `mode` up / down / updown / played, `rate` 1/1 … 1/32 (t = triplet; 1/8), `gate` %, `octaves` 1–4, `transpose` st, `latch` | crow |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven

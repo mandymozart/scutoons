@@ -16,8 +16,10 @@
 //! | `delay` | delay line (whole and cubic fractional reads), allpass, damped comb |
 //! | `fft` | radix-2 FFT of real input, and back |
 //! | `arith` | f64 maths from arithmetic only |
+//! | `arp` | the arpeggiator's rule: held notes, latch, steps on the beat grid, the note a step plays |
 pub mod adsr;
 pub mod arith;
+pub mod arp;
 pub mod delay;
 pub mod fft;
 pub mod follower;

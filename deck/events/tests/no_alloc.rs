@@ -48,7 +48,7 @@ fn a_built_graph_runs_resolves_and_bridges_without_allocating() {
     let (note, pitch, glide) = (n.event("music.note").unwrap(), n.key("pitch").unwrap(), n.key("glide").unwrap());
     let mut g = EventGraph::new();
     let walk = g.add(RandomWalk { note, pitch, glide_key: glide, seed: 3, base_hz: 147.0, spread: 1.0, octaves: 2.0, per_beat: 2.0, length: 0.9, glide: 0.5 });
-    let arp = g.add(Arp { note, pitch, ratios: vec![1.0, 1.25, 1.5], octaves: 3, mode: ArpMode::UpDown, per_beat: 8.0, length: 0.5, root: None });
+    let arp = g.add(Arp::new(note, pitch, vec![1.0, 1.25, 1.5], 3, ArpMode::UpDown, 8.0, 0.5));
     g.connect((walk, "notes"), (arp, "notes"), false).unwrap();
     g.build().unwrap();
     let spread = g.param(walk, "spread").unwrap();

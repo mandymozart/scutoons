@@ -18,6 +18,7 @@ fn every_factory_module_passes_the_compile_check() {
         ("osc", osc_module::Osc::DESCRIPTOR),
         ("mixer", mixer_module::Mixer::DESCRIPTOR),
         ("transpose", transpose_module::Transpose::DESCRIPTOR),
+        ("arp", arp_module::Arp::DESCRIPTOR),
     ] {
         check(json).unwrap_or_else(|e| panic!("{name}: {e}"));
     }

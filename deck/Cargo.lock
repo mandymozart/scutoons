@@ -231,6 +231,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arp-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1301,6 +1308,7 @@ name = "deck-events"
 version = "0.1.0"
 dependencies = [
  "deck-core",
+ "deck-module",
  "libm",
  "protocol",
  "serde",
@@ -4778,6 +4786,7 @@ version = "0.1.0"
 dependencies = [
  "analog-module",
  "anyhow",
+ "arp-module",
  "base64",
  "bob-module",
  "deck-catalog",

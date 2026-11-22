@@ -1,56 +1,41 @@
-//! An arpeggiator (owner 2026-11-01: "arpeggiators are just like instruments, but can be rigged … ableton chain"):
-//! events → events. An incoming note sets the root; on every step it plays the root × the chord's next ratio (a
-//! continuous chord shape – no 12-tone grid required), through `octaves`, up, down or up-down. The step number decides
-//! the position, so the pattern stays on the grid however the windows are cut.
+//! The arpeggiator as a generator (owner 2026-11-01: "arpeggiators are just like instruments, but can be rigged … ableton
+//! chain"): events → events. An incoming note sets the root and holds its chord, the root × the ratios (a continuous
+//! chord shape – no 12-tone grid required); the steps and the note each plays are the `arp` module's rule
+//! (`deck_module::dsp::arp`), so the pattern stays on the grid however the windows are cut.
 use super::steps;
 use crate::event::{Event, Time};
 use crate::generator::{Generator, Inbox, Outbox, Ports, Span};
 use crate::names::Sym;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ArpMode {
-    Up,
-    Down,
-    UpDown,
-}
+use deck_module::dsp::arp::{Held, Note, HELD};
+pub use deck_module::dsp::arp::Mode as ArpMode;
 
 #[derive(Debug, Clone)]
 pub struct Arp {
     pub note: Sym,
     pub pitch: Sym,
-    /// the chord as frequency ratios to the root (1, 5/4, 3/2 = a just major triad)
+    /// the chord as frequency ratios to the root, low to high (1, 5/4, 3/2 = a just major triad); at most 16
     pub ratios: Vec<f32>,
     pub octaves: u32,
     pub mode: ArpMode,
     pub per_beat: f64,
     pub length: f64,
-    /// the last root heard (none = silent until a note comes)
-    pub root: Option<f32>,
+    /// the chord on the last root heard (empty = silent until a note comes)
+    held: Held,
 }
 
 impl Arp {
-    /// the ladder's length (ratios × octaves) and its rung `i`'s pitch, low to high – no list built (the audio
-    /// thread may run it)
-    fn rungs(&self) -> usize {
-        self.ratios.len() * self.octaves.max(1) as usize
+    pub fn new(note: Sym, pitch: Sym, ratios: Vec<f32>, octaves: u32, mode: ArpMode, per_beat: f64, length: f64) -> Arp {
+        Arp { note, pitch, ratios, octaves, mode, per_beat, length, held: Held::new() }
     }
 
-    fn rung(&self, root: f32, i: usize) -> f32 {
-        let n = self.ratios.len();
-        root * self.ratios[i % n] * 2f32.powi((i / n) as i32)
-    }
-
-    /// step k's index into a ladder of n
-    fn index(&self, k: i64, n: usize) -> usize {
-        let n = n as i64;
-        match self.mode {
-            ArpMode::Up => k.rem_euclid(n) as usize,
-            ArpMode::Down => (n - 1 - k.rem_euclid(n)) as usize,
-            ArpMode::UpDown if n < 2 => 0,
-            ArpMode::UpDown => {
-                let period = 2 * n - 2;
-                let i = k.rem_euclid(period);
-                (if i < n { i } else { period - i }) as usize
+    fn root(&mut self, e: &Event) {
+        if e.name != self.note {
+            return;
+        }
+        if let Some(root) = e.props.get(self.pitch) {
+            self.held.clear();
+            for (id, r) in self.ratios.iter().take(HELD).enumerate() {
+                self.held.press(Note { id: id as u32, hz: root * r, ..Note::SILENT });
             }
         }
     }
@@ -68,9 +53,6 @@ impl Generator for Arp {
     }
 
     fn query(&mut self, span: &Span, ins: &Inbox, out: &mut Outbox) {
-        if self.ratios.is_empty() {
-            return;
-        }
         let input = ins.port(0);
         let mut next = 0;
         let dur = self.length.clamp(0.0, 1.0) / self.per_beat.max(f64::MIN_POSITIVE);
@@ -78,24 +60,16 @@ impl Generator for Arp {
             let at = span.tempo.frame_of(beat).unwrap_or(span.from_frame);
             // every input note up to this step sets the root (inputs are sorted by start)
             while next < input.len() && input[next].frame(span.tempo, span.from_frame) <= at {
-                if input[next].name == self.note {
-                    if let Some(p) = input[next].props.get(self.pitch) {
-                        self.root = Some(p);
-                    }
-                }
+                self.root(&input[next]);
                 next += 1;
             }
-            let Some(root) = self.root else { continue };
-            let pitch = self.rung(root, self.index(k, self.rungs()));
+            let Some((note, octave)) = self.held.step(k, self.mode, self.octaves) else { continue };
+            let pitch = note.hz * 2f32.powi(octave as i32);
             out.push(0, Event::new(self.note, Time::Beats(beat)).lasting(Time::Beats(dur)).with(self.pitch, pitch));
         }
         // notes after the last step still set the root for the next window
         for e in &input[next..] {
-            if e.name == self.note {
-                if let Some(p) = e.props.get(self.pitch) {
-                    self.root = Some(p);
-                }
-            }
+            self.root(e);
         }
     }
 }
@@ -107,16 +81,7 @@ mod tests {
     use deck_core::tempo::TempoMap;
 
     fn arp(n: &mut Names, mode: ArpMode) -> Arp {
-        Arp {
-            note: n.event("music.note").unwrap(),
-            pitch: n.key("pitch").unwrap(),
-            ratios: vec![1.0, 1.25, 1.5],
-            octaves: 2,
-            mode,
-            per_beat: 4.0,
-            length: 0.5,
-            root: None,
-        }
+        Arp::new(n.event("music.note").unwrap(), n.key("pitch").unwrap(), vec![1.0, 1.25, 1.5], 2, mode, 4.0, 0.5)
     }
 
     fn run(a: &mut Arp, input: Vec<Event>, beats: f64) -> Vec<f32> {
