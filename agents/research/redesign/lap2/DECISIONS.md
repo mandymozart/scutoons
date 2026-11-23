@@ -44,7 +44,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **A craft shapes the bar:** the translator's bar carries the edit language.
 - **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace, listed in the ☰ Views. The bar's middle holds the workspace row and nothing else. (H16)
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.
-- **Settled for the run (2026-11-24):** the switcher's content is at most 1160 px wide; its foot goes; the workspace tab has no menu of its own in this lap; the deck's switcher has no Needs review box; Help and Go to are in the ☰ menu; the Show's Flash and Scene sheets are views, New show is a dialog on the overlay level.
+- **Settled for the run (2026-11-24):** the switcher's content is at most 1160 px wide; its foot goes; the workspace tab has no menu of its own in this lap; the deck's switcher has no Needs review box; Help and Go to are in the ☰ menu; New show is a dialog on the overlay level. (Flash and Scene: the default "views" was wrong – the deck orchestrator says both are dialogs; back with you.)
 
 **Open**
 
