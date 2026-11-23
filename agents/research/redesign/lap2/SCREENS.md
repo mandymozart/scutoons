@@ -58,7 +58,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 |---|---|---|---|
 | D1 | The switcher over a workspace | as A3; Home stays when nothing is open | shape |
 | D2 | Build | the shared bar, Views in the ☰, kit look | old |
-| D3 | Show | its sheets are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html, spores-view.html |
+| D3 | Show | no pill of its own in the bar: Cues, Problems, Who, Session, Vote and Demos are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html, spores-view.html (the draft's own D3 has the bar right, the panels old) |
 | D4 | Module, nothing open | the shared bar, kit look | old |
 | D4b | **Module, a module open** (new) | never drawn: its Parameters, Problems, the module heard alone on the stage, Derive for a factory module; the code opens in the external editor | words |
 | D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here | old |

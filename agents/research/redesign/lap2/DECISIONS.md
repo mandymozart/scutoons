@@ -43,7 +43,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Search is its own overlay** (Alt Space / ⌘ Space).
 - **The user menu drops under the account icon.** No swipe.
 - **A craft shapes the bar:** the translator's bar carries the edit language.
-- **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace.
+- **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace, listed in the ☰ Views. The bar's middle holds the workspace row and nothing else. (H16)
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.
 
 **Open**

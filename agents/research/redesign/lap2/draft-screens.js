@@ -293,10 +293,9 @@ add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)'
 add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
   ['the shared bar (A1)', 'Views: the ☰ menu\'s PANELS become Views (A2 / B1)', DKNOTE],
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsNames: ['?','?','?'] }))}${mk(1, 230, 38)}${mk(2, 1318, 38)}${capn(980, 52, 'Views in the ☰ menu (A2) or the tab\'s menu (B1)')}${mk(3, 20, 330)}`);
-add('D', 'D3', 'Show: Outline · Inspector · Sheet · Nodes · Library · Rows · Session · Stage now · Next', 'now/deck-3-show-workspace',
-  ["the shared bar (A1) – the show's own pill (Cues · Problems · Who · Session · Vote · Demos) and Go live kept", 'Views (B1)', DKNOTE],
-  () => `${deckShot('deck-3-show-workspace.png', deckBarNew({ tabs: [['list','new-show']], mode: 'Go live', ws: `<span class="kp">${['Cues','Problems','Who','Session','Vote','Demos'].map(n => `<span class="kt">${n}</span>`).join('')}</span>` }))}${mk(1, 230, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}
-  ${qcard(980, 330, "the Show's pill and the workspace row", ["the show's own pill stays in the middle (drawn), the workspace row behind ⌄", 'the workspace row in the middle, the show\'s pill beside it'], '', '22rem')}`);
+add('D', 'D3', 'Show: Outline · Inspector · Sheet · Spores · Library · Rows · Session · Stage now · Next', 'now/deck-3-show-workspace',
+  ["the show's own pill is gone – Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace (decided 2026-11-24); the bar's middle is the workspace row", 'they are listed in the ☰ Views, with the four states (B1)', DKNOTE],
+  () => `${deckShot('deck-3-show-workspace.png', deckBarNew({ tabs: [['list','new-show']], mode: 'Go live', wsNames: ['Scene','Rigging','Show'], wsOn: 2 }))}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D4', 'Module: Library · Drives · Module · Problems', 'now/deck-3-module-workspace', ['the shared bar (A1)', 'Views (B1)', DKNOTE],
   () => `${deckShot('deck-3-module-workspace.png', deckBarNew({ tabs: [['code','new module']], mode: false, wsNames: ['?','?','?'] }))}${mk(1, 230, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D5', 'An asset open (character, module, video)', 'now/deck-3-stage-workspace (catpope, a character, open in Build)', ['the shared bar (A1)', 'Views (B1)', DKNOTE],
