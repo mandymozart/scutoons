@@ -1,11 +1,10 @@
-// `npm run build:wasm -w shared/live-deck` (#198, #366): the browser deck's wasm modules, built from deck/ – space-web
-// (deck-space's being and set, wgpu) and relay-web (deck-space's relay client: the deck page, the vote screens) by cargo
-// at the `wasm-web` profile (opt-level s) + wasm-bindgen --target web (the CLI is the crates' version: `cargo install
-// wasm-bindgen-cli --version 0.2.129`); live-core (the sound, #320) as shared/live-core builds it (no bindgen). `-- --relay`:
-// relay-web alone (deck:ci, before live-deck's tests). `-- --sandbox`: a dev build – space-web's `?scene=` plays the
-// sandbox scenes too (#427, deck/native/scenes/sandbox; the published build carries none). `-- --spores`: spores-web alone (#763,
-// the creator's Spores tab: deck-spores in a canvas). The files go to shared/live-deck/wasm/ (deck/lab's build copies them),
-// viewer/static/live/ and creator/static/live/ (#298), all git-ignored. The deck's target folder: deckTarget() (#526).
+// `npm run build:wasm -w shared/live-deck` (#198, #366): the browser deck's wasm modules, built from deck/ – space-web (deck-space's
+// being and set, wgpu) and relay-web (deck-space's relay client: the deck page, the vote screens) by cargo at the `wasm-web` profile
+// (opt-level s) + wasm-bindgen --target web (the CLI is the crates' version: `cargo install wasm-bindgen-cli --version 0.2.129`);
+// live-core (the sound, #320) as shared/live-core builds it (no bindgen). `-- --relay`: relay-web alone (deck:ci, before live-deck's
+// tests). `-- --sandbox`: a dev build – space-web's `?scene=` plays the sandbox scenes too (#427, deck/native/scenes/sandbox; the
+// published build carries none). `-- --spores`: spores-web alone (#763). The files go to shared/live-deck/wasm/ (deck/lab's build
+// copies them), viewer/static/live/ and creator/static/live/ (#298), all git-ignored. The deck's target folder: deckTarget() (#526).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -18,8 +17,7 @@ const web = `${deckTarget()}/wasm32-unknown-unknown/wasm-web`;
 const run = (cmd: string, args: string[], env = process.env) => execFileSync(cmd, args, { stdio: 'inherit', cwd: deck, env });
 const out = here('../wasm/');
 mkdirSync(out, { recursive: true });
-const only = process.argv.includes('--relay') ? ['relay_web'] : process.argv.includes('--spores') ? ['spores_web'] : null;
-const crates = only ?? ['relay_web', 'space_web', 'spores_web'];
+const crates = process.argv.includes('--relay') ? ['relay_web'] : process.argv.includes('--spores') ? ['spores_web'] : ['relay_web', 'space_web', 'spores_web'];
 const files: string[] = [];
 for (const c of crates) {
 	const dev = c === 'space_web' && process.argv.includes('--sandbox') ? ['--features', 'sandbox'] : [];
