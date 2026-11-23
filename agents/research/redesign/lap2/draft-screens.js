@@ -44,31 +44,54 @@ add('A', 'A2', 'The ☰ menu open', "dashboard foot + front card's Views row (no
   ${qcard(1010, 420, "today's dashboard foot: Help (Guide, shortcuts) and Go to (Reader, Deck, Embassy, Admin)", ['into this menu', "stay on the switcher's foot (A3)"], "Not in the owner's list of 2026-11-23.", '20rem')}
   ${qcard(1010, 610, "the deck's Publish in the creator", ["the bar's Publish icon (A1) – the line goes (H1, no duplicates)", 'the menu line as today – no Publish icon in the deck bar'], '', '20rem')}`);
 
-add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboard) · deck: the same design (owner 2026-11-23: "the same design dogma as the creators"), pictures from now/deck-3-*',
-  ['without its search field – search is its own feature (A4)',
-   'opened by Alt Tab / Ctrl K / ⌘K, not by ☰ any more: the menu button is not pressed',
-   "the deck's switcher: this design – cards with pictures, Last opened (the deck's Recent), the foot; none of #830's title, New buttons, Library list, Menu column or Views column"],
-  () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true })}
-  ${ring(14, 52, 1412, 34)}${mk(1, 20, 58)}${capn(48, 60, 'the search field was here')}${mk(2, 1405, 30)}
-  <div class="abs" style="left:600px;top:440px;width:560px;height:315px;z-index:50;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);overflow:hidden;background:#000" data-theme="night">
-    <div style="transform:scale(.35);transform-origin:0 0;width:1600px;height:900px;position:relative">${deckBarNew({ tabs: [['user','catpope'],['list','new-show'],['code','new module']], wsNames: ['?','?','?'] })}
-    <div class="abs" style="left:0;top:0;width:1440px;height:870px;transform:scale(1.111);transform-origin:0 0">${dashboard({ noSearch: true, top: 264, focus: 0, review: false,
-      last: [['user','catpope','Build · now'],['list','new-show','Show · 5 min'],['code','new module','Module · 9 min']],
-      cards: [['Build','catpope','box','front'],['Show','new-show','list','open'],['Module','new module','code','open']],
-      snap: (n, i) => `<span class="abs" style="left:.6rem;right:.6rem;top:1.8rem;height:62px;border-radius:.3rem;overflow:hidden;border:1px solid var(--tool-line)"><img src="${DK}${['deck-3-stage-workspace.png','deck-3-show-workspace.png','deck-3-module-workspace.png'][i]}" style="width:100%;height:100%;object-fit:cover"></span>` })}</div></div></div>
-  ${capn(604, 420, "Deck editor · the same switcher")}${mk(3, 1140, 418)}
-  ${qcard(1176, 440, "the deck's switcher", ['the deck shows Needs review / Not published (if it can read them) – the box as in the creator', 'the deck leaves the box out (drawn dashed)'], '', '18rem')}
-  ${qcard(14, 610, "the foot (account, Settings, Docs, Help, Go to, the build)", ['stays on the switcher as today', 'goes – the ☰ menu holds it (A2, H1)'], '', '22rem')}`);
+/* one switcher list for both apps (owner 2026-11-24, DECK-LINK.md): the creator's workspaces + the deck's (Scene · Rigging · Show), each with its
+   still (#842 / the deck's library.rs stills – a shot from now/ where there is one, else schematic), its name, its last content; a card of the other app
+   carries a kit Chip saying where it opens. No Views row on any card. */
+const still = (f, pos = 'top left') => `<img src="${f}" style="width:100%;height:100%;object-fit:cover;object-position:${pos}">`;
+const schem = (lay) => lay.map(([x, y, w, h]) => `<span class="abs" style="left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${h * 100}%;border:1px solid var(--tool-line);border-radius:.15rem;background:var(--tool-panel)"></span>`).join('');
+const C_CARDS = [['Characters','character:giantpopstar','smile','front', null, still('now/creator-1-character.jpg')],
+  ['Toon','toon:sandbox','book','open', null, schem([[.02,.06,.24,.88],[.7,.06,.28,.4]])],
+  ['Flow','Nothing open yet','layout'],
+  ['Scenes','scene:avatar-home','box','open', null, still('now/creator-4-scene.jpg')],
+  ['Sound design','module:arp','cpu','open', null, schem([[.7,.06,.28,.3]])],
+  ['Catalog','Nothing open yet','layout'],
+  ['Map','map','map','open', null, schem([[.02,.06,.24,.88]])],
+  ['XR','Nothing open yet','eye']];
+const D_CARDS = [['Scene','scene:avatar-home','box','open', null, still(DK + 'deck-3-stage-workspace.png', 'center')],
+  ['Rigging','rig:catpope','user','open', null, schem([[.02,.06,.22,.88],[.74,.06,.24,.88]])],
+  ['Show','show:new-show','list','open', null, still(DK + 'deck-3-show-workspace.png', 'center')]];
+const badged = (cards, b) => cards.map(c => { const k = [...c]; while (k.length < 5) k.push(''); k[4] = b; if (k[3] === 'front') k[3] = 'open'; return k; });
+const SW_CREATOR = (deck = 'Deck · running') => [...C_CARDS, ...badged(D_CARDS, deck)];
+const SW_DECK = () => [...D_CARDS.map((c, i) => i === 0 ? Object.assign([...c], { 3: 'front' }) : c), ...badged(C_CARDS, 'Creator')];
+const SW_LAST = [['smile','Riesen-Popstar','Characters · now'],['map','Map','Map · 12 min'],['book','Sandbox','Toon · 8 h']];
+
+add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboard)',
+  ['no search field (A4)', 'Alt Tab / Ctrl K / ⌘K, not ☰', 'no Views row on the cards (Views: ☰ only)',
+   "one list: the deck's workspaces too, badged; Enter opens the deck there (A3b)"],
+  () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}
+  ${mk(1, 20, 62)}${mk(2, 1405, 30)}${mk(3, 200, 412)}${ring(486, 467, 706, 160)}${mk(4, 478, 458)}
+  ${capn(14, 636, 'stills: a shot where now/ has one, else schematic')}
+  ${qcard(14, 664, "the foot", ['stays as today', 'goes – the ☰ menu holds it (A2)'], '', '17rem')}`);
+
+add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
+  ["the deck not running: the browser asks once (its own dialog, scutoons-deck://)", 'the deck running: no prompt – it comes up on Scene, scene:avatar-home'],
+  () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, focus: 8, cards: SW_CREATOR('Deck · starts') })}
+  <div class="abs" style="left:500px;top:8px;width:440px;z-index:80;padding:18px 20px 16px;border-radius:8px;background:#2b2c2f;color:#e8eaed;font:13px/1.45 system-ui,sans-serif;box-shadow:0 4px 18px rgb(0 0 0/.6);text-shadow:none">
+    <div style="font-size:15px;margin-bottom:8px">Open SCUTOONS Deck?</div>
+    <div style="color:#bdc1c6;margin-bottom:12px">https://creator.scutoons.com wants to open this application.</div>
+    <div style="display:flex;gap:8px;align-items:flex-start;color:#bdc1c6;margin-bottom:16px"><span style="flex:none;width:14px;height:14px;margin-top:2px;border:1.5px solid #9aa0a6;border-radius:2px"></span>Always allow creator.scutoons.com to open links of this type in the associated app</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><span style="padding:6px 16px;border:1px solid #5f6368;border-radius:16px;color:#8ab4f8">Cancel</span><span style="padding:6px 16px;border-radius:16px;background:#8ab4f8;color:#202124">Open SCUTOONS Deck</span></div></div>
+  ${capn(500, 196, "the browser's own dialog, once")}${mk(1, 944, 8)}${mk(1, 478, 458)}`);
 
 add('A', 'A4', 'Search (Alt Space / ⌘ Space, the pad\'s Y)', "the launcher today (launcher.svelte, the overlay) on now/creator-1",
-  ["its own overlay, opened by Alt Space / ⌘ Space and the pad's Y; Ctrl K goes to the switcher (A3) – its keys line says so"],
+  ["its own overlay: Alt Space / ⌘ Space, the pad's Y (Ctrl K: the switcher, A3)", 'the placeholder says "Find"'],
   () => `${characters({ bar: { chevron: true } })}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
   <div class="km" style="left:430px;top:150px;width:580px;z-index:60;padding:.4rem">
-    <div class="fld" style="height:2.4rem;border-radius:1.2rem;color:var(--tool-muted)">${ic('search')}Find anything – items, workspaces, views, files, commands; or an address: chapter:catpope:3 …</div>
+    <div class="fld" style="height:2.4rem;border-radius:1.2rem;color:var(--tool-muted)">${ic('search')}Find</div>
     <div class="kmh" style="margin-top:.3rem">Recent</div>
     ${[['smile','Riesen-Popstar','Item'],['map','Map','Workspace'],['book','Sandbox','Item']].map(([i, n, k], j) => `<div class="kmi ${j === 0 ? 'cur' : ''}">${ic(i)}<span class="w">${n}</span><span class="meta">${k}</span></div>`).join('')}
     <div class="cap" style="padding:.5rem .6rem .3rem;border-top:1px solid var(--tool-line);margin-top:.3rem">↑↓ move · Enter open · Esc close · Alt Space or ⌘ Space anywhere · the pad's Y</div></div>
-  ${mk(1, 1015, 345)}`);
+  ${mk(1, 1015, 345)}${mk(2, 1015, 160)}`);
 
 add('A', 'A5', 'The user menu (swipe up / account)', 'today\'s user menu (user-menu.svelte, code – no screenshot in now/)',
   [],
@@ -253,9 +276,17 @@ add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e
 
 /* ════════ D · the deck editor's workspaces (now/deck-*, main r4781, night) ════════ */
 const DKNOTE = "the panels as on main – the deck is the kit's source (H12), no kit change";
-add('D', 'D1', 'Home', 'now/deck-3-home', ['the shared bar (A1)', 'Home beside the switcher (A3): see the card'],
-  () => `${deckShot('deck-3-home.png', deckBarNew({ tabs: [], mode: false, wsNames: ['?','?','?'] }))}${mk(1, 230, 38)}${mk(2, 560, 80)}
-  ${qcard(1000, 560, "Home and the switcher (A3)", ['Home stays the page when nothing is open, the switcher on Alt Tab / Ctrl K as in the creator', 'the switcher replaces Home (the creator has no Home)'], 'The Home page itself as on main – its look not changed here.', '24rem')}`);
+add('D', 'D1', 'Home + the switcher', 'now/deck-3-home · A3 (the same design)',
+  ['the shared bar (A1): Scene · Rigging · Show', 'the switcher as in A3, no Views on cards',
+   "one list: the creator's workspaces too, badged Creator"],
+  () => `${deckShot('deck-3-home.png', '')}
+  ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
+    last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
+  <div class="abs" style="left:0;top:0;width:1600px;height:50px;transform:scale(.9);transform-origin:0 0;z-index:50" data-theme="night">${deckBarNew({ tabs: [], mode: false, wsNames: ['Scene','Rigging','Show'], wsOn: -1 })}</div>
+  ${mk(1, 560, 30)}${mk(2, 20, 62)}${mk(3, 722, 298)}
+  ${qcard(1010, 120, "Needs review (deck)", ['the box as in the creator', 'left out (dashed)'], '', '18rem')}
+  ${qcard(14, 664, "Home or the switcher", ['Home when nothing is open, the switcher on the keys', 'the switcher replaces Home'], '', '22rem')}
+  ${qcard(350, 664, "List order", ["the app's own workspaces first (drawn)", 'the same order in both apps'], '', '17rem')}`);
 add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
   ['the shared bar (A1)', 'Views: the ☰ menu\'s PANELS become Views (A2 / B1)', DKNOTE],
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsNames: ['?','?','?'] }))}${mk(1, 230, 38)}${mk(2, 1318, 38)}${capn(980, 52, 'Views in the ☰ menu (A2) or the tab\'s menu (B1)')}${mk(3, 20, 330)}`);
