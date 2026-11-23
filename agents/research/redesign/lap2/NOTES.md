@@ -70,3 +70,10 @@ Later, after these: the scene page + open in the deck; Catalog + Library; the on
 - **Decided: palette D – no signal colour** (owner on kit.html: *"D, no signal colour"*). RULES H11, law.md 2026-11-24. Next: the kit drawn in D with one look per component (web = deck), for the owner's approval; then every screen is redrawn to it.
 - **Modules in the DNA – to finish before the lap starts** (owner: *"spores are possible modules as well. I think we haven't finished how modules integrate into our DNA yet. Draft this as well. This is also a major design task we need to finish now before this redesign lap can start."*) – draft: MODULES-DNA.md + modules-dna.html (module · driver · rig · preset · slot · network; a spore is a module with another driver); seven open points there. The lap's plan waits for this.
 - **E5b explained to the owner** ("Fires on", #707, from the scenes session's draft): the six chips are the address book's kinds once events and choices join it; today's picker is one flat list of story events with a text filter. Deck screenshot of today's picker asked for (now/deck-6-fires-on.png).
+
+## The kit in palette D – the owner's answers to the 14 points (kit-d.html)
+1. **Status badges:** ok green and error red stay (owner: *"red and green is good. But we will need a mode for colour-blind people"*) → a colour-blind mode goes into the plan (a state must also read without red / green: a mark or a word beside the colour).
+2. **Tab hover / drag border:** the text colour.
+3. **Selected row:** no preference → as drawn (the pressed fill).
+4. **Focus:** no preference → as drawn (a 2px ring with a gap).
+5–14: not answered yet.
