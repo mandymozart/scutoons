@@ -16,14 +16,14 @@ const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
 const PICKS_KEY = 'sc-creator-launcher';
 
-function readJson(key: string): unknown {
+export function readJson(key: string): unknown {
 	try {
 		return JSON.parse(localStorage.getItem(key) ?? 'null');
 	} catch {
 		return null;
 	}
 }
-function writeJson(key: string, value: unknown): void {
+export function writeJson(key: string, value: unknown): void {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
 	} catch {
@@ -126,6 +126,12 @@ class Shell {
 	}
 	closeAll() {
 		this.#set(closeAll());
+	}
+	/** the tabs as resumed (the start, another member's, items gone left out): no workspace counts a use */
+	restore(next: TabsState) {
+		if (next === this.state) return;
+		this.state = next;
+		writeJson(TABS_KEY, next);
 	}
 
 	change(patch: Partial<MachineSettings>) {
