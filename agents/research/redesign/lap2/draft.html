@@ -110,6 +110,9 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 
 /* dashboard (today's switcher) */
 .dash{position:absolute;z-index:45;inset:0;background:color-mix(in srgb,var(--tool-ground) 82%,transparent);backdrop-filter:blur(3px)}
+/* the switcher lies over everything – the bar, the stage and the panels are blurred behind it, no bar of its own (owner 2026-11-24); S toggles it in this draft */
+.dash.over{z-index:55;background:color-mix(in srgb,var(--editor-stage) 46%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:opacity .25s}
+.dash.over.off{opacity:0;pointer-events:none}
 .dcard{position:absolute;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);padding:.5rem .6rem}
 .dcard.focus{box-shadow:0 0 0 2px var(--tool-accent)}
 .dcard .nm{position:absolute;left:.6rem;bottom:1.9rem}
@@ -270,7 +273,7 @@ function dashboard(o = {}) {
   };
   const search = o.noSearch ? '' : `<div class="abs fld" style="left:14px;right:14px;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
   const by = o.by ?? 99;
-  return `<div class="dash">${search}
+  return `<div class="dash ${o.over === false ? '' : 'over'}">${search}
   <div class="abs box" style="left:14px;width:700px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
     ${(o.last || [['smile','Riesen-Popstar','Characters · now'],['map','Map','Map · 12 min'],['book','Sandbox','Toon · 8 h']]).map(([i, n, m]) => `<div class="lrow" style="min-height:1.85rem">${ic(i)}${n}<span class="m">${m}</span></div>`).join('')}</div>
   ${o.review === false ? `<div class="abs box" style="left:726px;right:14px;top:${by}px;height:165px;border-style:dashed;display:grid;place-items:center"><span class="label">Needs review · ?</span></div>` : ''}<div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:726px;right:14px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
@@ -364,6 +367,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === '‹' || e.key === ',') go(i - 1);
   if (e.key === 't' || e.key === 'T') location.search = `?s=${window.__cur.id}${DAY ? '' : '&theme=day'}`;
   if (e.key === 'i' || e.key === 'I') document.getElementById('idx').classList.toggle('open');
+  if (e.key === 's' || e.key === 'S') document.querySelectorAll('.dash.over').forEach(d => d.classList.toggle('off'));
 });
 render();
 </script>

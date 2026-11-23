@@ -67,9 +67,10 @@ const SW_LAST = [['smile','Riesen-Popstar','Characters · now'],['map','Map','Ma
 
 add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboard)',
   ['no search field (A4)', 'Alt Tab / Ctrl K / ⌘K, not ☰', 'no Views row on the cards (Views: ☰ only)',
-   "one list: the deck's workspaces too, badged; Enter opens the deck there (A3b)"],
+   "one list: the deck's workspaces too, badged; Enter opens the deck there (A3b)",
+   'the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)'],
   () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}
-  ${mk(1, 20, 62)}${mk(2, 1405, 30)}${mk(3, 200, 412)}${ring(486, 467, 706, 160)}${mk(4, 478, 458)}
+  ${mk(1, 20, 62)}${mk(2, 1405, 30)}${mk(5, 700, 22)}${mk(3, 200, 412)}${ring(486, 467, 706, 160)}${mk(4, 478, 458)}
   ${capn(14, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}
   ${qcard(14, 664, "the foot", ['stays as today', 'goes – the ☰ menu holds it (A2)'], '', '17rem')}`);
 
@@ -148,9 +149,12 @@ add('B', 'B3', 'The four stage layouts + drop zones', "stage-zones.svelte + layo
     ${cstatus()}${capn(560, 838, 'built (lap 1) – in the set as it is')}`;
   });
 
-add('B', 'B4', 'Full screen', 'today: a view set to full screen (Views, the fourth state) on now/creator-1', [],
-  () => `<div class="abs" style="inset:0;display:grid;place-items:center" class="muted"><div style="width:420px;height:640px;border:1px dashed var(--tool-line);border-radius:.5rem;display:grid;place-items:center;color:var(--tool-muted)">Sheet · giantpopstar</div></div>
-  ${capn(14, 14, 'no bar, no panels – Esc back (built); the sheet picture not drawn here')}`);
+add('B', 'B4', 'A panel taken full: a box over the blurred workspace', 'today: a view set to full (Views, the fourth state) on now/creator-1',
+  ['full is a box, not the whole window – the bar, the stage and the other panels stay behind it, blurred (press S: on and off)',
+   'blur belongs to this level only – the switcher and a panel taken full; panels and menus have none'],
+  () => `${characters({ bar: { chevron: true } })}
+  <div class="dash over">${fp(84, 58, 1272, 760, RIG_TABS, RIG_BODY, { icons: `<span class="ic" title="Back to its place (Esc)">${ic('expand')}</span>` })}</div>
+  ${mk(1, 72, 46)}${mk(2, 700, 20)}`);
 
 add('B', 'B5', 'The Info view', "the creator's Info (info-panel.svelte, built fa70cce3f) · deck Info (panels.rs)",
   ['hover text only: the Info view shows the name and description of what is under the pointer, nothing in the panels (H14)'],
@@ -276,17 +280,15 @@ add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e
 
 /* ════════ D · the deck editor's workspaces (now/deck-*, main r4781, night) ════════ */
 const DKNOTE = "the panels as on main – the deck is the kit's source (H12), no kit change";
-add('D', 'D1', 'Home + the switcher', 'now/deck-3-home · A3 (the same design)',
-  ['the shared bar (A1): Scene · Rigging · Show', 'the switcher as in A3, no Views on cards',
-   "one list: the creator's workspaces too, badged Creator"],
-  () => `${deckShot('deck-3-home.png', '')}
+add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-1-bar-stage · A3 (the same design)',
+  ['the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)', 'the switcher as in A3, no Views on cards',
+   "one list: the creator's workspaces too, badged Creator – the same order in both apps"],
+  () => `${deckShot('deck-1-bar-stage.png', '')}
   ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
-  <div class="abs" style="left:0;top:0;width:1600px;height:50px;transform:scale(.9);transform-origin:0 0;z-index:50" data-theme="night">${deckBarNew({ tabs: [], mode: false, wsNames: ['Scene','Rigging','Show'], wsOn: -1 })}</div>
+  <div class="abs" style="left:0;top:0;width:1600px;height:50px;transform:scale(.9);transform-origin:0 0;z-index:50" data-theme="night">${deckBarNew({ tabs: [], mode: false, wsNames: ['Scene','Rigging','Show'], wsOn: 0 })}</div>
   ${mk(1, 560, 30)}${mk(2, 20, 62)}${mk(3, 722, 298)}
-  ${qcard(1010, 120, "Needs review (deck)", ['the box as in the creator', 'left out (dashed)'], '', '18rem')}
-  ${qcard(14, 664, "Home or the switcher", ['Home when nothing is open, the switcher on the keys', 'the switcher replaces Home'], '', '22rem')}
-  ${qcard(350, 664, "List order", ["the app's own workspaces first (drawn)", 'the same order in both apps'], '', '17rem')}`);
+  ${qcard(1010, 120, "Needs review (deck)", ['the box as in the creator', 'left out (dashed)'], '', '18rem')}`);
 add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
   ['the shared bar (A1)', 'Views: the ☰ menu\'s PANELS become Views (A2 / B1)', DKNOTE],
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsNames: ['?','?','?'] }))}${mk(1, 230, 38)}${mk(2, 1318, 38)}${capn(980, 52, 'Views in the ☰ menu (A2) or the tab\'s menu (B1)')}${mk(3, 20, 330)}`);
