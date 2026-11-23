@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Badge, Icon, confirmDialog, region } from '@scutoons/ui';
+	import { Badge, confirmDialog, region } from '@scutoons/ui';
 	import type { ContentVersion, SceneDocument, WrappedContent } from '@scutoons/api';
 	import { scenesApi } from '$lib/api.ts';
-	import { publishItem } from '$lib/editor/publish-tree.ts';
+	import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 	import { NO_TOON, filterRows, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons, type PublishOutcome, type SceneFilter, type SceneRow } from '$lib/editor/scenes.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
@@ -46,7 +46,6 @@
 	let draft = $state<WrappedContent<SceneDocument> | null>(null);
 	let versions = $state<ContentVersion[]>([]);
 	let outcome = $state<PublishOutcome | null>(null);
-	let busy = $state(false);
 	async function load(sceneId: string) {
 		try {
 			const [d, v] = await Promise.all([scenesApi.draft(sceneId), scenesApi.versions(sceneId, 50)]);
@@ -72,19 +71,13 @@
 		if (!id && first) void goto(sceneHref(first), { replaceState: true, keepFocus: true, noScroll: true });
 	});
 
-	const canPublish = $derived(!!draft && !busy && !!row && row.state !== 'published');
-	async function publish() {
-		if (!id || !draft || !canPublish) return;
+	/** after the bar's one Publish (RULES H18): the open scene's outcome (the core's check) at its page, the lists read again */
+	async function published(result: { published: string[]; refused: PublishRefusal[] }) {
+		if (!id) return;
 		const sceneId = id;
-		busy = true;
-		try {
-			const result = await publishItem(`scene:${sceneId}`);
-			if (!result) return;
-			outcome = publishOutcome(`scene:${sceneId}`, result);
-		} finally {
-			busy = false;
-		}
-		await Promise.all([reload(), load(sceneId)]);
+		const next = publishOutcome(`scene:${sceneId}`, result);
+		if (next) outcome = next;
+		if (next || result.published.some((k) => k.startsWith('scene:'))) await Promise.all([reload(), load(sceneId)]);
 	}
 
 	async function restore(v: ContentVersion) {
@@ -102,7 +95,7 @@
 		await Promise.all([reload(), load(sceneId)]);
 	}
 
-	usePageDoc(() => ({ publish: publishMenu, unpublished: !!row && row.state !== 'published' }));
+	usePageDoc(() => ({ published, unpublished: !!row && row.state !== 'published' }));
 	const states = $derived([
 		{ value: 'all' as const, label: m['creator.scenes_all']() },
 		{ value: 'draft' as const, label: m['creator.scenes_draft']() },
@@ -115,12 +108,6 @@
 
 {#snippet badge(state: SceneRow['state'])}
 	{#if state === 'published'}<Badge tone="published">{m['creator.scenes_published']()}</Badge>{:else if state === 'draft'}<Badge tone="draft">{m['creator.scenes_draft']()}</Badge>{:else}<span title={m['creator.scenes_unpublished']()}><Badge tone="soon">{m['creator.scenes_draft']()}</Badge></span>{/if}
-{/snippet}
-
-{#snippet publishMenu()}
-	<div class="publish-menu">
-		<button type="button" class:primary={canPublish} disabled={!canPublish} onclick={() => void publish()} data-testid="scene-publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
-	</div>
 {/snippet}
 
 {#snippet list()}
@@ -172,10 +159,6 @@
 </div>
 
 <style>
-	.publish-menu {
-		display: flex;
-		padding: var(--space-05);
-	}
 	.scene-page {
 		padding: 1.5rem 1rem;
 		max-width: 60rem;

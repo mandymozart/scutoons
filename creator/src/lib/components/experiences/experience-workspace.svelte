@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
-	import { publishPartial } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
@@ -26,10 +25,10 @@
 	} from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
+	import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { shell, usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
-	import { toast } from '$lib/toasts.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import ExperienceMeta from '$lib/components/experiences/experience-meta.svelte';
@@ -55,7 +54,6 @@
 	let run = $state(0);
 	let shown = $state(STAGE_LOADING);
 	let problems = $state<string[]>([]);
-	let busy = $state(false);
 	/** the one selection: the Tree, the stage and the Inspector share it */
 	let selected = $state.raw<NodeRef | null>(null);
 	/** the last edit's trees for the stage (each target whose entity changed) */
@@ -97,29 +95,18 @@
 	const session = new DocSession({ docs: () => (doc ? [doc] : []) });
 	useAutosave(session);
 
-	/** the creator's one way to publish: the server's partial publish (its refusals named with their reason); a pending save first */
-	async function publish() {
-		if (!doc || busy) return;
+	/** the bar's one Publish (RULES H18): a pending save first; after it, this experience's refusal shown at its facts */
+	const prepare = () => session.flush();
+	async function published(result: { published: string[]; refused: PublishRefusal[] }) {
+		if (!doc) return;
 		const open = doc;
-		busy = true;
-		try {
-			if (!(await session.flush())) return;
-			const version = open.base[NEUTRAL_LOCALE];
-			if (version === null || version === undefined) return;
-			const key = open.key(NEUTRAL_LOCALE);
-			const result = await publishPartial([{ key, version }]);
-			const outcome = publishOutcome(key, { published: result.published.map((p) => p.key), refused: result.refused });
-			problems =
-				outcome?.kind === 'problems' ? outcome.problems
-				: outcome?.kind === 'error' ? [outcome.message]
-				: outcome?.kind === 'unreachable' ? [m['creator.experiences_unreachable']()]
-				: [];
-			if (outcome?.kind === 'published') toast(m['creator.experiences_publish_ok'](), { type: 'success' });
-		} catch (e) {
-			problems = [e instanceof Error && e.message ? e.message : m['creator.experiences_unreachable']()];
-		} finally {
-			busy = false;
-		}
+		const outcome = publishOutcome(open.key(NEUTRAL_LOCALE), result);
+		if (!outcome) return;
+		problems =
+			outcome.kind === 'problems' ? outcome.problems
+			: outcome.kind === 'error' ? [outcome.message]
+			: outcome.kind === 'unreachable' ? [m['creator.experiences_unreachable']()]
+			: [];
 		await open.load();
 	}
 
@@ -271,17 +258,10 @@
 
 	usePageNav({ fill: true, extra: () => (facts ? [{ href: experienceHref(facts.id), label: titleIn(facts.title, locale, facts.id) }] : []) });
 	usePageDoc(() =>
-		doc ? { publish: publishMenu, docs: [doc], unpublished, errors: problems.length, saving: session.saving, undo: () => step(true), redo: () => step(false) } : null
+		doc ? { prepare, published, docs: [doc], unpublished, errors: problems.length, saving: session.saving, undo: () => step(true), redo: () => step(false) } : null
 	);
 	useTabs(() => ({ tree: facts ? tree : null, inspector: facts ? inspector : null, experience: facts ? meta : null, scenes: facts && scenes.length ? strip : null }));
 </script>
-
-{#snippet publishMenu()}
-	<div class="publish-menu">
-		<button type="button" class:primary={unpublished} disabled={!unpublished || busy} onclick={() => void publish()} data-testid="experience-publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
-		{#if !unpublished}<p class="muted">{m['creator.experiences_nothing_new']()}</p>{/if}
-	</div>
-{/snippet}
 
 {#snippet tree()}
 	{#if facts}<ExperienceTree {configuration} {scene} {selected} onselect={(ref) => (selected = ref)} {onpart} {onadd} files={experienceFiles(configuration)} />{/if}
@@ -338,16 +318,5 @@
 	}
 	.empty p {
 		margin: 0;
-	}
-	.publish-menu {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	.publish-menu p {
-		margin: 0;
-	}
-	.muted {
-		color: var(--text-muted);
 	}
 </style>

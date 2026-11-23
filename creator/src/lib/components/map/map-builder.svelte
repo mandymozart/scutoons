@@ -561,7 +561,7 @@
 	const sideSize = panelWidth('sc-panel-width:map-props', 16, () => builderEl?.getBoundingClientRect().right ?? window.innerWidth);
 	sideSize.room = () => (builderEl?.clientWidth ?? window.innerWidth) / 2;
 	const sideEmpty = $derived(!selection && !toonFilter);
-	// the Publish panel: Import, and the selection's own actions
+	// the page's line: Import, and the selection's own actions
 	const more = $derived<GroupBarItem[]>([
 		{ id: 'import', icon: 'upload', label: m['creator.characters_import'](), disabled: !!importing, run: () => importInput?.click() }
 	]);

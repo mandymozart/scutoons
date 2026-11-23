@@ -80,14 +80,11 @@ interface Command {
 }
 
 function commands(logout: () => unknown): Command[] {
-	const doc = shell.doc;
 	const day = shell.settings.theme === 'day';
 	const language = languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }) });
 	return [
-		// the bar's Publish menu (only while something in its scope is not live)
-		...(doc?.publish && doc.unpublished !== false
-			? [{ id: 'publish', label: m['shell.launch_publish'](), icon: 'upload-cloud', keywords: 'publish live veröffentlichen', run: () => document.querySelector<HTMLElement>('[data-testid="bar-publish"]')?.click() }]
-			: []),
+		// a press of the bar's Publish (its one dialog, RULES H18)
+		{ id: 'publish', label: m['shell.launch_publish'](), icon: 'upload-cloud', keywords: 'publish live veröffentlichen', run: () => document.querySelector<HTMLElement>('[data-testid="bar-publish"]')?.click() },
 		{ id: 'settings', label: m['shell.settings'](), icon: 'settings', keywords: 'settings preferences einstellungen', run: () => shell.open('settings') },
 		{ id: 'views', label: m['shell.views'](), icon: 'eye', keywords: 'views panels ansichten', run: () => shell.openViews() },
 		{ id: 'dashboard', label: m['shell.dashboard'](), icon: 'menu', keywords: 'switcher dashboard home workspaces', run: () => shell.toggleSwitcher(true) },

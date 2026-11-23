@@ -7,6 +7,9 @@
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { setCreatorNav } from '$lib/nav.svelte.ts';
+	import { m } from '$lib/paraglide/messages.js';
+	import { publishFlow, serverSource, type PublishSource } from '$lib/editor/publish-flow.svelte.ts';
+	import type { PublishLine } from '$lib/editor/publish-tree.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
@@ -14,8 +17,8 @@
 
 	/**
 	 * Dev only (the /kit page's Shell): the creator's bar, its ☰ menu with Views and the user menu, without a sign-in – a
-	 * test account, a character open in its workspace with the character views filled, something to undo and to publish,
-	 * three text languages. The Translator switch gives the bar the translator's craft; the overlay level's three – the
+	 * test account, a character open in its workspace with the character views filled, something to undo and to publish
+	 * (the Publish dialog on sample lines – nothing is sent), three text languages. The Translator switch gives the bar the translator's craft; the overlay level's three – the
 	 * switcher, Search, a view taken full – open from the foot (Ctrl K and Alt Space are the creator's own).
 	 */
 	let { onleave }: { onleave: () => void } = $props();
@@ -29,6 +32,32 @@
 	const floats = new Floats('kit-shell-character', panelSpecs('character', available, specs), specs, presetStart('character'));
 	let translator = $state(false);
 
+	// the Publish dialog's samples (lap 2 A10): the bar's icon lists them, its primary answers with a sample report
+	const line = (id: string, label: string, chip: string, type: string): PublishLine => ({ id, label, chip, type, hint: 'v12 · agent@scutoons.test', review: false });
+	const changed = m['creator.publish_part_changed']();
+	const added = m['creator.publish_part_added']();
+	const SAMPLES: PublishLine[] = [
+		line('character:sandgirl', 'Sandgirl', changed, 'Character'),
+		line('character:giantpopstar', 'Giant Popstar', changed, 'Character'),
+		line('character:mellowmantis', 'Mellowmantis', changed, 'Character'),
+		line('chapter:catpope:3:de', 'Chapter 3 (de)', changed, 'Chapter · Catpope'),
+		line('season:catpope:1', 'Season 1', changed, 'Season · Catpope'),
+		line('place:foyer', 'Foyer', added, 'Place'),
+		line('module:walk', 'walk', added, 'Module'),
+		line('show:top-toy', 'top-toy', changed, 'Show')
+	];
+	const samples: PublishSource = {
+		load: async () => ({ files: [], lines: SAMPLES }),
+		send: async (list, chosen) => {
+			const out = list.lines.filter((l) => chosen.has(l.id) && l.id !== 'show:top-toy').map((l) => l.label);
+			const notices = [
+				{ type: 'success' as const, text: m['creator.publish_tree_done_named']({ count: out.length, names: out.join(', ') }) },
+				...(chosen.has('show:top-toy') ? [{ type: 'error' as const, text: m['creator.publish_tree_refused']({ name: 'top-toy', reason: 'needs module:walk-2, which is not published' }) }] : [])
+			];
+			return { message: notices[0].text, published: [], refused: [], notices };
+		}
+	};
+
 	$effect(() => {
 		untrack(() => {
 			shell.visit('character:crow-fox', '/characters?id=crow-fox', 'crow-fox');
@@ -38,11 +67,14 @@
 			shell.kind = 'character';
 			shell.available = available;
 			textLanguage.page = { languages: ['de', 'en', 'ko'], source: 'de' };
-			shell.doc = { unpublished: true, publish, undo: () => {}, redo: () => {} };
+			shell.doc = { unpublished: true, undo: () => {}, redo: () => {} };
+			publishFlow.source = samples;
 		});
 		return () => {
 			shell.floats = null;
 			shell.doc = null;
+			publishFlow.source = serverSource;
+			publishFlow.open = false;
 			shell.menu = false;
 			shell.userMenu = false;
 			shell.toggleSwitcher(false);
@@ -59,7 +91,6 @@
 </script>
 
 {#snippet view(id: string)}<p class="view">{name(id)}</p>{/snippet}
-{#snippet publish()}<p class="view">giantpopstar · Expressions</p>{/snippet}
 
 <div class="kit-shell">
 	<ShellBar />

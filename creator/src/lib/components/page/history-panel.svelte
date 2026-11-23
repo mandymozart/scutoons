@@ -3,7 +3,6 @@
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { confirmDialog } from '@scutoons/ui';
 	import { ApiError, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
-	import { publishAndLog } from '$lib/editor/publish-tree.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { applyBackTo, applyRevert, baseOf, contentOf, describeStep, historyCore, historyFiles, loadFile, planRevert, saved, type Description, type FileHistory, type HistoryFile, type Step } from '$lib/editor/history.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
@@ -15,8 +14,8 @@
 
 	/**
 	 * The History (#687): the saved changes of the open item's files as steps – time, who, what in words, before → after –
-	 * with Revert (that change, as a new draft) and Back to here, always after a prompt; publish / unpublish per step.
-	 * A restore saves a new version and posts a History line; a publish a Publishes line. Pre-filtered to the open item's
+	 * with Revert (that change, as a new draft) and Back to here, always after a prompt; Unpublish on a live step (sending
+	 * out is the bar's Publish alone, RULES H18). A restore saves a new version and posts a History line. Pre-filtered to the open item's
 	 * first file, widened to all its files – the bar's History menu.
 	 */
 	let { doc, docs }: { doc?: ContentDoc; docs?: ContentDoc[] } = $props();
@@ -118,13 +117,6 @@
 			toast(m['history.restored']({ file: label(r.h.file), when: when(r.step.at_ms) }), { type: 'success', kind: 'history' });
 		});
 
-	const publish = (r: Row) =>
-		act(async () => {
-			const scope = { kind: 'version' as const, toon: r.h.file.doc.toon ?? '', key: r.h.file.key, version: r.step.last };
-			const result = await publishAndLog(scope, m['creator.publish_tree_title']({ name: `${label(r.h.file)} (${when(r.step.at_ms)})` }));
-			if (result?.published.length) await r.h.file.doc.load();
-		});
-
 	const unpublish = (r: Row) =>
 		act(async () => {
 			if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: label(r.h.file), locale: r.h.file.locale }), confirmLabel: m['creator.unpublish_label']() }))) return;
@@ -176,8 +168,6 @@
 					{#if r.step.last !== base}<button class="ghost" disabled={busy} onclick={() => backTo(r)} data-testid="back-to-{r.step.last}">{m['history.back_to']()}</button>{/if}
 					{#if !reviewed && live && !r.h.file.entry}
 						<button class="ghost" disabled={busy} onclick={() => unpublish(r)}>{m['creator.unpublish_label']()}</button>
-					{:else if !reviewed && !live}
-						<button class="ghost" disabled={busy} onclick={() => publish(r)}>{m['creator.publish']()}</button>
 					{/if}
 				</div>
 			</li>

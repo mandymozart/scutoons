@@ -4,15 +4,14 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, Icon, askDialog, choiceDialog, panelWidth } from '@scutoons/ui';
+	import { Divider, askDialog, choiceDialog, panelWidth } from '@scutoons/ui';
 	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
 	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import PagePublish from '$lib/components/shell/page-publish.svelte';
-	import { publishItem } from '$lib/editor/publish-tree.ts';
+	import { usePageDoc } from '$lib/shell/shell.svelte.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
@@ -86,14 +85,11 @@
 		else select(id);
 	}
 
-	// ── the top bar (owner 2026-11-02: the editor's actions move there step by step, as the map's did): Publish of the open
-	// module – needs a saved draft whose compile is current (a module without its descriptor cannot be played) ──
+	// ── the bar's one Publish (RULES H18): the open module goes only as a saved draft whose compile is current (a module
+	// without its descriptor cannot be played) – else the dialog holds it back with the reason; the open rig is saved first ──
 	const canPublish = $derived(!!designer.moduleId && !designer.factory && !designer.dirty && !!designer.outcome && !designer.stale && !designer.compiling && !designer.saving);
-	async function publish(): Promise<void> {
-		const id = designer.moduleId;
-		if (!id || !canPublish) return;
-		await publishItem(moduleKey(id));
-	}
+	const held = $derived(designer.moduleId && !designer.factory && !canPublish ? [{ key: moduleKey(designer.moduleId), reason: m['creator.sound_publish_needs']() }] : []);
+	usePageDoc(() => ({ held, ...session?.publishHooks }));
 	usePageNav({
 		fill: true,
 		extra: () => [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }]
@@ -108,10 +104,6 @@
 	let wiring = $state<GraphWiring>();
 </script>
 
-{#snippet topBar()}
-	<button type="button" class:primary={canPublish} disabled={!canPublish} onclick={publish} title={canPublish ? m['creator.sound_publish']() : m['creator.sound_publish_needs']()} data-testid="sound-publish"><Icon name="upload-cloud" size="1rem" />{m['creator.sound_publish']()}</button>
-{/snippet}
-<PagePublish publish={topBar} />
 
 <div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
 	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>

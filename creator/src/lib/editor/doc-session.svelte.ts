@@ -1,10 +1,9 @@
 // One editor page's autosave / publish / conflict state: every page that edits documents (the meta pages, the chapter
-// editor, the toon page) shares it. Edits save on their own as draft versions (`useAutosave`), Publish lists every file
-// with a draft at the page's level (publish-tree.ts), each save / publish posts its typed Log line and a conflict stays
+// editor, the toon page) shares it. Edits save on their own as draft versions (`useAutosave`), the bar's Publish saves
+// the page first and has it read again what went live, each save / publish posts its typed Log line and a conflict stays
 // as the page's bar (DocNotices) until it is answered.
 import { confirmDialog } from '@scutoons/ui';
 import { beforeNavigate, goto } from '$app/navigation';
-import { publishAndLog, type PublishScope } from '$lib/editor/publish-tree.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -22,10 +21,8 @@ export interface DocSessionOptions {
 	beforeSave?: () => void;
 	/** after a successful save (e.g. the chapter's image list reloaded) */
 	afterSave?: () => void;
-	/** errors in the problem list: publishing asks once more */
+	/** errors in the problem list (the page hands them to the bar: publishing asks once more) */
 	errorCount?: () => number;
-	/** the page's level in the tree: Publish lists every file below it with a draft (publish-tree.ts); `title` = the dialog's */
-	tree?: () => { scope: PublishScope; title: string } | null;
 }
 
 export class DocSession {
@@ -127,24 +124,23 @@ export class DocSession {
 		return true;
 	}
 
-	/** "Publish" – one dialog everywhere: what waits is saved first, then the checklist of every file with a draft at the page's level */
-	async publishAll(): Promise<void> {
-		const tree = this.options.tree?.();
-		await this.publishTree(tree?.scope ?? null, tree?.title ?? m['creator.publish_tree_title']({ name: this.docs[0] ? docLabel(this.docs[0]) : '' }));
+	/** before the bar's Publish dialog lists what waits (RULES H18): the page saved first (false: a conflict or an error) */
+	async preparePublish(): Promise<boolean> {
+		this.options.beforeSave?.();
+		return !(this.anyDirty || this.pending) || (await this.flush());
 	}
 
-	/** The page saved first, then the checklist (`scope` null = the page's own files); the page reloads what went live */
-	async publishTree(scope: PublishScope | null, title: string): Promise<void> {
-		this.options.beforeSave?.();
-		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
-		if ((this.anyDirty || this.pending) && !(await this.flush())) return;
-		const own = this.all;
-		const result = await publishAndLog(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);
-		if (!result) return;
-		const live = new Set(result.published);
-		for (const doc of [...own, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
+	/** after a publish: the page's files that went live read again */
+	async afterPublish(published: string[]): Promise<void> {
+		const live = new Set(published);
+		for (const doc of [...this.all, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
 		this.savedCompanions = [];
 		this.clearNotice();
+	}
+
+	/** what the page hands the bar's Publish (PageDoc): save first, its errors asked about once more, read again after */
+	get publishHooks() {
+		return { prepare: () => this.preparePublish(), published: (r: { published: string[] }) => this.afterPublish(r.published), blocking: this.options.errorCount?.() ?? 0 };
 	}
 
 	/** the conflict bar's buttons: load the other version, or overwrite it with this one */

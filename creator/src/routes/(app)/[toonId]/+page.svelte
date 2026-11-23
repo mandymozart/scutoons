@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
@@ -23,10 +22,9 @@
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
-	// the toon's Flow is a tab; Publish the bar's Publish menu
+	// the toon's Flow is a tab; Publish is the bar's
 	useTabs(() => ({ flow: flowTab }));
 	/** the toon's display name in the UI language (never the id as a title) */
-	const toonName = $derived(nav.toonName(toonId));
 
 	/** Native names for the language picker (codes = the `Language` enum). */
 	const LANGUAGE_NAMES: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español', jp: '日本語', ko: '한국어' };
@@ -250,10 +248,8 @@
 		}
 	});
 	useAutosave(session);
-	// Publish on the toon page: everything of the toon with a draft as a list to tick (publish-tree.ts)
-	const publishAll = () => session.publishTree({ kind: 'toon', toon: toonId }, m['creator.publish_tree_title']({ name: toonName }));
-
-	usePageDoc(() => ({ saving: busy || session.anySaving, unpublished: pageDocs.some((d) => d.unpublished.length > 0), publish: publishMenu }));
+	// the bar's Publish saves the page first and has it read again what went live
+	usePageDoc(() => ({ saving: busy || session.anySaving, unpublished: pageDocs.some((d) => d.unpublished.length > 0), ...session.publishHooks }));
 </script>
 
 <div class="creator-page">
@@ -342,18 +338,8 @@
 {#snippet flowTab()}
 	<FlowTab input={{ level: 'toon', toon: toonId }} />
 {/snippet}
-{#snippet publishMenu()}
-	<div class="publish-menu">
-		<button type="button" disabled={busy} onclick={publishAll} data-testid="publish"><Icon name="upload-cloud" />{m['creator.publish']()}</button>
-	</div>
-{/snippet}
 
 <style>
-	.publish-menu {
-		display: flex;
-		gap: var(--space-05);
-		padding: var(--space-05);
-	}
 	.browser {
 		box-sizing: border-box;
 		margin: 0 auto;

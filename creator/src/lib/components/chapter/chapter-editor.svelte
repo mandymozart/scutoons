@@ -9,7 +9,6 @@
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
-	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys, isField } from '$lib/editor/editor-keys.ts';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -453,8 +452,6 @@
 	/** autosave / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
-		// Publish lists the chapter and its files with drafts (BACKLOG 10.60)
-		tree: () => ({ scope: { kind: 'chapter', toon, number: chapterNumber }, title: m['creator.publish_tree_title']({ name: fileLabel(`chapter:${toon}:${chapterNumber}`) }) }),
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
 			syncChapter(chapter);
@@ -839,7 +836,7 @@
 		errors: errorCount,
 		warnings: warningCount,
 		unpublished: liveFiles.some((f) => f.doc.unpublished.length > 0),
-		publish: publishMenu,
+		...session.publishHooks,
 		docs: activeDoc && activeDoc !== chapter ? [activeDoc, chapter] : [chapter],
 		undo: undoLast,
 		redo: redoLast
@@ -967,11 +964,6 @@
 {/snippet}
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
-{/snippet}
-{#snippet publishMenu()}
-	<div class="publish-menu" data-testid="publish-panel">
-		<button type="button" onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{publishLabel(toon)}</button>
-	</div>
 {/snippet}
 
 {#snippet tree()}
@@ -1148,11 +1140,6 @@
 	}
 	.inspector-tab .slice-nav {
 		padding: 0 var(--editor-pad);
-	}
-	.publish-menu {
-		display: flex;
-		gap: var(--space-05);
-		padding: var(--space-05);
 	}
 	/* a form is a sheet in the stage's middle; the slice canvas lies between the preset's panels (they float over it) */
 	.main {
