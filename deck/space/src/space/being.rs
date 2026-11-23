@@ -686,6 +686,102 @@ pub struct Being {
     pub strain: f32,
     /// the last frame's step (s) – `push` eases with it
     dt: f32,
+    /// the spread's screen grid (its buffers kept frame to frame)
+    grid: Grid,
+}
+
+/// The spread's grid over the knobs' screen tangents (#834): cells at least the widest pair's reach, at most `CELLS` a
+/// side; a knob outside counts in the edge cell (clamping keeps neighbours neighbours). Allocates only to grow.
+#[derive(Default)]
+struct Grid {
+    cell: f32,
+    origin: (f32, f32),
+    size: (usize, usize),
+    /// per knob: its cell, `u32::MAX` when it isn't in (hidden)
+    of: Vec<u32>,
+    /// per cell: its knobs (any order)
+    cells: Vec<Vec<u32>>,
+    /// `near`'s answer, in index order
+    found: Vec<u32>,
+    /// per knob: its tangents x, y, its depth and its radius over the depth; whether it stands where it grew (unfolded)
+    scr: Vec<(f32, f32, f32, f32)>,
+    still: Vec<bool>,
+}
+
+const CELLS: usize = 64;
+/// the knobs a folded knob is pushed by in a round at most (#834: a crowd of hundreds can't fit the edge anyway)
+const NEAR: usize = 48;
+
+impl Grid {
+    /// the grid over `scr` (each knob's tangents and radius); `hidden` knobs stay out
+    fn build(&mut self, hidden: impl Iterator<Item = bool>) {
+        let (mut lo, mut hi, mut reach) = ((f32::MAX, f32::MAX), (f32::MIN, f32::MIN), 1e-6f32);
+        self.of.clear();
+        for (h, &(x, y, _, r)) in hidden.zip(&self.scr) {
+            if !h {
+                (lo, hi, reach) = ((lo.0.min(x), lo.1.min(y)), (hi.0.max(x), hi.1.max(y)), reach.max(r * 2.0 * SPREAD));
+            }
+            self.of.push(if h { u32::MAX } else { 0 });
+        }
+        if lo.0 > hi.0 {
+            (lo, hi) = ((0.0, 0.0), (0.0, 0.0));
+        }
+        let (ex, ey) = (hi.0 - lo.0, hi.1 - lo.1);
+        self.cell = reach.max(ex / CELLS as f32).max(ey / CELLS as f32);
+        self.origin = lo;
+        self.size = (((ex / self.cell) as usize + 1).min(CELLS + 1), ((ey / self.cell) as usize + 1).min(CELLS + 1));
+        let cells = self.size.0 * self.size.1;
+        if self.cells.len() < cells {
+            self.cells.resize_with(cells, Vec::new);
+        }
+        self.cells.iter_mut().for_each(Vec::clear);
+        for i in 0..self.of.len() {
+            if self.of[i] != u32::MAX {
+                let c = self.index(self.scr[i].0, self.scr[i].1);
+                self.of[i] = c;
+                self.cells[c as usize].push(i as u32);
+            }
+        }
+    }
+
+    /// the cell of (x, y), clamped into the grid
+    fn at(&self, x: f32, y: f32) -> (usize, usize) {
+        let c = |v: f32, o: f32, n: usize| (((v - o) / self.cell).max(0.0) as usize).min(n - 1);
+        (c(x, self.origin.0, self.size.0), c(y, self.origin.1, self.size.1))
+    }
+
+    fn index(&self, x: f32, y: f32) -> u32 {
+        let (cx, cy) = self.at(x, y);
+        (cy * self.size.0 + cx) as u32
+    }
+
+    /// knob `i` now stands at (x, y)
+    fn place(&mut self, i: usize, x: f32, y: f32) {
+        let (old, new) = (self.of[i], self.index(x, y));
+        if old == new || old == u32::MAX {
+            return;
+        }
+        let list = &mut self.cells[old as usize];
+        if let Some(k) = list.iter().position(|&j| j as usize == i) {
+            list.swap_remove(k);
+        }
+        self.cells[new as usize].push(i as u32);
+        self.of[i] = new;
+    }
+
+    /// the knobs in (x, y)'s cell and the eight around it, at most `NEAR`, into `found` (in index order)
+    fn near(&mut self, x: f32, y: f32) {
+        self.found.clear();
+        let (cx, cy) = self.at(x, y);
+        for gy in cy.saturating_sub(1)..(cy + 2).min(self.size.1) {
+            for gx in cx.saturating_sub(1)..(cx + 2).min(self.size.0) {
+                let room = NEAR - self.found.len();
+                self.found.extend(self.cells[gy * self.size.0 + gx].iter().take(room));
+            }
+        }
+        // in index order, as the all-pairs rounds took them
+        self.found.sort_unstable();
+    }
 }
 
 impl Being {
@@ -919,6 +1015,7 @@ impl Being {
             reset: None,
             strain: 0.0,
             dt: 0.0,
+            grid: Grid::default(),
         };
         b.show_level(None);
         b
@@ -1474,30 +1571,55 @@ impl Being {
             let z = q.dot(f.fwd).max(1e-4);
             (q.dot(f.right) / z, q.dot(f.up) / z, z, b.radius / z)
         };
-        for _ in 0..12 {
-            for i in 0..n {
-                if self.buttons[i].pos == self.buttons[i].free || self.buttons[i].hidden {
-                    continue;
+        if self.buttons.iter().any(|b| b.pos != b.free && !b.hidden) {
+            // #834: the all-pairs rounds were O(n²) – 900 knobs, 100 ms a frame. Now a screen grid (a cell at least the
+            // widest pair's reach, kept current as knobs move) and each knob's tangents worked out once a move: a folded
+            // knob is pushed by the knobs in its cell and the eight around it (at most NEAR – a crowd that can't fit
+            // anyway), a knob that came near during the round counts in the next. A round that pushes nothing ends them.
+            let mut g = std::mem::take(&mut self.grid);
+            g.scr.clear();
+            g.scr.extend(self.buttons.iter().map(|b| at(b)));
+            g.still.clear();
+            g.still.extend(self.buttons.iter().map(|b| b.pos == b.free));
+            for _ in 0..12 {
+                g.build(self.buttons.iter().map(|b| b.hidden));
+                let mut pushed = false;
+                for i in 0..n {
+                    if g.still[i] || self.buttons[i].hidden {
+                        continue;
+                    }
+                    g.near(g.scr[i].0, g.scr[i].1);
+                    for k in 0..g.found.len() {
+                        let j = g.found[k] as usize;
+                        if j == i {
+                            continue;
+                        }
+                        let (xi, yi, zi, ri) = g.scr[i];
+                        let (xj, yj, _, rj) = g.scr[j];
+                        let (dx, dy) = (xi - xj, yi - yj);
+                        let need = (ri + rj) * SPREAD;
+                        let d2 = dx * dx + dy * dy;
+                        if d2 >= need * need {
+                            continue;
+                        }
+                        let d = d2.sqrt();
+                        // apart along their line (a fixed way when they coincide); the whole step if j stays where it is
+                        let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else if i < j { (0.0, 1.0) } else { (0.0, -1.0) };
+                        let share = if g.still[j] { 1.0 } else { 0.5 };
+                        let (x, y) = inside(xi + ux * (need - d) * share, yi + uy * (need - d) * share, f, self.buttons[i].radius / zi * CLEAR);
+                        let b = &mut self.buttons[i];
+                        b.pos = f.eye + (f.fwd + f.right * x + f.up * y) * zi;
+                        (g.scr[i], g.still[i]) = (at(b), b.pos == b.free);
+                        pushed = true;
+                    }
+                    let (x, y, ..) = g.scr[i];
+                    g.place(i, x, y);
                 }
-                for j in 0..n {
-                    if i == j || self.buttons[j].hidden {
-                        continue;
-                    }
-                    let (xi, yi, zi, ri) = at(&self.buttons[i]);
-                    let (xj, yj, _, rj) = at(&self.buttons[j]);
-                    let (dx, dy) = (xi - xj, yi - yj);
-                    let d = (dx * dx + dy * dy).sqrt();
-                    let need = (ri + rj) * SPREAD;
-                    if d >= need {
-                        continue;
-                    }
-                    // apart along their line (a fixed way when they coincide); the whole step if j stays where it is
-                    let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else if i < j { (0.0, 1.0) } else { (0.0, -1.0) };
-                    let share = if self.buttons[j].pos == self.buttons[j].free { 1.0 } else { 0.5 };
-                    let (x, y) = inside(xi + ux * (need - d) * share, yi + uy * (need - d) * share, f, self.buttons[i].radius / zi * CLEAR);
-                    self.buttons[i].pos = f.eye + (f.fwd + f.right * x + f.up * y) * zi;
+                if !pushed {
+                    break;
                 }
             }
+            self.grid = g;
         }
         for i in 0..n {
             if self.buttons[i].hidden {
@@ -2930,5 +3052,102 @@ to=\"syn.f_0\"
         let (x, y, z) = tan(q);
         assert!(z >= f.min_depth - 1e-5, "in front of the eye: {z}");
         assert!(x < 0.0 && y < 0.0 && x.abs().max(y.abs()) > 0.5 && x.abs().max(y.abs()) < 1.0 - EDGE, "toward its edge: {x} {y}");
+    }
+
+    /// 900 knobs (a synth's every control a knob), all folded: the spread stays fast and keeps every knob in the frame
+    #[test]
+    fn nine_hundred_folded_knobs_spread_fast() {
+        use crate::space::camera::Orbit;
+        let mut text = String::from("[[node]]\nid=\"space\"\nkind=\"space\"\n[[node]]\nid=\"screen\"\nkind=\"screen\"\n[[node]]\nid=\"out\"\nkind=\"audio_out\"\n");
+        for k in 0..224 {
+            text += &format!("[[node]]\nid=\"fm{k}\"\nkind=\"fm\"\n");
+        }
+        text += "[[link]]\nfrom=\"space\"\nto=\"screen.in\"\n";
+        let g = graph(&text);
+        let mut b = Being::new(&g, &Look::default());
+        assert!(b.buttons.len() >= 900, "{}", b.buttons.len());
+        let cam = Orbit::new(Vec3::ZERO, 0.4, 0.2, b.look.size * 3.0);
+        (b.eye, b.frame) = (Some(cam.eye()), Some(cam.frame(16.0 / 9.0)));
+        let c = Table::new(&g);
+        step(&mut b, &c, 2);
+        let f = b.frame.unwrap();
+        for k in &mut b.buttons {
+            k.pos = if k.hidden { k.pos } else { fold(k.free, &f, k.base) };
+        }
+        let mut all = b.buttons.clone();
+        let t = std::time::Instant::now();
+        spread_all_pairs(&mut all, &f);
+        let pairs = t.elapsed().as_secs_f64() * 1e3;
+        let t = std::time::Instant::now();
+        b.spread(&f);
+        let grid = t.elapsed().as_secs_f64() * 1e3;
+        let folded = b.buttons.iter().filter(|k| k.pos != k.free).count();
+        eprintln!("900 knobs, {folded} folded: the spread {grid:.2} ms, all pairs {pairs:.2} ms");
+        assert!(folded > 100, "most knobs fold: {folded}");
+        // every knob stays in the fold's frame
+        for (i, k) in b.buttons.iter().enumerate() {
+            let q = k.pos - f.eye;
+            let z = q.dot(f.fwd);
+            let (x, y) = (q.dot(f.right) / z / f.tan_x, q.dot(f.up) / z / f.tan_y);
+            assert!(x.abs() < 1.0 - EDGE + 1e-4 && y.abs() < 1.0 - EDGE + 1e-4, "knob {i} in the frame: {x} {y}");
+        }
+        assert!(grid * 3.0 < pairs, "the grid {grid:.2} ms against all pairs {pairs:.2} ms");
+    }
+
+    /// a few knobs (a being's usual handful) land where the all-pairs rounds put them – nearly: the order of the pushes
+    /// differs, the layout doesn't
+    #[test]
+    fn a_few_folded_knobs_spread_as_all_pairs_would() {
+        use crate::space::camera::Orbit;
+        let g = graph(SCENE);
+        let mut b = Being::new(&g, &Look::default());
+        let cam = Orbit::new(Vec3::ZERO, 0.4, 0.2, b.look.size * 0.8);
+        (b.eye, b.frame) = (Some(cam.eye()), Some(cam.frame(16.0 / 9.0)));
+        let c = Table::new(&g);
+        step(&mut b, &c, 2);
+        let f = b.frame.unwrap();
+        for k in &mut b.buttons {
+            k.pos = if k.hidden { k.pos } else { fold(k.free, &f, k.base) };
+        }
+        let mut all = b.buttons.clone();
+        spread_all_pairs(&mut all, &f);
+        b.spread(&f);
+        for (i, (k, a)) in b.buttons.iter().zip(&all).enumerate() {
+            assert!(k.pos.distance(a.pos) < b.look.size * 0.02, "knob {i}: {} vs {}", k.pos, a.pos);
+        }
+    }
+
+    /// the spread as it was: every folded knob against every other, 12 rounds (the reference the grid must match)
+    fn spread_all_pairs(bs: &mut [Button], f: &Frame) {
+        let n = bs.len();
+        let at = |b: &Button| {
+            let q = b.pos - f.eye;
+            let z = q.dot(f.fwd).max(1e-4);
+            (q.dot(f.right) / z, q.dot(f.up) / z, z, b.radius / z)
+        };
+        for _ in 0..12 {
+            for i in 0..n {
+                if bs[i].pos == bs[i].free || bs[i].hidden {
+                    continue;
+                }
+                for j in 0..n {
+                    if i == j || bs[j].hidden {
+                        continue;
+                    }
+                    let (xi, yi, zi, ri) = at(&bs[i]);
+                    let (xj, yj, _, rj) = at(&bs[j]);
+                    let (dx, dy) = (xi - xj, yi - yj);
+                    let d = (dx * dx + dy * dy).sqrt();
+                    let need = (ri + rj) * SPREAD;
+                    if d >= need {
+                        continue;
+                    }
+                    let (ux, uy) = if d > 1e-6 { (dx / d, dy / d) } else if i < j { (0.0, 1.0) } else { (0.0, -1.0) };
+                    let share = if bs[j].pos == bs[j].free { 1.0 } else { 0.5 };
+                    let (x, y) = inside(xi + ux * (need - d) * share, yi + uy * (need - d) * share, f, bs[i].radius / zi * CLEAR);
+                    bs[i].pos = f.eye + (f.fwd + f.right * x + f.up * y) * zi;
+                }
+            }
+        }
     }
 }
