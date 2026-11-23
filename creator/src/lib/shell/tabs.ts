@@ -79,6 +79,15 @@ export function closeAll(): TabsState {
 	return { tabs: [], front: null };
 }
 
+/** the tab `by` steps along the strip from the front one, round at the ends (Home in front: from the start); none open: null */
+export function stepTab(state: TabsState, by: number): Tab | null {
+	const n = state.tabs.length;
+	if (!n) return null;
+	const at = state.tabs.findIndex((t) => t.address === state.front);
+	const from = at < 0 ? (by > 0 ? -1 : 0) : at;
+	return state.tabs[(((from + by) % n) + n) % n];
+}
+
 export const frontTab = (state: TabsState): Tab | null => state.tabs.find((t) => t.address === state.front) ?? null;
 
 /** what the browser kept, checked: a broken store opens empty */

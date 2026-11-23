@@ -10,11 +10,15 @@ import {
 	dropTarget,
 	freeId,
 	freeSpec,
+	hideTab,
 	isEssential,
+	isHidden,
 	markerX,
 	moveTab,
 	panelOf,
 	readArrangement,
+	showTab,
+	tabsOf,
 	tearOut,
 	type Arrangement,
 	type TabSpec
@@ -214,5 +218,39 @@ describe('panel tabs: where a dragged tab lands', () => {
 		expect(dropTarget(131, 150, [front, back])).toEqual({ panel: 'front', index: 3 });
 		expect(dropTarget(450, 20, [front, back])).toEqual({ panel: 'back', index: 0 });
 		expect(dropTarget(700, 20, [front, back])).toBeNull();
+	});
+});
+
+describe('panel tabs: a hidden tab (the Views eye)', () => {
+	it('leaves its panel shown, keeps its place, and the front tab moves to a shown neighbour', () => {
+		const a = hideTab(start(), 'library');
+		expect(isHidden(a, 'library')).toBe(true);
+		expect(tabsOf(a, 'library')).toEqual(['wanted', 'info']);
+		expect(a.panels.library).toEqual(['library', 'wanted', 'info']);
+		expect(activeOf(a, 'library')).toBe('wanted');
+	});
+
+	it('a panel with every tab hidden shows none; shown again a tab comes back in its place, in front', () => {
+		const a = hideTab(hideTab(start(), 'outline'), 'history');
+		expect(tabsOf(a, 'outline')).toEqual([]);
+		const b = showTab(a, 'history');
+		expect(tabsOf(b, 'outline')).toEqual(['history']);
+		expect(activeOf(b, 'outline')).toBe('history');
+		const c = showTab(b, 'outline');
+		expect(tabsOf(c, 'outline')).toEqual(['outline', 'history']);
+		expect(c.hidden).toBeUndefined();
+	});
+
+	it('a drop index counts the shown tabs only', () => {
+		const a = moveTab(hideTab(start(), 'wanted'), 'history', 'library', 1);
+		expect(a.panels.library).toEqual(['library', 'wanted', 'history', 'info']);
+		expect(tabsOf(a, 'library')).toEqual(['library', 'history', 'info']);
+	});
+
+	it('is remembered; a stored hidden tab that is no longer known is dropped', () => {
+		const a = hideTab(start(), 'problems');
+		const read = readArrangement(JSON.parse(JSON.stringify({ ...a, hidden: ['problems', 'gone'] })), PANELS, TABS);
+		expect(read.hidden).toEqual(['problems']);
+		expect(tabsOf(read, 'inspector')).toEqual(['inspector']);
 	});
 });
