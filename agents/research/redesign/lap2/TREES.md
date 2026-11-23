@@ -1,4 +1,5 @@
 <!-- status: concept for the owner, round 2 (2026-11-24) – the tree concept rethought after the owner's answer on "inside a document"; nothing decided, nothing drawn yet. Round 1 is in git (b524eb5b8). -->
+<!-- 2026-11-24, after the extended Library (LIBRARY.md): decided – a tree holds what one thing is made of; lists of what exists are the Library's; trees do not travel between workspaces (point 4 below is dropped); the Library's "items to open" goes (open question 2 is answered). The rest of this file stands as the thinking behind it. -->
 # Trees – what they are for (round 2)
 
 ## The owner's words (2026-11-24)

@@ -77,7 +77,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Thumbnails:** scenes, places and videos get preview pictures, made in the background and shared across systems (#842). A video's tile is one frame; it does not play on hover for now.
 
 **Thought aloud**
-- Trees: one per workspace, named like it, borrowable by other workspaces (TREES.md).
+- Trees: one per workspace, named like it (TREES.md). Decided since: a tree holds what one thing is made of, and trees do not travel between workspaces – the Library does the referencing.
 - A character is 2D-first or 3D-first, as a preference.
 - Module, instrument, preset and rig are one mechanism; a spore is a module with another driver (MODULES-RIGS.md, MODULES-DNA.md).
 - The creator's module editor might have to be removed.
@@ -85,8 +85,6 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 **Open**
 - **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
 - What a good writing experience holds (C14) – your words, or a first draft from me to correct.
-- Trees that travel between workspaces: kicked out, as the Library does the referencing? (LIBRARY.md – the one consequence not confirmed.)
-- Trees: the Library's "Items to open" against the trees; a borrowed tree – jump or reference.
 - Where the 2D-first / 3D-first preference sits.
 - Does the word "instrument" stay? MODULES-DNA.md points 2–7.
 
