@@ -69,3 +69,31 @@ The look: palette D, see-through grounds, cables in the text colour (kit point 1
 4. **Signals by shape only?** NETWORK.md gave each signal a colour (2026-11-17's grammar); palette D and kit point 14 put cables in the text colour. Recommended: shape only, a cable lights when its event fires.
 5. **The creator's Generate stub** (Svelte cards): replaced by the deck's canvas through wasm – in lap 2, or with #764 (the creator inside the deck's wasm)?
 6. **The deck's "Nodes" tab** becomes "Spores" (the name decided 2026-11-21) – applied with this lap?
+
+## The demo – two chains played step by step (spores-demo.html)
+The owner, 2026-11-24, on round 1: *"I want to have a demo of how this would be triggered from an action like a found XR target or a generation that finished or got triggered."*
+
+One page, the Spores view at the universe level (nested frames as in `?v=4`), a **Play** on the source spore, step dots, ← / →. Each step lights one hop – the spore, a bead travelling its cable, the next spore – and adds one line to a Log strip. Every frame says where it runs (phone · relay · conductor · deck · server); every step says whether it is built.
+
+**Chain A – a found XR target fires a row** (`?d=xr`). The listener is row 04 finale (by hand today), its ⚡ set to *target found*.
+| Step | What happens | Runs on | Today |
+|---|---|---|---|
+| 0 Woven | row 04's ⚡ shows *target found*, picked in the picker under Universe › XR | – | drafted |
+| 1 Found | a reader's phone sees the target; the XR engine fires `targetFound` | the reader's phone | built in OSCT |
+| 2 Sent | the event leaves the phone the way a reader's story event does: a `story` message to the relay | relay | built for story events; XR events are not sent |
+| 3 Wakes the row | the conductor matches the row's ⚡; how: auto; it fires on the next bar | conductor | built (auto · suggest · hand, the moment) |
+| 4 Plays | the row's cells play on the decks that hold its roles | decks | built |
+
+**Chain B – a generation is triggered, runs, and its finish fires two listeners** (`?d=gen`). The generator is AI-HOOKS's example (Cat Pope's sheet → image to 3D → auto-rig → output GLB); its ⚡ is its run, its outs are the run's states.
+| Step | What happens | Runs on | Today |
+|---|---|---|---|
+| 0 Woven | the generator's ⚡ shows *sheet changed*; the 3D model slot holds the generator as its stand-in; row 04's ⚡ shows the generator's *succeeded* | – | drafted |
+| 1 Triggered | Cat Pope's sheet is saved; *sheet changed* wakes the generator's ⚡ | server | drafted (jobs and assets) |
+| 2 Runs | the run is `queued`, then `running`; progress shows on the spores inside | server, the tool behind the hook | the states exist for storyboard generations |
+| 3 Succeeded | the run is `succeeded`; the out of that name fires (`failed`, `cancelled` stay dim) | server | the state exists; it is not an event yet |
+| 4 The slot takes it | the 3D model slot takes the yield as a new version (auto-accept) | server | decided 2026-11-22, not built |
+| 5 A row fires | the same *succeeded* wakes row 04 – a second listener to one event (open point 1) | conductor, decks | not built |
+
+Names that are not in production (the XR experience and its target) are generic and marked as examples.
+
+7. **Whose event counts?** (new, from chain A) A target is found on one reader's phone. Does one reader's find fire the row for everyone – any reader, the readers of one group (a QR group), or a count ("ten readers found it")? Today's `how` (auto · suggest · hand) already lets the conductor hold it: *suggest* waits for GO.
