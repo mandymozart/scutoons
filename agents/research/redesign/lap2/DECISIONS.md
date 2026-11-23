@@ -25,6 +25,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **The switcher's content has a maximum width**, centred.
 - **No thick left bar** on a selected row. (H10)
 - **Texts and placeholders are short.** A search field says "Find".
+- **The tools do not flag what is missing.** The Library's "Blank – wanted", "Missing versions" and "Missing credits" go, in the design and in the code: a gap may be on purpose. (H17)
 
 **Open**
 - The four layer names are my wording – confirm or rename.
