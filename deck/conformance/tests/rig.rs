@@ -65,16 +65,17 @@ fn the_headless_rig_player_hears_what_the_native_deck_plays() {
     assert_eq!(format!("{:016x}", hash(&native)), heard, "the native deck and the headless host play catpope alike");
 }
 
-/// A character without a rig of its own sings with the default character rig, the same bits on the native deck and the browser's, in
-/// every block pattern; an item without a rig is silent on both – the core plays the silent scene, every sample zero.
+/// A character without a rig of its own plays the default character rig, the same bits on the native deck and the browser's, in every
+/// block pattern – silent until its trigger opens (owner 2026-11-23, #819: no voice plays without a reason); an item without a rig is
+/// silent on both – the core plays the silent scene, every sample zero.
 #[test]
-fn a_character_without_a_rig_sings_the_default_character_rig_and_an_item_without_one_is_silent() {
+fn a_character_without_a_rig_plays_the_default_character_rig_silent_until_triggered_and_an_item_without_one_is_silent() {
     for &block in &PATTERNS {
         let native = native_rig_render("nobody", "neutral", block, FRAMES);
         let browser = core_render_device(&browser_rig_scene("nobody", "neutral"), 2, block, FRAMES);
         let d = diff(&native, &browser);
         assert!(d.exact, "nobody/{block}: {d:?}");
-        assert!(peak(&native) > 1e-3, "the default character rig's voice sings: block {block}");
+        assert_eq!(peak(&native), 0.0, "the default character rig's voice waits for its trigger: block {block}");
     }
     let mut d = deck_space::deck::Deck::new();
     let t = d.play_core("item.nothing", "");
