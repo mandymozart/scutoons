@@ -120,8 +120,8 @@
 <div class="footer" role="toolbar" aria-label={m['creator.experiences_tree_actions']()} data-testid="tree-footer" {@attach clickOutside(close)}>
 	{#if open}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div class="add-menu" {onkeydown} data-testid="tree-add-menu">
-			<MenuPanel width="min(18rem, 100%)" tabindex={-1}>
+		<div class="add-menu" role="menu" tabindex="-1" {onkeydown} data-testid="tree-add-menu">
+			<MenuPanel width="min(18rem, 100%)" role="group">
 				{#if picking}
 					<MenuItem icon="chevron-left" onclick={() => (picking = null)}>{m['creator.experiences_add_file_pick']({ type: picking })}</MenuItem>
 					{#each choices as f (f.src)}

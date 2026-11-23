@@ -373,16 +373,11 @@
 	.tab.on {
 		color: var(--kit-tab-on-text);
 	}
-	.tab.dragged,
-	.tab[data-kit-state~='dragged'] {
+	.tab.dragged {
 		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-dragged-border);
 		background: var(--kit-tab-dragged-ground);
 		color: var(--kit-tab-dragged-text);
 		text-shadow: none;
-	}
-	.tab[data-kit-state~='hover'] {
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-hover-border);
-		color: var(--kit-tab-hover-text);
 	}
 	.tab:focus-visible,
 	.icon:focus-visible {

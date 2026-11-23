@@ -124,14 +124,9 @@
 	.toggle-open[aria-expanded='true'] :global(svg) {
 		color: var(--kit-section-on-mark);
 	}
-	.toggle-open:focus-visible,
-	.section[data-kit-state~='focus'] .toggle-open {
+	.toggle-open:focus-visible {
 		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
-	}
-	.section[data-kit-state~='hover'] .toggle-open {
-		background: var(--kit-section-hover-ground);
-		color: var(--tool-text);
 	}
 	@media (hover: hover) {
 		.toggle-open:hover {
