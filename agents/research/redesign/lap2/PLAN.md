@@ -161,6 +161,7 @@ You approved these on 2026-11-24 ("yes, use them").
 | A disabled primary button | the pressed fill, faded | P1 |
 | The see-through grounds | as redrawn on kit-d.html | P1 |
 | Outlet colours | four – page · stage · target · device – on lane and column heads only, never on cables or ports; a mark each in the colour-blind set | P1 |
+| The Show's Flash, Scene and New show sheets | all three are dialogs on the overlay level – one-off tasks that end in a confirm or a save (decided after the deck orchestrator's check; the first default, views, was wrong). Cues, Problems, Who, Session, Vote and Demos stay views | P2 (deck) |
 | Deck installers for Windows and macOS | not in this lap; the link between the apps works on Arch only | P4 |
 | "Open in the deck" with no deck installed | the installed creator offers a download link; the web version just tries | P4 |
 | Dropping a Toon, a Show, a Generator, a Kanon text or a person | nothing yet; each opens in its own workspace | P11 |
@@ -168,7 +169,6 @@ You approved these on 2026-11-24 ("yes, use them").
 ## Open – out of the run until you say
 | Point | Package |
 |---|---|
-| The Show's Flash and Scene sheets. The agent's default (views) was wrong – deck: both are one-off tasks that end in a confirm or a save (Flash: choose the devices, confirm, the update is sent; Scene: a new deck scene or a recast, saved as a draft), so both are dialogs on the overlay level, like New show. Cues, Problems, Who, Session, Vote and Demos stay views | P2 (deck) |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
 | The Storyboard's tree as its scenes and shots; the shot's picture as a slot with "Open the generator" (two question cards on C3 and C3c) | P12 |
