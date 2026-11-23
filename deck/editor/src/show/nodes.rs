@@ -11,7 +11,7 @@ use super::node_wire::{self, Hand};
 use super::roles::Typing;
 use super::{Hit, Host};
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::graph::{Direction, Graph};
+use deck_kit::base::graph::Graph;
 use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::Rect;
@@ -45,9 +45,6 @@ impl std::ops::DerefMut for NodeView {
         &mut self.state
     }
 }
-
-/// how long a reveal fades in and out, the flash and its shimmer, secs (the widget's)
-pub use deck_spores::{FADE_IN, FADE_OUT};
 
 /// a row's canvas as the Spores widget paints it (the spore contract's shape; deck-show keeps its own on the row)
 fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
@@ -244,6 +241,8 @@ mod tests {
     use super::super::rows::tests::{host_with, H, W};
     use super::*;
     use deck_kit::base::draw::Prim;
+    use deck_kit::base::graph::Direction;
+    use deck_spores::{FADE_IN, FADE_OUT};
     use deck_kit::base::tokens::Theme;
 
     const TOY: &str = include_str!("../../../show/fixtures/top-toy.show.json");
