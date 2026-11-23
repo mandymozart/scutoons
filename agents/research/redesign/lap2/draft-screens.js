@@ -543,6 +543,39 @@ add('D', 'D3', 'Show: the rows band, Spores, Library', 'show.html `?v=0` (curren
     <span class="abs" style="left:1040px;top:132px;width:392px;height:700px;background:#000"></span>
     <div class="fp" style="left:1044px;top:136px;width:384px;height:692px">${dkHead('grid')}<div class="bd">${libraryBody({ cols: 2, place: 'Everything', pvH: 70, tiles: SHOW_LIB })}</div></div></div>
   ${mk(1, 1004, 136)}`);
+/* D3b, D3c – the Show's Flash and Scene sheets as dialogs on the overlay level (decided 2026-11-24): the Show behind them blurred, the dialog a box of the kit. Their parts and words are today's (deck/editor/src/show/flash.rs with deck/show/src/choose.rs; new_scene.rs); the devices are top-toy's (the Conductors panel), the rigs the five in production. */
+const dlgBox = (x, y, w, h, title, body) => `<div class="fp" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:56"><div class="hd"><span class="tab on">${title}</span><span class="sp"></span><span class="ic" title="Esc">${ic('x')}</span></div><div class="bd">${body}</div></div>`;
+const dlgTick = (on) => `<span style="flex:none;width:1rem;height:1rem;border:1px solid var(--tool-${on ? 'text' : 'line'});border-radius:.2rem;display:grid;place-items:center;${on ? 'background:var(--tool-pressed);color:var(--tool-pressed-text)' : ''}">${on ? '<svg viewBox="0 0 24 24" style="width:.7rem;height:.7rem;fill:none;stroke:currentColor;stroke-width:3"><path d="M5 12l5 5 9-10"/></svg>' : ''}</span>`;
+const showBehind = () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe><div class="dash over"></div>`;
+add('D', 'D3b', 'Show · Flash: a dialog', 'show.html `?v=0` behind · today’s Flash sheet (flash.rs, choose.rs): its list, its filters, its prompt – the words as today',
+  ['Flash is a dialog on the overlay level: the Show stays behind it, blurred (press S: on and off) – today its list takes the stage’s place',
+   'step 1, as today: every device of the tree, all chosen; a hand sets the ticks; “Flash …” goes on',
+   'step 2, as today: the prompt – only its confirm sends; what a flash means for a deck is hover text on the choices (H14)'],
+  () => `${showBehind()}
+  ${dlgBox(300, 150, 520, 430, 'Flash', `<div class="label" style="margin-bottom:.5rem">2 of 2 devices chosen</div>
+    <div style="display:flex;gap:.4rem;margin-bottom:.6rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span><span class="kc on">all</span></div>
+    ${[['top-toy', 'this deck'], ['foyer', 'sub · follow']].map(([n, m]) => `<div class="lrow" style="min-height:2rem">${dlgTick(true)}<span>${n}</span><span class="cap" style="margin-left:auto">${m}</span></div>`).join('')}
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain">Cancel</span><span style="flex:1"></span><span class="kb primary">Flash …</span></div>`)}
+  ${dlgBox(860, 230, 380, 270, 'Flash', `<div style="font-size:var(--editor-title);margin:.1rem 0 .7rem">Flash top-toy to 2 of 2 devices?</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-start"><span class="seg" title="A suggestion: who may reject at a deck has 10 s to say no. Forced: every chosen deck takes it, nobody at a deck is asked.">${['A suggestion', 'Forced'].map((n, k) => `<span class="${k === 0 ? 'on' : ''}">${n}</span>`).join('')}</span>
+    <span class="seg" title="Locked: only a deck’s owner can go back to its own version. Not locked: each deck’s operator can go back to their own version.">${['Not locked', 'Locked'].map((n, k) => `<span class="${k === 0 ? 'on' : ''}">${n}</span>`).join('')}</span></div>
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain">Back</span><span style="flex:1"></span><span class="kb primary">Flash</span></div>`)}
+  ${mk(1, 286, 138)}${mk(2, 286, 260)}${mk(3, 846, 218)}${capn(300, 596, 'two boxes are drawn to show both steps – in the app step 2 takes step 1’s place')}`);
+add('D', 'D3c', 'Show · Scene: a dialog', 'show.html `?v=0` behind · today’s new-scene sheet (new_scene.rs): the id, the stage’s name, the cast from the toon’s rigs – the words as today',
+  ['Scene is a dialog on the overlay level: a new deck scene, or one of the server’s recast – the Show stays behind it, blurred',
+   'its parts as today: the scene’s id, its stage’s name, the cast picked from the open toon’s rigs; it saves itself as a draft, the creator publishes it',
+   'the two explaining lines of today’s sheet are hover text (H14)'],
+  () => `${showBehind()}
+  ${dlgBox(420, 120, 600, 560, 'New scene', `<div style="display:grid;grid-template-columns:5rem 1fr;gap:.5rem .7rem;align-items:center" title="It saves itself as a draft; it is published in the creator.">
+      <span class="label">Id</span><span class="fld" style="width:auto"><span class="mono muted">scene:</span><span class="caret"></span></span>
+      <span class="label">Stage</span><span class="fld" style="width:auto"></span></div>
+    <div class="label" style="margin:1rem 0 .35rem">Cast</div><div class="cap">nobody yet</div>
+    <div class="label" style="margin:1rem 0 .35rem" title="The cast from Cat Pope’s rigs – a press adds or takes off">From Cat Pope’s rigs</div>
+    <span class="fld" style="width:auto;margin-bottom:.4rem">${ic('search')}<span class="ph">Find</span></span>
+    ${['catpope', 'crow-fox', 'giantpopstar', 'sandgirl', 'sandy'].map(n => `<div class="lrow" style="min-height:1.9rem">${dlgTick(false)}<span class="mono">character:${n}</span></div>`).join('')}
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain" title="One of the server’s scenes, recast">Load …</span><span style="flex:1"></span><span class="kb plain">Close</span><span class="kb primary">Play</span></div>`)}
+  ${mk(1, 406, 108)}${mk(2, 406, 196)}${mk(3, 1034, 196)}${capn(420, 696, 'New show is the same kind of dialog; its sheet was not read – not drawn')}`);
+
 add('D', 'D4', 'Module: Library · Drives · Module · Problems', 'now/deck-3-module-workspace', ['the shared bar (A1); Module open, so it shows in the row', 'Views (B1)', DKKIT],
   () => `${deckShot('deck-3-module-workspace.png', deckBarNew({ tabs: [['code','new module']], mode: false, wsNames: ['Scene','Rigging','Show','Module'], wsOn: 3 }) + deckModule())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D4b', 'Module: a module open', 'none – never captured', [],

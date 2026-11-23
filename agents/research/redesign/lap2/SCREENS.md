@@ -63,6 +63,8 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | D1 | The switcher over a workspace | as A3; Home stays when nothing is open | current |
 | D2 | Scene (today "Build") | the shared bar, Views in the ☰, kit look; the Library the same panel as C12 | current (the deck's panels redrawn on the kit over the shot; its colours – mixer, thumbnails, gizmo – as shot) |
 | D3 | Show | no pill of its own in the bar: Cues, Problems, Who, Session, Vote and Demos are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html `?v=0`, spores-view.html (the draft shows show.html, the Library drawn over it as C12) |
+| D3b | Show · Flash: a dialog | on the overlay level over the blurred Show: step 1 the devices with ticks and Find, step 2 the prompt – only its confirm sends; the words as today | current |
+| D3c | Show · Scene: a dialog | on the overlay level: a new deck scene or a recast – id, stage, the cast from the toon's rigs; saves itself as a draft; the words as today | current |
 | D4 | Module, nothing open | the shared bar, kit look | current |
 | D4b | **Module, a module open** (new) | never drawn: its Parameters, Problems, the module heard alone on the stage, Derive for a factory module; the code opens in the external editor | words – no capture: a frame and the open point |
 | D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here; the Library as C12 | current |
@@ -100,4 +102,4 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | universe.html | the twelve kinds as one tree, production counts | for reading – palette D ("Creator", "Deck" quiet chips) |
 | modules-dna.html | module · rig · slot · network | draft, six points open – palette D (see-through grounds) |
 
-**Count:** 10 + 7 + 20 + 9 + 9 + 3 = 58 screens (C3b, C3c, C4b, C12b, C12c, E1b, E5c, E5d drawn as their own screens). **Current: 43 · moved: 8 · words: 4 · done or dropped: 3 · old: 0.**
+**Count:** 10 + 7 + 20 + 11 + 9 + 3 = 60 screens (C3b, C3c, C4b, C12b, C12c, D3b, D3c, E1b, E5c, E5d drawn as their own screens). **Current: 45 · moved: 8 · words: 4 · done or dropped: 3 · old: 0.**
