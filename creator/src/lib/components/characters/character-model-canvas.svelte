@@ -46,7 +46,7 @@
 	function colours() {
 		const css = getComputedStyle(document.documentElement);
 		const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-		return { bone: v('--editor-accent', '#00d1ff'), spot: v('--editor-primary', '#b4ff32'), grid: v('--editor-accent', '#00d1ff') };
+		return { bone: v('--tool-accent', '#00d1ff'), spot: v('--tool-primary', '#b4ff32'), grid: v('--tool-accent', '#00d1ff') };
 	}
 
 	$effect(() => {

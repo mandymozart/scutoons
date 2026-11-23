@@ -1,41 +1,67 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { parse, render, SOURCE, TARGET } from './editor-tokens.ts';
+import { parse, parseToml, render, SOURCE, TARGET } from './editor-tokens.ts';
 
-const rs = readFileSync(SOURCE, 'utf8');
+const toml = readFileSync(SOURCE, 'utf8').replace(/\r\n/g, '\n');
 
-test('reads both looks with the same roles, the sizes and the base from tokens.rs', () => {
-	const t = parse(rs);
-	assert.deepEqual(Object.keys(t.day.colors), Object.keys(t.night.colors));
-	assert.deepEqual(t.night.colors.primary, [0xb4, 0xff, 0x32, 1]);
-	assert.deepEqual(t.night.colors.accent, [0x00, 0xd1, 0xff, 1]);
-	assert.equal(t.night.colors.selection[3], 0.6);
+test('reads both looks with the same roles, the tables and the sizes from kit/tokens.toml', () => {
+	const t = parse(toml);
+	assert.deepEqual(Object.keys(t.day.colors).sort(), Object.keys(t.night.colors).sort());
+	assert.equal(t.night.colors.stage, '#000000');
+	assert.equal(t.night.colors.control, '#f3f3f00f', 'a control stands on the text colour at 6 %');
+	assert.equal(t.day.colors.selected, '#17191629', 'a selected item: text at 16 %');
 	assert.equal(t.night.panelOpacity, 0.5);
 	assert.equal(t.night.inkRing, true);
 	assert.equal(t.day.inkRing, false);
-	assert.equal(t.base, 14);
-	assert.equal(t.rems.row, 2.15);
-	assert.equal(t.spacing, 0.15);
-	assert.equal(t.edge, 1);
-	assert.ok(!('axis' in t.night.colors) && !('strips' in t.night.colors), 'nested lists stay in the deck');
+	assert.deepEqual(Object.keys(t.night.signals), ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far']);
+	assert.deepEqual(Object.keys(t.day.outlets), ['page', 'stage', 'target', 'device']);
+	assert.deepEqual(t.groups, ['#5fb3ff', '#7fd68a', '#f2b84b', '#e07ad6', '#ff7a6b', '#9a8cff']);
+	assert.deepEqual(Object.keys(t.night.colorblind), ['go', 'warn', 'stop']);
+	assert.equal(t.size.base, 14);
+	assert.equal(t.size.row, 2.15);
+	assert.equal(t.size.spacing, 0.15);
+	assert.equal(t.size.edge, 1);
 });
 
-test('night is the default, day the variant; sizes in rem', () => {
-	const css = render(parse(rs));
+test('palette D: no accent, no lime primary, no signal hue among the UI colours', () => {
+	const t = parse(toml);
+	for (const l of [t.day, t.night]) for (const k of ['accent', 'primary', 'primary_line', 'primary_ink']) assert.ok(!(k in l.colors), k);
+	assert.doesNotMatch(render(t), /--editor-(accent|primary)/);
+});
+
+test('night is the default, day the variant; sizes in rem, base and edge in px', () => {
+	const css = render(parse(toml));
 	const night = css.slice(css.indexOf(":root,\n[data-theme='night']"), css.indexOf("[data-theme='day']"));
-	assert.match(night, /--editor-surface: #1a1c18;/);
-	assert.match(night, /--editor-panel-ground: rgb\(26 28 24 \/ 0\.5\);/);
-	assert.match(css, /\[data-theme='day'\] \{[^}]*--editor-surface: #f3f3f0;[^}]*--editor-halo: none;/);
+	assert.match(night, /--editor-surface: #000000d9;/, 'a menu stands on the stage colour at 85 %');
+	assert.match(night, /--editor-panel-ground: rgb\(0 0 0 \/ 0\.5\);/);
+	assert.match(night, /--editor-halo: 0 0 2px #000000,/);
+	assert.match(night, /--signal-audio: #19b8d8;/);
+	assert.match(night, /--outlet-device: #f2df6f;/);
+	assert.match(night, /--editor-colorblind-go: #56b4e9;/);
+	assert.match(css, /\[data-theme='day'\] \{[^}]*--editor-surface: #ffffffd9;[^}]*--editor-halo: none;/);
 	assert.match(css, /--editor-row: 2\.15rem;/);
+	assert.match(css, /--editor-base: 14px;/);
+	assert.match(css, /--editor-label-spacing: 0\.15em;/);
+	assert.match(css, /--group-6: #9a8cff;/);
 	assert.doesNotMatch(css, /--editor-(?!base|edge|halo)[a-z-]+: [\d.]+px/, 'px only for the base, the edge and the halo');
 });
 
-test('a changed value in tokens.rs changes the output', () => {
-	const changed = rs.replace('accent: rgb(0x00d1ff)', 'accent: rgb(0x123456)');
-	assert.match(render(parse(changed)), /--editor-accent: #123456;/);
+test('a changed value in the file changes the output', () => {
+	const changed = toml.replace('audio = "#19b8d8"', 'audio = "#123456"');
+	assert.match(render(parse(changed)), /--signal-audio: #123456;/);
 });
 
-test('editor.css is up to date', () => {
-	assert.equal(readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n'), render(parse(rs)));
+test('the reader refuses what the kit file must not hold', () => {
+	assert.throws(() => parse(toml.replace('text = "#f3f3f0"', 'text = [0.95, 0.95, 0.94, 1.0]')), /cannot read the value|not #rrggbb/);
+	assert.throws(() => parse(toml.replace('go = "#56b4e9"', 'go = "blue"')), /not #rrggbb/);
+	assert.throws(() => parse(toml.replace('surface = "#000000d9"', 'surface = "#1a1c18"')), /surface is an opaque ground/);
+	assert.throws(() => parse(toml.replace('hover = "#1719161a"', 'hover = "#e4e8dcff"')), /hover is an opaque ground/);
+	assert.throws(() => parse(toml.replace('[day.signals]\nevent = "#22271e"\n', '[day.signals]\n')), /day and night differ in their signals/);
+	assert.throws(() => parseToml('[a]\nx = 1\nx = 2\n'), /x twice/);
+	assert.deepEqual(parseToml('[a.b] # c\nx = ["#000000", # one\n  "#ffffff"]\n')['a.b'], { x: ['#000000', '#ffffff'] });
+});
+
+test('editor.css is up to date and untouched by hand', () => {
+	assert.equal(readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n'), render(parse(toml)));
 });

@@ -198,7 +198,7 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 }
 // colours (owner 2026-11-24, RULES H11 [editor-style]: "stick to the color schema of the deck editor … there is no grey
 // backgrounds in our concept"): the tools' CSS (creator, the editor kit, tools.css) takes every colour from the semantic
-// --tool-* tokens (shared/tokens/tool-colours.css, on deck-kit's generated editor.css) –
+// --tool-* tokens (shared/tokens/tool-colours.css, on editor.css generated from kit/tokens.toml) –
 //   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
 //   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
 //     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
