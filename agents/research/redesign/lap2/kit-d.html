@@ -283,7 +283,7 @@ html[data-p16="c"] :is(.fld.h,.tg.h,.kc.h,.th.h .pv){border-color:var(--tool-tex
 .tbl>div{padding:.42rem 0;border-bottom:1px solid var(--tool-line);min-width:0}
 .tbl .hd{padding:.3rem 0}
 .oldnew{grid-template-columns:9rem 15rem 1fr 24rem}
-.dtok{grid-template-columns:8.6rem 9.5rem 9.5rem 1fr}
+.dtok{grid-template-columns:8.6rem 10.5rem 10.5rem 1fr 10rem}
 .cr{grid-template-columns:12rem repeat(5,1fr) 1fr}
 .sw{display:inline-flex;align-items:center;gap:.4rem;padding:.12rem .35rem;border-radius:.3rem;background:var(--editor-surface);color:var(--editor-text)}
 .chipsw{flex:none;width:1.2rem;height:1.2rem;border-radius:50%;box-shadow:0 0 0 1px var(--editor-line)}
@@ -501,20 +501,22 @@ const OLDNEW = [
 document.getElementById('oldnew').innerHTML = `<div class="hd label">token</div><div class="hd label">was used for</div><div class="hd label">old · night | day</div><div class="hd label">in D</div>` +
   OLDNEW.map(([t, w, s, n]) => `<div>${t}</div><div class="muted">${w}</div><div>${s}</div><div>${n}</div>`).join('');
 
-/* D's tokens: [role, source, the CSS var to read] */
+/* D's tokens: [role, source, the CSS var to read]. The grounds are see-through (point 16 B, owner 2026-11-24): the text colour at a low alpha. */
 const DTOK = [
-  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'surface · see-through', '--tool-panel'], ['popover', 'surface', '--tool-popover'],
-  ['head', 'surface-head', '--tool-head'], ['control', 'control', '--tool-control'], ['hover', 'hover', '--tool-hover'], ['line', 'line', '--tool-line'],
+  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'surface · see-through', '--tool-panel'], ['popover · menu', 'surface (opaque)', '--tool-popover'],
+  ['control', `text ${A16.control}%`, '--tool-control'], ['hover', `text ${A16.hover}%`, '--tool-hover'], ['selected', `text ${A16.selected}%`, '--tool-selected'],
+  ['within (a track)', `text ${A16.within}%`, '--tool-within'], ['head (fold)', `text ${A16.head}%`, '--tool-head'], ['line', 'line', '--tool-line'],
   ['text = on · focus · active · link', 'text', '--tool-text'], ['muted', 'muted', '--tool-muted'],
   ['primary · selected row · toggle on', 'pressed', '--tool-pressed'], ['their ink', 'pressed-text', '--tool-pressed-text'],
-  ['on ground', 'text 12%', '--d-on-ground'], ['selection', 'text 25%', '--d-selection'], ['within (a track)', 'within', '--tool-within'],
-  ['ok', 'go', '--tool-go'], ['warning', 'warn', '--tool-warn'], ['error', 'stop', '--tool-stop'], ['destroy', 'danger', '--tool-danger'],
+  ['on ground', 'text 12%', '--d-on-ground'], ['selection', 'text 25%', '--d-selection'], ['destroy', 'danger', '--tool-danger'],
 ];
 /* a resolved colour, through a probe's computed `color` (resolves var() and color-mix) */
 const col = (el, v) => { const t = document.createElement('span'); el.appendChild(t); t.style.color = `var(${v})`; const c = getComputedStyle(t).color; t.remove(); return c; };
 const PNv = probe('night'), PDv = probe('day');
-document.getElementById('dtok').innerHTML = `<div class="hd label">role</div><div class="hd label">night</div><div class="hd label">day</div><div class="hd label">from</div>` +
-  DTOK.map(([r, f, v]) => `<div>${r}</div><div>${sw(col(PNv, v), 'night')}</div><div>${sw(col(PDv, v), 'day')}</div><div class="muted">${f}</div>`).join('');
+/* the opaque greys they replace ("was"), read before the page root switches part 1 to B */
+const toHex = c => '#' + c.match(/[\d.]+/g).slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('');
+const WAS = Object.fromEntries(['--tool-control', '--tool-hover', '--tool-selected', '--tool-within', '--tool-head'].map(v => [v, [toHex(col(PNv, v)), toHex(col(PDv, v))]]));
+document.documentElement.dataset.p16 = 'b';   /* part 1 shows the see-through grounds; apply() sets the pick afterwards */
 
 /* contrast: parse rgb()/rgba()/color(srgb …), composite see-through over the ground */
 const parse = s => {
@@ -537,7 +539,17 @@ for (const [n, v, min] of FGS) crHtml += `<div>${n}</div>${GROUNDS.map(([, g]) =
 /* the pressed fill's ink, and how far "on" (text) stands from "rest" (muted) and the hover ground from the ground */
 const pr = el => ratio(parse(col(el, '--tool-pressed-text')), parse(col(el, '--tool-pressed')));
 const tm = el => ratio(parse(col(el, '--tool-text')), parse(col(el, '--tool-muted')));
-const hg = el => ratio(parse(col(el, '--tool-hover')), parse(col(el, '--tool-ground')));
+const hg = el => ratio(over(parse(col(el, '--tool-hover')), parse(col(el, '--tool-ground'))), parse(col(el, '--tool-ground')));
+/* the D token table: the roles, then ok / warning / error, normal and colour-blind, with mark and contrast */
+const rgbA = c => { const p = parse(c); return p[3] < 1 ? `${p.slice(0, 3).map(Math.round).join(' ')} / ${(+p[3].toFixed(2))}` : null; };
+const swA = (c, th) => { const a = rgbA(c); return a ? `<span class="sw" data-theme="${th}"><span class="chipsw" style="background:${c}"></span><span class="hex">${a}</span></span>` : sw(c, th); };
+const STATES = [['ok', '✓', '--tool-go', '--cb-ok', 'go'], ['warning', '!', '--tool-warn', '--cb-warn', 'warn'], ['error', '✕', '--tool-stop', '--cb-err', 'stop']];
+const crGP = (v) => `${crCell(PNv, v, '--tool-ground', 3)} · ${crCell(PNv, v, '--tool-panel', 3)} | ${crCell(PDv, v, '--tool-ground', 3)} · ${crCell(PDv, v, '--tool-panel', 3)}`;
+document.getElementById('dtok').innerHTML = `<div class="hd label">role</div><div class="hd label">night</div><div class="hd label">day</div><div class="hd label">from</div><div class="hd label">was</div>` +
+  DTOK.map(([r, f, v]) => `<div>${r}</div><div>${swA(col(PNv, v), 'night')}</div><div>${swA(col(PDv, v), 'day')}</div><div class="muted">${f}</div><div class="mono muted">${WAS[v] ? WAS[v].join(' · ') : ''}</div>`).join('') +
+  `<div class="hd label" style="padding-top:1rem">state · mark</div><div class="hd label" style="padding-top:1rem">night</div><div class="hd label" style="padding-top:1rem">day</div><div class="hd label" style="padding-top:1rem;grid-column:span 2">contrast ground · panel, night | day</div>` +
+  STATES.map(([r, m, v, cb, f]) => `<div>${r} <b>${m}</b></div><div>${sw(col(PNv, v), 'night')}</div><div>${sw(col(PDv, v), 'day')}</div><div class="mono" style="grid-column:span 2">${crGP(v)} <span class="muted">· ${f}</span></div>
+    <div class="muted">${r} <b>${m}</b> · colour-blind</div><div>${sw(col(PNv, cb), 'night')}</div><div>${sw(col(PDv, cb), 'day')}</div><div class="mono" style="grid-column:span 2">${crGP(cb)} <span class="muted">· Okabe–Ito</span></div>`).join('');
 crHtml += `<div>pressed-text on pressed</div><div class="mono" style="grid-column:span 5">${pr(PNv).toFixed(1)} | ${pr(PDv).toFixed(1)}</div><div class="muted">4.5</div>`;
 crHtml += `<div>on vs rest (text : muted)</div><div class="mono" style="grid-column:span 5"><span class="lo">${tm(PNv).toFixed(1)} | ${tm(PDv).toFixed(1)}</span> <span class="muted">– the only thing telling the active tab from the others</span></div><div class="muted">–</div>`;
 crHtml += `<div>hover vs ground</div><div class="mono" style="grid-column:span 5">${hg(PNv).toFixed(2)} | ${hg(PDv).toFixed(2)}</div><div class="muted">–</div>`;
@@ -670,11 +682,11 @@ document.getElementById('comp-day').innerHTML = composition('day');
 /* ══ 1 · grounds (point 16): the tokens each option changes, and every state over the stage and over a panel ══ */
 const pairOf = v => `${sw(col(PNv, v), 'night')} ${sw(col(PDv, v), 'day')}`;
 const GTOK = [
-  ['control', pairOf('--tool-control'), `text ${A16.control}%`, 'none, a line'],
-  ['hover', pairOf('--tool-hover'), `text ${A16.hover}%`, 'none, the line → text'],
-  ['selected', pairOf('--tool-selected'), `text ${A16.selected}%`, 'none'],
-  ['within (track)', pairOf('--tool-within'), `text ${A16.within}%`, 'none, a line'],
-  ['head (fold)', pairOf('--tool-head'), `text ${A16.head}%`, 'none'],
+  ['control', WAS['--tool-control'].join(' · '), `text ${A16.control}%`, 'none, a line'],
+  ['hover', WAS['--tool-hover'].join(' · '), `text ${A16.hover}%`, 'none, the line → text'],
+  ['selected', WAS['--tool-selected'].join(' · '), `text ${A16.selected}%`, 'none'],
+  ['within (track)', WAS['--tool-within'].join(' · '), `text ${A16.within}%`, 'none, a line'],
+  ['head (fold)', WAS['--tool-head'].join(' · '), `text ${A16.head}%`, 'none'],
   ['primary hover · press', 'the fill dims 85% · 70%', 'full fill + 1px text ring', 'as B'],
   ['popover · menu', pairOf('--tool-popover'), 'stays opaque', 'stays opaque'],
 ];
@@ -693,10 +705,7 @@ document.getElementById('gspec-day').innerHTML = gspec('day');
 /* ══ 1 · colour-blind tokens (point 15 c): contrast, lightness, and a simulation (Machado, Oliveira & Fernandes 2009, severity 1, linear RGB) ══ */
 const CB = [['ok', '--cb-ok', '--tool-go'], ['warning', '--cb-warn', '--tool-warn'], ['error', '--cb-err', '--tool-stop']];
 const crs = (el, v) => ['--tool-ground', '--tool-panel', '--tool-popover'].map(g => crCell(el, v, g, 3)).join(' · ');
-document.getElementById('cbtok').innerHTML = `<div class="hd label">role</div><div class="hd label">night</div><div class="hd label">day</div><div class="hd label">contrast: ground · panel · menu (min 3) · lightness L</div>` +
-  CB.map(([r, v]) => `<div>${r}</div><div>${sw(col(PNv, v), 'night')}</div><div>${sw(col(PDv, v), 'day')}</div>
-    <div class="mono">${crs(PNv, v)} | ${crs(PDv, v)} · L ${lum(parse(col(PNv, v))).toFixed(2)} | ${lum(parse(col(PDv, v))).toFixed(2)}</div>`).join('') +
-  `<div style="grid-column:1/-1" class="small muted">Okabe–Ito. Day: yellow is 1.2 : 1 on white, so the warning is the orange darkened to 3.8 : 1 and the error the vermillion darkened – the three differ in lightness too. With the mode on, every ok / warning / error also gets ✓ ! ✕ (WCAG 1.4.1).</div>`;
+document.getElementById('cbtok').innerHTML = `<div class="small muted" style="grid-column:1/-1">The values and contrasts are in the token table above. Okabe–Ito: ok blue, warning yellow / orange, error vermillion. By day yellow is 1.2 : 1 on white, so the warning is the orange darkened to 3.8 : 1 and the error the vermillion darkened – the three differ in lightness too. With the mode on, every ok / warning / error also carries ✓ ! ✕ (WCAG 1.4.1).</div>`;
 const MACHADO = {
   deuteranopia: [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]],
   protanopia: [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
