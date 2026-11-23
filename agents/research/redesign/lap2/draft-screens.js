@@ -37,6 +37,7 @@ add('A', 'A2', 'The ☰ menu open', "dashboard foot + front card's Views row (no
   ['☰ opens a menu again, not the dashboard',
    'your list: Views with Save workspace · Search · Settings · Docs · the build (version, account, load meters)',
    'the edit language in the menu – the Text language control from Settings',
+   "Help (Guide, Shortcuts) and Go to (Reader, Deck, Embassy, Admin) are lines of this menu – the dashboard's foot goes",
    "the deck's ☰: its lines as today + Views (was PANELS) with Save workspace · Search · Docs · the load meters and the version from the bar"],
   () => `${characters({ bar: { menuOn: true, chevron: true } })}
   <div class="km" style="right:14px;top:50px;width:330px">
@@ -45,11 +46,13 @@ add('A', 'A2', 'The ☰ menu open', "dashboard foot + front card's Views row (no
     <hr><div class="kmi">${ic('search')}<span class="w">Search</span><span class="kbd">Alt Space</span></div>
     <div class="kmi">${ic('settings')}<span class="w">Settings</span></div>
     <div class="kmi">${ic('book')}<span class="w">Docs ↗</span></div>
+    <div class="kmi">${ic('help')}<span class="w">Help</span><span class="meta">Guide · Shortcuts</span>${ic('r')}</div>
+    <div class="kmi">${ic('ext')}<span class="w">Go to</span><span class="meta">Reader · Deck · Embassy · Admin</span>${ic('r')}</div>
     <hr><div class="kmi">${ic('globe')}<span class="w">Text language</span><span class="fld" style="height:1.75rem;padding:0 .4rem;gap:.3rem">DE ${ic('star')}</span></div>
     <hr><div class="kmi">${ic('user')}<span class="w">tilman@porschuetz.de</span></div>
     <div class="kmi muted"><span class="w mono">0.1.0 · c9cf178</span></div></div>
   ${viewsMenu(588, 50, { cut: false, w: 410 })}
-  ${mk(1, 1405, 30)}${mk(2, 1105, 55)}${mk(3, 1105, 232)}
+  ${mk(1, 1405, 30)}${mk(2, 1078, 60)}${mk(4, 1078, 234)}${mk(3, 1078, 288)}
   <div class="abs" style="left:14px;top:290px;width:560px;height:420px;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:#000;overflow:hidden" data-theme="night">
     <div class="label abs" style="left:.7rem;top:.4rem">Deck · today (now/deck-2-menu)</div>${dkCrop('deck-2-menu.png', 14, 4, 250, 340, 8, 24, .88)}
     <div class="label abs" style="left:290px;top:.4rem">Deck · lap 2</div>
@@ -57,8 +60,7 @@ add('A', 'A2', 'The ☰ menu open', "dashboard foot + front card's Views row (no
       <div class="kmi">${ic('layout')}<span class="w">Views</span>${ic('r')}</div><div class="kmi">${ic('save')}<span class="w">Save workspace</span></div><div class="kmi">${ic('search')}<span class="w">Search</span></div><hr>
       <div class="kmi"><span class="w">Open</span></div><div class="kmi"><span class="w">New</span></div><div class="kmi muted"><span class="w">Publish in the creator</span>↗</div><div class="kmi"><span class="w">Settings</span></div><div class="kmi muted"><span class="w">Audio &amp; inputs</span></div><div class="kmi muted"><span class="w">Account</span>↗</div><div class="kmi"><span class="w">Quit to stage</span><span class="kbd">F9</span></div><div class="kmi"><span class="w">Docs ↗</span></div>
       <hr><div class="kmi small"><span class="label">CPU</span>&nbsp;– <span class="label">&nbsp;48 kHz&nbsp;GPU</span>&nbsp;60 fps</div><div class="kmi muted mono small">0.1.0.r4781.gefb723d2a</div></div></div>
-  ${mk(4, 552, 300)}${capn(14, 716, 'PANELS (today: Log) becomes Views · the deck has no text language today: none added')}
-  ${qcard(1010, 470, 'do Help and Go to belong in the ☰ menu?', ['Help (Guide, shortcuts) and Go to (Reader, Deck, Embassy, Admin) into this menu', "they stay where they are today (the dashboard's foot)"], '', '20rem')}`);
+  ${mk(5, 552, 300)}${capn(14, 716, 'PANELS (today: Log) becomes Views · the deck has no text language today: none added')}`);
 
 /* one switcher list for both apps (DECK-LINK.md): the creator's workspaces + the deck's (Scene · Rigging · Show), each card the workspace's last
    capture full-bleed, the words over it; a card of the other app carries a quiet chip saying where it opens. No Views row on any card. */
@@ -69,17 +71,15 @@ const D_CARDS = [['Scene','scene:avatar-home','box','open'], ['Rigging','rig:cat
 const badged = (cards, b) => cards.map(c => { const k = [...c]; while (k.length < 5) k.push(''); k[4] = b; if (k[3] === 'front') k[3] = 'open'; return k; });
 const SW_CREATOR = (deck = 'Deck · running') => [...C_CARDS, ...badged(D_CARDS, deck)];
 const SW_DECK = () => [...D_CARDS.map((c, i) => i === 0 ? Object.assign([...c], { 3: 'front' }) : c), ...badged(C_CARDS, 'Creator')];
-const FOOT_Q = (x, y) => qcard(x, y, "the switcher's foot (account, Settings, Docs)", ['stays', 'goes – the ☰ menu holds it (A2)'], '', '17rem');
 
 add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboard)',
   ['no search field (A4)', 'Alt Tab / Ctrl K / ⌘K, not ☰', 'no Views row on the cards (Views: ☰ only)',
    "one list: the deck's workspaces too, with a quiet chip; Enter opens the deck there (A3b)",
    'the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)',
-   'the content has a max width, centred (1160px drawn)'],
+   'the content has a max width, centred (1160px drawn)', 'no foot: account, Settings, Docs, Help and Go to are in the ☰ menu (A2)'],
   () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}
   ${mk(1, 146, 62)}${mk(2, 1405, 30)}${mk(5, 700, 22)}${mk(3, 300, 412)}${ring(528, 467, 580, 160)}${mk(4, 520, 458)}${mk(6, 126, 300)}
-  ${capn(140, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}
-  ${FOOT_Q(140, 664)}`);
+  ${capn(140, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}`);
 
 add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
   ["the deck not running: the browser asks once (its own dialog, scutoons-deck://)", 'the deck running: no prompt – it comes up on Scene, scene:avatar-home'],
@@ -93,14 +93,14 @@ add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
 
 add('A', 'A4', "Search (Alt Space / ⌘ Space, the pad's Y)", 'the launcher today (launcher.svelte, the overlay) on now/creator-1 · the names: production 2026-11-24 (characters, toons, places, files)',
   ["its own overlay: Alt Space / ⌘ Space, the pad's Y (Ctrl K: the switcher, A3)", 'the field says "Find" (here "cat" typed)', 'no hint line in it (H14): the keys are hover text',
-   'it finds things and files by name – each line with its type or kind (LIBRARY.md: the extended Library)'],
-  () => `${characters({ bar: { chevron: true } })}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
+   'it finds things and files by name – each line with its type or kind (LIBRARY.md: the extended Library)',
+   'on the overlay level: everything behind it is blurred, the bar too (H15)'],
+  () => `${characters({ bar: { chevron: true } })}<div class="dash over"></div>
   <div class="km" style="left:430px;top:150px;width:580px;z-index:60;padding:.4rem">
     <div class="fld" style="height:2.4rem;border-radius:1.2rem">${ic('search')}cat<span style="width:1px;height:1.1rem;background:var(--tool-text);margin-left:-.3rem"></span></div>
     <div style="height:.3rem"></div>
     ${[['smile','Cat Pope','Character'],['book','Cat Pope','Toon'],['pin','cathedral','Place'],['cube','catpope-regular.v2.glb','3D'],['image','catpope_avatar-happy.webp','Image']].map(([i, n, k], j) => `<div class="kmi ${j === 0 ? 'cur' : ''}">${ic(i)}<span class="w">${n}</span><span class="meta">${k}</span></div>`).join('')}</div>
-  ${mk(1, 1015, 330)}${mk(2, 1015, 160)}${mk(3, 1015, 290)}${mk(4, 1015, 210)}
-  ${qcard(430, 470, 'do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)?', ['the overlay level – blurred behind', 'the popover level – sharp'], "Drawn as today: the window dimmed behind.", '24rem')}`);
+  ${mk(1, 1015, 130)}${mk(2, 1015, 162)}${mk(3, 1015, 330)}${mk(4, 1015, 200)}${mk(5, 400, 420)}`);
 
 add('A', 'A5', 'The user menu (the account icon)', "today's user menu (user-menu.svelte, code – no screenshot in now/)",
   ['opens under the account icon, like the ☰ menu – not from the bottom', "no swipe up: it collides with the systems' own gestures"],
@@ -151,7 +151,7 @@ add('B', 'B1', 'Views: every view, four states', 'now/creator-3 (Views on the fr
 
 add('B', 'B2', "The workspace tab's own menu", 'now/creator-1 (the workspace row as today: the tab opens no menu)', [],
   () => `${characters({ bar: { chevron: true } })}${ring(708, 6, 94, 38)}
-  ${capn(380, 480, 'Open: does the workspace tab keep its own menu (Save · Rename · Back to the last save · Save as new · Delete)?')}`, { idle: ' – nothing: an open point (words) – today drawn on the kit' });
+  ${capn(380, 480, 'Answered: the workspace tab has no menu of its own in this lap – Views and Save workspace are in the ☰ menu (A2)')}`, { idle: ' – nothing: answered – no menu in this lap' });
 
 add('B', 'B3', 'The four stage layouts + drop zones', "stage-zones.svelte + layouts.ts (built) on now/creator-1; the layouts as decided in stage.html / crafts-v2 `snap`",
   [],
@@ -183,8 +183,7 @@ add('B', 'B6', 'The Log', "log.html (decided A) · today's Log (now/creator-4 / 
 
 add('B', 'B7', "The switcher's cards: full captures", "A3 (now/creator-2) with #842 (built on feature/842-thumbnails 0d6f9b476, held) · now/ws-*",
   ["each card is the workspace's last capture, filling the card; its name and last content over the picture (#842)"],
-  () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}${ring(136, 300, 1172, 330)}${mk(1, 126, 296)}
-  ${FOOT_Q(140, 664)}`);
+  () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}${ring(136, 300, 1172, 330)}${mk(1, 126, 296)}`);
 
 /* ════════ C · the creator's workspaces ════════ */
 const KIT = 'kit look: every control from the kit (kit-d.html) – no accent, see-through grounds, tabs without a border at rest, small chips (H4, H11, H13)';
@@ -511,8 +510,8 @@ add('C', 'C12b', 'Library: the browser – a character stepped into', "today's l
    'a character is stepped into: its personas → looks → moods as levels, each keeping its address',
    'beside them the files it uses: the model, the portrait of the mood, its voice',
    '"used in": the seasons it is cast in, each a link',
-   'no "To do" group: "Missing credits" goes (H17)', 'the same parts as the panel (C12); over the stage as today'],
-  () => `${catalogBack()}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
+   'no "To do" group: "Missing credits" goes (H17)', 'the same parts as the panel (C12); on the overlay level – blurred behind (H15)'],
+  () => `${catalogBack()}<div class="dash over"></div>
   <div class="km" style="left:60px;top:56px;width:1320px;height:760px;z-index:60;padding:0;flex-direction:row;overflow:hidden">
     <div style="width:240px;flex:none;padding:.8rem .6rem;border-right:1px solid var(--tool-line)">
       <div class="label" style="margin:0 .3rem .4rem">Places</div>
@@ -522,9 +521,7 @@ add('C', 'C12b', 'Library: the browser – a character stepped into', "today's l
     <div style="flex:1;min-width:0;padding:.8rem 1rem;position:relative">
       <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem"><span style="font-size:var(--editor-title)">Library</span><span style="flex:1"></span><span class="kib muted" title="Close the browser (Esc)">${ic('x')}</span></div>
       ${libraryBody({ place: "This season's cast", content: stepIn() })}</div></div>
-  ${mk(1, 40, 250)}${mk(2, 300, 330)}${mk(3, 902, 280)}${mk(4, 902, 478)}${mk(5, 40, 230)}${mk(6, 1390, 60)}
-  
-  ${capn(60, 822, 'Open: do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)? – drawn as today')}`);
+  ${mk(1, 40, 250)}${mk(2, 300, 330)}${mk(3, 902, 280)}${mk(4, 902, 478)}${mk(5, 40, 230)}${mk(6, 1390, 60)}`);
 
 /* C12c: the Library opened from a slot – the "who" (character) of a showMessage event in a chapter of Cat Pope; the cast first, everyone else after (the registry's characters) */
 const OTHERS = [['Mellowmantis'], ['Giant Popstar'], ['Sandgirl'], ['Sandy'], ['Wolf Crow'], ['Lizard Crow'], ['Fox Crow', dkLibPic(32, 722)], ['Yellow Mouse'], ['Bill the Frog'], ['passerby'], ['Pinkperv'], ['Orangebubu'], ['Yellowbeatl'], ['yellowbubu'], ['Takeyari drum machine']]
@@ -574,12 +571,11 @@ add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e
 const DKKIT = "the panels on the kit (kit-d.html): tabs without a border at rest, the selected row without a white fill, small round chips, see-through fields, round icon buttons – contents as shot";
 add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-3-stage-workspace · A3 (the same design)',
   ['the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)', 'the switcher as in A3, no Views on cards',
-   "one list: the creator's workspaces too, with a quiet chip \"Creator\" – the same order in both apps"],
+   "one list: the creator's workspaces too, with a quiet chip \"Creator\" – the same order in both apps", 'no Needs review box in the deck'],
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}
   ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
-  ${mk(1, 560, 30)}${mk(2, 146, 62)}${mk(3, 722, 298)}
-  ${qcard(1010, 120, "does the deck's switcher show a Needs review box?", ['yes – the box as in the creator', 'no – left out (drawn dashed)'], '', '18rem')}`);
+  ${mk(1, 560, 30)}${mk(2, 146, 62)}${mk(3, 722, 298)}${mk(4, 1000, 170)}`);
 add('D', 'D2', 'Scene: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build – today\'s name of the Scene workspace)',
   ['the shared bar (A1): the workspace row Scene · Rigging · Show – today\'s "Build" is named Scene', "Views: the ☰ menu's PANELS become Views (A2, B1)", DKKIT, 'the Library: the same panel as the creator\'s (C12)'],
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 170)}${mk(4, 396, 296)}`);

@@ -32,7 +32,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Settled for the run (2026-11-24):** the layer names stand; Search and dialogs sit on the overlay level; a disabled primary is the pressed fill, faded; the see-through grounds stand as redrawn; outlet colours are four (page · stage · target · device), on lane and column heads only.
 - **The tools do not flag what is missing.** The Library's "Blank – wanted", "Missing versions" and "Missing credits" go, in the design and in the code: a gap may be on purpose. (H17)
 
-**Open**
+**Open** – nothing.
 
 ## 3 · The shell
 - **The ☰ menu and the switcher are two things.** The menu holds your list: Views with Save workspace · Search · Settings · Docs · the build (version, account, load meters) · the edit language.
@@ -50,11 +50,11 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **A slot is an asset slot:** it takes a file (a picture, a video) from the Library, an upload, or a generator added from the Library. A shot in the Storyboard has one.
 - **The generator's canvas** is the one of 2026-11-22: a spore shows its result as its face, free items lie on it unwoven, a run yields takes and one is assigned to the slot; a spore's driver is Automatic or picked.
 - **The Storyboard's left panel is the Shots filmstrip** – the chapter's shots in order, by scene; the Timeline shows the picked shots back to back (STORYBOARD.md).
-- **No refresh buttons** (H19): the deck's Load goes. When a newer version of the open show exists, the deck says so and offers Reload, as the creator does.
+- **No refresh buttons** (H19): the deck's Load goes. When a newer version of the open show exists, the deck says so and offers Reload; the creator gets the same notice – new work in both apps.
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.
 - **Settled for the run (2026-11-24):** the switcher's content is at most 1160 px wide; its foot goes; the workspace tab has no menu of its own in this lap; the deck's switcher has no Needs review box; Help and Go to are in the ☰ menu; the Show's Flash, Scene and New show are dialogs on the overlay level – one-off tasks that end in a confirm or a save.
 
-**Open**
+**Open** – nothing.
 
 ## 4 · The two apps
 - **The creator becomes an Electron app in this lap** – a thin wrapper over the same code. The web version stays for now.

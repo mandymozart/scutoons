@@ -1,5 +1,5 @@
-<!-- status: draft for the owner's review, 2026-11-24; the deck side read and corrected by the deck orchestrator the same day (marked "deck:") – the plan of lap 2 (epic #626), creator and deck. Not agreed yet: no tickets are filed and no code is written from it until the owner has reviewed it. Decisions: DECISIONS.md. Screens: SCREENS.md. The owner's words: NOTES.md. -->
-# Lap 2 – the plan (draft)
+<!-- status: the plan of lap 2 (epic #626), creator and deck; the deck side read and corrected by the deck orchestrator (marked "deck:"). Released for the night run by the owner on 2026-11-24 ("create issues for the plan and than start with opus to run your night shift … we fix and refine it afterwards"); the tickets are in "The tickets". Decisions: DECISIONS.md. Screens: SCREENS.md. The owner's words: NOTES.md. -->
+# Lap 2 – the plan
 
 ## The goal
 One look and one shell for the creator and the deck, as decided on 2026-11-24: the approved kit everywhere, the same bar, menu and switcher in both apps, the two apps opening each other, and the Show's events picked at the row. A design and UX round.
@@ -11,7 +11,7 @@ One look and one shell for the creator and the deck, as decided on 2026-11-24: t
 - **Nothing a decision does not cover.** A package with an open point waits for your word or is cut from the run; no worker chooses for you.
 
 ## The packages
-Each becomes one or a few tickets once you agree. Sizes and costs are set with the tickets.
+Each is one or a few tickets – see "The tickets".
 
 ### P0 · The pictures (done 2026-11-24, no code)
 The set of SCREENS.md is redrawn in the approved kit with the day's decisions, each screen checked for leftover colours: draft.html `?s=<id>`, the shots in `shots/`.
@@ -29,7 +29,7 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 
 ### P2 · The shell
 - **The bar:** item tabs · workspace row with its ⌄ always · undo, redo, Publish, account, ☰ as icons.
-- **The ☰ menu:** Views with Save workspace · Search · Settings · Docs · the build · the edit language. Views with the four states for every view, only here.
+- **The ☰ menu:** Views with Save workspace · Search · Settings · Docs · Help · Go to · the build · the edit language. Views with the four states for every view, only here.
 - **The switcher:** over the blurred bar, stage and panels; no bar, no search field, no Views; a maximum width; one list for both apps in the same order.
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
 - **Sending out (H18):** Publish as a dialog on the overlay level (A10); Flash in the deck the same dialog, opened from the bar beside Publish, its button leaves the Show's Inspector (D3, D3b).
@@ -38,7 +38,7 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
 - **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
-- **The Show has three more sheets today** – Flash, Scene and New show (and "fires on", which P7 replaces). What each becomes is open.
+- **The Show's three more sheets** – Flash, Scene and New show – are dialogs on the overlay level (decided); "fires on" is replaced by P7.
 - **Fixes with it:** the workspace row that hides Map; Views reachable only from the dashboard.
 - **Done when:** A1–A9, B1, B4 and D1–D4 look and behave as drawn in both apps.
 
@@ -53,8 +53,8 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 - A card of the other app in the switcher opens it there.
 - "Edit in deck" / "Open in the deck" on assets, scenes, rigs and modules in the creator.
 - **Deck:** opens on the workspace and item it is handed; its own cards for the creator's workspaces.
-- **Deck: there is no installer for Windows or macOS today.** The deck is packaged for Arch only; the X1 runs the deck's own system image, which has no link handler. The link on Windows and macOS therefore needs installers first – a package of its own, or this package names only Arch. Open.
-- **"Open in the deck" on a machine without a deck** needs an answer (a download link?). Open.
+- **Deck: there is no installer for Windows or macOS today.** The deck is packaged for Arch only; the X1 runs the deck's own system image, which has no link handler. The link on Windows and macOS therefore needs installers first. Settled: Arch only in this lap.
+- **"Open in the deck" on a machine without a deck** (settled): the installed creator offers a download link; the web version just tries.
 - **Done when:** A3b and D8 work on one machine with both apps installed.
 
 ### P5 · The creator as an Electron app
@@ -104,7 +104,7 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 - **Deck:** the same Library, the same panel (decided). Deck: its Library already mixes things and files – one entry with a typed address, 13 kinds (Module, Instrument, Rig, Scene, Character, Item, Place, Image, Audio, Video, Model, Animation, File). What it needs:
   - **One source for both apps** – the main cost. Today each deck workspace assembles its own list. A server endpoint gives the Library of a toon, things and files, typed; both apps read it. Without it the deck would rebuild the creator's grouping a second time. The endpoint is the creator's and the server's to define; the deck's reader with an offline cache is medium.
   - **Stepping into a thing:** its entry is flat today; it needs levels and "used in". Personas and moods are known to the deck; "used in" for things has no endpoint yet. Medium.
-  - **New kinds:** Toon, Show, Generator, Kanon, Person – small each, but each needs a decision on what dropping it does and where it opens.
+  - **New kinds:** Toon, Show, Generator, Kanon, Person – small each. Settled: dropping one does nothing yet; each opens in its own workspace.
   - **Item subtypes** (recipes, products, editions, albums, home scenes): small once the endpoint delivers them typed.
   - **A video's frame** comes from P3's stills, not made per deck.
   - **Order:** after P3 and after the endpoint exists. Medium to large for the deck.
@@ -119,7 +119,7 @@ Drawn from today's page: C3, C3b, C3c, C3d.
 - **The Shots filmstrip** as the left panel (decided): the chapter's shots in order, by scene, each a frame in its own shape; picking as today; the Timeline shows the picked shots' clips back to back. Today the panel shows the toon's pages.
 - **The Handheld panel** as drawn (C3b): the code to scan and the waiting state, Disconnect · Recenter · Record, the conditions and the trim's sentence as hover text.
 - **The shot's asset slot** (decided, C3c): a picture or a video from the Library, an upload, or a generator added from the Library; with a generator in it, "Open" goes to its canvas.
-- **The generator's canvas** (C3d) as designed on 2026-11-22: faces, free items, takes to pick, the driver Automatic or picked. In lap 2 the creator has only the stub – is that enough for this lap?
+- **The generator's canvas** (C3d) as designed on 2026-11-22: faces, free items, takes to pick, the driver Automatic or picked. In lap 2 the creator has only the stub; the canvas is the deck's and comes with #764 (your word: not in this lap).
 - **Waits for your word:** the review's six open points in STORYBOARD.md – how a shot hands over to the chapter, the deck and XR.
 - **Not drawn:** the steps Script, Layout and Export, the Variants view, the 3D view of a handheld shot, the panel once a phone is connected.
 
@@ -136,6 +136,39 @@ Drawn from today's page: C3, C3b, C3c, C3d.
 4. **P3** and **P4**. **P11** follows P3: its tiles come from the stills, and both apps wait for its endpoint.
 5. **P5**, then **P6**.
 6. **P9** and **P10** once their open points are answered.
+
+## The tickets
+Filed 2026-11-24 on your word (*"create issues for the plan and than start with opus to run your night shift"*). One worker at a time; the creator's in this order, the deck's by the deck orchestrator.
+
+| # | Ticket | Package | Size | After |
+|---|---|---|---|---|
+| #852 | Kit: one source in `kit/` – tokens.toml, the generated web tokens, palette D | P1 | L | – |
+| #853 | Kit: the components in the approved look; no colour outside the tokens | P1 | L | #852 |
+| #854 | Kit: a kit page in the creator; the colour-blind mode as a setting | P1 | M | #853 |
+| #855 | Shell: the bar and the ☰ menu, the user menu, the translator's bar | P2 | L | #853 |
+| #856 | Shell: the overlay level – switcher, full panel, Search and dialogs over blur | P2 | L | #855 |
+| #857 | Publish: one bar icon with a dot and one dialog | P2 | M | #856 |
+| #858 | The Reload notice in the creator | P2 | M | – |
+| #842 | Thumbnails: full captures on the cards, stills for scenes, places and videos (built, held: rework) | P3 | L | #856 |
+| #859 | The apps open each other: the creator's side | P4 | M | #856 |
+| #860 | The creator as an Electron app | P5 | L | #859 · your word on the download |
+| #861 | Not twice: Import images, Bones and Clips, the Library's "To do", the Scenes Tree go | P6 | M | – |
+| #862 | The scene page as a preview with "Edit in deck"; media as previews | P6 | M | #842, #859 |
+| #863 | Bugs and wording: the Map's stage, the Storyboard's viewport ground, local styles, raw selects | P8 | M | #853 |
+| #864 | Library: one endpoint for a toon's things and files, typed | P11 | L | – |
+| #865 | Library: things beside files in the creator | P11 | L | #864, #842 |
+| #866 | Library: one picker; the five sheets go | P11 | L | #865 |
+| #867 | Trees without their top level; "cast in"; the cast edited in the toon's season | P11 | M | #865 |
+| #868 | Storyboard: the Shots filmstrip, the Handheld panel, the shot's asset slot | P12 | L | #853 |
+| #869 | Deck kit: deck-kit builds `kit/tokens.toml` in, palette D, the spores' look, the kit page | P1 | L | #852 |
+| #830 | Deck: the same bar, menu and switcher (continues from its branch) | P2 | L | #869 |
+| #870 | Deck: Flash in the bar with its dot and dialog, the Reload notice, New … from the ☰ | P2 | L | #830 |
+| #871 | Deck: the Show's events at the row | P7 | L | #869 |
+| #872 | Deck: a scene's still | P3 | M | #842 |
+| #873 | Deck: opens on the workspace and item it is handed | P4 | M | #830 |
+| #874 | Deck: the Library reads the shared endpoint | P11 | L | #864, #842 |
+
+For you to decide (not in the run): #875 the module editor (P9) · #876 the writing pages (P10) · #877 the Storyboard's open points (P12).
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -180,7 +213,7 @@ You approved these on 2026-11-24 ("yes, use them").
 |---|---|
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| STORYBOARD.md's six open points; whether the generator's canvas stays the stub in this lap | P12 |
+| STORYBOARD.md's open points | P12 |
 
 These do not block the run; their screens stay out of it:
 - Where the 2D-first / 3D-first preference sits (C4).
