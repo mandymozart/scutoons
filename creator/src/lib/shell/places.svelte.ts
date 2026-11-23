@@ -1,8 +1,10 @@
 import { entities, parseEntityKey, type ToonIndex } from '@scutoons/content';
-import { contentIndex } from '$lib/api.ts';
+import { contentIndex, experiencesApi } from '$lib/api.ts';
 import { CATALOG_LABELS, CATALOG_PAGE_KINDS } from '$lib/editor/catalog-docs.ts';
+import { experienceKey, experienceRows, titleIn, type ExperienceRow } from '$lib/editor/experiences.ts';
 import { fileLabel } from '$lib/labels.ts';
 import { m } from '$lib/paraglide/messages.js';
+import { getLocale } from '$lib/paraglide/runtime.js';
 import { shared } from '$lib/utils/shared.ts';
 import { AREAS, hrefOf, iconOf } from './address.ts';
 import { wordsIn } from './launcher.ts';
@@ -23,11 +25,14 @@ export interface Place {
 
 /**
  * What the existing APIs give to open: the areas (characters, the map, scenes, the flow, the catalog's
- * kinds, the guide) and every toon with its seasons and chapters (its content index, read once per toon on demand).
+ * kinds, the guide), every toon with its seasons and chapters (its content index, read once per toon on demand) and
+ * the XR experiences (read once, when first asked).
  */
 class Places {
 	parts = $state<Record<string, { seasons: number[]; chapters: number[] }>>({});
 	#asked = new Set<string>();
+	#xr = $state<ExperienceRow[]>([]);
+	#xrAsked = false;
 
 	load(toons: readonly ToonIndex[]) {
 		for (const t of toons) {
@@ -55,6 +60,21 @@ class Places {
 			...CATALOG_PAGE_KINDS.map((kind) => ({ ...area(`catalog:${kind}`, CATALOG_LABELS[kind](), `catalog katalog ${kind.replace('-', ' ')}`), hint: m['creator.catalog'](), group: 'catalog' as const })),
 			area(AREAS.guide, m['creator.style_guide'](), 'style guide design help')
 		];
+	}
+
+	/** the XR experiences, each its own place (the list is read on the first call) */
+	experiences(): Place[] {
+		if (!this.#xrAsked) {
+			this.#xrAsked = true;
+			experiencesApi
+				.list()
+				.then((r) => (this.#xr = experienceRows(r.entries, getLocale())))
+				.catch(() => (this.#xrAsked = false));
+		}
+		return this.#xr.map((r): Place => {
+			const address = experienceKey(r.id);
+			return { address, label: titleIn(r.title, getLocale(), r.id), hint: m['creator.experiences'](), href: hrefOf(address)!, icon: iconOf(address), keywords: `xr ${r.type} ${r.id}`, group: 'area' };
+		});
 	}
 
 	/** the toons' own places, the toon `first` first */

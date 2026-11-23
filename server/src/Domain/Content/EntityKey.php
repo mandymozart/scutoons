@@ -94,7 +94,7 @@ final class EntityKey
     public const KANON_SUBJECT_PATTERN = '#^(?:toon\.[a-z0-9_-]{1,64}|place\.[a-z0-9][a-z0-9_-]{0,63}|character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9-]{0,63}){0,2})$#';
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */
     public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions', 'home-scene' => 'home-scenes', 'airlift-carrier' => 'airlift-carriers',
-        'instrument' => 'instruments', 'preset' => 'presets', 'rig' => 'rigs', 'module' => 'modules', 'device-preset' => 'device-presets', 'rig-preset' => 'rig-presets'];
+        'instrument' => 'instruments', 'preset' => 'presets', 'rig' => 'rigs', 'module' => 'modules', 'device-preset' => 'device-presets', 'rig-preset' => 'rig-presets', 'experience' => 'experiences'];
     /**
      * a catalog document's id: the widest catalog id rule (CatalogValidator checks the kind's own rule on save) – dots
      * for presets (`cathedral_voice.bright`) and rigs (`rig:character.catpope`); one segment, so a key never reads two ways

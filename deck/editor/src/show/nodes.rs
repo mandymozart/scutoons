@@ -5,206 +5,77 @@
 //! (ctrl+G or Group), a note joins the focused node; groups, notes and folds are the row's (deck-show canvas.rs). A drag
 //! on the empty canvas selects by a box, a click on a wire pins its value (node_pick.rs). Pins are wired by dragging,
 //! wires cut, a node dropped on a wire (node_wire.rs). The painting is node_paint.rs.
-use super::node_card;
 use super::node_drop;
-use super::node_paint::{self, Cam, Frame, Reveal};
-use super::node_pick::{self, Boxing};
+use super::node_paint;
 use super::node_wire::{self, Hand};
 use super::roles::Typing;
 use super::{Hit, Host};
-use deck_kit::base::canvas::View;
 use deck_kit::base::draw::DrawList;
-use deck_kit::base::graph::{self, Direction, Graph, Metrics};
-use deck_kit::base::signal::Signal;
+use deck_kit::base::graph::Graph;
 use deck_kit::base::text::Field;
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::controls::{self, Rect};
+use deck_kit::editor::controls::Rect;
 use deck_show::canvas::{self, Edit, GROUP};
-use std::collections::BTreeMap;
+use deck_spores::input::{Event, Gesture, Key as SporeKey};
 use winit::keyboard::{Key, NamedKey};
 
-/// the direction, the canvas's size and the graph's extent a view was framed for
-type Framed = (Direction, (f32, f32), (f32, f32));
+/// the settings' switches, the frames of the groups: the Spores widget's
+pub use deck_spores::state::{Frames, Motion};
 
-/// a group's frame in the graph: its index in the row's canvas, its nodes
-pub type Frames = [(usize, Vec<usize>)];
+/// a press in the node view: the Spores widget's
+pub use deck_spores::Hit as NodeHit;
 
-/// the settings' switches the view follows (settings.rs; "reduce motion" turns the first three off)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Motion {
-    /// what runs on the wires: pulses, streams, idle wires faint
-    pub activity: bool,
-    /// the latent grid under what the pointer is on
-    pub reveal: bool,
-    /// the border flash and shimmer of a focused node
-    pub flash: bool,
-    /// a node's picture of the piece it plays
-    pub previews: bool,
-}
-
-impl Default for Motion {
-    fn default() -> Motion {
-        Motion { activity: true, reveal: true, flash: true, previews: false }
-    }
-}
-
-/// a press in the node view
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NodeHit {
-    /// the empty canvas: the selection goes
-    Canvas,
-    /// a node drawn (its index in the graph shown), alone or added
-    Node(usize),
-    NodeAlso(usize),
-    /// a node's fold
-    Fold(usize),
-    /// the head's buttons: the selection grouped, a note added
-    Group,
-    Note,
-    /// a group's label, swatch and fold (its index in the row's canvas)
-    GroupName(usize),
-    GroupColour(usize),
-    GroupFold(usize),
-    /// a note (its index in the row's canvas)
-    NoteText(usize),
-    /// a pin of a node drawn: the node, whether an outlet, which of them
-    Pin(usize, bool, usize),
-}
-
-/// the view's state: its zoom and pan (kept while the editor runs), the direction, the drag in the hand, what is
-/// selected and focused, the reveals fading
+/// the view's state: the Spores widget's (zoom and pan, selection, focus, what was drawn), and what the show's hand
+/// holds – a wire, a cut or a node (node_wire.rs)
 #[derive(Debug, Clone, Default)]
 pub struct NodeView {
-    pub view: View,
-    pub direction: Direction,
-    /// framed for this direction, canvas size and graph extent: a new direction frames again, so does a new size or
-    /// graph (another row) until the view is zoomed or panned by hand
-    framed: Option<Framed>,
-    touched: bool,
-    /// the canvas drawn last, on screen; whether it was drawn this frame
-    pub(super) canvas: Rect,
-    pub(super) shown: bool,
-    bounds: Rect,
-    grab: Option<(f32, f32)>,
-    /// space is held: a left drag pans
-    pub space: bool,
-    /// shift is held (Tab goes back)
-    pub shift: bool,
-    /// a check run's zoom, round the canvas's middle whenever it frames itself
-    pub zoom_once: Option<f32>,
-    /// the selected nodes and the focused one, by id
-    pub selected: Vec<String>,
-    pub focus: Option<String>,
-    /// the node that flashed, and when (secs)
-    pub(super) flash: Option<(String, f32)>,
-    /// what the pointer is on (`node:<id>`, `group:<id>`, `wire:<n>`) and the reveals fading in and out
-    pub hover: Option<String>,
-    reveals: Vec<Reveal>,
-    /// the pointer as the latent grid follows it, slowly (canvas)
-    pub(super) blob: Option<(f32, f32)>,
-    /// the editor's clock, secs, and the settings' switches (main.rs sets them each frame)
-    pub secs: f32,
-    pub motion: Motion,
-    /// the pictures of the pieces the nodes play, by key, and the keys the last frame drew
-    pub pictures: BTreeMap<String, u64>,
-    pub wanted: Vec<String>,
-    /// the nodes drawn last: id and place on the canvas, in the graph's order; Tab's order through them; their tones
-    pub(super) drawn: Vec<(String, Rect)>,
-    pub(super) order: Vec<usize>,
-    pub(super) tones: Vec<f32>,
-    /// the wires drawn last, by link: the key a pin keeps (None: no value to pin) and the middle on screen
-    pub(super) wire_keys: Vec<Option<String>>,
-    pub(super) wire_mids: Vec<Option<(f32, f32)>>,
-    /// where the pinned values' tags were drawn last: the link and the tag's rect on screen
-    pub(super) pin_tags: Vec<(usize, Rect)>,
-    /// the wires whose value stays shown, by key
-    pub pinned: Vec<String>,
-    /// the box being drawn
-    pub boxing: Option<Boxing>,
-    /// the tone asked for (Hz), until main.rs takes it
-    pub(super) tone: Option<f32>,
-    /// the graph drawn last, where its open nodes' pins are pressed and its wires hang, on screen
-    pub(super) graph: Graph,
-    pub(super) pins: Vec<(deck_show::wire_ops::At, Rect)>,
-    pub(super) wires: Vec<(usize, deck_kit::base::wire::Wire)>,
-    /// a wire, a cut or a node in the hand (node_wire.rs)
+    pub state: deck_spores::State,
     pub hand: Option<Hand>,
 }
 
-/// how long a reveal fades in and out, the flash and its shimmer, secs
-pub const FADE_IN: f32 = 0.35;
-pub const FADE_OUT: f32 = 1.1;
-pub const FLASH: f32 = 0.6;
-
-impl NodeView {
-    fn frame(&mut self) {
-        self.frame_on(self.bounds);
-    }
-
-    fn frame_on(&mut self, r: Rect) {
-        self.view = View::framing(r, (self.canvas.w, self.canvas.h), self.canvas.w.min(self.canvas.h) * 0.06);
-    }
-
-    fn over(&self, x: f32, y: f32) -> bool {
-        self.canvas.w > 0.0 && self.canvas.has(x, y)
-    }
-
-    fn local(&self, x: f32, y: f32) -> (f32, f32) {
-        (x - self.canvas.x, y - self.canvas.y)
-    }
-
-    fn id(&self, i: usize) -> Option<String> {
-        self.drawn.get(i).map(|(id, _)| id.clone())
-    }
-
-    /// `id` alone selected and focused, flashing
-    fn focus_on(&mut self, id: String) {
-        self.selected = vec![id.clone()];
-        self.flash = Some((id.clone(), self.secs));
-        self.ask_tone(&id);
-        self.focus = Some(id);
-    }
-
-    /// the flash's age, while it runs
-    pub fn flashing(&self, id: &str) -> Option<f32> {
-        let (f, at) = self.flash.as_ref()?;
-        let age = self.secs - at;
-        (self.motion.flash && f == id && (0.0..FLASH).contains(&age)).then_some(age / FLASH)
+impl std::ops::Deref for NodeView {
+    type Target = deck_spores::State;
+    fn deref(&self) -> &deck_spores::State {
+        &self.state
     }
 }
 
+impl std::ops::DerefMut for NodeView {
+    fn deref_mut(&mut self) -> &mut deck_spores::State {
+        &mut self.state
+    }
+}
+
+/// a row's canvas as the Spores widget paints it (the spore contract's shape; deck-show keeps its own on the row)
+fn spore_canvas(c: &canvas::Canvas) -> protocol::spore_network::Canvas {
+    use protocol::spore_network as sp;
+    sp::Canvas {
+        groups: Some(c.groups.iter().map(|g| sp::Group { id: g.id.clone(), label: g.label.clone(), colour: Some(g.colour.clone()), spores: g.nodes.clone(), folded: Some(g.folded) }).collect()),
+        notes: Some(c.notes.iter().map(|n| sp::Note { id: n.id.clone(), text: n.text.clone(), author: Some(n.author.clone()), near: n.node.clone() }).collect()),
+        folded: Some(c.folded.iter().map(|(k, v)| (k.clone(), *v)).collect()),
+        placed: None,
+    }
+}
+
+
 impl Host {
+    /// the view may take input: drawn in 2D, no sheet over it
+    fn nodes_free(&self) -> bool {
+        self.two_d && self.sheet.is_none()
+    }
+
     /// the wheel over the canvas: a notch (or a pinch) zooms round the pointer, a touchpad's two fingers pan
-    pub fn nodes_wheel(&mut self, (x, y): (f32, f32), (dx, dy): (f32, f32), fingers: bool, pinch: bool) -> bool {
-        let n = &mut self.nodes;
-        if !self.two_d || self.sheet.is_some() || !n.over(x, y) {
-            return false;
-        }
-        n.touched = true;
-        match fingers && !pinch {
-            true => n.view.pan_by((dx * 40.0, dy * 40.0)),
-            false => n.view.zoom_at(n.local(x, y), dy),
-        }
-        true
+    pub fn nodes_wheel(&mut self, at: (f32, f32), delta: (f32, f32), fingers: bool, pinch: bool) -> bool {
+        self.nodes_free() && self.nodes.handle(Event::Wheel { at, delta, fingers, pinch }).0
     }
 
     /// a press that pans (the middle button, or the left with space held) taken on the canvas
     pub fn nodes_grab(&mut self, x: f32, y: f32) -> bool {
-        let n = &mut self.nodes;
-        if !self.two_d || self.sheet.is_some() || !n.over(x, y) {
-            return false;
-        }
-        n.grab = Some((x, y));
-        n.touched = true;
-        true
+        self.nodes_free() && self.nodes.handle(Event::Grab { at: (x, y) }).0
     }
 
     pub(super) fn nodes_drag(&mut self, x: f32, y: f32) {
-        if let Some((gx, gy)) = self.nodes.grab {
-            self.nodes.view.pan_by((x - gx, y - gy));
-            self.nodes.grab = Some((x, y));
-        }
-        self.nodes.box_move((x, y));
+        self.nodes.handle(Event::Drag { at: (x, y) });
         self.hand_move((x, y));
     }
 
@@ -215,135 +86,85 @@ impl Host {
             return std::mem::take(&mut self.nodes.space);
         }
         let free = self.typing.is_none() && self.context.is_none() && self.flashing.is_none() && self.asking.is_none();
-        self.nodes.space = free && self.two_d && self.sheet.is_none() && self.nodes.over(x, y);
-        self.nodes.space
+        let take = free && self.nodes_free() && self.nodes.over(x, y);
+        self.nodes.handle(Event::Space(take)).0
     }
 
     pub(super) fn nodes_release(&mut self) {
-        self.nodes.grab = None;
-        self.nodes.box_end();
+        self.nodes.handle(Event::Release);
         self.hand_release();
     }
 
     /// F over the canvas frames the selected nodes, or everything when none is
     pub(super) fn nodes_frame(&mut self) -> bool {
-        let (x, y) = self.cursor;
-        if !self.two_d || self.sheet.is_some() || !self.nodes.over(x, y) {
-            return false;
-        }
-        let n = &mut self.nodes;
-        let picked: Vec<Rect> = n.drawn.iter().filter(|(id, _)| n.selected.contains(id)).map(|(_, r)| *r).collect();
-        match picked.is_empty() {
-            true => n.frame(),
-            false => n.frame_on(graph::bounds_of(picked)),
-        }
-        n.touched = true;
-        true
+        self.nodes_free() && self.nodes.handle(Event::Key { key: SporeKey::Frame, at: self.cursor }).0
     }
 
     /// The view's keys while it is drawn and nothing is typed: Tab (shift: back) moves the focus through the nodes,
     /// Escape lets the selection go; over the canvas ctrl+G groups the selection. True = taken.
     pub(super) fn nodes_key(&mut self, key: &Key, ctrl: bool) -> bool {
-        if !self.nodes.shown || !self.two_d || self.sheet.is_some() || self.typing.is_some() || self.context.is_some() {
+        if !self.nodes.shown || !self.nodes_free() || self.typing.is_some() || self.context.is_some() {
             return false;
         }
-        let (x, y) = self.cursor;
-        let n = &mut self.nodes;
-        match key {
-            Key::Named(NamedKey::Tab) if !n.order.is_empty() => {
-                let len = n.order.len();
-                let at = n.focus.as_ref().and_then(|f| n.order.iter().position(|&i| n.drawn.get(i).is_some_and(|(id, _)| id == f)));
-                let next = match (at, n.shift) {
-                    (None, false) => 0,
-                    (None, true) => len - 1,
-                    (Some(k), false) => (k + 1) % len,
-                    (Some(k), true) => (k + len - 1) % len,
-                };
-                if let Some(id) = n.id(n.order[next]) {
-                    n.focus_on(id);
-                }
-                true
-            }
-            Key::Named(NamedKey::Escape) if !n.selected.is_empty() => {
-                n.selected.clear();
-                n.focus = None;
-                true
-            }
-            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") && !n.selected.is_empty() && n.over(x, y) => {
-                self.nodes_hit(NodeHit::Group);
-                true
-            }
-            _ => false,
+        let key = match key {
+            Key::Named(NamedKey::Tab) => SporeKey::Tab,
+            Key::Named(NamedKey::Escape) => SporeKey::Escape,
+            Key::Character(c) if ctrl && c.eq_ignore_ascii_case("g") => SporeKey::Group,
+            _ => return false,
+        };
+        let (took, gesture) = self.nodes.handle(Event::Key { key, at: self.cursor });
+        if let Some(g) = gesture {
+            self.nodes_gesture(g);
         }
+        took
     }
 
     pub(super) fn nodes_press(&mut self, hit: Hit) {
-        match hit {
-            Hit::NodeFlow(d) => self.nodes.direction = d,
-            Hit::NodeFrame => self.nodes.frame(),
-            Hit::Nodes(h) => self.nodes_hit(h),
-            _ => {}
+        if let Hit::Nodes(h) = hit {
+            self.nodes_hit(h);
         }
     }
 
     fn nodes_hit(&mut self, h: NodeHit) {
+        let (_, gesture) = self.nodes.handle(Event::Press { hit: h, at: self.cursor });
+        if let Some(g) = gesture {
+            self.nodes_gesture(g);
+        }
+    }
+
+    /// what the widget hands back, done to the row: its canvas through the core, the hand, the typing
+    fn nodes_gesture(&mut self, g: Gesture) {
         let c = self.shown().rows.get(self.row).map(|r| r.nodes.clone()).unwrap_or_default();
-        let cursor = self.cursor;
-        let n = &mut self.nodes;
-        match h {
-            NodeHit::Canvas => n.box_start(cursor),
-            NodeHit::Node(i) => {
-                if let Some(id) = n.id(i) {
-                    n.hand = Some(Hand::Node { node: id.clone(), from: cursor });
-                    n.focus_on(id);
-                }
+        match g {
+            Gesture::TakeSpore { id, from } => self.nodes.hand = Some(Hand::Node { node: id, from }),
+            Gesture::TakePin(at) => self.pin_press(at),
+            Gesture::Fold(node) => {
+                self.edit_canvas(&Edit::Fold { node });
             }
-            NodeHit::Pin(i, out, k) => self.pin_press((i, out, k)),
-            NodeHit::NodeAlso(i) => {
-                let Some(id) = n.id(i) else { return };
-                match n.selected.iter().position(|s| *s == id) {
-                    Some(k) => {
-                        n.selected.remove(k);
-                    }
-                    None => {
-                        n.selected.push(id.clone());
-                        n.flash = Some((id.clone(), n.secs));
-                        n.ask_tone(&id);
-                        n.focus = Some(id);
-                    }
-                }
-            }
-            NodeHit::Fold(i) => {
-                if let Some(node) = n.id(i) {
-                    self.edit_canvas(&Edit::Fold { node });
-                }
-            }
-            NodeHit::Group => {
-                let nodes: Vec<String> = n.selected.iter().filter(|s| !s.starts_with(GROUP)).cloned().collect();
+            Gesture::Group(nodes) => {
                 self.edit_canvas(&Edit::Group { nodes });
             }
-            NodeHit::Note => {
-                let node = n.focus.clone().or_else(|| n.selected.first().cloned()).filter(|s| !s.starts_with(GROUP));
+            Gesture::Note(node) => {
                 let author = self.api.who();
                 if self.edit_canvas(&Edit::Note { node, author }) {
                     let id = self.shown().rows.get(self.row).and_then(|r| r.nodes.notes.last()).map(|x| x.id.clone());
                     self.typing = id.map(|id| (Typing::Note(id), Field::with("")));
                 }
             }
-            NodeHit::GroupName(k) => {
+            Gesture::RenameGroup(k) => {
                 self.typing = c.groups.get(k).map(|g| (Typing::NodeGroup(g.id.clone()), Field::with(&g.label)));
             }
-            NodeHit::GroupColour(k) => {
+            Gesture::RecolourGroup(k) => {
                 if let Some(g) = c.groups.get(k) {
                     self.edit_canvas(&Edit::GroupColour { group: g.id.clone() });
                 }
             }
-            NodeHit::GroupFold(k) => {
+            Gesture::FoldGroup(k) => {
                 if let Some(g) = c.groups.get(k) {
                     self.edit_canvas(&Edit::Fold { node: format!("{GROUP}{}", g.id) });
                 }
             }
-            NodeHit::NoteText(k) => {
+            Gesture::EditNote(k) => {
                 self.typing = c.notes.get(k).map(|x| (Typing::Note(x.id.clone()), Field::with(&x.text)));
             }
         }
@@ -380,160 +201,32 @@ impl Host {
     }
 }
 
-/// The view in `a` (the panel's content): the head with the direction, framing, the zoom, Group and Note and the legend;
-/// the canvas under it with the row's groups, wires, nodes and notes.
+/// The view in `a` (the panel's content): the Spores widget's head and canvas (deck-spores view.rs) over the row's
+/// graph and canvas, the show's hand and drops over it, a group's label while it is typed.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (g, frames): (&Graph, &Frames), a: Rect) {
     let (pad, small) = (t.size.pad, t.size.small);
     let head = t.size.row;
-    let dir = host.nodes.direction;
-    let names = [Direction::Lr.word(), Direction::Tb.word()];
-    let pills = controls::pills(d, t, a.x, a.y + 2.0, head - 8.0, &names, if dir == Direction::Lr { 0 } else { 1 });
-    for (r, dir) in pills.iter().zip([Direction::Lr, Direction::Tb]) {
-        host.hits.push((*r, Hit::NodeFlow(dir)));
+    for (r, hit) in deck_spores::view::head(d, t, &host.nodes, g, a) {
+        host.hits.push((r, Hit::Nodes(hit)));
     }
-    let mut x = pills.last().map_or(a.x, |r| r.x + r.w) + pad;
-    let mut buttons: Vec<(&str, Hit)> = vec![("Fit", Hit::NodeFrame)];
-    if !host.nodes.selected.is_empty() {
-        buttons.push(("Group", Hit::Nodes(NodeHit::Group)));
-    }
-    buttons.push(("Note", Hit::Nodes(NodeHit::Note)));
-    for (word, hit) in buttons {
-        let r = controls::pills(d, t, x, a.y + 2.0, head - 8.0, &[word], usize::MAX)[0];
-        host.hits.push((r, hit));
-        x = r.x + r.w + pad * 0.5;
-    }
-    x += pad * 0.5;
-    x += d.text(x, a.y + (head - small * 1.25) * 0.5 - 2.0, small, &format!("{:.0} %", host.nodes.view.zoom * 100.0), t.color.muted) + 2.0 * pad;
-    let mut used: Vec<Signal> = g.nodes.iter().flat_map(|n| n.ins.iter().chain(&n.outs)).map(|p| p.signal).collect();
-    used.sort();
-    used.dedup();
-    let r = small * 0.45;
-    for s in used {
-        let w = d.advance(small) * s.word().chars().count() as f32;
-        if x + 3.0 * r + w > a.x + a.w {
-            break;
-        }
-        d.pin((x + r, a.y + head * 0.5 - 2.0), r, (s.shape(), (1.0, 0.0)), t.color.signals.of(s), t.color.surface);
-        x += 2.0 * r + pad * 0.5;
-        x += d.text(x, a.y + (head - small * 1.25) * 0.5 - 2.0, small, s.word(), t.color.muted) + pad * 1.5;
-    }
-
     let canvas = Rect { x: a.x, y: a.y + head, w: a.w, h: (a.h - head).max(0.0) };
-    let unit = t.size.rem(1.0);
-    let previews = host.nodes.motion.previews;
-    let metrics = Metrics { preview: if previews { 5.0 * unit } else { 0.0 }, ..Metrics::of(unit) };
-    let placed = graph::layout(g, dir, &metrics);
     let doc = host.shown().rows.get(host.row).map(|r| r.nodes.clone()).unwrap_or_default();
-    let typing = host.typing.clone();
-    let cursor = host.cursor;
-    let n = &mut host.nodes;
-    n.shown = true;
-    n.canvas = canvas;
-    n.bounds = graph::bounds(&placed);
-    n.drawn = g.nodes.iter().zip(&placed).map(|(x, p)| (x.id.clone(), p.rect)).collect();
-    n.order = graph::order(&placed, dir);
-    n.tones = g.nodes.iter().map(deck_show::focus::tone).collect();
-    n.wanted = g.nodes.iter().filter_map(|x| x.picture.clone()).collect();
-    let size = (canvas.w, canvas.h);
-    let extent = (n.bounds.w, n.bounds.h);
-    let new_dir = n.framed.map(|f| f.0) != Some(dir);
-    if new_dir || (n.framed != Some((dir, size, extent)) && !n.touched) {
-        n.frame();
-        n.framed = Some((dir, size, extent));
-        n.touched &= !new_dir;
-        if let Some(z) = n.zoom_once {
-            n.view.zoom_to((canvas.w * 0.5, canvas.h * 0.5), z);
-        }
-    }
-    d.rect(canvas.x, canvas.y, canvas.w, 1.0, t.color.line);
-    host.hits.push((canvas, Hit::Nodes(NodeHit::Canvas)));
-    let cam = Cam { at: (canvas.x, canvas.y), view: n.view, unit, dir };
-    let frames: Vec<Frame> = frames.iter().filter_map(|(k, members)| node_paint::frame_of(&doc, *k, members, g, &placed, &cam)).collect();
-    let wires = node_paint::wires(g, &placed, &cam);
-    n.graph = g.clone();
-    n.wires.clone_from(&wires);
-    n.pins = node_wire::pins(g, &placed, &cam, canvas, (t.size.rem(0.64) * cam.view.zoom).max(8.0));
-    n.wire_keys = (0..g.links.len()).map(|i| node_pick::wire_key(g, i)).collect();
-    n.wire_mids = vec![None; g.links.len()];
-    for (i, w) in &wires {
-        n.wire_mids[*i] = Some(w.at(0.5));
-    }
-    // what the pointer is on: a node, else a wire, else a group's frame
-    let over = n.over(cursor.0, cursor.1);
-    let hover = over
-        .then(|| {
-            let node = placed.iter().zip(&g.nodes).rev().find(|(p, _)| cam.rect(p.rect).has(cursor.0, cursor.1)).map(|(_, x)| (format!("node:{}", x.id), node_paint::main_colour(t, x)));
-            let wire = || wires.iter().find(|(_, w)| deck_kit::base::canvas::to_line(&w.points(), cursor) < 5.0).map(|(i, _)| (format!("wire:{i}"), t.color.signals.of(g.links[*i].signal)));
-            let group = || frames.iter().find(|f| f.rect.has(cursor.0, cursor.1)).map(|f| (format!("group:{}", f.id), f.colour));
-            node.or_else(wire).or_else(group)
-        })
-        .flatten();
-    n.hover = hover.as_ref().map(|(k, _)| k.clone());
-    let world = cam.view.to_world((cursor.0 - canvas.x, cursor.1 - canvas.y));
-    n.blob = Some(n.blob.map_or(world, |b| (b.0 + (world.0 - b.0) * 0.12, b.1 + (world.1 - b.1) * 0.12)));
-    let (on, now) = (n.motion.reveal, n.secs);    node_paint::follow(&mut n.reveals, hover.filter(|_| on), now);
-    let n = host.nodes.clone();
+    let spores = spore_canvas(&doc);
+    let (typing, cursor, flow) = (host.typing.clone(), host.cursor, host.flow);
+    let laid = deck_spores::view::lay(t, &mut host.nodes, (g, frames, &spores), cursor, canvas);
     let (lifted, marked) = node_wire::marks(host);
-
-    d.clip(Some(canvas));
-    for f in &frames {
-        node_paint::ground(d, t, f, &cam, canvas);
-    }
-    for r in &n.reveals {
-        node_paint::reveal(d, r, (&n, &cam, canvas), (&frames, &wires, g, &placed));
-    }
-    let pinned = |i: usize| n.wire_keys.get(i).cloned().flatten().is_some_and(|k| n.pinned.contains(&k));
-    for (i, w) in wires.iter().filter(|(i, _)| Some(*i) != lifted) {
-        let l = &g.links[*i];
-        node_paint::wire(d, t, (l, w), (&cam, n.motion.activity, host.flow), n.hover.as_deref() == Some(&format!("wire:{i}")) || pinned(*i) || marked.contains(i));
-    }
-    for (i, (node, p)) in g.nodes.iter().zip(&placed).enumerate() {
-        let tint = node.id.strip_prefix(GROUP).and_then(|id| doc.group(id)).and_then(|grp| deck_kit::editor::colour::rgb(&grp.colour));
-        let r = node_card::card(d, t, (node, p, tint), &cam, &n);
-        host.hits.push((r.body, Hit::Nodes(NodeHit::Node(i))));
-        if let Some(f) = r.fold {
-            host.hits.push((f, Hit::Nodes(NodeHit::Fold(i))));
-        }
-    }
-    for ((i, out, k), r) in &n.pins {
-        host.hits.push((*r, Hit::Nodes(NodeHit::Pin(*i, *out, *k))));
-    }
-    for f in &frames {
-        for (r, hit) in node_paint::label(d, t, f, &cam) {
-            host.hits.push((r, Hit::Nodes(hit)));
-        }
-    }
     let editing = |id: &str| match &typing {
         Some((Typing::Note(x), field)) if x == id => Some(field.text.clone()),
         _ => None,
     };
-    let notes = node_paint::notes(d, t, (&doc, &n.drawn, n.bounds), &cam, &editing);
-    for (k, r) in notes {
-        host.hits.push((r, Hit::Nodes(NodeHit::NoteText(k))));
-    }
-    let cards: Vec<Rect> = placed.iter().map(|p| cam.rect(p.rect)).collect();
-    let mut tags = Vec::new();
-    for (i, w) in wires.iter().filter(|(i, _)| pinned(*i)) {
-        let l = &g.links[*i];
-        let size = node_paint::tag_size(d, t, l.value.as_deref().unwrap_or(""));
-        let r = graph::tag_spot(w, size, &cards, dir, t.size.pad * 0.5);
-        node_paint::pin_tag(d, t, l, r);
-        tags.push((*i, r));
-    }
-    host.nodes.pin_tags = tags;
-    if let Some(i) = n.hover.as_deref().and_then(|h| h.strip_prefix("wire:")).and_then(|i| i.parse::<usize>().ok()).filter(|&i| !pinned(i)) {
-        if let Some(l) = g.links.get(i) {
-            node_paint::value_label(d, t, l, cursor);
-        }
-    }
-    if let Some(b) = &n.boxing {
-        node_pick::draw_box(d, t, b);
-    }
-    node_wire::draw(d, t, host, &cam, canvas);
+    let lent = deck_spores::view::Lent { flow, lifted, marked: &marked, editing: &editing };
+    let hits = deck_spores::view::paint(d, t, &mut host.nodes, (g, &laid, &spores), lent, cursor);
+    host.hits.extend(hits.into_iter().map(|(r, h)| (r, Hit::Nodes(h))));
+    node_wire::draw(d, t, host, &laid.cam, canvas);
     node_drop::draw(d, t, host, canvas);
     d.clip(None);
     if let Some((Typing::NodeGroup(id), field)) = &typing {
-        if let Some(f) = frames.iter().find(|f| f.id == *id) {
+        if let Some(f) = laid.frames.iter().find(|f| f.id == *id) {
             node_paint::typed_label(d, t, f, &field.text);
         }
     }
@@ -548,6 +241,8 @@ mod tests {
     use super::super::rows::tests::{host_with, H, W};
     use super::*;
     use deck_kit::base::draw::Prim;
+    use deck_kit::base::graph::Direction;
+    use deck_spores::{FADE_IN, FADE_OUT};
     use deck_kit::base::tokens::Theme;
 
     const TOY: &str = include_str!("../../../show/fixtures/top-toy.show.json");
@@ -598,7 +293,7 @@ mod tests {
         host.nodes.pinned = host.nodes.wire_keys.iter().flatten().cloned().collect();
         assert!(!host.nodes.pinned.is_empty(), "wires with values");
         for dir in [Direction::Lr, Direction::Tb] {
-            host.press(Hit::NodeFlow(dir));
+            host.press(Hit::Nodes(NodeHit::Flow(dir)));
             frame(&mut host);
             assert_eq!(host.nodes.direction, dir);
             assert_eq!(host.nodes.pin_tags.len(), host.nodes.pinned.len(), "{dir:?}: every pin drawn");
@@ -617,8 +312,8 @@ mod tests {
         let mut host = toy();
         frame(&mut host);
         let lr = host.nodes.bounds;
-        assert!(host.hits.iter().any(|(r, h)| *h == Hit::NodeFlow(Direction::Tb) && r.w > 0.0), "the TB pill");
-        host.press(Hit::NodeFlow(Direction::Tb));
+        assert!(host.hits.iter().any(|(r, h)| *h == Hit::Nodes(NodeHit::Flow(Direction::Tb)) && r.w > 0.0), "the TB pill");
+        host.press(Hit::Nodes(NodeHit::Flow(Direction::Tb)));
         frame(&mut host);
         assert_eq!(host.nodes.direction, Direction::Tb);
         assert_ne!(host.nodes.bounds, lr, "laid out again");

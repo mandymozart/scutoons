@@ -1,0 +1,828 @@
+{
+	"description": "Weaves every language reads (#763, the [contract] mechanism 'shared test vectors'): the Rust types deserialize and re-serialize each one unchanged, the TS types take them as written. One per scope as the projectors arrive; each is the drafts' example (agents/research/redesign/network.html).",
+	"weaves": [
+		{
+			"scope": "story",
+			"context": "chapter:sandbox/1/2",
+			"levels": [
+				{
+					"address": "network",
+					"label": "Universe"
+				},
+				{
+					"address": "toon:sandbox",
+					"label": "sandbox"
+				},
+				{
+					"address": "season:sandbox/1",
+					"label": "Season 1"
+				},
+				{
+					"address": "chapter:sandbox/1/2",
+					"label": "Chapter 2 · Dunes"
+				}
+			],
+			"spores": [
+				{
+					"id": "g3",
+					"kind": "group",
+					"family": "container",
+					"label": "Dig or wait?",
+					"detail": "choice",
+					"address": "chapter:sandbox/1/2/g3",
+					"driver": "reader",
+					"enter": "chapter:sandbox/1/2/g3",
+					"ports": [
+						{
+							"id": "enter",
+							"label": "enter",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "dig",
+							"label": "dig",
+							"signal": "event",
+							"dir": "out"
+						},
+						{
+							"id": "wait",
+							"label": "wait",
+							"signal": "event",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "g5",
+					"kind": "group",
+					"family": "container",
+					"label": "Storm",
+					"address": "chapter:sandbox/1/2/g5",
+					"driver": "reader",
+					"enter": "chapter:sandbox/1/2/g5",
+					"ports": [
+						{
+							"id": "enter",
+							"label": "enter",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "storm",
+							"label": "fires storm",
+							"signal": "event",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "far-show",
+					"kind": "stub",
+					"family": "far",
+					"label": "show Sandbox demo · row 4",
+					"address": "show:sandbox-demo/row/4",
+					"driver": "conductor",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "far",
+							"dir": "in"
+						}
+					]
+				}
+			],
+			"threads": [
+				{
+					"id": "e1",
+					"from": {
+						"spore": "g3",
+						"port": "wait"
+					},
+					"to": {
+						"spore": "g5",
+						"port": "enter"
+					},
+					"signal": "event",
+					"label": "wait",
+					"home": {
+						"doc": "chapter:sandbox/1/2",
+						"path": "/groups/2/events/4/options/1/target"
+					}
+				},
+				{
+					"id": "e2",
+					"from": {
+						"spore": "g5",
+						"port": "storm"
+					},
+					"to": {
+						"spore": "far-show",
+						"port": "in"
+					},
+					"signal": "event",
+					"label": "storm",
+					"crosses": "relay"
+				}
+			],
+			"stubs": [
+				{
+					"thread": "e2",
+					"side": "out",
+					"far": "show:sandbox-demo/row/4",
+					"label": "→ show Sandbox demo · row 4 fires"
+				}
+			],
+			"problems": [
+				{
+					"at": "g5",
+					"severity": "warning",
+					"text": "water is read before it is set on one path"
+				}
+			]
+		},
+		{
+			"scope": "rig",
+			"context": "rig:crow",
+			"levels": [
+				{
+					"address": "network",
+					"label": "Universe"
+				},
+				{
+					"address": "rig:crow",
+					"label": "rig crow"
+				}
+			],
+			"spores": [
+				{
+					"id": "midi",
+					"kind": "midi",
+					"family": "world",
+					"label": "MIDI · X1",
+					"address": "midi:x1",
+					"driver": "deck",
+					"picture": "asset:x1-photo",
+					"ports": [
+						{
+							"id": "note",
+							"label": "midi.note",
+							"signal": "event",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "voice_osc",
+					"kind": "module:osc",
+					"family": "sound",
+					"label": "osc",
+					"address": "rig:crow/voice:osc",
+					"driver": "deck",
+					"ports": [
+						{
+							"id": "note",
+							"label": "note",
+							"signal": "event",
+							"dir": "in"
+						},
+						{
+							"id": "pitch",
+							"label": "pitch",
+							"signal": "control",
+							"dir": "in",
+							"hidden": true
+						},
+						{
+							"id": "out",
+							"label": "out",
+							"signal": "audio",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "voice_sum",
+					"kind": "sum",
+					"family": "sound",
+					"label": "sum",
+					"detail": "folder bus",
+					"address": "rig:crow/voice:sum",
+					"driver": "deck",
+					"ports": [
+						{
+							"id": "in",
+							"label": "in",
+							"signal": "audio",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "out",
+							"label": "being",
+							"signal": "audio",
+							"dir": "out",
+							"matter": "organic"
+						}
+					]
+				}
+			],
+			"threads": [
+				{
+					"id": "w1",
+					"from": {
+						"spore": "midi",
+						"port": "note"
+					},
+					"to": {
+						"spore": "voice_osc",
+						"port": "note"
+					},
+					"signal": "event",
+					"home": {
+						"doc": "rig:crow",
+						"path": "/routes/0"
+					}
+				},
+				{
+					"id": "w2",
+					"from": {
+						"spore": "voice_osc",
+						"port": "out"
+					},
+					"to": {
+						"spore": "voice_sum",
+						"port": "in"
+					},
+					"signal": "audio",
+					"home": {
+						"doc": "instrument:crow-voice",
+						"path": "/links/0"
+					}
+				}
+			],
+			"stubs": [],
+			"problems": [],
+			"canvas": {
+				"groups": [
+					{
+						"id": "voice",
+						"label": "voice",
+						"colour": "#19b8d8",
+						"spores": [
+							"voice_osc",
+							"voice_sum"
+						],
+						"folded": false
+					}
+				],
+				"notes": [
+					{
+						"id": "n1",
+						"text": "a minor third above crow 1",
+						"near": "voice_osc",
+						"author": "Tilman"
+					}
+				],
+				"folded": {
+					"voice_sum": false
+				},
+				"placed": {
+					"midi": {
+						"x": 0.5,
+						"y": 4.5
+					}
+				}
+			}
+		},
+		{
+			"scope": "network",
+			"context": "network",
+			"levels": [
+				{
+					"address": "network",
+					"label": "Universe"
+				}
+			],
+			"spores": [
+				{
+					"id": "sandbox",
+					"kind": "toon",
+					"family": "container",
+					"label": "Sandbox",
+					"address": "toon:sandbox",
+					"driver": "reader",
+					"enter": "toon:sandbox",
+					"ports": [
+						{
+							"id": "events",
+							"label": "story events",
+							"signal": "event",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "demo",
+					"kind": "show",
+					"family": "container",
+					"label": "Sandbox demo",
+					"address": "show:sandbox-demo",
+					"driver": "conductor",
+					"enter": "show:sandbox-demo",
+					"ports": [
+						{
+							"id": "fire",
+							"label": "fire on",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "plays",
+							"label": "plays",
+							"signal": "scene",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "crow",
+					"kind": "rig",
+					"family": "container",
+					"label": "rig crow",
+					"address": "rig:crow",
+					"driver": "deck",
+					"enter": "rig:crow",
+					"ports": [
+						{
+							"id": "played",
+							"label": "played by",
+							"signal": "scene",
+							"dir": "in"
+						}
+					]
+				},
+				{
+					"id": "night",
+					"kind": "night-run",
+					"family": "event",
+					"label": "night run",
+					"detail": "every night 02:00",
+					"address": "creator:night-run",
+					"driver": "server",
+					"ports": [
+						{
+							"id": "start",
+							"label": "starts",
+							"signal": "job",
+							"dir": "out"
+						}
+					]
+				},
+				{
+					"id": "gen",
+					"kind": "generation",
+					"family": "free",
+					"label": "dune backdrop",
+					"detail": "image · waiting for approval",
+					"address": "generation:42",
+					"driver": "server",
+					"ports": [
+						{
+							"id": "run",
+							"label": "run",
+							"signal": "job",
+							"dir": "in"
+						},
+						{
+							"id": "picture",
+							"label": "picture",
+							"signal": "asset",
+							"dir": "out"
+						},
+						{
+							"id": "state",
+							"label": "done",
+							"signal": "job",
+							"dir": "out"
+						}
+					]
+				}
+			],
+			"threads": [
+				{
+					"id": "n1",
+					"from": {
+						"spore": "sandbox",
+						"port": "events"
+					},
+					"to": {
+						"spore": "demo",
+						"port": "fire"
+					},
+					"signal": "event",
+					"label": "storm · dig · wait",
+					"crosses": "relay",
+					"count": 3
+				},
+				{
+					"id": "n2",
+					"from": {
+						"spore": "demo",
+						"port": "plays"
+					},
+					"to": {
+						"spore": "crow",
+						"port": "played"
+					},
+					"signal": "scene",
+					"label": "row 2, 4",
+					"crosses": "relay",
+					"count": 2,
+					"home": {
+						"doc": "show:sandbox-demo",
+						"path": "/rows/3/cells/sound"
+					}
+				},
+				{
+					"id": "n3",
+					"from": {
+						"spore": "night",
+						"port": "start"
+					},
+					"to": {
+						"spore": "gen",
+						"port": "run"
+					},
+					"signal": "job",
+					"home": {
+						"doc": "creator:night-run",
+						"path": "/triggers/0"
+					}
+				}
+			],
+			"stubs": [],
+			"problems": []
+		},
+		{
+			"scope": "xr",
+			"context": "experience:demo/scene:poster",
+			"levels": [
+				{
+					"address": "experience:demo",
+					"label": "Demo"
+				},
+				{
+					"address": "experience:demo/scene:poster",
+					"label": "Poster"
+				}
+			],
+			"spores": [
+				{
+					"id": "rule:cat/0#0",
+					"kind": "rule",
+					"family": "rule",
+					"label": "head · rule 1",
+					"detail": "always",
+					"address": "experience:demo/scene:poster/target:cat/node:0",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "on",
+							"label": "on",
+							"signal": "event",
+							"dir": "in"
+						},
+						{
+							"id": "when",
+							"label": "when",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "do:0",
+							"label": "set",
+							"signal": "control",
+							"dir": "out"
+						},
+						{
+							"id": "do:1",
+							"label": "emit",
+							"signal": "event",
+							"dir": "out"
+						},
+						{
+							"id": "do",
+							"label": "+",
+							"signal": "address",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "event:cat/0:tap",
+					"kind": "event",
+					"family": "event",
+					"label": "tap",
+					"detail": "head",
+					"address": "experience:demo/scene:poster/target:cat/node:0",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "out",
+							"label": "",
+							"signal": "event",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "var:hasKey",
+					"kind": "variable",
+					"family": "variable",
+					"label": "hasKey",
+					"detail": "variable · experience",
+					"address": "experience:demo/scene:poster/box:var:hasKey",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "set",
+							"label": "set",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "get",
+							"label": "get",
+							"signal": "control",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "event:keyRattled",
+					"kind": "event",
+					"family": "event",
+					"label": "keyRattled",
+					"detail": "scene event",
+					"address": "experience:demo/scene:poster/box:event:keyRattled",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "out",
+							"label": "",
+							"signal": "event",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "rule:scene:poster#0",
+					"kind": "rule",
+					"family": "rule",
+					"label": "scene rule 1",
+					"detail": "always",
+					"address": "experience:demo/scene:poster",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "on",
+							"label": "on",
+							"signal": "event",
+							"dir": "in"
+						},
+						{
+							"id": "when",
+							"label": "when",
+							"signal": "control",
+							"dir": "in",
+							"many": true
+						},
+						{
+							"id": "do:0",
+							"label": "goto",
+							"signal": "scene",
+							"dir": "out"
+						},
+						{
+							"id": "do",
+							"label": "+",
+							"signal": "address",
+							"dir": "out",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "plugin:spin",
+					"kind": "plugin",
+					"family": "plugin",
+					"label": "spin",
+					"detail": "plugin",
+					"address": "experience:demo/plugin:spin",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "listens",
+							"label": "listens",
+							"signal": "event",
+							"dir": "in",
+							"many": true
+						}
+					]
+				},
+				{
+					"id": "far-0",
+					"kind": "stub",
+					"family": "far",
+					"label": "hasKey → read in the rules of Back",
+					"address": "experience:demo/scene:back",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "far",
+							"dir": "in"
+						}
+					]
+				},
+				{
+					"id": "far-1",
+					"kind": "stub",
+					"family": "far",
+					"label": "→ Back · goto",
+					"address": "experience:demo/scene:back",
+					"driver": "xr",
+					"ports": [
+						{
+							"id": "in",
+							"label": "",
+							"signal": "far",
+							"dir": "in"
+						}
+					]
+				}
+			],
+			"threads": [
+				{
+					"id": "event:cat/0:tap:out>rule:cat/0#0:on",
+					"from": {
+						"spore": "event:cat/0:tap",
+						"port": "out"
+					},
+					"to": {
+						"spore": "rule:cat/0#0",
+						"port": "on"
+					},
+					"signal": "event",
+					"label": "on",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/on"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "rule:cat/0#0:do:0>var:hasKey:set",
+					"from": {
+						"spore": "rule:cat/0#0",
+						"port": "do:0"
+					},
+					"to": {
+						"spore": "var:hasKey",
+						"port": "set"
+					},
+					"signal": "control",
+					"label": "set = true",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/do/0"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "rule:cat/0#0:do:1>event:keyRattled:in",
+					"from": {
+						"spore": "rule:cat/0#0",
+						"port": "do:1"
+					},
+					"to": {
+						"spore": "event:keyRattled",
+						"port": "in"
+					},
+					"signal": "event",
+					"label": "emit",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/entities/overlay/children/0/components/0/rules/0/do/1"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "event:keyRattled:out>rule:scene:poster#0:on",
+					"from": {
+						"spore": "event:keyRattled",
+						"port": "out"
+					},
+					"to": {
+						"spore": "rule:scene:poster#0",
+						"port": "on"
+					},
+					"signal": "event",
+					"label": "on",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/scenes/0/logic/rules/0/on"
+					},
+					"crosses": "same"
+				},
+				{
+					"id": "event:keyRattled:out>plugin:spin:listens",
+					"from": {
+						"spore": "event:keyRattled",
+						"port": "out"
+					},
+					"to": {
+						"spore": "plugin:spin",
+						"port": "listens"
+					},
+					"signal": "event",
+					"label": "listens",
+					"crosses": "same"
+				},
+				{
+					"id": "stub:var:hasKey>far:logic:back:hasKey",
+					"from": {
+						"spore": "var:hasKey",
+						"port": "get"
+					},
+					"to": {
+						"spore": "far-0",
+						"port": "in"
+					},
+					"signal": "control",
+					"label": "hasKey",
+					"crosses": "savegame"
+				},
+				{
+					"id": "goto:rule:scene:poster#0:do:0>back",
+					"from": {
+						"spore": "rule:scene:poster#0",
+						"port": "do:0"
+					},
+					"to": {
+						"spore": "far-1",
+						"port": "in"
+					},
+					"signal": "scene",
+					"label": "goto",
+					"home": {
+						"doc": "experience:demo",
+						"path": "/configuration/scenes/0/logic/rules/0/do/0"
+					},
+					"crosses": "navigation"
+				}
+			],
+			"stubs": [
+				{
+					"thread": "stub:var:hasKey>far:logic:back:hasKey",
+					"side": "out",
+					"far": "experience:demo/scene:back",
+					"label": "hasKey → read in the rules of Back"
+				},
+				{
+					"thread": "goto:rule:scene:poster#0:do:0>back",
+					"side": "out",
+					"far": "experience:demo/scene:back",
+					"label": "→ Back · goto"
+				}
+			],
+			"problems": []
+		}
+	]
+}

@@ -54,6 +54,7 @@ export * from './kanon.ts';
 export * from './media-quality.ts';
 export * from './map.ts';
 export * from './homes.ts';
+export * from './xr.ts';
 export * from './collection-docs.ts';
 export * from './map-docs.ts';
 export * from './character-docs.ts';

@@ -14,6 +14,7 @@
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
 	import LogPanel from '$lib/components/shell/log-panel.svelte';
+	import SporesPanel from '$lib/components/shell/spores-panel.svelte';
 	import InfoPanel from '$lib/components/shell/info-panel.svelte';
 	import CoreLogProvider from '$lib/components/shell/core-log-provider.svelte';
 	import { log } from '$lib/log/log.svelte.ts';
@@ -140,6 +141,8 @@
 			<LibraryPanel />
 		{:else if id === 'log'}
 			<LogPanel />
+		{:else if id === 'weave'}
+			<SporesPanel />
 		{:else if id === 'info'}
 			<InfoPanel />
 		{:else if id === 'history'}

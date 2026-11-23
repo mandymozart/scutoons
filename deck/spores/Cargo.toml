@@ -1,0 +1,20 @@
+# deck-spores (#763): the Spores widget – one weave of the spore network painted and touched alike in the deck editor
+# (native) and in the creator's Spores tab (wasm). Platform-free: no window, no GPU; a host hands it input and draws
+# its DrawList (egui-wgpu, as deck-space's stage/ui.rs does for the deck's own UI).
+[package]
+name = "deck-spores"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# the canvas, the graph's layout, the signal table, the editor's controls and icons
+deck-kit = { path = "../kit", features = ["editor"] }
+# the weave: spores, threads, the canvas (server/schema/api/spore-network.schema.json)
+protocol = { workspace = true }
+
+[dev-dependencies]
+# the shared weaves (server/schema/api/spore-network.vectors.json)
+serde_json.workspace = true

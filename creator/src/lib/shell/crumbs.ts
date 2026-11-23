@@ -22,6 +22,7 @@ export function routeCrumbs(route: string, params: Record<string, string | undef
 	if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
 	if (route === '/generate') out.push({ href: '/generate', label: m['shell.ws_generate']() });
 	if (route === '/scenes/[[id]]') out.push({ href: '/scenes', label: m['creator.scenes']() });
+	if (route === '/experiences/[[id]]') out.push({ href: '/experiences', label: m['creator.experiences']() });
 	if (route === '/catalog/[kind]' || route === '/catalog/items/[id]/collage') {
 		out.push({ href: '/catalog/items', label: m['creator.catalog']() });
 		const kind = params.kind ?? 'items';

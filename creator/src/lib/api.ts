@@ -1,6 +1,6 @@
 // The creator's API wiring: @scutoons/api with this app's API base and session token. Content is read and written by
 // entity key (`/api/entities`, the creator's write path) and previewed through the library (`draft`); agents/DATA.md.
-import { createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, createScenesApi, getDeviceId, getSessionToken } from '@scutoons/api';
+import { createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, createScenesApi, getDeviceId, getSessionToken, type CatalogDoc } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
 
 export {
@@ -28,3 +28,8 @@ export const assetsApi = createAssetsApi(api);
 
 /** The deck scenes `scene:<id>` (#490): their own route `/api/scenes` (the entity routes refuse `scene:` keys) */
 export const scenesApi = createScenesApi(api);
+
+/** The XR experiences `experience:<id>` as catalog documents (no Catalog page: CATALOG_DOC_KINDS leaves the kind out) */
+export const experiencesApi = {
+	list: () => api.get<{ status: string; entries: CatalogDoc[] }>('/catalog/docs/experiences')
+};

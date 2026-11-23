@@ -226,6 +226,26 @@ final class AssetsTest extends TestCase
         self::assertSame(0, $perFile['catpope/videos/s1-trailer-loop.1920w.mp4']);
     }
 
+    /** #482: an XR experience's configuration names its files below its `assets` folder – every file there is used while it exists */
+    public function testAnExperiencesFolderIsInUse(): void
+    {
+        $this->put('xr/poster-catpope/b1/assets/content/library/cat.glb', "glTF   ");
+        $this->put('xr/poster-catpope/b1/assets/content/targets/poster.webp', self::WEBP . 'poster');
+        $this->put('xr/poster-catpope/b2/assets/content/library/old.glb', "glTF   old");
+        $doc = ['id' => 'poster-catpope', 'type' => 'poster', 'title' => ['en' => 'Cat Pope'], 'toons' => ['catpope'], 'assets' => 'xr/poster-catpope/b1',
+            'configuration' => ['version' => ['schema' => '5.1'], 'scenes' => [['id' => 'poster', 'model' => '/assets/content/library/cat.glb']], 'entries' => []], 'plugins' => []];
+        $this->get(CatalogStore::class)->save('experiences', 'poster-catpope', json_decode((string) json_encode($doc)), 'test');
+        $this->scan();
+        $used = ['xr/poster-catpope/b1/assets/content/library/cat.glb', 'xr/poster-catpope/b1/assets/content/targets/poster.webp'];
+        $rows = array_map(fn($u) => [$u['path'], $u['ref'], $u['field'], $u['raw']], $this->get(AssetRegistry::class)->usagesOf($used));
+        foreach ($used as $path) self::assertContains([$path, 'experience:poster-catpope', '/assets', 'xr/poster-catpope/b1'], $rows);
+        $usages = $this->get(AssetUsages::class);
+        self::assertSame([], array_values(array_filter(array_column($usages->missing(), 'path'), fn(string $p) => str_contains($p, 'assets/content'))), 'the configuration paths are not read against the CDN root');
+        $unused = array_merge(...array_column($usages->orphans(), 'unused'));
+        self::assertContains('xr/poster-catpope/b2/assets/content/library/old.glb', $unused, 'the folder of an older build is not used');
+        self::assertSame([], array_values(array_intersect($used, $unused)));
+    }
+
     public function testVaultPathsAreNotMissing(): void
     {
         // #157: the vault (scores/, albums/) is the protected storage the rescan doesn't list – not a missing file

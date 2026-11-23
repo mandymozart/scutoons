@@ -23,6 +23,10 @@ pub enum Signal {
     Scene,
     /// from outside this subtree: only events reach it
     Far,
+    /// a run that starts, progresses and ends: a generation, a night run, a publish
+    Job,
+    /// a reference to a Library asset of any kind – a picture that arrived, an approved text
+    Asset,
 }
 
 /// a pin's outline
@@ -38,13 +42,25 @@ pub enum Shape {
 }
 
 impl Signal {
-    pub const ALL: [Signal; 9] = [Signal::Event, Signal::Control, Signal::Clock, Signal::Audio, Signal::Picture, Signal::Address, Signal::Vote, Signal::Scene, Signal::Far];
+    pub const ALL: [Signal; 11] = [
+        Signal::Event,
+        Signal::Control,
+        Signal::Clock,
+        Signal::Audio,
+        Signal::Picture,
+        Signal::Address,
+        Signal::Vote,
+        Signal::Scene,
+        Signal::Far,
+        Signal::Job,
+        Signal::Asset,
+    ];
 
     pub fn shape(self) -> Shape {
         match self {
-            Signal::Event => Shape::Triangle,
+            Signal::Event | Signal::Job => Shape::Triangle,
             Signal::Control | Signal::Clock | Signal::Vote => Shape::Dot,
-            Signal::Audio | Signal::Picture | Signal::Scene => Shape::Square,
+            Signal::Audio | Signal::Picture | Signal::Scene | Signal::Asset => Shape::Square,
             Signal::Address => Shape::Diamond,
             Signal::Far => Shape::Ring,
         }
@@ -61,12 +77,15 @@ impl Signal {
             Signal::Vote => "vote",
             Signal::Scene => "scene",
             Signal::Far => "far",
+            Signal::Job => "job",
+            Signal::Asset => "asset",
         }
     }
 
-    /// whether an outlet of this signal may be wired into an inlet of `into`: the same signal, or an answer setting a value
+    /// whether an outlet of this signal may be wired into an inlet of `into`: the same signal, an answer setting a value,
+    /// or a job's change of state making something happen
     pub fn feeds(self, into: Signal) -> bool {
-        self == into || (self, into) == (Signal::Vote, Signal::Control)
+        self == into || matches!((self, into), (Signal::Vote, Signal::Control) | (Signal::Job, Signal::Event))
     }
 
     /// a wire's width relative to the others: an event's is heavier, it is what makes things happen
@@ -91,6 +110,8 @@ pub struct Signals {
     pub vote: [f32; 4],
     pub scene: [f32; 4],
     pub far: [f32; 4],
+    pub job: [f32; 4],
+    pub asset: [f32; 4],
 }
 
 use crate::base::tokens::rgb;
@@ -107,6 +128,8 @@ impl Signals {
             vote: rgb(0xb07800),
             scene: rgb(0xc8385a),
             far: rgb(0x6b7461),
+            job: rgb(0xb86e0c),
+            asset: rgb(0x4f7d00),
         }
     }
 
@@ -121,6 +144,8 @@ impl Signals {
             vote: rgb(0xffb020),
             scene: rgb(0xff6b8a),
             far: rgb(0xa7af9b),
+            job: rgb(0xf0a030),
+            asset: rgb(0xb4ff32),
         }
     }
 
@@ -135,6 +160,8 @@ impl Signals {
             Signal::Vote => self.vote,
             Signal::Scene => self.scene,
             Signal::Far => self.far,
+            Signal::Job => self.job,
+            Signal::Asset => self.asset,
         }
     }
 }
@@ -175,8 +202,9 @@ mod tests {
         for s in Signal::ALL {
             assert!(s.feeds(s));
         }
-        assert!(Signal::Vote.feeds(Signal::Control));
+        assert!(Signal::Vote.feeds(Signal::Control) && Signal::Job.feeds(Signal::Event));
         assert!(!Signal::Control.feeds(Signal::Vote) && !Signal::Event.feeds(Signal::Control) && !Signal::Audio.feeds(Signal::Picture));
+        assert!(!Signal::Event.feeds(Signal::Job) && !Signal::Asset.feeds(Signal::Picture));
     }
 
     #[test]

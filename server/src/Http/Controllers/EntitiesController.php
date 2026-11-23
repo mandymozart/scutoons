@@ -223,7 +223,13 @@ final class EntitiesController
         $by = (string) ($user['email'] ?? $user['id'] ?? 'creator');
         $result = $this->store->publishMany($versions, function (array $row) use ($by): bool {
             if (!EntityKey::parse((string) $row['entity_key'])->isCatalog()) return false;
-            $this->docs->publishIn($row, $by);
+            try {
+                $this->docs->publishIn($row, $by);
+            } catch (ApiError $e) {
+                // an entry the catalog refuses is named by its key: the caller leaves it out and publishes the rest
+                if ($e->errorCode !== 'invalid_catalog') throw $e;
+                throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $row['entity_key']] + $e->extra);
+            }
             return true;
         });
         if ($catalog) $this->docs->reindex();

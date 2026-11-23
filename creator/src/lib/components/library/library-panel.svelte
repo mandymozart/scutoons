@@ -48,7 +48,7 @@
 		if (!scopes.some((s) => s.id === library.scope)) library.setScope(scopes[0].id);
 	});
 	const entities = $derived.by<Place[]>(() => {
-		const all = [...places.toons(nav.toons, (id) => nav.toonName(id), library.toon), ...places.areas()];
+		const all = [...places.toons(nav.toons, (id) => nav.toonName(id), library.toon), ...places.areas(), ...places.experiences()];
 		const here = library.scope !== 'all' && library.toon ? all.filter((p) => p.toon === library.toon) : all;
 		return here.filter((p) => matches(p, library.query));
 	});

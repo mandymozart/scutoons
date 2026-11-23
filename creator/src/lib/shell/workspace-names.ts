@@ -8,6 +8,7 @@ const NAMES: Record<WorkspaceKind, () => string> = {
 	storyboard: () => m['shell.ws_storyboard'](),
 	character: () => m['shell.ws_character'](),
 	scene: () => m['shell.ws_scene'](),
+	experience: () => m['shell.ws_experience'](),
 	catalog: () => m['shell.ws_catalog'](),
 	map: () => m['shell.ws_map'](),
 	flow: () => m['shell.ws_flow'](),

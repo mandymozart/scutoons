@@ -78,6 +78,9 @@
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
+	import { chapterFlow } from '@scutoons/content';
+	import { sporeScope } from '$lib/spores/scope.svelte.ts';
+	import { storyWeave } from '$lib/spores/story.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
@@ -318,6 +321,26 @@
 			text: flowText,
 			onopen: openFlowNode
 		}
+	});
+	// the Spores tab (#763): this chapter's story as a weave, offered while the chapter is open
+	const sporesAddress = $derived(`chapter:${toon}/${chapterNumber}`);
+	$effect(() => {
+		const address = sporesAddress;
+		sporeScope.set({
+			address,
+			weave: () => {
+				const p = flowProps().input;
+				if (!p.groups || !p.reach) return null;
+				const flow = chapterFlow(p.groups, { chapter: p.chapter, toon: p.toon, reach: p.reach, name: p.name, text: p.text, facts: p.facts, nextChapter: p.nextChapter });
+				const levels = [
+					{ address: 'network', label: 'SCUTOONS' },
+					{ address: `toon:${p.toon}`, label: p.toon },
+					{ address, label: `${p.chapter}` }
+				];
+				return storyWeave(flow, { context: address, levels });
+			}
+		});
+		return () => sporeScope.drop(address);
 	});
 	// the Reader (UI-CONCEPTS E.6): the viewer's draft preview at the open group / slice (the chapter's start on its meta /
 	// audio), in the text language when the reader has it (de / en), else the first it has

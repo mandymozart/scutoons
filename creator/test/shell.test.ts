@@ -31,6 +31,8 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
+	assert.equal(addressOf('/experiences'), AREAS.experiences);
+	assert.equal(addressOf('/experiences/poster-catpope'), 'experience:poster-catpope');
 	assert.equal(addressOf('/flow'), AREAS.flow);
 	assert.equal(addressOf('/catalog/items'), 'catalog:items');
 	assert.equal(addressOf('/catalog/items', '?id=camera'), 'item:camera');
@@ -51,6 +53,8 @@ test('an address leads back to its page, and every route round-trips', () => {
 		['/generate', ''],
 		['/map', ''],
 		['/scenes/duet', ''],
+		['/experiences', ''],
+		['/experiences/poster-catpope', ''],
 		['/flow', ''],
 		['/catalog/items', '?id=camera'],
 		['/catalog/recipes', ''],
@@ -69,7 +73,11 @@ test('every address has a workspace and an icon; a typed address resolves', () =
 	assert.equal(workspaceOf('item:camera'), 'catalog');
 	assert.equal(workspaceOf('module:walk'), 'sound');
 	assert.equal(workspaceOf('nothing'), null);
+	assert.equal(workspaceOf('experience:poster-catpope'), 'experience');
+	assert.equal(workspaceOf(AREAS.experiences), 'experience');
 	assert.equal(iconOf('character:catpope'), 'smile');
+	assert.equal(iconOf('experience:poster-catpope'), 'aperture');
+	assert.equal(resolveTyped('experience:poster-catpope'), '/experiences/poster-catpope');
 	assert.equal(resolveTyped(' chapter:catpope:2 '), '/catpope/chapter/2');
 	assert.equal(resolveTyped('catpope'), null);
 });
@@ -127,6 +135,8 @@ test('machine settings: day by default (owner 2026-11-21), every field checked',
 	assert.equal(DEFAULTS.theme, 'day');
 	assert.deepEqual(readSettings({ theme: 'night', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'night', scale: 1.5, reopenTabs: false });
 	assert.equal(readSettings({ theme: 'dusk' }).theme, 'day');
+	assert.equal(DEFAULTS.gizmoAlways, false);
+	assert.equal(readSettings({ gizmoAlways: true }).gizmoAlways, true);
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);
@@ -139,9 +149,10 @@ test('a workspace is a preset: its panels hold only the tabs with content, Libra
 	const ids = specs.map((p) => p.id);
 	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
 	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
-	assert.deepEqual(specs[1].tabs, ['log', 'flow'], 'the inspector without content is not offered; the Log is the shell’s own');
+	assert.deepEqual(specs[1].tabs, ['log', 'flow', 'weave'], 'the inspector without content is not offered; the Log and the Spores tab are the shell’s own');
 	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
 	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
+	assert.deepEqual(panelSpecs('experience', availableTabs(['tree', 'inspector', 'experience', 'scenes'], null), TABS).find((p) => p.id === 'right')?.tabs, ['inspector', 'experience', 'weave'], 'the XR workspace offers its weave (#763)');
 });
 
 test('a tab with content that no preset panel holds gets a closed panel of its own', () => {

@@ -1,7 +1,7 @@
-//! The node view's painting (nodes.rs holds its state and input): group frames on a dotted grid in their colour, the
-//! latent grid under what the pointer is on (dots of a fixed size whose opacity fades, no blur), the wires as the core's
-//! activity says, the notes, a wire's value (the nodes: node_card.rs).
-use super::nodes::{NodeHit, NodeView, FADE_IN, FADE_OUT};
+//! The widget's painting: group frames on a dotted grid in their colour, the latent grid under what the pointer is on
+//! (dots of a fixed size whose opacity fades, no blur), the threads as the core's activity says, the notes, a thread's
+//! value (the spores: card.rs).
+use crate::{Hit, Seen, FADE_IN, FADE_OUT};
 use deck_kit::base::canvas::{self, View};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::graph::{self, Activity, Direction, Graph, Link, Node, Placed};
@@ -9,7 +9,7 @@ use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
 use deck_kit::editor::colour;
 use deck_kit::editor::controls::{self, Rect};
-use deck_show::canvas::Canvas;
+use protocol::spore_network::Canvas;
 
 /// the canvas's place on screen, its view, the grid's unit and the direction
 pub struct Cam {
@@ -59,7 +59,7 @@ pub fn sans_fit(d: &DrawList, text: &str, px: f32, room: f32) -> String {
 
 /// the colour of what a node gives (else takes)
 pub fn main_colour(t: &Tokens, n: &Node) -> [f32; 4] {
-    deck_show::focus::signal_of(n).map(|s| t.color.signals.of(s)).unwrap_or(t.color.muted)
+    n.signal().map(|s| t.color.signals.of(s)).unwrap_or(t.color.muted)
 }
 
 /// an open group's frame on screen
@@ -74,14 +74,14 @@ pub struct Frame {
 /// the frame of group `k` round its nodes `members`, a grid step out and room for its label on top; a folded group has
 /// none (its pill is a node)
 pub fn frame_of(doc: &Canvas, k: usize, members: &[usize], g: &Graph, placed: &[Placed], cam: &Cam) -> Option<Frame> {
-    let grp = doc.groups.get(k).filter(|x| !x.folded)?;
-    if members.iter().any(|&i| g.nodes.get(i).is_none_or(|n| n.id.starts_with(deck_show::canvas::GROUP))) {
+    let grp = doc.groups.as_deref().unwrap_or_default().get(k).filter(|x| !x.folded.unwrap_or(false))?;
+    if members.iter().any(|&i| g.nodes.get(i).is_none_or(|n| n.id.starts_with(graph::PILL))) {
         return None;
     }
     let b = graph::bounds_of(members.iter().filter_map(|&i| placed.get(i)).map(|p| p.rect));
     let u = cam.unit;
     let world = Rect { x: b.x - u, y: b.y - 2.0 * u, w: b.w + 2.0 * u, h: b.h + 3.0 * u };
-    let colour = colour::rgb(&grp.colour).map_or([0.6, 0.6, 0.6, 1.0], |c| colour::rgba(c, 1.0));
+    let colour = grp.colour.as_deref().and_then(colour::rgb).map_or([0.6, 0.6, 0.6, 1.0], |c| colour::rgba(c, 1.0));
     Some(Frame { k, id: grp.id.clone(), label: grp.label.clone(), colour, rect: cam.rect(world) })
 }
 
@@ -113,7 +113,7 @@ pub fn ground(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam, canvas: Rect) 
 }
 
 /// a group's head: its fold, its swatch (the next colour), its label (renamed in place); the presses on them
-pub fn label(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam) -> Vec<(Rect, NodeHit)> {
+pub fn label(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam) -> Vec<(Rect, Hit)> {
     let z = cam.z();
     if z < 0.3 {
         return Vec::new();
@@ -129,7 +129,7 @@ pub fn label(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam) -> Vec<(Rect, N
     let room = (f.rect.x + f.rect.w - tx - pad).max(0.0);
     let text = sans_fit(d, &f.label, px, room);
     let w = d.sans(tx, y + (s - px * 1.25) * 0.5, px, &text, f.colour);
-    vec![(fold, NodeHit::GroupFold(f.k)), (swatch, NodeHit::GroupColour(f.k)), (Rect { x: tx, y, w: w.max(s), h: s }, NodeHit::GroupName(f.k))]
+    vec![(fold, Hit::GroupFold(f.k)), (swatch, Hit::GroupColour(f.k)), (Rect { x: tx, y, w: w.max(s), h: s }, Hit::GroupName(f.k))]
 }
 
 /// a group's label while it is typed
@@ -194,8 +194,8 @@ enum Shape {
 
 /// A reveal: the grid's dots round what it lies under in its colour, each the same small size, its opacity fading with
 /// the distance and following the pointer slowly (the blob); without blur.
-pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&NodeView, &Cam, Rect), (frames, wires, g, placed): Under<'_>) {
-    let s = r.strength(n.secs);
+pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&dyn Seen, &Cam, Rect), (frames, wires, g, placed): Under<'_>) {
+    let s = r.strength(n.secs());
     if s <= 0.0 {
         return;
     }
@@ -223,7 +223,7 @@ pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&NodeView, &Cam, 
     if area.w <= 0.0 || area.h <= 0.0 {
         return;
     }
-    let blob = n.blob.map(|p| cam.s(p));
+    let blob = n.blob().map(|p| cam.s(p));
     let near = |p: (f32, f32)| {
         let d = match &shape {
             Shape::Rect(r) => canvas::to_rect(*r, p),
@@ -296,21 +296,21 @@ fn wrap(text: &str, per: usize) -> Vec<String> {
     lines
 }
 
-/// The row's notes: neutral grey (the theme's ground and ink mixed: light at day, dark at night), the author small
-/// above; beside their node, else in a column after the graph. `editing` = the text while a note is typed. The presses.
+/// The canvas's notes: neutral grey (the theme's ground and ink mixed: light at day, dark at night), the author small
+/// above; beside their spore, else in a column after the graph. `editing` = the text while a note is typed. The presses.
 pub fn notes(d: &mut DrawList, t: &Tokens, (doc, drawn, bounds): (&Canvas, &[(String, Rect)], Rect), cam: &Cam, editing: &dyn Fn(&str) -> Option<String>) -> Vec<(usize, Rect)> {
     let (z, u) = (cam.z(), cam.unit);
     let (small, pad) = (t.size.small * z, t.size.pad * z);
     let ground = mix(t.color.surface, t.color.text, 0.13);
     let mut free_y = bounds.y;
     let mut out = Vec::new();
-    for (k, note) in doc.notes.iter().enumerate() {
+    for (k, note) in doc.notes.as_deref().unwrap_or_default().iter().enumerate() {
         let typed = editing(&note.id);
         let text = typed.clone().map_or_else(|| note.text.clone(), |s| format!("{s}|"));
         let w = 11.0 * u;
         let lines = wrap(if text.is_empty() { "…" } else { &text }, ((w * z - 2.0 * pad) / d.advance(small)) as usize);
         let hgt = (pad * 2.0 + small * 1.3 * (lines.len() as f32 + 1.0)) / z;
-        let at = note.node.as_ref().and_then(|id| drawn.iter().find(|(x, _)| x == id)).map(|(_, r)| (r.x + u, r.y + r.h + 0.5 * u));
+        let at = note.near.as_ref().and_then(|id| drawn.iter().find(|(x, _)| x == id)).map(|(_, r)| (r.x + u, r.y + r.h + 0.5 * u));
         let at = at.unwrap_or_else(|| {
             let p = (bounds.x + bounds.w + 2.0 * u, free_y);
             free_y += hgt + u;
@@ -320,7 +320,7 @@ pub fn notes(d: &mut DrawList, t: &Tokens, (doc, drawn, bounds): (&Canvas, &[(St
         d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * z, ground);
         d.outline(r.x, r.y, r.w, r.h, (t.size.radius * z, 1.0), if typed.is_some() { t.color.text } else { t.color.line });
         if z >= 0.4 {
-            let author = if note.author.is_empty() { "note" } else { note.author.as_str() };
+            let author = note.author.as_deref().filter(|a| !a.is_empty()).unwrap_or("note");
             d.text(r.x + pad, r.y + pad * 0.7, small * 0.85, author, t.color.muted);
             for (i, line) in lines.iter().enumerate() {
                 d.sans(r.x + pad, r.y + pad + small * 1.3 * (i as f32 + 1.0), small, line, t.color.text);

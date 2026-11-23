@@ -1277,6 +1277,7 @@ dependencies = [
  "deck-outlet",
  "deck-show",
  "deck-space",
+ "deck-spores",
  "deck-ui",
  "egui-wgpu",
  "glam",
@@ -1370,6 +1371,7 @@ dependencies = [
  "deck-core",
  "egui",
  "font8x8",
+ "resvg",
  "serde",
  "toml 0.8.23",
 ]
@@ -1597,6 +1599,15 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "wgpu",
+]
+
+[[package]]
+name = "deck-spores"
+version = "0.1.0"
+dependencies = [
+ "deck-kit",
+ "protocol",
+ "serde_json",
 ]
 
 [[package]]
@@ -5258,6 +5269,21 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "spores-web"
+version = "0.1.0"
+dependencies = [
+ "deck-kit",
+ "deck-spores",
+ "egui-wgpu",
+ "protocol",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
 ]
 
 [[package]]

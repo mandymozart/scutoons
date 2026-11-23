@@ -1022,5 +1022,14 @@
 		"origin_3": "Unsere Figuren teilen diese Eigenschaft. Darum singen oder musizieren sie alle irgendwann – oder leben ihre Geschichten aus.",
 		"name_title": "Der Name",
 		"name_1": "Der Name kommt von Kiki Hitomi und steht in den Credits auf dem Klappentext der Schallplatte. Er setzt sich zusammen aus SCU – der japanischen Silbe スク für „Screen“ – und TOON: geschrieben T-O-O-N, gehört wie Tunes, wie bei den Looney Tunes. Die Toons sind unsere Figürchen, die Tunes die Musikstücke, die sie antreiben. Zugleich ist es eine Anlehnung an Graphic Novels und den unendlichen Scroll der Webtoons."
+	},
+	"xr": {
+		"loading": "Lädt …",
+		"hint": "Richte die Kamera auf den Druck.",
+		"start": "Kamera starten",
+		"scanning": "Suche das Bild …",
+		"failed_content": "Dieses Erlebnis kann hier nicht gezeigt werden.",
+		"failed_other": "Das hat nicht geklappt.",
+		"retry": "Noch einmal"
 	}
 }

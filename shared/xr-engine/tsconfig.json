@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "es2020",
+		"module": "esnext",
+		"lib": ["es2022", "dom"],
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"types": ["three"],
+		"paths": {
+			"@shared/*": ["./osct/shared/*"],
+			"@engine/*": ["./osct/engine/src/*"],
+			"#lib/stage/mock-stage.js": ["./src/osct-mock-stage.d.ts"],
+			"#lib/*": ["./osct/editor/src/lib/*"]
+		}
+	},
+	"include": ["osct/**/*.ts", "src/**/*.ts"],
+	"exclude": ["osct/editor/src/lib/stage/mock-stage.ts"]
+}
