@@ -37,6 +37,7 @@ export {
 	catalogDocKey,
 	needsReview
 } from './content.ts';
+export { itemPath, newestVersion, type NewestAnswer } from './newest-version.ts';
 export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions, type XrExperienceAnswer } from './library.ts';
 export { createCraftsApi, craftName, type Craft, type CraftsApi, type MemberCraft, type MemberCrafts, type MemberInvite } from './crafts.ts';
 export { createLayoutsApi, type CraftLayout, type LayoutsApi, type MemberLayouts, type SavedLayout } from './layouts.ts';
