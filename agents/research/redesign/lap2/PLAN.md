@@ -108,6 +108,14 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 - **Types** (decided): Toon · Character · Scene · Show · Place · Item · Module · Instrument and rig · Generator, and for now Kanon texts and people.
 - **Decided with it:** one list, one picker (the five sheets go), the Catalog's and the Toon's trees without their top level, the Cast tab as "cast in", "By cast" listing characters.
 
+### P12 · The Storyboard
+Drawn from today's page: C3, C3b, C3c.
+- **The kit look** on its steps, tools, Inspector and Timeline – comes with P1.
+- **The viewport's ground** – with P8.
+- **The Handheld panel** as drawn (C3b): the code to scan and the waiting state, Disconnect · Recenter · Record, the conditions and the trim's sentence as hover text.
+- **Waits for your word** (a question card each): the Tree as the storyboard's own scenes and shots (C3); the shot's picture as a slot with "Open the generator" as the way into the Generate workspace (C3c).
+- **Not drawn:** the steps Script, Layout and Export, the Variants view, the 3D view of a handheld shot, the panel once a phone is connected.
+
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
 - The Storyboard's viewport ground: white by night and dark by day today (found 2026-11-24 on Cat Pope · chapter 3).
@@ -139,22 +147,31 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 - Trees across workspaces (TREES.md) – not decided.
 - XR at a place and Map as a view – owned by the scenes epic (#714, #482).
 
-## Open before the run
-These block a package. Each is in DECISIONS.md under its area.
-| Point | Blocks |
+## Settled for the run
+You approved these on 2026-11-24 ("yes, use them").
+| Point | Settled as | Package |
+|---|---|---|
+| The four layer names | stage · surfaces · popovers · overlay | P2 |
+| Search and dialogs | on the overlay level, blurred behind | P2 |
+| The switcher's maximum width | 1160 px | P2 |
+| The workspace tab's own menu | none in this lap; Views and Save workspace are in the ☰ | P2 |
+| The switcher's foot | goes; the ☰ holds it | P2 |
+| The deck's Needs review box | left out | P2 |
+| Help and Go to | in the ☰ menu | P2 |
+| A disabled primary button | the pressed fill, faded | P1 |
+| The see-through grounds | as redrawn on kit-d.html | P1 |
+| Outlet colours | four – page · stage · target · device – on lane and column heads only, never on cables or ports; a mark each in the colour-blind set | P1 |
+| The Show's Flash, Scene and New show sheets | Flash and Scene are views; New show is a dialog on the overlay level | P2 (deck) |
+| Deck installers for Windows and macOS | not in this lap; the link between the apps works on Arch only | P4 |
+| "Open in the deck" with no deck installed | the installed creator offers a download link; the web version just tries | P4 |
+| Dropping a Toon, a Show, a Generator, a Kanon text or a person | nothing yet; each opens in its own workspace | P11 |
+
+## Open – out of the run until you say
+| Point | Package |
 |---|---|
-| The four layer names; Search and dialogs on the overlay level | P2 |
-| The switcher's maximum width (1160 px drawn) | P2 |
-| The workspace tab's own menu | P2 (B2) |
-| The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
-| A disabled primary button; the see-through grounds as redrawn | P1 |
-| The outlet types' list and colours. Deck: four – page · stage · target · device ("light" renamed, so one colour covers DMX, MIDI and OSC, as the stored kind does; the protocol is a mark on the lane); no colour for sound alone or for a sub show. Three of the started colours sit close to a signal's (page and picture, stage and vote, target and address): either outlet colours stay on lane and column heads only, never on cables or ports, or they take hues the signals do not use; each needs a mark in the colour-blind set | P1 |
-| The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |
-| Installers for the deck on Windows and macOS: a package of this lap, or the link on Arch only | P4 |
-| "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The extended Library: what dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens (LIBRARY.md) | P11 |
+| The Storyboard's tree as its scenes and shots; the shot's picture as a slot with "Open the generator" (two question cards on C3 and C3c) | P12 |
 
 These do not block the run; their screens stay out of it:
 - Where the 2D-first / 3D-first preference sits (C4).
