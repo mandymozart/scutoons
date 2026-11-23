@@ -1,24 +1,20 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
-	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { DocSession } from '$lib/editor/doc-session.svelte.ts';
 
 	/**
 	 * An editor page's blocking problems – the only bars left in the page flow (UI-CONCEPTS E.1; COMPONENTS.md step 11:
-	 * meta pages and the chapter editor share it): a local copy to recover, a save conflict (Reload / Overwrite). Edits
-	 * save on their own, what is not live is the Publish pill's dot, Saved / Published / errors are Log lines (DocSession).
+	 * meta pages and the chapter editor share it): a local copy to recover. Edits save on their own, what is not live is
+	 * the Publish pill's dot, Saved / Published / errors are Log lines, a newer version – a refused save too – is the
+	 * shell's Reload notice (DocSession).
 	 */
 	let { session, docs }: { session: DocSession; docs: ContentDoc[] } = $props();
 
 	const recoverables = $derived(docs.filter((d) => d.recoverable));
-	// events that got their hidden id on load (agents/EXPRESSIONS.md §5) are stored by the next save – silently
-	// (owner 2026-10-11: "ich muss nichts mit IDs zu tun haben")
-	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
-	/** "10/11/26, 7:24 PM" – short, so the notice stays on one line (owner 2026-10-11) */
+	/** "10/11/26, 7:24 PM" – short, so the notice stays on one line */
 	const shortTime = (at: string | number) => new Date(at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));
 </script>
 
 {#each recoverables as d (d.entity)}
@@ -29,14 +25,6 @@
 		<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 	</div>
 {/each}
-{#if session.conflict}
-	{@const text = m['creator.conflict']({ file: conflictLabel(session.conflict.error.locale, session.conflict.doc.entity) })}
-	<div class="sc-bar is-error line" data-testid="conflict">
-		<span class="text" title={text}>{text}</span>
-		<button class="secondary" onclick={() => session.resolveConflict('reload')}>{m['creator.reload']()}</button>
-		<button class="secondary" onclick={() => session.resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
-	</div>
-{/if}
 
 <style>
 	/* one line at most (owner 2026-10-11: "these messages use too much real estate"): the text shortens with an
