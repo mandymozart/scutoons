@@ -119,11 +119,11 @@
 		display: block;
 	}
 	.mood.on .pic {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--tool-text);
 		outline-offset: -2px;
 	}
 	.mood:focus-visible .pic {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--tool-text);
 	}
 	.word {
 		color: var(--tool-muted);

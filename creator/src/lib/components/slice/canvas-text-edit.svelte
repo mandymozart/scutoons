@@ -116,7 +116,7 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
-		outline: var(--border-width-regular) solid var(--tool-accent);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		background: var(--tool-control);
 		color: var(--tool-text);
 		font-size: calc(var(--size) * var(--cqw, 1cqw));
@@ -145,6 +145,6 @@
 		padding: 0.8em 1em;
 	}
 	.canvas-text-edit:focus-visible {
-		outline: var(--border-width-regular) solid var(--tool-accent);
+		outline: var(--border-width-regular) solid var(--tool-text);
 	}
 </style>

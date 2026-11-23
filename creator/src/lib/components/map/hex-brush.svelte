@@ -198,14 +198,14 @@
 	}
 	/* the brush under the pointer: the highlight; removing: dashed */
 	.brush {
-		fill: var(--tool-accent);
+		fill: var(--tool-text);
 		fill-opacity: 0.35;
-		stroke: var(--tool-accent);
+		stroke: var(--tool-text);
 		stroke-width: 1.5;
 	}
 	.trail {
 		fill: none;
-		stroke: var(--tool-accent);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.35;
 		stroke-linecap: round;
 		stroke-linejoin: round;

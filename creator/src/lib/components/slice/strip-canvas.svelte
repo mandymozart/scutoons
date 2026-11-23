@@ -386,7 +386,8 @@
 		pointer-events: none;
 	}
 	.slot.active .number {
-		background: var(--tool-accent);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.axis-horizontal .number {
 		right: auto;

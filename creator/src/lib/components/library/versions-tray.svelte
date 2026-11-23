@@ -33,7 +33,7 @@
 <style>
 	.tray {
 		grid-column: 1 / -1;
-		border: var(--editor-edge) solid var(--tool-accent);
+		border: var(--editor-edge) solid var(--tool-text);
 		border-radius: var(--editor-radius);
 		padding: 0.35rem;
 	}
@@ -54,7 +54,7 @@
 	.close {
 		border: 0;
 		background: none;
-		color: var(--tool-accent);
+		color: var(--tool-text);
 		cursor: pointer;
 		font: inherit;
 	}

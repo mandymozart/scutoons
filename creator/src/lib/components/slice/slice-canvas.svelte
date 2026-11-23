@@ -872,12 +872,12 @@
 		opacity: 1;
 	}
 	.grid line {
-		stroke: color-mix(in srgb, var(--tool-accent) 35%, transparent);
+		stroke: color-mix(in srgb, var(--tool-text) 35%, transparent);
 		stroke-width: 1px;
 		vector-effect: non-scaling-stroke;
 	}
 	.grid line.major {
-		stroke: color-mix(in srgb, var(--tool-accent) 70%, transparent);
+		stroke: color-mix(in srgb, var(--tool-text) 70%, transparent);
 	}
 	/* the centre guides: above the boxes, 2px in the live selection's dark cyan – set apart from the pale grid */
 	.guides {
@@ -908,7 +908,7 @@
 		z-index: 2;
 	}
 	.box.kind-dialog {
-		border-color: var(--tool-accent);
+		border-color: var(--tool-text);
 		border-style: solid;
 	}
 	.box.kind-sample {
@@ -925,7 +925,7 @@
 	.box.selected {
 		border-width: 2px;
 		border-style: solid;
-		background: color-mix(in srgb, var(--tool-accent) 8%, transparent);
+		background: color-mix(in srgb, var(--tool-text) 8%, transparent);
 		z-index: 3;
 	}
 	.box.ghost {

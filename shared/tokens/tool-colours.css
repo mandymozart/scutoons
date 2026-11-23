@@ -17,13 +17,12 @@
  *   selected        a selected row or item (text 16 %) · within: a track, a meter's unfilled part, a range (text 10 %)
  *   line            1px frames and dividers · text · muted (secondary text, quiet icons) · bright (light ink)
  *   selection       selected text, a marquee (text 25 %)
- *   danger go warn stop   states (destroy, ok, warning, error)
+ *   danger go warn stop   states (destroy, ok, warning, error) – go is ok and the mixer's meters, never "on"
  *   scrim           behind a modal: the stage dimmed · over-dark / over-light: marks drawn on artwork (any theme)
  *   checker         the second square of a transparency checker (the first is the ground)
- *   accent, primary, primary-line, primary-ink   palette D has none: kept as names of the text colour and the pressed
- *                   fill until their uses are gone, TODO(#853)
  *
- * Signals (--signal-*), outlet types (--outlet-*) and a group's colours (--group-1 … 6) come straight from editor.css.
+ * Signals (--signal-*), outlet types (--outlet-*) and a group's colours (--group-1 … 6) come straight from editor.css;
+ * the components' states (--kit-<component>-<state>-<part>) from kit.css, which names these.
  * `data-colorblind` on <html> or a tool root turns ok / warning / error into the colour-blind set.
  * Night is the default; `data-theme="day"` on <html> or a tool root is the day variant. Set on every theme root so a
  * part in the other theme resolves its own values.
@@ -46,11 +45,7 @@
 	--tool-text: var(--editor-text);
 	--tool-muted: var(--editor-muted);
 	--tool-bright: var(--editor-bright);
-	--tool-accent: var(--editor-text);
 	--tool-selection: var(--editor-selection);
-	--tool-primary: var(--editor-pressed);
-	--tool-primary-line: var(--editor-pressed);
-	--tool-primary-ink: var(--editor-pressed-text);
 	--tool-danger: var(--editor-danger);
 	--tool-go: var(--editor-go);
 	--tool-warn: var(--editor-warn);

@@ -119,7 +119,7 @@
 	}
 	.ws-card:has(.open:focus-visible),
 	.ws-card:has(.open[data-ring]:focus) {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--tool-text);
 		outline-offset: 1px;
 	}
 	.picture {
@@ -131,7 +131,7 @@
 		color: var(--tool-muted);
 	}
 	.front .picture {
-		color: var(--tool-accent);
+		color: var(--tool-text);
 	}
 	.tag {
 		position: absolute;

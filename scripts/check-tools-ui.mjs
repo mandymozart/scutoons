@@ -212,7 +212,52 @@ const COLOUR_ALLOW = [
 const COLOUR_PROPS = /^(color|background(-color|-image)?|border(-(top|right|bottom|left|block|inline)(-(start|end))?)?(-color)?|outline(-color)?|box-shadow|text-shadow|fill|stroke|caret-color|accent-color|text-decoration(-color)?|column-rule(-color)?|scrollbar-color|filter|stop-color|flood-color|lighting-color|--[a-z0-9-]+)$/;
 const LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(^|[\s,(])(white|black|gr[ae]y|silver|red|green|blue|yellow|orange|purple|pink|magenta|cyan|lime|navy|teal|maroon|olive|aqua|fuchsia)(?=$|[\s,)])/;
 const RAW_COLOUR = /var\(--(editor-(stage|surface|surface-head|line|text|muted|control|hover|pressed|pressed-text|selected|within|accent|primary|primary-line|primary-ink|bright|selection|danger|go|warn|stop|panel-ground|halo)|paper|ink|surface-panel)\b/;
+// no ground is grey (owner 2026-11-24, kit/README.md "Always"): a ground is see-through. Opaque greys as a fill: the line,
+// muted, bright or text colour at full strength (a dot or a 1–2px line is a mark, not a ground), a colour mixed into
+// another opaque one (color-mix without `transparent`), a glow that fades into the stage (a gradient to --tool-ground)
+const GROUND_PROP = /^background(-color|-image)?$/;
+const OPAQUE_GREY = /var\(--tool-(line|muted|bright|text)\)/;
+const MARK_RULE = /border-radius\s*:\s*50%|(^|;|\s)(width|height)\s*:\s*(1px|2px|var\(--editor-edge\)|0\.125rem|calc\(2 \* var\(--editor-edge\)\))\s*(;|$)/;
+function greyGround(value, body) {
+	if (/-gradient\((?:[^()]|\([^()]*\))*var\(--tool-ground\)/.test(value)) return 'a glow into the stage is a grey ground';
+	if (/color-mix\(/.test(value) && !/transparent/.test(value)) return 'an opaque colour-mix – mix into transparent';
+	const solid = value.replace(/color-mix\((?:[^()]|\([^()]*\))*\)/g, '');
+	if (OPAQUE_GREY.test(solid) && !/gradient\(/.test(solid) && !MARK_RULE.test(body)) return 'an opaque grey fill – a see-through ground (--tool-control / hover / selected / panel / popover, a kit state)';
+	return null;
+}
+// every --tool-* and kit state a tool reads is defined (tool-colours.css, tools.css, kit.css): a deleted alias such as
+// --tool-accent or a mistyped state would silently paint nothing
+const DEFINED = new Set(['shared/tokens/tool-colours.css', 'shared/tokens/tools.css', 'shared/tokens/kit.css'].flatMap((f) => [...readFileSync(join(ROOT, f), 'utf8').matchAll(/(--(?:tool|kit)-[a-z0-9-]+)\s*:/g)].map((m) => m[1])));
+const STATE_VAR = /var\((--kit-[a-z0-9-]+-(text|ground|border|ring|knob|mark|opacity))\b|var\((--tool-[a-z0-9-]+)\b/g;
+// literal colours: also in the shared media and sign-in parts the tools use, and in inline styles of the tools' markup
+// (shared/ui outside its editor kit also serves the reader apps, which keep their own scrims and the colour picker its hues)
+const LITERAL_ONLY_DIRS = ['shared/media/src', 'shared/auth/src'];
+const INLINE_LITERAL = /\bstyle(:[a-z-]+)?=(["'{])[^"'}]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?)\()/;
 const colours = [];
+for (const file of [...new Set([...COLOUR_DIRS, ...LITERAL_ONLY_DIRS].flatMap(walk))]) {
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const text = readFileSync(file, 'utf8');
+	const onlyLiterals = !COLOUR_DIRS.some((d) => name === d || name.startsWith(d + '/'));
+	if (file.endsWith('.svelte')) {
+		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').forEach((l, i) => {
+			if (INLINE_LITERAL.test(l)) colours.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (a literal colour in an inline style: a --tool-* token)`);
+		});
+	}
+	if (onlyLiterals) {
+		const styles = file.endsWith('.css') ? [text] : [...text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+		for (const css of styles) {
+			const plain = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\((['"]?)[^)]*\1\)/g, 'url()');
+			for (const m of plain.matchAll(/([a-z-]+|--[a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
+				if (COLOUR_PROPS.test(m[1]) && /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|oklch)\(/.test(m[2])) colours.push(`${name}: ${m[1]}: ${m[2].trim().slice(0, 60)} (a literal colour: a token)`);
+			}
+		}
+		continue;
+	}
+	for (const m of text.matchAll(STATE_VAR)) {
+		const v = m[1] ?? m[3];
+		if (!DEFINED.has(v) && !/^--tool-(bar|sidebar|panel)-(height|width)$/.test(v)) colours.push(`${name}:${text.slice(0, m.index).split('\n').length}: ${v} (not a token: tool-colours.css, tools.css and kit.css define none of that name)`);
+	}
+}
 for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
 	const text = readFileSync(file, 'utf8');
 	const name = relative(ROOT, file).replace(/\\/g, '/');
@@ -234,6 +279,7 @@ for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
 				const say = `${name}:${line}: ${sel} { ${m[1]}: ${m[2].trim().replace(/\s+/g, ' ').slice(0, 70)} }`;
 				if (LITERAL.test(value)) colours.push(`${say} (a literal colour: a --tool-* token)`);
 				else if (RAW_COLOUR.test(value)) colours.push(`${say} (a raw editor / reader colour: the --tool-* token – a grey ground only as --tool-panel / --tool-popover / --tool-head)`);
+				else if (GROUND_PROP.test(m[1]) && greyGround(value, body)) colours.push(`${say} (${greyGround(value, body)})`);
 			}
 			if (/background(-color)?\s*:[^;]*var\(--tool-panel\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
 				const line = text.slice(0, at + rule.index + rule[1].search(/\S/)).split('\n').length;

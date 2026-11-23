@@ -145,7 +145,7 @@
 	}
 	.tile:focus-visible .preview,
 	.tile.selected .preview {
-		outline: 0.125rem solid var(--tool-accent);
+		outline: 0.125rem solid var(--tool-text);
 		outline-offset: 0.0625rem;
 	}
 	/* a version stack (OSCT #331): two sheets behind the tile; every card keeps the pile's room so they line up */
@@ -201,7 +201,7 @@
 		font-size: var(--editor-label);
 	}
 	.meta.fresh {
-		color: var(--tool-accent);
+		color: var(--tool-text);
 	}
 	.more {
 		position: absolute;
@@ -239,7 +239,7 @@
 		background: var(--tool-hover);
 	}
 	.tile.row.selected {
-		outline: 0.125rem solid var(--tool-accent);
+		outline: 0.125rem solid var(--tool-text);
 	}
 	.row .preview {
 		flex: none;

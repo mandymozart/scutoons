@@ -372,7 +372,7 @@
 	}
 	/* buttons on the deck editor's dogma (deck/kit/src/editor/controls.rs, #750): quiet controls on the control ground with
 	   the radius; an option that is on is pressed (`pills`); a lone icon shows its ground only under the pointer
-	   (`icon_button`); the view's one primary action is lime (`primary`) */
+	   (`icon_button`); the view's one primary action is the pressed fill (`primary`) */
 	:global(:where(.creator button)),
 	:global(:where(.creator .btn)) {
 		display: inline-flex;
@@ -415,12 +415,12 @@
 	}
 	:global(:where(.creator button.primary)),
 	:global(:where(.creator .btn.primary)) {
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
-		border-color: var(--tool-primary-line);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		border-color: var(--tool-pressed);
 	}
 	:global(:where(.creator button.primary:hover:not(:disabled))) {
-		background: var(--tool-primary-line);
+		background: var(--tool-pressed);
 	}
 	:global(:where(.creator button:disabled)) {
 		opacity: 0.5;

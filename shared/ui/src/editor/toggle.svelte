@@ -13,7 +13,8 @@
 		title,
 		words,
 		disabled = false,
-		onchange
+		onchange,
+		...rest
 	}: {
 		on: boolean;
 		label: string;
@@ -21,6 +22,7 @@
 		words?: readonly [off: string, on: string];
 		disabled?: boolean;
 		onchange: (on: boolean) => void;
+		'data-kit-state'?: string;
 	} = $props();
 
 	const keydown = (e: KeyboardEvent) => {
@@ -35,6 +37,7 @@
 </script>
 
 <button
+	{...rest}
 	type="button"
 	class="switch"
 	role="switch"
@@ -63,17 +66,17 @@
 		font: inherit;
 		cursor: pointer;
 	}
-	/* deck-kit controls.rs `switch`: a round track with its line, the knob 0.76 of its height; on, the track goes green and
-	   the knob right in the light ink */
+	/* deck-kit controls.rs `switch`: a round track with its line, the knob 0.76 of its height; on (no green, RULES H11), the
+	   track takes the pressed fill and the knob right in the pressed text (kit.css --kit-toggle-*) */
 	.track {
 		position: relative;
 		flex: none;
 		box-sizing: border-box;
 		width: 2.25rem;
 		height: 1.125rem;
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-toggle-off-border);
 		border-radius: 999px;
-		background: var(--tool-within);
+		background: var(--kit-toggle-off-ground);
 		transition:
 			background-color 0.15s,
 			border-color 0.15s;
@@ -86,33 +89,38 @@
 		width: 0.855rem;
 		height: 0.855rem;
 		border-radius: 50%;
-		background: var(--tool-muted);
+		background: var(--kit-toggle-off-knob);
 		transform: translateY(-50%);
 		transition:
 			transform 0.15s,
 			background-color 0.15s;
 	}
-	.switch[aria-checked='true'] .track {
-		background: var(--tool-go);
-	}
-	.switch[aria-checked='true'] .track::before {
-		background: var(--tool-bright);
-		transform: translate(1.125rem, -50%);
+	.switch[data-kit-state~='hover'] .track {
+		border-color: var(--kit-toggle-hover-border);
 	}
 	@media (hover: hover) {
 		.switch:hover:not(:disabled) .track {
-			border-color: var(--tool-muted);
+			border-color: var(--kit-toggle-hover-border);
 		}
+	}
+	.switch[aria-checked='true'] .track {
+		border-color: var(--kit-toggle-on-border);
+		background: var(--kit-toggle-on-ground);
+	}
+	.switch[aria-checked='true'] .track::before {
+		background: var(--kit-toggle-on-knob);
+		transform: translate(1.125rem, -50%);
 	}
 	.switch:focus-visible {
 		outline: none;
 	}
-	.switch:focus-visible .track {
-		outline: 2px solid var(--tool-accent);
+	.switch:focus-visible .track,
+	.switch[data-kit-state~='focus'] .track {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: 1px;
 	}
 	.switch:disabled {
-		opacity: 0.45;
+		opacity: var(--kit-toggle-disabled-opacity);
 		cursor: not-allowed;
 	}
 	.value {

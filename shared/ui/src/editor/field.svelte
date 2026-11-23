@@ -7,11 +7,11 @@
 	 * most 6.86rem), the field in the rest – the control ground, its line, a control's corner, a control high. A control of
 	 * its own goes in as `children`; else a text input bound to `value`.
 	 */
-	type Props = { label: string; value?: string; children?: Snippet } & Omit<HTMLInputAttributes, 'value' | 'children'>;
-	let { label, value = $bindable(''), type = 'text', children, ...rest }: Props = $props();
+	type Props = { label: string; value?: string; children?: Snippet; 'data-kit-state'?: string } & Omit<HTMLInputAttributes, 'value' | 'children'>;
+	let { label, value = $bindable(''), type = 'text', children, 'data-kit-state': kitState, ...rest }: Props = $props();
 </script>
 
-<label class="kit-field">
+<label class="kit-field" data-kit-state={kitState}>
 	<span class="name">{label}</span>
 	{#if children}{@render children()}{:else}<input {type} bind:value {...rest} />{/if}
 </label>
@@ -36,18 +36,36 @@
 		height: var(--control-height);
 		margin: 0;
 		padding: 0 var(--editor-pad);
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-field-rest-border);
 		border-radius: var(--editor-radius);
-		background: var(--tool-control);
-		color: var(--tool-text);
+		background: var(--kit-field-rest-ground);
+		color: var(--kit-field-rest-text);
 		font: inherit;
 		text-shadow: none;
 	}
-	input:hover {
-		border-color: var(--tool-muted);
+	input::placeholder {
+		color: var(--tool-muted);
 	}
-	input:focus-visible {
-		outline: 2px solid var(--tool-accent);
-		outline-offset: -1px;
+	input:hover,
+	.kit-field[data-kit-state~='hover'] input {
+		border-color: var(--kit-field-hover-border);
+	}
+	input:focus,
+	.kit-field[data-kit-state~='on'] input {
+		border-color: var(--kit-field-on-border);
+		outline: none;
+	}
+	input:focus-visible,
+	.kit-field[data-kit-state~='focus'] input {
+		outline: 2px solid var(--kit-focus-rest-ring);
+		outline-offset: 1px;
+	}
+	input:disabled {
+		color: var(--kit-field-disabled-text);
+		opacity: var(--kit-field-disabled-opacity);
+		cursor: not-allowed;
+	}
+	input[aria-invalid='true'] {
+		border-color: var(--kit-field-error-border);
 	}
 </style>

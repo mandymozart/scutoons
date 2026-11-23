@@ -170,19 +170,25 @@
 		position: relative;
 		display: inline-grid;
 		place-items: center;
-		width: var(--control-height);
-		height: var(--control-height);
+		width: var(--kit-h, var(--control-height));
+		height: var(--kit-h, var(--control-height));
 		padding: 0;
 		border: 0;
-		border-radius: var(--editor-radius);
-		background: none;
-		color: var(--tool-text);
+		/* in a Pill: round and concentric with it (--kit-h / --kit-r), as the kit's IconButton */
+		border-radius: var(--kit-r, var(--editor-radius));
+		background: var(--kit-icon-button-rest-ground);
+		color: var(--kit-icon-button-rest-text);
 		cursor: pointer;
 	}
 	.tool.on,
 	.tool.open {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-icon-button-on-ground);
+		color: var(--kit-icon-button-on-text);
+		text-shadow: none;
+	}
+	.tool.on :global(svg),
+	.tool.open :global(svg) {
+		filter: none;
 	}
 	.more::after {
 		content: '';
@@ -200,9 +206,9 @@
 		flex-direction: column;
 		min-width: 9rem;
 		padding: 0.25rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
+		border: var(--editor-edge) solid var(--kit-menu-rest-border);
+		border-radius: var(--kit-radius-box);
+		background: var(--kit-menu-rest-ground);
 		color: var(--tool-text);
 		outline: none;
 		text-shadow: none;
@@ -223,8 +229,8 @@
 		white-space: nowrap;
 	}
 	.item.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-list-row-selected-ground);
+		color: var(--kit-list-row-selected-text);
 	}
 	.name {
 		flex: 1;
@@ -236,13 +242,15 @@
 	}
 	.tool:focus-visible,
 	.item:focus-visible {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
 	@media (hover: hover) {
-		.tool:not(.on, .open):hover,
+		.tool:not(.on, .open):hover {
+			background: var(--kit-icon-button-hover-ground);
+		}
 		.item:not(.on):hover {
-			background: var(--tool-hover);
+			background: var(--kit-menu-item-hover-ground);
 		}
 	}
 </style>

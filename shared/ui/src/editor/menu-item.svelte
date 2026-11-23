@@ -92,27 +92,29 @@
 	}
 	.muted,
 	.kit-menu-item:disabled {
-		color: var(--tool-muted);
+		color: var(--kit-menu-item-disabled-text);
 		cursor: default;
 	}
 	.dim {
 		opacity: 0.55;
 	}
 	.current,
-	.kit-menu-item[aria-expanded='true'] {
-		background: var(--tool-hover);
+	.kit-menu-item[aria-expanded='true'],
+	.kit-menu-item[data-kit-state~='hover'] {
+		background: var(--kit-menu-item-hover-ground);
 	}
 	@media (hover: hover) {
 		a.kit-menu-item:hover,
 		button.kit-menu-item:hover:not(:disabled) {
-			background: var(--tool-hover);
+			background: var(--kit-menu-item-hover-ground);
 		}
 	}
-	.kit-menu-item:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	.kit-menu-item:focus-visible,
+	.kit-menu-item[data-kit-state~='focus'] {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
-	/* a check list's dot (controls.rs `checks`: the accent, 0.21rem round) and its room when off */
+	/* a check list's dot (controls.rs `checks`: the text colour, 0.21rem round) and its room when off */
 	.tick {
 		flex: none;
 		width: 0.42rem;
@@ -121,6 +123,6 @@
 		border-radius: 50%;
 	}
 	.tick.lit {
-		background: var(--tool-accent);
+		background: var(--kit-menu-item-on-mark);
 	}
 </style>

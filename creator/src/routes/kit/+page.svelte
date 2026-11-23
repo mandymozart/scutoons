@@ -2,10 +2,12 @@
 	import { ScrubNumber } from '@scutoons/ui';
 	import UnitNumber from '$lib/components/fields/unit-number.svelte';
 	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
-	import { at, Floats, FloatingPanels, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
+	import KitStates from '$lib/components/page/kit-states.svelte';
+	import { at, Button, Floats, FloatingPanels, ListRow, Pill, PillTabs, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
 	// Dev only: the editor kit over a stage – drag a panel by its grip, a tab into another panel or out onto the stage,
 	// resize an edge (the neighbours make room), fold by a double-click on the head; reload and the layout is back.
+	// States: every component of the kit in its states (kit-states.svelte).
 	const TABS: TabSpec[] = [
 		{ id: 'outline', name: 'Outline', icon: 'list', about: 'The open item’s structure' },
 		{ id: 'history', name: 'History', icon: 'clock', about: 'Saved versions' },
@@ -31,10 +33,14 @@
 		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'problems'] },
 		{ id: 'library', name: 'Library', icon: 'grid', about: '', place: at('bottom-left', 21, 0), size: { w: 'fill', h: 16 }, min: { w: 20, h: 8 }, tabs: ['library', 'wanted', 'info'] }
 	];
-	const WORKSPACES = ['Scene', 'Character'] as const;
+	const WORKSPACES = [
+		{ id: 'scene', label: 'Scene' },
+		{ id: 'character', label: 'Character' },
+		{ id: 'states', label: 'States' }
+	];
 
-	let workspace = $state<(typeof WORKSPACES)[number]>('Scene');
-	const floats = $derived(new Floats(`kit-${workspace.toLowerCase()}`, PANELS, TABS));
+	let workspace = $state('scene');
+	const floats = $derived(new Floats(`kit-${workspace === 'states' ? 'scene' : workspace}`, PANELS, TABS));
 	// Day / Night only in the creator's Settings (Look): the demo follows what they keep in this browser
 	let day = $state(false);
 	$effect(() => {
@@ -65,16 +71,17 @@
 <div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'}>
 	<header class="bar">
 		<span class="name">Editor kit</span>
-		{#each WORKSPACES as w (w)}
-			<button type="button" class="pill" class:on={w === workspace} onclick={() => (workspace = w)}>{w}</button>
-		{/each}
+		<Pill as="nav" label="Workspaces"><PillTabs items={WORKSPACES} on={workspace} onselect={(id) => (workspace = id)} /></Pill>
 		<span class="spacer"></span>
-		<button type="button" class="pill" onclick={() => floats.reset()}>Reset layout</button>
+		{#if workspace !== 'states'}<Pill><Button variant="quiet" icon="rotate-ccw" onclick={() => floats.reset()}>Reset layout</Button></Pill>{/if}
 	</header>
-	<main class="room">
+	<main class="room" class:scroll={workspace === 'states'}>
+		{#if workspace === 'states'}
+			<KitStates />
+		{:else}
 		{#key floats}
 			<FloatingPanels {floats}>
-				<div class="stage-art"><span>Stage · {workspace}</span></div>
+				<div class="stage-art"><span>Stage · {WORKSPACES.find((w) => w.id === workspace)?.label}</span></div>
 				{#snippet toolbar()}
 					<div class="tools">
 						<ToolGroup
@@ -106,11 +113,11 @@
 				{/snippet}
 				{#snippet tab(id)}
 					{#if id === 'outline'}
-						<ul class="list">
+						<div class="list">
 							{#each ['Chapter 3', '· Slice 1', '· Slice 2', '·· Catpope', '·· Lantern', '· Slice 3'] as line (line)}
-								<li class:sel={line.includes('Catpope')}>{line}</li>
+								<ListRow dense label={line} selected={line.includes('Catpope')} onclick={() => {}} />
 							{/each}
-						</ul>
+						</div>
 					{:else if id === 'history'}
 						<ul class="list">
 							<li>Today 14:02 · draft</li>
@@ -155,6 +162,7 @@
 				{/snippet}
 			</FloatingPanels>
 		{/key}
+		{/if}
 	</main>
 </div>
 
@@ -167,13 +175,12 @@
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 	}
+	/* the bar stands on the stage: pills, no ground of its own (RULES H11) */
 	.bar {
 		display: flex;
 		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 1rem;
-		background: var(--tool-head);
-		border-bottom: var(--editor-edge) solid var(--tool-line);
+		gap: var(--kit-gap);
+		padding: var(--kit-margin);
 	}
 	.name {
 		margin-right: 0.75rem;
@@ -181,23 +188,13 @@
 	.spacer {
 		flex: 1;
 	}
-	.pill {
-		height: var(--control-height);
-		padding: 0 0.875rem;
-		border: 0;
-		border-radius: 1.2rem;
-		background: var(--tool-control);
-		color: var(--tool-muted);
-		font: inherit;
-		cursor: pointer;
-	}
-	.pill.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-	}
 	.room {
+		position: relative;
 		flex: 1;
 		min-height: 0;
+	}
+	.room.scroll {
+		overflow: auto;
 	}
 	.stage-art {
 		position: absolute;
@@ -207,7 +204,7 @@
 		background:
 			linear-gradient(var(--tool-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
 			linear-gradient(90deg, var(--tool-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
-			radial-gradient(circle at 50% 45%, var(--tool-within), var(--tool-ground) 70%);
+			var(--tool-ground);
 		color: var(--tool-muted);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
@@ -232,19 +229,9 @@
 		font-size: var(--editor-small);
 	}
 	.list {
-		margin: 0;
-		padding: 0.25rem 0;
-		list-style: none;
-	}
-	.list li {
-		display: flex;
-		align-items: center;
-		height: var(--editor-tree-row);
-		padding: 0 var(--editor-pad);
+		display: grid;
+		padding: 0.25rem;
 		white-space: pre;
-	}
-	.list li.sel {
-		background: var(--tool-selected);
 	}
 	.note {
 		margin: 0;
@@ -270,9 +257,10 @@
 		gap: 0.25rem;
 		font-size: var(--editor-small);
 	}
+	/* an empty thumbnail: its line on the stage, no placeholder ground (RULES H11) */
 	.art {
 		aspect-ratio: 1;
+		border: var(--editor-edge) solid var(--kit-thumb-rest-border);
 		border-radius: var(--editor-radius);
-		background: linear-gradient(135deg, var(--tool-control), var(--tool-selected));
 	}
 </style>

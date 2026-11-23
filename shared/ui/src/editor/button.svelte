@@ -5,13 +5,14 @@
 
 	/**
 	 * The kit's button (deck-kit controls.rs): words, an icon before them where it helps, one control high. `primary` is a
-	 * view's one primary action (lime, its edge, ink words, an arrow out when it leaves for elsewhere – controls.rs
-	 * `primary`), `framed` a control on the control ground with its line, `quiet` words alone with the hover ground under
-	 * the pointer. `pressed` is the pressed segment; `fill` takes the room left, its words from the start. Height and corner are where it sits (--kit-h / --kit-r: a control's in
+	 * view's one primary action – the pressed fill (RULES H11), an arrow out when it leaves for elsewhere; disabled, that
+	 * fill faded – `framed` a control on the control ground with its line, `quiet` words alone with the hover ground under
+	 * the pointer (`destroy`: in the stop colour). The states' colours are kit.css's `--kit-button-*`. `pressed` is the pressed segment; `fill` takes the room left, its words from the start. Height and corner are where it sits (--kit-h / --kit-r: a control's in
 	 * a panel, the inside of a Pill less its inset in a Pill). `href` makes it a link with the same look.
 	 */
 	type Props = {
 		variant?: 'primary' | 'framed' | 'quiet';
+		destroy?: boolean;
 		icon?: string;
 		outward?: boolean;
 		pressed?: boolean;
@@ -22,7 +23,7 @@
 	} & Omit<HTMLButtonAttributes, 'children'> &
 		Omit<HTMLAnchorAttributes, 'children'>;
 
-	let { variant = 'framed', icon, outward = false, pressed, fill = false, href, disabled = false, type = 'button', children, ...rest }: Props = $props();
+	let { variant = 'framed', destroy = false, icon, outward = false, pressed, fill = false, href, disabled = false, type = 'button', children, ...rest }: Props = $props();
 </script>
 
 {#snippet inside()}
@@ -30,9 +31,9 @@
 {/snippet}
 
 {#if href && !disabled}
-	<a {href} {...rest as HTMLAnchorAttributes} class="kit-button {variant} {rest.class ?? ''}" class:pressed class:fill>{@render inside()}</a>
+	<a {href} {...rest as HTMLAnchorAttributes} class="kit-button {variant} {rest.class ?? ''}" class:pressed class:fill class:destroy>{@render inside()}</a>
 {:else}
-	<button {type} {disabled} aria-pressed={pressed} {...rest as HTMLButtonAttributes} class="kit-button {variant} {rest.class ?? ''}" class:pressed class:fill>{@render inside()}</button>
+	<button {type} {disabled} aria-pressed={pressed} {...rest as HTMLButtonAttributes} class="kit-button {variant} {rest.class ?? ''}" class:pressed class:fill class:destroy>{@render inside()}</button>
 {/if}
 
 <style>
@@ -77,40 +78,68 @@
 		min-width: 0;
 	}
 	.framed {
-		border-color: var(--tool-line);
-		background: var(--tool-control);
+		border-color: var(--kit-button-plain-rest-border);
+		background: var(--kit-button-plain-rest-ground);
+		color: var(--kit-button-plain-rest-text);
 		text-shadow: none;
 	}
+	.quiet {
+		background: var(--kit-button-quiet-rest-ground);
+		color: var(--kit-button-quiet-rest-text);
+	}
+	.destroy {
+		color: var(--kit-button-quiet-destroy-text);
+	}
 	.primary {
-		border-color: var(--tool-primary-line);
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
+		background: var(--kit-button-primary-rest-ground);
+		color: var(--kit-button-primary-rest-text);
 		text-shadow: none;
 	}
 	.primary :global(svg) {
 		filter: none;
 	}
-	.pressed {
-		border-color: transparent;
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		text-shadow: none;
+	.framed[data-kit-state~='hover'] {
+		background: var(--kit-button-plain-hover-ground);
+	}
+	.quiet[data-kit-state~='hover'] {
+		background: var(--kit-button-quiet-hover-ground);
+	}
+	.primary[data-kit-state~='hover'] {
+		background: var(--kit-button-primary-hover-ground);
 	}
 	@media (hover: hover) {
-		.framed:hover:not(:disabled, .pressed),
-		.quiet:hover:not(:disabled, .pressed) {
-			background: var(--tool-hover);
+		.framed:hover:not(:disabled, .pressed) {
+			background: var(--kit-button-plain-hover-ground);
 		}
-		.primary:hover:not(:disabled) {
-			border-color: var(--tool-primary-ink);
+		.quiet:hover:not(:disabled, .pressed) {
+			background: var(--kit-button-quiet-hover-ground);
+		}
+		.primary:hover:not(:disabled, .pressed) {
+			background: var(--kit-button-primary-hover-ground);
 		}
 	}
-	.kit-button:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	/* pressed: a pressed segment (framed), the quiet one muted on the hover ground, the primary's fill deeper */
+	.framed.pressed,
+	.framed[data-kit-state~='on'] {
+		border-color: var(--kit-button-plain-on-border);
+		background: var(--kit-button-plain-on-ground);
+	}
+	.quiet.pressed,
+	.quiet[data-kit-state~='on'] {
+		background: var(--kit-button-quiet-on-ground);
+		color: var(--kit-button-quiet-on-text);
+	}
+	.primary.pressed,
+	.primary[data-kit-state~='on'] {
+		background: var(--kit-button-primary-on-ground);
+	}
+	.kit-button:focus-visible,
+	.kit-button[data-kit-state~='focus'] {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: 1px;
 	}
 	.kit-button:disabled {
-		opacity: 0.5;
+		opacity: var(--kit-button-primary-disabled-opacity);
 		cursor: not-allowed;
 	}
 </style>

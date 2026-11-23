@@ -86,7 +86,7 @@
 		width: 100%;
 		overflow: hidden;
 		container-type: inline-size;
-		background: var(--tool-line);
+		background: var(--tool-ground);
 	}
 	.preview img {
 		position: absolute;

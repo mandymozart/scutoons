@@ -114,12 +114,28 @@
 		white-space: nowrap;
 		font-size: var(--editor-small);
 	}
-	.toggle-open:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	/* open: the head on the head ground, its chevron in the text colour; hover: the hover ground (kit.css --kit-section-*) */
+	.head:has(.toggle-open[aria-expanded='true']) {
+		background: var(--kit-section-on-ground);
+	}
+	.toggle-open :global(svg) {
+		color: var(--kit-section-rest-mark);
+	}
+	.toggle-open[aria-expanded='true'] :global(svg) {
+		color: var(--kit-section-on-mark);
+	}
+	.toggle-open:focus-visible,
+	.section[data-kit-state~='focus'] .toggle-open {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
+	}
+	.section[data-kit-state~='hover'] .toggle-open {
+		background: var(--kit-section-hover-ground);
+		color: var(--tool-text);
 	}
 	@media (hover: hover) {
 		.toggle-open:hover {
+			background: var(--kit-section-hover-ground);
 			color: var(--tool-text);
 		}
 	}

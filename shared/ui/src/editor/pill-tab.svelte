@@ -5,9 +5,10 @@
 	import Icon from '../icon.svelte';
 
 	/**
-	 * One tab of a pill (deck-kit bar.rs `tabs`, controls.rs `pills_rounded`): its icon and words on one line; the one `on`
-	 * takes the thin outline (point 46, owner 2026-11-24: "Active is the new outline look"), the others are muted and take the hover ground under the pointer; it is rounded by --kit-r (in a Pill: the
-	 * pill's radius less the inset – concentric). `href` makes it a link (`aria-current` on), else a button (`aria-pressed`).
+	 * One tab of a pill (deck-kit bar.rs `tabs`, controls.rs `pills_rounded`): its icon and words on one line, no border at
+	 * rest (RULES H4): the one `on` in the text colour, the others muted; a rounded border shows on hover and while dragged
+	 * (`data-kit-state="dragged"`); rounded by --kit-r (in a Pill: the pill's radius less the inset – concentric). The
+	 * states' colours are kit.css's `--kit-tab-*`. `href` makes it a link (`aria-current` on), else a button (`aria-pressed`).
 	 * `onclose` adds the close at its end (a square as high as the tab); `small` takes the small type (a pill of modes).
 	 * `dim` mutes one that does not fit. Other attributes go to the tab itself (data-* for the caller).
 	 */
@@ -53,7 +54,9 @@
 		max-width: 14rem;
 		height: var(--kit-h, var(--control-height));
 		border-radius: var(--kit-r, var(--editor-radius));
-		color: var(--tool-muted);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-rest-border);
+		background: var(--kit-tab-rest-ground);
+		color: var(--kit-tab-rest-text);
 		font-size: var(--kit-font, var(--editor-font));
 	}
 	.small {
@@ -63,13 +66,27 @@
 		opacity: 0.55;
 	}
 	.on {
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-text);
-		color: var(--tool-text);
+		color: var(--kit-tab-on-text);
+	}
+	.kit-pill-tab[data-kit-state~='hover'] {
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-hover-border);
+		color: var(--kit-tab-hover-text);
 	}
 	@media (hover: hover) {
-		.kit-pill-tab:not(.on):hover {
-			background: var(--tool-hover);
+		.kit-pill-tab:hover {
+			box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-hover-border);
+			color: var(--kit-tab-hover-text);
 		}
+	}
+	.kit-pill-tab[data-kit-state~='dragged'],
+	.kit-pill-tab[aria-grabbed='true'] {
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-dragged-border);
+		background: var(--kit-tab-dragged-ground);
+		color: var(--kit-tab-dragged-text);
+		text-shadow: none;
+	}
+	.kit-pill-tab:has(.open:disabled) {
+		opacity: var(--kit-tab-disabled-opacity);
 	}
 	.open {
 		display: inline-flex;
@@ -102,7 +119,6 @@
 		height: var(--kit-icon);
 	}
 	.open:disabled {
-		opacity: 0.4;
 		cursor: not-allowed;
 	}
 	.words {
@@ -128,7 +144,7 @@
 		cursor: pointer;
 	}
 	.on .close {
-		color: var(--tool-text);
+		color: var(--kit-tab-on-text);
 	}
 	@media (hover: hover) {
 		.close:hover {
@@ -137,8 +153,9 @@
 		}
 	}
 	.open:focus-visible,
-	.close:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	.close:focus-visible,
+	.kit-pill-tab[data-kit-state~='focus'] .open {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
 </style>

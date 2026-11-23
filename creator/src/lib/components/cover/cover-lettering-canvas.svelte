@@ -203,7 +203,7 @@
 	}
 	/* selected = the cyan frame; live = + its handles; focus = the 3px ink ring (focus is not selection – E.8) */
 	.box.selected {
-		border: var(--border-width-regular) solid var(--tool-accent);
+		border: var(--border-width-regular) solid var(--tool-text);
 		outline: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.box:focus-visible {
@@ -215,7 +215,7 @@
 		left: 50%;
 		top: 0;
 		bottom: 0;
-		border-left: var(--border-width-hairline) solid var(--tool-accent);
+		border-left: var(--border-width-hairline) solid var(--tool-text);
 		pointer-events: none;
 	}
 	.handle {

@@ -297,7 +297,7 @@
 		color: var(--tool-muted);
 	}
 	.cell.drop-on {
-		outline: 0.125rem dashed var(--tool-accent);
+		outline: 0.125rem dashed var(--tool-text);
 		outline-offset: 0.0625rem;
 	}
 	.cell {

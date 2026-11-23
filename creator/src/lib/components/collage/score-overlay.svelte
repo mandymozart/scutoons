@@ -162,7 +162,7 @@
 		outline-style: dotted;
 	}
 	.box.selected {
-		outline: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--tool-accent);
+		outline: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--tool-text);
 	}
 	/* the round scale handle on the box's bottom-right corner (--x / --y: % of the page), held on the page at its edges */
 	.corner {

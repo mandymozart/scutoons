@@ -112,6 +112,7 @@
 		content: '';
 		width: 30%;
 		height: 30%; /* control-ok: the cell's dot, not a control */
+		border-radius: 50%;
 		background: var(--tool-muted);
 	}
 	input:hover::before {
