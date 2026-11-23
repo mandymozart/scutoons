@@ -134,7 +134,7 @@
 	.stage {
 		position: absolute;
 		inset: 0;
-		background: var(--editor-stage, var(--ink));
+		background: var(--tool-ground);
 	}
 	.host {
 		position: absolute;
@@ -154,7 +154,7 @@
 		max-width: 28rem;
 		margin: 0;
 		padding: 0.5rem 0.75rem;
-		background: var(--paper);
+		background: var(--tool-popover);
 		border: var(--border-width-regular) solid var(--border-subtle);
 		overflow-wrap: anywhere;
 	}

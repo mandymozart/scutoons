@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ToolGroup } from '@scutoons/ui/editor';
+	import { Button, Pill, ToolGroup } from '@scutoons/ui/editor';
 	import { contentUrl, type OutlineScene } from '$lib/editor/experiences.ts';
 	import { STAGE_TOOLS, STAGE_VIEWS, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -44,9 +44,9 @@
 
 <div class="scenes-tab">
 	<div class="tools">
-		<span class:idle={!playing} data-testid="experience-tools"><ToolGroup label={m['creator.experiences_stage_tool']()} options={tools} value={tool} expanded onchoose={(t) => (tool = t as StageTool)} /></span>
-		<span class:idle={!playing}><ToolGroup label={m['creator.experiences_stage_view']()} options={views} value={view} expanded onchoose={(v) => (view = v as StageView)} /></span>
-		<button type="button" class="replay" onclick={onreplay} data-testid="experience-stage-replay">{m['creator.experiences_stage_replay']()}</button>
+		<span class:idle={!playing} data-testid="experience-tools"><Pill><ToolGroup label={m['creator.experiences_stage_tool']()} options={tools} value={tool} expanded onchoose={(t) => (tool = t as StageTool)} /></Pill></span>
+		<span class:idle={!playing}><Pill><ToolGroup label={m['creator.experiences_stage_view']()} options={views} value={view} expanded onchoose={(v) => (view = v as StageView)} /></Pill></span>
+		<Pill><Button variant="quiet" icon="rotate-ccw" onclick={onreplay} data-testid="experience-stage-replay">{m['creator.experiences_stage_replay']()}</Button></Pill>
 	</div>
 	<ul class="strip" data-testid="experience-scenes">
 		{#each scenes as s (s.id)}
@@ -73,14 +73,11 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--kit-gap);
 	}
 	.idle {
 		opacity: 0.5;
 		pointer-events: none;
-	}
-	.replay {
-		margin: 0;
 	}
 	.strip {
 		display: flex;
@@ -103,15 +100,23 @@
 		min-height: 5rem;
 		margin: 0;
 		padding: 0;
-		border: var(--border-width-regular) solid var(--border-subtle);
-		background: var(--paper);
+		border: var(--editor-edge) solid var(--kit-thumb-rest-border);
+		border-radius: var(--editor-radius);
+		background: transparent;
 		color: inherit;
 		text-align: left;
 		cursor: pointer;
+		overflow: hidden;
 	}
+	@media (hover: hover) {
+		.card:hover {
+			border-color: var(--kit-thumb-hover-border);
+		}
+	}
+	/* the scene on the stage: a ring in the text colour (the kit's Thumb, no hue) */
 	.card[aria-pressed='true'] {
-		border-color: var(--ink);
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: 2px solid var(--kit-thumb-on-ring);
+		outline-offset: 1px;
 	}
 	.card img,
 	.blank {
@@ -119,7 +124,7 @@
 		min-height: 0;
 		width: 100%;
 		object-fit: cover;
-		background: var(--surface-panel);
+		background: transparent;
 	}
 	.name {
 		display: block;

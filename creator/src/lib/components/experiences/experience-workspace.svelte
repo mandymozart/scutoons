@@ -32,11 +32,11 @@
 	import { toast } from '$lib/toasts.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import ExperienceMeta from './experience-meta.svelte';
-	import ExperienceInspector from './experience-inspector.svelte';
-	import ExperienceTree from './experience-tree.svelte';
-	import ExperienceScenes from './experience-scenes.svelte';
-	import ExperienceStage from './experience-stage.svelte';
+	import ExperienceMeta from '$lib/components/experiences/experience-meta.svelte';
+	import ExperienceInspector from '$lib/components/experiences/experience-inspector.svelte';
+	import ExperienceTree from '$lib/components/experiences/experience-tree.svelte';
+	import ExperienceScenes from '$lib/components/experiences/experience-scenes.svelte';
+	import ExperienceStage from '$lib/components/experiences/experience-stage.svelte';
 
 	/**
 	 * The XR editor's workspace (#482): the stage is the experience and fills the whole workspace; the panels lie over it –
@@ -324,7 +324,7 @@
 		position: relative;
 		flex: 1;
 		min-height: 0;
-		background: var(--editor-stage, var(--ink));
+		background: var(--tool-ground);
 	}
 	.empty {
 		position: absolute;
