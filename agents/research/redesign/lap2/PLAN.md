@@ -19,8 +19,9 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - **Done when:** every screen marked old or shape in SCREENS.md is current, each change against today numbered, nothing drawn that no decision covers.
 
 ### P1 · The kit
-- **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged.
-- **A generator** (deck: it does not exist – today deck-kit's `tokens.rs` and the web tools' CSS are kept in step by hand): `tokens.rs` → the CSS variables, run in deck:ci and in the style check, so the two cannot drift.
+- **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged; the outlet types' colours as a table beside it.
+- **One shared source of truth for the kit, in a prominent place of the code base** (your word, 2026-11-24): the tokens and each component's states are written once; the deck's UI crate and the creator's UI kit both come from it, checked in deck:ci and the style check so they cannot drift. Today they are kept in step by hand, and the approved kit is only a research page. **Deck: a neutral file, in a top-level `kit/` folder** (`kit/tokens.toml` and a README of the components and their states). It is cheap there: deck-kit already reads a `tokens.toml` on top of its built-in values. The tokens' defaults move out of the Rust code into that file, deck-kit builds it in as its base, and a small script generates the web tools' CSS from it – small. The components' states (a tab's rest, hover, dragged …) become named entries in the same file, done component by component together with the restyle – medium. **Decided 2026-11-24: the `kit/` folder.**
+- **A kit page in each app, built from the real components**, is the reference to look at and refine; kit-d.html moves out of the research folder to that place.
 - **Creator:** the tokens generated from the deck; the kit's components to the new look (tabs, chips and badges, icon buttons, the primary button, focus, selected rows); the colour-blind mode as a setting – in the deck's settings too; the kit page.
 - **Size of the change in the web tools:** the accent is used in 201 places, lime in 36, the green in 23.
 - **Done when:** the kit page in both apps matches kit-d.html, the generator runs in the checks, and the style check fails on any colour outside the tokens.
@@ -32,16 +33,16 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
-- **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open.
+- **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
 - **The Show has three more sheets today** – Flash, Scene and New show (and "fires on", which P7 replaces). What each becomes is open.
 - **Fixes with it:** the workspace row that hides Map; Views reachable only from the dashboard.
 - **Done when:** A1–A9, B1, B4 and D1–D4 look and behave as drawn in both apps.
 
 ### P3 · Thumbnails (#842, built and held)
 - The switcher's cards as full captures with the text over them.
-- Stills for scenes and places, made in the background, stored once and shared across systems.
+- Stills for scenes and places, and preview pictures for videos, made in the background, stored once and shared across systems.
 - **Deck:** takes a scene's still once it has settled and uploads it. It can already render a still without a window. The upload runs under the signed-in member, so a deck that is not signed in makes none. What "settled" means is set on the ticket.
-- **Done when:** the switcher and the Library show real pictures for workspaces, scenes and places, and a second machine gets them without making them again.
+- **Done when:** the switcher and the Library show real pictures for workspaces, scenes, places and videos, and a second machine gets them without making them again.
 
 ### P4 · The apps open each other
 - `scutoons-deck://` registered on Windows, macOS and Arch Linux; the last workspace and item kept per device on the server (#838 is built).
@@ -60,7 +61,9 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - "Import images" removed from the Map, the Catalog and Characters.
 - The creator's Rig panel without Bones and Clips: the model's line and "Open in the deck".
 - Images, sound, video and 3D in the creator as previews with "Edit in deck".
+- **The Scenes workspace's own list of scenes goes** (its Tree panel); the Library filtered to scenes opens them.
 - **The scene page:** the scene's preview covers the whole back, "Edit in deck" on it, the facts and versions in a panel (C5). The preview is the scene's still from P3.
+- The Library's "To do" group goes: "Blank – wanted", "Missing versions", "Missing credits", and the asset details' "Show the families missing versions" (H17).
 - The creator's module editor: see P9.
 
 ### P7 · The Show: events at the row (deck)
@@ -90,6 +93,13 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 - **First (P0):** capture today's five pages, then one draft of the writing page for you to correct – nothing is built before that.
 - **Waits for your word:** what a good writing experience holds.
 
+### P11 · The extended Library (LIBRARY.md)
+The Library lists things and files; a thing is stepped into; an assignment shows as a place and as "used in"; a picker is the Library opened from a slot.
+- **First (P0):** the Library's screens redrawn to it (C12, F1, the slot's pick, C1, C4, C5, C9, A4, and the panel wherever it shows).
+- **Creator:** the Library lists things with their type beside the files; stepping into a character; places for a season's cast listing its characters; "used in"; the cast edited in the toon's season.
+- **Deck:** the same Library panel.
+- **Waits for your word:** the consequences marked "to confirm" in LIBRARY.md, the types it lists, and how much of it is built in this lap – it is more than a new look.
+
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
 - The 59 local style rules, the raw selects, the solid blue "Published" badges.
@@ -101,7 +111,7 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 3. **P2** and **P8** side by side. **P7** can run beside them: it is the deck's alone and needs the kit, not the shell.
 4. **P3** and **P4**.
 5. **P5**, then **P6**.
-6. **P9** and **P10** once their open points are answered.
+6. **P9**, **P10** and **P11** once their open points are answered.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -129,11 +139,13 @@ These block a package. Each is in DECISIONS.md under its area.
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
 | A disabled primary button; the see-through grounds as redrawn | P1 |
+| The outlet types' list and colours. Deck: four – page · stage · target · device ("light" renamed, so one colour covers DMX, MIDI and OSC, as the stored kind does; the protocol is a mark on the lane); no colour for sound alone or for a sub show. Three of the started colours sit close to a signal's (page and picture, stage and vote, target and address): either outlet colours stay on lane and column heads only, never on cables or ports, or they take hues the signals do not use; each needs a mark in the colour-blind set | P1 |
 | The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |
 | Installers for the deck on Windows and macOS: a package of this lap, or the link on Arch only | P4 |
 | "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
+| The extended Library: its consequences, its types, its size in this lap (LIBRARY.md) | P11 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:

@@ -14,17 +14,20 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Palette D – no signal hue.** On, focus, active and selected are the text colour. The one primary action is the pressed fill. Colour only says ok, warning, error. (H11)
 - **Grounds are see-through**, never an opaque grey: the text colour at a low strength (control 6 %, hover 10 %, selected 16 %). Menus stay opaque.
 - **Kit D is approved** (kit-d.html), all 14 points as drawn; the tab's hover border is the text colour.
+- **The kit's one source of truth is a top-level `kit/` folder:** a neutral `kit/tokens.toml` (the tokens and each component's states) and a README. The deck's UI crate and the creator's UI kit both come from it; it is the place to go for reference and to refine.
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
-- **Signals keep their colours** – the one exception. Ports and cables use the deck's signal table; kinds OSCT has and the table lacks are adopted.
+- **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), thumbnails and pictures, and outlet types – where a thing plays: page · stage · target · light, as started in the #703 draft.
 - **Tabs and panel titles:** no border at rest, the active one brighter, a rounded border only on hover and while dragged. (H4)
+- **Selects:** one that filters or sorts in a toolbar is quiet – no box at rest, a rounded border on hover and while open; one that sets a value in a form is the boxed field. (H4)
 - **Icon buttons:** a standalone one is round and may stand without a pill; groups of icons and toolbars stay in their pill. (H4)
 - **Badges** are small and delicate. Design pictures use the kit. (H13)
 - **No info in the UI unless asked:** explanations are hover text, shown in the Info view. (H14)
-- **Depth layers:** stage · surfaces (bar, panels, status line) · popovers (menus, pickers) · the overlay (the switcher, a panel taken full). Under the overlay everything is blurred, the bar included. Blur exists on that level only. (H15)
+- **Depth layers:** stage · surfaces (bar, panels, status line) · popovers (menus, pickers) · the overlay (the switcher, a panel taken full). Under the overlay everything is blurred, the bar included. Blur exists on that level only. "Reduce motion" turns the blur off too – one setting for animations and effects. (H15)
 - **A panel taken full is a box** close to the window's edges (the margin panels have today), not the whole window; the workspace stays behind it, blurred.
 - **The switcher's content has a maximum width**, centred.
 - **No thick left bar** on a selected row. (H10)
 - **Texts and placeholders are short.** A search field says "Find".
+- **The tools do not flag what is missing.** The Library's "Blank – wanted", "Missing versions" and "Missing credits" go, in the design and in the code: a gap may be on purpose. (H17)
 
 **Open**
 - The four layer names are my wording – confirm or rename.
@@ -65,8 +68,11 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **"Import images" goes** from the Map, the Catalog and Characters. Bulk comes through MCP; the Library places things into slots.
 - **A scene in the creator has a preview** that covers the whole back of the page; "Edit in deck" goes from there. The page previews and links, it does not edit.
 - **The writing pages are redesigned** for a good writing experience: Kanon, Notifications, Credits, Edit, Guide.
-- **A list of characters or scenes beside the Library is redundant.**
-- **Thumbnails:** scenes and places get stills, made in the background and shared across systems (#842).
+- **The extended Library lists things and files** (LIBRARY.md). A thing is a document with a type and an address – a character, a scene, a toon, a place, an item; a file is a picture, a model, a sound, a video.
+- **A thing is stepped into.** A character's personas, looks and moods stay inside it, with the files it uses beside them.
+- **A cast is characters assigned to a toon:** found in the Library, edited in the toon's season. Opening a character from there comes to the Characters workspace.
+- **A list of characters or scenes beside the Library is redundant.** The Scenes workspace has no list of scenes of its own.
+- **Thumbnails:** scenes, places and videos get preview pictures, made in the background and shared across systems (#842).
 
 **Thought aloud**
 - Trees: one per workspace, named like it, borrowable by other workspaces (TREES.md).
@@ -77,7 +83,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 **Open**
 - **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
 - What a good writing experience holds (C14) – your words, or a first draft from me to correct.
-- Catalog and Library as one concept (F1).
+- The extended Library's consequences to confirm (LIBRARY.md): one picker instead of five sheets; the Catalog's and the Toon's top-level lists go; the Cast tab becomes "cast in"; trees do not travel; which types it lists; how much is built in lap 2.
 - Trees: the Library's "Items to open" against the trees; a borrowed tree – jump or reference.
 - Where the 2D-first / 3D-first preference sits.
 - Does the word "instrument" stay? MODULES-DNA.md points 2–7.

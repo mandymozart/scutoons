@@ -123,6 +123,10 @@ section.part{padding:1.3rem 0 1.5rem;border-top:1px solid var(--tool-line)}
 .fld.on{border-color:var(--d-on)}
 .fld.x{color:var(--tool-muted);opacity:.55}
 .fld.err{border-color:var(--d-error)}
+/* a quiet select – a filter or a sort in a toolbar: no box at rest, a rounded border on hover and while open, as tabs have (H4). Approved 2026-11-24 ("Yes, quiet"); the boxed Select above is for a value set in a form. */
+.fld.q{width:auto;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
+.fld.q.h{border-color:var(--d-edge)}
+.fld.q.on{border-color:var(--d-on)}
 .sel-text{background:var(--d-selection);color:var(--d-selection-ink)}
 /* Menu, MenuItem, MenuHead */
 .km{display:inline-flex;flex-direction:column;width:13rem;padding:calc(var(--editor-pad)/2);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none;--kit-h:var(--control-height);--kit-r:var(--editor-radius);--kit-icon-in:var(--kit-icon)}
@@ -260,6 +264,14 @@ html:is([data-p15="b"],[data-p15="c"]) .fld.err::after{content:'✕';margin-left
    and the error vermillion darkened to #8F3300 so it stands clearly darker than the warning and the blue. */
 :root,[data-theme]{--cb-ok:#56B4E9;--cb-warn:#F0E442;--cb-err:#D55E00}
 [data-theme="day"]{--cb-ok:#0072B2;--cb-warn:#B07800;--cb-err:#8F3300}
+/* what keeps its colour (RULES H11, 2026-11-24): signals – the deck's table, deck/kit/src/base/signal.rs – and outlet types – started in the #703 draft's lanes (research/scenes/scenes-drafts.html), to tune */
+:root{--sig-event:#f3f3f0;--sig-control:#46d36a;--sig-clock:#e5484d;--sig-audio:#19b8d8;--sig-picture:#6f9bff;--sig-address:#b46bff;--sig-vote:#ffb020;--sig-scene:#ff6b8a;--sig-far:#a7af9b;
+  --out-page:#7cc4ff;--out-stage:#ffb86b;--out-target:#b99cff;--out-light:#f2df6f}
+[data-theme="day"]{--sig-event:#22271e;--sig-control:#2f9e4a;--sig-clock:#c23238;--sig-audio:#0089a8;--sig-picture:#3a63c9;--sig-address:#8a4fd0;--sig-vote:#b07800;--sig-scene:#c8385a;--sig-far:#6b7461;
+  --out-page:#2a7fc0;--out-stage:#c46a12;--out-target:#7448d6;--out-light:#a88a00}
+.cc{display:inline-flex;align-items:center;gap:.35rem;margin:0 .7rem .25rem 0;font-size:var(--editor-small);white-space:nowrap}
+.cc svg{width:.8rem;height:.8rem;flex:none}
+.cc i{width:.62rem;height:.62rem;border-radius:.15rem;flex:none}
 /* 16 · grounds. B + C: the primary keeps its full fill in every state, hover / press = a 1px text-colour ring (no dimming) */
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary:is(.h,.on){background:var(--d-primary)}
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary.h{box-shadow:0 0 0 1px var(--tool-ground),0 0 0 2px var(--tool-text)}
@@ -608,6 +620,7 @@ const rows = () => [
   comp('Field', '', [fld(''), fld('h'), fld('on'), fld('f') + od(4), fld('x'), NA, `${fld('err')}${capt('error = the stop outline (H10)')}`]),
   comp('Search', capt('says "Find"'), [fld('', 'search'), fld('h', 'search'), NA, fld('f', 'search'), fld('x', 'search'), NA, `<span class="fld">crow-<span class="sel-text">fox</span></span>${od(8)}`]),
   comp('Select', '', [fld('', 'select'), fld('h', 'select'), fld('on', 'select'), fld('f', 'select'), fld('x', 'select'), NA, capt('open = the text-colour line, the chevron up')]),
+  comp('Select quiet', capt('a filter or sort · H4'), [fld('q', 'select'), fld('q h', 'select'), fld('q on', 'select'), fld('q f', 'select'), fld('q x', 'select'), NA, capt('no box at rest · a rounded border on hover and open, as tabs – approved 2026-11-24')]),
   comp('MenuItem', capt('tick = text dot'), [mi(''), mi('h'), mi('', 'Night', true), mi('f'), mi('x', 'Day'), NA, `<span class="km" style="width:12rem"><span class="kmh">Theme</span><span class="kmi"><span class="tick lit"></span><span class="w">Night</span></span><span class="kmi h"><span class="tick"></span><span class="w">Day</span></span><hr><span class="kmi">${ic('settings')}<span class="w">Settings …</span><span class="kbd">Ctrl ,</span></span><span class="kmi x">${ic('book')}<span class="w">Docs ↗</span></span></span>`]),
   comp('ListRow', od(3), [lrow(''), lrow('h'), lrow('on'), lrow('f'), lrow('x'), `${lrow('g')}<span class="insert" style="width:10.6rem"></span>`, `${lrow('on f')}${capt('selected + focus')}`]),
   comp('Tree row', od(11), [trow(''), trow('h'), trow('on'), trow('f'), trow('x'), trow('g'),
@@ -621,6 +634,8 @@ const rows = () => [
   comp('Link', '', [`<span class="lnk">Open in the deck</span>`, `<span class="lnk h">Open in the deck</span>`, NA, `<span class="lnk f">Open in the deck</span>`, `<span class="lnk x">Open in the deck</span>`, NA, capt('no hue: the underline says link')]),
   comp('Status bar', od(7) + od(15), [stb('none', 'No messages yet', '0 · 0'), stb('none', 'No messages yet', '0 · 0', 'h'), NA, NA, NA, NA,
     `${stb('ok', 'Saved · giantpopstar')}${stb('warn', 'Fireface not found', '0 errors · <span class="c-warn">1 warning</span>')}${stb('err', 'Publish failed', '<span class="c-err">1 error</span> · <span class="c-warn">7 warnings</span>')}`]),
+  comp('Signals', capt('keep their colour · H11'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['event','M2 1.5L11 6L2 10.5Z'],['control','dot'],['clock','dot'],['audio','M2 2h8v8H2Z'],['picture','M2 2h8v8H2Z'],['address','M6 1L11 6L6 11L1 6Z'],['vote','dot'],['scene','M2 2h8v8H2Z'],['far','ring']].map(([k, d]) => `<span class="cc"><svg viewBox="0 0 12 12">${d === 'dot' ? `<circle cx="6" cy="6" r="3.6" fill="var(--sig-${k})"/>` : d === 'ring' ? `<circle cx="6" cy="6" r="4" fill="none" stroke="var(--sig-${k})" stroke-width="1.6"/>` : `<path d="${d}" fill="var(--sig-${k})"/>`}</svg>${k}</span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('ports, pins and cables – the deck’s table; the shape tells the kind too')]),
+  comp('Outlet types', capt('get colours · to tune'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['page', 'the reader’s page'], ['stage', 'a deck’s screen or speaker'], ['target', 'an XR scene'], ['light', 'a device: DMX …']].map(([k, w]) => `<span class="cc"><i style="background:var(--out-${k})"></i>${k}<span class="cap" style="margin-left:.2rem">${w}</span></span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('decided 2026-11-24; these four are the start from the #703 draft – the list and the values are open')]),
   comp('Deck stage', capt('live · out · cables') + od(14), [STAGE14, NA, NA, NA, NA, NA, capt('not a UI state – proposal')]),
 ];
 const renderGrid = () => { document.getElementById('cg').innerHTML = `<div class="ch label">component</div>${COLS.map(c => `<div class="ch label">${c}</div>`).join('')}` + rows().join(''); };

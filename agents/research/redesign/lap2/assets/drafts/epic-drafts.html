@@ -10,14 +10,14 @@
 @font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
 :root,[data-theme=night]{
   --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
-  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
-  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;--go:#4cc35a;--stop:#e5483b;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#f3f3f0;
+  --primary:#f3f3f0;--primary-line:#f3f3f0;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;--go:#4cc35a;--stop:#e5483b;
   --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
 }
 [data-theme=day]{
   --stage:#000000;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
   --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
-  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;--go:#2e8a3e;--stop:#d63a2d;
+  --primary:#f3f3f0;--primary-line:#f3f3f0;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;--go:#2e8a3e;--stop:#d63a2d;
   --ground:rgb(243 243 240 / 0.8);--halo:none;
 }
 :root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--spacing:.15em}
@@ -57,10 +57,10 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 .btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
 .btn.q{border-color:transparent;background:transparent;color:var(--muted)}
 .chip{display:inline-flex;align-items:center;gap:.3rem;height:1.35rem;padding:0 .5rem;border-radius:.7rem;background:var(--control);box-shadow:0 0 0 1px var(--line);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted);white-space:nowrap}
-.chip.c{color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:rgb(0 209 255/.07)}
+.chip.c{color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:rgb(243 243 240/.07)}
 .chip.go{color:var(--go);box-shadow:0 0 0 1px var(--go);background:rgb(76 195 90/.07)}
 .chip.warn{color:var(--warn);box-shadow:0 0 0 1px var(--warn);background:rgb(240 160 48/.07)}
-.chip.ai{color:var(--primary);box-shadow:0 0 0 1px var(--primary);background:rgb(180 255 50/.07)}
+.chip.ai{color:var(--primary);box-shadow:0 0 0 1px var(--primary);background:rgb(243 243 240/.07)}
 /* draft notes: a quiet card, no side bar (H10) */
 .note{position:absolute;z-index:30;max-width:340px;padding:.6rem .75rem;border-radius:var(--radius);background:#f4ecc4;color:#2a2616;font-size:.8rem;line-height:1.35;box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
 .note b.t{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.2rem}
@@ -88,12 +88,12 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 .map{position:absolute;inset:0;background:
  radial-gradient(circle at 30% 40%,#2b3a2a 0 9%,transparent 10%),radial-gradient(circle at 62% 58%,#2f3b2c 0 12%,transparent 13%),
  linear-gradient(115deg,transparent 48%,#3a3f33 48.2% 48.8%,transparent 49%),linear-gradient(20deg,transparent 60%,#3a3f33 60.2% 60.7%,transparent 61%),#151a15}
-.pin{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgb(0 209 255/.25)}
-.acc{position:absolute;border-radius:50%;border:1px dashed var(--accent);background:rgb(0 209 255/.06)}
+.pin{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgb(243 243 240/.25)}
+.acc{position:absolute;border-radius:50%;border:1px dashed var(--accent);background:rgb(243 243 240/.06)}
 /* phone */
 .phone{position:absolute;width:250px;height:520px;border-radius:30px;background:#0b0c0a;box-shadow:0 0 0 2px #333,0 1rem 2rem rgb(0 0 0/.5);overflow:hidden}
 .cam{position:absolute;inset:0;background:linear-gradient(180deg,#5a6470 0,#7d8086 45%,#6d6a60 46%,#4a463c 100%)}
-.floorgrid{position:absolute;left:-40%;right:-40%;bottom:-10%;height:55%;background:repeating-linear-gradient(90deg,rgb(0 209 255/.35) 0 1px,transparent 1px 34px),repeating-linear-gradient(0deg,rgb(0 209 255/.35) 0 1px,transparent 1px 34px);transform:perspective(300px) rotateX(62deg);transform-origin:bottom}
+.floorgrid{position:absolute;left:-40%;right:-40%;bottom:-10%;height:55%;background:repeating-linear-gradient(90deg,rgb(243 243 240/.35) 0 1px,transparent 1px 34px),repeating-linear-gradient(0deg,rgb(243 243 240/.35) 0 1px,transparent 1px 34px);transform:perspective(300px) rotateX(62deg);transform-origin:bottom}
 .ring{position:absolute;left:50%;bottom:120px;width:120px;height:40px;margin-left:-60px;border-radius:50%;border:2px solid var(--primary);box-shadow:0 0 12px var(--primary)}
 .ptext{position:absolute;left:12px;right:12px;bottom:18px;padding:.6rem .7rem;border-radius:14px;background:rgb(20 22 18/.8);font-size:.8rem;text-align:center}
 .pcap{position:absolute;top:-30px;left:0;right:0;text-align:center;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
@@ -104,6 +104,19 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 .vs i{font-style:normal;text-align:center;color:var(--muted);font-size:.75rem;border-radius:.8rem;height:1.4rem;line-height:1.4rem}
 .vs i.on{box-shadow:0 0 0 1px var(--text);color:var(--text)}
 .slot{position:absolute;overflow:hidden;box-shadow:0 0 0 1px rgb(255 255 255/.06)}
+</style>
+<style>
+/* palette D (lap 2 redraw, 2026-11-24 – RULES H4, H11, kit-d.html): no accent, no lime – on, selected and the primary are the text colour /
+   the pressed fill; grounds see-through (the text colour at 6 / 10 / 16 %); tabs without a border at rest, the active one brighter;
+   blur only on the overlay level (H15): panels and menus have none, menus opaque */
+:root,[data-theme]{--accent:var(--text);--primary:var(--pressed);--primary-line:var(--pressed);--primary-ink:var(--pressed-text);
+  --control:color-mix(in srgb,var(--text) 6%,transparent);--hover:color-mix(in srgb,var(--text) 10%,transparent);
+  --selected:color-mix(in srgb,var(--text) 16%,transparent);--within:color-mix(in srgb,var(--text) 10%,transparent);
+  --head:color-mix(in srgb,var(--text) 5%,transparent)}
+.tab.on,.t.on{box-shadow:none!important;color:var(--text)}
+.pill button.on,.ph .t.on{box-shadow:none!important;color:var(--text)}
+.seg span.on{box-shadow:none!important;background:var(--pressed);color:var(--pressed-text)}
+.panel{backdrop-filter:none!important}.menu{backdrop-filter:none!important;background:var(--surface)!important}
 </style>
 </head>
 <body>
@@ -296,7 +309,7 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 <section class="screen" id="s-714">
  <div class="stage" style="background:radial-gradient(ellipse at 50% 70%,#24261f 0,#10110d 60%,#080806 100%)"></div>
  <div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;left:-10%;right:-10%;top:52%;height:70%;background:repeating-linear-gradient(90deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px),repeating-linear-gradient(0deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px);transform:perspective(600px) rotateX(64deg);transform-origin:top"></div>
-  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(0 209 255/.5)"></div>
+  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(243 243 240/.5)"></div>
   <div class="crow" style="left:calc(50% - 70px);top:calc(66% - 120px)"></div><div class="crow" style="left:calc(50% + 10px);top:calc(66% - 140px);background:#a8322a"></div><div style="position:absolute;left:calc(50% + 115px);top:calc(66% + 18px);color:var(--accent);font-size:var(--small)">anchor · floor · 0 m</div></div>
  <div class="bar">
   <div class="pill"><button>‹</button><button>▦ Krähen poster</button><button class="on">◎ Karlsplatz · crows</button><button>›</button><button>+</button></div>
@@ -321,7 +334,7 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
    <div style="position:absolute;left:calc(50% - 70px);top:calc(50% - 50px);width:10px;height:10px;background:var(--primary)"></div>
    <div style="position:absolute;left:calc(50% + 55px);top:calc(50% - 40px);width:10px;height:10px;background:var(--primary)"></div>
    <div style="position:absolute;left:calc(50% - 55px);top:calc(50% + 40px);width:10px;height:10px;background:var(--primary)"></div>
-   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(180 255 50/.3)"></div><span class="chip" style="position:absolute;left:8px;bottom:8px">Karlsplatz · 4 markers</span></div></div>
+   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(243 243 240/.3)"></div><span class="chip" style="position:absolute;left:8px;bottom:8px">Karlsplatz · 4 markers</span></div></div>
  <div class="panel" style="right:12px;top:64px;width:300px;height:300px"><div class="head"><span class="tab on">Layers</span><span class="tab">Triggers</span><span class="more">⋯</span></div>
   <div class="body"><div class="rows">
    <div class="row sel">● Fuchskrähe · lands <span class="n">AR</span></div><div class="row">● Krähe 2 <span class="n">AR</span></div><div class="row">∿ crows_caw.wav <span class="n">sound</span></div>
@@ -338,14 +351,14 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 <section class="screen" id="s-714m">
  <div class="stage" style="background:#000"></div>
  <div class="slot" style="left:0;top:0;width:50%;height:100%;background:radial-gradient(ellipse at 50% 70%,#24261f 0,#10110d 60%,#080806 100%)"><div style="position:absolute;left:-10%;right:-10%;top:52%;height:70%;background:repeating-linear-gradient(90deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px),repeating-linear-gradient(0deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px);transform:perspective(600px) rotateX(64deg);transform-origin:top"></div>
-  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(0 209 255/.5)"></div>
+  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(243 243 240/.5)"></div>
   <div class="crow" style="left:calc(50% - 70px);top:calc(66% - 120px)"></div><div class="crow" style="left:calc(50% + 10px);top:calc(66% - 140px);background:#a8322a"></div></div>
  <div class="slot" style="left:50%;top:0;width:50%;height:50%"><div class="map" style="position:absolute;inset:0"></div>
    <div class="acc" style="left:calc(50% - 60px);top:calc(50% - 60px);width:120px;height:120px"></div><div class="pin" style="left:calc(50% - 7px);top:calc(50% - 7px)"></div>
    <div style="position:absolute;left:calc(50% - 70px);top:calc(50% - 50px);width:10px;height:10px;background:var(--primary)"></div>
    <div style="position:absolute;left:calc(50% + 55px);top:calc(50% - 40px);width:10px;height:10px;background:var(--primary)"></div>
    <div style="position:absolute;left:calc(50% - 55px);top:calc(50% + 40px);width:10px;height:10px;background:var(--primary)"></div>
-   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(180 255 50/.3)"></div><span class="chip" style="position:absolute;left:12px;bottom:56px">Map · on the stage</span></div>
+   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(243 243 240/.3)"></div><span class="chip" style="position:absolute;left:12px;bottom:56px">Map · on the stage</span></div>
  <div class="slot" style="left:50%;top:50%;width:50%;height:50%;background:#14150f"><div style="position:absolute;left:calc(50% - 90px);top:30px;width:180px;height:330px;border-radius:22px;background:#2a2721;overflow:hidden"><div class="floorgrid" style="height:45%"></div><div class="crow" style="left:60px;top:120px;width:50px;height:62px"></div></div><span class="chip" style="position:absolute;left:12px;bottom:56px">Device preview · on the stage</span></div>
  <div class="bar">
   <div class="pill"><button>‹</button><button>▦ Krähen poster</button><button class="on">◎ Karlsplatz · crows</button><button>›</button><button>+</button></div>
@@ -407,5 +420,10 @@ code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 const q=new URLSearchParams(location.search);const s=q.get('s')||'706';
 document.getElementById('s-'+s).classList.add('on');
 if(q.get('theme')==='day')document.documentElement.dataset.theme='day';
+</script>
+<script>
+/* lap 2 redraw (2026-11-24): the "decide" cards whose point is decided go – #707 the reference form (event:<id>) and who reads events
+   (readers never get the list), DECISIONS.md §6; #708's migration is not an open point of lap 2 either */
+addEventListener('load', () => setTimeout(() => document.querySelectorAll('.note').forEach(n => { const t = n.querySelector('b.t'); if (t && /decide:/i.test(t.textContent)) n.remove(); }), 30));
 </script>
 </body></html>
