@@ -906,6 +906,7 @@ fn pw_stream(core: &pipewire::core::CoreRc, target: Option<&str>, position: &[u3
     }
     let stream = pw::stream::StreamRc::new(core.clone(), "deck-native", props)?;
     let mut fade = Fade::new(RATE as f32, FADE_SECS);
+    let mut placed = false;
     let streaming = closing.streaming.clone();
     let listener = stream
         .add_local_listener_with_user_data(())
@@ -918,6 +919,15 @@ fn pw_stream(core: &pipewire::core::CoreRc, target: Option<&str>, position: &[u3
             }
         })
         .process(move |stream, _| {
+            // once, on its first cycle: PipeWire's data thread onto the deck image's audio core (priority.rs)
+            if !placed {
+                placed = true;
+                match super::priority::place_data_thread() {
+                    Some(Ok(how)) => tracing::info!("audio: PipeWire's data thread {how}"),
+                    Some(Err(e)) => tracing::warn!("audio: PipeWire's data thread not placed ({e})"),
+                    None => {}
+                }
+            }
             let Some(mut buffer) = stream.dequeue_buffer() else { return };
             // the frames this cycle wants (#208: not the whole mapped buffer – rendering all of it queued latency); 0 =
             // unknown, then the buffer

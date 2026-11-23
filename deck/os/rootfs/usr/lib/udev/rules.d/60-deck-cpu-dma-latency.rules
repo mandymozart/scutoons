@@ -1,0 +1,3 @@
+# The stage holds /dev/cpu_dma_latency at 0 µs while its audio runs (#834, deck-session DECK_CPU_DMA_LATENCY): the group
+# `realtime` (the user deck) may write it – realtime-privileges ships the same rule; this keeps it if the package drops it.
+KERNEL=="cpu_dma_latency", GROUP="realtime", MODE="0660"
