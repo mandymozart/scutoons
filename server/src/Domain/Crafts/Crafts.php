@@ -18,8 +18,8 @@ use Scutoons\Support\Time;
  * Not the catalog recipes' "crafting" (items made from items, Domain\Catalog): a different word on purpose.
  *
  * Rights (the API decides): a member picks their own crafts once, at the first login (`crafts_asked_at` still empty);
- * afterwards only an admin changes them – on the user page or in an invite. An admin's invite by address carries crafts,
- * signs that address up without a code (LoginService) and applies its crafts when the account comes.
+ * afterwards only an admin changes them – on the user page or in an invite. An admin's invite by address carries crafts
+ * and applies them when that address's account comes through the normal signup (a code) or signs in; it lets no one sign up.
  */
 final class Crafts
 {
@@ -168,17 +168,6 @@ final class Crafts
         $row = $this->db->one('SELECT accepted_at FROM member_invites WHERE id = ?', [$id]) ?? throw new ApiError(404, 'not_found', 'Invite not found.');
         if ($row['accepted_at'] !== null) throw new ApiError(409, 'accepted', 'This invite was accepted – change the crafts on the user page.');
         $this->db->run('DELETE FROM member_invites WHERE id = ? AND accepted_at IS NULL', [$id]);
-    }
-
-    /** An open admin invite waits for this address: it signs the address up (LoginService) */
-    public function invited(string $email): bool
-    {
-        try {
-            return $this->db->value('SELECT 1 FROM member_invites WHERE email = ? AND accepted_at IS NULL', [strtolower(trim($email))]) !== null;
-        } catch (PDOException $error) {
-            if (self::missing($error)) return false;
-            throw $error;
-        }
     }
 
     /**

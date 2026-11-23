@@ -1443,12 +1443,12 @@
 		"email": "E-mail",
 		"crafts": "Crafts – the workspaces they start with",
 		"send": "Invite",
-		"sent": "{email} can sign up now",
+		"sent": "Invite saved for {email}",
 		"open": "open since {date}",
 		"accepted": "joined {date}",
 		"user": "Account",
 		"withdraw": "Withdraw",
 		"withdraw_title": "Withdraw the invite for {email}?",
-		"withdraw_message": "The address can no longer sign up without a code."
+		"withdraw_message": "The crafts are not given when this address signs up."
 	}
 }

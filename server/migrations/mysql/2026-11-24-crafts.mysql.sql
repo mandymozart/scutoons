@@ -4,8 +4,8 @@
 -- `crafts.workspaces` = the creator's workspace ids (creator/src/lib/shell/address.ts WorkspaceKind), in the order a new
 -- member sees them. The rows come in 2026-11-24-seed-crafts (data apart from DDL).
 -- `member_crafts.source`: invite | admin | member. `users.crafts_asked_at`: the member answered the first-login question.
--- `member_invites`: an admin's invite of a team member by address with the crafts they start with; an open invite also
--- signs that address up (LoginService), accepting it applies the crafts.
+-- `member_invites`: an admin's invite of a team member by address with the crafts they start with, applied when that
+-- address's account comes (normal signup with a code) or signs in. It signs no one up.
 -- What it touches: three new tables (empty), one new nullable column. Dry run: SHOW TABLES LIKE '%craft%'; → member_crafts, crafts.
 -- MariaDB 10.11, idempotent.
 CREATE TABLE IF NOT EXISTS `crafts` (

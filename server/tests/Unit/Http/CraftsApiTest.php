@@ -15,7 +15,7 @@ use Slim\Psr7\Factory\ServerRequestFactory;
 
 /**
  * Crafts (Domain\Crafts, #826): the seeded list, a member's own pick only at the first login, admins any time, an admin's
- * invite that carries crafts, signs its address up and applies them.
+ * invite that carries crafts and applies them when the address signs up the normal way – it signs no one up.
  */
 final class CraftsApiTest extends TestCase
 {
@@ -117,7 +117,7 @@ final class CraftsApiTest extends TestCase
         self::assertSame(404, $this->request('PUT', '/api/admin/users/00000000-0000-0000-0000-000000000000/crafts', $admin, ['crafts' => []])->getStatusCode());
     }
 
-    public function testAnInviteCarriesCraftsSignsUpAndAppliesThem(): void
+    public function testAnInviteCarriesCraftsAndAppliesThemAtTheNormalSignup(): void
     {
         [$admin] = $this->session(['admin'], 'admin@scutoons.test');
         $r = $this->request('POST', '/api/admin/member-invites', $admin, ['email' => 'New@Scutoons.test', 'crafts' => ['translator', 'illustrator']]);
@@ -131,9 +131,19 @@ final class CraftsApiTest extends TestCase
         $this->user('known@scutoons.test');
         self::assertSame(409, $this->request('POST', '/api/admin/member-invites', $admin, ['email' => 'known@scutoons.test', 'crafts' => []])->getStatusCode());
 
-        // signing up without a code works for the invited address only
+        // the invite is no signup code: without one the invited address is refused as anyone
         $login = $this->get(LoginService::class);
-        $result = $login->confirm($this->loginRequest('new@scutoons.test'), []);
+        try {
+            $login->confirm($this->loginRequest('new@scutoons.test'), []);
+            self::fail('an invited address signed up without a code');
+        } catch (\Scutoons\Domain\ApiError $e) {
+            self::assertSame('signup_code_required', $e->errorCode);
+        }
+        self::assertNull($this->db->one('SELECT id FROM users WHERE email = ?', ['new@scutoons.test']));
+        self::assertNull(self::json($this->request('GET', '/api/admin/member-invites', $admin))['items'][0]['accepted_at']);
+
+        // with a signup code the account comes, and the invite's crafts with it
+        $result = $login->confirm($this->loginRequest('new@scutoons.test', $this->code('promo')), []);
         self::assertTrue($result['created']);
         $user = $this->db->one('SELECT * FROM users WHERE email = ?', ['new@scutoons.test']);
         self::assertNotNull($user);
@@ -145,13 +155,16 @@ final class CraftsApiTest extends TestCase
         self::assertNotNull($items[0]['accepted_at']);
         // accepted: no withdrawing
         self::assertSame(409, $this->request('DELETE', "/api/admin/member-invites/{$items[0]['id']}", $admin)->getStatusCode());
+    }
 
-        try {
-            $login->confirm($this->loginRequest('stranger@scutoons.test'), []);
-            self::fail('a stranger without a code signed up');
-        } catch (\Scutoons\Domain\ApiError $e) {
-            self::assertSame('signup_code_required', $e->errorCode);
-        }
+    public function testAnInviteForAnAccountMadeMeanwhileArrivesAtItsSignIn(): void
+    {
+        [$admin] = $this->session(['admin'], 'admin@scutoons.test');
+        self::assertSame(201, $this->request('POST', '/api/admin/member-invites', $admin, ['email' => 'late@scutoons.test', 'crafts' => ['writer']])->getStatusCode());
+        $user = $this->user('late@scutoons.test');
+        $result = $this->get(LoginService::class)->confirm($this->loginRequest('late@scutoons.test'), []);
+        self::assertFalse($result['created']);
+        self::assertSame([['id' => 'writer', 'source' => 'invite']], self::json($this->request('GET', "/api/admin/users/{$user['id']}", $admin))['user']['crafts']);
     }
 
     public function testAnOpenInviteCanBeWithdrawn(): void
@@ -172,12 +185,12 @@ final class CraftsApiTest extends TestCase
         self::assertSame(403, $this->request('PUT', '/api/me/crafts', $ai, ['crafts' => ['writer']])->getStatusCode());
     }
 
-    /** @return array<string, mixed> a fresh login_requests row for the address (no code) */
-    private function loginRequest(string $email): array
+    /** @return array<string, mixed> a fresh login_requests row for the address (with a signup code or none) */
+    private function loginRequest(string $email, ?string $code = null): array
     {
         $id = \Scutoons\Support\Ids::uuid();
-        $this->db->run('INSERT INTO login_requests (id, email, token_hash, code_hash, locale, ip_hash, attempts, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)',
-            [$id, $email, hash('sha256', $id), hash('sha256', 'otp' . $id), 'en', 'test', $this->clock->utc(), $this->clock->utc(900)]);
+        $this->db->run('INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, ip_hash, attempts, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
+            [$id, $email, hash('sha256', $id), hash('sha256', 'otp' . $id), 'en', $code, 'test', $this->clock->utc(), $this->clock->utc(900)]);
         return $this->db->one('SELECT * FROM login_requests WHERE id = ?', [$id]) ?? [];
     }
 }

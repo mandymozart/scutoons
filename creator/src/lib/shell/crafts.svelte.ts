@@ -1,9 +1,10 @@
 // The member's crafts (server docs/API.md "Crafts" – what someone does, not the catalog's recipe crafting): the list, the
 // member's own, the workspaces they start with (resolved by the server) and whether the first-login question is open.
-// The API decides who may change them; this only reads and sends.
+// The API decides who may change them; this only reads and sends. A missing or failing API = no crafts (crafts.ts).
 import { createCraftsApi, type Craft, type MemberCrafts } from '@scutoons/api';
 import { api } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
+import { asksCrafts, readCrafts } from './crafts.ts';
 import { startKinds } from './workspaces.ts';
 import type { WorkspaceKind } from './address.ts';
 
@@ -14,18 +15,16 @@ class Crafts {
 	mine = $state<MemberCrafts | null>(null);
 	/** the crafts' workspaces this creator knows ([] = no crafts: every workspace) */
 	readonly starts = $derived<WorkspaceKind[]>(startKinds(this.mine?.workspaces));
+	/** the first login's question is shown */
+	readonly ask = $derived(asksCrafts({ list: this.list, mine: this.mine }));
 	private loading: Promise<void> | null = null;
 
-	/** once per page; a failed load leaves the member without crafts (every workspace, no question) */
+	/** once per page */
 	load(): Promise<void> {
-		this.loading ??= Promise.all([craftsApi.list(), craftsApi.mine()])
-			.then(([l, me]) => {
-				this.list = l.crafts;
-				this.mine = me;
-			})
-			.catch(() => {
-				this.loading = null;
-			});
+		this.loading ??= readCrafts(craftsApi.list, craftsApi.mine).then((s) => {
+			this.list = s.list;
+			this.mine = s.mine;
+		});
 		return this.loading;
 	}
 

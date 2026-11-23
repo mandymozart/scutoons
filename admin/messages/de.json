@@ -1443,12 +1443,12 @@
 		"email": "E-Mail",
 		"crafts": "Handwerk – die Arbeitsbereiche, mit denen sie anfangen",
 		"send": "Einladen",
-		"sent": "{email} kann sich jetzt anmelden",
+		"sent": "Einladung für {email} gespeichert",
 		"open": "offen seit {date}",
 		"accepted": "beigetreten {date}",
 		"user": "Konto",
 		"withdraw": "Zurückziehen",
 		"withdraw_title": "Einladung für {email} zurückziehen?",
-		"withdraw_message": "Die Adresse kann sich dann nicht mehr ohne Code anmelden."
+		"withdraw_message": "Das Handwerk wird bei der Anmeldung dieser Adresse nicht vergeben."
 	}
 }

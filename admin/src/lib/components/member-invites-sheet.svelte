@@ -8,7 +8,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import CraftChips from '$lib/components/craft-chips.svelte';
 
-	/** Team invites (docs/API.md "Crafts"): an address and the crafts its member starts with; an open invite signs the address up. */
+	/** Team invites (docs/API.md "Crafts"): an address and the crafts its member starts with, given when its account comes (an invite signs no one up). */
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	const toaster = getToaster();

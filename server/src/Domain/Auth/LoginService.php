@@ -31,8 +31,7 @@ use PDOException;
  *
  * Signup rule (ITEMS.md "Roles, signup rule, promo codes"): a NEW account needs a signup code – a code whose type has
  * `"signup": true` (membership = a product, promo = a PR code). An address without an account and without such a code
- * still gets `{ status: "sent" }` (no user enumeration), but the mail only explains how to get an account. An admin's open
- * invite of a team member (Domain\Crafts) counts as a signup code for its address.
+ * still gets `{ status: "sent" }` (no user enumeration), but the mail only explains how to get an account.
  *
  * "This is mine" (agents/ITEMS.md "Ownership, claims, gifting"): `dispute: true` with a membership code that is
  * registered to someone else lets a new account be created anyway – nothing is claimed, the reader then files an
@@ -92,8 +91,6 @@ final class LoginService
         // no code, but the old system registered a code to this address: that code signs it up (and is claimed with it)
         if (!$hasAccount && $claimCode === null) $claimCode = $this->codes->legacySignupCode($email);
         $refusal =$hasAccount ? null : $this->codes->signupRefusal($claimCode, $email);
-        // an admin's invite of a team member signs the address up without a code (Domain\Crafts)
-        if ($refusal !== null && $this->crafts->invited($email)) $refusal = null;
         $canSignIn = $hasAccount || $refusal === null || ($dispute && $refusal === 'already_claimed');
         // Without an account and without a signup code the request is only recorded for the hourly limits: its
         // hashes belong to values nobody knows (no link or code is mailed), so it can never be confirmed.
@@ -236,7 +233,6 @@ final class LoginService
                 // Signup rule: only with a code of a type with "signup": true (checked again – it may have changed)
                 $refusal = $this->codes->signupRefusal($code, (string) $request['email']);
                 if ($refusal === 'already_claimed' && $dispute) $refusal = null;
-                if ($refusal !== null && $refusal !== 'already_claimed' && $this->crafts->invited((string) $request['email'])) $refusal = null;
                 if ($refusal === 'already_claimed') {
                     throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account, so it cannot create a new one. You can still read with it.');
                 }

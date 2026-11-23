@@ -234,7 +234,7 @@
 		<StatusBar />
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		{#if shell.launcher}<Launcher />{/if}
-		{#if crafts.mine?.ask && crafts.list.length}<CraftsQuestion />{/if}
+		{#if crafts.ask}<CraftsQuestion />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />

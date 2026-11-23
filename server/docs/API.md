@@ -347,8 +347,8 @@ so which creator workspaces they start with – access stays with the roles. Not
 | GET/POST | `/admin/member-invites` | list · `{ email, crafts }` → 201 `{ invite }` (one per address, a second replaces; `409 has_account`) |
 | DELETE | `/admin/member-invites/{id}` | only while open (`409 accepted`) |
 
-An open invite signs its address up without a code (LoginService); the account's first sign-in accepts it and gives the
-member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet: the admin tells the person.
+An invite signs no one up (the address still needs a signup code, #837); when that address's account is created or signs
+in, the invite is accepted and gives the member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet.
 
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 

@@ -1078,7 +1078,7 @@ export function createAdminApi(api: ApiClient) {
 			),
 		roles: () => api.get<{ status: string; items: RoleInfo[] }>('/admin/roles'),
 		setUserCrafts: (id: string, crafts: string[]) => api.put<{ status: string; crafts: MemberCraft[] }>(`/admin/users/${seg(id)}/crafts`, { crafts }),
-		/** team invites with crafts (an open one signs its address up) */
+		/** team invites with crafts (given when the address's account comes; an invite signs no one up) */
 		memberInvites: () => api.get<{ status: string; items: MemberInvite[] }>('/admin/member-invites'),
 		inviteMember: (email: string, crafts: string[]) => api.post<{ status: string; invite: MemberInvite }>('/admin/member-invites', { email, crafts }),
 		withdrawMemberInvite: (id: string) => api.delete<{ status: string }>(`/admin/member-invites/${seg(id)}`),
