@@ -95,6 +95,16 @@ test('a state refuses an opaque grey ground, an unknown token or part', () => {
 	assert.doesNotThrow(() => parse(with_('ground = "muted 20%"')));
 });
 
+test('blur belongs to the overlay level alone (RULES H15), in rem', () => {
+	const t = parse(toml);
+	assert.equal(t.components.overlay.rest.blur, 1.6);
+	assert.equal(t.components.overlay.reduced.blur, undefined, 'reduce motion: no blur, a see-through dim');
+	assert.match(renderKit(t), /--kit-overlay-rest-blur: 1\.6rem;/);
+	const hover = '[component.tile.hover]\nground = "hover"';
+	assert.throws(() => parse(toml.replace(hover, `${hover}\nblur = 1`)), /only the overlay blurs/);
+	assert.throws(() => parse(toml.replace('blur = 1.6', 'blur = "1.6rem"')), /rem, above 0/);
+});
+
 test('kit.css is up to date and untouched by hand', () => {
 	assert.equal(readFileSync(TARGET_KIT, 'utf8').replace(/\r\n/g, '\n'), renderKit(parse(toml)));
 });

@@ -138,6 +138,11 @@
 	--kit-workspace-card-dragged-opacity: 0.75;
 	--kit-panel-rest-border: var(--tool-line);
 	--kit-panel-rest-ground: var(--tool-panel);
+	--kit-overlay-rest-ground: color-mix(in srgb, var(--tool-panel) 70%, transparent);
+	--kit-overlay-rest-blur: 1.6rem;
+	--kit-overlay-reduced-ground: var(--tool-panel);
+	--kit-overlay-box-border: var(--tool-line);
+	--kit-overlay-box-ground: var(--tool-popover);
 	--kit-section-rest-mark: var(--tool-muted);
 	--kit-section-hover-ground: var(--tool-hover);
 	--kit-section-on-ground: var(--tool-head);

@@ -27,12 +27,12 @@ thumbnails.
   `[day|night.signals]` (the nine signals), `[day|night.outlets]` (page · stage · target · device), `[groups] colors`
   (a group's six), `[day|night.colorblind]` (ok / warning / error of the colour-blind mode, replacing `go` `warn` `stop`).
 - Component states: one table per component and state, `[component.<name>.<state>]`, its parts (`text` `ground`
-  `border` `ring` `knob` `mark`) naming a token – `"text"`, or `"text 12%"` for the token see-through – and `opacity`
-  as a number, e.g. `[component.tab.hover] text = "text"` · `border = "line"`. A ground never names `line`, `muted`,
+  `border` `ring` `knob` `mark`) naming a token – `"text"`, or `"text 12%"` for the token see-through – `opacity`
+  as a number, and `blur` in rem (the overlay's alone: the generator refuses it elsewhere), e.g. `[component.tab.hover] text = "text"` · `border = "line"`. A ground never names `line`, `muted`,
   `text` or `bright` at full strength (the generator refuses an opaque grey). Written so far: `focus` · `tab` · `pill` ·
   `icon_button` · `button_primary` · `button_plain` · `button_quiet` · `segments` · `chip` (with `ok` `warning` `error`)
   · `toggle` · `field` · `select_quiet` · `menu` · `menu_item` · `list_row` · `tile` · `thumb` · `workspace_card` ·
-  `panel` · `section` · `drop` · `link` · `status`.
+  `panel` · `overlay` · `section` · `drop` · `link` · `status`.
 
 ## How each app builds from it
 
@@ -71,6 +71,10 @@ States as drawn: rest · hover · pressed/on · focus · disabled · dragged, pl
 - **Workspace card** – rest · hover · front (a text-colour frame) · focus · dragged · with a map
 - **Thumb** – rest · hover · on · focus · disabled · dragged · empty
 - **Panel head** (FloatingPanel) – tabs only: rest · hover · on · focus · dragged
+- **Overlay** (RULES H15; `shared/ui` editor `Overlay`) – rest (everything under it, the bar too, blurred and dimmed: the
+  only blur) · reduced (reduce motion, the system's or the app's: no blur, a see-through dim) · box (what it carries – a
+  panel taken full close to the window's edges, Search, a dialog). The switcher, Search, a panel taken full and every
+  dialog lie on it; Esc and a click outside close it. `check:tools-css` fails on a blur anywhere else.
 - **Section fold** – rest · hover · open · focus · disabled
 - **Drop · insert** – drop zone rest · drop zone on · the insert mark between rows
 - **Link** – rest · hover · focus · disabled (no hue: the underline says link)

@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { dialogState } from './dialogs.svelte.ts';
+	import Overlay from './editor/overlay.svelte';
+	import { onOverlayLevel } from './editor/overlay-level.ts';
 
 	/** Shows the in-page dialogs of `confirmDialog` / `askDialog` (dialogs.svelte.ts); once in the app's root layout. */
 	let { cancelLabel = 'Cancel' }: { cancelLabel?: string } = $props();
 
 	let element = $state<HTMLDialogElement>();
+	/** in an app on the editor kit the dialog lies on the overlay level: the overlay's veil blurs what is under it */
+	const level = onOverlayLevel();
 	let text = $state('');
 	/** the ticked lines of a checklist */
 	let picked = $state<Set<string>>(new Set());
@@ -38,7 +42,8 @@
 	}
 </script>
 
-<dialog bind:this={element} class="sc-dialog" oncancel={(e) => { e.preventDefault(); dialogState.close(request?.input ? null : false); }} aria-labelledby="sc-dialog-title">
+{#if level && request}<Overlay place="veil" />{/if}
+<dialog bind:this={element} class="sc-dialog" class:on-overlay={level} oncancel={(e) => { e.preventDefault(); dialogState.close(request?.input ? null : false); }} aria-labelledby="sc-dialog-title">
 	{#if request}
 		<form method="dialog" onsubmit={confirm}>
 			<h2 id="sc-dialog-title">{request.title}</h2>
@@ -97,6 +102,9 @@
 	}
 	.sc-dialog::backdrop {
 		background: rgb(0 0 0 / 0.35);
+	}
+	.sc-dialog.on-overlay::backdrop {
+		background: transparent;
 	}
 	form {
 		display: flex;

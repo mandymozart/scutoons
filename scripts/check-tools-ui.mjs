@@ -36,7 +36,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
 
@@ -148,6 +148,17 @@ for (const file of [...new Set([...CONTROL_DIRS, 'shared/catalog/src', 'shared/r
 	const css = file.endsWith('.css') ? text : text.replace(/<style[^>]*>([\s\S]*?)<\/style>|[^\n]/g, (m, inner) => (inner !== undefined ? m : ' '));
 	css.split('\n').forEach((line, i) => {
 		if ((SIDE_BAR.test(line) || SIDE_STATE.test(line)) && !/sidebar-ok/.test(line)) sideBars.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
+	});
+}
+// blur (owner 2026-11-24, RULES H15 [editor-style]): blur exists on the overlay level only – the kit's Overlay
+// (shared/ui/src/editor/overlay.svelte); no panel, menu, popover or page of the tools blurs what lies behind it
+const blurs = [];
+const OVERLAY = 'shared/ui/src/editor/overlay.svelte';
+for (const file of DIRS.flatMap(walk)) {
+	const name = relative(ROOT, file).split(sep).join('/');
+	if (name === OVERLAY) continue;
+	readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+		if (/backdrop-filter\s*:\s*(?!none\b)/.test(line)) blurs.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
 	});
 }
 // field grid (owner 2026-10-03, COMPONENTS.md 4.4.2): one tools.css `.sc-fields[data-cols][data-density]` – no local
@@ -367,16 +378,18 @@ if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
 if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
+if (blurs.length) console.error(`blur: ${blurs.length} outside the overlay level (owner 2026-11-24, RULES H15: blur exists on the overlay level only – the switcher, Search, a panel taken full, the dialogs go through @scutoons/ui/editor Overlay):\n  ${blurs.join('\n  ')}`);
 if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / start rules (owner 2026-11-21, RULES H10: a state is the frame's colour, a dot or coloured words – never a side bar; a line with \`sidebar-ok\` + the reason is exempt):\n  ${sideBars.join('\n  ')}`);
 if (colours.length) console.error(`colours: ${colours.length} outside the deck editor's scheme (owner 2026-11-24, RULES H11: every colour through the --tool-* tokens of shared/tokens/tool-colours.css; no literal colours, no grey ground behind content on the stage; an exception goes into COLOUR_ALLOW with its reason):\n  ${colours.join('\n  ')}`);
 if (kitLocal.length) console.error(`ui kit: ${kitLocal.length} local button / pill / tab styling outside @scutoons/ui (owner 2026-11-24, RULES H12: one UI kit, the deck editor its source of truth – use the kit's Button / IconButton / Pill / PillTab / Menu / MenuItem / ListRow / Tile; the shell and the kit page are clean, the other files may not grow past scripts/tools-kit-baseline.json; \`kit-ok\` + the reason exempts a line):\n  ${kitLocal.join('\n  ')}`);
 if (kitShrunk.length && !flag('--kit-baseline')) console.log(`ui kit: ${kitShrunk.length} files got cleaner than the baseline – shrink it: node scripts/check-tools-ui.mjs --static --kit-baseline`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || blurs.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 console.log('side bars: no thick left / start rules – ok');
+console.log('blur: on the overlay level only – ok');
 console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
 console.log(`ui kit: the shell on the kit, ${Object.values(kitCounts).reduce((a, b) => a + b, 0)} local button / pill / tab rules left in ${Object.keys(kitCounts).length} area files (the baseline) – ok`);
 // the kit's tokens (kit/tokens.toml → shared/tokens/editor.css): a stale or hand-edited editor.css fails here too, so

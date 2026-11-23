@@ -19,7 +19,7 @@ export interface Look {
 	colorblind: Record<string, string>;
 }
 
-/** a component's state: its parts (text, ground, border, ring, knob, mark) naming a token, or its opacity */
+/** a component's state: its parts (text, ground, border, ring, knob, mark) naming a token, or its opacity or blur (rem) */
 export type State = Record<string, { token: string; alpha?: number } | number>;
 
 export interface KitTokens {
@@ -160,7 +160,14 @@ function components(f: Record<string, Table>, colors: Record<string, string>): R
 				state.opacity = v;
 				continue;
 			}
-			if (!PARTS.includes(part)) throw new Error(`${where}: not a part (${PARTS.join(' ')} opacity)`);
+			// the overlay level's blur (RULES H15): the only component that may blur what lies under it
+			if (part === 'blur') {
+				if (m[1] !== 'overlay') throw new Error(`${where}: only the overlay blurs (RULES H15)`);
+				if (typeof v !== 'number' || !(v > 0 && v <= 4)) throw new Error(`${where}: rem, above 0, at most 4`);
+				state.blur = v;
+				continue;
+			}
+			if (!PARTS.includes(part)) throw new Error(`${where}: not a part (${PARTS.join(' ')} opacity blur)`);
 			const r = typeof v === 'string' ? /^([a-z_]+)(?: (\d{1,2})%)?$/.exec(v) : null;
 			if (!r) throw new Error(`${where}: ${JSON.stringify(v)} is not "<token>" or "<token> <n>%"`);
 			const [, token, pct] = r;
@@ -187,7 +194,7 @@ export function renderKit(t: KitTokens): string {
 	for (const [name, states] of Object.entries(t.components)) {
 		for (const [state, parts] of Object.entries(states)) {
 			for (const [part, v] of Object.entries(parts)) {
-				lines.push(`\t--kit-${kebab(name)}-${kebab(state)}-${part}: ${typeof v === 'number' ? num(v) : stateValue(v)};`);
+				lines.push(`\t--kit-${kebab(name)}-${kebab(state)}-${part}: ${typeof v === 'number' ? `${num(v)}${part === 'blur' ? 'rem' : ''}` : stateValue(v)};`);
 			}
 		}
 	}

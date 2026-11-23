@@ -151,7 +151,7 @@ stop = "#8f3300"
 # The components' states (kit/README.md "Components and their states"), one table per component and state:
 #   [component.<name>.<state>]   <part> = "<token>"   or   "<token> <n>%"   (the token see-through at n %)
 # Parts: text · ground · border · ring (the focus outline) · knob · mark (a tick, a dot, a chevron, the insert line) ·
-# opacity (a number). Tokens: the colours above by name (text, muted, line, control, hover, pressed, pressed_text,
+# opacity (a number) · blur (rem; the overlay's alone). Tokens: the colours above by name (text, muted, line, control, hover, pressed, pressed_text,
 # selected, within, selection, surface_head, go, warn, stop) and panel / popover (the surface at panel_opacity) and
 # none. A ground is never an opaque grey: line, muted, text and bright are refused as a ground (the generator).
 # The web tools get them as --kit-<name>-<state>-<part> (shared/tokens/kit.css).
@@ -397,6 +397,18 @@ opacity = 0.75
 [component.panel.rest]
 border = "line"
 ground = "panel"
+
+# the overlay level (RULES H15) – the switcher, Search, a panel taken full, a dialog: what lies under it (the bar too) is
+# blurred and dimmed; the only blur of the UI (blur in rem). Reduce motion turns the blur off: a see-through dim instead.
+# The box is what it carries close to the window's edges (a panel taken full) or in its middle (a dialog).
+[component.overlay.rest]
+ground = "panel 70%"
+blur = 1.6
+[component.overlay.reduced]
+ground = "panel"
+[component.overlay.box]
+border = "line"
+ground = "popover"
 
 [component.section.rest]
 mark = "muted"
