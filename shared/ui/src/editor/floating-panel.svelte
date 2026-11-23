@@ -251,7 +251,8 @@
 		box-sizing: border-box;
 		min-width: 0;
 		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
+		/* twice a control's corner (floats.rs); what sits in its head is rounded concentric with it (the head's inset less) */
+		border-radius: var(--kit-radius-box);
 		/* the deck editor's floating panel (deck-kit floats.rs, RULES H11): the surface at the panel opacity, see-through, no
 		   blur, no shadow; its text and icons carry the halo (the ink ring of the ground's colour) so they read over any
 		   stage. Controls keep their own opaque ground (no halo on them, as the deck's DrawList::halo) */
@@ -268,6 +269,8 @@
 	}
 	.head,
 	.line {
+		/* what sits in the head is rounded concentric with the panel (its corner less the head's inset) */
+		--kit-r: calc(var(--kit-radius-box) - 0.1875rem);
 		flex: none;
 		display: flex;
 		align-items: center;
@@ -324,9 +327,9 @@
 		align-items: center;
 		min-width: 1.75rem;
 		height: calc(var(--control-height) - 0.25rem);
-		padding: 0 0.6rem;
+		padding: 0 var(--editor-pad);
 		border: 0;
-		border-radius: var(--editor-radius);
+		border-radius: var(--kit-r);
 		background: none;
 		color: var(--tool-muted);
 		font: inherit;
@@ -342,10 +345,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	/* the front tab: a thin outline, the others muted */
+	/* the front tab: the pressed segment (the kit's PillTab, deck-kit pills_rounded), the others muted */
 	.tab.on {
-		color: var(--tool-text);
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		text-shadow: none;
 	}
 	.tab.dragged {
 		opacity: 0.4;
@@ -379,13 +383,13 @@
 		height: var(--control-height);
 		padding: 0;
 		border: 0;
-		border-radius: 50%;
+		border-radius: var(--kit-r);
 		background: none;
 		color: var(--tool-muted);
 		cursor: pointer;
 	}
 	.buttons :global(.panel-close) {
-		border-radius: 50%;
+		border-radius: var(--kit-r);
 		color: var(--tool-muted);
 	}
 	@media (hover: hover) {

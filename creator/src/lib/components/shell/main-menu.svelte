@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Icon, clickOutside } from '@scutoons/ui';
+	import { Menu, MenuHead, MenuItem } from '@scutoons/ui/editor';
 	import { canUseApp } from '@scutoons/auth';
 	import { ADMIN_URL, EMBASSY_URL, VIEWER_URL } from '$lib/config.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
@@ -40,6 +40,7 @@
 		shut();
 		action();
 	}
+	const SUB_WIDTH = { search: '24rem', views: '24rem', help: '19rem', goto: '19rem' } as const;
 	const toggle = (name: NonNullable<typeof sub>) => (sub = sub === name ? null : name);
 	const SHORTCUTS: [string, () => string][] = [
 		['Ctrl K', () => m['shell.key_find']()],
@@ -53,144 +54,36 @@
 	];
 </script>
 
-<svelte:window onkeydown={(e) => open && e.key === 'Escape' && shut()} />
+<Menu label={m['shell.menu']()} icon="menu" bind:open onclose={() => (sub = null)} testid="menu-button" menuTestid="main-menu" beside={sub ? beside : undefined} besideWidth={sub ? SUB_WIDTH[sub] : undefined} besideOpen={sub === 'search'} besideTestid="menu-{sub}">
+	{#snippet children()}
+		<MenuItem icon="home" label={m['shell.dashboard']()} href="/" current={shell.state.front === null} onclick={shut} data-testid="menu-home" />
+		<hr />
+		<MenuItem icon="folder" label={m['shell.open_menu']()} kbd="Ctrl O" onclick={() => run(() => shell.open('library'))} />
+		<MenuItem icon="search" label={m['shell.search']()} sub expanded={sub === 'search'} onclick={() => toggle('search')} data-testid="menu-search" />
+		<MenuItem icon="layout" label={m['shell.views_menu']()} sub expanded={sub === 'views'} onclick={() => toggle('views')} data-testid="menu-views" />
+		<hr />
+		<MenuItem icon="settings" label={m['shell.settings_menu']()} kbd="Ctrl ," onclick={() => run(() => shell.open('settings'))} data-testid="menu-settings" />
+		<MenuItem icon="book" label={m['shell.docs']()} href="/docs" external onclick={shut} />
+		<MenuItem icon="help-circle" label={m['shell.help']()} sub expanded={sub === 'help'} onclick={() => toggle('help')} />
+		<MenuItem icon="external-link" label={m['shell.go_to']()} sub expanded={sub === 'goto'} onclick={() => toggle('goto')} />
+		<hr />
+		<MenuItem label={m['shell.build']()} kbd={build} muted title={m['shell.version']()} data-testid="menu-build" />
+	{/snippet}
+</Menu>
 
-<div class="main-menu" {@attach clickOutside(shut)}>
-	<button type="button" class="round" aria-expanded={open} aria-haspopup="menu" aria-label={m['shell.menu']()} title={m['shell.menu']()} onclick={() => ((open = !open), (sub = null))} data-testid="menu-button">
-		<Icon name="menu" size="1rem" />
-	</button>
-	{#if open}
-		<div class="menu" role="menu" data-testid="main-menu">
-			<a role="menuitem" href="/" aria-current={shell.state.front === null ? 'page' : undefined} onclick={shut} data-testid="menu-home"><Icon name="home" size="1rem" />{m['shell.dashboard']()}</a>
-			<hr />
-			<button type="button" role="menuitem" onclick={() => run(() => shell.open('library'))}><Icon name="folder" size="1rem" />{m['shell.open_menu']()}<kbd>Ctrl O</kbd></button>
-			<button type="button" role="menuitem" aria-expanded={sub === 'search'} onclick={() => toggle('search')} data-testid="menu-search"><Icon name="search" size="1rem" />{m['shell.search']()}<kbd>▸</kbd></button>
-			<button type="button" role="menuitem" aria-expanded={sub === 'views'} onclick={() => toggle('views')} data-testid="menu-views"><Icon name="layout" size="1rem" />{m['shell.views_menu']()}<kbd>▸</kbd></button>
-			<hr />
-			<button type="button" role="menuitem" onclick={() => run(() => shell.open('settings'))} data-testid="menu-settings"><Icon name="settings" size="1rem" />{m['shell.settings_menu']()}<kbd>Ctrl ,</kbd></button>
-			<a role="menuitem" href="/docs" target="_blank" rel="noopener" onclick={shut}><Icon name="book" size="1rem" />{m['shell.docs']()}<kbd>↗</kbd></a>
-			<button type="button" role="menuitem" aria-expanded={sub === 'help'} onclick={() => toggle('help')}><Icon name="help-circle" size="1rem" />{m['shell.help']()}<kbd>▸</kbd></button>
-			<button type="button" role="menuitem" aria-expanded={sub === 'goto'} onclick={() => toggle('goto')}><Icon name="external-link" size="1rem" />{m['shell.go_to']()}<kbd>▸</kbd></button>
-			<hr />
-			<span class="line muted" title={m['shell.version']()} data-testid="menu-build">{m['shell.build']()}<kbd>{build}</kbd></span>
-		</div>
-		{#if sub}
-			<div class="menu sub" class:wide={sub === 'search' || sub === 'views'} class:open-ended={sub === 'search'} role="menu" data-testid="menu-{sub}">
-				{#if sub === 'search'}
-					<BarFind focus onpick={shut} />
-				{:else if sub === 'views'}
-					<ViewsMenu onclose={shut} />
-				{:else if sub === 'help'}
-					<a role="menuitem" href="/guide" onclick={shut}><Icon name="book-open" size="1rem" />{m['shell.guide']()}</a>
-					<span class="head">{m['shell.shortcuts']()}</span>
-					{#each SHORTCUTS as [keys, what] (keys)}<span class="line">{what()}<kbd>{keys}</kbd></span>{/each}
-				{:else}
-					<a role="menuitem" href={reader ?? VIEWER_URL} target="_blank" rel="noopener"><Icon name="book-open" size="1rem" />{reader ? m['shell.reader_this']() : m['creator.reader']()}<kbd>↗</kbd></a>
-					<a role="menuitem" href="{VIEWER_URL}/live/deck" target="_blank" rel="noopener"><Icon name="radio" size="1rem" />{m['shell.deck']()}<kbd>↗</kbd></a>
-					{#if canUseApp('embassy', roles)}<a role="menuitem" href={EMBASSY_URL} target="_blank" rel="noopener"><Icon name="mail" size="1rem" />Embassy<kbd>↗</kbd></a>{/if}
-					{#if canUseApp('admin', roles)}<a role="menuitem" href={ADMIN_URL} target="_blank" rel="noopener"><Icon name="shield" size="1rem" />Admin<kbd>↗</kbd></a>{/if}
-				{/if}
-			</div>
-		{/if}
+{#snippet beside()}
+	{#if sub === 'search'}
+		<BarFind focus onpick={shut} />
+	{:else if sub === 'views'}
+		<ViewsMenu onclose={shut} />
+	{:else if sub === 'help'}
+		<MenuItem icon="book-open" label={m['shell.guide']()} href="/guide" onclick={shut} />
+		<MenuHead label={m['shell.shortcuts']()} />
+		{#each SHORTCUTS as [keys, what] (keys)}<MenuItem label={what()} kbd={keys} />{/each}
+	{:else}
+		<MenuItem icon="book-open" label={reader ? m['shell.reader_this']() : m['creator.reader']()} href={reader ?? VIEWER_URL} external />
+		<MenuItem icon="radio" label={m['shell.deck']()} href="{VIEWER_URL}/live/deck" external />
+		{#if canUseApp('embassy', roles)}<MenuItem icon="mail" label="Embassy" href={EMBASSY_URL} external />{/if}
+		{#if canUseApp('admin', roles)}<MenuItem icon="shield" label="Admin" href={ADMIN_URL} external />{/if}
 	{/if}
-</div>
-
-<style>
-	.main-menu {
-		position: relative;
-	}
-	.round {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: calc(var(--control-height) - 0.4rem);
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: transparent;
-		color: var(--tool-text);
-	}
-	.round:hover,
-	.round[aria-expanded='true'] {
-		background: var(--tool-hover);
-	}
-	/* far right: the menu opens leftwards, a sub menu left of it */
-	.menu {
-		position: absolute;
-		z-index: 60;
-		top: calc(100% + 0.65rem);
-		right: -0.2rem;
-		display: flex;
-		flex-direction: column;
-		box-sizing: border-box;
-		width: 17rem;
-		max-height: calc(100dvh - var(--shell-top) - var(--status-room));
-		padding: 0.3rem;
-		overflow: auto;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
-		color: var(--tool-text);
-	}
-	.menu.sub {
-		right: 17.3rem;
-		width: 19rem;
-	}
-	.menu.sub.wide {
-		width: 24rem;
-	}
-	/* the search's found rows hang below its field */
-	.menu.sub.open-ended {
-		overflow: visible;
-	}
-	.menu :global(button.line),
-	.menu button,
-	.menu a,
-	.menu :global(.line) {
-		display: flex;
-		flex: none;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 0.6rem;
-		min-height: var(--control-height);
-		padding: 0 0.6rem;
-		border: 0;
-		border-radius: var(--editor-radius);
-		background: transparent;
-		color: var(--tool-text);
-		text-align: left;
-		text-decoration: none;
-	}
-	.menu button:hover:not(:disabled),
-	.menu a:hover,
-	.menu button[aria-expanded='true'],
-	.menu a[aria-current='page'] {
-		background: var(--tool-hover);
-	}
-	.menu button:disabled {
-		color: var(--tool-muted);
-	}
-	kbd {
-		margin-left: auto;
-		color: var(--tool-muted);
-		font-family: var(--font-mono);
-		font-size: var(--editor-small);
-	}
-	.menu :global(.head) {
-		padding: 0.4rem 0.6rem 0.2rem;
-		color: var(--tool-muted);
-		font-size: var(--editor-label);
-		letter-spacing: var(--editor-label-spacing);
-		text-transform: uppercase;
-	}
-	.muted {
-		color: var(--tool-muted);
-	}
-	.menu :global(hr) {
-		width: 100%;
-		margin: 0.25rem 0;
-		border: 0;
-		border-top: var(--editor-edge) solid var(--tool-line);
-	}
-</style>
+{/snippet}

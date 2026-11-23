@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
-	import { Icon } from '@scutoons/ui';
-	import { measureDrop, type Floats, type Rect } from '@scutoons/ui/editor';
+	import { Button, IconButton, Pill, measureDrop, type Floats, type Rect } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -162,27 +161,24 @@
 			data-testid="stage-divider"
 		></div>
 	{/if}
-	<div class="pill" style:left={r((free.left + free.right) / 2)} data-testid="stage-pill">
-		<button type="button" onclick={() => shell.home()} title={m['shell.stage_view']()} data-testid="stage-view">
-			<Icon name={shell.state.front ? iconOf(shell.state.front) : 'home'} size="1rem" />{shell.front?.label ?? ''}
-		</button>
+	<Pill class="stage-pill" style="left: {r((free.left + free.right) / 2)}" data-testid="stage-pill" data-control-exempt="the stage pill's inset parts (deck-kit bar.rs)">
+		<Button variant="quiet" icon={shell.state.front ? iconOf(shell.state.front) : 'home'} onclick={() => shell.home()} title={m['shell.stage_view']()} data-testid="stage-view">{shell.front?.label ?? ''}</Button>
 		{#each stage as tab (tab)}
 			<span class="sep" aria-hidden="true"></span>
-			<button
-				type="button"
-				class="chip"
+			<Button
+				variant="quiet"
+				pressed
+				class="drag"
 				title={m['shell.stage_chip']({ tab: name(tab) })}
-				onpointerdown={(e) => pressChip(e, tab)}
+				onpointerdown={(e: PointerEvent) => pressChip(e, tab)}
 				onpointermove={moveChip}
 				onpointerup={() => dropChip(tab)}
 				onpointercancel={() => floats.cancelTab()}
-				data-testid="stage-chip"><span class="dot" aria-hidden="true"></span>{name(tab)}</button
+				data-testid="stage-chip"><span class="dot" aria-hidden="true"></span>{name(tab)}</Button
 			>
-			<button type="button" class="round" onclick={() => shell.back(tab)} aria-label={m['shell.main_back']()} title={m['shell.main_back']()} data-testid="stage-back">
-				<Icon name="minimize-2" size="0.9rem" strokeWidth={2} />
-			</button>
+			<IconButton label={m['shell.main_back']()} icon="minimize-2" onclick={() => shell.back(tab)} data-testid="stage-back" />
 		{/each}
-	</div>
+	</Pill>
 {/if}
 
 <style>
@@ -253,49 +249,17 @@
 		background: var(--tool-accent);
 	}
 	/* the bottom pill: the workspace's own view, then the tabs on the stage */
-	.pill {
+	:global(.kit-pill.stage-pill) {
 		position: fixed;
 		z-index: 45;
-		bottom: calc(var(--status-room) + 0.5rem);
+		bottom: calc(var(--status-room) + var(--kit-margin));
 		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		gap: 0.2rem;
-		min-height: var(--control-height);
-		padding: 0 0.2rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 1.2rem;
-		background: var(--tool-panel);
-		text-shadow: var(--tool-halo);
-		font-family: var(--editor-sans);
 		white-space: nowrap;
 	}
-	/* the halo on its icons too (the deck's ink ring covers text and icons) */
-	.pill :global(svg) {
-		filter: var(--tool-icon-halo);
-	}
-	.pill button {
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0 0.7rem;
-		border: 0;
-		border-radius: 1rem;
-		background: transparent;
-		gap: 0.35rem;
-	}
-	.pill button:hover {
-		background: var(--tool-hover);
-	}
-	.pill .chip {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		text-shadow: none;
+	/* a tab on the stage is dragged back into a panel */
+	:global(.kit-button.drag) {
 		cursor: grab;
 		touch-action: none;
-	}
-	.pill .round {
-		width: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		border-radius: 50%;
 	}
 	.sep {
 		width: var(--editor-edge);

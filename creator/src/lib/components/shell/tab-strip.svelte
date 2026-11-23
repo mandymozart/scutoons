@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { CloseIcon, Icon, clickOutside } from '@scutoons/ui';
+	import { IconButton, Menu, MenuItem, Pill, PillTab } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -92,70 +92,50 @@
 
 <svelte:window {onkeydown} />
 
-<div class="open-items" class:none={!tabs.length} data-testid="tabs">
+<Pill class="open-items" data-testid="tabs">
 	{#if before || after}
-		<button type="button" class="round step" disabled={!before} aria-label={m['shell.tabs_left']()} title={m['shell.tabs_left']()} onclick={() => page(-1)} data-testid="tabs-left"><Icon name="chevron-left" size="0.9rem" /></button>
+		<IconButton label={m['shell.tabs_left']()} icon="chevron-left" disabled={!before} onclick={() => page(-1)} data-testid="tabs-left" />
 	{/if}
 	<div class="strip" class:before class:after bind:this={strip} onscroll={measure} {onwheel}>
 		{#each tabs as tab (tab.address)}
 			{@const front = tab.address === shell.state.front}
-			<div class="item" class:front data-tab-pill title={tab.address} data-testid="tab" data-address={tab.address}>
-				<a class="open" href={tab.href} aria-current={front ? 'page' : undefined}>
-					<Icon name={iconOf(tab.address)} size="1rem" />
-					<span class="name">{tab.label}</span>
-				</a>
-				<button type="button" class="close" aria-label={m['shell.close_tab']({ name: tab.label })} title={m['shell.close_tab']({ name: tab.label })} onclick={() => closeTab(tab.address)}><CloseIcon size="0.8rem" /></button>
-			</div>
+			<PillTab label={tab.label} title={tab.address} icon={iconOf(tab.address)} href={tab.href} on={front} closeLabel={m['shell.close_tab']({ name: tab.label })} onclose={() => closeTab(tab.address)} data-tab-pill data-testid="tab" data-address={tab.address} />
 		{/each}
 	</div>
 	{#if before || after}
-		<button type="button" class="round step" disabled={!after} aria-label={m['shell.tabs_right']()} title={m['shell.tabs_right']()} onclick={() => page(1)} data-testid="tabs-right"><Icon name="chevron-right" size="0.9rem" /></button>
+		<IconButton label={m['shell.tabs_right']()} icon="chevron-right" disabled={!after} onclick={() => page(1)} data-testid="tabs-right" />
 	{/if}
 	{#if tabs.length > 1}
-		<div class="list" {@attach clickOutside(() => (listOpen = false))}>
-			<button type="button" class="round" aria-expanded={listOpen} aria-label={m['shell.tab_list']()} title={m['shell.tab_list']()} onclick={() => (listOpen = !listOpen)} data-testid="tab-list"><Icon name="chevron-down" size="1rem" /></button>
-			{#if listOpen}
-				<div class="menu" role="menu">
-					{#each tabs as tab (tab.address)}
-						<a role="menuitem" href={tab.href} class:on={tab.address === shell.state.front} onclick={() => (listOpen = false)}><Icon name={iconOf(tab.address)} size="1rem" /><span class="name">{tab.label}</span></a>
-					{/each}
-					<hr />
-					<button type="button" role="menuitem" disabled={!shell.state.front} onclick={closeOthers}>{m['shell.close_others']()}</button>
-					<button type="button" role="menuitem" onclick={closeAll} data-testid="close-all">{m['shell.close_all']()}</button>
-				</div>
-			{/if}
-		</div>
+		<Menu label={m['shell.tab_list']()} icon="chevron-down" align="start" bind:open={listOpen} testid="tab-list" menuTestid="tab-list-menu">
+			{#snippet children(close)}
+				{#each tabs as tab (tab.address)}
+					<MenuItem icon={iconOf(tab.address)} label={tab.label} href={tab.href} current={tab.address === shell.state.front} onclick={close} />
+				{/each}
+				<hr />
+				<MenuItem label={m['shell.close_others']()} disabled={!shell.state.front} onclick={closeOthers} />
+				<MenuItem label={m['shell.close_all']()} onclick={closeAll} data-testid="close-all" />
+			{/snippet}
+		</Menu>
 	{/if}
-	<button type="button" class="round" aria-label={m['shell.open_library']()} title={m['shell.open_library']()} onclick={() => shell.open('library')} data-testid="tab-add"><Icon name="plus" size="1rem" /></button>
-</div>
+	<IconButton label={m['shell.open_library']()} icon="plus" onclick={() => shell.open('library')} data-testid="tab-add" />
+</Pill>
 
 <style>
-	.open-items {
-		display: flex;
+	/* the open items: at most a little under half the bar; the strip between the arrows scrolls */
+	:global(.kit-pill.open-items) {
 		flex: 0 1 auto;
-		align-items: center;
-		gap: 0.15rem;
-		min-width: 0;
 		max-width: 46%;
-		padding: 0.2rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 1.5rem;
-		background: var(--tool-panel);
-		text-shadow: var(--tool-halo);
-	}
-	/* the halo on its icons too (the deck's ink ring covers text and icons) */
-	.open-items :global(svg) {
-		filter: var(--tool-icon-halo);
 	}
 	.strip {
 		position: relative;
 		display: flex;
 		flex: 0 1 auto;
-		gap: 0.15rem;
+		gap: var(--kit-seam);
 		min-width: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
 		scrollbar-width: none;
+		border-radius: var(--kit-r);
 		--fade: 2rem;
 	}
 	.strip::-webkit-scrollbar {
@@ -170,123 +150,5 @@
 	}
 	.strip.before.after {
 		mask-image: linear-gradient(to right, transparent, var(--tool-text) var(--fade), var(--tool-text) calc(100% - var(--fade)), transparent);
-	}
-	.item {
-		display: flex;
-		flex: none;
-		align-items: center;
-		max-width: 14rem;
-		height: var(--editor-row);
-		border-radius: var(--editor-radius);
-		color: var(--tool-muted);
-	}
-	/* the front item: a thin outline, the others muted */
-	.item.front {
-		color: var(--tool-text);
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
-	}
-	.item:not(.front):hover {
-		background: var(--tool-hover);
-	}
-	.open {
-		display: flex;
-		flex: 1 1 auto;
-		align-items: center;
-		gap: 0.4rem;
-		min-width: 0;
-		padding: 0 0.2rem 0 0.75rem;
-		color: inherit;
-		text-decoration: none;
-	}
-	.name {
-		flex: 0 1 auto;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	/* a tab's close shows on the front tab and under the pointer */
-	.item:not(.front) .close {
-		opacity: 0;
-	}
-	.item:hover .close,
-	.close:focus-visible {
-		opacity: 1;
-	}
-	.close,
-	.round {
-		display: inline-flex;
-		flex: none;
-		align-items: center;
-		justify-content: center;
-		min-width: var(--editor-row);
-		min-height: var(--editor-row);
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: transparent;
-		color: inherit;
-	}
-	.round {
-		color: var(--tool-text);
-	}
-	.round.step,
-	.close {
-		min-width: 1.4rem;
-	}
-	.round:disabled {
-		opacity: 0.35;
-	}
-	.close:hover,
-	.round:hover:not(:disabled),
-	.round[aria-expanded='true'] {
-		background: var(--tool-hover);
-	}
-	.list {
-		position: relative;
-		flex: none;
-	}
-	.menu {
-		position: absolute;
-		z-index: 60;
-		top: calc(100% + 0.45rem);
-		left: 0;
-		display: flex;
-		flex-direction: column;
-		width: 17rem;
-		max-height: calc(100dvh - var(--shell-top) - var(--status-room));
-		overflow: auto;
-		padding: 0.3rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
-	}
-	.menu a,
-	.menu button {
-		display: flex;
-		flex: none;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 0.5rem;
-		min-height: var(--control-height);
-		padding: 0 0.6rem;
-		border: 0;
-		border-radius: var(--editor-radius);
-		background: transparent;
-		color: var(--tool-text);
-		text-decoration: none;
-	}
-	.menu a:hover,
-	.menu button:hover:not(:disabled) {
-		background: var(--tool-hover);
-	}
-	.menu a.on {
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
-	}
-	.menu hr {
-		width: 100%;
-		margin: 0.25rem 0;
-		border: 0;
-		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

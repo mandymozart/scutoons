@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { IconButton, MenuItem } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -29,107 +29,40 @@
 <div class="views" data-testid="views-list">
 	{#each views as v (v.id)}
 		{@const on = shown(v.id)}
-		<div class="view" class:on>
-			<button type="button" class="name" onclick={() => (shell.open(v.id), onclose?.())} title={v.about} data-testid="views-tab-{v.id}">
-				<Icon name={v.icon} size="1rem" /><span class="ell">{v.name}</span>
-				{#if onStage(v.id)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
-			</button>
-			<span class="states">
-				<button type="button" class="eye" aria-pressed={on} aria-label={on ? m['shell.views_hide']({ name: v.name }) : m['shell.views_show']({ name: v.name })} title={on ? m['shell.views_hide']({ name: v.name }) : m['shell.views_show']({ name: v.name })} onclick={() => flip(v.id)} data-testid="views-eye-{v.id}">
-					<Icon name={on ? 'eye' : 'eye-off'} size="0.95rem" />
-				</button>
-			</span>
+		<div class="view">
+			<MenuItem icon={v.icon} label={v.name} title={v.about} muted={!on} onclick={() => (shell.open(v.id), onclose?.())} data-testid="views-tab-{v.id}">
+				{v.name}{#if onStage(v.id)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
+			</MenuItem>
+			<IconButton label={on ? m['shell.views_hide']({ name: v.name }) : m['shell.views_show']({ name: v.name })} icon={on ? 'eye' : 'eye-off'} tone={on ? 'text' : 'muted'} aria-pressed={on} onclick={() => flip(v.id)} data-testid="views-eye-{v.id}" />
 		</div>
 	{/each}
 </div>
 <hr />
-<button type="button" class="line" role="menuitemcheckbox" aria-checked={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear">
-	<span class="tick" class:on={shell.clear} aria-hidden="true">{#if shell.clear}<Icon name="check" size="0.8rem" />{/if}</span>{m['shell.views_clear']()}
-</button>
-<button type="button" class="line" onclick={() => (shell.resetView(), onclose?.())} data-testid="views-reset"><Icon name="rotate-ccw" size="1rem" />{m['shell.views_back']()}</button>
+<MenuItem label={m['shell.views_clear']()} role="menuitemcheckbox" aria-checked={shell.clear} on={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear" />
+<MenuItem icon="rotate-ccw" label={m['shell.views_back']()} onclick={() => (shell.resetView(), onclose?.())} data-testid="views-reset" />
 
 <style>
 	.views {
 		display: flex;
 		flex-direction: column;
 	}
+	/* a view's line and its state buttons (one now, the eye; the panel, stage and full-screen states join it) */
 	.view {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
-		border-radius: var(--editor-radius);
-		color: var(--tool-muted);
+		gap: var(--kit-seam);
 	}
-	.view.on {
-		color: var(--tool-text);
-	}
-	.view:hover {
-		background: var(--tool-hover);
-	}
-	.name {
-		display: flex;
+	/* the line takes the room the state buttons leave */
+	.view > :global(.kit-menu-item) {
 		flex: 1 1 auto;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 0.6rem;
+		width: auto;
 		min-width: 0;
-		min-height: var(--control-height);
-		padding: 0 0.6rem;
-		border: 0;
-		background: transparent;
-		color: inherit;
-		text-align: left;
-	}
-	.ell {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.mark {
-		margin-left: auto;
+		margin-left: var(--editor-pad);
 		color: var(--tool-accent);
 		font-size: var(--editor-label);
 		text-transform: uppercase;
 		letter-spacing: var(--editor-label-spacing);
-		white-space: nowrap;
-	}
-	/* one state now (the eye); the panel, stage and full-screen states join it here */
-	.states {
-		display: flex;
-		flex: none;
-		gap: 0.15rem;
-		padding-right: 0.2rem;
-	}
-	.eye {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: calc(var(--control-height) - 0.4rem);
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		border: var(--editor-edge) solid transparent;
-		border-radius: 50%;
-		background: transparent;
-		color: inherit;
-	}
-	.eye[aria-pressed='true'] {
-		border-color: var(--tool-line);
-	}
-	.eye:hover {
-		background: var(--tool-hover);
-	}
-	.tick {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1rem;
-		height: 1rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 0.2rem;
-	}
-	.tick.on {
-		border-color: var(--tool-primary-line);
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
 	}
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Floats, FloatingPanels } from '@scutoons/ui/editor';
-	import { CloseButton, Icon } from '@scutoons/ui';
+	import { Floats, FloatingPanels, IconButton } from '@scutoons/ui/editor';
+	import { CloseButton } from '@scutoons/ui';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -157,7 +157,7 @@
 		<div class="box">
 			<div class="head">
 				<span class="name">{name(over)}</span>
-				<button type="button" class="back" onclick={() => (shell.over = null)} aria-label={m['shell.main_back']()} title={m['shell.main_back']()}><Icon name="minimize-2" size="0.9rem" strokeWidth={2} /></button>
+				<IconButton label={m['shell.main_back']()} icon="minimize-2" onclick={() => (shell.over = null)} />
 				<CloseButton label={m['creator.close']()} onclick={() => (shell.over = null)} />
 			</div>
 			<div class="body">{@render content(over)}</div>
@@ -197,21 +197,6 @@
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
-	}
-	.back {
-		display: inline-grid;
-		place-items: center;
-		width: var(--control-height);
-		min-height: var(--control-height);
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: transparent;
-		color: inherit;
-	}
-	.back:hover {
-		background: var(--tool-hover);
-		color: var(--tool-text);
 	}
 	/* over everything (as OSCT's asset manager): a dialog over the whole creator, the bar included */
 	.over {

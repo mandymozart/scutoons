@@ -249,12 +249,12 @@
 	/* the window and every page on it stand on the stage (--tool-ground: black at night, white by day; RULES H11) */
 	.creator {
 		background: var(--tool-ground);
-		/* the bar's row: the pills and a gap above and below (the panels start a gap under it) */
-		--shell-top: calc(var(--control-height) + 1.4rem);
+		/* the bar's row: the kit's bar pills and a margin above and below (deck-kit bar.rs; the panels start under it) */
+		--shell-top: calc(var(--kit-bar) + 2 * var(--kit-margin));
 		--top: var(--shell-top);
 		/* the status bar along the bottom and the room it takes (the panels end above it) */
-		--status-height: calc(var(--control-height) + 0.2rem);
-		--status-room: calc(var(--status-height) + 1rem);
+		--status-height: var(--kit-status);
+		--status-room: calc(var(--status-height) + 2 * var(--kit-margin));
 		min-height: 100dvh;
 	}
 	.stage {
