@@ -40,7 +40,7 @@
 		shut();
 		action();
 	}
-	const SUB_WIDTH = { search: '24rem', views: '24rem', help: '19rem', goto: '19rem' } as const;
+	const SUB_WIDTH = { search: '24rem', views: '28rem', help: '19rem', goto: '19rem' } as const;
 	const toggle = (name: NonNullable<typeof sub>) => (sub = sub === name ? null : name);
 	const SHORTCUTS: [string, () => string][] = [
 		['Ctrl K', () => m['shell.key_find']()],
@@ -50,7 +50,8 @@
 		['Ctrl Shift Tab', () => m['shell.key_tab_prev']()],
 		['Ctrl W', () => m['shell.key_tab_close']()],
 		['Ctrl Z / Ctrl Y', () => m['shell.key_undo']()],
-		['Alt ↑', () => m['shell.key_up']()]
+		['Alt ↑', () => m['shell.key_up']()],
+		['Ctrl Space', () => m['shell.key_full']()]
 	];
 </script>
 

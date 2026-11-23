@@ -1,5 +1,5 @@
 // The creator's one panel / tab model (research/redesign/panels.html): every section is a tab (declared once in panels.ts); a
-// panel is a set of tabs; a workspace is only a preset – which panels, their tabs, their places, which tab is main.
+// panel is a set of tabs; a workspace is only a preset – which panels, their tabs, their places.
 // A page fills the tabs it has content for (`useTabs`, shell.svelte.ts); the Toon, the Library, Settings, the Log and History are
 // the shell's own. A tab with content that no preset panel holds still opens: it gets a closed panel of its own (Views).
 // Pure: test/shell.test.ts; the tabs' names and icons: panels.ts.
@@ -58,11 +58,6 @@ export interface PresetPanel {
 
 export interface Preset {
 	panels: readonly PresetPanel[];
-	/**
-	 * the tab on the stage when the workspace opens. None: the workspace's own view is the stage – it fills the whole
-	 * window under the bar (a full-bleed stage such as an XR experience or a character stage needs no tab for it)
-	 */
-	main?: TabId;
 	/** the view's default for clear of the bar (a full-bleed workspace: false) */
 	clear?: boolean;
 }
@@ -113,13 +108,6 @@ export function panelSpecs(workspace: WorkspaceKind | 'home', available: Readonl
 		const first = name(tabs[0]);
 		return [{ id: p.id, name: first?.name ?? p.id, icon: first?.icon ?? 'square', about: first?.about ?? '', place: p.place, size: p.size, min: p.min, tabs }];
 	});
-}
-
-/** the tabs on a workspace's stage: those the person put there (empty: none), else the preset's `main` */
-export function stageOf(workspace: string, view: { stage?: readonly string[] }): readonly string[] {
-	if (view.stage) return view.stage.map(tabIdOf);
-	const main = PRESETS[workspace as WorkspaceKind | 'home']?.main;
-	return main ? [main] : [];
 }
 
 /** the tabs with content: the shell's own (the Toon only with a toon) and those the front page fills */

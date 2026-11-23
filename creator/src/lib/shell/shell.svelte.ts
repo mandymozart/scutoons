@@ -4,10 +4,10 @@ import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, stepTab, visit, type TabsState } from './tabs.ts';
 import { workspaceOf } from './address.ts';
 import { entered, readUse, type WorkspaceUse } from './workspaces.ts';
-import type { Floats } from '@scutoons/ui/editor';
+import { viewsOn, type Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
-import { PRESETS, stageOf, tabIdOf } from './presets.ts';
-import { back, clampSplit, freeRoom, send, splitIn, type Side, type Stage } from './stage.ts';
+import { PRESETS, tabIdOf } from './presets.ts';
+import { clampSplit, freeRoom } from './stage.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
@@ -65,16 +65,14 @@ class Shell {
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
-	/** the tab over everything (⤢): a dialog over the whole creator */
-	over = $state<string | null>(null);
 
 	readonly front = $derived(frontTab(this.state));
-	/** the tabs on the stage in the front workspace (◱ main), left to right; empty: the workspace's own view */
-	readonly stage = $derived(stageOf(this.kind, this.view(this.kind)));
-	/** where a split divides the stage */
+	/** the views on the stage in the front workspace (the floats keep them); empty: the workspace's own view */
+	readonly stage: readonly string[] = $derived(this.floats ? viewsOn(this.floats.stage) : []);
+	/** the view over everything – the bar, the panels and the status bar hidden – or none */
+	readonly full: string | null = $derived(this.floats?.full ?? null);
+	/** where a split of the workspace's own view divides it */
 	readonly split = $derived(clampSplit(this.view(this.kind).split ?? 0.5));
-	/** set by the stage while it is drawn: it measures, applies the change and flies what moved (stage.svelte) */
-	mover: ((apply: () => void, was: Stage, now: Stage) => void) | null = null;
 	/** the front workspace's content keeps clear of the bar's row */
 	readonly clear = $derived(this.view(this.kind).clear ?? PRESETS[this.kind as keyof typeof PRESETS]?.clear ?? true);
 
@@ -130,29 +128,6 @@ class Shell {
 	}
 	changeView(patch: ViewSettings) {
 		this.change({ views: { ...this.settings.views, [this.kind]: { ...this.view(this.kind), ...patch } } });
-	}
-	#stage(next: Stage) {
-		const was = this.stage;
-		if (next.length === was.length && next.every((t, i) => t === was[i])) return;
-		const apply = () => this.changeView({ stage: [...next], ...(next.length === 2 && was.length < 2 ? { split: 0.5 } : {}) });
-		if (this.mover) this.mover(apply, was, next);
-		else apply();
-	}
-	/** ◱ main: the tab alone on the stage (whatever was there goes back); pressed again it goes back itself */
-	send(tab: string) {
-		this.#stage(send(this.stage, tab));
-	}
-	/** a tab dropped on a half of the stage: a split, or that half replaced */
-	splitIn(tab: string, side: Side) {
-		this.#stage(splitIn(this.stage, tab, side));
-	}
-	/** a tab back into its panel (none named: the last one, as Esc) */
-	back(tab?: string) {
-		this.#stage(back(this.stage, tab));
-	}
-	/** every tab back: the workspace's own view takes the stage */
-	home() {
-		this.#stage([]);
 	}
 	setSplit(split: number) {
 		this.changeView({ split: clampSplit(split) });
@@ -210,7 +185,8 @@ export function freeOf(floats: Floats | null, W: number): { left: number; right:
 	);
 }
 
-/** a tab on the stage goes back into its panel (the Flow after a box opened its place: the page shows it) */
+/** a view on the stage or over everything goes back into its panel (the Flow after a box opened its place: the page shows it) */
 export function stepBack(tab: string) {
-	if (shell.stage.includes(tab)) shell.back(tab);
+	const floats = shell.floats;
+	if (floats && floats.stateOf(tab) !== 'panel' && floats.stateOf(tab) !== 'hidden') floats.setState(tab, 'panel');
 }

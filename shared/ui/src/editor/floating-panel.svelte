@@ -9,11 +9,10 @@
 	/**
 	 * One floating panel over the stage: its head is the panel's own surface with its tabs and – unless essential – the
 	 * close; the whole head drags the panel, a tab name dragged moves that tab (into another panel's head, a marker shows
-	 * where; onto the stage it becomes a panel of its own). A double-click on the head (or Enter on its keyboard handle)
+	 * where; to a screen edge or corner its view takes the stage; elsewhere it becomes a panel of its own). A double-click on the head (or Enter on its keyboard handle)
 	 * folds and unfolds it. Open, the edges resize it – over its neighbours, never pushing them. An inline panel (a
 	 * toolbar) is one row or one column. The page lays the panels out in `floats`; this draws one. `children` = the front
-	 * tab's content (or the toolbar's row). While its front tab is on the stage (`floats.staged`) the panel shows only its
-	 * head, a dot on that tab.
+	 * tab's content (or the toolbar's row). A view on the stage or over everything is not among its tabs.
 	 */
 	let {
 		floats,
@@ -34,9 +33,7 @@
 	const spec = $derived(floats.spec(id)!);
 	const view = $derived(floats.views[id]);
 	const collapsed = $derived(view?.collapsed ?? false);
-	/** the front tab is on the stage: the head only, ◱ pressed */
-	const staged = $derived(floats.isStaged(id));
-	const folded = $derived(collapsed && !staged);
+	const folded = $derived(collapsed);
 	const vertical = $derived(floats.vertical(id));
 	const held = $derived(floats.held?.id === id && floats.held.moved);
 	const tabs = $derived(floats.tabsOf(id));
@@ -78,7 +75,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const r = view.rect;
-		floats.grab(id, r.x, r.y);
+		floats.grab(id, r.x, r.y, null, false);
 		floats.drag(r.x + d[0] * 2, r.y + d[1] * 2);
 		floats.drag(r.x + d[0], r.y + d[1]);
 		floats.drop();
@@ -136,7 +133,6 @@
 		class:inline={spec.inline}
 		class:vertical
 		class:collapsed
-		class:staged
 		class:held
 		aria-label={label ?? spec.name}
 		data-float={id}
@@ -197,11 +193,10 @@
 				<div class="strip" role="tablist" aria-label={spec.name} data-tab-strip>
 					{#each folded ? tabs.filter((t) => t === active) : tabs as tab, i (tab)}
 						{@const t = floats.tab(tab)}
-						{@const away = floats.staged.includes(tab)}
 						<button
 							type="button"
 							class="tab"
-							class:on={tab === active && !away}
+							class:on={tab === active}
 							class:dragged={tab === draggedTab}
 							role="tab"
 							aria-selected={tab === active}
@@ -213,11 +208,11 @@
 							onpointerup={() => floats.dropTab()}
 							onpointercancel={() => floats.cancelTab()}
 							onkeydown={(e) => tabKey(e, i)}
-							>{#if away}<span class="dot" aria-hidden="true"></span>{/if}<span class="label">{t?.name ?? tab}</span></button
+							><span class="label">{t?.name ?? tab}</span></button
 						>
 					{/each}
 				</div>
-				{#if !staged && !spec.essential}
+				{#if !spec.essential}
 					<span class="buttons">
 						<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
 					</span>
@@ -353,17 +348,6 @@
 	}
 	.tab.dragged {
 		opacity: 0.4;
-	}
-	/* the tab is on the stage */
-	.dot {
-		flex: none;
-		display: inline-block;
-		width: 0.45rem;
-		height: 0.45rem;
-		margin-right: 0.35rem;
-		border-radius: 50%;
-		background: var(--tool-accent);
-		vertical-align: 0.05rem;
 	}
 	.tab:focus-visible,
 	.icon:focus-visible {
