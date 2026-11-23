@@ -2341,6 +2341,7 @@
 		"key_dashboard": "Das Dashboard (die Menütaste)",
 		"launch_label": "Starter",
 		"launch_address": "Adresse",
+		"resume_dropped": "{name} war zuletzt offen und ist weg oder nicht mehr deins – sein Tab wurde geschlossen",
 		"launch_workspace": "Arbeitsbereich",
 		"launch_view": "Ansicht",
 		"launch_command": "Befehl",
