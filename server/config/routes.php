@@ -67,6 +67,7 @@ use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
 use Scutoons\Http\Controllers\CraftsController;
+use Scutoons\Http\Controllers\LayoutsController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\CampaignGiftsController;
@@ -220,6 +221,10 @@ return static function (App $app): void {
     $app->get('/api/crafts', [CraftsController::class, 'list']);
     $app->get('/api/me/crafts', [CraftsController::class, 'mine']);
     $app->put('/api/me/crafts', [CraftsController::class, 'setMine']);
+    // saved workspace layouts: own rows only (Domain\Layouts)
+    $app->get('/api/me/layouts', [LayoutsController::class, 'mine']);
+    $app->put('/api/me/layouts/{workspace}', [LayoutsController::class, 'save']);
+    $app->delete('/api/me/layouts/{workspace}', [LayoutsController::class, 'delete']);
     // the account's shipping address (#66 – physical newsletter gifts wait for it)
     $app->get('/api/me/shipping', [CampaignGiftsController::class, 'shipping']);
     $app->put('/api/me/shipping', [CampaignGiftsController::class, 'setShipping']);
