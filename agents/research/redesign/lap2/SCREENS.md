@@ -38,7 +38,9 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 |---|---|---|---|
 | C1 | Toon | the tree of one toon: the season, its chapters and a Cast branch; the season's cast listed and edited here (order, role per language, personas, Add from the Library, ✕); a character opened from it goes to Characters | current (from now/ws-toon, drawn with Cat Pope; card: the Toon tree's top level) |
 | C2 | Chapter | kit look | current (panels from presets.ts; the page not captured) |
-| C3 | Storyboard | drawn from today's page (Cat Pope · chapter 3): the six steps and every choice as segments, the tools in their pills, the shot's page on the stage, the Inspector, the Timeline; the toon's tree on the left, the extended Library | current |
+| C3 | Storyboard | drawn from today's page (Cat Pope · chapter 3): the six steps and every choice as segments, the tools in their pills, the shot's page on the stage, the Inspector, the Timeline; the Tree is the storyboard's own – its scenes and shots (to confirm) | current |
+| C3b | Storyboard · 4 Handheld: connecting a phone | the Handheld panel on the kit: on or off for the shot, the code to scan, waiting, Disconnect · Recenter · Record, the takes, trim, smooth, render; the conditions and the trim's sentence as hover text | current |
+| C3c | Storyboard · 5 Generate: the way into the generator | the shot's picture as a slot (a file or a generator), "Open the generator" as the way into the Generate workspace, the result back in the slot; "by hand" below as today (to confirm) | current |
 | C4 | Characters | the Rig tab without the Bones and Clips lists – the rest as today (the look's 3D model, the model's line, Idle, Body, A-pose) – and "Open in the deck"; no Import images; 2D-first or 3D-first is open | current |
 | C4b | Characters: the Cast tab | "cast in": the seasons the character is cast in, each a link to the toon's season – not an editor | current (card: the Cast tab) |
 | C5 | Scenes: the scene page | no Tree of all scenes (the Library opens scenes); the scene's preview covers the whole back; "Edit in deck" on it; the facts and versions in a panel | current |
@@ -98,4 +100,4 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | universe.html | the twelve kinds as one tree, production counts | for reading – palette D ("Creator", "Deck" quiet chips) |
 | modules-dna.html | module · rig · slot · network | draft, six points open – palette D (see-through grounds) |
 
-**Count:** 10 + 7 + 18 + 9 + 9 + 3 = 56 screens (C4b, C12b, C12c, E1b, E5c, E5d drawn as their own screens). **Current: 41 · moved: 8 · words: 4 · done or dropped: 3 · old: 0.**
+**Count:** 10 + 7 + 20 + 9 + 9 + 3 = 58 screens (C3b, C3c, C4b, C12b, C12c, E1b, E5c, E5d drawn as their own screens). **Current: 43 · moved: 8 · words: 4 · done or dropped: 3 · old: 0.**

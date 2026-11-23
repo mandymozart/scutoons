@@ -226,35 +226,84 @@ add('C', 'C1', 'Toon: one toon – seasons, chapters, the cast', 'now/ws-toon (2
   });
 add('C', 'C2', 'Chapter', presetBase('chapter'), [KIT],
   () => `${wsFromPreset('Chapter', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 420, tabs: [['Inspector',1],['Log',0],['Flow',0]] }, { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
-/* C3 – the Storyboard workspace, drawn from today's page (now/ws-storyboard, creator.scutoons.com/catpope/chapter/3/storyboard, 2026-11-24): the steps, the tools, the shot's page, the Inspector, the Timeline – on the kit */
+/* C3 – the Storyboard workspace, drawn from today's page (now/ws-storyboard, creator.scutoons.com/catpope/chapter/3/storyboard, 2026-11-24): the steps, the tools, the shot's page, the Inspector, the Timeline – on the kit.
+   C3b and C3c: the Handheld and the Generate step, their panels' words read from the same page; the scenes and shots are the storyboard's own (storyboard:catpope:3, read 2026-11-24). */
 const SB_PAGE = (x, y, w, h) => `<span class="abs" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden;outline:1px solid var(--tool-line)" title="the shot's page as today (sb-25-1)">${capPic(`now/ws-storyboard-${WS_TH}.jpg`, 800, 476, 342, 100, 116, 256)}</span>`;
 const SB_SEG = (names, on, o = {}) => `<span class="seg" ${o.style ? `style="${o.style}"` : ''}>${names.map((n, k) => `<span class="${k === on ? 'on' : ''}" ${o.grow ? 'style="flex:1;justify-content:center"' : ''}>${n}</span>`).join('')}</span>`;
 const SB_LBL = (t, top = '.7rem') => `<div class="label" style="margin:${top} 0 .3rem">${t}</div>`;
 const SB_TEXT = (t, h) => `<div class="fld" style="width:auto;height:${h}px;align-items:flex-start;padding:.35rem .55rem;white-space:normal;line-height:1.35;overflow:hidden">${t}</div>`;
-add('C', 'C3', 'Storyboard', 'now/ws-storyboard (today, Cat Pope · chapter 3, shot sb-25-1 open in step 2 Shots)',
-  ['kit look: the steps and every choice as the kit’s segments – the one that is on is the pressed fill; the tools in their pills, round icon buttons; no accent, see-through grounds, tabs without a border at rest (H4, H11)',
-   'the stage is the stage’s ground: today the shot’s viewport is white by night and dark by day – found 2026-11-24, drawn as it should be',
-   'the left panel is the toon’s tree (C1), the Library the extended Library (C12) – nothing else moves: the Inspector, the Timeline and the steps as today'],
-  () => `${cbar({ chevron: true, wsOn: 'Storyboard', ws: ['Characters', 'Toon', 'Flow', 'Scenes', 'Storyboard', 'Sound design', 'Catalog', 'Map'], items: [['box', 'Scenes'], ['map', 'Map'], ['film', 'Storyboard']] })}
-  ${fp(14, 60, 252, 572, [['Toon', 1], ['Tree', 0]], ['Stories', 'Script', 'Credits', 'Settings'].map(n => `<div class="lrow" style="min-height:1.85rem">${n}</div>`).join(''))}
+const SB_SCENES = [[25, 'EXT. WINTERLICHES BERGDORF - TAG', 7], [26, 'EXT. HINTER DER WEGKREUZUNG - TAG', 3], [27, 'EXT. WALDPFAD - TAG', 5], [28, 'EXT. WALDLICHTUNG - TAG', 11], [29, 'INT. KLOSTERBIBLIOTHEK', 5], [30, 'INT. BÜCHER REGAL', 8], [31, 'INT. WANDSENSOR', 3], [32, 'INT. KLOSTER-SERVERFARM-TERMINALS', 7], [33, 'INT. STREAMER STUDIO', 6], [34, 'INT. SERVERRAUM - KURZE ZEIT SPÄTER', 7]];
+const SB_SHOTS = [['sb-25-1', 'ews · tilt-down', '19.9'], ['sb-25-2', 'ecu · hold', '11.5'], ['sb-25-3', 'ews · tilt-up', '25.3'], ['sb-25-4', 'mcu · hold', '14.3'], ['sb-25-5', 'wide · hold', '13.2'], ['sb-25-6', 'wide · tilt-down', '31.7'], ['sb-25-7', 'full · hold', '13.7']];
+/* the storyboard's own tree: its scenes, the open scene's shots – what the storyboard is made of (LIBRARY.md); the toon's pages are not listed here */
+const sbTree = () => fp(14, 60, 252, 572, [['Tree', 1]], SB_SCENES.map(([n, h, c], k) => `<div class="lrow" style="min-height:1.7rem;gap:.35rem;white-space:nowrap"><span class="cap" style="flex:none;width:.8rem">${k === 0 ? '⌄' : '›'}</span><span class="mono" style="flex:none">${n}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:var(--editor-small)">${h}</span><span class="cap" style="flex:none">${c}</span></div>${k === 0 ? SB_SHOTS.map(([id, m, sec], q) => `<div class="lrow" style="min-height:1.6rem;gap:.4rem;margin:0 -.5rem;padding:0 .5rem 0 1.9rem;white-space:nowrap;${q === 0 ? 'background:var(--tool-selected)' : ''}"><span class="mono">${id}</span><span class="cap" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${m}</span><span class="cap">${sec} s</span></div>`).join('') : ''}`).join(''));
+const SB_STEPS = ['1 Script', '2 Shots', '3 Layout', '4 Handheld', '5 Generate', '6 Export'];
+/* the Storyboard's frame: the bar, the tree, the steps and tools, the shot's page, the right panel, the Timeline */
+function sbScreen(step, right) {
+  return `${cbar({ chevron: true, wsOn: 'Storyboard', ws: ['Characters', 'Toon', 'Flow', 'Scenes', 'Storyboard', 'Sound design', 'Catalog', 'Map'], items: [['box', 'Scenes'], ['map', 'Map'], ['film', 'Storyboard']] })}
+  ${sbTree()}
   <div class="abs" style="left:396px;top:60px;display:flex;flex-direction:column;gap:.5rem;width:662px">
-    <div>${SB_SEG(['1 Script', '2 Shots', '3 Layout', '4 Handheld', '5 Generate', '6 Export'].map(n => `<span style="color:inherit;opacity:.6;margin-right:.35rem">${n[0]}</span>${n.slice(2)}`), 1)}</div>
+    <div>${SB_SEG(SB_STEPS.map(n => `<span style="color:inherit;opacity:.6;margin-right:.1rem">${n[0]}</span>${n.slice(2)}`), step - 1)}</div>
     <div style="display:flex;align-items:center"><span class="kp">${['sliders', 'file', 'activity', 'zap', 'phone', 'upload'].map((n, k) => `<span class="kib ${k === 0 ? 'pressed' : ''}">${ic(n)}</span>`).join('')}</span><span style="flex:1"></span><span class="kb plain">${ic('file')}Choose folder</span></div>
-    <div style="display:flex;align-items:center;gap:.5rem">${SB_SEG([ic('cube') + 'Viewport', ic('grid') + 'Variants'], 0)}${SB_SEG([ic('pointer') + 'Move', ic('refresh') + 'Turn'], 0)}<span class="kb plain pressed" style="background:var(--tool-pressed);color:var(--tool-pressed-text)" title="Texts shown">${ic('edit')}Texts</span><span class="kb quiet">Shot camera</span><span class="kc" title="This shot is filmed by hand">Hand camera</span></div>
+    <div style="display:flex;align-items:center;gap:.5rem">${SB_SEG([ic('cube') + 'Viewport', ic('grid') + 'Variants'], 0)}${SB_SEG([ic('pointer') + 'Move', ic('refresh') + 'Turn'], 0)}<span class="kb plain" style="background:var(--tool-pressed);color:var(--tool-pressed-text)" title="Texts shown">${ic('edit')}Texts</span><span class="kb quiet">Shot camera</span><span class="kc" title="This shot is filmed by hand">Hand camera</span></div>
   </div>
   ${SB_PAGE(616, 196, 209, 461)}
-  ${fp(1076, 60, 350, 690, [['Inspector', 1], ['Log', 0]], `<div class="label" style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">${ic('sliders')}Shot · sb-25-1</div>
+  ${fp(1076, 60, 350, 690, right.tabs, right.body)}
+  ${fp(14, 664, 1046, 146, [['Timeline', 1]], `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem"><span class="label" style="display:inline-flex;align-items:center;gap:.35rem">${ic('film')}Timeline</span>${SB_SEG(['Shot', 'Take', 'Rendered', 'Generated'], right.clip || 0)}<span class="cap">1 clip · 0:05</span><span style="flex:1"></span><span class="kib" style="box-shadow:inset 0 0 0 1px var(--tool-line)" title="Play">${ic('play')}</span></div>
+    <div style="display:flex;border-top:1px solid var(--tool-line);padding-top:.25rem" class="mono cap"><span style="width:4.2rem;color:var(--tool-text)">0:00.0</span>${['0:00.0', '0:00.5', '0:01.0', '0:01.5', '0:02.0', '0:02.5', '0:03.0', '0:03.5', '0:04.0', '0:04.5'].map(t => `<span style="flex:1;border-left:1px solid var(--tool-line);padding-left:.25rem">${t}</span>`).join('')}</div>
+    <div style="display:flex;align-items:center;margin-top:.3rem"><span class="label" style="width:4.2rem">Clips</span><span style="flex:1;height:1.6rem;border-radius:.25rem;background:var(--tool-selected);display:flex;align-items:center;padding:0 .5rem;font-size:var(--editor-small)">25-1 still</span></div>`)}
+  ${folded(1278, 780, 'Library')}${cstatus('No messages yet', '0 errors <span class="warn">62 warnings</span>')}`;
+}
+const SB_INSPECTOR = { tabs: [['Inspector', 1], ['Log', 0]], body: `<div class="label" style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">${ic('sliders')}Shot · sb-25-1</div>
     ${SB_SEG(['Shot', 'Camera', 'Light', 'Figures'], 0, { style: 'display:flex', grow: 1 })}
     ${SB_LBL('Action')}${SB_TEXT('Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht …', 92)}
     ${SB_LBL('Image')}${SB_TEXT('', 70)}
     ${SB_LBL('View')}${SB_SEG(['real', 'belief', 'narration', 'memory'], 0, { style: 'display:flex', grow: 1 })}
     ${SB_LBL('Source')}<div class="fld sel" style="width:auto">photo</div>
-    ${SB_LBL('Note')}${SB_TEXT('Anschluss an das Ende von Kapitel 2 (Zug durch die Berge). Gipfel oben – Luft vor der Szene …', 92)}`)}
-  ${fp(14, 664, 1046, 146, [['Timeline', 1]], `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem"><span class="label" style="display:inline-flex;align-items:center;gap:.35rem">${ic('film')}Timeline</span>${SB_SEG(['Shot', 'Take', 'Rendered', 'Generated'], 0)}<span class="cap">1 clip · 0:05</span><span style="flex:1"></span><span class="kib" style="box-shadow:inset 0 0 0 1px var(--tool-line)" title="Play">${ic('play')}</span></div>
-    <div style="display:flex;border-top:1px solid var(--tool-line);padding-top:.25rem" class="mono cap"><span style="width:4.2rem;color:var(--tool-text)">0:00.0</span>${['0:00.0', '0:00.5', '0:01.0', '0:01.5', '0:02.0', '0:02.5', '0:03.0', '0:03.5', '0:04.0', '0:04.5'].map(t => `<span style="flex:1;border-left:1px solid var(--tool-line);padding-left:.25rem">${t}</span>`).join('')}</div>
-    <div style="display:flex;align-items:center;margin-top:.3rem"><span class="label" style="width:4.2rem">Clips</span><span style="flex:1;height:1.6rem;border-radius:.25rem;background:var(--tool-selected);display:flex;align-items:center;padding:0 .5rem;font-size:var(--editor-small)">25-1 still</span></div>`)}
-  ${folded(1278, 780, 'Library')}${cstatus('No messages yet', '0 errors <span class="warn">62 warnings</span>')}
-  ${mk(1, 380, 62)}${mk(2, 596, 200)}${mk(3, 270, 70)}`);
+    ${SB_LBL('Note')}${SB_TEXT('Anschluss an das Ende von Kapitel 2 (Zug durch die Berge). Gipfel oben – Luft vor der Szene …', 92)}` };
+add('C', 'C3', 'Storyboard', 'now/ws-storyboard (today, Cat Pope · chapter 3, shot sb-25-1 open in step 2 Shots) · storyboard:catpope:3 (its 10 scenes, 62 shots)',
+  ['kit look: the steps and every choice as the kit’s segments – the one that is on is the pressed fill; the tools in their pills, round icon buttons; no accent, see-through grounds, tabs without a border at rest (H4, H11)',
+   'the stage is the stage’s ground: today the shot’s viewport is white by night and dark by day – found 2026-11-24, drawn as it should be',
+   'the Tree is the storyboard’s own: its scenes, the open scene’s shots (today it lists the toon’s pages – Stories, Script, Credits, Settings); the toon is found in the Library (C12)'],
+  () => `${sbScreen(2, SB_INSPECTOR)}
+  ${mk(1, 380, 62)}${mk(2, 596, 200)}${mk(3, 270, 70)}
+  ${qcard(290, 420, 'confirm: the Storyboard’s tree is its scenes and shots', ['as drawn: scenes 25–34, the open scene’s shots; the toon’s pages are not listed here', 'not so – your words'], 'Follows from the extended Library: a tree holds what this thing is made of.', '19rem')}`);
+add('C', 'C3b', 'Storyboard · 4 Handheld: connecting a phone', 'today’s Handheld panel, its words read from the page (handheld-panel.svelte, phone-pairing.svelte; 2026-11-24) – the QR code and the 3D view are not captured',
+  ['the Handheld panel on the kit – its parts as today: on or off for the shot, the phone, the takes, trim, smooth, render',
+   'connecting: press “Connect a phone” – the panel shows the code to scan and waits; the conditions (Chrome, the same Wi-Fi) are the code’s hover text, not a sentence in the panel (H14)',
+   'while it waits and once it is connected: Disconnect · Recenter · Record – Record is the one primary action',
+   'the trim’s explaining sentence is hover text (H14)'],
+  () => `${sbScreen(4, { clip: 1, tabs: [['Inspector', 0], ['Handheld', 1], ['Log', 0]], body: `
+    ${SB_LBL('Handheld', '0')}${SB_SEG(['Off', 'On for sb-25-1'], 1, { style: 'display:flex', grow: 1 })}
+    ${SB_LBL('Phone')}
+    <div style="display:flex;gap:.8rem;align-items:flex-start">
+      <span title="Scan with the phone – Chrome, on the same Wi-Fi as this computer. The code is made when you connect; it is not drawn here." style="flex:none;width:112px;height:112px;border:1px solid var(--tool-line);border-radius:.3rem;display:grid;place-items:center;background:repeating-linear-gradient(45deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 10%,transparent) 5px 6px)"><span class="label">QR</span></span>
+      <span style="display:flex;flex-direction:column;gap:.45rem;min-width:0"><span>Scan with the phone</span><span class="kb quiet" style="justify-content:flex-start;padding:0;height:auto" title="Copy the phone’s link">${ic('copy')}The phone’s link</span><span class="cap" style="display:inline-flex;align-items:center;gap:.35rem"><span class="sdot"></span>Waiting for the phone … · QUIC</span></span>
+    </div>
+    <div style="display:grid;grid-template-columns:4rem 1fr;gap:.45rem .6rem;align-items:center;margin-top:.7rem"><span class="label">Smooth</span><span class="rng" style="width:auto"></span><span class="label">Scale</span><span class="rng" style="width:auto"></span></div>
+    <div style="display:flex;gap:.4rem;margin-top:.7rem"><span class="kb plain">Disconnect</span><span class="kb plain">Recenter</span><span style="flex:1"></span><span class="kb primary">Record</span></div>
+    ${SB_LBL('Takes', '1rem')}<div class="lrow" style="min-height:1.8rem;margin:0 -.5rem;padding:0 .5rem;background:var(--tool-selected)"><span class="mono">t1</span><span class="cap" style="flex:1">18.5 s of 18.5 s</span><span class="cap">21:08</span></div>
+    ${SB_LBL('Trim')}<div class="cap" title="Drag t1’s in and out on its clip below (I and O at the playhead) – the 3D view shows that moment.">on the clip below</div>
+    ${SB_LBL('Smooth')}<span class="rng" style="width:100%"></span>
+    ${SB_LBL('Render')}<span class="kb plain">Render t1</span>` })}
+  ${mk(1, 1062, 70)}${mk(2, 1062, 190)}${mk(3, 1062, 372)}${mk(4, 1062, 498)}
+  ${capn(396, 640, 'before connecting, the Phone part is one button: “Connect a phone” · what the panel shows once the phone is connected was not read – not drawn')}`);
+add('C', 'C3c', 'Storyboard · 5 Generate: the way into the generator', 'today’s Generate panel, its words read from the page (generate-panel.svelte; 2026-11-24) · AI-HOOKS.md §0 (a slot takes a file or a generator; entering a generation opens the spore canvas) · the canvas itself: C11',
+  ['the shot’s picture is a slot: it takes a file from the Library or a generator (decided 2026-11-22) – today the panel only makes a prompt for one tool',
+   '“Open the generator” is the way in: the Generate workspace opens with this shot woven in – its prompt, its still, its references (C11; in lap 2 the canvas is the stub, the deck’s canvas comes with #764)',
+   'what the generator yields comes back to the slot; “by hand” stays as today: copy the prompt, drop the result',
+   'the generator’s choice is a boxed select (a value); the notes about keys that are not set up are hover text on the choices (H14)'],
+  () => `${sbScreen(5, { clip: 3, tabs: [['Inspector', 0], ['Generate', 1], ['Log', 0]], body: `
+    ${SB_LBL('Picture · sb-25-1', '0')}
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem;border:1px dashed var(--tool-line);border-radius:.4rem"><span style="flex:none;width:44px;height:58px;border:1px solid var(--tool-line);border-radius:.2rem;display:grid;place-items:center" class="cap" title="the shot has no picture yet – its source is a schematic">–</span><span style="flex:1;min-width:0"><div>empty</div><div class="cap">takes a picture · 1:3</div></span><span class="kb plain" title="Pick a file or a generator from the Library (C12c)">${ic('grid')}Pick</span></div>
+    <div style="display:flex;gap:.4rem;margin-top:.5rem"><span class="kb primary">${ic('sparkles')}Open the generator</span><span class="kc" title="where an external tool runs">${ic('zap')}hook</span></div>
+    ${SB_LBL('By hand', '1rem')}
+    <div class="fld sel" style="width:auto" title="Luma (uni-1) – not set up · Luma – by hand · Runway – not set up · Gemini (image) – unavailable">Luma – by hand</div>
+    ${SB_LBL('Prompt')}<span class="kb plain">Build from the shot</span>
+    ${SB_LBL('Still')}<div class="cap">none</div>
+    ${SB_LBL('Attach')}<div class="lrow" style="min-height:1.7rem">${ic('smile')}catpope (human) · sad<span class="cap" style="margin-left:auto">Characters</span></div>
+    ${SB_LBL('Result')}<div style="height:74px;border:1px dashed var(--tool-line);border-radius:.4rem;display:grid;place-items:center" class="cap" title="Choose a workspace folder first – the result is saved there.">Drop the result here – or pick it</div>` })}
+  ${mk(1, 1062, 100)}${mk(2, 1062, 176)}${mk(3, 1062, 478)}${mk(4, 1062, 238)}
+  ${qcard(290, 500, 'confirm: the shot’s picture as a slot with “Open the generator”', ['as drawn: the slot on top, the generator one press away, “by hand” below as today', 'not so – your words'], 'Drawn from AI-HOOKS.md §0; the panel today has no slot and no way into a canvas.', '19rem')}`);
 
 add('C', 'C4', 'Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations', 'now/creator-1, now/ws-characters (Rig in front)',
   ['the Rig tab without the Bones and Clips lists (the deck\'s asset view has them, not twice) – the rest as today: the look\'s 3D model, the model\'s line, Idle, Body, A-pose',

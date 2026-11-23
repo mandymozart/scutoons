@@ -27,14 +27,10 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **The switcher's content has a maximum width**, centred.
 - **No thick left bar** on a selected row. (H10)
 - **Texts and placeholders are short.** A search field says "Find".
+- **Settled for the run (2026-11-24):** the layer names stand; Search and dialogs sit on the overlay level; a disabled primary is the pressed fill, faded; the see-through grounds stand as redrawn; outlet colours are four (page · stage · target · device), on lane and column heads only.
 - **The tools do not flag what is missing.** The Library's "Blank – wanted", "Missing versions" and "Missing credits" go, in the design and in the code: a gap may be on purpose. (H17)
 
 **Open**
-- The four layer names are my wording – confirm or rename.
-- The switcher's maximum width: 1160 px is drawn – confirm or give the number.
-- Do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)?
-- How a disabled primary button looks.
-- The see-through grounds as redrawn on kit-d.html: do they match what you meant?
 
 ## 3 · The shell
 - **The ☰ menu and the switcher are two things.** The menu holds your list: Views with Save workspace · Search · Settings · Docs · the build (version, account, load meters) · the edit language.
@@ -48,12 +44,9 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **A craft shapes the bar:** the translator's bar carries the edit language.
 - **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace, listed in the ☰ Views. The bar's middle holds the workspace row and nothing else. (H16)
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.
+- **Settled for the run (2026-11-24):** the switcher's content is at most 1160 px wide; its foot goes; the workspace tab has no menu of its own in this lap; the deck's switcher has no Needs review box; Help and Go to are in the ☰ menu; New show is a dialog on the overlay level. (Flash and Scene: the default "views" was wrong – the deck orchestrator says both are dialogs; back with you.)
 
 **Open**
-- Does the workspace tab keep its own menu (Save · Rename · Back to the last save · Save as new · Delete)?
-- The switcher's foot (account, Settings, Docs): stays, or goes because the ☰ holds it?
-- Does the deck's switcher show a Needs review box?
-- Do Help and Go to belong in the ☰ menu?
 
 ## 4 · The two apps
 - **The creator becomes an Electron app in this lap** – a thin wrapper over the same code. The web version stays for now.
