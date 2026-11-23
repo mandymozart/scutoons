@@ -73,9 +73,9 @@
 			{#if clips.length}<optgroup label={m['creator.characters_idle_clips']()}>{#each clips as c (c.value)}<option value="clip:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
 			{#if library.length}<optgroup label={m['creator.characters_idle_library']()}>{#each library as c (c.value)}<option value="animation:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
 		</select>
-		{#if !library.length}<span class="hint">{m['creator.characters_idle_none_fit']()}</span>{/if}
+		{#if !library.length}<span class="sc-caption">{m['creator.characters_idle_none_fit']()}</span>{/if}
 	{:else}
-		<span class="hint">{m['creator.characters_idle_no_model']()}</span>
+		<span class="sc-caption">{m['creator.characters_idle_no_model']()}</span>
 	{/if}
 </label>
 
@@ -84,10 +84,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-025, 0.25rem);
-	}
-	.hint {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--muted);
 	}
 </style>
