@@ -52,7 +52,7 @@ function readScroll(v: unknown): Scroll | null {
 	return { top: Math.round(v.top), ...(path ? { path } : {}) };
 }
 
-function readSession(v: Record<string, unknown>): Session {
+export function readSession(v: Record<string, unknown>): Session {
 	const full: Record<string, string> = {};
 	if (isRecord(v.full)) for (const [ws, tab] of Object.entries(v.full)) if (typeof tab === 'string' && tab) full[ws] = tab;
 	const scroll: Record<string, Scroll> = {};

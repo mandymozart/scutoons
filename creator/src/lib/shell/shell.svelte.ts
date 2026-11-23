@@ -12,7 +12,7 @@ import { readPicks, remember, type LaunchEntry, type LaunchPick } from './launch
 import { shownWorkspace } from './layouts.ts';
 import { layouts } from './layouts.svelte.ts';
 
-const TABS_KEY = 'sc-creator-tabs';
+export const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
 const PICKS_KEY = 'sc-creator-launcher';
 
