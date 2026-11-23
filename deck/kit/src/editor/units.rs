@@ -47,11 +47,11 @@ pub fn switch(d: &mut DrawList, t: &Tokens, (right, y, h): (f32, f32, f32), offe
         let w = d.sans_width(px, u.word()) + t.size.pad * 1.2;
         let lit = u == on;
         if lit {
-            d.round_rect(x, y, w, h, t.size.radius, t.color.pressed);
+            crate::editor::controls::active_tab(d, t, Rect { x, y, w, h }, t.size.radius);
         } else {
             d.outline(x, y, w, h, (t.size.radius, t.size.edge), t.color.line);
         }
-        d.sans(x + t.size.pad * 0.6, y + (h - px * 1.25) * 0.5, px, u.word(), if lit { t.color.pressed_text } else { t.color.muted });
+        d.sans(x + t.size.pad * 0.6, y + (h - px * 1.25) * 0.5, px, u.word(), if lit { t.color.text } else { t.color.muted });
         out.push((Rect { x, y, w, h }, u));
         x += w + 2.0;
     }

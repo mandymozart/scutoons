@@ -114,13 +114,8 @@ pub fn handle(d: &mut DrawList, t: &Tokens, (a, b): ((f32, f32), (f32, f32)), dr
 
 /// The size an edge being dragged comes to, as a badge centred on `x` with its top at `y`: `right · 230 px`.
 pub fn badge(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), text: &str) -> Rect {
-    let px = t.size.label * 1.2;
-    let h = px * 1.7;
-    let w = d.advance(px) * text.chars().count() as f32 + px * 1.2;
-    let r = Rect { x: x - w * 0.5, y, w, h };
-    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 0.6, t.color.accent);
-    d.text(r.x + px * 0.6, r.y + (h - px * 1.25) * 0.5, px, text, t.color.surface);
-    r
+    let w = crate::editor::controls::badge_width(d, t, text);
+    crate::editor::controls::badge(d, t, (x - w * 0.5, y), text, true)
 }
 
 #[cfg(test)]
