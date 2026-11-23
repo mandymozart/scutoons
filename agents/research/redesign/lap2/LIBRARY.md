@@ -61,8 +61,12 @@
 | Every screen that shows the Library panel | the same panel |
 | The deck's Library (D2, D3, show.html, the Spores pages) | the same Library |
 
+## Answered by the owner (2026-11-24)
+1. **The types of thing the Library lists:** Toon · Character · Scene · Show · Place · Item (with recipes, products, editions, albums, home scenes) · Module · Instrument and rig · Generator – and, for now, Kanon texts and people (for credits) too.
+2. **Built in lap 2.**
+3. **A video's tile is one frame.** Playing on hover is not needed at this point.
+4. **The deck's Library is the same extended Library, with the same panel.**
+
 ## Open
-1. **Which types of thing the Library lists.** From the universe's kinds: Toon · Character · Scene · Show · Place · Item (with recipes, products, editions, albums, home scenes) · Module · Instrument and rig · Generator. Do Kanon texts and people (for credits) count as things?
-2. **How much of this is built in lap 2.** It is more than a new look: the Library learns to list things. The pictures are drawn now either way.
-3. **A video's tile:** one frame, or does it play on hover?
-4. **The deck's Library** already has chips for scenes, characters, items and places. Is it the same extended Library, with the same panel?
+1. **The type filter in the picture.** C12 draws the types as a row of chips for four kinds of thing; with eleven kinds of thing and four kinds of file a row of chips no longer fits.
+2. **The five consequences marked "follows – confirm"** in the recap above; each has a question card on its screen.

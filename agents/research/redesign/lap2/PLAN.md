@@ -97,8 +97,10 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 The Library lists things and files; a thing is stepped into; an assignment shows as a place and as "used in"; a picker is the Library opened from a slot.
 - **First (P0):** the Library's screens redrawn to it (C12, F1, the slot's pick, C1, C4, C5, C9, A4, and the panel wherever it shows).
 - **Creator:** the Library lists things with their type beside the files; stepping into a character; places for a season's cast listing its characters; "used in"; the cast edited in the toon's season.
-- **Deck:** the same Library panel.
-- **Waits for your word:** the consequences marked "to confirm" in LIBRARY.md, the types it lists, and how much of it is built in this lap – it is more than a new look.
+- **Deck:** the same Library, the same panel (decided).
+- **In lap 2** (decided). It is the largest package: the Library learns to list things of eleven kinds beside the files, in both apps.
+- **Types** (decided): Toon · Character · Scene · Show · Place · Item · Module · Instrument and rig · Generator, and for now Kanon texts and people.
+- **Waits for your word:** the five consequences marked "to confirm" in LIBRARY.md, and how the type filter is drawn with fifteen types.
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
@@ -145,7 +147,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The extended Library: its consequences, its types, its size in this lap (LIBRARY.md) | P11 |
+| The extended Library: its five consequences to confirm; the type filter with fifteen types (LIBRARY.md) | P11 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:
