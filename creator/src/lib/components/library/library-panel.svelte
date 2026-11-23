@@ -211,7 +211,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.3rem 0.5rem;
-		border: var(--editor-edge) solid var(--tool-primary-line);
+		border: var(--editor-edge) solid var(--tool-pressed);
 		border-radius: var(--editor-radius);
 		font-size: var(--editor-small);
 	}
@@ -229,7 +229,7 @@
 	.link {
 		border: 0;
 		background: none;
-		color: var(--tool-accent);
+		color: var(--tool-text);
 		cursor: pointer;
 		font: inherit;
 	}
@@ -295,10 +295,10 @@
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--tool-primary-line);
+		border: var(--editor-edge) solid var(--tool-pressed);
 		border-radius: var(--editor-radius);
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		cursor: pointer;
 	}
 	.note {
@@ -311,10 +311,10 @@
 		z-index: 2;
 		display: grid;
 		place-items: center;
-		border: var(--editor-edge) dashed var(--tool-accent);
+		border: var(--editor-edge) dashed var(--tool-text);
 		border-radius: var(--editor-radius);
 		background: color-mix(in srgb, var(--tool-popover) 80%, transparent);
-		color: var(--tool-accent);
+		color: var(--tool-text);
 		pointer-events: none;
 	}
 </style>

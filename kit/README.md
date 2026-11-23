@@ -26,15 +26,22 @@ thumbnails.
   (deck-kit's field names; colours `"#rrggbb"` or `"#rrggbbaa"`; sizes in rem, `base` and `edge` in px, `spacing` in em),
   `[day|night.signals]` (the nine signals), `[day|night.outlets]` (page · stage · target · device), `[groups] colors`
   (a group's six), `[day|night.colorblind]` (ok / warning / error of the colour-blind mode, replacing `go` `warn` `stop`).
-- Component states (to come, one table per component and state, naming tokens): `[component.<name>.<state>]`,
-  e.g. `[component.tab.hover] border = "text"`.
+- Component states: one table per component and state, `[component.<name>.<state>]`, its parts (`text` `ground`
+  `border` `ring` `knob` `mark`) naming a token – `"text"`, or `"text 12%"` for the token see-through – and `opacity`
+  as a number, e.g. `[component.tab.hover] text = "text"` · `border = "line"`. A ground never names `line`, `muted`,
+  `text` or `bright` at full strength (the generator refuses an opaque grey). Written so far: `focus` · `tab` · `pill` ·
+  `icon_button` · `button_primary` · `button_plain` · `button_quiet` · `segments` · `chip` (with `ok` `warning` `error`)
+  · `toggle` · `field` · `select_quiet` · `menu` · `menu_item` · `list_row` · `tile` · `thumb` · `workspace_card` ·
+  `panel` · `section` · `drop` · `link` · `status`.
 
 ## How each app builds from it
 
 - **Web tools:** `npm run editor-tokens -w @scutoons/tokens` writes `shared/tokens/editor.css` (`--editor-*`,
-  `--signal-*`, `--outlet-*`, `--group-1…6`, `--editor-colorblind-*`); `shared/tokens/tool-colours.css` names them for
-  the tools (`--tool-*`, `data-colorblind`). `npm run check:tools-css` and `npm run check -w @scutoons/tokens` fail when
-  `editor.css` is stale or edited by hand.
+  `--signal-*`, `--outlet-*`, `--group-1…6`, `--editor-colorblind-*`) and `shared/tokens/kit.css` (the states,
+  `--kit-<name>-<state>-<part>`, e.g. `--kit-tab-hover-border`, each naming a `--tool-*` colour);
+  `shared/tokens/tool-colours.css` names the colours for the tools (`--tool-*`, `data-colorblind`). The components of
+  `shared/ui/src/editor` draw their states from `kit.css`. `npm run check:tools-css` and `npm run check -w
+  @scutoons/tokens` fail when either file is stale or edited by hand.
 - **Deck:** deck-kit reads this file as its base (its `tokens.toml` parser, `deck/kit/src/base/tokens.rs`). Until it
   does (TODO(#869)), `tokens.rs` and this file are two sources: change both.
 

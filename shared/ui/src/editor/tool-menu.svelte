@@ -147,13 +147,14 @@
 		position: relative;
 		display: inline-grid;
 		place-items: center;
-		width: var(--control-height);
-		height: var(--control-height);
+		width: var(--kit-h, var(--control-height));
+		height: var(--kit-h, var(--control-height));
 		padding: 0;
 		border: 0;
-		border-radius: var(--editor-radius);
-		background: none;
-		color: var(--tool-text);
+		/* in a Pill: round and concentric with it (--kit-h / --kit-r), as the kit's IconButton */
+		border-radius: var(--kit-r, var(--editor-radius));
+		background: var(--kit-icon-button-rest-ground);
+		color: var(--kit-icon-button-rest-text);
 		cursor: pointer;
 	}
 	.tool::after {
@@ -180,7 +181,7 @@
 		color: var(--tool-pressed-text);
 	}
 	.tool:focus-visible {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
 	@media (hover: hover) {

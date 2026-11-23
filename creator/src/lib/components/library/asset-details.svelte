@@ -287,7 +287,7 @@
 		padding: 0;
 		border: 0;
 		background: none;
-		color: var(--tool-accent);
+		color: var(--tool-text);
 		font: inherit;
 		text-align: start;
 		cursor: pointer;

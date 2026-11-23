@@ -3,7 +3,7 @@
 	import { Icon, Menu } from '@scutoons/ui';
 	import type { XrTreeAdd } from '@scutoons/xr-engine/tree';
 	import { sameRef, sceneRows, type NodeRef, type PartAction, type TreeRow, type XrFile } from '$lib/editor/xr-nodes.ts';
-	import ExperienceTreeFooter from './experience-tree-footer.svelte';
+	import ExperienceTreeFooter from '$lib/components/experiences/experience-tree-footer.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -129,21 +129,31 @@
 		outline: none;
 		min-width: 0;
 	}
+	/* the kit's tree row (ListRow dense): the hover ground under the pointer, selected = the pressed fill (no hue) */
 	.row {
 		display: flex;
 		align-items: center;
-		min-height: 1.75rem;
+		min-height: var(--editor-tree-row);
 		padding-left: calc(var(--depth) * 0.85rem);
-		border-radius: var(--editor-radius, 0);
+		border-radius: var(--editor-radius);
+		background: var(--kit-list-row-rest-ground);
+		color: var(--kit-list-row-rest-text);
 	}
-	.row:nth-child(even) {
-		background: color-mix(in srgb, var(--editor-text, currentColor) 3%, transparent);
+	@media (hover: hover) {
+		.row:hover:not(.on) {
+			background: var(--kit-list-row-hover-ground);
+		}
 	}
 	.row.on {
-		background: color-mix(in srgb, var(--editor-accent, #ffa028) 28%, transparent);
+		background: var(--kit-list-row-selected-ground);
+		color: var(--kit-list-row-selected-text);
+		text-shadow: none;
+	}
+	.row.on .hint {
+		color: inherit;
 	}
 	.row.plain {
-		color: var(--editor-muted, var(--text-muted));
+		color: var(--tool-muted);
 	}
 	.chevron {
 		flex: none;
@@ -190,14 +200,14 @@
 	.more :global(.keys) {
 		margin-left: auto;
 		padding-left: 1rem;
-		color: var(--editor-muted, var(--text-muted));
-		font-size: var(--editor-label, 0.85em);
+		color: var(--tool-muted);
+		font-size: var(--editor-label);
 	}
 	.hint {
 		margin-left: auto;
 		padding-right: 0.4rem;
-		color: var(--editor-muted, var(--text-muted));
-		font-size: var(--editor-label, 0.85em);
+		color: var(--tool-muted);
+		font-size: var(--editor-label);
 		white-space: nowrap;
 	}
 </style>

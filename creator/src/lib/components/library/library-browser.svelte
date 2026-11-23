@@ -158,10 +158,10 @@
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--tool-primary-line);
+		border: var(--editor-edge) solid var(--tool-pressed);
 		border-radius: var(--editor-radius);
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		cursor: pointer;
 	}
 	.body {

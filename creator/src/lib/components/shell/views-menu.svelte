@@ -124,7 +124,7 @@
 		place-items: center;
 		overflow: hidden;
 		padding: 0 0.25rem;
-		border: var(--editor-edge) solid var(--tool-accent);
+		border: var(--editor-edge) solid var(--tool-text);
 		border-radius: var(--editor-radius);
 		color: var(--tool-text);
 		font-size: var(--editor-small);

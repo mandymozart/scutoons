@@ -315,15 +315,15 @@
 	/* image files from the computer: the drop line before / after a slice (new slices there) – the strip reads left to
 	   right, so the line stands at the thumbnail's side */
 	li.file-before {
-		box-shadow: calc(-1 * var(--border-width-focus)) 0 0 var(--tool-accent);
+		box-shadow: calc(-1 * var(--border-width-focus)) 0 0 var(--tool-text);
 	}
 	li.file-after {
-		box-shadow: var(--border-width-focus) 0 0 var(--tool-accent);
+		box-shadow: var(--border-width-focus) 0 0 var(--tool-text);
 	}
 	/* image files from the computer: the thumbnail framed in cyan (replace its image) */
 	li.file-on,
 	.empty.file-on {
-		outline: var(--border-width-focus) solid var(--tool-accent);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	.empty {

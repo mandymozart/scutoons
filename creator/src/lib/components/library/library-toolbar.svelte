@@ -90,7 +90,7 @@
 		text-transform: uppercase;
 	}
 	[aria-checked='true'] {
-		color: var(--tool-accent);
+		color: var(--tool-text);
 	}
 	.n {
 		opacity: 0.7;

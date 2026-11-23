@@ -18,7 +18,7 @@
 	{#if !shown}
 		<p class="sc-empty">{m['creator.experiences_inspector_none']()}</p>
 	{:else}
-		<p class="head"><strong>{shown.title}</strong> <span class="muted">{shown.kind}</span></p>
+		<p class="head"><span class="title">{shown.title}</span> <span class="muted">{shown.kind}</span></p>
 		{#each shown.groups as g, i (`${i}-${g.label}`)}
 			<Section id="xr-inspector-{g.label}" label={g.label} open>
 				<div class="rows">
@@ -56,8 +56,11 @@
 		gap: 0.5rem;
 		margin: 0 0 0.25rem;
 	}
+	.title {
+		font-size: var(--editor-title);
+	}
 	.muted {
-		color: var(--editor-muted, var(--text-muted));
+		color: var(--tool-muted);
 	}
 	.rows {
 		display: grid;
@@ -66,7 +69,7 @@
 		gap: 0.25rem 0.75rem;
 	}
 	.label {
-		color: var(--editor-muted, var(--text-muted));
+		color: var(--tool-muted);
 		overflow-wrap: anywhere;
 	}
 	.value {

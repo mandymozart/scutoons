@@ -13,7 +13,7 @@
 
 <div class="meta" data-testid="experience-meta">
 	<p class="head">
-		<strong>{titleIn(facts.title, locale, facts.id)}</strong>
+		<span class="title">{titleIn(facts.title, locale, facts.id)}</span>
 		<code class="muted">experience:{facts.id}</code>
 	</p>
 	{#if problems.length}
@@ -55,13 +55,18 @@
 		gap: 0.15rem;
 		margin: 0;
 	}
-	.muted {
-		color: var(--text-muted);
+	.title {
+		font-size: var(--editor-title);
 	}
+	.muted {
+		color: var(--tool-muted);
+	}
+	/* an error: the stop outline, no ground (RULES H10, the kit's field error) */
 	.problems {
 		padding: 0.5rem 0.75rem;
-		border: var(--border-width-regular) solid var(--state-error);
-		color: var(--state-error);
+		border: var(--editor-edge) solid var(--kit-field-error-border);
+		border-radius: var(--editor-radius);
+		color: var(--tool-stop);
 	}
 	.problems p {
 		margin: 0;

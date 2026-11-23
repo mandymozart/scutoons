@@ -252,13 +252,13 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		min-width: 0;
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-panel-rest-border);
 		/* twice a control's corner (floats.rs); what sits in its head is rounded concentric with it (the head's inset less) */
 		border-radius: var(--kit-radius-box);
 		/* the deck editor's floating panel (deck-kit floats.rs, RULES H11): the surface at the panel opacity, see-through, no
 		   blur, no shadow; its text and icons carry the halo (the ink ring of the ground's colour) so they read over any
 		   stage. Controls keep their own opaque ground (no halo on them, as the deck's DrawList::halo) */
-		background: var(--tool-panel);
+		background: var(--kit-panel-rest-ground);
 		color: var(--tool-text);
 		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
@@ -322,7 +322,7 @@
 		width: 0.375rem;
 	}
 	.handle:focus-visible {
-		box-shadow: inset 0 0 0 2px var(--tool-accent);
+		box-shadow: inset 0 0 0 2px var(--kit-focus-rest-ring);
 	}
 	.held .head,
 	.held .line {
@@ -368,17 +368,20 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	/* the front tab: the thin outline (the kit's PillTab, owner 2026-11-24), the others muted */
+	/* RULES H4: no border at rest – the front tab in the text colour, the others muted; a rounded border on hover and while
+	   dragged (kit.css --kit-tab-*) */
 	.tab.on {
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-text);
-		color: var(--tool-text);
+		color: var(--kit-tab-on-text);
 	}
 	.tab.dragged {
-		opacity: 0.4;
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-dragged-border);
+		background: var(--kit-tab-dragged-ground);
+		color: var(--kit-tab-dragged-text);
+		text-shadow: none;
 	}
 	.tab:focus-visible,
 	.icon:focus-visible {
-		outline: 2px solid var(--tool-accent);
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
 	.buttons {
@@ -404,11 +407,14 @@
 		color: var(--tool-muted);
 	}
 	@media (hover: hover) {
-		.tab:not(.on):hover,
+		.tab:hover {
+			box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-tab-hover-border);
+			color: var(--kit-tab-hover-text);
+		}
 		.icon:hover,
 		.buttons :global(.panel-close:hover) {
 			color: var(--tool-text);
-			background: var(--tool-hover);
+			background: var(--kit-icon-button-hover-ground);
 		}
 	}
 	.vertical .line {

@@ -71,23 +71,23 @@
 		width: 0.5rem;
 		height: 0.5rem;
 		border-radius: 50%;
-		background: var(--tool-muted);
+		background: var(--kit-status-none-mark);
 	}
 	.dot.none {
 		background: transparent;
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-status-none-mark);
 	}
 	.dot.ok {
-		background: var(--tool-go);
+		background: var(--kit-status-ok-mark);
 	}
 	.dot.info {
-		background: var(--tool-accent);
+		background: var(--kit-status-info-mark);
 	}
 	.dot.warn {
-		background: var(--tool-warn);
+		background: var(--kit-status-warning-mark);
 	}
 	.dot.error {
-		background: var(--tool-stop);
+		background: var(--kit-status-error-mark);
 	}
 	/* a short state word in the middle: on the control ground, the pill's inside high and round */
 	.saving {

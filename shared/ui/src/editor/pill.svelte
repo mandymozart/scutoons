@@ -35,9 +35,9 @@
 		height: var(--pill);
 		/* the inside starts --kit-inset from the outer edge, the line included */
 		padding: 0 calc(var(--kit-inset) - var(--editor-edge));
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-pill-rest-border);
 		border-radius: calc(var(--pill) / 2);
-		background: var(--tool-panel);
+		background: var(--kit-pill-rest-ground);
 		color: var(--tool-text);
 		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);

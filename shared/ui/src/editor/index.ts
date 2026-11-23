@@ -33,6 +33,7 @@ export { default as ListRow } from './list-row.svelte';
 export { default as Tile } from './tile.svelte';
 export { default as Card } from './card.svelte';
 export { default as Chip } from './chip.svelte';
+export { default as Select, type SelectOption } from './select.svelte';
 // gestures and motion: a fling closes, a swipe up from the bottom; the motion tokens read in ms for script-timed motion
 export { FLING, addSample, atBottomEdge, flingEdge, isSwipeUp, throwOffset, velocity, type FlingEdge, type Sample } from './gestures.ts';
 export { motionMs, type MotionSpeed } from './motion.ts';

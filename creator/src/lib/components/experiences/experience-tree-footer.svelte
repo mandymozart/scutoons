@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Icon, clickOutside } from '@scutoons/ui';
+	import { clickOutside } from '@scutoons/ui';
+	import { Button, IconButton, MenuHead, MenuItem, MenuPanel, Pill } from '@scutoons/ui/editor';
 	import { xrFilterTreeAdd, xrNodeFileTypes, xrNodeTypes, xrPluginNodeTypes, xrTreeAddItems, type XrTreeAdd, type XrTreeAddItem } from '@scutoons/xr-engine/tree';
 	import { entitySlot, fileName, nodeAtPath, nodeName, type NodeRef, type PartAction, type XrFile } from '$lib/editor/xr-nodes.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -120,45 +121,47 @@
 	{#if open}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<div class="add-menu" role="menu" tabindex="-1" {onkeydown} data-testid="tree-add-menu">
-			{#if picking}
-				<button type="button" class="back" onclick={() => (picking = null)}><Icon name="chevron-left" size="0.9em" />{m['creator.experiences_add_file_pick']({ type: picking })}</button>
-				{#each choices as f (f.src)}
-					<button type="button" class="item" role="menuitem" title={f.src} onclick={() => pick(f)} data-testid="tree-add-file">{fileName(f.src)}<span class="detail">{f.assetType}</span></button>
-				{:else}
-					<p class="none">{m['creator.experiences_add_file_none']()}</p>
-				{/each}
-			{:else}
-				<!-- svelte-ignore a11y_autofocus -->
-				<input class="filter" type="search" bind:value={query} placeholder={m['creator.experiences_add_filter']()} aria-label={m['creator.experiences_add_filter']()} autofocus data-testid="tree-add-filter" />
-				{#each groups as g (g.group)}
-					<span class="head">{GROUPS[g.group]?.() ?? g.group}</span>
-					{#each g.items as i (i.key)}
-						<button type="button" class="item" role="menuitem" disabled={!!i.disabled} title={why(i) || detail(i)} onclick={() => choose(i)} data-testid="tree-add-{i.key}"
-							>{label(i)}<span class="detail">{why(i) || detail(i)}</span></button
-						>
+			<MenuPanel width="min(18rem, 100%)" role="group">
+				{#if picking}
+					<MenuItem icon="chevron-left" onclick={() => (picking = null)}>{m['creator.experiences_add_file_pick']({ type: picking })}</MenuItem>
+					{#each choices as f (f.src)}
+						<MenuItem title={f.src} onclick={() => pick(f)} data-testid="tree-add-file">{fileName(f.src)}<span class="detail">{f.assetType}</span></MenuItem>
+					{:else}
+						<p class="kit-menu-note">{m['creator.experiences_add_file_none']()}</p>
 					{/each}
-				{/each}
-			{/if}
+				{:else}
+					<!-- svelte-ignore a11y_autofocus -->
+					<input class="filter" type="search" bind:value={query} placeholder={m['creator.experiences_add_filter']()} aria-label={m['creator.experiences_add_filter']()} autofocus data-testid="tree-add-filter" />
+					{#each groups as g (g.group)}
+						<MenuHead label={GROUPS[g.group]?.() ?? g.group} />
+						{#each g.items as i (i.key)}
+							<MenuItem disabled={!!i.disabled} title={why(i) || detail(i)} onclick={() => choose(i)} data-testid="tree-add-{i.key}">{label(i)}<span class="detail">{why(i) || detail(i)}</span></MenuItem>
+						{/each}
+					{/each}
+				{/if}
+			</MenuPanel>
 		</div>
 	{/if}
-	<button type="button" class="add" aria-haspopup="menu" aria-expanded={open} onclick={toggle} title={m['creator.experiences_add_about']()} data-testid="tree-add"><Icon name="plus" size="1em" />{m['creator.experiences_add']()}</button>
-	<span class="actions">
-		<button type="button" class="icon" disabled={!part} onclick={() => part && onpart(part, 'duplicate')} aria-label={m['creator.experiences_part_duplicate']()} title={m['creator.experiences_part_duplicate']()} data-testid="tree-duplicate"><Icon name="copy" size="1em" /></button>
-		<button type="button" class="icon" disabled={!part} onclick={() => part && onpart(part, 'group')} aria-label={m['creator.experiences_part_group']()} title={m['creator.experiences_part_group']()} data-testid="tree-group"><Icon name="layers" size="1em" /></button>
-		<button
-			type="button"
-			class="icon"
+	<Pill>
+		<Button variant="quiet" icon="plus" aria-haspopup="menu" aria-expanded={open} onclick={toggle} title={m['creator.experiences_add_about']()} data-testid="tree-add">{m['creator.experiences_add']()}</Button>
+	</Pill>
+	<span class="spacer"></span>
+	<Pill label={m['creator.experiences_tree_actions']()}>
+		<IconButton icon="copy" disabled={!part} onclick={() => part && onpart(part, 'duplicate')} label={m['creator.experiences_part_duplicate']()} data-testid="tree-duplicate" />
+		<IconButton icon="layers" disabled={!part} onclick={() => part && onpart(part, 'group')} label={m['creator.experiences_part_group']()} data-testid="tree-group" />
+		<IconButton
+			icon="trash-2"
 			disabled={!removable}
 			onclick={() => selected && onpart(selected, 'remove')}
-			aria-label={part ? m['creator.experiences_part_remove']() : m['creator.experiences_content_remove']()}
+			label={part ? m['creator.experiences_part_remove']() : m['creator.experiences_content_remove']()}
 			title={`${part ? m['creator.experiences_part_remove']() : m['creator.experiences_content_remove']()} (Delete)`}
-			data-testid="tree-remove"><Icon name="trash-2" size="1em" /></button
-		>
-	</span>
+			data-testid="tree-remove"
+		/>
+	</Pill>
 </div>
 
 <style>
-	/* at the panel's foot however far the tree scrolls (the panel's body is the scroller) */
+	/* at the panel's foot however far the tree scrolls (the panel's body is the scroller); on the stage, pills only */
 	.footer {
 		position: sticky;
 		bottom: 0;
@@ -166,29 +169,11 @@
 		margin-top: auto;
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: var(--kit-gap);
 		padding: 0.25rem 0;
-		border-top: var(--editor-edge, 1px) solid var(--editor-line);
-		background: var(--editor-surface);
 	}
-	.add,
-	.icon {
-		margin: 0;
-		min-height: 0;
-		height: var(--control-height, 1.75rem);
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-	}
-	.icon {
-		width: var(--control-height, 1.75rem);
-		justify-content: center;
-		padding: 0;
-	}
-	.actions {
-		margin-left: auto;
-		display: flex;
-		gap: 0.125rem;
+	.spacer {
+		flex: 1;
 	}
 	.add-menu {
 		position: absolute;
@@ -196,58 +181,18 @@
 		bottom: calc(100% + 0.25rem);
 		width: min(18rem, 100%);
 		max-height: 24rem;
-		overflow-y: auto;
 		display: flex;
-		flex-direction: column;
-		padding: 0.25rem;
-		background: var(--editor-surface);
-		color: var(--editor-text);
-		border: var(--editor-edge, 1px) solid var(--editor-line);
-		border-radius: var(--editor-radius, 0);
-		text-shadow: none;
+	}
+	.add-menu :global(.kit-menu-panel) {
+		max-height: 24rem;
 	}
 	.filter {
 		margin: 0 0 0.25rem;
 	}
-	.head {
-		padding: 0.4rem 0.4rem 0.15rem;
-		color: var(--editor-muted, var(--text-muted));
-		font-size: var(--editor-label, 0.85em);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-	}
-	.item,
-	.back {
-		display: flex;
-		align-items: baseline;
-		gap: 0.5rem;
-		margin: 0;
-		min-height: 0;
-		padding: 0.3rem 0.4rem;
-		border: 0;
-		background: none;
-		color: inherit;
-		text-align: left;
-		cursor: pointer;
-	}
-	.item:hover:not(:disabled),
-	.item:focus-visible {
-		background: color-mix(in srgb, var(--editor-accent, #ffa028) 22%, transparent);
-	}
-	.item:disabled {
-		opacity: 0.45;
-		cursor: default;
-	}
 	.detail {
 		margin-left: auto;
-		color: var(--editor-muted, var(--text-muted));
-		font-size: var(--editor-label, 0.85em);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.none {
-		margin: 0.4rem;
-		color: var(--editor-muted, var(--text-muted));
+		padding-left: 0.5rem;
+		color: var(--tool-muted);
+		font-size: var(--editor-label);
 	}
 </style>

@@ -23,9 +23,9 @@
 		max-height: calc(100dvh - var(--shell-top, 4rem) - var(--status-room, 3rem));
 		padding: calc(var(--editor-pad) / 2);
 		overflow: auto;
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-menu-rest-border);
 		border-radius: var(--kit-radius-box);
-		background: var(--tool-popover);
+		background: var(--kit-menu-rest-ground);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-font);
