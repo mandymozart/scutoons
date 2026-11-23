@@ -139,7 +139,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
 | A disabled primary button; the see-through grounds as redrawn | P1 |
-| The outlet types' list and colours: page · stage · target · light are the start; three of them sit close to a signal's colour (page and picture, stage and vote, target and address) | P1 |
+| The outlet types' list and colours. Deck: four – page · stage · target · device ("light" renamed, so one colour covers DMX, MIDI and OSC, as the stored kind does; the protocol is a mark on the lane); no colour for sound alone or for a sub show. Three of the started colours sit close to a signal's (page and picture, stage and vote, target and address): either outlet colours stay on lane and column heads only, never on cables or ports, or they take hues the signals do not use; each needs a mark in the colour-blind set | P1 |
 | The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |
 | Installers for the deck on Windows and macOS: a package of this lap, or the link on Arch only | P4 |
 | "Open in the deck" with no deck installed | P4 |
