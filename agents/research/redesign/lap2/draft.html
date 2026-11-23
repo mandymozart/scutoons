@@ -110,6 +110,9 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 
 /* dashboard (today's switcher) */
 .dash{position:absolute;z-index:45;inset:0;background:color-mix(in srgb,var(--tool-ground) 82%,transparent);backdrop-filter:blur(3px)}
+/* the switcher lies over everything – the bar, the stage and the panels are blurred behind it, no bar of its own (owner 2026-11-24); S toggles it in this draft */
+.dash.over{z-index:55;background:color-mix(in srgb,var(--editor-stage) 46%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:opacity .25s}
+.dash.over.off{opacity:0;pointer-events:none}
 .dcard{position:absolute;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);padding:.5rem .6rem}
 .dcard.focus{box-shadow:0 0 0 2px var(--tool-accent)}
 .dcard .nm{position:absolute;left:.6rem;bottom:1.9rem}
@@ -255,7 +258,8 @@ const WS_SHOT = { Characters: `now/ws-characters-${WS_TH}.jpg`, Toon: `now/ws-to
 const CARDS = [['Characters','giantpopstar +4','smile','front'],['Toon','Sandbox +1','book','open'],['Flow','Nothing open yet','layout'],['Scenes','Scenes +2','box','open'],['Sound design','Module·arp','cpu','open'],['Catalog','Nothing open yet','layout'],['Map','Map','map','open']];
 function dashboard(o = {}) {
   /* cards: [name, last content, icon, state ('front' | 'open' | ''), badge (kit Chip: where it opens), picture (html)]; no Views row on a card (owner 2026-11-24) */
-  const cols = o.cols || 5, x0 = 14, gap = 16, w = Math.floor((1412 - (cols - 1) * gap) / cols);
+  /* the content has a max width, centred (owner 2026-11-24) – 1160px drawn */
+  const W = 1160, cols = o.cols || 5, x0 = 0, gap = 16, w = Math.floor((W - (cols - 1) * gap) / cols);
   const card = ([n, what, icon, st, badge, pic], i) => {
     const r = Math.floor(i / cols), c = i % cols, x = x0 + c * (w + gap), y = (o.top ?? 306) + r * 165, h = 152;
     const shot = WS_SHOT[n];
@@ -268,19 +272,19 @@ function dashboard(o = {}) {
       <span class="nm">${n}</span><span class="wh label" style="text-transform:none;letter-spacing:0">${what}</span>
       ${badge ? `<span class="kc on" style="position:absolute;right:.55rem;bottom:1.85rem">${badge}</span>` : ''}</div>`;
   };
-  const search = o.noSearch ? '' : `<div class="abs fld" style="left:14px;right:14px;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
+  const search = o.noSearch ? '' : `<div class="abs fld" style="left:0;right:0;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
   const by = o.by ?? 99;
-  return `<div class="dash">${search}
-  <div class="abs box" style="left:14px;width:700px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
+  return `<div class="dash ${o.over === false ? '' : 'over'}"><div class="abs" style="left:${(1440 - W) / 2}px;width:${W}px;top:0;bottom:0">${search}
+  <div class="abs box" style="left:0;width:${(W - 12) / 2}px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
     ${(o.last || [['smile','Riesen-Popstar','Characters · now'],['map','Map','Map · 12 min'],['book','Sandbox','Toon · 8 h']]).map(([i, n, m]) => `<div class="lrow" style="min-height:1.85rem">${ic(i)}${n}<span class="m">${m}</span></div>`).join('')}</div>
-  ${o.review === false ? `<div class="abs box" style="left:726px;right:14px;top:${by}px;height:165px;border-style:dashed;display:grid;place-items:center"><span class="label">Needs review · ?</span></div>` : ''}<div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:726px;right:14px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
+  ${o.review === false ? `<div class="abs box" style="left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;border-style:dashed;display:grid;place-items:center"><span class="label">Needs review · ?</span></div>` : ''}<div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
     ${['Sandgirl','Giant Popstar','Mellowmantis'].map(n => `<div class="lrow" style="min-height:1.85rem">${ic('smile')}${n}<span class="m" style="color:var(--tool-warn)">not published · Character</span></div>`).join('')}
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:.8rem" class="small"><span class="muted">5 more – Publish lists them all</span><span class="kb" style="height:1.8rem">${ic('cloud')}Publish …</span></div></div>
-  <div class="abs label" style="left:14px;top:${(o.top ?? 306) - 22}px">Workspaces</div>
+  <div class="abs label" style="left:0;top:${(o.top ?? 306) - 22}px">Workspaces</div>
   ${(o.cards || CARDS).map(card).join('')}
-  ${o.noFoot ? '' : dfoot(o)}</div>`;
+  ${o.noFoot ? '' : dfoot(o)}</div></div>`;
 }
-const dfoot = (o = {}) => `<div class="abs small" style="left:14px;right:14px;bottom:10px;height:1.8rem;display:flex;align-items:center;gap:.7rem">${ic('user')}tilman@porschuetz.de<span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Settings …</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Docs ↗</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('help')}</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('ext')}</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted mono">0.1.0 · c9cf178</span><span class="muted" style="margin-left:auto">Tab · Shift Tab · arrows move · Enter opens · Esc goes back</span></div>`;
+const dfoot = (o = {}) => `<div class="abs small" style="left:0;right:0;bottom:10px;height:1.8rem;display:flex;align-items:center;gap:.7rem">${ic('user')}tilman@porschuetz.de<span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Settings …</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Docs ↗</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('help')}</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('ext')}</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted mono">0.1.0 · c9cf178</span><span class="muted" style="margin-left:auto">Tab · Shift Tab · arrows move · Enter opens · Esc goes back</span></div>`;
 
 /* today's Views menu (now/creator-3 + views-menu.svelte): The stage now · Every view · Content clear of the bar · the workspace's lines */
 const VIEWS_CHAR = [['user','Sheet','panel'],['cube','3D','panel'],['file','Kanon','panel'],['smile','Expressions','panel'],['cube','Rig','panel'],['mic','Voice','panel'],['users','Cast','panel'],['zap','Generations','panel']];
@@ -364,6 +368,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === '‹' || e.key === ',') go(i - 1);
   if (e.key === 't' || e.key === 'T') location.search = `?s=${window.__cur.id}${DAY ? '' : '&theme=day'}`;
   if (e.key === 'i' || e.key === 'I') document.getElementById('idx').classList.toggle('open');
+  if (e.key === 's' || e.key === 'S') document.querySelectorAll('.dash.over').forEach(d => d.classList.toggle('off'));
 });
 render();
 </script>
