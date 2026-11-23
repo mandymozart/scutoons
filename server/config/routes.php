@@ -21,6 +21,7 @@ use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\AddressBookController;
 use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\DecksController;
+use Scutoons\Http\Controllers\DeviceSessionController;
 use Scutoons\Http\Controllers\ScenesController;
 use Scutoons\Http\Controllers\ShowsController;
 use Scutoons\Http\Controllers\LiveProofController;
@@ -225,6 +226,9 @@ return static function (App $app): void {
     $app->get('/api/me/layouts', [LayoutsController::class, 'mine']);
     $app->put('/api/me/layouts/{workspace}', [LayoutsController::class, 'save']);
     $app->delete('/api/me/layouts/{workspace}', [LayoutsController::class, 'delete']);
+    // the creator's resume state per device: own rows only (Domain\Layouts\DeviceSessions)
+    $app->get('/api/me/session', [DeviceSessionController::class, 'mine']);
+    $app->put('/api/me/session', [DeviceSessionController::class, 'save']);
     // the account's shipping address (#66 – physical newsletter gifts wait for it)
     $app->get('/api/me/shipping', [CampaignGiftsController::class, 'shipping']);
     $app->put('/api/me/shipping', [CampaignGiftsController::class, 'setShipping']);

@@ -25,6 +25,7 @@ final class ApiTokenScope
         ['PUT', '#^/api/me/crafts$#'],
         ['PUT', '#^/api/me/layouts/[^/]+$#'],
         ['DELETE', '#^/api/me/layouts/[^/]+$#'],
+        ['PUT', '#^/api/me/session$#'],
         ['POST', '#^/api/entities(/[^/]+)?/(publish|unpublish)$#'],
         ['POST', '#^/api/scenes/[^/]+/publish$#'],
         ['PUT', '#^/api/assets/replace$#'],
