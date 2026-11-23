@@ -5,9 +5,15 @@
 
 	/**
 	 * A still picture of a 3D model (.glb) for a card (the asset picker, the admin's asset grid): rendered once by one
-	 * shared renderer when the card scrolls into view (cached); the box icon until then or when it fails.
+	 * shared renderer when the card scrolls into view (cached); the box icon until then or when it fails. `still`: rendered
+	 * at that shape (width × height px) and handed to `onstill` (a card that stores it as the model's thumbnail).
 	 */
-	let { path, size = '2em' }: { path: string; size?: string } = $props();
+	let {
+		path,
+		size = '2em',
+		still,
+		onstill
+	}: { path: string; size?: string; still?: { width: number; height: number }; onstill?: (png: string) => void } = $props();
 
 	let el = $state<HTMLElement>();
 	let src = $state('');
@@ -21,7 +27,13 @@
 		const io = new IntersectionObserver((entries) => {
 			if (!entries.some((e) => e.isIntersecting)) return;
 			io.disconnect();
-			modelThumbnail(url).then((png) => live && (src = png)).catch(() => undefined);
+			modelThumbnail(url, still?.width, still?.height)
+				.then((png) => {
+					if (!live) return;
+					src = png;
+					onstill?.(png);
+				})
+				.catch(() => undefined);
 		});
 		io.observe(node);
 		return () => {

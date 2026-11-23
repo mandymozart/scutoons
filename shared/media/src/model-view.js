@@ -219,16 +219,16 @@ export function mountModelView(canvas, source, opts = {}) {
 const thumbs = new Map();
 let queue = Promise.resolve();
 let shared = null;
-/** a still picture of a model (PNG data URL), size × size */
-export function modelThumbnail(url, size = 256) {
-	const key = `${url}|${size}`;
+/** a still picture of a model (PNG data URL), size × height (square unless given: the shared still is 264 × 168) */
+export function modelThumbnail(url, size = 256, height = size) {
+	const key = `${url}|${size}|${height}`;
 	if (!thumbs.has(key)) {
 		const job = queue.then(async () => {
 			const { THREE } = await three();
 			shared ??= { renderer: new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }), ...stage(THREE) };
 			const { renderer, scene, camera } = shared;
-			renderer.setSize(size, size, false);
-			camera.aspect = 1;
+			renderer.setSize(size, height, false);
+			camera.aspect = size / height;
 			camera.updateProjectionMatrix();
 			const m = await loadModel(url);
 			scene.add(m.pivot);

@@ -5,6 +5,7 @@ namespace Scutoons\Domain\Thumbnails;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetJobs;
+use Scutoons\Domain\Assets\AssetPaths;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\AssetStorage\StoredFile;
@@ -146,6 +147,35 @@ final class Thumbnails
         } catch (\PDOException) {
             // no job table yet: the still waits as stale
         }
+    }
+
+    /**
+     * `assets:jobs --thumbs`: a `thumb` job for every image / video (not a map tile) whose still is missing or stale and
+     * none is queued – the stills of what was there before the standard. Returns how many were queued.
+     */
+    public function queueMissing(int $limit = 500): int
+    {
+        if (!$this->rows->available()) return 0;
+        $rows = $this->db->all(
+            "SELECT a.id, a.kind, v.path, v.number FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'
+             WHERE a.status = 'active' AND a.kind IN ('image', 'video') AND a.slug NOT REGEXP ?
+               AND NOT EXISTS (SELECT 1 FROM asset_jobs j WHERE j.asset_id = a.id AND j.kind = 'thumb' AND j.status = 'queued')
+             ORDER BY a.updated_at DESC",
+            [AssetPaths::TILE_SQL]
+        );
+        $queued = 0;
+        foreach (array_chunk($rows, 200) as $chunk) {
+            $have = $this->rows->of(array_map(static fn(array $r) => 'asset:' . $r['id'], $chunk), [], null);
+            foreach ($chunk as $r) {
+                if ($queued >= $limit) return $queued;
+                $thumb = $have['asset:' . $r['id']] ?? null;
+                if ($thumb !== null && (int) $thumb['stale'] === 0 && (string) $thumb['stamp'] === (string) $r['number']) continue;
+                if (!AssetJobs::thumbable((string) $r['kind'], (string) $r['path'])) continue;
+                $this->jobs->enqueue((string) $r['id'], 'thumb', [], 'cli');
+                $queued++;
+            }
+        }
+        return $queued;
     }
 
     /** The `thumb` rendition of the asset's current version: added, or updated in place */

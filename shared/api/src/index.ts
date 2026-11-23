@@ -40,6 +40,7 @@ export {
 export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
 export { createCraftsApi, craftName, type Craft, type CraftsApi, type MemberCraft, type MemberCrafts, type MemberInvite } from './crafts.ts';
 export { createLayoutsApi, type CraftLayout, type LayoutsApi, type MemberLayouts, type SavedLayout } from './layouts.ts';
+export { assetThumbKey, createThumbsApi, THUMB_HEIGHT, THUMB_LOOKUP_MAX, THUMB_WIDTH, workspaceThumbKey, type Thumb, type ThumbLookup, type ThumbsApi } from './thumbs.ts';
 export { createDeviceSessionApi, type DeviceSession, type DeviceSessionApi, type MemberSession } from './device-session.ts';
 export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
 export {

@@ -164,6 +164,14 @@ final class ThumbsApiTest extends TestCase
         $glb = $this->request('PUT', '/api/assets/upload?path=scutoons/3d/lantern.glb', $creator + ['Content-Type' => 'model/gltf-binary'], "glTF\x02\0\0\0\x0c\0\0\0");
         $model = (string) self::json($glb)['asset']['id'];
         self::assertSame(0, (int) $db->value("SELECT COUNT(*) FROM asset_jobs WHERE asset_id = ?", [$model]));
+
+        // the stills of what was there before: queued for images without a fresh one, once
+        $other = $this->request('PUT', '/api/assets/upload?path=catpope/images/old.png', $creator + ['Content-Type' => 'image/png'], $png);
+        $old = (string) self::json($other)['asset']['id'];
+        $db->run("DELETE FROM asset_jobs WHERE kind = 'thumb'");
+        self::assertSame(1, $this->get(Thumbnails::class)->queueMissing());
+        self::assertSame(1, (int) $db->value("SELECT COUNT(*) FROM asset_jobs WHERE asset_id = ? AND kind = 'thumb'", [$old]));
+        self::assertSame(0, $this->get(Thumbnails::class)->queueMissing());
     }
 
     public function testTheEditorTokenMayUploadStills(): void

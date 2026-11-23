@@ -32,4 +32,4 @@ export function loadThree(): Promise<{ THREE: any; GLTFLoader: any }>;
 export function webglAvailable(): boolean;
 
 /** a still picture of a .glb (PNG data URL, size × size), one shared renderer, cached per url */
-export function modelThumbnail(url: string, size?: number): Promise<string>;
+export function modelThumbnail(url: string, size?: number, height?: number): Promise<string>;

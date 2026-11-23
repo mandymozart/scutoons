@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
-	import { IconButton, Menu } from '@scutoons/ui/editor';
+	import { IconButton, Menu, Thumb } from '@scutoons/ui/editor';
+	import { workspaceThumbKey } from '@scutoons/api';
 	import { toonAsset } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -9,12 +10,14 @@
 	import type { WorkspaceCard } from '$lib/shell/dashboard.ts';
 	import { tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { snapshots } from '$lib/shell/snapshots.svelte.ts';
+	import { thumbs } from '$lib/shell/thumbs.svelte.ts';
 	import { workspaceName } from '$lib/shell/workspace-names.ts';
 	import ViewsMenu from '$lib/components/shell/views-menu.svelte';
 
 	/**
-	 * A workspace on the dashboard: what is open in it (the item's toon and its kind's icon as its picture, its name), ✕
-	 * closes that item; the front one carries its Views line (the front workspace's Views). Without an item it says so.
+	 * A workspace on the dashboard: what is open in it – its picture as it was left (the member's snapshot; else the item's
+	 * toon and its kind's icon), its name – ✕ closes that item; the front one carries its Views line (the front workspace's Views). Without an item it says so.
 	 */
 	let {
 		card,
@@ -35,6 +38,7 @@
 		const t = toon && (ws === 'toon' || ws === 'chapter' || ws === 'storyboard') ? nav.toons.find((x) => x.id === toon) : undefined;
 		return t?.avatar ? asset(toonAsset(t.id, t.avatar)) : null;
 	});
+	const still = $derived(snapshots.local[card.id] ?? thumbs.get(workspaceThumbKey(card.id))?.url ?? null);
 	const more = $derived(card.open.length > 1 ? ` +${card.open.length - 1}` : '');
 	// the front workspace's views with content, by name (its Views line)
 	const viewNames = $derived(card.front ? specs.filter((t) => t.id !== 'settings' && shell.available.has(t.id)).map((t) => t.name).join(' · ') : '');
@@ -43,8 +47,10 @@
 <div class="ws-card" class:front={card.front} class:empty={!item} data-testid="dash-card" data-kind={card.kind} data-workspace={card.id}>
 	{#snippet inside()}
 		<span class="picture" aria-hidden="true">
-			{#if avatar}<ToonAvatar src={avatar} name={toon ?? ''} size="2.6rem" />{/if}
-			<Icon name={item ? iconOf(item.address) : 'layout'} size="2rem" strokeWidth={1.25} />
+			<Thumb src={still}>
+				{#if avatar}<ToonAvatar src={avatar} name={toon ?? ''} size="2.6rem" />{/if}
+				<Icon name={item ? iconOf(item.address) : 'layout'} size="2rem" strokeWidth={1.25} />
+			</Thumb>
 		</span>
 		{#if card.front}<span class="tag">{m['shell.dash_front']()}</span>{/if}
 		<span class="word">{name}</span>
@@ -123,14 +129,10 @@
 		outline-offset: 1px;
 	}
 	.picture {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--editor-gap);
-		height: 5.5rem;
-		color: var(--tool-muted);
+		display: block;
+		margin-top: calc(var(--editor-pad) * 1.75);
 	}
-	.front .picture {
+	.front .picture :global(.kit-thumb) {
 		color: var(--tool-accent);
 	}
 	.tag {
