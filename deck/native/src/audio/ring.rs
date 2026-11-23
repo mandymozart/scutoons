@@ -24,6 +24,9 @@ pub const BLOCK: usize = 256;
 const _: () = assert!(BLOCK % deck_engine::QUANTUM == 0);
 /// the ring's size in frames (× the device's channels in samples): the cap + the largest device buffer we expect, with room
 pub const CAPACITY: usize = 16_384;
+/// the render thread's sleep when no callback wakes it (ms): the callback unparks it after every copy, and an unpark
+/// before the park is kept (std's token), so this only bounds a stopped device's idle loop – not 1000 FIFO wake-ups a second
+const WAKE_MS: u64 = 10;
 /// the device's buffer before its first callback says it (WASAPI shared runs ~1056 frames)
 const FIRST_GUESS: u32 = 1024;
 
@@ -122,8 +125,7 @@ pub fn spawn(engine: Engine, first_guess: Option<u32>) -> std::io::Result<Feed> 
         }
         while !renderer.shared.stop.load(Ordering::Relaxed) {
             renderer.fill(now_ns());
-            // the callback unparks it after each copy; the timeout keeps it going if a wake-up is lost
-            std::thread::park_timeout(Duration::from_millis(1));
+            std::thread::park_timeout(Duration::from_millis(WAKE_MS));
         }
     })?;
     feed.render = Some(handle.thread().clone());

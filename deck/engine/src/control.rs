@@ -165,6 +165,11 @@ impl Table {
         self.inputs[node][k].read(v, default)
     }
 
+    /// `input` by the port's index (no search by name)
+    fn input_index(&self, v: &[f32], node: usize, port: usize, default: f32) -> f32 {
+        self.inputs.get(node).and_then(|i| i.get(port)).map_or(default, |i| i.read(v, default))
+    }
+
     /// by port index, an unset input at the catalog's default
     fn input_at(&self, v: &[f32], node: usize, port: usize) -> Option<f32> {
         let input = self.get(node, port)?;
@@ -963,6 +968,11 @@ impl Controls {
         self.table.input(&self.values, node, port, default)
     }
 
+    /// `input` by the port's index (what a knob reads every frame – no search by name)
+    pub fn input_index(&self, node: usize, port: usize, default: f32) -> f32 {
+        self.table.input_index(&self.values, node, port, default)
+    }
+
     pub fn input_at(&self, node: usize, port: usize) -> Option<f32> {
         self.table.input_at(&self.values, node, port)
     }
@@ -996,6 +1006,9 @@ impl Controls {
 impl deck_space::space::values::Knobs for Controls {
     fn input(&self, node: usize, port: &str, default: f32) -> f32 {
         Controls::input(self, node, port, default)
+    }
+    fn input_index(&self, node: usize, port: usize, _: &str, default: f32) -> f32 {
+        Controls::input_index(self, node, port, default)
     }
     fn outputs(&self, node: usize) -> &[f32] {
         Controls::outputs(self, node)

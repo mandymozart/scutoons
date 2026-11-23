@@ -1393,7 +1393,7 @@ impl Being {
             let b = &mut self.buttons[i];
             let p = &self.points[b.point];
             // the knob: an unlinked input's value, a linked one's base (the modulation rides on top – `live`)
-            b.live = if b.shape { vals.lfo_shape(b.node).unwrap_or(0) as f32 } else { vals.input(b.node, b.name, b.spec.default) };
+            b.live = if b.shape { vals.lfo_shape(b.node).unwrap_or(0) as f32 } else { vals.input_index(b.node, b.port, b.name, b.spec.default) };
             let base = if b.linked { vals.base(b.node, b.port) } else { None };
             b.turnable = !b.linked || base.is_some();
             b.value = base.unwrap_or(b.live);
@@ -1514,7 +1514,7 @@ impl Being {
         let core = self.core_point;
         for i in 0..self.buttons.len() {
             let b = &mut self.buttons[i];
-            b.hidden = b.out_of_level || b.limit.is_some_and(|l| l.index > params::shown_count(vals.input(l.node, l.name, l.default), l.size));
+            b.hidden = b.out_of_level || b.limit.is_some_and(|l| l.index > params::shown_count(vals.input_index(l.node, l.port, l.name, l.default), l.size));
             if b.point != point {
                 (point, rank, last) = (b.point, 0, None);
             }
@@ -1578,7 +1578,7 @@ impl Being {
             // anyway), a knob that came near during the round counts in the next. A round that pushes nothing ends them.
             let mut g = std::mem::take(&mut self.grid);
             g.scr.clear();
-            g.scr.extend(self.buttons.iter().map(|b| at(b)));
+            g.scr.extend(self.buttons.iter().map(&at));
             g.still.clear();
             g.still.extend(self.buttons.iter().map(|b| b.pos == b.free));
             for _ in 0..12 {
