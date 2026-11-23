@@ -5,8 +5,9 @@ import { fileLabel } from '$lib/labels.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { shared } from '$lib/utils/shared.ts';
 import { AREAS, hrefOf, iconOf } from './address.ts';
+import { wordsIn } from './launcher.ts';
 
-/** one thing that opens as a tab: Home's find, the Library and the command palette list the same */
+/** one thing that opens as a tab: the launcher and the Library list the same */
 export interface Place {
 	address: string;
 	label: string;
@@ -76,8 +77,5 @@ export const places = shared('creator-places', () => new Places());
 
 /** does a place match what was typed (its name, its toon, its address, its words)? */
 export function matches(place: Place, query: string): boolean {
-	const q = query.trim().toLowerCase();
-	if (!q) return true;
-	const hay = `${place.label} ${place.hint ?? ''} ${place.address} ${place.keywords ?? ''}`.toLowerCase();
-	return q.split(/\s+/).every((word) => hay.includes(word));
+	return wordsIn(`${place.label} ${place.hint ?? ''} ${place.address} ${place.keywords ?? ''}`, query);
 }

@@ -4,19 +4,7 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		CommandPalette,
-		languageCommand,
-		linkCommands,
-		signOutCommand,
-		type Command,
-		type PaletteLink,
-		installTooltips,
-		DialogHost,
-		ToastStack,
-		provideColourSampler,
-		provideUiLabels
-	} from '@scutoons/ui';
+	import { installTooltips, DialogHost, ToastStack, provideColourSampler, provideUiLabels } from '@scutoons/ui';
 	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { toaster } from '$lib/toasts.ts';
 	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
@@ -31,19 +19,20 @@
 	import { assetsApi, library } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale, locales } from '$lib/paraglide/runtime.js';
 	import { routeId, setCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
-	import { places } from '$lib/shell/places.svelte.ts';
+	import { isLaunchKey } from '$lib/shell/launcher.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
 	import StatusBar from '$lib/components/shell/status-bar.svelte';
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
+	import Launcher from '$lib/components/shell/launcher.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -190,41 +179,33 @@
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';
 	});
 
-	/** Alt+ArrowUp: one step up the path; Ctrl+O: open (the Library); Ctrl+,: Settings; Alt+V: the front workspace's Views (on the dashboard) */
+	/** Alt Space / Cmd Space / Ctrl K / Ctrl O / `/`: the launcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the front workspace's Views (on the dashboard) */
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
+		const target = event.target instanceof Element ? event.target : null;
+		const typing = !!target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+		if (isLaunchKey(event, typing)) {
+			event.preventDefault();
+			shell.toggleLauncher();
+			return;
+		}
 		if (event.altKey && !mod && !event.shiftKey && event.code === 'KeyV') {
 			event.preventDefault();
 			shell.dashboard = shell.state.front ? 'views' : 'cards';
 			return;
 		}
-		if (mod && !event.altKey && !event.shiftKey && (event.key === 'o' || event.key === ',')) {
+		if (mod && !event.altKey && !event.shiftKey && event.key === ',') {
 			event.preventDefault();
-			shell.open(event.key === 'o' ? 'library' : 'settings');
+			shell.open('settings');
 			return;
 		}
 		if (!event.altKey || mod || event.key !== 'ArrowUp') return;
-		const target = event.target as HTMLElement | null;
 		if (target && (target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
 		if (!nav.parent) return;
 		event.preventDefault();
 		goto(nav.parent.href);
 	}
 
-	// the command palette (Ctrl/⌘K, `/`): the areas, every toon with its seasons and chapters, language, sign out
-	let paletteOpen = $state(false);
-	$effect(() => {
-		if (paletteOpen) places.load(nav.toons);
-	});
-	const paletteCommands = $derived.by<Command[]>(() => {
-		const link = (p: { address: string; label: string; hint?: string; href: string; keywords?: string }): PaletteLink => ({ id: p.address, label: p.hint && p.hint !== m['palette.toon']() ? `${p.hint} · ${p.label}` : p.label, hint: p.hint === m['palette.toon']() ? p.hint : undefined, href: p.href, keywords: `${p.address} ${p.keywords ?? ''}` });
-		return [
-			...linkCommands([{ id: 'home', label: m['palette.home'](), href: '/', keywords: 'toons home start' }, ...places.areas().map(link)], goto, m['palette.go_to']()),
-			...linkCommands(places.toons(nav.toons, (id) => nav.toonName(id), toonId).map(link), goto, m['palette.toons']()),
-			languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }), group: m['palette.actions']() }),
-			signOutCommand({ label: m['creator.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
-		];
-	});
 	const title = $derived(shell.front?.label);
 </script>
 
@@ -246,7 +227,7 @@
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
-		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />
+		{#if shell.launcher}<Launcher />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />

@@ -8,6 +8,7 @@ import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/
 import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
+import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -266,4 +267,72 @@ test('the focus ring goes round the ends and by rows; the dashboard says how lon
 	assert.deepEqual(ago(now - 3 * 3600000, now), { unit: 'hour', n: 3 });
 	assert.deepEqual(ago(now - 2 * 86400000, now), { unit: 'day', n: 2 });
 	assert.equal(ago(undefined, now), null);
+});
+
+const L = (id: string, kind: LaunchEntry['kind'], label: string, extra: Partial<LaunchEntry> = {}): LaunchEntry => ({ id, kind, label, icon: 'file', ...extra });
+
+test('launcher: every word must appear; the address typed exactly wins, then the name, its start, a word, inside', () => {
+	assert.ok(wordsIn('Cat Pope · Chapter 3', 'pope chap'));
+	assert.ok(!wordsIn('Cat Pope', 'pope dog'));
+	assert.ok(wordsIn('anything', '  '));
+	const chapter = L('item:chapter:catpope:3', 'item', 'Chapter 3', { address: 'chapter:catpope:3', hint: 'Cat Pope' });
+	assert.equal(score(chapter, 'chapter:catpope:3'), 1000);
+	assert.equal(score(chapter, 'chapter 3'), 800);
+	assert.equal(score(chapter, 'chapter:catpope'), 700);
+	assert.equal(score(chapter, 'chap'), 600);
+	assert.equal(score(L('a', 'item', 'The Big Map'), 'big'), 400);
+	assert.equal(score(L('a', 'item', 'Moodboard'), 'board'), 300);
+	assert.equal(score(chapter, 'pope'), 100);
+	assert.equal(score(chapter, 'dog'), 0);
+});
+
+test('launcher: one ranked list across kinds, each id once; ties go to the recent pick, then the kind order', () => {
+	const entries = [
+		L('asset:map.png', 'asset', 'Map', { hint: 'media' }),
+		L('command:theme', 'command', 'Switch to night', { keywords: 'theme day night' }),
+		L('workspace:map', 'workspace', 'Map'),
+		L('item:map:world', 'item', 'Map', { address: 'map:world' }),
+		L('item:map:world', 'item', 'A duplicate'),
+		L('view:library', 'view', 'Library')
+	];
+	assert.deepEqual(rank(entries, 'map').map((e) => e.id), ['item:map:world', 'workspace:map', 'asset:map.png']);
+	assert.deepEqual(rank(entries, 'map', ['asset:map.png']).map((e) => e.id)[0], 'asset:map.png');
+	assert.deepEqual(rank(entries, 'night').map((e) => e.id), ['command:theme']);
+	assert.deepEqual(rank(entries, 'map:world').map((e) => e.id), ['item:map:world']);
+	assert.equal(rank(entries, 'a', [], 2).length, 2);
+});
+
+test('launcher: nothing typed lists the recent picks first, then fills up; a pick goes first, once', () => {
+	const now = [L('workspace:scene', 'workspace', 'Scenes', { href: '/scenes' }), L('command:settings', 'command', 'Settings')];
+	const picks = remember(remember([], L('item:toon:catpope', 'item', 'Cat Pope', { href: '/catpope', address: 'toon:catpope' })), L('command:settings', 'command', 'Settings (old name)'));
+	assert.deepEqual(picks.map((p) => p.id), ['command:settings', 'item:toon:catpope']);
+	// a command as the lists know it now; an item not loaded yet as it was picked (it can open by its href)
+	const shown = recentFirst(now, picks, now);
+	assert.deepEqual(shown.map((e) => e.label), ['Settings', 'Cat Pope', 'Scenes']);
+	// a recent command the lists do not offer now (no href) is left out
+	assert.deepEqual(recentFirst([], [{ id: 'command:publish', kind: 'command', label: 'Publish', icon: 'x' }]).length, 0);
+	let many = picks;
+	for (let i = 0; i < 20; i++) many = remember(many, L(`item:x${i}`, 'item', `x${i}`));
+	assert.equal(many.length, MAX_PICKS);
+	assert.equal(remember(many, L('item:x3', 'item', 'x3')).filter((p) => p.id === 'item:x3').length, 1);
+});
+
+test('launcher: what the browser kept is checked', () => {
+	assert.deepEqual(readPicks(null), []);
+	assert.deepEqual(readPicks([{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }, { id: 'b', kind: 'nope', label: 'B', icon: 'f' }, { id: 'c', kind: 'item', label: 'C', icon: 'f', href: 'https://evil' }, 7]), [{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }]);
+});
+
+test('launcher keys: Alt Space, Cmd Space, Ctrl or Cmd K and O, / outside a field – never Ctrl Space', () => {
+	const k = (key: string, code: string, mods: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) => ({ key, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...mods });
+	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), false));
+	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
+	assert.ok(isLaunchKey(k(' ', 'Space', { metaKey: true }), true));
+	assert.ok(!isLaunchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
+	assert.ok(!isLaunchKey(k(' ', 'Space'), false));
+	assert.ok(isLaunchKey(k('k', 'KeyK', { ctrlKey: true }), true));
+	assert.ok(isLaunchKey(k('K', 'KeyK', { metaKey: true }), true));
+	assert.ok(isLaunchKey(k('o', 'KeyO', { ctrlKey: true }), false));
+	assert.ok(!isLaunchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
+	assert.ok(isLaunchKey(k('/', 'Slash'), false));
+	assert.ok(!isLaunchKey(k('/', 'Slash'), true), 'typing a slash in a field');
 });
