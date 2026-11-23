@@ -92,6 +92,13 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 - **First (P0):** capture today's five pages, then one draft of the writing page for you to correct – nothing is built before that.
 - **Waits for your word:** what a good writing experience holds.
 
+### P11 · The extended Library (LIBRARY.md)
+The Library lists things and files; a thing is stepped into; an assignment shows as a place and as "used in"; a picker is the Library opened from a slot.
+- **First (P0):** the Library's screens redrawn to it (C12, F1, the slot's pick, C1, C4, C5, C9, A4, and the panel wherever it shows).
+- **Creator:** the Library lists things with their type beside the files; stepping into a character; places for a season's cast listing its characters; "used in"; the cast edited in the toon's season.
+- **Deck:** the same Library panel.
+- **Waits for your word:** the consequences marked "to confirm" in LIBRARY.md, the types it lists, and how much of it is built in this lap – it is more than a new look.
+
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
 - The 59 local style rules, the raw selects, the solid blue "Published" badges.
@@ -103,7 +110,7 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 3. **P2** and **P8** side by side. **P7** can run beside them: it is the deck's alone and needs the kit, not the shell.
 4. **P3** and **P4**.
 5. **P5**, then **P6**.
-6. **P9** and **P10** once their open points are answered.
+6. **P9**, **P10** and **P11** once their open points are answered.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -136,6 +143,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
+| The extended Library: its consequences, its types, its size in this lap (LIBRARY.md) | P11 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:

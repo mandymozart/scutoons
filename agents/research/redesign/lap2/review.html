@@ -59,12 +59,13 @@ td:first-child{white-space:nowrap}
 [hidden]{display:none!important}
 </style>
 <div class="top"><div class="in"><b>Lap 2 review</b>
-  <button class="tab" data-t="decisions">Decisions</button><button class="tab" data-t="screens">Screens</button><button class="tab" data-t="plan">Plan</button><button class="tab" data-t="pictures">Pictures</button>
+  <button class="tab" data-t="decisions">Decisions</button><button class="tab" data-t="screens">Screens</button><button class="tab" data-t="plan">Plan</button><button class="tab" data-t="library">Library</button><button class="tab" data-t="pictures">Pictures</button>
   <span class="sp"></span><a class="tab" id="th" href="#"></a></div></div>
 <div class="page">
   <section id="decisions"></section>
   <section id="screens"></section>
   <section id="plan"></section>
+  <section id="library"></section>
   <section id="pictures">
     <h1>The pictures</h1>
     <div class="links" id="pages"></div>
@@ -112,7 +113,8 @@ function md(src) {
 const get = (f) => fetch(f, { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(f));
 const PAGES = [['kit-d.html', 'The kit in palette D'], ['draft.html', 'The screens (draft)'], ['show.html', 'The Show view'], ['spores-view.html', 'The Spores view'], ['spores-demo.html', 'The Spores demo'], ['universe.html', 'The universe as one tree'], ['modules-dna.html', 'Modules in the DNA']];
 document.getElementById('pages').innerHTML = PAGES.map(([h, t]) => `<a href="${h}${DAY ? '?theme=day' : ''}" target="_blank">${t}</a>`).join('');
-Promise.all(['DECISIONS.md', 'SCREENS.md', 'PLAN.md'].map(get)).then(([d, s, p]) => {
+Promise.all(['DECISIONS.md', 'SCREENS.md', 'PLAN.md', 'LIBRARY.md'].map(get)).then(([d, s, p, lib]) => {
+  document.getElementById('library').innerHTML = md(lib);
   document.getElementById('decisions').innerHTML = md(d);
   document.getElementById('screens').innerHTML = md(s);
   document.getElementById('plan').innerHTML = md(p);
@@ -127,9 +129,9 @@ Promise.all(['DECISIONS.md', 'SCREENS.md', 'PLAN.md'].map(get)).then(([d, s, p])
   document.getElementById('filt').onclick = (e) => e.target.dataset.f && filt(e.target.dataset.f);
   filt('all');
 }).catch(f => { document.getElementById('decisions').innerHTML = `<p class="note">Could not read ${f}. Open this page from the lap 2 server: http://localhost:10626/review.html</p>`; });
-const show = (t) => { ['decisions', 'screens', 'plan', 'pictures'].forEach(k => document.getElementById(k).hidden = k !== t); document.querySelectorAll('.top .tab[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t)); history.replaceState(null, '', '#' + t); scrollTo(0, 0); };
+const show = (t) => { ['decisions', 'screens', 'plan', 'library', 'pictures'].forEach(k => document.getElementById(k).hidden = k !== t); document.querySelectorAll('.top .tab[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t)); history.replaceState(null, '', '#' + t); scrollTo(0, 0); };
 document.querySelector('.top').onclick = (e) => e.target.dataset.t && show(e.target.dataset.t);
 const th = document.getElementById('th'); th.textContent = DAY ? 'night' : 'day'; th.href = (DAY ? 'review.html' : 'review.html?theme=day') + location.hash;
-show(['decisions', 'screens', 'plan', 'pictures'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'decisions');
+show(['decisions', 'screens', 'plan', 'library', 'pictures'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'decisions');
 </script>
 </html>
