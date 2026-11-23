@@ -1,78 +1,95 @@
-<!-- status: lap 2 screen list for the owner's review, 2026-11-24 – the complete set of screens the lap-2 draft will hold, creator and deck editor. Collected before drawing anything (owner: "before drawing stuff, let's collect the screens we want to have in the draft. Make a complete list."). Nothing drawn, nothing decided. -->
-# Lap 2 – the screens of the draft
+<!-- status: for the owner's review, 2026-11-24 (second version) – the screens of lap 2 after the planning session: what each screen shows once today's decisions are applied, and how far its picture is. The first version (the list before drawing, 46 screens) is in git (123d4a282). Decisions: DECISIONS.md. Pictures: draft.html `?s=<id>`, kit-d.html, show.html, spores-view.html, spores-demo.html. -->
+# Lap 2 – the screens
 
-Every screen is drawn **from its base** – today's screen (`now/`) or an existing draft the owner already saw – with only the listed change, marked. Night first, day beside it; 1440×900; the kit's tokens and components (RULES H11–H14). **C** creator · **D** deck editor · **C+D** both, side by side.
+**Picture** says how far the drawing is:
+- **current** – drawn in the approved kit with today's decisions;
+- **shape** – the layout follows today's decisions, the colours and tabs are still the old ones;
+- **old** – the first draft: old palette, outlined tabs, changes of today not in;
+- **words** – needs your words before it can be drawn.
 
-## A. The shell (C+D)
-| # | Screen | Base | What changes |
+Every screen is 1440×900, night first, drawn from today's screen (`now/`) with each change marked.
+
+## A · The shell (creator and deck)
+| # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| A1 | The bar | now/creator-1, deck-bar | one bar for both: item tabs · workspace row (always its ⌄ "all workspaces") · undo redo Publish account ☰, icons only (points 30, 34–37, 41, 47) |
-| A2 | The ☰ menu open | dashboard foot + front card | the owner's list (points 34, 36, 39): Views with Save workspace · Search · Settings · Docs · the build (version, account, load meters) · the edit language (note 2) |
-| A3 | The switcher (Alt Tab / Ctrl K / ⌘K) | now/creator-2 | today's dashboard without its search field; not on the ☰ any more (note 1) · **redrawn 2026-11-24 after the review:** no Views row on any card (Views: ☰ only) and one list with the deck's Scene · Rigging · Show, each card still + name + last content, a deck card badged "Deck · running / starts" (owner: "vice versa … more seamless") |
-| A3b | Enter on a deck card | A3, DECK-LINK.md | new: the deck not running – the browser's one-time "Open SCUTOONS Deck?" over the switcher; running – no prompt, the deck comes up on that workspace and item |
-| A4 | Search (Alt Space / ⌘ Space, the pad's Y) | the launcher today | its own overlay (points 24, 25, 37); placeholder just "Find" (owner 2026-11-24: "too long placeholder text") |
-| A5 | The user menu (swipe up / account) | today's user menu | switch the signed-in user (point 56) |
-| A6 | The status bar | today | – (in the set for completeness) |
-| A7 | First open | creator first login (crafts question) · deck Home | the deck's first open (point 53) beside the creator's |
-| A8 | Resume on another device | #838's offer pill | – (built; in the set) |
-| A9 | A craft shapes the bar | A1 | the translator's bar with the edit language in it (note 2) |
+| A1 | The bar | one bar for both apps: item tabs · workspace row with its ⌄ always · undo, redo, Publish, account, ☰ as icons; no Show pill | old |
+| A2 | The ☰ menu | your list: Views with Save workspace · Search · Settings · Docs · the build · the edit language; Views only here | old |
+| A3 | The switcher | over the blurred bar, stage and panels; no bar, no search field, no Views; one list for both apps; cards are full captures; the content has a maximum width | shape |
+| A3b | Enter on a deck card | the browser asks once to open the deck; running, the deck comes up on that workspace | shape |
+| A4 | Search | its own overlay (Alt Space); the field says "Find" | shape |
+| A5 | The user menu | drops under the account icon | shape |
+| A6 | The status bar | as today | old |
+| A7 | First open | the crafts question, asked once; the deck's Home | old |
+| A8 | Resume on another device | built (#838) | old |
+| A9 | A craft shapes the bar | the translator's bar with the edit language | old |
 
-## B. Designing a workspace (C+D)
-| # | Screen | Base | What changes |
+## B · Designing a workspace (creator and deck)
+| # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| B1 | Views: every view, four states | now/creator-3 | reachable inside the workspace (where: the owner decides – the tab's own menu as drawn in crafts-v2 `save`, the ☰, or both); lists every view of the kind, not only the filled ones |
-| B2 | The workspace tab's own menu | crafts-v2 `save` | Save (Ctrl S) · Rename · Back to the last save · Save as new · Delete; the changed dot |
-| B3 | The four stage layouts + drop zones | stage.html, today | 1 · ½+¼+¼ · ¼+¼+½ · quarters (points 2, 3, 27, 29, 60) |
-| B4 | Full screen | today | – |
-| B5 | The Info view | deck's Info, the creator's new one | hover text only, no info in panels (H14) |
-| B6 | The Log | log.html (decided), today | the type filter as icon chips (H14) |
-| B7 | The dashboard cards with workspace snapshots | #842 (built, held) | – |
+| B1 | Views: every view, four states | in the ☰ menu only | old |
+| B2 | The workspace tab's own menu | open: does the tab keep a menu at all | words |
+| B3 | The four stage layouts | built in lap 1; a reference sheet, not a screen – keep or drop | old |
+| B4 | A panel taken full | a box close to the window's edges over the blurred workspace; Esc back | shape |
+| B5 | The Info view | hover text shows here; no info in panels | old |
+| B6 | The Log | the type filter as icon chips | old |
+| B7 | The switcher's cards | full captures, the text over the picture (#842) | shape |
 
-## C. The creator's workspaces (each as today, on the kit)
-| # | Screen | Base | What changes |
+## C · The creator's workspaces
+| # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| C1 | Toon | today | kit look |
-| C2 | Chapter | today | kit look |
-| C3 | Storyboard | today | kit look |
-| C4 | Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations | now/creator-1, characters.html | kit look; no Tree (point 5) |
-| C5 | **Scenes: the scene page** | now/creator-4, now/creator-6 | what a scene page edits (note 6 – needs the owner's words) + **Open in the deck** |
-| C6 | Rigs: open in the deck | today's rig panel | Open in the deck (note 6) |
-| C7 | Flow | today, flow.html | kit look |
-| C8 | Sound design | today | kit look |
-| C9 | Catalog | today | kit look; see F1 |
-| C10 | **Map** | now/creator-5 | the map back (0 px bug); kit look on its tool strip and Tree; Map as a view (E1) |
-| C11 | Generate: the spore canvas | spores.html, the stub | see E3 |
-| C12 | Library: panel · browser · pick | library.html, today | kit look; thumbnails (#842); see F1 |
-| C13 | Settings | today | kit look (crafts chips, toggles, language select) |
-| C15 | **XR** (creator-only) | crafts-v2 `xr`, epic-drafts `?s=714` | the XR workspace in the creator, with the Place tab (E2) |
-| C14 | Kanon · Notifications · Credits · Edit · Guide | today | kit look |
+| C1 | Toon | kit look | old |
+| C2 | Chapter | kit look | old |
+| C3 | Storyboard | kit look | old |
+| C4 | Characters | the Rig panel without Bones and Clips: the model's line and "Open in the deck"; no Import images; 2D-first or 3D-first is open | old |
+| C5 | Scenes: the scene page | open: what it edits; "Edit in deck" | words |
+| C6 | Rigs | "Open in the deck" | old |
+| C7 | Flow | kit look | old |
+| C8 | Sound design | open: goes, or becomes a preview (modules are edited in the deck) | words |
+| C9 | Catalog | no Import images; see F1 | old |
+| C10 | Map | the 0 px bug fixed; no Import images; kit look on its tool strip | old |
+| C11 | Generate | the stub stays in this lap; the deck's canvas comes with #764 | old |
+| C12 | Library | stills for scenes and places; "Items to open" is open | old |
+| C13 | Settings | kit look; the colour-blind mode as a setting | old |
+| C14 | Kanon · Notifications · Credits · Edit · Guide | kit look | old |
+| C15 | XR | a creator workspace, with the Place tab | old |
 
-## D. The deck editor's workspaces (as on main today, plus #830's)
-| # | Screen | Base | What changes |
+## D · The deck's workspaces
+| # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| D1 | Home + the switcher | deck-home, A3 | the shared bar (A1); **redrawn 2026-11-24:** the deck's switcher in A3's design over Home ("the same design dogma as the creators"), the one list with the creator's workspaces badged "Creator", no Views on cards; Home vs switcher and the list order left to the owner |
-| D2 | Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools | deck-build | the shared bar, Views (B1), the kit look |
-| D3 | Show: Outline · Inspector · Sheet · Nodes · Library · Rows · Session · Stage now · Next | deck-show | same |
-| D4 | Module: Library · Drives · Module · Problems | deck-module | same |
-| D5 | An asset open (character, module, video) | deck-asset | same |
-| D6 | Rigging | crafts-v2 `rig` (#830, not on main) | – (drawn already; in the set) |
-| D7 | ~~XR~~ → **XR is a creator workspace** (owner 2026-11-23: *"xr currently is a creator workspace for sure since we do not have xr features for the native deck since our library does not work that way"*) – the deck's workspaces are Scene · Rigging · Show | crafts-v2 `xr` | drawn as a creator workspace: see C15 + E2 |
-| D8 | A scene opened from the creator | D2 | the deck launched with that scene (note 6) |
+| D1 | The switcher over a workspace | as A3; Home stays when nothing is open | shape |
+| D2 | Build | the shared bar, Views in the ☰, kit look | old |
+| D3 | Show | its sheets are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html, spores-view.html |
+| D4 | Module | the shared bar, kit look | old |
+| D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here | old |
+| D6 | Rigging | #830 | old |
+| D7 | ~~XR~~ | dropped – XR is the creator's | – |
+| D8 | A scene opened from the creator | the deck comes up with that scene | old |
 
-## E. Feature designs already drawn (brought into the one set, unchanged unless the owner said so)
-| # | Screen | Base | Note |
+## E · Features drawn before, brought into the set
+| # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| E1 | **Map as a view** in a panel · Map on the stage | scenes/epic-drafts.html `?s=714`, `?s=714m` (on the scenes session's branch) | the Map a view like any other |
-| E2 | **XR at a place – geolocation**: the geo-anchor (pin, radius, facing, surveyed marker), GPS gate, QR codes carrying their position, the reader's way in, the XR editor's Place tab | epic-drafts `?s=714`, `?s=714r`; decided 2026-11-23 (decisions/xr.md) | the scenes session owns it (#714, #849) |
-| E3 | **Spores**: the slot picker with spore generators, Create new, the spore canvas, the slot afterwards, the generator in the Library | spores.html (round 1) | just "spores", no gen-AI (2026-11-24); hooks per AI-HOOKS.md |
-| E4 | **Network – global event delegation**: chapter level · nested scopes in "where it shows" rows (C) · the same rows as devices · beside the Reception tab · latency and compensation · the scope | network.html (round 3, C) | its own concept, not XR; NETWORK.md |
-| E5 | Scenes follow-ups: group label = id · events + choices in the address book · a show with several toons | epic-drafts `?s=706`, `?s=707`, `?s=708` | the scenes session's decisions D1–D3 |
+| E1 | Map as a view | unchanged | old |
+| E2 | XR at a place (geolocation) | unchanged | old |
+| E3 | Spores: generators and slots | the canvas is the deck's (#764); the trigger as in the demo | old – spores-demo.html `?d=gen` is current |
+| E4 | The network | now the Spores view, level by level | current – spores-view.html |
+| E5 | Scenes follow-ups | `event:<id>` decided | old |
+| E5b | "Fires on" | no sheet: the picker under the row's ⚡ slot | current – show.html `?v=1`, spores-view.html `?v=1` |
 
-## F. Concepts that still need the owner's words before a picture
-| # | Screen | Note |
+## F · Concepts
+| # | Screen | State |
 |---|---|---|
-| F1 | **Catalog + Library: one concept** – what each is, where they meet, how things move between them | note 7 |
-| F2 | **The one-look sheet**: every creator area and the deck editor side by side on the same kit | note 5 |
-| F3 | The scene page's contents (C5) | note 6 |
+| F1 | Catalog and Library as one concept | words |
+| F2 | The one-look sheet | done as kit-d.html (approved) |
+| F3 | The scene page's contents | words (C5) |
 
-**Count:** 9 + 7 + 14 + 8 + 5 + 3 = 46 screens (several with sub-views). Open for the owner: what to add or drop; the order to draw them; B1's place.
+## Pages outside the set
+| Page | What it is | State |
+|---|---|---|
+| kit-d.html | the kit in palette D, with your picks | approved |
+| show.html | the Show view, five ways to pick an event | settled by the Spores demo: the slot and the cable |
+| spores-view.html | the Spores view, level by level | drawn with the signal colours |
+| spores-demo.html | two chains played step by step | approved |
+| universe.html | the twelve kinds as one tree, production counts | for reading |
+| modules-dna.html | module · rig · slot · network | draft, six points open |
+
+**Count:** 10 + 7 + 15 + 8 + 6 + 3 = 49 screens. **Current: 3 · shape: 7 · old: 32 · words: 5 · done or dropped: 2.**

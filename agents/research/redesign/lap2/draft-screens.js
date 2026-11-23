@@ -68,11 +68,12 @@ const SW_LAST = [['smile','Riesen-Popstar','Characters · now'],['map','Map','Ma
 add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboard)',
   ['no search field (A4)', 'Alt Tab / Ctrl K / ⌘K, not ☰', 'no Views row on the cards (Views: ☰ only)',
    "one list: the deck's workspaces too, badged; Enter opens the deck there (A3b)",
-   'the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)'],
+   'the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)',
+   'the content has a max width, centred (1160px drawn)'],
   () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}
-  ${mk(1, 20, 62)}${mk(2, 1405, 30)}${mk(5, 700, 22)}${mk(3, 200, 412)}${ring(486, 467, 706, 160)}${mk(4, 478, 458)}
-  ${capn(14, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}
-  ${qcard(14, 664, "the foot", ['stays as today', 'goes – the ☰ menu holds it (A2)'], '', '17rem')}`);
+  ${mk(1, 146, 62)}${mk(2, 1405, 30)}${mk(5, 700, 22)}${mk(3, 300, 412)}${ring(528, 467, 580, 160)}${mk(4, 520, 458)}${mk(6, 126, 300)}
+  ${capn(140, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}
+  ${qcard(140, 664, "the foot", ['stays as today', 'goes – the ☰ menu holds it (A2)'], '', '17rem')}`);
 
 add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
   ["the deck not running: the browser asks once (its own dialog, scutoons-deck://)", 'the deck running: no prompt – it comes up on Scene, scene:avatar-home'],
@@ -150,11 +151,11 @@ add('B', 'B3', 'The four stage layouts + drop zones', "stage-zones.svelte + layo
   });
 
 add('B', 'B4', 'A panel taken full: a box over the blurred workspace', 'today: a view set to full (Views, the fourth state) on now/creator-1',
-  ['full is a box, not the whole window – the bar, the stage and the other panels stay behind it, blurred (press S: on and off)',
+  ['full is a box close to the edges of the window (the margin panels have today) – the bar, the stage and the other panels stay behind it, blurred (press S: on and off)',
    'blur belongs to this level only – the switcher and a panel taken full; panels and menus have none'],
   () => `${characters({ bar: { chevron: true } })}
-  <div class="dash over">${fp(84, 58, 1272, 760, RIG_TABS, RIG_BODY, { icons: `<span class="ic" title="Back to its place (Esc)">${ic('expand')}</span>` })}</div>
-  ${mk(1, 72, 46)}${mk(2, 700, 20)}`);
+  <div class="dash over">${fp(8, 8, 1424, 840, RIG_TABS, RIG_BODY, { icons: `<span class="ic" title="Back to its place (Esc)">${ic('expand')}</span>` })}</div>
+  ${mk(1, 560, 14)}${mk(2, 760, 14)}`);
 
 add('B', 'B5', 'The Info view', "the creator's Info (info-panel.svelte, built fa70cce3f) · deck Info (panels.rs)",
   ['hover text only: the Info view shows the name and description of what is under the pointer, nothing in the panels (H14)'],
@@ -287,7 +288,7 @@ add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)'
   ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
   <div class="abs" style="left:0;top:0;width:1600px;height:50px;transform:scale(.9);transform-origin:0 0;z-index:50" data-theme="night">${deckBarNew({ tabs: [], mode: false, wsNames: ['Scene','Rigging','Show'], wsOn: 0 })}</div>
-  ${mk(1, 560, 30)}${mk(2, 20, 62)}${mk(3, 722, 298)}
+  ${mk(1, 560, 30)}${mk(2, 146, 62)}${mk(3, 722, 298)}
   ${qcard(1010, 120, "Needs review (deck)", ['the box as in the creator', 'left out (dashed)'], '', '18rem')}`);
 add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
   ['the shared bar (A1)', 'Views: the ☰ menu\'s PANELS become Views (A2 / B1)', DKNOTE],

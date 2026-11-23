@@ -1,0 +1,111 @@
+<!-- status: draft for the owner's review, 2026-11-24 – the plan of lap 2 (epic #626), creator and deck. Not agreed yet: no tickets are filed and no code is written from it until the owner has reviewed it. Decisions: DECISIONS.md. Screens: SCREENS.md. The owner's words: NOTES.md. -->
+# Lap 2 – the plan (draft)
+
+## The goal
+One look and one shell for the creator and the deck, as decided on 2026-11-24: the approved kit everywhere, the same bar, menu and switcher in both apps, the two apps opening each other, and the Show's events picked at the row. A design and UX round.
+
+## The limits
+- **No fundamental refactoring.** The creator inside the deck's wasm (#764) and the spores canvas in the creator are not in this lap.
+- **Designs before code.** Every package is built from a picture that is drawn in the approved kit first.
+- **Both apps.** Every package names its creator side and its deck side. The deck side is the deck orchestrator's.
+- **Nothing a decision does not cover.** A package with an open point waits for your word or is cut from the run; no worker chooses for you.
+
+## The packages
+Each becomes one or a few tickets once you agree. Sizes and costs are set with the tickets.
+
+### P0 · The pictures (first, no code)
+Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 screens are still in the old palette, 7 have the right shape and old colours. Night and day.
+- **Follows:** kit-d.html, RULES H4, H10, H11, H13, H14, H15, DECISIONS.md.
+- **Done when:** every screen marked old or shape in SCREENS.md is current, each change against today numbered, nothing drawn that no decision covers.
+
+### P1 · The kit
+- **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged.
+- **Creator:** the tokens generated from the deck; the kit's components to the new look (tabs, chips and badges, icon buttons, the primary button, focus, selected rows); the colour-blind mode as a setting; the kit page.
+- **Size of the change in the web tools:** the accent is used in 201 places, lime in 36, the green in 23.
+- **Done when:** the kit page in both apps matches kit-d.html, and the style check fails on any colour outside the tokens.
+
+### P2 · The shell
+- **The bar:** item tabs · workspace row with its ⌄ always · undo, redo, Publish, account, ☰ as icons.
+- **The ☰ menu:** Views with Save workspace · Search · Settings · Docs · the build · the edit language. Views with the four states for every view, only here.
+- **The switcher:** over the blurred bar, stage and panels; no bar, no search field, no Views; a maximum width; one list for both apps in the same order.
+- **A panel taken full:** a box close to the window's edges over the blurred workspace.
+- **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
+- **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open. Blur does not exist in the deck today – how it is made is the deck orchestrator's choice.
+- **Fixes with it:** the workspace row that hides Map; Views reachable only from the dashboard.
+- **Done when:** A1–A9, B1, B4 and D1–D4 look and behave as drawn in both apps.
+
+### P3 · Thumbnails (#842, built and held)
+- The switcher's cards as full captures with the text over them.
+- Stills for scenes and places, made in the background, stored once and shared across systems.
+- **Deck:** takes a scene's still once it has settled and uploads it.
+- **Done when:** the switcher and the Library show real pictures for workspaces, scenes and places, and a second machine gets them without making them again.
+
+### P4 · The apps open each other
+- `scutoons-deck://` registered on Windows, macOS and Arch Linux; the last workspace and item kept per device on the server (#838 is built).
+- A card of the other app in the switcher opens it there.
+- "Edit in deck" / "Open in the deck" on assets, scenes, rigs and modules in the creator.
+- **Deck:** opens on the workspace and item it is handed; its own cards for the creator's workspaces.
+- **Done when:** A3b and D8 work on one machine with both apps installed.
+
+### P5 · The creator as an Electron app
+- A thin wrapper over the same code: `scutoons-creator://`, one instance, Windows, macOS, Arch Linux. The web version stays.
+- **Done when:** the installed creator opens, signs in, and P4's links work from it.
+
+### P6 · Not twice
+- "Import images" removed from the Map, the Catalog and Characters.
+- The creator's Rig panel without Bones and Clips: the model's line and "Open in the deck".
+- Images, sound, video and 3D in the creator as previews with "Edit in deck".
+- **Waits for your word:** the creator's Sound design workspace – goes, or becomes a preview.
+
+### P7 · The Show: events at the row (deck)
+- The row's ⚡ slot opens Find under it, with the pills This toon · Show · Universe. No "fires on" sheet.
+- A row may fire on several events; several rows may listen to one event.
+- Sources: a story event, another row's fire, a vote's result. Place, device, jobs and assets are listed greyed.
+- The tab "Nodes" is "Spores". The selected row has no thick left bar. The picker list gets its ground.
+- **One change to the stored show:** a row holds several events instead of one. It is the only change to stored data in this lap.
+- **Done when:** D3 behaves as show.html `?v=1` and spores-view.html `?v=1…3` show it.
+
+### P8 · Bugs and wording
+- The Map's stage at 0 px.
+- The 59 local style rules, the raw selects, the solid blue "Published" badges.
+- Wording: messages ending in "…", hard-coded texts, the translation dogma on the pages that miss it.
+
+## The order
+1. **P0** – the pictures. Nothing else starts before them.
+2. **P1** – the kit, the deck first because the tokens come from it.
+3. **P2** and **P8** side by side.
+4. **P3** and **P4**.
+5. **P5**, then **P6** and **P7**.
+
+## The night run
+- Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
+- The creator orchestrator briefs the creator side; the deck orchestrator the deck side and every push.
+- After each merge: the checks, and screenshots in the chat.
+- A package whose picture is not current does not start. A package with an open point does not start.
+- What needs you is collected in one list for the morning, not asked at night.
+
+## Not in lap 2
+- The creator inside the deck's wasm, and the spores canvas in the creator (#764).
+- Events from places, devices, jobs and assets firing a row – a plan of their own after this round.
+- The Reception view and the network's top level as a built view (#763) – the drafts stand.
+- Module, instrument and rig as one stored thing (MODULES-DNA.md) – the concept is not finished.
+- Trees across workspaces (TREES.md) – not decided.
+- XR at a place and Map as a view – owned by the scenes epic (#714, #482).
+
+## Open before the run
+These block a package. Each is in DECISIONS.md under its area.
+| Point | Blocks |
+|---|---|
+| The four layer names; Search and dialogs on the overlay level | P2 |
+| The switcher's maximum width (1160 px drawn) | P2 |
+| The workspace tab's own menu | P2 (B2) |
+| The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
+| A disabled primary button; the see-through grounds as redrawn | P1 |
+| The Sound design workspace: goes or a preview | P6 |
+| P0 as part of the night run, or drawn and reviewed by you before it | everything |
+
+These do not block the run; their screens stay out of it:
+- What the scene page edits (C5).
+- Catalog and Library as one concept (F1).
+- Where the 2D-first / 3D-first preference sits (C4).
+- The trees' open questions; the word "instrument"; MODULES-DNA.md points 2–7.
