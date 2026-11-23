@@ -134,7 +134,8 @@ A shape draws with a model instead of its placeholder when the module declares a
 "scutoons/3d/cloud-puff.glb" }`): the engine loads it through the platform's `AssetLoader` like any slot asset and hands it
 with the table (`Table::models`), the space reads its rest pose, fits it to the placeholder's metre (a puff centred, a
 segment on its foot) and draws it flat shaded in the instance's colour; without it (none named, not had, not readable, over
-20 000 triangles) the placeholder stands in. A model replaced in the library under the same path is drawn by a deck that has not cached the old one (the deck's library cache keeps a file it downloaded). The browser
+20 000 triangles) the placeholder stands in. A model replaced in the library under the same path is drawn from a deck's next load (the native deck checks a cached slot
+asset against the CDN once per load – library.rs `load_fresh`; offline its cached copy). The browser
 deck draws tables once it runs modules (#290).
 
 ## DSP units (`deck_module::dsp`)

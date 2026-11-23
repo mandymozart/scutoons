@@ -6,7 +6,7 @@
 # The thunder and the kick are samplers, each playing the sound its slot names at the sound's own pitch: the thunder held
 # for half a repeat, then fading, the kick a one-shot. A sound that cannot be had leaves its sampler silent (a log line).
 # The puffs are the model in the cloud's `puff` slot: scutoons/3d/cloud-puff.glb, a low-poly bubble (deck-space
-# `space::bubble`) the owner replaces in the library with a model of his own (a deck without the old one cached draws the new one).
+# `space::bubble`) the owner replaces in the library with a model of his own (a deck draws the new one from its next load).
 # TODO(#804): the sounds under scutoons/sounds/ are synthesized stand-ins (deck-native tests/stand_ins) until recordings
 # replace them under the same paths.
 # The production catalog carries this rig as `rig:item.cloud` (migration 2026-11-24-cloud-light-sandbox; the rows are

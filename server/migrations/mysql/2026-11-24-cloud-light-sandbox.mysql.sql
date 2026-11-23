@@ -12,9 +12,9 @@
 -- The files the rows name are library assets, not rows: scutoons/3d/cloud-puff.glb (the low-poly bubble, `cargo run -p
 -- deck-space --bin cloud-puff -- cloud-puff.glb`) and the two stand-in sounds (deck-native tests/stand_ins,
 -- `SAMPLER_OUT_DIR=<dir>` on its tests) are uploaded under those paths once; one replaced in the library (a new version
--- under the same path) is what a deck loads from then on – a deck that downloaded the old file keeps its cached copy until
--- that cache is cleared (deck-native library.rs `file`: downloaded once). A file that is not there leaves the cloud its
--- placeholder puffs, a sampler silent.
+-- under the same path) is what a deck loads from then on: a deck checks a cached slot asset against the CDN once per load
+-- (deck-native library.rs `load_fresh`, a conditional GET) and takes the new bytes; offline it plays its cached copy. A
+-- file that is not there leaves the cloud its placeholder puffs, a sampler silent.
 -- The modules: module:cloud (2026-11-22-factory-cloud, its slot by 2026-11-24-update-cloud-puff-slot), module:sampler
 -- (2026-11-22-factory-sampler) and module:mixer (2026-11-21-factory-audio-modules) – compiled by an admin (Compile).
 -- What it touches: catalog_instruments, catalog_rigs: one row each, INSERT IGNORE – an existing `cloud_storm` / `item.cloud`
