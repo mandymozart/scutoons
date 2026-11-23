@@ -1261,8 +1261,7 @@ page"). The toon settings have no cover.
 - **The area's tabs** Characters · Moods · Wanted images (`character-area-tabs.svelte`, the toon tabs' look; links with
   `?tab=`). **Characters** = cards (`character-cards.svelte`: the neutral avatar, name, toons, the personas' faces,
   "missing images"; search, toon filter, a missing-images square); a card opens the character (`?id=`).
-- **A character** (`character-editor.svelte`): the head (avatar = the character level, Import images as an icon square,
-  Delete), the **personas** and the **looks** as the same face row (`face-row.svelte`: picture + word, sideways, edge to
+- **A character** (`character-editor.svelte`): the head (avatar = the character level, Delete), the **personas** and the **looks** as the same face row (`face-row.svelte`: picture + word, sideways, edge to
   edge with the padding inside, a fade at the edge that has more – `edgeFade`; `+` turns into a name field), the
   **stage** (`character-stage.svelte`): one picture of persona › look › mood · view (the fallback rule's picture, marked
   "not drawn yet" when it is not the look's own), the views as three icon squares at the end of the look row (face ·

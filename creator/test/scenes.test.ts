@@ -1,10 +1,9 @@
-// The scene browser's logic (#490): rows, filters (toon incl. "no toon", one search, Draft / Published), the facts in
-// words and what a Publish answered (422 problems, 503 unreachable).
+// The scene browser's logic (#490): rows, the facts in words and what a Publish answered (422 problems, 503 unreachable).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { type SceneListEntry } from '@scutoons/api';
 import { entityLabel } from '../../shared/ui/src/entity-label.ts';
-import { NO_TOON, fillWords, filterRows, labelIn, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons } from '../src/lib/editor/scenes.ts';
+import { fillWords, labelIn, publishOutcome, sceneHref, sceneRows, sceneTitle } from '../src/lib/editor/scenes.ts';
 import { placeHref } from '../src/lib/editor/place-href.ts';
 
 const nave = {
@@ -45,28 +44,7 @@ test('rows: deck scenes by name, with their state and facts (an old chapter grou
 	assert.deepEqual(rows[2].facts.where, { kind: 'placeholder', id: 'where', fill: ['location'], label: { en: 'where', de: 'wo' }, preview: null });
 });
 
-test('filters: a toon, no toon, the state, one search', () => {
-	const ids = (filter: Partial<Parameters<typeof filterRows>[1]>) => filterRows(rows, { query: '', toon: '', state: 'all', ...filter }).map((r) => r.id);
-	assert.deepEqual(ids({}), ['crypt', 'nave', 'stage']);
-	assert.deepEqual(ids({ toon: 'toptoy' }), ['crypt']);
-	assert.deepEqual(ids({ toon: NO_TOON }), ['stage']);
-	assert.deepEqual(ids({ state: 'published' }), ['crypt']);
-	assert.deepEqual(ids({ state: 'draft' }), ['nave', 'stage'], 'Draft = not published yet, or a newer draft waits');
-	assert.deepEqual(ids({ query: 'cathedral' }), ['nave'], 'the set');
-	assert.deepEqual(ids({ query: 'incense' }), ['stage'], 'a placeholder\'s filter');
-	assert.deepEqual(ids({ query: 'CATPOPE' }), ['nave'], 'a filler, case-blind');
-	assert.deepEqual(ids({ query: 'crypt', toon: 'catpope' }), ['crypt']);
-});
-
-test('the toon filter offers the scenes\' toons and "no toon"', () => {
-	assert.deepEqual(sceneToons(rows), { toons: ['catpope', 'toptoy'], noToon: true });
-	assert.deepEqual(sceneToons(rows.slice(0, 2)), { toons: ['catpope', 'toptoy'], noToon: false });
-});
-
-test('the row\'s hint and the facts in words', () => {
-	assert.equal(rowHint(rows[1].facts), 'cathedral · spot_altar · catpope');
-	assert.equal(rowHint(rows[2].facts), '‹where› · ‹left› · ‹crowd›');
-	assert.equal(rowHint(rows[0].facts, (ref) => ref.toUpperCase()), 'LOCATION:CRYPT');
+test('the facts in words', () => {
 	assert.equal(fillWords({ kind: ['character', 'persona'], ref: [], parent: 'character:catpope' }, { of: 'of', below: 'below' }), 'character | persona below character:catpope');
 	assert.equal(fillWords({ kind: ['item'], ref: ['item:incense'], parent: null }, { of: 'aus', below: 'unter' }), 'item aus item:incense');
 	assert.equal(labelIn({ en: 'where', de: 'wo' }, 'de'), 'wo');

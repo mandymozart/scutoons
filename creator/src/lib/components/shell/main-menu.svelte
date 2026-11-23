@@ -48,7 +48,8 @@
 	});
 
 	const SHORTCUTS: [string, () => string][] = [
-		['Alt Space · Ctrl K', () => m['shell.key_find']()],
+		['Alt Space', () => m['shell.key_find']()],
+		['Ctrl K', () => m['shell.key_switcher']()],
 		['Ctrl S', () => m['shell.ws_save']()],
 		['Ctrl ,', () => m['shell.key_settings']()],
 		['Alt V', () => m['shell.key_views']()],

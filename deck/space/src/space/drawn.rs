@@ -2,12 +2,15 @@
 //! the core's placeholder shapes (`deck_module::instances::shape`), one instanced draw per mesh for all tables. A table
 //! stands at its module node's place: a node of a holder's rig (its id under the member's prefix, the rule `Cast::of`
 //! uses) at that member's feet, turned as its motion module turns it; any other at the scene's spot on the floor.
-//! Instance positions are metres from that place. A table whose node names a model in a `model` slot called after a
-//! shape (the cloud's `puff`) draws that shape with the model instead – fitted to the placeholder's metre (`fit`), flat
-//! shaded like it; a model that cannot be read leaves the placeholder.
+//! Instance positions are metres from that place. A table whose node names models in a `model` slot draws with them
+//! instead of the placeholder: the instances of the shape the slot is named after (the cloud's `puff`), and those whose
+//! `look` names the slot (bamboo's `thin` internodes). Each draws one model of the set (`pick`: by its look's group – a
+//! stalk's segments one model – or else by its place among the table's instances of its shape, so it keeps its model while
+//! the table lives), fitted to the placeholder (`fit`), flat shaded like it; a part the model brings itself (`STANDS_IN`, a
+//! node ring) is left out. A model that cannot be read leaves the set; an empty set draws the placeholders.
 use super::Space;
 use crate::instances::Table;
-use deck_module::instances::shape;
+use deck_module::instances::{look, shape};
 use glam::{Quat, Vec3};
 use std::sync::Arc;
 
@@ -35,13 +38,22 @@ pub struct DrawnInst {
     pub colour: [f32; 4],
 }
 
-/// One table on this stage: whose it is (a cast member's index; none = the scene's) and, per shape, the model mesh that
-/// draws it (an index into `Drawn::models`).
+/// One table on this stage: whose it is (a cast member's index; none = the scene's), its slots' sets and, per shape,
+/// the set of the slot named after it.
 #[derive(Debug)]
 struct Placed {
     table: Arc<Table>,
     owner: Option<usize>,
-    models: [Option<usize>; SHAPES],
+    sets: Vec<Set>,
+    by_shape: [Option<usize>; SHAPES],
+}
+
+/// A `model` slot's set as meshes: per model, per shape the mesh fitted for that shape (an index into `Drawn::models`;
+/// none: not needed – a slot named after a shape fits its models for that shape only).
+#[derive(Debug)]
+struct Set {
+    slot: u32,
+    models: Vec<[Option<usize>; SHAPES]>,
 }
 
 /// The tables on this stage and the models their shapes draw with.
@@ -91,17 +103,35 @@ impl Space {
         let placed = tables
             .into_iter()
             .map(|table| {
+                let mut sets: Vec<Set> = Vec::new();
                 let mut by_shape = [None; SHAPES];
-                for (s, bytes) in table.models.iter().filter(|(s, _)| (*s as usize) < SHAPES) {
-                    match model_mesh(bytes, *s) {
-                        Ok(mesh) => {
-                            by_shape[*s as usize] = Some(models.len());
-                            models.push(mesh);
+                for m in &table.models {
+                    let named = m.shape.filter(|s| (*s as usize) < SHAPES);
+                    let k = match sets.iter().position(|x| x.slot == m.slot) {
+                        Some(k) => k,
+                        None => {
+                            sets.push(Set { slot: m.slot, models: Vec::new() });
+                            sets.len() - 1
                         }
-                        Err(e) => tracing::warn!("node '{}': its {} model can't be drawn ({e:#}) – the placeholder stands in", table.node, shape::NAMES[*s as usize]),
+                    };
+                    if let Some(s) = named {
+                        by_shape[s as usize] = Some(k);
+                    }
+                    let fitted: anyhow::Result<Vec<(usize, Vec<ShapeVertex>)>> =
+                        (0..SHAPES as u32).filter(|s| named.is_none_or(|x| x == *s)).map(|s| Ok((s as usize, model_mesh(&m.bytes, s)?))).collect();
+                    match fitted {
+                        Ok(fitted) => {
+                            let mut by = [None; SHAPES];
+                            for (s, mesh) in fitted {
+                                by[s] = Some(models.len());
+                                models.push(mesh);
+                            }
+                            sets[k].models.push(by);
+                        }
+                        Err(e) => tracing::warn!("node '{}': a model of its slot {} can't be drawn ({e:#}) – the set goes without it", table.node, m.slot),
                     }
                 }
-                Placed { owner: owner(&table.node), table, models: by_shape }
+                Placed { owner: owner(&table.node), table, sets, by_shape }
             })
             .collect();
         self.drawn.tables = placed;
@@ -128,7 +158,11 @@ impl Space {
         for t in &self.drawn.tables {
             let (at, turn) = self.drawn_place(t.owner);
             t.table.with(|rows| {
+                let mut nth = [0u32; SHAPES];
                 for r in rows.iter().filter(|r| (r.shape as usize) < SHAPES) {
+                    let s = r.shape as usize;
+                    let at_shape = nth[s];
+                    nth[s] += 1;
                     let p = Vec3::from_array(r.position);
                     let q = Quat::from_array(r.rotation);
                     if !p.is_finite() || !q.is_finite() || !r.scale.iter().chain(&r.colour).all(|v| v.is_finite()) {
@@ -136,7 +170,20 @@ impl Space {
                     }
                     let q = turn * if q.length_squared() > 1e-12 { q.normalize() } else { Quat::IDENTITY };
                     let w = at + turn * p;
-                    let mesh = t.models[r.shape as usize].map_or(r.shape as usize, |k| SHAPES + k);
+                    let set = match look::slot(r.look) {
+                        Some(slot) => t.sets.iter().find(|x| x.slot == u32::from(slot)),
+                        None => t.by_shape[s].map(|k| &t.sets[k]),
+                    };
+                    let models = set.map_or(&[][..], |x| x.models.as_slice());
+                    let mesh = if models.is_empty() {
+                        s
+                    } else if r.look & look::STANDS_IN != 0 {
+                        continue;
+                    } else {
+                        let group = look::group(r.look);
+                        let k = pick(if group > 0 { group } else { at_shape }, models.len());
+                        models[k][s].map_or(s, |m| SHAPES + m)
+                    };
                     out.push(DrawnInst { position: [w.x, w.y, w.z, mesh as f32], rotation: q.to_array(), scale: [r.scale[0], r.scale[1], r.scale[2], 0.0], colour: r.colour });
                 }
             });
@@ -149,6 +196,16 @@ impl Space {
             first += n;
         }
     }
+}
+
+/// Which model of a set of `n` the `nth` instance of a shape (or the group `nth`) draws with: steady for that place in
+/// the table, the set's models mixed rather than in turn.
+pub fn pick(nth: u32, n: usize) -> usize {
+    let mut z = u64::from(nth).wrapping_add(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^= z >> 31;
+    (z % n.max(1) as u64) as usize
 }
 
 /// The placeholder shapes in one vertex list, and each shape's vertex range in it (by its index).
@@ -186,14 +243,20 @@ pub fn model_mesh(bytes: &[u8], shape: u32) -> anyhow::Result<Vec<ShapeVertex>> 
     Ok(flat(fit(tris, shape)))
 }
 
-/// A model's triangles where the shape's placeholder stands: its longest side 1 m; a puff centred on its place, a segment
-/// standing on it (its foot at 0, centred across).
+/// A model's triangles where the shape's placeholder stands: a puff centred on its place, its longest side 1 m; a
+/// segment standing on its foot at 0, stretched to the placeholder's 1 m along its axis (y) and 1 m across (its widest
+/// side, centred), so the instance's size is the segment's length and width.
 fn fit(mut tris: Vec<[Vec3; 3]>, shape: u32) -> Vec<[Vec3; 3]> {
     let (lo, hi) = tris.iter().flatten().fold((Vec3::INFINITY, Vec3::NEG_INFINITY), |(l, h), p| (l.min(*p), h.max(*p)));
-    let size = (hi - lo).max_element();
-    let k = if size > 1e-6 { 1.0 / size } else { 1.0 };
+    let inv = |x: f32| if x > 1e-6 { 1.0 / x } else { 1.0 };
     let middle = (lo + hi) * 0.5;
-    let origin = if shape == self::shape::SEGMENT { Vec3::new(middle.x, lo.y, middle.z) } else { middle };
+    let size = hi - lo;
+    let (origin, k) = if shape == self::shape::SEGMENT {
+        let across = inv(size.x.max(size.z));
+        (Vec3::new(middle.x, lo.y, middle.z), Vec3::new(across, inv(size.y), across))
+    } else {
+        (middle, Vec3::splat(inv(size.max_element())))
+    };
     for p in tris.iter_mut().flatten() {
         *p = (*p - origin) * k;
     }
@@ -442,13 +505,17 @@ mod tests {
         Space::new(&graph, 0, &scene.being, std::path::Path::new("/nowhere"), super::super::portrait::Portraits::manual())
     }
 
+    fn named(slot: u32, shape: u32, bytes: Arc<[u8]>) -> crate::instances::Model {
+        crate::instances::Model { slot, shape: Some(shape), bytes }
+    }
+
     /// a table whose node names a puff model draws its puffs with it – fitted to a metre – and its other shapes as the
     /// placeholders; a model that cannot be read leaves the placeholder
     #[test]
     fn a_shapes_model_draws_it_instead_of_the_placeholder() {
         let mut space = space();
         let big = super::super::bubble::glb();
-        let t = Table::with_models("sky", 4, vec![(shape::PUFF, big.into()), (shape::SEGMENT, Arc::from(&b"no glb"[..]))]);
+        let t = Table::with_models("sky", 4, vec![named(0, shape::PUFF, big.into()), named(1, shape::SEGMENT, Arc::from(&b"no glb"[..]))]);
         t.publish(&[Instance::new(shape::PUFF, [0.0; 3]), Instance::new(shape::SEGMENT, [0.0; 3]), Instance::new(shape::PUFF, [1.0, 0.0, 0.0])]);
         space.set_tables(vec![t]);
         assert_eq!((space.drawn.meshes(), space.drawn.version), (SHAPES + 1, 1), "the puff's model; the broken segment model left out");
@@ -464,11 +531,111 @@ mod tests {
         assert_eq!((space.drawn.meshes(), space.drawn.version), (SHAPES, 2), "the next scene without it");
     }
 
+    /// a shape's set of models: each instance picks one, steadily by its place among the shape's instances (moving or
+    /// a split keeps it), the set's models mixed; a broken model leaves the set, an empty set draws the placeholder
     #[test]
-    fn a_segments_model_stands_on_its_foot() {
+    fn each_instance_picks_one_model_of_the_set() {
+        let mut space = space();
+        let bubble: Arc<[u8]> = super::super::bubble::glb().into();
+        let models = vec![named(0, shape::PUFF, bubble.clone()), named(0, shape::PUFF, Arc::from(&b"no glb"[..])), named(0, shape::PUFF, bubble)];
+        let t = Table::with_models("sky", 16, models);
+        let puffs = |dx: f32| -> Vec<Instance> { (0..12).map(|i| Instance::new(shape::PUFF, [i as f32 * dx, 0.0, 0.0])).collect() };
+        let mut rows = vec![Instance::new(shape::SEGMENT, [0.0; 3])];
+        rows.extend(puffs(1.0));
+        t.publish(&rows);
+        space.set_tables(vec![t.clone()]);
+        assert_eq!(space.drawn.meshes(), SHAPES + 2, "two of the three models read");
+        let meshes = |space: &Space| {
+            let mut spans = vec![(0, 0); space.drawn.meshes()];
+            let mut out = Vec::new();
+            space.write_drawn(&mut out, &mut spans);
+            let mut by_x: Vec<(i32, u32)> = out.iter().filter(|i| i.position[3] as usize >= SHAPES).map(|i| ((i.position[0] * 100.0) as i32, i.position[3] as u32)).collect();
+            by_x.sort_unstable();
+            (spans, by_x.into_iter().map(|(_, m)| m).collect::<Vec<_>>())
+        };
+        let (spans, first) = meshes(&space);
+        assert_eq!(spans[shape::SEGMENT as usize].1, 1, "a shape without models: the placeholder");
+        assert!(spans[SHAPES].1 > 0 && spans[SHAPES + 1].1 > 0 && spans[SHAPES].1 + spans[SHAPES + 1].1 == 12, "a mix of both: {spans:?}");
+        t.publish(&{
+            let mut moved = vec![Instance::new(shape::SEGMENT, [0.0; 3])];
+            moved.extend(puffs(1.5));
+            moved
+        });
+        assert_eq!(meshes(&space).1, first, "every puff keeps its model when the cloud moves or splits");
+        assert_eq!((0..12).map(|i| pick(i, 2)).collect::<Vec<_>>(), (0..12).map(|i| pick(i, 2)).collect::<Vec<_>>());
+        assert_eq!(pick(5, 1), 0);
+    }
+
+    /// the owner's Tripo models (one textured material, `KHR_materials_volume` and `FB_ngon_encoding` used, not
+    /// required): their triangles read, fitted to a metre and centred; the extensions and the texture are not drawn
+    #[test]
+    fn the_owners_blob_clouds_read_as_puffs() {
+        for (bytes, tris) in [(&include_bytes!("../../tests/fixtures/cloud-three-blobs.glb")[..], 4118), (&include_bytes!("../../tests/fixtures/cloud-four-blobs.glb")[..], 2178)] {
+            let mesh = model_mesh(bytes, shape::PUFF).unwrap();
+            assert_eq!(mesh.len(), tris * 3);
+            let (lo, hi) = mesh.iter().fold((Vec3::INFINITY, Vec3::NEG_INFINITY), |(l, h), v| (l.min(v.pos.into()), h.max(v.pos.into())));
+            assert!(((hi - lo).max_element() - 1.0).abs() < 1e-4 && (lo + hi).length() < 1e-4, "a metre, centred: {lo} … {hi}");
+        }
+    }
+
+    /// segments whose look names a slot (bamboo's internodes) draw its models: a group's segments (a stalk) one model,
+    /// the groups mixed; the parts that stand in for the model (the node rings) are left out while the set has models,
+    /// drawn with everything else as placeholders while it is empty
+    #[test]
+    fn a_stalks_segments_pick_one_internode_and_its_rings_step_aside() {
+        use deck_module::AssetSlot;
+        let (thin, thick) = (AssetSlot(0), AssetSlot(1));
+        let stalks = |groups: u32| -> Vec<Instance> {
+            let mut rows = Vec::new();
+            for g in 1..=groups {
+                for k in 0..6 {
+                    rows.push(Instance::new(shape::SEGMENT, [g as f32, k as f32, 0.0]).looks(thin, g));
+                    rows.push(Instance::new(shape::SEGMENT, [g as f32, k as f32 + 0.9, 0.0]).standing_in(thin));
+                }
+                rows.push(Instance::new(shape::SEGMENT, [g as f32, 0.0, 5.0]).looks(thick, g));
+                rows.push(Instance::new(shape::PUFF, [g as f32, 6.0, 0.0]));
+            }
+            rows
+        };
+        let bubble: Arc<[u8]> = super::super::bubble::glb().into();
+        let model = |slot| crate::instances::Model { slot, shape: None, bytes: bubble.clone() };
+        let mut space = space();
+        let t = Table::with_models("grove", 256, vec![model(0), model(0)]);
+        t.publish(&stalks(10));
+        space.set_tables(vec![t]);
+        assert_eq!(space.drawn.meshes(), SHAPES + 2 * SHAPES, "a slot named after no shape: each model fitted for every shape");
+        let mut spans = vec![(0, 0); space.drawn.meshes()];
+        let mut out = Vec::new();
+        space.write_drawn(&mut out, &mut spans);
+        assert_eq!(spans[shape::SEGMENT as usize].1, 10, "no rings; the thick stalks (an empty set) as placeholders");
+        assert_eq!(spans[shape::PUFF as usize].1, 10, "the crowns");
+        let mut by_stalk = std::collections::BTreeMap::<i32, std::collections::BTreeSet<u32>>::new();
+        for i in out.iter().filter(|i| i.position[3] as usize >= SHAPES) {
+            by_stalk.entry(i.position[0] as i32).or_default().insert(i.position[3] as u32);
+        }
+        assert_eq!(by_stalk.len(), 10);
+        assert!(by_stalk.values().all(|m| m.len() == 1), "a stalk's six segments one model: {by_stalk:?}");
+        let used: std::collections::BTreeSet<u32> = by_stalk.values().flatten().copied().collect();
+        assert_eq!(used.len(), 2, "the grove a mix of both");
+        assert_eq!(out.iter().filter(|i| i.position[3] as usize >= SHAPES).count(), 60);
+
+        // an empty set: every segment and ring as today
+        let mut bare = super::tests::space();
+        let t = Table::new("grove", 256);
+        t.publish(&stalks(10));
+        bare.set_tables(vec![t]);
+        let mut spans = vec![(0, 0); bare.drawn.meshes()];
+        bare.write_drawn(&mut out, &mut spans);
+        assert_eq!(spans, [(0, 10), (10, 130)], "the placeholders, rings included");
+    }
+
+    #[test]
+    fn a_segments_model_stands_on_its_foot_stretched_to_it() {
         let mesh = model_mesh(&super::super::bubble::glb(), shape::SEGMENT).unwrap();
-        let lo = mesh.iter().fold(Vec3::INFINITY, |l, v| l.min(v.pos.into()));
-        assert!(lo.y.abs() < 1e-5, "{lo}");
+        let (lo, hi) = mesh.iter().fold((Vec3::INFINITY, Vec3::NEG_INFINITY), |(l, h), v| (l.min(v.pos.into()), h.max(v.pos.into())));
+        assert!(lo.y.abs() < 1e-5 && (hi.y - 1.0).abs() < 1e-5, "its foot at 0, a metre long: {lo} … {hi}");
+        let tall = fit(vec![[Vec3::ZERO, Vec3::new(0.2, 0.0, 0.0), Vec3::new(0.0, 3.0, 0.1)]], shape::SEGMENT);
+        assert_eq!(tall[0], [Vec3::new(-0.5, 0.0, -0.25), Vec3::new(0.5, 0.0, -0.25), Vec3::new(-0.5, 1.0, 0.25)], "1 m along, 1 m across");
         let fit = fit(vec![[Vec3::ZERO, Vec3::new(4.0, 0.0, 0.0), Vec3::new(0.0, 2.0, 0.0)]], shape::PUFF);
         assert_eq!(fit[0], [Vec3::new(-0.5, -0.25, 0.0), Vec3::new(0.5, -0.25, 0.0), Vec3::new(-0.5, 0.25, 0.0)]);
     }

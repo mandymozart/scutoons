@@ -1,5 +1,5 @@
-//! `cloud` – a low-poly cloud floating above its place: a cluster of puffs (each the model in the slot `puff`, a .glb from
-//! the library; the core's lumpy placeholder while there is none) that drifts with the wind, breathes a little and wraps
+//! `cloud` – a low-poly cloud floating above its place: a cluster of puffs (each one of the models in the slot `puff`, .glb files
+//! from the library; the core's lumpy placeholder while there is none) that drifts with the wind, breathes a little and wraps
 //! back when it has drifted past its range. It can rain (drops falling from its underside to the place), split into smaller sub-clouds that drift apart and
 //! come back together, and grow and shrink; a new size glides. Its layout is the node's `seed`; every step rewrites its
 //! instance table, so the table is the same on every deck.
@@ -55,7 +55,7 @@ const KICK_KEY: f32 = 36.0;
 #[port(output, control, name = "red", doc = "the cloud's colour, red 0 … 1")]
 #[port(output, control, name = "green", doc = "the cloud's colour, green 0 … 1")]
 #[port(output, control, name = "blue", doc = "the cloud's colour, blue 0 … 1")]
-#[asset(name = "puff", kind = "model", max_bytes = 4194304, doc = "the puff's shape: a low-poly model (.glb, at most 4 MiB, fitted to a metre); none: the placeholder")]
+#[asset(name = "puff", kind = "model", max_bytes = 4194304, doc = "the puffs' shapes: a set of low-poly models (.glb, each at most 4 MiB, fitted to a metre), each puff one of them; none: the placeholder")]
 #[preset(name = "storm", doc = "a dark, wide cloud in a strong wind, raining hard", values(puffs = 18.0, size = 6.0, drift = 2.5, light = 35.0, rain = 0.8))]
 pub struct Cloud {
     #[param(range = 3.0..24.0, default = 9.0, doc = "how many puffs")]

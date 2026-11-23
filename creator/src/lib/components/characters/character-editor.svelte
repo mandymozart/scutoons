@@ -95,7 +95,6 @@
 	let mood = $state('neutral');
 	let pictureView = $state<CharacterView>('portrait');
 	/** set after an import: previews of files with new bytes at the same path load again */
-	let bust = $state(0);
 
 	const edits = lookEdits(() => ({ registry, moodsDoc, requestsDoc, moods, requests, character: id, persona: currentPersona!, lookId, languages, email: session.user?.email ?? null }));
 	const personaLabel = (p: string) => (p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, textLanguage.names, [source, ...languages]) || p);
@@ -106,12 +105,6 @@
 	const modelSource = $derived(character ? personaModelSource(character, personaId, lookId) : { path: '', fallback: true });
 	const attached = $derived<'look' | 'persona' | null>(modelSource.fallback ? null : currentLook?.model?.trim() ? 'look' : 'persona');
 	$effect(() => void model.read(modelSource.fallback ? '' : modelSource.path));
-	/** a clip played from the Rig tab: the 3D place shows, wherever it is */
-	function playClip(clip: number) {
-		model.play(clip);
-		const state = shell.floats?.stateOf('3d');
-		if (state === 'hidden' || state === 'panel') shell.open('3d');
-	}
 
 	function pickPersona(p: string) {
 		if (p !== personaId) {
@@ -167,10 +160,7 @@
 	{#if character && currentPersona}
 		<CharacterInspector
 			{registry}
-			{moodsDoc}
-			{requestsDoc}
 			{moods}
-			{requests}
 			{character}
 			persona={currentPersona}
 			{lookId}
@@ -178,7 +168,6 @@
 			{source}
 			{toons}
 			{edits}
-			bind:bust
 			kanon={(l) => ({ state: kanon.state(subjectOf(l)), open: kanonLevel === l })}
 			onpersona={pickPersona}
 			onlook={(l) => (look = l)}
@@ -201,7 +190,7 @@
 {#snippet sheetTab()}
 	{#if character && currentLook}
 		<div class="view-box" data-testid="character-view-sheet">
-			<CharacterStage {character} persona={personaId} look={currentLook} {moods} {mood} view={pictureView} {bust} />
+			<CharacterStage {character} persona={personaId} look={currentLook} {moods} {mood} view={pictureView} />
 		</div>
 	{/if}
 {/snippet}
@@ -216,10 +205,10 @@
 
 {#snippet expressionsTab()}
 	{#if character && currentLook}
-		<MoodStrip {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view={pictureView} {bust} />
+		<MoodStrip {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view={pictureView} />
 		<div class="grid-area" data-testid="character-expressions">
 			{#key `${personaId}/${lookId}`}
-				<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} {bust} />
+				<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} />
 			{/key}
 		</div>
 		<Section id="character-mood-words" label={m['shell.panel_vocabulary']()} open={false}>
@@ -230,7 +219,7 @@
 
 {#snippet rigTab()}
 	{#if character && currentPersona && currentLook}
-		<CharacterRigPanel {registry} {character} persona={currentPersona} look={currentLook} {edits} {bust} {model} onplay={playClip} />
+		<CharacterRigPanel {registry} {character} persona={currentPersona} look={currentLook} {edits} {model} />
 	{/if}
 {/snippet}
 

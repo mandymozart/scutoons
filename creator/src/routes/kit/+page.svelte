@@ -15,7 +15,6 @@
 		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: 'Whatever is selected', essential: true },
 		{ id: 'problems', name: 'Problems', icon: 'alert-triangle', about: 'Errors and warnings' },
 		{ id: 'library', name: 'Library', icon: 'grid', about: 'Every asset of the scope', size: { w: 26, h: 18 } },
-		{ id: 'wanted', name: 'Wanted', icon: 'image', about: 'What is missing' },
 		{ id: 'info', name: 'Info', icon: 'info', about: 'The control under the pointer' }
 	];
 	const PANELS: PanelSpec[] = [
@@ -32,7 +31,7 @@
 		},
 		{ id: 'outline', name: 'Outline', icon: 'list', about: '', place: at('top-left', 0, 0), size: { w: 20, h: 'fill' }, min: { w: 12, h: 8 }, tabs: ['outline', 'history'] },
 		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'problems'] },
-		{ id: 'library', name: 'Library', icon: 'grid', about: '', place: at('bottom-left', 21, 0), size: { w: 'fill', h: 16 }, min: { w: 20, h: 8 }, tabs: ['library', 'wanted', 'info'] }
+		{ id: 'library', name: 'Library', icon: 'grid', about: '', place: at('bottom-left', 21, 0), size: { w: 'fill', h: 16 }, min: { w: 20, h: 8 }, tabs: ['library', 'info'] }
 	];
 	const WORKSPACES = [
 		{ id: 'scene', label: 'Scene' },
@@ -155,11 +154,6 @@
 								<div class="tile"><span class="art"></span>{name}</div>
 							{/each}
 						</div>
-					{:else if id === 'wanted'}
-						<ul class="list">
-							<li>Catpope · sad mood</li>
-							<li>Harbour · night look</li>
-						</ul>
 					{:else}
 						<p class="note">Point at a control to read what it does.</p>
 					{/if}

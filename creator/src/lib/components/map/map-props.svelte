@@ -22,7 +22,6 @@
 		publishedIds,
 		onselect,
 		view,
-		bust = 0,
 		characters = []
 	}: {
 		/** the registry's characters (a region's representative) */
@@ -37,8 +36,6 @@
 		onselect: (selection: MapSelection) => void;
 		/** the builder's canvas view (a place's "Use the current view") */
 		view: MapViewport;
-		/** set after an import (a timestamp): the place image's preview loads again */
-		bust?: number;
 	} = $props();
 
 	const place = $derived(selection?.kind === 'place' ? (map.locations.find((p) => p.id === selection.id) ?? null) : null);
@@ -50,7 +47,7 @@
 
 <div class="props" data-testid="map-props">
 	{#if place}
-		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} {view} {bust} />
+		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} {view} />
 	{:else if route}
 		<RouteProps {doc} {map} {route} {toons} {languages} locked={publishedIds.routes.has(route.id)} {onselect} />
 	{:else if layer}

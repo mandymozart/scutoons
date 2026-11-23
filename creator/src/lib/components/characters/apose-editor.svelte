@@ -14,14 +14,11 @@
 		character,
 		persona,
 		look,
-		bust = 0,
 		onchange
 	}: {
 		character: string;
 		persona: string;
 		look: CharacterLook;
-		/** set after an import (a timestamp): previews load again */
-		bust?: number;
 		/** a file picked (a CDN-root path) or cleared (undefined) */
 		onchange: (path: string | undefined) => void;
 	} = $props();
@@ -33,7 +30,6 @@
 		value={look.apose?.path?.trim() || undefined}
 		label={m['creator.characters_apose']()}
 		place="characters/{conventionName(character, persona)}/"
-		{bust}
 		{onchange}
 		testid="apose-{persona}-{look.id}-slot"
 	/>

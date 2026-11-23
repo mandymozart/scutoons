@@ -5,7 +5,7 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
 	import { Section, Toggle } from '@scutoons/ui/editor';
-	import { characterImage, lookLabel, lookPortraitMoods, pickText, REGULAR_PERSONA, type AssetRequests, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
+	import { characterImage, lookLabel, lookPortraitMoods, pickText, REGULAR_PERSONA, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { cleanText } from '$lib/editor/character-form.ts';
 	import { isKnownMissing, type ToonInfo } from '$lib/editor/characters.ts';
@@ -18,7 +18,6 @@
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 	import FaceRow from '$lib/components/characters/face-row.svelte';
 	import KanonSquare from '$lib/components/characters/kanon-square.svelte';
-	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import CharacterIdentity from '$lib/components/characters/character-identity.svelte';
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
@@ -29,10 +28,7 @@
 	 */
 	let {
 		registry,
-		moodsDoc,
-		requestsDoc,
 		moods,
-		requests,
 		character,
 		persona,
 		lookId,
@@ -40,7 +36,6 @@
 		source,
 		toons,
 		edits,
-		bust = $bindable(0),
 		kanon,
 		onpersona,
 		onlook,
@@ -52,10 +47,7 @@
 		onremove
 	}: {
 		registry: ContentDoc;
-		moodsDoc: ContentDoc;
-		requestsDoc: ContentDoc;
 		moods: MoodVocabulary;
-		requests: AssetRequests | null;
 		character: RegistryCharacter;
 		persona: CharacterPersona;
 		lookId: string;
@@ -63,7 +55,6 @@
 		source: string;
 		toons: ToonInfo[];
 		edits: LookEdits;
-		bust?: number;
 		/** each level's Kanon state, and which one the Kanon tab shows */
 		kanon: (level: Level) => { state: KanonState; open: boolean };
 		onpersona: (id: string) => void;
@@ -104,7 +95,6 @@
 			<span class="name" data-testid="character-title">{shownCharacterName(character)}</span>
 			<span class="id">{character.id}</span>
 		</span>
-		<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust compact />
 		<button type="button" class="ib" onclick={onremove} title={m['creator.characters_remove']()} aria-label={m['creator.characters_remove']()} data-testid="remove-character"><Icon name="trash-2" /></button>
 	</div>
 

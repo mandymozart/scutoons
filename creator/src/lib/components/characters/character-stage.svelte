@@ -16,8 +16,7 @@
 		persona,
 		look,
 		mood = 'neutral',
-		view = 'portrait',
-		bust = 0
+		view = 'portrait'
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -25,12 +24,10 @@
 		moods: MoodVocabulary;
 		mood?: string;
 		view?: CharacterView;
-		bust?: number;
 	} = $props();
 
 	const own = $derived(lookImage(look, mood, view));
 	const src = $derived(characterImage(character, { persona, look: look.id, mood }, view, { isMissing: isKnownMissing }));
-	const busted = (path: string) => (path ? `${asset(path)}${bust ? `?v=${bust}` : ''}` : '');
 
 	// ── zoom: scale + offset; pinch / Ctrl + wheel at the pointer, pan while zoomed, double click fits ──
 	let scale = $state(1);
@@ -102,7 +99,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="stage view-{view}" onwheel={wheel} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} ondblclick={fit} data-testid="character-stage">
 	<div class="frame" bind:this={box}>
-		{#if src}<img src={busted(src)} alt="" draggable="false" style:transform="translate({x}px, {y}px) scale({scale})" />{/if}
+		{#if src}<img src={asset(src)} alt="" draggable="false" style:transform="translate({x}px, {y}px) scale({scale})" />{/if}
 	</div>
 	{#if !own}<span class="fallback" title={m['creator.characters_stage_fallback_hint']()}>{m['creator.characters_stage_fallback']()}</span>{/if}
 	{#if scale > 1}<button type="button" class="sq fit" onclick={fit} title={m['creator.characters_stage_fit']()} aria-label={m['creator.characters_stage_fit']()}><Icon name="minimize" /></button>{/if}
