@@ -6,7 +6,7 @@
 	 * The stage's drop zones while a tab or a panel is in the hand: they reach the screen's very edges, over the bar and the
 	 * status bar (the page draws this over both). Each zone shows faintly, the one under the pointer lights up and the
 	 * view's landing place is previewed with `label(tab, zone)`; past the top edge a line fills during the hold toward full
-	 * screen. Short animations; none with reduced motion.
+	 * screen. Short animations on the motion tokens (none with reduced motion).
 	 */
 	let { floats, label }: { floats: Floats; label: (tab: string, zone: StageZone) => string } = $props();
 
@@ -47,7 +47,7 @@
 		position: fixed;
 		inset: 0;
 		pointer-events: none;
-		animation: zones-in 140ms ease-out;
+		animation: zones-in var(--motion-fast) var(--motion-ease);
 	}
 	.arm {
 		position: absolute;
@@ -56,11 +56,15 @@
 		background: color-mix(in srgb, var(--tool-accent) 6%, transparent);
 		opacity: 0.7;
 		transition:
-			opacity 120ms ease-out,
-			background-color 120ms ease-out;
+			opacity var(--motion-fast) var(--motion-ease),
+			background-color var(--motion-fast) var(--motion-ease),
+			transform var(--motion-fast) var(--motion-ease);
 	}
+	/* the zone under the pointer lights up and swells a little */
 	.arm.on {
 		opacity: 1;
+		border-style: solid;
+		transform: scale(1.04);
 		background: color-mix(in srgb, var(--tool-accent) 22%, transparent);
 	}
 	/* where the view lands: the accent's outline around its cell, the name and the place in a pill */
@@ -72,11 +76,12 @@
 		border: 0.125rem solid var(--tool-accent);
 		border-radius: var(--kit-radius-box);
 		background: color-mix(in srgb, var(--tool-accent) 10%, transparent);
+		animation: lands-in var(--motion-fast) var(--motion-ease);
 		transition:
-			left 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			top 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			width 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-			height 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			left var(--motion-base) var(--motion-ease),
+			top var(--motion-base) var(--motion-ease),
+			width var(--motion-base) var(--motion-ease),
+			height var(--motion-base) var(--motion-ease);
 	}
 	.lands.full {
 		border-radius: 0;
@@ -117,27 +122,24 @@
 			opacity: 0;
 		}
 	}
+	@keyframes lands-in {
+		from {
+			opacity: 0;
+			transform: scale(0.97);
+		}
+	}
 	@keyframes hold-fill {
 		to {
 			width: 100%;
 		}
 	}
+	/* reduced motion: the motion tokens are 0; the hold's line jumps full once armed */
 	@media (prefers-reduced-motion: reduce) {
-		.zones,
-		.arm,
-		.lands {
-			animation: none;
-			transition: none;
-		}
 		.hold span {
 			animation: none;
 		}
 	}
-	:global(:root[data-motion='reduced']) .zones,
-	:global(:root[data-motion='reduced']) .arm,
-	:global(:root[data-motion='reduced']) .lands,
 	:global(:root[data-motion='reduced']) .hold span {
 		animation: none;
-		transition: none;
 	}
 </style>

@@ -73,6 +73,8 @@ class Shell {
 	dashboard = $state<false | 'cards' | 'views'>(false);
 	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
 	launcher = $state(false);
+	/** the user menu over everything: a swipe up from the bottom edge, or the account icon */
+	userMenu = $state(false);
 	/** the launcher's recent picks, newest first */
 	picks = $state<LaunchPick[]>(typeof localStorage === 'undefined' ? [] : readPicks(readJson(PICKS_KEY)));
 

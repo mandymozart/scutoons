@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { motionMs } from '@scutoons/ui/editor';
 	import { goto } from '$app/navigation';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -102,7 +104,7 @@
 
 <svelte:window onkeydowncapture={onKeydown} />
 
-<div class="dashboard" bind:this={box} role="dialog" aria-modal="true" aria-label={m['shell.dashboard']()} data-testid="dashboard">
+<div class="dashboard" bind:this={box} role="dialog" aria-modal="true" aria-label={m['shell.dashboard']()} data-testid="dashboard" out:fade={{ duration: motionMs('base') }}>
 	<div class="body">
 		{#if welcome}<h1 class="hello" data-testid="dash-welcome">{m['shell.dash_welcome']({ name: greetName(session.user?.email ?? '') })}</h1>{/if}
 		<div class="find"><Launcher inline onpick={() => (shell.dashboard = false)} /></div>
@@ -132,9 +134,11 @@
 		backdrop-filter: blur(1.6rem);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
-		animation: dash-in 160ms ease-out;
+		animation: dash-in var(--motion-slow) var(--motion-ease);
 	}
+	/* the cards rise into place as the dashboard opens */
 	.body {
+		animation: dash-rise var(--motion-slow) var(--motion-ease);
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -168,14 +172,14 @@
 	.foot {
 		padding: var(--kit-margin) var(--editor-gap);
 	}
+	@keyframes dash-rise {
+		from {
+			transform: translateY(0.5rem);
+		}
+	}
 	@keyframes dash-in {
 		from {
 			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.dashboard {
-			animation: none;
 		}
 	}
 </style>
