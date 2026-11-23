@@ -38,7 +38,7 @@ pub mod filter;
 /// #609: F9 between the deck and the editor – why it stayed put
 pub mod handoff;
 
-/// #830: the editor's workspaces Scene · Rigging · XR · Show, their row and what a click on one does
+/// #830: the deck editor's workspaces Scene · Rigging · Show (XR is the creator's), their row and what a click on one does
 pub mod workspaces;
 
 /// #830: a view taking the stage – the four layouts, the four view states, the drop zones

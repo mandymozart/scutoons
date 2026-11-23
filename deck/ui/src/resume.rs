@@ -41,9 +41,12 @@ impl Default for Session {
 }
 
 impl Session {
-    /// what was kept, checked: another version or a broken file reads as nothing kept
+    /// what was kept, checked: another version or a broken file reads as nothing kept; a workspace the deck does not
+    /// have (XR, kept before it became the creator's only) is left out and the rest comes back
     pub fn read(text: Option<&str>) -> Session {
-        text.and_then(|t| serde_json::from_str::<Session>(t).ok()).filter(|s| s.v == VERSION).unwrap_or_default()
+        let Some(mut v) = text.and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok()) else { return Session::default() };
+        drop_unknown(&mut v);
+        serde_json::from_value::<Session>(v).ok().filter(|s| s.v == VERSION).unwrap_or_default()
     }
 
     /// nothing ever done here
@@ -68,6 +71,31 @@ impl Session {
             Some(v) => self.full.insert(w, v.to_string()),
             None => self.full.remove(&w),
         };
+    }
+}
+
+/// a workspace's name the deck knows
+fn known(name: &str) -> bool {
+    serde_json::from_value::<Workspace>(serde_json::Value::String(name.to_string())).is_ok()
+}
+
+/// the workspaces the deck does not know, out of a kept session: as the front one, as keys, in the use
+fn drop_unknown(v: &mut serde_json::Value) {
+    use serde_json::Value;
+    let Some(o) = v.as_object_mut() else { return };
+    if o.get("workspace").and_then(Value::as_str).is_some_and(|w| !known(w)) {
+        o.insert("workspace".into(), Value::Null);
+    }
+    let keyed = |m: Option<&mut Value>| {
+        if let Some(m) = m.and_then(Value::as_object_mut) {
+            m.retain(|k, _| known(k));
+        }
+    };
+    keyed(o.get_mut("stages"));
+    keyed(o.get_mut("full"));
+    if let Some(u) = o.get_mut("uses").and_then(Value::as_object_mut) {
+        keyed(u.get_mut("uses"));
+        keyed(u.get_mut("last"));
     }
 }
 
@@ -154,9 +182,21 @@ mod tests {
 
     #[test]
     fn an_empty_workspace_left_in_front_comes_back_empty() {
-        let s = Session { left_at: Some(1), workspace: Some(Workspace::Xr), ..Session::default() };
+        let s = Session { left_at: Some(1), workspace: Some(Workspace::Show), ..Session::default() };
         let st = start(&s, None);
-        assert_eq!((st.dashboard, st.workspace), (false, Some(Workspace::Xr)));
+        assert_eq!((st.dashboard, st.workspace), (false, Some(Workspace::Show)));
+    }
+
+    #[test]
+    fn a_session_kept_with_xr_loads_without_it() {
+        let old = r#"{"v":1,"workspace":"xr","dashboard":false,"stages":{"xr":{"layout":"one","slots":["layers"]},"show":{"layout":"one","slots":["rows"]}},"full":{"xr":"layers"},"uses":{"uses":{"xr":4,"scene":2},"last":{"xr":"xr:poster","scene":"scene:nave"}},"left_at":5}"#;
+        let s = Session::read(Some(old));
+        assert_eq!(s.workspace, None, "XR in front: none – the dashboard");
+        assert!(s.stage(Workspace::Show).has("rows") && s.full.is_empty());
+        assert_eq!((s.uses.uses.get(&Workspace::Scene), s.uses.uses.len()), (Some(&2), 1));
+        assert_eq!(s.uses.last.get(&Workspace::Scene).map(String::as_str), Some("scene:nave"));
+        assert_eq!(s.left_at, Some(5), "the rest comes back");
+        assert!(start(&s, None).dashboard);
     }
 
     #[test]

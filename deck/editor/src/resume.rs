@@ -1,4 +1,4 @@
-//! The editor's workspaces Scene · Rigging · XR · Show on the creator's model (deck-ui `workspaces`, `stage`, `resume`):
+//! The editor's workspaces Scene · Rigging · Show (XR is the creator's only) on the creator's model (deck-ui `workspaces`, `stage`, `resume`):
 //! which one is in front (the front tab's, else one opened empty), the row's use, each workspace's stage and its view
 //! full screen, the dashboard – kept in the editor's cache, so reopening resumes like a hibernated computer; the very
 //! first open lands on the dashboard, nothing open yet.
@@ -241,7 +241,6 @@ impl App {
         let how = match w {
             Workspace::Scene => "open a scene from the dashboard (the menu, far right) or start a new one",
             Workspace::Rigging => "open a character, an item or a module from the dashboard",
-            Workspace::Xr => "XR experiences open here once their kind exists – the dashboard opens anything else",
             Workspace::Show => "open a show from the dashboard or start a new one",
         };
         Some(format!("{}: nothing open yet – {how}.", w.word()))
@@ -289,7 +288,7 @@ pub fn parse_stage(text: &str) -> Vec<(String, Cell)> {
         .collect()
 }
 
-/// a check run's `--empty xr`: a workspace opened empty
+/// a check run's `--empty show`: a workspace opened empty
 pub fn parse_ws(text: &str) -> Option<Workspace> {
     workspaces::ALL.into_iter().find(|w| w.word().eq_ignore_ascii_case(text))
 }
@@ -315,7 +314,7 @@ mod tests {
     #[test]
     fn a_check_run_names_its_views_on_the_stage_and_an_empty_workspace() {
         assert_eq!(parse_stage("mixer:left,info:top-right,x:nowhere"), vec![("mixer".to_string(), Cell::Left), ("info".to_string(), Cell::TopRight)]);
-        assert_eq!(parse_ws("xr"), Some(Workspace::Xr));
+        assert_eq!(parse_ws("xr"), None, "XR is the creator's workspace, not the deck's");
         assert_eq!(parse_ws("Rigging"), Some(Workspace::Rigging));
         assert_eq!(parse_ws("perform"), None, "no workspace beyond the four");
     }

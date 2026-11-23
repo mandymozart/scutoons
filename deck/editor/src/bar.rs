@@ -1,7 +1,7 @@
 //! The toolbar over the stage, and the window's title bar where the editor draws its own frame (the creator's bar, the
 //! same model – research/redesign/lap/crafts-v2.html `bars`): left the tabs of the items open, a strip (tabs.rs: the front
 //! one carries the path inside it, its steps go back up; an overflow list with Close others / Close all; + opens the
-//! dashboard); in the middle the workspaces Scene · Rigging · XR · Show, flat, most used first; right, icons only: the
+//! dashboard); in the middle the workspaces Scene · Rigging · Show, flat, most used first; right, icons only: the
 //! play pill only where something plays (Edit / Play, play, BPM, the clock's source; Panic beside it), undo · redo,
 //! then Publish (only when something needs it) · account · the menu far right, which opens the dashboard. The build and
 //! the load meters are the dashboard's bottom line. Groups of icons and toolbars keep their bordered pill; on Windows the
@@ -647,7 +647,7 @@ mod tests {
         let (d, p) = drawn_with(&bar(&TABS, Some(0), &path), 1920.0);
         assert_eq!(p.workspaces.iter().map(|w| w.0).collect::<Vec<_>>(), ALL);
         let first = p.workspaces[0].1;
-        let last = p.workspaces[3].1;
+        let last = p.workspaces[2].1;
         let centre = (first.x + last.x + last.w) * 0.5;
         assert!((centre - 960.0).abs() < 20.0, "in the middle: {centre}");
         let t = Tokens::default();

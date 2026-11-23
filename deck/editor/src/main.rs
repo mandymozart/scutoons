@@ -393,7 +393,7 @@ fn args() -> Result<Args> {
             "--main-menu" | "--dashboard" => a.main_menu = true,
             "--stage" => a.stage_views = resume::parse_stage(&val()?),
             "--full" => a.full_view = Some(val()?),
-            "--empty" => a.empty_ws = Some(resume::parse_ws(&val()?).context("--empty scene | rigging | xr | show")?),
+            "--empty" => a.empty_ws = Some(resume::parse_ws(&val()?).context("--empty scene | rigging | show")?),
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),

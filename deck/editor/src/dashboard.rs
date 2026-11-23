@@ -260,11 +260,12 @@ mod tests {
         let places = draw(&mut d, &t, (1600.0, 900.0), 60.0, &dash(&c, true, &[], &menu), (0.0, 0.0));
         let texts = d.texts();
         assert!(texts.contains(&"Nothing open yet"), "{texts:?}");
-        assert_eq!(texts.iter().filter(|s| **s == "nothing open yet").count(), 4, "every workspace empty");
-        for want in ["Scene", "Rigging", "XR", "Show", "New scene", deck_native::BUILD] {
+        assert_eq!(texts.iter().filter(|s| **s == "nothing open yet").count(), 3, "every workspace empty");
+        assert!(!texts.contains(&"XR"), "XR is the creator's");
+        for want in ["Scene", "Rigging", "Show", "New scene", deck_native::BUILD] {
             assert!(texts.contains(&want), "{want}");
         }
-        assert_eq!(places.iter().filter(|(_, p)| matches!(p, Press::Workspace(_))).count(), 4);
+        assert_eq!(places.iter().filter(|(_, p)| matches!(p, Press::Workspace(_))).count(), 3);
         assert_eq!(places.iter().filter(|(_, p)| matches!(p, Press::Menu(_))).count(), bar::MENU.len());
         assert!(places.iter().all(|(r, _)| r.y > 60.0), "under the toolbar");
     }
