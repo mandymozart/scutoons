@@ -328,12 +328,13 @@ add('C', 'C3d', 'Storyboard → the generator: the canvas for a shot', 'spores.h
    'free items: things laid on the canvas and woven to nothing – here the shot’s page, to look at while working',
    'a run yields takes at the output; one is picked and “Assign” puts it into the shot’s slot; “Again” runs once more; every run stays (Runs)',
    'yields by hand, or automated: then the slot takes each run by itself',
-   'the canvas has its dotted ground again (it was lost in the redraw)'],
+   'the canvas has its dotted ground again (it was lost in the redraw); the shot’s two sources stand in a group – its head: fold, swatch, name'],
   () => `${cbar({ chevron: true, wsOn: 'Generate', ws: ['Characters', 'Toon', 'Flow', 'Scenes', 'Storyboard', 'Generate', 'Catalog', 'Map'], items: [['film', 'Storyboard'], ['sparkles', 'sb-25-1 · generator']] })}
   <div class="abs" style="left:0;top:50px;right:0;bottom:0;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem" title="the canvas’s dotted ground"></div>
   <svg class="abs" style="left:0;top:0;width:1440px;height:856px;z-index:2;pointer-events:none">
     ${gcWire(470, 160, 530, 210, 'asset')}${gcWire(470, 350, 530, 250, 'picture')}${gcWire(810, 230, 870, 230, 'picture', 1)}${gcWire(1100, 230, 1170, 150, 'picture', 1)}
     ${gcPort(470, 160, 'asset')}${gcPort(470, 350, 'picture')}${gcPort(530, 210, 'asset')}${gcPort(530, 250, 'picture')}${gcPort(810, 230, 'picture')}${gcPort(870, 230, 'picture')}${gcPort(1100, 230, 'picture')}${gcPort(1170, 150, 'picture')}</svg>
+  <div class="abs" style="left:196px;top:58px;width:288px;height:392px;border:1px solid color-mix(in srgb,var(--tool-text) 45%,transparent);border-radius:.8rem;background-image:radial-gradient(circle,color-mix(in srgb,var(--tool-text) 34%,transparent) 1px,transparent 1.2px);background-size:.8rem .8rem" title="a group: round its spores, its dots and edge in its colour"><span style="position:absolute;left:.6rem;top:.2rem;display:flex;align-items:center;gap:.35rem;font-size:var(--editor-small)">⌄<span style="width:.5rem;height:.5rem;border-radius:50%;background:var(--tool-text)"></span>from the shot</span></div>
   ${gcCard(40, 84, 132, 330, { t: 'sb-25-1', chip: 'free', free: 1, face: capPic(`now/ws-storyboard-${WS_TH}.jpg`, 800, 476, 342, 100, 116, 256), s: 'the shot’s page', title: 'a free item: on the canvas, woven to nothing' })}
   ${gcCard(210, 84, 260, 152, { t: 'Prompt', text: 1, face: 'Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht …', s: 'built from the shot' })}
   ${gcCard(210, 262, 260, 176, { t: 'catpope (human) · sad', face: gcPend('no picture captured'), s: 'reference · Characters' })}
@@ -349,7 +350,7 @@ add('C', 'C3d', 'Storyboard → the generator: the canvas for a shot', 'spores.h
     <div style="display:grid;grid-template-columns:4.2rem 1fr;gap:.45rem .6rem;align-items:center;margin-top:.6rem"><span class="label">Prompt</span><span class="cap">woven from Prompt</span><span class="label">Takes</span><span class="fld" style="width:4rem">3</span></div>`)}
   <div class="abs" style="left:0;right:0;top:776px;display:flex;justify-content:center;z-index:6"><span class="kp" style="gap:.6rem;padding:0 .45rem"><span class="kb plain" style="height:1.8rem">${ic('play')}Run · 3 takes</span><span class="label">Yields</span><span class="seg"><span class="on">by hand</span><span>automated</span></span><span class="kb quiet" style="height:1.8rem">${ic('plus')}Weave a spore</span><span class="kib" title="The picked result over everything">${ic('full')}</span></span></div>
   ${cstatus('No messages yet', '0 errors · 0 warnings')}
-  ${mk(1, 196, 72)}${mk(2, 516, 98)}${mk(3, 26, 72)}${mk(4, 856, 340)}${mk(5, 590, 764)}
+  ${mk(1, 470, 46)}${mk(2, 516, 98)}${mk(3, 26, 72)}${mk(4, 856, 340)}${mk(5, 590, 764)}
   ${capn(40, 456, 'in lap 2 the creator has only the stub (C11); this is the canvas as designed – the deck’s, reaching the creator with #764')}`);
 
 add('C', 'C4', 'Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations', 'now/creator-1, now/ws-characters (Rig in front)',
