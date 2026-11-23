@@ -1,0 +1,206 @@
+{
+  "rig": {
+    "subject": "item.cloud",
+    "track": [
+      {
+        "id": "storm",
+        "instrument": "cloud_storm",
+        "gain": 1.0,
+        "pan": 0.0,
+        "mute": false
+      }
+    ],
+    "rights": {
+      "lent": [
+        "play",
+        "tweak"
+      ],
+      "owned": [
+        "play",
+        "tweak",
+        "derive",
+        "copy"
+      ],
+      "core": [
+        "play",
+        "tweak",
+        "derive"
+      ]
+    },
+    "sticks": [
+      [
+        "storm:cloud.rate",
+        "storm:cloud.hold"
+      ],
+      [
+        "storm:cloud.rain",
+        "storm:cloud.split"
+      ]
+    ]
+  },
+  "instrument": [
+    {
+      "id": "cloud_storm",
+      "kind": "drum",
+      "name": {
+        "de": "Gewitterwolke",
+        "en": "Storm cloud"
+      },
+      "node": [
+        {
+          "id": "cloud",
+          "kind": "module:cloud",
+          "assets": {
+            "puff": "scutoons/3d/cloud-puff.glb"
+          },
+          "drift": 0.6,
+          "flash": 0.8,
+          "height": 6.0,
+          "light": 45.0,
+          "puffs": 18.0,
+          "rain": 0.5,
+          "rate": 0.6,
+          "size": 6.0,
+          "sync": 1.0
+        },
+        {
+          "id": "thunder",
+          "kind": "module:sampler",
+          "assets": {
+            "sample": "scutoons/sounds/cloud-thunder.wav"
+          },
+          "mode": 1.0,
+          "pitch": 1.0,
+          "release": 0.8,
+          "velocity": 50.0
+        },
+        {
+          "id": "kick",
+          "kind": "module:sampler",
+          "assets": {
+            "sample": "scutoons/sounds/cloud-kick.wav"
+          },
+          "pitch": 1.0,
+          "velocity": 40.0,
+          "voices": 2.0
+        },
+        {
+          "id": "mix",
+          "kind": "module:mixer",
+          "gain1": -3.0,
+          "gain2": 0.0
+        }
+      ],
+      "link": [
+        {
+          "from": "cloud.thunder",
+          "to": "thunder.notes",
+          "scale": 1.0,
+          "offset": 0.0
+        },
+        {
+          "from": "cloud.kick",
+          "to": "kick.notes",
+          "scale": 1.0,
+          "offset": 0.0
+        },
+        {
+          "from": "thunder.out",
+          "to": "mix.in1",
+          "scale": 1.0,
+          "offset": 0.0
+        },
+        {
+          "from": "kick.out",
+          "to": "mix.in2",
+          "scale": 1.0,
+          "offset": 0.0
+        }
+      ],
+      "out": "mix.out",
+      "expose": [
+        {
+          "path": "cloud.hold",
+          "label": {
+            "de": "Halten",
+            "en": "hold"
+          }
+        },
+        {
+          "path": "cloud.rate",
+          "label": {
+            "de": "Tempo",
+            "en": "rate"
+          }
+        },
+        {
+          "path": "cloud.sync",
+          "label": {
+            "de": "Takt",
+            "en": "sync"
+          }
+        },
+        {
+          "path": "cloud.rumble",
+          "label": {
+            "de": "Donner",
+            "en": "thunder"
+          }
+        },
+        {
+          "path": "cloud.thump",
+          "label": {
+            "de": "Kick",
+            "en": "kick"
+          }
+        },
+        {
+          "path": "cloud.flash",
+          "label": {
+            "de": "Blitz",
+            "en": "flash"
+          }
+        },
+        {
+          "path": "cloud.rain",
+          "label": {
+            "de": "Regen",
+            "en": "rain"
+          }
+        },
+        {
+          "path": "cloud.split",
+          "label": {
+            "de": "Teilen",
+            "en": "split"
+          }
+        },
+        {
+          "path": "cloud.size",
+          "label": {
+            "de": "Größe",
+            "en": "size"
+          }
+        }
+      ],
+      "rights": {
+        "lent": [
+          "play",
+          "tweak"
+        ],
+        "owned": [
+          "play",
+          "tweak",
+          "derive",
+          "copy"
+        ],
+        "core": [
+          "play",
+          "tweak",
+          "derive"
+        ]
+      }
+    }
+  ],
+  "preset": []
+}

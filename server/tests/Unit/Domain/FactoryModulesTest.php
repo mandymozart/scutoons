@@ -13,7 +13,7 @@ use Scutoons\Tests\TestCase;
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
  * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq; #742, 2026-11-22-factory-convolver: convolver, its source brought up to date by 2026-11-22-update-convolver-asset-slot;
- * #780, 2026-11-22-factory-cloud: cloud; #780, 2026-11-22-factory-bamboo: bamboo; #804, 2026-11-22-factory-sampler: sampler; #803, 2026-11-23-factory-stepseq: stepseq) as catalog documents marked
+ * #780, 2026-11-22-factory-cloud: cloud, its puff slot brought in by 2026-11-24-update-cloud-puff-slot; #780, 2026-11-22-factory-bamboo: bamboo; #804, 2026-11-22-factory-sampler: sampler; #803, 2026-11-23-factory-stepseq: stepseq) as catalog documents marked
  * `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte (this test keeps the two
  * equal: a change of a module's source needs a migration that brings it into the catalog), each with its published
  * version; each migration run twice, around a creator's own module of the same name.

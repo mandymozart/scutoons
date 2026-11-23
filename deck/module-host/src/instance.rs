@@ -275,6 +275,7 @@ impl<B: Backend> Instance<B> {
                 CatalogAssetKind::Pcm => AssetKind::Pcm,
                 CatalogAssetKind::Bytes => AssetKind::Bytes,
                 CatalogAssetKind::Image => AssetKind::Image,
+                CatalogAssetKind::Model => bail!("module '{name}': asset '{}' is a model – the space draws it, it is never bound", d.name),
             };
             if a.kind != kind {
                 bail!("module '{name}': asset '{}' takes {:?}, given {:?}", d.name, d.kind, a.kind);
@@ -906,9 +907,11 @@ impl<B: Backend> Instance<B> {
     }
 }
 
-/// the host refuses a module whose assets cannot fit beside its io in [`MEMORY_LIMIT`]
+/// the host refuses a module whose bound assets cannot fit beside its io in [`MEMORY_LIMIT`]
 pub(crate) fn assets_fit(desc: &deck_catalog::Descriptor, io: &IoLayout) -> Result<()> {
-    let total: u64 = desc.assets.iter().map(|a| u64::from(a.max_bytes)).sum::<u64>() + u64::from(io.size);
+    // a model slot never reaches the module's memory (the space draws it)
+    let bound = desc.assets.iter().filter(|a| a.kind != deck_catalog::AssetKind::Model);
+    let total: u64 = bound.map(|a| u64::from(a.max_bytes)).sum::<u64>() + u64::from(io.size);
     if total > MEMORY_LIMIT as u64 {
         bail!("module '{}': its asset slots ({} bytes with the io) cannot fit in the {} MiB a module has", desc.name, total, MEMORY_LIMIT >> 20);
     }

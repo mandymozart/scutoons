@@ -58,7 +58,7 @@ final class EntityStoreTest extends TestCase
         $store->save($user, EntityKey::parse('characters'), (object) ['content' => ['characters' => []]]);
         // the catalog documents (item:<id> …, CatalogDocs) have no toon in their key – platform-wide too
         $platform = array_column($store->index('')['entities'], 'key');
-        self::assertSame(['characters'], array_values(array_filter($platform, fn(string $k) => !EntityKey::parse($k)->isCatalog())), 'toon= empty: the platform-wide entities');
+        self::assertSame(['characters', 'scene:cloud-light'], array_values(array_filter($platform, fn(string $k) => !EntityKey::parse($k)->isCatalog())), 'toon= empty: the platform-wide entities (the deck scene a migration publishes too)');
         self::assertContains('item:camera', $platform);
     }
 
@@ -442,6 +442,8 @@ Pale.
      */
     public function testTheInlineScenesMigration(): void
     {
+        // the deck scenes a later migration publishes (scene:cloud-light) are no chapter groups: this file ran before them
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'scene'");
         $insert = "INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, ?, 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', ?, NULL)";
         $chapter = '{"title":{"de":"Zwei"},"groups":[{"label":"own","slices":[]},{"ref":{"src":"chapter2/a.json"}},{"ref":{"src":"chapter2/gone.json"}}]}';
         $scene = fn(string $label) => '{"label":"' . $label . '","renderer":{"type":"vertical"},"slices":[{"image":"' . $label . '.webp","width":390,"height":625}]}';

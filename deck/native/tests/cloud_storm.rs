@@ -123,6 +123,39 @@ fn the_rig_is_a_cloud_with_two_voices() {
     assert_eq!(sticks[0], ["storm:cloud.rate".to_string(), "storm:cloud.hold".to_string()]);
 }
 
+/// The catalog's rig (server/tests/fixtures/rigs/cloud-storm.json – the rows migration 2026-11-24-cloud-light-sandbox
+/// writes: `rig:item.cloud` and its instrument) is this rig, the puff's model in its cloud's slot. `UPDATE_FIXTURES=1` writes
+/// the fixture from cloud_storm.toml.
+#[test]
+fn the_catalog_rig_is_this_rig() {
+    let b: deck_space::rig::Bundle = toml::from_str(deck_native::rig::MODULE_RIGS[2].1).unwrap();
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../server/tests/fixtures/rigs/cloud-storm.json");
+    let text = serde_json::to_string_pretty(&b).unwrap() + "\n";
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        std::fs::write(&path, &text).unwrap();
+    }
+    let stored: deck_space::rig::Bundle = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(stored, b, "cloud-storm.json is the rig: UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_storm");
+    let cloud = &b.instruments[0].nodes.iter().find(|n| n.id == "cloud").unwrap().params;
+    assert_eq!(cloud["assets"]["puff"].as_str(), Some("scutoons/3d/cloud-puff.glb"));
+}
+
+/// The cloud's table carries its puff's model, loaded through the deck's loader like the samplers' sounds: the space
+/// draws the puffs with it (deck-space space/drawn.rs); the rain stays the placeholder segment.
+#[test]
+fn the_cloud_draws_its_puffs_with_the_library_model() {
+    let s = scene();
+    let g = Graph::build(&s).unwrap();
+    let mut seams = Seams::with_deck(DeckConfig::device(2));
+    seams.modules = Some(Arc::new(Unbudgeted));
+    seams.assets = Some(stand_ins::loader("cloud-puff"));
+    let (_e, h) = Engine::build_seams(&g, RATE as f32, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
+    let table = h.instances.iter().find(|t| t.node == "storm_cloud").expect("the cloud draws");
+    let shapes: Vec<u32> = table.models.iter().map(|(s, _)| *s).collect();
+    assert_eq!(shapes, [0], "the puff (shape 0) only");
+    assert_eq!(&*table.models[0].1, deck_space::space::bubble::glb().as_slice());
+}
+
 /// Held, every repeat is a thunder and a kick on the 1/8 grid (the rig's rate 0.6); let go, nothing more
 #[test]
 fn held_it_repeats_on_the_grid_and_let_go_it_stops() {
