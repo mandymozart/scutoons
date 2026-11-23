@@ -7,6 +7,7 @@ use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Characters\CharacterUnlocks;
 use Scutoons\Domain\Content\Reviews;
+use Scutoons\Domain\Crafts\Crafts;
 use Scutoons\Domain\Progress\ReadingReport;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Database\Database;
@@ -28,6 +29,7 @@ final class UserAdmin
         private readonly Reviews $reviews,
         private readonly ReadingReport $reading,
         private readonly Segments $segments,
+        private readonly Crafts $crafts,
     ) {
     }
 
@@ -91,6 +93,7 @@ final class UserAdmin
             'characters' => $this->characters($id),
             'review_rules' => $this->reviews->rules($id),
             'reading' => $this->reading->forUser($id),
+            'crafts' => $this->crafts->of($id),
         ];
     }
 

@@ -6,6 +6,7 @@
 	import { recent } from '$lib/recent.svelte.ts';
 	import { firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards, type WorkspaceCard } from '$lib/shell/dashboard.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import DashboardBoxes from '$lib/components/shell/dashboard-boxes.svelte';
 	import DashboardFoot from '$lib/components/shell/dashboard-foot.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
@@ -16,13 +17,13 @@
 	 * stage dimmed and blurred under it; the menu button or Esc goes back to where you were. On top the launcher
 	 * (inline), then Last opened · Needs review / Not published, then the workspaces – flat, the front one first, then most
 	 * used – each showing what is open in it. Tab / Shift Tab and the arrows move the ring, Enter opens; typing finds.
-	 * Nothing used yet: the welcome – Not published in her toons, the workspaces empty. Nothing explains itself.
+	 * Nothing used yet: the welcome – Not published in her toons, her crafts' workspaces empty. Nothing explains itself.
 	 */
 	let { reader }: { reader: string | null } = $props();
 
 	const session = getCreatorSession();
 	const welcome = $derived(isWelcome(shell.use, shell.state.tabs, recent.list.length));
-	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome));
+	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome, crafts.starts));
 	let ring = $state(0);
 	let views = $state(false);
 	let box = $state<HTMLElement>();

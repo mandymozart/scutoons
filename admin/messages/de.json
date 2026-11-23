@@ -403,7 +403,8 @@
 		"reading_spot": "Gruppe {group}, Slice {slice}",
 		"rule_reviewer_hint": "Bekommt zu jeder Anfrage in diesem Toon eine Mail und veröffentlicht sie oder schickt sie zurück (physische Änderungen ausgenommen).",
 		"rule_needs_review_hint": "Darf in diesem Toon nicht veröffentlichen, nur zum Review einreichen.",
-		"col_segments": "Segmente"
+		"col_segments": "Segmente",
+		"section_crafts": "Handwerk"
 	},
 	"reading": {
 		"title": "Lesestand",
@@ -1436,5 +1437,18 @@
 		"publish": "Veröffentlichen",
 		"publish_title": "Diese Version veröffentlichen?",
 		"publish_message": "Macht die Version vom {when} zur veröffentlichten Liste."
+	},
+	"invites": {
+		"title": "Team-Einladungen",
+		"email": "E-Mail",
+		"crafts": "Handwerk – die Arbeitsbereiche, mit denen sie anfangen",
+		"send": "Einladen",
+		"sent": "Einladung für {email} gespeichert",
+		"open": "offen seit {date}",
+		"accepted": "beigetreten {date}",
+		"user": "Konto",
+		"withdraw": "Zurückziehen",
+		"withdraw_title": "Einladung für {email} zurückziehen?",
+		"withdraw_message": "Das Handwerk wird bei der Anmeldung dieser Adresse nicht vergeben."
 	}
 }

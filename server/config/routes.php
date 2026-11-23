@@ -46,6 +46,7 @@ use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\ReadingController;
+use Scutoons\Http\Controllers\Admin\MemberInvitesController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
@@ -65,6 +66,7 @@ use Scutoons\Http\Controllers\InvitesController;
 use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
+use Scutoons\Http\Controllers\CraftsController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\CampaignGiftsController;
@@ -214,6 +216,10 @@ return static function (App $app): void {
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
+    // crafts: what the member does → the workspaces they start with (Domain\Crafts; not the catalog's crafting)
+    $app->get('/api/crafts', [CraftsController::class, 'list']);
+    $app->get('/api/me/crafts', [CraftsController::class, 'mine']);
+    $app->put('/api/me/crafts', [CraftsController::class, 'setMine']);
     // the account's shipping address (#66 – physical newsletter gifts wait for it)
     $app->get('/api/me/shipping', [CampaignGiftsController::class, 'shipping']);
     $app->put('/api/me/shipping', [CampaignGiftsController::class, 'setShipping']);
@@ -553,6 +559,10 @@ return static function (App $app): void {
         $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
         $admin->delete('/users/{id}/characters/{character}/looks/{persona}/{look}', [UsersController::class, 'lockLook']);
         $admin->get('/roles', [UsersController::class, 'roles']);
+        $admin->put('/users/{id}/crafts', [UsersController::class, 'setCrafts']);
+        $admin->get('/member-invites', [MemberInvitesController::class, 'list']);
+        $admin->post('/member-invites', [MemberInvitesController::class, 'create']);
+        $admin->delete('/member-invites/{id:[0-9a-f-]{36}}', [MemberInvitesController::class, 'delete']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);
         // purge old document versions before a day (issue 154): dry run, then the delete with the dry run's counts

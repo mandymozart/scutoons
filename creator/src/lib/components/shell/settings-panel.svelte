@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button, IconButton, PillTabs, Section, Toggle } from '@scutoons/ui/editor';
+	import { Button, Chip, IconButton, PillTabs, Section, Toggle } from '@scutoons/ui/editor';
+	import { craftName } from '@scutoons/api';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { toaster } from '$lib/toasts.ts';
 	import { PANELS_KEY } from '@scutoons/ui/editor';
 	import { browserWorkspace } from '$lib/editor/storyboard-workspace.ts';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
@@ -32,6 +35,15 @@
 			// the browser refused the folder: the old one stays
 		}
 	}
+	const mine = $derived(crafts.mine?.crafts ?? []);
+	async function toggleCraft(id: string) {
+		const next = crafts.list.map((c) => c.id).filter((c) => (c === id ? !mine.includes(id) : mine.includes(c)));
+		try {
+			await crafts.save(next);
+		} catch (e) {
+			toaster.addToast({ message: e instanceof Error ? e.message : String(e), type: 'error' });
+		}
+	}
 	function resetAll() {
 		try {
 			localStorage.removeItem(PANELS_KEY);
@@ -57,6 +69,15 @@
 			</span>
 		</div>
 	</Section>
+	{#if crafts.list.length}
+		<Section id="shell-crafts" label={m['shell.crafts']()} summary={m['shell.crafts_summary']({ count: mine.length })}>
+			<div class="crafts" data-testid="settings-crafts">
+				{#each crafts.list as craft (craft.id)}
+					<Chip label={craftName(craft, getLocale())} icon={craft.icon} on={mine.includes(craft.id)} disabled={!crafts.mine?.can_edit} title={crafts.mine?.can_edit ? undefined : m['shell.crafts_admin']()} onclick={() => toggleCraft(craft.id)} />
+				{/each}
+			</div>
+		</Section>
+	{/if}
 	<Section id="shell-motion" label={m['shell.motion']()} summary={m['shell.this_machine']()}>
 		<div class="row"><span>{m['shell.panel_transitions']()}</span><Toggle on={s.panelTransitions} label={m['shell.panel_transitions']()} onchange={(on) => shell.change({ panelTransitions: on })} /></div>
 		<div class="row"><span>{m['shell.reduce_motion']()}</span><Toggle on={s.reduceMotion} label={m['shell.reduce_motion']()} onchange={(on) => shell.change({ reduceMotion: on })} /></div>
@@ -113,6 +134,12 @@
 		min-height: var(--editor-row);
 		padding: 0 var(--editor-pad);
 		text-shadow: var(--tool-halo);
+	}
+	.crafts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		padding: 0.2rem var(--editor-pad) 0.4rem;
 	}
 	.row.actions {
 		justify-content: flex-start;

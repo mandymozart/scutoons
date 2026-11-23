@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
-import { NO_USE, entered, fits, readUse, workspaceRow } from '../src/lib/shell/workspaces.ts';
+import { NO_USE, entered, fits, readUse, startKinds, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
+import { NO_CRAFTS, asksCrafts, readCrafts } from '../src/lib/shell/crafts.ts';
 import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
@@ -252,6 +253,35 @@ test('the welcome: nothing used yet – every workspace of the row, empty', () =
 	assert.ok(cards.every((c) => !c.shown && c.href === null && !c.front));
 	assert.equal(greetName('mira.k@example.org'), 'Mira');
 	assert.equal(greetName(''), '');
+});
+
+test('crafts: the welcome and the row show the crafts\' workspaces, flat; used or open ones stay', () => {
+	assert.deepEqual(startKinds(['character', 'storyboard', 'nope', 'character', 'text']), ['character', 'storyboard', 'text'], 'known ones, each once, in order');
+	assert.deepEqual(startKinds(null), []);
+	const starts = startKinds(['scene', 'map', 'catalog']);
+	assert.deepEqual(workspaceCards(NO_USE, [], null, true, starts).map((c) => c.kind), ['scene', 'map', 'catalog'], 'the welcome: the crafts\' workspaces in their order');
+	assert.deepEqual(workspaceRow(NO_USE, [], starts).map((r) => r.kind), ['scene', 'map', 'catalog'], 'only theirs, the crafts\' order before use');
+	const tabs = [{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' }];
+	const use = { uses: { catalog: 4, flow: 1 }, last: { flow: { address: 'flow', href: '/flow' } } };
+	assert.deepEqual(workspaceRow(use, tabs, starts).map((r) => r.kind), ['catalog', 'flow', 'scene', 'map', 'chapter'], 'most used first; a used or open workspace outside the crafts stays');
+	assert.ok(workspaceRow(NO_USE, [], []).length >= 4, 'no crafts: every workspace with somewhere to go');
+});
+
+test('crafts before the migration: a missing or failing API means no crafts – the usual workspaces, no question, nothing throws', async () => {
+	const fail = (status: number) => () => Promise.reject(Object.assign(new Error(`HTTP ${status}`), { status }));
+	const okList = () => Promise.resolve({ crafts: [{ id: 'writer', name: { en: 'Writer' }, icon: 'edit-3', workspaces: ['text'] }] });
+	const okMine = () => Promise.resolve({ crafts: ['writer'], invited: [], workspaces: ['text'], ask: true, can_edit: true });
+	for (const [list, mine] of [[fail(404), okMine], [okList, fail(404)], [fail(500), fail(500)], [okList, () => Promise.resolve({ status: 'error' })]] as const) {
+		const state = await readCrafts(list, mine);
+		assert.deepEqual(state, NO_CRAFTS);
+		assert.equal(asksCrafts(state), false, 'no first-login question');
+		assert.deepEqual(startKinds(state.mine?.workspaces), []);
+		assert.deepEqual(workspaceRow(NO_USE, [], startKinds(state.mine?.workspaces)).map((r) => r.kind), workspaceRow(NO_USE, []).map((r) => r.kind), 'the bar falls back to every workspace');
+		assert.ok(workspaceCards(NO_USE, [], null, true, startKinds(state.mine?.workspaces)).length >= 8, 'the welcome shows every workspace');
+	}
+	const ok = await readCrafts(okList, okMine);
+	assert.equal(asksCrafts(ok), true);
+	assert.equal(asksCrafts({ list: [], mine: ok.mine }), false, 'nothing to pick: no question');
 });
 
 test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {
