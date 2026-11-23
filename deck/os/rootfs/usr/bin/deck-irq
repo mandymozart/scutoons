@@ -1,0 +1,27 @@
+#!/bin/bash
+# The IRQ threads' priorities on linux-rt (#834, deck-irq.service; rtirq-style): the sound card's (HDA / SOF on the X1, xhci for a
+# USB interface like the RME) at FIFO 90 – above PipeWire's data threads (88) and the stage's render thread (70) – and the GPU's
+# (i915, amdgpu) at FIFO 40, under every audio thread. A kernel without threaded IRQs (not linux-rt) has no irq/ threads:
+# nothing to do, said once. Runs as root; safe to run again.
+set -u
+AUDIO_PRIO=${DECK_IRQ_AUDIO_PRIO:-90}
+GPU_PRIO=${DECK_IRQ_GPU_PRIO:-40}
+
+found=0
+for d in /proc/[0-9]*; do
+  name=$(cat "$d/comm" 2>/dev/null) || continue
+  case "$name" in
+    irq/*snd*|irq/*sof*|irq/*xhci*|irq/*hda*) prio=$AUDIO_PRIO ;;
+    irq/*i915*|irq/*amdgpu*|irq/*nouveau*) prio=$GPU_PRIO ;;
+    *) continue ;;
+  esac
+  found=1
+  pid=${d#/proc/}
+  if chrt -f -p "$prio" "$pid" 2>/dev/null; then
+    echo "deck-irq: $name (pid $pid) at FIFO $prio"
+  else
+    echo "deck-irq: $name (pid $pid) – chrt refused" >&2
+  fi
+done
+[ "$found" = 1 ] || echo "deck-irq: no threaded sound / GPU IRQs (not a linux-rt kernel?) – nothing changed"
+exit 0

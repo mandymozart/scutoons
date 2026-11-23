@@ -21,7 +21,7 @@ use crate::fft::Analyzer;
 use crate::Param;
 use deck_core::math::{fract_fast, sin_turns};
 use deck_core::tempo::{self, BeatReader};
-use deck_space::graph::{Graph, Kind, PortType};
+use deck_space::graph::{Domain, Graph, Kind, PortType};
 use deck_space::params::default_for;
 use std::sync::atomic::{fence, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -163,6 +163,11 @@ impl Table {
     fn input(&self, v: &[f32], node: usize, port: &str, default: f32) -> f32 {
         let Some(k) = self.kinds.get(node).and_then(|k| k.input(port)) else { return default };
         self.inputs[node][k].read(v, default)
+    }
+
+    /// `input` by the port's index (no search by name)
+    fn input_index(&self, v: &[f32], node: usize, port: usize, default: f32) -> f32 {
+        self.inputs.get(node).and_then(|i| i.get(port)).map_or(default, |i| i.read(v, default))
     }
 
     /// by port index, an unset input at the catalog's default
@@ -396,6 +401,40 @@ pub(crate) trait Stepper: Send {
     fn context(&mut self, _: &Context) {}
 }
 
+/// An fft node's analyzer: one only the picture reads analyses every `every` blocks (≈ 60 Hz) with their summed dt –
+/// its ring still drained each block; one whose values reach an audio node analyses every block (block-exact on every deck).
+struct Analysed {
+    node: usize,
+    analyzer: Analyzer,
+    every: u32,
+    /// blocks since the last analysis and their summed dt
+    count: u32,
+    dt: f32,
+}
+
+/// the picture's rate the analyzers of picture-only fft nodes run at (Hz)
+const PICTURE_HZ: f32 = 60.0;
+
+/// whether a value of `node` reaches an audio node's input through the links (over control nodes; a video node ends it)
+fn feeds_audio(graph: &Graph, node: usize) -> bool {
+    let mut seen = vec![false; graph.nodes.len()];
+    let mut todo = vec![node];
+    while let Some(n) = todo.pop() {
+        for l in graph.links.iter().filter(|l| l.from.0 == n) {
+            let t = l.to.0;
+            if std::mem::replace(&mut seen[t], true) {
+                continue;
+            }
+            match graph.nodes[t].kind.domain() {
+                Domain::Audio => return true,
+                Domain::Control => todo.push(t),
+                Domain::Video => {}
+            }
+        }
+    }
+    false
+}
+
 struct Stepped {
     node: usize,
     ins: Vec<f32>,
@@ -412,7 +451,7 @@ pub struct Control {
     /// per node: where it sits in the batches (level, batch, index)
     at: Vec<Option<(usize, usize, usize)>>,
     tempo_node: Option<usize>,
-    analyzers: Vec<(usize, Analyzer)>,
+    analyzers: Vec<Analysed>,
     /// every control input of an audio node: a column, its Param, whose input it is, the default for an unset one
     param_in: Col,
     params: Vec<Param>,
@@ -447,7 +486,13 @@ impl Control {
             levels: Vec::new(),
             at: vec![None; n],
             tempo_node: graph.first(Kind::Tempo),
-            analyzers: taps.into_iter().map(|(node, ring)| (node, Analyzer::new(ring, rate, graph.nodes[node].f32("release", 0.25)))).collect(),
+            analyzers: taps
+                .into_iter()
+                .map(|(node, ring)| {
+                    let every = if feeds_audio(graph, node) { 1 } else { (rate / (crate::QUANTUM as f32 * PICTURE_HZ)).floor().max(1.0) as u32 };
+                    Analysed { node, analyzer: Analyzer::new(ring, rate, graph.nodes[node].f32("release", 0.25)), every, count: 0, dt: 0.0 }
+                })
+                .collect(),
             param_in: Col::default(),
             params: Vec::with_capacity(params.len()),
             param_at: Vec::with_capacity(params.len()),
@@ -668,9 +713,15 @@ impl Control {
             v[*slot as usize] = p.get();
         }
         let base = &self.table.base;
-        for (node, a) in &mut self.analyzers {
-            let b = base[*node] as usize;
-            v[b..b + 4].copy_from_slice(&a.update(dt, 0));
+        for a in &mut self.analyzers {
+            (a.count, a.dt) = (a.count + 1, a.dt + dt);
+            if a.count < a.every {
+                a.analyzer.drain();
+                continue;
+            }
+            let b = base[a.node] as usize;
+            v[b..b + 4].copy_from_slice(&a.analyzer.update(a.dt, 0));
+            (a.count, a.dt) = (0, 0.0);
         }
         self.tempo = *tempo;
         if let Some(i) = self.tempo_node {
@@ -727,6 +778,7 @@ impl Control {
     /// The reference of the P5 golden diff: step at `hz` (the frame thread's rate before #319) instead of every block.
     pub(crate) fn every(&mut self, hz: f32, rate: f32) {
         self.cadence = Some((0.0, f64::from(rate) / f64::from(hz)));
+        self.analyzers.iter_mut().for_each(|a| a.every = 1);
     }
 
     /// `node`'s control input `port`: the link mapped by it (and the last send), else the node's own param, else
@@ -916,6 +968,11 @@ impl Controls {
         self.table.input(&self.values, node, port, default)
     }
 
+    /// `input` by the port's index (what a knob reads every frame – no search by name)
+    pub fn input_index(&self, node: usize, port: usize, default: f32) -> f32 {
+        self.table.input_index(&self.values, node, port, default)
+    }
+
     pub fn input_at(&self, node: usize, port: usize) -> Option<f32> {
         self.table.input_at(&self.values, node, port)
     }
@@ -949,6 +1006,9 @@ impl Controls {
 impl deck_space::space::values::Knobs for Controls {
     fn input(&self, node: usize, port: &str, default: f32) -> f32 {
         Controls::input(self, node, port, default)
+    }
+    fn input_index(&self, node: usize, port: usize, _: &str, default: f32) -> f32 {
+        Controls::input_index(self, node, port, default)
     }
     fn outputs(&self, node: usize) -> &[f32] {
         Controls::outputs(self, node)

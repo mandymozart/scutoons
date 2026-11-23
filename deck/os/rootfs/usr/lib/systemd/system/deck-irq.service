@@ -1,0 +1,15 @@
+# The sound card's interrupt threads above the GPU's on linux-rt (#834, rtirq-style): every IRQ is a FIFO-50 thread there,
+# so i915's work could delay the audio's. deck-irq raises snd / sof / xhci (a USB interface) and lowers i915, once at
+# boot and again when a sound card arrives later (udev 61-deck-irq.rules restarts this unit).
+[Unit]
+Description=SCUTOONS deck: the sound card's IRQ threads above the GPU's
+After=systemd-modules-load.service
+Before=deck-kiosk.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/deck-irq
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

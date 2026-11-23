@@ -3,12 +3,17 @@
 //! one line per scenario (pass / xfail with its ticket / FAIL), exit 1 when one fails. `--speed 1` paces the virtual
 //! clock in real time (a demo, a soak), the default runs as fast as it goes. `--json` prints the reports. The only
 //! file I/O of the host lives here – the library takes bundles.
+//! `deck-scenarios --bench <sandbox name | scene.toml> [--frames N] [--far] [--every-knob]` times the stage's CPU side
+//! instead (bench.rs, #834); a scene with modules (crows-rave) needs `--features bench`.
 use deck_headless::{run_paced, summary, Bundle};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(i) = args.iter().position(|a| a == "--bench") {
+        std::process::exit(bench(&args, args.get(i + 1).map_or("crows-rave", String::as_str)));
+    }
     let json = args.iter().any(|a| a == "--json");
     let speed = args.iter().position(|a| a == "--speed").and_then(|i| args.get(i + 1)).and_then(|s| s.parse::<f64>().ok()).filter(|s| *s > 0.0);
     let deck = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -67,4 +72,49 @@ fn bundle(deck: &Path, file: &Path) -> Result<Bundle, String> {
     let scenario = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
     let name = file.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
     deck_headless::bundle(&name, scenario, |p| std::fs::read_to_string(deck.join(p)).map_err(|e| e.to_string()))
+}
+
+/// `--bench`: one line of the stage's CPU side (bench.rs); exit 0, or 2 when the scene can't be built
+fn bench(args: &[String], name: &str) -> i32 {
+    #[cfg(feature = "bench")]
+    register_modules();
+    let frames = args.iter().position(|a| a == "--frames").and_then(|i| args.get(i + 1)).and_then(|s| s.parse().ok()).unwrap_or(1200);
+    let sandbox = Path::new(env!("CARGO_MANIFEST_DIR")).join("../native/scenes/sandbox").join(format!("{name}.toml"));
+    let text = match std::fs::read_to_string(&sandbox).or_else(|_| std::fs::read_to_string(name)) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("--bench {name}: no sandbox scene and no file ({e})");
+            return 2;
+        }
+    };
+    let scene = match deck_space::scene::Scene::parse(&text) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("--bench {name}: {e:#}");
+            return 2;
+        }
+    };
+    let t = Instant::now();
+    let mut clock = || t.elapsed().as_secs_f64() * 1000.0;
+    match deck_headless::bench::bench(&scene, frames, !args.iter().any(|a| a == "--far"), args.iter().any(|a| a == "--every-knob"), &mut clock) {
+        Ok(b) => {
+            println!("{name}: {}", b.line());
+            0
+        }
+        Err(e) => {
+            eprintln!("--bench {name}: {e}{}", if cfg!(feature = "bench") { "" } else { " (a scene with modules: --features bench)" });
+            2
+        }
+    }
+}
+
+/// the factory modules a bench scene may use, by their descriptors (as deck-space's tests/crows_rave.rs registers them)
+#[cfg(feature = "bench")]
+fn register_modules() {
+    use deck_module::Describe;
+    for json in [arp_module::Arp::DESCRIPTOR, analog_module::Analog::DESCRIPTOR, drumseq_module::DrumSeq::DESCRIPTOR, delay_module::Delay::DESCRIPTOR, reverb_module::Reverb::DESCRIPTOR] {
+        if let Ok(d) = serde_json::from_str::<deck_catalog::Descriptor>(json) {
+            deck_space::modreg::register(&d.name, &deck_space::modreg::ModuleDef::of(&d));
+        }
+    }
 }

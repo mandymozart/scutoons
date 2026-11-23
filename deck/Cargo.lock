@@ -1341,13 +1341,20 @@ dependencies = [
 name = "deck-headless"
 version = "0.1.0"
 dependencies = [
+ "analog-module",
+ "arp-module",
+ "deck-catalog",
  "deck-core",
  "deck-events",
+ "deck-module",
  "deck-show",
  "deck-space",
  "deck-ui",
+ "delay-module",
+ "drumseq-module",
  "live-core",
  "protocol",
+ "reverb-module",
  "serde",
  "serde_json",
  "toml 0.8.23",

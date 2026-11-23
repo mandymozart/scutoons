@@ -414,7 +414,13 @@ pub struct Summary {
     pub cpu_ms: f32,
     /// when the first frame was done, on the adapter's clock (ms since it started; 0 = none yet)
     pub first_frame_ms: f32,
+    /// the frame's phases, the mean per frame that told them (ms, `PHASES` order; None = the adapter tells none)
+    pub phases: Option<[f32; PHASES.len()]>,
 }
+
+/// the frame's phases an adapter may time (`Monitor::phases`): the space's update, the rest of the frame thread's work
+/// before the render (controls, HUD, menu), the wait for the surface, the encode + submit, the present
+pub const PHASES: [&str; 5] = ["update", "ui", "acquire", "encode", "present"];
 
 impl Summary {
     /// the exit line's numbers, worded once: `frames=… avg_fps=… frame_ms avg=… p99=… cpu_ms avg=… first_frame_ms=…`
@@ -422,7 +428,10 @@ impl Summary {
         format!(
             "frames={} avg_fps={:.1} frame_ms avg={:.2} p99={:.2} cpu_ms avg={:.2} first_frame_ms={:.0}",
             self.frames, self.avg_fps, self.frame_ms, self.frame_p99_ms, self.cpu_ms, self.first_frame_ms
-        )
+        ) + &self.phases.map_or(String::new(), |p| {
+            let parts: Vec<String> = PHASES.iter().zip(p).map(|(n, v)| format!("{n}={v:.2}")).collect();
+            format!(" phases_ms {}", parts.join(" "))
+        })
     }
 }
 
@@ -430,6 +439,9 @@ impl Summary {
 struct Run {
     frames: u64,
     work_ms: f64,
+    /// the phases' sums and the frames that told them
+    phase_ms: [f64; PHASES.len()],
+    phased: u64,
     intervals: Histogram,
     /// when the first frame was done (ms, NaN = none yet)
     first_done: f64,
@@ -517,7 +529,7 @@ impl Monitor {
             newest: None,
             series: [Second::default(); SERIES],
             series_len: 0,
-            run: Run { frames: 0, work_ms: 0.0, intervals: Histogram::new(FRAME_FLOOR), first_done: f64::NAN },
+            run: Run { frames: 0, work_ms: 0.0, phase_ms: [0.0; PHASES.len()], phased: 0, intervals: Histogram::new(FRAME_FLOOR), first_done: f64::NAN },
         }
     }
 
@@ -530,6 +542,14 @@ impl Monitor {
         if self.epoch.is_nan() {
             self.epoch = now;
         }
+    }
+
+    /// A drawn frame's phases (ms, `PHASES` order) – the exit line splits `cpu_ms` by them (#834).
+    pub fn phases(&mut self, ms: [f32; PHASES.len()]) {
+        for (s, v) in self.run.phase_ms.iter_mut().zip(ms) {
+            *s += f64::from(v);
+        }
+        self.run.phased += 1;
     }
 
     /// An animation frame at `now` (ms) that took `work_ms` of work; `drawn` = it drew (false: the fps cap skipped it).
@@ -584,6 +604,7 @@ impl Monitor {
             frame_p99_ms: r.intervals.quantile(0.99),
             cpu_ms: if r.frames == 0 { 0.0 } else { (r.work_ms / r.frames as f64) as f32 },
             first_frame_ms: if r.first_done.is_nan() { 0.0 } else { r.first_done as f32 },
+            phases: (r.phased > 0).then(|| r.phase_ms.map(|v| (v / r.phased as f64) as f32)),
         }
     }
 
@@ -861,6 +882,11 @@ mod tests {
         assert_eq!(s.first_frame_ms, 140.0, "the first frame ended 40 ms after it began at 100");
         let line = s.line();
         assert!(line.starts_with("frames=101 avg_fps=") && line.ends_with("first_frame_ms=140"), "{line}");
+        // #834: an adapter that times the phases splits cpu_ms by them in the line
+        m.phases([1.0, 0.5, 4.0, 0.25, 0.1]);
+        m.phases([3.0, 0.5, 2.0, 0.75, 0.1]);
+        assert_eq!(m.summary().phases, Some([2.0, 0.5, 3.0, 0.5, 0.1]));
+        assert!(m.summary().line().ends_with("first_frame_ms=140 phases_ms update=2.00 ui=0.50 acquire=3.00 encode=0.50 present=0.10"), "{}", m.summary().line());
         // a frame the fps cap skipped is a frame, not an interval; the window rolling over (a second) leaves the totals
         let mut n = Monitor::new();
         for k in 0..=240 {

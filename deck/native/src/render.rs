@@ -21,6 +21,9 @@ pub struct Renderer {
     stage: Stage,
     /// save the next frame here (PNG), then forget it
     pub capture: Option<PathBuf>,
+    /// the last frame's wait for the surface and its present (ms; the exit line's phases, #834)
+    pub acquire_ms: f32,
+    pub present_ms: f32,
 }
 
 impl Renderer {
@@ -49,7 +52,7 @@ impl Renderer {
                 Err(e) => tracing::error!("video node '{}': {e}", graph.nodes[node].id),
             }
         }
-        Ok(Renderer { gpu, stage, capture: None })
+        Ok(Renderer { gpu, stage, capture: None, acquire_ms: 0.0, present_ms: 0.0 })
     }
 
     /// the splash is a black veil without the logo (#250)
@@ -173,7 +176,9 @@ impl Renderer {
     /// `space` = the scene's space node's state (its set's 3D arrives through it once).
     #[allow(clippy::too_many_arguments)]
     pub fn frame(&mut self, graph: &Graph, ctl: &Controls, time: f32, dt: f32, hud: Option<&Hud>, splash: (f32, bool), space: Option<&mut Space>) -> Result<f32> {
+        let waited = std::time::Instant::now();
         let Some(frame) = self.gpu.acquire()? else { return Ok(0.0) };
+        self.acquire_ms = waited.elapsed().as_secs_f32() * 1000.0;
         let work = std::time::Instant::now();
         let mut enc = self.gpu.device.create_command_encoder(&Default::default());
         let input = |n: usize, p: &str, d: f32| ctl.input(n, p, d);
@@ -202,7 +207,9 @@ impl Renderer {
                 tracing::error!("screenshot {}: {e:#}", path.display());
             }
         }
+        let presented = std::time::Instant::now();
         self.gpu.queue.present(frame);
+        self.present_ms = presented.elapsed().as_secs_f32() * 1000.0;
         Ok(ms)
     }
 
