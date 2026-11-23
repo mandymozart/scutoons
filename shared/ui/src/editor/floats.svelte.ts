@@ -21,7 +21,6 @@ import {
 	activate,
 	activeOf,
 	closeFree,
-	defaultArrangement,
 	freeSpec,
 	hideTab,
 	isEssential,
@@ -54,8 +53,15 @@ import {
 	type ZoneSize
 } from './stage.ts';
 
-/** Every workspace's layout in this browser: `{ [workspace]: { places, tabs } }` */
+/** Every workspace's layout in this browser: `{ [workspace]: FloatsLayout }` */
 export const PANELS_KEY = 'sc-editor-panels';
+
+/** One workspace's layout as it is kept – in this browser, and as a saved state (the readers check it when it is loaded) */
+export interface FloatsLayout {
+	places: Record<string, Place>;
+	tabs: Arrangement;
+	stage: StageState;
+}
 
 /** A press that moves less than this (px) is a click, not a drag */
 const CLICK_PX = 4;
@@ -126,17 +132,44 @@ export class Floats {
 	/** How many layouts of the hand ran (one per animation frame) */
 	passes = 0;
 
+	/**
+	 * `start`: the layout to start from when this browser kept none for the workspace – and Reset's target (a saved state);
+	 * null: the specs' own places
+	 */
 	constructor(
 		readonly workspace: string,
 		readonly panels: readonly PanelSpec[],
-		readonly tabs: readonly TabSpec[] = []
+		readonly tabs: readonly TabSpec[] = [],
+		private start: unknown = null
 	) {
-		const stored = record(record(readStoredJson(PANELS_KEY))[workspace]);
-		this.arrangement = readArrangement(stored.tabs, panels, tabs);
-		this.places = readPlaces({ [workspace]: stored.places }, workspace, this.specs);
-		this.stage = keepOn(readStageState(stored.stage), (t) => !!panelOf(this.arrangement, t));
+		this.load(this.kept() ?? start);
 		this.#full = FULL.get(workspace) ?? null;
+	}
+
+	/** What this browser kept for the workspace, if anything */
+	private kept(): Record<string, unknown> | undefined {
+		const v = record(readStoredJson(PANELS_KEY))[this.workspace];
+		return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+	}
+
+	/** A kept or saved layout, every part checked against the panels and tabs there are */
+	private load(raw: unknown): void {
+		const stored = record(raw);
+		this.arrangement = readArrangement(stored.tabs, this.panels, this.tabs);
+		this.places = readPlaces({ [this.workspace]: stored.places }, this.workspace, this.specs);
+		this.stage = keepOn(readStageState(stored.stage), (t) => !!panelOf(this.arrangement, t));
 		this.order = this.specs.map((s) => s.id);
+	}
+
+	/** The layout now, as it is kept (a plain copy: to save it elsewhere) */
+	get layout(): FloatsLayout {
+		return $state.snapshot({ places: this.places, tabs: this.arrangement, stage: this.stage }) as FloatsLayout;
+	}
+
+	/** A new start (a saved state arrived or changed): shown at once while this browser kept nothing of its own */
+	setStart(start: unknown): void {
+		this.start = start;
+		if (!this.kept()) this.load(start);
 	}
 
 	/** The view over everything (the bar and the panels hidden), or none */
@@ -291,21 +324,18 @@ export class Floats {
 		return this.specs.filter((s) => !s.essential).map((s) => ({ id: s.id, name: s.name, icon: s.icon, open: !this.closed(s.id) }));
 	}
 
-	/** Every panel and tab back where the specs put them, the stage empty (this workspace's stored layout goes) */
+	/** Back to the start – the saved state, else every panel and tab where the specs put them, the stage empty (this browser's copy goes) */
 	reset(): void {
-		this.places = {};
-		this.stage = EMPTY_STAGE;
-		this.full = null;
-		this.arrangement = defaultArrangement(this.panels);
-		this.order = this.specs.map((s) => s.id);
 		const all = { ...record(readStoredJson(PANELS_KEY)) };
 		delete all[this.workspace];
 		writeStoredJson(PANELS_KEY, all);
+		this.full = null;
+		this.load(this.start);
 	}
 
 	private save(): void {
 		const all = { ...record(readStoredJson(PANELS_KEY)) };
-		all[this.workspace] = { places: this.places, tabs: this.arrangement, stage: this.stage };
+		all[this.workspace] = this.layout;
 		writeStoredJson(PANELS_KEY, all);
 	}
 

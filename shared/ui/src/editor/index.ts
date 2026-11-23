@@ -2,7 +2,7 @@
 // controls, on the editor tokens (@scutoons/tokens editor.css, `--editor-*`). Night by default, `data-theme="day"` the variant.
 export { default as FloatingPanels } from './floating-panels.svelte';
 export { default as FloatingPanel } from './floating-panel.svelte';
-export { Floats, PANELS_KEY, type HeldTab, type StageZone } from './floats.svelte.ts';
+export { Floats, PANELS_KEY, type FloatsLayout, type HeldTab, type StageZone } from './floats.svelte.ts';
 // taking the stage: a view on the stage in one of four layouts, its drop zones at the screen's edges
 export { default as StageZones } from './stage-zones.svelte';
 export { VIEW_STATES, slotRects, viewsOn, type Cell, type StageLayout, type StageState, type ViewState } from './stage.ts';

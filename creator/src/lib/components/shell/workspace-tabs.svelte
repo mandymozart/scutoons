@@ -6,16 +6,21 @@
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { fits, workspaceRow } from '$lib/shell/workspaces.ts';
 	import { workspaceName } from '$lib/shell/workspace-names.ts';
+	import { layouts } from '$lib/shell/layouts.svelte.ts';
+	import { shownWorkspace, withOwn } from '$lib/shell/layouts.ts';
 
 	/**
 	 * The workspaces, the bar's middle: one flat row of pill tabs – the member's crafts' and those used or open – most used first, never grouped by craft. The front item's
 	 * workspace is on (pressed); one the front item does not fit is dimmed and opens its own last item. Those that do not
-	 * fit the bar wait in the list at the row's end.
+	 * fit the bar wait in the list at the row's end. An own workspace stands beside the one it is made from; picking it
+	 * makes it the one that kind shows.
 	 */
-	const row = $derived(workspaceRow(shell.use, shell.state.tabs, crafts.starts));
+	const row = $derived(withOwn(workspaceRow(shell.use, shell.state.tabs, crafts.starts), layouts.state.own));
 	const front = $derived(shell.state.front);
 	const current = $derived(front ? workspaceOf(front) : null);
 	const dim = (kind: WorkspaceKind) => !!front && !fits(front, kind);
+	const isOn = (w: { kind: WorkspaceKind; id: string }) => w.kind === current && w.id === shownWorkspace(layouts.chosen, layouts.state.own, w.kind);
+	const nameOf = (w: { kind: WorkspaceKind; name?: string }) => w.name ?? workspaceName(w.kind);
 
 	let box = $state<HTMLElement>();
 	let hidden = $state(0);
@@ -38,15 +43,15 @@
 {#if row.length}
 	<Pill as="nav" label={m['shell.workspaces']()} class="workspaces" data-testid="workspace-tabs">
 		<div class="row" bind:this={box}>
-			{#each row as w (w.kind)}
-				<PillTab label={workspaceName(w.kind)} href={w.href} on={w.kind === current} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: workspaceName(w.kind) }) : workspaceName(w.kind)} data-workspace-tab data-testid="workspace-{w.kind}" />
+			{#each row as w (w.id)}
+				<PillTab label={nameOf(w)} href={w.href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => layouts.show(w.kind, w.id)} data-workspace-tab data-testid="workspace-{w.id}" />
 			{/each}
 		</div>
 		{#if rest.length}
 			<Menu label={m['shell.workspaces_more']()} icon="chevron-down" width="12rem" testid="workspaces-more">
 				{#snippet children(close)}
-					{#each rest as w (w.kind)}
-						<MenuItem label={workspaceName(w.kind)} href={w.href} current={w.kind === current} dim={dim(w.kind)} onclick={close} />
+					{#each rest as w (w.id)}
+						<MenuItem label={nameOf(w)} href={w.href} current={isOn(w)} dim={dim(w.kind)} onclick={() => (layouts.show(w.kind, w.id), close())} />
 					{/each}
 				{/snippet}
 			</Menu>

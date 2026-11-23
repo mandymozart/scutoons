@@ -9,6 +9,7 @@ import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/pr
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
 import { NO_CRAFTS, asksCrafts, readCrafts } from '../src/lib/shell/crafts.ts';
+import { NO_LAYOUTS, cleanName, fromAnswer, ownId, readChosen, readKept, shownWorkspace, startKind, startOf, toKept, withOwn, withSaved, without } from '../src/lib/shell/layouts.ts';
 import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
@@ -365,4 +366,69 @@ test('launcher keys: Alt Space, Cmd Space, Ctrl or Cmd K and O, / outside a fiel
 	assert.ok(!isLaunchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
 	assert.ok(isLaunchKey(k('/', 'Slash'), false));
 	assert.ok(!isLaunchKey(k('/', 'Slash'), true), 'typing a slash in a field');
+});
+
+test('saved layouts: the server answer checked; the start is the last save, else the craft default, else the preset', () => {
+	assert.equal(fromAnswer(null), null);
+	assert.equal(fromAnswer({ available: false, layouts: [], defaults: [] }), null, 'before the migration: none (the browser copy stays)');
+	const state = fromAnswer({
+		available: true,
+		layouts: [
+			{ workspace: 'character', kind: null, name: null, layout: { stage: { layout: 'one', slots: ['kanon'] } }, saved_at: null },
+			{ workspace: 'own-abc123', kind: 'character', name: 'Looks for 3D', layout: { places: {} }, saved_at: null },
+			{ workspace: 'own-bad', kind: 'nowhere', name: 'Broken', layout: {}, saved_at: null },
+			{ workspace: 'text', kind: null, name: null, layout: 'not an object', saved_at: null }
+		],
+		defaults: [
+			{ workspace: 'character', craft: 'illustrator', layout: { places: { right: {} } } },
+			{ workspace: 'storyboard', craft: 'illustrator', layout: { places: {} } }
+		]
+	});
+	assert.ok(state);
+	assert.deepEqual(Object.keys(state.saved), ['character', 'own-abc123'], 'broken rows are left out');
+	assert.deepEqual(state.own, [{ id: 'own-abc123', kind: 'character', name: 'Looks for 3D' }]);
+	assert.deepEqual(startOf(state, 'character'), { stage: { layout: 'one', slots: ['kanon'] } }, 'the last save');
+	assert.deepEqual(startKind(state, 'character'), { kind: 'saved' });
+	assert.deepEqual(startOf(state, 'storyboard'), { places: {} }, 'never saved: the craft default');
+	assert.deepEqual(startKind(state, 'storyboard'), { kind: 'craft', craft: 'illustrator' });
+	assert.equal(startOf(state, 'chapter'), null, 'neither: the code preset');
+	assert.deepEqual(startKind(state, 'chapter'), { kind: 'preset' });
+	assert.deepEqual(startOf(state, 'own-abc123'), { places: {} });
+	assert.equal(startOf(NO_LAYOUTS, 'character'), null);
+});
+
+test('saved layouts: a save, an own workspace beside the one it is made from, a save taken back, the browser copy', () => {
+	let state = withSaved(NO_LAYOUTS, 'chapter', { places: {} });
+	assert.deepEqual(startOf(state, 'chapter'), { places: {} });
+	state = withSaved(state, 'own-x1', { stage: {} }, { name: '  My   chapter ', kind: 'chapter' });
+	assert.deepEqual(state.own, [{ id: 'own-x1', kind: 'chapter', name: 'My chapter' }]);
+	state = withSaved(state, 'own-x1', { stage: {} }, { name: 'Writing', kind: 'chapter' });
+	assert.deepEqual(state.own.map((o) => o.name), ['Writing'], 'renamed, not doubled');
+	assert.equal(shownWorkspace({ chapter: 'own-x1' }, state.own, 'chapter'), 'own-x1');
+	assert.equal(shownWorkspace({ chapter: 'own-gone' }, state.own, 'chapter'), 'chapter', 'a chosen one that is gone: the creator workspace');
+	assert.equal(shownWorkspace({ chapter: 'own-x1' }, state.own, 'scene'), 'scene');
+	const row = withOwn([{ kind: 'toon' as const, href: '/t' }, { kind: 'chapter' as const, href: '/c' }], state.own);
+	assert.deepEqual(row.map((e) => [e.id, e.name ?? null, e.href]), [['toon', null, '/t'], ['chapter', null, '/c'], ['own-x1', 'Writing', '/c']]);
+	const tabs = [{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' }];
+	const cards = workspaceCards({ uses: { chapter: 1 }, last: {} }, tabs, 'chapter:catpope:3', false, [], state.own, { chapter: 'own-x1' });
+	assert.deepEqual(cards.slice(0, 2).map((c) => [c.id, c.front]), [['own-x1', true], ['chapter', false]], 'the own workspace the kind shows is the front card');
+	const kept = readKept(JSON.parse(JSON.stringify(toKept(state))));
+	assert.deepEqual([kept.own, kept.saved], [state.own, state.saved]);
+	assert.deepEqual(readKept({ saved: { a: 1 }, own: [{ id: 'own-y', kind: 'chapter', name: 'No layout' }] }), NO_LAYOUTS, 'an own workspace without its layout is left out');
+	state = without(state, 'own-x1');
+	assert.deepEqual([state.own, Object.keys(state.saved)], [[], ['chapter']]);
+	assert.deepEqual(without(state, 'chapter').saved, {});
+	assert.match(ownId([]), /^own-[a-z0-9]{6}$/);
+	let n = 0;
+	assert.equal(ownId(['own-000000'], () => (n++ ? 1 / 36 ** 6 : 0)), 'own-000001', 'a taken id is not used again');
+	assert.equal(cleanName('  a \n b '), 'a b');
+	assert.deepEqual(readChosen({ chapter: 'own-x1', nowhere: 'own-y', toon: 3 }), { chapter: 'own-x1' });
+});
+
+test('saved layouts: a missing or failing API means no layouts and nothing throws', async () => {
+	const { readLayouts } = await import('../src/lib/shell/layouts.ts');
+	assert.equal(await readLayouts(() => Promise.reject(new Error('404'))), null);
+	assert.equal(await readLayouts(async () => ({ status: 'error' })), null);
+	assert.equal(await readLayouts(async () => ({ available: true, layouts: 'x' })), null);
+	assert.deepEqual(await readLayouts(async () => ({ available: true, layouts: [], defaults: [] })), NO_LAYOUTS);
 });
