@@ -1140,7 +1140,7 @@ impl App {
         if let (Some(g), Some(l)) = (&self.governor, self.last) {
             let since = l.elapsed().as_secs_f32() * 1000.0;
             if !g.due(since) {
-                deck_native::host::wait(el, g.rung().interval_ms() - since - 1.5);
+                deck_native::host::wait(el, g.interval_ms() - since - 1.5);
                 return;
             }
         }
@@ -1155,6 +1155,12 @@ impl App {
             let wall = self.started.elapsed().as_secs_f64();
             if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.feed.seen)) {
                 self.apply_quality();
+            }
+            // #834: the audio guard's cap, said once each way
+            match self.governor.as_mut().and_then(|g| g.take_guard_change()) {
+                Some(true) => tracing::warn!("audio glitch: the frame rate capped at {} fps until the audio is quiet for {} s", quality::GUARD_FPS, quality::GUARD_S),
+                Some(false) => tracing::info!("audio quiet: the frame rate cap back at the level's"),
+                None => {}
             }
         }
         self.last = Some(now);
@@ -1201,7 +1207,7 @@ impl App {
                 tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
             }
         }
-        let fps = self.governor.as_ref().map_or(0.0, |g| g.rung().fps as f32);
+        let fps = self.governor.as_ref().map_or(0.0, |g| g.fps() as f32);
         self.stats.feed.feed(wall_ms, self.show.glitches.as_deref(), reduction, self.show.clock.as_ref().map_or(48_000.0, |c| c.rate), fps);
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {

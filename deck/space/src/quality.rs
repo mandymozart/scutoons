@@ -11,7 +11,7 @@
 //! The governor is the adaptive audio lead's rule (deck-core lead.rs, #208 / #365) and the relay's link rate
 //! (deck/relay/src/link.rs, #223): take the margin at once, give it back slowly.
 //! - It looks at the drawn frames' interval in windows of `WINDOW_S`. A window whose mean is over the rung's budget
-//!   (its frame rate cap × `BUDGET`, 20 ms at 60 fps), or with a new audio glitch, is over budget. `OVER_WINDOWS` in a
+//!   (its frame rate cap × `BUDGET`, 20 ms at 60 fps), or with a new audio glitch while the audio guard is on, is over budget. `OVER_WINDOWS` in a
 //!   row step one rung down (one window when it is twice over); after a step the next waits `STEP_GAP_S`.
 //! - With vsync a frame never shows its headroom, so the way up is a probe: calm (each window at most the cap's
 //!   interval × `CALM`) for the rung's calm time steps one rung up. A probe that runs over budget within `PROBE_S`
@@ -59,6 +59,11 @@ pub const MAX_SIDE: u32 = 4096;
 pub const MAX_LIGHTS: usize = 8;
 /// a frame this early is skipped by the cap (ms – a display's refresh jitters)
 const PACE_SLACK_MS: f32 = 3.0;
+/// the audio guard: an audio glitch caps the frame rate here (fps) – also with the governor off: a fixed level is a ceiling
+/// for the looks, not a licence to glitch; the cap is the one knob that also frees the CPU the audio shares
+pub const GUARD_FPS: u32 = 30;
+/// the guard holds until the audio has been quiet this long (s; each new glitch starts it again)
+pub const GUARD_S: f64 = 10.0;
 
 /// the levels, cheapest first – the hardware tiers S / M / L / XL (deck/HARDWARE.md)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -547,6 +552,9 @@ pub struct Governor {
     /// the last window's mean (ms) and what was last reported
     frame_ms: f32,
     reported: Option<(Report, f64)>,
+    /// the audio guard: on until this moment (None = off), and its last change not yet taken (`take_guard_change`)
+    guard_until: Option<f64>,
+    guard_change: Option<bool>,
 }
 
 impl Governor {
@@ -577,6 +585,8 @@ impl Governor {
             hold_until: f64::NEG_INFINITY,
             frame_ms: 0.0,
             reported: None,
+            guard_until: None,
+            guard_change: None,
         };
         g.set_presets(presets, gpu);
         g
@@ -676,7 +686,45 @@ impl Governor {
 
     /// The frame rate cap: draw now, `since_ms` after the last drawn frame? (false = skip it – the power the cap saves)
     pub fn due(&self, since_ms: f32) -> bool {
-        since_ms + PACE_SLACK_MS >= self.rung().interval_ms()
+        since_ms + PACE_SLACK_MS >= self.interval_ms()
+    }
+
+    /// the cap's frame interval now (ms): the rung's, at least `GUARD_FPS`'s while the audio guard is on
+    pub fn interval_ms(&self) -> f32 {
+        1000.0 / self.fps().max(1) as f32
+    }
+
+    /// the frame rate cap now: the rung's, at most `GUARD_FPS` while the audio guard is on
+    pub fn fps(&self) -> u32 {
+        let fps = self.rung().fps;
+        if self.guard_until.is_some() {
+            fps.min(GUARD_FPS)
+        } else {
+            fps
+        }
+    }
+
+    /// the audio guard is on (an audio glitch within the last `GUARD_S`)
+    pub fn guarded(&self) -> bool {
+        self.guard_until.is_some()
+    }
+
+    /// the guard's change since the last ask, once: Some(true) = it came on, Some(false) = it let go
+    pub fn take_guard_change(&mut self) -> Option<bool> {
+        self.guard_change.take()
+    }
+
+    /// a glitch (re)starts the guard; a quiet `GUARD_S` ends it
+    fn guard(&mut self, now: f64, glitched: bool) {
+        if glitched {
+            if self.guard_until.is_none() {
+                self.guard_change = Some(true);
+            }
+            self.guard_until = Some(now + GUARD_S);
+        } else if self.guard_until.is_some_and(|t| now >= t) {
+            self.guard_until = None;
+            self.guard_change = Some(false);
+        }
     }
 
     /// One drawn frame at `now` (s), `dt_ms` after the last drawn one; `glitches` = the audio's running glitch count
@@ -688,6 +736,11 @@ impl Governor {
             // the very first frame: the start is a stall (shaders compile, the set loads)
             self.hold_until = now + HOLD_S;
         }
+        // the audio guard, with the governor on or off; a known stall's glitches don't count. The cap comes first: a
+        // glitch is over budget for the rungs only once the guard was on already
+        let guarded = self.guard_until.is_some();
+        self.guard(now, glitched && now >= self.hold_until);
+        let glitched = glitched && guarded;
         if now < self.hold_until {
             self.reset_window();
             return false;
@@ -721,7 +774,7 @@ impl Governor {
         if !self.auto {
             return false;
         }
-        let budget = self.rung().interval_ms() * BUDGET;
+        let budget = self.interval_ms() * BUDGET;
         let over = mean > budget || glitch;
         if over {
             self.calm_since = None;
@@ -738,7 +791,7 @@ impl Governor {
             return sustained && may && self.step_down(now);
         }
         self.over = 0;
-        if mean > self.rung().interval_ms() * CALM {
+        if mean > self.interval_ms() * CALM {
             // neither over nor calm: hold the rung
             self.calm_since = None;
             return false;
@@ -1024,12 +1077,57 @@ mod tests {
         let top = g.index();
         g.reset_window();
         let mut n = 0;
-        for i in 0..70 {
+        for i in 0..130 {
             t += 0.0167;
             n += g.frame(t, 16.7, i / 20) as usize;
+            if i == 25 {
+                assert_eq!((n, g.fps()), (0, GUARD_FPS), "the first glitch caps the frame rate, the rung stays");
+            }
         }
-        assert_eq!(n, 1, "glitching windows step down even at 60 fps");
+        assert_eq!(n, 1, "glitching windows step down even at 60 fps – once the cap is down");
         assert_eq!(g.index(), top - 1);
+    }
+
+    /// #834: an audio glitch caps the frame rate at GUARD_FPS with the governor off too (the level fixed), said once;
+    /// a quiet GUARD_S lets go; the start's stall doesn't count
+    #[test]
+    fn an_audio_glitch_halves_the_frame_rate_even_at_a_fixed_level() {
+        let mut g = Governor::new(Level::High, false);
+        let (rung, fps) = (g.index(), g.rung().fps);
+        assert_eq!(fps, 60);
+        let mut t = 0.0;
+        g.frame(t, 16.7, 3);
+        t += 1.0;
+        g.frame(t, 16.7, 5);
+        assert!(!g.guarded() && g.take_guard_change().is_none(), "the start's glitches: no guard");
+        run(&mut g, &mut t, 2.0, 16.7);
+        g.frame(t + 0.0167, 16.7, 6);
+        t += 0.0167;
+        assert!(g.guarded());
+        assert_eq!((g.fps(), g.take_guard_change(), g.take_guard_change()), (GUARD_FPS, Some(true), None), "said once");
+        assert!((g.interval_ms() - 1000.0 / 30.0).abs() < 1e-3);
+        assert!(!g.due(20.0) && g.due(31.0), "a 60 Hz display draws every other frame");
+        // a second glitch later holds it on; then quiet
+        let mut glitches = 6;
+        while t < 8.0 {
+            t += 1.0 / 30.0;
+            if t >= 7.0 && glitches == 6 {
+                glitches = 7;
+            }
+            g.frame(t, 33.3, glitches);
+        }
+        assert_eq!(glitches, 7);
+        while t < 7.0 + GUARD_S - 0.1 {
+            t += 1.0 / 30.0;
+            g.frame(t, 33.3, glitches);
+        }
+        assert!(g.guarded() && g.take_guard_change().is_none(), "on until the audio is quiet for GUARD_S");
+        while t < 7.0 + GUARD_S + 0.1 {
+            t += 1.0 / 30.0;
+            g.frame(t, 33.3, glitches);
+        }
+        assert_eq!((g.guarded(), g.take_guard_change(), g.fps()), (false, Some(false), 60));
+        assert_eq!(g.index(), rung, "a fixed level's rung never moves");
     }
 
     #[test]
