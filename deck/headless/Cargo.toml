@@ -35,6 +35,18 @@ protocol = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
+# #834: `deck-scenarios --bench` registers the scenes' factory modules by their descriptors (no wasm runtime) – the bench only
+deck-module = { path = "../module", optional = true }
+arp-module = { path = "../modules/arp", optional = true }
+analog-module = { path = "../modules/analog", optional = true }
+drumseq-module = { path = "../modules/drumseq", optional = true }
+delay-module = { path = "../modules/delay", optional = true }
+reverb-module = { path = "../modules/reverb", optional = true }
+deck-catalog = { path = "../catalog", optional = true }
+
+[features]
+# the runner's `--bench` for scenes with modules (crows-rave): `cargo run --release -p deck-headless --features bench -- --bench crows-rave`
+bench = ["dep:deck-module", "dep:arp-module", "dep:analog-module", "dep:drumseq-module", "dep:delay-module", "dep:reverb-module", "dep:deck-catalog"]
 
 [dev-dependencies]
 # tests/wasm.rs: the same scenarios in wasm32 and wasm32 + simd128 (the conformance suite's runtime and version)

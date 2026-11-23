@@ -1208,6 +1208,8 @@ impl App {
             }
         }
         let fps = self.governor.as_ref().map_or(0.0, |g| g.fps() as f32);
+        #[allow(unused_mut)]
+        let mut update_ms = 0.0;
         self.stats.feed.feed(wall_ms, self.show.glitches.as_deref(), reduction, self.show.clock.as_ref().map_or(48_000.0, |c| c.rate), fps);
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
@@ -1215,8 +1217,10 @@ impl App {
             s.being.strain(dt, reduction);
             #[cfg(feature = "sync")]
             deck_native::space::figures::looks(self.show.sync.as_ref(), s);
+            let t = Instant::now();
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
             deck_native::rig::frame(self.show.rig.as_mut(), &s.being, &self.show.graph, &mut self.show.controls, dt);
+            update_ms = t.elapsed().as_secs_f32() * 1000.0;
             // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
             if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
                 s.report_quality(q.wire());
@@ -1334,7 +1338,10 @@ impl App {
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
-            Ok(ms) => self.stats.feed.monitor.frame(wall_ms, before + ms, true),
+            Ok(ms) => {
+                self.stats.feed.monitor.frame(wall_ms, before + ms, true);
+                self.stats.feed.monitor.phases([update_ms, before - update_ms, r.acquire_ms, ms, r.present_ms]);
+            }
             Err(e) => {
                 tracing::error!("render: {e:#}");
                 el.exit();
