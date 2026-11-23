@@ -572,3 +572,51 @@ fn a_recast_carries_the_running_values_of_the_nodes_both_have() {
     assert_eq!((c.lfo_shape(s), c.lfo_shape(0)), (Some(1), Some(0)), "the shape; the joined node keeps its own");
     assert!((c.outputs(m)[0] - 8.0).abs() < 1e-5, "(1 · 0.5 · 2 + 3) · 2: the send and both bases – got {}", c.outputs(m)[0]);
 }
+
+/// an fft node only the picture reads analyses at about the picture's rate (every 6th block at 48 kHz) – its values
+/// change only then; one whose values reach an audio node analyses every block
+#[test]
+fn a_picture_only_fft_analyses_at_the_pictures_rate_one_feeding_audio_every_block() {
+    let g = graph(
+        r#"
+[[node]]
+id = "seen"
+kind = "fft"
+[[node]]
+id = "heard"
+kind = "fft"
+[[node]]
+id = "o"
+kind = "osc"
+[[link]]
+from = "heard.bass"
+to = "o.freq"
+scale = 100
+"#,
+    );
+    let (seen, heard) = (0, 1);
+    let (mut ta, ra) = rtrb::RingBuffer::new(8192);
+    let (mut tb, rb) = rtrb::RingBuffer::new(8192);
+    let mut c = Control::new(&g, &[], vec![(seen, ra), (heard, rb)], 48_000.0);
+    let bass = |c: &Control, n: usize| c.values[c.table.base[n] as usize + 1];
+    let (mut changed_seen, mut changed_heard) = (0, 0);
+    let mut phase = 0.0f32;
+    assert_eq!((c.analyzers[0].every, c.analyzers[1].every), (6, 1));
+    for k in 0..60 {
+        // louder and softer block by block: every analysis moves the values
+        let amp = if k % 2 == 0 { 0.5 } else { 0.05 };
+        for _ in 0..QUANTUM {
+            let x = amp * (phase * std::f32::consts::TAU).sin();
+            phase = (phase + 100.0 / 48_000.0).fract();
+            ta.push(x).unwrap();
+            tb.push(x).unwrap();
+        }
+        let (s, h) = (bass(&c, seen), bass(&c, heard));
+        c.step(QUANTUM as f32 / 48_000.0, &now());
+        changed_seen += usize::from(bass(&c, seen) != s);
+        changed_heard += usize::from(bass(&c, heard) != h);
+    }
+    assert!((9..=10).contains(&changed_seen), "the picture's: every 6th block ({changed_seen} of 60)");
+    assert!(changed_heard >= 50, "the heard one: every block ({changed_heard} of 60)");
+    assert!(bass(&c, seen) > 0.5, "it still hears the bass: {}", bass(&c, seen));
+}

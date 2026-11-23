@@ -40,6 +40,7 @@
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
 //! proves native ≡ wasm32 ≡ wasm32 + simd128, so the browser's bridge adds nothing a scenario can see.
+pub mod bench;
 pub mod bones;
 pub mod caps;
 pub mod deck;

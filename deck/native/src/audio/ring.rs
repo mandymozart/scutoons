@@ -24,6 +24,9 @@ pub const BLOCK: usize = 256;
 const _: () = assert!(BLOCK % deck_engine::QUANTUM == 0);
 /// the ring's size in frames (× the device's channels in samples): the cap + the largest device buffer we expect, with room
 pub const CAPACITY: usize = 16_384;
+/// the render thread's sleep when no callback wakes it (ms): the callback unparks it after every copy, and an unpark
+/// before the park is kept (std's token), so this only bounds a stopped device's idle loop – not 1000 FIFO wake-ups a second
+const WAKE_MS: u64 = 10;
 /// the device's buffer before its first callback says it (WASAPI shared runs ~1056 frames)
 const FIRST_GUESS: u32 = 1024;
 
@@ -47,6 +50,25 @@ pub struct Feed {
     /// the ring had audio once (an empty ring before the first block is no underrun)
     primed: bool,
     render: Option<std::thread::Thread>,
+    /// the deck image's low C-state latency request while the audio runs (`/dev/cpu_dma_latency`, held open)
+    _latency: Option<std::fs::File>,
+}
+
+/// The deck image's C-state latency request (deck/os deck-session: `DECK_CPU_DMA_LATENCY` in µs, usually 0): held while the
+/// file stays open – deep C-state exits stop delaying the audio's wake-ups. Unset (a dev PC) = None.
+fn latency_request() -> Option<std::fs::File> {
+    let us: i32 = std::env::var("DECK_CPU_DMA_LATENCY").ok()?.trim().parse().ok()?;
+    use std::io::Write;
+    match std::fs::OpenOptions::new().write(true).open("/dev/cpu_dma_latency").and_then(|mut f| f.write_all(&us.to_ne_bytes()).map(|_| f)) {
+        Ok(f) => {
+            tracing::info!("audio: CPU wake-up latency held at {us} µs while the audio runs");
+            Some(f)
+        }
+        Err(e) => {
+            tracing::warn!("audio: no CPU wake-up latency request ({e})");
+            None
+        }
+    }
 }
 
 /// The render thread's half: renders blocks into the ring until it holds the device's buffer + the lead.
@@ -72,7 +94,7 @@ pub fn pair(mut engine: Engine, first_guess: Option<u32>) -> (Feed, Renderer) {
     let chans = engine.device_channels();
     let shared = Arc::new(Shared { stamp: SeqLock::default(), stop: AtomicBool::new(false), glitches: mon.shared.clone() });
     let (tx, rx) = rtrb::RingBuffer::new(CAPACITY * chans);
-    let feed = Feed { ring: rx, chans, shared: shared.clone(), mon, taken: 0, primed: false, render: None };
+    let feed = Feed { ring: rx, chans, shared: shared.clone(), mon, taken: 0, primed: false, render: None, _latency: None };
     let renderer = Renderer {
         engine,
         ring: tx,
@@ -90,15 +112,20 @@ pub fn pair(mut engine: Engine, first_guess: Option<u32>) -> (Feed, Renderer) {
 /// The feed for a device callback, its renderer running on a thread of its own at audio priority.
 pub fn spawn(engine: Engine, first_guess: Option<u32>) -> std::io::Result<Feed> {
     let (mut feed, mut renderer) = pair(engine, first_guess);
+    feed._latency = latency_request();
     let handle = std::thread::Builder::new().name("audio-render".into()).spawn(move || {
         match super::priority::raise() {
             Ok(how) => tracing::info!("audio: the render thread runs at {how}"),
             Err(e) => tracing::warn!("audio: the render thread at normal priority ({e})"),
         }
+        match super::priority::pin_audio() {
+            Some(Ok(on)) => tracing::info!("audio: the render thread on the audio core ({on})"),
+            Some(Err(e)) => tracing::warn!("audio: the render thread not pinned ({e})"),
+            None => {}
+        }
         while !renderer.shared.stop.load(Ordering::Relaxed) {
             renderer.fill(now_ns());
-            // the callback unparks it after each copy; the timeout keeps it going if a wake-up is lost
-            std::thread::park_timeout(Duration::from_millis(1));
+            std::thread::park_timeout(Duration::from_millis(WAKE_MS));
         }
     })?;
     feed.render = Some(handle.thread().clone());

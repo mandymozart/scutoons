@@ -16,6 +16,10 @@ use crate::params;
 pub trait Knobs {
     /// `node`'s control input `port`: the linked output mapped by the link, else the node's own param, else `default`
     fn input(&self, node: usize, port: &str, default: f32) -> f32;
+    /// `input` by the port's index (`name` its name, for a view that only searches) – what a knob reads every frame
+    fn input_index(&self, node: usize, _port: usize, name: &str, default: f32) -> f32 {
+        self.input(node, name, default)
+    }
     /// `node`'s control outputs this frame (its port order)
     fn outputs(&self, node: usize) -> &[f32];
     /// an LFO's shape (an index into LFO_SHAPES); None for other nodes
@@ -34,6 +38,10 @@ pub trait Knobs {
 pub trait Values {
     /// `node`'s control input `port` (linked or not), else `default`
     fn input(&self, node: usize, port: &str, default: f32) -> f32;
+    /// `input` by the port's index (`name` its name, for a view that only searches) – what a knob reads every frame
+    fn input_index(&self, node: usize, _port: usize, name: &str, default: f32) -> f32 {
+        self.input(node, name, default)
+    }
     /// `node`'s control output `port` this frame
     fn output(&self, node: usize, port: usize) -> f32;
     /// `node`'s audio output `port`: its newest block peak
@@ -55,6 +63,9 @@ pub struct Local<'a> {
 impl Values for Local<'_> {
     fn input(&self, node: usize, port: &str, default: f32) -> f32 {
         self.ctl.input(node, port, default)
+    }
+    fn input_index(&self, node: usize, port: usize, name: &str, default: f32) -> f32 {
+        self.ctl.input_index(node, port, name, default)
     }
     fn output(&self, node: usize, port: usize) -> f32 {
         self.ctl.outputs(node).get(port).copied().unwrap_or(0.0)
@@ -150,11 +161,12 @@ impl Mirror {
 impl Values for Mirror {
     fn input(&self, node: usize, port: &str, default: f32) -> f32 {
         let Some(k) = self.kinds[node].input(port) else { return default };
-        let v = self.inputs[node][k];
-        if v.is_nan() {
-            default
-        } else {
-            v
+        self.input_index(node, k, port, default)
+    }
+    fn input_index(&self, node: usize, port: usize, _: &str, default: f32) -> f32 {
+        match self.inputs.get(node).and_then(|i| i.get(port)) {
+            Some(v) if !v.is_nan() => *v,
+            _ => default,
         }
     }
     fn output(&self, node: usize, port: usize) -> f32 {
@@ -310,10 +322,14 @@ impl Table {
 impl Knobs for Table {
     fn input(&self, node: usize, port: &str, default: f32) -> f32 {
         let Some(k) = self.kinds[node].input(port) else { return default };
-        match self.inputs[node][k] {
-            (Some((n, p, scale, offset)), _) => self.outputs[n][p] * scale + offset,
-            (None, v) if v.is_nan() => default,
-            (None, v) => v,
+        self.input_index(node, k, port, default)
+    }
+    fn input_index(&self, node: usize, port: usize, _: &str, default: f32) -> f32 {
+        match self.inputs.get(node).and_then(|i| i.get(port)) {
+            Some((Some((n, p, scale, offset)), _)) => self.outputs[*n][*p] * scale + offset,
+            Some((None, v)) if v.is_nan() => default,
+            Some((None, v)) => *v,
+            None => default,
         }
     }
     fn outputs(&self, node: usize) -> &[f32] {
