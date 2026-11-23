@@ -368,11 +368,10 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	/* the front tab: the pressed segment (the kit's PillTab, deck-kit pills_rounded), the others muted */
+	/* the front tab: the thin outline (the kit's PillTab, owner 2026-11-24), the others muted */
 	.tab.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		text-shadow: none;
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-text);
+		color: var(--tool-text);
 	}
 	.tab.dragged {
 		opacity: 0.4;

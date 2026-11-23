@@ -24,7 +24,7 @@
 		<div class="sheet" data-theme={theme} data-control-exempt="the kit's sheet shows the bar's inset sizes" data-testid="ui-kit-{theme}">
 			<h3>{theme === 'night' ? 'Night' : 'Day'}</h3>
 
-			<p class="cap">Bar · Pill, IconButton, PillTab (concentric)</p>
+			<p class="cap">Bar · Pill, IconButton, PillTab (concentric; the active tab outlined; groups and toolbars bordered, a lone icon round)</p>
 			<div class="bar">
 				<Pill><IconButton label="Home" icon="home" pressed /></Pill>
 				<Pill>

@@ -6,7 +6,7 @@
 
 	/**
 	 * One tab of a pill (deck-kit bar.rs `tabs`, controls.rs `pills_rounded`): its icon and words on one line; the one `on`
-	 * takes the pressed ground, the others the hover ground under the pointer; it is rounded by --kit-r (in a Pill: the
+	 * takes the thin outline (point 46, owner 2026-11-24: "Active is the new outline look"), the others are muted and take the hover ground under the pointer; it is rounded by --kit-r (in a Pill: the
 	 * pill's radius less the inset – concentric). `href` makes it a link (`aria-current` on), else a button (`aria-pressed`).
 	 * `onclose` adds the close at its end (a square as high as the tab); `small` takes the small type (a pill of modes).
 	 * `dim` mutes one that does not fit. Other attributes go to the tab itself (data-* for the caller).
@@ -53,7 +53,7 @@
 		max-width: 14rem;
 		height: var(--kit-h, var(--control-height));
 		border-radius: var(--kit-r, var(--editor-radius));
-		color: var(--tool-text);
+		color: var(--tool-muted);
 		font-size: var(--kit-font, var(--editor-font));
 	}
 	.small {
@@ -63,12 +63,8 @@
 		opacity: 0.55;
 	}
 	.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		text-shadow: none;
-	}
-	.on :global(svg) {
-		filter: none;
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-text);
+		color: var(--tool-text);
 	}
 	@media (hover: hover) {
 		.kit-pill-tab:not(.on):hover {
@@ -132,7 +128,7 @@
 		cursor: pointer;
 	}
 	.on .close {
-		color: var(--tool-pressed-text);
+		color: var(--tool-text);
 	}
 	@media (hover: hover) {
 		.close:hover {

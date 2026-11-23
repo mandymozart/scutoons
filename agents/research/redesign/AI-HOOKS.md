@@ -1,5 +1,5 @@
 <!-- status: draft concept 2026-11-21; §0 the owner's direction (spore canvases instead of the hook dialog) supersedes §1's card – thought aloud, not built; drawn in spores.html. #773, #763. -->
-Status 2026-11-21: concept for the owner (#773, epic #626) – nothing decided, nothing built. Pictures: characters.html (`?hook=closed|open|running|landed`).
+Status 2026-11-21: concept for the owner. **Naming 2026-11-24 (owner): just "spores", never "gen-AI spores" – most of them link an agent or an LLM; read "gen-AI spore" below as a hooked spore.** Concept (#773, epic #626) – nothing decided, nothing built. Pictures: characters.html (`?hook=closed|open|running|landed`).
 
 # AI canvas hooks – where external generative tools plug into the creator
 

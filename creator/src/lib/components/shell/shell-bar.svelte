@@ -10,7 +10,7 @@
 	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
 	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
 	 * something in its scope is not live), the account (the user menu, as a swipe up from the bottom) and the menu, far right: it lays the dashboard over everything and
-	 * takes it away again. Every part is a kit Pill, half a gap apart.
+	 * takes it away again. Every part is a kit Pill, half a gap apart, groups and toolbars bordered (owner 2026-11-24).
 	 */
 	const session = getCreatorSession();
 	const doc = $derived(shell.doc);

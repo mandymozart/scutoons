@@ -8,7 +8,7 @@
 	/**
 	 * The Generate workspace's main view: the spore canvas (AI-HOOKS.md §0) – the spores woven in on the left, the output
 	 * spore on the right; its format is what the generator makes and which slots take it. A stub: nothing runs or is saved,
-	 * a gen-AI spore carries the hook mark (where an external tool runs), the output spore marks where a run's result
+	 * a hooked spore carries the hook mark (where an external tool runs), the output spore marks where a run's result
 	 * comes back to a slot.
 	 */
 	let { spores, output = $bindable('picture'), onremove }: { spores: readonly Spore[]; output?: OutputFormat; onremove: (id: string) => void } = $props();
