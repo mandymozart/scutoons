@@ -26,7 +26,6 @@
 	import { shell, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import CharacterStage from '$lib/components/characters/character-stage.svelte';
-	import CharacterViews, { type CharacterViewId } from '$lib/components/characters/character-views.svelte';
 	import CharacterModelCanvas from '$lib/components/characters/character-model-canvas.svelte';
 	import CharacterRigPanel from '$lib/components/characters/character-rig-panel.svelte';
 	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
@@ -40,9 +39,10 @@
 	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
 
 	/**
-	 * One character as the character workspace (research/redesign/characters.html, A with B's 3D place and C's split):
-	 * its sections are the tabs of one panel – Kanon (who it is, its texts), Expressions, Rig, Voice, Cast, Generations –
-	 * and its own view fills the stage: Sheet, Expressions or 3D, S splits it. The Library follows it (its uses).
+	 * One character as the character workspace: an item with assets (workspace-thoughts.md point 63). Its views are panel
+	 * tabs like every other – the Sheet (the workspace's main view, on the stage at the start), Expressions and the 3D
+	 * place can each take the stage or sit in a panel; its sections are tabs too: Kanon, Rig, Voice, Cast, Generations.
+	 * The Library opens it and follows it (its uses).
 	 */
 	let {
 		registry,
@@ -94,8 +94,6 @@
 	const requests = $derived(requestsOf(requestsDoc));
 	let mood = $state('neutral');
 	let pictureView = $state<CharacterView>('portrait');
-	let view = $state<CharacterViewId>('sheet');
-	let split = $state(false);
 	/** set after an import: previews of files with new bytes at the same path load again */
 	let bust = $state(0);
 
@@ -108,9 +106,11 @@
 	const modelSource = $derived(character ? personaModelSource(character, personaId, lookId) : { path: '', fallback: true });
 	const attached = $derived<'look' | 'persona' | null>(modelSource.fallback ? null : currentLook?.model?.trim() ? 'look' : 'persona');
 	$effect(() => void model.read(modelSource.fallback ? '' : modelSource.path));
+	/** a clip played from the Rig tab: the 3D place shows, wherever it is */
 	function playClip(clip: number) {
 		model.play(clip);
-		if (view !== '3d' && !split) view = '3d';
+		const state = shell.floats?.stateOf('3d');
+		if (state === 'hidden' || state === 'panel') shell.open('3d');
 	}
 
 	function pickPersona(p: string) {
@@ -156,7 +156,11 @@
 		{ value: 'look', icon: 'image', name: m['creator.characters_level_look'](), label: m['creator.characters_level_look']() }
 	]);
 
-	useTabs(() => (character && currentPersona ? { kanon: kanonTab, expressions: currentLook ? expressionsTab : null, rig: currentLook ? rigTab : null, voice: voiceTab, cast: castTab, generations: generationsTab } : {}));
+	useTabs(() =>
+		character && currentPersona
+			? { sheet: currentLook ? sheetTab : null, '3d': currentLook ? placeTab : null, kanon: kanonTab, expressions: currentLook ? expressionsTab : null, rig: currentLook ? rigTab : null, voice: voiceTab, cast: castTab, generations: generationsTab }
+			: {}
+	);
 </script>
 
 {#snippet kanonTab()}
@@ -194,9 +198,30 @@
 	{/if}
 {/snippet}
 
+{#snippet sheetTab()}
+	{#if character && currentLook}
+		<div class="view-box" data-testid="character-view-sheet">
+			<CharacterStage {character} persona={personaId} look={currentLook} {moods} {mood} view={pictureView} {bust} />
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet placeTab()}
+	{#if currentLook}
+		<div class="view-box" data-testid="character-view-3d">
+			<CharacterModelCanvas {model} {where} {attached} room={{ left: 0, right: 0 }} onattach={(path) => edits.setModel(path)} />
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet expressionsTab()}
 	{#if character && currentLook}
-		<MoodStrip {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view={pictureView} bind:grid={() => view === 'expressions', (on) => (view = on ? 'expressions' : 'sheet')} {bust} />
+		<MoodStrip {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} bind:mood bind:view={pictureView} {bust} />
+		<div class="grid-area" data-testid="character-expressions">
+			{#key `${personaId}/${lookId}`}
+				<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} {bust} />
+			{/key}
+		</div>
 		<Section id="character-mood-words" label={m['shell.panel_vocabulary']()} open={false}>
 			{@render vocabulary()}
 		</Section>
@@ -236,25 +261,8 @@
 {/snippet}
 
 {#if character && currentPersona}
-	<article class="char-workspace" data-testid="character-detail" data-id={character.id}>
-		{#if currentLook}
-			<CharacterViews bind:view bind:split>
-				{#snippet sheet()}
-					<CharacterStage {character} persona={personaId} look={currentLook} {moods} locale={textLanguage.names} {mood} view={pictureView} {bust} label="{shownCharacterName(character)} · {where}" />
-				{/snippet}
-				{#snippet expressions()}
-					<div class="grid-area" data-testid="character-expressions">
-						{#key `${personaId}/${lookId}`}
-							<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={edits.setImage} onrequest={edits.request} onaddmood={edits.addMood} {bust} />
-						{/key}
-					</div>
-				{/snippet}
-				{#snippet place(room: { left: number; right: number })}
-					<CharacterModelCanvas {model} {where} {attached} {room} onattach={(path) => edits.setModel(path)} />
-				{/snippet}
-			</CharacterViews>
-		{/if}
-	</article>
+	<!-- the item's own view under the stage: its views are tabs (the Sheet starts on the stage) -->
+	<article class="char-workspace" data-testid="character-detail" data-id={character.id}></article>
 {:else}
 	<p class="sc-empty">{m['creator.characters_pick']()}</p>
 {/if}
@@ -284,13 +292,18 @@
 	.say .sc-empty {
 		margin: 0;
 	}
-	/* the expressions on the stage: under the bar, clear of the panels and the view pill */
 	.grid-area {
-		position: absolute;
-		inset: 0;
-		overflow: auto;
-		box-sizing: border-box;
-		background: var(--tool-ground);
-		padding: calc(var(--shell-top) + 1rem) var(--in-r) calc(var(--status-room) + var(--control-height) + 1.5rem) var(--in-l);
+		padding: 0 var(--editor-pad) var(--editor-pad);
+	}
+	/* a picture view: its whole box in a stage cell (a canvas) or a panel; its words keep to the cell's clear room */
+	.view-box {
+		--in-l: var(--stage-left, 0.75rem);
+		--in-r: var(--stage-right, 0.75rem);
+		--shell-top: var(--stage-top, 0rem);
+		--status-room: var(--stage-bottom, 0rem);
+		position: relative;
+		flex: 1;
+		min-height: 18rem;
+		overflow: hidden;
 	}
 </style>

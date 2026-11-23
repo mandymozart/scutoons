@@ -2,6 +2,7 @@
 // `launch`): one ranked list of items, workspaces, views, assets and commands for what was typed, the most recent picks
 // first while nothing is typed, and the keys that open it. Tests: test/shell.test.ts.
 
+import { isGone } from './address.ts';
 export type LaunchKind = 'item' | 'workspace' | 'view' | 'asset' | 'command';
 
 /** the order kinds come in when they match equally well */
@@ -114,6 +115,7 @@ export function readPicks(raw: unknown): LaunchPick[] {
 		const p = v as Partial<LaunchPick> | null;
 		if (!p || typeof p.id !== 'string' || typeof p.label !== 'string' || typeof p.icon !== 'string' || !KIND_ORDER.includes(p.kind as LaunchKind)) continue;
 		if (p.href !== undefined && (typeof p.href !== 'string' || !p.href.startsWith('/'))) continue;
+		if (typeof p.address === 'string' && isGone(p.address)) continue;
 		out.push({ id: p.id, kind: p.kind as LaunchKind, label: p.label, icon: p.icon, ...(typeof p.hint === 'string' ? { hint: p.hint } : {}), ...(typeof p.address === 'string' ? { address: p.address } : {}), ...(p.href ? { href: p.href } : {}) });
 		if (out.length >= MAX_PICKS) break;
 	}

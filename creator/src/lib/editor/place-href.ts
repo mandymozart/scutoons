@@ -44,8 +44,6 @@ export function placeHref(key: string, toon: string | null = null): string {
 			return '/characters';
 		case 'scene':
 			return `/scenes/${encodeURIComponent(ref.id ?? '')}`;
-		case 'asset-requests':
-			return '/characters?tab=wanted';
 		default:
 			return t ? `/${t}` : '/';
 	}

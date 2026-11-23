@@ -2,7 +2,7 @@
 // never grouped by craft. An open item remembers its workspace; a workspace that does not fit the front item is dimmed
 // and opens its own last item. Kept in this browser. Pure: test/shell.test.ts.
 import type { Tab } from './tabs.ts';
-import { AREAS, workspaceOf, type WorkspaceKind } from './address.ts';
+import { AREAS, isGone, workspaceOf, type WorkspaceKind } from './address.ts';
 
 export interface WorkspaceUse {
 	/** how often each workspace came to the front */
@@ -14,7 +14,7 @@ export interface WorkspaceUse {
 export const NO_USE: WorkspaceUse = { uses: {}, last: {} };
 
 /** the workspaces the row offers, in their order before any use (Help lives in the menu) */
-export const ROW: readonly WorkspaceKind[] = ['toon', 'chapter', 'storyboard', 'character', 'scene', 'catalog', 'map', 'flow', 'sound', 'text'];
+export const ROW: readonly WorkspaceKind[] = ['toon', 'chapter', 'storyboard', 'character', 'scene', 'catalog', 'map', 'flow', 'sound', 'text', 'generate'];
 
 /**
  * The workspaces the member's crafts start with (the server resolves them: GET /api/me/crafts `workspaces`), those this
@@ -26,13 +26,55 @@ export const startKinds = (ids: readonly string[] | null | undefined): Workspace
 const baseRow = (starts: readonly WorkspaceKind[]): readonly WorkspaceKind[] => (starts.length ? [...starts, ...ROW.filter((k) => !starts.includes(k))] : ROW);
 
 /** where a workspace starts when it has shown nothing yet (an area's own list); the others need an item first (a character opens from the Library) */
-const STARTS: Partial<Record<WorkspaceKind, string>> = { scene: '/scenes', catalog: '/catalog/items', map: '/map', flow: '/flow' };
+const STARTS: Partial<Record<WorkspaceKind, string>> = { scene: '/scenes', catalog: '/catalog/items', map: '/map', flow: '/flow', generate: '/generate' };
 
 /** an address that only passes through (the old characters list goes Home): no workspace remembers it */
-const passing = (address: string) => address === AREAS.characters;
+const passing = (address: string) => address === AREAS.characters || isGone(address);
 
 /** the front item fits a workspace: it can be shown there (today one workspace per kind) */
-export const fits = (address: string | null, kind: WorkspaceKind): boolean => !!address && workspaceOf(address) === kind;
+export const fits = (address: string | null, kind: WorkspaceKind): boolean => !!address && !passing(address) && workspaceOf(address) === kind;
+
+// ── an item and its workspace (point 48) ──
+/** a workspace: a creator workspace (its kind) or an own one made from a kind */
+export interface WorkspaceRef {
+	id: string;
+	kind: WorkspaceKind;
+}
+
+/** the workspace a kind shows: the own one chosen for it while it exists, else the kind's own */
+const shownFor = (kind: WorkspaceKind, chosen: Readonly<Record<string, string>>, own: readonly WorkspaceRef[]): string => {
+	const id = chosen[kind];
+	return id && own.some((o) => o.id === id && o.kind === kind) ? id : kind;
+};
+
+/** a workspace id an item can still be shown in: its kind's own, or an own workspace of that kind that still exists */
+const stillFits = (address: string, id: string | undefined, own: readonly WorkspaceRef[]): id is string => {
+	if (!id) return false;
+	const kind = workspaceOf(address);
+	return !!kind && (id === kind || own.some((o) => o.id === id && o.kind === kind));
+};
+
+/**
+ * The workspace an item comes to the front in. An open item remembers its workspace (`remembered`): clicking its tab
+ * brings it back there while that workspace exists and fits. A new item opens in the front workspace if it fits, else
+ * in the one its kind shows (the last picked of its kind). No workspace for the address: null.
+ */
+export function workspaceFor(address: string, remembered: string | undefined, front: WorkspaceRef | null, chosen: Readonly<Record<string, string>>, own: readonly WorkspaceRef[]): string | null {
+	const kind = workspaceOf(address);
+	if (!kind || passing(address)) return null;
+	if (stillFits(address, remembered, own)) return remembered;
+	if (front && front.kind === kind && stillFits(address, front.id, own)) return front.id;
+	return shownFor(kind, chosen, own);
+}
+
+/**
+ * A workspace tab clicked (`target`), the front item at `front` (its page `frontHref`): a workspace the item fits keeps
+ * it (the item stays and remembers that workspace); one it doesn't fit (dimmed) opens its own last item (`entryHref`).
+ */
+export function workspaceClick(front: string | null, frontHref: string | null, target: WorkspaceRef, entryHref: string): { href: string; keeps: boolean } {
+	if (front && frontHref && fits(front, target.kind)) return { href: frontHref, keeps: true };
+	return { href: entryHref, keeps: false };
+}
 
 /** the front item changed (`from`: the workspace in front before): its workspace remembers it and, entered anew, counts a use */
 export function entered(use: WorkspaceUse, from: WorkspaceKind | null, address: string | null, href: string): WorkspaceUse {
@@ -81,7 +123,7 @@ export function readUse(raw: unknown): WorkspaceUse {
 		const n = (v.uses as Record<string, unknown> | undefined)?.[kind];
 		if (typeof n === 'number' && Number.isFinite(n) && n > 0) uses[kind] = Math.floor(n);
 		const l = (v.last as Record<string, unknown> | undefined)?.[kind] as { address?: unknown; href?: unknown } | undefined;
-		if (l && typeof l.address === 'string' && typeof l.href === 'string' && l.href.startsWith('/') && workspaceOf(l.address) === kind) last[kind] = { address: l.address, href: l.href };
+		if (l && typeof l.address === 'string' && typeof l.href === 'string' && l.href.startsWith('/') && !passing(l.address) && workspaceOf(l.address) === kind) last[kind] = { address: l.address, href: l.href };
 	}
 	return { uses, last };
 }
