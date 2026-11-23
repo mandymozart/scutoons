@@ -11,7 +11,8 @@ test('reads both looks with the same roles, the tables and the sizes from kit/to
 	assert.equal(t.night.colors.stage, '#000000');
 	assert.equal(t.night.colors.control, '#f3f3f00f', 'a control stands on the text colour at 6 %');
 	assert.equal(t.day.colors.selected, '#17191629', 'a selected item: text at 16 %');
-	assert.equal(t.night.panelOpacity, 0.5);
+	assert.equal(t.night.panelOpacity, 0.85);
+	assert.equal(t.day.panelOpacity, 0.85, 'one strength for both looks');
 	assert.equal(t.night.inkRing, true);
 	assert.equal(t.day.inkRing, false);
 	assert.deepEqual(Object.keys(t.night.signals), ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far']);
@@ -33,13 +34,13 @@ test('palette D: no accent, no lime primary, no signal hue among the UI colours'
 test('night is the default, day the variant; sizes in rem, base and edge in px', () => {
 	const css = render(parse(toml));
 	const night = css.slice(css.indexOf(":root,\n[data-theme='night']"), css.indexOf("[data-theme='day']"));
-	assert.match(night, /--editor-surface: #000000d9;/, 'a menu stands on the stage colour at 85 %');
-	assert.match(night, /--editor-panel-ground: rgb\(0 0 0 \/ 0\.5\);/);
+	assert.match(night, /--editor-surface: #000000;/);
+	assert.match(night, /--editor-panel-ground: rgb\(0 0 0 \/ 0\.85\);/);
 	assert.match(night, /--editor-halo: 0 0 2px #000000,/);
 	assert.match(night, /--signal-audio: #19b8d8;/);
 	assert.match(night, /--outlet-device: #f2df6f;/);
 	assert.match(night, /--editor-colorblind-go: #56b4e9;/);
-	assert.match(css, /\[data-theme='day'\] \{[^}]*--editor-surface: #ffffffd9;[^}]*--editor-halo: none;/);
+	assert.match(css, /\[data-theme='day'\] \{[^}]*--editor-panel-ground: rgb\(255 255 255 \/ 0\.85\);[^}]*--editor-halo: none;/);
 	assert.match(css, /--editor-row: 2\.15rem;/);
 	assert.match(css, /--editor-base: 14px;/);
 	assert.match(css, /--editor-label-spacing: 0\.15em;/);
@@ -55,7 +56,7 @@ test('a changed value in the file changes the output', () => {
 test('the reader refuses what the kit file must not hold', () => {
 	assert.throws(() => parse(toml.replace('text = "#f3f3f0"', 'text = [0.95, 0.95, 0.94, 1.0]')), /cannot read the value|not #rrggbb/);
 	assert.throws(() => parse(toml.replace('go = "#56b4e9"', 'go = "blue"')), /not #rrggbb/);
-	assert.throws(() => parse(toml.replace('surface = "#000000d9"', 'surface = "#1a1c18"')), /surface is an opaque ground/);
+	assert.throws(() => parse(toml.replace('surface = "#000000"', 'surface = "#000000d9"')), /surface is opaque/);
 	assert.throws(() => parse(toml.replace('hover = "#1719161a"', 'hover = "#e4e8dcff"')), /hover is an opaque ground/);
 	assert.throws(() => parse(toml.replace('[day.signals]\nevent = "#22271e"\n', '[day.signals]\n')), /day and night differ in their signals/);
 	assert.throws(() => parseToml('[a]\nx = 1\nx = 2\n'), /x twice/);

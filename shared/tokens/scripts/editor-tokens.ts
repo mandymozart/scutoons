@@ -75,8 +75,8 @@ function value(v: string, at: number): Value {
 }
 
 const COLOUR = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
-/** the grounds a thing stands on: never an opaque grey, the stage shows through */
-const GROUNDS = ['surface', 'surface_head', 'control', 'hover', 'selected', 'within', 'selection'];
+/** the grounds a thing stands on: never an opaque grey, the stage shows through (the surface is one only at panel_opacity) */
+const GROUNDS = ['surface_head', 'control', 'hover', 'selected', 'within', 'selection'];
 
 function colours(t: Table | undefined, where: string): Record<string, string> {
 	const out: Record<string, string> = {};
@@ -92,10 +92,12 @@ function colours(t: Table | undefined, where: string): Record<string, string> {
 }
 
 function look(f: Record<string, Table>, name: 'day' | 'night'): Look {
-	const { panel_opacity, ink_ring, ...own } = f[`${name}.color`] ?? {};
+	const { panel_opacity, ink_ring, ...merged } = { ...f.color, ...f[`${name}.color`] };
 	if (typeof panel_opacity !== 'number' || typeof ink_ring !== 'boolean') throw new Error(`[${name}.color] needs panel_opacity and ink_ring`);
-	const colors = { ...colours(f.color, 'color'), ...colours(own, `${name}.color`) };
+	if (!(panel_opacity > 0 && panel_opacity < 1)) throw new Error(`panel_opacity ${panel_opacity}: the stage shows through (0 < it < 1)`);
+	const colors = colours(merged, `${name}.color`);
 	for (const k of ['surface', 'text', 'pressed', 'pressed_text']) if (!colors[k]) throw new Error(`[${name}.color] has no ${k}`);
+	if (colors.surface.length !== 7) throw new Error(`[${name}.color] surface is opaque (#rrggbb): panel_opacity makes it see-through`);
 	for (const k of GROUNDS) {
 		if (colors[k] && (colors[k].length !== 9 || colors[k].endsWith('ff'))) throw new Error(`[${name}.color] ${k} is an opaque ground: grounds are see-through (#rrggbbaa)`);
 	}

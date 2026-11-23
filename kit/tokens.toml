@@ -1,9 +1,11 @@
+# Grounds are translucent and never grey.
+#
 # The kit's tokens – the one source of the look of the deck's UI (deck-kit) and the web tools (shared/tokens).
 # Palette D (RULES H11): no accent, no lime, no green switch; on, focus, active and selected are the text colour, the one
 # primary action is the pressed fill, colour says only ok (go), warning (warn) and error (stop). The grounds a control
-# stands on are see-through: the text colour at a low alpha; a menu's or a panel's is the stage colour, translucent –
-# never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a group of spores, the
-# mixer's strips.
+# stands on are see-through: the text colour at a low alpha; a menu's or a panel's is the surface (the stage colour) at
+# panel_opacity – never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a
+# group of spores, the mixer's strips.
 #
 # Shape (deck-kit's `tokens.toml`, deck/kit/src/base/tokens.rs `File`): `[color]` and `[size]` for both looks,
 # `[day.<table>]` / `[night.<table>]` for one. Key names are deck-kit's field names. Colours "#rrggbb" or "#rrggbbaa".
@@ -16,6 +18,8 @@ stage = "#000000"
 # light ink: text over the stage and on a coloured ground
 bright = "#f3f3f0"
 danger = "#c0392b"
+# how much a surface covers the stage behind it (0..1): the see-through ground of panels, the bar, menus, popovers
+panel_opacity = 0.85
 # the view gizmo's x, y, z
 axis = ["#ed4552", "#78bf33", "#4087f2"]
 
@@ -42,9 +46,9 @@ panel_h = 3.4
 spacing = 0.15
 
 [night.color]
-# a menu's, a popover's, a dialog's, a tooltip's ground: the stage colour at 85 % (the strength is this alpha, d9, in
-# both looks); its colour at panel_opacity is a floating panel's ground
-surface = "#000000d9"
+# the stage colour, opaque: at panel_opacity it is the ground of a floating panel, the bar, a menu, a popover, a dialog;
+# opaque only as the ink ring
+surface = "#000000"
 # a fold row's or a tile's head: text 5 %
 surface_head = "#f3f3f00d"
 line = "#3a4034"
@@ -69,12 +73,11 @@ warn = "#f0a030"
 stop = "#e5483b"
 # a mixer strip's stripe, round the list
 strips = ["#00d1ff", "#f0a030", "#b36bff", "#4cc35a", "#ff6b8a", "#e6d24a"]
-# how much a floating panel's ground covers the stage (0..1); its text and icons get the surface as an outline
-panel_opacity = 0.5
+# a panel's text and icons get the surface as an outline
 ink_ring = true
 
 [day.color]
-surface = "#ffffffd9"
+surface = "#ffffff"
 surface_head = "#1719160d"
 line = "#d9decf"
 text = "#171916"
@@ -90,7 +93,6 @@ go = "#2e8a3e"
 warn = "#b86e0c"
 stop = "#d63a2d"
 strips = ["#00a6cc", "#e08e1c", "#9a52e6", "#3aa84a", "#e8577a", "#c9b42e"]
-panel_opacity = 0.8
 ink_ring = false
 
 # What a port, a pin and a cable carries (deck-kit base/signal.rs): its colour.

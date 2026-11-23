@@ -1,12 +1,24 @@
 # kit – the one source of the UI's look
 
+## Always
+
+**Grounds are translucent and never grey.**
+
+- Every ground – a control's, a panel's, a menu's, a popover's, a dialog's, a box's, a card's – is see-through, the stage
+  showing through; an opaque grey fill does not exist; a grey ground in a draft or a capture is not the reference
+  (owner 2026-11-24). The generator refuses an opaque ground.
+- The stage is black by night, white by day.
+- A panel and a menu are the stage colour (`surface`) at one strength (`panel_opacity`).
+- A control is the text colour at 6 %, hover 10 %, selected 16 %.
+- No signal hue: on, focus, selected are the text colour; colour only says ok, warning, error; what keeps colour is in
+  RULES H11.
+
+## What it is
+
 The tokens and components of the deck's UI (deck-kit, `deck/kit`) and the web tools (`shared/tokens`, `shared/ui`) are
-written here once; both apps are built from it. Palette D (RULES H11): no accent, no lime, no green switch; on, focus,
-active and selected are the text colour, the one primary action is the pressed fill, colour says only ok, warning and
-error. Every ground is see-through, never an opaque grey: a control's, a row's, a head's is the text colour at a low
-alpha; a menu's, a popover's, a dialog's is the stage colour at 85 % (`surface`); a floating panel's is that colour at
-`panel_opacity`. The generator refuses an opaque ground. What keeps its colour: signals,
-outlet types, a group of spores, the mixer's strips, thumbnails.
+written here once; both apps are built from it. Palette D (RULES H11): no accent, no lime, no green switch; the one
+primary action is the pressed fill. What keeps its colour: signals, outlet types, a group of spores, the mixer's strips,
+thumbnails.
 
 ## Files
 

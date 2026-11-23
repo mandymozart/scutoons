@@ -8,7 +8,7 @@
 	--editor-stage: #000000;
 	--editor-bright: #f3f3f0;
 	--editor-danger: #c0392b;
-	--editor-surface: #000000d9;
+	--editor-surface: #000000;
 	--editor-surface-head: #f3f3f00d;
 	--editor-line: #3a4034;
 	--editor-text: #f3f3f0;
@@ -23,9 +23,9 @@
 	--editor-go: #4cc35a;
 	--editor-warn: #f0a030;
 	--editor-stop: #e5483b;
-	--editor-panel-opacity: 0.5;
+	--editor-panel-opacity: 0.85;
 	/* a floating panel's see-through ground (the surface's colour at the panel opacity, no blur) */
-	--editor-panel-ground: rgb(0 0 0 / 0.5);
+	--editor-panel-ground: rgb(0 0 0 / 0.85);
 	/* the ink ring: text and icons on a panel take its ground's colour as an outline (deck-kit DrawList::halo) */
 	--editor-halo: 0 0 2px #000000, 0 0 2px #000000, 0 0 3px #000000;
 	/* what a port, a pin and a cable carries */
@@ -53,7 +53,7 @@
 	--editor-stage: #000000;
 	--editor-bright: #f3f3f0;
 	--editor-danger: #c0392b;
-	--editor-surface: #ffffffd9;
+	--editor-surface: #ffffff;
 	--editor-surface-head: #1719160d;
 	--editor-line: #d9decf;
 	--editor-text: #171916;
@@ -68,9 +68,9 @@
 	--editor-go: #2e8a3e;
 	--editor-warn: #b86e0c;
 	--editor-stop: #d63a2d;
-	--editor-panel-opacity: 0.8;
+	--editor-panel-opacity: 0.85;
 	/* a floating panel's see-through ground (the surface's colour at the panel opacity, no blur) */
-	--editor-panel-ground: rgb(255 255 255 / 0.8);
+	--editor-panel-ground: rgb(255 255 255 / 0.85);
 	/* the ink ring: text and icons on a panel take its ground's colour as an outline (deck-kit DrawList::halo) */
 	--editor-halo: none;
 	/* what a port, a pin and a cable carries */
