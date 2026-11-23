@@ -111,7 +111,7 @@ function md(src) {
   return o;
 }
 const get = (f) => fetch(f, { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(f));
-const PAGES = [['kit-d.html', 'The kit in palette D'], ['draft.html', 'The screens (draft)'], ['show.html', 'The Show view'], ['spores-view.html', 'The Spores view'], ['spores-demo.html', 'The Spores demo'], ['universe.html', 'The universe as one tree'], ['modules-dna.html', 'Modules in the DNA']];
+const PAGES = [['kit-d.html', 'The kit in palette D'], ['draft.html', 'The screens (draft)'], ['show.html', 'The Show view'], ['spores-view.html', 'The Spores view'], ['spores-demo.html', 'The Spores demo'], ['STORYBOARD.md', 'The Storyboard review (text)'], ['universe.html', 'The universe as one tree'], ['modules-dna.html', 'Modules in the DNA']];
 document.getElementById('pages').innerHTML = PAGES.map(([h, t]) => `<a href="${h}${DAY ? '?theme=day' : ''}" target="_blank">${t}</a>`).join('');
 Promise.all(['DECISIONS.md', 'SCREENS.md', 'PLAN.md', 'LIBRARY.md'].map(get)).then(([d, s, p, lib]) => {
   document.getElementById('library').innerHTML = md(lib);

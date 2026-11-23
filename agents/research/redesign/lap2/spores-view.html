@@ -235,13 +235,13 @@ const up = ic('d').replace('M6 9l6 6 6-6', 'M18 15l-6-6-6 6');
 const lvlUp = `<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`;
 
 /* ── the shared bar, as show.html ── */
-function bar() {
+function bar(o = {}) {
   return `<div class="abs" style="left:10px;right:96px;top:7px;height:var(--kit-bar);display:flex;align-items:center;gap:var(--kit-gap);z-index:50">
-    <span class="kp"><span class="kib muted">${ic('l')}</span><span class="kt on">${ic('list')}top-toy<span class="muted">›</span>2 dialog<span class="cl muted">${ic('x')}</span></span><span class="kib muted">${ic('r')}</span><span class="kib muted">${ic('d')}</span><span class="kib">${ic('plus')}</span></span>
+    <span class="kp"><span class="kib muted">${ic('l')}</span><span class="kt on">${o.tab || `${ic('list')}top-toy<span class="muted">›</span>2 dialog`}<span class="cl muted">${ic('x')}</span></span><span class="kib muted">${ic('r')}</span><span class="kib muted">${ic('d')}</span><span class="kib">${ic('plus')}</span></span>
     <span class="kp" style="padding:0 .7rem;gap:.5rem"><span class="tg"></span>Go live</span>
     <span class="kp" style="padding:0 .75rem;gap:.55rem"><span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-muted)"></span><span class="mono" style="font-size:1rem">120.0</span><span style="display:inline-flex;gap:2px">${[1,0,0,0].map(o => `<i style="display:block;width:7px;height:3px;border-radius:1px;background:${o ? 'var(--tool-text)' : 'var(--tool-line)'}"></i>`).join('')}</span><span class="label">INT</span><span class="kib muted" style="--kit-h:1.5rem">${ic('bell')}</span></span>
     <span class="kp" style="background:var(--tool-danger);border-color:var(--tool-danger);padding:0 1rem;letter-spacing:.12em;font-size:var(--editor-small);color:#fff;text-shadow:none">PANIC</span>
-    <span style="flex:1;display:flex;justify-content:center"><span class="kp"><span class="kt">Scene</span><span class="kt">Rigging</span><span class="kt on">Show</span><span class="kib muted">${ic('d')}</span></span></span>
+    <span style="flex:1;display:flex;justify-content:center"><span class="kp">${['Scene', 'Rigging', 'Show'].map((n, k) => `<span class="kt ${k === (o.ws ?? 2) ? 'on' : ''}">${n}</span>`).join('')}<span class="kib muted">${ic('d')}</span></span></span>
     <span class="kp"><span class="kib">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>
     <span class="kp"><span class="kib">${ic('cloud')}</span><span class="kib">${ic('user')}</span><span class="kib">${ic('menu')}</span></span></div>
   <div class="abs muted" style="right:16px;top:15px;display:flex;gap:22px;font-size:14px;z-index:50"><span>–</span><span>▫</span><span>✕</span></div>`;
@@ -452,6 +452,19 @@ function showGraph() {
   };
 }
 /* the universe: the toon, the show, the deck and its scenes as nested scopes (NETWORK.md B, redrawn in the kit) */
+/* the generator opened from a storyboard shot's picture slot (AI-HOOKS.md §0 step 3–4): the shot's own sources placed, the output spore set by the slot */
+function shotGenGraph() {
+  return {
+    frames: [{ x: 24, y: 64, w: 320, h: 330, t: 'sb-25-1', chip: 'shot' }, { x: 372, y: 64, w: 400, h: 330, t: 'generator', chip: 'draft' }, { x: 1120, y: 64, w: 272, h: 200, t: 'Storyboard', chip: 'slot' }],
+    nodes: [
+      { id: 'prompt', x: 48, y: 112, w: 272, t: 'prompt', s: 'built from the shot', title: 'the shot’s action, framing and light as text', outs: [['text', 'asset']] },
+      { id: 'ref', x: 48, y: 220, w: 272, t: 'catpope (human) · sad', s: 'reference · Characters', outs: [['picture', 'picture']] },
+      { id: 'img', x: 420, y: 150, w: 304, t: 'image', k: 'hook', s: 'Luma – by hand', title: 'a hooked spore: an external tool makes the picture', on: true, ins: [['prompt', 'asset'], ['reference', 'picture']], outs: [['picture', 'picture']] },
+      { id: 'out', x: 820, y: 166, w: 252, t: 'output · picture', s: '1:3 · set by the slot', title: 'the output spore says what the generator makes – the slot it was opened from set it', ins: [['', 'picture']], outs: [['', 'picture']] },
+      { id: 'slot', x: 1144, y: 166, w: 224, t: 'sb-25-1 · picture', s: 'the generator stands in', ins: [['', 'picture']] }],
+    cables: [{ a: ['prompt', 0], b: ['img', 0] }, { a: ['ref', 0], b: ['img', 1] }, { a: ['img', 0], b: ['out', 0], lit: 1 }, { a: ['out', 0], b: ['slot', 0], lit: 1 }]
+  };
+}
 function universeGraph() {
   const ev = (id, x, y, w, t, o = {}) => ({ id, x, y, w, pill: 1, t, on: o.on, grey: o.grey, title: o.title || '', outs: o.grey ? [] : [['', 'event', { lit: o.on }]] });
   const fold = (id, x, y, w, t, title) => ({ id, x, y, w, pill: 1, fold: 1, t, title });
@@ -534,6 +547,9 @@ const SCREENS = [
       return P(0, A, 'Nave <span>›</span> <b>catpope</b>') + P(1, B, 'catpope <span>›</span> <b>3D model</b>') + P(2, C, 'experience <span>›</span> scene <span>›</span> <b>rule</b>')
         + picker({ x: xs[2] + 22, y: 52 + 118, w: 430, scope: 2, idw: 150, groups }) + cursor(xs[2] + 92, 52 + 102) + status();
     } },
+  { id: '6', name: 'v6 · The generator for a storyboard shot', bar: { tab: `${ic('node')}sb-25-1<span class="muted">›</span>generator`, ws: -1 }, changed: 'New: drawn in the deck, where the canvas lives (in the creator it shows through the deck’s wasm, #764). Opened from the shot’s picture slot (the Storyboard’s step 5) – the shot’s prompt and reference are placed, the output spore is set by the slot (a picture, 1:3); one hooked spore is woven between; what it yields comes back to the slot. In lap 2 the creator still has the stub.',
+    draw: () => sporesPanel(BIG, shotGenGraph(), { crumb: '<b>Storyboard</b> <span class="tr">› sb-25-1 › generator</span>' })
+      + `<div class="abs" style="left:36px;top:470px;right:36px;display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;z-index:6"><span class="label" style="margin-right:.4rem" title="the spores to weave in – today’s list">＋</span>${['Library', 'Sheet', 'Crop', 'Pose', 'Condition', 'Skills', 'Reference'].map(n => `<span class="kc">${n}</span>`).join('')}<span style="width:1px;height:1rem;background:var(--tool-line);margin:0 .3rem"></span>${['Image', 'Upscale', 'Video', '3D model', 'Rig', 'Voice'].map(n => `<span class="kc" title="a hook: an agent, an LLM or an external tool runs it">${ic('zap')}${n}</span>`).join('')}</div>` + status() },
 ];
 const STILLS = 'stills are made in the background and shared (#842)';
 
@@ -542,7 +558,7 @@ const VI = Math.max(0, SCREENS.findIndex(s => s.id === VQ));
 function render() {
   const s = SCREENS[VI];
   const idx = SCREENS.map((x, i) => `<a href="?v=${x.id}${DAY ? '&theme=day' : ''}" class="${i === VI ? 'on' : ''}" title="${x.name}">v${x.id}</a>`).join('') + `<a href="?v=${s.id}${DAY ? '' : '&theme=day'}">${DAY ? 'night' : 'day'}</a>`;
-  document.getElementById('root').innerHTML = `<div class="screen"><div class="deck">${bar() + s.draw()}</div>
+  document.getElementById('root').innerHTML = `<div class="screen"><div class="deck">${bar(s.bar) + s.draw()}</div>
     <div class="foot"><b>${s.name}</b><span>${s.changed}${VI < 5 ? ' · ' + STILLS : ''}</span><span class="idx">${idx}</span></div></div>`;
   document.title = s.name + ' · Spores view · lap 2';
 }
