@@ -72,10 +72,15 @@ expect = { did = "changed", holder = "left", stage = { cast = [{ holder = "centr
 do = "run"
 ms = 200
 
+# Top Toy stays: the default character rig, silent until something triggers it (#819)
+[[step]]
+do = "run"
+ms = 1500
+
 [[step]]
 do = "run"
 ms = 500
-expect = { sound = true }
+expect = { sound = false }
 
 # a word for another scene, or another action, is not this scene's
 [[step]]

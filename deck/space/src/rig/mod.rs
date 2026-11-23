@@ -371,6 +371,8 @@ impl Rig {
             Leaf::Source(..) => Err(format!("'{end}': a source only, nothing can feed it")),
             Leaf::Policy(_) if self.policy.is_some() => Ok(()),
             Leaf::Policy(_) => Err(format!("'{end}': no track 'policy' and no policy in this rig")),
+            Leaf::Member { track, member } if member == address::OPEN && is_to => self.track(&track).map(|_| ()).map_err(|e| format!("{e:#}")),
+            Leaf::Member { member, .. } if member == address::OPEN => Err(format!("'{end}': a track's gates are a target only")),
             Leaf::Member { .. } | Leaf::State(_) => Err(format!("'{end}' is not a port – a route joins ports (<track>:<node>.<port>)")),
             Leaf::Spot(_) => Err(format!("'{end}' is a spot, a position on the model – a route joins ports (<track>:<node>.<port>)")),
         }

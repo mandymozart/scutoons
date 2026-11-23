@@ -153,6 +153,10 @@ pub fn shown(kind: Kind, node: &str, port: &str, expose: &[String]) -> bool {
     if matches!(kind, Kind::Space | Kind::Look) && (POST_PORTS.contains(&port) || matches!(port, "bounce" | "mouth")) {
         return named;
     }
+    // a sequencer's gates are opened by a trigger, not turned
+    if matches!(kind, Kind::Seq | Kind::Walk | Kind::Events) && port == crate::rig::address::OPEN {
+        return named;
+    }
     named || expose.is_empty() || expose.iter().any(|e| Expose::parse(e) == Expose::Node(node))
 }
 

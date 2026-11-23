@@ -6,7 +6,7 @@
 //! triangle 3), hands it to the controls once a frame something changed and does what they answer: a stick's values on
 //! the being's knobs, the space's ring on the selection. Built with `--features gamepad`; without a pad nothing happens.
 use deck_space::controls::{Controls as Sticks, Selection};
-use deck_space::gamepad::{PadEvent, PadEvents, AXES, BACK, NEXT};
+use deck_space::gamepad::{PadEvent, PadEvents, AXES, BACK, NEXT, SING};
 use deck_space::graph::Graph;
 use deck_space::space::values::Knobs;
 use deck_space::space::Space;
@@ -16,7 +16,7 @@ use deck_space::space::Space;
 pub enum Input {
     /// axis `index` (0..3) at −1..1, y down
     Axis { index: usize, value: f32 },
-    /// button `index` (NEXT, BACK) pressed or let go
+    /// button `index` (NEXT, BACK, SING) pressed or let go
     Button { index: usize, pressed: bool },
     /// the pad went away: everything at rest
     Gone,
@@ -127,6 +127,9 @@ impl Pad {
                 PadEvent::Move(side, dx, dy) => self.drive(side, dx, dy, space, ctl),
                 PadEvent::Up(side) => self.sticks.stick_up(side),
                 PadEvent::Cycle { .. } => space.select_named(&self.sticks.selection().name()),
+                PadEvent::Sing(on) => {
+                    space.sing(on);
+                }
             }
         }
         events
@@ -229,11 +232,12 @@ pub fn axis_input(axis: gilrs::Axis, value: f32) -> Option<Input> {
     Some(Input::Axis { index, value: sign * value })
 }
 
-/// the selection buttons: south (A / cross) forward, north (Y / triangle) back
+/// the selection buttons: south (A / cross) forward, north (Y / triangle) back; west (X / square) sings while held
 pub fn button_input(button: gilrs::Button, pressed: bool) -> Option<Input> {
     let index = match button {
         gilrs::Button::South => NEXT,
         gilrs::Button::North => BACK,
+        gilrs::Button::West => SING,
         _ => return None,
     };
     Some(Input::Button { index, pressed })
@@ -334,6 +338,7 @@ mod tests {
         assert_eq!(axis_input(gilrs::Axis::RightStickX, 0.5), Some(Input::Axis { index: 2, value: 0.5 }));
         assert_eq!(axis_input(gilrs::Axis::LeftZ, 1.0), None, "a trigger isn't a stick");
         assert_eq!(button_input(gilrs::Button::North, true), Some(Input::Button { index: 3, pressed: true }));
+        assert_eq!(button_input(gilrs::Button::West, false), Some(Input::Button { index: 2, pressed: false }), "X sings");
         assert_eq!(button_input(gilrs::Button::Start, true), None);
     }
 

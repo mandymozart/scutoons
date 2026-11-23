@@ -1,0 +1,80 @@
+name = "the default voice sings only when triggered: a rigless character stands silent, the sing button or its text line opens it"
+about = "#819 (owner 2026-11-23 [rigs]: \"it should not play by default there should be a trigger which we can punsh or that is playing when an outside event send something. use case, text\"): two characters without a rig of their own play the default character rig (deck/native/rigs/default.toml) – its walk's gates open only on `trigger:sing` (rig/address.rs), a node the stage sets (deck-space space/sing.rs). Silent at first; the sing button held on the picked one opens it, let go shuts it; a story's text line of a character opens that one's for the line's time, hideMessage shuts it. The core decides all of it, the decks pass the button, the key and the story"
+
+[[step]]
+do = "load"
+document = "../server/tests/fixtures/scenes/templates/stage.json"
+with = { where = "location:dom", left = "character:nobody", right = "character:somebody" }
+[step.expect]
+ids = { has = "left_trigger_sing" }
+stage = { stage_3d = false }
+
+# nothing triggers them: silent
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = false }
+
+# the sing button held on the picked one (left): its trigger opens, it sings
+[[step]]
+do = "pick"
+click = "left"
+sing = true
+expect = { picked = "left", sang = true, triggers = { "left_trigger_sing.a" = 1.0, "right_trigger_sing.a" = 0.0 } }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+# let go: shut – the voice's release dies away, then silence
+[[step]]
+do = "pick"
+sing = false
+expect = { triggers = { "left_trigger_sing.a" = 0.0 } }
+
+[[step]]
+do = "run"
+ms = 1500
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = false }
+
+# a text line of the right one: its trigger opens while the line shows
+[[step]]
+do = "story"
+event = { type = "showMessage", params = { character = "somebody", text = "La la la, ich singe jetzt eine ganze Weile." } }
+expect = { sang = { opened = true, triggers = { "left_trigger_sing.a" = 0.0, "right_trigger_sing.a" = 1.0 } } }
+
+[[step]]
+do = "run"
+ms = 1500
+expect = { sound = true }
+
+# the box goes: shut
+[[step]]
+do = "story"
+event = { type = "hideMessage" }
+expect = { sang = { opened = false, triggers = { "right_trigger_sing.a" = 0.0 } } }
+
+[[step]]
+do = "run"
+ms = 1500
+
+[[step]]
+do = "run"
+ms = 1000
+expect = { sound = false }
+
+# a line with its own duration (ms) shuts by itself once it has passed on the stage
+[[step]]
+do = "story"
+event = { type = "showMessage", params = { character = "nobody", text = "Hm.", duration = 400 } }
+expect = { sang = { opened = true, triggers = { "left_trigger_sing.a" = 1.0 } } }
+
+[[step]]
+do = "pick"
+wait = 600
+expect = { triggers = { "left_trigger_sing.a" = 0.0 } }

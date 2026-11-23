@@ -185,7 +185,8 @@ fn rig(r: &mut Rig, op: &Op, lib: &Library) -> Result<(), String> {
                     let inst = r.tracks.iter().find(|x| &x.id == t).and_then(|x| lib.instruments.get(&x.instrument));
                     inst.and_then(|i| input_type(&i.nodes, node, port)) == Some(PortType::Control)
                 }
-                Leaf::Being(_) => true,
+                // a track's gates (`@open`, route_end admits no other member) are control too
+                Leaf::Being(_) | Leaf::Member { .. } => true,
                 _ => false,
             };
             if control {
