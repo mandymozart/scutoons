@@ -329,9 +329,9 @@
 		flex-direction: column;
 		gap: var(--space-075);
 		padding: var(--space-1);
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
-		box-shadow: 0.25rem 0.25rem 0 var(--ink);
+		background: var(--tool-popover);
+		border: var(--border-width-regular) solid var(--tool-text);
+		box-shadow: 0.25rem 0.25rem 0 var(--tool-text);
 	}
 	.field {
 		display: flex;
@@ -357,13 +357,13 @@
 		padding: 0;
 		max-height: 12rem;
 		overflow: auto;
-		border: var(--border-width-hairline) solid var(--border-muted);
+		border: var(--border-width-hairline) solid var(--tool-line);
 	}
 	.group {
 		padding: var(--space-025) var(--space-05) 0;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
@@ -379,15 +379,15 @@
 	}
 	/* the highlighted hit: sc-selected (the open builder is the live region → the live look); hover frames */
 	.hit:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.hit:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	.detail {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-body-line);
 	}
@@ -408,17 +408,17 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding-top: var(--space-075);
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-hairline) solid var(--tool-line);
 	}
 	.result {
 		margin: 0;
 		padding: var(--space-05);
-		background: var(--surface-panel);
+		background: transparent;
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}
 	.code-line {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		overflow-wrap: anywhere;
 	}
@@ -436,10 +436,10 @@
 		height: 0.5em;
 		margin-right: var(--space-05);
 		border-radius: 50%;
-		background: var(--state-warning);
+		background: var(--tool-warn);
 	}
 	.problem.error::before {
-		background: var(--state-error);
+		background: var(--tool-stop);
 	}
 	.actions {
 		display: flex;

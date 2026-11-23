@@ -92,13 +92,13 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		padding: 0;
 		margin-bottom: 0.3rem;
 	}
 	.hint {
 		margin: 0;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 	.chips {

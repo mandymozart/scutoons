@@ -183,35 +183,35 @@
 	}
 	/* the same look as a place's footprint (owner 2026-10-12): light cells, faint inner lines, a darker outer edge */
 	.cells {
-		fill: var(--primary-yellow, #ffe600);
+		fill: var(--tool-warn);
 		fill-opacity: 0.22;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.2;
 		stroke-width: 1;
 	}
 	.edge {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.85;
 		stroke-width: 1.5;
 		stroke-linecap: round;
 	}
 	/* the brush under the pointer: the highlight; removing: dashed */
 	.brush {
-		fill: var(--primary-cyan, #00d1ff);
+		fill: var(--tool-accent);
 		fill-opacity: 0.35;
-		stroke: var(--primary-cyan, #00d1ff);
+		stroke: var(--tool-accent);
 		stroke-width: 1.5;
 	}
 	.trail {
 		fill: none;
-		stroke: var(--primary-cyan, #00d1ff);
+		stroke: var(--tool-accent);
 		stroke-opacity: 0.35;
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
 	.remove .trail {
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.25;
 	}
 	.remove .brush {

@@ -62,10 +62,10 @@
 		flex-direction: column;
 		min-width: 13rem;
 		padding: 0.25rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		box-shadow: var(--editor-shadow, 0 0.5rem 1.5rem rgb(0 0 0 / 0.35));
+		background: var(--tool-popover);
+		box-shadow: none;
 	}
 	button {
 		display: flex;
@@ -76,26 +76,26 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font: inherit;
 		text-align: start;
 		cursor: pointer;
 	}
 	button:hover:not(:disabled),
 	button:focus-visible {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 		outline: none;
 	}
 	button:disabled {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: default;
 	}
 	.danger {
-		color: var(--editor-danger, var(--editor-warn));
+		color: var(--tool-danger);
 	}
 	kbd {
 		margin-inline-start: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--editor-mono, ui-monospace, monospace);
 		font-size: var(--editor-label);
 	}
@@ -103,6 +103,6 @@
 		width: 100%;
 		margin: 0.2rem 0;
 		border: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

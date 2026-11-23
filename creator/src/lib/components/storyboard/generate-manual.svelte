@@ -109,7 +109,7 @@
 		margin: 0 0 var(--space-05);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.buttons {
 		display: flex;
@@ -123,8 +123,8 @@
 		width: 100%;
 		min-height: 4rem;
 		padding: var(--space-05);
-		color: var(--text-muted);
-		border: var(--border-width-regular) dashed var(--border-muted);
+		color: var(--tool-muted);
+		border: var(--border-width-regular) dashed var(--tool-line);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		text-align: center;
@@ -132,8 +132,8 @@
 	}
 	.slot:hover:not(.off),
 	.slot.over {
-		border-color: var(--ink);
-		color: var(--ink);
+		border-color: var(--tool-text);
+		color: var(--tool-text);
 	}
 	.slot.off {
 		cursor: not-allowed;

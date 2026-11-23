@@ -68,10 +68,10 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding-top: var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 	}
 	.hint {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.row {
 		display: flex;
@@ -83,7 +83,7 @@
 		min-width: 0;
 	}
 	.problem {
-		color: var(--state-error);
+		color: var(--tool-stop);
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
 	}

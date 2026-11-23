@@ -119,7 +119,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	.stage {
 		position: absolute;
@@ -129,8 +129,8 @@
 		position: absolute;
 		z-index: 1000;
 		width: 2px;
-		background: var(--editor-accent);
-		box-shadow: 0 0 0.375rem var(--editor-accent);
+		background: var(--tool-accent);
+		box-shadow: 0 0 0.375rem var(--tool-accent);
 		pointer-events: none;
 	}
 		.zone {
@@ -139,15 +139,15 @@
 		display: grid;
 		place-items: center;
 		box-sizing: border-box;
-		outline: 2px dashed var(--editor-accent);
+		outline: 2px dashed var(--tool-accent);
 		outline-offset: -0.4rem;
 		pointer-events: none;
 	}
 	.zone span {
 		padding: 0.3rem 0.8rem;
 		border-radius: 1rem;
-		background: var(--editor-surface);
-		color: var(--editor-accent);
+		background: var(--tool-popover);
+		color: var(--tool-accent);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 	}
@@ -156,17 +156,17 @@
 		z-index: 1001;
 		padding: 0.25rem 0.75rem;
 		border-radius: 1rem;
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 		white-space: nowrap;
-		box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 0.6);
+		box-shadow: none;
 		transform: translate(0.75rem, 0.5rem) rotate(-3deg);
 		pointer-events: none;
 	}
 	.ghost.out {
-		outline: 1px dashed var(--editor-accent);
+		outline: 1px dashed var(--tool-accent);
 		outline-offset: 0.25rem;
 	}
 </style>

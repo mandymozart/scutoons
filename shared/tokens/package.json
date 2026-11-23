@@ -12,6 +12,7 @@
 		"./index.css": "./index.css",
 		"./tokens.css": "./tokens.css",
 		"./editor.css": "./editor.css",
+		"./tool-colours.css": "./tool-colours.css",
 		"./fonts.css": "./fonts.css",
 		"./base.css": "./base.css",
 		"./tools.css": "./tools.css",

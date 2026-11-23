@@ -174,7 +174,7 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.layers li {
 		display: flex;
@@ -183,7 +183,7 @@
 		padding-inline: var(--space-05);
 	}
 	.layers li + li {
-		border-top: var(--border-width-hairline) solid var(--ink);
+		border-top: var(--border-width-hairline) solid var(--tool-text);
 	}
 	/* where the collage pieces start (they always lie under the stack) */
 	.layers li.boundary {
@@ -211,9 +211,9 @@
 		width: 1.75rem;
 		height: 1.75rem;
 		box-sizing: border-box;
-		border: var(--border-width-hairline) solid var(--ink);
-		background-color: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-hairline) solid var(--tool-text);
+		background-color: var(--tool-ground);
+		color: var(--tool-text);
 		/* a piece's file on the checker (tools.css .sc-checker – white shapes stay visible), small for the small box */
 		--checker-size: 0.5rem;
 	}

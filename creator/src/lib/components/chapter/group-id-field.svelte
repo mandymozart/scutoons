@@ -58,14 +58,14 @@
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	input[aria-invalid='true'] {
-		outline: var(--border-width-regular) solid var(--error);
+		outline: var(--border-width-regular) solid var(--tool-stop);
 	}
 	.error {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

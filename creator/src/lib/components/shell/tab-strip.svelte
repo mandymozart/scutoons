@@ -138,10 +138,14 @@
 		min-width: 0;
 		max-width: 46%;
 		padding: 0.2rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.5rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.open-items :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.strip {
 		position: relative;
@@ -159,13 +163,13 @@
 	}
 	/* the ends fade while more lies beyond them */
 	.strip.before {
-		mask-image: linear-gradient(to right, transparent, var(--editor-text) var(--fade));
+		mask-image: linear-gradient(to right, transparent, var(--tool-text) var(--fade));
 	}
 	.strip.after {
-		mask-image: linear-gradient(to left, transparent, var(--editor-text) var(--fade));
+		mask-image: linear-gradient(to left, transparent, var(--tool-text) var(--fade));
 	}
 	.strip.before.after {
-		mask-image: linear-gradient(to right, transparent, var(--editor-text) var(--fade), var(--editor-text) calc(100% - var(--fade)), transparent);
+		mask-image: linear-gradient(to right, transparent, var(--tool-text) var(--fade), var(--tool-text) calc(100% - var(--fade)), transparent);
 	}
 	.item {
 		display: flex;
@@ -174,15 +178,15 @@
 		max-width: 14rem;
 		height: var(--editor-row);
 		border-radius: var(--editor-radius);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	/* the front item: a thin outline, the others muted */
 	.item.front {
-		color: var(--editor-text);
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
+		color: var(--tool-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.item:not(.front):hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.open {
 		display: flex;
@@ -224,7 +228,7 @@
 		color: inherit;
 	}
 	.round {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.round.step,
 	.close {
@@ -236,7 +240,7 @@
 	.close:hover,
 	.round:hover:not(:disabled),
 	.round[aria-expanded='true'] {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.list {
 		position: relative;
@@ -253,9 +257,9 @@
 		max-height: calc(100dvh - var(--shell-top) - var(--status-room));
 		overflow: auto;
 		padding: 0.3rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: var(--tool-popover);
 	}
 	.menu a,
 	.menu button {
@@ -269,20 +273,20 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.menu a:hover,
 	.menu button:hover:not(:disabled) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.menu a.on {
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.menu hr {
 		width: 100%;
 		margin: 0.25rem 0;
 		border: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

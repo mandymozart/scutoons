@@ -83,9 +83,9 @@
 		white-space: pre-wrap;
 		overflow-wrap: break-word;
 		padding: var(--space-05) var(--space-075);
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: transparent;
+		color: var(--tool-text);
 	}
 	.start {
 		align-self: flex-start;
@@ -97,6 +97,6 @@
 	}
 	.warn {
 		margin: 0;
-		color: var(--state-warning);
+		color: var(--tool-warn);
 	}
 </style>

@@ -171,16 +171,16 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
-		background: radial-gradient(ellipse 70% 45% at 50% 45%, color-mix(in srgb, var(--editor-accent) 14%, var(--editor-stage)), var(--editor-stage) 70%);
-		color: var(--editor-text);
+		background: radial-gradient(ellipse 70% 45% at 50% 45%, color-mix(in srgb, var(--tool-accent) 14%, var(--tool-ground)), var(--tool-ground) 70%);
+		color: var(--tool-text);
 		font-family: var(--editor-sans);
 	}
 	.place.over {
-		outline: var(--editor-edge) dashed var(--editor-accent);
+		outline: var(--editor-edge) dashed var(--tool-accent);
 		outline-offset: -0.5rem;
 	}
 	.place.misfit {
-		outline-color: var(--editor-warn);
+		outline-color: var(--tool-warn);
 	}
 	canvas {
 		position: absolute;
@@ -194,9 +194,9 @@
 	.quiet,
 	.pill {
 		position: absolute;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		box-shadow: 0 0 0 var(--editor-edge) var(--editor-line);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+		box-shadow: 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.tag {
 		top: calc(var(--shell-top) + 0.25rem);
@@ -232,11 +232,11 @@
 		color: inherit;
 	}
 	.pill button:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.pill .on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		text-shadow: none;
 	}
 	.pill span.on {
@@ -252,7 +252,7 @@
 	}
 	.lab {
 		padding: 0 0.4rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
@@ -261,7 +261,7 @@
 		width: var(--editor-edge);
 		height: 1.2rem;
 		margin: 0 0.15rem;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.attach {
 		top: calc(var(--shell-top) + 2.4rem);
@@ -280,13 +280,13 @@
 		margin: 0;
 		padding: 0.3rem 0.6rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 		line-height: 1.6;
 	}
 	.quiet.warn {
 		font-weight: inherit;
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.clips {
 		left: calc((var(--in-l) + 100% - var(--in-r)) / 2);
@@ -301,7 +301,7 @@
 		height: 0.3rem;
 		margin: 0 0.5rem;
 		border-radius: 0.15rem;
-		background: var(--editor-line);
+		background: var(--tool-line);
 		flex: none;
 	}
 	.bar i {
@@ -310,10 +310,10 @@
 		top: 0;
 		bottom: 0;
 		border-radius: 0.15rem;
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	.pill .quiet-button {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.way-in {
 		position: absolute;
@@ -328,15 +328,15 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.8rem;
-		border: var(--editor-edge) dashed var(--editor-muted);
+		border: var(--editor-edge) dashed var(--tool-muted);
 		border-radius: 0.6rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		color: var(--editor-accent);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+		color: var(--tool-accent);
 		text-align: center;
 	}
 	.way-in .big {
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font-size: var(--editor-title, 1.15rem);
 	}
 	.way-in .row {

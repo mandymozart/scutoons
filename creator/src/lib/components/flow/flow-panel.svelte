@@ -138,11 +138,11 @@
 	}
 	.hint {
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		margin: var(--space-05) var(--space-1);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.canvas {
 		flex: 1;

@@ -20,26 +20,28 @@
 .sc-tool {
 	/* the shared tokens, pointed at the editor style (a custom property resolves where it is set: every derived token of
 	   tokens.css the tools use is set here again) */
-	--ink: var(--editor-text);
-	--paper: var(--editor-surface);
-	--primary-cyan: var(--editor-accent);
-	--primary-color: var(--editor-accent);
-	--border-subtle: var(--editor-line);
-	--border-muted: var(--editor-line);
-	--border-hover: var(--editor-muted);
-	--surface-hover: var(--editor-hover);
-	--surface-panel: var(--editor-surface-head);
-	--surface-tint-cyan: var(--editor-within);
-	--select-live-bg: var(--editor-selected);
-	--select-live-border: var(--editor-accent);
-	--select-live-text: var(--editor-text);
-	--text-muted: var(--editor-muted);
-	--state-error: var(--editor-stop);
-	--state-warning: var(--editor-warn);
-	--badge-neutral: var(--editor-pressed);
-	--badge-neutral-text: var(--editor-pressed-text);
-	--badge-draft: var(--editor-selected);
-	--badge-draft-text: var(--editor-text);
+	--ink: var(--tool-text);
+	/* the reader's page colour is the stage here (RULES H11: no grey sheets); popovers and controls point it at their own
+	   ground below, so a shared component on --paper follows */
+	--paper: var(--tool-ground);
+	--primary-cyan: var(--tool-accent);
+	--primary-color: var(--tool-accent);
+	--border-subtle: var(--tool-line);
+	--border-muted: var(--tool-line);
+	--border-hover: var(--tool-muted);
+	--surface-hover: var(--tool-hover);
+	--surface-panel: var(--tool-ground);
+	--surface-tint-cyan: var(--tool-within);
+	--select-live-bg: var(--tool-selected);
+	--select-live-border: var(--tool-accent);
+	--select-live-text: var(--tool-text);
+	--text-muted: var(--tool-muted);
+	--state-error: var(--tool-stop);
+	--state-warning: var(--tool-warn);
+	--badge-neutral: var(--tool-pressed);
+	--badge-neutral-text: var(--tool-pressed-text);
+	--badge-draft: var(--tool-selected);
+	--badge-draft-text: var(--tool-text);
 	--radius-none: var(--editor-radius);
 	--border-width-regular: var(--editor-edge);
 	--border-width-focus: 2px;
@@ -56,7 +58,7 @@
 	--type-label-line: 1.3;
 	/* scrollbars as the deck editor's panels: thin, the thumb on no track (Windows too) */
 	scrollbar-width: thin;
-	scrollbar-color: var(--editor-selected) transparent;
+	scrollbar-color: var(--tool-selected) transparent;
 	--tracking-label: var(--editor-label-spacing);
 	--tracking-label-bold: var(--editor-label-spacing);
 	--control-height: var(--editor-row);
@@ -68,18 +70,11 @@
 	font-family: var(--editor-sans);
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
-	color: var(--ink);
-	/* the ground is the stage, black, as the deck editor's (#750): the surface is for panels, fields and controls only */
-	--tool-ground: var(--editor-stage);
+	color: var(--tool-text);
+	/* the ground is the stage (tool-colours.css: black at night, white by day), as the deck editor's (#750) */
 	background: var(--tool-ground);
 }
-/* day: the web tools' stage is white – the deck keeps its black stage, so this overrides the generated editor.css here */
-[data-theme='day'] {
-	--editor-stage: #ffffff;
-}
 :is([data-theme='day'] .sc-tool, .sc-tool[data-theme='day']) {
-	/* a tool's text still stands on the surface ground until it lives in panels */
-	--tool-ground: var(--editor-surface);
 	--select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f5747' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 	color-scheme: light;
 }
@@ -91,11 +86,19 @@
 }
 /* the page around a tool (overscroll, a sheet's backdrop) */
 html:has(.sc-tool) body {
-	background: var(--editor-stage);
+	background: var(--tool-ground);
 }
-html:is([data-theme='day']):has(.sc-tool) body,
 html:has(.sc-tool[data-theme='day']) body {
-	background: var(--editor-surface);
+	background: var(--tool-ground);
+}
+/* the shared components (@scutoons/ui) paint with --paper: in a popover it is the popover's ground, on a control the
+   control's (the property is read on the element itself, so a component's own rule follows whatever its specificity) */
+.sc-tool :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, .sc-dialog, .sc-palette, .sc-sheet, .sc-colour-popover, .sc-paint-popover, .sc-info-panel, .sc-menu .popup, .toast, .sc-tooltip),
+body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, .sc-tooltip) {
+	--paper: var(--tool-popover);
+}
+.sc-tool :is(input, select, textarea, button, .btn, .sc-icon-button, .sc-palette-trigger, .sc-control, .sc-chip-control) {
+	--paper: var(--tool-control);
 }
 
 /* The tools' desktop root: deck-kit's base (14px); everything is rem, so the whole tool follows. Phones / tablets keep
@@ -142,7 +145,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	font-weight: var(--font-weight-regular);
 }
 :where(.sc-tool) :where(a) {
-	color: var(--ink);
+	color: var(--tool-text);
 	text-decoration-thickness: 2px;
 	text-underline-offset: 0.2em;
 }
@@ -150,7 +153,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	width: 100%;
 	margin: var(--space-1) 0;
 	border: 0;
-	border-top: var(--border-width-regular) solid var(--editor-line);
+	border-top: var(--border-width-regular) solid var(--tool-line);
 }
 :where(.sc-tool) :where(code, kbd) {
 	font-size: inherit;
@@ -167,10 +170,10 @@ html:has(.sc-tool[data-theme='day']) body {
 	min-height: var(--control-height);
 	margin: 0;
 	padding: 0 var(--space-05);
-	border: var(--border-width-regular) solid var(--editor-line);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--editor-control);
-	color: var(--ink);
+	background: var(--tool-control);
+	color: var(--tool-text);
 	font: inherit;
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
@@ -179,22 +182,22 @@ html:has(.sc-tool[data-theme='day']) body {
    is a select or a button) */
 :where(.sc-tool)
 	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea) {
-	border: var(--border-width-hairline) solid var(--border-muted);
+	border: var(--border-width-hairline) solid var(--tool-line);
 }
 :where(.sc-tool)
 	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea):focus {
-	border-color: var(--editor-accent);
+	border-color: var(--tool-accent);
 }
 /* selects look like secondary buttons (owner 2026-10-03): 2px border-muted, ink on hover / focus, a chevron */
 :where(.sc-tool) :where(select:not([multiple], [size])) {
 	appearance: none;
-	border-color: var(--border-muted);
+	border-color: var(--tool-line);
 	padding-right: calc(var(--space-05) + 1.25em);
-	background: var(--editor-control) var(--select-chevron) no-repeat right var(--space-05) center / 1em;
+	background: var(--tool-control) var(--select-chevron) no-repeat right var(--space-05) center / 1em;
 	cursor: pointer;
 }
 :where(.sc-tool) :where(select:not([multiple], [size])):is(:hover, :focus):not(:disabled) {
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 /* One control height (owner 2026-10-02, DESIGN.md "One control height"): every single-line field is exactly
    --control-height (2rem + the 2px frame; ≥ 44px on touch), the text centred by the box, no vertical padding */
@@ -206,22 +209,22 @@ html:has(.sc-tool[data-theme='day']) body {
 	padding: var(--space-05); /* control-ok: multi-line, exempt */
 }
 :where(.sc-tool) :where(input, textarea)::placeholder {
-	color: var(--text-muted);
+	color: var(--tool-muted);
 	opacity: 1;
 }
 :where(.sc-tool) :where(input, select, textarea):disabled {
-	border-color: var(--border-muted);
-	color: var(--text-muted);
+	border-color: var(--tool-line);
+	color: var(--tool-muted);
 	cursor: not-allowed;
 }
 :where(.sc-tool) :where([aria-invalid='true']) {
-	border-color: var(--state-error);
+	border-color: var(--tool-stop);
 }
 :where(.sc-tool) :where(input[type='radio']) {
 	width: 1.25rem;
 	height: 1.25rem;
 	margin: 0;
-	accent-color: var(--editor-accent);
+	accent-color: var(--tool-accent);
 }
 /* checkboxes are square switches (owner 2026-10-04: the native boxes looked odd): off = paper track, 2px border-muted
    frame, a grey knob left; on = ink track, paper knob right. Hover / focus frame ink, like the secondary buttons.
@@ -234,9 +237,9 @@ html:has(.sc-tool[data-theme='day']) body {
 	width: 2.25rem;
 	height: 1.25rem;
 	margin: 0;
-	border: var(--border-width-regular) solid var(--border-muted);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--editor-control) linear-gradient(var(--text-muted), var(--text-muted)) no-repeat left 0.125rem center /
+	background: var(--tool-control) linear-gradient(var(--tool-muted), var(--tool-muted)) no-repeat left 0.125rem center /
 		var(--switch-knob) var(--switch-knob);
 	vertical-align: middle;
 	cursor: pointer;
@@ -246,21 +249,21 @@ html:has(.sc-tool[data-theme='day']) body {
 		border-color var(--duration-fast);
 }
 :where(.sc-tool) :where(input[type='checkbox']):is(:hover, :focus-visible):not(:disabled) {
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 :where(.sc-tool) :where(input[type='checkbox']):checked {
-	border-color: var(--editor-pressed);
-	background-color: var(--editor-pressed);
-	background-image: linear-gradient(var(--editor-pressed-text), var(--editor-pressed-text));
+	border-color: var(--tool-pressed);
+	background-color: var(--tool-pressed);
+	background-image: linear-gradient(var(--tool-pressed-text), var(--tool-pressed-text));
 	background-position: right 0.125rem center;
 }
 :where(.sc-tool) :where(input[type='checkbox']):indeterminate {
 	background-position: center;
 }
 :where(.sc-tool) :where(input[type='checkbox']):disabled {
-	border-color: var(--border-muted);
-	background-color: var(--editor-control);
-	background-image: linear-gradient(var(--border-muted), var(--border-muted));
+	border-color: var(--tool-line);
+	background-color: var(--tool-control);
+	background-image: linear-gradient(var(--tool-line), var(--tool-line));
 	cursor: not-allowed;
 }
 :where(.sc-tool) :where(input[type='color']) {
@@ -268,9 +271,9 @@ html:has(.sc-tool[data-theme='day']) body {
 	width: var(--control-height);
 	min-height: var(--control-height);
 	padding: 0;
-	border: var(--border-width-regular) solid var(--editor-line);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--paper);
+	background: var(--tool-control);
 }
 
 /* ── Buttons: shape and size only (colours are the app's / @scutoons/ui's). One control height: --control-height,
@@ -298,14 +301,14 @@ html:has(.sc-tool[data-theme='day']) body {
 
 /* ── Focus: one thick ink outline everywhere ─────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 	outline-offset: var(--focus-offset);
 }
 /* the ring itself wins over a component's `all: unset` / `outline: none` (UI-CONCEPTS E.8: rows without a visible
    focus); the offset stays the component's. A control that draws its own focus (the Divider's line) is a separator or
    carries data-focus-own */
 .sc-tool :is(a, button, summary, [tabindex]):not([role='separator'], [data-focus-own]):focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 }
 
 /* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
@@ -381,10 +384,10 @@ html:has(.sc-tool[data-theme='day']) body {
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
-	border-bottom: var(--border-width-regular) solid var(--editor-line);
+	border-bottom: var(--border-width-regular) solid var(--tool-line);
 }
 :where(.sc-tool) :where(td) {
-	border-bottom: var(--border-width-hairline) solid var(--editor-line);
+	border-bottom: var(--border-width-hairline) solid var(--tool-line);
 }
 
 /* ── Vocabulary (utility classes) ────────────────────────────────────────────────────────────────────────────────── */
@@ -395,7 +398,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
-	color: var(--text-muted);
+	color: var(--tool-muted);
 }
 /* a page section (owner 2026-10-14: on long pages "it is hard to differentiate where what ends"): one stack; the next
    section starts after a clear gap, a 2px ink rule (the structure line) and the same gap again – DESIGN.md "Page sections" */
@@ -408,7 +411,7 @@ html:has(.sc-tool[data-theme='day']) body {
 .sc-section + .sc-section {
 	margin-top: var(--space-15);
 	padding-top: var(--space-15);
-	border-top: var(--border-width-regular) solid var(--editor-line);
+	border-top: var(--border-width-regular) solid var(--tool-line);
 }
 /* section heading: 1rem regular uppercase (bold only rarely, owner 2026-10-02) */
 .sc-heading {
@@ -427,14 +430,14 @@ html:has(.sc-tool[data-theme='day']) body {
 .sc-caption {
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
-	color: var(--text-muted);
+	color: var(--tool-muted);
 }
 /* an empty state (DESIGN.md "Empty states", owner 2026-10-06): a muted line in the flow – never framed, no fill, no
    icon. Only where the rule allows one at all (a page / main area that would be blank, a reason that isn't obvious,
    a text that says what to do); an empty list with an add button shows nothing */
 .sc-empty {
 	margin: 0;
-	color: var(--text-muted);
+	color: var(--tool-muted);
 }
 /* status chip / tag / count: FILLED (tokens.css --badge-*), caption regular uppercase. Default neutral;
    .is-published (.is-live), .is-draft, .is-soon (.is-off), .is-error, .is-warning, .is-info; neutral = black */
@@ -495,7 +498,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	box-shadow: inset 0 0 0 1px currentColor;
 }
 .sc-chip.is-quiet {
-	color: var(--text-muted);
+	color: var(--tool-muted);
 }
 /* a marked note in running text (an image request, a hint that something will happen): info fill, caption, sentence
    case, wraps – not a chip (chips are short uppercase words) */
@@ -508,7 +511,7 @@ html:has(.sc-tool[data-theme='day']) body {
 }
 /* a chip that shows its words on keyboard focus (the tool tooltip) */
 .sc-chip[tabindex]:focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 	outline-offset: 1px;
 }
 /* a custom single-line control (a framed label around an invisible native select, a link that is a button): one
@@ -532,10 +535,10 @@ html:has(.sc-tool[data-theme='day']) body {
 	height: var(--control-height);
 	margin: 0;
 	padding: 0 0 0 var(--space-05);
-	border: var(--border-width-regular) solid var(--editor-line);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--editor-control);
-	color: var(--ink);
+	background: var(--tool-control);
+	color: var(--tool-text);
 	font-size: var(--type-body-size);
 	line-height: var(--type-button-line);
 	font-weight: var(--font-weight-regular);
@@ -553,11 +556,11 @@ html:has(.sc-tool[data-theme='day']) body {
 	padding: 0 var(--space-05);
 	border: var(--border-width-regular) solid transparent;
 	background: transparent;
-	color: var(--ink);
+	color: var(--tool-text);
 	line-height: var(--type-button-line);
 }
 .sc-chip-control :where(button:hover:not(:disabled)) {
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 .sc-chip-control :where(button:last-child) {
 	margin-right: calc(-1 * var(--border-width-regular));
@@ -569,7 +572,7 @@ html:has(.sc-tool[data-theme='day']) body {
 }
 /* something to look at (not in the cast, an unknown item) */
 .sc-chip-control.is-warning {
-	border-color: var(--state-warning);
+	border-color: var(--tool-warn);
 }
 /* a filled tag with buttons (a credit's role): ink; .is-draft = a one-off (custom) value */
 .sc-chip-control.is-filled {
@@ -590,7 +593,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	border-color: currentColor;
 }
 .sc-chip-control.is-error :where(button:first-child) {
-	color: var(--state-error);
+	color: var(--tool-stop);
 }
 
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
@@ -602,7 +605,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
-	color: var(--ink);
+	color: var(--tool-text);
 }
 .sc-nav-item {
 	display: flex;
@@ -617,24 +620,24 @@ html:has(.sc-tool[data-theme='day']) body {
 	border: 0;
 	border-radius: var(--radius-none);
 	background: transparent;
-	color: var(--ink);
+	color: var(--tool-text);
 	font: inherit;
 	text-align: left;
 	text-decoration: none;
 	cursor: pointer;
 }
 .sc-nav-item:hover {
-	background: var(--surface-hover);
+	background: var(--tool-hover);
 }
 .sc-nav-item:focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 	outline-offset: calc(-1 * var(--border-width-focus));
 }
 .sc-nav-item[aria-current='page'],
 .sc-nav-item[aria-current='true'],
 .sc-nav-item.is-current {
-	background: var(--editor-selected);
-	color: var(--ink);
+	background: var(--tool-selected);
+	color: var(--tool-text);
 }
 
 /* ── Selection (owner 2026-10-07, agents/DESIGN.md "Selection", UI-CONCEPTS E.8) – the ONLY selection rules ─────────
@@ -647,8 +650,8 @@ html:has(.sc-tool[data-theme='day']) body {
    live look only when it is also the live selection (both classes). */
 /* [class]: one step above a component's own single-class rule (e.g. a row's `all: unset`) */
 .sc-tool .sc-selected[class] {
-	background: var(--editor-selected);
-	color: var(--ink);
+	background: var(--tool-selected);
+	color: var(--tool-text);
 	--text-muted: currentColor;
 	--muted: currentColor;
 }
@@ -657,9 +660,9 @@ html:has(.sc-tool[data-theme='day']) body {
 	color: inherit;
 }
 .sc-tool [data-sc-region][data-live] .sc-selected {
-	background: var(--select-live-bg);
-	color: var(--select-live-text);
-	box-shadow: inset 0 0 0 var(--border-width-regular) var(--select-live-border);
+	background: var(--tool-selected);
+	color: var(--tool-text);
+	box-shadow: inset 0 0 0 var(--border-width-regular) var(--tool-accent);
 }
 /* a table row: the cells draw the frame (a row's own box-shadow is not painted in every engine) */
 .sc-tool [data-sc-region][data-live] tr.sc-selected {
@@ -667,26 +670,26 @@ html:has(.sc-tool[data-theme='day']) body {
 }
 .sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th) {
 	box-shadow:
-		inset 0 var(--border-width-regular) 0 var(--select-live-border),
-		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border);
+		inset 0 var(--border-width-regular) 0 var(--tool-accent),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--tool-accent);
 }
 .sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th):first-child {
 	box-shadow:
-		inset 0 var(--border-width-regular) 0 var(--select-live-border),
-		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border),
-		inset var(--border-width-regular) 0 0 var(--select-live-border);
+		inset 0 var(--border-width-regular) 0 var(--tool-accent),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--tool-accent),
+		inset var(--border-width-regular) 0 0 var(--tool-accent);
 }
 .sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th):last-child {
 	box-shadow:
-		inset 0 var(--border-width-regular) 0 var(--select-live-border),
-		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border),
-		inset calc(-1 * var(--border-width-regular)) 0 0 var(--select-live-border);
+		inset 0 var(--border-width-regular) 0 var(--tool-accent),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--tool-accent),
+		inset calc(-1 * var(--border-width-regular)) 0 0 var(--tool-accent);
 }
 /* a region inside the live one that is not live itself (the slice list inside the chapter tree): its selection stays
    inverted */
 .sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) .sc-selected {
-	background: var(--editor-selected);
-	color: var(--ink);
+	background: var(--tool-selected);
+	color: var(--tool-text);
 	box-shadow: none;
 }
 .sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) tr.sc-selected > :is(td, th) {
@@ -738,7 +741,7 @@ html:has(.sc-tool[data-theme='day']) body {
    text, a state-coloured dot (the error red is below 4.5:1 as small text; no side rule – owner 2026-11-21, H10) */
 .sc-error {
 	margin: 0;
-	color: var(--ink);
+	color: var(--tool-text);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
 }
@@ -749,7 +752,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	height: 0.5em;
 	margin-right: var(--space-05);
 	border-radius: 50%;
-	background: var(--state-error);
+	background: var(--tool-stop);
 }
 
 /* segmented control (owner 2026-10-03, COMPONENTS.md step 6; @scutoons/ui Segmented renders it): one 2px ink frame
@@ -759,9 +762,9 @@ html:has(.sc-tool[data-theme='day']) body {
 .sc-seg {
 	display: inline-flex;
 	box-sizing: border-box;
-	border: var(--border-width-regular) solid var(--editor-line);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--editor-control);
+	background: var(--tool-control);
 }
 .sc-seg.is-column {
 	flex-direction: column;
@@ -777,16 +780,16 @@ html:has(.sc-tool[data-theme='day']) body {
 	border: var(--border-width-regular) solid transparent;
 	border-radius: var(--radius-none);
 	background: transparent;
-	color: var(--ink);
+	color: var(--tool-text);
 }
 .sc-seg > button:hover:not(:disabled) {
-	border-color: var(--border-muted);
+	border-color: var(--tool-line);
 }
 .sc-seg > button[aria-pressed='true'],
 .sc-seg > button[aria-checked='true'] {
-	background: var(--editor-pressed);
-	color: var(--editor-pressed-text);
-	border-color: var(--editor-pressed);
+	background: var(--tool-pressed);
+	color: var(--tool-pressed-text);
+	border-color: var(--tool-pressed);
 }
 /* an option that can't be chosen now (its tooltip says why): the buttons' disabled look */
 .sc-seg > button:disabled {
@@ -811,7 +814,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	padding: 0;
 }
 .sc-seg > button.is-fallback {
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 
 /* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
@@ -850,37 +853,37 @@ html:has(.sc-tool[data-theme='day']) body {
 	min-height: 0;
 	margin: 0;
 	padding: 0.35rem;
-	border: var(--border-width-regular) solid var(--border-muted);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: var(--radius-none);
-	background: var(--paper);
-	color: var(--ink);
+	background: transparent;
+	color: var(--tool-text);
 	font: inherit;
 	text-align: left;
 	overflow-wrap: anywhere;
 	cursor: pointer;
 }
 .sc-card:hover:not(:disabled) {
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 .sc-card:focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 	outline-offset: var(--focus-offset);
 }
 /* the field's current file: the card's own border in cyan (owner 2026-10-16: no thick bar on the left, "just color it") */
 .sc-card.is-current {
-	border-color: var(--primary-cyan);
+	border-color: var(--tool-accent);
 }
 .sc-card.is-selected {
-	background: var(--select-live-bg);
-	color: var(--select-live-text);
-	border-color: var(--select-live-border);
+	background: var(--tool-selected);
+	color: var(--tool-text);
+	border-color: var(--tool-accent);
 }
 .sc-card.is-selected .sc-caption {
 	color: inherit;
 }
 .sc-card.is-missing {
 	border-style: dashed;
-	border-color: var(--border-hover);
+	border-color: var(--tool-muted);
 }
 .sc-card:disabled {
 	opacity: 0.5;
@@ -893,7 +896,7 @@ html:has(.sc-tool[data-theme='day']) body {
 	width: 100%;
 	aspect-ratio: 1;
 	overflow: hidden;
-	background: var(--surface-hover);
+	background: var(--tool-hover);
 }
 .sc-card-img img {
 	max-width: 100%;
@@ -905,8 +908,8 @@ html:has(.sc-tool[data-theme='day']) body {
    .sc-card-img: a card's picture on the checker */
 .sc-checker {
 	--checker-size: 1rem;
-	background-color: var(--paper);
-	background-image: conic-gradient(var(--surface-hover) 25%, transparent 0 50%, var(--surface-hover) 0 75%, transparent 0);
+	background-color: var(--tool-ground);
+	background-image: conic-gradient(var(--tool-checker) 25%, transparent 0 50%, var(--tool-checker) 0 75%, transparent 0);
 	background-size: var(--checker-size) var(--checker-size);
 }
 
@@ -919,28 +922,28 @@ html:has(.sc-tool[data-theme='day']) body {
 	align-items: center;
 	gap: var(--space-05);
 	padding: var(--space-05) var(--space-1);
-	border-bottom: var(--border-width-regular) solid var(--editor-line);
+	border-bottom: var(--border-width-regular) solid var(--tool-line);
 }
 .sc-bar.is-dirty {
-	background: var(--editor-pressed);
-	color: var(--editor-pressed-text);
+	background: var(--tool-pressed);
+	color: var(--tool-pressed-text);
 }
 .sc-bar.is-warning {
-	border-bottom-color: var(--state-warning);
+	border-bottom-color: var(--tool-warn);
 }
 .sc-bar.is-error {
-	border-bottom-color: var(--state-error);
+	border-bottom-color: var(--tool-stop);
 }
 .sc-bar.is-note {
-	border-bottom-color: var(--primary-cyan);
+	border-bottom-color: var(--tool-accent);
 }
 
 /* a framed block */
 .sc-frame {
 	box-sizing: border-box;
 	padding: var(--space-1);
-	border: var(--border-width-regular) solid var(--editor-line);
-	background: var(--paper);
+	border: var(--border-width-regular) solid var(--tool-line);
+	background: transparent;
 }
 
 /* One tooltip for every tool (owner 2026-10-02): @scutoons/ui installTooltips() shows every `title` in this box. */
@@ -949,8 +952,8 @@ html:has(.sc-tool[data-theme='day']) body {
 	z-index: 10000;
 	max-width: min(24rem, calc(100vw - 1rem));
 	padding: 0.25rem 0.5rem;
-	background: var(--ink);
-	color: var(--paper);
+	background: var(--tool-pressed);
+	color: var(--tool-pressed-text);
 	font-family: var(--font-mono);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
@@ -975,24 +978,24 @@ html:has(.sc-tool[data-theme='day']) body {
 	height: var(--control-height);
 	min-height: var(--control-height);
 	padding: 0;
-	border: var(--border-width-regular) solid var(--editor-line);
+	border: var(--border-width-regular) solid var(--tool-line);
 	border-radius: 50%;
 	background: transparent;
-	color: var(--ink);
+	color: var(--tool-text);
 	line-height: 1;
 	cursor: pointer;
 }
 :where(.sc-tool) .sc-round:hover:not(:disabled) {
-	background: var(--surface-hover);
+	background: var(--tool-hover);
 }
 :where(.sc-tool) .sc-round:focus-visible {
-	outline: var(--border-width-focus) solid var(--editor-accent);
+	outline: var(--border-width-focus) solid var(--tool-accent);
 	outline-offset: var(--focus-offset);
 }
 :where(.sc-tool) .sc-round[aria-pressed='true'],
 :where(.sc-tool) .sc-round[aria-expanded='true'][data-menu] {
-	background: var(--editor-pressed);
-	color: var(--editor-pressed-text);
+	background: var(--tool-pressed);
+	color: var(--tool-pressed-text);
 }
 /* quiet: the regions' fold / unfold buttons (FoldButton, Rail – owner 2026-10-20: "fold buttons across the app are a
    bit weird anyhow, taking a lot of visual focus"): a borderless muted square; ink + the nav outline on hover */
@@ -1000,17 +1003,17 @@ html:has(.sc-tool[data-theme='day']) body {
 	border-color: transparent;
 	border-radius: var(--radius-none);
 	background: transparent;
-	color: var(--text-muted);
+	color: var(--tool-muted);
 }
 :where(.sc-tool) .sc-round.sc-quiet:hover:not(:disabled) {
-	color: var(--ink);
+	color: var(--tool-text);
 	outline-offset: calc(-1 * var(--border-width-regular));
 }
 
 /* every scrolling part inside a tool takes the thin scrollbar (the property is not inherited) */
 .sc-tool * {
 	scrollbar-width: thin;
-	scrollbar-color: var(--editor-selected) transparent;
+	scrollbar-color: var(--tool-selected) transparent;
 }
 
 /* ── @scutoons/ui's IconButton in the tools: the deck editor's `icon_button` (#750) – no frame, its ground only under the
@@ -1018,26 +1021,26 @@ html:has(.sc-tool[data-theme='day']) body {
 .sc-tool .sc-icon-button {
 	border-color: transparent;
 	background: transparent;
-	color: var(--editor-text);
+	color: var(--tool-text);
 }
 .sc-tool .sc-icon-button:hover:not(:disabled) {
-	background: var(--editor-hover);
+	background: var(--tool-hover);
 }
 .sc-tool .sc-icon-button.pressed {
-	background: var(--editor-pressed);
-	color: var(--editor-pressed-text);
+	background: var(--tool-pressed);
+	color: var(--tool-pressed-text);
 }
 /* @scutoons/ui's Button: primary is the view's one lime action, secondary a quiet control (deck `primary`, #750) */
 .sc-tool .sc-button.primary {
-	border-color: var(--editor-primary-line);
-	background: var(--editor-primary);
-	color: var(--editor-primary-ink);
+	border-color: var(--tool-primary-line);
+	background: var(--tool-primary);
+	color: var(--tool-primary-ink);
 }
 .sc-tool .sc-button.secondary {
 	border-color: transparent;
-	background: var(--editor-control);
-	color: var(--editor-text);
+	background: var(--tool-control);
+	color: var(--tool-text);
 }
 .sc-tool .sc-button.secondary:hover:not(.disabled) {
-	background: var(--editor-hover);
+	background: var(--tool-hover);
 }

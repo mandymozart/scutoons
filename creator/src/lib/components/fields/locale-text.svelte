@@ -138,16 +138,16 @@
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	/* state = the frame's colour only – no side rule (H10), no tinted fills */
 	.missing textarea,
 	.missing input {
-		border-color: var(--error);
+		border-color: var(--tool-stop);
 	}
 	.long textarea,
 	.long input {
-		border-color: var(--warn);
+		border-color: var(--tool-warn);
 	}
 	textarea {
 		resize: vertical;
@@ -155,10 +155,10 @@
 	}
 	/* the state as quiet coloured words, no filled chip (owner 2026-11-21) */
 	.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.warn {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.mini {
 		margin-left: auto;

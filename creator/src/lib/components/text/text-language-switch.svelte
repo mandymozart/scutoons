@@ -50,9 +50,9 @@
 		min-height: var(--control-height);
 		margin: 0;
 		padding: 0 var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		white-space: nowrap;
 		cursor: pointer;
 	}
@@ -64,8 +64,8 @@
 	}
 	/* a translation shown = a toggle that is on: inverted (DESIGN.md "Active / selected = inverted") */
 	.text-language.chosen {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	/* the native select covers the frame, invisible: it opens its own list */
 	select {
@@ -81,7 +81,7 @@
 		cursor: pointer;
 	}
 	.text-language:focus-within {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: var(--focus-offset);
 	}
 </style>

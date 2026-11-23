@@ -174,7 +174,7 @@
 		height: 2.5rem;
 		border-radius: var(--editor-radius);
 		overflow: hidden;
-		background: var(--editor-control);
+		background: var(--tool-control);
 	}
 	.avatar img {
 		width: 100%;
@@ -195,10 +195,10 @@
 		white-space: nowrap;
 	}
 	.name {
-		color: var(--editor-title, var(--editor-text));
+		color: var(--tool-text);
 	}
 	.id {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.ib {
@@ -211,13 +211,13 @@
 		width: var(--control-height);
 		height: var(--control-height);
 		border-radius: 50%;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: pointer;
 	}
 	.ib:hover,
 	.ib:focus-visible {
-		background: var(--editor-hover);
-		color: var(--editor-text);
+		background: var(--tool-hover);
+		color: var(--tool-text);
 	}
 	.row {
 		display: flex;
@@ -227,7 +227,7 @@
 	}
 	.hint {
 		margin: 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	/* one column of fields in the narrow panel */
@@ -236,7 +236,7 @@
 		--fields-fit-min: 100%;
 	}
 	.danger {
-		color: var(--editor-danger);
+		color: var(--tool-danger);
 		justify-self: start;
 	}
 </style>

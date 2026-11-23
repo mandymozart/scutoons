@@ -45,7 +45,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		container-type: inline-size;
 	}
 	.hint {
@@ -55,7 +55,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	@container (max-width: 40rem) {
 		.hint > span {

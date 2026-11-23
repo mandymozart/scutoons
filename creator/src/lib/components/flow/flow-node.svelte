@@ -96,9 +96,9 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: 0 var(--space-05);
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-ground);
+		color: var(--tool-text);
+		border: var(--border-width-regular) solid var(--tool-text);
 		overflow: hidden;
 		font-size: var(--type-caption-size);
 		line-height: 1.25;
@@ -133,7 +133,7 @@
 	}
 	.icon.end {
 		margin-left: auto;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.kind-group .title,
 	.kind-chapter .title,
@@ -142,7 +142,7 @@
 		font-size: 1rem;
 	}
 	.meta {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.meta .sc-chip {
 		flex: none;
@@ -237,7 +237,7 @@
 	}
 	.more {
 		margin-left: var(--space-025);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.kind-label,
 	.kind-choices,
@@ -283,25 +283,25 @@
 		border-style: solid;
 	}
 	.is-unreachable .title {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	/* the group open in the editor: inverted (selected = inverted) */
 	.current {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.current .meta,
 	.current .icon.end {
-		color: var(--paper);
+		color: var(--tool-pressed-text);
 	}
 	/* drawn for context (another group, a point of the script): lighter */
 	.stub {
 		border-width: var(--border-width-hairline);
 		border-style: dashed;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.link:hover {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 	}
 	/* zoomed far out (below ~0.6): faces and pictures step back, their places stay (the layout doesn't move) */
 	:global(.flow-small) .faces,

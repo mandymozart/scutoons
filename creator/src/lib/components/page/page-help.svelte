@@ -155,6 +155,6 @@
 <style>
 	.guide-head {
 		padding-top: 0.75rem;
-		border-top: 2px solid var(--ink);
+		border-top: 2px solid var(--tool-text);
 	}
 </style>

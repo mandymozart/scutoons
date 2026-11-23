@@ -59,13 +59,13 @@
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.cap {
 		margin: 0;
 		padding: var(--space-025) var(--space-1);
-		background: var(--paper);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-ground);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;

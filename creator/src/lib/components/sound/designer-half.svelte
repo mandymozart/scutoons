@@ -76,7 +76,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.head select,
 	.title {
@@ -106,8 +106,8 @@
 		flex: none;
 		margin: 0;
 		padding: var(--space-025) var(--space-1);
-		color: var(--text-muted);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		color: var(--tool-muted);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.pad {
 		padding: var(--space-1);

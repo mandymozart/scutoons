@@ -86,8 +86,8 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 12rem;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-popover);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.clip-menu button {
 		display: flex;
@@ -99,18 +99,18 @@
 		padding: 0 var(--space-1);
 		border: 0;
 		border-radius: var(--radius-none);
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font: inherit;
 		text-align: left;
 		cursor: pointer;
 	}
 	.clip-menu button:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.clip-menu button:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 </style>

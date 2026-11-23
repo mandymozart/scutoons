@@ -31,6 +31,6 @@
 		max-width: 40rem;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 </style>

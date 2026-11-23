@@ -99,7 +99,7 @@
 	}
 	.group.pinned {
 		padding: 0.4rem;
-		border: var(--editor-edge) solid var(--editor-primary-line);
+		border: var(--editor-edge) solid var(--tool-primary-line);
 		border-radius: var(--editor-radius);
 	}
 	.head {
@@ -110,14 +110,14 @@
 		padding: 0;
 		border: 0;
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing, 0.08em);
 		text-transform: uppercase;
 		cursor: pointer;
 	}
 	.pinned .head {
-		color: var(--editor-bright, var(--editor-text));
+		color: var(--tool-bright);
 	}
 	.label {
 		flex: 1 1 auto;
@@ -145,7 +145,7 @@
 		grid-template-columns: repeat(auto-fill, minmax(calc(var(--tile) - 1rem), 1fr));
 		gap: 0.3rem;
 		padding: 0.3rem;
-		border: var(--editor-edge) dashed var(--editor-line);
+		border: var(--editor-edge) dashed var(--tool-line);
 		border-radius: var(--editor-radius);
 	}
 	.list .frame {

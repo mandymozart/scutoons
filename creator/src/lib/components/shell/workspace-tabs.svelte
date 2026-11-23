@@ -78,10 +78,14 @@
 		gap: 0.15rem;
 		min-width: 0;
 		padding: 0.2rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.5rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.workspaces :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.row {
 		display: flex;
@@ -98,19 +102,19 @@
 		height: var(--editor-row);
 		padding: 0 0.75rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		text-decoration: none;
 		white-space: nowrap;
 	}
 	.ws:hover,
 	.menu a:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	/* the front item's workspace: a thin outline; the others muted, those it does not fit dimmed further */
 	.ws.on,
 	.menu a.on {
-		color: var(--editor-text);
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
+		color: var(--tool-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.dim {
 		opacity: 0.55;
@@ -126,11 +130,11 @@
 		border: 0;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.round:hover,
 	.round[aria-expanded='true'] {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.list {
 		position: relative;
@@ -145,9 +149,9 @@
 		flex-direction: column;
 		min-width: 12rem;
 		padding: 0.3rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: var(--tool-popover);
 	}
 	.menu a {
 		height: var(--control-height);

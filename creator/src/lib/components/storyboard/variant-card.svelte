@@ -93,7 +93,7 @@
 		padding: 0;
 		border: 0;
 		background: none;
-		color: var(--ink);
+		color: var(--tool-text);
 		text-align: left;
 		font-size: var(--type-caption-size);
 		cursor: pointer;
@@ -103,12 +103,12 @@
 		position: relative;
 		display: block;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-pressed);
 		overflow: hidden;
 	}
 	.card.current .pic {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: var(--border-width-regular);
 	}
 	img,
@@ -117,7 +117,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 	.none {
 		position: absolute;
@@ -127,7 +127,7 @@
 		justify-content: center;
 		padding: var(--space-025);
 		text-align: center;
-		color: var(--paper);
+		color: var(--tool-pressed-text);
 	}
 	.none.up {
 		writing-mode: vertical-rl;
@@ -146,8 +146,8 @@
 		bottom: 0;
 		width: var(--border-width-regular);
 		margin-left: calc(var(--border-width-regular) / -2);
-		background: var(--paper);
-		box-shadow: 0 0 0 var(--border-width-hairline) var(--ink);
+		background: transparent;
+		box-shadow: 0 0 0 var(--border-width-hairline) var(--tool-text);
 		pointer-events: none;
 	}
 	.len {
@@ -170,27 +170,27 @@
 		text-overflow: ellipsis;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.card.picked .m {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.card.picked .muted {
-		color: var(--paper);
+		color: var(--tool-pressed-text);
 	}
 	.card.rejected .pic {
-		border-color: var(--border-muted);
-		background: var(--paper);
+		border-color: var(--tool-line);
+		background: var(--tool-ground);
 	}
 	.card.rejected .pic > :is(img, video) {
 		opacity: 0.4;
 	}
 	.card.rejected .m,
 	.card.rejected .none {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.card.rejected.current .pic {
-		outline-color: var(--ink);
+		outline-color: var(--tool-text);
 	}
 </style>

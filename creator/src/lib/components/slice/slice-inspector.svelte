@@ -221,7 +221,7 @@
 	}
 	hr {
 		border: 0;
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 		width: 100%;
 		margin: var(--space-05) 0;
 	}

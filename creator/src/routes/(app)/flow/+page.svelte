@@ -73,18 +73,18 @@
 	}
 	.hint {
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		margin: var(--space-05) 0;
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.canvas {
 		flex: 1;
 		min-height: 20rem;
 		margin-top: var(--space-05);
 		position: relative;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.dead-row {
 		display: flex;

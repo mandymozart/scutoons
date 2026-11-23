@@ -38,7 +38,7 @@
 	.script-format {
 		margin-top: 2rem;
 		padding-top: 1rem;
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 		scroll-margin-top: 4rem;
 	}
 </style>

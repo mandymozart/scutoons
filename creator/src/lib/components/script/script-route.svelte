@@ -27,6 +27,6 @@
 		padding: 1rem;
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

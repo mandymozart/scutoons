@@ -68,23 +68,23 @@
 		height: 2rem;
 		padding: 0 0.5rem 0 0.25rem;
 		cursor: pointer;
-		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 70%, transparent);
-		border: 1px solid color-mix(in srgb, var(--paper) 45%, transparent);
+		color: var(--tool-pressed-text);
+		background: color-mix(in srgb, var(--tool-pressed) 70%, transparent);
+		border: 1px solid color-mix(in srgb, var(--tool-ground) 45%, transparent);
 		font-size: 0.75rem;
 	}
 	.chip:focus-visible,
 	.chip[aria-expanded='true'] {
-		border-color: var(--paper);
+		border-color: var(--tool-ground);
 	}
 	.chip img {
 		width: 1.5rem;
 		height: 1.5rem;
 		object-fit: cover;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 	.k {
-		color: color-mix(in srgb, var(--paper) 60%, transparent);
+		color: color-mix(in srgb, var(--tool-pressed-text) 60%, transparent);
 	}
 	.faces {
 		position: absolute;
@@ -99,9 +99,9 @@
 		width: min(19rem, 70vw);
 		box-sizing: border-box;
 		gap: 0.25rem;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-popover);
+		color: var(--tool-text);
+		border: var(--border-width-regular) solid var(--tool-text);
 		max-height: 16rem;
 		overflow-y: auto;
 	}
@@ -126,19 +126,19 @@
 	}
 	.faces button:hover,
 	.faces button:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: -2px;
 	}
 	.faces button.on {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.faces img,
 	.faces .blank {
 		width: 2.5rem;
 		height: 2.5rem;
 		object-fit: cover;
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 	}
 	.faces img.auto {
 		opacity: 0.55;

@@ -153,7 +153,7 @@
 		max-width: 58rem;
 		margin: 0 auto 0 max(0rem, calc((100% - 88rem) / 2));
 		padding: 0.4rem 1rem 1rem;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.col {
 		display: flex;
@@ -166,22 +166,22 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		padding: var(--editor-pad) 0.85rem 0.85rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: transparent;
 	}
 	h2 {
 		display: flex;
 		align-items: baseline;
 		gap: 0.5rem;
 		margin: 0.3rem 0 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
 	}
 	.n {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.areas {
 		display: grid;
@@ -195,15 +195,15 @@
 		gap: 0.3rem;
 		min-width: 0;
 		padding: 0.6rem 0.7rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.area:hover,
 	.tile:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.recent {
 		display: grid;
@@ -214,7 +214,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.rows {
 		margin: 0;
@@ -228,11 +228,11 @@
 		min-height: var(--editor-row);
 		padding: 0.15rem 0.3rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.rows a:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.ell {
 		flex: 1 1 auto;
@@ -243,13 +243,13 @@
 	}
 	.addr {
 		flex: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--font-mono);
 		font-size: var(--editor-small);
 	}
 	.meta {
 		margin: 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.pill {
@@ -258,9 +258,9 @@
 		align-items: center;
 		gap: 0.4rem;
 		padding: 0 0.85rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 	}
 </style>

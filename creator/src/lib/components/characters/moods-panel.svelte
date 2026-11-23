@@ -103,7 +103,7 @@
 		grid-template-columns: auto 7rem minmax(0, 1fr) auto 6rem auto;
 		gap: 0.5rem;
 		align-items: end;
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: 1px solid var(--tool-line);
 		padding-bottom: 0.3rem;
 	}
 	/* narrower (BACKLOG 10.50 audit, E.9: the label field was squeezed to 16px on a phone, the row 912px wide on a tablet):

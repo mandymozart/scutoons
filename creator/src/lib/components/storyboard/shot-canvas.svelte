@@ -58,14 +58,14 @@
 		display: flex;
 		justify-content: center;
 		align-items: flex-start;
-		background: var(--surface-panel, var(--paper));
+		background: var(--tool-ground);
 	}
 	/* the editor switch's row over the schematic (#125): the canvas takes the rest */
 	.lead {
 		display: flex;
 		align-items: center;
 		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.canvas.led {
 		height: calc(100% - var(--control-height) - 2 * var(--space-025) - var(--border-width-regular));
@@ -76,7 +76,7 @@
 		box-sizing: border-box;
 		width: min(100%, 24rem);
 		height: auto;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-ground);
 	}
 </style>

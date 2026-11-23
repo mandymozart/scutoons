@@ -155,7 +155,7 @@
 	.lab,
 	.group {
 		margin: 0 0.3rem 0 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
@@ -167,18 +167,18 @@
 		padding: 0.1rem 0.55rem;
 		border: 0;
 		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font: inherit;
 		text-shadow: inherit;
 	}
 	.pill:hover:not(:disabled) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.pill[aria-pressed='true'],
 	.pill[aria-pressed='true']:hover {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		text-shadow: none;
 	}
 	.pill:disabled {
@@ -206,29 +206,29 @@
 		align-items: start;
 		gap: 0.5rem;
 		padding: 0.3rem 0.2rem;
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 	}
 	.line:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.dot {
 		width: 0.5rem;
 		height: 0.5rem;
 		margin-top: 0.4em;
 		border-radius: 50%;
-		background: var(--editor-muted);
+		background: var(--tool-muted);
 	}
 	.error .dot {
-		background: var(--editor-stop);
+		background: var(--tool-stop);
 	}
 	.warn .dot {
-		background: var(--editor-warn);
+		background: var(--tool-warn);
 	}
 	.ok .dot {
-		background: var(--editor-go);
+		background: var(--tool-go);
 	}
 	.info .dot {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	.body {
 		display: flex;
@@ -249,7 +249,7 @@
 	}
 	.where,
 	.age {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		white-space: nowrap;
 	}
@@ -263,14 +263,14 @@
 		text-transform: uppercase;
 	}
 	.error .lvl {
-		color: var(--editor-stop);
+		color: var(--tool-stop);
 	}
 	.warn .lvl {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.kind {
 		margin-right: 0.35rem;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.text {
 		overflow-wrap: anywhere;
@@ -283,8 +283,8 @@
 		flex-wrap: wrap;
 		gap: 0.25rem 0.9rem;
 		padding: 0.45rem var(--editor-pad) 0.55rem;
-		border-top: var(--editor-edge) solid var(--editor-line);
-		color: var(--editor-muted);
+		border-top: var(--editor-edge) solid var(--tool-line);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 	}
 	.legend > span {
@@ -293,6 +293,6 @@
 		gap: 0.3rem;
 	}
 	.legend .name {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 </style>

@@ -85,7 +85,7 @@
 		width: var(--control-height);
 		height: var(--control-height);
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	/* touch: bigger cells */
 	@media (pointer: coarse) {
@@ -102,7 +102,7 @@
 		min-width: 0;
 		min-height: 0;
 		border-radius: 0;
-		background: var(--paper);
+		background: var(--tool-control);
 		cursor: pointer;
 		display: grid;
 		place-items: center;
@@ -112,19 +112,19 @@
 		content: '';
 		width: 30%;
 		height: 30%; /* control-ok: the cell's dot, not a control */
-		background: var(--text-muted);
+		background: var(--tool-muted);
 	}
 	input:hover::before {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	input:checked {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	input:checked::before {
-		background: var(--paper);
+		background: var(--tool-pressed-text);
 	}
 	input:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: 2px solid var(--tool-text);
 		outline-offset: 1px;
 		position: relative;
 		z-index: 1;

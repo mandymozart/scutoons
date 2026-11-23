@@ -52,11 +52,15 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		padding: 0 0.3rem 0 0.9rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		color: var(--editor-muted);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+		color: var(--tool-muted);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.find :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.find input {
 		flex: 1;
@@ -64,7 +68,7 @@
 		min-height: calc(var(--control-height) - 0.2rem);
 		border: 0;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		outline: none;
 	}
 	.rows {
@@ -76,9 +80,9 @@
 		margin: 0;
 		padding: 0.3rem;
 		list-style: none;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
+		background: var(--tool-popover);
 	}
 	.rows a {
 		display: flex;
@@ -87,11 +91,11 @@
 		min-height: var(--editor-tree-row);
 		padding: 0 0.5rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.rows a:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.ell {
 		overflow: hidden;
@@ -100,7 +104,7 @@
 	}
 	.addr {
 		margin-left: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--font-mono);
 		font-size: var(--editor-small);
 	}

@@ -163,7 +163,7 @@
 	}
 	.sq:hover,
 	.sq:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.sq:disabled {

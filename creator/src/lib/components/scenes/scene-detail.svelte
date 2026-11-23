@@ -137,7 +137,7 @@
 	}
 	.key,
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.state {
 		margin-left: auto;
@@ -145,8 +145,8 @@
 	.problems {
 		margin: 0;
 		padding: 0.5rem 0.75rem;
-		border: var(--border-width-regular) solid var(--state-error);
-		color: var(--state-error);
+		border: var(--border-width-regular) solid var(--tool-stop);
+		color: var(--tool-stop);
 	}
 	.problems p {
 		margin: 0;
@@ -190,10 +190,10 @@
 		justify-content: space-between;
 		gap: 1rem;
 		padding: 0.4rem 0;
-		border-top: var(--border-width-regular) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--tool-line);
 	}
 	.versions li.live {
-		border-top-color: var(--ink);
+		border-top-color: var(--tool-text);
 	}
 	.tag {
 		margin-left: 0.4rem;

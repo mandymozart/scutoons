@@ -81,7 +81,7 @@
 	}
 	.count {
 		margin-inline-start: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 		font-variant-numeric: tabular-nums;
 	}
@@ -118,7 +118,7 @@
 		display: block;
 		aspect-ratio: 1;
 		border-radius: var(--editor-radius);
-		background: var(--editor-control);
+		background: var(--tool-control);
 		overflow: hidden;
 	}
 	.pic img {
@@ -128,20 +128,20 @@
 		display: block;
 	}
 	.mood.on .pic {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	.mood:focus-visible .pic {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 	}
 	.word {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 	.mood.on .word {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 </style>

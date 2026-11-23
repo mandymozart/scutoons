@@ -54,7 +54,7 @@
 
 <style>
 	.trigger {
-		border-top: 1px dashed var(--border-muted);
+		border-top: 1px dashed var(--tool-line);
 		padding-top: 0.3rem;
 	}
 	.whole {

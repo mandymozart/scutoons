@@ -174,7 +174,7 @@
 		padding: 0;
 		max-height: 28rem;
 		overflow: auto;
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 	}
 	.row {
 		all: unset;
@@ -188,7 +188,7 @@
 		cursor: pointer;
 	}
 	.row:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.new {
@@ -212,11 +212,11 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		gap: 0.1rem;
 	}
 	fieldset {
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
@@ -225,7 +225,7 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		font-weight: var(--font-weight-regular);
 	}
 	.link {
@@ -236,10 +236,10 @@
 	.merge {
 		display: flex;
 		gap: 0.25rem;
-		border-top: 1px solid var(--border-subtle);
+		border-top: 1px solid var(--tool-line);
 		padding-top: 0.5rem;
 	}
 	.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

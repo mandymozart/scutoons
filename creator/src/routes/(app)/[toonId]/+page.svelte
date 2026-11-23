@@ -361,7 +361,7 @@
 		max-width: 60rem;
 	}
 	.season-missing {
-		border: 2px dashed var(--border-muted);
+		border: 2px dashed var(--tool-line);
 		padding: 1rem;
 		margin: 1rem 0;
 	}
@@ -377,7 +377,7 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 	}
 	.chapter-row {
 		position: relative;
@@ -386,19 +386,19 @@
 		gap: var(--space-1);
 		min-height: var(--control-height);
 		padding: var(--space-05) 0;
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 	}
 	/* the chapter's number = its URL and release order (owner 2026-10-03): in ink, not muted */
 	.chapter-row .num {
 		flex: none;
 		min-width: 2.5em;
-		color: var(--ink);
+		color: var(--tool-text);
 		font-variant-numeric: tabular-nums;
 	}
 	.row-link {
 		flex: 1;
 		min-width: 0;
-		color: var(--ink);
+		color: var(--tool-text);
 		text-decoration: none;
 		overflow-wrap: anywhere;
 	}
@@ -410,16 +410,16 @@
 	}
 	/* no title in the chosen language: the source's, muted */
 	.row-link.fallback {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.chapter-row:hover .row-link {
 		text-decoration: underline;
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.season-title a {
-		color: var(--ink);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.season-title a:hover {

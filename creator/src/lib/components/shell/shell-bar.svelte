@@ -67,7 +67,7 @@
 		box-sizing: border-box;
 		height: var(--shell-top);
 		padding: 0 1rem;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font-family: var(--editor-sans);
 		pointer-events: none;
 	}
@@ -81,11 +81,15 @@
 		justify-content: center;
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		color: var(--editor-text);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+		color: var(--tool-text);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.pill :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.pair {
 		gap: 0.15rem;
@@ -101,10 +105,10 @@
 		border: 0;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.round:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.middle {
 		display: flex;
@@ -117,7 +121,7 @@
 		pointer-events: auto;
 	}
 	.muted {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 </style>

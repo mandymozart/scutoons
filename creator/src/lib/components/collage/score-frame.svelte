@@ -52,8 +52,8 @@
 	.device {
 		flex: none;
 		overflow: hidden;
-		outline: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		outline: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-ground);
 	}
 	/* scaled from its corner; its text = the reader's body text on that device (its root – the sizes set on this element) */
 	.screen {

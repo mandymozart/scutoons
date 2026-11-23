@@ -75,7 +75,7 @@
 		gap: 0.5rem;
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		text-transform: uppercase;
 		margin: 0 0 0.3rem;
 	}
@@ -111,16 +111,16 @@
 		/* every entry's text on the same 1rem line; the highlight runs edge to edge (owner 2026-10-03) */
 		padding: 0 0.5rem 0 1rem;
 		font-size: var(--type-caption-size);
-		color: var(--ink);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	li button:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	li button.current {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	li.chapter button {
 		font-weight: var(--font-weight-regular);
@@ -133,11 +133,11 @@
 		margin-top: 0.35rem;
 	}
 	li.unknown button:not(.current) {
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.num {
 		min-width: 1.75rem;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.label {
 		min-width: 0;

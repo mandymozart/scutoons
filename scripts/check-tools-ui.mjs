@@ -196,6 +196,52 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 				fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (hand-built tabs: @scutoons/ui Tabs)`);
 		});
 }
+// colours (owner 2026-11-24, RULES H11 [editor-style]: "stick to the color schema of the deck editor … there is no grey
+// backgrounds in our concept"): the tools' CSS (creator, the editor kit, tools.css) takes every colour from the semantic
+// --tool-* tokens (shared/tokens/tool-colours.css, on deck-kit's generated editor.css) –
+//   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
+//   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
+//     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
+//   - a --tool-panel ground (the deck's see-through floating panel) carries the halo: text-shadow: var(--tool-halo)
+// COLOUR_ALLOW: file + text of the declaration + why, for what truly must stay (keep it short)
+const COLOUR_DIRS = ['creator/src', 'shared/ui/src/editor', 'shared/tokens/tools.css'];
+const COLOUR_ALLOW = [
+	// [file, a substring of the declaration, the reason]
+	// empty after #831's sweep; url() contents (the select chevron's data URI) are not read as colours
+];
+const COLOUR_PROPS = /^(color|background(-color|-image)?|border(-(top|right|bottom|left|block|inline)(-(start|end))?)?(-color)?|outline(-color)?|box-shadow|text-shadow|fill|stroke|caret-color|accent-color|text-decoration(-color)?|column-rule(-color)?|scrollbar-color|filter|stop-color|flood-color|lighting-color|--[a-z0-9-]+)$/;
+const LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(^|[\s,(])(white|black|gr[ae]y|silver|red|green|blue|yellow|orange|purple|pink|magenta|cyan|lime|navy|teal|maroon|olive|aqua|fuchsia)(?=$|[\s,)])/;
+const RAW_COLOUR = /var\(--(editor-(stage|surface|surface-head|line|text|muted|control|hover|pressed|pressed-text|selected|within|accent|primary|primary-line|primary-ink|bright|selection|danger|go|warn|stop|panel-ground|halo)|paper|ink|surface-panel)\b/;
+const colours = [];
+for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
+	const text = readFileSync(file, 'utf8');
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const styles = file.endsWith('.css') ? [{ css: text, at: 0 }] : [...text.matchAll(/(<style[^>]*>)([\s\S]*?)<\/style>/g)].map((m) => ({ css: m[2], at: m.index + m[1].length }));
+	for (const { css, at } of styles) {
+		const plain = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+		for (const rule of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+			const sel = rule[1].trim().replace(/\s+/g, ' ').slice(0, 60);
+			const body = rule[2];
+			let offset = at + rule.index + rule[1].length + 1;
+			for (const decl of body.split(';')) {
+				const m = decl.match(/^\s*([a-z-]+|--[a-z0-9-]+)\s*:\s*([\s\S]+)$/);
+				const where = offset + decl.search(/\S/);
+				offset += decl.length + 1;
+				if (!m || !COLOUR_PROPS.test(m[1])) continue;
+				const value = m[2].replace(/url\((['"]?)[^)]*\1\)/g, 'url()').trim();
+				const line = text.slice(0, where).split('\n').length;
+				if (COLOUR_ALLOW.some(([f, s]) => f === name && decl.includes(s))) continue;
+				const say = `${name}:${line}: ${sel} { ${m[1]}: ${m[2].trim().replace(/\s+/g, ' ').slice(0, 70)} }`;
+				if (LITERAL.test(value)) colours.push(`${say} (a literal colour: a --tool-* token)`);
+				else if (RAW_COLOUR.test(value)) colours.push(`${say} (a raw editor / reader colour: the --tool-* token – a grey ground only as --tool-panel / --tool-popover / --tool-head)`);
+			}
+			if (/background(-color)?\s*:[^;]*var\(--tool-panel\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
+				const line = text.slice(0, at + rule.index + rule[1].search(/\S/)).split('\n').length;
+				colours.push(`${name}:${line}: ${sel} (a --tool-panel ground without its halo: text-shadow: var(--tool-halo), as the deck's floating panel)`);
+			}
+		}
+	}
+}
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
 const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
@@ -224,12 +270,14 @@ if (heights.length) console.error(`controls: ${heights.length} heights / vertica
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
 if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
 if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / start rules (owner 2026-11-21, RULES H10: a state is the frame's colour, a dot or coloured words – never a side bar; a line with \`sidebar-ok\` + the reason is exempt):\n  ${sideBars.join('\n  ')}`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length) && !flag('--browser-only')) process.exit(1);
+if (colours.length) console.error(`colours: ${colours.length} outside the deck editor's scheme (owner 2026-11-24, RULES H11: every colour through the --tool-* tokens of shared/tokens/tool-colours.css; no literal colours, no grey ground behind content on the stage; an exception goes into COLOUR_ALLOW with its reason):\n  ${colours.join('\n  ')}`);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || colours.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 console.log('side bars: no thick left / start rules – ok');
+console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

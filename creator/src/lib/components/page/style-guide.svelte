@@ -105,7 +105,7 @@
 		margin: 0 0 0 0.75rem;
 	}
 	code {
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 		padding: 0 0.2em;
 		overflow-wrap: anywhere;
 	}

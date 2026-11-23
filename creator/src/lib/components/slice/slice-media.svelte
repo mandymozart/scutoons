@@ -348,7 +348,7 @@
 		gap: var(--space-1);
 	}
 	.group {
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 		margin: 0;
 		padding: 0.4rem 0.5rem 0.5rem;
 		display: flex;
@@ -366,7 +366,7 @@
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.ratio select {
 		max-width: 100%;
@@ -380,7 +380,7 @@
 		width: 64px;
 	}
 	.warn {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.device.frame {
 		width: 48px;
@@ -403,8 +403,8 @@
 		width: 96px;
 	}
 	.device {
-		background: #000;
-		border: 1px solid var(--border-subtle);
+		background: var(--tool-ground);
+		border: 1px solid var(--tool-line);
 		overflow: hidden;
 	}
 	.device img {

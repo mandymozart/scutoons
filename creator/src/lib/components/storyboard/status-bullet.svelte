@@ -29,11 +29,11 @@
 		width: 1.25rem;
 		height: 1.25rem;
 		padding: 0;
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.rejected {
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--border-muted);
-		color: var(--text-muted);
+		background: var(--tool-ground);
+		border: var(--border-width-regular) solid var(--tool-line);
+		color: var(--tool-muted);
 	}
 </style>

@@ -176,7 +176,7 @@
 		line-height: var(--type-caption-line);
 	}
 	.group {
-		border-top: 1px solid var(--border-subtle);
+		border-top: 1px solid var(--tool-line);
 		padding-top: 0.4rem;
 	}
 	h4 {
@@ -201,7 +201,7 @@
 		font-size: var(--type-caption-size);
 		margin: 0.25rem 0 0;
 		padding: 0.4rem;
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 	}
 	.media-list {
 		grid-template-columns: minmax(0, 1fr);

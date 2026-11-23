@@ -106,8 +106,8 @@
 		top: 0;
 		bottom: 0;
 		overflow: hidden;
-		background: var(--editor-stage);
-		color: var(--editor-text);
+		background: var(--tool-ground);
+		color: var(--tool-text);
 	}
 	.divider {
 		position: fixed;
@@ -125,11 +125,11 @@
 		content: '';
 		width: var(--editor-edge);
 		height: 100%;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.divider:hover::before,
 	.divider.dragging::before {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	.pill {
 		position: fixed;
@@ -141,10 +141,10 @@
 		gap: 0.2rem;
 		min-height: var(--control-height);
 		padding: 0 0.2rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
 		white-space: nowrap;
 	}
@@ -158,11 +158,11 @@
 		gap: 0.35rem;
 	}
 	.pill button:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.pill button.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		text-shadow: none;
 	}
 	.pill .round {
@@ -174,6 +174,6 @@
 		width: var(--editor-edge);
 		height: 1.2rem;
 		margin: 0 0.15rem;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 </style>

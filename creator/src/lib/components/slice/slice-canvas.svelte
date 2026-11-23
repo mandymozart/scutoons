@@ -834,7 +834,7 @@
 	.creator-canvas {
 		position: relative;
 		width: 100%;
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 		user-select: none;
 	}
 	.creator-canvas img {
@@ -847,7 +847,7 @@
 		position: absolute;
 		inset: 40% 1rem auto;
 		text-align: center;
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	/* z-index auto: its boxes (z 2, selected 3) lie over every slice's lettering (.slice-layers, z 1) and over the next
 	   slice's overlay – the overlay itself (empty space: drawing) stays under all lettering */
@@ -872,12 +872,12 @@
 		opacity: 1;
 	}
 	.grid line {
-		stroke: rgba(0, 209, 255, 0.35);
+		stroke: color-mix(in srgb, var(--tool-accent) 35%, transparent);
 		stroke-width: 1px;
 		vector-effect: non-scaling-stroke;
 	}
 	.grid line.major {
-		stroke: rgba(0, 209, 255, 0.7);
+		stroke: color-mix(in srgb, var(--tool-accent) 70%, transparent);
 	}
 	/* the centre guides: above the boxes, 2px in the live selection's dark cyan – set apart from the pale grid */
 	.guides {
@@ -889,7 +889,7 @@
 		pointer-events: none;
 	}
 	.guides line {
-		stroke: var(--select-live-text);
+		stroke: var(--tool-text);
 		stroke-width: 2px;
 		vector-effect: non-scaling-stroke;
 	}
@@ -901,23 +901,23 @@
 	.box {
 		position: absolute;
 		box-sizing: border-box;
-		border: 1px dashed rgba(0, 0, 0, 0.55);
-		outline: 1px dashed rgba(255, 255, 255, 0.8);
+		border: 1px dashed var(--tool-over-dark);
+		outline: 1px dashed var(--tool-over-light);
 		outline-offset: -2px;
 		cursor: move;
 		z-index: 2;
 	}
 	.box.kind-dialog {
-		border-color: var(--cyan);
+		border-color: var(--tool-accent);
 		border-style: solid;
 	}
 	.box.kind-sample {
-		border-color: var(--acid-purple);
-		background: rgba(183, 10, 255, 0.08);
+		border-color: var(--tool-warn);
+		background: color-mix(in srgb, var(--tool-warn) 8%, transparent);
 	}
 	.box.kind-event {
-		border-color: var(--state-error);
-		background: rgba(255, 33, 10, 0.06);
+		border-color: var(--tool-stop);
+		background: color-mix(in srgb, var(--tool-stop) 6%, transparent);
 	}
 	.box.auto-height {
 		border-bottom-style: dotted;
@@ -925,7 +925,7 @@
 	.box.selected {
 		border-width: 2px;
 		border-style: solid;
-		background: rgba(0, 209, 255, 0.08);
+		background: color-mix(in srgb, var(--tool-accent) 8%, transparent);
 		z-index: 3;
 	}
 	.box.ghost {
@@ -940,8 +940,8 @@
 		font-size: var(--type-caption-size);
 		line-height: 1.2;
 		padding: 0 0.3em;
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		white-space: nowrap;
 		pointer-events: none;
 		opacity: 0;
@@ -951,17 +951,17 @@
 		bottom: auto;
 		top: 100%;
 		opacity: 1;
-		background: var(--paper);
-		color: var(--ink);
-		border: 1px dashed var(--ink);
+		background: var(--tool-popover);
+		color: var(--tool-text);
+		border: 1px dashed var(--tool-text);
 	}
 	/* the anchor suggestion while a box is dragged near an edge: under the box, quiet */
 	.tag.anchor-hint {
 		bottom: auto;
 		top: 100%;
 		opacity: 1;
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 	}
 	.box:hover .tag,
 	.box.live .tag {
@@ -971,8 +971,8 @@
 		position: absolute;
 		width: 10px;
 		height: 10px;
-		background: var(--paper);
-		border: 2px solid var(--ink);
+		background: var(--tool-control);
+		border: 2px solid var(--tool-text);
 		box-sizing: border-box;
 		transform: translate(-50%, -50%);
 	}
@@ -987,7 +987,7 @@
 	.h-rotate { left: 50%; top: calc(-1.25rem / var(--box-scale, 1)); cursor: grab; }
 	.h-scale { left: calc(100% + 0.6rem / var(--box-scale, 1)); top: calc(100% + 0.6rem / var(--box-scale, 1)); cursor: nwse-resize; }
 	.box.kind-item {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 		border-style: solid;
 	}
 	.h-nw { left: 0; top: 0; cursor: nwse-resize; }

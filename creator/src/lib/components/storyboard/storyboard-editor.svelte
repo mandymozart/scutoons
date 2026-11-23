@@ -195,7 +195,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		flex: none;
 		container-type: inline-size;
 	}

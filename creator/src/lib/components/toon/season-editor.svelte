@@ -244,18 +244,18 @@
 		box-sizing: border-box;
 		width: 10rem;
 		aspect-ratio: 1;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-ground);
+		color: var(--tool-text);
 		overflow: hidden;
 	}
 	.cover-link.empty {
 		border-style: dashed;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.cover-link:hover,
 	.cover-link:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: 2px;
 	}
 	.cover-link :global(.cover-art) {
@@ -273,7 +273,7 @@
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.nav-list {
 		display: flex;
@@ -293,11 +293,11 @@
 		/* the deck's tree row: inset in the panel, the hover ground with the radius */
 		padding: 0.35rem 0.5rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.nav-list a:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.nav-title {
 		flex: 1 1 auto;

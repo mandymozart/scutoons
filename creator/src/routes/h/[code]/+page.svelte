@@ -45,7 +45,7 @@
 <style>
 	.rec {
 		padding: 0 var(--space-05);
-		background: var(--state-error);
-		color: var(--paper);
+		background: var(--tool-stop);
+		color: var(--tool-pressed-text);
 	}
 </style>

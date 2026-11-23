@@ -246,19 +246,9 @@
 </div>
 
 <style>
-	/* day: the window and a page on it are white (the stage); panels and controls keep their surface */
-	:global(html[data-theme='day']:has(.creator) body),
-	:global(html[data-theme='day']) .creator {
-		--page-ground: var(--editor-stage);
-		--tool-ground: var(--editor-stage);
-		background: var(--editor-stage);
-	}
+	/* the window and every page on it stand on the stage (--tool-ground: black at night, white by day; RULES H11) */
 	.creator {
-		--page-ground: var(--editor-surface);
-		--cyan: var(--primary-cyan);
-		--muted: var(--text-muted);
-		--error: var(--state-error);
-		--warn: var(--state-warning);
+		background: var(--tool-ground);
 		/* the bar's row: the pills and a gap above and below (the panels start a gap under it) */
 		--shell-top: calc(var(--control-height) + 1.4rem);
 		--top: var(--shell-top);
@@ -273,8 +263,8 @@
 		box-sizing: border-box;
 		padding-bottom: var(--status-room);
 		overflow: auto;
-		background: var(--editor-stage);
-		color: var(--editor-text);
+		background: var(--tool-ground);
+		color: var(--tool-text);
 	}
 	/* a view clear of the bar keeps its content under the bar's row (the stage itself still runs under it) */
 	.stage.clear {
@@ -290,15 +280,13 @@
 		flex-direction: column;
 		min-height: 100%;
 	}
-	/* a page that scrolls (a form, a board) is a sheet in the stage's middle; the panels float beside it */
+	/* a page that scrolls (a form, a board) is a column in the stage's middle, on the stage itself – no sheet, no frame
+	   (RULES H11); the panels float beside it */
 	.stage.sheet .stage-page {
 		box-sizing: border-box;
 		width: min(60rem, 100% - 2rem);
 		min-height: 0;
 		margin: 0 auto 1rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--page-ground);
 	}
 	.stage.fill .stage-page {
 		flex: 1;
@@ -330,8 +318,8 @@
 		min-height: var(--control-height);
 		padding: 0 var(--editor-pad);
 		line-height: var(--type-button-line);
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		border: var(--editor-edge) solid transparent;
 		border-radius: var(--editor-radius);
 		cursor: pointer;
@@ -339,35 +327,35 @@
 	}
 	:global(:where(.creator button:hover:not(:disabled))),
 	:global(:where(.creator .btn:hover)) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	:global(:where(.creator button.secondary)),
 	:global(:where(.creator .btn.secondary)) {
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 	}
 	:global(:where(.creator button.ghost)) {
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		padding: 0 var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	:global(:where(.creator button.active)),
 	:global(:where(.creator button[aria-pressed='true'])),
 	:global(:where(.creator button.active:hover:not(:disabled))) {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	:global(:where(.creator button.primary)),
 	:global(:where(.creator .btn.primary)) {
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
-		border-color: var(--editor-primary-line);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
+		border-color: var(--tool-primary-line);
 	}
 	:global(:where(.creator button.primary:hover:not(:disabled))) {
-		background: var(--editor-primary-line);
+		background: var(--tool-primary-line);
 	}
 	:global(:where(.creator button:disabled)) {
 		opacity: 0.5;
@@ -377,7 +365,7 @@
 		display: block;
 	}
 	:global(:where(.creator .hint)) {
-		color: var(--muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}

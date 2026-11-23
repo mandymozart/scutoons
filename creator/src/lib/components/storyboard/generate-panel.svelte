@@ -94,7 +94,7 @@
 	}
 	.muted,
 	.made {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	article {
 		display: grid;
@@ -102,7 +102,7 @@
 		padding-inline: var(--space-05);
 	}
 	article.approved {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 	}
 	.actions {
 		display: flex;
