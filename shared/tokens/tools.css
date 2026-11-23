@@ -112,6 +112,10 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	/* a popover is see-through like a panel, so its text and icons take the panel's ink ring (deck-kit ink_ring) */
 	text-shadow: var(--tool-halo);
 }
+/* @scutoons/ui's Sheet keeps the reader's mono type; in the tools it writes in the kit's sans like every other box */
+.sc-tool dialog.sc-sheet {
+	font-family: var(--editor-sans);
+}
 .sc-tool :is(input, select, textarea, button, .btn, .sc-icon-button, .sc-palette-trigger, .sc-control, .sc-chip-control) {
 	--paper: var(--tool-control);
 }
@@ -268,6 +272,65 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	height: 1.25rem;
 	margin: 0;
 	accent-color: var(--tool-pressed);
+}
+/* range sliders (a tile size, a level): the kit's slider, never the browser's blue – a thin within track, the filled part
+   (Firefox draws it; elsewhere the track alone) and a round knob in the text colour (kit/tokens.toml component.slider) */
+:where(.sc-tool) :where(input[type='range']) {
+	--slider-track: 0.25rem;
+	--slider-knob: 0.875rem;
+	appearance: none;
+	box-sizing: border-box;
+	height: var(--slider-knob);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+:where(.sc-tool) :where(input[type='range'])::-webkit-slider-runnable-track {
+	height: var(--slider-track);
+	border-radius: calc(var(--slider-track) / 2);
+	background: var(--kit-slider-rest-ground);
+}
+:where(.sc-tool) :where(input[type='range'])::-moz-range-track {
+	height: var(--slider-track);
+	border-radius: calc(var(--slider-track) / 2);
+	background: var(--kit-slider-rest-ground);
+}
+:where(.sc-tool) :where(input[type='range'])::-moz-range-progress {
+	height: var(--slider-track);
+	border-radius: calc(var(--slider-track) / 2);
+	background: var(--kit-slider-rest-mark);
+}
+:where(.sc-tool) :where(input[type='range'])::-webkit-slider-thumb {
+	appearance: none;
+	width: var(--slider-knob);
+	height: var(--slider-knob);
+	margin-top: calc((var(--slider-track) - var(--slider-knob)) / 2);
+	border: 0;
+	border-radius: 50%;
+	background: var(--kit-slider-rest-knob);
+}
+:where(.sc-tool) :where(input[type='range'])::-moz-range-thumb {
+	width: var(--slider-knob);
+	height: var(--slider-knob);
+	border: 0;
+	border-radius: 50%;
+	background: var(--kit-slider-rest-knob);
+}
+:where(.sc-tool) :where(input[type='range']):hover:not(:disabled)::-webkit-slider-thumb {
+	background: var(--kit-slider-hover-knob);
+}
+:where(.sc-tool) :where(input[type='range']):hover:not(:disabled)::-moz-range-thumb {
+	background: var(--kit-slider-hover-knob);
+}
+:where(.sc-tool) :where(input[type='range']):focus-visible {
+	outline: var(--border-width-focus) solid var(--kit-focus-rest-ring);
+	outline-offset: var(--focus-offset);
+}
+:where(.sc-tool) :where(input[type='range']):disabled {
+	opacity: var(--kit-slider-disabled-opacity);
+	cursor: default;
 }
 /* checkboxes are square switches (owner 2026-10-04: the native boxes looked odd): off = paper track, 2px border-muted
    frame, a grey knob left; on = ink track, paper knob right. Hover / focus frame ink, like the secondary buttons.

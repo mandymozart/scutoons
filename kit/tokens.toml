@@ -291,6 +291,16 @@ knob = "pressed_text"
 [component.toggle.disabled]
 opacity = 0.4
 
+# a range slider (a size, a level): no accent – the track is the within ground, the filled part and the knob the text
+[component.slider.rest]
+ground = "within"
+mark = "text"
+knob = "text"
+[component.slider.hover]
+knob = "bright"
+[component.slider.disabled]
+opacity = 0.4
+
 # a field, a search and the boxed select (a value in a form, H4)
 [component.field.rest]
 border = "line"
