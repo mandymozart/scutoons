@@ -203,10 +203,13 @@
 		display: flex;
 		flex-direction: column;
 	}
+	/* a flex item with auto side margins shrinks to its content, and a canvas has none: the stage took 0 px */
 	.fill .content {
 		flex: 1 1 auto;
 		min-height: 0;
+		margin: 0;
 		padding: 0;
+		width: 100%;
 		max-width: none;
 	}
 	.page-actions {
