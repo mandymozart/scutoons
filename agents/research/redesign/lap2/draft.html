@@ -94,6 +94,10 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .fld{display:flex;align-items:center;height:var(--control-height);padding:0 var(--editor-pad);border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);text-shadow:none;gap:.4rem}
 .fld .ph,.fld>svg{color:var(--tool-muted)}
 .fld.sel::after{content:'';margin-left:auto;width:.5rem;height:.5rem;border-right:1.5px solid var(--tool-muted);border-bottom:1.5px solid var(--tool-muted);transform:translateY(-25%) rotate(45deg)}
+/* kit: the quiet select (kit-d.html "Select quiet" .fld.q, owner 2026-11-24; named .quiet here: .q is the draft's question card) – a filter or sort: no box at rest, a rounded border on hover (.h) and while open (.on), the chevron after the word */
+.fld.quiet{width:auto!important;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
+.fld.quiet.sel::after{margin-left:0}
+.fld.quiet.h{border-color:var(--d-edge)} .fld.quiet.on{border-color:var(--tool-text)}
 .slot{display:grid;place-items:center;border:1px dashed var(--tool-muted);border-radius:var(--editor-radius);color:var(--tool-text)}
 .seg{display:inline-flex;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);text-shadow:none}
 .seg span{display:inline-flex;align-items:center;height:calc(var(--control-height) - 2px);padding:0 .55rem;border-radius:var(--editor-radius);color:var(--tool-muted)}
@@ -254,10 +258,23 @@ const fp = (x, y, w, h, tabs, body = '', o = {}) => `<div class="fp ${o.col ? 'c
 const folded = (x, y, name, w = 148) => fp(x, y, w, 0, [[name, 1]], '', { col: true });
 
 /* the Characters workspace (now/creator-1): the Rig tab in front, Sheet folded bottom left, Library folded bottom right */
-/* the Rig tab after 2026-11-24 ("not twice"): the model's line and "Open in the deck" – no Bones, no Clips, no rig controls (the deck edits the rig) */
+/* the Rig tab after 2026-11-24 ("not twice"): only the Bones and Clips lists go (the deck's asset view has them); the rest as today
+   (now/creator-1, now/ws-characters): the look's 3D model, the model's line, Idle, Body (for the placeholder), A-pose – and "Open in the deck" under the model's line */
 const RIG_BODY = `<div class="fold label">3D model</div>
-  <div style="display:flex;align-items:center;gap:.4rem;margin:.2rem 0 .7rem"><span class="fld" style="flex:1">${ic('cube')}giantpopstar-regular.glb</span><span class="kib muted" title="Remove the model">${ic('x')}</span></div>
-  <span class="kb plain">${ic('ext')}Open in the deck</span>`;
+  <div class="label" style="margin:.35rem 0 .3rem">This look's 3D model (else the persona's)</div>
+  <div class="slot" style="width:112px;height:30px">${ic('plus')}</div>
+  <div style="display:flex;gap:.9rem;margin-top:.75rem">
+    <div style="flex:none;width:176px;height:176px;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-ground)"></div>
+    <div style="flex:1;min-width:0">
+      <div class="label" style="margin-bottom:.3rem">3D model (GLB)</div>
+      <div style="display:flex;align-items:center;gap:.4rem"><span class="fld" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden">${ic('cube')}giantpopstar-regular.glb</span><span class="kib alone" style="width:1.7rem;height:1.7rem" title="Remove the model">${ic('x')}</span></div>
+      <span class="kb plain" style="margin:.45rem 0 .2rem">${ic('ext')}Open in the deck</span>
+      <div style="margin:.45rem 0 .25rem">Idle</div><div class="fld sel">walk</div>
+      <div class="cap" style="margin:.25rem 0 .55rem">No library animation fits this model's skeleton.</div>
+      <div class="label" style="margin-bottom:.3rem">Body (for the placeholder)</div>
+      <span class="seg"><span class="on">2 legs</span><span>more legs</span><span>wings</span></span></div></div>
+  <div class="label" style="margin:.9rem 0 .3rem">A-pose (avatar body)</div>
+  <div class="slot" style="width:112px;height:76px">${ic('plus')}</div>`;
 const RIG_TABS = [['Kanon',0],['Expressions',0],['Rig',1],['Voice',0],['Cast',0],['Generations',0]];
 function characters(o = {}) {
   return `${cbar(o.bar)}
@@ -374,10 +391,8 @@ function deckBuild(o = {}) {
       <span class="kb plain" style="margin:.2rem 0 .3rem">Save as preset</span>
       <div class="label" style="margin:.4rem 0 .3rem">Knobs</div>
       ${[['FM ratio', '1.500', 30], ['FM index', '2.000', 40]].map(([k, v, f]) => `<div class="lrow" style="min-height:2rem"><span style="width:6.4rem;flex:none" class="muted">${k}</span><span class="fld mono" style="flex:1;position:relative;overflow:hidden"><span class="abs" style="left:0;top:0;bottom:0;width:${f}%;background:var(--tool-hover)"></span><span style="position:relative">${v}</span></span></div>`).join('')}`)
-    + dkPanel(14, 363, 427, 487, dkHead('grid'), `
-      <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span><span class="kib muted" title="As a list">${ic('list')}</span></div>
-      <div style="display:flex;gap:.3rem;margin-bottom:.5rem"><span class="kc">instruments 2</span><span class="kc">characters 7</span><span class="kc">related to catpope</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem .5rem">${lib.map(([n, m, c]) => dkTile(F, n, m, c)).join('')}</div>`, { bd: 'font-size:var(--editor-small)' })
+    /* the Library: the same panel as the creator's (C12, LIBRARY.md) – today's tiles (Everything: two instruments, seven characters), each with its type */
+    + dkPanel(14, 323, 427, 527, dkHead('grid'), libraryBody({ cols: 3, place: 'Everything', pvH: 58, gap: '.45rem .5rem', tiles: DECK_LIB_TILES }), { bd: 'font-size:var(--editor-small)' })
     + dkPanel(465, 712, 275, 138, dkHead('info'), `<div style="margin-bottom:.2rem">Stage</div><div class="mono small" style="line-height:1.45">Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port.</div>`)
     + dkCover(755, 815, 130, 36) + `<div class="abs" style="left:755px;top:815px;z-index:20"><span class="kp" style="--pill:2.4rem;padding:0 .6rem;gap:.4rem">${dkGrip}${ic('activity')}Audio${ic('d')}<span class="muted">${ic('x')}</span></span></div>`
     + dkCover(1376, 478, 209, 372) + `<div class="fp" style="left:1376px;top:478px;width:209px;height:372px">${dkHead('sliders', { tabs: `<span class="tab on">${ic('sliders')}&nbsp;rig</span>` })}<div class="bd" style="padding:0"><div class="abs" style="left:4px;top:40px;width:200px;height:326px;overflow:hidden"><img src="${DK}${F}" style="position:absolute;left:-1380px;top:-538px;width:1600px;height:900px"></div></div></div>`
@@ -404,23 +419,39 @@ const CAT_ITEMS = [['Kamera','camera · catpope',112],['SCUTOONS T-Shirt','scuto
   ['SCUTOONS Sandalen','scutoons_sandals',216],['Gurke','cucumber · catpope',242],['Gurkenkamera','cucumber_camera · catpope',268],['Gurkenkreuz','cucumber_cross · catpope',294],
   ['Testo','testo',320],['Testo-Kamera','testo_camera',348],['Check It Kamera','checkit_camera',374],['Zauberpilz','psilocybin',400],['Bunte Pappe','lsd',426],['Semaglutid-Pen','semaglutide',452]];
 
-/* ── the Library panel on the kit (today's library-panel.svelte, its parts in its order): the pick line · the scope · Find + Upload ·
-      the kinds · the view tools (grouping, sort, tile size, list, ⋯) · the tiles. Chips = the kit's Chip, the selected one the text colour;
-      selects = the kit's select; the tile = the kit's Thumb (H4, H11, H13). ── */
-const libTile = ([n, m, pic, o = {}]) => `<div class="th ${o.on ? 'on' : ''} ${o.x ? 'x' : ''}" title="${n}"><div class="pv ${pic ? '' : 'pend'}">${pic || '<span>still pending</span>'}</div><div class="nm">${n}</div><div class="mt">${m}</div></div>`;
-const catTile = (k, o = {}) => { const [n, id, y] = CAT_ITEMS[k]; return [n, id, wsPic('catalog', 171, y - 9, 20, 20, o.k || 4.6), o]; };
-const LIB_SCOPES = [['Toon', 1], ['All', 0], ['Unused', 0]];
-const LIB_KINDS = [['All', 1], ['Images', 0], ['3D', 0], ['Audio', 0], ['Items to open', 0]];
+/* ── the extended Library (LIBRARY.md, owner 2026-11-24) on the kit – today's library-panel.svelte, its parts in its order, with the decided
+      changes: the type as the first filter – things (Characters, Scenes, Places, Items) | files (Images, 3D, Audio, Video), "Items to open" gone;
+      the places that narrow it (this item · this season's cast · this toon · everything; Unused kept as today); Find + Upload; the view tools;
+      the tiles – a thing's tile shows its type, a file's tile its kind. Chips = the kit's Chip; selects = the kit's select; tile = the kit's Thumb. ── */
+/* a picture from a capture filling its box at any size: the part (sx, sy, sw, sh) of an image W × H */
+const capPic = (src, W, H, sx, sy, sw, sh = sw) => `<span style="position:absolute;inset:0;background:url('${src}') ${sx / (W - sw) * 100}% ${sy / (H - sh) * 100}% / ${W / sw * 100}% ${H / sh * 100}% no-repeat"></span>`;
+/* the real pictures now/ has: the items' pictures (now/ws-catalog), Cat Pope as the deck draws it (deck-3-stage-workspace), cathedral_voice's graph (the deck's tile) */
+const PIC = {
+  catpope: capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, 692, 178, 222),
+  voice: capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, 40, 453, 90, 72),
+  item: (k) => capPic(`now/ws-catalog-${WS_TH}.jpg`, 800, 485, 171, CAT_ITEMS[k][2] - 9, 20)
+};
+/* a tile: [name, type or kind, picture ('<…>' html · an icon name · null = a still that does not exist yet), {on, x}] */
+const libTile = ([n, m, pic, o = {}]) => `<div class="th ${o.on ? 'on' : ''} ${o.x ? 'x' : ''}" title="${n}"><div class="pv ${pic === null ? 'pend' : ''}" ${o.pvH ? `style="aspect-ratio:auto;height:${o.pvH}px"` : ''}>${pic === null ? '<span>still pending</span>' : pic.startsWith('<') ? pic : ic(pic)}</div><div class="nm">${n}</div><div class="mt">${m}</div></div>`;
+const LIB_THINGS = ['Characters', 'Scenes', 'Places', 'Items'], LIB_FILES = ['Images', '3D', 'Audio', 'Video'];
+const LIB_PLACES = ['This item', "This season's cast", 'This toon', 'Everything', 'Unused'];
+const libSep = '<span style="flex:none;width:1px;height:1rem;margin:0 .15rem;background:var(--tool-line)"></span>';
 function libraryBody(o = {}) {
-  const cols = o.cols || 3;
+  const cols = o.cols || 3, type = o.type || 'All', place = o.place || 'This toon';
+  const chip = (n, on) => `<span class="kc ${on ? 'on' : ''}">${n}</span>`;
+  const grid = (tiles, c = cols) => `<div style="display:grid;grid-template-columns:repeat(${c},minmax(0,1fr));gap:${o.gap || '.65rem .55rem'}">${tiles.map(t => libTile(o.pvH ? [t[0], t[1], t[2], { ...(t[3] || {}), pvH: o.pvH }] : t)).join('')}</div>`;
   return `${o.pick ? `<div style="display:flex;align-items:center;gap:.45rem;margin:.1rem 0 .5rem">Pick for <span class="kc on">${o.pick}</span><span style="flex:1"></span><span class="kb plain" style="height:1.75rem" title="Esc">Cancel</span></div>` : ''}
-    <div style="display:flex;gap:.3rem;margin-bottom:.5rem">${(o.scopes || LIB_SCOPES).map(([n, on]) => `<span class="kc ${on ? 'on' : ''}">${n}</span>`).join('')}</div>
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;margin-bottom:.45rem">${chip('All', type === 'All')}${LIB_THINGS.map(n => chip(n, n === type)).join('')}${libSep}${LIB_FILES.map(n => chip(n, n === type)).join('')}</div>
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem">${(o.places || LIB_PLACES).map(n => chip(n, n === place)).join('')}</div>
     <div style="display:flex;gap:.4rem;margin-bottom:.5rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span>${o.pick ? '' : `<span class="kb primary">${ic('upload')}Upload</span>`}</div>
-    <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem">${(o.kinds || LIB_KINDS).map(([n, on]) => `<span class="kc ${on ? 'on' : ''}">${n}</span>`).join('')}</div>
-    <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem"><span class="fld sel" style="width:6.4rem" title="Grouping">By use</span><span class="fld sel" style="width:7.2rem" title="Sort">By name</span><span style="flex:1"></span><span class="rng" title="Tile size"></span><span class="kib muted" title="As a list">${ic('list')}</span><span class="kib muted" title="More" style="font-size:1.1rem">⋯</span></div>
-    ${o.group ? `<div class="label" style="margin:0 0 .35rem">${o.group}</div>` : ''}
-    <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:.65rem .55rem">${(o.tiles || []).map(libTile).join('')}</div>`;
+    <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem"><span class="fld sel quiet" style="width:6.4rem" title="Grouping">By use</span><span class="fld sel quiet" style="width:7.2rem" title="Sort">By name</span><span style="flex:1"></span><span class="rng" title="Tile size"></span><span class="kib muted" title="As a list">${ic('list')}</span><span class="kib muted" title="More" style="font-size:1.1rem">⋯</span></div>
+    ${o.content || (o.groups ? o.groups.map(([label, tiles]) => `<div class="label" style="margin:.2rem 0 .35rem">${label}</div>${grid(tiles)}`).join('<div style="height:.7rem"></div>') : grid(o.tiles || []))}`;
 }
+/* the deck's Library tiles as shot (now/deck-3-stage-workspace): the pictures are the shot's own tiles, else the kind's icon */
+const dkLibPic = (sx, sy, sw = 116, sh = 70) => capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, sx, sy, sw, sh);
+const DECK_LIB_TILES = [['cathedral_voice', 'Instrument', dkLibPic(32, 455)], ['drone', 'Instrument', dkLibPic(158, 455)], ['Cat Pope', 'Character', dkLibPic(290, 458, 100, 62)],
+  ['Boy', 'Character', 'users'], ['Crows', 'Character', 'users'], ['Top Toy', 'Character', 'users'],
+  ['Fox Crow', 'Character', dkLibPic(32, 722)], ['Lizard Crow', 'Character', 'users'], ['Wolf Crow', 'Character', 'users']];
 const libraryPanel = (x, y, w, h, o = {}) => fp(x, y, w, h, [['Library', 1]], libraryBody(o), { icons: `<span class="ic" title="Open the browser">${ic('expand')}</span>`, style: o.style || '' });
 
 /* ── the screens ── */

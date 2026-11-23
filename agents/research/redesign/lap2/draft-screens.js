@@ -91,15 +91,16 @@ add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
     <div style="display:flex;justify-content:flex-end;gap:8px"><span style="padding:6px 16px;border:1px solid #5f6368;border-radius:16px;color:#8ab4f8">Cancel</span><span style="padding:6px 16px;border-radius:16px;background:#8ab4f8;color:#202124">Open SCUTOONS Deck</span></div></div>
   ${capn(500, 196, "the browser's own dialog (Chrome), once – not our UI")}${mk(1, 944, 8)}${mk(2, 478, 458)}`);
 
-add('A', 'A4', "Search (Alt Space / ⌘ Space, the pad's Y)", 'the launcher today (launcher.svelte, the overlay) on now/creator-1',
-  ["its own overlay: Alt Space / ⌘ Space, the pad's Y (Ctrl K: the switcher, A3)", 'the field says "Find"', 'no hint line in it (H14): the keys are hover text'],
+add('A', 'A4', "Search (Alt Space / ⌘ Space, the pad's Y)", 'the launcher today (launcher.svelte, the overlay) on now/creator-1 · the names: production 2026-11-24 (characters, toons, places, files)',
+  ["its own overlay: Alt Space / ⌘ Space, the pad's Y (Ctrl K: the switcher, A3)", 'the field says "Find" (here "cat" typed)', 'no hint line in it (H14): the keys are hover text',
+   'it finds things and files by name – each line with its type or kind (LIBRARY.md: the extended Library)'],
   () => `${characters({ bar: { chevron: true } })}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
   <div class="km" style="left:430px;top:150px;width:580px;z-index:60;padding:.4rem">
-    <div class="fld" style="height:2.4rem;border-radius:1.2rem">${ic('search')}<span class="ph">Find</span></div>
-    <div class="kmh" style="margin-top:.3rem">Recent</div>
-    ${[['smile','Riesen-Popstar','Item'],['map','Map','Workspace'],['book','Sandbox','Item']].map(([i, n, k], j) => `<div class="kmi ${j === 0 ? 'cur' : ''}">${ic(i)}<span class="w">${n}</span><span class="meta">${k}</span></div>`).join('')}</div>
-  ${mk(1, 1015, 290)}${mk(2, 1015, 160)}${mk(3, 1015, 250)}
-  ${qcard(430, 420, 'do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)?', ['the overlay level – blurred behind', 'the popover level – sharp'], "Drawn as today: the window dimmed behind.", '24rem')}`);
+    <div class="fld" style="height:2.4rem;border-radius:1.2rem">${ic('search')}cat<span style="width:1px;height:1.1rem;background:var(--tool-text);margin-left:-.3rem"></span></div>
+    <div style="height:.3rem"></div>
+    ${[['smile','Cat Pope','Character'],['book','Cat Pope','Toon'],['pin','cathedral','Place'],['cube','catpope-regular.v2.glb','3D'],['image','catpope_avatar-happy.webp','Image']].map(([i, n, k], j) => `<div class="kmi ${j === 0 ? 'cur' : ''}">${ic(i)}<span class="w">${n}</span><span class="meta">${k}</span></div>`).join('')}</div>
+  ${mk(1, 1015, 330)}${mk(2, 1015, 160)}${mk(3, 1015, 290)}${mk(4, 1015, 210)}
+  ${qcard(430, 470, 'do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)?', ['the overlay level – blurred behind', 'the popover level – sharp'], "Drawn as today: the window dimmed behind.", '24rem')}`);
 
 add('A', 'A5', 'The user menu (the account icon)', "today's user menu (user-menu.svelte, code – no screenshot in now/)",
   ['opens under the account icon, like the ☰ menu – not from the bottom', "no swipe up: it collides with the systems' own gestures"],
@@ -196,33 +197,63 @@ const WS_ITEMS = [['box','Scenes'],['book','Sandbox'],['route','Flow'],['box','S
 const pageNotShot = (t) => notShot(t || 'the page as today – not captured, not drawn');
 const presetBase = (k) => `code: presets.ts \`${k}\` (no capture – panels as placed, contents not drawn)`;
 
-add('C', 'C1', 'Toon', 'now/ws-toon (the Toon workspace, Sandbox open, 2026-11-24)', [KIT, 'the season hint shortened to its state: "Create season 1 (a draft), then add chapters" goes to hover (H14)'],
-  () => `${cbar({ chevron: true, wsOn: 'Toon', items: WS_ITEMS, front: 1 })}
-  ${fp(14, 60, 245, 760, [['Toon', 1]], ['Stories','Script','Credits','Settings'].map((n, i) => `<div class="trow ${i === 0 ? 'sel' : ''}" style="padding:0 .5rem;margin:0 -.3rem;border-radius:var(--editor-radius);font-size:1rem">${n}</div>`).join(''))}
-  <div class="abs" style="left:306px;top:84px;width:740px;height:104px;border:1px dashed var(--tool-line);border-radius:var(--kit-radius-box);padding:.7rem .9rem">
-    <div class="label" style="margin-bottom:.45rem">Season 1</div><div style="margin-bottom:.5rem">This toon has no season yet.</div><span class="kb plain">${ic('plus')}Create season 1</span></div>
-  <div class="abs" style="left:306px;top:214px;display:flex;align-items:center;gap:.5rem"><span class="label" style="margin-right:.6rem">Languages</span>
-    <span class="kc on" style="height:1.8rem;font-size:var(--editor-small)">de · Deutsch ${ic('star')}</span><span class="kc" style="height:1.8rem;font-size:var(--editor-small)">en · English ${ic('x')}</span><span class="fld sel" style="width:6.5rem">${ic('plus')}Add</span></div>
+const TOON_CAST = [['Cat Pope', 'catpope', [['regular',1],['human',1],['cat',1],['mountaintiger',1],['biker',0],['human-2',0]]], ['Boy', 'boy', [['regular',1]]], ['Crows', 'crows', [['regular',1]]], ['Top Toy', 'toptoy', [['regular',1]]]];
+const TOON_CHAPTERS = [['0','Roar Little Kitty'],['1','Denial'],['2','Anger'],['3','Bargaining','Draft'],['4','Depression','Draft'],['5','Acceptance','Draft']];
+add('C', 'C1', 'Toon: one toon – seasons, chapters, the cast', 'now/ws-toon (2026-11-24, Sandbox open there) – drawn with Cat Pope: its season, chapters and cast:catpope (production 2026-11-24)',
+  [KIT, 'the tree of one toon: its season with the chapters and a Cast branch (the pages Stories, Script, Credits, Settings as today)',
+   "the season's cast listed and edited here: order (drag), role per language, personas; Add opens the Library as a pick (C12c); ✕ takes one out",
+   'a character opened from the cast comes up in the Characters workspace, where it is edited'],
+  () => {
+    const row = (n, cls = '', ind = 0, right = '') => `<div class="trow ${cls}" style="padding:0 .5rem 0 ${.5 + ind}rem;margin:0 -.3rem;border-radius:var(--editor-radius);font-size:1rem">${n}${right ? `<span style="margin-left:auto">${right}</span>` : ''}</div>`;
+    const tree = row('Stories') + `<div class="fold" style="padding-left:.6rem;font-size:1rem">Season 1 · Awakening</div>`
+      + TOON_CHAPTERS.map(([k, t, st]) => row(`<span class="muted" style="width:1.2rem">${k}</span>${t}`, '', 1.6, st ? `<span class="kc">${st}</span>` : '')).join('')
+      + row(`${ic('users')}Cast`, 'sel', 1.6) + row('Script') + row('Credits') + row('Settings');
+    const cast = TOON_CAST.map(([n, id, ps]) => `<div style="display:flex;align-items:flex-start;gap:.6rem;padding:.55rem 0;border-bottom:1px solid var(--tool-line)">
+      <span class="muted" style="font-size:1.1rem;line-height:1.6rem;cursor:grab" title="Drag: the place in the season's cast">⠿</span>
+      <div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem"><span style="font-size:1rem;text-decoration:underline;text-underline-offset:.2em" title="Open in Characters">${n}</span><span class="cap mono">character:${id}</span></div>
+        <div style="display:flex;align-items:center;gap:.4rem"><span class="label">DE</span><span class="fld" style="width:9rem;height:1.8rem"><span class="ph">Role</span></span><span class="label" style="margin-left:.3rem">EN</span><span class="fld" style="width:9rem;height:1.8rem"><span class="ph">Role</span></span>
+          <span style="width:.6rem"></span>${ps.map(([p, on]) => `<span class="kc ${on ? 'on' : ''}">${p}</span>`).join('')}</div></div>
+      <span class="kib muted" title="Take out of this season">${ic('x')}</span></div>`).join('');
+    return `${cbar({ chevron: true, wsOn: 'Toon', items: [['box','Scenes'],['book','Cat Pope'],['route','Flow'],['box','Scenes'],['book','Yellow Mouse']], front: 1 })}
+  ${fp(14, 60, 245, 760, [['Toon', 1]], tree)}
+  <div class="abs" style="left:306px;top:70px;width:730px">
+    <div style="display:flex;align-items:center;margin-bottom:.4rem"><span class="label">Season 1 · cast</span><span style="flex:1"></span><span class="kb plain">${ic('plus')}Add</span></div>
+    <div style="border-top:1px solid var(--tool-line)">${cast}</div></div>
   ${fp(1053, 60, 373, 710, [['Flow', 0], ['Log', 1]], LOG_BODY)}
   ${folded(1278, 780, 'Library')}${cstatus('No messages yet', '')}
-  ${mk(1, 270, 60)}${mk(2, 1050, 110)}`);
+  ${mk(1, 270, 60)}${mk(2, 236, 96)}${ring(306, 96, 732, 280)}${mk(3, 940, 76)}${mk(4, 282, 118)}
+  ${qcard(306, 560, 'confirm: no top-level list of every toon in the Toon tree', ['as drawn: the tree of the open toon only – the toons are found in the Library', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '24rem')}`;
+  });
 add('C', 'C2', 'Chapter', presetBase('chapter'), [KIT],
   () => `${wsFromPreset('Chapter', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 420, tabs: [['Inspector',1],['Log',0],['Flow',0]] }, { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
 add('C', 'C3', 'Storyboard', presetBase('storyboard'), [KIT],
   () => `${wsFromPreset('Storyboard', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 560, tabs: [['Inspector',1],['Script',0],['Rhythm',0],['Generate',0],['Handheld',0],['Output',0],['Log',0]] }, { x: 280, y: 640, w: 780, h: 170, tabs: [['Timeline',1]] }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
 
 add('C', 'C4', 'Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations', 'now/creator-1, now/ws-characters (Rig in front)',
-  ['the Rig tab without Bones and Clips (and the rig\'s other controls): the model\'s line and "Open in the deck" – the rig is edited in the deck, not twice'],
-  () => characters({ bar: { chevron: true } }) + ring(952, 92, 470, 104) + mk(1, 1400, 84)
+  ['the Rig tab without the Bones and Clips lists (the deck\'s asset view has them, not twice) – the rest as today: the look\'s 3D model, the model\'s line, Idle, Body, A-pose',
+   '"Open in the deck" under the model\'s line: the deck comes up with this rig'],
+  () => characters({ bar: { chevron: true } }) + ring(956, 522, 464, 236) + mk(1, 1396, 528) + ring(1146, 238, 146, 36) + mk(2, 1296, 240)
+    + capn(1000, 620, 'Bones and Clips were here – gone')
     + qcard(420, 140, 'where the 2D-first / 3D-first preference sits', ['not drawn until you say where'], 'Thought aloud: a character is 2D-first or 3D-first, as a preference.', '22rem'));
 
+/* the Cast tab as "cast in" (LIBRARY.md: the cast is edited in the toon's season, C1): Cat Pope open; the seasons it is cast in (cast:catpope, cast:toptoy, production 2026-11-24) with the personas it appears as there */
+const CAST_IN = [['Cat Pope · Season 1', 'regular · human · cat · mountaintiger'], ['Top Toy · Season 1', 'regular']];
+add('C', 'C4b', 'Characters: the Cast tab – cast in', "today's Cast tab (creator messages character.cast_*: per season the personas, the role per language, the order, \"Cast in a season …\", ✕ – code, not captured) · now/creator-1",
+  ['"Cast in": the seasons this character is cast in, each a link to the toon\'s season (C1) – the personas it appears as there, read-only',
+   'no editing here: the role, the order, "Cast in a season …" and ✕ move to the toon\'s Cast (C1)'],
+  () => characters({ bar: { chevron: true, items: [['smile','crow-fox'],['smile','crow-lizard'],['smile','mellowmantis'],['smile','catpope']] }, tabs: [['Kanon',0],['Expressions',0],['Rig',0],['Voice',0],['Cast',1],['Generations',0]],
+      body: `<div class="label" style="margin:.2rem 0 .5rem">Cast in</div>
+      ${CAST_IN.map(([s, p]) => `<div style="display:flex;align-items:center;gap:.6rem;min-height:2.6rem;border-bottom:1px solid var(--tool-line)"><span style="font-size:1rem;text-decoration:underline;text-underline-offset:.2em">${s}</span><span class="muted" style="margin-left:auto">${p}</span><span class="kib muted" title="Open the season's cast in the toon">${ic('r')}</span></div>`).join('')}` })
+    + mk(1, 928, 120) + ring(952, 92, 470, 120) + mk(2, 928, 230)
+    + qcard(420, 140, 'confirm: the cast is no longer edited from each character\'s Cast tab', ['as drawn: the tab shows "cast in" and links to the toon\'s season', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem'));
+
 const TREE_SCENES = [['Avatar home','‹home› · spot_home · ‹who›','Published'],['Nave','cathedral · catpope','Published'],['Place','‹where›','Published'],['Sandy dunes','dunes','Published'],['Sandy dunes – Giant Popstar','dunes · giantpopstar · mellowmantis','Published'],['Sandy dunes – Sandgirl','dunes · sandgirl','Published'],['Sandy dunes – Sandgirl and S…','dunes · sandgirl · sandy','Published'],['Sandy dunes – stage','dunes · ‹left› · ‹right›','Published'],['Solo','‹where› · ‹who›','Published'],['Stage','‹where› · spot_centre · ‹left› · ‹centre› · ‹right› · ‹b…','Published'],['Three crows rave','crow-wolf · crow-lizard · crow-fox · yellowmouse','Draft']];
-const sceneTree = () => fp(4, 6, 300, 756, [['Tree', 1]], `<div class="fld" style="margin-bottom:.45rem">${ic('search')}<span class="ph">Find</span></div><div class="fld sel" style="margin-bottom:.45rem">All toons</div><div class="fld sel" style="margin-bottom:.5rem">All states</div>
+/* today's Tree of every scene (now/creator-6) – gone in lap 2 (LIBRARY.md, decided): kept here only as today's record */
+const sceneTree = () => fp(4, 6, 300, 756, [['Tree', 1]], `<div class="fld" style="margin-bottom:.45rem">${ic('search')}<span class="ph">Find</span></div><div class="fld sel quiet" style="margin-bottom:.45rem">All toons</div><div class="fld sel quiet" style="margin-bottom:.5rem">All states</div>
   ${TREE_SCENES.map(([n, m, st], i) => `<div class="${i === 0 ? 'sel' : ''}" style="padding:.3rem .5rem;margin:0 -.4rem;border-radius:var(--editor-radius)"><div style="display:flex;align-items:center;font-size:1rem">${n}<span style="flex:1"></span><span class="kc">${st}</span></div><div class="cap" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m}</div></div>`).join('')}`);
 const SCENE_ITEMS = [['book','Sandbox'],['box','Scenes'],['book','Yellow Mouse'],['box','Scenes']];
 const scenePageC5 = (o = {}) => `${cbar({ chevron: true, wsOn: 'Scenes', items: SCENE_ITEMS, undo: false })}<div class="abs" style="left:0;top:50px;right:0;bottom:0">
     <div class="abs pending" style="inset:0;border:0;border-radius:0;letter-spacing:.2em;background:repeating-linear-gradient(135deg,transparent 0 22px,color-mix(in srgb,var(--tool-text) 5%,transparent) 22px 23px)" title="the scene's still – none exists yet for scene:avatar-home, so no picture is invented here">Preview · scene:avatar-home · still pending</div>
-    ${sceneTree()}
     <span class="kb plain" style="position:absolute;left:640px;top:20px;z-index:21">${ic('ext')}Edit in deck</span>
     ${o.noScene ? "" : fp(950, 6, 476, 470, [["Scene", 1]], `<div style="display:flex;align-items:center;gap:.6rem"><span style="font-size:var(--editor-title)">Avatar home</span><span style="flex:1"></span><span class="kc">Published</span></div>
       <div class="mono muted" style="margin:.1rem 0 .8rem">scene:avatar-home</div>
@@ -233,12 +264,13 @@ add('C', 'C5', 'Scenes: the scene page', "now/creator-6 (the owner's night shot;
   ["the scene's preview covers the whole back; a still until the deck's canvas is in the creator (#842's stills)",
    'Edit in deck sits on the preview: the deck comes up with this scene (D8)',
    "the scene's facts and versions in a panel over the preview – read-only, as today",
-   '"Published" a quiet chip (H13); the Tree\'s search says "Find"; the selected scene the selected ground, no frame (H10)'],
-  () => `${scenePageC5()}${mk(1, 520, 420)}${mk(2, 626, 62)}${mk(3, 936, 62)}${mk(4, 290, 270)}`);
+   '"Published" a quiet chip (H13)',
+   'no Tree of all scenes – the Library opens scenes (decided)'],
+  () => `${scenePageC5()}${mk(1, 520, 420)}${mk(2, 626, 62)}${mk(3, 936, 62)}${mk(4, 1392, 132)}${ring(6, 58, 300, 754)}${mk(5, 290, 64)}${capn(40, 420, 'the Tree of every scene was here – gone')}`);
 
 add('C', 'C6', 'Rigs: open in the deck', 'the Rig tab of now/creator-1',
-  ['"Open in the deck" on the Rig tab, under the model\'s line: the deck comes up with this rig'],
-  () => characters({ bar: { chevron: true } }) + ring(958, 150, 160, 40) + mk(1, 1122, 152));
+  ['"Open in the deck" on the Rig tab, under the model\'s line: the deck comes up with this rig – the rest of the tab as today (C4)'],
+  () => characters({ bar: { chevron: true } }) + ring(1146, 238, 146, 36) + mk(1, 1296, 240));
 
 add('C', 'C7', 'Flow', 'now/ws-flow (the Flow workspace, 2026-11-24)', [KIT],
   () => {
@@ -270,14 +302,11 @@ add('C', 'C8', 'Sound design: the module editor', 'now/ws-sound (module:arp open
   ${folded(1265, 70, 'Log')}${folded(1278, 780, 'Library')}${cstatus('No messages yet', '')}
   ${capn(330, 108, 'Open: the module editor was never designed – is the creator\'s editor removed, and what happens to what only it has (P9)?')}`, { idle: ' – nothing: an open point (words) – today drawn on the kit' });
 
-add('C', 'C9', 'Catalog', 'now/ws-catalog (Items, Kamera open, 2026-11-24)', [KIT, 'the list\'s search says "Find"', 'no Import images – bulk comes through MCP, the Library places things into slots', 'how the Catalog and the Library meet: open (F1)'],
+add('C', 'C9', 'Catalog', 'now/ws-catalog (Items, Kamera open, 2026-11-24)', [KIT, 'no list of every entry: an entry open – the entries are found in the Library (F1)', 'no Import images – bulk comes through MCP, the Library places things into slots'],
   () => {
     const fieldRow = (k, v, o = {}) => `<div style="display:flex;align-items:${o.top ? 'flex-start' : 'center'};gap:.5rem;margin-bottom:.4rem"><span class="label" style="width:1.6rem">${k}</span><span class="fld" style="flex:1;${o.h ? `height:${o.h}px;align-items:flex-start;padding-top:.4rem;white-space:normal;line-height:1.35` : ''}">${v}</span></div>`;
     return `${cbar({ chevron: true, wsOn: 'Catalog', items: WS_ITEMS, front: 3 })}
     <div class="abs" style="left:302px;top:60px"><span class="kp">${['Items','Recipes','Albums','Products','Editions','Home scenes','Airlift carriers'].map((t, i) => `<span class="kt ${i === 0 ? 'on' : ''}">${t}</span>`).join('')}</span></div>
-    <div class="abs" style="left:302px;top:118px;width:265px">
-      <div class="fld" style="margin-bottom:.4rem">${ic('search')}<span class="ph">Find</span></div><div class="fld sel" style="margin-bottom:.5rem">Every toon</div>
-      ${CAT_ITEMS.slice(0, 13).map(([n, id, y], i) => `<div class="${i === 0 ? 'sel' : ''}" style="display:flex;align-items:center;gap:.55rem;height:2.6rem;padding:0 .4rem;border-radius:var(--editor-radius)"><span style="position:relative;flex:none;width:34px;height:34px;overflow:hidden;border-radius:.2rem">${wsPic('catalog', 171, y - 9, 20, 20, 1.7)}</span><span style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n}</div><div class="cap">${id}</div></span></div>`).join('')}</div>
     <div class="abs" style="left:594px;top:118px;width:500px">
       <div class="label" style="margin-bottom:.3rem">Toon</div><div class="fld" style="margin-bottom:.8rem">Cat Pope</div>
       <div class="label" style="margin-bottom:.3rem">Name</div>${fieldRow('DE', 'Kamera')}${fieldRow('EN', 'Camera')}
@@ -290,14 +319,15 @@ add('C', 'C9', 'Catalog', 'now/ws-catalog (Items, Kamera open, 2026-11-24)', [KI
       <div class="label" style="margin:.9rem 0 .4rem">Flags</div>
       <div style="display:flex;gap:1.2rem;align-items:center">${[['stackable', 0], ['starter', 1], ['a story may take it', 0]].map(([n, on]) => `<span style="display:flex;gap:.45rem;align-items:center"><span class="tg ${on ? 'on' : ''}"></span>${n}</span>`).join('')}</div></div>
     ${folded(1265, 70, 'Log')}${folded(1278, 780, 'Library')}${cstatus('No messages yet', '0 errors · 0 warnings')}
-    ${mk(1, 274, 60)}${mk(2, 278, 122)}${mk(3, 1110, 118)}${mk(4, 1250, 780)}`;
+    ${mk(1, 274, 60)}${ring(302, 112, 268, 700)}${mk(2, 546, 118)}${capn(330, 440, 'the list of every entry was here – gone')}${mk(3, 1110, 118)}
+    ${qcard(1100, 300, 'confirm: no top-level list of every entry in the Catalog', ['as drawn: an entry open – the entries are found in the Library (F1)', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm. The kind tabs (Items … Airlift carriers) kept as today – unclear.', '19rem')}`;
   });
 
 add('C', 'C10', 'Map', 'now/creator-5 (the stage 0 px wide) · now/ws-map',
   ['the map back: the stage its full width (meta-page .content: margin 0, width 100% – a fix, no design change)', 'no Import images – bulk comes through MCP, the Library places things into slots', "kit look on the tool strip (one bordered pill, H4) and the Tree's toon picker (the kit's select)"],
   () => `${cbar({ chevron: true, wsOn: 'Map', items: WS_ITEMS, front: 3 })}
   <div class="abs" style="left:280px;right:14px;top:60px;bottom:50px;border:1px dashed var(--tool-line);border-radius:var(--kit-radius-box);display:grid;place-items:center"><span class="cap">the map, the whole stage wide – its drawing as built (never seen at 0 px; not drawn here)</span></div>
-  ${fp(14, 60, 260, 750, [['Tree', 1]], `<span class="fld sel" style="width:4.4rem;border-radius:1rem;margin:.1rem 0 .8rem">${ic('smile')}</span>
+  ${fp(14, 60, 260, 750, [['Tree', 1]], `<span class="fld sel quiet" style="width:4.4rem;margin:.1rem 0 .8rem">${ic('smile')}</span>
     ${['Layers','Places (22)','Routes (3)','Regions (8)'].map((n, i) => `<div class="fold shut label" style="height:2.6rem">${i === 0 ? ic('layers') : ''}${n}</div>`).join('')}`)}
   <div class="abs" style="left:700px;top:62px;z-index:30"><span class="kp" style="flex-direction:column;height:auto;width:var(--kit-bar);padding:.29rem 0;border-radius:calc(var(--kit-bar)/2)">${['pointer','pin','route','eye','phone'].map((i, k) => `<span class="kib ${k === 0 ? 'pressed' : ''}">${ic(i)}</span>`).join('')}</span></div>
   ${folded(1278, 60, 'Log')}${folded(1278, 780, 'Library')}<div class="abs" style="left:660px;top:770px"><span class="kib alone">${ic('full')}</span></div>${cstatus('No messages yet', '0 errors <span class="warn">3 warnings</span>')}
@@ -307,45 +337,87 @@ add('C', 'C11', 'Generate: the stub', presetBase('generate') + ' · spore-canvas
   ["the stub stays in this lap; the deck's spores canvas comes into the creator with #764", KIT],
   () => `${wsFromPreset('Generate', [['zap','Generate']], [LEFT([['Spores',1],['Canvas',0]]), RIGHTF('Runs'), LIBF], pageNotShot('the spore canvas stub as today – not captured, not drawn'))}${mk(1, 560, 300)}${mk(2, 270, 60)}`);
 
-/* the Library (C12 open · C12b the browser · C12c the pick), in the Catalog workspace of now/ws-catalog: its items' pictures are the Library files a
-   capture shows; their file names are not captured – the items' names stand in */
-const LIB_CAT_TILES = (o = {}) => CAT_ITEMS.slice(0, Math.min(o.n || 12, CAT_ITEMS.length)).map((c, k) => catTile(k, { k: o.k || 6.2, on: k === (o.on ?? 0), x: o.dim && o.dim.includes(k) }));
+/* the Library (C12 the panel · C12b the browser · C12c the pick, F1): the extended Library of LIBRARY.md – things and files in one list.
+   Names: production 2026-11-24 (cast:catpope, the characters, the catalog, the asset manager's file names); pictures only where now/ has them:
+   the items (now/ws-catalog), Cat Pope as the deck draws it (deck-3-stage-workspace), the deck's own tiles – else the type's icon, a still that does not exist yet says so */
+const T = {
+  catpope: ['Cat Pope', 'Character', PIC.catpope], boy: ['Boy', 'Character', 'users'], crows: ['Crows', 'Character', 'users'], toptoy: ['Top Toy', 'Character', 'users'],
+  nave: ['Nave', 'Scene', null], cathedral: ['cathedral', 'Place', null],
+  kamera: ['Kamera', 'Item', PIC.item(0)], gurke: ['Gurke', 'Item', PIC.item(5)], gurkenkamera: ['Gurkenkamera', 'Item', PIC.item(6)], gurkenkreuz: ['Gurkenkreuz', 'Item', PIC.item(7)],
+  camera: ['camera.webp', 'Image', PIC.item(0)], cucumber: ['cucumber.webp', 'Image', PIC.item(5)], model: ['catpope-regular.v2.glb', '3D', 'cube'],
+  bells: ['s1c1-bells.320.mp3', 'Audio', 'music'], trailer: ['s1-trailer-loop.1920w.mp4', 'Video', null], roar: ['roar-little-kitty.1080p.mp4', 'Video', null]
+};
+const tl = (k, o) => o ? [...T[k], o] : T[k];
+/* the Catalog with Kamera open – its list of every entry gone (C9) */
 const catalogBack = (o = {}) => `${cbar({ chevron: true, wsOn: 'Catalog', items: WS_ITEMS, front: 3 })}
   <div class="abs" style="left:302px;top:60px"><span class="kp">${['Items','Recipes','Albums','Products','Editions','Home scenes','Airlift carriers'].map((t, i) => `<span class="kt ${i === 0 ? 'on' : ''}">${t}</span>`).join('')}</span></div>
-  <div class="abs" style="left:302px;top:118px;width:265px">
-    <div class="fld" style="margin-bottom:.4rem">${ic('search')}<span class="ph">Find</span></div><div class="fld sel" style="margin-bottom:.5rem">Every toon</div>
-    ${CAT_ITEMS.slice(0, 13).map(([n, id, y], i) => `<div class="${i === 0 ? 'sel' : ''}" style="display:flex;align-items:center;gap:.55rem;height:2.6rem;padding:0 .4rem;border-radius:var(--editor-radius)"><span style="position:relative;flex:none;width:34px;height:34px;overflow:hidden;border-radius:.2rem">${wsPic('catalog', 171, y - 9, 20, 20, 1.7)}</span><span style="min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n}</div><div class="cap">${id}</div></span></div>`).join('')}</div>
-  <div class="abs" style="left:594px;top:118px;width:380px">
+  <div class="abs" style="left:302px;top:118px;width:380px">
     <div class="label" style="margin-bottom:.3rem">Toon</div><div class="fld" style="margin-bottom:.8rem">Cat Pope</div>
     <div class="label" style="margin-bottom:.3rem">Name</div><div class="fld" style="margin-bottom:.4rem">Kamera</div><div class="fld" style="margin-bottom:.8rem">Camera</div>
     <div class="label" style="margin-bottom:.3rem">Picture</div><div class="slot" style="width:108px;height:108px;border-style:solid;border-color:var(--tool-line);position:relative;overflow:hidden">${wsPic('catalog', 331, 343, 60, 60, 1.8)}</div></div>
   ${o.log === false ? '' : folded(1265, 70, 'Log')}${cstatus('No messages yet', '0 errors · 0 warnings')}`;
-add('C', 'C12', 'Library: the panel', "today's library-panel.svelte (its parts and words) in now/ws-catalog; the #653 draft (library.html) only for the shape",
-  ["every part from the kit: the scope and the kinds as the kit's small chips, the selected one in the text colour; Grouping and Sort as the kit's select (today raw selects); Upload the one primary action, the pressed fill (today lime)",
-   'the search says "Find" (today "Search name, folder, version … Ctrl L")', "the tiles: the kit's Thumb – a selected one the 2px ring in the text colour (today accent); a still that does not exist yet says so (#842)",
-   '"Items to open": open – the Library\'s list against the trees'],
-  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, tiles: LIB_CAT_TILES({ n: 16, k: 4.6 }) })}
-  ${mk(1, 990, 96)}${mk(2, 990, 140)}${mk(3, 990, 300)}${mk(4, 1340, 160)}`);
+const qOneList = (x, y, w = '21rem') => qcard(x, y, 'confirm: one list – "Items to open" goes', ['as drawn: things and files in one list, the type the first filter', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', w);
+add('C', 'C12', 'Library: the panel', "today's library-panel.svelte (its parts and words) in now/ws-catalog (Kamera open) · LIBRARY.md (the extended Library)",
+  ['the type is the first filter: things (Characters, Scenes, Places, Items) | files (Images, 3D, Audio, Video) – "Items to open" goes',
+   "the places narrow it: This item · This season's cast · This toon · Everything (Unused as today)",
+   "things and files in one list: a thing's tile shows its type, a file's tile its kind; a video's tile its preview picture – a still that does not exist yet says so (#842)",
+   "every part from the kit: the kit's small chips, the selected one in the text colour; Grouping and Sort the kit's quiet select; Upload the one primary action; \"Find\"; a selected tile the 2px ring"],
+  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, place: 'This toon',
+      tiles: [tl('catpope'), tl('boy'), tl('crows'), tl('toptoy'), tl('nave'), tl('cathedral'), tl('kamera', { on: 1 }), tl('gurke'), tl('gurkenkamera'), tl('gurkenkreuz'), tl('camera'), tl('cucumber'), tl('model'), tl('bells'), tl('trailer'), tl('roar')] })}
+  ${mk(1, 990, 96)}${mk(2, 990, 156)}${mk(3, 990, 300)}${mk(4, 990, 196)}
+  ${qOneList(620, 520)}`);
 
-add('C', 'C12b', 'Library: the browser', "today's library-browser.svelte + library-places.svelte (over the stage) in now/ws-catalog",
-  ["the same parts as the panel (C12), every one from the kit; the places on the left as kit rows – the selected one the selected ground, no side bar (H10)",
-   'over the stage as today, the window dimmed behind'],
+/* C12b: the browser, the cast's place, Cat Pope stepped into – its personas → looks → moods (read_characters catpope), its files, used in (cast:catpope, cast:toptoy) */
+const CP_PERSONAS = ['regular', 'human', 'cat', 'mountaintiger', 'biker', 'human-2'];
+const CP_MOODS = ['acceptance','angry','bargaining','confused','crying','denial','disgusted','embarrassed','furious','happy','laughing','neutral','sad','scared','smug','surprised','thinking','dizzy'];
+const lvl = (label, rows, sel, w) => `<div style="width:${w}px;flex:none"><div class="label" style="margin:0 0 .35rem .3rem">${label}</div>${rows.map(r => `<div class="kmi ${r === sel ? 'sel' : ''}" style="min-height:1.75rem">${r}</div>`).join('')}</div>`;
+const stepIn = () => `<div style="display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .8rem">
+    <span class="kib muted" title="Back">${ic('l')}</span><span class="muted">Cat Pope · Season 1 · cast</span><span class="muted">›</span>
+    <span style="position:relative;display:inline-block;width:26px;height:26px;border-radius:50%;overflow:hidden;border:1px solid var(--tool-line)">${PIC.catpope}</span><span style="font-size:1rem">Cat Pope</span><span class="kc">Character</span>
+    <span style="flex:1"></span><span class="kb plain">${ic('ext')}Open</span></div>
+  <div style="display:flex;gap:1.1rem;align-items:flex-start">
+    ${lvl('Personas', CP_PERSONAS, 'regular', 150)}${lvl('Looks', ['default'], 'default', 120)}
+    <div style="width:290px;flex:none"><div class="label" style="margin:0 0 .35rem .3rem">Moods</div><div style="display:grid;grid-template-columns:1fr 1fr;column-gap:.4rem">${CP_MOODS.map(m => `<div class="kmi ${m === 'happy' ? 'sel' : ''}" style="min-height:1.75rem">${m}</div>`).join('')}</div></div>
+    <div style="flex:1;min-width:0;border-left:1px solid var(--tool-line);padding-left:1.1rem">
+      <div class="label" style="margin-bottom:.45rem">Files</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem .55rem">${[['catpope-regular.v2.glb', '3D', 'cube'], ['catpope_avatar-happy.webp', 'Image', 'image'], ['cathedral_voice', 'Instrument', PIC.voice]].map(libTile).join('')}</div>
+      <div class="label" style="margin:1.1rem 0 .35rem">Used in</div>
+      ${['Cat Pope · Season 1 · cast', 'Top Toy · Season 1 · cast'].map(n => `<div class="lrow" style="min-height:1.9rem"><span style="text-decoration:underline;text-underline-offset:.2em">${n}</span><span class="kib muted" style="margin-left:auto">${ic('r')}</span></div>`).join('')}</div></div>`;
+add('C', 'C12b', 'Library: the browser – a character stepped into', "today's library-browser.svelte + library-places.svelte (over the stage) in now/ws-catalog · LIBRARY.md · Cat Pope: production 2026-11-24",
+  ["the cast's place lists the characters and their files (today \"By cast\": files only); the places as kit rows – the selected one the selected ground, no side bar (H10)",
+   'a character is stepped into: its personas → looks → moods as levels, each keeping its address',
+   'beside them the files it uses: the model, the portrait of the mood, its voice',
+   '"used in": the seasons it is cast in, each a link',
+   'no "To do" group: "Missing credits" goes (H17)', 'the same parts as the panel (C12); over the stage as today'],
   () => `${catalogBack()}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
   <div class="km" style="left:60px;top:56px;width:1320px;height:760px;z-index:60;padding:0;flex-direction:row;overflow:hidden">
     <div style="width:240px;flex:none;padding:.8rem .6rem;border-right:1px solid var(--tool-line)">
       <div class="label" style="margin:0 .3rem .4rem">Places</div>
-      ${[['Everything', 0], ['This toon · Cat Pope', 1], ['Recently added', 0], ['Unused', 0], ['Missing credits', 0]].map(([n, on]) => `<div class="kmi ${on ? 'sel' : ''}">${n}</div>`).join('')}
+      ${['This item', 'This toon · Cat Pope', 'Everything', 'Recently added', 'Unused'].map(n => `<div class="kmi">${n}</div>`).join('')}
+      <div class="label" style="margin:.8rem .3rem .4rem">By cast</div>${[['Cat Pope · Season 1', 1], ['Top Toy · Season 1', 0]].map(([n, on]) => `<div class="kmi ${on ? 'sel' : ''}">${n}</div>`).join('')}
       <div class="label" style="margin:.8rem .3rem .4rem">From</div>${['Everywhere', 'Uploaded', 'Generated', 'Imported'].map((n, i) => `<div class="kmi ${i === 0 ? 'sel' : ''}">${n}</div>`).join('')}</div>
     <div style="flex:1;min-width:0;padding:.8rem 1rem;position:relative">
       <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem"><span style="font-size:var(--editor-title)">Library</span><span style="flex:1"></span><span class="kib muted" title="Close the browser (Esc)">${ic('x')}</span></div>
-      ${libraryBody({ cols: 9, tiles: LIB_CAT_TILES({ n: 14, k: 5.4 }), group: 'Images' })}</div></div>
-  ${mk(1, 40, 60)}${mk(2, 1390, 60)}
+      ${libraryBody({ place: "This season's cast", content: stepIn() })}</div></div>
+  ${mk(1, 40, 250)}${mk(2, 300, 330)}${mk(3, 902, 280)}${mk(4, 902, 478)}${mk(5, 40, 230)}${mk(6, 1390, 60)}
+  ${qcard(1000, 600, 'confirm: "By cast" lists the characters and their files', ['as drawn: the cast\'s place shows the characters, stepped into each its files', 'not so – files only, as today'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}
   ${capn(60, 822, 'Open: do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)? – drawn as today')}`);
 
-add('C', 'C12c', 'Library: the pick (a slot asks)', "today's pick mode (library-panel.svelte: \"Pick for\" + the slot, only what fits) in now/ws-catalog",
-  ['"Pick for" and the slot as the kit\'s chip, Cancel a plain button (Esc on hover) – today a coloured line and a link', 'what does not fit is dimmed, as today'],
-  () => `${catalogBack({ log: false })}${ring(590, 286, 116, 116)}${libraryPanel(1010, 60, 416, 760, { cols: 4, pick: 'Picture · Kamera', kinds: [['Images', 1]], tiles: LIB_CAT_TILES({ n: 16, k: 4.6, on: -1, dim: [6, 9] }) })}
-  ${mk(1, 990, 96)}${mk(2, 990, 420)}`);
+/* C12c: the Library opened from a slot – the "who" (character) of a showMessage event in a chapter of Cat Pope; the cast first, everyone else after (the registry's characters) */
+const OTHERS = [['Mellowmantis'], ['Giant Popstar'], ['Sandgirl'], ['Sandy'], ['Wolf Crow'], ['Lizard Crow'], ['Fox Crow', dkLibPic(32, 722)], ['Yellow Mouse'], ['Bill the Frog'], ['passerby'], ['Pinkperv'], ['Orangebubu'], ['Yellowbeatl'], ['yellowbubu'], ['Takeyari drum machine']]
+  .map(([n, pic]) => [n, 'Character', pic || 'users']);
+add('C', 'C12c', 'Library: the pick (a slot asks)', "today's pick mode (library-panel.svelte: \"Pick for\" + the slot, only what fits) · the Chapter workspace (presets.ts, not captured) · cast:catpope and the character registry, production 2026-11-24",
+  ['opened from a slot – the character of a chapter\'s event: only what fits, the type Characters',
+   'what this toon already has first – "Cat Pope · Season 1 · cast" – everyone else after',
+   "picking from beyond the cast adds the character to the season's cast",
+   '"Pick for" and the slot as the kit\'s chip, Cancel a plain button (Esc on hover)'],
+  () => `${wsFromPreset('Chapter', [['book','Cat Pope']], [LEFT([['Toon',1],['Tree',0]]),
+      { x: 1076, y: 60, w: 350, h: 300, tabs: [['Inspector',1],['Log',0],['Flow',0]], body: `<div class="label" style="margin-bottom:.3rem">Event</div><div class="mono" style="margin-bottom:.8rem">showMessage</div><div class="label" style="margin-bottom:.3rem">character</div><div class="slot muted" style="height:2rem;justify-content:start;padding:0 .6rem;display:flex">${ic('users')}</div><div style="margin-top:.8rem;height:110px">${notShot('the event\'s other fields – not captured, not drawn')}</div>` },
+      { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }])}<div class="abs" style="left:290px;top:70px;width:350px;bottom:60px">${pageNotShot()}</div>
+    ${libraryPanel(660, 60, 400, 760, { cols: 4, pick: 'character · showMessage', type: 'Characters', place: 'Everything', gap: '.5rem .5rem',
+      groups: [['Cat Pope · Season 1 · cast', [tl('catpope'), tl('boy'), tl('crows'), tl('toptoy')]], ['Everyone else', OTHERS]] })}
+    ${ring(1082, 154, 340, 36)}${mk(1, 1062, 160)}${mk(2, 640, 300)}${mk(3, 640, 450)}${capn(790, 446, 'picked from here: added to the cast')}${mk(4, 640, 96)}
+    ${qcard(150, 520, 'confirm: one picker – the Library opened from a slot', ['as drawn: the five sheets (character, item, asset, person, role) go', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}`);
 
 add('C', 'C13', 'Settings', "the Settings panel in now/creator-6 (the owner's circles)",
   ["kit look: the crafts as the kit's small chips, the theme as the kit's segments, the interface language as the kit's select (today a raw select)", 'the colour-blind mode as a setting (blue, yellow, vermilion – each state with a mark ✓ ! ✕)', "no hint lines in the panel (H14) – the text language's and the local folder's explanations go to hover"],
@@ -376,7 +448,7 @@ add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e
   () => `<iframe class="draft" src="assets/drafts/epic-drafts.html?s=714${DAY ? '&theme=day' : ''}"></iframe>`);
 
 /* ════════ D · the deck editor's workspaces (now/deck-*, main r4781, night) ════════ */
-const DKKIT = "the panels on the kit, as kit-d.html: tabs without a border at rest, the selected row the selected ground (no white fill), chips small and round, fields and the Library's find see-through, icon buttons round (H4, H10, H11, H13) – their contents as shot";
+const DKKIT = "the panels on the kit (kit-d.html): tabs without a border at rest, the selected row without a white fill, small round chips, see-through fields, round icon buttons – contents as shot";
 add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-3-stage-workspace · A3 (the same design)',
   ['the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)', 'the switcher as in A3, no Views on cards',
    "one list: the creator's workspaces too, with a quiet chip \"Creator\" – the same order in both apps"],
@@ -385,24 +457,30 @@ add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)'
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
   ${mk(1, 560, 30)}${mk(2, 146, 62)}${mk(3, 722, 298)}
   ${qcard(1010, 120, "does the deck's switcher show a Needs review box?", ['yes – the box as in the creator', 'no – left out (drawn dashed)'], '', '18rem')}`);
-add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
-  ['the shared bar (A1): the workspace row Scene · Rigging · Show', "Views: the ☰ menu's PANELS become Views (A2, B1)", DKKIT],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
-add('D', 'D3', 'Show: the rows band, Spores, Library', 'show.html `?v=0` (current: the bar without the Show pill, the views, the rows band, the Library) – from now/deck-3-show-workspace, now/deck-6-fires-on', [],
-  () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe>`);
+add('D', 'D2', 'Scene: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build – today\'s name of the Scene workspace)',
+  ['the shared bar (A1): the workspace row Scene · Rigging · Show – today\'s "Build" is named Scene', "Views: the ☰ menu's PANELS become Views (A2, B1)", DKKIT, 'the Library: the same panel as the creator\'s (C12)'],
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 170)}${mk(4, 396, 296)}`);
+const SHOW_LIB = [['Avatar home','Scene',null],['Nave','Scene',null],['Place','Scene',null],['Solo','Scene',null],['Stage','Scene',null],['Cat Pope','Character',dkLibPic(290, 458, 100, 62)],['Boy','Character','users'],['Crows','Character','users']];
+add('D', 'D3', 'Show: the rows band, Spores, Library', 'show.html `?v=0` (current: the bar without the Show pill, the views, the rows band, the Library) – from now/deck-3-show-workspace, now/deck-6-fires-on; the Library drawn over it',
+  ["the Library: the same panel as the creator's (C12) – today's chips (scenes 5 · characters 7 · items 44 · places 21) and \"new scene\" go; the tiles as today, each with its type"],
+  () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe>
+  <div class="abs" style="left:35px;top:0;width:1440px;height:900px;transform:scale(.95111);transform-origin:0 0" data-theme="night">
+    <span class="abs" style="left:1040px;top:132px;width:392px;height:700px;background:#000"></span>
+    <div class="fp" style="left:1044px;top:136px;width:384px;height:692px">${dkHead('grid')}<div class="bd">${libraryBody({ cols: 2, place: 'Everything', pvH: 70, tiles: SHOW_LIB })}</div></div></div>
+  ${mk(1, 1004, 136)}`);
 add('D', 'D4', 'Module: Library · Drives · Module · Problems', 'now/deck-3-module-workspace', ['the shared bar (A1); Module open, so it shows in the row', 'Views (B1)', DKKIT],
   () => `${deckShot('deck-3-module-workspace.png', deckBarNew({ tabs: [['code','new module']], mode: false, wsNames: ['Scene','Rigging','Show','Module'], wsOn: 3 }) + deckModule())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D4b', 'Module: a module open', 'none – never captured', [],
   () => `${deckFrame(deckBarNew({ tabs: [['code','arp']], mode: false, wsNames: ['Scene','Rigging','Show','Module'], wsOn: 3 }) + `<div class="abs" style="left:14px;top:60px;width:1572px;height:790px">${notShot('a module open in the deck – never captured, not drawn')}</div>`)}
   ${capn(14, 820, 'Open: the module editor was never designed (P9) – Parameters, Problems, the module heard alone, Derive; the code in the external editor')}`, { idle: ' – nothing: an open point (words) – no capture of today' });
-add('D', 'D5', 'An asset open (character, module, video)', 'now/deck-3-stage-workspace (catpope, a character, open in Build)', ['the shared bar (A1)', 'Views (B1)', DKKIT],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}${capn(14, 812, 'module and video assets: not captured – the same bar')}`);
+add('D', 'D5', 'An asset open (character, module, video)', 'now/deck-3-stage-workspace (catpope, a character, open in Build – today\'s name of the Scene workspace)', ['the shared bar (A1)', 'Views (B1)', DKKIT, 'the Library: the same panel as the creator\'s (C12)'],
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 170)}${mk(4, 396, 296)}${capn(14, 812, 'module and video assets: not captured – the same bar')}`);
 add('D', 'D6', 'Rigging', 'crafts-v2 `rig` (#830, not on main), its palette moved to D', [],
   () => `<iframe class="draft" src="assets/drafts/crafts-v2.html?view=rig${DAY ? '&theme=day' : ''}"></iframe>`);
 add('D', 'D7', 'XR → a creator workspace', 'crafts-v2 `xr` → C15 (XR is a creator workspace)', [],
   () => `<iframe class="draft" src="assets/drafts/epic-drafts.html?s=714${DAY ? '&theme=day' : ''}"></iframe>${capn(600, 820, "dropped: XR is drawn as C15; the deck's workspaces are Scene · Rigging · Show")}`);
-add('D', 'D8', 'A scene opened from the creator', 'D2 (now/deck-3-stage-workspace)', ['the deck launched with that scene: its tab in front (Avatar home, from C5 Edit in deck)'],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ tabs: [['box','Avatar home'],['user','catpope']], wsOn: 0 }) + deckBuild())}${mk(1, 230, 38)}${capn(560, 400, 'the stage: that scene – not drawn (the shot shows catpope)')}`);
+add('D', 'D8', 'A scene opened from the creator', 'D2 (now/deck-3-stage-workspace)', ['the deck launched with that scene: its tab in front (Avatar home, from C5 Edit in deck)', 'the Library: the same panel as the creator\'s (C12), as in D2'],
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ tabs: [['box','Avatar home'],['user','catpope']], wsOn: 0 }) + deckBuild())}${mk(1, 230, 38)}${mk(2, 396, 296)}${capn(560, 400, 'the stage: that scene – not drawn (the shot shows catpope)')}`);
 
 /* ════════ E · feature designs already drawn ════════ */
 const fr = (f, q) => () => `<iframe class="draft" src="assets/drafts/${f}${q}${DAY ? '&theme=day' : ''}"></iframe>`;
@@ -411,16 +489,19 @@ add('E', 'E1', 'Map as a view – in a panel', 'scenes/epic-drafts.html `?s=714`
 add('E', 'E1b', 'Map as a view – on the stage', 'scenes/epic-drafts.html `?s=714m`, its palette moved to D', [], fr('epic-drafts.html', '?s=714m'));
 add('E', 'E2', 'XR at a place – geolocation', 'scenes/epic-drafts.html `?s=714r` (decided 2026-11-23), its palette moved to D', [], fr('epic-drafts.html', '?s=714r'));
 add('E', 'E3', 'Spores: a generator triggered', 'spores-demo.html `?d=gen` (approved 2026-11-24: how triggering works)', [], frl('spores-demo.html', '?d=gen'));
-add('E', 'E4', 'The network – the Spores view, level by level', 'spores-view.html (current)', [], frl('spores-view.html', ''));
+add('E', 'E4', 'The network – the Spores view, level by level', 'spores-view.html `?v=3` (current: Spores · the show – the tab says "Spores"; `?v=0` is today, still "Nodes")', [], frl('spores-view.html', '?v=3'));
 add('E', 'E5', 'Scenes follow-ups: group label = id', 'scenes/epic-drafts.html `?s=706`, its palette moved to D', [], fr('epic-drafts.html', '?s=706'));
 add('E', 'E5b', '"Fires on": the picker under the row\'s ⚡ slot', 'show.html `?v=1` (current)', [], frl('show.html', '?v=1'));
 add('E', 'E5c', 'Scenes follow-ups: events + choices in the address book', 'scenes/epic-drafts.html `?s=707`, its palette moved to D (events: event:‹id›, decided; its two decide cards removed – decided)', [], fr('epic-drafts.html', '?s=707'));
 add('E', 'E5d', 'Scenes follow-ups: a show with several toons', 'scenes/epic-drafts.html `?s=708`, its palette moved to D', [], fr('epic-drafts.html', '?s=708'));
 
 /* ════════ F · concepts ════════ */
-add('F', 'F1', 'Catalog + Library: one concept', 'C12 (the Catalog with the Library open, on the kit)', [],
-  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, tiles: LIB_CAT_TILES({ n: 16, k: 4.6 }) })}
-  ${capn(302, 826, 'Open: Catalog and Library as one concept (F1) – no picture before your words')}`, { idle: ' – nothing: an open point (words) – today drawn on the kit' });
+add('F', 'F1', 'Catalog + Library: one concept', 'C12, C9 · LIBRARY.md (the extended Library – answers F1)',
+  ["the Catalog's entries are things in the Library: the type Items, the place This toon",
+   'opening one opens it in the Catalog (Kamera)', 'the Catalog has no list of every entry of its own (C9)'],
+  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, type: 'Items', place: 'This toon', tiles: [tl('kamera', { on: 1 }), tl('gurke'), tl('gurkenkamera'), tl('gurkenkreuz')] })}
+  ${mk(1, 990, 96)}${mk(2, 990, 300)}${mk(3, 560, 118)}
+  ${qcard(620, 470, 'confirm: no top-level list of every entry; one list for things and files', ['as drawn: the Catalog shows the open entry, the Library finds them', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}`);
 add('F', 'F2', 'The one-look sheet', 'kit-d.html (approved 2026-11-24)', [], frl('kit-d.html', ''), { idle: ' – nothing: approved as drawn' });
 add('F', 'F3', "The scene page's contents", 'C5 (answered: a preview and the link to the deck)', [],
   () => `${scenePageC5()}${capn(640, 820, 'answered – drawn as C5: the page previews and links, it does not edit')}`, { idle: ' – nothing: answered, drawn as C5' });
