@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Floats, FloatingPanels, StageZones, type Cell, type StageZone } from '@scutoons/ui/editor';
 	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
@@ -17,10 +18,13 @@
 	import { scopeOf } from '$lib/shell/address.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import { layouts } from '$lib/shell/layouts.svelte.ts';
+	import { shownWorkspace } from '$lib/shell/layouts.ts';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
-	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats over the
+	 * (lib/shell/panels.ts), their layout kept per workspace in this browser between saves; a new browser and Reset start
+	 * from the workspace's saved layout (lib/shell/layouts.ts). An own workspace shows its kind's panels. Open or folded, a panel floats over the
 	 * stage – the stage never gives way. A view takes the stage by a drag to a screen edge or corner, or through Views; it
 	 * goes full screen through Views, Ctrl Space (the view under the pointer) or a hold past the top edge; Esc leaves.
 	 */
@@ -29,7 +33,15 @@
 	const specs = tabSpecs();
 	const filled = $derived(Object.keys(shell.tabs).sort().join(' '));
 	const available = $derived(availableTabs(filled ? filled.split(' ') : [], toon));
-	const floats = $derived(new Floats(`creator-host-${kind}`, panelSpecs(kind, available, specs), specs));
+	/** the workspace shown: the kind's own, or an own workspace made from it */
+	const id = $derived(shownWorkspace(layouts.chosen, layouts.state.own, kind));
+	const floats = $derived(new Floats(`creator-host-${id}`, panelSpecs(kind, available, specs), specs, untrack(() => layouts.startOf(id))));
+	// a saved layout arriving (or saved anew) is the workspace's start: shown while this browser kept none of its own
+	$effect(() => {
+		const start = layouts.startOf(id);
+		untrack(() => floats.setStart(start));
+	});
+	$effect(() => void layouts.load());
 
 	$effect(() => {
 		shell.floats = floats;

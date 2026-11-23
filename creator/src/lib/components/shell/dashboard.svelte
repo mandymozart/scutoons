@@ -7,6 +7,7 @@
 	import { firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards, type WorkspaceCard } from '$lib/shell/dashboard.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { layouts } from '$lib/shell/layouts.svelte.ts';
 	import DashboardBoxes from '$lib/components/shell/dashboard-boxes.svelte';
 	import DashboardFoot from '$lib/components/shell/dashboard-foot.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
@@ -23,7 +24,7 @@
 
 	const session = getCreatorSession();
 	const welcome = $derived(isWelcome(shell.use, shell.state.tabs, recent.list.length));
-	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome, crafts.starts));
+	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome, crafts.starts, layouts.state.own, layouts.chosen));
 	let ring = $state(0);
 	let views = $state(false);
 	let box = $state<HTMLElement>();
@@ -50,6 +51,7 @@
 
 	function open(card: WorkspaceCard) {
 		shell.dashboard = false;
+		layouts.show(card.kind, card.id);
 		if (!card.href) shell.open('library');
 	}
 	function closeItem(address: string) {
@@ -107,7 +109,7 @@
 		<DashboardBoxes {welcome} />
 		<h2 class="label">{m['shell.workspaces']()}</h2>
 		<div class="cards" bind:this={grid}>
-			{#each cards as card, i (card.kind)}
+			{#each cards as card, i (card.id)}
 				<WorkspaceCardView {card} ring={i === ring} bind:views={() => (card.front ? views : false), (v) => (views = v)} onopen={open} onclose={closeItem} onfocus={() => (ring = i)} />
 			{/each}
 		</div>
