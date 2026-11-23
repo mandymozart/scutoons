@@ -5,8 +5,12 @@
 # `red` `green` `blue` outputs carry its time and colour out to lights and pictures.
 # The thunder and the kick are samplers, each playing the sound its slot names at the sound's own pitch: the thunder held
 # for half a repeat, then fading, the kick a one-shot. A sound that cannot be had leaves its sampler silent (a log line).
+# The puffs are the model in the cloud's `puff` slot: scutoons/3d/cloud-puff.glb, a low-poly bubble (deck-space
+# `space::bubble`) the owner replaces in the library with a model of his own (a deck without the old one cached draws the new one).
 # TODO(#804): the sounds under scutoons/sounds/ are synthesized stand-ins (deck-native tests/stand_ins) until recordings
 # replace them under the same paths.
+# The production catalog carries this rig as `rig:item.cloud` (migration 2026-11-24-cloud-light-sandbox; the rows are
+# server/tests/fixtures/rigs/cloud-storm.json, which deck-native tests/cloud_storm.rs keeps equal to this file).
 # Modules play only on a native deck built with the `modules` feature (cloud, sampler and mixer in DECK_MODULES), so this
 # rig is in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:cloud-storm`.
 
@@ -21,7 +25,7 @@ kind = "drum"
 name = { en = "Storm cloud", de = "Gewitterwolke" }
 out = "mix.out"
 node = [
-  { id = "cloud", kind = "module:cloud", puffs = 18.0, size = 6.0, drift = 0.6, height = 6.0, light = 45.0, rain = 0.5, rate = 0.6, sync = 1.0, flash = 0.8 },
+  { id = "cloud", kind = "module:cloud", puffs = 18.0, size = 6.0, drift = 0.6, height = 6.0, light = 45.0, rain = 0.5, rate = 0.6, sync = 1.0, flash = 0.8, assets = { puff = "scutoons/3d/cloud-puff.glb" } },
   { id = "thunder", kind = "module:sampler", mode = 1.0, pitch = 1.0, velocity = 50.0, release = 0.8, assets = { sample = "scutoons/sounds/cloud-thunder.wav" } },
   { id = "kick", kind = "module:sampler", pitch = 1.0, velocity = 40.0, voices = 2.0, assets = { sample = "scutoons/sounds/cloud-kick.wav" } },
   { id = "mix", kind = "module:mixer", gain1 = -3.0, gain2 = 0.0 },

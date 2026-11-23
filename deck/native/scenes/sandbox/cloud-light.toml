@@ -33,6 +33,9 @@ size = 6.0
 sync = 1.0
 tint = 60.0
 
+[node.assets]
+puff = "scutoons/3d/cloud-puff.glb"
+
 [[node]]
 id = "storm_thunder"
 kind = "module:sampler"
