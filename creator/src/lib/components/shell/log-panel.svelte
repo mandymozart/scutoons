@@ -21,7 +21,7 @@
 	// and legend, find and Copy all. The lines, filters, counts and pills are the core's (lib/log/log.svelte.ts); a
 	// problem's accept and jump are its page's.
 	import { Icon } from '@scutoons/ui';
-	import { Button, Chip, IconButton, Menu, MenuItem, PillTabs } from '@scutoons/ui/editor';
+	import { Button, Chip, IconButton, PillTabs } from '@scutoons/ui/editor';
 	import type { LogScope, LogShow, LogShown } from '@scutoons/content';
 	import { log } from '$lib/log/log.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
@@ -76,17 +76,12 @@
 		<input class="find" type="search" placeholder={m['shell.log_find']()} aria-label={m['shell.log_find']()} bind:value={find} />
 		<Button variant="quiet" icon="copy" onclick={copyAll}>{m['shell.log_copy']()}</Button>
 		{#if typed && legend}
-			<!-- the types and what each means: in the info box, not as rows in the panel (owner 2026-11-24: real estate) -->
-			<Menu label={m['shell.log_type']()} icon="info" about={m['shell.log_types_all']()} dot={kinds.length > 0} align="end" width="24rem" testid="log-types">
-				{#snippet children()}
-					<MenuItem role="menuitemcheckbox" on={!kinds.length} label={words('all')} onclick={() => (kinds = [])} />
-					{#each legend.kinds as k (k.kind)}
-						<MenuItem role="menuitemcheckbox" on={kinds.includes(k.kind)} icon={KIND_ICONS[k.kind]} onclick={() => toggleKind(k.kind)} data-testid="log-type-{k.kind}">
-							{k.label} <span class="means">{k.legend}</span>
-						</MenuItem>
-					{/each}
-				{/snippet}
-			</Menu>
+			<!-- the types: small icon chips, their name and meaning on hover (the Info view) – no legend in the panel (RULES H14) -->
+			<span class="types" role="group" aria-label={m['shell.log_type']()} data-testid="log-types">
+				{#each legend.kinds as k (k.kind)}
+					<Chip label="" icon={KIND_ICONS[k.kind]} on={kinds.includes(k.kind)} onclick={() => toggleKind(k.kind)} title="{k.label}: {k.legend}" testid="log-type-{k.kind}" />
+				{/each}
+			</span>
 		{/if}
 	</div>
 	<div class="lines">
@@ -248,9 +243,8 @@
 	.accepted {
 		opacity: 0.5;
 	}
-	/* a type's meaning beside its name in the info box */
-	.means {
-		color: var(--tool-muted);
-		font-size: var(--editor-small);
+	.types {
+		display: inline-flex;
+		gap: 0.125rem;
 	}
 </style>
