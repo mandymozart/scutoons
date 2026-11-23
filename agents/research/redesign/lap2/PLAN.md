@@ -60,6 +60,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - "Import images" removed from the Map, the Catalog and Characters.
 - The creator's Rig panel without Bones and Clips: the model's line and "Open in the deck".
 - Images, sound, video and 3D in the creator as previews with "Edit in deck".
+- **The Scenes workspace's own list of scenes goes** (its Tree panel); the Library filtered to scenes opens them.
 - **The scene page:** the scene's preview covers the whole back, "Edit in deck" on it, the facts and versions in a panel (C5). The preview is the scene's still from P3.
 - The Library's "To do" group goes: "Blank – wanted", "Missing versions", "Missing credits", and the asset details' "Show the families missing versions" (H17).
 - The creator's module editor: see P9.

@@ -66,7 +66,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **"Import images" goes** from the Map, the Catalog and Characters. Bulk comes through MCP; the Library places things into slots.
 - **A scene in the creator has a preview** that covers the whole back of the page; "Edit in deck" goes from there. The page previews and links, it does not edit.
 - **The writing pages are redesigned** for a good writing experience: Kanon, Notifications, Credits, Edit, Guide.
-- **A list of characters or scenes beside the Library is redundant.**
+- **A list of characters or scenes beside the Library is redundant.** The Scenes workspace has no list of scenes of its own: scenes are found and opened in the Library, filtered to scenes.
 - **Thumbnails:** scenes, places and videos get preview pictures, made in the background and shared across systems (#842).
 
 **Thought aloud**
