@@ -17,7 +17,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, pointer: 
         Some(Sheet::Problems) => problems(d, t, host, area, pointer),
         Some(Sheet::Flash) => super::flash::draw(d, t, host, area, pointer),
         Some(Sheet::Who) => super::roles::who(d, t, host, area, pointer),
-        Some(Sheet::Event) => super::events::picker(d, t, host, area, pointer),
+        Some(Sheet::Event) => {}
         Some(Sheet::Scene) => super::new_scene::draw(d, t, host, area, pointer),
         Some(Sheet::Demos) => super::demos::draw(d, t, host, area, pointer),
         Some(Sheet::NewShow) => super::toons::new_sheet(d, t, host, area, pointer),

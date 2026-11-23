@@ -27,6 +27,8 @@ pub mod face;
 pub mod far;
 pub mod flash;
 pub mod flashed;
+/// lap 2 P7: what can fire a row – the lines of Find under its ⚡ slot
+pub mod inlet;
 /// a row as a node graph: the Show workspace's node view
 pub mod nodes;
 /// #551: a vote as cells of the launcher – what the right click on selected cells offers, the question in the cell inspector
@@ -51,7 +53,7 @@ pub mod wire_ops;
 pub mod wiring;
 
 pub use conductor::{Ask, Clock, Conductor, Entry, Logged, Now, Origin, Out, Says, Suggestion};
-pub use document::{parse, Cell, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Tempo, Values, Word};
+pub use document::{parse, Cell, Events, Face, Fire, How, Moment, Outlet, OutletKind, ParseError, Pinned, Row, Seat, Show, Tempo, Values, Word};
 pub use flash::Assignment;
 pub use subtree::{ClockChoice, Subtree};
 pub use validate::{resolve, validate, Library, Lock, Problem};

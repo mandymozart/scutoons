@@ -38,7 +38,8 @@ pub fn edits(hit: Hit) -> bool {
                 | Hit::CellShot
                 | Hit::CellFact(_)
                 | Hit::AddressFact(_)
-                | Hit::FiresOn
+                | Hit::Slot(_)
+                | Hit::EventScope(_)
                 | Hit::EventPick(_)
                 | Hit::EventType
                 | Hit::Background

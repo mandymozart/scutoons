@@ -159,7 +159,13 @@ impl Host {
                     }
                 }
             }
-            Key::Named(NamedKey::Escape) => self.typing = None,
+            Key::Named(NamedKey::Escape) => {
+                // Escape in the slot's Find closes it
+                if matches!(self.typing, Some((Typing::Event, _))) {
+                    self.sheet = None;
+                }
+                self.typing = None;
+            }
             _ => {}
         }
         true

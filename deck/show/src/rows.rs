@@ -103,7 +103,8 @@ pub enum Edit {
     Piece { row: String, column: String, piece: String },
     /// one of the cell's scene's camera shots (its id; none: the scene's own opening), sent as `<scene> > shot:<id>`
     Shot { row: String, column: String, shot: Option<String> },
-    /// #539: the story event that fires the row (none or empty: by hand only); how, hold and moment stay
+    /// an event that fires the row, on if it was off and off if it was on (none or empty: none, by hand only); how, hold
+    /// and moment stay
     Event { row: String, event: Option<String> },
     /// #553: one fact of the filter of the row's address `address` (its index in the row) on or off; a filter that asks
     /// nothing goes
@@ -320,12 +321,20 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
                 r.clone_from(&to);
             }
             next.rows[i].id.clone_from(&to);
+            let (from, renamed) = (crate::document::row_fired(id), crate::document::row_fired(&to));
+            for r in &mut next.rows {
+                r.fire.event.rename(&from, &renamed);
+            }
             (format!("row {} {id} is called {to}", i + 1), Some(to))
         }
         Edit::Remove { id } => {
             let i = row_at(&next, id)?;
             let gone = next.rows.remove(i);
             next.face.rows.retain(|r| r != id);
+            let fired = crate::document::row_fired(id);
+            for r in &mut next.rows {
+                r.fire.event.remove(&fired);
+            }
             let cells = gone.cells.values().filter(|c| !matches!(c, Cell::Keep)).count();
             let select = i.checked_sub(1).or((!next.rows.is_empty()).then_some(0)).map(|j| next.rows[j].id.clone());
             let unasked = crate::question::drop_unasked(show, &mut next);
@@ -379,12 +388,17 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
         }
         Edit::Event { row, event } => {
             let i = row_at(&next, row)?;
-            let event = event.as_deref().map(str::trim).filter(|e| !e.is_empty()).map(str::to_string);
-            let said = match &event {
-                Some(e) => format!("row {} {row} fires on {e}", i + 1),
-                None => format!("row {} {row}: {}", i + 1, crate::story::BY_HAND),
+            let fire = &mut next.rows[i].fire.event;
+            match event.as_deref().map(str::trim).filter(|e| !e.is_empty()) {
+                Some(e) => {
+                    fire.toggle(e);
+                }
+                None => fire.clear(),
+            }
+            let said = match fire.is_empty() {
+                true => format!("row {} {row}: {}", i + 1, crate::story::BY_HAND),
+                false => format!("row {} {row} fires on {}", i + 1, fire.as_slice().join(", ")),
             };
-            next.rows[i].fire.event = event;
             (said, Some(row.clone()))
         }
         Edit::AddressFact { row, address, fact } => {
@@ -514,6 +528,8 @@ pub fn edit_with(show: &Show, e: &Edit, knobs: Option<&[Knob]>) -> Result<Edited
     // a wire whose ends a change took away goes with it
     let pruned = if matches!(e, Edit::Wire { .. }) { Vec::new() } else { crate::wiring::prune(&mut next) };
     let said = if pruned.is_empty() { said } else { format!("{said}; unwired {}", pruned.join(", ")) };
+    // the reader it needs, written with the change: an older deck refuses what it would misread
+    next.stamp();
     let added: Vec<String> = crate::validate::validate(&next).into_iter().filter(|p| !before.contains(p)).map(|p| p.to_string()).collect();
     match added.first() {
         Some(p) => Err(format!("not changed: {p}")),
@@ -531,8 +547,12 @@ pub fn remove_prompt(show: &Show, id: &str) -> Prompt {
     if !cells {
         lines.push(("every column keeps: no cell goes".into(), Tone::Muted));
     }
-    if let Some(e) = &r.fire.event {
+    for e in r.fire.event.iter().filter(|e| !show.rows.iter().any(|o| o.id != id && o.fire.event.contains(e))) {
         lines.push((format!("the event '{e}' fires no row then"), Tone::Muted));
+    }
+    let fired = crate::document::row_fired(id);
+    for other in show.rows.iter().filter(|o| o.fire.event.contains(&fired)) {
+        lines.push((format!("row '{}' no longer fires on it", other.id), Tone::Muted));
     }
     if show.face.rows.contains(&r.id) {
         lines.push(("the face shows it: a parent that seats this show loses it".into(), Tone::Warn));

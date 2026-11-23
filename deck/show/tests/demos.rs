@@ -56,7 +56,7 @@ fn the_story_events_hold_the_vote_demos_event() {
     let text = std::fs::read_to_string(dir().join("story-events.json")).unwrap();
     let story = deck_show::story::read(&text, "catpope").unwrap();
     let show = shows().into_iter().find(|(n, _)| n == "vote-and-question").unwrap().1;
-    let fired: Vec<&str> = show.rows.iter().filter_map(|r| r.fire.event.as_deref()).collect();
+    let fired: Vec<&str> = show.rows.iter().flat_map(|r| r.fire.event.iter()).collect();
     assert!(fired.contains(&"ch3.door"));
     assert!(format!("{story:?}").contains("ch3.door"), "the story's question the right click offers");
 }

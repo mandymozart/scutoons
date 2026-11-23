@@ -92,14 +92,15 @@ fn cells_refused_on_the_wrong_column() {
 }
 
 #[test]
-fn duplicates_a_shared_event_and_mirror_circles_are_refused() {
+fn duplicates_and_mirror_circles_are_refused_a_shared_event_is_not() {
     let (mut doc, _) = example();
     doc["outlets"][1]["id"] = json!("left");
     assert!(problems(doc).iter().any(|p| matches!(p, Problem::Duplicate { what: "outlet", .. })));
 
+    // lap 2 P7: several rows may hear one event – a shared event is no problem
     let (mut doc, _) = example();
     doc["rows"][1]["fire"]["event"] = json!("ch3.end");
-    assert!(problems(doc).iter().any(|p| matches!(p, Problem::Refused { why, .. } if why.contains("already fires"))));
+    assert!(parse(&doc.to_string()).is_ok());
 
     let (mut doc, _) = example();
     doc["rows"][0]["cells"]["left"] = json!({ "mode": "mirror", "of": "right" });

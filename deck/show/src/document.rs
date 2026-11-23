@@ -38,6 +38,135 @@ pub struct Show {
     /// the master tempo the show starts with (the play pill's BPM and source); none: the clock as it is
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tempo: Option<Tempo>,
+    /// the show reader a deck needs to read it right ([`READER`]); none: the first, every deck reads it. Written by
+    /// [`Show::stamp`] only when the show uses what an older reader would misread – an older deck refuses the unknown field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reads: Option<u32>,
+}
+
+/// The show reader of this build: 2 reads several events on a row and another row's fire as an event (`row:<id>`).
+pub const READER: u32 = 2;
+
+impl Show {
+    /// the reader this show needs: 2 when a row fires on several events or on another row's fire, else 1
+    pub fn reader_needed(&self) -> u32 {
+        let new = self.rows.iter().any(|r| r.fire.event.len() > 1 || r.fire.event.iter().any(|e| e.starts_with(ROW_FIRED)));
+        if new {
+            2
+        } else {
+            1
+        }
+    }
+
+    /// writes the reader it needs (none for the first): an older deck then refuses the show instead of misreading it
+    pub fn stamp(&mut self) {
+        self.reads = Some(self.reader_needed()).filter(|n| *n > 1);
+    }
+}
+
+/// what starts the event another row's fire is: `row:<id>`
+pub const ROW_FIRED: &str = "row:";
+
+/// the event row `row`'s fire is to the show's other rows
+pub fn row_fired(row: &str) -> String {
+    format!("{ROW_FIRED}{row}")
+}
+
+/// The events a row fires on – any of them wakes it. Read as one id or a list; written as one id while there is one, a
+/// list only with several, so a show with one event per row reads on an older deck as before.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Events(Vec<String>);
+
+impl Events {
+    pub fn one(event: impl Into<String>) -> Events {
+        Events(vec![event.into()])
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().map(String::as_str)
+    }
+
+    pub fn contains(&self, event: &str) -> bool {
+        self.0.iter().any(|e| e == event)
+    }
+
+    pub fn first(&self) -> Option<&str> {
+        self.0.first().map(String::as_str)
+    }
+
+    pub fn as_slice(&self) -> &[String] {
+        &self.0
+    }
+
+    /// `ch3.vigil, row:dialog`
+    pub fn words(&self) -> String {
+        self.0.join(", ")
+    }
+
+    /// on if it was off, off if it was on; whether it is on now
+    pub fn toggle(&mut self, event: &str) -> bool {
+        let had = self.contains(event);
+        if had {
+            self.0.retain(|e| e != event);
+        } else {
+            self.0.push(event.to_string());
+        }
+        !had
+    }
+
+    /// the event `from` is called `to` now
+    pub fn rename(&mut self, from: &str, to: &str) {
+        for e in self.0.iter_mut().filter(|e| *e == from) {
+            *e = to.to_string();
+        }
+    }
+
+    pub fn remove(&mut self, event: &str) {
+        self.0.retain(|e| e != event);
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+}
+
+impl From<Vec<String>> for Events {
+    fn from(v: Vec<String>) -> Events {
+        Events(v)
+    }
+}
+
+impl Serialize for Events {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self.0.as_slice() {
+            [one] => s.serialize_str(one),
+            all => all.serialize(s),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Events {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Events, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Either {
+            One(String),
+            Many(Vec<String>),
+        }
+        match Either::deserialize(d) {
+            Ok(Either::One(e)) => Ok(Events(vec![e])),
+            Ok(Either::Many(v)) => Ok(Events(v)),
+            Err(_) => Err(serde::de::Error::custom("an event id or a list of event ids")),
+        }
+    }
 }
 
 /// A show's master tempo: the BPM on the deck's own clock and the source the clock follows (`SOURCES`).
@@ -316,9 +445,10 @@ pub struct Addressed {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fire {
-    /// the event id that fires it (the contract with the chapter editor); none = only by hand
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event: Option<String>,
+    /// the events that fire it, any of them: a story event's id (the contract with the chapter editor), another row's fire
+    /// (`row:<id>`), a vote's result (`vote:<question>/<n>`); none = only by hand
+    #[serde(default, skip_serializing_if = "Events::is_empty")]
+    pub event: Events,
     #[serde(default)]
     pub how: How,
     /// how long an event must stand before it counts (ms)

@@ -5,7 +5,7 @@
 //! says only what the name does not; a column's head its group, its name, who takes it and its small stop. The edges
 //! between columns and rows show only under the pointer, as a handle to drag; a double click fits (sizing.rs). What plays
 //! is lime with the bar's progress, what waits for its moment is ringed, a cell started off its row has a corner mark.
-//! The selection shows: the row as a soft band with a bar on its left, a column as a band from its head to its last row,
+//! The selection shows: the row as a soft band (no bar on its side, RULES H10), a column as a band from its head to its last row,
 //! a group's head, a cell outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs
 //! (`matrix_at`) and every size limit its sizes.rs; this file lays them out and names the places.
 use super::roles::Typing;
@@ -344,7 +344,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let whole = Rect { x: h.x, y: h.y + 3.0, w: h.w - pad, h: h.h - 6.0 };
         if sel == Some(i) {
             d.rect(whole.x, h.y + 1.0, h.w, h.h - 2.0, soft(t.color.selected, 0.45));
-            d.rect(whole.x, whole.y, 3.0, whole.h, t.color.accent);
         } else if whole.has(pointer.0, pointer.1) {
             d.round_rect(whole.x, whole.y, whole.w, whole.h, t.size.radius, t.color.hover);
         }
@@ -367,7 +366,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let waits = r.chip.as_ref().is_some_and(|c| c.waiting);
         let wpx = t.size.label * 1.2;
         let ww = if waits { d.advance(wpx) * deck_show::view::WAITS.chars().count() as f32 + pad } else { 0.0 };
-        let name = Rect { x: tx - 3.0, y: top - 2.0, w: whole.x + whole.w - tx - pad + 3.0 - ww, h: font * 1.25 + 4.0 };
+        // a row without its chip: the empty ⚡ slot at the end of the name's line
+        let slot_w = if r.chip.is_none() { font * 1.25 + 4.0 } else { 0.0 };
+        let name = Rect { x: tx - 3.0, y: top - 2.0, w: whole.x + whole.w - tx - pad + 3.0 - ww - slot_w, h: font * 1.25 + 4.0 };
         match typed(host, |w| *w == Typing::RowName(r.id.clone())) {
             Some(text) => super::rows::in_place(d, t, name, &text, font),
             None => {
@@ -378,12 +379,33 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         if sel == Some(i) {
             push(host, name, &l.heads_left, Hit::RowName);
         }
-        if let Some(chip) = &r.chip {
-            fire_tag(d, t, (tx, h.y + h0 * 0.5 + 3.0, whole.x + whole.w - tx - pad), chip);
-            if waits {
-                d.text(whole.x + whole.w - ww + pad * 0.5, top + (font - wpx) * 0.5, wpx, deck_show::view::WAITS, t.color.primary_line);
+        // the ⚡ slot: the fire tag, or empty; pressed, Find opens under it
+        let open = host.sheet == Some(super::Sheet::Event) && host.row == i;
+        let slot = match &r.chip {
+            Some(chip) => {
+                let y = h.y + h0 * 0.5 + 3.0;
+                let w = fire_tag(d, t, (tx, y, whole.x + whole.w - tx - pad), chip);
+                if waits {
+                    d.text(whole.x + whole.w - ww + pad * 0.5, top + (font - wpx) * 0.5, wpx, deck_show::view::WAITS, t.color.primary_line);
+                }
+                Rect { x: tx, y, w, h: cards::tag_height(t) }
             }
+            None => {
+                let s = font * 1.25;
+                let r = Rect { x: whole.x + whole.w - pad * 0.5 - s - ww, y: top - 1.0, w: s, h: s };
+                let lit = open || r.has(pointer.0, pointer.1);
+                d.outline(r.x, r.y, r.w, r.h, (s * 0.5, 1.0), if lit { t.color.text } else { t.color.line });
+                d.icon(r.x + s * 0.2, r.y + s * 0.2, s * 0.6, "bolt", if lit { t.color.text } else { t.color.muted });
+                r
+            }
+        };
+        if open {
+            d.outline(slot.x - 2.0, slot.y - 2.0, slot.w + 4.0, slot.h + 4.0, (t.size.radius * 2.0, 1.0), t.color.text);
         }
+        if i == host.row {
+            host.slot_at = Some(slot);
+        }
+        push(host, slot, &l.heads_left, Hit::Slot(i));
     }
     if l.visible_rows().end > n {
         let h = l.row_head(n);

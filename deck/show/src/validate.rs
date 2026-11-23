@@ -1,6 +1,6 @@
 //! Validity is the core's (RULES A2). [`validate`] reads one document; [`resolve`] follows the seats from the top, the only
 //! way a tree exists (the child does not name its parent, SHOW.md §4b), and writes down the exact versions a flash carries.
-use crate::document::{Addressed, Cell, Face, OutletKind, Pinned, Question, Row, Seat, Show};
+use crate::document::{Addressed, Cell, Face, OutletKind, Pinned, Question, Row, Seat, Show, READER};
 use protocol::{Filter, PARENT};
 use deck_space::rig::address::{Place, Target};
 use std::collections::{BTreeMap, BTreeSet};
@@ -334,6 +334,17 @@ fn groups(show: &Show, out: &mut Vec<Problem>) {
     }
 }
 
+/// The reader the show says it needs: no more than this deck's, and no less than what it uses – else an older deck would
+/// take a show it misreads (the editor stamps it on every edit, `Show::stamp`).
+fn reader(show: &Show, out: &mut Vec<Problem>) {
+    let (says, needs) = (show.reads.unwrap_or(1), show.reader_needed());
+    if says > READER {
+        out.push(refused(&Spot::Show, format!("it needs a newer deck: show reader {says}, this deck reads {READER} – update the deck")));
+    } else if says < needs {
+        out.push(refused(&Spot::Show, format!("a row fires on several events or on a row: it needs \"reads\": {needs}, so an older deck refuses it")));
+    }
+}
+
 /// One document on its own. Empty = valid.
 pub fn validate(show: &Show) -> Vec<Problem> {
     let mut out = vec![];
@@ -386,14 +397,21 @@ pub fn validate(show: &Show) -> Vec<Problem> {
         }
     }
 
-    let mut events: BTreeMap<&str, &str> = BTreeMap::new();
+    reader(show, &mut out);
     for row in &show.rows {
-        if let Some(event) = &row.fire.event {
-            let at = Spot::Row(row.id.clone());
-            if event.is_empty() {
+        // several rows may listen to one event, a row to several; a row's fire names a row of this show, not its own
+        let at = Spot::Row(row.id.clone());
+        for (i, event) in row.fire.event.iter().enumerate() {
+            if event.trim().is_empty() {
                 out.push(refused(&at, "an empty event id"));
-            } else if let Some(first) = events.insert(event, &row.id) {
-                out.push(refused(&at, format!("the event '{event}' already fires row '{first}'")));
+            } else if row.fire.event.iter().take(i).any(|e| e == event) {
+                out.push(refused(&at, format!("the event '{event}' is named twice")));
+            } else if let Some(other) = event.strip_prefix(crate::document::ROW_FIRED) {
+                if other == row.id {
+                    out.push(refused(&at, "a row cannot fire on its own fire"));
+                } else if show.row(other).is_none() {
+                    out.push(Problem::Unknown { what: "row", id: other.to_string(), at: at.clone() });
+                }
             }
         }
         for (column, cell) in &row.cells {
