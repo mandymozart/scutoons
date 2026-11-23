@@ -96,6 +96,9 @@ fn one_event_is_written_as_before_and_what_an_older_deck_misreads_is_stamped() {
     assert_eq!((text["rows"][0]["fire"]["event"].clone(), text["reads"].clone()), (json!(["ch3.door", "ch3.bell"]), json!(2)));
     let by_row = show(json!([{ "id": "a" }, { "id": "b", "fire": { "event": "row:a" } }]));
     assert_eq!(by_row.reads, Some(2));
+    // the band's chip: how many more first, then the first event
+    let chip = deck_show::view::fire_chip(&two.rows[0].fire, "a", false).unwrap();
+    assert_eq!((chip.tag.as_str(), chip.event.as_str()), ("+1 ch3 · door", "ch3.door, ch3.bell"));
 }
 
 /// The old-deck guard. An older deck reads `fire.event` as one string, its documents refuse unknown fields: the stamped

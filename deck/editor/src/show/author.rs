@@ -75,7 +75,8 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
     let band_size = super::band::table(t, &band, true, &host.view_sizes()).size();
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
-    if sheet.is_some() {
+    // the slot's Find hangs under its slot, not in a sheet
+    if sheet.is_some_and(|s| s != Sheet::Event) {
         shown.push(("sheet", 640.0, Some(440.0)));
     } else if host.two_d {
         shown.push(("nodes", 960.0, Some(560.0)));
@@ -183,6 +184,8 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         deck_kit::editor::info::body(d, t, (o.area.x, o.area.y, o.area.w), host.help.as_ref());
         host.show_panels.close(d, o, &mut host.hits);
     }
+    // the slot's Find, over the panels
+    super::events::find(d, t, host, (w, h), pointer);
     // #478: a prompt asked (a role's remove) over everything: only its presses count
     let room = crate::panels::Panels::room((w, h), crate::bar::bottom(t), t.size.gap);
     super::roles::ask(d, t, host, room);
@@ -207,22 +210,18 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             if !label.is_empty() {
                 d.text(rx, y + 4.0, font, &fit(d, label, font, rw * 0.36), t.color.muted);
             }
-            // #539: "fires on" opens the event picker; #553: an address selects it, its filter's chips under it
-            let fires = i == 0 && label == view::FIRES_ON;
+            // #553: an address selects it, its filter's chips under it (what fires the row is set at its ⚡ slot)
             let addr = (sends && label == view::ADDRESS).then(|| {
                 address += 1;
                 address - 1
             });
             let vx = if label.is_empty() { rx } else { rx + rw * 0.38 };
             let r = Rect { x: vx, y, w: rx + rw - vx, h: t.size.row - 4.0 };
-            let presses = fires || addr.is_some();
+            let presses = addr.is_some();
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if presses && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
             let open = addr.is_some() && addr == host.address;
-            if (fires && host.sheet == Some(Sheet::Event)) || open {
+            if open {
                 d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
-            }
-            if fires {
-                host.hits.push((r, Hit::FiresOn));
             }
             d.text(vx + 6.0, y + 4.0, font, &fit(d, value, font, rx + rw - vx - 12.0), t.color.text);
             y += t.size.row;

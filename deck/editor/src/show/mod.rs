@@ -97,7 +97,7 @@ pub enum Sheet {
     Session,
     /// #533: the vote's conductor side – open a vote, its tally per group, Hold / Close now / Override, the result (vote.rs)
     Vote,
-    /// #539: the event picker of the inspected row – the toon's story events (events.rs)
+    /// the slot's Find of the inspected row: what can fire it, under its ⚡ slot (events.rs)
     Event,
     /// a new scene, or one from the server recast (new_scene.rs)
     Scene,
@@ -185,10 +185,12 @@ pub enum Hit {
     CellFact(usize),
     AddressPick(usize),
     AddressFact(usize),
-    /// #539: the row inspector's "fires on" (opens the event picker); a line of the picker; the picker's typed field
-    FiresOn,
+    /// a row's ⚡ slot (opens Find under it); a line of Find; its typed field; a scope pill; its ground (takes the press)
+    Slot(usize),
     EventPick(usize),
     EventType,
+    EventScope(usize),
+    EventGround,
     /// the show's stage background: a click on its value types it, on its swatch opens the colour picker (the editor's)
     Background,
     BackgroundColour,
@@ -309,6 +311,9 @@ pub struct Host {
     pub toon: Option<String>,
     pub story: Option<Result<deck_show::story::Story, String>>,
     pub event_query: String,
+    /// how wide the slot's Find looks, and where the open slot was drawn (Find opens under it)
+    pub event_scope: deck_show::inlet::Scope,
+    pub slot_at: Option<Rect>,
     /// #478: a typed field open (a role's name) and its text
     pub typing: Option<(roles::Typing, deck_kit::base::text::Field)>,
     /// #478: the prompt asked before it is done (a role's remove, a kick)
@@ -424,7 +429,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carried: None, refused: None, toon: None, story: None, event_query: String::new(), typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), view_slot: Rect::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carried: None, refused: None, toon: None, story: None, event_query: String::new(), event_scope: Default::default(), slot_at: None, typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -560,6 +565,10 @@ impl Host {
         }
         self.context = None;
         self.refused = None;
+        // the slot's Find goes with any press but its own
+        if self.sheet == Some(Sheet::Event) && !matches!(hit, Hit::Slot(_) | Hit::EventPick(_) | Hit::EventType | Hit::EventScope(_) | Hit::EventGround) {
+            self.events_close();
+        }
         if self.locked && live::edits(hit) {
             return self.refuse(live::LOCKED.into());
         }
@@ -615,7 +624,7 @@ impl Host {
             Hit::RowAdd | Hit::RowName | Hit::RowRemove | Hit::Cell(..) | Hit::CellAlso(..) | Hit::CellMode(_) | Hit::CellPiece | Hit::CellShot | Hit::Column(_) | Hit::ColumnAlso(_) | Hit::Group(_) | Hit::CellFact(_) | Hit::AddressPick(_) | Hit::AddressFact(_) => {
                 self.rows_press(hit);
             }
-            Hit::FiresOn | Hit::EventPick(_) | Hit::EventType => self.events_press(hit),
+            Hit::Slot(_) | Hit::EventPick(_) | Hit::EventType | Hit::EventScope(_) | Hit::EventGround => self.events_press(hit),
             // the editor's colour picker takes it before the show (colour.rs)
             Hit::BackgroundColour => {}
             Hit::Background => {

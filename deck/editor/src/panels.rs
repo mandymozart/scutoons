@@ -44,7 +44,7 @@ pub const SHOW: [Spec; 14] = [
     spec("outline", "Outline", "nodes", "The conductors, the roles this one gives out and the rows of the document shown.", Place::at(TL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, the session, the vote, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
-    spec("nodes", "Nodes", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
+    spec("nodes", "Spores", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
     spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens it as a tab.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell; a row's ▶ fires it, a cell's ▶ launches it.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("session", "Session", "activity", "This conductor, its seats, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0).closed()),

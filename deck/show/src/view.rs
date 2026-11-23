@@ -338,11 +338,11 @@ pub fn fire_chip(fire: &Fire, row: &str, waiting: bool) -> Option<FireChip> {
     };
     let first = fire.event.first()?;
     let (tag, named) = fire_tag(first, row);
-    // several events: the first and how many more
+    // several events: how many more first (a narrow head cuts the end), then the first
     let tag = match fire.event.len() {
         1 => tag,
         n if tag.is_empty() => format!("+{}", n - 1),
-        n => format!("{tag} +{}", n - 1),
+        n => format!("+{} {tag}", n - 1),
     };
     Some(FireChip { event: fire.event.words(), tag, named, auto, moment: fire.moment, waiting: waiting && !auto })
 }

@@ -112,6 +112,17 @@ pub fn read_toons(json: &str, toons: &[String]) -> Result<Story, String> {
     Ok(out)
 }
 
+/// The same, and then every other toon's events in the answer, each marked with its toon – what Find lists under Universe.
+pub fn read_all(json: &str, toons: &[String]) -> Result<Story, String> {
+    let mut out = read_toons(json, toons)?;
+    let v: Value = serde_json::from_str(json).map_err(|e| format!("the story events: {e}"))?;
+    let all = v.get("toons").and_then(Value::as_array).into_iter().flatten().filter_map(|t| t.get("id").and_then(Value::as_str));
+    for toon in all.filter(|t| !toons.iter().any(|x| x == t)).map(str::to_string).collect::<Vec<_>>() {
+        out.events.extend(read(json, &toon)?.events.into_iter().map(|e| StoryEvent { toon: Some(toon.clone()), ..e }));
+    }
+    Ok(out)
+}
+
 fn option(o: &Value) -> ChoiceOption {
     let label = o.get("label").and_then(Value::as_object).into_iter().flatten().filter_map(|(l, t)| Some((l.clone(), t.as_str()?.to_string()))).collect();
     ChoiceOption { id: text(o, "id").filter(|id| !id.is_empty()), label }
