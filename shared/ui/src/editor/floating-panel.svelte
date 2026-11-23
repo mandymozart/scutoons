@@ -40,6 +40,10 @@
 	const active = $derived(floats.activeOf(id));
 	const contentSized = $derived(spec?.size.w === 'content' || spec?.size.h === 'content');
 	const draggedTab = $derived(floats.heldTab?.moved ? floats.heldTab.tab : null);
+	/** flung off the screen: it flies on from where it was let go */
+	const thrown = $derived(floats.thrown?.id === id ? floats.thrown : null);
+	const rect = $derived(thrown?.rect ?? view?.rect ?? { x: 0, y: 0, w: 0, h: 0 });
+	const rem = (px: number) => `${px / (floats.metrics.rem || 16)}rem`;
 
 	onMount(() => floats.show(id));
 	onDestroy(() => floats.hide(id));
@@ -134,16 +138,19 @@
 		class:vertical
 		class:collapsed
 		class:held
+		class:thrown
 		aria-label={label ?? spec.name}
 		data-float={id}
 		data-tabbed={spec.inline ? undefined : ''}
-		style:left="{view.rect.x - floats.area.x + floats.metrics.gap}px"
-		style:top="{view.rect.y - floats.area.y + floats.metrics.gap}px"
-		style:width={spec.inline && vertical ? undefined : `${view.rect.w}px`}
-		style:min-width={spec.inline && vertical ? `${view.rect.w}px` : undefined}
-		style:height={spec.inline && !vertical ? undefined : `${view.rect.h}px`}
-		style:min-height={spec.inline && !vertical ? `${view.rect.h}px` : undefined}
-		style:z-index={floats.z(id) + (held ? 100 : 0)}
+		style:left="{rect.x - floats.area.x + floats.metrics.gap}px"
+		style:top="{rect.y - floats.area.y + floats.metrics.gap}px"
+		style:width={spec.inline && vertical ? undefined : `${rect.w}px`}
+		style:min-width={spec.inline && vertical ? `${rect.w}px` : undefined}
+		style:height={spec.inline && !vertical ? undefined : `${rect.h}px`}
+		style:min-height={spec.inline && !vertical ? `${rect.h}px` : undefined}
+		style:z-index={floats.z(id) + (held || thrown ? 100 : 0)}
+		style:--throw-x={thrown ? rem(thrown.x) : undefined}
+		style:--throw-y={thrown ? rem(thrown.y) : undefined}
 		onpointerdowncapture={() => floats.front(id)}
 	>
 		{#if spec.inline}
@@ -258,6 +265,27 @@
 		/* content in a panel stands on the panel's ground: a component's "ground" (or the shared --paper) is see-through here */
 		--tool-ground: transparent;
 		--paper: transparent;
+		/* folding and unfolding (a double-click), a keyboard move: the panel eases into its new rectangle */
+		transition:
+			left var(--motion-base) var(--motion-ease),
+			top var(--motion-base) var(--motion-ease),
+			height var(--motion-base) var(--motion-ease),
+			width var(--motion-base) var(--motion-ease),
+			border-radius var(--motion-base) var(--motion-ease);
+	}
+	.float.held {
+		transition: none;
+	}
+	/* flung off the screen: on out along the throw, fading */
+	.float.thrown {
+		pointer-events: none;
+		animation: throw-out var(--motion-slow) var(--motion-ease-in) forwards;
+	}
+	@keyframes throw-out {
+		to {
+			transform: translate(var(--throw-x), var(--throw-y));
+			opacity: 0;
+		}
 	}
 	.float :global(svg:not(:is([role='menu'], [role='listbox'], [role='dialog'], [popover]) svg)) {
 		filter: var(--tool-icon-halo);
@@ -413,11 +441,17 @@
 		cursor: default;
 	}
 	.body {
+		animation: unfold var(--motion-base) var(--motion-ease);
 		flex: 1;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		overflow: auto;
+	}
+	@keyframes unfold {
+		from {
+			opacity: 0;
+		}
 	}
 	.edge {
 		position: absolute;

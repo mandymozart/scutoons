@@ -132,6 +132,26 @@
 	--duration-base: 0.2s;
 	--duration-slow: 0.3s;
 	--easing: ease;
+	/* the tools' motion (crafts-v2 `motion`): short, never over 250 ms; ease-out arriving, ease-in leaving */
+	--motion-fast: 120ms;
+	--motion-base: 180ms;
+	--motion-slow: 220ms;
+	--motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* reduced motion – the system's or the creator's own setting: every motion token is none */
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--motion-fast: 0ms;
+		--motion-base: 0ms;
+		--motion-slow: 0ms;
+	}
+}
+:root[data-motion='reduced'] {
+	--motion-fast: 0ms;
+	--motion-base: 0ms;
+	--motion-slow: 0ms;
 }
 
 /* Touch screens: the 44px touch-target minimum for fields, list rows and buttons (owner 2026-10-01: sizes in rem,

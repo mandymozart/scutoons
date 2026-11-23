@@ -2,7 +2,7 @@
 // controls, on the editor tokens (@scutoons/tokens editor.css, `--editor-*`). Night by default, `data-theme="day"` the variant.
 export { default as FloatingPanels } from './floating-panels.svelte';
 export { default as FloatingPanel } from './floating-panel.svelte';
-export { Floats, PANELS_KEY, type FloatsLayout, type HeldTab, type StageZone } from './floats.svelte.ts';
+export { Floats, PANELS_KEY, type FloatsLayout, type HeldTab, type StageZone, type Thrown } from './floats.svelte.ts';
 // taking the stage: a view on the stage in one of four layouts, its drop zones at the screen's edges
 export { default as StageZones } from './stage-zones.svelte';
 export { VIEW_STATES, slotRects, viewsOn, type Cell, type StageLayout, type StageState, type ViewState } from './stage.ts';
@@ -33,3 +33,6 @@ export { default as ListRow } from './list-row.svelte';
 export { default as Tile } from './tile.svelte';
 export { default as Card } from './card.svelte';
 export { default as Chip } from './chip.svelte';
+// gestures and motion: a fling closes, a swipe up from the bottom; the motion tokens read in ms for script-timed motion
+export { FLING, addSample, atBottomEdge, flingEdge, isSwipeUp, throwOffset, velocity, type FlingEdge, type Sample } from './gestures.ts';
+export { motionMs, type MotionSpeed } from './motion.ts';

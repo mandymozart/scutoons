@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { Icon, clickOutside } from '@scutoons/ui';
-	import { ListRow } from '@scutoons/ui/editor';
+	import { ListRow, motionMs } from '@scutoons/ui/editor';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -137,7 +138,7 @@
 	</div>
 {:else}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div class="scrim" onclick={(e) => e.target === e.currentTarget && close()} data-testid="launcher">
+	<div class="scrim" onclick={(e) => e.target === e.currentTarget && close()} data-testid="launcher" out:fade={{ duration: motionMs('fast') }}>
 		<div class="launcher over" role="dialog" aria-modal="true" aria-label={m['shell.launch_label']()}>
 			{@render field()}
 			{@render list()}
@@ -220,7 +221,7 @@
 		padding-top: 18vh;
 		background: var(--tool-scrim);
 		backdrop-filter: blur(0.4rem);
-		animation: launch-in 120ms ease-out;
+		animation: launch-in var(--motion-fast) var(--motion-ease);
 	}
 	:global([data-theme='day']) .scrim {
 		background: color-mix(in srgb, var(--tool-ground) 60%, transparent);
@@ -239,11 +240,6 @@
 	@keyframes launch-in {
 		from {
 			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.scrim {
-			animation: none;
 		}
 	}
 </style>

@@ -52,6 +52,8 @@ import {
 	type ViewState,
 	type ZoneSize
 } from './stage.ts';
+import { addSample, flingEdge, throwOffset, velocity, type FlingEdge, type Sample } from './gestures.ts';
+import { motionMs } from './motion.ts';
 
 /** Every workspace's layout in this browser: `{ [workspace]: FloatsLayout }` */
 export const PANELS_KEY = 'sc-editor-panels';
@@ -97,13 +99,23 @@ export interface HeldTab {
 	marker: Rect | null;
 }
 
+/** A panel or a tab flung off the screen, on its way out: where it was let go and how far it travels (px) */
+export interface Thrown {
+	id: string;
+	rect: Rect;
+	x: number;
+	y: number;
+}
+
+const now = () => (typeof performance === 'undefined' ? Date.now() : performance.now());
+
 const record = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 /**
  * One workspace's floating panels: the declared panels and tabs, where the person left each panel and which tabs it
  * holds (stored per workspace), the views on the stage and over everything, what the page draws, the room – and the panel
  * or tab in the hand. A drag is laid out once per animation frame and stored when it ends. Over 400 lines: one drag crosses
- * panels, tabs and the stage, so they share this state (the pure parts: floats.ts, panel-tabs.ts, stage.ts).
+ * panels, tabs, the stage and a fling, so they share this state (the pure parts: floats.ts, panel-tabs.ts, stage.ts, gestures.ts).
  */
 export class Floats {
 	places = $state<Record<string, Place>>({});
@@ -126,6 +138,12 @@ export class Floats {
 	hover = $state.raw<{ cell: Cell; past: boolean } | null>(null);
 	/** Held past the top edge long enough: a drop goes full screen */
 	armed = $state(false);
+	/** A panel flung off the screen, during its throw-out (then it is closed) */
+	thrown = $state.raw<Thrown | null>(null);
+	/** A tab flung off the screen: its ghost flies out (the tab is hidden already) */
+	thrownTab = $state.raw<Thrown | null>(null);
+	/** The pointer's recent path with something in the hand: a fling is read from it */
+	private samples: Sample[] = [];
 	private holdTimer: ReturnType<typeof setTimeout> | 0 = 0;
 	private pending: [number, number] | null = null;
 	private frame = 0;
@@ -466,12 +484,14 @@ export class Floats {
 		const panel = panelOf(this.arrangement, tab);
 		if (panel) this.front(panel);
 		this.heldTab = { tab, from: [x, y], at: [x, y], moved: false, target: null, marker: null };
+		this.samples = [{ x, y, t: now() }];
 	}
 
 	/** The pointer moved with a tab in the hand: where it would land (the page measures the panels under it) */
 	dragTab(x: number, y: number, target: DropTarget, marker: Rect | null): void {
 		const h = this.heldTab;
 		if (!h) return;
+		this.samples = addSample(this.samples, { x, y, t: now() });
 		if (!h.moved && Math.hypot(x - h.from[0], y - h.from[1]) < CLICK_PX) return;
 		this.track(x, y);
 		// a zone at the screen's edge comes first: over it the tab goes to the stage, not into a panel there
@@ -481,7 +501,8 @@ export class Floats {
 	/**
 	 * Let go of a tab: a click selects it; over a drop zone its view goes onto the stage (or full screen); over a panel it
 	 * moves there; anywhere else it becomes a panel of its own at the pointer – or, the only tab of its panel, that panel
-	 * moves there. A view dragged off the stage leaves it
+	 * moves there. A view dragged off the stage leaves it. Flung off the screen it is hidden (Views shows it again); an
+	 * essential one goes back where it was
 	 */
 	dropTab(): void {
 		const h = this.heldTab;
@@ -492,6 +513,8 @@ export class Floats {
 		const from = panelOf(this.arrangement, h.tab);
 		if (!from) return;
 		if (!h.moved) return isOn(this.stage, h.tab) ? undefined : this.select(from, h.tab);
+		const fling = this.flung();
+		if (fling) return this.throwTab(h.tab, h.at, fling);
 		if (zone) return this.land(h.tab, zone);
 		const [x, y] = h.at;
 		this.stage = offStage(this.stage, h.tab);
@@ -521,6 +544,47 @@ export class Floats {
 		this.endZone();
 	}
 
+	// ── a fling: let go while moving fast toward a screen edge and past it ──
+
+	/** The edge the hand was flung toward at the release, and the pointer's speed then */
+	private flung(): { edge: FlingEdge; v: { vx: number; vy: number } } | null {
+		const samples = this.samples;
+		this.samples = [];
+		const edge = flingEdge(samples, now(), this.win);
+		return edge ? { edge, v: velocity(samples) } : null;
+	}
+
+	private throwTab(tab: string, at: [number, number], { edge, v }: { edge: FlingEdge; v: { vx: number; vy: number } }): void {
+		if (this.tab(tab)?.essential) return;
+		const rect = { x: at[0], y: at[1], w: 8 * this.metrics.rem, h: 2 * this.metrics.rem };
+		this.thrownTab = { id: tab, rect, ...throwOffset(rect, edge, v, this.win) };
+		setTimeout(() => {
+			if (this.thrownTab?.id === tab) this.thrownTab = null;
+		}, motionMs('slow'));
+		this.stage = offStage(this.stage, tab);
+		if (this.#full === tab) this.full = null;
+		this.hideTab(tab);
+	}
+
+	/**
+	 * A panel flung off the screen: it flies on out of the window, then closes – a free panel's tabs are hidden, so Views
+	 * shows each again where it was; an essential panel goes back to its place and folds
+	 */
+	private throwPanel(id: string, rect: Rect, { edge, v }: { edge: FlingEdge; v: { vx: number; vy: number } }): void {
+		const spec = this.spec(id);
+		if (!spec) return;
+		if (spec.essential) return this.setCollapsed(id, true);
+		this.thrown = { id, rect, ...throwOffset(rect, edge, v, this.win) };
+		setTimeout(() => {
+			if (this.thrown?.id !== id) return;
+			if (this.arrangement.free[id]) {
+				for (const tab of this.tabsOf(id)) this.arrangement = hideTab(this.arrangement, tab);
+				this.save();
+			} else this.close(id);
+			this.thrown = null;
+		}, motionMs('slow'));
+	}
+
 	/** The open size a panel asks for (px), held inside the room */
 	private openSize(spec: PanelSpec): Size {
 		const { want } = wantOf(spec, this.place(spec.id), this.metrics, this.measured[spec.id], this.asks[spec.id]);
@@ -536,11 +600,13 @@ export class Floats {
 		this.cancelFrame();
 		this.front(id);
 		this.held = { id, kind: edge ? 'size' : 'move', edge: edge ?? { x: 0, y: 0 }, start: view.rect, from: [x, y], rect: view.rect, moved: false, zones: zones && !edge };
+		this.samples = [{ x, y, t: now() }];
 	}
 
 	/** The pointer moved while a panel is held: laid out at the next animation frame (without frames – a test – at once) */
 	drag(x: number, y: number): void {
 		if (!this.held) return;
+		this.samples = addSample(this.samples, { x, y, t: now() });
 		this.pending = [x, y];
 		if (typeof requestAnimationFrame !== 'function') return this.flush();
 		if (!this.frame)
@@ -582,7 +648,7 @@ export class Floats {
 	/**
 	 * Let go: the panel stays where it is, held inside the walls – no snap; a resized one keeps its size. No other panel
 	 * moves or changes size. Over a drop zone the panel goes back where it was and its front view lands on the stage (the
-	 * panel never docks). True when it was a drag, not a click
+	 * panel never docks); flung off the screen it closes. True when it was a drag, not a click
 	 */
 	drop(): boolean {
 		this.flush();
@@ -591,7 +657,12 @@ export class Floats {
 		this.held = null;
 		this.endZone();
 		if (!h) return false;
+		const fling = h.zones && h.moved ? this.flung() : null;
 		if (!h.moved) return false;
+		if (fling) {
+			this.throwPanel(h.id, h.rect, fling);
+			return true;
+		}
 		const front = zone && this.activeOf(h.id);
 		if (zone && front) {
 			this.land(front, zone);

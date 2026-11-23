@@ -34,6 +34,7 @@
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
 	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
+	import UserMenu from '$lib/components/shell/user-menu.svelte';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
 	import type { DashboardState } from '$lib/shell/resume.ts';
@@ -273,7 +274,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full} data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher && !shell.userMenu} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -286,6 +287,7 @@
 		<StatusBar />
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		{#if shell.launcher}<Launcher />{/if}
+		<UserMenu />
 		{#if crafts.ask}<CraftsQuestion />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>

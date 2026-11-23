@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Floats, FloatingPanels, StageZones, type Cell, type StageZone } from '@scutoons/ui/editor';
+	import { fade } from 'svelte/transition';
+	import { Floats, FloatingPanels, StageZones, motionMs, type Cell, type StageZone } from '@scutoons/ui/editor';
 	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
@@ -86,6 +87,8 @@
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
 	/** the view over everything, while it has content (the open item's own view is always there) */
 	const full = $derived(floats.full && (floats.full === ITEM_VIEW || available.has(floats.full)) ? floats.full : null);
+	/** the dashboard, the launcher or the user menu opened from full screen lies over it; closed, full screen is back */
+	const under = $derived(!!(shell.dashboard || shell.launcher || shell.userMenu));
 
 	const CELL_NAMES: Record<Cell, () => string> = {
 		whole: () => m['shell.cell_whole'](),
@@ -158,11 +161,11 @@
 <div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
 {#if full && full !== ITEM_VIEW}
-	<div class="full" role="dialog" aria-label={name(full)} data-testid="full">
+	<div class="full" class:under role="dialog" aria-label={name(full)} data-testid="full" out:fade={{ duration: motionMs('base') }}>
 		{#if isCanvas(full)}{@render content(full)}{:else}<div class="full-page">{@render content(full)}</div>{/if}
 	</div>
 {/if}
-{#if full}
+{#if full && !under}
 	<p class="full-hint" data-testid="full-hint">{m['shell.full_hint']()}</p>
 {/if}
 {#if library.browser}<LibraryBrowser />{/if}
@@ -213,7 +216,11 @@
 		background: var(--tool-ground);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
-		animation: full-in 220ms ease-out;
+		animation: full-in var(--motion-slow) var(--motion-ease);
+	}
+	/* under an overlay opened from full screen (the dashboard, the launcher, the user menu) */
+	.full.under {
+		z-index: 44;
 	}
 	.full-page {
 		box-sizing: border-box;
@@ -236,14 +243,7 @@
 	@keyframes full-in {
 		from {
 			opacity: 0;
+			transform: scale(0.97);
 		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.full {
-			animation: none;
-		}
-	}
-	:global(:root[data-motion='reduced']) .full {
-		animation: none;
 	}
 </style>
