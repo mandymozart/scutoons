@@ -137,11 +137,12 @@ fn the_catalog_rig_is_this_rig() {
     let stored: deck_space::rig::Bundle = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(stored, b, "cloud-storm.json is the rig: UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_storm");
     let cloud = &b.instruments[0].nodes.iter().find(|n| n.id == "cloud").unwrap().params;
-    assert_eq!(cloud["assets"]["puff"].as_str(), Some("scutoons/3d/cloud-puff.glb"));
+    let set: Vec<&str> = cloud["assets"]["puff"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert_eq!(set, ["scutoons/3d/cloud-three-blobs.glb", "scutoons/3d/cloud-four-blobs.glb"]);
 }
 
-/// The cloud's table carries its puff's model, loaded through the deck's loader like the samplers' sounds: the space
-/// draws the puffs with it (deck-space space/drawn.rs); the rain stays the placeholder segment.
+/// The cloud's table carries its puffs' set of models, loaded through the deck's loader like the samplers' sounds, in the
+/// set's order: the space draws each puff with one of them (deck-space space/drawn.rs); the rain stays the placeholder segment.
 #[test]
 fn the_cloud_draws_its_puffs_with_the_library_model() {
     let s = scene();
@@ -151,9 +152,10 @@ fn the_cloud_draws_its_puffs_with_the_library_model() {
     seams.assets = Some(stand_ins::loader("cloud-puff"));
     let (_e, h) = Engine::build_seams(&g, RATE as f32, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
     let table = h.instances.iter().find(|t| t.node == "storm_cloud").expect("the cloud draws");
-    let shapes: Vec<u32> = table.models.iter().map(|(s, _)| *s).collect();
-    assert_eq!(shapes, [0], "the puff (shape 0) only");
-    assert_eq!(&*table.models[0].1, deck_space::space::bubble::glb().as_slice());
+    let shapes: Vec<Option<u32>> = table.models.iter().map(|m| m.shape).collect();
+    assert_eq!(shapes, [Some(0), Some(0)], "the puff (shape 0) only, two models");
+    assert_eq!(&*table.models[0].bytes, include_bytes!("../../space/tests/fixtures/cloud-three-blobs.glb").as_slice());
+    assert_eq!(&*table.models[1].bytes, include_bytes!("../../space/tests/fixtures/cloud-four-blobs.glb").as_slice());
 }
 
 /// Held, every repeat is a thunder and a kick on the 1/8 grid (the rig's rate 0.6); let go, nothing more

@@ -13,13 +13,16 @@ use std::sync::Arc;
 
 const RATE: f64 = 48_000.0;
 
-/// the CDN path each rig names and its stand-in (the cloud's puff: its default model, the low-poly bubble)
-pub fn all() -> [(&'static str, Vec<u8>); 4] {
+/// the CDN path each rig names and its stand-in (the cloud's puffs: the owner's two blob models, deck-space's test
+/// fixtures; the low-poly bubble the library still holds)
+pub fn all() -> [(&'static str, Vec<u8>); 6] {
     [
         ("scutoons/sounds/cloud-thunder.wav", thunder()),
         ("scutoons/sounds/cloud-kick.wav", kick()),
         ("scutoons/sounds/bamboo-knock.wav", knock()),
         ("scutoons/3d/cloud-puff.glb", deck_space::space::bubble::glb()),
+        ("scutoons/3d/cloud-three-blobs.glb", include_bytes!("../../../space/tests/fixtures/cloud-three-blobs.glb").to_vec()),
+        ("scutoons/3d/cloud-four-blobs.glb", include_bytes!("../../../space/tests/fixtures/cloud-four-blobs.glb").to_vec()),
     ]
 }
 

@@ -51,7 +51,10 @@
           "id": "cloud",
           "kind": "module:cloud",
           "assets": {
-            "puff": "scutoons/3d/cloud-puff.glb"
+            "puff": [
+              "scutoons/3d/cloud-three-blobs.glb",
+              "scutoons/3d/cloud-four-blobs.glb"
+            ]
           },
           "drift": 0.6,
           "flash": 0.8,

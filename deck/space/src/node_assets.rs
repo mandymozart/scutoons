@@ -1,8 +1,10 @@
 //! A module node's assets: the node's `assets` table names a medium per asset slot the module declares – a file
 //! (`assets = { ir = "scutoons/irs/plate.wav" }`) or the content's `{ src, variants }` (`ir = { src = "….128.mp3",
-//! variants = { low = "….96.mp3", high = "….320.mp3" } }`), paths CDN-root as the Library hands them. The check is
-//! here once: the slot is declared, every file is of the kind the slot holds (a `pcm` slot a sound, an `image` slot a
-//! picture, a `model` slot a .glb), the paths stay inside the CDN. Which file plays is the one pick rule's (deck-catalog `rendition`).
+//! variants = { low = "….96.mp3", high = "….320.mp3" } }`), paths CDN-root as the Library hands them. A `model` slot
+//! holds a set: a list of them (`puff = ["scutoons/3d/a.glb", "scutoons/3d/b.glb"]`; one file is a set of one, an empty
+//! list none) – each drawn shape picks one (space `drawn`). The check is here once: the slot is declared, every file is
+//! of the kind the slot holds (a `pcm` slot a sound, an `image` slot a picture, a `model` slot a .glb), the paths stay
+//! inside the CDN. Which file plays is the one pick rule's (deck-catalog `rendition`).
 use deck_catalog::library::{family::kind_of_ext, Kind as FileKind};
 use deck_catalog::rendition::Media;
 use deck_catalog::AssetKind;
@@ -10,7 +12,7 @@ use deck_catalog::AssetKind;
 /// the node param that names the slot assets
 pub const PARAM: &str = "assets";
 
-/// One slot's asset as the node names it.
+/// One slot's asset as the node names it (a `model` slot's set: one per file, in the set's order).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SlotAsset {
     /// the slot's index in the module's descriptor
@@ -36,19 +38,31 @@ pub fn of(params: &toml::Table, slots: &[(&str, AssetKind)]) -> Result<Vec<SlotA
             continue;
         };
         let kind = slots[slot].1;
-        match media_of(v) {
-            Ok(media) => {
-                let before = problems.len();
-                for path in std::iter::once(&media.src).chain(media.variants.values()) {
-                    if let Some(e) = path_problem(path, kind) {
-                        problems.push(format!("asset '{name}': {e}"));
-                    }
-                }
-                if problems.len() == before {
-                    out.push(SlotAsset { slot, name: name.clone(), kind, media });
-                }
+        let set: Vec<&toml::Value> = match v {
+            toml::Value::Array(list) if kind == AssetKind::Model => list.iter().collect(),
+            toml::Value::Array(_) => {
+                problems.push(format!("asset '{name}': only a model slot holds a list"));
+                continue;
             }
-            Err(e) => problems.push(format!("asset '{name}': {e}")),
+            one => vec![one],
+        };
+        let before = problems.len();
+        let mut named = Vec::with_capacity(set.len());
+        for v in set {
+            match media_of(v) {
+                Ok(media) => {
+                    for path in std::iter::once(&media.src).chain(media.variants.values()) {
+                        if let Some(e) = path_problem(path, kind) {
+                            problems.push(format!("asset '{name}': {e}"));
+                        }
+                    }
+                    named.push(SlotAsset { slot, name: name.clone(), kind, media });
+                }
+                Err(e) => problems.push(format!("asset '{name}': {e}")),
+            }
+        }
+        if problems.len() == before {
+            out.extend(named);
         }
     }
     if problems.is_empty() {
@@ -136,5 +150,17 @@ mod tests {
         assert_eq!(bad(r#"assets = { ir = { path = "a/b.wav" } }"#), "asset 'ir': 'path' is not part of a file (a CDN path) or { src, variants = { low, medium, high } }");
         assert_eq!(bad("assets = 3"), "`assets` is a table: slot = a file or { src, variants }");
         assert_eq!(of(&params(r#"assets = { ir = "a/b.wav" }"#), &[]).unwrap_err(), ["asset 'ir': the module has no asset slots"]);
+        assert_eq!(bad(r#"assets = { ir = ["a/b.wav"] }"#), "asset 'ir': only a model slot holds a list");
+        assert_eq!(bad(r#"assets = { puff = ["a/b.glb", "a/c.png"] }"#), "asset 'puff': 'a/c.png' is no .glb file");
+    }
+
+    /// a model slot holds a set, in its order; one file is a set of one, an empty list none
+    #[test]
+    fn a_model_slot_holds_a_set() {
+        let got = of(&params(r#"assets = { puff = ["scutoons/3d/a.glb", { src = "scutoons/3d/b.glb" }] }"#), &SLOTS).unwrap();
+        let files: Vec<(usize, &str)> = got.iter().map(|a| (a.slot, a.media.src.as_str())).collect();
+        assert_eq!(files, [(2, "scutoons/3d/a.glb"), (2, "scutoons/3d/b.glb")]);
+        assert_eq!(of(&params(r#"assets = { puff = "scutoons/3d/a.glb" }"#), &SLOTS).unwrap().len(), 1);
+        assert_eq!(of(&params("assets = { puff = [] }"), &SLOTS).unwrap(), []);
     }
 }

@@ -34,7 +34,7 @@ sync = 1.0
 tint = 60.0
 
 [node.assets]
-puff = "scutoons/3d/cloud-puff.glb"
+puff = ["scutoons/3d/cloud-three-blobs.glb", "scutoons/3d/cloud-four-blobs.glb"]
 
 [[node]]
 id = "storm_thunder"
