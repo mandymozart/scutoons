@@ -14,6 +14,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Palette D – no signal hue.** On, focus, active and selected are the text colour. The one primary action is the pressed fill. Colour only says ok, warning, error. (H11)
 - **Grounds are see-through**, never an opaque grey: the text colour at a low strength (control 6 %, hover 10 %, selected 16 %). Menus stay opaque.
 - **Kit D is approved** (kit-d.html), all 14 points as drawn; the tab's hover border is the text colour.
+- **The Spores view's dots cover the whole canvas:** a faint ground everywhere, a group's dots in its colour on top, brighter under the pointer.
 - **The spores are part of the kit:** the Spores view's ground with its dots, a group (its frame, its dots and edge in its colour, its head with fold, swatch and name), the spore's card and its states, its face (its result), a run's marks, a plug (its shape and colour are its signal's), a pore (for a whole being), a cable (hanging, with beads when its signal passes), a take – one definition for both apps.
 - **The kit's one source of truth is a top-level `kit/` folder:** a neutral `kit/tokens.toml` (the tokens and each component's states) and a README. The deck's UI crate and the creator's UI kit both come from it; it is the place to go for reference and to refine.
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
