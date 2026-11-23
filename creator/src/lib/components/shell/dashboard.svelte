@@ -6,15 +6,15 @@
 	import { recent } from '$lib/recent.svelte.ts';
 	import { firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards, type WorkspaceCard } from '$lib/shell/dashboard.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
-	import BarFind from '$lib/components/shell/bar-find.svelte';
 	import DashboardBoxes from '$lib/components/shell/dashboard-boxes.svelte';
 	import DashboardFoot from '$lib/components/shell/dashboard-foot.svelte';
+	import Launcher from '$lib/components/shell/launcher.svelte';
 	import WorkspaceCardView from '$lib/components/shell/workspace-card.svelte';
 
 	/**
 	 * The dashboard – the app switcher (research/redesign/lap/crafts-v2.html views `dash`, `first`): over everything, the
-	 * stage dimmed and blurred under it; the menu button or Esc goes back to where you were. On top the open-anything
-	 * field, then Last opened · Needs review / Not published, then the workspaces – flat, the front one first, then most
+	 * stage dimmed and blurred under it; the menu button or Esc goes back to where you were. On top the launcher
+	 * (inline), then Last opened · Needs review / Not published, then the workspaces – flat, the front one first, then most
 	 * used – each showing what is open in it. Tab / Shift Tab and the arrows move the ring, Enter opens; typing finds.
 	 * Nothing used yet: the welcome – Not published in her toons, the workspaces empty. Nothing explains itself.
 	 */
@@ -61,7 +61,8 @@
 	const typing = (el: Element | null) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
 
 	function onKeydown(event: KeyboardEvent) {
-		if (!box) return;
+		// the launcher over everything takes its own keys
+		if (!box || shell.launcher) return;
 		// a menu open inside (Views, help): its own Escape and keys
 		if (box.querySelector('[aria-expanded="true"]')) return;
 		const active = document.activeElement;
@@ -91,8 +92,8 @@
 			focusRing(rowStep(ring, event.key === 'ArrowDown' ? 1 : -1, count, columns()));
 			return;
 		}
-		// typing finds: the open-anything field takes the key
-		if (event.key.length === 1 && event.key !== ' ') box.querySelector<HTMLInputElement>('[data-testid="home-find-input"]')?.focus();
+		// typing finds: the launcher field takes the key
+		if (event.key.length === 1 && event.key !== ' ') box.querySelector<HTMLInputElement>('[data-testid="launcher-input"]')?.focus();
 	}
 </script>
 
@@ -101,7 +102,7 @@
 <div class="dashboard" bind:this={box} role="dialog" aria-modal="true" aria-label={m['shell.dashboard']()} data-testid="dashboard">
 	<div class="body">
 		{#if welcome}<h1 class="hello" data-testid="dash-welcome">{m['shell.dash_welcome']({ name: greetName(session.user?.email ?? '') })}</h1>{/if}
-		<div class="find"><BarFind onpick={() => (shell.dashboard = false)} /></div>
+		<div class="find"><Launcher inline onpick={() => (shell.dashboard = false)} /></div>
 		<DashboardBoxes {welcome} />
 		<h2 class="label">{m['shell.workspaces']()}</h2>
 		<div class="cards" bind:this={grid}>

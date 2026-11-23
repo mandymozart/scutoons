@@ -8,9 +8,11 @@ import { viewsOn, type Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
 import { PRESETS, tabIdOf } from './presets.ts';
 import { clampSplit, freeRoom } from './stage.ts';
+import { readPicks, remember, type LaunchEntry, type LaunchPick } from './launcher.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
+const PICKS_KEY = 'sc-creator-launcher';
 
 function readJson(key: string): unknown {
 	try {
@@ -67,6 +69,10 @@ class Shell {
 	wanted = $state<string | null>(null);
 	/** the dashboard lies over everything (the menu button, Esc back); `views`: with the front workspace's Views open */
 	dashboard = $state<false | 'cards' | 'views'>(false);
+	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
+	launcher = $state(false);
+	/** the launcher's recent picks, newest first */
+	picks = $state<LaunchPick[]>(typeof localStorage === 'undefined' ? [] : readPicks(readJson(PICKS_KEY)));
 
 	readonly front = $derived(frontTab(this.state));
 	/** the views on the stage in the front workspace (the floats keep them); empty: the workspace's own view */
@@ -139,6 +145,15 @@ class Shell {
 		this.floats?.reset();
 		const { [this.kind]: _gone, ...views } = this.settings.views;
 		this.change({ views });
+	}
+
+	/** the launcher over everything, or away again – the keys call it, and the pad's Y once the shell reads a pad */
+	toggleLauncher(open = !this.launcher) {
+		this.launcher = open;
+	}
+	remember(entry: LaunchEntry) {
+		this.picks = remember(this.picks, entry);
+		writeJson(PICKS_KEY, this.picks);
 	}
 
 	open(tab: string) {
