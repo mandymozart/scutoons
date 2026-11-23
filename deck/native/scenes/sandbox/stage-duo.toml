@@ -112,6 +112,10 @@ id = "right_fft"
 kind = "fft"
 
 [[node]]
+id = "right_trigger_sing"
+kind = "add"
+
+[[node]]
 id = "left_look"
 kind = "look"
 at = [0.0, 0.0, 0.0]
@@ -120,17 +124,17 @@ spot = "spot_left"
 who = "character:catpope"
 
 [node.being]
-breath = 0.03500000014901161
+breath = 0.0
 bubbles = 1.0
 character = "catpope"
-drift = 0.05999999865889549
+drift = 0.0
 expose = ["left_voice_voice.ratio", "left_voice_voice.index", "left_voice_voice.gain", "left_voice_melody.spread", "left_voice_melody.rate", "left_voice_melody.glide", "left_drone_drone.freq", "left_drone_drone.gain"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
-wobble = 0.02500000037252903
+wobble = 0.0
 
 [[node]]
 id = "right_look"
@@ -141,17 +145,17 @@ spot = "spot_right"
 who = "character:toptoy"
 
 [node.being]
-breath = 0.03500000014901161
+breath = 0.0
 bubbles = 1.0
 character = "toptoy"
-drift = 0.05999999865889549
+drift = 0.0
 expose = ["right_voice_voice.gain", "right_voice_voice.vowel", "right_voice_voice.vibrato", "right_voice_voice.breath", "right_voice_melody.spread", "right_voice_melody.rate"]
 feel = []
 hose = 1.0
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 react = []
 size = 0.5
-wobble = 0.02500000037252903
+wobble = 0.0
 
 [[link]]
 from = "left_voice_melody.cv"
@@ -231,11 +235,17 @@ to = "right_look.mouth"
 scale = 4.0
 offset = 0.0
 
+[[link]]
+from = "right_trigger_sing.out"
+to = "right_voice_melody.open"
+scale = 1.0
+offset = 0.0
+
 [being]
 size = 0.5
-drift = 0.05999999865889549
-breath = 0.03500000014901161
-wobble = 0.02500000037252903
+drift = 0.0
+breath = 0.0
+wobble = 0.0
 hose = 1.0
 bubbles = 1.0
 expose = []

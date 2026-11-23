@@ -10,6 +10,7 @@ use Scutoons\Domain\Campaigns\Giveaways;
 use Scutoons\Domain\Campaigns\Invites;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
+use Scutoons\Domain\Crafts\Crafts;
 use Scutoons\Domain\Events\EventLog;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
@@ -52,6 +53,7 @@ final class LoginService
         private readonly Mailer $mailer,
         private readonly Invites $invites,
         private readonly Giveaways $giveaways,
+        private readonly Crafts $crafts,
     ) {
     }
 
@@ -223,7 +225,10 @@ final class LoginService
                 $used = $this->db->run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [$this->clock->utc(), $request['id']]);
                 if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
                 $user = $this->users->byEmail((string) $request['email']);
-                if ($user) return [$user, false, $this->sessions->create((string) $user['id']), null];
+                if ($user) {
+                    $this->crafts->accept($user);
+                    return [$user, false, $this->sessions->create((string) $user['id']), null];
+                }
 
                 // Signup rule: only with a code of a type with "signup": true (checked again – it may have changed)
                 $refusal = $this->codes->signupRefusal($code, (string) $request['email']);
@@ -241,6 +246,8 @@ final class LoginService
                 $this->invites->deliverTo($user, $code);
                 // a giveaway's promo code gets its campaign's reading rule (agents/research/CAMPAIGN-GIFTS.md §3)
                 $this->giveaways->joined($user, $code);
+                // an admin's invite: its crafts are the member's
+                $this->crafts->accept($user);
                 return [$user, true, $this->sessions->create((string) $user['id']), $claimedNew];
             });
         } catch (ApiError $error) {

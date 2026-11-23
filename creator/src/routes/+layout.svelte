@@ -13,6 +13,7 @@
 	import CoreUnitsProvider from '$lib/components/fields/core-units-provider.svelte';
 	import CoreHistoryProvider from '$lib/components/page/core-history-provider.svelte';
 	import CorePlacesProvider from '$lib/components/page/core-places-provider.svelte';
+	import CoreModelProvider from '$lib/components/page/core-model-provider.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -41,6 +42,7 @@
 {/if}
 <CoreHistoryProvider />
 <CorePlacesProvider />
+<CoreModelProvider />
 {#if away}<DesktopNotice />{/if}
 
 <style>

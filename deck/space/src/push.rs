@@ -48,6 +48,8 @@ pub enum Want {
     Full { character: String, mood: String },
     /// a character's 3D model
     Model { character: String },
+    /// the shared animation its model plays when it stands (#817, deck-catalog skeleton.rs)
+    Idle { character: String },
     /// a file named by its CDN path (a stage background's image): immutable, so the path is its version
     Media { path: String },
 }
@@ -131,6 +133,13 @@ pub struct CharacterContent {
     /// its look's 3D model, else its persona's
     #[serde(default)]
     pub model: Option<File>,
+    /// its persona's idle (#817): an animation asset its model plays by joint name, instead of the model's own first clip
+    #[serde(default)]
+    pub idle: Option<File>,
+    /// its persona's idle as a clip of its own model, by name (#817: Giant Popstar's `walk`); none = the idle above, else
+    /// the model's first clip
+    #[serde(default)]
+    pub clip: Option<String>,
 }
 
 impl CharacterContent {
@@ -199,6 +208,7 @@ impl Content {
             Want::Portrait { character, mood } => self.character_file(character, |a| a.portraits.get(mood)),
             Want::Full { character, mood } => self.character_file(character, |a| a.full.get(mood)),
             Want::Model { character } => self.character_file(character, |a| a.model.as_ref()),
+            Want::Idle { character } => self.character_file(character, |a| a.model.as_ref().and(a.idle.as_ref())),
             Want::Media { .. } => Ok(None),
         }
     }
@@ -448,7 +458,8 @@ impl Push {
                     let faces = art.into_iter().flat_map(|a| a.portraits.iter().map(|(mood, f)| slot(face(mood), Some(f))));
                     let full = art.into_iter().flat_map(|a| a.full.iter().map(|(mood, f)| slot(Want::Full { character: c.clone(), mood: mood.clone() }, Some(f))));
                     let model = art.and_then(|a| a.model.as_ref()).map(|f| slot(Want::Model { character: c.clone() }, Some(f)));
-                    item(name, faces.chain(full).chain(model).collect())
+                    let idle = art.and_then(|a| a.model.as_ref().and(a.idle.as_ref())).map(|f| slot(Want::Idle { character: c.clone() }, Some(f)));
+                    item(name, faces.chain(full).chain(model).chain(idle).collect())
                 }
                 (None, Err(e)) => why(name, e),
                 (None, Ok(_)) => match cache.moods(c) {
@@ -1111,7 +1122,10 @@ mod tests {
         assert_eq!((c.look_form("catpope"), c.look_form("toptoy"), c.look_form("ghost")), (Some(Form::Card), None, None));
         let p = Push::plan(&SceneSync { sets: None, ..push(&["catpope"]) }, &[], "", &c, &Api::Answered, &NoCache);
         let full = Want::Full { character: "catpope".into(), mood: "neutral".into() };
-        assert_eq!(p.wants().cloned().collect::<Vec<_>>(), [Want::Portrait { character: "catpope".into(), mood: "neutral".into() }, full, Want::Model { character: "catpope".into() }], "portraits, full views, the model");
+        let idle = Want::Idle { character: "catpope".into() };
+        assert_eq!(p.wants().cloned().collect::<Vec<_>>(), [Want::Portrait { character: "catpope".into(), mood: "neutral".into() }, full, Want::Model { character: "catpope".into() }, idle.clone()], "portraits, full views, the model, its idle");
+        assert_eq!(c.file(&idle).unwrap().map(|f| f.path.as_str()), Some("characters/animations/catpope-idle.glb"), "#817: the persona's idle");
+        assert_eq!(c.characters["toptoy"].clip.as_deref(), Some("walk"), "#817: an idle clip of its own model");
     }
 
     #[test]

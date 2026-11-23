@@ -367,6 +367,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "bamboo-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -696,6 +703,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -766,6 +780,13 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "context-probe-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
+name = "convolver-module"
 version = "0.1.0"
 dependencies = [
  "deck-module",
@@ -1321,13 +1342,20 @@ dependencies = [
 name = "deck-headless"
 version = "0.1.0"
 dependencies = [
+ "analog-module",
+ "arp-module",
+ "deck-catalog",
  "deck-core",
  "deck-events",
+ "deck-module",
  "deck-show",
  "deck-space",
  "deck-ui",
+ "delay-module",
+ "drumseq-module",
  "live-core",
  "protocol",
+ "reverb-module",
  "serde",
  "serde_json",
  "toml 0.8.23",
@@ -1363,6 +1391,7 @@ dependencies = [
 name = "deck-media"
 version = "0.1.0"
 dependencies = [
+ "deck-catalog",
  "libc",
  "matroska-demuxer",
  "rav1d",
@@ -1446,6 +1475,7 @@ dependencies = [
  "deck-engine",
  "deck-events",
  "deck-link",
+ "deck-media",
  "deck-media-hw",
  "deck-module-host",
  "deck-outlet",
@@ -1467,7 +1497,6 @@ dependencies = [
  "rusty_link",
  "serde",
  "serde_json",
- "symphonia",
  "tokio",
  "toml 0.8.23",
  "toml_edit 0.22.27",
@@ -1535,7 +1564,9 @@ name = "deck-space"
 version = "0.1.0"
 dependencies = [
  "ab_glyph",
+ "analog-module",
  "anyhow",
+ "arp-module",
  "bytemuck",
  "deck-catalog",
  "deck-core",
@@ -1547,6 +1578,8 @@ dependencies = [
  "deck-module",
  "deck-outlet",
  "deck-ui",
+ "delay-module",
+ "drumseq-module",
  "egui-wgpu",
  "font8x8",
  "glam",
@@ -1555,6 +1588,7 @@ dependencies = [
  "protocol",
  "qrcodegen",
  "resvg",
+ "reverb-module",
  "rqrr",
  "schemars",
  "serde",
@@ -4755,6 +4789,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sampler-module"
+version = "0.1.0"
+dependencies = [
+ "deck-module",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4820,8 +4861,11 @@ dependencies = [
  "analog-module",
  "anyhow",
  "arp-module",
+ "bamboo-module",
  "base64",
  "bob-module",
+ "cloud-module",
+ "convolver-module",
  "deck-catalog",
  "deck-core",
  "deck-module",
@@ -4840,6 +4884,7 @@ dependencies = [
  "osc-module",
  "proc-macro2",
  "reverb-module",
+ "sampler-module",
  "serde",
  "serde_json",
  "sha2 0.10.9",

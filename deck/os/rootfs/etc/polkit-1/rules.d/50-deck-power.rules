@@ -1,0 +1,9 @@
+// The stage's menu SHUTDOWN (#796): the user `deck` powers the deck off through logind (`systemctl poweroff`), also
+// with an SSH session open or an inhibitor held – no password, no terminal.
+polkit.addRule(function (action, subject) {
+    if (subject.user == "deck" && (action.id == "org.freedesktop.login1.power-off" ||
+            action.id == "org.freedesktop.login1.power-off-multiple-sessions" ||
+            action.id == "org.freedesktop.login1.power-off-ignore-inhibit")) {
+        return polkit.Result.YES;
+    }
+});

@@ -44,7 +44,7 @@ pub fn builtin(name: &str) -> Option<&'static str> {
 }
 
 /// The sandboxes by name (#427): the files of deck/native/scenes/sandbox/ – hardware and engine checks, then demos.
-pub const SANDBOX: [&str; 18] = [
+pub const SANDBOX: [&str; 21] = [
     "channel-walk",
     "cue-34",
     "surround-51",
@@ -60,9 +60,12 @@ pub const SANDBOX: [&str; 18] = [
     "catpope-analog",
     "module-walk",
     "module-analog",
+    "sound-light",
     "stage-duo",
     "stage-cards",
     "crows-rave",
+    "cloud-light",
+    "bamboo-delay",
 ];
 
 /// What a bare scene name is (#427).
@@ -134,12 +137,18 @@ pub fn sandbox(name: &str) -> Option<&'static str> {
         // #406: they play compiled rig modules, so they need the `modules` build and the modules' wasm in `DECK_MODULES`
         "module-walk" => include_str!("../../native/scenes/sandbox/module-walk.toml"),
         "module-analog" => include_str!("../../native/scenes/sandbox/module-analog.toml"),
+        // drumseq, analog, env and stepseq – the `modules` build, as above
+        "sound-light" => include_str!("../../native/scenes/sandbox/sound-light.toml"),
         // #492: scene:stage resolved with two fillers – written by scene_resolve.rs's test, never by hand
         "stage-duo" => include_str!("../../native/scenes/sandbox/stage-duo.toml"),
         // #495: a 3D stage with a character's look and an item's card – written by scene_resolve.rs's test, never by hand
         "stage-cards" => include_str!("../../native/scenes/sandbox/stage-cards.toml"),
         // #747: arp, analog, delay and reverb modules – the `modules` build
         "crows-rave" => include_str!("../../native/scenes/sandbox/crows-rave.toml"),
+        // #780: the cloud, analog and mixer modules – the `modules` build; written by deck-native's cloud_light.rs test
+        "cloud-light" => include_str!("../../native/scenes/sandbox/cloud-light.toml"),
+        // #780: the bamboo, analog and delay modules – the `modules` build; written by deck-native's bamboo_forest.rs test
+        "bamboo-delay" => include_str!("../../native/scenes/sandbox/bamboo-delay.toml"),
         _ => return None,
     })
 }
@@ -211,18 +220,29 @@ pub fn look_id(prefix: &str) -> String {
     format!("{prefix}look")
 }
 
+/// What a holder chose for its member: its form (none = the stage's) and its model's clip by name (#817; none = its idle)
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Chosen<'a> {
+    pub form: Option<crate::cast::Form>,
+    pub clip: Option<&'a str>,
+}
+
 /// The `look` node of a member on a stage of several holders (#492, scene_resolve.rs; graph.rs `Kind::Look`): its params
 /// are the holder, who stands there (`who`: its place, `character:<id>` / `item:<id>` – cast.rs decides its form from it,
 /// #495), the holder's chosen form (`form`, none = the stage's), where it stands (`spot`, none = the scene's spot; `at`,
 /// metres from it) and its being's look (`being`, the character named for the head) – what the space draws there. Its
 /// inputs take its own rig's links to the being.
-pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, form: Option<crate::cast::Form>, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, chosen: Chosen<'_>, spot: Option<&str>, at: [f32; 3], look: BeingLook) -> NodeDef {
+    let Chosen { form, clip } = chosen;
     let character = who.character();
     let mut params = toml::Table::new();
     params.insert("holder".into(), holder.into());
     params.insert("who".into(), who.place().into());
     if let Some(f) = form {
         params.insert("form".into(), f.word().into());
+    }
+    if let Some(c) = clip {
+        params.insert("clip".into(), c.into());
     }
     if let Some(s) = spot {
         params.insert("spot".into(), s.into());
@@ -244,6 +264,20 @@ pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, form: Optio
     };
     params.insert("being".into(), toml::Value::Table(being));
     NodeDef { id: look_id(prefix), kind: "look".into(), params }
+}
+
+/// A look node's placed rig and body: `rig` – the subject of a placed rig (it stands there itself, cast.rs), `body` – its
+/// rig's model by CDN path, `height` – the body's in metres (none = its kind's card height).
+pub fn body_params(look: &mut NodeDef, placed: Option<&str>, body: Option<&crate::rig::body::Body>) {
+    if let Some(subject) = placed {
+        look.params.insert("rig".into(), subject.into());
+    }
+    if let Some(b) = body {
+        look.params.insert("body".into(), b.model.as_str().into());
+        if let Some(h) = b.height {
+            look.params.insert("height".into(), toml::Value::Float(f64::from(h)));
+        }
+    }
 }
 
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]

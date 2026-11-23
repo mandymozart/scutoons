@@ -2,7 +2,8 @@
 //! engine with the real modules (arp, analog, drumseq, delay, reverb as wasm in wasmtime). A held A3 on MIDI input 1,
 //! channel 1 plays three crows in eighths a diminished triad apart on the 160 BPM clock; the drum machine plays the groove
 //! with the transport; Stop stops all four; two runs render the same samples. The headless host has no module runtime (#290), so this is the scene's scenario. `CROWS_OUT_DIR=<dir>` also
-//! writes 8 s of it as `<dir>/crows-rave.wav` and its scene document as `<dir>/crows-rave.scene.json` (the editor opens it).
+//! writes 8 s of it as `<dir>/crows-rave.wav` and its scene document (deck/headless/documents/crows-rave.json, whose resolve the sandbox
+//! is: deck-space tests/crows_rave.rs) as `<dir>/crows-rave.scene.json` (the editor opens it).
 #![cfg(all(feature = "modules", feature = "events"))]
 use deck_engine::{DeckConfig, Engine, ModuleSource, Opened, Seams, Sequencing};
 use deck_events::adapters::midi::Midi;
@@ -45,15 +46,20 @@ fn load_modules() {
 struct Unbudgeted;
 
 impl ModuleSource for Unbudgeted {
-    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64) -> anyhow::Result<Opened> {
+    fn open(&self, kind: deck_space::modreg::ModuleKind, rate: f64, seed: u64, assets: Vec<deck_module_host::AssetData>) -> anyhow::Result<Opened> {
         let loaded = Library::global().of_kind(kind).ok_or_else(|| anyhow::anyhow!("the module '{}' is not loaded", kind.spec().kind))?;
-        let instance = Instance::with_setup(&loaded, Setup::new(rate, seed).mode(Mode::Show).unbudgeted())?.into_host();
+        let instance = Instance::with_setup(&loaded, assets.into_iter().fold(Setup::new(rate, seed).mode(Mode::Show).unbudgeted(), Setup::asset))?.into_host();
         Ok(Opened { instance: Box::new(instance), layout: loaded.layout.clone(), params: loaded.desc.params.len() })
     }
 }
 
 fn scene() -> Scene {
     Scene::parse(deck_space::scene::sandbox("crows-rave").expect("the sandbox")).unwrap()
+}
+
+/// the scene document the sandbox is resolved from
+fn document() -> deck_space::scene_document::SceneDocument {
+    deck_space::scene_document::SceneDocument::parse_json(include_str!("../../headless/documents/crows-rave.json")).unwrap()
 }
 
 fn param(scene: &Scene, node: &str, key: &str) -> f64 {
@@ -91,8 +97,8 @@ fn the_scene_is_the_plan_s() {
         assert!(s.links.iter().any(|l| l.from == format!("drumseq.lane{}", i + 1) && l.to == format!("drum-{lane}.notes")), "lane {} plays {lane}", i + 1);
     }
     assert!((20.0 * param(&s, "drums", "gain").log10() + 6.0).abs() < 0.01, "drums −6 dB");
-    // the same graph is a scene document the API takes (the production form, saved as a draft)
-    let doc = deck_space::scene_document::SceneDocument::from_scene("crows-rave", vec!["sandbox".into()], &s);
+    // the scene document the API takes (the production form, saved as a draft): the holders over these nodes
+    let doc = document();
     assert_eq!(doc.check(), Vec::<String>::new());
 }
 
@@ -221,6 +227,6 @@ fn render_the_scene_when_asked() {
     wav.extend_from_slice(&data);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(std::path::Path::new(&dir).join("crows-rave.wav"), wav).unwrap();
-    let doc = deck_space::scene_document::SceneDocument::from_scene("crows-rave", vec!["sandbox".into()], &scene());
+    let doc = document();
     std::fs::write(std::path::Path::new(&dir).join("crows-rave.scene.json"), doc.to_json().unwrap()).unwrap();
 }

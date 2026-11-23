@@ -13,7 +13,7 @@
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
-import { getDraft, getVersion, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
+import { getDraft, getVersion, putDraft, type ContentVersion } from '$lib/api.ts';
 import {
 	clone,
 	deepEqual,
@@ -531,24 +531,6 @@ export class ContentDoc {
 			// a refused save is the caller's notice (the session's bar; a conflict: Reload / Overwrite), never `error` –
 			// that is a load error and replaces the whole editor: a text the server refuses (a syntax error in `{…}`,
 			// agents/EXPRESSIONS.md step 4) must stay editable
-		} finally {
-			this.saving = false;
-		}
-	}
-
-	/** Publishes the newest stored version of every locale (save first). */
-	async publish(): Promise<string[]> {
-		const done: string[] = [];
-		this.saving = true;
-		try {
-			for (const l of this.stored) {
-				const result = await publishVersion(this.key(l), this.base[l] ?? undefined);
-				this.published[l] = result.version.id;
-				// the published version = the saved one: its positions are frozen from now on (BACKLOG 10.41)
-				if (this.kind === 'season' && this.saved[l]) this.publishedSequences[l] = sequenceOf(this.saved[l]);
-				done.push(l);
-			}
-			return done;
 		} finally {
 			this.saving = false;
 		}

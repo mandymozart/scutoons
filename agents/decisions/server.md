@@ -1,7 +1,13 @@
 # decisions/server — data, assets, media, catalog, MCP, embassy, newsletter, deploy, dev, process
 
 The owner's words, one line each, newest first, append-only (how: agents/DECISIONS.md). Grep by key, read only what you need.
-Keys here: `[data]` 31 stored data, documents, versions · `[assets]` 21 media assets and storage · `[catalog]` 14 the catalog in the DB · `[embassy]` 10 the embassy · `[deploy]` 7 deploy and cutover · `[mcp]` 7 the SCUTOONS MCP · `[media]` 7 media formats · `[newsletter]` 7 newsletter · `[process]` 5 how work is run · `[admin]` 4 the admin app · `[git]` 1 git and branches · `[legal]` 1 legal
+Keys here: `[data]` 31 stored data, documents, versions · `[assets]` 25 media assets and storage · `[catalog]` 14 the catalog in the DB · `[embassy]` 10 the embassy · `[deploy]` 7 deploy and cutover · `[mcp]` 7 the SCUTOONS MCP · `[media]` 7 media formats · `[newsletter]` 7 newsletter · `[process]` 5 how work is run · `[admin]` 4 the admin app · `[git]` 1 git and branches · `[legal]` 1 legal
+
+## 2026-11
+- 2026-11-23 · assets · [assets] **A clip is chosen by name** – a character's default idle may name a clip of its own model or a library animation, a scene holder may override it (`clip`); one rule for creator, server and stage · "the stage always plays a model's first clip" (Giant Popstar stands instead of her walk) · → ASSETS.md "Shared animations"
+- 2026-11-23 · assets · [assets] **Giant Popstar's walk stays in her own model**, not in the library – the library is for shareable animations · "keep it her own" · → ASSETS.md "Shared animations"
+- 2026-11-22 · assets · [assets] **Compatibility is checked, more skeleton families will come** – a skeleton is its joint-name set plus a family label from a table (Mixamo first); fit = the model has every joint the animation turns, one rule used by picker, save check and stage · "there will be more skeleton families, so compatibility has to be checked." · → ASSETS.md "Shared animations"
+- 2026-11-22 · assets · [assets] **Shared animations are assets of their own**, applied by bone name to any character with a matching skeleton – chosen over baking clips into each model · "can we start storing shareable animations into our asset library? because we can reuse them across characters" · → ASSETS.md "Shared animations"
 
 ## 2026-10
 - 2026-10-21 · data · [data] old document versions are purged in the admin (Data → Old versions, by hand, "every once in a while"): history before a day, never published / newest / a review's; dry run, then the delete with its counts (#154) · "can we have a routine that does that every once in a while in the admin? a purge old versions from a date backwards" · → DATA.md §2

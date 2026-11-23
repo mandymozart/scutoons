@@ -38,7 +38,8 @@ use stdClass;
  *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
  *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer). A code rig (`policy`,
  *   #408 / #414) also names its policy module, `modules: [id]`; the top-level `modules` map (there only when a rig has one)
- *   holds its descriptor as `data` (`Bundle.module`) – never its sources.
+ *   holds its descriptor as `data` (`Bundle.module`) – never its sources. An item whose rig names a 3D body (`body.model`,
+ *   deck-space rig/body.rs) has it as `items.<id>.body` (`{ path, size }`): the file the deck syncs and draws the rig as.
  * - `&presets=<ids>` adds factory presets to the top-level map with their ancestors; an unknown id lands in
  *   `missing.presets`. Everything is public like the catalog and the registry (readers save nothing, #302).
  */
@@ -250,7 +251,7 @@ final class SceneContent
         foreach (array_values(array_unique($items)) as $id) {
             $found = $rig("item.$id");
             if ($found === null) $answer['missing']['items'][] = $id;
-            else $answer['items'][$id] = ['rig' => $found];
+            else $answer['items'][$id] = ['rig' => $found] + (($body = self::body($found['data'])) === null ? [] : ['body' => $body]);
         }
         // #270: the asked presets (a member's own derivatives, or factory ones) with their ancestors
         $answer['missing']['presets'] = [];
@@ -358,7 +359,7 @@ final class SceneContent
                 $out['missing']['characters'][] = $id;
                 continue;
             }
-            [$character, $persona, $look, $personaModel] = $found;
+            [$character, $persona, $look, $personaModel, $idle] = $found;
             // per view: mood → file (the heads' portraits; #495 a stage's card shows the full view)
             $views = ['portrait' => [], 'full' => []];
             foreach (is_array($look['images'] ?? null) ? $look['images'] : [] as $mood => $files) {
@@ -377,6 +378,9 @@ final class SceneContent
                 'full' => (object) $views['full'],
                 'form' => in_array($look['form'] ?? null, self::FORMS, true) ? $look['form'] : null,
                 'model' => self::model($look['model'] ?? null) ?? self::model($personaModel),
+                // #817: the persona's idle – a library animation (a file the deck fetches) or a clip of its own model by name
+                'idle' => self::model($idle['animation'] ?? null),
+                'clip' => is_string($idle['clip'] ?? null) && trim($idle['clip']) !== '' ? trim($idle['clip']) : null,
             ];
         }
         return $out;
@@ -406,11 +410,11 @@ final class SceneContent
     }
 
     /**
-     * A deck's character name → [registry id, persona id, its default look, the persona's model]: the id itself, an old VN id, or
+     * A deck's character name → [registry id, persona id, its default look, the persona's model, its idle]: the id itself, an old VN id, or
      * `<character>-<persona>` (the first split whose left part is a character with that persona)
      *
      * @param array<string, array<mixed>> $byId
-     * @return array{0: string, 1: string, 2: array<mixed>, 3: mixed}|null
+     * @return array{0: string, 1: string, 2: array<mixed>, 3: mixed, 4: array<mixed>}|null
      */
     private static function resolve(string $id, array $byId): ?array
     {
@@ -428,10 +432,22 @@ final class SceneContent
                 if (!is_array($p) || ($p['id'] ?? null) !== $persona) continue;
                 $looks = array_values(array_filter(is_array($p['looks'] ?? null) ? $p['looks'] : [], 'is_array'));
                 $default = array_values(array_filter($looks, fn(array $l) => ($l['default'] ?? false) === true))[0] ?? $looks[0] ?? [];
-                return [$character, $persona, $default, $p['model'] ?? null];
+                $idle = is_array($p['animations'] ?? null) && is_array($p['animations']['idle'] ?? null) ? $p['animations']['idle'] : [];
+                return [$character, $persona, $default, $p['model'] ?? null, $idle];
             }
         }
         return null;
+    }
+
+    /**
+     * a rig's 3D body as a file (`{ path }`, its size filled later), null when it names none
+     * @return ?array{path: string}
+     */
+    public static function body(mixed $rig): ?array
+    {
+        $body = $rig instanceof stdClass ? ($rig->body ?? null) : null;
+        $model = $body instanceof stdClass ? ($body->model ?? null) : null;
+        return is_string($model) && $model !== '' ? ['path' => $model] : null;
     }
 
     /**
@@ -446,8 +462,12 @@ final class SceneContent
         foreach ($answer['characters'] as $c) {
             foreach ([...array_values((array) $c['portraits']), ...array_values((array) ($c['full'] ?? []))] as $f) $paths[] = $f['path'];
             if (is_array($c['model'] ?? null)) $paths[] = $c['model']['path'];
+            if (is_array($c['idle'] ?? null)) $paths[] = $c['idle']['path'];
         }
-        foreach ($answer['items'] ?? [] as $i) if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
+        foreach ($answer['items'] ?? [] as $i) {
+            if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
+            if (is_array($i['body'] ?? null)) $paths[] = $i['body']['path'];
+        }
         return array_values(array_unique($paths));
     }
 
@@ -470,9 +490,11 @@ final class SceneContent
             $answer['characters'][$id]['portraits'] = $fill($c['portraits']);
             if (isset($c['full'])) $answer['characters'][$id]['full'] = $fill($c['full']);
             if (is_array($c['model'] ?? null)) $answer['characters'][$id]['model'] = ['path' => $c['model']['path'], 'size' => $sizes[$c['model']['path']] ?? null];
+            if (is_array($c['idle'] ?? null)) $answer['characters'][$id]['idle'] = ['path' => $c['idle']['path'], 'size' => $sizes[$c['idle']['path']] ?? null];
         }
         foreach ($answer['items'] ?? [] as $id => $i) {
             if (is_array($i['picture'] ?? null)) $answer['items'][$id]['picture'] = ['path' => $i['picture']['path'], 'size' => $sizes[$i['picture']['path']] ?? null];
+            if (is_array($i['body'] ?? null)) $answer['items'][$id]['body'] = ['path' => $i['body']['path'], 'size' => $sizes[$i['body']['path']] ?? null];
         }
         return $answer;
     }

@@ -79,20 +79,20 @@
 		min-height: 0;
 		padding: var(--space-025);
 		text-align: left;
-		background: var(--paper);
-		color: var(--ink);
+		background: transparent;
+		color: var(--tool-text);
 		border: var(--border-width-regular) solid transparent;
 		cursor: pointer;
 		/* Shift + click picks a range – it never selects the cards' text */
 		user-select: none;
 	}
 	.shot:hover {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	/* picked, not the current one: an ink frame with a bar on its left – quieter than the inversion */
 	.shot.picked {
-		border-color: var(--ink);
-		box-shadow: inset var(--border-width-focus) 0 0 var(--ink);
+		border-color: var(--tool-text);
+		box-shadow: inset var(--border-width-focus) 0 0 var(--tool-text);
 	}
 	img {
 		display: block;
@@ -100,8 +100,8 @@
 		max-height: 5.5rem;
 		object-fit: cover;
 		object-position: top;
-		background: var(--paper);
-		border: var(--border-width-hairline) solid var(--border-subtle);
+		background: var(--tool-ground);
+		border: var(--border-width-hairline) solid var(--tool-line);
 		box-sizing: border-box;
 	}
 	.text {
@@ -145,6 +145,6 @@
 		background: currentColor;
 	}
 	.dot.change {
-		background: var(--state-warning);
+		background: var(--tool-warn);
 	}
 </style>

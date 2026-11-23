@@ -6,7 +6,7 @@
 //! triangle 3), hands it to the controls once a frame something changed and does what they answer: a stick's values on
 //! the being's knobs, the space's ring on the selection. Built with `--features gamepad`; without a pad nothing happens.
 use deck_space::controls::{Controls as Sticks, Selection};
-use deck_space::gamepad::{PadEvent, PadEvents, AXES, BACK, NEXT};
+use deck_space::gamepad::{PadEvent, PadEvents, AXES, BACK, NEXT, SING};
 use deck_space::graph::Graph;
 use deck_space::space::values::Knobs;
 use deck_space::space::Space;
@@ -16,7 +16,7 @@ use deck_space::space::Space;
 pub enum Input {
     /// axis `index` (0..3) at −1..1, y down
     Axis { index: usize, value: f32 },
-    /// button `index` (NEXT, BACK) pressed or let go
+    /// button `index` (NEXT, BACK, SING) pressed or let go
     Button { index: usize, pressed: bool },
     /// the pad went away: everything at rest
     Gone,
@@ -85,6 +85,11 @@ impl Pad {
                     continue;
                 }
             }
+            // the shoulder buttons step through the cast as Tab / Shift+Tab do (#496): RB the next, LB the one before
+            if let Some(back) = shoulder(&event.event) {
+                space.key("Tab", back);
+                continue;
+            }
             if let Some(input) = from_gilrs(&event.event) {
                 self.input(input);
             }
@@ -122,6 +127,9 @@ impl Pad {
                 PadEvent::Move(side, dx, dy) => self.drive(side, dx, dy, space, ctl),
                 PadEvent::Up(side) => self.sticks.stick_up(side),
                 PadEvent::Cycle { .. } => space.select_named(&self.sticks.selection().name()),
+                PadEvent::Sing(on) => {
+                    space.sing(on);
+                }
             }
         }
         events
@@ -161,6 +169,15 @@ pub fn from_gilrs(event: &gilrs::EventType) -> Option<Input> {
         gilrs::EventType::ButtonPressed(button, _) => button_input(button, true),
         gilrs::EventType::ButtonReleased(button, _) => button_input(button, false),
         gilrs::EventType::Disconnected => Some(Input::Gone),
+        _ => None,
+    }
+}
+
+/// a pressed shoulder button as a step through the cast: Some(true) = LB (the one before), Some(false) = RB (the next)
+pub fn shoulder(event: &gilrs::EventType) -> Option<bool> {
+    match *event {
+        gilrs::EventType::ButtonPressed(gilrs::Button::LeftTrigger, _) => Some(true),
+        gilrs::EventType::ButtonPressed(gilrs::Button::RightTrigger, _) => Some(false),
         _ => None,
     }
 }
@@ -215,14 +232,65 @@ pub fn axis_input(axis: gilrs::Axis, value: f32) -> Option<Input> {
     Some(Input::Axis { index, value: sign * value })
 }
 
-/// the selection buttons: south (A / cross) forward, north (Y / triangle) back
+/// the selection buttons: south (A / cross) forward, north (Y / triangle) back; west (X / square) sings while held
 pub fn button_input(button: gilrs::Button, pressed: bool) -> Option<Input> {
     let index = match button {
         gilrs::Button::South => NEXT,
         gilrs::Button::North => BACK,
+        gilrs::Button::West => SING,
         _ => return None,
     };
     Some(Input::Button { index, pressed })
+}
+
+/// #813: the menu's own pad reader, for while no scene's pad is there – the deck starts idle (#787 / #788), and a scene's
+/// [`Pad`] only exists over a space. It hears only what the menu takes: Start, the d-pad, A, B and, while the menu is
+/// open, the left stick as its arrows. While a scene's pad reads, this one is only drained (nothing doubles, nothing old
+/// is left for later).
+pub struct MenuPad {
+    gilrs: gilrs::Gilrs,
+    pushed: [i8; 2],
+}
+
+impl MenuPad {
+    /// The reader, or None when the pad system can't start (logged once; the menu still has the keys)
+    pub fn new() -> Option<MenuPad> {
+        match gilrs::Gilrs::new() {
+            Ok(gilrs) => Some(MenuPad { gilrs, pushed: [0; 2] }),
+            Err(e) => {
+                tracing::warn!("menu gamepad off: {e}");
+                None
+            }
+        }
+    }
+
+    /// This frame's events as the menu's inputs (`open`: the menu shows, the left stick steps it)
+    pub fn poll(&mut self, open: bool) -> Vec<deck_ui::menu::Input> {
+        let mut to_menu = Vec::new();
+        while let Some(event) = self.gilrs.next_event() {
+            to_menu.extend(menu_event(&event.event, open, &mut self.pushed));
+        }
+        to_menu
+    }
+
+    /// This frame's events thrown away: a scene's pad reads them
+    pub fn drain(&mut self) {
+        while self.gilrs.next_event().is_some() {}
+        self.pushed = [0; 2];
+    }
+}
+
+/// one gilrs event as the menu takes it with no scene: a button (Start, d-pad, A, B), or while `open` a left-stick step
+pub fn menu_event(event: &gilrs::EventType, open: bool, pushed: &mut [i8; 2]) -> Option<deck_ui::menu::Input> {
+    if let gilrs::EventType::AxisChanged(axis, value, _) = *event {
+        let slot = match axis {
+            gilrs::Axis::LeftStickX => 0,
+            gilrs::Axis::LeftStickY => 1,
+            _ => return None,
+        };
+        return if open { stick_step(&mut pushed[slot], value, slot == 0) } else { None };
+    }
+    menu_input(event)
 }
 
 #[cfg(test)]
@@ -270,6 +338,7 @@ mod tests {
         assert_eq!(axis_input(gilrs::Axis::RightStickX, 0.5), Some(Input::Axis { index: 2, value: 0.5 }));
         assert_eq!(axis_input(gilrs::Axis::LeftZ, 1.0), None, "a trigger isn't a stick");
         assert_eq!(button_input(gilrs::Button::North, true), Some(Input::Button { index: 3, pressed: true }));
+        assert_eq!(button_input(gilrs::Button::West, false), Some(Input::Button { index: 2, pressed: false }), "X sings");
         assert_eq!(button_input(gilrs::Button::Start, true), None);
     }
 

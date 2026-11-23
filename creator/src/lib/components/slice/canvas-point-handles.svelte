@@ -88,17 +88,17 @@
 		width: 0.875rem;
 		height: 0.875rem;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		border-radius: 50%;
-		background: var(--paper);
+		background: var(--tool-control);
 		transform: translate(-50%, -50%);
 		cursor: grab;
 		touch-action: none;
 	}
 	.dot.to {
-		background: var(--ink);
-		border-color: var(--paper);
-		outline: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-pressed);
+		border-color: var(--tool-ground);
+		outline: var(--border-width-regular) solid var(--tool-text);
 	}
 	.dot.dragging {
 		cursor: grabbing;

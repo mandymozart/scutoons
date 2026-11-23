@@ -68,13 +68,13 @@ pub fn make(node: &Node, index: usize, rate: f32, params: &[Param], h: &mut Hand
         Kind::Seq => {
             // a `bpm` of its own: free-running; else on the tempo clock's beat
             let beats = (!node.params.contains_key("bpm")).then(|| beats(h));
-            Box::new(Seq::new(node, rate, p("rate"), beats, follows(node)))
+            Box::new(Seq::new(node, rate, p("rate"), p("open"), beats, follows(node)))
         }
         Kind::Click => Box::new(Click::new(node, rate, p("gain"), beats(h), follows(node))),
         #[cfg(feature = "events")]
-        Kind::Walk => Box::new(super::walk::Host::walk(node, rate, [p("spread"), p("rate"), p("glide")], beats(h), follows(node), &mut h.events)?),
+        Kind::Walk => Box::new(super::walk::Host::walk(node, rate, [p("spread"), p("rate"), p("glide")], p("open"), beats(h), follows(node), &mut h.events)?),
         #[cfg(feature = "events")]
-        Kind::Events => Box::new(super::walk::Host::events(node, rate, [p("a"), p("b"), p("c"), p("d")], beats(h), follows(node), &mut h.events)?),
+        Kind::Events => Box::new(super::walk::Host::events(node, rate, [p("a"), p("b"), p("c"), p("d")], p("open"), beats(h), follows(node), &mut h.events)?),
         #[cfg(feature = "events")]
         Kind::World => super::walk::world_block(node, index, rate, beats(h), follows(node), seams.tuning, &mut h.events)?,
         Kind::ChapterMusic => {
@@ -326,13 +326,15 @@ struct Seq {
     per_sample: f32,
     gate: f32,
     rate: Param,
+    /// 0 shuts every gate (a trigger), 1 lets them through
+    open: Param,
     division: f64,
     beats: Option<BeatReader>,
     follow: Follow,
 }
 
 impl Seq {
-    fn new(node: &Node, sr: f32, rate: Param, beats: Option<BeatReader>, follow: Follow) -> Seq {
+    fn new(node: &Node, sr: f32, rate: Param, open: Param, beats: Option<BeatReader>, follow: Follow) -> Seq {
         let transpose = node.f32("transpose", 0.0);
         let mut hz: Vec<f32> = node
             .f32s("steps")
@@ -345,7 +347,7 @@ impl Seq {
         let held = hz.iter().copied().find(|&f| f > 0.0).unwrap_or(220.0);
         let steps_per_sec = node.f32("bpm", 120.0) / 60.0 * node.f32("division", 4.0);
         let division = node.f32("division", 4.0) as f64;
-        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate, division, beats, follow }
+        Seq { hz, step: 0, phase: 0.0, held, per_sample: steps_per_sec / sr, gate: node.f32("gate", 0.5), rate, open, division, beats, follow }
     }
 
     /// on the clock: the step and its phase from the beat of each frame; following the transport (#359), a stop holds
@@ -355,6 +357,7 @@ impl Seq {
         let played = self.follow.block(map, epoch, start, n);
         let per_beat = self.division * self.rate.get().max(0.0) as f64;
         let len = self.hz.len() as f64;
+        let open = self.open.get().clamp(0.0, 1.0);
         for i in 0..n {
             let map = played.at(i);
             let s = map.beat_at(start + i as f64) * per_beat;
@@ -362,7 +365,7 @@ impl Seq {
             if f > 0.0 {
                 self.held = f;
             }
-            let gate = if f > 0.0 && map.running && (s.rem_euclid(1.0) as f32) < self.gate { 1.0 } else { 0.0 };
+            let gate = if f > 0.0 && map.running && (s.rem_euclid(1.0) as f32) < self.gate { open } else { 0.0 };
             outs[0].put2(i, self.held, gate);
         }
         true
@@ -375,6 +378,7 @@ impl Block for Seq {
             return;
         }
         let inc = self.per_sample * self.rate.get().max(0.0);
+        let open = self.open.get().clamp(0.0, 1.0);
         for i in 0..n {
             self.phase += inc;
             if self.phase >= 1.0 {
@@ -385,7 +389,7 @@ impl Block for Seq {
             if f > 0.0 {
                 self.held = f;
             }
-            let gate = if f > 0.0 && self.phase < self.gate { 1.0 } else { 0.0 };
+            let gate = if f > 0.0 && self.phase < self.gate { open } else { 0.0 };
             outs[0].put2(i, self.held, gate);
         }
     }
@@ -514,6 +518,7 @@ mod tests {
                 .nodes[0],
             100.0,
             Param::new(1.0),
+            Param::new(1.0),
             None,
             Follow::new(true),
         );
@@ -525,6 +530,21 @@ mod tests {
         assert_eq!(out[0].ch(0)[150], 440.0); // the rest holds the last pitch, gate closed
         assert_eq!(out[0].ch(1)[150], 0.0);
         assert_eq!(out[0].ch(0)[210], 880.0); // A5
+    }
+
+    /// #819: `open` 0 shuts every gate (the pitch walks on), 1 lets them through
+    #[test]
+    fn the_sequencer_s_gates_wait_for_open() {
+        let graph = Graph::build(&Scene::parse("[[node]]\nid=\"s\"\nkind=\"seq\"\nbpm=60\ndivision=1\nsteps=[69, 81]\n").unwrap()).unwrap();
+        let open = Param::new(0.0);
+        let mut s = Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), open.clone(), None, Follow::new(true));
+        let mut out = [Buf::default()];
+        s.process(&[], &mut out, 150);
+        assert!(out[0].ch(1)[..150].iter().all(|g| *g == 0.0), "shut");
+        assert_eq!(out[0].ch(0)[120], 880.0, "the steps go on");
+        open.set(1.0);
+        s.process(&[], &mut out, 100);
+        assert_eq!(out[0].ch(1)[60], 1.0, "open: the next step's gate (frame 210)");
     }
 
     #[test]
@@ -544,7 +564,7 @@ steps=[69, 81]
         let frames = Arc::new(AtomicU64::new(0));
         // 60 BPM at 100 Hz: a beat = 100 frames, a step (division 2) = 50
         shared.publish(&TempoMap::new(60.0, 4, 100.0), false);
-        let mut s = Seq::new(node, 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
+        let mut s = Seq::new(node, 100.0, Param::new(1.0), Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
         let mut out = [Buf::default()];
         s.process(&[], &mut out, 200);
         assert_eq!((out[0].ch(0)[0], out[0].ch(1)[0]), (440.0, 1.0), "step 0 on beat 0");
@@ -579,7 +599,7 @@ steps=[69, 81]
         let frames = Arc::new(AtomicU64::new(0));
         let run = TempoMap::new(60.0, 4, 100.0);
         shared.publish(&run, false);
-        let mut s = Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
+        let mut s = Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Param::new(1.0), Some(BeatReader { shared: shared.clone(), frames: frames.clone() }), Follow::new(true));
         let mut out = [Buf::default()];
         s.process(&[], &mut out, 100);
         // the frame thread published ahead: stopped from frame 150, the block renders 100..200
@@ -625,7 +645,7 @@ follow_transport=false
         let run = TempoMap::new(60.0, 4, 100.0);
         shared.publish(&run, false);
         let beats = || Some(BeatReader { shared: shared.clone(), frames: frames.clone() });
-        let (mut free, mut tied) = (Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), beats(), follows(&graph.nodes[0])), Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), beats(), Follow::new(true)));
+        let (mut free, mut tied) = (Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Param::new(1.0), beats(), follows(&graph.nodes[0])), Seq::new(&graph.nodes[0], 100.0, Param::new(1.0), Param::new(1.0), beats(), Follow::new(true)));
         let mut out = [Buf::default()];
         free.process(&[], &mut out, 100);
         tied.process(&[], &mut out, 100);

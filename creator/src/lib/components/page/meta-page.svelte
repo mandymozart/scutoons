@@ -197,7 +197,7 @@
 		gap: 0.4rem;
 		align-items: center;
 		padding: 0.35rem 0.75rem;
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: 1px solid var(--tool-line);
 	}
 	/* the page's form in the stage's middle: the panels float beside it */
 	.content {
@@ -237,15 +237,15 @@
 		width: 0.45rem;
 		height: 0.45rem;
 		border-radius: 50%;
-		background: var(--warn);
+		background: var(--tool-warn);
 	}
 	.counts,
 	.label {
 		margin: 0;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.pad {
 		padding: 1rem;

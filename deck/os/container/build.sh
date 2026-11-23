@@ -111,7 +111,7 @@ if [ "${DECK_SANDBOXES:-}" = 1 ]; then
 fi
 chmod 755 "$PROFILE/airootfs/usr/bin/"deck-*
 wants="$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"; mkdir -p "$wants"
-for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge deck-link; do
+for u in NetworkManager iwd avahi-daemon sshd deck-firstboot deck-kiosk deck-relay deck-bridge deck-link deck-irq; do
   ln -sf "/usr/lib/systemd/system/$u.service" "$wants/$u.service"
 done
 # the venue certificate now and then (#201)

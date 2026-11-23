@@ -1,14 +1,13 @@
 <script lang="ts">
 	// The Assignment tab of the Sound page (#283): the open character's rig `rig:<subject>` as the designer's form, saved as
-	// a draft on its own a moment after each edit and published like any catalog document (rig-session.svelte.ts holds it, the Rust tab shares it: a code rig's
+	// a draft on its own a moment after each edit and published by the one Publish with what it plays (rig-session.svelte.ts holds it, the Rust tab shares it: a code rig's
 	// policy, #412), heard on the deck half at every change, and the characters without a default rig (the core's coverage
 	// over the registry and the catalog's rig list). What a policy owns the form shows read-only, from the core's face.
 	import { AssignmentTab, RigCoverageList, designerMessages as m } from '@scutoons/rig-designer';
-	import { confirmDialog } from '@scutoons/ui';
 	import { editHref } from '$lib/editor/edit-key.ts';
 	import { rigKey } from '$lib/editor/rig-assign.ts';
+	import RigBodySlot from '$lib/components/rigs/rig-body-slot.svelte';
 	import type { PlayHost, RigSession } from '$lib/editor/rig-session.svelte.ts';
-	import { toast } from '$lib/toasts.ts';
 
 	let { session, host, moods = [] }: {
 		session: RigSession;
@@ -24,14 +23,12 @@
 
 	async function publish(): Promise<void> {
 		if (!session.rig || !(await session.flush()).ok) return;
-		if (!(await confirmDialog({ title: m['designer.assign_publish'](), message: m['designer.assign_publish_confirm']({ subject: session.subject }), confirmLabel: m['designer.assign_publish']() }))) return;
-		const r = await session.publish();
-		if (r.ok) toast(m['designer.assign_published']({ subject: session.subject }), { kind: 'publish' });
-		else toast(r.message, { type: 'error', kind: 'publish' });
+		await session.publish();
 	}
 </script>
 
 <div class="pane" data-testid="assignment-pane">
+	<RigBodySlot {session} />
 	<div class="form">
 		<AssignmentTab rig={session.rig} instruments={session.lists.instruments} presets={session.lists.presets} {moods} coverage={session.mine} problem={session.problem} face={session.face} onchange={(next) => session.change(next)} oncreate={() => session.create()} />
 	</div>
@@ -61,8 +58,8 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		border-top: var(--border-width-regular) solid var(--tool-text);
+		background: transparent;
 	}
 	.actions > :first-child {
 		margin-left: auto;

@@ -324,7 +324,7 @@ impl Bundle {
     /// A rig for `subject` with nothing in it yet: what an editor opens for a character without a rig, silent until a
     /// track is added
     pub fn empty(subject: &str) -> Bundle {
-        let rig = Rig { subject: subject.to_string(), extends: None, off: Vec::new(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None };
+        let rig = Rig { subject: subject.to_string(), extends: None, off: Vec::new(), tracks: Vec::new(), routes: Vec::new(), personas: BTreeMap::new(), moods: BTreeMap::new(), rights: Default::default(), sticks: None, policy: None, background: None, body: None, attached: Vec::new() };
         Bundle { rig, instruments: Vec::new(), presets: Vec::new(), modules: Vec::new(), rig_presets: Vec::new() }
     }
 

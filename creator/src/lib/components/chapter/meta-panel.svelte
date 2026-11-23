@@ -127,10 +127,10 @@
 		gap: 0.75rem 1rem;
 	}
 	.warn {
-		color: var(--warn);
+		color: var(--tool-warn);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.status {
 		display: flex;

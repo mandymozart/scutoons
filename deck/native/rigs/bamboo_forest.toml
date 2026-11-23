@@ -1,0 +1,48 @@
+# The bamboo forest (#780): two tracks. `bamboo` is the grove – the bamboo module, thin tall and thick short stalks
+# swaying in its simulated wind, a sequencer the wind plays: whenever two stalks hit it sends a knock (a note, the key
+# from the pair, the velocity from how fast they closed). `perc` is what those knocks play – a sampler with a hollow wooden
+# knock recorded at middle C, pitched by each knock's key – on its own strip, so a scene can take the perc track's sound (`perc_knock.out`)
+# further, to a delay bus (the sandbox bamboo-delay). The left stick is the weather (x wind, y gust), the right the two
+# kinds' multipliers (x thin, y thick).
+# TODO(#804): the knock under scutoons/sounds/ is a synthesized stand-in (deck-native tests/stand_ins) until a recording
+# replaces it under the same path.
+# Modules play only on a native deck built with the `modules` feature (bamboo and sampler in DECK_MODULES), so this rig is
+# in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:bamboo-forest`.
+
+[rig]
+subject = "item.bamboo"
+track = [{ id = "bamboo", instrument = "bamboo_grove" }, { id = "perc", instrument = "bamboo_knock" }]
+route = [{ from = "bamboo:forest.hits", to = "perc:knock.notes" }]
+sticks = [["bamboo:forest.wind", "bamboo:forest.gust"], ["bamboo:forest.thin", "bamboo:forest.thick"]]
+
+# the grove: a silent track of knocks (no strip, wired by its event cable)
+[[instrument]]
+id = "bamboo_grove"
+kind = "pad"
+name = { en = "Bamboo forest", de = "Bambuswald" }
+node = [{ id = "forest", kind = "module:bamboo", thin = 1.5, thick = 1.0, wind = 0.5, gust = 0.6 }]
+expose = [
+  { path = "forest.wind", label = { en = "wind", de = "Wind" } },
+  { path = "forest.gust", label = { en = "gust", de = "Böen" } },
+  { path = "forest.thin", label = { en = "thin bamboo", de = "dünner Bambus" } },
+  { path = "forest.thick", label = { en = "thick bamboo", de = "dicker Bambus" } },
+  { path = "forest.direction", label = { en = "direction", de = "Richtung" } },
+  { path = "forest.root", label = { en = "pitch", de = "Tonhöhe" } },
+  { path = "forest.scale", label = { en = "scale", de = "Tonleiter" } },
+  { path = "forest.debounce", label = { en = "debounce", de = "Entprellen" } },
+]
+
+# the knock: the sound one-shot, its root middle C, so the grove's key plays it higher or lower
+[[instrument]]
+id = "bamboo_knock"
+kind = "drum"
+name = { en = "Bamboo knock", de = "Bambusklopfen" }
+out = "knock.out"
+node = [
+  { id = "knock", kind = "module:sampler", root = 60.0, gain = -2.0, velocity = 70.0, assets = { sample = "scutoons/sounds/bamboo-knock.wav" } },
+]
+expose = [
+  { path = "knock.gain", label = { en = "level", de = "Pegel" } },
+  { path = "knock.length", label = { en = "ring", de = "Klang" } },
+  { path = "knock.tune", label = { en = "tune", de = "Stimmung" } },
+]

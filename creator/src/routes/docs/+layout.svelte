@@ -19,33 +19,26 @@
 </div>
 
 <style>
+	/* the docs in the tools' colours (RULES H11): the stage, its text, lines (night; day where the page says data-theme="day") */
 	.docs {
-		--d-bg: #0b0b0b;
-		--d-ink: #f2f2f2;
-		--d-muted: #a0a0a0;
-		--d-line: #2c2c2c;
-		--d-card: #151515;
-		--d-hover: #1f1f1f;
-		--d-accent: var(--primary-cyan);
+		--d-bg: var(--tool-ground);
+		--d-ink: var(--tool-text);
+		--d-muted: var(--tool-muted);
+		--d-line: var(--tool-line);
+		--d-card: transparent;
+		--d-hover: var(--tool-hover);
+		--d-accent: var(--tool-accent);
 		--d-logo: invert(1);
 		min-height: 100vh;
 		background: var(--d-bg);
 		color: var(--d-ink);
 		font-family: var(--font-mono);
 	}
-	@media (prefers-color-scheme: light) {
-		.docs {
-			--d-bg: var(--paper);
-			--d-ink: var(--ink);
-			--d-muted: var(--text-muted);
-			--d-line: var(--border-subtle);
-			--d-card: var(--paper);
-			--d-hover: var(--surface-hover);
-			--d-logo: none;
-		}
+	:global(html[data-theme='day']) .docs {
+		--d-logo: none;
 	}
 	:global(body):has(.docs) {
-		background: var(--d-bg, #0b0b0b);
+		background: var(--tool-ground);
 	}
 	.top {
 		display: flex;

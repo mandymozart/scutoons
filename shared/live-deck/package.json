@@ -30,6 +30,10 @@
 			"types": "./src/hand.ts",
 			"default": "./src/hand.ts"
 		},
+		"./model": {
+			"types": "./src/model.ts",
+			"default": "./src/model.ts"
+		},
 		"./log": {
 			"types": "./src/log.ts",
 			"default": "./src/log.ts"

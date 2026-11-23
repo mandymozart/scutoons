@@ -1,7 +1,7 @@
 //! Fixture profiles (#211): a small TOML per device – its channel names → numbers (1-based from the fixture's start
 //! address, 8 bit or a coarse / fine pair for 16 bit) and, for a strobe, which channel flashes and what the others
 //! rest at. A scene places a profile at an address; mappings then name channels (`strobe.dimmer`), never numbers.
-//! The generic strobe (`fixtures/strobe.toml`) and the Cameo Thunder Wash 600 RGBW (7CH_1) are built in.
+//! The generic strobe (`fixtures/strobe.toml`), a one-channel dimmer and the Cameo Thunder Wash 600 RGBW (7CH_1) are built in.
 
 use std::collections::BTreeMap;
 
@@ -13,10 +13,14 @@ pub const STROBE: &str = include_str!("../fixtures/strobe.toml");
 /// The Cameo Thunder Wash 600 RGBW in DMX mode 4CH_1: red 1, green 2, blue 3, white 4 (no strobe channel).
 pub const THUNDERWASH_600_RGBW: &str = include_str!("../fixtures/thunderwash-600-rgbw.toml");
 
+/// A one-channel dimmer: dimmer 1.
+pub const DIMMER: &str = include_str!("../fixtures/dimmer.toml");
+
 /// The built-in profiles by name.
 pub fn builtin(name: &str) -> Option<&'static str> {
     match name {
         "strobe" => Some(STROBE),
+        "dimmer" => Some(DIMMER),
         "thunderwash-600-rgbw" => Some(THUNDERWASH_600_RGBW),
         _ => None,
     }

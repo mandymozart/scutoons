@@ -92,8 +92,8 @@
 	.letter {
 		flex: none;
 		padding: 0 var(--space-025);
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		line-height: 1.25rem;
 	}
 	.name {
@@ -116,8 +116,8 @@
 	.pic {
 		position: relative;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-pressed);
 		overflow: hidden;
 	}
 	img,
@@ -126,7 +126,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 	.none {
 		position: absolute;
@@ -136,7 +136,7 @@
 		justify-content: center;
 		padding: var(--space-025);
 		text-align: center;
-		color: var(--paper);
+		color: var(--tool-pressed-text);
 		font-size: var(--type-caption-size);
 	}
 	figcaption {
@@ -155,7 +155,7 @@
 		white-space: nowrap;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.facts,
 	.prompt {

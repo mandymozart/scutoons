@@ -1,0 +1,45 @@
+# The storm cloud (#780): the cloud module above its place, and while its `hold` is held a repeater that plays a thunder
+# and a kick on every repeat – `rate` (it glides) on the tempo's grid with `sync` on (1/1 … 1/32), free with it off
+# (0.5 … 32 a second); each repeat flashes the cloud. The left stick is the storm: x the rate, y the hold (up past the
+# middle holds), so an X/Y pad, a MIDI fader or a game controller plays it. The cloud's `period`, `phase`, `pulse` and
+# `red` `green` `blue` outputs carry its time and colour out to lights and pictures.
+# The thunder and the kick are samplers, each playing the sound its slot names at the sound's own pitch: the thunder held
+# for half a repeat, then fading, the kick a one-shot. A sound that cannot be had leaves its sampler silent (a log line).
+# TODO(#804): the sounds under scutoons/sounds/ are synthesized stand-ins (deck-native tests/stand_ins) until recordings
+# replace them under the same paths.
+# Modules play only on a native deck built with the `modules` feature (cloud, sampler and mixer in DECK_MODULES), so this
+# rig is in deck-native's `rig::MODULE_RIGS`, not the core's: `--scene rig:cloud-storm`.
+
+[rig]
+subject = "item.cloud"
+track = [{ id = "storm", instrument = "cloud_storm" }]
+sticks = [["storm:cloud.rate", "storm:cloud.hold"], ["storm:cloud.rain", "storm:cloud.split"]]
+
+[[instrument]]
+id = "cloud_storm"
+kind = "drum"
+name = { en = "Storm cloud", de = "Gewitterwolke" }
+out = "mix.out"
+node = [
+  { id = "cloud", kind = "module:cloud", puffs = 18.0, size = 6.0, drift = 0.6, height = 6.0, light = 45.0, rain = 0.5, rate = 0.6, sync = 1.0, flash = 0.8 },
+  { id = "thunder", kind = "module:sampler", mode = 1.0, pitch = 1.0, velocity = 50.0, release = 0.8, assets = { sample = "scutoons/sounds/cloud-thunder.wav" } },
+  { id = "kick", kind = "module:sampler", pitch = 1.0, velocity = 40.0, voices = 2.0, assets = { sample = "scutoons/sounds/cloud-kick.wav" } },
+  { id = "mix", kind = "module:mixer", gain1 = -3.0, gain2 = 0.0 },
+]
+link = [
+  { from = "cloud.thunder", to = "thunder.notes" },
+  { from = "cloud.kick", to = "kick.notes" },
+  { from = "thunder.out", to = "mix.in1" },
+  { from = "kick.out", to = "mix.in2" },
+]
+expose = [
+  { path = "cloud.hold", label = { en = "hold", de = "Halten" } },
+  { path = "cloud.rate", label = { en = "rate", de = "Tempo" } },
+  { path = "cloud.sync", label = { en = "sync", de = "Takt" } },
+  { path = "cloud.rumble", label = { en = "thunder", de = "Donner" } },
+  { path = "cloud.thump", label = { en = "kick", de = "Kick" } },
+  { path = "cloud.flash", label = { en = "flash", de = "Blitz" } },
+  { path = "cloud.rain", label = { en = "rain", de = "Regen" } },
+  { path = "cloud.split", label = { en = "split", de = "Teilen" } },
+  { path = "cloud.size", label = { en = "size", de = "Größe" } },
+]

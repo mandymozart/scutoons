@@ -116,9 +116,9 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
-		outline: var(--border-width-regular) solid var(--select-live-border);
-		background: var(--paper);
-		color: var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-accent);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font-size: calc(var(--size) * var(--cqw, 1cqw));
 		line-height: 1.15;
 		white-space: pre-wrap;
@@ -145,6 +145,6 @@
 		padding: 0.8em 1em;
 	}
 	.canvas-text-edit:focus-visible {
-		outline: var(--border-width-regular) solid var(--select-live-border);
+		outline: var(--border-width-regular) solid var(--tool-accent);
 	}
 </style>

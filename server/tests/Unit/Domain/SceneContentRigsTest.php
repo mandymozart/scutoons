@@ -160,6 +160,43 @@ final class SceneContentRigsTest extends TestCase
         }
     }
 
+    /**
+     * A body-part rig (server/tests/fixtures/rigs/drum-machine.json, `item.drum-machine`): asked as the item, its rig comes
+     * with its instruments and its body as `items.<id>.body` – a file of the answer, so its size is filled; deck-space's
+     * crows_rave test reads the written answer as the rig a deck places. A rig without a body has none.
+     */
+    public function testAnItemRigsBodyIsServedAsAFile(): void
+    {
+        $bundle = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/rigs/drum-machine.json'));
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
+        $json = fn(object $o): string => (string) json_encode($o, $flags);
+        $rows = [
+            'rigs' => ['item.drum-machine' => $json($bundle->rig)],
+            'instruments' => array_column(array_map(fn($i) => [$i->id, $json($i)], $bundle->instrument), 1, 0),
+        ];
+        $stored = function (string $kind, string $id) use (&$rows): ?string {
+            return $rows[$kind][$id] ?? null;
+        };
+        $answer = SceneContent::withRigs(SceneContent::compose([], fn() => null, [], []), ['drum-machine'], $stored);
+        $model = 'characters/takeyari-drum/takeyari-drum-regular.glb';
+        self::assertSame(['path' => $model], $answer['items']['drum-machine']['body']);
+        self::assertSame(['drum_seq', 'drum_kick', 'drum_snare', 'drum_hat_closed', 'drum_hat_open'], $answer['items']['drum-machine']['rig']['instruments']);
+        self::assertContains($model, SceneContent::paths($answer), 'the deck syncs it like any file of the answer');
+        $sized = SceneContent::withSizes($answer, [$model => 1234]);
+        self::assertSame(['path' => $model, 'size' => 1234], $sized['items']['drum-machine']['body']);
+
+        $served = SceneContent::json($sized);
+        $pretty = json_encode(json_decode($served), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION) . "\n";
+        $path = self::root() . '/tests/fixtures/rigs/scene-content-drum-machine.json';
+        if (getenv('UPDATE_FIXTURES')) file_put_contents($path, $pretty);
+        self::assertSame(str_replace("\r", '', (string) @file_get_contents($path)), $pretty, 'stale: UPDATE_FIXTURES=1 npm run dev:db -- test --filter SceneContentRigs (deck-space\'s crows_rave test reads it)');
+
+        unset($bundle->rig->body);
+        $rows['rigs']['item.drum-machine'] = $json($bundle->rig);
+        $bare = SceneContent::withRigs(SceneContent::compose([], fn() => null, [], []), ['drum-machine'], $stored);
+        self::assertArrayNotHasKey('body', $bare['items']['drum-machine']);
+    }
+
     public function testNoRigsAnswerEmptyMaps(): void
     {
         $a = SceneContent::json(SceneContent::withRigs(SceneContent::compose([], fn() => null, [], []), [], fn() => null));

@@ -110,6 +110,12 @@ on the live stick (the cache lives on DECKDATA); the live image overrides mkinit
 the kernel and initramfs stay in the ISO (an installed deck gets the stock hook back). The user `deck`
 (uid 1000) is in audio, video, input, realtime, uucp; PipeWire runs at 48 kHz / quantum 128 with rtkit
 (`rootfs/etc/pipewire/pipewire.conf.d/10-deck-rt.conf`) under `user@1000` (linger) so the check can read it.
+**The audio on its own core** (#834): `deck-session` gives the stage's render thread and its PipeWire data thread the last
+physical core (`DECK_AUDIO_CPUS`, both hyperthreads; deck.toml `audio_cpus = "off"` or a list overrides) and starts the stage on
+the other cores (`taskset`); the client's data thread is realtime (`client.conf.d/10-deck-rt.conf`, rt.prio 83); the stage holds
+`/dev/cpu_dma_latency` at 0 µs while its audio runs (`DECK_CPU_DMA_LATENCY`, udev gives the group `realtime` the device);
+`deck-irq.service` puts the sound card's IRQ threads (snd / sof / xhci) at FIFO 90 and the GPU's at 40 on linux-rt, again
+when a card arrives (udev `61-deck-irq.rules`). Check on the deck: `ps -eLo tid,cls,rtprio,psr,comm | grep -e deck -e data -e irq/`.
 **The RME Fireface UCX II** (#285) needs its **class-compliant mode** (SETUP/REV → Options → Hardware/Diagnosis → CC
 Mode – it switches only with the USB cable unplugged); in its driver mode Linux sees no sound card. WirePlumber's
 default profile for it is UCM "HiFi": one loopback sink per output and the AES out as the default – switch it to **Pro
@@ -185,7 +191,9 @@ matches wins, when it is newer than `/usr/share/deck/build.json` (the image buil
 check, every tar entry checked against the manifest, files replaced by rename, `daemon-reload` when units changed,
 the services of the changed files restarted (link → relay → bridge → kiosk = the stage with its scene; the kiosk's
 tty1 is switched to the front first – cage only takes the screen there); a restarted unit that is not up within 2
-minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. **Never during a
+minutes, or not for 15 s without systemd restarting it, rolls the files back, and the timer never tries that build again. A `--reboot` bundle is staged and the deck reboots
+instead (inhibitor locks ignored – the show check came first); a reboot refused or not begun within 30 s restarts the
+changed services as above (#787). **Never during a
 show:** a conductor on the deck's relay (`/status` `live`) holds the update back. A live stick keeps the applied bundle
 in `/var/lib/deck/update/current` (DECKDATA) and `deck-firstboot` puts it back after each boot.
 A file the previous bundle listed and the new one drops is removed from the deck (only under the allowed paths; its old

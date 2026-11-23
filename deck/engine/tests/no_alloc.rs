@@ -366,7 +366,7 @@ mod live_notes {
     struct Source(Layout);
 
     impl ModuleSource for Source {
-        fn open(&self, _: deck_space::modreg::ModuleKind, _: f64, _: u64) -> anyhow::Result<Opened> {
+        fn open(&self, _: deck_space::modreg::ModuleKind, _: f64, _: u64, _: Vec<deck_module_host::AssetData>) -> anyhow::Result<Opened> {
             let params = self.0.inputs.iter().filter(|b| matches!(b, InBind::Param(_))).count();
             Ok(Opened { instance: Box::new(Keys), layout: self.0.clone(), params })
         }
@@ -374,7 +374,8 @@ mod live_notes {
 
     #[test]
     fn a_held_midi_chord_into_a_module_renders_without_allocating() {
-        use deck_events::adapters::midi::Midi;
+        use deck_events::adapters::midi_in::Inputs;
+        use deck_events::Time;
         let _turn = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let d: deck_catalog::Descriptor = serde_json::from_str(KEYS).unwrap();
         let layout = Layout::of(&d).unwrap();
@@ -385,18 +386,19 @@ mod live_notes {
         let mut seams = Seams::with_deck(DeckConfig::device(2));
         seams.modules = Some(Arc::new(Source(layout)));
         let (mut engine, mut handles) = Engine::build_seams(&graph, 48_000.0, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
-        let mut midi = Midi::new(&mut handles.events.names, None, 1);
+        // the deck's live MIDI in (one keyboard, port 1), its events stamped `now` as they arrive
+        let mut midi = Inputs::new(handles.events.names.clone());
+        assert_eq!(midi.sync(&["Keys".to_string()], Time::Now, &mut Vec::new()).len(), 1);
         let routing = handles.events.take_routing();
         let mut outlets = routing.outlets;
         let mut buf = vec![0.0f32; 128 * 2];
-        let mut frame = 0usize;
         CALLS.store(0, Ordering::SeqCst);
         for round in 0..20 {
             // the platform's side, outside the measure: the bytes through the adapter into the dispatcher's rings
             let mut out = Vec::new();
             for key in [57, 60, 64, 72] {
                 let status = if round % 2 == 0 { 0x90 } else { 0x80 } | u8::from(key == 72);
-                midi.feed(&[status, key, 100], (frame + 5) as f64 / 48_000.0, &mut out);
+                midi.feed(1, &[status, key, 100], Time::Now, &mut out);
             }
             for ev in out {
                 for &t in routing.table.targets(ev.name) {
@@ -406,7 +408,6 @@ mod live_notes {
             measure(true);
             for _ in 0..8 {
                 engine.render(&mut buf, 2, |x| x);
-                frame += 128;
             }
             measure(false);
         }

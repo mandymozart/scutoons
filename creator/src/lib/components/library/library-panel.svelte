@@ -32,7 +32,6 @@
 	let note = $state('');
 	let dropping = $state(false);
 	let menu = $state<{ x: number; y: number } | null>(null);
-	let entitiesOpen = $state(false);
 
 	const view = $derived(library.view);
 	const kindOfOpen = $derived.by(() => {
@@ -139,12 +138,12 @@
 			<input bind:this={replaceInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) replace(f); e.currentTarget.value = ''; }} />
 		</div>
 		<div class="chips">
-			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={!library.kind && !entitiesOpen} onclick={() => ((library.kind = null), (entitiesOpen = false))}>{m['library.kind_all']()}</button>
+			<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={!library.kind && !library.openings} onclick={() => ((library.kind = null), (library.openings = false))}>{m['library.kind_all']()}</button>
 			{#each view?.kinds ?? [] as [k, n] (k)}
-				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k && !entitiesOpen} onclick={() => ((library.kind = k), (entitiesOpen = false))} data-testid="kind-{k}">{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.kind === k && !library.openings} onclick={() => ((library.kind = k), (library.openings = false))} data-testid="kind-{k}">{m[`library.kinds_${k}`]()}<span class="n">{n}</span></button>
 			{/each}
 			{#if !library.pick}
-				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={entitiesOpen} onclick={() => (entitiesOpen = !entitiesOpen)} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length + openable}</span></button>
+				<button type="button" class="chip" data-control-exempt="filter chip" aria-pressed={library.openings} onclick={() => (library.openings ? (library.openings = false) : library.showOpenings(null))} data-testid="kind-entities">{m['library.entities']()}<span class="n">{entities.length + openable}</span></button>
 			{/if}
 		</div>
 		<LibraryToolbar />
@@ -160,8 +159,8 @@
 	</div>
 
 	<div class="body">
-		{#if entitiesOpen}
-			<LibraryOpenings places={entities} query={library.query} toon={library.scope !== 'all' ? library.toon : null} onkind={(k) => ((library.kind = k), (entitiesOpen = false))} onnote={(text) => (note = text)} />
+		{#if library.openings}
+			<LibraryOpenings places={library.openKind ? [] : entities} only={library.openKind} query={library.query} toon={library.scope !== 'all' ? library.toon : null} onkind={(k) => ((library.kind = k), (library.openings = false))} onnote={(text) => (note = text)} />
 		{:else if library.status === 'error'}
 			<p class="sc-empty">{m['library.load_failed']({ reason: library.error })}</p>
 		{:else if library.status === 'ready' && !view?.total}
@@ -197,7 +196,7 @@
 		flex-direction: column;
 		gap: 0.45rem;
 		padding-bottom: 0.45rem;
-		background: var(--editor-surface);
+		background: transparent;
 	}
 	.body {
 		flex: 1 1 auto;
@@ -212,7 +211,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.3rem 0.5rem;
-		border: var(--editor-edge) solid var(--editor-primary-line);
+		border: var(--editor-edge) solid var(--tool-primary-line);
 		border-radius: var(--editor-radius);
 		font-size: var(--editor-small);
 	}
@@ -225,12 +224,12 @@
 		white-space: nowrap;
 	}
 	.slot {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.link {
 		border: 0;
 		background: none;
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 		cursor: pointer;
 		font: inherit;
 	}
@@ -240,16 +239,16 @@
 		gap: 0.25rem;
 		border: 0;
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		cursor: pointer;
 		font: inherit;
 	}
 	.quiet:disabled {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: default;
 	}
 	.danger {
-		color: var(--editor-danger, var(--editor-warn));
+		color: var(--tool-danger);
 	}
 	.row {
 		display: flex;
@@ -274,17 +273,17 @@
 		gap: 0.3rem;
 		min-height: 1.7rem;
 		padding: 0 0.6rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font-size: var(--editor-small);
 		cursor: pointer;
 	}
 	.chip[aria-pressed='true'],
 	.chip[aria-checked='true'] {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.n {
 		font-size: var(--editor-label);
@@ -296,15 +295,15 @@
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--editor-primary-line);
+		border: var(--editor-edge) solid var(--tool-primary-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
 		cursor: pointer;
 	}
 	.note {
 		margin: 0;
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.drop {
 		position: absolute;
@@ -312,10 +311,10 @@
 		z-index: 2;
 		display: grid;
 		place-items: center;
-		border: var(--editor-edge) dashed var(--editor-accent);
+		border: var(--editor-edge) dashed var(--tool-accent);
 		border-radius: var(--editor-radius);
-		background: color-mix(in srgb, var(--editor-surface) 80%, transparent);
-		color: var(--editor-accent);
+		background: color-mix(in srgb, var(--tool-popover) 80%, transparent);
+		color: var(--tool-accent);
 		pointer-events: none;
 	}
 </style>

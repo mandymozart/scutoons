@@ -186,10 +186,10 @@
 	}
 	/* a language without its own status shows the source's */
 	.status-field select.inherited {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.warn {
-		color: var(--warn);
+		color: var(--tool-warn);
 	}
 	.hint {
 		margin: 0;

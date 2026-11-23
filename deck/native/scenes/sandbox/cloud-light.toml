@@ -1,0 +1,201 @@
+# A sandbox (#780): the storm cloud's light – the rig `cloud-storm` flattened, held (its repeater plays a thunder and a
+# kick on every eighth) and tinted storm-blue, and the deck's RGB wash (Cameo Thunder Wash 600 RGBW, 4CH_1, DMX address 1 on the first USB-DMX
+# widget) flashing in the cloud's colour at the repeater's speed: red / green / blue each gained by the cloud's pulse
+# (its top three quarters, so the wash is dark again 0.17 s after a repeat); and a generic strobe (profile `strobe`, DMX
+# address 10 – clear of the wash's 1–4) flashing 30 ms at every repeat, triggered by the cloud's gate (1 for the first half
+# of each period, so it re-arms between repeats at every rate, where the pulse's fade would not).
+# The cloud's period, phase, pulse, gate, red, green, blue are control paths (`storm_cloud.<port>`) a [[link]] or an
+# [[outputs.map]] takes further (a MIDI CC or note, the conductor); the sound leaves through the mixer like any track.
+# Written by deck-native's tests/cloud_light.rs `the_sandbox_is_the_rig_with_its_light` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test cloud_light
+# From deck/ (modules: cloud, sampler, mixer in DECK_MODULES):
+#   cargo run -p deck-native --release --features modules -- --dev --scene cloud-light --windowed
+
+[stage]
+name = "Cloud light"
+render_scale = 1.0
+transition = "fade"
+transition_secs = 0.4000000059604645
+
+[[node]]
+id = "storm_cloud"
+kind = "module:cloud"
+drift = 0.6
+flash = 0.8
+height = 6.0
+hold = 1.0
+hue = 0.62
+light = 45.0
+puffs = 18.0
+rain = 0.5
+rate = 0.6
+size = 6.0
+sync = 1.0
+tint = 60.0
+
+[[node]]
+id = "storm_thunder"
+kind = "module:sampler"
+mode = 1.0
+pitch = 1.0
+release = 0.8
+velocity = 50.0
+
+[node.assets]
+sample = "scutoons/sounds/cloud-thunder.wav"
+
+[[node]]
+id = "storm_kick"
+kind = "module:sampler"
+pitch = 1.0
+velocity = 40.0
+voices = 2.0
+
+[node.assets]
+sample = "scutoons/sounds/cloud-kick.wav"
+
+[[node]]
+id = "storm_mix"
+kind = "module:mixer"
+gain1 = -3.0
+gain2 = 0.0
+
+[[node]]
+id = "mix1"
+kind = "mixer"
+gain1 = 1.0
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[node]]
+id = "fft"
+kind = "fft"
+
+[[node]]
+id = "space"
+kind = "space"
+bloom = 0.6
+glow = 0.6
+glow_light = 1.0
+glow_range = 7.0
+hue = 0.52
+join = "deck"
+light = 0.85
+post = ["bloom", "curves", "pixelate", "fxaa"]
+quality = "low"
+threshold = 0.55
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[link]]
+from = "storm_cloud.thunder"
+to = "storm_thunder.notes"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_cloud.kick"
+to = "storm_kick.notes"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_thunder.out"
+to = "storm_mix.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_kick.out"
+to = "storm_mix.in2"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "storm_mix.out"
+to = "mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "fft.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "space"
+to = "screen.in"
+scale = 1.0
+offset = 0.0
+
+[outputs]
+dmx = "auto"
+
+[[outputs.fixture]]
+address = 1
+id = "wash"
+profile = "thunderwash-600-rgbw"
+
+[[outputs.fixture]]
+address = 10
+id = "strobe"
+profile = "strobe"
+
+[[outputs.map]]
+from = "storm_cloud.red"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.red"
+
+[[outputs.map]]
+from = "storm_cloud.green"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.green"
+
+[[outputs.map]]
+from = "storm_cloud.blue"
+
+[[outputs.map.gain]]
+from = "storm_cloud.pulse"
+in = [0.25, 1]
+
+[[outputs.map.to]]
+dmx = "wash.blue"
+
+[[outputs.strobe]]
+duration = 30
+fixture = "strobe"
+trigger = "storm_cloud.gate"
+
+[being]
+size = 0.5
+drift = 0.0
+breath = 0.0
+wobble = 0.0
+hose = 1.0
+bubbles = 1.0
+expose = ["storm_cloud.hold", "storm_cloud.rate", "storm_cloud.sync", "storm_cloud.rumble", "storm_cloud.thump", "storm_cloud.flash", "storm_cloud.rain", "storm_cloud.split", "storm_cloud.size"]
+character = ""
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+feel = []
+react = []

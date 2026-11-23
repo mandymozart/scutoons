@@ -78,7 +78,7 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.pieces li {
 		display: flex;
@@ -87,7 +87,7 @@
 		padding-inline: var(--space-05);
 	}
 	.pieces li + li {
-		border-top: var(--border-width-hairline) solid var(--ink);
+		border-top: var(--border-width-hairline) solid var(--tool-text);
 	}
 	/* where the pieces behind the notes start */
 	.pieces li.boundary {
@@ -116,9 +116,9 @@
 		width: 1.75rem;
 		height: 1.75rem;
 		box-sizing: border-box;
-		border: var(--border-width-hairline) solid var(--ink);
+		border: var(--border-width-hairline) solid var(--tool-text);
 		--checker-size: 0.5rem;
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.thumb img {
 		width: 100%;
@@ -134,12 +134,12 @@
 	.where {
 		margin-left: auto;
 		flex: none;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-variant-numeric: tabular-nums;
 	}
 	.missing {
 		flex: none;
 		display: inline-flex;
-		color: var(--state-warning);
+		color: var(--tool-warn);
 	}
 </style>

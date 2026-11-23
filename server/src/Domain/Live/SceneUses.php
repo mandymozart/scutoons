@@ -37,7 +37,7 @@ final class SceneUses
         $ref = $use instanceof stdClass && is_string($use->scene ?? null) ? $use->scene : '';
         $id = str_starts_with($ref, 'scene:') ? substr($ref, strlen('scene:')) : $ref;
         $scene = $id !== '' ? $this->scenes->published($id) : null;
-        $problems = $this->core->useProblems($id, $use, $scene, $book);
+        $problems = $this->core->useProblems($id, $use, $scene, $book, $this->scenes->modules($scene));
         if ($problems !== []) throw new ApiError(422, 'invalid_use', 'This use of the scene cannot play in this toon.', ['problems' => $problems]);
         return ['scene' => $ref, 'version' => $scene !== null && is_int($scene->version ?? null) ? $scene->version : null];
     }

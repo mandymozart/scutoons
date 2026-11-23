@@ -1,8 +1,10 @@
 <script lang="ts">
-	// Review before publish on the dashboard (agents/CUTOVER.md 10.28): "To review" – the open submits of the toons this
-	// account reviews; "Your submissions" – its own, open or sent back. One row per submit (a chapter = its languages +
-	// scenes). Shown only when there is something in it (less UI).
-	import { askDialog, Badge } from '@scutoons/ui';
+	// Review before publish on the dashboard's Needs review (agents/CUTOVER.md 10.28): first the open submits of the toons
+	// this account reviews (↩ sends back, ✓ publishes), then its own, open or sent back – one line per submit (a chapter =
+	// its languages + scenes), at most `limit`. Shown only when there is something in it (less UI).
+	import { askDialog } from '@scutoons/ui';
+	import { IconButton, ListRow } from '@scutoons/ui/editor';
+	import { iconOf } from '$lib/shell/address.ts';
 	import { entityOf } from '@scutoons/content';
 	import type { ContentReview } from '@scutoons/api';
 	import { contentApi } from '$lib/api.ts';
@@ -10,9 +12,9 @@
 	import { placeHref } from '$lib/editor/place-href.ts';
 	import { fileLabels } from '$lib/labels.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 
+	let { limit = 10 }: { limit?: number } = $props();
 	const nav = getCreatorNav();
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -42,10 +44,6 @@
 	const locales = (g: Group) => [...new Set(g.items.map((r) => r.locale).filter(Boolean))].sort().join(', ');
 	const author = (g: Group) => g.items[0].author?.email ?? '–';
 	const newer = (g: Group) => g.items.some((r) => r.newest !== null && r.newest > r.version);
-	const when = (iso: string | null) => {
-		const d = iso ? new Date(iso) : null;
-		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : '';
-	};
 
 	/** the page of a group's first file (chapter / season / toon entry / cast / credits / script / a catalog entry) */
 	const href = (g: Group) => placeHref(g.items[0].key, g.toon);
@@ -72,94 +70,23 @@
 	}
 </script>
 
-{#if toReview.length}
-	<section class="reviews" data-testid="to-review">
-		<h2>{m['creator.reviews_to_review']()} <Badge tone="draft">{toReview.length}</Badge></h2>
-		<ul>
-			{#each toReview as g (g.id)}
-				<li>
-					<div class="what">
-						<a href={href(g)}>{nav.toonName(g.toon)} · {files(g)}</a>
-						<span class="meta">{author(g)} · {when(g.items[0].created_at)}{locales(g) ? ` · ${locales(g)}` : ''}</span>
-						{#if g.items[0].note}<i>„{g.items[0].note}“</i>{/if}
-						{#if newer(g)}<span class="meta">{m['creator.review_newer']()}</span>{/if}
-					</div>
-					<div class="acts">
-						<button class="secondary" disabled={busy} onclick={() => decide(g, 'return')}>{m['creator.review_return']()}</button>
-						<button disabled={busy} onclick={() => decide(g, 'publish')} data-testid="review-publish">{m['creator.review_publish']()}</button>
-					</div>
-				</li>
-			{/each}
-		</ul>
-		{#if error}<p class="error">{error}</p>{/if}
-	</section>
-{/if}
-
-{#if mine.length}
-	<section class="reviews" data-testid="my-reviews">
-		<h2>{m['creator.reviews_mine']()}</h2>
-		<ul>
-			{#each mine as g (g.id)}
-				<li>
-					<div class="what">
-						<a href={href(g)}>{nav.toonName(g.toon)} · {files(g)}</a>
-						<span class="meta">{when(g.items[0].created_at)}{locales(g) ? ` · ${locales(g)}` : ''}</span>
-						{#if g.items[0].state === 'returned' && g.items[0].decision_note}<i>{g.items[0].decided_by?.email}: „{g.items[0].decision_note}“</i>{/if}
-					</div>
-					<div class="acts">
-						<Badge tone={g.items[0].state === 'returned' ? 'soon' : 'draft'}>
-							{g.items[0].state === 'returned' ? m['creator.review_state_returned']() : m['creator.review_state_pending']()}
-						</Badge>
-					</div>
-				</li>
-			{/each}
-		</ul>
-	</section>
-{/if}
+{#each toReview.slice(0, limit) as g (g.id)}
+	<ListRow icon={iconOf(entityOf(g.items[0].key))} label={files(g)} href={href(g)} meta="{m['shell.dash_review_asked']({ who: author(g) })} · {nav.toonName(g.toon)}{locales(g) ? ` · ${locales(g)}` : ''}" title={g.items[0].note ? `„${g.items[0].note}“` : newer(g) ? m['creator.review_newer']() : undefined} data-testid="to-review">
+		<IconButton label={m['creator.review_return']()} icon="corner-up-left" disabled={busy} onclick={(e) => (e.preventDefault(), decide(g, 'return'))} />
+		<IconButton label={m['creator.review_publish']()} icon="check" disabled={busy} onclick={(e) => (e.preventDefault(), decide(g, 'publish'))} data-testid="review-publish" />
+	</ListRow>
+{/each}
+{#each mine.slice(0, Math.max(0, limit - toReview.length)) as g (g.id)}
+	{@const returned = g.items[0].state === 'returned'}
+	<ListRow icon={iconOf(entityOf(g.items[0].key))} label={files(g)} href={href(g)} meta="{returned ? m['creator.review_state_returned']() : m['creator.review_state_pending']()} · {nav.toonName(g.toon)}" title={returned && g.items[0].decision_note ? `${g.items[0].decided_by?.email}: „${g.items[0].decision_note}“` : undefined} data-testid="my-reviews" />
+{/each}
+{#if error}<p class="error">{error}</p>{/if}
 
 <style>
-	.reviews {
-		margin-bottom: 2rem;
-	}
-	h2 {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-	li {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem 1rem;
-		padding: 0.75rem 0;
-		border-bottom: 2px solid var(--border-muted);
-	}
-	.what {
-		display: flex;
-		flex-direction: column;
-		gap: 0.15rem;
-		min-width: 0;
-	}
-	.what a {
-		color: var(--ink);
-	}
-	.meta {
-		color: var(--muted);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.acts {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
 	.error {
-		color: var(--error);
+		margin: 0;
+		padding: 0 calc(var(--editor-pad) / 2);
+		color: var(--tool-stop);
+		font-size: var(--editor-small);
 	}
 </style>

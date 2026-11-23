@@ -19,9 +19,6 @@ render_scale = 1.0
 character = "catpope"
 moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
 size = 0.5
-drift = 0.06
-breath = 0.04
-wobble = 0.025
 
 # feedback → emotion (space/feel.rs): a rule reads `when` (node.port – the node by id, else by kind -, bpm, touch,
 # energy, phrase = 0..8 through an 8-bar phrase), tests it (above / below, rising / falling = a jump over the last half

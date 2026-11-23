@@ -7,7 +7,11 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
+use Scutoons\Domain\Assets\IdleCheck;
 use Scutoons\Domain\Catalog\CatalogDocs;
+use Scutoons\Domain\Catalog\PublishDependencies;
+use Scutoons\Domain\Catalog\PublishOrder;
+use Scutoons\Domain\Live\Scenes;
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
@@ -30,7 +34,8 @@ use stdClass;
  *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? }   several new
  *                                                draft versions in one transaction (all or none; 409 / 422 name the `key`);
  *                                                `deletes`: never-published place / route / catalog keys (409 published otherwise)
- *   POST /api/entities/publish { versions: [{ key, version? }] }   several documents live at once (one transaction)
+ *   POST /api/entities/publish { versions: [{ key, version? }], partial? }   several documents live at once (one transaction);
+ *                                                `partial: true`: in dependency order, each unit on its own – refusals named
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
  *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
@@ -54,7 +59,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs, private readonly Scenes $scenes, private readonly PublishDependencies $dependencies, private readonly IdleCheck $idles)
     {
     }
 
@@ -68,7 +73,11 @@ final class EntitiesController
             if (in_array('scene', $kinds, true)) throw self::sceneRoute();
             return Json::response($response, 200, ['status' => 'success', 'entities' => $this->store->withContent($kinds, ($query['content'] ?? 'draft') !== 'published')]);
         }
-        return Json::response($response, 200, $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null));
+        $index = $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null);
+        // a factory module is read-only and built in the catalog: an old draft of it is never something to publish
+        $factory = array_flip($this->docs->factoryModuleKeys());
+        if ($factory !== []) $index['entities'] = array_map(fn(array $e) => isset($factory[$e['key']]) ? $e + ['read_only' => true] : $e, $index['entities']);
+        return Json::response($response, 200, $index);
     }
 
     /** @param array{key: string} $args */
@@ -134,6 +143,8 @@ final class EntitiesController
         $this->placements->guard($key, $content);
         // a route through a place that is not on the map / a place taken off a route's way (owner D7)
         $this->mapRefs->guard([(string) $key => $content]);
+        // a character's idle that doesn't play on its model (#817, the core's FitCheck)
+        $this->idles->guard($key, $content);
     }
 
     /** POST /api/entities/batch – several saves in one transaction (each document checked like a PUT) */
@@ -158,6 +169,7 @@ final class EntitiesController
                     $this->schemas->guard($key, $save->content);
                     $this->flow->guard($key, $save->content);
                     $this->placements->guard($key, $save->content);
+                    $this->idles->guard($key, $save->content);
                 }
             } catch (ApiError $e) {
                 throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $key] + $e->extra);
@@ -187,6 +199,7 @@ final class EntitiesController
         $body = $this->body($request);
         $list = is_array($body->versions ?? null) ? $body->versions : throw new ApiError(400, 'missing_versions', 'versions is required.');
         if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_versions', 'versions must hold 1–500 documents.');
+        if (($body->partial ?? false) === true) return Json::response($response, 200, $this->publishPartial($user, $list, ($body->with_dependencies ?? false) === true));
         $versions = [];
         $review = [];
         $catalog = false;
@@ -225,6 +238,166 @@ final class EntitiesController
             $this->usages->reindexEntity($p['key']);
         }
         return Json::response($response, 200, $result);
+    }
+
+    /**
+     * POST /api/entities/publish/plan { versions: [{ key, version? }] } – what a Publish of these takes along: their
+     * unpublished draft dependencies, transitively (PublishDependencies) → { status, entities: [index row + needed_by] }
+     */
+    public function publishPlan(Request $request, Response $response): Response
+    {
+        $this->creator($request);
+        $body = $this->body($request);
+        $list = is_array($body->versions ?? null) ? $body->versions : throw new ApiError(400, 'missing_versions', 'versions is required.');
+        if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_versions', 'versions must hold 1–500 documents.');
+        $added = $this->dependencies->of(self::versionMap($list));
+        $factory = array_flip($this->docs->factoryModuleKeys());
+        $rows = array_map(fn(array $e) => $e + ['needed_by' => $added[$e['key']]] + (isset($factory[$e['key']]) ? ['read_only' => true] : []), $this->store->indexOf(array_keys($added)));
+        return Json::response($response, 200, ['status' => 'success', 'entities' => $rows]);
+    }
+
+    /**
+     * @param array<mixed> $list [{ key, version? }]
+     * @return array<string, int|null>
+     */
+    private static function versionMap(array $list): array
+    {
+        $versions = [];
+        foreach ($list as $v) {
+            $key = EntityKey::parse($v instanceof stdClass ? ($v->key ?? null) : null);
+            $versions[(string) $key] = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
+        }
+        return $versions;
+    }
+
+    /**
+     * `partial: true` (every Publish of the creator): in dependency order (PublishOrder), each unit on its own –
+     * what can go live goes live; a refusal, a review or a skip is named with its reason, and what depends on it is skipped.
+     * `with_dependencies: true` takes the unpublished draft dependencies along (PublishDependencies, their newest versions)
+     * → { status, published: [{ key, version }], refused: [{ key, code, reason }], review: [key], added: [{ key, needed_by }] }
+     * @param array<string, mixed> $user
+     * @param array<mixed> $list
+     * @return array<string, mixed>
+     */
+    private function publishPartial(array $user, array $list, bool $withDependencies = false): array
+    {
+        $added = [];
+        if ($withDependencies) {
+            foreach ($this->dependencies->of(self::versionMap($list)) as $key => $by) {
+                $added[] = ['key' => $key, 'needed_by' => $by];
+                $list[] = (object) ['key' => $key];
+            }
+        }
+        $versions = [];
+        /** @var array<string, int|null> $scenes */
+        $scenes = [];
+        $refused = [];
+        $review = [];
+        /** @var array<string, string> $failed key → what happened to it, for what depends on it */
+        $failed = [];
+        $refuse = function (string $key, string $code, string $reason, string $why) use (&$refused, &$failed): void {
+            $refused[] = ['key' => $key, 'code' => $code, 'reason' => $reason];
+            $failed[$key] = $why;
+        };
+        foreach ($list as $v) {
+            $raw = $v instanceof stdClass ? ($v->key ?? null) : null;
+            $key = EntityKey::parse($raw);
+            $version = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
+            if ($key->kind === 'scene') {
+                // a deck scene goes last, through its own check (the core's, as its page publishes it): after the modules,
+                // instruments, presets and rigs it plays
+                if (!$this->roles->canEditContent($user)) $refuse((string) $key, 'forbidden', 'Only content editors publish scenes.', 'was refused');
+                else $scenes[(string) $key] = $version;
+                continue;
+            }
+            try {
+                $this->reviews->guardPublish($user, $key, $version);
+            } catch (ApiError $e) {
+                if ($e->errorCode !== 'review_required') {
+                    $refuse((string) $key, $e->errorCode, $e->getMessage(), 'was refused');
+                    continue;
+                }
+                $review[] = (string) $key;
+                $failed[(string) $key] = 'waits for a review';
+                continue;
+            }
+            $versions[(string) $key] = $version;
+        }
+        $rows = [];
+        $refs = [];
+        foreach ($versions as $key => $version) {
+            $row = $version !== null ? $this->store->byId($version) : $this->store->latest($key);
+            if (!$row || $row['entity_key'] !== $key) {
+                $refuse($key, 'not_found', "Unknown version of $key.", 'was refused');
+                continue;
+            }
+            $rows[$key] = $row;
+            $parsed = EntityKey::parse($key);
+            if ($parsed->isCatalog()) $refs[$key] = PublishOrder::refs($parsed, json_decode((string) $row['json'], true));
+        }
+        foreach ($scenes as $key => $version) {
+            $row = $version !== null ? $this->store->byId($version) : $this->store->latest($key);
+            if ($row && $row['entity_key'] === $key) $refs[$key] = PublishOrder::refs(EntityKey::parse($key), json_decode((string) $row['json'], true));
+        }
+        // why a key is skipped: the first thing it names that did not go live
+        $needs = function (array $keys) use (&$failed, $refs): ?string {
+            foreach ($keys as $key) {
+                foreach ($refs[$key] ?? [] as $ref) {
+                    if (isset($failed[$ref])) return 'needs ' . PublishOrder::label($ref) . ", which {$failed[$ref]}";
+                }
+            }
+            return null;
+        };
+        $by = (string) ($user['email'] ?? $user['id'] ?? 'creator');
+        $published = [];
+        foreach (PublishOrder::units(array_keys($rows), $refs) as $unit) {
+            $blocked = $needs($unit);
+            if ($blocked !== null) {
+                foreach ($unit as $key) $refuse($key, 'dependency', $blocked, 'was skipped');
+                continue;
+            }
+            foreach ($unit as $key) {
+                $blocker = $this->docs->publishBlocker($rows[$key]);
+                if ($blocker !== null) $blocked ??= [$key, $blocker];
+            }
+            if ($blocked !== null) {
+                [$which, $reason] = $blocked;
+                foreach ($unit as $key) $refuse($key, $key === $which ? 'not_publishable' : 'dependency', $key === $which ? $reason : 'goes together with ' . PublishOrder::label($which) . ", which $reason", 'was refused');
+                continue;
+            }
+            try {
+                $result = $this->store->publishMany(array_map(fn(string $k) => ['key' => $k, 'version' => (int) $rows[$k]['id']], $unit), function (array $row) use ($by): bool {
+                    if (!EntityKey::parse((string) $row['entity_key'])->isCatalog()) return false;
+                    $this->docs->publishIn($row, $by);
+                    return true;
+                });
+                $published = [...$published, ...$result['published']];
+            } catch (ApiError $e) {
+                $this->docs->forget();
+                $problems = is_array($e->extra['problems'] ?? null) ? implode('; ', array_map('strval', $e->extra['problems'])) : $e->getMessage();
+                foreach ($unit as $key) $refuse($key, $e->errorCode, $problems, 'was refused');
+            }
+        }
+        if (array_filter($published, fn(array $p) => EntityKey::parse($p['key'])->isCatalog()) !== []) $this->docs->reindex();
+        foreach ($scenes as $key => $version) {
+            $blocked = $needs([$key]);
+            if ($blocked !== null) {
+                $refuse($key, 'dependency', $blocked, 'was skipped');
+                continue;
+            }
+            try {
+                $result = $this->scenes->publish(EntityKey::parse($key), $version);
+                $published[] = ['key' => $key, 'version' => $result['version'] ?? $result];
+            } catch (ApiError $e) {
+                $problems = is_array($e->extra['problems'] ?? null) ? implode('; ', array_map('strval', $e->extra['problems'])) : $e->getMessage();
+                $refuse($key, $e->errorCode, $problems, 'was refused');
+            }
+        }
+        foreach ($published as $p) {
+            $this->reviews->markPublished($user, $p['key'], (int) $p['version']['id']);
+            $this->usages->reindexEntity($p['key']);
+        }
+        return ['status' => 'success', 'published' => $published, 'refused' => $refused, 'review' => $review, 'added' => $added];
     }
 
     /** @param array{id: string} $args */

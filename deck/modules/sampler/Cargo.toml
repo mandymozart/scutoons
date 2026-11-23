@@ -1,0 +1,18 @@
+# sampler – a sound from an asset played by notes: one-shot, gated or looped, pitched by the note or fixed, a few voices.
+# Build for the deck / browser: `cargo build --release --target wasm32-unknown-unknown -p sampler-module`
+[package]
+name = "sampler-module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deck-module = { path = "../../module" }
+
+[dev-dependencies]
+deck-module = { path = "../../module", features = ["host"] }

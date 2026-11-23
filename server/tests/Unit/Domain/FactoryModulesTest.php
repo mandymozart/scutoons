@@ -12,7 +12,8 @@ use Scutoons\Tests\TestCase;
 /**
  * The factory modules (#350, migration 2026-11-05-factory-modules: walk, analog, fixture; #737, migration
  * 2026-11-21-factory-audio-modules: env, vca, filter, noise, osc, mixer, transpose; #740, migration 2026-11-21-factory-delay:
- * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq) as catalog documents marked
+ * delay; #741, 2026-11-21-factory-reverb: reverb; #739, 2026-11-22-factory-arp: arp; #743, 2026-11-22-factory-drumseq: drumseq; #742, 2026-11-22-factory-convolver: convolver, its source brought up to date by 2026-11-22-update-convolver-asset-slot;
+ * #780, 2026-11-22-factory-cloud: cloud; #780, 2026-11-22-factory-bamboo: bamboo; #804, 2026-11-22-factory-sampler: sampler; #803, 2026-11-23-factory-stepseq: stepseq) as catalog documents marked
  * `factory: true` whose sources are the repository's deck/modules/<id>/src/*.rs byte for byte (this test keeps the two
  * equal: a change of a module's source needs a migration that brings it into the catalog), each with its published
  * version; each migration run twice, around a creator's own module of the same name.
@@ -24,7 +25,12 @@ final class FactoryModulesTest extends TestCase
     private const DELAY_MARKER = 'factory module (migration 2026-11-21-factory-delay)';
     private const REVERB_MARKER = 'factory module (migration 2026-11-21-factory-reverb)';
     private const ARP_MARKER = 'factory module (migration 2026-11-22-factory-arp)';
+    private const CLOUD_MARKER = 'factory module (migration 2026-11-22-factory-cloud)';
+    private const BAMBOO_MARKER = 'factory module (migration 2026-11-22-factory-bamboo)';
     private const DRUMSEQ_MARKER = 'factory module (migration 2026-11-22-factory-drumseq)';
+    private const CONVOLVER_MARKER = 'factory module (migration 2026-11-22-factory-convolver)';
+    private const SAMPLER_MARKER = 'factory module (migration 2026-11-22-factory-sampler)';
+    private const STEPSEQ_MARKER = 'factory module (migration 2026-11-23-factory-stepseq)';
     /** every factory module and the marker of the migration that brought it */
     private const IDS = [
         'walk' => self::MARKER, 'analog' => self::MARKER, 'fixture' => self::MARKER,
@@ -33,7 +39,12 @@ final class FactoryModulesTest extends TestCase
         'delay' => self::DELAY_MARKER,
         'reverb' => self::REVERB_MARKER,
         'arp' => self::ARP_MARKER,
+        'cloud' => self::CLOUD_MARKER,
+        'bamboo' => self::BAMBOO_MARKER,
         'drumseq' => self::DRUMSEQ_MARKER,
+        'convolver' => self::CONVOLVER_MARKER,
+        'sampler' => self::SAMPLER_MARKER,
+        'stepseq' => self::STEPSEQ_MARKER,
     ];
 
     /** @return array<string, string> the repository's sources of a module */
@@ -168,6 +179,58 @@ final class FactoryModulesTest extends TestCase
         }
     }
 
+    public function testTheCloudMigrationRunsTwiceAndLeavesAnOlderVersionAsHistory(): void
+    {
+        $this->db->exec('DELETE FROM catalog_modules');
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:cloud', 'module', '{\"id\":\"cloud\",\"files\":{\"lib.rs\":\"// old\"}}', UTC_TIMESTAMP(), 'published', NULL)");
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message FROM entity_versions WHERE kind = 'module' ORDER BY id"),
+        ];
+        $statements = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-cloud.mysql.sql');
+        self::assertCount(3, $statements);
+        $after = null;
+        foreach ([1, 2] as $run) {
+            foreach ($statements as $statement) $this->db->exec($statement);
+            [$rows, $versions] = $state();
+            self::assertSame(['cloud'], array_keys($rows), "run $run");
+            self::assertTrue(ModuleSource::isFactory(json_decode($rows['cloud'], true)));
+            self::assertSame([
+                ['entity_key' => 'module:cloud', 'status' => 'draft', 'message' => null],
+                ['entity_key' => 'module:cloud', 'status' => 'published', 'message' => self::CLOUD_MARKER],
+            ], $versions, "run $run");
+            if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+            $after = $state();
+        }
+    }
+
+    public function testTheBambooMigrationRunsTwiceAndLeavesAnOlderVersionAsHistory(): void
+    {
+        $this->db->exec('DELETE FROM catalog_modules');
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:bamboo', 'module', '{\"id\":\"bamboo\",\"files\":{\"lib.rs\":\"// old\"}}', UTC_TIMESTAMP(), 'published', NULL)");
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message FROM entity_versions WHERE kind = 'module' ORDER BY id"),
+        ];
+        $statements = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-bamboo.mysql.sql');
+        self::assertCount(3, $statements);
+        $after = null;
+        foreach ([1, 2] as $run) {
+            foreach ($statements as $statement) $this->db->exec($statement);
+            [$rows, $versions] = $state();
+            self::assertSame(['bamboo'], array_keys($rows), "run $run");
+            self::assertTrue(ModuleSource::isFactory(json_decode($rows['bamboo'], true)));
+            self::assertSame([
+                ['entity_key' => 'module:bamboo', 'status' => 'draft', 'message' => null],
+                ['entity_key' => 'module:bamboo', 'status' => 'published', 'message' => self::BAMBOO_MARKER],
+            ], $versions, "run $run");
+            if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+            $after = $state();
+        }
+    }
+
     public function testTheReverbMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
     {
         $statements = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-21-factory-reverb.mysql.sql');
@@ -242,9 +305,62 @@ final class FactoryModulesTest extends TestCase
         }
     }
 
+    public function testTheConvolverMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
+    {
+        $this->assertOneModuleMigration('convolver', '2026-11-22-factory-convolver', self::CONVOLVER_MARKER);
+    }
+
+    public function testTheConvolverUpdateBringsTheRepositorysSourceTwiceAndLeavesACreatorsModule(): void
+    {
+        $insert = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-factory-convolver.mysql.sql');
+        $update = MigrationRunner::statements(self::root() . '/migrations/mysql/2026-11-22-update-convolver-asset-slot.mysql.sql');
+        self::assertCount(2, $update);
+        $state = fn(): array => [
+            array_column($this->db->all('SELECT id, data FROM catalog_modules ORDER BY id'), 'data', 'id'),
+            $this->db->all("SELECT entity_key, status, message, json FROM entity_versions WHERE kind = 'module' ORDER BY entity_key, id"),
+        ];
+        foreach (['the factory row as 2026-11-22-factory-convolver left it', "a creator's own"] as $case) {
+            $this->db->exec('DELETE FROM catalog_modules');
+            $this->db->exec("DELETE FROM entity_versions WHERE kind = 'module'");
+            $mine = (string) json_encode(['id' => 'convolver', 'files' => ['lib.rs' => '// mine TODO(#782)']]);
+            if ($case === "a creator's own") {
+                $this->db->run("INSERT INTO catalog_modules (id, position, data, updated_at) VALUES ('convolver', 0, ?, UTC_TIMESTAMP())", [$mine]);
+                $this->db->run("INSERT INTO entity_versions (entity_key, kind, json, created_at, status, message) VALUES ('module:convolver', 'module', ?, UTC_TIMESTAMP(), 'published', 'mine')", [$mine]);
+            }
+            foreach ($insert as $statement) $this->db->exec($statement);
+            $before = $state();
+            $after = null;
+            foreach ([1, 2] as $run) {
+                foreach ($update as $statement) $this->db->exec($statement);
+                [$rows, $versions] = $state();
+                if ($case === "a creator's own") {
+                    self::assertSame($before, $state(), "run $run: the creator's convolver stays");
+                    continue;
+                }
+                $data = json_decode($rows['convolver'], true);
+                self::assertTrue(ModuleSource::isFactory($data), "run $run");
+                self::assertSame(self::repoFiles('convolver'), $data['files'], "run $run: the repository's source");
+                self::assertCount(1, $versions, "run $run: no new version");
+                self::assertSame(['published', self::CONVOLVER_MARKER, $data], [$versions[0]['status'], $versions[0]['message'], json_decode($versions[0]['json'], true)], "run $run");
+                if ($after !== null) self::assertSame($after, $state(), 'a second run changes nothing');
+                $after = $state();
+            }
+        }
+    }
+
     public function testTheDrumseqMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
     {
         $this->assertOneModuleMigration('drumseq', '2026-11-22-factory-drumseq', self::DRUMSEQ_MARKER);
+    }
+
+    public function testTheSamplerMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
+    {
+        $this->assertOneModuleMigration('sampler', '2026-11-22-factory-sampler', self::SAMPLER_MARKER);
+    }
+
+    public function testTheStepseqMigrationRunsTwiceAndLeavesACreatorsModuleOfTheSameName(): void
+    {
+        $this->assertOneModuleMigration('stepseq', '2026-11-23-factory-stepseq', self::STEPSEQ_MARKER);
     }
 
     /** a migration that brings one factory module: run twice over an older published version, and around a creator's own */

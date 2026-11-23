@@ -67,6 +67,8 @@ export type Holder = {
 	arrange?: Arrange | null;
 	/** where it stands from its spot, metres (x across, y up, z deep): a member moved on the stage */
 	at?: [number, number, number] | null;
+	/** character's idle – a name the file lacks is named at load (figure.rs `choose`) and the model plays its own */
+	clip?: string | null;
 	/** `start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4) */
 	enter?: Enter;
 	/** a placeholder's filter – or `ref` */
@@ -87,7 +89,7 @@ export type Holder = {
 	preview?: Fillers | null;
 	/** an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both */
 	ref?: string | null;
-	/** the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`) */
+	/** the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`). Without a filler and a `fill` it is a placed rig: the rig stands there as its body, like a 3D model – not replaceable from outside */
 	rig?: RigPin | null;
 	/** the spot of the set where it stands and enters (`spot_left`); none = the scene's spot */
 	spot?: string | null;

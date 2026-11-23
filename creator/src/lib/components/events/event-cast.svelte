@@ -118,6 +118,6 @@
 	.warn {
 		align-self: flex-start;
 		font-size: var(--type-caption-size);
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

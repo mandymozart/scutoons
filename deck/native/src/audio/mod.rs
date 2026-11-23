@@ -15,6 +15,8 @@ pub mod backend;
 pub mod deck_toml;
 #[cfg(feature = "events")]
 pub mod dispatch;
+#[cfg(feature = "events")]
+pub mod midi_in;
 pub mod glitch;
 #[cfg(feature = "modules")]
 pub mod modules;
@@ -57,6 +59,10 @@ fn seams(device_channels: usize, outlets: &[deck_engine::OutletMap]) -> deck_eng
     #[cfg(feature = "modules")]
     {
         seams.modules = Some(Arc::new(modules::Global));
+    }
+    #[cfg(all(feature = "modules", feature = "chapter"))]
+    {
+        seams.assets = crate::assets::loader();
     }
     seams
 }

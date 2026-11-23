@@ -52,7 +52,7 @@
 		display: grid;
 		gap: var(--space-05);
 		padding-top: var(--space-05);
-		border-top: var(--border-width-regular) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--tool-line);
 	}
 	.figure:first-child {
 		border-top: 0;

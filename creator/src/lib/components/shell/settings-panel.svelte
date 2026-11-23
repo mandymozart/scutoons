@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Section, Toggle } from '@scutoons/ui/editor';
+	import { Button, Chip, IconButton, PillTabs, Section, Toggle } from '@scutoons/ui/editor';
+	import { craftName } from '@scutoons/api';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { toaster } from '$lib/toasts.ts';
 	import { PANELS_KEY } from '@scutoons/ui/editor';
 	import { browserWorkspace } from '$lib/editor/storyboard-workspace.ts';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
@@ -32,6 +35,15 @@
 			// the browser refused the folder: the old one stays
 		}
 	}
+	const mine = $derived(crafts.mine?.crafts ?? []);
+	async function toggleCraft(id: string) {
+		const next = crafts.list.map((c) => c.id).filter((c) => (c === id ? !mine.includes(id) : mine.includes(c)));
+		try {
+			await crafts.save(next);
+		} catch (e) {
+			toaster.addToast({ message: e instanceof Error ? e.message : String(e), type: 'error' });
+		}
+	}
 	function resetAll() {
 		try {
 			localStorage.removeItem(PANELS_KEY);
@@ -46,20 +58,26 @@
 	<Section id="shell-look" label={m['shell.look']()} summary={m['shell.this_machine']()}>
 		<div class="row">
 			<span>{m['shell.theme']()}</span>
-			<span class="pair" role="group" aria-label={m['shell.theme']()}>
-				<button type="button" class="pill" aria-pressed={s.theme === 'day'} onclick={() => shell.change({ theme: 'day' })} data-testid="theme-day">{m['shell.day']()}</button>
-				<button type="button" class="pill" aria-pressed={s.theme === 'night'} onclick={() => shell.change({ theme: 'night' })} data-testid="theme-night">{m['shell.night']()}</button>
-			</span>
+			<PillTabs label={m['shell.theme']()} on={s.theme} onselect={(id) => shell.change({ theme: id as 'day' | 'night' })} items={[{ id: 'day', label: m['shell.day'](), testid: 'theme-day' }, { id: 'night', label: m['shell.night'](), testid: 'theme-night' }]} />
 		</div>
 		<div class="row">
 			<span>{m['shell.ui_size']()}</span>
 			<span class="pair">
-				<button type="button" class="pill" disabled={s.scale <= SCALE_MIN} onclick={() => shell.change({ scale: s.scale - SCALE_STEP })} aria-label={m['shell.smaller']()}>−</button>
+				<IconButton label={m['shell.smaller']()} icon="minus" disabled={s.scale <= SCALE_MIN} onclick={() => shell.change({ scale: s.scale - SCALE_STEP })} />
 				<span class="value">{percent}</span>
-				<button type="button" class="pill" disabled={s.scale >= SCALE_MAX} onclick={() => shell.change({ scale: s.scale + SCALE_STEP })} aria-label={m['shell.bigger']()}>+</button>
+				<IconButton label={m['shell.bigger']()} icon="plus" disabled={s.scale >= SCALE_MAX} onclick={() => shell.change({ scale: s.scale + SCALE_STEP })} />
 			</span>
 		</div>
 	</Section>
+	{#if crafts.list.length}
+		<Section id="shell-crafts" label={m['shell.crafts']()} summary={m['shell.crafts_summary']({ count: mine.length })}>
+			<div class="crafts" data-testid="settings-crafts">
+				{#each crafts.list as craft (craft.id)}
+					<Chip label={craftName(craft, getLocale())} icon={craft.icon} on={mine.includes(craft.id)} disabled={!crafts.mine?.can_edit} title={crafts.mine?.can_edit ? undefined : m['shell.crafts_admin']()} onclick={() => toggleCraft(craft.id)} />
+				{/each}
+			</div>
+		</Section>
+	{/if}
 	<Section id="shell-motion" label={m['shell.motion']()} summary={m['shell.this_machine']()}>
 		<div class="row"><span>{m['shell.panel_transitions']()}</span><Toggle on={s.panelTransitions} label={m['shell.panel_transitions']()} onchange={(on) => shell.change({ panelTransitions: on })} /></div>
 		<div class="row"><span>{m['shell.reduce_motion']()}</span><Toggle on={s.reduceMotion} label={m['shell.reduce_motion']()} onchange={(on) => shell.change({ reduceMotion: on })} /></div>
@@ -85,7 +103,7 @@
 	<Section id="shell-folder" label={m['shell.local_folder']()} summary={m['shell.this_machine']()}>
 		<div class="row">
 			<span class="mono">{folderName ?? m['shell.none']()}</span>
-			{#if folder.supported}<button type="button" class="pill" onclick={chooseFolder}>{m['shell.change']()}</button>{/if}
+			{#if folder.supported}<Button onclick={chooseFolder}>{m['shell.change']()}</Button>{/if}
 		</div>
 		<p class="note">{m['shell.local_folder_note']()}</p>
 	</Section>
@@ -93,14 +111,14 @@
 		<p class="note">{m['shell.ai_note']()} <a href="/docs" target="_blank" rel="noopener">{m['shell.docs']()} ↗</a></p>
 	</Section>
 	<Section id="shell-notifications" label={m['shell.notifications']()} open={false}>
-		<div class="row"><span>{m['shell.push']()}</span><a class="pill" href="/notifications">{m['shell.open']()}</a></div>
+		<div class="row"><span>{m['shell.push']()}</span><Button href="/notifications">{m['shell.open']()}</Button></div>
 	</Section>
 	<Section id="shell-layout" label={m['shell.layout']()}>
 		<div class="row"><span>{m['shell.reopen_tabs']()}</span><Toggle on={s.reopenTabs} label={m['shell.reopen_tabs']()} onchange={(on) => shell.change({ reopenTabs: on })} /></div>
 		<div class="row"><span>{m['shell.gizmo_always']()}</span><Toggle on={s.gizmoAlways} label={m['shell.gizmo_always']()} onchange={(on) => shell.change({ gizmoAlways: on })} /></div>
 		<div class="row actions">
-			<button type="button" class="pill" onclick={onreset} data-testid="reset-workspace">{m['shell.reset_workspace']()}</button>
-			<button type="button" class="pill" onclick={resetAll}>{m['shell.reset_all']()}</button>
+			<Button onclick={onreset} data-testid="reset-workspace">{m['shell.reset_workspace']()}</Button>
+			<Button onclick={resetAll}>{m['shell.reset_all']()}</Button>
 		</div>
 	</Section>
 </div>
@@ -116,7 +134,13 @@
 		gap: 0.5rem;
 		min-height: var(--editor-row);
 		padding: 0 var(--editor-pad);
-		text-shadow: var(--editor-halo);
+		text-shadow: var(--tool-halo);
+	}
+	.crafts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		padding: 0.2rem var(--editor-pad) 0.4rem;
 	}
 	.row.actions {
 		justify-content: flex-start;
@@ -129,21 +153,6 @@
 		align-items: center;
 		gap: 0.15rem;
 	}
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
-		text-decoration: none;
-	}
-	.pill[aria-pressed='true'] {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
-	}
 	.value {
 		min-width: 4rem;
 		text-align: center;
@@ -155,7 +164,7 @@
 	.note {
 		margin: 0;
 		padding: 0.2rem var(--editor-pad) 0.4rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 </style>

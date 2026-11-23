@@ -279,7 +279,31 @@ final class CatalogValidator
             $presets[] = $entry;
             if (is_string($entry->parent ?? null)) $queue[] = $entry->parent;
         }
+        // #803: the modules the instrument's nodes name (an instrument's own, a preset's or a rig's instruments') – the core
+        // knows a `module:<id>` kind only from the descriptors it is sent
+        $named = array_map(fn(stdClass $d) => $d->name ?? null, $modules);
+        foreach ($this->moduleDescriptors(self::moduleKinds($kind === 'instruments' ? [$data, ...$instruments] : $instruments)) as $descriptor) {
+            if (!in_array($descriptor->name ?? null, $named, true)) $modules[] = $descriptor;
+        }
         return [...$p, ...$this->core->problems($kind, $id, $data, $instruments, $presets, $modules)];
+    }
+
+    /**
+     * #803: the module ids (`module:<id>` node kinds) of these instruments' nodes
+     * @param list<mixed> $instruments
+     * @return list<string>
+     */
+    public static function moduleKinds(array $instruments): array
+    {
+        $ids = [];
+        foreach ($instruments as $instrument) {
+            $nodes = $instrument instanceof stdClass ? ($instrument->node ?? null) : null;
+            foreach (is_array($nodes) ? $nodes : [] as $node) {
+                $k = $node instanceof stdClass ? ($node->kind ?? null) : null;
+                if (is_string($k) && str_starts_with($k, 'module:')) $ids[] = substr($k, 7);
+            }
+        }
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -319,6 +343,22 @@ final class CatalogValidator
         if (($descriptor->name ?? null) !== $module) return ["rig $id: the module document \"$module\" carries the descriptor of \"" . (is_string($descriptor->name ?? null) ? $descriptor->name : '?') . '"'];
         $modules[] = $descriptor;
         return [];
+    }
+
+    /**
+     * The descriptors of these catalog modules, decoded with objects – the ones the catalog has, compiled, under their own
+     * name; for the rest the core names what is missing (a scene's module nodes)
+     * @param list<string> $ids
+     * @return list<stdClass>
+     */
+    public function moduleDescriptors(array $ids): array
+    {
+        $descriptors = [];
+        foreach (array_unique($ids) as $id) {
+            $descriptor = $this->rigEntry('modules', $id)->descriptor ?? null;
+            if ($descriptor instanceof stdClass && ($descriptor->name ?? null) === $id) $descriptors[] = $descriptor;
+        }
+        return $descriptors;
     }
 
     /** an instrument / preset of the catalog decoded with objects (as deck-space reads it), null when there is none */

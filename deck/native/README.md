@@ -35,7 +35,7 @@ PipeWire → cpal → null; null runs the engine on a timer, no device – the c
 `--api` / `--cdn` (or `DECK_API` / `DECK_CDN`) · `--windowed` · `--frames N` (quit after N frames and print the numbers –
 a check run) · `--screenshot FILE` (the last frame of a `--frames` run as a PNG) · `--pointer X,Y` (the pointer at a
 window pixel for a check run – a hovered button shows in the HUD; or `--pointer voice.index`: on that button) ·
-`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--no-hud` · `--hud-bar` (start with the collapsed stats bar) · `--dev` (hot reload, below) ·
+`--drag voice.index,0.3` (a check run's drag: pressed after 60 frames, pulled 0.3 of its range out over 30, held) · `--hud` · `--hud-bar` (the collapsed stats bar) · `--no-hud` (the HUD to start with; none given: deck.toml's `hud = "full" | "bar" | "off"`, else off – deck-ui's `Mode::at_start`; F1 brings it, an error or an open page shows it anyway) · `--dev` (hot reload, below) ·
 `--modules` (what this build carries). Logs: `RUST_LOG`. `DECK_SIMD=baseline` – the audio batches without AVX2 (to compare).
 The graph's workloads: `cargo bench -p deck-native` (patcher | batch | batch AVX2, µs per block).
 
@@ -67,10 +67,13 @@ node shows a slice and every music track is loaded (or failed), at the latest af
 **The start** (#642, the rules in deck-ui `start.rs`): a deck with no session and no named scene starts on the start menu
 over the idle scene – PLAY (the sandbox toon's published scenes as demos, then the other published scenes: the API's
 `GET /scenes` once on a thread, plus the copies the deck keeps), JOIN A SHOW (the Live page, F6), SETTINGS, OPEN CREATOR,
-QUIT. A conductor's push or cell, or the relay's clock while the deck follows it, drives the deck and the start menu
+QUIT (RESTART on the Deck OS – deck-session starts the stage again – and SHUTDOWN, asked first: A shuts down, B cancels;
+logind with the polkit rule deck/os/rootfs/etc/polkit-1/rules.d/50-deck-power.rules). A conductor's push or cell, or the relay's clock while the deck follows it, drives the deck and the start menu
 gives way; a MIDI clock in does not. A deck with relay + outlet rejoins its session at the start; when the relay says no
 conductor is in (`roles.conductor`), it shows "waiting for <session>" with LEAVE (the idle scene, out of the session,
-the start menu). F4 / F5 / F6 stay. A check run (`--frames`) skips the start unless `DECK_START=1`.
+the start menu). The main menu has PLAY too (under CONTINUE, the same page). F4 SETTINGS, F5 ON THIS DECK (the switcher: the
+deck's own scenes, not the published list) and F6 LIVE are pages of the menu, centred, driven by its keys, the pad
+(d-pad, A, B) and the pointer; their F-keys stay. A check run (`--frames`) skips the start unless `DECK_START=1`.
 
 **Pairing** (#180, CYBERDECKS.md §9): while deck-link's daemon says the deck waits for a member
 (`/run/deck-link/state` = `pending <code>`, read every 2 s – `DECK_LINK_DIR` elsewhere), a card in the lower right

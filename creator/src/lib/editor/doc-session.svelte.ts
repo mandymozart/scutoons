@@ -4,7 +4,7 @@
 // as the page's bar (DocNotices) until it is answered.
 import { confirmDialog } from '@scutoons/ui';
 import { beforeNavigate, goto } from '$app/navigation';
-import { publishTree, type PublishScope } from '$lib/editor/publish-tree.ts';
+import { publishAndLog, type PublishScope } from '$lib/editor/publish-tree.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -138,17 +138,13 @@ export class DocSession {
 		this.options.beforeSave?.();
 		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
 		if ((this.anyDirty || this.pending) && !(await this.flush())) return;
-		try {
-			const own = this.all;
-			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);
-			if (!result) return;
-			const live = new Set(result.published);
-			for (const doc of [...own, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
-			this.savedCompanions = [];
-			this.notify(result.message, result.published.length ? 'success' : 'info', 'publish');
-		} catch (e) {
-			this.notify(e instanceof Error ? e.message : String(e), 'error', 'publish');
-		}
+		const own = this.all;
+		const result = await publishAndLog(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);
+		if (!result) return;
+		const live = new Set(result.published);
+		for (const doc of [...own, ...this.savedCompanions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
+		this.savedCompanions = [];
+		this.clearNotice();
 	}
 
 	/** the conflict bar's buttons: load the other version, or overwrite it with this one */

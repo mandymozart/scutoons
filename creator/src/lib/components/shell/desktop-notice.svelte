@@ -18,7 +18,7 @@
 		gap: var(--space-1);
 		min-height: 100dvh;
 		padding: var(--space-15);
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	p {
 		max-width: 28rem;

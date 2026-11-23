@@ -86,7 +86,8 @@ fn the_image_builds_and_enables_deck_link() {
     let build = read("container/build.sh");
     assert!(build.contains("-p deck-link"));
     assert!(build.contains("usr/bin/deck-link\""));
-    assert!(build.contains("deck-bridge deck-link; do"), "deck-link.service enabled");
+    // the enable loop names deck-link (#834 added deck-irq after it)
+    assert!(build.lines().any(|l| l.starts_with("for u in ") && l.contains(" deck-link ") && l.trim_end().ends_with("; do")), "deck-link.service enabled");
     assert!(build.contains("deck-tls.timer"));
     let pkg = std::fs::read_to_string(os().join("../pkg/scutoons-deck/PKGBUILD")).unwrap();
     assert!(pkg.contains("-p deck-link") && pkg.contains("usr/bin/deck-link\""));

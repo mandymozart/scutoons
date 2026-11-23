@@ -13,6 +13,8 @@ export interface RigDoc {
 	moods?: Record<string, RigVariant>;
 	/** a code rig: the `module:<id>` document that drives the tracks (#412) */
 	policy?: { module: string; seed?: number; values?: Record<string, number> };
+	/** its 3D body: the model the stage draws where it stands (deck-space rig/body.rs); none = its being */
+	body?: RigBody;
 	[other: string]: unknown;
 }
 
@@ -97,6 +99,18 @@ export const ownedBy = (driven?: RigDriven): RigDriven | null => (driven?.owned 
 /** the inputs the policy owns (the rows the form has no field for), with who drives them */
 export const ownedInputs = (face: RigFace | null): { path: string; by: RigDriven }[] =>
 	(face?.tracks ?? []).flatMap((t) => t.addressable.flatMap((a) => (a.driven?.owned ? [{ path: a.path, by: a.driven }] : [])));
+
+/** a rig's 3D body: a `.glb` by its CDN path from the root, its height in metres (none = its kind's) */
+export interface RigBody {
+	model: string;
+	height?: number;
+}
+
+/** the rig with `model` as its body's model (its height stays), or without a body (null) */
+export function setBody(rig: RigDoc, model: string | null): RigDoc {
+	const { body, ...rest } = rig;
+	return model ? { ...rest, body: { ...body, model } } : rest;
+}
 
 /** a new rig of `subject`: no tracks yet */
 export const emptyRig = (subject: string): RigDoc => ({ subject, track: [] });

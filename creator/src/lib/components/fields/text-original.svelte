@@ -36,7 +36,7 @@
 		margin: var(--space-025) 0 0;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		overflow-wrap: anywhere;
 	}
 	.text {
@@ -47,7 +47,7 @@
 		all: unset;
 		display: inline;
 		margin-left: var(--space-05);
-		color: var(--ink);
+		color: var(--tool-text);
 		text-decoration: underline;
 		cursor: pointer;
 		white-space: nowrap;
@@ -56,7 +56,7 @@
 		text-decoration-thickness: 2px;
 	}
 	.copy:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: var(--focus-offset);
 	}
 	/* touch screens: the DESIGN.md hit-target minimum */

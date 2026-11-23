@@ -207,7 +207,7 @@
 		display: contents;
 	}
 	.kanon-link {
-		color: var(--ink);
+		color: var(--tool-text);
 		align-self: flex-start;
 	}
 </style>

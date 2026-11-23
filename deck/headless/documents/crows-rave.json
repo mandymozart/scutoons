@@ -1,0 +1,717 @@
+{
+  "format": 2,
+  "id": "crows-rave",
+  "toons": [
+    "sandbox"
+  ],
+  "holder": [
+    {
+      "id": "wolf",
+      "at": [
+        -2.25,
+        0.0,
+        0.0
+      ],
+      "ref": "character:crow-wolf",
+      "values": {
+        "voice:voice.gain": 0.0
+      },
+      "form": "look"
+    },
+    {
+      "id": "lizard",
+      "at": [
+        -0.75,
+        0.0,
+        0.0
+      ],
+      "ref": "character:crow-lizard",
+      "values": {
+        "voice:voice.gain": 0.0
+      },
+      "form": "look"
+    },
+    {
+      "id": "fox",
+      "at": [
+        0.75,
+        0.0,
+        0.0
+      ],
+      "ref": "character:crow-fox",
+      "values": {
+        "voice:voice.gain": 0.0
+      },
+      "form": "look"
+    },
+    {
+      "id": "drum-machine",
+      "at": [
+        2.25,
+        0.0,
+        0.0
+      ],
+      "fill": {
+        "kind": [
+          "item"
+        ]
+      },
+      "label": {
+        "de": "Drumcomputer",
+        "en": "Drum machine"
+      }
+    }
+  ],
+  "stage": {
+    "name": "Three crows rave",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "tempo",
+      "kind": "tempo",
+      "beats": 4,
+      "bpm": 160,
+      "source": "internal"
+    },
+    {
+      "id": "midi",
+      "kind": "world",
+      "channel": 1,
+      "listen": [
+        "midi.note"
+      ],
+      "port": 1,
+      "source": "midi"
+    },
+    {
+      "id": "wolf-arp",
+      "kind": "module:arp",
+      "gate": 50.0,
+      "latch": 0.0,
+      "mode": 0.0,
+      "octaves": 2.0,
+      "rate": 4.0,
+      "transpose": 0.0
+    },
+    {
+      "id": "wolf-voice",
+      "kind": "module:analog",
+      "a1_level": 0.8,
+      "a1_pan": -0.45,
+      "a1_vel": 0.3,
+      "a2_level": 0.8,
+      "a2_pan": 0.45,
+      "a2_vel": 0.3,
+      "ae1_a": 0.004,
+      "ae1_d": 0.25,
+      "ae1_r": 0.15,
+      "ae1_s": 0.7,
+      "ae2_a": 0.004,
+      "ae2_d": 0.25,
+      "ae2_r": 0.15,
+      "ae2_s": 0.7,
+      "f1_cutoff": 1800.0,
+      "f1_drive": 0.45,
+      "f1_env": 0.3,
+      "f1_key": 0.4,
+      "f1_mode": 0.0,
+      "f1_res": 0.35,
+      "f2_cutoff": 2400.0,
+      "f2_drive": 0.45,
+      "f2_env": 0.25,
+      "f2_key": 0.4,
+      "f2_mode": 0.0,
+      "f2_res": 0.25,
+      "fe1_a": 0.002,
+      "fe1_d": 0.18,
+      "fe1_r": 0.12,
+      "fe1_s": 0.25,
+      "fe2_a": 0.002,
+      "fe2_d": 0.09,
+      "fe2_p2": -7.0,
+      "fe2_r": 0.1,
+      "fe2_s": 0.0,
+      "glide": 0.06,
+      "l1_pwm": 0.25,
+      "l1_rate": 0.35,
+      "l1_shape": 1.0,
+      "l2_f1": 0.6,
+      "l2_f2": 0.6,
+      "l2_shape": 0.0,
+      "l2_sync": 2.0,
+      "mono": 0.0,
+      "noise_level": 0.04,
+      "noise_route": 2.0,
+      "o1_fine": -15.0,
+      "o1_level": 0.75,
+      "o1_route": 0.0,
+      "o1_wave": 0.0,
+      "o2_fine": 15.0,
+      "o2_level": 0.7,
+      "o2_pw": 0.35,
+      "o2_route": 1.0,
+      "o2_sub": 0.45,
+      "o2_wave": 1.0,
+      "sub2_route": 1.0,
+      "vel_pwm": 0.1,
+      "volume": 0.55
+    },
+    {
+      "id": "wolf-strip",
+      "kind": "bus",
+      "gain": 0.3548
+    },
+    {
+      "id": "lizard-arp",
+      "kind": "module:arp",
+      "gate": 50.0,
+      "latch": 0.0,
+      "mode": 0.0,
+      "octaves": 2.0,
+      "rate": 4.0,
+      "transpose": 3.0
+    },
+    {
+      "id": "lizard-voice",
+      "kind": "module:analog",
+      "a1_level": 0.8,
+      "a1_pan": -0.45,
+      "a1_vel": 0.3,
+      "a2_level": 0.8,
+      "a2_pan": 0.45,
+      "a2_vel": 0.3,
+      "ae1_a": 0.004,
+      "ae1_d": 0.25,
+      "ae1_r": 0.15,
+      "ae1_s": 0.7,
+      "ae2_a": 0.004,
+      "ae2_d": 0.25,
+      "ae2_r": 0.15,
+      "ae2_s": 0.7,
+      "f1_cutoff": 1800.0,
+      "f1_drive": 0.45,
+      "f1_env": 0.3,
+      "f1_key": 0.4,
+      "f1_mode": 0.0,
+      "f1_res": 0.35,
+      "f2_cutoff": 2400.0,
+      "f2_drive": 0.45,
+      "f2_env": 0.25,
+      "f2_key": 0.4,
+      "f2_mode": 0.0,
+      "f2_res": 0.25,
+      "fe1_a": 0.002,
+      "fe1_d": 0.18,
+      "fe1_r": 0.12,
+      "fe1_s": 0.25,
+      "fe2_a": 0.002,
+      "fe2_d": 0.09,
+      "fe2_p2": -7.0,
+      "fe2_r": 0.1,
+      "fe2_s": 0.0,
+      "glide": 0.06,
+      "l1_pwm": 0.25,
+      "l1_rate": 0.35,
+      "l1_shape": 1.0,
+      "l2_f1": 0.6,
+      "l2_f2": 0.6,
+      "l2_shape": 0.0,
+      "l2_sync": 2.0,
+      "mono": 0.0,
+      "noise_level": 0.04,
+      "noise_route": 2.0,
+      "o1_fine": -15.0,
+      "o1_level": 0.75,
+      "o1_route": 0.0,
+      "o1_wave": 0.0,
+      "o2_fine": 15.0,
+      "o2_level": 0.7,
+      "o2_pw": 0.35,
+      "o2_route": 1.0,
+      "o2_sub": 0.45,
+      "o2_wave": 1.0,
+      "sub2_route": 1.0,
+      "vel_pwm": 0.1,
+      "volume": 0.55
+    },
+    {
+      "id": "lizard-pan",
+      "kind": "pan",
+      "azimuth": -15.0
+    },
+    {
+      "id": "lizard-strip",
+      "kind": "bus",
+      "gain": 0.3548
+    },
+    {
+      "id": "fox-arp",
+      "kind": "module:arp",
+      "gate": 50.0,
+      "latch": 0.0,
+      "mode": 0.0,
+      "octaves": 2.0,
+      "rate": 4.0,
+      "transpose": 6.0
+    },
+    {
+      "id": "fox-voice",
+      "kind": "module:analog",
+      "a1_level": 0.8,
+      "a1_pan": -0.45,
+      "a1_vel": 0.3,
+      "a2_level": 0.8,
+      "a2_pan": 0.45,
+      "a2_vel": 0.3,
+      "ae1_a": 0.004,
+      "ae1_d": 0.25,
+      "ae1_r": 0.15,
+      "ae1_s": 0.7,
+      "ae2_a": 0.004,
+      "ae2_d": 0.25,
+      "ae2_r": 0.15,
+      "ae2_s": 0.7,
+      "f1_cutoff": 1800.0,
+      "f1_drive": 0.45,
+      "f1_env": 0.3,
+      "f1_key": 0.4,
+      "f1_mode": 0.0,
+      "f1_res": 0.35,
+      "f2_cutoff": 2400.0,
+      "f2_drive": 0.45,
+      "f2_env": 0.25,
+      "f2_key": 0.4,
+      "f2_mode": 0.0,
+      "f2_res": 0.25,
+      "fe1_a": 0.002,
+      "fe1_d": 0.18,
+      "fe1_r": 0.12,
+      "fe1_s": 0.25,
+      "fe2_a": 0.002,
+      "fe2_d": 0.09,
+      "fe2_p2": -7.0,
+      "fe2_r": 0.1,
+      "fe2_s": 0.0,
+      "glide": 0.06,
+      "l1_pwm": 0.25,
+      "l1_rate": 0.35,
+      "l1_shape": 1.0,
+      "l2_f1": 0.6,
+      "l2_f2": 0.6,
+      "l2_shape": 0.0,
+      "l2_sync": 2.0,
+      "mono": 0.0,
+      "noise_level": 0.04,
+      "noise_route": 2.0,
+      "o1_fine": -15.0,
+      "o1_level": 0.75,
+      "o1_route": 0.0,
+      "o1_wave": 0.0,
+      "o2_fine": 15.0,
+      "o2_level": 0.7,
+      "o2_pw": 0.35,
+      "o2_route": 1.0,
+      "o2_sub": 0.45,
+      "o2_wave": 1.0,
+      "sub2_route": 1.0,
+      "vel_pwm": 0.1,
+      "volume": 0.55
+    },
+    {
+      "id": "fox-pan",
+      "kind": "pan",
+      "azimuth": 15.0
+    },
+    {
+      "id": "fox-strip",
+      "kind": "bus",
+      "gain": 0.3548
+    },
+    {
+      "id": "drumseq",
+      "kind": "module:drumseq",
+      "rate": 4.0,
+      "steps": 16.0,
+      "swing": 0.0
+    },
+    {
+      "id": "drum-kick",
+      "kind": "module:analog",
+      "a1_level": 0.0,
+      "a2_level": 1.0,
+      "a2_vel": 0.4,
+      "ae2_a": 0.001,
+      "ae2_d": 0.32,
+      "ae2_r": 0.08,
+      "ae2_s": 0.0,
+      "f2_cutoff": 8000.0,
+      "f2_drive": 0.35,
+      "fe2_a": 0.001,
+      "fe2_d": 0.045,
+      "fe2_p2": 24.0,
+      "fe2_r": 0.05,
+      "fe2_s": 0.0,
+      "o1_level": 0.0,
+      "o2_key": 0.0,
+      "o2_level": 1.0,
+      "o2_route": 1.0,
+      "o2_semi": -24.0,
+      "o2_wave": 3.0
+    },
+    {
+      "id": "drum-snare",
+      "kind": "module:analog",
+      "a1_level": 0.8,
+      "a2_level": 0.6,
+      "ae1_a": 0.001,
+      "ae1_d": 0.17,
+      "ae1_r": 0.06,
+      "ae1_s": 0.0,
+      "ae2_a": 0.001,
+      "ae2_d": 0.09,
+      "ae2_r": 0.05,
+      "ae2_s": 0.0,
+      "f1_cutoff": 1200.0,
+      "f1_mode": 2.0,
+      "f2_cutoff": 6000.0,
+      "fe2_a": 0.001,
+      "fe2_d": 0.03,
+      "fe2_p2": 5.0,
+      "fe2_s": 0.0,
+      "noise_level": 0.9,
+      "noise_route": 0.0,
+      "o1_level": 0.0,
+      "o2_key": 0.0,
+      "o2_level": 1.0,
+      "o2_route": 1.0,
+      "o2_semi": -5.0,
+      "o2_wave": 2.0
+    },
+    {
+      "id": "drum-hat-closed",
+      "kind": "module:analog",
+      "a1_level": 0.55,
+      "a2_level": 0.0,
+      "ae1_a": 0.001,
+      "ae1_d": 0.045,
+      "ae1_r": 0.03,
+      "ae1_s": 0.0,
+      "f1_cutoff": 7500.0,
+      "f1_mode": 2.0,
+      "f1_res": 0.25,
+      "noise_level": 1.0,
+      "noise_route": 0.0,
+      "o1_key": 0.0,
+      "o1_level": 0.25,
+      "o1_pw": 0.3,
+      "o1_semi": 24.0,
+      "o1_wave": 1.0
+    },
+    {
+      "id": "drum-hat-open",
+      "kind": "module:analog",
+      "a1_level": 0.55,
+      "a2_level": 0.0,
+      "ae1_a": 0.001,
+      "ae1_d": 0.35,
+      "ae1_r": 0.2,
+      "ae1_s": 0.0,
+      "f1_cutoff": 7500.0,
+      "f1_mode": 2.0,
+      "f1_res": 0.25,
+      "noise_level": 1.0,
+      "noise_route": 0.0,
+      "o1_key": 0.0,
+      "o1_level": 0.25,
+      "o1_pw": 0.3,
+      "o1_semi": 24.0,
+      "o1_wave": 1.0
+    },
+    {
+      "id": "drums",
+      "kind": "bus",
+      "gain": 0.5012
+    },
+    {
+      "id": "fx-delay",
+      "kind": "bus"
+    },
+    {
+      "id": "delay",
+      "kind": "module:delay",
+      "damp": 3000.0,
+      "feedback": 40.0,
+      "mix": 100.0,
+      "pingpong": 100.0,
+      "sync": 8.0
+    },
+    {
+      "id": "fx-space",
+      "kind": "bus"
+    },
+    {
+      "id": "reverb",
+      "kind": "module:reverb",
+      "damp": 6000.0,
+      "decay": 2.5,
+      "mix": 100.0,
+      "predelay": 20.0,
+      "size": 70.0,
+      "width": 100.0
+    },
+    {
+      "id": "main",
+      "kind": "bus"
+    },
+    {
+      "id": "fft",
+      "kind": "fft",
+      "release": 0.35
+    },
+    {
+      "id": "out",
+      "kind": "audio_out",
+      "volume": 0.7
+    },
+    {
+      "id": "space",
+      "kind": "space",
+      "glow": 0.6,
+      "hue": 0.52,
+      "join": "alone",
+      "light": 0.85,
+      "quality": "low"
+    },
+    {
+      "id": "screen",
+      "kind": "screen"
+    }
+  ],
+  "link": [
+    {
+      "from": "midi.events",
+      "to": "wolf-arp.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "wolf-arp.out",
+      "to": "wolf-voice.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "wolf-voice.out",
+      "to": "wolf-strip.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "wolf-strip.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "wolf-strip.out",
+      "to": "fx-delay.in",
+      "scale": 0.25,
+      "offset": 0.0
+    },
+    {
+      "from": "wolf-strip.out",
+      "to": "fx-space.in",
+      "scale": 0.3,
+      "offset": 0.0
+    },
+    {
+      "from": "midi.events",
+      "to": "lizard-arp.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-arp.out",
+      "to": "lizard-voice.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-voice.out",
+      "to": "lizard-pan.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-pan.out",
+      "to": "lizard-strip.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-strip.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-strip.out",
+      "to": "fx-delay.in",
+      "scale": 0.25,
+      "offset": 0.0
+    },
+    {
+      "from": "lizard-strip.out",
+      "to": "fx-space.in",
+      "scale": 0.3,
+      "offset": 0.0
+    },
+    {
+      "from": "midi.events",
+      "to": "fox-arp.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-arp.out",
+      "to": "fox-voice.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-voice.out",
+      "to": "fox-pan.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-pan.out",
+      "to": "fox-strip.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-strip.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-strip.out",
+      "to": "fx-delay.in",
+      "scale": 0.25,
+      "offset": 0.0
+    },
+    {
+      "from": "fox-strip.out",
+      "to": "fx-space.in",
+      "scale": 0.3,
+      "offset": 0.0
+    },
+    {
+      "from": "drumseq.lane1",
+      "to": "drum-kick.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drum-kick.out",
+      "to": "drums.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drumseq.lane2",
+      "to": "drum-snare.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drum-snare.out",
+      "to": "drums.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drumseq.lane3",
+      "to": "drum-hat-closed.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drum-hat-closed.out",
+      "to": "drums.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drumseq.lane4",
+      "to": "drum-hat-open.notes",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drum-hat-open.out",
+      "to": "drums.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "drum-snare.out",
+      "to": "fx-space.in",
+      "scale": 0.35,
+      "offset": 0.0
+    },
+    {
+      "from": "drums.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fx-delay.out",
+      "to": "delay.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "delay.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "fx-space.out",
+      "to": "reverb.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "reverb.out",
+      "to": "main.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "main.out",
+      "to": "out.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "main.out",
+      "to": "fft.in",
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    {
+      "from": "space",
+      "to": "screen.in",
+      "scale": 1.0,
+      "offset": 0.0
+    }
+  ]
+}

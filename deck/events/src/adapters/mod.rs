@@ -5,6 +5,7 @@
 //! first `MAX_PROPS`, in key order – the same on every deck and in TypeScript), everything else a loose `data` table; an
 //! event carries **references, not big data** – more than `MAX_DATA` bytes of `data` is refused ("send a reference").
 pub mod midi;
+pub mod midi_in;
 pub mod relay;
 pub mod story;
 

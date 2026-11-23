@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
-	import { publishMany } from '$lib/api.ts';
+	import { publishPartial } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
 	import { experienceFacts, experienceHref, experienceKey, experienceOutline, pluginRows, titleIn } from '$lib/editor/experiences.ts';
@@ -25,7 +25,6 @@
 		type XrTreeAdd
 	} from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
-	import { publishTogether } from '$lib/editor/publish-together.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
 	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
@@ -98,7 +97,7 @@
 	const session = new DocSession({ docs: () => (doc ? [doc] : []) });
 	useAutosave(session);
 
-	/** the creator's one way to publish (publish-together.ts): the server's publish-many, refusals named; a pending save first */
+	/** the creator's one way to publish: the server's partial publish (its refusals named with their reason); a pending save first */
 	async function publish() {
 		if (!doc || busy) return;
 		const open = doc;
@@ -107,12 +106,17 @@
 			if (!(await session.flush())) return;
 			const version = open.base[NEUTRAL_LOCALE];
 			if (version === null || version === undefined) return;
-			const together = await publishTogether([{ key: open.key(NEUTRAL_LOCALE), version }], publishMany);
-			problems = together.refused.map((r) => r.why);
-			if (together.done.length) toast(m['creator.experiences_publish_ok'](), { type: 'success' });
+			const key = open.key(NEUTRAL_LOCALE);
+			const result = await publishPartial([{ key, version }]);
+			const outcome = publishOutcome(key, { published: result.published.map((p) => p.key), refused: result.refused });
+			problems =
+				outcome?.kind === 'problems' ? outcome.problems
+				: outcome?.kind === 'error' ? [outcome.message]
+				: outcome?.kind === 'unreachable' ? [m['creator.experiences_unreachable']()]
+				: [];
+			if (outcome?.kind === 'published') toast(m['creator.experiences_publish_ok'](), { type: 'success' });
 		} catch (e) {
-			const outcome = publishOutcome(e);
-			problems = outcome.kind === 'problems' ? outcome.problems : [outcome.kind === 'error' ? outcome.message : m['creator.experiences_unreachable']()];
+			problems = [e instanceof Error && e.message ? e.message : m['creator.experiences_unreachable']()];
 		} finally {
 			busy = false;
 		}

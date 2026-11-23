@@ -163,7 +163,7 @@ try {
 	await js(`${q(`group-${vertical}`)}.click(), true`);
 
 	// ── the Reader opens ──
-	await js(`${q('bar-views')}.click(), true`); await js(`${q('views-tab-preview')}.click(), true`);
+	await js(`${q('menu-button')}.click(), true`); await js(`${q('menu-views')}.click(), true`); await js(`${q('views-tab-preview')}.click(), true`);
 	check(await until(`${q('preview-tab')}?.dataset.ready === 'true' ? true : null`, 30000), 'the Preview tab opens, the viewer says "ready"');
 	await js(`window.__readerDock = ${q('preview-tab')}, window.__readerFrame = ${q('reader-frame')}, true`);
 	const d0 = await dock();

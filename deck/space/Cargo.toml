@@ -80,6 +80,13 @@ pollster = "0.4"
 # examples/video-decode.rs: the hardware decoders measured against software
 deck-media = { path = "../media" }
 deck-media-hw = { path = "../media/hw" }
+# tests/crows_rave.rs: the scene's modules by their real descriptors (`Describe::DESCRIPTOR`), no wasm runtime
+deck-module = { path = "../module" }
+arp-module = { path = "../modules/arp" }
+analog-module = { path = "../modules/analog" }
+drumseq-module = { path = "../modules/drumseq" }
+delay-module = { path = "../modules/delay" }
+reverb-module = { path = "../modules/reverb" }
 
 # #485: frames of the deck's menu and panel drawn by the real path (deck-kit's egui screen, egui-wgpu in the stage's
 # pass), offscreen through wgpu, as PNG files
@@ -101,3 +108,10 @@ required-features = ["gpu", "media"]
 name = "deck-schema"
 path = "src/bin/deck-schema.rs"
 required-features = ["schema"]
+
+# #817: an animation asset (skeleton + clips, nothing drawn) out of a character's model:
+# `cargo run -p deck-space --bin extract-animation -- MODEL.glb OUT.glb`
+[[bin]]
+name = "extract-animation"
+path = "src/bin/extract-animation.rs"
+required-features = ["being"]

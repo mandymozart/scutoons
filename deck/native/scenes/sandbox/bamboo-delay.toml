@@ -1,0 +1,138 @@
+# A sandbox (#780): the bamboo forest with a delay bus – the rig `bamboo-forest` flattened (the grove's wind sequencer
+# `bamboo_forest`, its hits cabled into the perc track's knock `perc_knock`), in a gusty wind, and the perc track's
+# sound sent at scene level to the bus `fx-delay` into the delay module (dotted eighths bouncing left and right), whose
+# echoes join the mix on its second input – the scene's own spores, as crows-rave sends its crows.
+# Written by deck-native's tests/bamboo_forest.rs `the_sandbox_is_the_rig_with_a_delay_bus` – never by hand:
+#   UPDATE_FIXTURES=1 cargo test -p deck-native --features modules --test bamboo_forest
+# From deck/ (modules: bamboo, sampler, delay in DECK_MODULES):
+#   cargo run -p deck-native --release --features modules -- --dev --scene bamboo-delay --windowed
+
+[stage]
+name = "Bamboo delay"
+render_scale = 1.0
+transition = "fade"
+transition_secs = 0.4000000059604645
+
+[[node]]
+id = "bamboo_forest"
+kind = "module:bamboo"
+gust = 0.7
+thick = 1.5
+thin = 2.0
+wind = 0.7
+
+[[node]]
+id = "perc_knock"
+kind = "module:sampler"
+gain = -2.0
+root = 60.0
+velocity = 70.0
+
+[node.assets]
+sample = "scutoons/sounds/bamboo-knock.wav"
+
+[[node]]
+id = "mix1"
+kind = "mixer"
+gain1 = 1.0
+gain2 = 1.0
+
+[[node]]
+id = "out"
+kind = "audio_out"
+
+[[node]]
+id = "fft"
+kind = "fft"
+
+[[node]]
+id = "space"
+kind = "space"
+bloom = 0.6
+glow = 0.6
+glow_light = 1.0
+glow_range = 7.0
+hue = 0.52
+join = "deck"
+light = 0.85
+post = ["bloom", "curves", "pixelate", "fxaa"]
+quality = "low"
+threshold = 0.55
+
+[[node]]
+id = "screen"
+kind = "screen"
+
+[[node]]
+id = "fx-delay"
+kind = "bus"
+
+[[node]]
+id = "delay"
+kind = "module:delay"
+damp = 3000.0
+feedback = 45.0
+mix = 100.0
+pingpong = 100.0
+sync = 8.0
+
+[[link]]
+from = "perc_knock.out"
+to = "mix1.in1"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "out.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "mix1.out"
+to = "fft.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "bamboo_forest.hits"
+to = "perc_knock.notes"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "space"
+to = "screen.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "perc_knock.out"
+to = "fx-delay.in"
+scale = 0.5
+offset = 0.0
+
+[[link]]
+from = "fx-delay.out"
+to = "delay.in"
+scale = 1.0
+offset = 0.0
+
+[[link]]
+from = "delay.out"
+to = "mix1.in2"
+scale = 1.0
+offset = 0.0
+
+[being]
+size = 0.5
+drift = 0.0
+breath = 0.0
+wobble = 0.0
+hose = 1.0
+bubbles = 1.0
+expose = ["bamboo_forest.wind", "bamboo_forest.gust", "bamboo_forest.thin", "bamboo_forest.thick", "bamboo_forest.direction", "bamboo_forest.root", "bamboo_forest.scale", "bamboo_forest.debounce", "perc_knock.gain", "perc_knock.length", "perc_knock.tune"]
+character = ""
+moods = ["neutral", "thinking", "happy", "laughing", "surprised"]
+feel = []
+react = []

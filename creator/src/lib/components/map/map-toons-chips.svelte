@@ -27,14 +27,14 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		padding: 0 0.45rem;
-		border: var(--border-width-regular) solid var(--border-muted);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-line);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.toggle.on {
-		border-color: var(--ink);
-		background: var(--ink);
-		color: var(--paper);
+		border-color: var(--tool-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 </style>

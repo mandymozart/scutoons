@@ -241,6 +241,14 @@
             "null"
           ]
         },
+        "clip": {
+          "description": "character's idle – a name the file lacks is named at load (figure.rs `choose`) and the model plays its own",
+          "title": "817: the clip its member's 3D model plays, by name (its own model's `walk`, or the idle it adopted); none = its",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "enter": {
           "allOf": [
             {
@@ -335,7 +343,7 @@
               "type": "null"
             }
           ],
-          "description": "the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`)"
+          "description": "the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`). Without a\nfiller and a `fill` it is a placed rig: the rig stands there as its body, like a 3D model – not replaceable from\noutside"
         },
         "spot": {
           "description": "the spot of the set where it stands and enters (`spot_left`); none = the scene's spot",

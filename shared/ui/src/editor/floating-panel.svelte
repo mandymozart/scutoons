@@ -7,58 +7,43 @@
 	import { measureDrop } from './measure-drop.ts';
 
 	/**
-	 * One floating panel over the stage: no title bar – its head is a drag handle (the grip and the free room) with the
-	 * panel's tabs, then fold and, unless essential, close. A double-click on the head or Enter on the grip folds it; a
-	 * tab dragged into another panel's head moves there (a marker shows where), onto the stage it becomes a panel of its
-	 * own. Open, the edges resize it and push the neighbours. An inline panel (a toolbar) is one row or one column. The
-	 * page lays the panels out in `floats`; this draws one. `children` = the front tab's content (or the toolbar's row).
-	 * With `onmain` the head offers ◱ main (the front tab takes the stage; pressed again it comes back), with `onover`
-	 * ⤢ over everything (the front tab as a dialog over all). While its front tab is on the stage (`floats.staged`) the
-	 * panel shows only its head, a dot on that tab.
+	 * One floating panel over the stage: its head is the panel's own surface with its tabs and – unless essential – the
+	 * close; the whole head drags the panel, a tab name dragged moves that tab (into another panel's head, a marker shows
+	 * where; to a screen edge or corner its view takes the stage; elsewhere it becomes a panel of its own). A double-click on the head (or Enter on its keyboard handle)
+	 * folds and unfolds it. Open, the edges resize it – over its neighbours, never pushing them. An inline panel (a
+	 * toolbar) is one row or one column. The page lays the panels out in `floats`; this draws one. `children` = the front
+	 * tab's content (or the toolbar's row). A view on the stage or over everything is not among its tabs.
 	 */
 	let {
 		floats,
 		id,
 		children,
 		label,
-		foldLabel = 'Fold',
-		openLabel = 'Open',
 		closeLabel = 'Close',
-		moveLabel = 'Move the panel – drag, or the arrow keys; Enter folds it',
-		onmain,
-		onover,
-		mainLabel = 'On the stage',
-		backLabel = 'Back into the panel',
-		overLabel = 'Over everything'
+		moveLabel = 'Move the panel – drag the head, or the arrow keys; Enter or a double-click folds it'
 	}: {
 		floats: Floats;
 		id: string;
 		children: Snippet<[tab: string | undefined]>;
 		label?: string;
-		foldLabel?: string;
-		openLabel?: string;
 		closeLabel?: string;
 		moveLabel?: string;
-
-		onmain?: (tab: string) => void;
-		onover?: (tab: string) => void;
-		mainLabel?: string;
-		backLabel?: string;
-		overLabel?: string;
 	} = $props();
 
 	const spec = $derived(floats.spec(id)!);
 	const view = $derived(floats.views[id]);
 	const collapsed = $derived(view?.collapsed ?? false);
-	/** the front tab is on the stage: the head only, ◱ pressed */
-	const staged = $derived(floats.isStaged(id));
-	const folded = $derived(collapsed && !staged);
+	const folded = $derived(collapsed);
 	const vertical = $derived(floats.vertical(id));
 	const held = $derived(floats.held?.id === id && floats.held.moved);
 	const tabs = $derived(floats.tabsOf(id));
 	const active = $derived(floats.activeOf(id));
 	const contentSized = $derived(spec?.size.w === 'content' || spec?.size.h === 'content');
 	const draggedTab = $derived(floats.heldTab?.moved ? floats.heldTab.tab : null);
+	/** flung off the screen: it flies on from where it was let go */
+	const thrown = $derived(floats.thrown?.id === id ? floats.thrown : null);
+	const rect = $derived(thrown?.rect ?? view?.rect ?? { x: 0, y: 0, w: 0, h: 0 });
+	const rem = (px: number) => `${px / (floats.metrics.rem || 16)}rem`;
 
 	onMount(() => floats.show(id));
 	onDestroy(() => floats.hide(id));
@@ -70,14 +55,16 @@
 		event.preventDefault();
 	};
 	const move = (event: PointerEvent) => floats.drag(event.clientX, event.clientY);
-	const release = (open = false) => {
-		const dragged = floats.drop();
-		if (open && !dragged) floats.setCollapsed(id, false);
-	};
-	/** The head's free room is a handle too: a press there (not on a tab or a button) moves the panel */
+	const release = () => floats.drop();
+	/** The whole head is the handle: a press anywhere but on a tab name or a button moves the panel */
 	const pressHead = (event: PointerEvent) => {
 		if ((event.target as Element).closest('button, [data-tab]')) return;
 		press(event);
+	};
+	/** A double-click on the head, its tab names too, folds or unfolds the panel */
+	const foldHead = (event: MouseEvent) => {
+		if ((event.target as Element).closest('button:not([data-tab])')) return;
+		floats.setCollapsed(id, !collapsed);
 	};
 
 	const handleKey = (event: KeyboardEvent) => {
@@ -92,7 +79,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const r = view.rect;
-		floats.grab(id, r.x, r.y);
+		floats.grab(id, r.x, r.y, null, false);
 		floats.drag(r.x + d[0] * 2, r.y + d[1] * 2);
 		floats.drag(r.x + d[0], r.y + d[1]);
 		floats.drop();
@@ -150,18 +137,20 @@
 		class:inline={spec.inline}
 		class:vertical
 		class:collapsed
-		class:staged
 		class:held
+		class:thrown
 		aria-label={label ?? spec.name}
 		data-float={id}
 		data-tabbed={spec.inline ? undefined : ''}
-		style:left="{view.rect.x - floats.area.x + floats.metrics.gap}px"
-		style:top="{view.rect.y - floats.area.y + floats.metrics.gap}px"
-		style:width={spec.inline && vertical ? undefined : `${view.rect.w}px`}
-		style:min-width={spec.inline && vertical ? `${view.rect.w}px` : undefined}
-		style:height={spec.inline && !vertical ? undefined : `${view.rect.h}px`}
-		style:min-height={spec.inline && !vertical ? `${view.rect.h}px` : undefined}
-		style:z-index={floats.z(id) + (held ? 100 : 0)}
+		style:left="{rect.x - floats.area.x + floats.metrics.gap}px"
+		style:top="{rect.y - floats.area.y + floats.metrics.gap}px"
+		style:width={spec.inline && vertical ? undefined : `${rect.w}px`}
+		style:min-width={spec.inline && vertical ? `${rect.w}px` : undefined}
+		style:height={spec.inline && !vertical ? undefined : `${rect.h}px`}
+		style:min-height={spec.inline && !vertical ? `${rect.h}px` : undefined}
+		style:z-index={floats.z(id) + (held || thrown ? 100 : 0)}
+		style:--throw-x={thrown ? rem(thrown.x) : undefined}
+		style:--throw-y={thrown ? rem(thrown.y) : undefined}
 		onpointerdowncapture={() => floats.front(id)}
 	>
 		{#if spec.inline}
@@ -203,22 +192,18 @@
 				onpointermove={move}
 				onpointerup={() => release()}
 				onpointercancel={() => release()}
-				ondblclick={(e) => {
-					if (!(e.target as Element).closest('button, [data-tab]')) floats.setCollapsed(id, !collapsed);
-				}}
+				ondblclick={foldHead}
 			>
+				<!-- the keyboard's handle: no glyph, the head's leading room -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-				<div class="handle" role="button" tabindex="0" aria-label="{spec.name}: {moveLabel}" title={spec.about} onkeydown={handleKey}>
-					<span class="grip" aria-hidden="true"></span>
-				</div>
+				<div class="handle" role="button" tabindex="0" aria-label="{spec.name}: {moveLabel}" title={spec.about} onkeydown={handleKey}></div>
 				<div class="strip" role="tablist" aria-label={spec.name} data-tab-strip>
 					{#each folded ? tabs.filter((t) => t === active) : tabs as tab, i (tab)}
 						{@const t = floats.tab(tab)}
-						{@const away = floats.staged.includes(tab)}
 						<button
 							type="button"
 							class="tab"
-							class:on={tab === active && !away}
+							class:on={tab === active}
 							class:dragged={tab === draggedTab}
 							role="tab"
 							aria-selected={tab === active}
@@ -230,46 +215,15 @@
 							onpointerup={() => floats.dropTab()}
 							onpointercancel={() => floats.cancelTab()}
 							onkeydown={(e) => tabKey(e, i)}
-							ondblclick={(e) => e.stopPropagation()}
-							>{#if away}<span class="dot" aria-hidden="true"></span>{/if}{t?.name ?? tab}</button
+							><span class="label">{t?.name ?? tab}</span></button
 						>
 					{/each}
 				</div>
-				<span class="buttons">
-					{#if active && !folded && onover}
-						<button type="button" class="icon" onclick={() => onover(active)} aria-label={overLabel} title={overLabel} data-testid="panel-over">
-							<Icon name="maximize-2" size="0.9rem" strokeWidth={2} />
-						</button>
-					{/if}
-					{#if active && !folded && onmain}
-						<button
-							type="button"
-							class="icon"
-							aria-pressed={staged}
-							onclick={() => onmain(active)}
-							aria-label={staged ? backLabel : mainLabel}
-							title={staged ? backLabel : mainLabel}
-							data-testid="panel-main"
-						>
-							<Icon name={staged ? 'minimize-2' : 'monitor'} size="0.9rem" strokeWidth={2} />
-						</button>
-					{/if}
-					{#if !staged}
-						<button
-							type="button"
-							class="icon"
-							aria-expanded={!collapsed}
-							onclick={() => floats.setCollapsed(id, !collapsed)}
-							aria-label={collapsed ? openLabel : foldLabel}
-							title={collapsed ? openLabel : foldLabel}
-						>
-							<Icon name={collapsed ? 'chevron-down' : 'minus'} size="1rem" strokeWidth={2} />
-						</button>
-						{#if !spec.essential}
-							<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
-						{/if}
-					{/if}
-				</span>
+				{#if !spec.essential}
+					<span class="buttons">
+						<CloseButton label={closeLabel} stroke={1} class="panel-close" onclick={() => floats.close(id)} />
+					</span>
+				{/if}
 			</div>
 			{#if !collapsed}
 				<div class="body" role="tabpanel">{@render children(active)}</div>
@@ -298,23 +252,54 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		min-width: 0;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground);
-		color: var(--editor-text);
-		text-shadow: var(--editor-halo);
+		border: var(--editor-edge) solid var(--tool-line);
+		/* twice a control's corner (floats.rs); what sits in its head is rounded concentric with it (the head's inset less) */
+		border-radius: var(--kit-radius-box);
+		/* the deck editor's floating panel (deck-kit floats.rs, RULES H11): the surface at the panel opacity, see-through, no
+		   blur, no shadow; its text and icons carry the halo (the ink ring of the ground's colour) so they read over any
+		   stage. Controls keep their own opaque ground (no halo on them, as the deck's DrawList::halo) */
+		background: var(--tool-panel);
+		color: var(--tool-text);
+		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
+		/* content in a panel stands on the panel's ground: a component's "ground" (or the shared --paper) is see-through here */
+		--tool-ground: transparent;
+		--paper: transparent;
+		/* folding and unfolding (a double-click), a keyboard move: the panel eases into its new rectangle */
+		transition:
+			left var(--motion-base) var(--motion-ease),
+			top var(--motion-base) var(--motion-ease),
+			height var(--motion-base) var(--motion-ease),
+			width var(--motion-base) var(--motion-ease),
+			border-radius var(--motion-base) var(--motion-ease);
 	}
 	.float.held {
-		box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 0.35);
+		transition: none;
+	}
+	/* flung off the screen: on out along the throw, fading */
+	.float.thrown {
+		pointer-events: none;
+		animation: throw-out var(--motion-slow) var(--motion-ease-in) forwards;
+	}
+	@keyframes throw-out {
+		to {
+			transform: translate(var(--throw-x), var(--throw-y));
+			opacity: 0;
+		}
+	}
+	.float :global(svg:not(:is([role='menu'], [role='listbox'], [role='dialog'], [popover]) svg)) {
+		filter: var(--tool-icon-halo);
 	}
 	.head,
 	.line {
+		/* what sits in the head is rounded concentric with the panel (its corner less the head's inset) */
+		--kit-r: calc(var(--kit-radius-box) - 0.1875rem);
 		flex: none;
 		display: flex;
 		align-items: center;
 		gap: 0.125rem;
 		min-width: 0;
+		overflow: hidden;
 		padding: 0.1875rem 0.1875rem 0.1875rem 0;
 		cursor: grab;
 		touch-action: none;
@@ -330,11 +315,14 @@
 		justify-content: center;
 		width: 1rem;
 		align-self: stretch;
-		color: var(--editor-line);
+		color: var(--tool-line);
 		outline: none;
 	}
+	.head .handle {
+		width: 0.375rem;
+	}
 	.handle:focus-visible {
-		box-shadow: inset 0 0 0 2px var(--editor-accent);
+		box-shadow: inset 0 0 0 2px var(--tool-accent);
 	}
 	.held .head,
 	.held .line {
@@ -344,7 +332,7 @@
 	.grip {
 		width: 0.375rem;
 		height: 0.875rem;
-		background: radial-gradient(circle, var(--editor-muted) 1px, transparent 1.5px) 0 0 / 0.1875rem 0.21875rem;
+		background: radial-gradient(circle, var(--tool-muted) 1px, transparent 1.5px) 0 0 / 0.1875rem 0.21875rem;
 		opacity: 0.7;
 	}
 	.strip {
@@ -355,45 +343,42 @@
 		min-width: 0;
 		overflow: hidden;
 	}
+	/* a small panel: every tab name shrinks and ends with an ellipsis, nothing wraps or spills out of the head */
 	.tab {
 		flex: 0 1 auto;
-		min-width: 2.5rem;
-		height: var(--control-height);
-		padding: 0 0.75rem;
+		display: inline-flex;
+		align-items: center;
+		min-width: 1.75rem;
+		height: calc(var(--control-height) - 0.25rem);
+		padding: 0 var(--editor-pad);
 		border: 0;
-		border-radius: 1.2rem;
+		border-radius: var(--kit-r);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font: inherit;
 		font-size: var(--editor-small);
 		white-space: nowrap;
 		overflow: hidden;
-		text-overflow: ellipsis;
 		text-shadow: inherit;
 		cursor: pointer;
 		touch-action: none;
 	}
+	.label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	/* the front tab: the thin outline (the kit's PillTab, owner 2026-11-24), the others muted */
 	.tab.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		text-shadow: none;
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-text);
+		color: var(--tool-text);
 	}
 	.tab.dragged {
 		opacity: 0.4;
 	}
-	/* the tab is on the stage */
-	.dot {
-		display: inline-block;
-		width: 0.45rem;
-		height: 0.45rem;
-		margin-right: 0.35rem;
-		border-radius: 50%;
-		background: var(--editor-accent);
-		vertical-align: 0.05rem;
-	}
 	.tab:focus-visible,
 	.icon:focus-visible {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	.buttons {
@@ -409,25 +394,21 @@
 		height: var(--control-height);
 		padding: 0;
 		border: 0;
-		border-radius: 50%;
+		border-radius: var(--kit-r);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: pointer;
 	}
-	.icon[aria-pressed='true'] {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-	}
 	.buttons :global(.panel-close) {
-		border-radius: 50%;
-		color: var(--editor-muted);
+		border-radius: var(--kit-r);
+		color: var(--tool-muted);
 	}
 	@media (hover: hover) {
 		.tab:not(.on):hover,
 		.icon:hover,
 		.buttons :global(.panel-close:hover) {
-			color: var(--editor-text);
-			background: var(--editor-hover);
+			color: var(--tool-text);
+			background: var(--tool-hover);
 		}
 	}
 	.vertical .line {
@@ -459,11 +440,17 @@
 		cursor: default;
 	}
 	.body {
+		animation: unfold var(--motion-base) var(--motion-ease);
 		flex: 1;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		overflow: auto;
+	}
+	@keyframes unfold {
+		from {
+			opacity: 0;
+		}
 	}
 	.edge {
 		position: absolute;

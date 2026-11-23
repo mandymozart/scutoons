@@ -250,10 +250,10 @@
 		margin-bottom: 0.4rem;
 	}
 	.ok {
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.actions {
 		display: flex;
@@ -294,10 +294,10 @@
 	}
 	.std {
 		font-size: var(--type-caption-size);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.cell.drop-on {
-		outline: 0.125rem dashed var(--primary);
+		outline: 0.125rem dashed var(--tool-accent);
 		outline-offset: 0.0625rem;
 	}
 	.cell {
@@ -308,32 +308,32 @@
 		flex-direction: column;
 		gap: 0.2rem;
 		padding: 0.25rem;
-		border: 1px solid var(--border-subtle);
-		background: var(--paper);
+		border: 1px solid var(--tool-line);
+		background: transparent;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
 	.cell:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: 2px solid var(--tool-text);
 	}
 	.cell.state-found {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.cell.state-missing {
-		border: 1px solid var(--error);
-		color: var(--error);
+		border: 1px solid var(--tool-stop);
+		color: var(--tool-stop);
 	}
 	.cell.state-empty,
 	.cell.state-available {
-		border: 1px dashed var(--ink);
+		border: 1px dashed var(--tool-text);
 	}
 	.cell.state-empty {
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.thumb {
 		aspect-ratio: 1;
 		width: 100%;
-		background: var(--surface-hover);
+		background: var(--tool-hover);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -360,7 +360,7 @@
 	.derived {
 		margin-left: auto;
 		font-size: var(--type-caption-size);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.add-mood {
 		display: flex;

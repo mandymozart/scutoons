@@ -1,13 +1,14 @@
 //! A rig that extends another (`extends = "character.default"`): the extended rig's tracks and routes play under its
 //! own. `off` names extended tracks that are not compiled at all (they cost nothing); a track that `takes` an extended
-//! track plays in its place. An extended route that touches an off or taken track drops with it. Folding happens before
+//! track plays in its place. An extended route that touches an off or taken track drops with it – but one to a taken
+//! track's gates (`voice:@open`, the trigger) opens the taker's instead, so a taker sings only when triggered too. Folding happens before
 //! a rig is checked as a whole (`Rig::extended`), so flatten, play and the scene resolver see one plain rig.
 //! The default character rig (`character.default`, deck/native/rigs/default.toml): one simple character rig with a
 //! built-in voice, the first iteration of any character; a character without a rig of its own plays it
 //! (`Bundle::core_or_default`).
-use super::address::{Address, Leaf};
+use super::address::{Address, Leaf, OPEN};
 use super::bundle::Bundle;
-use super::{Library, Rig};
+use super::{Library, Rig, Route};
 use anyhow::{bail, Context, Result};
 use std::collections::BTreeMap;
 
@@ -59,7 +60,7 @@ impl Rig {
         let taken: Vec<&str> = self.taken().collect();
         let kept = |track: &str| !taken.contains(&track);
         let route_kept = |end: &str| match Address::leaf(end) {
-            Ok(Leaf::Port { track: Some(t), .. }) => kept(&t),
+            Ok(Leaf::Port { track: Some(t), .. } | Leaf::Member { track: t, .. }) => kept(&t),
             _ => true,
         };
         let mut rig = self.clone();
@@ -69,7 +70,17 @@ impl Rig {
         for t in &mut rig.tracks {
             t.takes = None;
         }
-        rig.routes = ext.rig.routes.iter().filter(|r| route_kept(&r.from) && route_kept(&r.to)).cloned().chain(self.routes.iter().cloned()).collect();
+        // a route to a taken track's gates (`voice:@open`, the trigger) opens the gates of the track that takes it over
+        let taker = |end: &str| match Address::leaf(end) {
+            Ok(Leaf::Member { track, member }) if member == OPEN => self.tracks.iter().find(|t| t.takes.as_deref() == Some(track.as_str())).map(|t| format!("{}:@{OPEN}", t.id)),
+            _ => None,
+        };
+        let carried = ext.rig.routes.iter().filter_map(|r| match taker(&r.to) {
+            Some(to) if route_kept(&r.from) => Some(Route { to, ..r.clone() }),
+            _ => (route_kept(&r.from) && route_kept(&r.to)).then(|| r.clone()),
+        });
+        let carried: Vec<Route> = carried.filter(|r| !self.routes.contains(r)).collect();
+        rig.routes = carried.into_iter().chain(self.routes.iter().cloned()).collect();
         // the extended rig's moods and personas fill what the rig leaves out
         for (own, theirs) in [(&mut rig.moods, &ext.rig.moods), (&mut rig.personas, &ext.rig.personas)] {
             for (name, v) in theirs {

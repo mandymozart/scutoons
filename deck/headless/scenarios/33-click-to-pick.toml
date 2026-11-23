@@ -13,10 +13,11 @@ stage = { stage_3d = false }
 do = "run"
 ms = 200
 
-# nothing picked: the knobs reach no one
+# nothing picked: the knobs are the scene's own (#816 – the nodes no holder's rig owns: the space, the output), none of a
+# member's
 [[step]]
 do = "pick"
-expect = { picked = "", knobs = [], mark = false }
+expect = { picked = "", knobs = { has = "out.volume" }, mark = false }
 
 # a click on Cat Pope's card picks her – whole (the sticks drive her main pairs), marked; her rig's knobs are the hand's
 [[step]]

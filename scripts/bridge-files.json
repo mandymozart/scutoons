@@ -2,6 +2,7 @@
 	"$comment": "check:core-only (#363): every bridge file (a file that touches the engine – the import graph – or lies in a bridge root) and its one-line purpose. A new file needs a line here: \"adapter: <what it moves between the core and the platform>\", \"ui: …\" or \"types: …\"; \"logic (#N): …\" marks today's logic with its move ticket and is never written for a new file.",
 	"files": {
 		"creator/src/lib/components/fields/core-units-provider.svelte": "ui: loads the core's units through the deck's wasm once and gives them to every unit field (#679, #697)",
+		"creator/src/lib/components/page/core-model-provider.svelte": "ui: hands deck-space's reading of a model file (bones, clips, spots, what it lacks) through the deck's wasm to the character workspace's 3D place (#773)",
 		"creator/src/lib/components/page/core-places-provider.svelte": "ui: hands deck-core's jump places through the deck's wasm to the creator's jump targets (#534)",
 		"creator/src/lib/components/page/core-history-provider.svelte":"ui: hands deck-core's history rules through the deck's wasm to the creator's History (#687)",
 		"creator/src/lib/components/sound/deck-half.svelte": "ui: the creator's deck half (stage, mood chip, signal strip)",
@@ -35,6 +36,7 @@
 		"shared/live-deck/scripts/build-wasm.ts": "adapter: builds space-web for the page",
 		"shared/live-deck/src/units.ts": "adapter: space-web's units (units_offered, units_convert, units_pick, units_word, units_decimals, units_step – deck-core units) for the web kit's unit field (#679)",
 		"admin/src/lib/components/core-history-provider.svelte": "ui: hands deck-core's history rules through the deck's wasm to admin's History of the events document (#687)",
+		"shared/live-deck/src/model.ts": "adapter: space-web's model_facts (deck-space model_facts: a GLB's bones, clips, spots, what it lacks) as JSON for the creator's 3D place (#773)",
 		"shared/live-deck/src/places.ts": "adapter: space-web's jump_labels (deck-core places: a chapter's jump places) as a list for the creator's jump targets (#534)",
 		"shared/live-deck/src/history.ts":"adapter: space-web's history_* (deck-core history: steps, describe, revert, back_to) as JSON for the creator's History (#687)",
 		"shared/live-deck/src/log.ts": "adapter: space-web's Log, log_scopes, log_kinds (deck-ui messages – standing and passing lines, the filter, counts, scope pills, event types and legend) for the creator's Log tab and status bar; the typed calls are @scutoons/content log.ts (#767)",

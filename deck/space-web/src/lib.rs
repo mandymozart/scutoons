@@ -37,11 +37,13 @@
 //!   2D, no scene, no sound); the page brings the socket, the proof's fetch and the wake lock.
 //! - **The Library (#698):** `Library` – deck-catalog's shelf for the creator's Library (library.rs).
 //! - **The Log (#767):** `Log` – deck-ui's messages for the creator's Log tab and status bar (log.rs).
+//! - **A model's facts (#773):** `model_facts` – a GLB's bones, clips, spots and what it lacks, for the creator's 3D place (model.rs).
 #![cfg(target_arch = "wasm32")]
 
 mod library;
 mod link;
 mod log;
+mod model;
 mod outlet;
 mod scene;
 mod vote;
@@ -376,25 +378,28 @@ pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
 pub(crate) const ASK: usize = 5;
 
 /// the cast's 3D models the stage asks for, `FIGURE_ASK` values each: slot, then where scene-content holds the file – the
-/// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`)
+/// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`), the field of its idle (`idle`,
+/// #817: a library animation, when the entry names one); a rig's body: kind "", its model's CDN path, no fields
 pub(crate) fn figure_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
-    for (slot, character) in space.figures.requests() {
+    for (slot, file) in space.figures.requests() {
+        let entry = !file.kind().is_empty();
         out.push(&JsValue::from(slot as u32));
-        out.push(&JsValue::from_str("characters"));
-        out.push(&JsValue::from_str(&character));
-        out.push(&JsValue::from_str("model"));
+        out.push(&JsValue::from_str(file.kind()));
+        out.push(&JsValue::from_str(file.id()));
+        out.push(&JsValue::from_str(if entry { "model" } else { "" }));
+        out.push(&JsValue::from_str(if entry { "idle" } else { "" }));
     }
     out
 }
 
 /// the values of one ask in `figure_asks`
-pub(crate) const FIGURE_ASK: usize = 4;
+pub(crate) const FIGURE_ASK: usize = 5;
 
-/// a figure's .glb and its images as the browser decoded them (`encoded_images`) into its slot
-pub(crate) fn figure_from_page(space: &mut Space, slot: usize, glb_bytes: &[u8], images: js_sys::Array) {
+/// a figure's .glb and its images as the browser decoded them (`encoded_images`) into its slot, with its idle's .glb
+pub(crate) fn figure_from_page(space: &mut Space, slot: usize, glb_bytes: &[u8], images: js_sys::Array, idle: Option<&[u8]>) {
     let mut decoded = decoded_images(images);
-    let figure = deck_space::space::figure::read(glb_bytes, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
+    let figure = deck_space::space::figure::read(glb_bytes, idle, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
     if let Err(e) = &figure {
         web_sys::console::warn_1(&JsValue::from_str(&format!("figure: {e:#} – the member keeps its being")));
     }

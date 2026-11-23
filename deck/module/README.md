@@ -45,13 +45,13 @@ limits (sanity bounds: 8 audio and 8 event ports a direction, 256 control ports,
   `#[reads("story.act", …)]` (→ `Self::STORY_ACT: Var`, `ctx.var(Self::STORY_ACT)`), `#[asset(name, kind = "pcm"|"bytes"|"image",
   max_bytes, doc)]` (→ `Self::KICK: AssetSlot`, `ctx.asset(Self::KICK)`), `#[preset(name, doc, values(p = x, …))]` (the one
   factory preset; every other preset is a document).
-- `#[port(input|output, audio|cv|control|event|video, name, channels = 2|"any", sidechain, names = "music.note", props =
+- `#[port(input|output, audio|cv|control|event|instances|video, name, channels = 2|"any", sidechain, names = "music.note", props =
   "pitch|vel", capacity = 64, path = "lead:@preset", mode = "set"|"add"|"mul", choices = "a|b", doc)]`; every port gets
-  `Self::<NAME>`, its index in its group (audio, control, event per direction).
+  `Self::<NAME>`, its index in its group (audio, control, event per direction). `instances`: see "Drawing" below.
 - `#[param(range, default, curve = log, unit = "Hz", choices = "saw|pulse", doc)]` on `f32` fields (choices: the value is the index).
 - `Block`: `audio_in(p) -> Planar` / `audio_out(p) -> PlanarMut` (`ch()`, `chan(c)`, `stereo()`), `events_in(p) -> &[Ev]`
   (sorted by frame; notes on / off paired by id, Hz and key both filled by the host), `control_in(i)`, `set(i, v)`,
-  `emit(port, Ev)`, `set_silent(p)`, `audio_out_with_events`. `Outputs` (control domain): `set`, `emit`. `Ctx`: times
+  `emit(port, Ev)`, `set_silent(p)`, `audio_out_with_events`. `Outputs` (control domain): `set`, `emit`, `instances`. `Ctx`: times
   (`frame`, `show_ms`, `tempo`, `beats`, `bar`), `seed`, `character()`, `var`, sensors (`motion()`, `position()`, `face()`,
   `camera_motion()` with a `Status`), `asset`, and the inputs `control_in` / `events_in`.
 - `ctx.character()` is **live** (#409): `id` (the node's `character`), `persona`, `mood` (strings), `mood_index` (the mood's
@@ -86,6 +86,11 @@ vocabulary, `Descriptor::check`) and returns the `Shape` the layout comes from. 
 - **Assets** are read-only slots a descriptor declares (`#[asset]`, kind `pcm` planar f32 / `bytes` / `image` RGBA8). The host
   binds them from `Setup::asset(AssetData::pcm(..) | ::bytes(..))` **before `dm_new`**, through `dm_asset_buf(slot, len)`; a slot
   is filled once per instance. `ctx.asset(Self::KICK)` is `None` until ready - play silence, never wait. Resampling is the module's.
+  A scene's module node names its slots' media in `assets` – a CDN path or the content's `{ src, variants }`
+  (`assets = { ir = "scutoons/irs/plate.wav" }`); the graph checks slot and kind (deck-space `node_assets`). The engine asks the
+  platform's `AssetLoader` while it builds (never on the audio thread): the file for the deck's quality by the one pick rule
+  (deck-catalog `rendition`), from the cache or fetched, offline the nearest cached one (deck-media `asset`), decoded; one that
+  cannot be had is left out with a log line and the module plays its own fallback. A show's restart rebuilds with the same assets.
 - **Presets:** the descriptor holds one factory preset (`#[preset]`, only what differs from the defaults). `Preset::resolve(desc,
   name, values)` maps parameter names to indices and reports unknown ones; `Instance::apply_preset` / `apply_factory_preset` write
   defaults, then the values, without allocating. Other presets are documents (the module-preset form and its file import are
@@ -102,6 +107,28 @@ marks – a camera's shots, an item's spot) and `out.transform()` (`TransformOut
 `set_projection`). The deck calls it once a drawn frame, after the moves; only the parts its slot writes are taken.
 `modules/dolly` (a camera) and `modules/bob` (an item) are the examples; `module-host/tests/motion.rs` proves them
 native ≡ wasm.
+
+## Drawing (the instance table)
+
+A control-domain module draws by declaring one table, `#[port(output, instances, name = "shapes", capacity = 256)]`
+(1 … 1024 instances, 256 when not said): `out.instances()` is its `Table` – `clear`, `push(Instance)`, `rows_mut`. An
+`Instance` (64 bytes, `repr(C)`) is a shape (`instances::shape`: `PUFF` a lumpy ball, `SEGMENT` an upright prism from its
+foot – the core's placeholders, about 1 m), a position (m, from the node's place), a turn (unit quaternion x y z w), a scale
+per axis and a linear RGBA colour. The table holds what the module last wrote. Its region (a `TableHead`, then the records)
+is the last of `out`, allocated with the module; the host copies it with the rest of `out` after every call, the engine
+publishes it after each step to deck-space's `instances::Table`, and the frame thread draws it the next frame (one block
+late, the latest table wins – the producer never waits). The space (`space/drawn.rs`) draws every table with one instanced
+pipeline, a draw per shape, at the module node's place: a node of a holder's rig stands at that member's feet (its motion
+module turns it), any other at the scene's spot on the floor.
+
+Why a port type and not a new domain or the `Item/Location.Object` slot: what a module draws must come from the same
+deterministic step its physics and its notes come from (the 128-frame control quantum, native ≡ wasm, golden-tested), so it
+is a control module's output like its control values and events – a port, declared in the descriptor, laid out by
+`Layout::of`, with no second call, no second scheduler and no render-thread module runtime. A domain would split a module
+that both sounds and draws (a bamboo forest: hits → notes, stalks → instances) into two; the Object slot runs on the render
+thread per drawn frame, which would make a simulation depend on the frame rate. The slot can later take a table too.
+TODO(#780): a shape may name a model asset (the owner's low-poly models) instead of a placeholder; the browser deck draws
+tables once it runs modules (#290).
 
 ## DSP units (`deck_module::dsp`)
 
@@ -123,14 +150,15 @@ in the denormals (`dsp::flush` – wasm has no flush-to-zero).
 | `delay` | `Delay`: a ring with whole (`read`) and cubic fractional (`read_frac`) reads; `Allpass` (Schroeder); `Comb` (feedback with a lowpass in the loop). |
 | `fdn` | `Fdn`: eight delay lines, a Householder mix, a gain and a lowpass in every loop (`tick`); `gain` (a loop gain from RT60), `primes` (mutually prime lengths). |
 | `fft` | `Fft`: radix-2, a real signal into its spectrum (`real`) and back (`inverse`), in the caller's buffers. |
+| `conv` | `Partitioned`: uniformly partitioned FFT convolution (overlap-save, a frequency-domain delay line), a block of `part` samples in and its result out, cut to fewer partitions live (`set_active`); `mac`: complex multiply-accumulate of split spectra. |
 | `grid` | `steps`: a sequencer's steps on the beat grid (step `k` at beat `k / per_beat`); `frame_in`: the call a beat lands in, one call whatever the cut. |
 | `arith` | `exp2`, `log2`, `sin_turns`, `tan_pi`, `soft` in f64 from `+ − × ÷ floor` – what `osc`, `svf` and `adsr` compute with. |
 | `arp` | `Held`: the held notes (16, latch) and step `k`'s note by `Mode` (up / down / updown / played) through octaves; `steps`: the beat grid. The `arp` module and deck-events' `arp` generator both play it. |
 
 ## The small audio modules
 
-Eleven factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
-the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb`, a drum rig played by `drumseq`. A level in dB is
+Thirteen factory modules on those units (`deck/modules/<name>`, one `lib.rs` each; research/audio-nodes-foundation.md §2.3),
+the pieces a rig wires into a voice or a drum: `arp` → `osc` → `filter` → `vca` ← `env`, summed by `mixer`, echoed by `delay`, spaced by `reverb` or a recorded room through `convolver`, a drum rig played by `drumseq`, a recorded sound played by notes through `sampler`. A level in dB is
 silent at its bottom (−60); every knob glides; an event takes effect on its frame.
 
 | module | ports in → out | parameters | preset |
@@ -144,8 +172,17 @@ silent at its bottom (−60); every knob glides; an event takes effect on its fr
 | `transpose` | `notes` (event) → `out` (event) | `semi` st, `fine` cent | octave up |
 | `delay` | `in` (2), `time_mod` (control, oct) → `out` (2) | `sync` free / 1/32 … 1/1 (triplets, dotted), `time` ms (log), `feedback` % (under 98), `damp` Hz, `pingpong` %, `spread` ms, `mix` %, `depth` ms + `rate` Hz (chorus at short times) | dub |
 | `reverb` | `in` (2) → `out` (2) | `size` %, `decay` s (RT60, 0.2–20, log), `damp` Hz (top: none), `predelay` ms, `width` %, `mix` % | hall |
+| `convolver` | `in` (2) → `out` (2), asset `ir` (pcm, mono or stereo, ≤ 4 s; none = a built-in room), latency 128 | `mix` %, `gain` dB, `predelay` ms, `length` s (cuts the response) | room |
 | `arp` | `notes` (event, held: on at key down, off at key up) → `out` (event, a note a step on the beat grid) | `mode` up / down / updown / played, `rate` 1/1 … 1/32 (t = triplet; 1/8), `gate` %, `octaves` 1–4, `transpose` st, `latch` | crow |
 | `drumseq` | → `lane1` … `lane8` (event), `step` (control) | per lane and step `lNsM` off / on / accent; per lane `noteN` (MIDI key), `lengthN` % of a step; `steps`, `rate` steps/beat, `swing` %, `accent` %, `normal` % (velocities) | skank |
+| `sampler` | `notes` (event; a bend per note) → `out` (2), asset `sample` (pcm, mono or stereo, ≤ 16 MiB; none = silent) | `mode` oneshot / gate / loop, `pitch` note / fixed, `root` (MIDI: the sound's own pitch), `tune` st, `gain` dB, `velocity` %, `start` % / `length` % (the part played, a loop's), `release` s (log), `voices` 1–8 (past them the oldest is taken); at its own pitch and rate the sound's samples as they are, between them a cubic | pad |
+
+Two factory modules draw (`deck/modules/cloud`, `deck/modules/bamboo`, control modules, see "Drawing"):
+
+| module | ports → out | parameters | preset |
+|---|---|---|---|
+| `cloud` | → `shapes` (instances, 96: 24 puffs, then 72 drops), `thunder` + `kick` (event, a note each repeat), `period` s, `phase` 0–1, `pulse` (1 at a repeat, fading), `gate` (1 from each repeat for the first half of the period, 0 for the second, 0 while not held – rises at every repeat at every rate: a strobe's trigger), `red` `green` `blue` 0–1 (the cloud's colour) (control) | `puffs` 3–24, `size` m (glides), `drift` m/s (the wind along x, either way), `height` m, `range` m (it wraps after), `hue`, `tint` %, `light` %, `rain` 0–1 (the share of the drops falling – segments from the underside to the place, each starting again under a puff), `split` 0–1 (slices of the cloud drift apart as smaller parts and back), `swell` 0–1 (slowly grows and shrinks); the storm's repeater: `hold` (fires while ≥ 0.5), `rate` 0–1 (glides; with `sync` on a note value 1/1 … 1/32 on the tempo's grid, off 0.5 … 32 a second, the first at the press), `sync` off / on, `rumble` / `thump` (the thunder's / kick's velocity, 0 = none), `flash` 0–1 (a repeat lights and swells the puffs); its layout is the node's `seed` | storm |
+| `bamboo` | → `shapes` (instances, 960: a stalk is 6 segments, 5 node rings and a leafy crown; at most 80 stalks), `hits` (event, a note each time two stalks hit; id = the pair `a × 80 + b` above bit 16), `hit_rate` (hits a second, a 1 s average), `breeze` (the wind in the grove's middle, 0–1, more in a gust), `sway` (the tips' mean bend, a share of the height) (control) | two kinds – `thin` / `thick` 0–4 (count multipliers: 10 stalks × it, at most 40 a kind), `thin_height` / `thick_height` m, `thin_width` / `thick_width` m, `thin_hue` / `thick_hue`; `spread` m; the wind: `wind` 0–1 (glides), `gust` 0–1 (gusts travelling across, each stalk's flutter), `direction` °; the knocks: `root` (MIDI), `scale` (major / minor pentatonic, hirajoshi, whole tone; two octaves, the shorter pair higher, two thick stalks an octave down; velocity = closing speed / 3 m/s), `debounce` s (a pair knocks again only after it); every stalk a damped spring from its foot, simulated in fixed 64-frame ticks (the same whatever the cut); its layout (clumps of five) is the node's `seed` | storm |
 
 Each has `tests/golden.rs` (its script's hash and what it does), `tests/no_alloc.rs` (the script with every parameter
 turned), a row in module-bench (`cargo run --release -p module-bench -- factory`, results/factory/) and is proven

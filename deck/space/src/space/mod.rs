@@ -16,11 +16,13 @@
 //! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-native (the relay link, a
 //! `Wire`); a host without threads hands a set in with `set_arrived`.
 pub mod anatomy;
+pub mod animation;
 pub mod backdrop;
 pub mod being;
 pub mod camera;
 pub mod decks;
 pub mod dop;
+pub mod drawn;
 pub mod feel;
 pub mod figure;
 pub mod focus;
@@ -30,6 +32,7 @@ pub mod gpu;
 pub mod label;
 pub mod layers;
 pub mod meshopt;
+pub mod model_facts;
 pub mod motion;
 pub mod pick;
 pub mod place;
@@ -37,6 +40,7 @@ pub mod portrait;
 pub mod post;
 #[cfg(feature = "gpu")]
 pub mod post_gpu;
+pub mod sing;
 pub mod spots;
 pub mod stream;
 pub mod sync;
@@ -101,6 +105,8 @@ const FRAME_MARGIN: f32 = 0.08;
 
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
+/// #816: knobs a node of the scene's own graph shows at most when the scene names none
+const SCENE_KNOBS: usize = 4;
 /// the glow's light in the room (#204): reach (m) and strength by default, and how many beings light it at most
 pub const GLOW_RANGE: f32 = 7.0;
 pub const GLOW_LIGHT: f32 = 1.0;
@@ -166,8 +172,20 @@ pub struct Cast {
     pub moved: Option<motion::Pose>,
     /// the character whose 3D model draws it (scene-content names one: `set_looks`); none = its being
     pub model: Option<String>,
+    /// a placed rig: it stands there itself, in 3D (its look node's `rig`)
+    pub placed: bool,
+    /// its rig's body: the model by CDN path that draws it in 3D, over its character's (its look node's `body`)
+    pub body: Option<String>,
+    /// its body's height in metres; none = its kind's card height
+    pub height: Option<f32>,
     /// its figure's slot (figure.rs), asked for once it stands as its look
     pub figure: Option<usize>,
+    /// #817: the clip its figure plays, by name – its holder's `clip`, else its character's idle clip (`set_looks`)
+    pub clip: Option<String>,
+    /// its holder's `clip` (the look node's)
+    held_clip: Option<String>,
+    /// `clip` as its figure's clip, once the figure is here (`Figure::choose`); None = not chosen yet
+    played: Option<Option<usize>>,
 }
 
 /// One card on the stage this frame (#495): an upright picture with its feet on its spot, turned to the eye around the
@@ -194,7 +212,9 @@ const CARD_HOP: f32 = 0.15;
 impl Cast {
     /// the cast of `graph`: a being per `look` node – the node's look (its `being` table), its body the nodes of its rig
     /// (the ids under its prefix, `<prefix>look`), its core the look node; empty = the scene's one being is the space's
-    pub fn of(graph: &Graph, portraits: &mut Portraits) -> Vec<Cast> {
+    /// each node's holder: the index of the `look` node whose rig it is part of (the ids under its prefix,
+    /// `<prefix>look`), none = the scene's own (its FX, buses, chains – drawn by the scene's being, #816)
+    pub fn owners(graph: &Graph) -> Vec<Option<usize>> {
         let looks: Vec<(usize, &str)> = graph
             .nodes
             .iter()
@@ -203,10 +223,18 @@ impl Cast {
             .map(|(i, n)| (i, n.id.strip_suffix(crate::scene::look_id("").as_str()).unwrap_or_default()))
             .collect();
         // a node is the being's whose prefix is the longest that names it (holders `a` and `a_b`: `a_b_voice` is a_b's)
-        let owner = |k: usize| looks.iter().filter(|(_, p)| !p.is_empty() && graph.nodes[k].id.starts_with(p)).max_by_key(|(_, p)| p.len()).map(|(i, _)| *i);
+        (0..graph.nodes.len())
+            .map(|k| looks.iter().filter(|(_, p)| !p.is_empty() && graph.nodes[k].id.starts_with(p)).max_by_key(|(_, p)| p.len()).map(|(i, _)| *i))
+            .collect()
+    }
+
+    pub fn of(graph: &Graph, portraits: &mut Portraits) -> Vec<Cast> {
+        let owners = Cast::owners(graph);
+        let owner = |k: usize| owners[k];
+        let looks: Vec<usize> = graph.nodes.iter().enumerate().filter(|(_, n)| n.kind == crate::graph::Kind::Look).map(|(i, _)| i).collect();
         looks
             .iter()
-            .map(|&(i, _)| {
+            .map(|&i| {
                 let n = &graph.nodes[i];
                 let look: Look = n.params.get("being").and_then(|v| v.clone().try_into().ok()).unwrap_or_default();
                 let mut being = Being::part(graph, &look, Some(i), &|k| owner(k) == Some(i));
@@ -217,13 +245,18 @@ impl Cast {
                 };
                 // #495: who it is (a look node of #492 without `who` is its character's)
                 let who = n.str("who").and_then(Who::parse).unwrap_or_else(|| Who::Character(look.character.clone()));
+                // a placed rig is never a card: no picture to ask for
+                let placed = n.str("rig").is_some();
                 let pictures = match &who {
+                    _ if placed => Vec::new(),
                     Who::Character(c) => portraits.request_view(c, cast::CARD_VIEW, &being.moods),
                     Who::Item(id) => vec![portraits.picture(cast::Picture::item(id))],
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
                 let chosen = n.str("form").and_then(Form::parse);
-                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, figure: None }
+                let held_clip = n.str("clip").map(String::from);
+                let (body, height) = (n.str("body").map(String::from), n.params.get("height").and_then(|v| v.as_float()).map(|h| h as f32));
+                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, placed, body, height, figure: None, clip: held_clip.clone(), held_clip, played: None }
             })
             .collect()
     }
@@ -332,12 +365,16 @@ pub struct Space {
     pub focus: f32,
     /// the subjects whose rigs read the focus's outlets (`camera:focus`, `camera:distance`)
     focus_outlets: Vec<focus::Outlet>,
+    /// the subjects whose rigs read `trigger:sing` (sing.rs): what opens them
+    triggers: Vec<sing::Trigger>,
     /// a phone holds this deck's camera: the picture follows it (live_cameras.rs `Follow`), the deck's own view put
     /// aside, not changed – it returns when the phone lets go
     pub held: Option<crate::live_cameras::Follow>,
     /// the live camera it follows (its id: this scene's primary camera or one of its shots); a move played over it
     held_by: Option<String>,
     held_moved: bool,
+    /// the modules' instance tables (drawn.rs)
+    drawn: drawn::Drawn,
 }
 
 /// Called on the loader thread with a set's file before it is read: the sync (sync.rs) returns once that file is
@@ -389,6 +426,25 @@ fn load_set(path: PathBuf, _max: u32, _hide: Vec<String>, _gate: Option<Gate>) -
 }
 
 impl Space {
+    /// #816: on a stage of holders the scene's being is the scene's own graph – every node no holder's rig owns (its FX,
+    /// buses, chains), with its hoses, points and knobs; the holders' beings are their rigs'. None of its own: bodiless.
+    fn scene_part(graph: &Graph, look: &Look) -> Being {
+        let owners = Cast::owners(graph);
+        // at most SCENE_KNOBS knobs a node unless the scene names its own (`[being] expose`): a synth's ninety parameters
+        // as knobs flooded the stage (the X1 at 14 fps, its main thread at 99 %)
+        let mut look = look.clone();
+        if look.expose.is_empty() {
+            look.expose = graph
+                .nodes
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| owners[*k].is_none())
+                .flat_map(|(_, n)| n.kind.inputs().iter().filter(|i| i.ty == crate::graph::PortType::Control).take(SCENE_KNOBS).map(move |i| format!("{}.{}", n.id, i.name)))
+                .collect();
+        }
+        Being::part(graph, &look, graph.first(crate::graph::Kind::Space), &|k| owners[k].is_none())
+    }
+
     /// The space node `node` of `graph`: its being from the graph + `look`, its set's 3D loading on a thread of its own
     /// (from `sets`, the `--sets` folder), its head's sprites from `portraits`.
     pub fn new(graph: &Graph, node: usize, look: &Look, sets: &Path, portraits: Portraits) -> Space {
@@ -399,7 +455,7 @@ impl Space {
     pub fn with_gate(graph: &Graph, node: usize, look: &Look, sets: &Path, mut portraits: Portraits, gate: Option<Gate>) -> Space {
         let n = &graph.nodes[node];
         let cast = Cast::of(graph, &mut portraits);
-        let mut being = if cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
+        let mut being = if cast.is_empty() { Being::new(graph, look) } else { Space::scene_part(graph, look) };
         being.head.sprites = portraits.request(&look.character, &being.moods);
         for p in &being.feel.problems {
             tracing::warn!("being: {p} – left out");
@@ -485,9 +541,11 @@ impl Space {
             row_from: None,
             focus: 0.0,
             focus_outlets: focus::outlets(graph),
+            triggers: sing::triggers(graph),
             held: None,
             held_by: None,
             held_moved: false,
+            drawn: drawn::Drawn::default(),
         };
         space.place_cast();
         space
@@ -701,11 +759,16 @@ impl Space {
             let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
             c.feet = spot.unwrap_or(self.being.anchor - Vec3::Y * self.lift + row) + c.at;
             c.being.anchor = c.feet + Vec3::Y * self.lift;
-            let form = cast::form(&c.who, stage_3d, c.chosen, c.look);
+            let form = cast::form_rigged(&c.who, stage_3d, c.chosen, c.look, cast::Rigged { placed: c.placed, body: c.body.is_some() });
             changed |= form != c.form;
             c.form = form;
-            if let (Form::Look, Some(model), None) = (form, &c.model, c.figure) {
-                c.figure = Some(self.figures.request(c.who.character(), model));
+            // its rig's body draws it before its character's model
+            if form == Form::Look && c.figure.is_none() {
+                if let Some(path) = &c.body {
+                    c.figure = Some(self.figures.request_body(path));
+                } else if let Some(model) = &c.model {
+                    c.figure = Some(self.figures.request(c.who.character(), model));
+                }
             }
         }
         if changed {
@@ -720,9 +783,22 @@ impl Space {
             let character = c.who.character();
             c.look = content.look_form(character);
             c.model = content.model_of(character).map(String::from);
+            c.clip = c.held_clip.clone().or_else(|| content.art(character).and_then(|a| a.clip.clone()));
+            c.played = None;
         }
         self.looks = Some(content.clone());
         self.place_cast();
+    }
+
+    /// #817: each member's clip by name, once its figure is here; a name the file lacks is said once, the figure plays its own
+    fn choose_clips(&mut self) {
+        for c in &mut self.cast {
+            let Some(f) = c.played.is_none().then(|| c.figure.and_then(|s| self.figures.get(s))).flatten() else { continue };
+            c.played = Some(f.choose(c.clip.as_deref()).unwrap_or_else(|why| {
+                tracing::warn!("figure of {}: {why} – it plays its own", c.holder);
+                f.clip
+            }));
+        }
     }
 
     /// the character whose pictures draw `character` (push.rs `drawn_as`, once scene-content answered)
@@ -759,10 +835,10 @@ impl Space {
                 yaw += m.rotation.y;
                 scale = m.scale;
             }
-            let height = cast::card_height(&c.who);
+            let height = c.height.unwrap_or_else(|| cast::card_height(&c.who));
             let feet = at + Vec3::Y * c.being.bounce * CARD_HOP * height;
             // TODO(#491): the look's `mouth` opens the mouth once a model carries blend shapes
-            out.push(figure::FigureDraw { slot, world: figure::placed(f, feet, yaw, height, scale), glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
+            out.push(figure::FigureDraw { slot, clip: c.played.unwrap_or(f.clip), world: figure::placed(f, feet, yaw, height, scale), glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
         }
     }
 
@@ -833,6 +909,8 @@ impl Space {
     /// #517: whether the deck's playing scene listens to story events (scene_play.rs `Playing::listens`): the link asks the
     /// session for them while it does (nothing without a link, or on the conductor)
     pub fn ask_story(&mut self, on: bool) {
+        // a stage whose subjects sing on a text line hears the story too (sing.rs)
+        let on = on || self.sings();
         if let Some(l) = self.link.as_ref().filter(|_| self.join == Join::Deck && self.story != on) {
             l.story(on);
             self.story = on;
@@ -879,6 +957,7 @@ impl Space {
         if self.figures.poll() {
             self.generation += 1;
         }
+        self.choose_clips();
         #[cfg(feature = "media")]
         self.portraits.play(f64::from(time) + crate::video::shown_ahead(dt));
         self.clock = time;
@@ -906,6 +985,7 @@ impl Space {
             None => Some(self.being.focus().0),
         };
         focus::push(&self.focus_outlets, self.camera.eye(), self.focus, &at, ctl);
+        sing::push(&mut self.triggers, time, ctl);
         // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
         self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
@@ -1360,8 +1440,9 @@ impl Space {
     pub fn replace_being(&mut self, graph: &Graph, look: &Look) {
         self.cast = Cast::of(graph, &mut self.portraits);
         self.focus_outlets = focus::outlets(graph);
+        self.triggers = sing::triggers(graph);
         self.picked = None;
-        let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Being::part(graph, look, None, &|_| false) };
+        let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Space::scene_part(graph, look) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);
         being.anchor = self.being.anchor;
         self.being = being;
@@ -1417,6 +1498,10 @@ impl Space {
                 In::Held(h) => self.held(h),
                 In::Address { address, action, beat } if self.camera_word_on(&address, &action, beat) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
+                    // a text line opens its character's trigger here, whether the scene listens or not
+                    if let In::Story(s) = &cast {
+                        self.sing_line(&serde_json::Value::Object(s.clone()));
+                    }
                     if self.cast_in.len() == CAST_CAP {
                         self.cast_in.pop_front();
                     }
@@ -1578,10 +1663,17 @@ impl Space {
         n
     }
 
-    /// every being drawn in 3D: this deck's own first (on a stage of several holders, the cast's instead – #492; only the
-    /// members standing as their look, #495: a card is no body, nor a look drawn by its model), then the decks'
+    /// the cast members drawn as their beings (not the scene's own graph, not the other decks')
+    pub fn cast_beings(&self) -> usize {
+        self.cast.iter().filter(|c| self.drawing(c) == Drawing::Being).count()
+    }
+
+    /// every being drawn in 3D: this deck's own first (on a stage of several holders the scene's own graph when it has
+    /// nodes no holder owns – #816 – then the cast's, #492; only the members standing as their look, #495: a card is no
+    /// body, nor a look drawn by its model), then the decks'
     pub fn beings(&self) -> impl Iterator<Item = &Being> {
-        let own = self.cast.is_empty().then_some(&self.being);
+        // #816: the scene's own graph is drawn beside the cast when it has nodes of its own
+        let own = (self.cast.is_empty() || !self.being.points.is_empty()).then_some(&self.being);
         let looks = self.cast.iter().filter(|c| self.drawing(c) == Drawing::Being).map(|c| &c.being);
         own.into_iter().chain(looks).chain(self.others.iter().map(|r| &r.being))
     }
@@ -2571,7 +2663,7 @@ to = "burner_look.pulse"
         let g = Graph::build(&scene).unwrap();
         let node = g.first(crate::graph::Kind::Space).unwrap();
         let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
-        assert_eq!((space.cast.len(), space.cards(), space.beings().count()), (1, 1, 0));
+        assert_eq!((space.cast.len(), space.cards(), space.cast_beings()), (1, 1, 0));
         assert_eq!(space.cast[0].who, Who::Character("yellowmouse".into()));
         let mut ctl = Table::new(&g);
         run(&mut space, &mut ctl, 3, &mut |_| {});
@@ -2602,8 +2694,10 @@ to = "burner_look.pulse"
         assert_eq!(ids(&space.cast[1].being), ["right_look"]);
         assert_eq!((space.cast[0].being.look.character.as_str(), space.cast[1].being.look.character.as_str()), ("catpope", "mute"));
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
-        assert!(space.being.points.is_empty() && space.being.buttons.is_empty(), "the space's own being has no body to draw or turn");
+        assert_eq!((space.cast_beings(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
+        let owners = Cast::owners(&g);
+        assert!(space.being.points.iter().all(|p| owners[p.node].is_none()), "#816: the space's own being is the scene's own nodes, none of a holder's");
+        assert!(ids(&space.being).iter().all(|id| !id.starts_with("left_") && !id.starts_with("right_")), "{:?}", ids(&space.being));
         assert_eq!(space.cast[0].feet, Vec3::new(-2.0, 0.0, 0.0), "on its spot in the set");
         assert_eq!(space.cast[0].being.anchor, Vec3::new(-2.0, space.lift, 0.0), "the being floats over it");
         let mut glows = (Vec::new(), Vec::new());
@@ -2622,7 +2716,7 @@ to = "burner_look.pulse"
         let generation = space.generation;
         space.set_arrived(Err(anyhow::anyhow!("gone")));
         assert!(!space.stage_3d() && space.generation > generation, "the renderer sizes its buffers anew");
-        assert_eq!((space.beings().count(), space.cards()), (0, 3));
+        assert_eq!((space.cast_beings(), space.cards()), (0, 3));
     }
 
     /// a holder's chosen form wins over the stage: a card on a 3D stage, a look on a stage without a set
@@ -2632,7 +2726,7 @@ to = "burner_look.pulse"
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
         let (_g, space, _ctl) = stage_chosen(false, ["", "form = \"look\""]);
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (1, 2));
+        assert_eq!((space.cast_beings(), space.cards()), (1, 2));
     }
 
     /// a character look's own form stands where its holder chose none; the holder's choice still wins
@@ -2655,17 +2749,17 @@ to = "burner_look.pulse"
         let (_g, mut space, mut ctl) = stage(true);
         space.set_looks(&content);
         let asked = space.figures.requests();
-        assert_eq!(asked.iter().map(|(_, c)| c.as_str()).collect::<Vec<_>>(), ["catpope", "mellowmantis"], "mute has no art: the default character's model");
+        assert_eq!(asked.iter().map(|(_, c)| c.id()).collect::<Vec<_>>(), ["catpope", "mellowmantis"], "mute has no art: the default character's model");
         assert_eq!(space.drawn_as("mute"), "mellowmantis");
         let drawings = |s: &Space| s.cast.iter().map(|c| s.drawing(c)).collect::<Vec<_>>();
         assert_eq!(drawings(&space), [Drawing::Being, Drawing::Being, Drawing::Card], "until its model is here: its being");
-        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
+        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), None, &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
         space.figures.deliver(asked[1].0, Err("no file".into()));
         let generation = space.generation;
         run(&mut space, &mut ctl, 1, &mut |_| {});
         assert!(space.generation > generation, "the renderer sizes its buffers anew");
         assert_eq!(drawings(&space), [Drawing::Model, Drawing::Being, Drawing::Card]);
-        assert_eq!((space.beings().count(), space.figures_drawn(), space.cards()), (1, 1, 1));
+        assert_eq!((space.cast_beings(), space.figures_drawn(), space.cards()), (1, 1, 1));
         let mut out = Vec::with_capacity(space.figures_drawn());
         space.write_figures(&mut out);
         let [d] = &out[..] else { panic!("one figure: {out:?}") };
@@ -2676,6 +2770,49 @@ to = "burner_look.pulse"
         assert!((top.y - feet.y - cast::card_height(&space.cast[0].who)).abs() < 1e-4, "as tall as its card: {top}");
     }
 
+    /// a placed rig stands in 3D even on a stage without a set and asks for its body by the model's path, drawn as it
+    /// once it is here, as tall as the body says; one without a body stands as its being; neither asks for a picture
+    #[test]
+    fn a_placed_rig_stands_as_its_body() {
+        let text = r#"
+[[node]]
+id = "space"
+kind = "space"
+[[node]]
+id = "drums_look"
+kind = "look"
+holder = "drums"
+who = "item:drum-machine"
+rig = "item.drum-machine"
+body = "characters/takeyari-drum/takeyari-drum-regular.glb"
+height = 1.0
+[[node]]
+id = "bell_look"
+kind = "look"
+holder = "bell"
+who = "item:bell"
+rig = "item.bell"
+"#;
+        let scene = Scene::parse(text).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let node = g.first(crate::graph::Kind::Space).unwrap();
+        let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
+        let mut ctl = Table::new(&g);
+        space.set_looks(&crate::push::Content::default());
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look], "no set, still 3D");
+        assert!(space.portraits.requests().is_empty(), "a placed rig has no card");
+        let asked = space.figures.requests();
+        assert_eq!(asked.iter().map(|(_, a)| a.clone()).collect::<Vec<_>>(), [figure::Ask::Body("characters/takeyari-drum/takeyari-drum-regular.glb".into())]);
+        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), None, &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
+        run(&mut space, &mut ctl, 1, &mut |_| {});
+        assert_eq!(space.cast.iter().map(|c| space.drawing(c)).collect::<Vec<_>>(), [Drawing::Model, Drawing::Being]);
+        let mut out = Vec::with_capacity(space.figures_drawn());
+        space.write_figures(&mut out);
+        let f = space.figures.get(out[0].slot).unwrap();
+        let (feet, top) = (out[0].world.transform_point3(f.feet), out[0].world.transform_point3(f.feet + Vec3::Y * f.height));
+        assert!((top.y - feet.y - 1.0).abs() < 1e-4, "the body's height: {}", top.y - feet.y);
+    }
+
     /// #495 (owner 2026-11-12: "We fall back to 2d in all cases"): a stage with no set – every member a card, its feet on
     /// its spot, upright, turned to the eye, as tall as its kind and as wide as its picture; the character's picture its
     /// full view in its being's mood, the item's its picture; each card moved only by its own look's links
@@ -2684,7 +2821,7 @@ to = "burner_look.pulse"
         let (_g, mut space, mut ctl) = stage(false);
         assert!(!space.stage_3d());
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Card, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (0, 3), "no bodies: cards");
+        assert_eq!((space.cast_beings(), space.cards()), (0, 3), "no bodies: cards");
         // the pictures the stage asks for: a character's full view per mood, an item's one picture
         let asked = space.portraits.requests();
         let full = |id: &str| asked.iter().filter(|(_, p)| p.id == id && p.view == cast::CARD_VIEW).count();
@@ -2723,6 +2860,6 @@ to = "burner_look.pulse"
         let (s, t) = space.capacity();
         let (mut spheres, mut tubes) = (Vec::with_capacity(s), Vec::with_capacity(t));
         space.write(&mut spheres, &mut tubes);
-        assert!(spheres.is_empty(), "no bodies drawn");
+        assert_eq!(space.cast_beings(), 0, "no character bodies drawn – only the scene's own graph (#816)");
     }
 }

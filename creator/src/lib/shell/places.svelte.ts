@@ -7,8 +7,9 @@ import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { shared } from '$lib/utils/shared.ts';
 import { AREAS, hrefOf, iconOf } from './address.ts';
+import { wordsIn } from './launcher.ts';
 
-/** one thing that opens as a tab: Home's find, the Library and the command palette list the same */
+/** one thing that opens as a tab: the launcher and the Library list the same */
 export interface Place {
 	address: string;
 	label: string;
@@ -23,7 +24,7 @@ export interface Place {
 }
 
 /**
- * What the existing APIs give to open: the areas (characters, wanted, the map, scenes, the flow, the catalog's
+ * What the existing APIs give to open: the areas (characters, the map, scenes, the flow, the catalog's
  * kinds, the guide), every toon with its seasons and chapters (its content index, read once per toon on demand) and
  * the XR experiences (read once, when first asked).
  */
@@ -52,10 +53,10 @@ class Places {
 		const area = (address: string, label: string, keywords: string): Place => ({ address, label, href: hrefOf(address)!, icon: iconOf(address), keywords, group: 'area' });
 		return [
 			area(AREAS.characters, m['creator.characters'](), 'characters figuren'),
-			area(AREAS.wanted, m['creator.characters_wanted'](), 'wanted images'),
 			area(AREAS.map, m['creator.map'](), 'map karte places'),
 			area(AREAS.scenes, m['creator.scenes'](), 'scenes szenen deck'),
 			area(AREAS.flow, m['creator.flow_universe'](), 'flow ablauf'),
+			area(AREAS.generate, m['shell.ws_generate'](), 'generate generator spore canvas ai generieren'),
 			...CATALOG_PAGE_KINDS.map((kind) => ({ ...area(`catalog:${kind}`, CATALOG_LABELS[kind](), `catalog katalog ${kind.replace('-', ' ')}`), hint: m['creator.catalog'](), group: 'catalog' as const })),
 			area(AREAS.guide, m['creator.style_guide'](), 'style guide design help')
 		];
@@ -96,8 +97,5 @@ export const places = shared('creator-places', () => new Places());
 
 /** does a place match what was typed (its name, its toon, its address, its words)? */
 export function matches(place: Place, query: string): boolean {
-	const q = query.trim().toLowerCase();
-	if (!q) return true;
-	const hay = `${place.label} ${place.hint ?? ''} ${place.address} ${place.keywords ?? ''}`.toLowerCase();
-	return q.split(/\s+/).every((word) => hay.includes(word));
+	return wordsIn(`${place.label} ${place.hint ?? ''} ${place.address} ${place.keywords ?? ''}`, query);
 }

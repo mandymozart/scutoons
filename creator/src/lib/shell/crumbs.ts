@@ -13,15 +13,14 @@ import { getLocale } from '$lib/paraglide/runtime.js';
 export function routeCrumbs(route: string, params: Record<string, string | undefined>, url: URL, nav: CreatorNav): Crumb[] {
 	const out: Crumb[] = [];
 	const toonId = params.toonId ?? null;
-	const tab = url.searchParams.get('tab');
 	if (route === '/toons' || toonId) out.push({ href: '/toons', label: m['creator.toons']() });
 	if (route === '/notifications') out.push({ href: '/notifications', label: pwaLabels(getLocale()).notifications });
 	if (route === '/guide') out.push({ href: '/guide', label: m['creator.style_guide']() });
 	if (route === '/characters') {
 		out.push({ href: '/characters', label: m['creator.characters']() });
-		if (tab === 'wanted') out.push({ href: '/characters?tab=wanted', label: m['creator.characters_wanted']() });
 	}
 	if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
+	if (route === '/generate') out.push({ href: '/generate', label: m['shell.ws_generate']() });
 	if (route === '/scenes/[[id]]') out.push({ href: '/scenes', label: m['creator.scenes']() });
 	if (route === '/experiences/[[id]]') out.push({ href: '/experiences', label: m['creator.experiences']() });
 	if (route === '/catalog/[kind]' || route === '/catalog/items/[id]/collage') {

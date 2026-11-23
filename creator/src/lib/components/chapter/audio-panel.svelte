@@ -139,8 +139,8 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
-		border-bottom: 2px solid var(--ink);
+		color: var(--tool-text);
+		border-bottom: 2px solid var(--tool-text);
 	}
 	td {
 		padding: 0.15rem 0.25rem 0.15rem 0;

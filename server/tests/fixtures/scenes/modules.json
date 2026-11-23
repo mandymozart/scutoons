@@ -1,0 +1,2541 @@
+{
+  "about": "A scene's module nodes – the requests the API builds (Scenes::publish: the descriptors of the module:<id> documents its nodes name, from the catalog; `catalog` = the modules the catalog has) and the core's answers (deck-space rig/validate.rs scene_modules_vectors; UPDATE_FIXTURES=1 writes the problems)",
+  "cases": [
+    {
+      "catalog": [
+        "analog"
+      ],
+      "name": "a scene with module:analog and its descriptor from the catalog",
+      "problems": [],
+      "request": {
+        "document": {
+          "format": 2,
+          "id": "rave",
+          "link": [
+            {
+              "from": "voice.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "out.in"
+            }
+          ],
+          "node": [
+            {
+              "id": "voice",
+              "kind": "module:analog"
+            },
+            {
+              "id": "out",
+              "kind": "audio_out",
+              "volume": 1
+            }
+          ],
+          "stage": {
+            "name": "untitled",
+            "render_scale": 1.0,
+            "transition": "fade",
+            "transition_secs": 0.4
+          },
+          "toons": []
+        },
+        "id": "rave",
+        "kind": "scenes",
+        "modules": [
+          {
+            "abi": 2,
+            "doc": "a classic two-oscillator, two-filter, two-amp subtractive synth, eight voices",
+            "domain": "audio",
+            "name": "analog",
+            "params": [
+              {
+                "default": 0.7,
+                "doc": "master level: the sum of the voices times this",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "volume",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 0
+              },
+              {
+                "choices": [
+                  "saw",
+                  "pulse",
+                  "triangle",
+                  "sine"
+                ],
+                "default": 0.0,
+                "doc": "oscillator 1 waveform",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "o1_wave",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 pitch offset in semitones",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "o1_semi",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 fine detune",
+                "max": 100.0,
+                "min": -100.0,
+                "name": "o1_fine",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 2,
+                "unit": "cent"
+              },
+              {
+                "default": 0.5,
+                "doc": "oscillator 1 pulse width (the pulse wave only)",
+                "max": 0.95,
+                "min": 0.05,
+                "name": "o1_pw",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 3
+              },
+              {
+                "default": 0.8,
+                "doc": "oscillator 1 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_level",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 sub-oscillator level (a square, one octave down)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_sub",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 5
+              },
+              {
+                "default": 1.0,
+                "doc": "oscillator 1 keyboard follow: 1 plays the pitch it is sent, 0 holds middle C",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_key",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "saw",
+                  "pulse",
+                  "triangle",
+                  "sine"
+                ],
+                "default": 0.0,
+                "doc": "oscillator 2 waveform",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "o2_wave",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 pitch offset in semitones",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "o2_semi",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 fine detune",
+                "max": 100.0,
+                "min": -100.0,
+                "name": "o2_fine",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 2,
+                "unit": "cent"
+              },
+              {
+                "default": 0.5,
+                "doc": "oscillator 2 pulse width (the pulse wave only)",
+                "max": 0.95,
+                "min": 0.05,
+                "name": "o2_pw",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_level",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 sub-oscillator level (a square, one octave down)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_sub",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 5
+              },
+              {
+                "default": 1.0,
+                "doc": "oscillator 2 keyboard follow: 1 plays the pitch it is sent, 0 holds middle C",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_key",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "off",
+                  "on"
+                ],
+                "default": 0.0,
+                "doc": "hard sync: oscillator 1 restarts oscillator 2 at every cycle",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_sync",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "white noise level (seeded, the same on every deck)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "noise_level",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 0
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 1 goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "o1_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 4
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 1's sub goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "sub1_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 5
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 2 goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "o2_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 2's sub goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "sub2_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 7
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where the noise goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "noise_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 1
+              },
+              {
+                "choices": [
+                  "parallel",
+                  "serial"
+                ],
+                "default": 0.0,
+                "doc": "serial: filter 1's output also feeds filter 2",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f_serial",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 2
+              },
+              {
+                "default": 1.0,
+                "doc": "how much of filter 1 feeds filter 2 (serial only)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_to_f2",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to pitch: semitones at full velocity",
+                "max": 12.0,
+                "min": -12.0,
+                "name": "vel_pitch",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to pulse width of both oscillators at full velocity",
+                "max": 0.45,
+                "min": -0.45,
+                "name": "vel_pwm",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 2
+              },
+              {
+                "choices": [
+                  "lowpass",
+                  "bandpass",
+                  "highpass",
+                  "notch"
+                ],
+                "default": 0.0,
+                "doc": "filter 1 type",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "f1_mode",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 8000.0,
+                "doc": "filter 1 cutoff",
+                "max": 20000.0,
+                "min": 20.0,
+                "name": "f1_cutoff",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_res",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 drive: saturation in front of the filter",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_drive",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 key tracking: 1 moves the cutoff an octave per octave of pitch",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f1_key",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 5
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 envelope amount: six octaves at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f1_env",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 1 cutoff: four octaves at full velocity",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_vel",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 1 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_velres",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 7
+              },
+              {
+                "choices": [
+                  "lowpass",
+                  "bandpass",
+                  "highpass",
+                  "notch"
+                ],
+                "default": 0.0,
+                "doc": "filter 2 type",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "f2_mode",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 8000.0,
+                "doc": "filter 2 cutoff",
+                "max": 20000.0,
+                "min": 20.0,
+                "name": "f2_cutoff",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_res",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 drive: saturation in front of the filter",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_drive",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 key tracking: 1 moves the cutoff an octave per octave of pitch",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f2_key",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 5
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 envelope amount: six octaves at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f2_env",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 2 cutoff: four octaves at full velocity",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_vel",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 2 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_velres",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 7
+              },
+              {
+                "curve": "log",
+                "default": 0.005,
+                "doc": "filter envelope 1 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_a",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 0,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 1 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_d",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 1,
+                "unit": "s"
+              },
+              {
+                "default": 0.5,
+                "doc": "filter envelope 1 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "fe1_s",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 2
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 1 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_r",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.005,
+                "doc": "filter envelope 2 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_a",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 4,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 2 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_d",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 5,
+                "unit": "s"
+              },
+              {
+                "default": 0.5,
+                "doc": "filter envelope 2 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "fe2_s",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 6
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 2 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_r",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 7,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter envelope 2 to oscillator 2 pitch only: semitones at full (the classic sync sweep)",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "fe2_p2",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 3,
+                "unit": "st"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp 1 level (filter 1's output)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a1_level",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 1 pan, constant power",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a1_pan",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 1
+              },
+              {
+                "default": 0.5,
+                "doc": "velocity to amp 1 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a1_vel",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 1 key tracking: level change with pitch, 3 dB an octave at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a1_key",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 3
+              },
+              {
+                "default": 0.8,
+                "doc": "amp 2 level (filter 2's output)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a2_level",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 2 pan, constant power",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a2_pan",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 5
+              },
+              {
+                "default": 0.5,
+                "doc": "velocity to amp 2 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a2_vel",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 2 key tracking: level change with pitch, 3 dB an octave at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a2_key",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 7
+              },
+              {
+                "curve": "log",
+                "default": 0.003,
+                "doc": "amp envelope 1 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_a",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 0,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "amp envelope 1 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_d",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 1,
+                "unit": "s"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp envelope 1 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "ae1_s",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 2
+              },
+              {
+                "curve": "log",
+                "default": 0.25,
+                "doc": "amp envelope 1 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_r",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.003,
+                "doc": "amp envelope 2 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_a",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 4,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "amp envelope 2 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_d",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 5,
+                "unit": "s"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp envelope 2 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "ae2_s",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 6
+              },
+              {
+                "curve": "log",
+                "default": 0.25,
+                "doc": "amp envelope 2 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_r",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 7,
+                "unit": "s"
+              },
+              {
+                "choices": [
+                  "sine",
+                  "triangle",
+                  "saw",
+                  "square",
+                  "sample & hold"
+                ],
+                "default": 0.0,
+                "doc": "LFO 1 shape",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_shape",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 4.0,
+                "doc": "LFO 1 rate when free-running",
+                "max": 40.0,
+                "min": 0.01,
+                "name": "l1_rate",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "choices": [
+                  "free",
+                  "2 bars",
+                  "1 bar",
+                  "1/2",
+                  "1/4",
+                  "1/8",
+                  "1/16",
+                  "1/32"
+                ],
+                "default": 0.0,
+                "doc": "LFO 1 tempo sync: a cycle per note value, locked to the beat",
+                "max": 7.0,
+                "min": 0.0,
+                "name": "l1_sync",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 delay: silent for this long after the note starts",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l1_delay",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 2,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 attack: fades in over this long after the delay",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l1_attack",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to pitch of both oscillators: semitones either way (vibrato)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l1_pitch",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 0,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to the pulse width of both oscillators",
+                "max": 0.45,
+                "min": 0.0,
+                "name": "l1_pwm",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to filter 1 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_f1",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 4,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to filter 2 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_f2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 5,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to amp 1 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l1_a1",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to amp 2 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l1_a2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to oscillator 2 pitch only: semitones either way (sweeps a synced oscillator)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l1_p2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "choices": [
+                  "sine",
+                  "triangle",
+                  "saw",
+                  "square",
+                  "sample & hold"
+                ],
+                "default": 0.0,
+                "doc": "LFO 2 shape",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_shape",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 4.0,
+                "doc": "LFO 2 rate when free-running",
+                "max": 40.0,
+                "min": 0.01,
+                "name": "l2_rate",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "choices": [
+                  "free",
+                  "2 bars",
+                  "1 bar",
+                  "1/2",
+                  "1/4",
+                  "1/8",
+                  "1/16",
+                  "1/32"
+                ],
+                "default": 0.0,
+                "doc": "LFO 2 tempo sync: a cycle per note value, locked to the beat",
+                "max": 7.0,
+                "min": 0.0,
+                "name": "l2_sync",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 delay: silent for this long after the note starts",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l2_delay",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 2,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 attack: fades in over this long after the delay",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l2_attack",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to pitch of both oscillators: semitones either way (vibrato)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l2_pitch",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 0,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to the pulse width of both oscillators",
+                "max": 0.45,
+                "min": 0.0,
+                "name": "l2_pwm",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to filter 1 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_f1",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 4,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to filter 2 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_f2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 5,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to amp 1 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l2_a1",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to amp 2 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l2_a2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to oscillator 2 pitch only: semitones either way (sweeps a synced oscillator)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l2_p2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 1,
+                "unit": "st"
+              }
+            ],
+            "ports": [
+              {
+                "capacity": 64,
+                "dir": "in",
+                "doc": "notes on and off (by id), a bend per note, a reset",
+                "name": "notes",
+                "names": [
+                  "music.note"
+                ],
+                "props": [
+                  "pitch",
+                  "vel",
+                  "glide",
+                  "key"
+                ],
+                "type": "event"
+              },
+              {
+                "dir": "in",
+                "doc": "the pedal: at 0.5 and above released notes hold",
+                "name": "sustain",
+                "type": "control"
+              },
+              {
+                "channels": 2,
+                "dir": "out",
+                "doc": "stereo: the sum of the voices times volume",
+                "name": "out",
+                "type": "audio"
+              }
+            ],
+            "preset": {
+              "doc": "A wide, slow pad: a detuned saw through filter 1 on the left and a pulse with a slow pulse-width sweep through filter 2 on the right, a long filter bloom and a slow filter wobble.",
+              "name": "pad",
+              "values": {
+                "a1_level": 0.8,
+                "a1_pan": -0.55,
+                "a1_vel": 0.3,
+                "a2_level": 0.8,
+                "a2_pan": 0.55,
+                "a2_vel": 0.3,
+                "ae1_a": 0.9,
+                "ae1_d": 0.8,
+                "ae1_r": 2.0,
+                "ae1_s": 0.85,
+                "ae2_a": 1.1,
+                "ae2_d": 0.8,
+                "ae2_r": 2.2,
+                "ae2_s": 0.85,
+                "f1_cutoff": 1400.0,
+                "f1_env": 0.35,
+                "f1_key": 0.5,
+                "f1_res": 0.2,
+                "f2_cutoff": 2200.0,
+                "f2_env": 0.2,
+                "f2_key": 0.5,
+                "f2_res": 0.1,
+                "fe1_a": 1.2,
+                "fe1_d": 1.5,
+                "fe1_r": 1.5,
+                "fe1_s": 0.5,
+                "fe2_a": 1.5,
+                "fe2_d": 2.0,
+                "fe2_r": 1.5,
+                "fe2_s": 0.6,
+                "l1_f1": 0.5,
+                "l1_rate": 0.25,
+                "l1_shape": 0.0,
+                "l2_f2": 0.4,
+                "l2_pwm": 0.3,
+                "l2_rate": 0.17,
+                "l2_shape": 1.0,
+                "o1_fine": -7.0,
+                "o1_level": 0.7,
+                "o1_route": 0.0,
+                "o1_wave": 0.0,
+                "o2_fine": 7.0,
+                "o2_level": 0.6,
+                "o2_pw": 0.5,
+                "o2_route": 1.0,
+                "o2_wave": 1.0,
+                "volume": 0.6
+              }
+            },
+            "sections": [
+              {
+                "area": "SRC",
+                "page": "OSC 1"
+              },
+              {
+                "area": "SRC",
+                "page": "OSC 2"
+              },
+              {
+                "area": "SRC",
+                "page": "NOISE·ROUTE"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER 1"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER 2"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER ENV"
+              },
+              {
+                "area": "AMP",
+                "page": "AMP"
+              },
+              {
+                "area": "AMP",
+                "page": "AMP ENV"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 1"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 1 DEST"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 2"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 2 DEST"
+              },
+              {
+                "area": "VOICE",
+                "page": "VOICE"
+              }
+            ],
+            "version": "0.0.0"
+          }
+        ]
+      }
+    },
+    {
+      "catalog": [],
+      "name": "module:analog not in the catalog: no descriptor sent",
+      "problems": [
+        "scene rave: node 'voice': module:analog isn't in the catalog yet"
+      ],
+      "request": {
+        "document": {
+          "format": 2,
+          "id": "rave",
+          "link": [
+            {
+              "from": "voice.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "out.in"
+            }
+          ],
+          "node": [
+            {
+              "id": "voice",
+              "kind": "module:analog"
+            },
+            {
+              "id": "out",
+              "kind": "audio_out",
+              "volume": 1
+            }
+          ],
+          "stage": {
+            "name": "untitled",
+            "render_scale": 1.0,
+            "transition": "fade",
+            "transition_secs": 0.4
+          },
+          "toons": []
+        },
+        "id": "rave",
+        "kind": "scenes",
+        "modules": []
+      }
+    },
+    {
+      "catalog": [
+        "analog"
+      ],
+      "name": "module:arp not in the catalog, module:analog is",
+      "problems": [
+        "scene rave: node 'arp': module:arp isn't in the catalog yet"
+      ],
+      "request": {
+        "document": {
+          "format": 2,
+          "id": "rave",
+          "link": [
+            {
+              "from": "arp.notes",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "voice.notes"
+            },
+            {
+              "from": "voice.out",
+              "offset": 0.0,
+              "scale": 1.0,
+              "to": "out.in"
+            }
+          ],
+          "node": [
+            {
+              "id": "arp",
+              "kind": "module:arp"
+            },
+            {
+              "id": "voice",
+              "kind": "module:analog"
+            },
+            {
+              "id": "out",
+              "kind": "audio_out",
+              "volume": 1
+            }
+          ],
+          "stage": {
+            "name": "untitled",
+            "render_scale": 1.0,
+            "transition": "fade",
+            "transition_secs": 0.4
+          },
+          "toons": []
+        },
+        "id": "rave",
+        "kind": "scenes",
+        "modules": [
+          {
+            "abi": 2,
+            "doc": "a classic two-oscillator, two-filter, two-amp subtractive synth, eight voices",
+            "domain": "audio",
+            "name": "analog",
+            "params": [
+              {
+                "default": 0.7,
+                "doc": "master level: the sum of the voices times this",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "volume",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 0
+              },
+              {
+                "choices": [
+                  "saw",
+                  "pulse",
+                  "triangle",
+                  "sine"
+                ],
+                "default": 0.0,
+                "doc": "oscillator 1 waveform",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "o1_wave",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 pitch offset in semitones",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "o1_semi",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 fine detune",
+                "max": 100.0,
+                "min": -100.0,
+                "name": "o1_fine",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 2,
+                "unit": "cent"
+              },
+              {
+                "default": 0.5,
+                "doc": "oscillator 1 pulse width (the pulse wave only)",
+                "max": 0.95,
+                "min": 0.05,
+                "name": "o1_pw",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 3
+              },
+              {
+                "default": 0.8,
+                "doc": "oscillator 1 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_level",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 1 sub-oscillator level (a square, one octave down)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_sub",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 5
+              },
+              {
+                "default": 1.0,
+                "doc": "oscillator 1 keyboard follow: 1 plays the pitch it is sent, 0 holds middle C",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o1_key",
+                "port": true,
+                "section": "SRC/OSC 1",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "saw",
+                  "pulse",
+                  "triangle",
+                  "sine"
+                ],
+                "default": 0.0,
+                "doc": "oscillator 2 waveform",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "o2_wave",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 pitch offset in semitones",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "o2_semi",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 fine detune",
+                "max": 100.0,
+                "min": -100.0,
+                "name": "o2_fine",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 2,
+                "unit": "cent"
+              },
+              {
+                "default": 0.5,
+                "doc": "oscillator 2 pulse width (the pulse wave only)",
+                "max": 0.95,
+                "min": 0.05,
+                "name": "o2_pw",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_level",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "oscillator 2 sub-oscillator level (a square, one octave down)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_sub",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 5
+              },
+              {
+                "default": 1.0,
+                "doc": "oscillator 2 keyboard follow: 1 plays the pitch it is sent, 0 holds middle C",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_key",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "off",
+                  "on"
+                ],
+                "default": 0.0,
+                "doc": "hard sync: oscillator 1 restarts oscillator 2 at every cycle",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "o2_sync",
+                "port": true,
+                "section": "SRC/OSC 2",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "white noise level (seeded, the same on every deck)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "noise_level",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 0
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 1 goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "o1_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 4
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 1's sub goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "sub1_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 5
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 2 goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "o2_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 6
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where oscillator 2's sub goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "sub2_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 7
+              },
+              {
+                "choices": [
+                  "filter 1",
+                  "filter 2",
+                  "both"
+                ],
+                "default": 0.0,
+                "doc": "where the noise goes",
+                "max": 2.0,
+                "min": 0.0,
+                "name": "noise_route",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 1
+              },
+              {
+                "choices": [
+                  "parallel",
+                  "serial"
+                ],
+                "default": 0.0,
+                "doc": "serial: filter 1's output also feeds filter 2",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f_serial",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 2
+              },
+              {
+                "default": 1.0,
+                "doc": "how much of filter 1 feeds filter 2 (serial only)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_to_f2",
+                "port": true,
+                "section": "SRC/NOISE·ROUTE",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to pitch: semitones at full velocity",
+                "max": 12.0,
+                "min": -12.0,
+                "name": "vel_pitch",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to pulse width of both oscillators at full velocity",
+                "max": 0.45,
+                "min": -0.45,
+                "name": "vel_pwm",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 2
+              },
+              {
+                "choices": [
+                  "lowpass",
+                  "bandpass",
+                  "highpass",
+                  "notch"
+                ],
+                "default": 0.0,
+                "doc": "filter 1 type",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "f1_mode",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 8000.0,
+                "doc": "filter 1 cutoff",
+                "max": 20000.0,
+                "min": 20.0,
+                "name": "f1_cutoff",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_res",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 drive: saturation in front of the filter",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_drive",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 key tracking: 1 moves the cutoff an octave per octave of pitch",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f1_key",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 5
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 1 envelope amount: six octaves at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f1_env",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 1 cutoff: four octaves at full velocity",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_vel",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 1 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f1_velres",
+                "port": true,
+                "section": "FLTR/FILTER 1",
+                "slot": 7
+              },
+              {
+                "choices": [
+                  "lowpass",
+                  "bandpass",
+                  "highpass",
+                  "notch"
+                ],
+                "default": 0.0,
+                "doc": "filter 2 type",
+                "max": 3.0,
+                "min": 0.0,
+                "name": "f2_mode",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 8000.0,
+                "doc": "filter 2 cutoff",
+                "max": 20000.0,
+                "min": 20.0,
+                "name": "f2_cutoff",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_res",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 drive: saturation in front of the filter",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_drive",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 key tracking: 1 moves the cutoff an octave per octave of pitch",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f2_key",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 5
+              },
+              {
+                "default": 0.0,
+                "doc": "filter 2 envelope amount: six octaves at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "f2_env",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 3
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 2 cutoff: four octaves at full velocity",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_vel",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "velocity to filter 2 resonance",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "f2_velres",
+                "port": true,
+                "section": "FLTR/FILTER 2",
+                "slot": 7
+              },
+              {
+                "curve": "log",
+                "default": 0.005,
+                "doc": "filter envelope 1 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_a",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 0,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 1 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_d",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 1,
+                "unit": "s"
+              },
+              {
+                "default": 0.5,
+                "doc": "filter envelope 1 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "fe1_s",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 2
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 1 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe1_r",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.005,
+                "doc": "filter envelope 2 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_a",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 4,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 2 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_d",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 5,
+                "unit": "s"
+              },
+              {
+                "default": 0.5,
+                "doc": "filter envelope 2 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "fe2_s",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 6
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "filter envelope 2 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "fe2_r",
+                "port": true,
+                "section": "FLTR/FILTER ENV",
+                "slot": 7,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "filter envelope 2 to oscillator 2 pitch only: semitones at full (the classic sync sweep)",
+                "max": 24.0,
+                "min": -24.0,
+                "name": "fe2_p2",
+                "port": true,
+                "section": "VOICE/VOICE",
+                "slot": 3,
+                "unit": "st"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp 1 level (filter 1's output)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a1_level",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 0
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 1 pan, constant power",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a1_pan",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 1
+              },
+              {
+                "default": 0.5,
+                "doc": "velocity to amp 1 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a1_vel",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 1 key tracking: level change with pitch, 3 dB an octave at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a1_key",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 3
+              },
+              {
+                "default": 0.8,
+                "doc": "amp 2 level (filter 2's output)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a2_level",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 4
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 2 pan, constant power",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a2_pan",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 5
+              },
+              {
+                "default": 0.5,
+                "doc": "velocity to amp 2 level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "a2_vel",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "amp 2 key tracking: level change with pitch, 3 dB an octave at full",
+                "max": 1.0,
+                "min": -1.0,
+                "name": "a2_key",
+                "port": true,
+                "section": "AMP/AMP",
+                "slot": 7
+              },
+              {
+                "curve": "log",
+                "default": 0.003,
+                "doc": "amp envelope 1 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_a",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 0,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "amp envelope 1 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_d",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 1,
+                "unit": "s"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp envelope 1 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "ae1_s",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 2
+              },
+              {
+                "curve": "log",
+                "default": 0.25,
+                "doc": "amp envelope 1 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae1_r",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.003,
+                "doc": "amp envelope 2 attack",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_a",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 4,
+                "unit": "s"
+              },
+              {
+                "curve": "log",
+                "default": 0.3,
+                "doc": "amp envelope 2 decay",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_d",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 5,
+                "unit": "s"
+              },
+              {
+                "default": 0.8,
+                "doc": "amp envelope 2 sustain level",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "ae2_s",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 6
+              },
+              {
+                "curve": "log",
+                "default": 0.25,
+                "doc": "amp envelope 2 release",
+                "max": 10.0,
+                "min": 0.001,
+                "name": "ae2_r",
+                "port": true,
+                "section": "AMP/AMP ENV",
+                "slot": 7,
+                "unit": "s"
+              },
+              {
+                "choices": [
+                  "sine",
+                  "triangle",
+                  "saw",
+                  "square",
+                  "sample & hold"
+                ],
+                "default": 0.0,
+                "doc": "LFO 1 shape",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_shape",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 4.0,
+                "doc": "LFO 1 rate when free-running",
+                "max": 40.0,
+                "min": 0.01,
+                "name": "l1_rate",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "choices": [
+                  "free",
+                  "2 bars",
+                  "1 bar",
+                  "1/2",
+                  "1/4",
+                  "1/8",
+                  "1/16",
+                  "1/32"
+                ],
+                "default": 0.0,
+                "doc": "LFO 1 tempo sync: a cycle per note value, locked to the beat",
+                "max": 7.0,
+                "min": 0.0,
+                "name": "l1_sync",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 delay: silent for this long after the note starts",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l1_delay",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 2,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 attack: fades in over this long after the delay",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l1_attack",
+                "port": true,
+                "section": "LFO/LFO 1",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to pitch of both oscillators: semitones either way (vibrato)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l1_pitch",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 0,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to the pulse width of both oscillators",
+                "max": 0.45,
+                "min": 0.0,
+                "name": "l1_pwm",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to filter 1 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_f1",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 4,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to filter 2 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l1_f2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 5,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to amp 1 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l1_a1",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to amp 2 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l1_a2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 1 to oscillator 2 pitch only: semitones either way (sweeps a synced oscillator)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l1_p2",
+                "port": true,
+                "section": "LFO/LFO 1 DEST",
+                "slot": 1,
+                "unit": "st"
+              },
+              {
+                "choices": [
+                  "sine",
+                  "triangle",
+                  "saw",
+                  "square",
+                  "sample & hold"
+                ],
+                "default": 0.0,
+                "doc": "LFO 2 shape",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_shape",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 4
+              },
+              {
+                "curve": "log",
+                "default": 4.0,
+                "doc": "LFO 2 rate when free-running",
+                "max": 40.0,
+                "min": 0.01,
+                "name": "l2_rate",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 0,
+                "unit": "Hz"
+              },
+              {
+                "choices": [
+                  "free",
+                  "2 bars",
+                  "1 bar",
+                  "1/2",
+                  "1/4",
+                  "1/8",
+                  "1/16",
+                  "1/32"
+                ],
+                "default": 0.0,
+                "doc": "LFO 2 tempo sync: a cycle per note value, locked to the beat",
+                "max": 7.0,
+                "min": 0.0,
+                "name": "l2_sync",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 1
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 delay: silent for this long after the note starts",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l2_delay",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 2,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 attack: fades in over this long after the delay",
+                "max": 5.0,
+                "min": 0.0,
+                "name": "l2_attack",
+                "port": true,
+                "section": "LFO/LFO 2",
+                "slot": 3,
+                "unit": "s"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to pitch of both oscillators: semitones either way (vibrato)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l2_pitch",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 0,
+                "unit": "st"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to the pulse width of both oscillators",
+                "max": 0.45,
+                "min": 0.0,
+                "name": "l2_pwm",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 2
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to filter 1 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_f1",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 4,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to filter 2 cutoff: octaves either way",
+                "max": 4.0,
+                "min": 0.0,
+                "name": "l2_f2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 5,
+                "unit": "oct"
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to amp 1 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l2_a1",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 6
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to amp 2 level (tremolo depth)",
+                "max": 1.0,
+                "min": 0.0,
+                "name": "l2_a2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 7
+              },
+              {
+                "default": 0.0,
+                "doc": "LFO 2 to oscillator 2 pitch only: semitones either way (sweeps a synced oscillator)",
+                "max": 12.0,
+                "min": 0.0,
+                "name": "l2_p2",
+                "port": true,
+                "section": "LFO/LFO 2 DEST",
+                "slot": 1,
+                "unit": "st"
+              }
+            ],
+            "ports": [
+              {
+                "capacity": 64,
+                "dir": "in",
+                "doc": "notes on and off (by id), a bend per note, a reset",
+                "name": "notes",
+                "names": [
+                  "music.note"
+                ],
+                "props": [
+                  "pitch",
+                  "vel",
+                  "glide",
+                  "key"
+                ],
+                "type": "event"
+              },
+              {
+                "dir": "in",
+                "doc": "the pedal: at 0.5 and above released notes hold",
+                "name": "sustain",
+                "type": "control"
+              },
+              {
+                "channels": 2,
+                "dir": "out",
+                "doc": "stereo: the sum of the voices times volume",
+                "name": "out",
+                "type": "audio"
+              }
+            ],
+            "preset": {
+              "doc": "A wide, slow pad: a detuned saw through filter 1 on the left and a pulse with a slow pulse-width sweep through filter 2 on the right, a long filter bloom and a slow filter wobble.",
+              "name": "pad",
+              "values": {
+                "a1_level": 0.8,
+                "a1_pan": -0.55,
+                "a1_vel": 0.3,
+                "a2_level": 0.8,
+                "a2_pan": 0.55,
+                "a2_vel": 0.3,
+                "ae1_a": 0.9,
+                "ae1_d": 0.8,
+                "ae1_r": 2.0,
+                "ae1_s": 0.85,
+                "ae2_a": 1.1,
+                "ae2_d": 0.8,
+                "ae2_r": 2.2,
+                "ae2_s": 0.85,
+                "f1_cutoff": 1400.0,
+                "f1_env": 0.35,
+                "f1_key": 0.5,
+                "f1_res": 0.2,
+                "f2_cutoff": 2200.0,
+                "f2_env": 0.2,
+                "f2_key": 0.5,
+                "f2_res": 0.1,
+                "fe1_a": 1.2,
+                "fe1_d": 1.5,
+                "fe1_r": 1.5,
+                "fe1_s": 0.5,
+                "fe2_a": 1.5,
+                "fe2_d": 2.0,
+                "fe2_r": 1.5,
+                "fe2_s": 0.6,
+                "l1_f1": 0.5,
+                "l1_rate": 0.25,
+                "l1_shape": 0.0,
+                "l2_f2": 0.4,
+                "l2_pwm": 0.3,
+                "l2_rate": 0.17,
+                "l2_shape": 1.0,
+                "o1_fine": -7.0,
+                "o1_level": 0.7,
+                "o1_route": 0.0,
+                "o1_wave": 0.0,
+                "o2_fine": 7.0,
+                "o2_level": 0.6,
+                "o2_pw": 0.5,
+                "o2_route": 1.0,
+                "o2_wave": 1.0,
+                "volume": 0.6
+              }
+            },
+            "sections": [
+              {
+                "area": "SRC",
+                "page": "OSC 1"
+              },
+              {
+                "area": "SRC",
+                "page": "OSC 2"
+              },
+              {
+                "area": "SRC",
+                "page": "NOISE·ROUTE"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER 1"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER 2"
+              },
+              {
+                "area": "FLTR",
+                "page": "FILTER ENV"
+              },
+              {
+                "area": "AMP",
+                "page": "AMP"
+              },
+              {
+                "area": "AMP",
+                "page": "AMP ENV"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 1"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 1 DEST"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 2"
+              },
+              {
+                "area": "LFO",
+                "page": "LFO 2 DEST"
+              },
+              {
+                "area": "VOICE",
+                "page": "VOICE"
+              }
+            ],
+            "version": "0.0.0"
+          }
+        ]
+      }
+    }
+  ]
+}

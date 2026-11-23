@@ -23,7 +23,7 @@
 	.run {
 		position: absolute;
 		font-size: var(--type-caption-size);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.pic {
 		position: relative;
@@ -33,15 +33,15 @@
 		justify-content: center;
 		gap: var(--space-025);
 		box-sizing: border-box;
-		border: var(--border-width-regular) dashed var(--ink);
-		background: var(--paper);
+		border: var(--border-width-regular) dashed var(--tool-text);
+		background: var(--tool-ground);
 		overflow: hidden;
 	}
 	.pct {
 		font-variant-numeric: tabular-nums;
 	}
 	.cost {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		white-space: nowrap;
 	}
 	.bar {
@@ -51,13 +51,13 @@
 		bottom: var(--space-025);
 		height: 0.75rem;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-head);
 	}
 	.bar > span {
 		display: block;
 		height: 100%;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.m {
 		display: block;
@@ -72,6 +72,6 @@
 		text-overflow: ellipsis;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 </style>

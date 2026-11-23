@@ -1,0 +1,2 @@
+# A sound card plugged in after boot (the RME on USB): its IRQ thread gets the audio priority too (#834, deck-irq).
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="card*", RUN+="/usr/bin/systemctl --no-block restart deck-irq.service"

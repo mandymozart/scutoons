@@ -4,7 +4,7 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, Icon, askDialog, choiceDialog, confirmDialog, panelWidth } from '@scutoons/ui';
+	import { Divider, Icon, askDialog, choiceDialog, panelWidth } from '@scutoons/ui';
 	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
 	import type { EngineHost } from '@scutoons/engine-host';
@@ -12,7 +12,7 @@
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import PagePublish from '$lib/components/shell/page-publish.svelte';
-	import { published } from '$lib/toasts.ts';
+	import { publishItem } from '$lib/editor/publish-tree.ts';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { editHref, selectedModule, type EditTarget } from '$lib/editor/edit-key.ts';
 	import { createModuleStore, moduleKey } from '$lib/editor/module-store.ts';
@@ -92,11 +92,7 @@
 	async function publish(): Promise<void> {
 		const id = designer.moduleId;
 		if (!id || !canPublish) return;
-		const ok = await confirmDialog({ title: m['creator.sound_publish'](), message: m['creator.sound_publish_confirm']({ id }), confirmLabel: m['creator.sound_publish']() });
-		if (!ok) return;
-		const r = await store.publish(id);
-		if (r.ok) published(m['creator.sound_published']({ id }));
-		else published(r.message, 'error');
+		await publishItem(moduleKey(id));
 	}
 	usePageNav({
 		fill: true,
@@ -138,7 +134,7 @@
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
-			<DeckHalf character={'character' in target ? target.character : 'catpope'} bind:host bind:wiring />
+			<DeckHalf character={('character' in target && target.character) || 'catpope'} bind:host bind:wiring />
 		{/key}
 	</section>
 	{#if !stacked.current}
@@ -159,7 +155,7 @@
 		min-height: 0;
 	}
 	.designer-half {
-		border-right: var(--border-width-regular) solid var(--ink);
+		border-right: var(--border-width-regular) solid var(--tool-text);
 	}
 	.split.stacked {
 		grid-template-columns: minmax(0, 1fr);
@@ -170,6 +166,6 @@
 	}
 	.stacked .designer-half {
 		border-right: 0;
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 </style>

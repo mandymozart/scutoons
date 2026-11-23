@@ -134,6 +134,7 @@ final class AssetsTest extends TestCase
         self::assertSame('original', $groups['i/only']['files']['i/only.webp']['label']);
 
         self::assertSame(['model', 'other'], [AssetPaths::kind('characters/catpope/m.glb'), AssetPaths::kind('characters/catpope/m.gltf')]);
+        self::assertSame(['animation', 'animation', 'model'], [AssetPaths::kind('characters/animations/idle.glb'), AssetPaths::kind('animations/x.glb'), AssetPaths::kind('characters/myanimations/x.glb')], '#817');
         self::assertSame('characters/x.webp', AssetPaths::resolve('../characters/x.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('images/a.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('https://cdn.scutoons.com/catpope/images/a.webp', '', ['https://cdn.scutoons.com']));

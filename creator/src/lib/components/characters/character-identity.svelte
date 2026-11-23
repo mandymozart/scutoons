@@ -110,7 +110,7 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		font-weight: var(--font-weight-regular);
 		display: flex;
 		flex-direction: column;
@@ -131,7 +131,7 @@
 		width: 2rem;
 		height: 2rem;
 		padding: 0;
-		border: 2px solid var(--border-muted, #ccc);
+		border: 2px solid var(--tool-line);
 		background: transparent;
 		cursor: pointer;
 		flex: none;

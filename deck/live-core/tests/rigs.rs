@@ -24,8 +24,13 @@ fn every_core_rig_loads_and_plays_in_live_core() {
                 assert!(row["ports"].as_array().unwrap().iter().any(|p| p == port), "{subject}: {}", k.path);
             }
             assert!(c.tempo_node().is_none(), "a rig has no clock of its own: the deck's clock (the show's) plays it");
-            // the incense burner's noise is silent until its gain is raised
-            assert_eq!(loud(&mut c, 200), subject.starts_with("character."), "{subject} {mood:?}");
+            // the incense burner's noise is silent until its gain is raised, the default character rig until its trigger opens (#819)
+            let triggered = rows.iter().position(|r| r["id"] == "trigger_sing");
+            assert_eq!(loud(&mut c, 200), subject.starts_with("character.") && triggered.is_none(), "{subject} {mood:?}");
+            if let Some(node) = triggered {
+                c.send(live_core::wire::Mode::Force, node, 0, 1.0, std::iter::once(1.0)).unwrap();
+                assert!(loud(&mut c, 400), "{subject} {mood:?}: triggered, it sings");
+            }
         }
     }
 }

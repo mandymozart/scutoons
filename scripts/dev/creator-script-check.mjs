@@ -283,9 +283,11 @@ try {
 	// one key's publish or the batch publish (`POST /entities/publish`, the page's Publish since the storyboard work)
 	check((published.includes(`POST /entities/${KEYS[0]}/publish 200`) || published.includes('POST /entities/publish 200')) && en.version.id === baseline[KEYS[1]].id && en.published.id === baseline[KEYS[1]].id,
 		'Publish publishes the edited German script; the English one stays the same version', JSON.stringify(published));
-	// the bar's History is a group (UI-CONCEPTS E.10, every width since 2026-10-12): its Versions opens the panel
+	// History is a view: the main menu's Views opens it
 	await js(`${historyButton}?.click()`);
-	await js(`document.querySelector('[data-testid="bar-history"]')?.click(), true`);
+	await js(`document.querySelector('[data-testid="menu-button"]')?.click(), true`);
+	await js(`document.querySelector('[data-testid="menu-views"]')?.click(), true`);
+	await js(`document.querySelector('[data-testid="views-tab-history"]')?.click(), true`);
 	check(await until(`!!document.querySelector('[data-testid="history-panel"]') && !!document.querySelector('[data-testid="restore-de-${baseline[KEYS[0]].id}"]')`), 'the history lists the edited and the original version');
 	const listed = await js(`[...document.querySelectorAll('[data-testid="history-panel"] li')].length`);
 	check(listed >= 3, `history entries: ${listed} (de + en)`);

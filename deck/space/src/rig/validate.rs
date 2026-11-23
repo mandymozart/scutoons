@@ -9,11 +9,15 @@
 //! - a scene (#243, kind `scenes`, the `scene:<id>` document the API publishes): `SceneDocument` format 2 (#489: id = the
 //!   request's, unknown fields refused), its `check` (the location, holders' ids, fillers and filters – a template's
 //!   placeholders and previews well formed –, spawn zones, rigs and values), then resolved with its previews
-//!   (scene_resolve.rs; no rigs travel with the request, so the holders stand silent) into `Graph::build` (kinds, ids,
+//!   (scene_resolve.rs) with the rigs a deck plays (#815: scene-content's answer in `content`, `SceneRigs::played` – the
+//!   decks' loader's rule, so a holder's value its rig lacks is refused here in the deck's words) into `Graph::build` (kinds, ids,
 //!   links, at most one sink of each kind, no cycle) and the browser engine's split (`engine::lower`) – what every deck
-//!   does before it plays a scene. The outputs table is checked as a shape only here (the API's JSON Schema);
+//!   does before it plays a scene. Its `module:<id>` nodes take their kinds from the descriptors in `modules` (registered
+//!   as a deck's library registers them); a module none of them names is not in the catalog yet. Shared vectors:
+//!   server/tests/fixtures/scenes/modules.json. The outputs table is checked as a shape only here (the API's JSON Schema);
 //! - a use of a scene (#504, kind `uses`, `id` = the scene's id): `{ scene, with }` (scene_resolve.rs `Use`, unknown fields
-//!   refused) with its scene's published document in `scenes` and the toon's book in `book` – `Use::problems`: the scene
+//!   refused) with its scene's published document in `scenes`, its modules' descriptors in `modules` and the toon's book
+//!   in `book` – `Use::problems`: the scene
 //!   and every filler in the book, each filler against its placeholder's `fill`, the scene resolved with them. The
 //!   requests as the API builds them and the core's answers: server/tests/fixtures/scenes/uses.json (shared vectors);
 //! - a device preset (kind `device-presets`): `DevicePreset` (unknown fields refused, id = the request's), its `problems`;
@@ -22,9 +26,14 @@
 //!   (unknown fields refused), its `problems` – names, doubles, hand edits of what the file does not have, a bone or node
 //!   the model does not have – and, with the descriptor of the module this model is the body of in `modules`, its port
 //!   spots against the module's ports. Shared vectors: server/tests/fixtures/assets/spots.json.
+//! - a model's or an animation's skeleton (#817, kind `skeleton`, `id` = the asset's id): deck-catalog `Skeleton`
+//!   (unknown fields refused), its `problems` – names, doubles, turned joints it lacks, the family `FAMILIES` says;
+//! - a character's idle on its model (#817, kind `animation-fit`, `id` = `character:<id>/<persona>`): `FitCheck
+//!   { animation | clip, model }`, the one rule – a library animation's turned joints all in the model, or a clip of the
+//!   model by name. Shared vectors for both: server/tests/fixtures/assets/skeletons.json.
 //!
-//! The lookups travel by value: the instruments it names, the presets it names with their ancestors, a code rig's policy
-//! module's descriptor (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
+//! The lookups travel by value: the instruments it names, the presets it names with their ancestors, the descriptors of
+//! the modules it names (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
 //! its cable, node or track (problem.rs, #432); a far world node is a warning – valid, and it plays only while the deck
 //! it names is in the session (#442).
 use super::bundle::Bundle;
@@ -52,7 +61,8 @@ pub struct Request {
     /// the presets it names and their ancestors (a preset's lineage without itself, a rig's), by value
     #[serde(default)]
     pub presets: Vec<Value>,
-    /// a code rig's policy module: the descriptor of the `module:<id>` document it names, by value (#408)
+    /// the descriptors of the `module:<id>` documents it names, by value: a code rig's policy module (#408), a scene's
+    /// module nodes
     #[serde(default)]
     pub modules: Vec<Value>,
     /// a use's scene (#504, kind `uses`): the published `scene:<id>` document it names, by value
@@ -61,6 +71,10 @@ pub struct Request {
     /// a use's toon book (#504, kind `uses`): the references of the toon's address book; none = not asked
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub book: Option<Vec<String>>,
+    /// a scene's rigs (#815, kind `scenes`): scene-content's answer for its holders, as a deck gets it (`SceneRigs`); none =
+    /// scene-content answered nothing, the deck's core rigs play
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<Value>,
 }
 
 /// The answer: the problems, none = valid; the warnings (RULES H7: they can be accepted).
@@ -87,6 +101,36 @@ fn said(e: anyhow::Error) -> Problems {
 }
 
 impl Request {
+    /// the module descriptors it carries
+    fn descriptors(&self) -> Result<Vec<Descriptor>, Problems> {
+        self.modules.iter().map(|v| parse(&format!("module {}", v.get("name").and_then(Value::as_str).unwrap_or("?")), v)).collect()
+    }
+
+    /// a scene's module nodes as node kinds: the descriptors registered as a deck's library registers them; a node whose
+    /// module has no descriptor here is named – the process-wide registry may know it from another request, the answer
+    /// must not depend on that
+    fn scene_modules(&self, doc: &crate::scene_document::SceneDocument, who: &str) -> Result<(), Problems> {
+        self.node_modules(doc.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)
+    }
+
+    /// #803: the module kinds these nodes (id, kind) name, from the descriptors in `modules` – each one there is registered,
+    /// one that isn't is named; an instrument's and a preset's instrument's nodes as a scene's (never what another request
+    /// registered in this process)
+    fn node_modules<'a>(&self, nodes: impl Iterator<Item = (&'a str, &'a str)>, who: &str) -> Result<(), Problems> {
+        let lib = Library::new(Vec::new(), Vec::new()).with_modules(self.descriptors()?);
+        let missing: Problems = nodes
+            .filter_map(|(id, kind)| {
+                let m = kind.strip_prefix(crate::modreg::PREFIX)?;
+                (!lib.modules.contains_key(m)).then(|| format!("{who}: node '{id}': module:{m} isn't in the catalog yet"))
+            })
+            .collect();
+        if !missing.is_empty() {
+            return Err(missing);
+        }
+        lib.register_modules();
+        Ok(())
+    }
+
     /// The document's problems (empty = valid); `Err` for a kind that is none of the three.
     pub fn problems(&self) -> Result<Vec<String>, String> {
         self.answer().map(|a| a.problems)
@@ -103,7 +147,9 @@ impl Request {
             "device-presets" => "device preset",
             "rig-presets" => "rig preset",
             "spots" => "spots of asset",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets, spots)")),
+            "skeleton" => "skeleton of asset",
+            "animation-fit" => "animation of",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets, spots, skeleton, animation-fit)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
@@ -114,6 +160,8 @@ impl Request {
             "device preset" => self.device_preset(&who).map(|_| Vec::new()),
             "rig preset" => self.rig_preset(&who).map(|_| Vec::new()),
             "spots of asset" => self.spots(&who).map(|_| Vec::new()),
+            "skeleton of asset" => self.said(&who, |d: deck_catalog::Skeleton| d.problems()),
+            "animation of" => self.said(&who, |d: deck_catalog::FitCheck| d.problems()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -125,6 +173,7 @@ impl Request {
     /// an instrument's problems, or its warnings
     fn instrument(&self, who: &str) -> Result<Vec<String>, Problems> {
         let i: Instrument = parse(who, &self.document)?;
+        self.node_modules(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
         i.check().map_err(said)?;
         Ok(i.warnings())
     }
@@ -135,6 +184,7 @@ impl Request {
         let Some(instrument) = instruments.iter().find(|i| i.id == p.instrument) else {
             return Err(vec![format!("{who}: unknown instrument \"{}\"", p.instrument)]);
         };
+        self.node_modules(instrument.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
         // the book as it will be: this preset counts with its new data
         let mut presets: Vec<Preset> = lookups::<Preset>("preset", &self.presets)?.into_iter().filter(|q| q.id != p.id).collect();
         presets.push(p.clone());
@@ -166,12 +216,15 @@ impl Request {
     /// a model's spots' problems; `modules` holds the descriptor of the module this model is the body of, when it is one
     fn spots(&self, who: &str) -> Result<(), Problems> {
         let spots: deck_catalog::Spots = parse(who, &self.document)?;
-        let module: Option<Descriptor> = match self.modules.first() {
-            Some(v) => Some(parse(&format!("module {}", v.get("name").and_then(Value::as_str).unwrap_or("?")), v)?),
-            None => None,
-        };
+        let module: Option<Descriptor> = self.descriptors()?.into_iter().next();
         let problems: Problems = spots.problems(module.as_ref()).into_iter().map(|s| format!("{who}: {s}")).collect();
         if problems.is_empty() { Ok(()) } else { Err(problems) }
+    }
+
+    /// a document of type `T` and its one check's sentences
+    fn said<T: DeserializeOwned>(&self, who: &str, check: impl Fn(T) -> Vec<String>) -> Result<Vec<String>, Problems> {
+        let problems: Problems = check(parse(who, &self.document)?).into_iter().map(|s| format!("{who}: {s}")).collect();
+        if problems.is_empty() { Ok(Vec::new()) } else { Err(problems) }
     }
 
     /// a scene document's problems (#243): what a deck refuses to load
@@ -180,7 +233,13 @@ impl Request {
         if doc.id != self.id {
             return Err(vec![format!("{who}: the document's id is \"{}\", the key's \"{}\"", doc.id, self.id)]);
         }
-        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &crate::scene_resolve::no_rigs, &crate::scene_resolve::no_sets)
+        self.scene_modules(&doc, who)?;
+        let rigs: super::content::SceneRigs = match &self.content {
+            Some(c) => parse(&format!("{who}: its rigs"), c)?,
+            None => Default::default(),
+        };
+        let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
+        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &rig, &crate::scene_resolve::no_sets)
             .map_err(|problems| problems.into_iter().map(|p| format!("{who}: {p}")).collect::<Vec<_>>())?;
         super::engine::lower(&resolved.scene).map_err(said)?;
         Ok(())
@@ -194,6 +253,7 @@ impl Request {
             return Err(vec![format!("{who}: no published scene:{} to play", self.id)]);
         };
         let doc = crate::scene_document::SceneDocument::from_value(doc.clone()).map_err(|e| vec![format!("{who}: {e:#}")])?;
+        self.scene_modules(&doc, who)?;
         let problems = u.problems(&doc, self.book.as_deref());
         if problems.is_empty() {
             Ok(())
@@ -207,8 +267,10 @@ impl Request {
         let rig: Rig = parse(who, &self.document)?;
         let instruments: Vec<Instrument> = lookups("instrument", &self.instruments)?;
         let presets: Vec<Preset> = lookups("preset", &self.presets)?;
-        let modules: Vec<Descriptor> =
-            self.modules.iter().map(|v| parse(&format!("module {}", v.get("name").and_then(Value::as_str).unwrap_or("?")), v)).collect::<Result<_, _>>()?;
+        for i in &instruments {
+            self.node_modules(i.nodes.iter().map(|n| (n.id.as_str(), n.kind.as_str())), who)?;
+        }
+        let modules = self.descriptors()?;
         let lib = Library::new(instruments.clone(), presets.clone()).with_modules(modules.clone());
         rig.check(&lib).map_err(said)?;
         let warnings = rig.warnings(&lib).map_err(said)?;
@@ -235,6 +297,27 @@ pub fn problems_json(request: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #803: an instrument (and a preset of it) with a `module:` node is checked with the descriptors the request sends –
+    /// not with whatever another request registered in this process; without the descriptor the node is named
+    #[test]
+    fn an_instrument_with_a_module_node_takes_the_requests_descriptor() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/modules.json");
+        let set: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let analog = set["cases"][0]["request"]["modules"][0].clone();
+        assert_eq!(analog["name"], "analog");
+        let synth = serde_json::json!({"id": "synth803", "kind": "voice", "name": {"en": "Synth"}, "out": "voice",
+            "node": [{"id": "voice", "kind": "module:analog"}], "link": [], "expose": []});
+        let ask = |kind: &str, document: Value, instruments: Vec<Value>, modules: Vec<Value>| {
+            let id = document["id"].as_str().unwrap().to_owned();
+            Request { kind: kind.into(), id, document, instruments, presets: vec![], modules, ..Default::default() }.problems().unwrap()
+        };
+        assert_eq!(ask("instruments", synth.clone(), vec![], vec![analog.clone()]), Vec::<String>::new());
+        let without = ask("instruments", synth.clone(), vec![], vec![]);
+        assert!(without.iter().any(|p| p.contains("module:analog isn't in the catalog yet")), "{without:?}");
+        let preset = serde_json::json!({"id": "synth803.base", "instrument": "synth803", "values": {}});
+        assert_eq!(ask("presets", preset, vec![synth], vec![analog]), Vec::<String>::new());
+    }
 
     /// The fixture set (server/tests/fixtures/rigs/validate.json): the requests as the API builds them and the problems
     /// the retired PHP RigValidator gave on them – the core says the same words.
@@ -332,6 +415,30 @@ mod tests {
         assert!(wire["problems"][0].as_str().unwrap().contains("unknown field `extra`"), "{wire}");
     }
 
+    /// a scene's module nodes as the API sends them (server/tests/fixtures/scenes/modules.json) – with the module's
+    /// descriptor it passes, without it the node and the module are named, even once the process knows the module.
+    /// `UPDATE_FIXTURES=1` writes the problems.
+    #[test]
+    fn scene_modules_vectors() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/modules.json");
+        let stored = std::fs::read_to_string(path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let request: Request = serde_json::from_value(case["request"].clone()).unwrap();
+            case["problems"] = serde_json::to_value(request.problems().unwrap()).unwrap();
+        }
+        let problems = |i: usize| serde_json::from_value::<Vec<String>>(set["cases"][i]["problems"].clone()).unwrap();
+        assert_eq!(problems(0), Vec::<String>::new(), "module:analog with its descriptor passes");
+        assert_eq!(problems(1), ["scene rave: node 'voice': module:analog isn't in the catalog yet"], "registered by case 0, still refused");
+        assert_eq!(problems(2), ["scene rave: node 'arp': module:arp isn't in the catalog yet"]);
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "modules.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space scene_modules_vectors");
+        }
+    }
+
     /// A model's spots as the API sends them (server/tests/fixtures/assets/spots.json) – the core's words for each; the
     /// good ones pass, the others name their reason. `UPDATE_FIXTURES=1` writes the problems.
     #[test]
@@ -355,6 +462,34 @@ mod tests {
             std::fs::write(path, &written).unwrap();
         } else {
             assert_eq!(stored, written, "spots.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space spots_vectors");
+        }
+    }
+
+    /// Skeletons and idles as the API sends them (server/tests/fixtures/assets/skeletons.json) – the core's words for
+    /// each. `UPDATE_FIXTURES=1` writes the problems.
+    #[test]
+    fn skeleton_vectors() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/assets/skeletons.json");
+        let stored = std::fs::read_to_string(path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let request: Request = serde_json::from_value(case["request"].clone()).unwrap();
+            case["problems"] = serde_json::to_value(request.problems().unwrap()).unwrap();
+        }
+        let cases = set["cases"].as_array().unwrap();
+        let said = |name: &str| cases.iter().find(|c| c["name"] == name).unwrap_or_else(|| panic!("no case {name}"))["problems"].to_string();
+        assert_eq!(said("a mixamo animation's skeleton"), "[]");
+        assert_eq!(said("a model without a family"), "[]");
+        assert!(said("a skeleton that hides its family").contains("should say so"));
+        assert_eq!(said("an idle that fits"), "[]");
+        assert!(said("an idle the model lacks joints for").contains("the model lacks 1 of the 2 joints the animation turns: mixamorig:Spine"));
+        assert_eq!(said("an idle clip of the model's own"), "[]");
+        assert!(said("an idle clip the model lacks").contains("no clip 'run': the model has walk, stand"));
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "skeletons.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space skeleton_vectors");
         }
     }
 

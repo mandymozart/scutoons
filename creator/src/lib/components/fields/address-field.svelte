@@ -227,7 +227,7 @@
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.combo,
 	.plain {
@@ -263,8 +263,8 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-popover);
+		border: var(--border-width-regular) solid var(--tool-text);
 		max-height: 18rem;
 		overflow: auto;
 	}
@@ -291,7 +291,7 @@
 	.meta,
 	.note {
 		flex: none;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 	li.note {

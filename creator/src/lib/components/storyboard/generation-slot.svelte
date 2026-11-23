@@ -52,14 +52,14 @@
 		display: grid;
 		place-items: center;
 		min-height: 6rem;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-ground);
+		border: var(--border-width-regular) solid var(--tool-text);
 		box-sizing: border-box;
 		overflow: hidden;
 	}
 	.slot.empty {
 		border-style: dashed;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		padding: var(--space-05);

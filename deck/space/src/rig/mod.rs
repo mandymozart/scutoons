@@ -4,6 +4,7 @@
 //! - rig_preset.rs – a named set of every knob of one rig, saved on purpose, factory ones derived (`origin`)
 //! - extend.rs – a rig that extends another (`extends`), its take-over tracks and off flags; the default character rig
 //!   (`character.default`), the fallback
+//! - body.rs – a rig's 3D body (the model the stage draws where it stands) and the rigs attached at its body's spots
 //! - assign.rs – the assignment (#283): which characters have a default rig, a draft rig's bundle from the catalog
 //! - bundle.rs – a rig with what it names (scene-content's answer) → the played scene + the page's knobs
 //! - content.rs – scene-content's answer (its rigs, instruments, presets with their versions) → a bundle per holder
@@ -30,6 +31,7 @@ pub mod assign;
 pub mod extend;
 /// #477: a toon's address book (the server's), narrowed for the deck editor's typeahead
 pub mod book;
+pub mod body;
 pub mod build;
 pub mod edit;
 pub mod bundle;
@@ -154,6 +156,12 @@ pub struct Rig {
     /// the stage's background while it plays, over its modules' and under a scene's or a show's
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<deck_catalog::Background>,
+    /// its 3D body: the model the stage draws where it stands (body.rs); none = its being
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<body::Body>,
+    /// the rigs carried at spots of its body (body.rs), each a body part of its own
+    #[serde(default, rename = "attach", skip_serializing_if = "Vec::is_empty")]
+    pub attached: Vec<body::Attached>,
 }
 
 /// One track: an instrument, its default preset, its mixer strip.
@@ -269,6 +277,9 @@ impl Rig {
         if let Some(e) = self.background.as_ref().and_then(deck_catalog::Background::check) {
             out.push(&rig, format!("background: {e}"));
         }
+        for e in body::problems(&self.subject, self.body.as_ref(), &self.attached) {
+            out.push(&rig, e);
+        }
         for (id, d) in &lib.modules {
             if let Some(e) = d.background.as_ref().and_then(deck_catalog::Background::check) {
                 out.push(format!("module {id}"), format!("background: {e}"));
@@ -371,6 +382,8 @@ impl Rig {
             Leaf::Source(..) => Err(format!("'{end}': a source only, nothing can feed it")),
             Leaf::Policy(_) if self.policy.is_some() => Ok(()),
             Leaf::Policy(_) => Err(format!("'{end}': no track 'policy' and no policy in this rig")),
+            Leaf::Member { track, member } if member == address::OPEN && is_to => self.track(&track).map(|_| ()).map_err(|e| format!("{e:#}")),
+            Leaf::Member { member, .. } if member == address::OPEN => Err(format!("'{end}': a track's gates are a target only")),
             Leaf::Member { .. } | Leaf::State(_) => Err(format!("'{end}' is not a port – a route joins ports (<track>:<node>.<port>)")),
             Leaf::Spot(_) => Err(format!("'{end}' is a spot, a position on the model – a route joins ports (<track>:<node>.<port>)")),
         }

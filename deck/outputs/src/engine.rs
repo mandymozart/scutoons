@@ -5,7 +5,8 @@
 //! - Continuous targets advance on a fixed 40 Hz grid (the universe's frame rate, #187): each frame smooths every
 //!   target by 25 ms and sends only what changed at the wire's resolution (a CC's 7 bit, a DMX channel's 8 / 16).
 //! - Strobes: the flash goes out its lead before its beat is heard and ends after the flash length (≤ half the period).
-//!   A level of 0 or a stopped clock keeps the fixture dark.
+//!   A level of 0 or a stopped clock keeps the fixture dark. A strobe with a `trigger` flashes instead each time its
+//!   value rises past `RISE` (again after it fell below `FALL`), seen within `POLL_S`, with or without a clock.
 //!
 //! `step` never allocates: `out` is the host's reused buffer.
 
@@ -17,6 +18,13 @@ use crate::strobe::{Clock, Strobe};
 
 /// The continuous targets' frame (40 Hz – the DMX universe's rate).
 pub const FRAME_S: f64 = 0.025;
+
+/// A trigger value at or above this flashes (once) …
+pub const RISE: f32 = 0.5;
+/// … and below this it may flash again.
+pub const FALL: f32 = 0.25;
+/// How often a trigger strobe looks at its value (s).
+pub const POLL_S: f64 = 0.005;
 
 /// One message to play now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +46,8 @@ struct Flasher {
     strobe: Strobe,
     /// the flash's end, while one is lit
     off_at: Option<f64>,
+    /// a trigger strobe: the value has fallen below `FALL` since its last flash
+    armed: bool,
 }
 
 /// A scene switch (#264): the DMX channels the scene before left at these levels (0..1, by channel) fade into this
@@ -73,7 +83,7 @@ impl Engine {
     pub fn new(plan: Plan) -> Engine {
         let smooth = plan.targets.iter().map(|t| Smooth::new(t.smooth)).collect();
         let sent = vec![None; plan.targets.len()];
-        let flashers = plan.strobes.iter().map(|s| Flasher { strobe: Strobe::new(s.rate), off_at: None }).collect();
+        let flashers = plan.strobes.iter().map(|s| Flasher { strobe: Strobe::new(s.rate), off_at: None, armed: true }).collect();
         Engine { plan, levels: HashMap::new(), fade: None, pre: Vec::new(), smooth, sent, next_frame: None, flashers, rested: false }
     }
 
@@ -155,23 +165,45 @@ impl Engine {
             self.next_frame = Some(if next < now { now + FRAME_S } else { next });
         }
         let mut wake = self.next_frame.unwrap_or(now + FRAME_S);
-        if let Some(clock) = clock {
-            for (s, f) in self.plan.strobes.iter().zip(self.flashers.iter_mut()) {
-                wake = wake.min(Self::strobe(s, f, now, values, clock, self.plan.lead, out));
-            }
-        } else {
-            for (s, f) in self.plan.strobes.iter().zip(self.flashers.iter_mut()) {
-                if let Some(off) = f.off_at {
-                    if now >= off - 1e-9 {
-                        out.push(Timed { at: off, out: Out::Dmx { ch: s.flash, value: 0, now: true } });
-                        f.off_at = None;
-                    } else {
-                        wake = wake.min(off);
-                    }
-                }
-            }
+        for (s, f) in self.plan.strobes.iter().zip(self.flashers.iter_mut()) {
+            wake = wake.min(match (&s.trigger, clock) {
+                (Some(t), _) => Self::triggered(s, t, f, now, values, out),
+                (None, Some(clock)) => Self::strobe(s, f, now, values, clock, self.plan.lead, out),
+                (None, None) => Self::end_flash(s, f, now, out),
+            });
         }
         wake
+    }
+
+    /// the lit flash ends when its time has come; returns when it will (∞: none lit)
+    fn end_flash(s: &StrobePlan, f: &mut Flasher, now: f64, out: &mut Vec<Timed>) -> f64 {
+        match f.off_at {
+            Some(off) if now >= off - 1e-9 => {
+                out.push(Timed { at: off, out: Out::Dmx { ch: s.flash, value: 0, now: true } });
+                f.off_at = None;
+                f64::INFINITY
+            }
+            Some(off) => off,
+            None => f64::INFINITY,
+        }
+    }
+
+    fn triggered(s: &StrobePlan, t: &Input, f: &mut Flasher, now: f64, values: &[f32], out: &mut Vec<Timed>) -> f64 {
+        let mut wake = Self::end_flash(s, f, now, out);
+        let x = values.get(t.source).map_or(0.0, |&v| t.shape.map(v));
+        if f.armed && x >= RISE {
+            f.armed = false;
+            let level = (read(&s.level_in, values, 1.0) * f32::from(s.level)).round().clamp(0.0, 255.0) as u8;
+            if level > 0 {
+                out.push(Timed { at: now, out: Out::Dmx { ch: s.flash, value: level, now: true } });
+                let off = now + s.duration.max(0.001);
+                f.off_at = Some(off);
+                wake = wake.min(off);
+            }
+        } else if !f.armed && x < FALL {
+            f.armed = true;
+        }
+        wake.min(now + POLL_S)
     }
 
     fn frame(&mut self, at: f64, values: &[f32], out: &mut Vec<Timed>) {
@@ -243,15 +275,7 @@ impl Engine {
     }
 
     fn strobe(s: &StrobePlan, f: &mut Flasher, now: f64, values: &[f32], clock: &Clock, lead: f64, out: &mut Vec<Timed>) -> f64 {
-        let mut wake = f64::INFINITY;
-        if let Some(off) = f.off_at {
-            if now >= off - 1e-9 {
-                out.push(Timed { at: off, out: Out::Dmx { ch: s.flash, value: 0, now: true } });
-                f.off_at = None;
-            } else {
-                wake = off;
-            }
-        }
+        let mut wake = Self::end_flash(s, f, now, out);
         let p = read(&s.rate_in, values, 0.5);
         let Some(next) = f.strobe.peek(clock, p, now, lead) else { return wake };
         if next.at <= now + 1e-9 {
@@ -278,6 +302,8 @@ impl Engine {
         for f in &mut self.flashers {
             f.off_at = None;
             f.strobe.reset();
+            // a value still up after a panic flashes only once it has fallen
+            f.armed = false;
         }
         self.sent.fill(None);
         self.rested = false;
@@ -306,6 +332,50 @@ mod tests {
             now = wake.max(now + 1e-6);
         }
         out
+    }
+
+    const TRIGGERED: &str = "[outputs]\ndmx = \"auto\"\n[[outputs.fixture]]\nid = \"s\"\nprofile = \"strobe\"\naddress = 1\n[[outputs.strobe]]\nfixture = \"s\"\ntrigger = \"gate.env\"\nduration = 20\n";
+
+    /// a pulse 60 ms wide every 375 ms (a kick through a short envelope at 160 BPM)
+    fn pulses(t: f64) -> f32 {
+        let k = (t / 0.375).fract() * 0.375;
+        if k < 0.06 {
+            1.0 - (k / 0.06) as f32 * 0.6
+        } else {
+            0.0
+        }
+    }
+
+    /// a trigger strobe flashes once per rise – with or without a clock, never twice for one pulse – each flash within
+    /// POLL_S of its rise and `duration` long
+    #[test]
+    fn a_trigger_strobe_flashes_once_per_rise() {
+        let clock = Clock::new(0.0, 0.0, 160.0, 4);
+        for clock in [None, Some(&clock)] {
+            let mut e = Engine::new(plan(TRIGGERED));
+            let out = run(&mut e, 0.0, 3.0 - 1e-6, clock, |t| vec![pulses(t)]);
+            let on: Vec<(f64, u8)> = flashes(&out).into_iter().filter(|f| f.1 > 0).collect();
+            assert_eq!(on.len(), 8, "{on:?}");
+            for (k, &(at, value)) in on.iter().enumerate() {
+                assert!(at >= k as f64 * 0.375 - 1e-9 && at <= k as f64 * 0.375 + POLL_S + 1e-9, "flash {k} at {at}");
+                assert_eq!(value, 255);
+                let off = out.iter().find(|m| m.at > at && matches!(m.out, Out::Dmx { ch: 1, value: 0, now: true })).unwrap();
+                assert!((off.at - at - 0.02).abs() < 1e-9, "20 ms: {}", off.at - at);
+            }
+        }
+        // a value that hovers around RISE without falling below FALL is one flash
+        let mut e = Engine::new(plan(TRIGGERED));
+        let out = run(&mut e, 0.0, 1.0, None, |t| vec![0.45 + 0.1 * (t * 40.0).sin() as f32]);
+        assert_eq!(flashes(&out).iter().filter(|f| f.1 > 0).count(), 1);
+    }
+
+    /// a trigger is no grid – rate, neutral and mode are refused with it
+    #[test]
+    fn a_trigger_strobe_takes_no_rate() {
+        let doc: toml::Table = toml::from_str(&TRIGGERED.replace("duration = 20", "neutral = \"1/8\"")).unwrap();
+        let errs = config::parse(doc["outputs"].as_table().unwrap(), None, &|n| Err(n.to_owned())).unwrap_err();
+        assert!(errs.iter().any(|e| e.contains("flashes per rise")), "{errs:?}");
+        assert!(plan(TRIGGERED).strobes[0].trigger.is_some());
     }
 
     #[test]

@@ -9,6 +9,8 @@ export interface Tab {
 	href: string;
 	/** what it was called when last in front (a reload shows it before the names load) */
 	label: string;
+	/** the workspace it was last shown in (a kind, or an own workspace's id): its tab brings it back there */
+	workspace?: string;
 }
 
 export interface TabsState {
@@ -79,15 +81,33 @@ export function closeAll(): TabsState {
 	return { tabs: [], front: null };
 }
 
+/** the tab `by` steps along the strip from the front one, round at the ends (Home in front: from the start); none open: null */
+export function stepTab(state: TabsState, by: number): Tab | null {
+	const n = state.tabs.length;
+	if (!n) return null;
+	const at = state.tabs.findIndex((t) => t.address === state.front);
+	const from = at < 0 ? (by > 0 ? -1 : 0) : at;
+	return state.tabs[(((from + by) % n) + n) % n];
+}
+
+/** the item at `address` was shown in workspace `id`: it remembers that */
+export function keepIn(state: TabsState, address: string, id: string): TabsState {
+	const at = state.tabs.findIndex((t) => t.address === address);
+	if (at < 0 || state.tabs[at].workspace === id) return state;
+	const tabs = [...state.tabs];
+	tabs[at] = { ...tabs[at], workspace: id };
+	return { ...state, tabs };
+}
+
 export const frontTab = (state: TabsState): Tab | null => state.tabs.find((t) => t.address === state.front) ?? null;
 
-/** what the browser kept, checked: a broken store opens empty */
-export function readTabs(raw: unknown): TabsState {
+/** what the browser kept, checked: a broken store opens empty; tabs of a `gone` address (an area removed) are left out */
+export function readTabs(raw: unknown, gone: (address: string) => boolean = () => false): TabsState {
 	const v = raw as Partial<TabsState> | null;
 	if (!v || !Array.isArray(v.tabs)) return EMPTY;
 	const tabs = v.tabs
-		.filter((t): t is Tab => !!t && typeof t.address === 'string' && typeof t.href === 'string' && t.href.startsWith('/'))
-		.map((t) => ({ address: t.address, href: t.href, label: typeof t.label === 'string' ? t.label : t.address }))
+		.filter((t): t is Tab => !!t && typeof t.address === 'string' && typeof t.href === 'string' && t.href.startsWith('/') && !gone(t.address))
+		.map((t) => ({ address: t.address, href: t.href, label: typeof t.label === 'string' ? t.label : t.address, ...(typeof t.workspace === 'string' && t.workspace ? { workspace: t.workspace } : {}) }))
 		.filter((t, i, all) => all.findIndex((o) => o.address === t.address) === i)
 		.slice(0, MAX_TABS);
 	const front = typeof v.front === 'string' && tabs.some((t) => t.address === v.front) ? v.front : null;

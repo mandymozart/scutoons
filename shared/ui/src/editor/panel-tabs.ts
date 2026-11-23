@@ -22,11 +22,15 @@ export interface TabSpec {
 	aliases?: readonly string[];
 }
 
-/** Which panel holds which tabs (in order), the front tab of each, and the free panels with the tab each was made from */
+/**
+ * Which panel holds which tabs (in order), the front tab of each, the free panels with the tab each was made from, and the
+ * hidden tabs: a hidden tab keeps its place in its panel (shown again it comes back there) but its panel does not show it
+ */
 export interface Arrangement {
 	panels: Record<string, string[]>;
 	active: Record<string, string>;
 	free: Record<string, string>;
+	hidden?: string[];
 }
 
 /** Where a dragged tab would land: a panel and the index among its tabs; null = the stage */
@@ -51,7 +55,33 @@ export const defaultArrangement = (panels: readonly PanelSpec[]): Arrangement =>
 export const panelOf = (a: Arrangement, tab: string): string | undefined =>
 	Object.keys(a.panels).find((panel) => a.panels[panel].includes(tab));
 
-export const tabsOf = (a: Arrangement, panel: string): readonly string[] => a.panels[panel] ?? [];
+/** A panel's shown tabs, in order */
+export const tabsOf = (a: Arrangement, panel: string): readonly string[] => {
+	const tabs = a.panels[panel] ?? [];
+	return a.hidden?.length ? tabs.filter((t) => !a.hidden!.includes(t)) : tabs;
+};
+
+export const isHidden = (a: Arrangement, tab: string): boolean => !!a.hidden?.includes(tab);
+
+/** A tab hidden: it stays in its panel's list; the panel's front tab moves to a shown neighbour */
+export const hideTab = (a: Arrangement, tab: string): Arrangement => {
+	const panel = panelOf(a, tab);
+	if (!panel || isHidden(a, tab)) return a;
+	const shown = tabsOf(a, panel);
+	const rest = shown.filter((t) => t !== tab);
+	const active = { ...a.active };
+	if (activeOf(a, panel) === tab && rest.length) active[panel] = rest[Math.min(shown.indexOf(tab), rest.length - 1)];
+	return { ...a, active, hidden: [...(a.hidden ?? []), tab] };
+};
+
+/** A hidden tab shown again, in its place, as its panel's front tab */
+export const showTab = (a: Arrangement, tab: string): Arrangement => {
+	const panel = panelOf(a, tab);
+	if (!panel) return a;
+	const hidden = (a.hidden ?? []).filter((t) => t !== tab);
+	const { hidden: _was, ...rest } = a;
+	return { ...rest, ...(hidden.length ? { hidden } : {}), active: { ...a.active, [panel]: tab } };
+};
 
 /** The front tab of a panel: the one it remembers, else its first */
 export const activeOf = (a: Arrangement, panel: string): string | undefined => {
@@ -86,7 +116,8 @@ const without = (a: Arrangement, tab: string): Arrangement => {
 		panels[from] = rest;
 		if (activeOf(a, from) === tab) active[from] = rest[Math.min(tabs.indexOf(tab), rest.length - 1)];
 	}
-	return { panels, active, free };
+	const hidden = a.hidden?.filter((t) => t !== tab);
+	return { panels, active, free, ...(hidden?.length ? { hidden } : {}) };
 };
 
 /**
@@ -96,7 +127,9 @@ const without = (a: Arrangement, tab: string): Arrangement => {
 export const moveTab = (a: Arrangement, tab: string, to: string, index: number): Arrangement => {
 	const from = panelOf(a, tab);
 	if (!from || !a.panels[to]) return a;
-	let at = Math.max(0, Math.min(index, a.panels[to].length));
+	// the index counts the shown tabs: before the shown tab at it, or after the panel's last tab
+	const shown = tabsOf(a, to);
+	let at = index < shown.length ? a.panels[to].indexOf(shown[Math.max(0, index)]) : a.panels[to].length;
 	if (from === to && a.panels[to].indexOf(tab) < at) at--;
 	const rest = without(a, tab);
 	const target = [...(rest.panels[to] ?? [])];
@@ -190,6 +223,7 @@ export const readArrangement = (stored: unknown, panels: readonly PanelSpec[], t
 		out.active[panel] = typeof active === 'string' && ids.includes(active) ? active : ids[0];
 		if (isFree) out.free[panel] = madeFrom as string;
 	}
+	const hidden = Array.isArray(s.hidden) ? [...new Set(s.hidden.map(idOf))].filter((t): t is string => typeof t === 'string' && seen.has(t)) : [];
 	for (const tab of tabs) {
 		if (seen.has(tab.id)) continue;
 		const home = homeOf(panels, tab.id);
@@ -197,6 +231,7 @@ export const readArrangement = (stored: unknown, panels: readonly PanelSpec[], t
 		out.panels[home] = [...(out.panels[home] ?? []), tab.id];
 		out.active[home] ??= tab.id;
 	}
+	if (hidden.length) out.hidden = hidden;
 	return out;
 };
 

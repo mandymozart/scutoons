@@ -44,6 +44,11 @@ impl<M: Module> Rig<M> {
     /// 120 bpm, 4 beats a bar, the tempo running from frame 0 = beat 0; every parameter at its default; no character,
     /// no variable set; strict; then `dm_new`
     pub fn new(rate: f64, seed: u64) -> Rig<M> {
+        Self::with(rate, seed, |_| {})
+    }
+
+    /// as `new`, with `before` run ahead of `dm_new` – where the host binds the assets (`load_asset`), so `init` sees them
+    pub fn with(rate: f64, seed: u64, before: impl FnOnce(&mut Rig<M>)) -> Rig<M> {
         let layout = M::LAYOUT;
         let mut rig = Rig { io: vec![0u128; (layout.size as usize).div_ceil(16)].into_boxed_slice(), layout, rt: Runtime::new() };
         {
@@ -54,6 +59,7 @@ impl<M: Module> Rig<M> {
         inp.vars().fill(f32::NAN);
         let (table, dirty) = inp.table();
         params::defaults(table, dirty, M::PARAMS);
+        before(&mut rig);
         // SAFETY: the io is ours, laid out by M::LAYOUT
         let base = rig.base();
         unsafe { rig.rt.create(base) };
@@ -255,6 +261,11 @@ impl<M: Module> Rig<M> {
     /// the transform the last call wrote (none: no motion slot)
     pub fn transform_out(&self) -> Option<crate::TransformOut> {
         self.out().transform().copied()
+    }
+
+    /// the instance table as the last call left it
+    pub fn instances(&self) -> Vec<crate::Instance> {
+        self.out().instances().to_vec()
     }
 
     /// event output `p`'s records of the last call

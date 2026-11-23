@@ -51,9 +51,14 @@ pub struct Bench<M: crate::Module> {
 #[cfg(feature = "host")]
 impl<M: crate::Module> Bench<M> {
     pub fn new(rate: f64, seed: u64) -> Bench<M> {
+        Self::with(rate, seed, |_| {})
+    }
+
+    /// as `new`, the rig built by `Rig::with` (assets bound before `init`)
+    pub fn with(rate: f64, seed: u64, before: impl FnOnce(&mut crate::testing::Rig<M>)) -> Bench<M> {
         let d = crate::host::parse(M::DESCRIPTOR).expect("the module's descriptor");
         let params = d.params.iter().map(|p| (p.name.to_string(), p.min, p.max)).collect();
-        Bench { rig: crate::testing::Rig::new(rate, seed), frame: 0, signal: crate::dsp::noise::White::new(seed), params }
+        Bench { rig: crate::testing::Rig::with(rate, seed, before), frame: 0, signal: crate::dsp::noise::White::new(seed), params }
     }
 
     pub fn set(&mut self, name: &str, value: f32) -> &mut Bench<M> {

@@ -112,12 +112,36 @@ crashed() {
 }
 
 scene=$(setting scene)
+# #834: the audio on a core of its own – the last physical core (both its hyperthreads) for the stage's render thread and
+# PipeWire's data thread (the stage pins them, priority.rs), everything else of the stage on the other cores; deck.toml
+# `audio_cpus` = "off" or a list ("3,7") overrides; fewer than 4 CPUs: no split. The CPU wake-up latency is held at 0 µs
+# while the audio runs. Only here, on the deck image – a dev PC sets neither.
+audio_cpus=$(setting audio_cpus)
+if [ -z "$audio_cpus" ] && [ "$(nproc --all)" -ge 4 ]; then
+  audio_cpus=$(cat "/sys/devices/system/cpu/cpu$(( $(nproc --all) - 1 ))/topology/thread_siblings_list" 2>/dev/null)
+fi
+pin=()
+if [ -n "$audio_cpus" ] && [ "$audio_cpus" != off ]; then
+  declare -A take=()
+  IFS=, read -ra parts <<<"$audio_cpus"
+  for p in "${parts[@]}"; do
+    a=${p%-*} b=${p#*-}
+    for ((c = a; c <= b; c++)); do take[$c]=1; done
+  done
+  others=
+  for ((c = 0; c < $(nproc --all); c++)); do [ -z "${take[$c]:-}" ] && others+="${others:+,}$c"; done
+  if [ -n "$others" ]; then
+    export DECK_AUDIO_CPUS="$audio_cpus"
+    pin=(taskset -c "$others")
+  fi
+fi
+export DECK_CPU_DMA_LATENCY=0
 # the kiosk stops (deck-kiosk.service's ExecStop signals the whole group, #256): end here – the stage exits too, and
 # its exit code must not read as a crash
 trap 'exit 0' TERM HUP INT
 while :; do
   mapfile -t h < <(handoff)
-  deck --cache "$STATE/cache" ${scene:+--scene "$scene"} "${h[@]}"
+  "${pin[@]}" deck --cache "$STATE/cache" ${scene:+--scene "$scene"} "${h[@]}"
   rc=$?
   case $rc in
     0) continue ;;                       # Ctrl+Q: the stage starts again

@@ -1,0 +1,288 @@
+{
+    "sets": {},
+    "locations": {},
+    "characters": {},
+    "items": {
+        "drum-machine": {
+            "rig": {
+                "id": "item.drum-machine",
+                "version": "63e65bec8e2ee2bf",
+                "data": {
+                    "subject": "item.drum-machine",
+                    "track": [
+                        {
+                            "id": "seq",
+                            "instrument": "drum_seq"
+                        },
+                        {
+                            "id": "kick",
+                            "instrument": "drum_kick",
+                            "gain": 0.5012
+                        },
+                        {
+                            "id": "snare",
+                            "instrument": "drum_snare",
+                            "gain": 0.5012
+                        },
+                        {
+                            "id": "hat_closed",
+                            "instrument": "drum_hat_closed",
+                            "gain": 0.5012
+                        },
+                        {
+                            "id": "hat_open",
+                            "instrument": "drum_hat_open",
+                            "gain": 0.5012
+                        }
+                    ],
+                    "route": [
+                        {
+                            "from": "seq:seq.lane1",
+                            "to": "kick:voice.notes"
+                        },
+                        {
+                            "from": "seq:seq.lane2",
+                            "to": "snare:voice.notes"
+                        },
+                        {
+                            "from": "seq:seq.lane3",
+                            "to": "hat_closed:voice.notes"
+                        },
+                        {
+                            "from": "seq:seq.lane4",
+                            "to": "hat_open:voice.notes"
+                        }
+                    ],
+                    "body": {
+                        "model": "characters/takeyari-drum/takeyari-drum-regular.glb",
+                        "height": 1.0
+                    }
+                },
+                "instruments": [
+                    "drum_seq",
+                    "drum_kick",
+                    "drum_snare",
+                    "drum_hat_closed",
+                    "drum_hat_open"
+                ],
+                "presets": []
+            },
+            "body": {
+                "path": "characters/takeyari-drum/takeyari-drum-regular.glb",
+                "size": 1234
+            }
+        }
+    },
+    "instruments": {
+        "drum_hat_closed": {
+            "id": "drum_hat_closed",
+            "version": "1d44ee1c6dc34d0b",
+            "data": {
+                "id": "drum_hat_closed",
+                "kind": "drum",
+                "name": {
+                    "de": "Geschlossene Hi-Hat",
+                    "en": "Closed hat"
+                },
+                "out": "voice.out",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "module:analog",
+                        "a1_level": 0.55,
+                        "a2_level": 0.0,
+                        "ae1_a": 0.001,
+                        "ae1_d": 0.045,
+                        "ae1_r": 0.03,
+                        "ae1_s": 0.0,
+                        "f1_cutoff": 7500.0,
+                        "f1_mode": 2.0,
+                        "f1_res": 0.25,
+                        "noise_level": 1.0,
+                        "noise_route": 0.0,
+                        "o1_key": 0.0,
+                        "o1_level": 0.25,
+                        "o1_pw": 0.3,
+                        "o1_semi": 24.0,
+                        "o1_wave": 1.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.ae1_d"
+                    }
+                ]
+            }
+        },
+        "drum_hat_open": {
+            "id": "drum_hat_open",
+            "version": "7396e36be20cad63",
+            "data": {
+                "id": "drum_hat_open",
+                "kind": "drum",
+                "name": {
+                    "de": "Offene Hi-Hat",
+                    "en": "Open hat"
+                },
+                "out": "voice.out",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "module:analog",
+                        "a1_level": 0.55,
+                        "a2_level": 0.0,
+                        "ae1_a": 0.001,
+                        "ae1_d": 0.35,
+                        "ae1_r": 0.2,
+                        "ae1_s": 0.0,
+                        "f1_cutoff": 7500.0,
+                        "f1_mode": 2.0,
+                        "f1_res": 0.25,
+                        "noise_level": 1.0,
+                        "noise_route": 0.0,
+                        "o1_key": 0.0,
+                        "o1_level": 0.25,
+                        "o1_pw": 0.3,
+                        "o1_semi": 24.0,
+                        "o1_wave": 1.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.ae1_d"
+                    }
+                ]
+            }
+        },
+        "drum_kick": {
+            "id": "drum_kick",
+            "version": "cf08ea6ea33fb177",
+            "data": {
+                "id": "drum_kick",
+                "kind": "drum",
+                "name": {
+                    "de": "Kick",
+                    "en": "Kick"
+                },
+                "out": "voice.out",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "module:analog",
+                        "a1_level": 0.0,
+                        "a2_level": 1.0,
+                        "a2_vel": 0.4,
+                        "ae2_a": 0.001,
+                        "ae2_d": 0.32,
+                        "ae2_r": 0.08,
+                        "ae2_s": 0.0,
+                        "f2_cutoff": 8000.0,
+                        "f2_drive": 0.35,
+                        "fe2_a": 0.001,
+                        "fe2_d": 0.045,
+                        "fe2_p2": 24.0,
+                        "fe2_r": 0.05,
+                        "fe2_s": 0.0,
+                        "o1_level": 0.0,
+                        "o2_key": 0.0,
+                        "o2_level": 1.0,
+                        "o2_route": 1.0,
+                        "o2_semi": -24.0,
+                        "o2_wave": 3.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.ae2_d"
+                    }
+                ]
+            }
+        },
+        "drum_seq": {
+            "id": "drum_seq",
+            "version": "1a71b20add5ff740",
+            "data": {
+                "id": "drum_seq",
+                "kind": "drum",
+                "name": {
+                    "de": "Drum-Sequenzer",
+                    "en": "Drum sequencer"
+                },
+                "node": [
+                    {
+                        "id": "seq",
+                        "kind": "module:drumseq",
+                        "rate": 4.0,
+                        "steps": 16.0,
+                        "swing": 0.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "seq.swing"
+                    },
+                    {
+                        "path": "seq.rate"
+                    }
+                ]
+            }
+        },
+        "drum_snare": {
+            "id": "drum_snare",
+            "version": "638e51b7cf55f9ae",
+            "data": {
+                "id": "drum_snare",
+                "kind": "drum",
+                "name": {
+                    "de": "Snare",
+                    "en": "Snare"
+                },
+                "out": "voice.out",
+                "node": [
+                    {
+                        "id": "voice",
+                        "kind": "module:analog",
+                        "a1_level": 0.8,
+                        "a2_level": 0.6,
+                        "ae1_a": 0.001,
+                        "ae1_d": 0.17,
+                        "ae1_r": 0.06,
+                        "ae1_s": 0.0,
+                        "ae2_a": 0.001,
+                        "ae2_d": 0.09,
+                        "ae2_r": 0.05,
+                        "ae2_s": 0.0,
+                        "f1_cutoff": 1200.0,
+                        "f1_mode": 2.0,
+                        "f2_cutoff": 6000.0,
+                        "fe2_a": 0.001,
+                        "fe2_d": 0.03,
+                        "fe2_p2": 5.0,
+                        "fe2_s": 0.0,
+                        "noise_level": 0.9,
+                        "noise_route": 0.0,
+                        "o1_level": 0.0,
+                        "o2_key": 0.0,
+                        "o2_level": 1.0,
+                        "o2_route": 1.0,
+                        "o2_semi": -5.0,
+                        "o2_wave": 2.0
+                    }
+                ],
+                "expose": [
+                    {
+                        "path": "voice.ae1_d"
+                    }
+                ]
+            }
+        }
+    },
+    "presets": {},
+    "missing": {
+        "sets": [],
+        "locations": [],
+        "characters": [],
+        "items": [],
+        "presets": []
+    }
+}

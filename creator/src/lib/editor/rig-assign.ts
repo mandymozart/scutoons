@@ -82,7 +82,7 @@ export function moduleInstrumentRequest(entry: { id: string; content: unknown })
 export const instrumentKey = (id: string) => `instrument:${id}`;
 
 /** the creator's draft calls (`$lib/api.ts`); tests pass fakes */
-export type Drafts = Pick<ContentApi, 'getDraft' | 'putDraft' | 'publishVersion'>;
+export type Drafts = Pick<ContentApi, 'getDraft' | 'putDraft'>;
 export type RigResult = { ok: true } | { ok: false; message: string };
 
 export const rigKey = (subject: string) => `rig:${subject}`;
@@ -111,17 +111,6 @@ export function createRigStore(drafts: Drafts) {
 			try {
 				const r = await drafts.putDraft(rigKey(subject), rig, base.get(subject) ?? null, 'assignment');
 				base.set(subject, r.version.id);
-				return { ok: true };
-			} catch (e) {
-				return failed(e);
-			}
-		},
-		/** publishes the saved draft (the API asks the core first, #313) */
-		async publish(subject: string): Promise<RigResult> {
-			const version = base.get(subject);
-			if (version == null) return { ok: false, message: rigKey(subject) };
-			try {
-				await drafts.publishVersion(rigKey(subject), version);
 				return { ok: true };
 			} catch (e) {
 				return failed(e);

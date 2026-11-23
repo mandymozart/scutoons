@@ -51,6 +51,14 @@ against its parent (a root: against the instrument as patched). That *is* the li
   preset's routing differs).
 - `Rig::check` refuses duplicate tracks, unknown instruments / presets, a preset of another instrument, variants and
   routes naming unknown tracks.
+- **body** `{ model, height? }` (#833, rig/body.rs): the rig's own 3D model (a `.glb` by CDN path) – a body part, a
+  vehicle, a drum machine is a rig with a body (`item.<id>`), not a character. The stage draws it where the rig stands;
+  scene-content serves it as `items.<id>.body` (`{ path, size }`). **attach** `[{ rig: "rig:<subject>", spot }]`: rigs
+  carried at a spot of the body (checked: a body to carry them, not itself, one per spot; drawing them is #833's open rest).
+- **A placed rig** (scene_document.rs): a holder with `rig` alone (no `ref`, no `fill`) – the rig stands there as its
+  body (else its being), in 3D on any stage, picked like a cast member; a use cannot replace it. First one: the drum
+  machine `item.drum-machine` (server/tests/fixtures/rigs/drum-machine.json – crows-rave's drumseq + four voices, the
+  Takeyari body), placed by crows-rave's `drum-machine` holder as `"rig": { "ref": "rig:item.drum-machine" }`.
 
 ## 4. Ownership and rights
 How a deck **holds** a definition is `Hold` – lent (a conductor's grant for one scene, via the relay, #182) · owned (the

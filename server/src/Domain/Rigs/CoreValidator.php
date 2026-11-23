@@ -56,15 +56,22 @@ final class CoreValidator
 
     /**
      * #243: the core's problems of a scene document `scene:<id>` – what a deck would refuse to load (deck-space
-     * rig/validate.rs kind `scenes`: the document's form and id, the graph, the browser engine's split)
+     * rig/validate.rs kind `scenes`: the document's form and id, the graph, the browser engine's split); the requests and
+     * answers with module nodes: server/tests/fixtures/scenes/modules.json
+     * @param list<mixed> $modules the descriptors of the modules its nodes name, sent as `modules` when there are any
+     * @param ?\stdClass $content #815: scene-content's answer for its holders' rigs (Scenes::rigs), sent as `content` when
+     *        there is one – the core resolves the holders with the rigs a deck plays
      * @return list<string>
      */
-    public function sceneProblems(string $id, mixed $document): array
+    public function sceneProblems(string $id, mixed $document, array $modules = [], ?\stdClass $content = null): array
     {
         $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
         $token = $this->settings->get('MODULE_BUILD_TOKEN');
         if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks scenes is not set up.');
-        return $this->ask($url, $token, ['kind' => 'scenes', 'id' => $id, 'document' => $document], "scene $id");
+        $request = ['kind' => 'scenes', 'id' => $id, 'document' => $document];
+        if ($modules !== []) $request['modules'] = $modules;
+        if ($content !== null) $request['content'] = $content;
+        return $this->ask($url, $token, $request, "scene $id");
     }
 
     /**
@@ -74,14 +81,16 @@ final class CoreValidator
      * @param mixed $use the use as sent, decoded with objects
      * @param ?\stdClass $scene the scene's published document; null = none published (the core names it)
      * @param list<string> $book the references of the toon's address book
+     * @param list<mixed> $modules the descriptors of the modules the scene's nodes name, sent when there are any
      * @return list<string>
      */
-    public function useProblems(string $id, mixed $use, ?\stdClass $scene, array $book): array
+    public function useProblems(string $id, mixed $use, ?\stdClass $scene, array $book, array $modules = []): array
     {
         $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
         $token = $this->settings->get('MODULE_BUILD_TOKEN');
         if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks scenes is not set up.');
         $request = ['kind' => 'uses', 'id' => $id, 'document' => $use, 'scenes' => $scene !== null ? [$scene] : [], 'book' => $book];
+        if ($modules !== []) $request['modules'] = $modules;
         return $this->ask($url, $token, $request, "a use of scene $id");
     }
 
@@ -102,6 +111,40 @@ final class CoreValidator
         $request = ['kind' => 'spots', 'id' => $assetId, 'document' => $spots];
         if ($modules !== []) $request['modules'] = $modules;
         return $this->ask($url, $token, $request, "the spots of asset $assetId");
+    }
+
+    /**
+     * #817: the core's problems of a model's or an animation's skeleton (deck-catalog skeleton.rs `Skeleton::problems`,
+     * kind `skeleton`); the requests and answers: server/tests/fixtures/assets/skeletons.json
+     * @return list<string>
+     */
+    public function skeletonProblems(string $assetId, object $skeleton): array
+    {
+        return $this->askService(['kind' => 'skeleton', 'id' => $assetId, 'document' => $skeleton], "the skeleton of asset $assetId", 'skeletons');
+    }
+
+    /**
+     * #817: whether a character's idle plays on its model (deck-catalog skeleton.rs `FitCheck`, kind `animation-fit`: a
+     * library animation's turned joints all in the model, or a clip of the model by name) – the one rule the creator's
+     * picker and the stage ask too; the requests and answers: server/tests/fixtures/assets/skeletons.json
+     * @param string $id what names the idle (`character:<id>/<persona>`)
+     * @return list<string>
+     */
+    public function fitProblems(string $id, object $check): array
+    {
+        return $this->askService(['kind' => 'animation-fit', 'id' => $id, 'document' => $check], "the idle of $id", 'idles');
+    }
+
+    /**
+     * @param array<string, mixed> $request
+     * @return list<string>
+     */
+    private function askService(array $request, string $what, string $checks): array
+    {
+        $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
+        $token = $this->settings->get('MODULE_BUILD_TOKEN');
+        if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', "The build service that checks $checks is not set up.");
+        return $this->ask($url, $token, $request, $what);
     }
 
     /**

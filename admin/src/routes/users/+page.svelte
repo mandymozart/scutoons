@@ -3,6 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import AccountFilters from '$lib/components/account-filters.svelte';
 	import SegmentsSheet from '$lib/components/segments-sheet.svelte';
+	import MemberInvitesSheet from '$lib/components/member-invites-sheet.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, Pager, SearchField, Skeleton, confirmDialog, listHref, listParams, readList, type Column } from '@scutoons/ui';
@@ -32,6 +33,7 @@
 	let selected = $state<string[]>([]);
 	let target = $state('');
 	let managing = $state(false);
+	let inviting = $state(false);
 	let reload = $state(0);
 
 	$effect(() => {
@@ -143,6 +145,7 @@
 <ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['users.title']()}>
 	{#snippet end()}
 		<Button size="sm" variant="secondary" onclick={() => (managing = true)}>{m['segments.title']()}</Button>
+		<Button size="sm" variant="secondary" onclick={() => (inviting = true)}>{m['invites.title']()}</Button>
 	{/snippet}
 	{#snippet info()}<PageHelp page="users" />{/snippet}
 </ActionBar>
@@ -213,6 +216,7 @@
 {/if}
 
 <SegmentsSheet bind:open={managing} {segments} onchange={() => (loadSegments(), reload++)} />
+<MemberInvitesSheet bind:open={inviting} />
 
 <style>
 	.roles {

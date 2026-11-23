@@ -34,12 +34,13 @@
 //! | `launch` | `row`, `column` (#551: Perform's ▶ on one cell, the conductor's hand launch; an `ask` cell opens its whole question) | as `fire` |
 //! | `vote` | `option` (#548: the relay's result of the last question, the option's place from 0) – the show's event `vote:<question>/<n>`, the row set to it fires | event, row, said (the log's last line), and as `fire` |
 //! | `address` | `address`, `action` (#516: as the relay's `address` brings it; a show row's `addresses` reach the same path through `fire` / `go`: a line each under `addresses`, the last change's `stage`) – to the scene document playing (deck-space scene_play.rs: `join:<who>` / `leave:<who>`), a changed cast recast in the engine (live-core `recast`); a camera word (`shot:<id>`, `move:<id>`) to the stage's camera (Space `camera_word`; through `fire` its answer is `camera`) | did (changed, nothing, not_mine; camera), holder, ms, said (the log's last line), ids, stage; viewing, ortho, fov |
-//! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once | did (a line per cast word: changed at <holder>, nothing), said, ids, stage |
-//! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine) |
+//! | `story` | `event` (#517: a reader's story event as the relay brings it – `type`, `params`, `id`) – to the playing scene document's listeners (deck-space scene_play.rs `Playing::story`; a `load` of a `document` may add `listener`s), a changed cast recast once; and to the stage (#819: a text line opens its character's trigger, space/sing.rs) | did (a line per cast word: changed at <holder>, nothing), said, ids, stage, sang (opened, triggers) |
+//! | `pick` | on the last scene document loaded (#496, stage.rs): `click` (a holder, or `[x, y]` of a 1280 × 720 window), `key` (+ `shift`), `drag` (a knob of the hand, `by`), `sing` (#819: the sing button held / let go), `wait` (ms of the stage's time) | picked, selection, knobs (the hand's), mark, key, reach, turned (sent to the engine), sang, triggers (each trigger's value, sent to the engine) |
 //! | a capability (caps.rs) | `with` | its answer, or `Missing` |
 //!
 //! Built for wasm32 too (`hl_inbox`, `hl_run`, `hl_outbox`): the same bundle in, the same report out – tests/wasm.rs
 //! proves native ≡ wasm32 ≡ wasm32 + simd128, so the browser's bridge adds nothing a scenario can see.
+pub mod bench;
 pub mod bones;
 pub mod caps;
 pub mod deck;
@@ -376,8 +377,20 @@ impl Run<'_> {
 
     /// #517: a story event (the VNEvent's JSON, as the relay brings a reader's `story`) passed to the playing scene document
     /// (deck-space scene_play.rs `Playing::story`: its listeners); a changed cast is recast in the engine once. The answer:
-    /// did (one line per cast word a listener made: changed at <holder>, nothing), the log's last line, the stage after a change
+    /// did (one line per cast word a listener made: changed at <holder>, nothing), the log's last line, the stage after a change;
+    /// `sang` (#819): the stage's triggers after it (stage.rs `story`: a text line opens its character's)
     fn story(&mut self, event: &Value) -> Result<Value, Fault> {
+        let mut out = self.story_cast(event)?;
+        if let Some(scene) = self.resolved.as_ref() {
+            if self.stage.is_none() {
+                self.stage = Some(stage::Stage::new(scene).map_err(Fault::Error)?);
+            }
+            out["sang"] = self.stage.as_mut().expect("made above").story(event, &mut self.deck).map_err(Fault::Error)?;
+        }
+        Ok(out)
+    }
+
+    fn story_cast(&mut self, event: &Value) -> Result<Value, Fault> {
         use deck_space::scene_play::Recast;
         let Some(playing) = self.playing.as_mut() else { return Ok(json!({ "did": [] })) };
         let (own, content) = (&self.own_rigs, &self.content);
@@ -849,7 +862,10 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
             let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
             let who = word(n, "who").as_deref().and_then(Who::parse);
             let look = who.as_ref().and_then(|w| content.look_form(w.character()));
-            let form = who.as_ref().map(|w| cast::form(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse), look));
+            // a placed rig and its rig's body (scene.rs `body_params`): its body draws it
+            let (placed, body) = (word(n, "rig"), word(n, "body"));
+            let rigged = cast::Rigged { placed: placed.is_some(), body: body.is_some() };
+            let form = who.as_ref().map(|w| cast::form_rigged(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse), look, rigged));
             let picture = match (&who, form) {
                 (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(content.drawn_as(c), cast::CARD_VIEW, "")),
                 (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
@@ -857,9 +873,9 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
             }
             .map(|p| format!("{}.{}.{}", p.kind, p.id, p.field()));
             // a member in its look: drawn as its model when scene-content names one (a card says so by its form)
-            let model = who.as_ref().is_some_and(|w| content.model_of(w.character()).is_some());
+            let model = body.is_some() || who.as_ref().is_some_and(|w| content.model_of(w.character()).is_some());
             let drawing = form.filter(|f| *f == Form::Look).map(|f| cast::drawing(f, model).word());
-            let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "drawing": drawing, "picture": picture });
+            let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "drawing": drawing, "picture": picture, "rig": placed, "body": body });
             // what a member does not have is left out (a scenario's TOML has no null to expect)
             Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
         })

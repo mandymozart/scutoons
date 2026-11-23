@@ -63,7 +63,7 @@
 		gap: 0.5rem;
 		align-items: flex-start;
 		padding-bottom: 0.75rem;
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.fields {
 		flex: 1;

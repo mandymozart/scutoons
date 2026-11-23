@@ -52,7 +52,7 @@ use std::sync::{Arc, Mutex};
 use voices::{VoiceKind, Voices};
 
 #[cfg(feature = "modules")]
-pub use module::{register as register_module, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
+pub use module::{register as register_module, AssetLoader, ModuleInstance, ModuleSource, Opened, Restart, Restarts};
 
 /// A block stamp: [frames rendered before the block, the monotonic moment (ns) its first frame is heard]
 pub type Stamp = SeqLock<2>;
@@ -268,6 +268,9 @@ pub struct Seams {
     /// the loaded rig modules (`module:<name>` nodes); without one such a node is a build error
     #[cfg(feature = "modules")]
     pub modules: Option<Arc<dyn ModuleSource>>,
+    /// where module nodes' slot assets load from; without one a module plays its own fallback
+    #[cfg(feature = "modules")]
+    pub assets: Option<Arc<dyn AssetLoader>>,
     /// the deck's tuning: the module event host fills a note's Hz from its key and back (#342)
     #[cfg(feature = "events")]
     pub tuning: deck_events::Tuning,
@@ -422,6 +425,8 @@ pub struct Handles {
     pub(crate) prepared: Vec<Option<module::Prepared>>,
     /// values written outside the control step: (node, output port, its Param) – modules' control outputs (#342)
     pub(crate) feeds: Vec<(usize, usize, Param)>,
+    /// the instance tables of the modules that draw: the space reads them each frame
+    pub instances: Vec<Arc<deck_space::instances::Table>>,
 }
 
 impl Handles {
@@ -489,6 +494,7 @@ impl Engine {
             #[cfg(feature = "modules")]
             prepared: Vec::new(),
             feeds: Vec::new(),
+            instances: Vec::new(),
         };
         // the scene's tempo until the frame thread takes over
         let tempo = tempo_config(graph)?;

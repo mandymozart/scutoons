@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 /// what the slices are fetched at (1170 px wide: enough for a 1080p outlet)
-const QUALITY: &str = "high";
+const QUALITY: deck_catalog::rendition::Quality = deck_catalog::rendition::Quality::High;
 
 /// The outlet's composer on this deck.
 pub type Composer = deck_outlet::compose::Composer<LibraryShelf>;
@@ -49,9 +49,9 @@ impl Shelf for LibraryShelf {
         let c = self.chapter(toon, n)?;
         let count = c.slices().count();
         let s = c.slices().nth(index).ok_or_else(|| format!("{toon} {n} has {count} slices, not {}", index + 1))?;
-        let path = s.image_path(QUALITY).ok_or("a slice without an image")?.to_owned();
-        let file = self.lib.file(toon, &path).map_err(|e| format!("{e:#}"))?;
-        Ok(image::open(&file).map_err(|e| format!("{path}: {e}"))?.to_rgba8())
+        let media = s.image_media();
+        let got = self.lib.load(Some(toon), &media, QUALITY).map_err(|e| format!("{e:#}"))?;
+        Ok(image::load_from_memory(&got.bytes).map_err(|e| format!("{}: {e}", got.path))?.to_rgba8())
     }
 
     fn dialog(&mut self, toon: &str, n: u32, index: usize) -> Result<&[Dialog], String> {

@@ -1,22 +1,10 @@
 <script lang="ts">
 	import '@scutoons/tokens';
 	import type { Snippet } from 'svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		CommandPalette,
-		languageCommand,
-		linkCommands,
-		signOutCommand,
-		type Command,
-		type PaletteLink,
-		installTooltips,
-		DialogHost,
-		ToastStack,
-		provideColourSampler,
-		provideUiLabels
-	} from '@scutoons/ui';
+	import { installTooltips, DialogHost, ToastStack, provideColourSampler, provideUiLabels } from '@scutoons/ui';
 	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { toaster } from '$lib/toasts.ts';
 	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
@@ -31,18 +19,27 @@
 	import { assetsApi, library } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale, locales } from '$lib/paraglide/runtime.js';
 	import { routeId, setCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
-	import { places } from '$lib/shell/places.svelte.ts';
+	import { isLaunchKey } from '$lib/shell/launcher.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
 	import StatusBar from '$lib/components/shell/status-bar.svelte';
+	import Dashboard from '$lib/components/shell/dashboard.svelte';
+	import Launcher from '$lib/components/shell/launcher.svelte';
+	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
+	import UserMenu from '$lib/components/shell/user-menu.svelte';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
+	import type { DashboardState } from '$lib/shell/resume.ts';
+	import { openings } from '$lib/shell/openings.svelte.ts';
+	import { log } from '$lib/log/log.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -103,6 +100,10 @@
 	$effect(() => {
 		if (isCreator) void reviews.load();
 	});
+	// what the member does: the workspaces they start with, and the first login's question
+	$effect(() => {
+		if (isCreator) void crafts.load();
+	});
 
 	const toonId = $derived((page.params.toonId as string | undefined) ?? null);
 	/** the TEXT language switch: a toon's page offers the toon's languages, the universe pages every toon's (`de` first) */
@@ -127,9 +128,11 @@
 	});
 
 	// ── tabs: the URL is the front tab (lib/shell); a page that writes its selection into the URL moves its tab along ──
-	const startAt = page.url.pathname;
-	const resume = shell.settings.reopenTabs ? shell.front : null;
-	if (!shell.settings.reopenTabs) shell.closeAll();
+	// reopening resumes like a hibernated computer (lib/shell/resume.ts): the kept tabs with the URL opened, the dashboard
+	// as it was, each workspace's full screen, the scroll positions; a link opened is the front tab
+	const start = resume.start({ address: addressOf(page.url.pathname, page.url.search), href: page.url.pathname + page.url.search });
+	/** the dashboard as it was, once the start's page is there */
+	let startDashboard: DashboardState | null = start.dashboard;
 	let lastPath = '';
 	function sync(navigated: boolean) {
 		const { pathname, search } = location;
@@ -140,8 +143,56 @@
 		lastPath = pathname;
 	}
 	afterNavigate(() => sync(true));
+	// nothing open: the dashboard lies over the empty stage; going to an item puts it away
+	afterNavigate(() => {
+		if (startDashboard !== null && (!start.go || location.pathname === new URL(start.go, location.origin).pathname)) {
+			shell.dashboard = startDashboard;
+			startDashboard = null;
+			resumeScroll();
+			return;
+		}
+		shell.dashboard = location.pathname === '/' ? shell.dashboard || 'cards' : false;
+	});
+	$effect(() => resume.dashboard(shell.dashboard));
+	onMount(keepScroll);
+	// another member signed in on this browser: their own tabs come back
+	$effect(() => {
+		const id = session.user?.id;
+		if (id == null) return;
+		const go = untrack(() => resume.member(String(id)));
+		if (go && go !== location.pathname + location.search) void goto(go, { replaceState: true });
+	});
+	// the resumed tabs checked as the lists arrive: an item gone or no longer the member's leaves quietly, with a Log line
+	$effect(() => {
+		if (!isCreator || !shell.state.tabs.length) return;
+		untrack(() => void openings.load());
+	});
+	$effect(() => {
+		const lists = Object.fromEntries(Object.entries(openings.rows).map(([kind, rows]) => [kind, rows.map((r) => r.address)]));
+		const toons = nav.toons.length ? nav.toons.flatMap((t) => [t.id, t.uri].filter((v): v is string => !!v)) : null;
+		untrack(() => {
+			const front = shell.state.front;
+			const out = resume.check(lists, toons);
+			if (!out) return;
+			for (const name of out.gone) log.post({ level: 'info', text: m['shell.resume_dropped']({ name }), scope: '' });
+			if (front && out.tabs.front !== front && addressOf(location.pathname, location.search) === front) {
+				void goto(out.tabs.tabs.find((t) => t.address === out.tabs.front)?.href ?? '/', { replaceState: true });
+			}
+		});
+	});
+	// each workspace's full screen kept, and the kept one back once its view has content
+	$effect(() => {
+		const floats = shell.floats;
+		const full = shell.full;
+		const available = shell.available;
+		if (!floats) return;
+		untrack(() => {
+			const back = resume.full(floats.workspace, full, available);
+			if (back) floats.setState(back, 'full');
+		});
+	});
 	onMount(() => {
-		if (startAt === '/' && resume) void goto(resume.href, { replaceState: true });
+		if (start.go) void goto(start.go, { replaceState: true });
 		const { pushState, replaceState } = history;
 		const watch = (original: typeof pushState) =>
 			function (this: History, ...args: Parameters<typeof pushState>) {
@@ -171,7 +222,7 @@
 	/** where the open item is read: the toon or its chapter in the reader (printed URLs, RULES I1) */
 	const reader = $derived(toonId ? `${VIEWER_URL}/${toonId}${page.params.chapterNumber ? `/chapter/${page.params.chapterNumber}` : ''}` : null);
 
-	// where this member was (Home's Continue): every place with a tab, once the toons' names are known
+	// where this member was (the dashboard's Last opened): every place with a tab, once the toons' names are known
 	$effect(() => {
 		const crumbs = tabPath(nav.crumbs);
 		if (!isCreator || !nav.toons.length || !shell.state.front || !crumbs.length) return;
@@ -187,36 +238,33 @@
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';
 	});
 
-	/** Alt+ArrowUp: one step up the path; Ctrl+O: open (the Library); Ctrl+,: Settings */
+	/** Alt Space / Cmd Space / Ctrl K / Ctrl O / `/`: the launcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the front workspace's Views (on the dashboard) */
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
-		if (mod && !event.altKey && !event.shiftKey && (event.key === 'o' || event.key === ',')) {
+		const target = event.target instanceof Element ? event.target : null;
+		const typing = !!target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+		if (isLaunchKey(event, typing)) {
 			event.preventDefault();
-			shell.open(event.key === 'o' ? 'library' : 'settings');
+			shell.toggleLauncher();
+			return;
+		}
+		if (event.altKey && !mod && !event.shiftKey && event.code === 'KeyV') {
+			event.preventDefault();
+			shell.dashboard = shell.state.front ? 'views' : 'cards';
+			return;
+		}
+		if (mod && !event.altKey && !event.shiftKey && event.key === ',') {
+			event.preventDefault();
+			shell.open('settings');
 			return;
 		}
 		if (!event.altKey || mod || event.key !== 'ArrowUp') return;
-		const target = event.target as HTMLElement | null;
 		if (target && (target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
 		if (!nav.parent) return;
 		event.preventDefault();
 		goto(nav.parent.href);
 	}
 
-	// the command palette (Ctrl/⌘K, `/`): the areas, every toon with its seasons and chapters, language, sign out
-	let paletteOpen = $state(false);
-	$effect(() => {
-		if (paletteOpen) places.load(nav.toons);
-	});
-	const paletteCommands = $derived.by<Command[]>(() => {
-		const link = (p: { address: string; label: string; hint?: string; href: string; keywords?: string }): PaletteLink => ({ id: p.address, label: p.hint && p.hint !== m['palette.toon']() ? `${p.hint} · ${p.label}` : p.label, hint: p.hint === m['palette.toon']() ? p.hint : undefined, href: p.href, keywords: `${p.address} ${p.keywords ?? ''}` });
-		return [
-			...linkCommands([{ id: 'home', label: m['palette.home'](), href: '/', keywords: 'toons home start' }, ...places.areas().map(link)], goto, m['palette.go_to']()),
-			...linkCommands(places.toons(nav.toons, (id) => nav.toonName(id), toonId).map(link), goto, m['palette.toons']()),
-			languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }), group: m['palette.actions']() }),
-			signOutCommand({ label: m['creator.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
-		];
-	});
 	const title = $derived(shell.front?.label);
 </script>
 
@@ -226,7 +274,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher && !shell.userMenu} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -234,10 +282,13 @@
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
-		<ShellBar {path} {reader} />
+		<ShellBar />
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
-		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />
+		{#if shell.dashboard}<Dashboard {reader} />{/if}
+		{#if shell.launcher}<Launcher />{/if}
+		<UserMenu />
+		{#if crafts.ask}<CraftsQuestion />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />
@@ -246,18 +297,21 @@
 </div>
 
 <style>
+	/* the window and every page on it stand on the stage (--tool-ground: black at night, white by day; RULES H11) */
 	.creator {
-		--cyan: var(--primary-cyan);
-		--muted: var(--text-muted);
-		--error: var(--state-error);
-		--warn: var(--state-warning);
-		/* the bar's row: the pills and a gap above and below (the panels start a gap under it) */
-		--shell-top: calc(var(--control-height) + 1.4rem);
+		background: var(--tool-ground);
+		/* the bar's row: the kit's bar pills and a margin above and below (deck-kit bar.rs; the panels start under it) */
+		--shell-top: calc(var(--kit-bar) + 2 * var(--kit-margin));
 		--top: var(--shell-top);
 		/* the status bar along the bottom and the room it takes (the panels end above it) */
-		--status-height: calc(var(--control-height) + 0.2rem);
-		--status-room: calc(var(--status-height) + 1rem);
+		--status-height: var(--kit-status);
+		--status-room: calc(var(--status-height) + 2 * var(--kit-margin));
 		min-height: 100dvh;
+	}
+	/* a view full screen: the bar and the status bar step aside (the workspace hides its panels) */
+	.creator.full :global(.shell-bar),
+	.creator.full :global(.status-bar) {
+		display: none;
 	}
 	.stage {
 		position: fixed;
@@ -265,8 +319,8 @@
 		box-sizing: border-box;
 		padding-bottom: var(--status-room);
 		overflow: auto;
-		background: var(--editor-stage);
-		color: var(--editor-text);
+		background: var(--tool-ground);
+		color: var(--tool-text);
 	}
 	/* a view clear of the bar keeps its content under the bar's row (the stage itself still runs under it) */
 	.stage.clear {
@@ -282,15 +336,13 @@
 		flex-direction: column;
 		min-height: 100%;
 	}
-	/* a page that scrolls (a form, a board) is a sheet in the stage's middle; the panels float beside it */
+	/* a page that scrolls (a form, a board) is a column in the stage's middle, on the stage itself – no sheet, no frame
+	   (RULES H11); the panels float beside it */
 	.stage.sheet .stage-page {
 		box-sizing: border-box;
 		width: min(60rem, 100% - 2rem);
 		min-height: 0;
 		margin: 0 auto 1rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
 	}
 	.stage.fill .stage-page {
 		flex: 1;
@@ -322,8 +374,8 @@
 		min-height: var(--control-height);
 		padding: 0 var(--editor-pad);
 		line-height: var(--type-button-line);
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		border: var(--editor-edge) solid transparent;
 		border-radius: var(--editor-radius);
 		cursor: pointer;
@@ -331,35 +383,35 @@
 	}
 	:global(:where(.creator button:hover:not(:disabled))),
 	:global(:where(.creator .btn:hover)) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	:global(:where(.creator button.secondary)),
 	:global(:where(.creator .btn.secondary)) {
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 	}
 	:global(:where(.creator button.ghost)) {
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		padding: 0 var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	:global(:where(.creator button.active)),
 	:global(:where(.creator button[aria-pressed='true'])),
 	:global(:where(.creator button.active:hover:not(:disabled))) {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	:global(:where(.creator button.primary)),
 	:global(:where(.creator .btn.primary)) {
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
-		border-color: var(--editor-primary-line);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
+		border-color: var(--tool-primary-line);
 	}
 	:global(:where(.creator button.primary:hover:not(:disabled))) {
-		background: var(--editor-primary-line);
+		background: var(--tool-primary-line);
 	}
 	:global(:where(.creator button:disabled)) {
 		opacity: 0.5;
@@ -369,7 +421,7 @@
 		display: block;
 	}
 	:global(:where(.creator .hint)) {
-		color: var(--muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}

@@ -476,7 +476,7 @@
 		box-sizing: border-box;
 		min-width: 0;
 		padding: 1rem 0 0;
-		border-right: var(--border-width-regular) solid var(--ink);
+		border-right: var(--border-width-regular) solid var(--tool-text);
 	}
 	.layout.folded .side {
 		padding: 0;
@@ -499,7 +499,7 @@
 		flex: none;
 	}
 	.rules-link {
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	/* narrower: the outline above the text (no rail, no divider) */
 	@media (max-width: 900px) {
@@ -530,9 +530,9 @@
 		height: var(--script-height, calc(100vh - 16rem));
 		box-sizing: border-box;
 		padding: var(--space-05) var(--space-075);
-		border: 2px solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: 2px solid var(--tool-text);
+		background: transparent;
+		color: var(--tool-text);
 		resize: none;
 	}
 	/* a Kanon text is prose: it wraps (KANON.md §5) */

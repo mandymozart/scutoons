@@ -21,12 +21,17 @@ impl Analyzer {
         self.core.values
     }
 
-    /// drain the ring, analyse the SIZE samples that end `lead` samples before the newest (the heard moment), smooth
-    /// into the values (level, bass, mid, high)
-    pub fn update(&mut self, dt: f32, lead: usize) -> [f32; 4] {
+    /// take the ring's new samples into the history without analysing (a block the picture won't see)
+    pub fn drain(&mut self) {
         while let Ok(x) = self.ring.pop() {
             self.core.push(x);
         }
+    }
+
+    /// drain the ring, analyse the SIZE samples that end `lead` samples before the newest (the heard moment), smooth
+    /// into the values (level, bass, mid, high)
+    pub fn update(&mut self, dt: f32, lead: usize) -> [f32; 4] {
+        self.drain();
         self.core.update(dt, lead)
     }
 }

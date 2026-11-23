@@ -21,6 +21,7 @@
 	// and legend, find and Copy all. The lines, filters, counts and pills are the core's (lib/log/log.svelte.ts); a
 	// problem's accept and jump are its page's.
 	import { Icon } from '@scutoons/ui';
+	import { Button, Chip, IconButton, Menu, MenuItem, PillTabs } from '@scutoons/ui/editor';
 	import type { LogScope, LogShow, LogShown } from '@scutoons/content';
 	import { log } from '$lib/log/log.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
@@ -64,30 +65,30 @@
 <div class="log" data-testid="log-panel">
 	<div class="row" data-testid="log-scopes">
 		<span class="lab">{m['shell.log_scope']()}</span>
-		{#each pills as p (p.scope)}
-			<button type="button" class="pill" aria-pressed={p.scope === scope} disabled={p.prefix === null} onclick={() => (scope = p.scope)} data-testid="log-scope-{p.scope}">{p.words}</button>
-		{/each}
+		<PillTabs small label={m['shell.log_scope']()} on={scope} onselect={(id) => (scope = id as typeof scope)} items={pills.map((p) => ({ id: p.scope, label: p.words, disabled: p.prefix === null, testid: `log-scope-${p.scope}` }))} />
 	</div>
 	<div class="row">
 		<span class="lab">{m['shell.log_show']()}</span>
-		{#each legend?.shows ?? [] as s (s.show)}
-			<button type="button" class="pill" aria-pressed={s.show === show} onclick={() => (show = s.show)} data-testid="log-show-{s.show}">{s.words}</button>
-		{/each}
+		<PillTabs small label={m['shell.log_show']()} on={show} onselect={(id) => (show = id as LogShow)} items={(legend?.shows ?? []).map((s) => ({ id: s.show, label: s.words, testid: `log-show-${s.show}` }))} />
 		{#if view.notes && show !== 'events'}
-			<button type="button" class="pill" aria-pressed={notes} onclick={() => (notes = !notes)}>{m['shell.log_notes']({ count: view.notes })}</button>
+			<Chip label={m['shell.log_notes']({ count: view.notes })} on={notes} onclick={() => (notes = !notes)} />
 		{/if}
 		<input class="find" type="search" placeholder={m['shell.log_find']()} aria-label={m['shell.log_find']()} bind:value={find} />
-		<button type="button" class="pill" onclick={copyAll}>{m['shell.log_copy']()}</button>
+		<Button variant="quiet" icon="copy" onclick={copyAll}>{m['shell.log_copy']()}</Button>
+		{#if typed && legend}
+			<!-- the types and what each means: in the info box, not as rows in the panel (owner 2026-11-24: real estate) -->
+			<Menu label={m['shell.log_type']()} icon="info" about={m['shell.log_types_all']()} dot={kinds.length > 0} align="end" width="24rem" testid="log-types">
+				{#snippet children()}
+					<MenuItem role="menuitemcheckbox" on={!kinds.length} label={words('all')} onclick={() => (kinds = [])} />
+					{#each legend.kinds as k (k.kind)}
+						<MenuItem role="menuitemcheckbox" on={kinds.includes(k.kind)} icon={KIND_ICONS[k.kind]} onclick={() => toggleKind(k.kind)} data-testid="log-type-{k.kind}">
+							{k.label} <span class="means">{k.legend}</span>
+						</MenuItem>
+					{/each}
+				{/snippet}
+			</Menu>
+		{/if}
 	</div>
-	{#if typed}
-		<div class="row" data-testid="log-types">
-			<span class="lab">{m['shell.log_type']()}</span>
-			<button type="button" class="pill" aria-pressed={!kinds.length} onclick={() => (kinds = [])} title={m['shell.log_types_all']()}>{words('all')}</button>
-			{#each legend?.kinds ?? [] as k (k.kind)}
-				<button type="button" class="pill" aria-pressed={kinds.includes(k.kind)} onclick={() => toggleKind(k.kind)} title={k.legend} data-testid="log-type-{k.kind}"><Icon name={KIND_ICONS[k.kind]} size="0.9em" strokeWidth={2} />{k.label}</button>
-			{/each}
-		</div>
-	{/if}
 	<div class="lines">
 		{#if show !== 'events' && view.problems.length}
 			<p class="group"><span>{words('problems')}</span><span>{view.problems.length}</span></p>
@@ -100,7 +101,7 @@
 						<span class="text">{line.text}</span>
 					</button>
 					{#if line.key && source?.acceptable(line.key)}
-						<button type="button" class="sc-round sc-quiet" aria-pressed={line.accepted} title={line.accepted ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} aria-label={line.accepted ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} onclick={() => line.key && source.accept(line.key)}><Icon name="check" size="0.9em" /></button>
+						<IconButton label={line.accepted ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} icon="check" pressed={line.accepted} onclick={() => line.key && source.accept(line.key)} />
 					{/if}
 				</div>
 			{/each}
@@ -128,13 +129,6 @@
 			<p class="sc-empty">{m['shell.log_empty']()}</p>
 		{/if}
 	</div>
-	{#if typed && legend}
-		<div class="legend">
-			{#each legend.kinds as k (k.kind)}
-				<span><Icon name={KIND_ICONS[k.kind]} size="0.95em" strokeWidth={2} /><span class="name">{k.label}</span> {k.legend}</span>
-			{/each}
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -155,34 +149,10 @@
 	.lab,
 	.group {
 		margin: 0 0.3rem 0 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
-	}
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		padding: 0.1rem 0.55rem;
-		border: 0;
-		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
-		font: inherit;
-		text-shadow: inherit;
-	}
-	.pill:hover:not(:disabled) {
-		background: var(--editor-hover);
-	}
-	.pill[aria-pressed='true'],
-	.pill[aria-pressed='true']:hover {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		text-shadow: none;
-	}
-	.pill:disabled {
-		opacity: 0.4;
 	}
 	.find {
 		width: 8rem;
@@ -206,29 +176,29 @@
 		align-items: start;
 		gap: 0.5rem;
 		padding: 0.3rem 0.2rem;
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 	}
 	.line:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.dot {
 		width: 0.5rem;
 		height: 0.5rem;
 		margin-top: 0.4em;
 		border-radius: 50%;
-		background: var(--editor-muted);
+		background: var(--tool-muted);
 	}
 	.error .dot {
-		background: var(--editor-stop);
+		background: var(--tool-stop);
 	}
 	.warn .dot {
-		background: var(--editor-warn);
+		background: var(--tool-warn);
 	}
 	.ok .dot {
-		background: var(--editor-go);
+		background: var(--tool-go);
 	}
 	.info .dot {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	.body {
 		display: flex;
@@ -249,7 +219,7 @@
 	}
 	.where,
 	.age {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		white-space: nowrap;
 	}
@@ -263,14 +233,14 @@
 		text-transform: uppercase;
 	}
 	.error .lvl {
-		color: var(--editor-stop);
+		color: var(--tool-stop);
 	}
 	.warn .lvl {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.kind {
 		margin-right: 0.35rem;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.text {
 		overflow-wrap: anywhere;
@@ -278,21 +248,9 @@
 	.accepted {
 		opacity: 0.5;
 	}
-	.legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.9rem;
-		padding: 0.45rem var(--editor-pad) 0.55rem;
-		border-top: var(--editor-edge) solid var(--editor-line);
-		color: var(--editor-muted);
-		font-size: var(--editor-label);
-	}
-	.legend > span {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-	}
-	.legend .name {
-		color: var(--editor-text);
+	/* a type's meaning beside its name in the info box */
+	.means {
+		color: var(--tool-muted);
+		font-size: var(--editor-small);
 	}
 </style>

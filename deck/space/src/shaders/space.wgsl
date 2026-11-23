@@ -144,6 +144,50 @@ fn fs_figure(i: FigureOut) -> @location(0) vec4<f32> {
     return vec4<f32>(to_srgb(fogged(lit, i.world)), 1.0);
 }
 
+// ---- what modules draw: the core's placeholder shapes, instanced (drawn.rs) – lit from above like the figures ----
+
+struct DrawnOut {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) color: vec4<f32>,
+    @location(1) world: vec3<f32>,
+    @location(2) normal: vec3<f32>,
+};
+
+// `v` turned by the unit quaternion `q`
+fn turn(q: vec4<f32>, v: vec3<f32>) -> vec3<f32> {
+    let t = 2.0 * cross(q.xyz, v);
+    return v + q.w * t + cross(q.xyz, t);
+}
+
+@vertex
+fn vs_drawn(
+    @location(0) pos: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) at: vec4<f32>,
+    @location(3) rotation: vec4<f32>,
+    @location(4) size: vec4<f32>,
+    @location(5) color: vec4<f32>,
+) -> DrawnOut {
+    let world = at.xyz + turn(rotation, pos * size.xyz);
+    var o: DrawnOut;
+    o.clip = frame.view_proj * vec4<f32>(world, 1.0);
+    o.color = color;
+    o.world = world;
+    o.normal = turn(rotation, normal / max(abs(size.xyz), vec3<f32>(1e-4)));
+    return o;
+}
+
+@fragment
+fn fs_drawn(i: DrawnOut) -> @location(0) vec4<f32> {
+    let n = normalize(i.normal);
+    // a sun from above, a softer fill from the eye: low-poly faces read as facets
+    let sun = max(dot(n, normalize(vec3<f32>(0.35, 1.0, 0.25))), 0.0);
+    let fill = max(dot(n, normalize(frame.eye.xyz - i.world)), 0.0);
+    let shade = 0.45 + 0.4 * sun + 0.2 * fill;
+    let lit = i.color.rgb * (shade * frame.look.y + glow_light(i.world, n));
+    return vec4<f32>(to_srgb(fogged(lit, i.world)), 1.0);
+}
+
 // ---- the spheres (one unit sphere, instanced) ----
 
 struct SphereOut {

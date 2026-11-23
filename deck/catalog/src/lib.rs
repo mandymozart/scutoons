@@ -15,11 +15,14 @@ pub mod drop;
 pub mod groups;
 pub mod layer;
 pub mod library;
+pub mod rendition;
 pub mod slot;
+pub mod skeleton;
 pub mod spot;
 mod builtin;
 pub use background::Background;
 pub use layer::Layer;
+pub use skeleton::{Fit, FitCheck, Skeleton};
 pub use spot::{Spot, Spots};
 pub use builtin::builtin_kinds;
 
@@ -44,6 +47,9 @@ pub enum PortType {
     Video,
     /// events out (deck-events' model): a module's notes and triggers, not a graph cable
     Event,
+    /// a control module's instance table (shapes placed, turned, scaled, coloured) the space draws – an output, not a
+    /// graph cable (deck-module `instances`)
+    Instances,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +156,11 @@ pub const EVENT_CAPACITY: u16 = 64;
 /// the most records per block an event port may declare
 pub const MAX_EVENT_CAPACITY: u16 = 512;
 
+/// the records an instance table holds when the descriptor does not say (`capacity`)
+pub const INSTANCE_CAPACITY: u16 = 256;
+/// the most records an instance table may declare
+pub const MAX_INSTANCE_CAPACITY: u16 = 1024;
+
 /// how a control output with a `path` acts on its target (ABI-V2 §1.2, §5): replace it, add to it, scale it
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -190,7 +201,8 @@ pub struct PortDesc {
     /// event ports: the positional meaning of the prop slots (at most `MAX_EVENT_PROPS`)
     #[serde(default = "empty_strs", skip_serializing_if = "is_empty_slice")]
     pub props: Cow<'static, [Cow<'static, str>]>,
-    /// event ports: records per block (1 … `MAX_EVENT_CAPACITY`)
+    /// event ports: records per block (1 … `MAX_EVENT_CAPACITY`); an instance table: the instances it holds (1 …
+    /// `MAX_INSTANCE_CAPACITY`)
     #[serde(default = "event_capacity", skip_serializing_if = "is_event_capacity")]
     pub capacity: u16,
     /// control outputs: the target it writes (a group child's parameter, preset, gain …, ABI-V2 §5); empty = a graph cable
@@ -417,7 +429,8 @@ impl Descriptor {
     /// then the event inputs; outputs = the audio and control outputs in declaration order, then the event outputs; a
     /// control output with a `path` is a target too. An audio port carries its declared channels (a `cv` port and an
     /// undeclared one two). An event port is a cable end like any other (#430: event cables, many to many – the event host
-    /// joins by them), numbered last so the bound ports keep their places; video ports are skipped (no module host plays one yet).
+    /// joins by them), numbered last so the bound ports keep their places; video ports are skipped (no module host plays one yet),
+    /// and an instance table is drawn by the space, never cabled.
     pub fn graph(&self) -> GraphPorts {
         let channels = |p: &PortDesc| match (p.ty, p.channels) {
             (PortType::Cv, _) | (_, None) => Some(Channels::Count(2)),
@@ -501,15 +514,29 @@ impl Descriptor {
             }
             Ok(())
         };
+        let tables = self.ports.iter().filter(|p| p.ty == PortType::Instances).count();
+        if tables > 1 {
+            return Err(format!("'{me}': {tables} instance tables, a module draws one"));
+        }
         for p in self.ports.iter() {
             let at = format!("'{me}': port '{}'", p.name);
             let event = p.ty == PortType::Event;
+            let table = p.ty == PortType::Instances;
             let control_out = p.ty == PortType::Control && p.dir == Dir::Out;
+            if table && (p.dir != Dir::Out || self.domain != Domain::Control) {
+                return Err(format!("{at}: an instance table is an output of a control-domain module"));
+            }
+            if table && !(1..=MAX_INSTANCE_CAPACITY).contains(&p.capacity) {
+                return Err(format!("{at}: capacity {}, 1 … {MAX_INSTANCE_CAPACITY} instances", p.capacity));
+            }
             if p.sidechain && !(p.ty == PortType::Audio && p.dir == Dir::In) {
                 return Err(format!("{at}: `sidechain` is for audio inputs"));
             }
-            if !event && (!p.names.is_empty() || !p.props.is_empty() || p.capacity != EVENT_CAPACITY) {
-                return Err(format!("{at}: `names`, `props` and `capacity` are for event ports"));
+            if !event && (!p.names.is_empty() || !p.props.is_empty()) {
+                return Err(format!("{at}: `names` and `props` are for event ports"));
+            }
+            if !event && !table && p.capacity != EVENT_CAPACITY {
+                return Err(format!("{at}: `capacity` is for event ports and instance tables"));
             }
             if !control_out && (!p.path.is_empty() || p.mode != Mode::Set || !p.choices.is_empty()) {
                 return Err(format!("{at}: `path`, `mode` and `choices` are for control outputs"));
@@ -520,7 +547,7 @@ impl Descriptor {
             if p.props.len() > MAX_EVENT_PROPS {
                 return Err(format!("{at}: {} props, at most {MAX_EVENT_PROPS}", p.props.len()));
             }
-            if !(1..=MAX_EVENT_CAPACITY).contains(&p.capacity) {
+            if event && !(1..=MAX_EVENT_CAPACITY).contains(&p.capacity) {
                 return Err(format!("{at}: capacity {}, 1 … {MAX_EVENT_CAPACITY}", p.capacity));
             }
             unique(&format!("{at}'s names"), &mut p.names.iter().map(|s| s.as_ref()))?;
@@ -740,6 +767,30 @@ mod tests {
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("nope".into(), 1.0)).contains("no parameter"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("cutoff".into(), 1.0)).contains("outside"));
         assert!(bad(&|x| _ = x.preset.as_mut().unwrap().values.insert("wave".into(), 2.0)).contains("choices"));
+    }
+
+    #[test]
+    fn an_instance_table_is_one_output_of_a_control_module() {
+        let json = r#"{"name":"cloud","abi":2,"domain":"control","params":[],
+            "ports":[{"name":"shapes","dir":"out","type":"instances","capacity":256}]}"#;
+        let d: Descriptor = serde_json::from_str(json).unwrap();
+        d.check().unwrap();
+        assert_eq!((d.ports[0].ty, d.ports[0].capacity), (PortType::Instances, 256));
+        assert!(d.graph().outputs.is_empty(), "drawn, never cabled");
+        let bad = |f: &dyn Fn(&mut Descriptor)| {
+            let mut x = d.clone();
+            f(&mut x);
+            x.check().unwrap_err()
+        };
+        assert!(bad(&|x| x.domain = Domain::Audio).contains("control-domain"));
+        assert!(bad(&|x| x.ports.to_mut()[0].dir = Dir::In).contains("an output"));
+        assert!(bad(&|x| x.ports.to_mut()[0].capacity = MAX_INSTANCE_CAPACITY + 1).contains("capacity"));
+        assert!(bad(&|x| x.ports.to_mut()[0].names = Cow::Owned(vec!["a".into()])).contains("event ports"));
+        assert!(bad(&|x| {
+            let p = x.ports[0].clone();
+            x.ports.to_mut().push(p);
+        })
+        .contains("draws one"));
     }
 
     #[test]

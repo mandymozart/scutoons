@@ -85,7 +85,7 @@
 	.props :global(.field span),
 	.props :global(.lbl) {
 		font-size: var(--type-caption-size);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.props :global(.row) {
 		display: flex;
@@ -100,7 +100,7 @@
 	}
 	/* the panel's own groups – not a field component's fieldset (LocaleMapField has its own) */
 	.props :global(fieldset:not(.locale-map)) {
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 		margin: 0;
 		padding: 0.4rem 0.5rem 0.5rem;
 		display: flex;
@@ -119,14 +119,14 @@
 	}
 	.props :global(.hint) {
 		font-size: var(--type-caption-size);
-		color: var(--muted);
+		color: var(--tool-muted);
 		margin: 0;
 	}
 	.props :global(.bad) {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.props :global(.warn) {
-		color: var(--warn);
+		color: var(--tool-warn);
 	}
 	.props :global(.danger) {
 		align-self: flex-start;

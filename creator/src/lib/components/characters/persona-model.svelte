@@ -3,23 +3,27 @@
 	import { FileSlot, ModelPreview } from '@scutoons/media';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editPersona } from '$lib/editor/characters.ts';
+	import type { CharacterModel } from '$lib/editor/character-model.svelte.ts';
+	import PersonaIdleField from '$lib/components/characters/persona-idle-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * A persona's 3D model (owner 2026-10-13/14): the live preview of what the shown look uses – the look's model, the
 	 * persona's, or the mannequin of its body preset (dashed, "Placeholder") –, the persona's model slot (a .glb from the
-	 * asset manager) and the body preset for the fallback: two legs / more legs / wings.
+	 * asset manager), its idle (#817) and the body preset for the fallback: two legs / more legs / wings.
 	 */
 	let {
 		registry,
 		character,
 		persona,
-		lookId
+		lookId,
+		model
 	}: {
 		registry: ContentDoc;
 		character: RegistryCharacter;
 		persona: CharacterPersona;
 		lookId: string;
+		model?: CharacterModel;
 	} = $props();
 
 	const source = $derived(personaModelSource(character, persona.id, lookId));
@@ -45,6 +49,7 @@
 	<div class="fields">
 		<FileSlot kind="model" value={persona.model} label={m['creator.characters_model']()} place="characters/{character.id}/" player={false} onchange={setModel} testid="persona-model" />
 		{#if source.fallback}<span class="hint" data-testid="persona-model-mannequin">{m['creator.characters_model_mannequin']()}</span>{/if}
+		{#if model}<PersonaIdleField {registry} {character} {persona} {model} />{/if}
 		<fieldset>
 			<legend>{m['creator.characters_body']()}</legend>
 			<span class="sc-seg" role="group" aria-label={m['creator.characters_body']()}>
@@ -73,7 +78,7 @@
 	.hint {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	fieldset {
 		margin: 0;

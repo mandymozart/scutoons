@@ -62,7 +62,7 @@
 		justify-content: space-between;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
 	}
@@ -76,9 +76,9 @@
 		flex: none;
 		margin: 0;
 		padding: var(--space-025) var(--space-1);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 </style>

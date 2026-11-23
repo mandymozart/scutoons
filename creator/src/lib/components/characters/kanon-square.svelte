@@ -34,12 +34,12 @@
 	}
 	.sq:hover,
 	.sq:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.sq[aria-pressed='true'] {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	/* the hollow dot in the corner: not written */
 	.dot {

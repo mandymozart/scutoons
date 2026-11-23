@@ -212,7 +212,7 @@ impl Kind {
             let list = |d: &'static deck_catalog::Descriptor, dir: Dir| -> Vec<Port> {
                 d.ports
                     .iter()
-                    .filter(|p| p.dir == dir)
+                    .filter(|p| p.dir == dir && p.ty != T::Instances)
                     .map(|p| Port {
                         name: static_str(&p.name),
                         channels: p.channels,
@@ -221,6 +221,7 @@ impl Kind {
                             T::Control => PortType::Control,
                             T::Event => PortType::Event,
                             T::Video => PortType::Video,
+                            T::Instances => unreachable!("filtered: a table is drawn, not cabled"),
                         },
                         names: &[],
                     })
@@ -376,6 +377,20 @@ impl Graph {
             }
             by_id.insert(n.id.clone(), nodes.len());
             nodes.push(Node { id: n.id.clone(), kind, params: n.params.clone() });
+        }
+        for n in nodes.iter().filter(|n| n.params.contains_key(crate::node_assets::PARAM)) {
+            let slots = match n.kind {
+                Kind::Module(k) => k.spec().assets,
+                _ => {
+                    problems.push(format!("node '{}'", n.id), "only a module node has asset slots");
+                    continue;
+                }
+            };
+            if let Err(says) = crate::node_assets::of(&n.params, slots) {
+                for s in says {
+                    problems.push(format!("node '{}'", n.id), s);
+                }
+            }
         }
         for n in nodes.iter().filter(|n| n.kind == Kind::World) {
             if let Err(e) = crate::world::World::of(n) {

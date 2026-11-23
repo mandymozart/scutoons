@@ -331,6 +331,39 @@ In code (`src/Domain/Roles/Roles.php`): `has($user, 'creator')`, `of($userId)`, 
 `RequireRole` middleware. Granting: admin API `PUT|DELETE /api/admin/users/{id}/roles/{role}`, the legacy SPA "Users"
 view (`generate/users.php`, `generate/user-roles.php`), or `php bin/console roles grant|revoke|list <email> [role]`.
 
+## Crafts (2026-11-24, #826 – migrations `2026-11-24-crafts`, `2026-11-24-seed-crafts`)
+
+What a member does (show runner, illustrator, video editor, writer, translator, animator, sound designer, developer) and
+so which creator workspaces they start with – access stays with the roles. Not the catalog recipes' "crafting": in code
+`Domain\Crafts\Crafts`, tables `crafts (id, position, name locale map, icon, workspaces = creator workspace ids)`,
+`member_crafts (user_id, craft_id, source invite|admin|member)`, `member_invites`, `users.crafts_asked_at`.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/crafts` | `{ crafts: [{ id, name, icon, workspaces }] }` (signed in) |
+| GET | `/me/crafts` | `{ crafts, invited, workspaces, ask, can_edit }` – `workspaces` resolved by the server, in the crafts' order |
+| PUT | `/me/crafts` | `{ crafts: [id] }` – the member's own answer only while `ask` (first login), else admins only: `403 crafts_locked`; not with an AI connection |
+| PUT | `/admin/users/{id}/crafts` | `{ crafts }` → `{ crafts: [{ id, source }] }`; the member's question stays open if it was |
+| GET/POST | `/admin/member-invites` | list · `{ email, crafts }` → 201 `{ invite }` (one per address, a second replaces; `409 has_account`) |
+| DELETE | `/admin/member-invites/{id}` | only while open (`409 accepted`) |
+
+An invite signs no one up (the address still needs a signup code, #837); when that address's account is created or signs
+in, the invite is accepted and gives the member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet.
+
+## Workspace layouts (2026-11-24, #827 – migration `2026-11-24-workspace-layouts`)
+
+A member's saved creator workspaces: what Reset goes back to and a new device starts from; a row with a `name` is an own
+workspace made from another one (`kind`). `Domain\Layouts\WorkspaceLayouts`, tables `member_layouts (user_id, workspace,
+kind, name, layout, saved_at)` and `craft_layouts (craft_id, workspace, layout)` – a craft's default, configuration in the DB.
+The layout is the creator's floating panels' JSON `{ places, tabs, stage }`: the server checks only that outer shape (no
+other key, each an object) and ≤ 32 KB; the creator's readers check the inside when they load it. Own rows only.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/me/layouts` | `{ available, layouts: [{ workspace, kind, name, layout, saved_at }], defaults: [{ workspace, craft, layout }] }` – `defaults` per workspace from the member's first craft (crafts' order) that has one; before the migration `available: false`, empty |
+| PUT | `/me/layouts/{workspace}` | `{ layout, name?, kind? }` → `{ layout }`; a new own workspace needs `name` + `kind`; at most 60 rows (`409 too_many_layouts`); `400 bad_layout`, `413 layout_too_large`; not with an AI connection; `503 not_available` before the migration |
+| DELETE | `/me/layouts/{workspace}` | `{ deleted }` – back to the default (an own workspace is gone); not with an AI connection |
+
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 
 The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
@@ -579,6 +612,8 @@ library (below); everything here needs a content editor: role `creator` – or, 
 | GET | `/catalog/items/<id>/placements` | (creator) `{ status, item, limits: { placements, max_world }, placements: [{ key, toon, count }], total, owners }` – where the item is placed (each chapter / scene with the more of its newest and its published version; neutral documents only) and how many accounts own it · 404 `unknown_item` |
 | GET | `/entities/<key>/versions?limit=` | `{ versions: [{ id, status, created_at, author, author_email, message, size }] }` newest first |
 | POST | `/entities/<key>/publish` | `{ version? }` (default: newest) → `{ version }` · 404 for a version of another key |
+| POST | `/entities/publish` | `{ versions: [{ key, version? }], partial: true, with_dependencies? }` → `{ published: [{ key, version }], refused: [{ key, code, reason }], review: [key], added: [{ key, needed_by }] }` – every Publish of the creator (#803): dependency order (`PublishOrder`: modules → instruments → presets → rigs → … → content → deck scenes through the core's check), each unit on its own, what depends on a refusal skipped with the reason; `with_dependencies` takes the unpublished draft dependencies along (`PublishDependencies`). Without `partial`: all or nothing, no scenes |
+| POST | `/entities/publish/plan` | `{ versions: [{ key, version? }] }` → `{ entities: [index row + needed_by] }` – the unpublished draft dependencies a Publish of these takes along, transitively (a scene → its modules, fillers, rigs, rig presets; a rig → instruments, presets, policy module; a preset → instrument, parent; an instrument → modules); factory modules, removals and drafts equal to the published document are never named |
 | POST | `/entities/<key>/unpublish` | → `{ unpublished: n }` |
 | POST | `/entities/<key>/restore` | `{ id, message? }` → `{ version }` – that version (of this key) as the newest **draft** |
 

@@ -30,6 +30,8 @@
 //! neutral = "1/4"
 //! level = "space.glow"     # optional: the flash's intensity
 //! duration = 30            # ms
+//! # or, instead of the grid: one flash each time a value rises past 0.5 (a drum lane through an `env` node)
+//! # trigger = "kickgate.env"
 //! ```
 
 use std::collections::BTreeMap;
@@ -98,7 +100,10 @@ pub struct StrobePlan {
     pub rate: Rate,
     pub rate_in: Option<Input>,
     pub level_in: Option<Input>,
-    /// the flash length (s), at most half the period
+    /// flash on each rise of this value past 0.5 (again once it fell below 0.25) instead of on the tempo grid: a
+    /// drum lane through an envelope, one flash per hit
+    pub trigger: Option<Input>,
+    /// the flash length (s); on the grid at most half the period
     pub duration: f64,
 }
 
@@ -220,6 +225,7 @@ struct RawStrobe {
     rate_in: Option<[f32; 2]>,
     level: Option<String>,
     level_in: Option<[f32; 2]>,
+    trigger: Option<String>,
     neutral: Option<String>,
     mode: Option<String>,
     #[serde(default = "default_duration")]
@@ -258,7 +264,7 @@ pub fn parse(table: &toml::Table, known: Option<&[String]>, load: Loader<'_>) ->
         let at = format!("outputs.fixture[{i}] ({})", f.id);
         let text = match fixture::builtin(&f.profile) {
             Some(t) => Ok(t.to_owned()),
-            None => load(&f.profile).map_err(|e| format!("{at}: profile '{}': {e} (built in: strobe)", f.profile)),
+            None => load(&f.profile).map_err(|e| format!("{at}: profile '{}': {e} (built in: strobe, dimmer, thunderwash-600-rgbw)", f.profile)),
         };
         let profile = match text.and_then(|t| Profile::parse(&t).map_err(|e| format!("{at}: {e}"))) {
             Ok(p) => p,
@@ -372,6 +378,10 @@ pub fn parse(table: &toml::Table, known: Option<&[String]>, load: Loader<'_>) ->
         };
         let rate_in = input(&s.rate, s.rate_in, "rate", &mut errors, &mut source);
         let level_in = input(&s.level, s.level_in, "level", &mut errors, &mut source);
+        let trigger = input(&s.trigger, None, "trigger", &mut errors, &mut source);
+        if trigger.is_some() && (s.rate.is_some() || s.rate_in.is_some() || s.neutral.is_some() || s.mode.is_some()) {
+            errors.push(format!("{at}: a strobe with a trigger flashes per rise, not on the grid – no rate, rate_in, neutral or mode"));
+        }
         let flash = abs(&spec.flash);
         if let Some(other) = flash_channels.insert(flash, s.fixture.clone()) {
             errors.push(format!("{at}: DMX channel {flash} already flashes for '{other}'"));
@@ -384,6 +394,7 @@ pub fn parse(table: &toml::Table, known: Option<&[String]>, load: Loader<'_>) ->
             rate: Rate { neutral, mode, max_hz },
             rate_in,
             level_in,
+            trigger,
             duration: s.duration.max(0.0) / 1000.0,
         });
     }

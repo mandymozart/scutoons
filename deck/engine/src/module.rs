@@ -9,6 +9,8 @@
 //!   target alike (deck-space binds a path to its input as a link): the module writes a `Param`, the control half copies
 //!   it into the output's value slot at the next block's start. Unwritten = held. Events a module emits reach other
 //!   modules one block late at the same frame (evhost.rs). So the order the nodes run in never changes the sound.
+//! - **Drawing.** A control module's instance table goes to the frame thread after each step it ran (deck-space
+//!   `instances::Table`, `Handles::instances`); the space draws it from then on.
 //! - **Faults.** Strict (tests, Play): a trap or an overrun silences the node – zeros from then on, one report. In a show
 //!   (the platform opens its instances so) a trap restarts the instance: its rebuild goes to the platform's loader thread
 //!   through the node's `Restarts` lane (the engine starts no thread) and comes back swapped in with a fade; the event
@@ -27,8 +29,9 @@ use super::control::Context;
 use super::{Block, Buf, Handles, Param, QUANTUM};
 use anyhow::{anyhow, Result};
 use deck_core::tempo::{BeatReader, TempoMap};
-use deck_module_host::{Backend, Ev, InBind, Layout, OutBind};
+use deck_module_host::{AssetData, Backend, Ev, InBind, Layout, OutBind};
 use deck_space::context::mood_index;
+use deck_space::instances::Table;
 use deck_space::graph::{Graph, Kind, Node, MAX_CHANNELS};
 use deck_space::modreg::{self, ModuleDef, ModuleKind};
 use std::any::Any;
@@ -68,6 +71,10 @@ pub trait ModuleInstance: Send {
     fn add_late(&mut self, _n: u32) {}
     /// event output `port`'s records of the last call
     fn events_out(&self, _port: usize) -> &[Ev] {
+        &[]
+    }
+    /// the instance table as the last call left it
+    fn instances(&self) -> &[deck_module::Instance] {
         &[]
     }
     /// the next call swaps a rebuilt instance in (a show's restart)
@@ -142,6 +149,9 @@ impl<B: Backend + Send + 'static> ModuleInstance for deck_module_host::Instance<
     fn events_out(&self, port: usize) -> &[Ev] {
         deck_module_host::Instance::events_out(self, port)
     }
+    fn instances(&self) -> &[deck_module::Instance] {
+        deck_module_host::Instance::instances(self)
+    }
     fn swapping(&self) -> bool {
         deck_module_host::Instance::swapping(self)
     }
@@ -175,10 +185,36 @@ pub struct Opened {
 
 /// Where the platform's loaded modules are (the native deck: its library of `.wasm` files, compiled once).
 pub trait ModuleSource: Send + Sync {
-    /// the module behind `kind`, instantiated for `rate` Hz with `seed`; Err = not loaded / failed to instantiate
-    fn open(&self, kind: ModuleKind, rate: f64, seed: u64) -> Result<Opened>;
+    /// the module behind `kind`, instantiated for `rate` Hz with `seed` and its slots' `assets` bound before `dm_new`
+    /// (a show's restart rebuilds with the same); Err = not loaded / failed to instantiate
+    fn open(&self, kind: ModuleKind, rate: f64, seed: u64, assets: Vec<AssetData>) -> Result<Opened>;
     /// an instance was silenced (the platform's HUD and tests can look); called once per instance, from the render
     fn silenced(&self) {}
+}
+
+/// Where a platform loads a module node's slot assets from: the medium's file for the deck's quality (deck-catalog's
+/// pick rule), from its cache or fetched, decoded as the slot holds it (deck-media) – called while the engine is built,
+/// never on the audio thread. The native deck: its library cache and the CDN.
+pub trait AssetLoader: Send + Sync {
+    /// the slot's asset bound to slot index `slot`; Err says why it could not be had
+    fn load(&self, slot: usize, media: &deck_catalog::rendition::Media, kind: deck_catalog::AssetKind) -> Result<AssetData, String>;
+    /// a line for the deck's log
+    fn log(&self, _line: &str) {}
+}
+
+/// The assets a module node names (deck-space `node_assets`, checked by the graph), loaded; one that cannot be had is
+/// left out – the module plays its own fallback – with a line in the log.
+fn node_assets(node: &Node, kind: ModuleKind, loader: Option<&Arc<dyn AssetLoader>>) -> Vec<AssetData> {
+    let Ok(named) = deck_space::node_assets::of(&node.params, kind.spec().assets) else { return Vec::new() };
+    let mut out = Vec::new();
+    for a in named {
+        let Some(loader) = loader else { continue };
+        match loader.load(a.slot, &a.media, a.kind) {
+            Ok(data) => out.push(data),
+            Err(e) => loader.log(&format!("node '{}': asset '{}' ({}): {e} – it plays without it", node.id, a.name, a.media.src)),
+        }
+    }
+    out
 }
 
 /// how many restart jobs may wait per node (one is out at a time)
@@ -246,7 +282,8 @@ pub(crate) fn prepare(graph: &Graph, rate: f32, source: Option<&Arc<dyn ModuleSo
     for (i, node) in graph.nodes.iter().enumerate() {
         let Kind::Module(kind) = node.kind else { continue };
         let source = source.ok_or_else(|| anyhow!("node '{}': this engine has no module runtime", node.id))?;
-        let opened = source.open(kind, f64::from(rate), seed_of(node)).map_err(|e| anyhow!("node '{}': {e:#}", node.id))?;
+        let assets = node_assets(node, kind, seams.assets.as_ref());
+        let opened = source.open(kind, f64::from(rate), seed_of(node), assets).map_err(|e| anyhow!("node '{}': {e:#}", node.id))?;
         let holds = graph.holds.iter().filter(|((n, _), _)| *n == i).map(|&((_, o), v)| (o, v)).collect();
         out[i] = Some(Prepared {
             opened,
@@ -280,6 +317,8 @@ struct Core {
     id: String,
     /// the module's own moods (A1): a live mood's `mood_index` counts in them
     moods: &'static [&'static str],
+    /// where its instance table goes (a module that draws)
+    table: Option<Arc<Table>>,
 }
 
 impl Core {
@@ -318,6 +357,8 @@ impl Core {
         let (jobs, rx) = rtrb::RingBuffer::new(RESTART_RING);
         let (tx, done) = rtrb::RingBuffer::new(RESTART_RING);
         h.restarts.push(Restarts { node: node.id.clone(), jobs: rx, done: tx });
+        let table = (layout.instances > 0).then(|| Table::new(&node.id, usize::from(layout.instances)));
+        h.instances.extend(table.clone());
         let core = Core {
             inst,
             source: source.clone(),
@@ -332,6 +373,7 @@ impl Core {
             ports,
             id,
             moods,
+            table,
         };
         (core, layout, params)
     }
@@ -378,6 +420,9 @@ impl Core {
                 if written {
                     p.set(v);
                 }
+            }
+            if let Some(t) = &self.table {
+                t.publish(self.inst.instances());
             }
         }
         #[cfg(feature = "events")]

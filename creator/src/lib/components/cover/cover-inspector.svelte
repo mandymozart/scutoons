@@ -156,14 +156,14 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.lines li {
 		display: flex;
 		align-items: center;
 	}
 	.lines li + li {
-		border-top: var(--border-width-hairline) solid var(--ink);
+		border-top: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.row {
 		flex: 1;
@@ -188,7 +188,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 		padding-top: var(--space-1);
 	}
 	.field {
@@ -219,7 +219,7 @@
 	.swatch {
 		flex: none;
 		width: var(--control-height);
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		box-sizing: border-box;
 	}
 	.line-actions {
@@ -229,6 +229,6 @@
 	}
 	.art {
 		padding-bottom: var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 </style>

@@ -185,12 +185,12 @@
 		overflow-wrap: anywhere;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	/* the budget gate's refusal: one framed line that stays until the next send */
 	.notice {
 		padding: var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.check {
 		display: flex;

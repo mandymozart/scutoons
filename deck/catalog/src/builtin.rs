@@ -423,8 +423,8 @@ fn build() -> Vec<Descriptor> {
         "core",
         "stage",
         "A step sequencer: `cv` = pitch in Hz on the left channel, gate 0 / 1 on the right (modular CV in an audio port).",
-        &[ci("rate", "speed multiplier"), ao("cv", "pitch (left) and gate (right)")],
-        &[log("rate", 0.25, 4.0, 1.0, "ratio", "speed multiplier")],
+        &[ci("rate", "speed multiplier"), ci("open", "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"), ao("cv", "pitch (left) and gate (right)")],
+        &[log("rate", 0.25, 4.0, 1.0, "ratio", "speed multiplier"), lin("open", 0.0, 1.0, 1.0, "", "1 = the notes' gates open as they come, 0 = every gate stays shut")],
     ),
     kind(
         F_TRANSPORT,
@@ -433,8 +433,8 @@ fn build() -> Vec<Descriptor> {
         "events",
         "stage",
         "A generated melody (deck-events): a seeded random walk on a continuous pitch scale on the tempo clock, written as seq's cv. The same seed plays the same melody on every deck.",
-        &[ci("spread", "0 = the base held, 1 = ± `octaves`"), ci("rate", "steps a beat"), ci("glide", "glide into each step, rides along for the voice"), ao("cv", "pitch (left) and gate (right)")],
-        &[lin("spread", 0.0, 1.0, 0.0, "", "0 = the base held, 1 = ± `octaves`"), log("rate", 0.25, 8.0, 2.0, "ratio", "steps a beat"), lin("glide", 0.0, 1.0, 0.5, "", "glide into each step, rides along for the voice")],
+        &[ci("spread", "0 = the base held, 1 = ± `octaves`"), ci("rate", "steps a beat"), ci("glide", "glide into each step, rides along for the voice"), ci("open", "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"), ao("cv", "pitch (left) and gate (right)")],
+        &[lin("spread", 0.0, 1.0, 0.0, "", "0 = the base held, 1 = ± `octaves`"), log("rate", 0.25, 8.0, 2.0, "ratio", "steps a beat"), lin("glide", 0.0, 1.0, 0.5, "", "glide into each step, rides along for the voice"), lin("open", 0.0, 1.0, 1.0, "", "1 = the notes' gates open as they come, 0 = every gate stays shut")],
     ),
     kind(
         F_TRANSPORT,
@@ -443,12 +443,13 @@ fn build() -> Vec<Descriptor> {
         "events",
         "stage",
         "Generators rigged together (deck-events' patch): its params hold the patch (`generator`, `edge`, `out`, `knobs`) – an arp on a walk, a pulse … –, inputs a–d are the patch's knobs (unset = the patch's own values); its notes are written as seq's cv.",
-        &[ci("a", "knob a"), ci("b", "knob b"), ci("c", "knob c"), ci("d", "knob d"), ao("cv", "pitch (left) and gate (right)")],
+        &[ci("a", "knob a"), ci("b", "knob b"), ci("c", "knob c"), ci("d", "knob d"), ci("open", "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"), ao("cv", "pitch (left) and gate (right)")],
         &[
             driven("a", 0.0, 1.0, "raw value into the patch's knob a; the instrument's `expose.range` gives it a real range"),
             driven("b", 0.0, 1.0, "raw value into the patch's knob b"),
             driven("c", 0.0, 1.0, "raw value into the patch's knob c"),
             driven("d", 0.0, 1.0, "raw value into the patch's knob d"),
+            lin("open", 0.0, 1.0, 1.0, "", "1 = the notes' gates open as they come, 0 = every gate stays shut"),
         ],
     ),
     kind(

@@ -56,7 +56,7 @@ const HELP: &str = "deck [--scene FILE|NAME|rig:NAME|scene:ID[@V]] [--audio auto
            [--audio-host default|wasapi|asio] [--audio-device NAME] [--audio-buffer FRAMES] [--audio-thread on|off]
            [--audio-list]
            [--sets DIR] [--portraits DIR] [--token T] [--api URL] [--cdn URL] [--windowed] [--frames N]
-           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--pick HOLDER] [--no-hud] [--hud-bar] [--dev] [--modules]
+           [--screenshot FILE] [--pointer X,Y|NODE.PORT] [--drag NODE.PORT[,DN]] [--pick HOLDER] [--hud|--hud-bar|--no-hud] [--dev] [--modules]
            [--relay ws[s]://HOST[:PORT]/live/CODE] [--sync set:ID,character:ID]
            [--outlet ID] [--locale de] [--quality auto|low|medium|high|ultra[,fixed]] [--quality-file FILE] [--settings]
            [--scenes DIR] [--switcher] [--switch NAME] [--live-page]
@@ -122,9 +122,9 @@ struct Args {
     cdn: String,
     windowed: bool,
     frames: Option<u64>,
-    hud: bool,
-    /// #209: start with the collapsed stats bar instead of the full HUD (F1 cycles)
-    hud_bar: bool,
+    /// the HUD to start with: `--hud` the full one, `--hud-bar` the collapsed stats bar, `--no-hud` none; not given:
+    /// deck.toml's `hud`, else deck-ui's `Mode::at_start` (none – F1 cycles)
+    hud: Option<hud::Mode>,
     /// a local folder of sets (#195: else <cache>/sets, synced)
     sets: Option<PathBuf>,
     /// the heads' sprites (#188 phase 5) and the conductor's session token (phase 4)
@@ -181,8 +181,7 @@ fn args() -> Result<Args> {
         cdn: std::env::var("DECK_CDN").unwrap_or_else(|_| cache::CDN.into()),
         windowed: false,
         frames: None,
-        hud: true,
-        hud_bar: false,
+        hud: None,
         sets: std::env::var_os("DECK_SETS").map(PathBuf::from),
         portraits: std::env::var_os("DECK_PORTRAITS").map(PathBuf::from),
         token: std::env::var("LIVE_TOKEN").ok().filter(|t| !t.is_empty()),
@@ -257,8 +256,9 @@ fn args() -> Result<Args> {
             }
             "--pick" => a.pick = Some(val()?),
             "--windowed" => a.windowed = true,
-            "--no-hud" => a.hud = false,
-            "--hud-bar" => a.hud_bar = true,
+            "--hud" => a.hud = Some(hud::Mode::Full),
+            "--no-hud" => a.hud = Some(hud::Mode::Off),
+            "--hud-bar" => a.hud = Some(hud::Mode::Bar),
             "--dev" => a.dev = true,
             "--relay" => a.relay = Some(val()?),
             "--outlet" => a.outlet = Some(val()?),
@@ -430,6 +430,9 @@ impl Show {
     fn load(args: &Args, scene: &scene::Scene, #[allow(unused_variables)] prev: &mut Prev) -> Result<Show> {
         modules::check(scene)?;
         let graph = graph::Graph::build(scene)?;
+        // module slot assets load from the scene's library cache and CDN
+        #[cfg(all(feature = "modules", feature = "chapter"))]
+        deck_native::assets::install(deck_native::library::Library { api: args.api.clone(), cdn: args.cdn.clone(), cache: args.cache.clone().unwrap_or_else(cache::default_dir) });
         tracing::info!("scene '{}': {} nodes, {} links (modules: {})", scene.stage.name, graph.nodes.len(), graph.links.len(), modules::summary());
         let tempo_cfg = tempo::config_from_graph(&graph)?;
 
@@ -553,6 +556,9 @@ impl Show {
             let mut s = deck_native::space::Space::with_gate(&graph, n, &scene.being, &sets, portraits, gate);
             s.figures = figures;
             s.set_scene(scene);
+            if let Some(h) = handles.as_ref() {
+                s.set_tables(h.instances.clone());
+            }
             // phase 4: with a relay (deck.toml or --relay) the being joins the session as its `join` says
             #[cfg(feature = "live")]
             {
@@ -762,6 +768,8 @@ struct App {
     volume: volume::Volume,
     vol_overlay: volume::Overlay,
     vol_forced: bool,
+    /// the HUD's mode before an error or an open page showed the full HUD (it goes back to it after)
+    full_forced: Option<hud::Mode>,
     quality_note: String,
     modes: Vec<(u32, u32)>,
     /// #211: the outputs' MIDI for the conductor this frame (reused)
@@ -939,9 +947,13 @@ impl App {
         let checked = read_scene(&self.args).and_then(|s| modules::check(&s).and_then(|_| graph::Graph::build(&s)).map(|_| ()));
         self.args.scene = old_scene;
         if let Err(e) = checked {
+            // #815: a refused pick says why – in the log and on its Play entry, not only on the switcher's line
+            tracing::warn!("switcher: {value} not loaded: {e:#}");
             self.switcher.status = format!("NOT LOADED: {e:#}");
+            self.switcher.refused = Some((value.to_string(), format!("{e:#}")));
             return;
         }
+        self.switcher.refused = None;
         // the picture fades to black and the sound out as long (PipeWire), then `load_switch`
         self.show.audio.iter().for_each(|a| a.fade_out());
         self.change.start(value);
@@ -957,7 +969,9 @@ impl App {
         if let Some(e) = self.error.take() {
             self.args.scene = old_scene;
             self.error = old_error;
+            tracing::warn!("switcher: {value} not loaded: {e}");
             self.switcher.status = format!("NOT LOADED: {e}");
+            self.switcher.refused = Some((value.to_string(), e.to_string()));
             return;
         }
         self.switcher.status = format!("LOADED {} IN {:.1}S", value.rsplit(['/', '\\']).next().unwrap_or(value), started.elapsed().as_secs_f32());
@@ -1071,6 +1085,8 @@ impl App {
                 let mut eff = self.presets.clone();
                 self.args.quality.over(&mut eff);
                 let g = self.governor.get_or_insert_with(|| Governor::with(&eff, gpu));
+                #[cfg(feature = "chapter")]
+                deck_native::library::set_quality(g.ceiling().media());
                 let size = window.inner_size();
                 g.set_display(size.width, size.height);
                 tracing::info!("quality: {} ({}, the governor {})", g.ceiling().name(), if eff.level.is_some() { "chosen" } else { "by the GPU" }, if g.auto() { "on" } else { "off" });
@@ -1124,7 +1140,7 @@ impl App {
         if let (Some(g), Some(l)) = (&self.governor, self.last) {
             let since = l.elapsed().as_secs_f32() * 1000.0;
             if !g.due(since) {
-                deck_native::host::wait(el, g.rung().interval_ms() - since - 1.5);
+                deck_native::host::wait(el, g.interval_ms() - since - 1.5);
                 return;
             }
         }
@@ -1139,6 +1155,12 @@ impl App {
             let wall = self.started.elapsed().as_secs_f64();
             if self.governor.as_mut().is_some_and(|g| g.frame(wall, ms, self.stats.feed.seen)) {
                 self.apply_quality();
+            }
+            // #834: the audio guard's cap, said once each way
+            match self.governor.as_mut().and_then(|g| g.take_guard_change()) {
+                Some(true) => tracing::warn!("audio glitch: the frame rate capped at {} fps until the audio is quiet for {} s", quality::GUARD_FPS, quality::GUARD_S),
+                Some(false) => tracing::info!("audio quiet: the frame rate cap back at the level's"),
+                None => {}
             }
         }
         self.last = Some(now);
@@ -1185,7 +1207,9 @@ impl App {
                 tracing::warn!("{} (at {:.3} s)", e.describe(), e.at_ns.saturating_sub(self.t0_ns) as f64 / 1e9);
             }
         }
-        let fps = self.governor.as_ref().map_or(0.0, |g| g.rung().fps as f32);
+        let fps = self.governor.as_ref().map_or(0.0, |g| g.fps() as f32);
+        #[allow(unused_mut)]
+        let mut update_ms = 0.0;
         self.stats.feed.feed(wall_ms, self.show.glitches.as_deref(), reduction, self.show.clock.as_ref().map_or(48_000.0, |c| c.rate), fps);
         #[cfg(feature = "space")]
         if let Some(s) = self.show.space.as_mut() {
@@ -1193,8 +1217,10 @@ impl App {
             s.being.strain(dt, reduction);
             #[cfg(feature = "sync")]
             deck_native::space::figures::looks(self.show.sync.as_ref(), s);
+            let t = Instant::now();
             s.update(dt, time, &mut self.show.controls, &beat, &|n, p| meters.map_or(0.0, |m| m.level(n, p)));
             deck_native::rig::frame(self.show.rig.as_mut(), &s.being, &self.show.graph, &mut self.show.controls, dt);
+            update_ms = t.elapsed().as_secs_f32() * 1000.0;
             // #220: a deck reports its quality to the session (at once on a change, else at most every 2 s)
             if let Some(q) = self.governor.as_mut().and_then(|g| g.report_due(self.started.elapsed().as_secs_f64())) {
                 s.report_quality(q.wire());
@@ -1229,6 +1255,17 @@ impl App {
             self.refusal = None;
             self.hud_at = -1.0;
         }
+        // an error shows the full HUD; after it, the HUD goes back to what it was (off by default); the deck's own pages
+        // are the menu's (#796)
+        if self.error.is_some() {
+            if self.hud.mode != hud::Mode::Full {
+                self.full_forced.get_or_insert(self.hud.mode);
+                self.hud.mode = hud::Mode::Full;
+            }
+        } else if let Some(mode) = self.full_forced.take() {
+            self.hud.mode = mode;
+            self.hud_at = -1.0;
+        }
         let forced = vol.is_some() || self.refusal.is_some();
         // #253: with the HUD off the bar carries the overlay for its second (or the refusal), then goes away again
         if forced && self.hud.mode == hud::Mode::Off {
@@ -1239,37 +1276,20 @@ impl App {
             self.vol_forced = false;
             self.hud_at = -1.0;
         }
-        let paged = self.page.open || self.switcher.open || self.live.page.open;
-        let hud_on = self.args.hud || self.error.is_some() || paged || forced;
+        let hud_on = self.hud.visible() || self.error.is_some() || forced;
         if hud_on && time - self.hud_at >= 0.25 || self.stats.frames == 0 || self.hud_at < 0.0 {
             self.hud_at = time;
             self.stats.feed.report = self.stats.feed.monitor.report(wall_ms);
             // #374: the HUD's words are deck-ui's; this reads the deck's objects into its Status (hud_status.rs)
             let status = self.status();
-            // #220: the settings page instead of the HUD's lines, its cursor's line lit
-            let (lines, cursor) = if self.switcher.open {
-                let (l, c) = self.switcher.lines(self.current_scene());
-                (l, Some(c))
-            } else if self.page.open {
-                let now = self.governor.as_ref().map_or(String::new(), |g| format!("{} {:.2} {:.0}MS", g.level().name().to_uppercase(), g.scale(), g.frame_ms()));
-                let (l, c) = self.page.lines(&self.presets, &now, &self.modes, &self.quality_note);
-                (l, Some(c))
-            } else if self.live.page.open {
-                let (l, c) = self.live.lines(&self.show);
-                (l, Some(c))
-            } else {
-                (deck_ui::hud_lines(&status), None)
-            };
+            let lines = deck_ui::hud_lines(&status);
             let t = self.show.tempo.now();
             let row = deck_ui::beat_row(&lines);
             self.hud.set_beat(row.map(|row| hud::Beat { row, beat: t.pos.beat_in_bar, per_bar: t.per_bar, running: t.running }));
             // #208: the glitch warning flashes at 2 Hz (the lines refresh every 0.25 s)
             let alert = deck_ui::alert_row(&lines);
             let lit = (self.started.elapsed().as_secs_f32() * 4.0) as u32 % 2 == 0;
-            self.hud.set_alert(match cursor {
-                Some(row) => Some(hud::Alert { row, lit: true }),
-                None => alert.map(|row| hud::Alert { row, lit }),
-            });
+            self.hud.set_alert(alert.map(|row| hud::Alert { row, lit }));
             let mut lines = lines;
             let mut items = deck_ui::bar_items(&status);
             if let Some(v) = &vol {
@@ -1278,9 +1298,6 @@ impl App {
             }
             self.hud.set_lines(lines);
             self.hud.set_items(items);
-        }
-        if self.error.is_some() || paged {
-            self.hud.mode = hud::Mode::Full;
         }
         match self.hud.mode {
             hud::Mode::Full => self.hud.raster(),
@@ -1321,7 +1338,10 @@ impl App {
         let before = (now.elapsed().as_secs_f32()) * 1000.0;
         match r.frame(&self.show.graph, &self.show.controls, time, dt, shown, splash, self.show.space.as_mut()) {
             // the frame thread's work: controls + HUD before the render, the render after the surface's vsync wait
-            Ok(ms) => self.stats.feed.monitor.frame(wall_ms, before + ms, true),
+            Ok(ms) => {
+                self.stats.feed.monitor.frame(wall_ms, before + ms, true);
+                self.stats.feed.monitor.phases([update_ms, before - update_ms, r.acquire_ms, ms, r.present_ms]);
+            }
             Err(e) => {
                 tracing::error!("render: {e:#}");
                 el.exit();
@@ -1446,6 +1466,10 @@ impl App {
                 MouseScrollDelta::LineDelta(_, y) => *y,
                 MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
             }),
+            // #819: the sing key held opens the picked one's trigger – the core's (sing.rs)
+            WindowEvent::KeyboardInput { event, .. } if !event.repeat && matches!(event.logical_key.as_ref(), Key::Character(c) if deck_space::space::sing::is_key(c)) => {
+                s.sing(event.state == ElementState::Pressed);
+            }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 match event.logical_key.as_ref() {
                     Key::Character("r") => s.camera.reset(),
@@ -1521,33 +1545,8 @@ impl ApplicationHandler<Event> for App {
         if self.show.live.as_ref().is_some_and(|l| l.window_event(&event, self.switcher.open || self.page.open || self.live.page.open)) {
             return;
         }
-        // #386: the menu (Esc, F4 / F5 / F6, its pages' keys and the pointer on them – menu.rs)
+        // #386: the menu (Esc, F4 / F5 / F6, its pages – the deck's own too, #796 – their keys and the pointer – menu.rs)
         if self.menu_event(el, &event) {
-            return;
-        }
-        // #250 F5, #220 F4: the open scene list or settings page takes the keys (the arrows, + / −, Space would turn the
-        // camera and the tempo); pages.rs names them
-        if let WindowEvent::KeyboardInput { event: k, .. } = &event {
-            if (self.switcher.open || self.page.open) && k.state == ElementState::Pressed && !pages::passes(&k.logical_key) {
-                self.hud_at = -1.0;
-                match (self.switcher.open, pages::switcher_key(&k.logical_key), pages::settings_key(&k.logical_key)) {
-                    (true, pages::Press::Key(key), _) => {
-                        if let Some(entry) = self.switcher.key(key) {
-                            self.change.ask(&entry.value);
-                        }
-                    }
-                    (true, pages::Press::Close, _) => self.switcher.open = false,
-                    (false, _, pages::Press::Key(key)) => self.page_key(key),
-                    (false, _, pages::Press::Close) => self.page.open = false,
-                    _ => {}
-                }
-                return;
-            }
-        }
-        // #478: the open Live page takes the keys and a press on its lines
-        let size = self.window.as_ref().map_or((1.0, 1.0), |w| (w.inner_size().width as f32, w.inner_size().height as f32));
-        if self.live.page.open && self.live.event(&self.show, &event, size) {
-            self.hud_at = -1.0;
             return;
         }
         #[cfg(feature = "space")]
@@ -1674,7 +1673,10 @@ fn run() -> Result<i32> {
     #[cfg(feature = "live")]
     let app_cache = args.cache.clone().unwrap_or_else(cache::default_dir);
     let mut app = App {
-        hud: hud::Hud::with_mode(if args.hud_bar { hud::Mode::Bar } else { hud::Mode::Full }),
+        hud: hud::Hud::with_mode(hud::Mode::at_start(args.hud.or_else(|| {
+            deck_native::live::config::hud(&deck_native::live::config::deck_toml()).and_then(|w| hud::Mode::parse(&w))
+        }))),
+        full_forced: None,
         menu: menu::Native::new(&args),
         args,
         started,
@@ -1718,6 +1720,12 @@ fn run() -> Result<i32> {
         pieces: deck_native::live::piece::Side::at(app_cache),
     };
     app.watch = app.watch_files();
+    // a check run's page at the start, as the menu's (#796)
+    for (on, page) in [(app.args.switcher, deck_ui::menu::Page::Scenes), (args_settings, deck_ui::menu::Page::Settings), (app.args.live_page, deck_ui::menu::Page::Live)] {
+        if on {
+            app.menu.menu.direct(page);
+        }
+    }
     if app.args.switcher {
         app.open_switcher();
     }

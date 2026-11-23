@@ -18,9 +18,6 @@ render_scale = 1.0
 character = "plf"
 moods = ["neutral", "thinking", "smug", "laughing", "furious"]
 size = 0.8
-drift = 0.04
-breath = 0.05
-wobble = 0.02
 
 # feedback → emotion and back (space/feel.rs; the format: scenes/cathedral.toml). The paths name nodes by their kind
 # (fm.index, lfo.out ...), so the same rules read every deck's being in the circle too – from what it streams.

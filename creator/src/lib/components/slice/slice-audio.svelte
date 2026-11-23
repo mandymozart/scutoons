@@ -250,12 +250,12 @@
 		gap: 0.3rem;
 		width: 4.5rem;
 		padding: 0.4rem 0.25rem;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	/* held from an earlier slice: faint, dashed – moving the fader sets it here */
 	.strip.held {
 		border-style: dashed;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.strip.held .fader {
 		opacity: 0.45;
@@ -283,7 +283,7 @@
 	}
 	/* a sample = one line until opened, the VN events' look (vn-events.svelte) */
 	.sample {
-		border: 1px solid var(--border-muted);
+		border: 1px solid var(--tool-line);
 		padding: 0.4rem;
 		display: flex;
 		flex-direction: column;
@@ -327,7 +327,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.line .sum {
 		flex: 1 1 auto;
@@ -353,10 +353,10 @@
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.warn {
-		color: var(--warn);
+		color: var(--tool-warn);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}

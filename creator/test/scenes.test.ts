@@ -2,9 +2,9 @@
 // words and what a Publish answered (422 problems, 503 unreachable).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ApiError, type SceneListEntry } from '@scutoons/api';
+import { type SceneListEntry } from '@scutoons/api';
 import { entityLabel } from '../../shared/ui/src/entity-label.ts';
-import { NO_TOON, fillWords, filterRows, inPublishBatch, labelIn, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons } from '../src/lib/editor/scenes.ts';
+import { NO_TOON, fillWords, filterRows, labelIn, publishOutcome, rowHint, sceneHref, sceneRows, sceneTitle, sceneToons } from '../src/lib/editor/scenes.ts';
 import { placeHref } from '../src/lib/editor/place-href.ts';
 
 const nave = {
@@ -75,19 +75,17 @@ test('the row\'s hint and the facts in words', () => {
 	assert.equal(sceneHref('avatar-home'), '/scenes/avatar-home');
 });
 
-test('Publish: the core\'s problems, the check not reachable, other errors', () => {
-	assert.deepEqual(publishOutcome(null), { kind: 'published' });
-	assert.deepEqual(publishOutcome(new ApiError(422, 'invalid_scene', 'problems', { problems: ['holder catpope: no rig', 'set: unknown'] })), { kind: 'problems', problems: ['holder catpope: no rig', 'set: unknown'] });
-	assert.deepEqual(publishOutcome(new ApiError(422, 'invalid_content', 'Not a scene document.', {})), { kind: 'problems', problems: ['Not a scene document.'] });
-	assert.deepEqual(publishOutcome(new ApiError(503, 'build_unavailable', 'down')), { kind: 'unreachable' });
-	assert.deepEqual(publishOutcome(new ApiError(403, 'review_required', 'A review first.')), { kind: 'error', message: 'A review first.' });
-	assert.deepEqual(publishOutcome(new Error('x')), { kind: 'error', message: 'x' });
+test('Publish: the scene\'s line of the one Publish – the core\'s problems, the check not reachable, a skip', () => {
+	const key = 'scene:nave';
+	const refused = (code: string, reason: string) => publishOutcome(key, { published: ['rig:character.catpope'], refused: [{ key, code, reason }] });
+	assert.deepEqual(publishOutcome(key, { published: ['rig:character.catpope', key], refused: [] }), { kind: 'published' });
+	assert.equal(publishOutcome(key, { published: [], refused: [] }), null, 'cancelled or nothing to publish');
+	assert.deepEqual(refused('invalid_scene', 'holder catpope: no rig; set: unknown'), { kind: 'problems', problems: ['holder catpope: no rig', 'set: unknown'] });
+	assert.deepEqual(refused('no_build_service', 'not set up'), { kind: 'unreachable' });
+	assert.deepEqual(refused('dependency', 'needs rig character.catpope, which was refused'), { kind: 'error', message: 'needs rig character.catpope, which was refused' });
 });
 
-test('a scene with a draft: not in the batch Publish, named and linked to its own page (#493)', () => {
-	assert.equal(inPublishBatch('scene:nave'), false);
-	assert.equal(inPublishBatch('scene:avatar-home'), false);
-	for (const key of ['chapter:catpope:2', 'place:cathedral', 'character:catpope', 'item:camera', 'colorations', 'toon:catpope']) assert.equal(inPublishBatch(key), true, key);
+test('a scene with a draft: named and linked to its own page (#493)', () => {
 	assert.equal(placeHref('scene:avatar-home'), '/scenes/avatar-home');
 	assert.equal(placeHref('scene:nave'), sceneHref('nave'));
 	assert.equal(entityLabel('scene:nave'), 'Scene nave');

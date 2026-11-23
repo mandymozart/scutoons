@@ -167,11 +167,6 @@ export class CollectionDoc extends ContentDoc {
 			this.saving = false;
 		}
 	}
-
-	/** publishing goes through the publish checklist (publish-tree.ts – every entry its own line) */
-	override async publish(): Promise<string[]> {
-		throw new Error('a collection is published through the publish checklist');
-	}
 }
 
 /**

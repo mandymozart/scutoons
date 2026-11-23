@@ -4,6 +4,7 @@
 //! these without allocating; a time outside a channel's keys holds its first / last key (looping is the player's).
 use anyhow::{bail, ensure, Result};
 use glam::{Mat4, Quat, Vec3};
+use deck_catalog::skeleton::{Fit, Skeleton};
 use std::ops::Range;
 
 #[derive(Debug, Clone, Default)]
@@ -230,6 +231,43 @@ impl Anatomy {
     /// the joints' names, skin by skin
     pub fn bones(&self) -> impl Iterator<Item = &str> {
         self.skins.iter().flat_map(|s| &s.joints).map(|&j| self.nodes[j].name.as_str())
+    }
+
+    /// Its skeleton (deck-catalog skeleton.rs): every joint once, in skin order, the joints its first clip turns, its clips.
+    pub fn skeleton(&self) -> Skeleton {
+        let mut joints: Vec<String> = Vec::new();
+        for name in self.bones() {
+            if !joints.iter().any(|j| j == name) {
+                joints.push(name.to_string());
+            }
+        }
+        let mut animated: Vec<String> = Vec::new();
+        for c in self.clips.first().map(|c| c.channels.as_slice()).unwrap_or_default() {
+            let name = &self.nodes[c.node].name;
+            if c.path == Path::Rotation && self.nodes[c.node].joint && !animated.contains(name) {
+                animated.push(name.clone());
+            }
+        }
+        Skeleton::new(joints, animated, self.clips.iter().map(|c| c.name.clone()).collect())
+    }
+
+    /// An animation's first clip played on this skeleton (#817): its rotation channels moved onto this file's joints of
+    /// the same name – rotations only, so every bone keeps its own length and the figure its proportions. The clip is
+    /// added last, named after the source's; the answer is the one rule's fit (deck-catalog `fit`): what matched and the
+    /// joints it turns that this skeleton lacks (those stay in the rest pose). None when the source has no clip.
+    pub fn adopt(&mut self, source: &Anatomy) -> Option<(usize, Fit)> {
+        let clip = source.clips.first()?;
+        let wanted = source.skeleton();
+        let fit = deck_catalog::skeleton::fit(&wanted.animated, &self.skeleton().joints);
+        let channels: Vec<Channel> = clip
+            .channels
+            .iter()
+            .filter(|c| c.path == Path::Rotation && source.nodes[c.node].joint)
+            .filter_map(|c| Some(Channel { node: self.bone(&source.nodes[c.node].name)?, ..c.clone() }))
+            .collect();
+        let adopted = Clip::new(clip.name.clone(), channels, self.nodes.len()).ok()?;
+        self.clips.push(adopted);
+        Some((self.clips.len() - 1, fit))
     }
 
     /// A node's matrix relative to its parent at `t` seconds of a clip (None: the rest pose).
