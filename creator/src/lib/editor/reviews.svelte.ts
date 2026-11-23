@@ -1,10 +1,9 @@
 // Review before publish (server docs/API.md "Reviews", agents/CUTOVER.md 10.28): an admin decides per toon who needs a
-// review (`needs_review`) and who reviews (`reviewer`). For a needs-review account the one "Publish" button of every
-// page becomes "Submit for review" (the same checklist – publish-tree.ts – plus a note); reviewers decide on the dashboard.
+// review (`needs_review`) and who reviews (`reviewer`). For a needs-review account the bar's Publish dialog submits for
+// review (publish-flow.svelte.ts, plus a note); a reviewer publishes a submit there too and sends it back on the switcher.
 // The API enforces it – this only decides what the creator shows.
-import { needsReview, type ReviewOverview } from '@scutoons/api';
+import { needsReview, type ContentReview, type ReviewOverview } from '@scutoons/api';
 import { contentApi } from '$lib/api.ts';
-import { m } from '$lib/paraglide/messages.js';
 import { shared } from '$lib/utils/shared.ts';
 
 class Reviews {
@@ -27,6 +26,21 @@ class Reviews {
 /** The signed-in account's review state (loaded by the layout once the creator is known) */
 export const reviews = shared('reviews', () => new Reviews());
 
-/** "Publish" or "Submit for review" – the label of the page's publish button */
-export const publishLabel = (toon: string | null | undefined) => (reviews.needsReview(toon) ? m['creator.submit_review']() : m['creator.publish']());
+/** one submit: the reviews of the same author, time, toon and state */
+export interface ReviewGroup {
+	id: string;
+	toon: string;
+	items: ContentReview[];
+}
+
+/** the reviews of one submit together, in the list's order */
+export function reviewGroups(list: ContentReview[]): ReviewGroup[] {
+	const out = new Map<string, ReviewGroup>();
+	for (const r of list) {
+		const id = `${r.author?.id ?? ''}|${r.created_at}|${r.toon}|${r.state}`;
+		if (!out.has(id)) out.set(id, { id, toon: r.toon, items: [] });
+		out.get(id)!.items.push(r);
+	}
+	return [...out.values()];
+}
 

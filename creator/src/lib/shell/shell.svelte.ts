@@ -1,5 +1,6 @@
 import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, keepIn, readTabs, rename, retarget, stepTab, visit, type Tab, type TabsState } from './tabs.ts';
 import { isGone, workspaceOf } from './address.ts';
@@ -33,16 +34,22 @@ export function writeJson(key: string, value: unknown): void {
 
 /**
  * What the open item's page hands the shell: whether an autosave runs (the status bar's "saving…") and ↶ ↷ for the bar,
- * its Publish for the bar's Publish menu and its documents for the History view. A page without documents of its own
- * (the scenes, the toon board) hands only its Publish.
+ * what the bar's one Publish dialog asks of it (RULES H18) and its documents for the History view.
  */
 export interface PageDoc {
 	saving?: boolean;
 	errors?: number;
 	warnings?: number;
-	/** something saved is not live yet; false hides the bar's Publish, unknown (not given) keeps it */
+	/** something saved is not live yet (the bar's Publish dot) */
 	unpublished?: boolean;
-	publish?: Snippet;
+	/** before the Publish dialog sends: what waits is saved (false: it stops – a conflict, a failed save) */
+	prepare?: () => Promise<boolean>;
+	/** after a publish: the page reads again what went live and shows its own outcome */
+	published?: (result: { published: string[]; refused: PublishRefusal[] }) => void | Promise<void>;
+	/** errors that make Publish ask once more before it sends (the problem list's) */
+	blocking?: number;
+	/** files the page holds back: unticked in the dialog, the reason as their hover text */
+	held?: { key: string; reason: string }[];
 	docs?: ContentDoc[];
 	undo?: () => void;
 	redo?: () => void;

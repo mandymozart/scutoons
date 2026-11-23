@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { IconButton, Menu, Pill } from '@scutoons/ui/editor';
+	import { IconButton, Pill } from '@scutoons/ui/editor';
+	import { toonName } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { notPublished } from '$lib/editor/not-published.svelte.ts';
+	import { publishFlow } from '$lib/editor/publish-flow.svelte.ts';
+	import { reviews } from '$lib/editor/reviews.svelte.ts';
+	import PublishDialog from '$lib/components/shell/publish-dialog.svelte';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { showsTextLanguage } from '$lib/shell/crafts.ts';
@@ -14,15 +21,18 @@
 
 	/**
 	 * The bar (lap 2 A1; deck/editor/src/bar.rs): the open items' tabs at the left, the workspace row in the middle and
-	 * nothing else there, round icons in pills at the right end – ↶ ↷, Publish (only while something in its scope is not
-	 * live), the account (the user menu) and ☰ (the menu), far right. A craft may add its own: the translator's bar
-	 * carries the text language (A9).
+	 * nothing else there, round icons in pills at the right end – ↶ ↷, Publish (RULES H18: the one way to send drafts to
+	 * readers – its dot while something is not live, its dialog on the overlay level), the account (the user menu) and ☰
+	 * (the menu), far right. A craft may add its own: the translator's bar carries the text language (A9).
 	 */
 	let { reader = null }: { reader?: string | null } = $props();
 
 	const doc = $derived(shell.doc);
-	// a page that cannot tell (unpublished not given) keeps Publish; one that says nothing waits hides it
-	const publishing = $derived(!!doc?.publish && doc.unpublished !== false);
+	const nav = getCreatorNav();
+	const toons = $derived(nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) })));
+	$effect(() => void notPublished.load(toons));
+	const waiting = $derived(notPublished.list.length > 0 || !!doc?.unpublished || !!reviews.overview?.to_review?.length);
+	const openPublish = () => void publishFlow.show(toons, shell.doc);
 	const languages = $derived(textLanguage.page.languages);
 	const translating = $derived(showsTextLanguage(crafts.mine) && languages.length > 1);
 </script>
@@ -43,17 +53,12 @@
 		</Pill>
 	{/if}
 	<Pill>
-		{#if publishing}
-			<Menu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_bar']()} testid="bar-publish" dot={!!doc?.unpublished} width="19rem">
-				{#snippet children()}
-					{#if doc?.publish}{@render doc.publish()}{/if}
-				{/snippet}
-			</Menu>
-		{/if}
+		<IconButton label={m['shell.panel_publish']()} title={m['shell.publish_bar']()} icon="upload-cloud" dot={waiting} pressed={publishFlow.open} onclick={openPublish} data-testid="bar-publish" />
 		<UserMenu />
 		<MainMenu {reader} />
 	</Pill>
 </header>
+{#if publishFlow.open}<PublishDialog />{/if}
 
 <style>
 	/* the bar's row lies on the stage a margin from the top (bar.rs `margin`): only its pills take the pointer */
