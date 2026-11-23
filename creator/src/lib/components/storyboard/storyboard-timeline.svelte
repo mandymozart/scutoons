@@ -160,6 +160,7 @@
 		max-width: 100%;
 		padding: 0 var(--space-025);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		white-space: nowrap;

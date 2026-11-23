@@ -123,6 +123,7 @@
 		border: var(--editor-edge) solid var(--kit-overlay-box-border);
 		border-radius: calc(var(--editor-radius) + 0.45rem);
 		background: var(--kit-overlay-box-ground);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 	}

@@ -202,6 +202,6 @@
 		background: var(--tool-popover);
 		color: var(--tool-text);
 		outline: none;
-		text-shadow: none;
+		text-shadow: var(--tool-halo);
 	}
 </style>

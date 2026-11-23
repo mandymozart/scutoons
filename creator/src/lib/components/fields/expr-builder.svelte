@@ -330,6 +330,7 @@
 		gap: var(--space-075);
 		padding: var(--space-1);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--tool-text);
 		box-shadow: 0.25rem 0.25rem 0 var(--tool-text);
 	}

@@ -211,7 +211,7 @@
 		background: var(--kit-menu-rest-ground);
 		color: var(--tool-text);
 		outline: none;
-		text-shadow: none;
+		text-shadow: var(--tool-halo);
 	}
 	.item {
 		display: flex;

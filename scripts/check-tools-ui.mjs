@@ -213,7 +213,7 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 //   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
 //   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
 //     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
-//   - a --tool-panel ground (the deck's see-through floating panel) carries the halo: text-shadow: var(--tool-halo)
+//   - a see-through ground (a panel, a menu, a popover, a tooltip, an overlay box) carries the halo: text-shadow: var(--tool-halo)
 // COLOUR_ALLOW: file + text of the declaration + why, for what truly must stay (keep it short)
 const COLOUR_DIRS = ['creator/src', 'shared/ui/src/editor', 'shared/tokens/tools.css'];
 const COLOUR_ALLOW = [
@@ -292,9 +292,9 @@ for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
 				else if (RAW_COLOUR.test(value)) colours.push(`${say} (a raw editor / reader colour: the --tool-* token – a grey ground only as --tool-panel / --tool-popover / --tool-head)`);
 				else if (GROUND_PROP.test(m[1]) && greyGround(value, body)) colours.push(`${say} (${greyGround(value, body)})`);
 			}
-			if (/background(-color)?\s*:[^;]*var\(--tool-panel\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
+			if (/background(-color)?\s*:[^;]*var\(--(tool-panel|tool-popover|kit-menu-rest-ground|kit-overlay-box-ground)\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
 				const line = text.slice(0, at + rule.index + rule[1].search(/\S/)).split('\n').length;
-				colours.push(`${name}:${line}: ${sel} (a --tool-panel ground without its halo: text-shadow: var(--tool-halo), as the deck's floating panel)`);
+				colours.push(`${name}:${line}: ${sel} (a see-through panel / popover ground without its halo: text-shadow: var(--tool-halo), as the deck's ink_ring)`);
 			}
 		}
 	}

@@ -403,6 +403,7 @@
 		display: flex;
 		align-items: center;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border-left: var(--border-width-hairline) solid var(--tool-text);
 		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 		opacity: 0;

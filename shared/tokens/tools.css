@@ -109,6 +109,8 @@ html:has(.sc-tool[data-theme='day']) body {
 .sc-tool :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, .sc-dialog, .sc-palette, .sc-sheet, .sc-colour-popover, .sc-paint-popover, .sc-info-panel, .sc-menu .popup, .toast, .sc-tooltip),
 body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, .sc-tooltip) {
 	--paper: var(--tool-popover);
+	/* a popover is see-through like a panel, so its text and icons take the panel's ink ring (deck-kit ink_ring) */
+	text-shadow: var(--tool-halo);
 }
 .sc-tool :is(input, select, textarea, button, .btn, .sc-icon-button, .sc-palette-trigger, .sc-control, .sc-chip-control) {
 	--paper: var(--tool-control);
@@ -1005,6 +1007,7 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	/* a popover: the see-through popover ground, never a grey (RULES H11) */
 	background: var(--kit-menu-rest-ground);
 	color: var(--tool-text);
+	text-shadow: var(--tool-halo);
 	font-family: var(--font-mono);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
