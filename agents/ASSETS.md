@@ -397,6 +397,18 @@ asset titles): two legs `scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three
 tomkranis CC BY 4.0, glTF @AsoboStudio & @scurest CC BY 4.0); wings `scutoons/3d/mannequin-wings.glb` (the storyboard's
 crow figure from figures.js, ours – posable nodes, no skin). **Module models** (#805): a module's `model` slot names a .glb its drawn shapes take (deck/module/README.md "Drawing") – the cloud's puff `scutoons/3d/cloud-puff.glb` (a low-poly bubble, ours: `cargo run -p deck-space --bin cloud-puff`) in the cloud-storm rig; Replace in the library changes every deck's puffs from its next load: the native deck checks a cached slot asset against the CDN once per load (conditional GET on the ETag / Last-Modified it kept, deck-native library.rs `load_fresh`; offline the cached copy).
 
+**Materials** (#850, owner 2026-11-23 [pbr-master]: "pbr is the rule can do more on the long run with them"):
+- **PBR is the rule.** Generate every model with PBR materials (Tripo: PBR, not the plain colour export) and keep that
+  full GLB as the master – base colour, normal, ORM (AO · roughness · metallic). A colour-only export cannot be upgraded later.
+- **The toon look reads the albedo only, for now** (owner: "just use the albedo"). The albedo must be flat – no shading,
+  highlights or AO painted in; a model whose albedo has them stays flat / unlit or is generated again.
+- **Every other map is optional.** A renderer treats a missing map as neutral (flat normal, AO 1, roughness ≈ 0.6,
+  metallic 0), so every model renders at every quality tier. Metallic is 0 unless the asset is meant to be metal
+  (generated metallic guesses are unreliable).
+- **Quality tiers** add maps later, the look stays toon: flat (albedo, unlit) → toon (albedo + light: bands, rim,
+  outline) → toon+ (normal, AO) → toon highlights (roughness, metallic). Lower tiers may get a delivered copy without the
+  unused maps; the master keeps them. Not built yet.
+
 ## Shared animations (#817, owner 2026-11-22/23 [assets])
 
 Kind `animation`: a `.glb` in an `animations/` folder (`characters/animations/catpope-idle.glb`; AssetPaths `ANIMATION_FOLDER`) –
