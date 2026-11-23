@@ -8,8 +8,9 @@
 //!   ScenesController); format 2 (scene_document.rs).
 //! - **What it needs:** one `GET /library/scene-content?locations=…&characters=…&items=…` for its location's set and its
 //!   fillers' looks and rigs (the cast of the core's resolve step, and each holder's pinned rig); none when it names none.
-//! - **Resolved by the core:** `scene_resolve::resolve` with the answer's rigs (a rig not in it: the deck's core rig, else
-//!   the member stands silent – said in the notes) and the location's set (`push::Content::set_of`). A deck plays what is
+//! - **Resolved by the core:** `scene_resolve::resolve` with the answer's rigs (`SceneRigs::played`: a rig not in it is the
+//!   deck's core rig, a character's default rig, else the member stands silent – said in the notes; the API's publish
+//!   check resolves with the same rule, rig/validate.rs) and the location's set (`push::Content::set_of`). A deck plays what is
 //!   written: no previews, a placeholder no use fills stays empty.
 //! - **The cache, by version:** the document and scene-content's answer as they came, with the document's version
 //!   (`Kept`); resolved again at each load. A pinned version the cache has is played without asking; the published one is
@@ -27,11 +28,11 @@
 //!   to the `Cast`; the host drives the socket and loads the scene the cast changed to.
 use crate::relay::{Client, In, Options, Out, DECKS};
 use crate::rig::bundle::Bundle;
-use crate::rig::content::{safe_id, SceneRigs};
+use crate::rig::content::{asked, safe_id, SceneRigs};
 use crate::scene::Scene;
 use crate::scene_document::{FillerRef, SceneDocument};
 use crate::scene_play::{Playing, Recast};
-use crate::scene_resolve::{core_rigs, no_rigs, no_sets, resolve, Resolved};
+use crate::scene_resolve::{no_rigs, no_sets, resolve, Resolved};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -166,7 +167,7 @@ impl Opened {
 
     /// the rig `subject` scene-content gave it, else none
     pub fn rig(&self, subject: &str) -> Option<Bundle> {
-        rig_of(&self.rigs, subject)
+        self.rigs.served(subject)
     }
 
     /// the set location `id` names, as scene-content gave it
@@ -225,7 +226,7 @@ impl Cast {
         let doc = SceneDocument::from_value(k.document).map_err(|e| format!("scene:{}: the cached copy: {e:#}", k.scene))?;
         let rigs: SceneRigs = serde_json::from_value(k.content.clone()).unwrap_or_default();
         let sets: crate::push::Content = serde_json::from_value(k.content).unwrap_or_default();
-        let rig = |subject: &str, version: Option<&str>| rig_of(&rigs, subject).or_else(|| core_rigs(subject, version));
+        let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
         let set = |location: &str| sets.set_of(location);
         let playing = Playing::start(doc, BTreeMap::new(), &rig, &set).map_err(|problems| format!("scene:{}: {}", k.scene, problems.join("; ")))?;
         Ok(Cast { playing, rigs, sets })
@@ -251,7 +252,7 @@ impl Cast {
             .filter_map(|m| {
                 let prefix = m.slots.clone()?;
                 let subject = FillerRef::parse(&m.filler).ok()?.rig_subject()?;
-                let bundle = rig_of(&self.rigs, &subject).or_else(|| core_rigs(&subject, None))?;
+                let bundle = self.rigs.played(&subject, None)?;
                 Some(crate::holders::Opened { place: m.place.clone(), bundle, prefix })
             })
             .collect()
@@ -260,7 +261,7 @@ impl Cast {
     /// an address action (the relay's `address`) on it
     pub fn word(&mut self, address: &str, action: &str) -> Recast {
         let (rigs, sets) = (&self.rigs, &self.sets);
-        let rig = |subject: &str, version: Option<&str>| rig_of(rigs, subject).or_else(|| core_rigs(subject, version));
+        let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
         let set = |location: &str| sets.set_of(location);
         self.playing.word(address, action, &rig, &set)
     }
@@ -268,7 +269,7 @@ impl Cast {
     /// a story event (the VNEvent's JSON) against its listeners
     pub fn story(&mut self, event: &Value) -> Vec<Recast> {
         let (rigs, sets) = (&self.rigs, &self.sets);
-        let rig = |subject: &str, version: Option<&str>| rig_of(rigs, subject).or_else(|| core_rigs(subject, version));
+        let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
         let set = |location: &str| sets.set_of(location);
         self.playing.story(event, &rig, &set)
     }
@@ -561,29 +562,9 @@ fn loaded(resolved: Resolved, version: u32, mut notes: Vec<String>, cached: bool
 fn play(r: &SceneRef, doc: &SceneDocument, content: &Value) -> Result<Resolved, String> {
     let rigs: SceneRigs = serde_json::from_value(content.clone()).unwrap_or_default();
     let sets: crate::push::Content = serde_json::from_value(content.clone()).unwrap_or_default();
-    let rig = |subject: &str, version: Option<&str>| rig_of(&rigs, subject).or_else(|| core_rigs(subject, version));
+    let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
     let set = |location: &str| sets.set_of(location);
     resolve(doc, &BTreeMap::new(), false, &rig, &set).map_err(|problems| format!("{r}: {}", problems.join("; ")))
-}
-
-/// The rig `subject` (`character.catpope`, `character.catpope.pope`, `item.incense_burner`) from scene-content's answer:
-/// the entry filed as it, else the asked character's or item's (a persona's rig is its character's when it has none).
-fn rig_of(answer: &SceneRigs, subject: &str) -> Option<Bundle> {
-    let entry = answer.rigs().map(|(_, _, e)| e).find(|e| e.id == subject).or_else(|| {
-        let (kind, id) = asked(subject)?;
-        if kind == "character" { answer.character(&id) } else { answer.item(&id) }
-    })?;
-    answer.bundle(entry).ok()
-}
-
-/// a rig subject → the kind and id scene-content is asked with (`character.catpope.pope` → `catpope-pope`)
-fn asked(subject: &str) -> Option<(&str, String)> {
-    let (kind, rest) = subject.split_once('.')?;
-    match kind {
-        "character" => Some((kind, rest.replacen('.', "-", 1))),
-        "item" => Some((kind, rest.to_string())),
-        _ => None,
-    }
 }
 
 /// scene-content's path for what `doc` needs (its location, its cast and each holder's pinned rig); None = nothing.
@@ -748,6 +729,70 @@ mod tests {
         let l = play(load.answer(200, LOCATION));
         let space = l.scene.nodes.iter().find(|n| n.kind == "space").unwrap();
         assert_eq!(space.params.get("set").and_then(|v| v.as_str()), Some("cathedral"));
+    }
+
+    /// #815 (crows-rave v981): the API's publish check refuses what this loader refuses, in its words – it resolves with
+    /// the rigs scene-content gives the deck (`content`) under the same rule (`SceneRigs::played`)
+    #[test]
+    fn the_publish_check_refuses_what_the_deck_refuses() {
+        const CROWS: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/scenes/scene-content-crows.json"));
+        let rave = |values: Value| serde_json::json!({ "format": 2, "id": "rave", "holder": [{ "id": "wolf", "ref": "character:crow-wolf", "values": values }], "stage": { "name": "Rave" }, "node": [] });
+        // the deck: the document, then scene-content's answer → played, or the reason it is not
+        let deck = |doc: &Value, content: &str| -> Result<Loaded, String> {
+            let (mut load, _) = Load::start(SceneRef::parse("scene:rave").unwrap().unwrap(), None);
+            match load.answer(200, &published(&doc.to_string(), 1)) {
+                Step::Ask(path) => assert!(path.contains("characters=crow-wolf"), "{path}"),
+                Step::Fail(why) => return Err(why),
+                Step::Play(_) => panic!("crow-wolf's rig is asked for"),
+            }
+            match load.answer(200, content) {
+                Step::Play(l) => Ok(*l),
+                Step::Fail(why) => Err(why),
+                Step::Ask(p) => panic!("asked again: {p}"),
+            }
+        };
+        let check = |doc: &Value, content: Option<&str>| {
+            crate::rig::validate::Request { kind: "scenes".into(), id: "rave".into(), document: doc.clone(), content: content.map(|c| serde_json::from_str(c).unwrap()), ..Default::default() }.problems().unwrap()
+        };
+
+        // a crow without a rig of its own plays the default character rig: its voice is there, so the mute plays
+        let mute = rave(serde_json::json!({ "voice:voice.gain": 0.0 }));
+        let l = deck(&mute, CROWS).unwrap();
+        let voice = l.scene.nodes.iter().find(|n| n.id == "voice_voice").expect("the default rig's voice (alone on the stage: unprefixed)");
+        assert_eq!(voice.params.get("gain").and_then(toml::Value::as_float), Some(0.0), "the voice at 0");
+        assert_eq!(check(&mute, Some(CROWS)), Vec::<String>::new());
+
+        // a track's strip gain is no holder value: refused on both, in the same words
+        let strip = rave(serde_json::json!({ "voice:@gain": 0.0 }));
+        let why = deck(&strip, CROWS).unwrap_err();
+        let said = "holder wolf: value 'voice:@gain' is neither `<track>:<node>.<port>` with a number nor `<track>:@preset` with a preset";
+        assert_eq!(why, format!("scene:rave: {said}"));
+        assert_eq!(check(&strip, Some(CROWS)), [format!("scene rave: {said}")]);
+
+        // a crow with a rig of its own in the catalog (scene-content's): the deck plays that one, not the default – the
+        // check without the rigs passed the mute on the default rig's voice, with them it says the deck's reason
+        assert_eq!(check(&mute, None), Vec::<String>::new(), "without scene-content's answer: the default rig's voice");
+        let with_rig = |track: Value| {
+            let def = Bundle::core("character.default").unwrap().unwrap();
+            let mut c: Value = serde_json::from_str(CROWS).unwrap();
+            c["instruments"]["default_voice"] = serde_json::json!({ "id": "default_voice", "version": "0", "data": def.instruments[0] });
+            c["presets"]["default_voice.base"] = serde_json::json!({ "id": "default_voice.base", "version": "0", "data": def.presets[0] });
+            c["characters"]["crow-wolf"]["rig"] = serde_json::json!({ "id": "character.crow-wolf", "version": "0", "data": { "subject": "character.crow-wolf", "track": track },
+                "instruments": ["default_voice"], "presets": ["default_voice.base"] });
+            c.to_string()
+        };
+        // its singing track is called `song`: there is no `voice` track to mute
+        let song = with_rig(serde_json::json!([{ "id": "song", "instrument": "default_voice", "preset": "default_voice.base" }]));
+        let why = deck(&mute, &song).unwrap_err();
+        let said = "holder wolf: value 'voice:voice.gain' names no node of the rig character.crow-wolf";
+        assert_eq!(why, format!("scene:rave: {said}"));
+        assert_eq!(check(&mute, Some(&song)), [format!("scene rave: {said}")]);
+        // an empty rig of its own (extending nothing): the deck refuses the rig itself
+        let empty = with_rig(serde_json::json!([]));
+        let why = deck(&mute, &empty).unwrap_err();
+        let said = "holder wolf: rig character.crow-wolf: every track is muted";
+        assert_eq!(why, format!("scene:rave: {said}"));
+        assert_eq!(check(&mute, Some(&empty)), [format!("scene rave: {said}")]);
     }
 
     #[test]

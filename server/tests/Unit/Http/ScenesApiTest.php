@@ -6,7 +6,11 @@ namespace Scutoons\Tests\Http;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Console\ContentFiles;
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Content\CollectionDocs;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\AssetStorage\HttpClient;
 use Scutoons\Infrastructure\Clock\Clock;
@@ -285,6 +289,47 @@ final class ScenesApiTest extends TestCase
                 self::assertSame([422, 'invalid_scene', $case['problems']], [$r->getStatusCode(), self::json($r)['error'] ?? null, self::json($r)['problems'] ?? null], $case['name']);
             }
         }
+    }
+
+    /**
+     * #815 (crows-rave v981): the check gets the rigs a deck plays – scene-content's answer for what a deck asks (each
+     * filler's own rig, each pinned one); a crow without a rig of its own has none in it (the core plays the default
+     * character rig for it), Cat Pope and the incense burner have theirs (the migrations' rows)
+     */
+    public function testPublishingSendsTheRigsTheHoldersPlay(): void
+    {
+        $store = $this->get(EntityStore::class);
+        $registry = ['characters' => [
+            ['id' => 'crow-wolf', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'default' => true, 'images' => []]]]]],
+            ['id' => 'catpope', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'default' => true, 'images' => []]]]]],
+        ]];
+        $collection = CollectionDocs::ofAnchor((string) ContentFiles::keyOf('scutoons', '_', 'characters.json'));
+        self::assertNotNull($collection);
+        foreach (CollectionDocs::split($collection, json_decode((string) json_encode($registry))) as $part => $doc) {
+            $id = $store->insert(EntityKey::parse((string) $part), (string) json_encode($doc), null, 'draft', null);
+            $store->setPublished(['id' => $id, 'entity_key' => (string) $part]);
+        }
+        $creator = $this->session([Roles::CREATOR], 'rigs@example.test');
+        $rave = ['format' => 2, 'id' => 'rave', 'toons' => [], 'holder' => [
+            ['id' => 'wolf', 'ref' => 'character:crow-wolf', 'values' => ['voice:voice.gain' => 0.0]],
+            ['id' => 'pope', 'ref' => 'character:boy', 'rig' => ['ref' => 'rig:character.catpope']],
+            ['id' => 'air', 'ref' => 'item:incense_burner'],
+        ], 'stage' => ['name' => 'Rave'], 'node' => []];
+        self::assertSame(200, $this->request('PUT', '/api/scenes/rave', $creator, ['content' => $rave])->getStatusCode());
+        $this->core->answer = fn(array $request): array => [];
+        self::assertSame(200, $this->request('POST', '/api/scenes/rave/publish', $creator, [])->getStatusCode());
+        $content = $this->core->requests[count($this->core->requests) - 1]['request']['content'];
+        self::assertEqualsCanonicalizing(['catpope', 'crow-wolf'], array_keys($content['characters']), 'a filler\'s own rig and a pinned one (not boy\'s: its holder pins catpope\'s), as a deck asks');
+        self::assertNull($content['characters']['crow-wolf']['rig'], 'no rig of its own: the core plays the default character rig');
+        self::assertSame('character.catpope', $content['characters']['catpope']['rig']['id']);
+        self::assertSame('item.incense_burner', $content['items']['incense_burner']['rig']['id']);
+        self::assertSame(['cathedral_voice', 'drone', 'incense'], array_keys($content['instruments']), 'what the rigs name, once each');
+
+        // a scene without holders asks for no rigs: none sent
+        $empty = ['format' => 2, 'id' => 'quiet', 'toons' => [], 'stage' => ['name' => 'Quiet'], 'node' => []];
+        $this->request('PUT', '/api/scenes/quiet', $creator, ['content' => $empty]);
+        self::assertSame(200, $this->request('POST', '/api/scenes/quiet/publish', $creator, [])->getStatusCode());
+        self::assertArrayNotHasKey('content', $this->core->requests[count($this->core->requests) - 1]['request']);
     }
 
     public function testWithoutTheBuildServiceNothingIsPublished(): void
