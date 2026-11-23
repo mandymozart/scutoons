@@ -1,7 +1,7 @@
 // The shell's pure parts (lib/shell): addresses ↔ routes, the tabs, this machine's settings.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
+import { AREAS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, startsAtTop, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, pageLabel, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
 import { NO_USE, ROW, entered, fits, readUse, startKinds, workspaceClick, workspaceFor, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
@@ -104,6 +104,15 @@ test('a pick inside the page retargets the front tab, unless the item has its ow
 	assert.equal(s.front, 'character:catpope');
 	assert.equal(s.tabs.length, 3);
 	assert.equal(rename(s, 'character:catpope', 'Catpope').tabs[0].label, 'Catpope');
+});
+
+test('another item brought to the front starts at the top of the stage; Back and the first load keep the scroll', () => {
+	const u = (p: string) => new URL(p, 'http://x');
+	assert.equal(startsAtTop(u('/scenes/a'), u('/catalog/items?id=dago_hoodie'), 'goto'), true);
+	assert.equal(startsAtTop(u('/catalog/items?id=camera'), u('/catalog/items?id=dago_hoodie'), 'link'), true);
+	assert.equal(startsAtTop(u('/catalog/items?id=camera'), u('/catalog/items?id=camera&tab=x'), 'goto'), false);
+	assert.equal(startsAtTop(u('/scenes/a'), u('/catalog/items?id=camera'), 'popstate'), false);
+	assert.equal(startsAtTop(null, u('/scenes/a'), 'enter'), false);
 });
 
 test('an area\'s list tab that opens one of its items becomes that item, named by the page', () => {

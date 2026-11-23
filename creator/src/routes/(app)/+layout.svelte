@@ -25,7 +25,7 @@
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { addressOf, hrefOf, pickedInArea, workspaceOf } from '$lib/shell/address.ts';
+	import { addressOf, hrefOf, pickedInArea, startsAtTop, workspaceOf } from '$lib/shell/address.ts';
 	import { pageLabel } from '$lib/shell/tabs.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
 	import { isSearchKey, isSwitcherKey } from '$lib/shell/launcher.ts';
@@ -150,6 +150,10 @@
 		lastPath = pathname;
 	}
 	afterNavigate(() => sync(true));
+	let stageEl: HTMLDivElement | undefined = $state();
+	afterNavigate(({ from, to, type }) => {
+		if (startsAtTop(from?.url, to?.url, type)) stageEl?.scrollTo({ top: 0 });
+	});
 	// nothing open: the dashboard lies over the empty stage; going to an item puts it away
 	afterNavigate(() => {
 		if (startDashboard !== null && (!start.go || location.pathname === new URL(start.go, location.origin).pathname)) {
@@ -303,7 +307,7 @@
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
-		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
+		<div class="stage" bind:this={stageEl} class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
