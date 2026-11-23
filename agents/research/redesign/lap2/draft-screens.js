@@ -135,6 +135,14 @@ const VIEWS_ALL = [...VIEWS_CHAR, ['grid','Library','panel'], ['list','Log','hid
 const MENU_SHORT = (x, y) => `<div class="km" style="left:${x}px;top:${y}px;width:300px">
     <div class="kmi cur">${ic('layout')}<span class="w">Views</span>${ic('l')}</div><div class="kmi">${ic('save')}<span class="w">Save workspace</span><span class="kbd">Ctrl S</span></div>
     <hr><div class="kmi">${ic('search')}<span class="w">Search</span><span class="kbd">Alt Space</span></div><div class="kmi">${ic('settings')}<span class="w">Settings</span></div><div class="kmi">${ic('book')}<span class="w">Docs ↗</span></div></div>`;
+add('A', 'A10', 'Publish: the dialog', 'today’s Publish (publish-tree.ts: “Publish – everything”, All · None, “Publish {count}”) on now/creator-1 · the eight not published as the switcher lists them today',
+  ['Publish is a dialog on the overlay level, opened by the bar’s icon (a dot: changes that are not live yet): every draft readers do not see yet, ticked – untick what should wait',
+   'one box for sending out: Flash in the deck is the same (D3b)',
+   'today’s explaining sentence is hover text (H14)'],
+  () => `${characters({ bar: { chevron: true } })}<div class="dash over"></div>
+  ${sendOut(460, 130, 'Publish – everything', [['Sandgirl', 'Character', 'changed'], ['Giant Popstar', 'Character', 'changed'], ['Mellowmantis', 'Character', 'changed']], 'Publish 8', { head: '8 of 8 chosen', more: '5 more – not listed in today’s shot' })}
+  ${mk(1, 446, 118)}${mk(2, 994, 118)}${mk(3, 446, 210)}`);
+
 add('B', 'B1', 'Views: every view, four states', 'now/creator-3 (Views on the front card) on now/creator-1',
   ['Views live only in the ☰ menu: ☰ › Views (decided 2026-11-24)',
    'every view of the kind, also those the page does not fill now (Library, Log, History, Info below Generations: from the code)'],
@@ -537,12 +545,55 @@ add('D', 'D2', 'Scene: Rig · Library · Inspector · Audio · Info · Mixer · 
   () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 170)}${mk(4, 396, 296)}`);
 const SHOW_LIB = [['Avatar home','Scene',null],['Nave','Scene',null],['Place','Scene',null],['Solo','Scene',null],['Stage','Scene',null],['Cat Pope','Character',dkLibPic(290, 458, 100, 62)],['Boy','Character','users'],['Crows','Character','users']];
 add('D', 'D3', 'Show: the rows band, Spores, Library', 'show.html `?v=0` (current: the bar without the Show pill, the views, the rows band, the Library) – from now/deck-3-show-workspace, now/deck-6-fires-on; the Library drawn over it',
-  ["the Library: the same panel as the creator's (C12) – today's chips (scenes 5 · characters 7 · items 44 · places 21) and \"new scene\" go; the tiles as today, each with its type"],
+  ["the Library: the same panel as the creator's (C12) – today's chips (scenes 5 · characters 7 · items 44 · places 21) and \"new scene\" go; the tiles as today, each with its type",
+   'Flash sits beside Publish in the bar and follows it (owner 2026-11-24: “it’s like publish”): a dot when a deck does not run this version; it opens the dialog (D3b) – today a button in the Inspector, beside Load; the icon is a proposal'],
   () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe>
   <div class="abs" style="left:35px;top:0;width:1440px;height:900px;transform:scale(.95111);transform-origin:0 0" data-theme="night">
     <span class="abs" style="left:1040px;top:132px;width:392px;height:700px;background:#000"></span>
-    <div class="fp" style="left:1044px;top:136px;width:384px;height:692px">${dkHead('grid')}<div class="bd">${libraryBody({ cols: 2, place: 'Everything', pvH: 70, tiles: SHOW_LIB })}</div></div></div>
-  ${mk(1, 1004, 136)}`);
+    <div class="fp" style="left:1044px;top:136px;width:384px;height:692px">${dkHead('grid')}<div class="bd">${libraryBody({ cols: 2, place: 'Everything', pvH: 70, tiles: SHOW_LIB })}</div></div>
+    <span class="abs" style="left:1160px;top:4px;width:186px;height:44px;background:#000"></span>
+    <span class="abs" style="left:1355px;top:84px;width:72px;height:34px;background:#0d0e0c" title="the Flash button leaves the Inspector – it is in the bar now (no duplicates, H1)"></span>
+    <span class="abs" style="left:1130px;top:8px;display:flex;gap:var(--kit-gap)"><span class="kp"><span class="kib">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span><span class="kp"><span class="kib" title="Publish">${ic('cloud')}</span><span class="kib" title="Flash – a dot: a deck does not run this version">${ic('monitor')}<span class="dot"></span></span><span class="kib">${ic('user')}</span><span class="kib">${ic('menu')}</span></span></span></div>
+  ${mk(1, 1004, 136)}${mk(2, 1234, 46)}`);
+/* D3b, D3c – the Show's Flash and Scene sheets as dialogs on the overlay level (decided 2026-11-24): the Show behind them blurred, the dialog a box of the kit. Their parts and words are today's (deck/editor/src/show/flash.rs with deck/show/src/choose.rs; new_scene.rs); the devices are top-toy's (the Conductors panel), the rigs the five in production. */
+const dlgBox = (x, y, w, h, title, body) => `<div class="fp" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:56"><div class="hd"><span class="tab on">${title}</span><span class="sp"></span><span class="ic" title="Esc">${ic('x')}</span></div><div class="bd">${body}</div></div>`;
+const dlgTick = (on) => `<span style="flex:none;width:1rem;height:1rem;border:1px solid var(--tool-${on ? 'text' : 'line'});border-radius:.2rem;display:grid;place-items:center;${on ? 'background:var(--tool-pressed);color:var(--tool-pressed-text)' : ''}">${on ? '<svg viewBox="0 0 24 24" style="width:.7rem;height:.7rem;fill:none;stroke:currentColor;stroke-width:3"><path d="M5 12l5 5 9-10"/></svg>' : ''}</span>`;
+/* the one "send out" dialog (Publish, Flash): what goes out as ticked rows, All · None, one primary button with the count */
+const sendOut = (x, y, title, rows, go, o = {}) => dlgBox(x, y, 520, 450, title, `
+    ${o.find ? `<span class="fld" style="width:auto;margin-bottom:.5rem">${ic('search')}<span class="ph">Find</span></span>` : ''}
+    <div style="display:flex;align-items:center;gap:.2rem;margin-bottom:.3rem"><span class="label" style="margin-right:auto">${o.head || rows.length + ' of ' + rows.length + ' chosen'}</span><span class="kb quiet" style="height:1.7rem">All</span><span class="kb quiet" style="height:1.7rem">None</span></div>
+    ${rows.map(([n, m, part]) => `<div class="lrow" style="min-height:2rem">${dlgTick(true)}<span>${n}</span>${part ? `<span class="kc">${part}</span>` : ''}<span class="cap" style="margin-left:auto">${m}</span></div>`).join('')}
+    ${o.more ? `<div class="cap" style="margin:.3rem 0 0 1.6rem">${o.more}</div>` : ''}
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain">Cancel</span><span style="flex:1"></span><span class="kb primary">${go}</span></div>`);
+const showBehind = () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe><div class="dash over"></div>`;
+add('D', 'D3b', 'Show · Flash: the same dialog as Publish', 'show.html `?v=0` behind · today’s Flash sheet (flash.rs, choose.rs) and today’s Publish (publish-tree.ts, its words) – A10 is Publish in the same box',
+  ['Flash follows Publish (owner 2026-11-24): the bar’s icon opens one dialog on the overlay level – what goes out, ticked; All · None; one primary button with the count; a report after',
+   'what goes out here is the show to the tree’s devices (Publish: drafts to readers) – a device that asks not to be flashed is unticked with its reason, as a file is that should wait',
+   'the confirm, as today: “Flash top-toy to 2 of 2 devices?” with a suggestion · forced and locked · not locked – only its confirm sends; what they mean is hover text (H14)',
+   'the report in the same place, as today’s words: “flashed 2 – 0 left out”'],
+  () => `${showBehind()}
+  ${sendOut(300, 130, 'Flash – top-toy', [['top-toy', 'this deck'], ['foyer', 'sub · follow']], 'Flash 2', { find: true })}
+  ${dlgBox(860, 210, 380, 270, 'Flash – top-toy', `<div style="font-size:var(--editor-title);margin:.1rem 0 .7rem">Flash top-toy to 2 of 2 devices?</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-start"><span class="seg" title="A suggestion: who may reject at a deck has 10 s to say no. Forced: every chosen deck takes it, nobody at a deck is asked.">${['A suggestion', 'Forced'].map((n, k) => `<span class="${k === 0 ? 'on' : ''}">${n}</span>`).join('')}</span>
+    <span class="seg" title="Locked: only a deck’s owner can go back to its own version. Not locked: each deck’s operator can go back to their own version.">${['Not locked', 'Locked'].map((n, k) => `<span class="${k === 0 ? 'on' : ''}">${n}</span>`).join('')}</span></div>
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain">Back</span><span style="flex:1"></span><span class="kb primary">Flash</span></div>`)}
+  ${mk(1, 286, 118)}${mk(2, 286, 250)}${mk(3, 846, 198)}${mk(4, 846, 500)}
+  ${capn(860, 496, 'after: “flashed 2 – 0 left out” · the two boxes show both steps – in the app step 2 takes step 1’s place')}`);
+add('D', 'D3c', 'Show · Scene: a dialog', 'show.html `?v=0` behind · today’s new-scene sheet (new_scene.rs): the id, the stage’s name, the cast from the toon’s rigs – the words as today',
+  ['Scene is a dialog on the overlay level: a new deck scene, or one of the server’s recast – the Show stays behind it, blurred',
+   'its parts as today: the scene’s id, its stage’s name, the cast picked from the open toon’s rigs; it saves itself as a draft, the creator publishes it',
+   'the two explaining lines of today’s sheet are hover text (H14)'],
+  () => `${showBehind()}
+  ${dlgBox(420, 120, 600, 560, 'New scene', `<div style="display:grid;grid-template-columns:5rem 1fr;gap:.5rem .7rem;align-items:center" title="It saves itself as a draft; it is published in the creator.">
+      <span class="label">Id</span><span class="fld" style="width:auto"><span class="mono muted">scene:</span><span class="caret"></span></span>
+      <span class="label">Stage</span><span class="fld" style="width:auto"></span></div>
+    <div class="label" style="margin:1rem 0 .35rem">Cast</div><div class="cap">nobody yet</div>
+    <div class="label" style="margin:1rem 0 .35rem" title="The cast from Cat Pope’s rigs – a press adds or takes off">From Cat Pope’s rigs</div>
+    <span class="fld" style="width:auto;margin-bottom:.4rem">${ic('search')}<span class="ph">Find</span></span>
+    ${['catpope', 'crow-fox', 'giantpopstar', 'sandgirl', 'sandy'].map(n => `<div class="lrow" style="min-height:1.9rem">${dlgTick(false)}<span class="mono">character:${n}</span></div>`).join('')}
+    <div style="position:absolute;left:.75rem;right:.75rem;bottom:.75rem;display:flex;gap:.4rem"><span class="kb plain" title="One of the server’s scenes, recast">Load …</span><span style="flex:1"></span><span class="kb plain">Close</span><span class="kb primary">Play</span></div>`)}
+  ${mk(1, 406, 108)}${mk(2, 406, 196)}${mk(3, 1034, 196)}${capn(420, 696, 'New show is the same kind of dialog; its sheet was not read – not drawn')}`);
+
 add('D', 'D4', 'Module: Library · Drives · Module · Problems', 'now/deck-3-module-workspace', ['the shared bar (A1); Module open, so it shows in the row', 'Views (B1)', DKKIT],
   () => `${deckShot('deck-3-module-workspace.png', deckBarNew({ tabs: [['code','new module']], mode: false, wsNames: ['Scene','Rigging','Show','Module'], wsOn: 3 }) + deckModule())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D4b', 'Module: a module open', 'none – never captured', [],

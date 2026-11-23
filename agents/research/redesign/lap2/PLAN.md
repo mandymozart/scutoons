@@ -31,6 +31,8 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 - **The ☰ menu:** Views with Save workspace · Search · Settings · Docs · the build · the edit language. Views with the four states for every view, only here.
 - **The switcher:** over the blurred bar, stage and panels; no bar, no search field, no Views; a maximum width; one list for both apps in the same order.
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
+- **Sending out (H18):** Publish as a dialog on the overlay level (A10); Flash in the deck the same dialog, opened from the bar beside Publish, its button leaves the Show's Inspector (D3, D3b).
+- **Flash's dot** (deck): lit when at least one device of the tree is not on the show's current version – the deck already knows that per device. A device that is offline counts as unknown, not as behind, and is listed under its own word. Updates of the deck's software are another path and do not light it.
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
 - **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
@@ -161,6 +163,7 @@ You approved these on 2026-11-24 ("yes, use them").
 | A disabled primary button | the pressed fill, faded | P1 |
 | The see-through grounds | as redrawn on kit-d.html | P1 |
 | Outlet colours | four – page · stage · target · device – on lane and column heads only, never on cables or ports; a mark each in the colour-blind set | P1 |
+| The Show's Flash, Scene and New show sheets | all three are dialogs on the overlay level – one-off tasks that end in a confirm or a save (decided after the deck orchestrator's check; the first default, views, was wrong). Cues, Problems, Who, Session, Vote and Demos stay views | P2 (deck) |
 | Deck installers for Windows and macOS | not in this lap; the link between the apps works on Arch only | P4 |
 | "Open in the deck" with no deck installed | the installed creator offers a download link; the web version just tries | P4 |
 | Dropping a Toon, a Show, a Generator, a Kanon text or a person | nothing yet; each opens in its own workspace | P11 |
@@ -168,7 +171,8 @@ You approved these on 2026-11-24 ("yes, use them").
 ## Open – out of the run until you say
 | Point | Package |
 |---|---|
-| The Show's Flash and Scene sheets. The agent's default (views) was wrong – deck: both are one-off tasks that end in a confirm or a save (Flash: choose the devices, confirm, the update is sent; Scene: a new deck scene or a recast, saved as a draft), so both are dialogs on the overlay level, like New show. Cues, Problems, Who, Session, Vote and Demos stay views | P2 (deck) |
+| Where "New scene" opens from in the deck. Deck: the ☰ menu's "New …", which exists today – it offers scene and show, each a dialog on the overlay level; a recast opens from the scene's own menu, since it acts on a scene that exists | P2 (deck) |
+| The Flash icon in the bar. A screen is drawn; deck: a box ("ship this version") reads better, since a screen says "a display" and a flash goes to many devices; the bolt stays with events | P2 (deck) |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
 | The Storyboard's tree as its scenes and shots; the shot's picture as a slot with "Open the generator" (two question cards on C3 and C3c) | P12 |
