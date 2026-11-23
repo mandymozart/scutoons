@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UI kit review · lap 2</title>
+<!--
+  #626 lap 2 – the UI kit review sheet (owner 2026-11-24: decide the palette and the kit's look before any screen is redrawn).
+  It SHOWS what exists and lays choices side by side; it decides nothing and invents no component.
+  Colours: assets/editor.css + assets/tool-colours.css, copied 1:1 from shared/tokens (editor.css is generated from
+  deck/kit/src/base/tokens.rs). Every hex on the page is read from those files at load time, never typed.
+  Sizes: the kit's geometry, copied from shared/tokens/tools.css :root. Components: shared/ui/src/editor/*.svelte, their
+  CSS copied with the states as classes. Deck: deck/kit/src/editor/controls.rs, floats.rs, fold.rs, status.rs,
+  deck/editor/src/bar.rs, drawn from their code, plus crops of today's deck screenshots (now/deck-*.png, night).
+  ?theme=day for day.
+-->
+<link rel="stylesheet" href="assets/editor.css">
+<link rel="stylesheet" href="assets/tool-colours.css">
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+/* the kit's geometry, copied from shared/tokens/tools.css :root */
+:root{--kit-bar:var(--editor-top);--kit-inset:.29rem;--kit-inner:calc(var(--kit-bar) - 2*var(--kit-inset));--kit-inner-radius:calc(var(--kit-bar)/2 - var(--kit-inset));
+  --kit-status:calc(var(--editor-small)*1.25 + .86rem);--kit-margin:var(--editor-pad);--kit-seam:calc(2*var(--editor-edge));--kit-gap:calc(var(--editor-gap)/2);
+  --kit-radius-box:calc(var(--editor-radius)*2);--kit-radius-tile:calc(var(--editor-radius)*1.4);--kit-icon:1rem;--kit-icon-alone:1.15rem;--kit-icon-gap:calc(var(--editor-pad)*.6);
+  --control-height:var(--editor-row)}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;background:var(--tool-ground);font-family:var(--editor-sans);color:var(--tool-text);font-size:1rem;line-height:1.35}
+svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.page{width:1440px;padding:1.6rem 2rem 2rem}
+.label{font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase;color:var(--tool-muted)}
+.muted{color:var(--tool-muted)} .small{font-size:var(--editor-small)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:.86rem}
+h1{margin:0;font-size:var(--editor-title);font-weight:400}
+h2{margin:0 0 .2rem;font-size:var(--editor-title);font-weight:400}
+section.part{padding:1.4rem 0 1.6rem;border-top:1px solid var(--tool-line)}
+.head{display:flex;align-items:baseline;gap:1rem;margin-bottom:1rem}
+.head .label{margin-left:.2rem}
+.top{display:flex;align-items:center;gap:1rem;padding-bottom:1.2rem}
+.top .sp{flex:1}
+a{color:inherit}
+/* not UI: the difference marks (the drafts' annotation yellow) */
+.ne{display:inline-grid;place-items:center;min-width:1.3rem;height:1.3rem;padding:0 .3rem;border-radius:.65rem;background:#ffd84a;color:#1b1700;font:700 11px/1 system-ui,sans-serif;text-shadow:none;vertical-align:middle}
+.same{display:inline-grid;place-items:center;height:1.3rem;padding:0 .4rem;border-radius:.65rem;border:1px solid var(--tool-line);color:var(--tool-muted);font-size:var(--editor-label);vertical-align:middle}
+.crop{display:inline-block;flex:none;border-radius:3px;background-repeat:no-repeat;box-shadow:0 0 0 1px var(--tool-line)}
+
+/* ───────────────── the kit, copied from shared/ui/src/editor (states as classes: .h hover · .p pressed · .f focus · .x disabled · .g dragged) */
+/* Pill */
+.kp{display:inline-flex;flex:none;align-items:center;gap:var(--kit-seam);--pill:var(--kit-bar);height:var(--pill);padding:0 calc(var(--kit-inset) - var(--editor-edge));border:var(--editor-edge) solid var(--tool-line);border-radius:calc(var(--pill)/2);background:var(--tool-panel);color:var(--tool-text);text-shadow:var(--tool-halo);--kit-h:calc(var(--pill) - 2*var(--kit-inset));--kit-r:calc(var(--pill)/2 - var(--kit-inset));--kit-icon-in:var(--kit-icon-alone);min-width:0}
+.kp svg{filter:var(--tool-icon-halo)}
+.kp.status{--pill:var(--kit-status);--kit-font:var(--editor-small);font-size:var(--editor-small)}
+/* IconButton */
+.kib{position:relative;display:inline-grid;flex:none;place-items:center;width:var(--kit-h,var(--control-height));height:var(--kit-h,var(--control-height));border-radius:var(--kit-r,50%);color:var(--tool-text);--kit-icon-size:var(--kit-icon-in,calc(var(--kit-h,var(--control-height))*.6))}
+.kib svg{width:var(--kit-icon-size);height:var(--kit-icon-size)}
+.kib.muted{color:var(--tool-muted)} .kib.go{color:var(--tool-go)} .kib.stop{color:var(--tool-stop)} .kib.danger{color:var(--tool-danger)}
+.kib.p{background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none} .kib.p svg{filter:none}
+.kib.h{background:var(--tool-hover)}
+.kib.f{outline:2px solid var(--tool-accent);outline-offset:-2px}
+.kib.x{opacity:.35}
+/* deck: a lone icon_button's hover ground has the control corner (controls.rs icon_button) */
+.kib.deck{--kit-r:var(--editor-radius)}
+/* PillTab (web today) */
+.kt{display:inline-flex;flex:none;align-items:center;gap:var(--kit-icon-gap);height:var(--kit-h,var(--control-height));padding:0 var(--editor-pad);border-radius:var(--kit-r,var(--editor-radius));color:var(--tool-muted);white-space:nowrap;font-size:var(--kit-font,var(--editor-font))}
+.kt svg{width:var(--kit-icon);height:var(--kit-icon)}
+.kt .cl{display:inline-grid;place-items:center;width:1.2rem;height:1.2rem;margin-right:-.3rem;color:var(--tool-muted)} .kt .cl svg{width:.8rem;height:.8rem}
+.kt.on .cl{color:var(--tool-text)}
+.kt.web.on{box-shadow:inset 0 0 0 var(--editor-edge) var(--tool-text);color:var(--tool-text)}
+.kt.web.h{background:var(--tool-hover)}
+.kt.web.g{opacity:.4}
+/* the rule (H4): no border at rest, active brighter, a rounded border on hover and while dragged */
+.kt.rule.on{color:var(--tool-text)}
+.kt.rule.h,.kt.rule.g{box-shadow:inset 0 0 0 var(--editor-edge) var(--tool-line)}
+.kt.rule.g{background:var(--tool-panel)}
+/* deck today: the front tab is the pressed fill (bar.rs, pills_rounded) */
+.kt.deck.on{background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none}
+.kt.deck.on .cl{color:var(--tool-pressed-text)}
+.kt.deck.h{background:var(--tool-hover)}
+.kt.f{outline:2px solid var(--tool-accent);outline-offset:-2px}
+.kt.x{opacity:.4}
+/* Button */
+.kb{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:var(--kit-icon-gap);height:var(--kit-h,var(--control-height));padding:0 calc(var(--editor-pad)*1.5);border:var(--editor-edge) solid transparent;border-radius:var(--kit-r,var(--editor-radius));color:var(--tool-text);white-space:nowrap;line-height:1}
+.kb svg{width:var(--kit-icon);height:var(--kit-icon)}
+.kb.framed{border-color:var(--tool-line);background:var(--tool-control);text-shadow:none}
+.kb.primary{border-color:var(--tool-primary-line);background:var(--tool-primary);color:var(--tool-primary-ink);text-shadow:none}
+.kb.p{border-color:transparent;background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none}
+.kb.framed.h,.kb.quiet.h{background:var(--tool-hover)}
+.kb.primary.h{border-color:var(--tool-primary-ink)}
+.kb.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+.kb.x{opacity:.5}
+/* Chip (#841) */
+.kc{display:inline-flex;flex:none;align-items:center;gap:calc(var(--editor-pad)/2);--chip:calc(var(--editor-tree-row) - 8*var(--editor-edge));height:var(--chip);padding:0 calc(var(--editor-pad)*1.25);border:var(--editor-edge) solid var(--tool-line);border-radius:calc(var(--chip)/2);color:var(--tool-muted);font-size:var(--editor-label);line-height:1;white-space:nowrap}
+.kc svg{width:var(--editor-label);height:var(--editor-label)}
+.kc.on{border-color:var(--tool-accent);background:color-mix(in srgb,var(--tool-accent) 14%,transparent);color:var(--tool-accent)}
+.kc.h{color:var(--tool-text);border-color:var(--tool-muted)}
+.kc.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+.kc.x{opacity:.4}
+/* deck chips (controls.rs chips): off the line, on the accent filled, words in the surface colour; the control corner */
+.dchip{display:inline-flex;align-items:center;height:calc(var(--editor-tree-row) - 4px);padding:0 calc(var(--editor-pad)*.5);border-radius:var(--editor-radius);box-shadow:inset 0 0 0 1px var(--tool-line);color:var(--tool-muted);font-size:var(--editor-small);white-space:nowrap}
+.dchip.on{box-shadow:none;background:var(--tool-accent);color:var(--editor-surface)}
+/* the creator's status badge today (shared/ui badge.svelte + tokens.css --badge-*, literal reader colours) */
+.bdg{display:inline-block;padding:.15em .5em;border-radius:var(--editor-radius);font-size:var(--editor-small);line-height:1.3;white-space:nowrap}
+/* Toggle (web: toggle.svelte = deck controls.rs switch) */
+.tg{position:relative;display:inline-block;flex:none;width:2.25rem;height:1.125rem;border:var(--editor-edge) solid var(--tool-line);border-radius:999px;background:var(--tool-within);vertical-align:middle}
+.tg::before{content:'';position:absolute;top:50%;left:.07rem;width:.855rem;height:.855rem;border-radius:50%;background:var(--tool-muted);transform:translateY(-50%)}
+.tg.on{background:var(--tool-go)} .tg.on::before{background:var(--tool-bright);transform:translate(1.125rem,-50%)}
+.tg.h{border-color:var(--tool-muted)}
+.tg.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+.tg.x{opacity:.45}
+/* the creator's checkbox switch (tools.css input[type=checkbox]): the control corner, on = the pressed ink */
+.cb{position:relative;display:inline-block;flex:none;width:2.25rem;height:1.25rem;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);vertical-align:middle}
+.cb::before{content:'';position:absolute;top:50%;left:.125rem;width:calc(1.25rem - 2px - .25rem);height:calc(1.25rem - 2px - .25rem);background:var(--tool-muted);transform:translateY(-50%)}
+.cb.on{border-color:var(--tool-pressed);background:var(--tool-pressed)} .cb.on::before{left:auto;right:.125rem;background:var(--tool-pressed-text)}
+.cb.h{border-color:var(--tool-muted)}
+.cb.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+.cb.x{border-color:var(--tool-line);background:var(--tool-control)} .cb.x::before{background:var(--tool-line)}
+/* deck toggle (controls.rs toggle): a small button, on = the danger fill */
+.dtg{display:inline-grid;place-items:center;width:1.6rem;height:1.3rem;border-radius:var(--editor-radius);background:var(--tool-control);color:var(--tool-muted);font-size:var(--editor-small)}
+.dtg.on{background:var(--tool-danger);color:var(--tool-bright)}
+/* Field, search, select */
+.fld{display:flex;align-items:center;gap:.45rem;width:10rem;height:var(--control-height);padding:0 var(--editor-pad);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);color:var(--tool-text);text-shadow:none;white-space:nowrap;overflow:hidden}
+.fld .ph{color:var(--tool-muted)}
+.fld svg{color:var(--tool-muted)}
+.fld.sel::after{content:'';margin-left:auto;flex:none;width:.45rem;height:.45rem;border-right:1.5px solid var(--tool-muted);border-bottom:1.5px solid var(--tool-muted);transform:translateY(-25%) rotate(45deg)}
+.fld.h{border-color:var(--tool-muted)}
+.fld.f{outline:2px solid var(--tool-accent);outline-offset:-1px}
+.fld.x{color:var(--tool-muted);opacity:.6}
+.fld.deckf{outline:1px solid var(--tool-accent);outline-offset:-1px}
+/* Menu, MenuItem, MenuHead */
+.km{display:inline-flex;flex-direction:column;width:13rem;padding:calc(var(--editor-pad)/2);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none}
+.km hr{width:100%;margin:calc(var(--editor-pad)/2) 0;border:0;border-top:1px solid var(--tool-line)}
+.kmh{display:flex;align-items:center;min-height:var(--control-height);padding:0 var(--editor-pad);color:var(--tool-muted);font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.kmi{display:flex;align-items:center;gap:var(--kit-icon-gap);min-height:var(--control-height);padding:0 var(--editor-pad);border-radius:var(--editor-radius);white-space:nowrap}
+.kmi .w{flex:1}
+.kmi kbd{color:var(--tool-muted);font:inherit;font-size:var(--editor-small)}
+.kmi.h{background:var(--tool-hover)}
+.kmi.x{color:var(--tool-muted)}
+.kmi.f{outline:2px solid var(--tool-accent);outline-offset:-2px}
+.tick{flex:none;width:.42rem;height:.42rem;margin:0 calc(var(--editor-pad)*.5);border-radius:50%}
+.tick.lit{background:var(--tool-accent)}
+/* ListRow */
+.lr{display:flex;align-items:center;gap:var(--kit-icon-gap);width:10.6rem;min-height:var(--control-height);padding:0 calc(var(--editor-pad)/2);border-radius:var(--editor-radius);color:var(--tool-text)}
+.lr>svg{color:var(--tool-muted)}
+.lr .m{margin-left:auto;color:var(--tool-muted);font-size:var(--editor-small)}
+.lr.dense{min-height:var(--editor-tree-row)}
+.lr.h{background:var(--tool-hover)}
+.lr.sel{background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none}
+.lr.sel>svg,.lr.sel .m{color:var(--tool-pressed-text)}
+.lr.f{outline:2px solid var(--tool-accent);outline-offset:-2px}
+.lr.x{color:var(--tool-muted)}
+/* the creator's selected row in the live list (tools.css .sc-selected in [data-live]): the selected ground + the accent frame */
+.lr.live{background:var(--tool-selected);color:var(--tool-text);box-shadow:inset 0 0 0 1px var(--tool-accent)}
+/* deck tree (controls.rs tree): every other row on surface_head, hover square, selected the pressed fill */
+.lr.zebra{background:var(--editor-surface-head)}
+.lr.sq{border-radius:0}
+/* Tile (tile.svelte = deck fold.rs tile) */
+.tl{display:inline-flex;flex-direction:column;gap:calc(var(--editor-pad)/2);width:6.4rem;padding:var(--editor-pad);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-tile);color:var(--tool-text)}
+.tl .pic{color:var(--tool-muted)} .tl .pic svg{width:1.3rem;height:1.3rem;stroke-width:1.5}
+.tl .q{color:var(--tool-muted);font-size:var(--editor-small)}
+.tl.h{background:var(--tool-hover)}
+.tl.on{border-color:var(--tool-accent);background:color-mix(in srgb,var(--tool-accent) 14%,transparent)} .tl.on .pic{color:var(--tool-accent)}
+.tl.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+/* workspace card today (shell/workspace-card.svelte) */
+.wc{position:relative;display:inline-flex;flex-direction:column;width:10.6rem;height:9rem;border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-panel);color:var(--tool-text);text-shadow:var(--tool-halo);padding:0 var(--editor-pad) var(--editor-pad);overflow:hidden}
+.wc .tag{position:absolute;top:calc(var(--editor-pad)/2);left:var(--editor-pad);color:var(--tool-muted);font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.wc .pic{display:flex;align-items:center;justify-content:center;height:5.5rem;color:var(--tool-muted)} .wc .pic svg{width:1.6rem;height:1.6rem}
+.wc.front .pic{color:var(--tool-accent)}
+.wc .q{color:var(--tool-muted);font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.wc .cx{position:absolute;top:.2rem;right:.2rem;--kit-h:1.7rem}
+.wc.h{background:var(--tool-hover)}
+.wc.f{outline:2px solid var(--tool-accent);outline-offset:1px}
+/* the decided card (owner 2026-11-24, as lap2 draft.html .dcard.shot): its last capture full-bleed, the words over it */
+.wc.shot{padding:0;background-size:cover;background-position:top left}
+.wc.shot .over{position:absolute;left:.6rem;bottom:.55rem;right:.6rem;text-shadow:0 0 2px var(--tool-ground),0 0 3px var(--tool-ground),0 0 6px var(--tool-ground)}
+.wc.shot .nm{font-size:var(--editor-title)}
+.wc.shot .tag{color:var(--tool-text);text-shadow:0 0 2px var(--tool-ground),0 0 3px var(--tool-ground)}
+.wc.shot.h::after{content:'';position:absolute;inset:0;background:color-mix(in srgb,var(--tool-hover) 35%,transparent)}
+/* Thumb (library/asset-tile.svelte) */
+.th{display:inline-flex;flex-direction:column;width:6rem;font-size:var(--editor-small)}
+.th .pv{aspect-ratio:1;display:grid;place-items:center;border:var(--editor-edge) solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-ground);color:var(--tool-muted);background-size:cover;background-position:center}
+.th .nm{padding:.2rem .1rem 0}
+.th .mt{padding:0 .1rem;color:var(--tool-muted);font-size:var(--editor-label)}
+.th .mt.fresh{color:var(--tool-accent)}
+.th.sel .pv,.th.f .pv{outline:.125rem solid var(--tool-accent);outline-offset:.0625rem}
+/* FloatingPanel head (floating-panel.svelte) */
+.fp{display:inline-flex;flex-direction:column;width:10.8rem;border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-panel);color:var(--tool-text);text-shadow:var(--tool-halo);overflow:hidden}
+.fp .hd{display:flex;align-items:center;gap:.125rem;padding:.1875rem .1875rem .1875rem 0;--kit-r:calc(var(--kit-radius-box) - .1875rem)}
+.fp .grip{width:.375rem;height:.875rem;margin:0 .3rem 0 .35rem;background:radial-gradient(circle,var(--tool-muted) 1px,transparent 1.5px) 0 0/.1875rem .21875rem;opacity:.7}
+.fp .tab{display:inline-flex;align-items:center;height:calc(var(--control-height) - .25rem);padding:0 var(--editor-pad);border-radius:var(--kit-r);color:var(--tool-muted);font-size:var(--editor-small);white-space:nowrap}
+.fp.web .tab.on{box-shadow:inset 0 0 0 1px var(--tool-text);color:var(--tool-text)}
+.fp.rule .tab.on{color:var(--tool-text)}
+.fp.rule .tab.h{box-shadow:inset 0 0 0 1px var(--tool-line)}
+.fp.web .tab.h{background:var(--tool-hover);color:var(--tool-text)}
+.fp.web .tab.dr{opacity:.4}
+.fp .sp{flex:1}
+.fp .ic{display:inline-grid;place-items:center;width:var(--control-height);height:calc(var(--control-height) - .25rem);border-radius:var(--kit-r);color:var(--tool-muted)} .fp .ic svg{width:.9rem;height:.9rem}
+.fp .bd{padding:.2rem var(--editor-pad) var(--editor-pad);font-size:var(--editor-small);color:var(--tool-muted)}
+.fp.deck .nm{margin-left:.35rem;font-size:var(--editor-font)}
+/* Section (section.svelte) */
+.sec{width:19rem;border-top:var(--editor-edge) solid var(--tool-line)}
+.sec .sh{display:flex;align-items:center;gap:.375rem;height:var(--control-height);padding:0 var(--editor-pad) 0 calc(var(--editor-pad) - .25rem);color:var(--tool-muted)}
+.sec .sh svg{width:.875rem;height:.875rem;stroke-width:2}
+.sec .nm{font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.sec .sum{font-size:var(--editor-small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sec.h .sh{color:var(--tool-text)}
+.sec.f .sh{outline:2px solid var(--tool-accent);outline-offset:-2px;border-radius:var(--editor-radius)}
+.sec .rows{padding:0 var(--editor-pad) .5rem;font-size:var(--editor-small);color:var(--tool-muted)}
+/* deck fold head (fold.rs head): the accent icon, the name in the text colour, the summary, the chevron accent when open, open on surface_head */
+.dsec{width:19rem}
+.dsec .sh{display:flex;align-items:center;gap:var(--editor-pad);height:2.6rem;padding:0 var(--editor-pad);border-bottom:1px solid var(--tool-line)}
+.dsec.open .sh{background:var(--editor-surface-head)}
+.dsec .sh>svg:first-child{color:var(--tool-accent)}
+.dsec .nm{width:5.4rem;font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.dsec .sum{flex:1;color:var(--tool-muted);font-size:var(--editor-small)}
+.dsec .ch{width:.86rem;height:.86rem;color:var(--tool-muted)} .dsec.open .ch{color:var(--tool-accent)}
+/* status bar (shell/status-bar.svelte) */
+.stb{width:21rem;justify-content:flex-start;gap:var(--kit-seam)}
+.stb .msg{display:flex;flex:1;align-items:center;gap:calc(var(--editor-pad)*.8);height:var(--kit-h);padding:0 calc(var(--editor-pad)*1.5);border-radius:var(--kit-r);min-width:0}
+.stb .msg.h{background:var(--tool-hover)}
+.stb .age{color:var(--tool-muted)}
+.dot{display:inline-block;flex:none;width:.5rem;height:.5rem;border-radius:50%;background:var(--tool-muted)}
+.dot.none{background:transparent;box-shadow:inset 0 0 0 1px var(--tool-line)}
+.dot.ok{background:var(--tool-go)} .dot.info{background:var(--tool-accent)} .dot.warn{background:var(--tool-warn)} .dot.error{background:var(--tool-stop)} .dot.danger{background:var(--tool-danger)}
+.stb .cnt{display:flex;gap:.7rem;padding:0 calc(var(--editor-pad)*1.5)}
+.bad{color:var(--tool-stop)} .wn{color:var(--tool-warn)}
+/* drop zone (stage-zones.svelte) */
+.drop{display:grid;place-items:center;width:9rem;height:3.2rem;border:var(--editor-edge) dashed var(--tool-accent);border-radius:var(--kit-radius-box);background:color-mix(in srgb,var(--tool-accent) 6%,transparent);color:var(--tool-muted);font-size:var(--editor-small)}
+
+/* ───────────────── part 1: swatches and the inventory */
+.tokgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 2.4rem}
+.tok{display:grid;grid-template-columns:7.4rem 9.4rem 9.4rem 1fr;align-items:center;gap:.6rem;min-height:2.3rem;border-bottom:1px solid var(--tool-line);font-size:var(--editor-small)}
+.tok.hd{min-height:1.8rem}
+.sw{display:flex;align-items:center;gap:.45rem}
+.chipsw{flex:none;width:1.5rem;height:1.5rem;border-radius:50%;box-shadow:0 0 0 1px var(--editor-line)}
+.sw .hex{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;white-space:nowrap}
+.sw[data-theme] {background:var(--editor-surface);color:var(--editor-text);padding:.15rem .35rem;border-radius:.3rem}
+.sig{font-weight:700}
+.inv{display:grid;grid-template-columns:9.5rem 13rem 1fr 22rem;gap:0 1.2rem}
+.inv>div{padding:.65rem 0;border-bottom:1px solid var(--tool-line);min-width:0}
+.inv .ihd{padding:.35rem 0}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:.2rem;text-align:center}
+.nums b{display:block;font-size:1.3rem;font-weight:400;line-height:1.2}
+.nums span{font-size:var(--editor-label);color:var(--tool-muted);letter-spacing:.05em}
+.roles{display:flex;flex-wrap:wrap;gap:.3rem .35rem;align-content:flex-start;font-size:var(--editor-small)}
+.role{display:inline-flex;align-items:center;gap:.3rem;padding:.1rem .45rem;border:1px solid var(--tool-line);border-radius:1rem;white-space:nowrap}
+.role b{font-weight:400;color:var(--tool-muted)}
+.role.dk{border-style:dashed}
+.ex{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin:0 0 1rem}
+.sumbox{padding:.6rem .75rem;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);font-size:var(--editor-small)}
+.sumbox .label{display:block;margin-bottom:.35rem}
+.sumbox .row{display:flex;align-items:center;gap:.45rem;margin:.2rem 0}
+
+/* ───────────────── part 2: the palette options, one specimen each */
+.opts{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.opt{display:flex;flex-direction:column;gap:.7rem;padding:.8rem;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box)}
+.opt .ttl{display:flex;align-items:baseline;gap:.5rem}
+.opt .ttl b{font-size:var(--editor-title);font-weight:400}
+.opt .what{font-size:var(--editor-small);color:var(--tool-muted);min-height:3.4em}
+.opt .srow{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.opt .srow .label{width:4.6rem;flex:none}
+.opt .cr{font-size:var(--editor-label);color:var(--tool-muted)}
+/* the signal roles, set per option */
+.spec .kc.on{border-color:var(--s-on);background:color-mix(in srgb,var(--s-on) 14%,transparent);color:var(--s-on)}
+.spec .tg.on{background:var(--s-toggle)} .spec .tg.on::before{background:var(--s-knob)}
+.spec .kb.primary{border-color:var(--s-pline);background:var(--s-primary);color:var(--s-pink)}
+.spec .fld.f{outline-color:var(--s-on)}
+.spec .lr.live{box-shadow:inset 0 0 0 1px var(--s-on)}
+.spec .drop{border-color:var(--s-on);background:color-mix(in srgb,var(--s-on) 6%,transparent)}
+.spec .lnk{color:var(--s-on)}
+.spec .tick.lit{background:var(--s-on)}
+.spec.A{--s-on:var(--tool-accent);--s-toggle:var(--tool-go);--s-knob:var(--tool-bright);--s-primary:var(--tool-primary);--s-pline:var(--tool-primary-line);--s-pink:var(--tool-primary-ink)}
+.spec.B{--s-on:var(--tool-primary);--s-toggle:var(--tool-primary);--s-knob:var(--tool-primary-ink);--s-primary:var(--tool-primary);--s-pline:var(--tool-primary-line);--s-pink:var(--tool-primary-ink)}
+.spec.C{--s-on:var(--tool-accent);--s-toggle:var(--tool-accent);--s-knob:var(--tool-bright);--s-primary:var(--tool-primary);--s-pline:var(--tool-primary-line);--s-pink:var(--tool-primary-ink)}
+.spec.D{--s-on:var(--tool-text);--s-toggle:var(--tool-pressed);--s-knob:var(--tool-pressed-text);--s-primary:var(--tool-pressed);--s-pline:var(--tool-pressed);--s-pink:var(--tool-pressed-text)}
+
+/* ───────────────── part 3: the component grid */
+.cg{display:grid;grid-template-columns:9rem 4.6rem repeat(6,minmax(0,1fr));gap:0 .6rem;align-items:center}
+.cg>div{min-width:0;padding:.55rem 0;border-bottom:1px solid var(--tool-line)}
+.cg .cn{align-self:stretch;padding-top:.7rem}
+.cg .cn b{display:block;font-weight:400}
+.cg .cn .muted{font-size:var(--editor-label);letter-spacing:.04em}
+.cg .vt{font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase;color:var(--tool-muted)}
+.cg .vt .ne,.cg .vt .same{margin-top:.25rem}
+.cg .st{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem}
+.cg .na{color:var(--tool-line)}
+.cg .note{grid-column:3 / -1;padding:.1rem 0 .55rem;font-size:var(--editor-small);color:var(--tool-muted)}
+.cg .ghd{position:sticky;top:0;background:var(--tool-ground);z-index:2}
+.cg .grp{border-bottom:0}
+.cg .wide{grid-column:3 / -1}
+.cg .wide2{grid-column:3 / span 3}
+.cg .wide3{grid-column:6 / -1}
+
+/* ───────────────── part 4 */
+.rules{display:grid;grid-template-columns:3rem 1fr 18rem;gap:0 1rem;font-size:var(--editor-small)}
+.rules>div{padding:.5rem 0;border-bottom:1px solid var(--tool-line)}
+.rules .k{color:var(--tool-text);font-size:1rem}
+</style>
+</head>
+<body>
+<div class="page" id="page">
+  <div class="top">
+    <h1>UI kit · lap 2</h1>
+    <span class="label">review sheet · shows today · decides nothing</span>
+    <span class="sp"></span>
+    <span class="kp" id="themes"></span>
+  </div>
+
+  <section class="part" id="p1">
+    <div class="head"><h2>1 · Colours today</h2><span class="label">deck/kit/src/base/tokens.rs → shared/tokens/editor.css</span></div>
+    <div class="tokgrid" id="tokens"></div>
+    <div class="head" style="margin-top:1.6rem"><h2>Where the signal colours are used</h2><span class="label">lines that paint them · web kit = shared/ui/src/editor + tools.css · creator = creator/src · deck = deck/kit + deck/editor</span></div>
+    <div class="summary" id="sumboxes"></div>
+    <div class="inv" id="inv"></div>
+  </section>
+
+  <section class="part" id="p2">
+    <div class="head"><h2>2 · Palette choices</h2><span class="label">the same specimen, once per option</span></div>
+    <div class="opts" id="opts"></div>
+  </section>
+
+  <section class="part" id="p3">
+    <div class="head"><h2>3 · Components</h2><span class="label">every state · <span class="ne">≠</span> web and deck differ today · rule = RULES as of 2026-11-24</span></div>
+    <div class="cg" id="cg"></div>
+  </section>
+
+  <section class="part" id="p4">
+    <div class="head"><h2>4 · Rules that bind the look</h2><span class="label">agents/RULES.md section H</span></div>
+    <div class="rules" id="rules"></div>
+  </section>
+</div>
+
+<script>
+const Q = new URLSearchParams(location.search);
+const DAY = Q.get('theme') === 'day';
+if (DAY) document.documentElement.dataset.theme = 'day';
+
+/* ── icons (lucide shapes, as the kit's Icon; the set of lap2/draft.html) ── */
+const I = {
+  menu:'<path d="M3 12h18M3 6h18M3 18h18"/>', home:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>', plus:'<path d="M12 5v14M5 12h14"/>', d:'<path d="M6 9l6 6 6-6"/>', r:'<path d="M9 18l6-6-6-6"/>', up:'<path d="M18 15l-6-6-6 6"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>', play:'<path d="M5 3l14 9-14 9z"/>', stop:'<rect x="5" y="5" width="14" height="14" rx="1"/>',
+  smile:'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/>', image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+  layers:'<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>', eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  pointer:'<path d="M3 3l7.1 17 2.5-7.4L20 10.1z"/>', undo:'<path d="M1 4v6h6"/><path d="M3.5 15a9 9 0 102.1-9.4L1 10"/>', redo:'<path d="M23 4v6h-6"/><path d="M20.5 15a9 9 0 11-2.1-9.4L23 10"/>',
+  map:'<path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/>', music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  folder:'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>', grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>', file:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>'
+};
+const ic = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24">${I[n] || ''}</svg>`;
+/* a crop of today's deck screenshots (now/, 1600×900, night) */
+const crop = (file, x, y, w, h, s = 1) => `<span class="crop" title="deck screenshot, night: ${file}" style="width:${w * s}px;height:${h * s}px;background-image:url(now/${file});background-position:-${x * s}px -${y * s}px;background-size:${1600 * s}px auto"></span>`;
+const NE = '<span class="ne">≠</span>', SAME = '<span class="same">same</span>';
+
+/* theme switch */
+document.getElementById('themes').innerHTML = `<a class="kt rule ${DAY ? '' : 'on'}" href="?">night</a><a class="kt rule ${DAY ? 'on' : ''}" href="?theme=day">day</a>`;
+document.querySelectorAll('#themes a').forEach(a => a.style.textDecoration = 'none');
+
+/* ══ 1 · the tokens: name, used for (tokens.rs / tool-colours.css comments); the values are read from editor.css ══ */
+const SIGNAL = new Set(['accent', 'primary', 'primary-line', 'go', 'warn', 'stop', 'danger', 'selection']);
+const TOKENS = [
+  ['stage', 'behind the stage (the deck, both looks)'],
+  ['surface', 'panels, menus, popovers'],
+  ['surface-head', 'a fold row, a tile, a menu (deck)'],
+  ['panel-ground', 'a floating panel: surface, see-through'],
+  ['line', '1px frames and dividers'],
+  ['text', 'words and icons'],
+  ['muted', 'secondary words, quiet icons'],
+  ['bright', 'light ink on a coloured ground'],
+  ['control', 'a field or framed control'],
+  ['hover', 'under the pointer'],
+  ['pressed', 'a pressed segment, tab, toggle'],
+  ['pressed-text', 'the ink on it'],
+  ['selected', 'a selected row or item'],
+  ['within', 'a track, a range, unfilled'],
+  ['accent', 'live, focus, a link, a mark'],
+  ['selection', 'selected text, a marquee'],
+  ['primary', 'the one primary action'],
+  ['primary-line', 'its edge'],
+  ['primary-ink', 'its words'],
+  ['go', 'ok, play, a switch on'],
+  ['warn', 'a warning'],
+  ['stop', 'stop, an error mark'],
+  ['danger', 'error, destroy, panic'],
+];
+const val = (el, name) => getComputedStyle(el).getPropertyValue(name).trim();
+const probe = th => { const e = document.createElement('span'); e.dataset.theme = th; document.body.appendChild(e); return e; };
+const PN = probe('night'), PD = probe('day');
+const sw = (th, v) => `<span class="sw" data-theme="${th}"><span class="chipsw" style="background:${v}"></span><span class="hex">${v.replace(/^rgb\((.*)\)$/, '$1')}</span></span>`;
+const tokRow = ([n, use]) => `<div class="tok"><span class="${SIGNAL.has(n) ? 'sig' : ''}">${n}</span>${sw('night', val(PN, '--editor-' + n))}${sw('day', val(PD, '--editor-' + n))}<span class="muted">${use}</span></div>`;
+const groundRow = `<div class="tok"><span>ground <span class="muted">(creator)</span></span>${sw('night', val(PN, '--tool-ground'))}${sw('day', val(PD, '--tool-ground'))}<span class="muted">the creator's stage: white by day</span></div>`;
+const head = `<div class="tok hd label"><span>token</span><span>night</span><span>day</span><span>used for</span></div>`;
+const half = Math.ceil((TOKENS.length + 1) / 2);
+document.getElementById('tokens').innerHTML =
+  `<div>${head}${TOKENS.slice(0, half).map(tokRow).join('')}</div><div>${head}${TOKENS.slice(half).map(tokRow).join('')}${groundRow}</div>`;
+
+/* ══ the inventory: counted with grep on 10d5d2de0 (lines that paint the colour; tests left out) ══ */
+const INV = [
+  { c: 'accent', name: 'accent', say: 'blue · cyan', n: [55, 50, 96],
+    web: [['focus ring', 34], ['on / picked', 13], ['selected row frame', 9], ['drop zone, insert mark', 14], ['link, new', 4], ['tick, info dot', 4], ['canvas marks', 23]],
+    deck: ['live, outs, cables (stage, panels)', 'picked tile', 'fold head icon', 'filter chip on (filled)', 'Log open', 'field focus', 'Help link'],
+    ex: () => `<span class="fld f" style="width:6rem"><span class="ph">Find</span></span><span class="kc on">On</span><span class="tl on" style="width:4.2rem;padding:.35rem"><span class="pic">${ic('image')}</span></span><span class="drop" style="width:5rem;height:2.2rem">Drop</span><span class="dot info"></span>${crop('deck-1-bar-stage.png', 370, 516, 212, 20, .8)}` },
+  { c: 'primary', name: 'primary', say: 'lime', n: [7, 12, 17],
+    web: [['primary button', 3], ['Library lime buttons', 2], ['lime frames', 2]],
+    deck: ['primary button', 'scene prompt', 'cards', 'band'],
+    ex: () => `<span class="kb primary">Publish</span><span style="display:inline-block;width:4.5rem;height:2rem;border:1px solid var(--tool-primary-line);border-radius:var(--editor-radius)" title="library-grid .group.pinned"></span>` },
+  { c: 'go', name: 'go', say: 'green', n: [2, 3, 18],
+    web: [['toggle on', 1], ['play', 1], ['ok dot', 2], ['meter ok', 1]],
+    deck: ['switch on', 'play', 'live, vote, cue', 'node drop ok', 'meters'],
+    ex: () => `<span class="tg on"></span><span class="kib go">${ic('play')}</span><span class="dot ok"></span>${crop('deck-3-stage-workspace.png', 1380, 600, 160, 245, .3)}` },
+  { c: 'warn', name: 'warn', say: 'amber', n: [5, 41, 44],
+    web: [['warning words, dots'], ['saving dot'], ['problem count']],
+    deck: ['warning dot', 'beat mark', 'tab mark'],
+    ex: () => `<span class="dot warn"></span><span class="wn small">2 warnings</span>` },
+  { c: 'stop', name: 'stop', say: 'red', n: [6, 61, 4],
+    web: [['error words, dots'], ['invalid field'], ['error bar']],
+    deck: ['stop button'],
+    ex: () => `<span class="dot error"></span><span class="bad small">1 error</span><span class="kib stop">${ic('stop')}</span>` },
+  { c: 'danger', name: 'danger', say: 'dark red', n: [1, 4, 22],
+    web: [['delete words, icon', 5]],
+    deck: ['PANIC', 'toggle on (filled)', 'error dot in the status', 'meter peak', 'wire error'],
+    ex: () => `<span class="kib danger">${ic('x')}</span><span class="dtg on">M</span>${crop('deck-1-bar-stage.png', 890, 7, 88, 38, .8)}` },
+  { c: 'selection', name: 'selection', say: 'blue, see-through', n: [0, 0, 10],
+    web: [['not used', 0]],
+    deck: ['stage marquee', 'node pick', 'slots, routing'],
+    ex: () => `<span style="display:inline-block;width:5rem;height:1.6rem;background:var(--tool-selection);border-radius:2px"></span>` },
+];
+const invHead = `<div class="ihd label">colour</div><div class="ihd"><div class="nums label"><span>web kit</span><span>creator</span><span>deck</span></div></div><div class="ihd label">where today · <span style="text-transform:none">solid = web · dashed = deck</span></div><div class="ihd label">real example</div>`;
+const invRows = INV.map(r => `
+  <div><div class="sw"><span class="chipsw" style="background:var(--tool-${r.c})"></span><span><b style="font-weight:400">${r.name}</b><br><span class="muted small">${r.say}</span></span></div></div>
+  <div><div class="nums"><span><b>${r.n[0]}</b></span><span><b>${r.n[1]}</b></span><span><b>${r.n[2]}</b></span></div></div>
+  <div class="roles">${r.web.map(([w, k]) => `<span class="role">${w}${k ? ` <b>${k}</b>` : ''}</span>`).join('')}${r.deck.map(w => `<span class="role dk">${w}</span>`).join('')}</div>
+  <div class="ex">${r.ex()}</div>`).join('');
+/* outside the scheme: the creator's status badges still paint the reader's badge colours (shared/tokens/tokens.css, literal) */
+const BADGE = { published: ['#00d1ff', '#000000'], draft: ['var(--tool-selected)', 'var(--tool-text)'], soon: ['#b300ff', '#ffffff'], error: ['#ff1900', '#000000'], warning: ['#ff6600', '#000000'], info: ['#0066cc', '#ffffff'] };
+const bdg = (k, w) => `<span class="bdg" style="background:${BADGE[k][0]};color:${BADGE[k][1]}">${w}</span>`;
+const outside = `
+  <div><div class="sw"><span class="chipsw" style="background:#00d1ff"></span><span>badge fills<br><span class="muted small">outside the scheme</span></span></div></div>
+  <div><div class="nums"><span><b>0</b></span><span><b>13</b></span><span><b>0</b></span></div></div>
+  <div class="roles"><span class="role">Published <b>4</b></span><span class="role">error <b>3</b></span><span class="role">warning <b>2</b></span><span class="role">Published or warning <b>1</b></span><span class="role">soon <b>1</b></span><span class="role">info <b>1</b></span><span class="role">Draft <b>1</b></span><span class="role" style="border-color:transparent;color:var(--tool-muted)">solid fills, square corner, the same hex by day</span></div>
+  <div class="ex">${bdg('published', 'Published')}${bdg('draft', 'Draft')}${bdg('soon', 'Draft')}${bdg('error', 'Missing')}${bdg('warning', 'neutral')}</div>`;
+document.getElementById('inv').innerHTML = invHead + invRows + outside;
+
+/* the four ways "on" is drawn today, and blue vs green */
+document.getElementById('sumboxes').innerHTML = `
+  <div class="sumbox"><span class="label">on · in blue</span><div class="row"><span class="kc on">Chip</span><span class="tl on" style="width:3.2rem;padding:.3rem"><span class="pic">${ic('image')}</span></span><span class="tick lit"></span><span class="dchip on">deck chip</span></div></div>
+  <div class="sumbox"><span class="label">on · in green</span><div class="row"><span class="tg on"></span><span class="muted">Toggle (web = deck)</span></div></div>
+  <div class="sumbox"><span class="label">on · in ink</span><div class="row"><span class="cb on"></span><span class="kt deck on" style="height:1.6rem">Tab</span><span class="lr sel dense" style="width:5rem">Row</span></div></div>
+  <div class="sumbox"><span class="label">blue vs green · places</span><div class="row"><span class="dot info"></span>accent <b style="font-weight:400">201</b><span class="dot ok" style="margin-left:.6rem"></span>go <b style="font-weight:400">23</b><span class="chipsw" style="width:.5rem;height:.5rem;background:var(--tool-primary);margin-left:.6rem"></span>lime <b style="font-weight:400">36</b></div></div>`;
+
+/* ══ 2 · the palette options ══ */
+const OPTS = [
+  ['A', 'Today', 'Tokens unchanged: blue = focus, on, links, drops · green = toggle on, ok · lime = the primary action.'],
+  ['B', 'Lime only', 'Lime does all the blue does today (focus, on, links, drops) and the toggle on. Blue gone.'],
+  ['C', 'Blue only', 'Blue does all, the toggle on too. Lime stays on the one primary action alone.'],
+  ['D', 'No signal hue', 'On, focus, active = the text colour (white / ink); the primary action = the pressed fill. Colour only for ok · warning · error.'],
+];
+const spec = k => `
+  <div class="spec ${k}" style="display:flex;flex-direction:column;gap:.55rem">
+    <div class="srow"><span class="label">bar</span><span class="kp"><span class="kib">${ic('menu')}</span><span class="kt rule on">Characters</span><span class="kt rule">Map</span><span class="kt rule">Flow</span></span></div>
+    <div class="srow"><span class="label">action</span><span class="kb primary">Publish</span><span class="kb framed">Cancel</span></div>
+    <div class="srow"><span class="label">badge</span><span class="kc on">Published</span><span class="kc">Draft</span></div>
+    <div class="srow"><span class="label">toggle</span><span class="tg on"></span><span class="tg"></span></div>
+    <div class="srow"><span class="label">field</span><span class="fld f" style="width:9rem"><span class="ph">Find</span></span></div>
+    <div class="srow"><span class="label">row</span><span class="lr live" style="width:11rem">${ic('smile')}crow-fox<span class="m">toon</span></span></div>
+    <div class="srow"><span class="label">menu</span><span class="kmi" style="padding:0"><span class="tick lit"></span>Night</span><span class="lnk small" style="text-decoration:underline">a link</span></div>
+    <div class="srow"><span class="label">drop</span><span class="drop" style="width:11rem;height:2.4rem">Drop here</span></div>
+    <div class="srow"><span class="label">status</span><span class="small" style="display:flex;gap:.7rem;align-items:center"><span><span class="dot ok"></span> ok</span><span><span class="dot warn"></span> 2</span><span><span class="dot error"></span> 1</span></span></div>
+    <div class="cr" data-cr="${k}"></div>
+  </div>`;
+document.getElementById('opts').innerHTML = OPTS.map(([k, t, w]) => `<div class="opt"><div class="ttl"><b>${k}</b><span>${t}</span></div><div class="what">${w}</div>${spec(k)}</div>`).join('');
+/* the contrast of each option's "on" colour against the ground (a measurement, WCAG) */
+const rgbOf = el => getComputedStyle(el).color.match(/[\d.]+/g).slice(0, 3).map(Number);
+const lum = ([r, g, b]) => { const f = c => (c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+document.querySelectorAll('[data-cr]').forEach(el => {
+  const s = el.closest('.spec'); const t = document.createElement('span'); s.appendChild(t);
+  t.style.color = 'var(--s-on)'; const on = rgbOf(t); t.style.color = 'var(--tool-ground)'; const gr = rgbOf(t); t.remove();
+  el.textContent = `on vs ground ${ratio(on, gr).toFixed(1)} : 1`;
+});
+
+/* ══ 3 · the components ══ */
+const S = ['rest', 'hover', 'pressed · on', 'focus', 'disabled', 'dragged'];
+const NA = '<span class="na">–</span>';
+const cell = h => `<div class="st">${h ?? NA}</div>`;
+/* one row: [variant tag, mark, [6 cells]] */
+const row = (tag, mark, cells, note) => `<div class="vt">${tag}${mark ? '<br>' + mark : ''}</div>${cells.map(cell).join('')}${note ? `<div></div><div></div><div class="note">${note}</div>` : ''}`;
+const comp = (name, sub, rows) => rows.map((r, i) => `<div class="cn">${i === 0 ? `<b>${name}</b><span class="muted">${sub}</span>` : ''}</div>${r}`).join('');
+
+const pillTb = (states = ['', '', '']) => `<span class="kp"><span class="kib ${states[0]}">${ic('pointer')}</span><span class="kib ${states[1]}">${ic('undo')}</span><span class="kib ${states[2]}">${ic('redo')}</span></span>`;
+const tab = (cls, w = 'crow-fox', close = true) => `<span class="kp" style="--pill:2.4rem"><span class="kt ${cls}">${ic('smile')}${w}${close ? `<span class="cl">${ic('x')}</span>` : ''}</span></span>`;
+const ibtn = (cls, n = 'eye') => `<span class="kib ${cls}">${ic(n)}</span>`;
+const btn = (v, cls, w) => `<span class="kb ${v} ${cls}">${w}</span>`;
+const chip = (cls, w = 'Voice') => `<span class="kc ${cls}">${w}</span>`;
+const fld = (cls, kind) => kind === 'search' ? `<span class="fld ${cls}">${ic('search')}<span class="ph">Find</span></span>` : kind === 'select' ? `<span class="fld sel ${cls}">Night</span>` : `<span class="fld ${cls}">crow-fox</span>`;
+const lrow = (cls, w = 'crow-fox', m = 'toon') => `<span class="lr ${cls}">${ic('smile')}<span>${w}</span><span class="m">${m}</span></span>`;
+const tile = cls => `<span class="tl ${cls}"><span class="pic">${ic('music')}</span><span>Voice</span><span class="q">2 nodes</span></span>`;
+const thumb = (cls, img) => `<span class="th ${cls}"><span class="pv" style="${img ? `background-image:url(now/${img})` : ''}">${img ? '' : ic('image')}</span><span class="nm">crow-fox</span><span class="mt ${cls.includes('fresh') ? 'fresh' : ''}">image · new</span></span>`;
+const wcard = (cls) => `<span class="wc ${cls}"><span class="tag">Workspace</span><span class="pic">${ic('smile')}</span><span>Characters</span><span class="q">crow-fox</span><span class="cx"><span class="kib muted" style="--kit-h:1.7rem">${ic('x')}</span></span></span>`;
+const wshot = (cls) => `<span class="wc shot ${cls}" style="background-image:url(now/ws-characters-${DAY ? 'day' : 'night'}.jpg)"><span class="tag">Workspace</span><span class="over"><span class="nm">Characters</span><br><span class="small">crow-fox</span></span></span>`;
+const fpanel = (kind, tabCls = ['on', '', '']) => kind === 'deck'
+  ? `<span class="fp deck"><span class="hd"><span class="grip"></span>${ic('grid')}<span class="nm">Library</span><span class="sp"></span><span class="ic">${ic('up')}</span><span class="ic">${ic('x')}</span></span><span class="bd">one name per panel</span></span>`
+  : `<span class="fp ${kind}"><span class="hd"><span class="grip"></span><span class="tab ${tabCls[0]}">Library</span><span class="tab ${tabCls[1]}">Log</span><span class="sp"></span><span class="ic">${ic('up')}</span><span class="ic">${ic('x')}</span></span><span class="bd">tabs in the head</span></span>`;
+const sec = (open, cls = '') => `<div class="sec ${cls}"><div class="sh">${ic(open ? 'd' : 'r')}<span class="nm">Voice</span>${open ? '' : '<span class="sum">· FM 1.5</span>'}</div>${open ? '<div class="rows">rows</div>' : ''}</div>`;
+const dsec = open => `<div class="dsec ${open ? 'open' : ''}"><div class="sh">${ic('music')}<span class="nm">Voice</span><span class="sum">FM 1.5</span><svg class="i ch" viewBox="0 0 24 24">${I[open ? 'd' : 'r']}</svg></div></div>`;
+const status = (cls = '') => `<span class="kp status stb"><span class="msg ${cls}"><span class="dot ok"></span><span>Saved</span><span class="age">now</span></span><span class="cnt"><span class="bad">1 error</span><span class="wn">2 warnings</span></span></span>`;
+const dstatus = `<span class="kp status stb" style="justify-content:space-between;padding:0 .8rem"><span style="display:flex;gap:.5rem;align-items:center"><span class="dot warn"></span>audio: not found<span class="age">now</span></span><span style="display:flex;gap:.5rem;align-items:center">0 <span class="dot danger"></span> 2 <span class="dot warn"></span><span style="color:var(--tool-accent)">${ic('file')}</span></span></span>`;
+
+const CG = [
+  `<div class="cn ghd"></div><div class="ghd"></div>${S.map(s => `<div class="ghd label">${s}</div>`).join('')}`,
+  comp('Pill', 'groups, toolbars', [
+    row('web', SAME, [pillTb(), pillTb(['h', '', '']), pillTb(['p', '', '']), pillTb(['f', '', '']), pillTb(['', 'x', 'x']), null]),
+    row('deck', '', [crop('deck-3-stage-workspace.png', 878, 58, 348, 38, .72), null, null, null, null, null], 'Bordered, fully round, the panel ground; what sits inside is round by the pill radius less the inset (H4, H12). The same in the deck.'),
+  ]),
+  comp('Tabs', 'PillTab, panel tabs', [
+    row('rule', 'H4', [tab('rule'), tab('rule h'), tab('rule on'), tab('rule on f'), tab('rule x'), tab('rule g')]),
+    row('web', NE, [tab('web'), tab('web h'), tab('web on'), tab('web on f'), tab('web x'), tab('web g')]),
+    row('deck', NE, [tab('deck'), tab('deck h'), tab('deck on') + crop('deck-3-stage-workspace.png', 103, 10, 112, 32, .8), null, null, null],
+      'Rule: no border at rest, the active one brighter, a rounded border on hover and while dragged (the border\'s colour is not set: drawn here in the line colour). Web today: the active one outlined. Deck today: the active one the pressed fill.'),
+  ]),
+  comp('IconButton', 'round alone', [
+    row('web', NE, [ibtn('') + ibtn('muted') + ibtn('go', 'play') + ibtn('stop', 'stop'), ibtn('h'), ibtn('p'), ibtn('f'), ibtn('x'), null]),
+    row('deck', NE, [ibtn('deck'), ibtn('deck h'), ibtn('deck p'), null, null, null], 'A lone icon: web round; the deck\'s lone icon_button has the control corner on hover (H4 calls it a slip). In a pill both are round (bar.rs inner_button).'),
+    row('bare', 'H4', [ibtn('muted', 'search'), ibtn('muted h', 'search'), null, null, null, null], 'A single icon without words may stand without a pill where room is tight.'),
+  ]),
+  comp('Button', 'primary, plain, quiet', [
+    row('primary', SAME, [btn('primary', '', 'Publish'), btn('primary', 'h', 'Publish'), btn('primary', 'p', 'Publish'), btn('primary', 'f', 'Publish'), btn('primary', 'x', 'Publish'), null]),
+    row('plain', '', [btn('framed', '', 'Cancel'), btn('framed', 'h', 'Cancel'), btn('framed', 'p', 'Cancel'), btn('framed', 'f', 'Cancel'), btn('framed', 'x', 'Cancel'), null]),
+    row('quiet', '', [btn('quiet', '', 'Open log'), btn('quiet', 'h', 'Open log'), btn('quiet', 'p', 'Open log'), btn('quiet', 'f', 'Open log'), btn('quiet', 'x', 'Open log'), null]),
+    row('deck', '', [crop('deck-1-bar-stage.png', 987, 106, 240, 32, .8), null, null, null, null, null], 'Plain = the kit\'s "framed". The deck\'s primary is the same lime; its plain buttons above.'),
+  ]),
+  comp('Chip', 'the badge (#841)', [
+    row('web', NE, [chip(''), chip('h'), chip('on'), chip('on f'), chip('x'), null]),
+    row('deck', NE, [`<span class="dchip">voice</span>`, null, `<span class="dchip on">voice</span>`, null, null, null]),
+    row('status', NE, [chip('', 'Draft'), null, chip('on', 'Published'), null, null, null]),
+    row('creator', NE, [bdg('draft', 'Draft'), null, bdg('published', 'Published'), null, null, null], 'Web (#841): round, small, on = line + words on a faint ground. Deck: the control corner, on = the accent filled. Status badge by H13 = the Chip (row 3); the creator\'s Badge today = solid reader fills, square corner (row 4).'),
+  ]),
+  comp('Toggle', 'switch', [
+    row('web', SAME, [`<span class="tg"></span>`, `<span class="tg h"></span>`, `<span class="tg on"></span>`, `<span class="tg on f"></span>`, `<span class="tg x"></span>`, null]),
+    row('check', NE, [`<span class="cb"></span>`, `<span class="cb h"></span>`, `<span class="cb on"></span>`, `<span class="cb f"></span>`, `<span class="cb x"></span>`, null]),
+    row('deck', NE, [crop('deck-3-stage-workspace.png', 228, 14, 46, 24, .9), null, `<span class="dtg">M</span> → <span class="dtg on">M</span>`, null, null, null], 'Web Toggle = deck switch: round, green on. The creator\'s checkboxes are a second switch: the control corner, on = ink. The deck\'s small toggle button: on = the danger fill.'),
+  ]),
+  comp('Field', 'field, search, select', [
+    row('field', NE, [fld(''), fld('h'), null, fld('f'), fld('x'), null]),
+    row('search', '', [fld('', 'search'), fld('h', 'search'), null, fld('f', 'search'), fld('x', 'search'), null]),
+    row('select', '', [fld('', 'select'), fld('h', 'select'), null, fld('f', 'select'), fld('x', 'select'), null]),
+    row('deck', NE, [crop('deck-3-stage-workspace.png', 20, 393, 390, 23, .55), null, null, fld('deckf', 'search'), null, null], 'Web focus: a 2px accent ring. Deck focus: a 1px accent line (library.rs); its search field has no frame, the hover ground.'),
+  ]),
+  comp('Menu', 'MenuItem, the tick', [
+    row('web', SAME, [`<span class="km"><span class="kmh">Theme</span><span class="kmi"><span class="tick lit"></span><span class="w">Night</span></span><span class="kmi h"><span class="tick"></span><span class="w">Day</span></span><hr><span class="kmi"><span class="w">Open</span><kbd>Ctrl O</kbd></span><span class="kmi f"><span class="w">Settings</span></span><span class="kmi x"><span class="w">Quit</span></span></span>`, '<span class="muted small">Day</span>', '<span class="muted small">Night: ticked</span>', '<span class="muted small">Settings</span>', '<span class="muted small">Quit</span>', null]),
+    row('deck', '', [crop('deck-2-menu.png', 16, 44, 242, 298, .5), null, null, null, null, null], 'The same tick (the accent dot) and corners in both. The deck\'s menu rows are the hover ground only.'),
+  ]),
+  comp('ListRow', 'list, tree row', [
+    row('web', NE, [lrow(''), lrow('h'), lrow('sel'), lrow('f'), lrow('x'), null]),
+    row('live', NE, [null, null, lrow('live'), null, null, null]),
+    row('deck', NE, [`<span style="display:flex;flex-direction:column">${lrow('dense sq', 'voice', 'VOICE')}${lrow('dense sq zebra', 'drone', 'DRONE')}</span>`, lrow('dense sq h', 'voice', 'VOICE'), lrow('dense sel', 'rig', '') + crop('deck-3-stage-workspace.png', 20, 86, 285, 80, .55), null, null, null],
+      'Three selected rows today: the kit\'s ListRow = the pressed fill; the creator\'s live list = the selected ground + an accent frame; the deck tree = the pressed fill, every other row striped, hover square.'),
+  ]),
+  comp('Tile', 'fold tile', [
+    row('web', SAME, [tile(''), tile('h'), tile('on'), tile('f'), null, null], 'Web Tile = deck fold.rs tile: on = the accent line and picture on a faint accent ground.'),
+  ]),
+  comp('Workspace card', 'dashboard', [
+    row('today', '', [wcard(''), wcard('h'), wcard('front'), wcard('f'), null, null]),
+    row('decided', '11-24', [wshot(''), wshot('h'), null, wshot('f'), null, null], 'Today: a panel card with an icon (the front one\'s icon in the accent). Decided 2026-11-24: its last capture full-bleed, the words over it.'),
+  ]),
+  comp('Thumb', 'library tile', [
+    row('web', '', [thumb('', `ws-characters-${DAY ? 'day' : 'night'}.jpg`), thumb('fresh'), thumb('sel', `ws-characters-${DAY ? 'day' : 'night'}.jpg`), thumb('f'), null, null]),
+    row('deck', NE, [crop('deck-3-stage-workspace.png', 22, 450, 270, 124, .55), null, null, null, null, null], 'Web: selected = a 2px accent ring, "new" in the accent. Deck: the tile on the head ground, selected = the selected ground.'),
+  ]),
+  comp('Floating panel', 'head', [
+    row('rule', 'H4', [fpanel('rule'), fpanel('rule', ['on', 'h', '']), null, null, null, fpanel('rule', ['', 'h', ''])]),
+    row('web', NE, [fpanel('web'), fpanel('web', ['on', 'h', '']), null, null, null, fpanel('web', ['on', 'dr', ''])]),
+    row('deck', NE, [fpanel('deck'), null, null, null, null, null], 'Web: grip, tabs, fold, close. Deck: grip, icon and one name, fold, close (floats.rs) – no tabs in the head.'),
+    row('', '', [crop('deck-3-stage-workspace.png', 14, 60, 297, 26, .8), crop('deck-3-stage-workspace.png', 752, 816, 136, 36, .8), null, null, null, null]),
+  ]),
+  comp('Section fold', 'section head', [
+    row('web', NE, [sec(false), sec(false, 'h'), sec(true), sec(false, 'f'), null, null]),
+    row('deck', NE, [dsec(false), null, dsec(true), null, null, null], 'Web: chevron, the name muted and small, the summary when shut. Deck: an accent icon, the chevron accent when open, the open head on the head ground.'),
+  ]),
+  comp('Status bar', 'the bottom pill', [
+    row('web', NE, [status(), null, null, null, null, null]),
+    row('hover', '', [status('h'), null, null, null, null, null]),
+    row('deck', NE, [dstatus, null, null, crop('deck-3-stage-workspace.png', 1440, 866, 152, 26, .9), null, null], 'Web: dots ok (green) · info (blue) · warn · error (stop red). Deck: warn and error (danger red) only; the Log icon blue while open.'),
+  ]),
+];
+const cgEl = document.getElementById('cg');
+cgEl.innerHTML = CG.join('');
+/* the cells span: the first row of each component is the header; long cells (menu, workspace, panels) need no span */
+
+/* ══ 4 · the rules (agents/RULES.md H, as of 2026-11-24) ══ */
+const RULES = [
+  ['H4', 'A lone icon button is round; a group of icons and every toolbar stay in their pill; tabs and panel titles: no border at rest, active brighter, a rounded border on hover and while dragged.', 'IconButton, Pill, Tabs, Floating panel'],
+  ['H10', 'No thick side bars for a state; a state is the outline, the text colour, an icon or a chip.', 'ListRow, Field, Chip'],
+  ['H11', "Colours only from the deck editor's tokens; two grounds (the stage, the see-through panel); no grey sheets.", 'all · part 1'],
+  ['H12', "One kit, the deck editor its source of truth; concentric corners in a pill; no page draws its own button.", 'all · the ≠ marks'],
+  ['H13', 'Design pictures use the kit; badges are the Chip: small, round, line and words on a faint ground, never a solid fill.', 'Chip, status badge'],
+  ['H14', 'No info in the UI unless asked: meaning is the hover text, shown in the Info view.', 'Fields (short placeholders), panels'],
+];
+document.getElementById('rules').innerHTML = RULES.map(([k, t, on]) => `<div class="k">${k}</div><div>${t}</div><div class="muted">${on}</div>`).join('');
+</script>
+</body>
+</html>
