@@ -33,6 +33,7 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
 - **Sending out (H18):** Publish as a dialog on the overlay level (A10); Flash in the deck the same dialog, opened from the bar beside Publish, its button leaves the Show's Inspector (D3, D3b).
 - **Flash's dot** (deck): lit when at least one device of the tree is not on the show's current version – the deck already knows that per device. A device that is offline counts as unknown, not as behind, and is listed under its own word. Updates of the deck's software are another path and do not light it.
+- **Load becomes a notice (H19, deck):** the Load button leaves the Show's Inspector; when the server has a newer draft of the open show, the deck says so and offers Reload. Unsent changes still go up first; offline it still opens the cached copy and says why. **The notice ahead of a save is new in both apps** (deck: a correction – the creator, too, learns of a newer version only when its own save is refused; it then offers reload or overwrite). So the creator gets the same notice. How each app learns it (deck): it asks the server for the open item's newest version when the window gets the focus and every 30 seconds, with the cheap "only if changed" request the deck already uses for assets; an unchanged answer costs nothing. Not over the relay – the creator's saves do not pass through it. The refused save stays as the backstop on both sides.
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
 - **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
@@ -110,12 +111,13 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 - **Types** (decided): Toon · Character · Scene · Show · Place · Item · Module · Instrument and rig · Generator, and for now Kanon texts and people.
 - **Decided with it:** one list, one picker (the five sheets go), the Catalog's and the Toon's trees without their top level, the Cast tab as "cast in", "By cast" listing characters.
 
-### P12 · The Storyboard
-Drawn from today's page: C3, C3b, C3c.
+### P12 · The Storyboard (STORYBOARD.md)
+Drawn from today's page: C3, C3b, C3c, C3d.
 - **The kit look** on its steps, tools, Inspector and Timeline – comes with P1.
 - **The viewport's ground** – with P8.
+- **The Shots filmstrip** as the left panel (decided): the chapter's shots in order, by scene, each a frame in its own shape; picking as today; the Timeline shows the picked shots' clips back to back. Today the panel shows the toon's pages.
 - **The Handheld panel** as drawn (C3b): the code to scan and the waiting state, Disconnect · Recenter · Record, the conditions and the trim's sentence as hover text.
-- **Waits for your word** (a question card each): the Tree as the storyboard's own scenes and shots (C3); the shot's picture as a slot with "Open the generator" as the way into the Generate workspace (C3c).
+- **Waits for your word:** the shot's picture as a slot with "Open the generator" (C3c) and the canvas it opens (C3d – in lap 2 the creator has only the stub); the review's six open points in STORYBOARD.md – how a shot hands over to the chapter, the deck and XR.
 - **Not drawn:** the steps Script, Layout and Export, the Variants view, the 3D view of a handheld shot, the panel once a phone is connected.
 
 ### P8 · Bugs and wording
@@ -164,6 +166,8 @@ You approved these on 2026-11-24 ("yes, use them").
 | The see-through grounds | as redrawn on kit-d.html | P1 |
 | Outlet colours | four – page · stage · target · device – on lane and column heads only, never on cables or ports; a mark each in the colour-blind set | P1 |
 | The Show's Flash, Scene and New show sheets | all three are dialogs on the overlay level – one-off tasks that end in a confirm or a save (decided after the deck orchestrator's check; the first default, views, was wrong). Cues, Problems, Who, Session, Vote and Demos stay views | P2 (deck) |
+| "New scene" in the deck | from the ☰ menu's "New …": scene and show, each a dialog on the overlay level; a recast from the scene's own menu | P2 (deck) |
+| The Flash icon | a box | P2 (deck) |
 | Deck installers for Windows and macOS | not in this lap; the link between the apps works on Arch only | P4 |
 | "Open in the deck" with no deck installed | the installed creator offers a download link; the web version just tries | P4 |
 | Dropping a Toon, a Show, a Generator, a Kanon text or a person | nothing yet; each opens in its own workspace | P11 |
@@ -171,11 +175,9 @@ You approved these on 2026-11-24 ("yes, use them").
 ## Open – out of the run until you say
 | Point | Package |
 |---|---|
-| Where "New scene" opens from in the deck. Deck: the ☰ menu's "New …", which exists today – it offers scene and show, each a dialog on the overlay level; a recast opens from the scene's own menu, since it acts on a scene that exists | P2 (deck) |
-| The Flash icon in the bar. A screen is drawn; deck: a box ("ship this version") reads better, since a screen says "a display" and a flash goes to many devices; the bolt stays with events | P2 (deck) |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The Storyboard's tree as its scenes and shots; the shot's picture as a slot with "Open the generator" (two question cards on C3 and C3c) | P12 |
+| The shot's picture as a slot with "Open the generator" (a question card on C3c) and its canvas (C3d); STORYBOARD.md's six open points | P12 |
 
 These do not block the run; their screens stay out of it:
 - Where the 2D-first / 3D-first preference sits (C4).
