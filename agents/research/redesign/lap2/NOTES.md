@@ -47,3 +47,6 @@ Later, after these: the scene page + open in the deck; Catalog + Library; the on
 
 ## Decided in the planning session (2026-11-24)
 - **B1 – Views live only in the ☰ menu** (owner: *"Only the ☰"*), not on the workspace tab's menu. Still open: whether the workspace tab keeps its own menu for Save / Rename / Back to the last save (B2).
+- **A3 – no Views on the switcher's cards** (owner: *"the views there – that is stupid. Redraw"*).
+- **One switcher for both apps** (owner: *"workspaces from the deck or the creator should be shown vice versa … those workspace links will open the respective deck if active, jump into the workspace and the last content it had"*) – how: DECK-LINK.md.
+- **Short placeholders** (owner: *"too long placeholder text – make it simple"*): a search field says "Find", no list of what it finds.
