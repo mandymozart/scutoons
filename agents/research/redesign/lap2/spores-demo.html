@@ -520,7 +520,7 @@ function render(animate) {
   const anim = animate && !CALM && (s.hops || []).length > 0;
   if (s.picker) st.pick = C.picker.node;
   const panel = `<div class="fp" style="left:${P[0]}px;top:${P[1]}px;width:${P[2]}px;height:${P[3]}px">${head('node', { noX: true, tabs: `<span class="tab on">${ic('node')}Spores</span>${crumb('<b>Universe</b>')}`, right: VIEWBAR() })}
-    <div class="abs" id="cvs" style="left:0;top:0;width:100%;height:100%">${canvas(st, !anim)}</div></div>`;
+    <div class="abs" id="cvs" style="left:0;top:0;width:100%;height:100%;border-radius:inherit;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem">${canvas(st, !anim)}</div></div>`;
   const other = D === 'xr' ? 'gen' : 'xr';
   const th = DAY ? '&theme=day' : '';
   const tabs = Object.entries(CHAINS).map(([k, c]) => `<a href="?d=${k}${th}" class="${k === D ? 'on' : ''}" title="?d=${k}">${c.tab}</a>`).join('')

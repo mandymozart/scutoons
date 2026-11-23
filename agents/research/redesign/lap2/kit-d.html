@@ -127,6 +127,21 @@ section.part{padding:1.3rem 0 1.5rem;border-top:1px solid var(--tool-line)}
 .fld.q{width:auto;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
 .fld.q.h{border-color:var(--d-edge)}
 .fld.q.on{border-color:var(--d-on)}
+/* spores – the canvas's parts, one definition for both apps (owner 2026-11-24): the dotted ground, the spore's card and its states, its face, a run's marks, a cable, a take */
+.ks-dots{display:block;width:100%;height:3.2rem;border-radius:.4rem;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1rem 1rem}
+.ks{display:inline-flex;flex-direction:column;width:100%;max-width:9rem;border:var(--editor-edge) solid var(--tool-line);border-radius:.45rem;background:var(--tool-control);font-size:.78rem;text-shadow:none;overflow:hidden}
+.ks .t{display:flex;align-items:center;gap:.3rem;height:1.55rem;padding:0 .5rem;white-space:nowrap}
+.ks .t .kc,.ks .t .m{margin-left:auto}
+.ks .fc{display:grid;place-items:center;height:2.6rem;margin:0 .35rem;border:1px solid var(--tool-line);border-radius:.2rem;color:var(--tool-muted);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 8%,transparent) 5px 6px)}
+.ks .s{height:1.25rem;padding:0 .5rem;color:var(--tool-muted);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ks.h{border-color:var(--tool-muted)} .ks.on{border-color:var(--d-on);background:var(--tool-selected)} .ks.x{opacity:.5} .ks.free{border-style:dashed;background:none}
+.ks .m{display:inline-grid;place-items:center;width:.85rem;height:.85rem;font-size:.7rem;line-height:1}
+.ks .m.wait::before{content:'';width:.45rem;height:.45rem;border-radius:50%;border:1px solid var(--tool-muted)}
+.ks .m.run::before{content:'';width:.6rem;height:.6rem;border-radius:50%;border:1.5px solid var(--tool-text);border-right-color:transparent}
+.ks .m.done{color:var(--d-ok)} .ks .m.fail{color:var(--d-error)}
+.kst{display:inline-flex;flex-direction:column;align-items:center;gap:.25rem;font-size:.7rem;color:var(--tool-muted)}
+.kst i{display:block;width:1.5rem;height:2.9rem;border:1px solid var(--tool-line);border-radius:.2rem;background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 8%,transparent) 5px 6px)}
+.kst.h i{border-color:var(--tool-muted)} .kst.on{color:var(--tool-text)} .kst.on i{outline:2px solid var(--d-on);outline-offset:1px}
 .sel-text{background:var(--d-selection);color:var(--d-selection-ink)}
 /* Menu, MenuItem, MenuHead */
 .km{display:inline-flex;flex-direction:column;width:13rem;padding:calc(var(--editor-pad)/2);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none;--kit-h:var(--control-height);--kit-r:var(--editor-radius);--kit-icon-in:var(--kit-icon)}
@@ -579,6 +594,9 @@ const tabRow = cls => `<span class="kp" style="--pill:2.4rem"><span class="kt">T
 const ibtn = (cls, n = 'eye') => `<span class="kib ${cls}">${ic(n)}</span>`;
 const ingroup = cls => `<span class="kp"><span class="kib">${ic('pointer')}</span><span class="kib ${cls}">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>`;
 const btn = (v, cls, w) => `<span class="kb ${v} ${cls}">${w}</span>`;
+const ksp = (cls, o = {}) => `<span class="ks ${cls}"><span class="t">${o.t || 'image'}${o.hook ? `<span class="kc">${ic('zap')}hook</span>` : ''}${o.mark ? `<span class="m ${o.mark}">${o.mark === 'done' ? '✓' : o.mark === 'fail' ? '✕' : ''}</span>` : ''}</span>${o.face ? `<span class="fc">${o.face}</span>` : ''}<span class="s">${o.s || 'Luma – by hand'}</span></span>`;
+const kcable = (lit) => `<svg viewBox="0 0 120 26" style="width:7.5rem;height:1.6rem"><path d="M8 19 C 48 19, 72 7, 112 7" fill="none" stroke="var(--sig-picture)" stroke-width="${lit ? 1.9 : 1.1}" opacity="${lit ? 1 : .6}"/><rect x="2" y="15" width="8" height="8" fill="var(--tool-popover)" stroke="var(--sig-picture)" stroke-width="1.4"/><rect x="110" y="3" width="8" height="8" fill="${lit ? 'var(--sig-picture)' : 'var(--tool-popover)'}" stroke="var(--sig-picture)" stroke-width="1.4"/></svg>`;
+const ktake = (cls) => `<span class="kst ${cls}"><i></i>take 2</span>`;
 const chip = (cls, w = 'Voice') => `<span class="kc ${cls}">${w}</span>`;
 const fld = (cls, kind) => kind === 'search' ? `<span class="fld ${cls}">${ic('search')}<span class="ph">Find</span></span>` : kind === 'select' ? `<span class="fld sel ${cls}">Night</span>` : `<span class="fld ${cls}">crow-fox</span>`;
 const mi = (cls, w = 'Night', tick = false) => `<span class="km" style="width:auto;padding:2px"><span class="kmi lone ${cls}"><span class="tick ${tick ? 'lit' : ''}"></span><span class="w">${w}</span></span></span>`;
@@ -636,6 +654,12 @@ const rows = () => [
     `${stb('ok', 'Saved · giantpopstar')}${stb('warn', 'Fireface not found', '0 errors · <span class="c-warn">1 warning</span>')}${stb('err', 'Publish failed', '<span class="c-err">1 error</span> · <span class="c-warn">7 warnings</span>')}`]),
   comp('Signals', capt('keep their colour · H11'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['event','M2 1.5L11 6L2 10.5Z'],['control','dot'],['clock','dot'],['audio','M2 2h8v8H2Z'],['picture','M2 2h8v8H2Z'],['address','M6 1L11 6L6 11L1 6Z'],['vote','dot'],['scene','M2 2h8v8H2Z'],['far','ring']].map(([k, d]) => `<span class="cc"><svg viewBox="0 0 12 12">${d === 'dot' ? `<circle cx="6" cy="6" r="3.6" fill="var(--sig-${k})"/>` : d === 'ring' ? `<circle cx="6" cy="6" r="4" fill="none" stroke="var(--sig-${k})" stroke-width="1.6"/>` : `<path d="${d}" fill="var(--sig-${k})"/>`}</svg>${k}</span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('ports, pins and cables – the deck’s table; the shape tells the kind too')]),
   comp('Outlet types', capt('get colours · to tune'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['page', 'the reader’s page'], ['stage', 'a deck’s screen or speaker'], ['target', 'an XR scene'], ['light', 'a device: DMX …']].map(([k, w]) => `<span class="cc"><i style="background:var(--out-${k})"></i>${k}<span class="cap" style="margin-left:.2rem">${w}</span></span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('decided 2026-11-24; these four are the start from the #703 draft – the list and the values are open')]),
+  comp('Canvas', capt('the dots'), [`<span class="ks-dots"></span>`, NA, NA, NA, NA, NA, capt('a dotted ground under spores and their groups – the deck’s node view has it; in both apps')]),
+  comp('Spore', capt('a card'), [ksp(''), ksp('h'), ksp('on'), ksp('f'), ksp('x'), ksp('free', { t: 'sb-25-1', s: 'a free item' }), capt('rest · hover · selected · focus · off · a free item: dashed, woven to nothing')]),
+  comp('Spore · face', capt('its result'), [ksp('', { face: 'pending', hook: 1 }), NA, ksp('on', { face: 'take 2', hook: 1 }), NA, NA, NA, capt('a spore shows its result as its face; a hooked one carries the hook chip; its driver: Automatic or picked')]),
+  comp('Spore · run', capt('its marks'), [ksp('', { mark: 'wait' }), ksp('', { mark: 'run' }), ksp('', { mark: 'done' }), ksp('', { mark: 'fail' }), NA, NA, capt('waiting · running · done · failed – ok and error keep their hue')]),
+  comp('Cable', capt('by signal'), [kcable(false), NA, kcable(true), NA, NA, NA, capt('thin and quiet at rest, lit when its signal passes; its colour is the signal’s')]),
+  comp('Take', capt('pick one'), [ktake(''), ktake('h'), ktake('on'), NA, NA, NA, capt('a run’s takes at the output; the picked one has the ring – “Assign” puts it into the slot')]),
   comp('Deck stage', capt('live · out · cables') + od(14), [STAGE14, NA, NA, NA, NA, NA, capt('not a UI state – proposal')]),
 ];
 const renderGrid = () => { document.getElementById('cg').innerHTML = `<div class="ch label">component</div>${COLS.map(c => `<div class="ch label">${c}</div>`).join('')}` + rows().join(''); };
