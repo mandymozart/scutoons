@@ -1,12 +1,9 @@
 // The creator's scene browser (#490, the first slice of draft 3 – research/SCENES.md §9, owner 2026-11-12 [scenes]: its
-// own area "Scenes", a scene with no toon listed under "no toon"): the list's rows and filters, a scene's facts in
-// words, and what a Publish answered. Nothing here decides whether a scene plays – that is the core's check behind
-// Publish (RULES A2); these are the page's words for what the documents and the API say.
-import { isSceneKey, sceneFacts, sceneMatches, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState } from '@scutoons/api';
+// own area "Scenes"): the scenes' rows, a scene's facts in words, and what a Publish answered. Nothing here decides
+// whether a scene plays – that is the core's check behind Publish (RULES A2); these are the page's words for what the
+// documents and the API say.
+import { isSceneKey, sceneFacts, sceneState, type HolderFacts, type SceneFacts, type SceneListEntry, type SceneState } from '@scutoons/api';
 import type { PublishRefusal } from '$lib/editor/publish-report.ts';
-
-/** the toon filter's value for the scenes with no toon (the templates) */
-export const NO_TOON = '__none';
 
 export interface SceneRow {
 	id: string;
@@ -30,34 +27,6 @@ export function sceneRows(entries: SceneListEntry[]): SceneRow[] {
 
 /** the name for people: the stage's name, else the id */
 export const sceneTitle = (f: SceneFacts) => f.name?.trim() || f.id;
-
-export interface SceneFilter {
-	query: string;
-	/** '' = every toon, NO_TOON = the scenes with no toon, else a toon id */
-	toon: string;
-	state: 'all' | 'draft' | 'published';
-}
-
-export function filterRows(rows: SceneRow[], filter: SceneFilter): SceneRow[] {
-	const toon = filter.toon === NO_TOON ? '' : filter.toon || undefined;
-	const state = filter.state === 'all' ? undefined : filter.state;
-	return rows.filter((r) => sceneMatches(r.facts, r.state, { toon, query: filter.query, state }));
-}
-
-/** the toons the scenes name (the filter's options), sorted; `noToon` = some scene has none */
-export function sceneToons(rows: SceneRow[]): { toons: string[]; noToon: boolean } {
-	return { toons: [...new Set(rows.flatMap((r) => r.facts.toons))].sort(), noToon: rows.some((r) => !r.facts.toons.length) };
-}
-
-/** the row's second line: where · spot · who (`Cathedral · altar · Cat Pope`) */
-export function rowHint(f: SceneFacts, name: (ref: string) => string = refName): string {
-	const where = f.where?.kind === 'location' ? name(f.where.ref) : f.where?.kind === 'set' ? f.where.set : f.where ? `‹${f.where.id}›` : null;
-	const who = f.holders.map((h) => (h.ref ? name(h.ref) : `‹${h.id}›`));
-	return [where, f.spot, ...who].filter(Boolean).join(' · ');
-}
-
-/** a reference's own id for people while no address book names it: `character:catpope` → catpope, `location:dom` → dom */
-export const refName = (ref: string) => ref.replace(/^[a-z-]+:/, '');
 
 /** a placeholder's filter in words: `character | persona of character:catpope below …` */
 export function fillWords(fill: NonNullable<HolderFacts['fill']>, words: { of: string; below: string }): string {
