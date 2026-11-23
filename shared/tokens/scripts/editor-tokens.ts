@@ -1,8 +1,8 @@
-// editor.css from the kit's tokens (kit/tokens.toml): the web tools take the kit's look, so its values are read from
-// that file, never copied by hand.
-//   node --experimental-transform-types --no-warnings scripts/editor-tokens.ts           writes editor.css
-//   node --experimental-transform-types --no-warnings scripts/editor-tokens.ts --check   fails when editor.css is stale or edited
-import { readFileSync, writeFileSync } from 'node:fs';
+// editor.css and kit.css from the kit's tokens (kit/tokens.toml): the web tools take the kit's look and its components'
+// states, so their values are read from that file, never copied by hand.
+//   node --experimental-transform-types --no-warnings scripts/editor-tokens.ts           writes editor.css and kit.css
+//   node --experimental-transform-types --no-warnings scripts/editor-tokens.ts --check   fails when either is stale or edited
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,12 +19,17 @@ export interface Look {
 	colorblind: Record<string, string>;
 }
 
+/** a component's state: its parts (text, ground, border, ring, knob, mark) naming a token, or its opacity */
+export type State = Record<string, { token: string; alpha?: number } | number>;
+
 export interface KitTokens {
 	day: Look;
 	night: Look;
 	/** the sizes by deck-kit name: base and edge in px, spacing in em, the rest in rem */
 	size: Record<string, number>;
 	groups: string[];
+	/** [component.<name>.<state>] by name, then state, in the file's order */
+	components: Record<string, Record<string, State>>;
 }
 
 /** the part of TOML the kit file uses: tables, comments, strings, numbers, booleans and lists of strings */
@@ -128,7 +133,75 @@ export function parse(toml: string): KitTokens {
 	for (const k of ['base', 'edge', 'spacing']) if (!size[k]) throw new Error(`[size] has no ${k}`);
 	const groups = f.groups?.colors;
 	if (!Array.isArray(groups) || groups.length !== 6 || !groups.every((c) => COLOUR.test(c))) throw new Error('[groups] colors: six #rrggbb');
-	return { day, night, size, groups };
+	return { day, night, size, groups, components: components(f, night.colors) };
+}
+
+const PARTS = ['text', 'ground', 'border', 'ring', 'knob', 'mark'];
+/** the colours a state may name: those tool-colours.css names --tool-* */
+const TOOL_TOKENS = ['text', 'muted', 'line', 'bright', 'control', 'hover', 'pressed', 'pressed_text', 'selected', 'within', 'selection', 'surface_head', 'danger', 'go', 'warn', 'stop'];
+/** what a state may name beside the colours: the see-through surface of a panel and a popover, and nothing */
+const EXTRA_TOKENS = ['panel', 'popover', 'none'];
+/** never a ground at full strength: they are opaque greys (or the ink itself) */
+const NOT_A_GROUND = ['line', 'muted', 'text', 'bright', 'surface', 'stage'];
+
+function components(f: Record<string, Table>, colors: Record<string, string>): Record<string, Record<string, State>> {
+	const out: Record<string, Record<string, State>> = {};
+	for (const [key, table] of Object.entries(f)) {
+		const m = /^component\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)$/.exec(key);
+		if (!m) {
+			if (key.startsWith('component')) throw new Error(`[${key}]: a state is [component.<name>.<state>]`);
+			continue;
+		}
+		const state: State = {};
+		for (const [part, v] of Object.entries(table)) {
+			const where = `[${key}] ${part}`;
+			if (part === 'opacity') {
+				if (typeof v !== 'number' || !(v > 0 && v <= 1)) throw new Error(`${where}: a number above 0, at most 1`);
+				state.opacity = v;
+				continue;
+			}
+			if (!PARTS.includes(part)) throw new Error(`${where}: not a part (${PARTS.join(' ')} opacity)`);
+			const r = typeof v === 'string' ? /^([a-z_]+)(?: (\d{1,2})%)?$/.exec(v) : null;
+			if (!r) throw new Error(`${where}: ${JSON.stringify(v)} is not "<token>" or "<token> <n>%"`);
+			const [, token, pct] = r;
+			if (!(token in colors && TOOL_TOKENS.includes(token)) && !EXTRA_TOKENS.includes(token)) throw new Error(`${where}: no token "${token}" the tools name (${TOOL_TOKENS.join(' ')} ${EXTRA_TOKENS.join(' ')})`);
+			if (part === 'ground' && !pct && NOT_A_GROUND.includes(token)) throw new Error(`${where}: "${token}" is an opaque ground – grounds are see-through ("${token} <n>%")`);
+			state[part] = pct ? { token, alpha: Number(pct) } : { token };
+		}
+		(out[m[1]] ??= {})[m[2]] = state;
+	}
+	return out;
+}
+
+/** the --tool-* name of a kit token (tool-colours.css): the tools read every colour through those */
+const TOOL_NAME: Record<string, string> = { surface_head: 'head', pressed_text: 'pressed-text' };
+
+function stateValue(v: { token: string; alpha?: number }): string {
+	if (v.token === 'none') return 'transparent';
+	const name = `var(--tool-${TOOL_NAME[v.token] ?? kebab(v.token)})`;
+	return v.alpha === undefined ? name : `color-mix(in srgb, ${name} ${v.alpha}%, transparent)`;
+}
+
+export function renderKit(t: KitTokens): string {
+	const lines: string[] = [];
+	for (const [name, states] of Object.entries(t.components)) {
+		for (const [state, parts] of Object.entries(states)) {
+			for (const [part, v] of Object.entries(parts)) {
+				lines.push(`\t--kit-${kebab(name)}-${kebab(state)}-${part}: ${typeof v === 'number' ? num(v) : stateValue(v)};`);
+			}
+		}
+	}
+	return [
+		'/*',
+		' * @scutoons/tokens: the kit components\' states – GENERATED from kit/tokens.toml ([component.<name>.<state>]) by',
+		' * shared/tokens/scripts/editor-tokens.ts, do not edit (npm run editor-tokens -w @scutoons/tokens). Each names a',
+		' * --tool-* colour (tool-colours.css); set on every theme root so a part in the other theme resolves its own.',
+		' */',
+		':root,\n[data-theme],\n[data-colorblind] {',
+		...lines,
+		'}',
+		'',
+	].join('\n');
 }
 
 const kebab = (s: string) => s.replace(/_/g, '-');
@@ -188,17 +261,23 @@ export function render(t: KitTokens): string {
 const here = dirname(fileURLToPath(import.meta.url));
 export const SOURCE = join(here, '../../../kit/tokens.toml');
 export const TARGET = join(here, '../editor.css');
+export const TARGET_KIT = join(here, '../kit.css');
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-	const css = render(parse(readFileSync(SOURCE, 'utf8')));
+	const tokens = parse(readFileSync(SOURCE, 'utf8'));
+	const out: [string, string, string][] = [
+		[TARGET, render(tokens), 'editor.css'],
+		[TARGET_KIT, renderKit(tokens), 'kit.css'],
+	];
 	if (process.argv.includes('--check')) {
-		if (readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n') !== css) {
-			console.error('shared/tokens/editor.css differs from what kit/tokens.toml gives (stale or edited by hand): npm run editor-tokens -w @scutoons/tokens');
+		const stale = out.filter(([file, css]) => !existsSync(file) || readFileSync(file, 'utf8').replace(/\r\n/g, '\n') !== css).map(([, , name]) => name);
+		if (stale.length) {
+			console.error(`shared/tokens/${stale.join(' and ')} differ from what kit/tokens.toml gives (stale or edited by hand): npm run editor-tokens -w @scutoons/tokens`);
 			process.exit(1);
 		}
-		console.log('@scutoons/tokens: editor.css matches kit/tokens.toml – ok');
+		console.log('@scutoons/tokens: editor.css and kit.css match kit/tokens.toml – ok');
 	} else {
-		writeFileSync(TARGET, css);
-		console.log('wrote shared/tokens/editor.css');
+		for (const [file, css, name] of out) writeFileSync(file, css);
+		console.log('wrote shared/tokens/editor.css and kit.css');
 	}
 }

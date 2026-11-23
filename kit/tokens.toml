@@ -148,5 +148,288 @@ go = "#0072b2"
 warn = "#b07800"
 stop = "#8f3300"
 
-# Component states come here, one table per component and state, naming tokens:
-#   [component.<name>.<state>]   e.g.  [component.tab.hover]  border = "text"
+# The components' states (kit/README.md "Components and their states"), one table per component and state:
+#   [component.<name>.<state>]   <part> = "<token>"   or   "<token> <n>%"   (the token see-through at n %)
+# Parts: text · ground · border · ring (the focus outline) · knob · mark (a tick, a dot, a chevron, the insert line) ·
+# opacity (a number). Tokens: the colours above by name (text, muted, line, control, hover, pressed, pressed_text,
+# selected, within, selection, surface_head, go, warn, stop) and panel / popover (the surface at panel_opacity) and
+# none. A ground is never an opaque grey: line, muted, text and bright are refused as a ground (the generator).
+# The web tools get them as --kit-<name>-<state>-<part> (shared/tokens/kit.css).
+
+# every control's keyboard focus: a ring in the text colour, no hue
+[component.focus.rest]
+ring = "text"
+
+# PillTab, the workspace row and a panel head's tabs (H4): no border at rest, the active one the text colour, a rounded
+# border on hover and while dragged
+[component.tab.rest]
+text = "muted"
+border = "none"
+ground = "none"
+[component.tab.hover]
+text = "text"
+border = "line"
+[component.tab.on]
+text = "text"
+[component.tab.dragged]
+text = "text"
+border = "line"
+ground = "popover"
+[component.tab.disabled]
+opacity = 0.4
+
+# a group of icons or a toolbar: line + the panel ground
+[component.pill.rest]
+border = "line"
+ground = "panel"
+
+[component.icon_button.rest]
+text = "text"
+ground = "none"
+[component.icon_button.hover]
+ground = "hover"
+[component.icon_button.on]
+ground = "pressed"
+text = "pressed_text"
+[component.icon_button.disabled]
+opacity = 0.35
+# standing alone: round, its line on the panel ground (H4)
+[component.icon_button.alone]
+border = "line"
+ground = "panel"
+[component.icon_button.dot]
+mark = "warn"
+
+# the one primary action = the pressed fill; disabled = that fill, faded
+[component.button_primary.rest]
+ground = "pressed"
+text = "pressed_text"
+[component.button_primary.hover]
+ground = "pressed 85%"
+[component.button_primary.on]
+ground = "pressed 70%"
+[component.button_primary.disabled]
+opacity = 0.45
+
+[component.button_plain.rest]
+border = "line"
+ground = "control"
+text = "text"
+[component.button_plain.hover]
+ground = "hover"
+[component.button_plain.on]
+border = "muted"
+ground = "hover"
+[component.button_plain.disabled]
+opacity = 0.45
+
+[component.button_quiet.rest]
+ground = "none"
+text = "text"
+[component.button_quiet.hover]
+ground = "hover"
+[component.button_quiet.on]
+ground = "hover"
+text = "muted"
+[component.button_quiet.disabled]
+opacity = 0.45
+[component.button_quiet.destroy]
+text = "stop"
+
+[component.segments.rest]
+border = "line"
+ground = "control"
+text = "muted"
+[component.segments.hover]
+ground = "hover"
+text = "text"
+[component.segments.on]
+ground = "pressed"
+text = "pressed_text"
+[component.segments.disabled]
+opacity = 0.45
+
+# the badge (H13): small, round, delicate – line and words; on = the text colour on a faint ground
+[component.chip.rest]
+border = "line"
+text = "muted"
+ground = "none"
+[component.chip.hover]
+border = "muted"
+text = "text"
+[component.chip.on]
+border = "text"
+ground = "text 12%"
+text = "text"
+[component.chip.disabled]
+opacity = 0.4
+# the status badges: the only chips with a hue
+[component.chip.ok]
+border = "go"
+ground = "go 12%"
+text = "go"
+[component.chip.warning]
+border = "warn"
+ground = "warn 12%"
+text = "warn"
+[component.chip.error]
+border = "stop"
+ground = "stop 12%"
+text = "stop"
+
+# the one switch: no green – on is the pressed fill with the pressed-text knob
+[component.toggle.off]
+border = "line"
+ground = "within"
+knob = "muted"
+[component.toggle.hover]
+border = "muted"
+[component.toggle.on]
+border = "pressed"
+ground = "pressed"
+knob = "pressed_text"
+[component.toggle.disabled]
+opacity = 0.4
+
+# a field, a search and the boxed select (a value in a form, H4)
+[component.field.rest]
+border = "line"
+ground = "control"
+text = "text"
+mark = "muted"
+[component.field.hover]
+border = "muted"
+[component.field.on]
+border = "text"
+mark = "text"
+[component.field.disabled]
+text = "muted"
+opacity = 0.55
+[component.field.error]
+border = "stop"
+
+# the quiet select – a filter or a sort in a toolbar (H4): no box at rest, a rounded border on hover and while open
+[component.select_quiet.rest]
+border = "none"
+ground = "none"
+text = "text"
+mark = "muted"
+[component.select_quiet.hover]
+border = "line"
+[component.select_quiet.on]
+border = "text"
+mark = "text"
+[component.select_quiet.disabled]
+opacity = 0.45
+
+# menus, popovers, dialogs: the see-through popover ground, sharp, their line
+[component.menu.rest]
+border = "line"
+ground = "popover"
+[component.menu_item.rest]
+text = "text"
+ground = "none"
+[component.menu_item.hover]
+ground = "hover"
+[component.menu_item.on]
+mark = "text"
+[component.menu_item.disabled]
+text = "muted"
+[component.menu_item.head]
+text = "muted"
+
+# a list row and a tree row: selected = the pressed fill (no side bar, H10)
+[component.list_row.rest]
+text = "text"
+ground = "none"
+[component.list_row.hover]
+ground = "hover"
+[component.list_row.selected]
+ground = "pressed"
+text = "pressed_text"
+[component.list_row.dragged]
+border = "line"
+ground = "popover"
+[component.list_row.disabled]
+text = "muted"
+opacity = 0.6
+[component.list_row.insert]
+mark = "text"
+
+[component.tile.rest]
+border = "line"
+ground = "none"
+[component.tile.hover]
+ground = "hover"
+[component.tile.on]
+border = "text"
+ground = "text 12%"
+mark = "text"
+[component.tile.dragged]
+border = "line"
+ground = "popover"
+[component.tile.disabled]
+opacity = 0.4
+
+# a thumbnail keeps its own colours; selected = a ring in the text colour
+[component.thumb.rest]
+border = "line"
+[component.thumb.hover]
+border = "muted"
+[component.thumb.on]
+ring = "text"
+mark = "text"
+[component.thumb.disabled]
+opacity = 0.4
+[component.thumb.dragged]
+opacity = 0.75
+
+[component.workspace_card.rest]
+border = "line"
+[component.workspace_card.hover]
+ground = "hover 35%"
+[component.workspace_card.on]
+border = "text"
+[component.workspace_card.dragged]
+opacity = 0.75
+
+# a floating panel: the see-through panel ground, its line
+[component.panel.rest]
+border = "line"
+ground = "panel"
+
+[component.section.rest]
+mark = "muted"
+[component.section.hover]
+ground = "hover"
+[component.section.on]
+ground = "surface_head"
+mark = "text"
+[component.section.disabled]
+opacity = 0.45
+
+[component.drop.rest]
+border = "muted"
+text = "muted"
+[component.drop.on]
+border = "text"
+ground = "text 12%"
+text = "text"
+
+# a link: no hue, the underline says link
+[component.link.rest]
+text = "text"
+[component.link.disabled]
+text = "muted"
+
+# the status bar's dot: colour only for ok, warning, error
+[component.status.none]
+mark = "muted"
+[component.status.ok]
+mark = "go"
+[component.status.warning]
+mark = "warn"
+[component.status.error]
+mark = "stop"
+[component.status.info]
+mark = "text"

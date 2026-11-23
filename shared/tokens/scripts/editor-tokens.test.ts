@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { parse, parseToml, render, SOURCE, TARGET } from './editor-tokens.ts';
+import { parse, parseToml, render, renderKit, SOURCE, TARGET, TARGET_KIT } from './editor-tokens.ts';
 
 const toml = readFileSync(SOURCE, 'utf8').replace(/\r\n/g, '\n');
 
@@ -65,4 +65,36 @@ test('the reader refuses what the kit file must not hold', () => {
 
 test('editor.css is up to date and untouched by hand', () => {
 	assert.equal(readFileSync(TARGET, 'utf8').replace(/\r\n/g, '\n'), render(parse(toml)));
+});
+
+test("the components' states: tokens by name, see-through grounds, no hue for on, focus and selected", () => {
+	const t = parse(toml);
+	assert.deepEqual(t.components.tab.hover, { text: { token: 'text' }, border: { token: 'line' } });
+	assert.deepEqual(t.components.chip.on.ground, { token: 'text', alpha: 12 });
+	const css = renderKit(t);
+	assert.match(css, /--kit-tab-rest-border: transparent;/);
+	assert.match(css, /--kit-toggle-on-knob: var\(--tool-pressed-text\);/);
+	assert.match(css, /--kit-button-primary-hover-ground: color-mix\(in srgb, var\(--tool-pressed\) 85%, transparent\);/);
+	assert.match(css, /--kit-section-on-ground: var\(--tool-head\);/);
+	assert.match(css, /--kit-tab-disabled-opacity: 0\.4;/);
+	for (const name of ['toggle', 'focus', 'list_row', 'chip', 'tile', 'icon_button', 'button_primary']) {
+		for (const [state, parts] of Object.entries(t.components[name])) {
+			if (/ok|warning|error|destroy|dot/.test(state)) continue;
+			for (const [part, v] of Object.entries(parts)) if (typeof v !== 'number') assert.doesNotMatch(v.token, /^(go|warn|stop|danger)$/, `${name}.${state}.${part}`);
+		}
+	}
+});
+
+test('a state refuses an opaque grey ground, an unknown token or part', () => {
+	const hover = '[component.tile.hover]\nground = "hover"';
+	assert.ok(toml.includes(hover));
+	const with_ = (s: string) => toml.replace(hover, `[component.tile.hover]\n${s}`);
+	assert.throws(() => parse(with_('ground = "line"')), /opaque ground/);
+	assert.throws(() => parse(with_('ground = "accent"')), /no token "accent"/);
+	assert.throws(() => parse(with_('shade = "hover"')), /not a part/);
+	assert.doesNotThrow(() => parse(with_('ground = "muted 20%"')));
+});
+
+test('kit.css is up to date and untouched by hand', () => {
+	assert.equal(readFileSync(TARGET_KIT, 'utf8').replace(/\r\n/g, '\n'), renderKit(parse(toml)));
 });
