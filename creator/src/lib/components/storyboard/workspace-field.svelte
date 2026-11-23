@@ -57,7 +57,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-05);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}

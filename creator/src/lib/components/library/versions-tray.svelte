@@ -33,7 +33,7 @@
 <style>
 	.tray {
 		grid-column: 1 / -1;
-		border: var(--editor-edge) solid var(--editor-accent);
+		border: var(--editor-edge) solid var(--tool-accent);
 		border-radius: var(--editor-radius);
 		padding: 0.35rem;
 	}
@@ -46,7 +46,7 @@
 	}
 	.sub {
 		flex: 1 1 auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -54,7 +54,7 @@
 	.close {
 		border: 0;
 		background: none;
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 		cursor: pointer;
 		font: inherit;
 	}
@@ -66,15 +66,15 @@
 	.v {
 		position: relative;
 		aspect-ratio: 1;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 		overflow: hidden;
 		padding: 0;
 		cursor: pointer;
 		display: grid;
 		place-items: center;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.v img {
 		width: 100%;
@@ -87,8 +87,8 @@
 		bottom: 0.15rem;
 		padding: 0 0.25rem;
 		border-radius: 0.25rem;
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-head);
+		color: var(--tool-text);
 		font-size: var(--editor-label);
 	}
 	.mono {

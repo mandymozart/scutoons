@@ -59,10 +59,10 @@
 		gap: var(--space-05);
 	}
 	.mark {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 	.mark.missing {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

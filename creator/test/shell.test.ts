@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
-import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, visit } from '../src/lib/shell/tabs.ts';
+import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
+import { NO_USE, entered, fits, readUse, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, stageOf, tabIdOf } from '../src/lib/shell/presets.ts';
 import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn, freeRoom } from '../src/lib/shell/stage.ts';
@@ -217,4 +218,37 @@ test('view settings: per workspace, every field checked', () => {
 	assert.deepEqual(readViews({ chapter: { stage: ['flow', 'preview'], split: 0.9, clear: false }, map: { stage: 3, clear: 'no' }, bad: 1 }), { chapter: { stage: ['flow', 'preview'], split: 0.75, clear: false }, map: {} });
 	assert.deepEqual(readViews([]), {});
 	assert.deepEqual(readSettings({ views: { home: { clear: true } } }).views, { home: { clear: true } });
+});
+
+test('Ctrl Tab / Ctrl Shift Tab go along the strip in its order, round at the ends', () => {
+	let s = visit(EMPTY, 'toon:catpope', '/catpope');
+	s = visit(s, 'chapter:catpope:3', '/catpope/chapter/3');
+	s = visit(s, 'map:world', '/map');
+	assert.deepEqual(s.tabs.map((t) => t.address), ['toon:catpope', 'chapter:catpope:3', 'map:world']);
+	assert.equal(stepTab(s, 1)?.address, 'toon:catpope', 'past the last: the first');
+	assert.equal(stepTab(s, -1)?.address, 'chapter:catpope:3');
+	const front = visit(s, 'chapter:catpope:3', '/catpope/chapter/3');
+	assert.deepEqual(front.tabs.map((t) => t.address), s.tabs.map((t) => t.address), 'bringing a tab to the front never moves it');
+	assert.equal(stepTab(visit(s, null, '/'), 1)?.address, 'toon:catpope', 'from Home: the first');
+	assert.equal(stepTab(EMPTY, 1), null);
+});
+
+test('the workspace row: most used first, never grouped; each goes to its last item, an open one of it, or its start', () => {
+	let use = entered(NO_USE, null, 'chapter:catpope:3', '/catpope/chapter/3');
+	use = entered(use, 'chapter', 'map:world', '/map');
+	use = entered(use, 'map', 'chapter:catpope:2', '/catpope/chapter/2');
+	use = entered(use, 'chapter', 'chapter:catpope:2', '/catpope/chapter/2/script');
+	assert.equal(use.uses.chapter, 2, 'moving inside the workspace counts no new use');
+	assert.deepEqual(use.last.chapter, { address: 'chapter:catpope:2', href: '/catpope/chapter/2/script' });
+	const tabs = [{ address: 'toon:catpope', href: '/catpope/season/1', label: 'Catpope' }];
+	const row = workspaceRow(use, tabs);
+	assert.deepEqual(row.slice(0, 3).map((r) => r.kind), ['chapter', 'map', 'toon']);
+	assert.equal(row.find((r) => r.kind === 'toon')?.href, '/catpope/season/1', 'an open item of it');
+	assert.equal(row.find((r) => r.kind === 'scene')?.href, '/scenes', 'its start');
+	assert.ok(!row.some((r) => r.kind === 'storyboard' || r.kind === 'text' || r.kind === 'character'), 'a workspace with nowhere to go is not offered');
+	assert.ok(fits('chapter:catpope:3', 'chapter'));
+	assert.ok(!fits('chapter:catpope:3', 'character'), 'a chapter does not fit the character workspace: dimmed there');
+	assert.ok(!fits(null, 'chapter'));
+	assert.deepEqual(readUse(JSON.parse(JSON.stringify(use))), use);
+	assert.deepEqual(readUse({ uses: { chapter: -1, nope: 3 }, last: { map: { address: 'chapter:x:1', href: '/x' } } }), NO_USE);
 });

@@ -121,14 +121,14 @@
 		cursor: pointer;
 	}
 	.rows .row:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.rows .row.on {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 	}
 	.n {
 		margin-left: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 	}
 </style>

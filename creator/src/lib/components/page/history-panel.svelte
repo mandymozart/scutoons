@@ -195,7 +195,7 @@
 		font-size: var(--type-caption-size);
 	}
 	.chip.on {
-		outline: 1px solid var(--ink);
+		outline: 1px solid var(--tool-text);
 	}
 	ol,
 	ul {
@@ -207,10 +207,10 @@
 		display: grid;
 		gap: 0.15rem;
 		padding: 0.35rem 0;
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: 1px solid var(--tool-line);
 	}
 	ol > li.live {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 		padding-inline: 0.3rem;
 	}
 	.head {
@@ -223,12 +223,12 @@
 	.muted,
 	.note {
 		font-size: var(--type-caption-size);
-		color: var(--ink-muted, inherit);
+		color: var(--tool-muted);
 	}
 	.tag {
 		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
-		border: 1px solid var(--ink);
+		border: 1px solid var(--tool-text);
 	}
 	.what {
 		font-size: var(--type-caption-size);
@@ -248,6 +248,6 @@
 		line-height: var(--type-caption-line);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

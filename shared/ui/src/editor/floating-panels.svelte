@@ -14,8 +14,6 @@
 		tab,
 		toolbar,
 				children,
-		onmain,
-				onover,
 		stageDrop,
 		labels = {}
 	}: {
@@ -23,9 +21,6 @@
 		tab: Snippet<[tab: string]>;
 		toolbar?: Snippet<[panel: string]>;
 		children?: Snippet;
-				/** the head's ◱ main / ⤢ over everything (floating-panel.svelte); the tabs on the stage are `floats.staged` */
-		onmain?: (tab: string) => void;
-		onover?: (tab: string) => void;
 		/**
 		 * The page's stage takes a tab let go over it: `zone` says where it would land (client px) and what happens – drawn
 		 * while the tab is in the hand; `drop` takes it (true: taken, no panel of its own)
@@ -34,7 +29,7 @@
 			zone: (tab: string, x: number, y: number) => { rect: Rect; label: string } | null;
 			drop: (tab: string, x: number, y: number) => boolean;
 		};
-		labels?: { fold?: string; open?: string; close?: string; move?: string; main?: string; back?: string; over?: string };
+		labels?: { close?: string; move?: string };
 	} = $props();
 
 		let layer = $state<HTMLDivElement>();
@@ -85,15 +80,8 @@
 			<FloatingPanel
 								{floats}
 				id={spec.id}
-				{onmain}
-				{onover}
-				foldLabel={labels.fold}
-				openLabel={labels.open}
 				closeLabel={labels.close}
 				moveLabel={labels.move}
-				mainLabel={labels.main}
-				backLabel={labels.back}
-				overLabel={labels.over}
 			>
 				{#snippet children(active)}
 					{#if spec.inline}
@@ -131,7 +119,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	.stage {
 		position: absolute;
@@ -141,8 +129,8 @@
 		position: absolute;
 		z-index: 1000;
 		width: 2px;
-		background: var(--editor-accent);
-		box-shadow: 0 0 0.375rem var(--editor-accent);
+		background: var(--tool-accent);
+		box-shadow: 0 0 0.375rem var(--tool-accent);
 		pointer-events: none;
 	}
 		.zone {
@@ -151,15 +139,15 @@
 		display: grid;
 		place-items: center;
 		box-sizing: border-box;
-		outline: 2px dashed var(--editor-accent);
+		outline: 2px dashed var(--tool-accent);
 		outline-offset: -0.4rem;
 		pointer-events: none;
 	}
 	.zone span {
 		padding: 0.3rem 0.8rem;
 		border-radius: 1rem;
-		background: var(--editor-surface);
-		color: var(--editor-accent);
+		background: var(--tool-popover);
+		color: var(--tool-accent);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 	}
@@ -168,17 +156,17 @@
 		z-index: 1001;
 		padding: 0.25rem 0.75rem;
 		border-radius: 1rem;
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 		white-space: nowrap;
-		box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 0.6);
+		box-shadow: none;
 		transform: translate(0.75rem, 0.5rem) rotate(-3deg);
 		pointer-events: none;
 	}
 	.ghost.out {
-		outline: 1px dashed var(--editor-accent);
+		outline: 1px dashed var(--tool-accent);
 		outline-offset: 0.25rem;
 	}
 </style>

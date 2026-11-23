@@ -370,7 +370,7 @@
 		width: calc(var(--slice-w) * var(--zoom));
 	}
 	.placeholder {
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 	}
 	/* the slice's number at its seam: left of the column (vertical), on the art's top-left corner (horizontal) */
 	.number {
@@ -378,15 +378,15 @@
 		top: 0;
 		right: calc(100% + var(--space-05));
 		padding: 0 var(--space-025);
-		border: var(--border-width-hairline) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-hairline) solid var(--tool-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		line-height: 1.4;
 		pointer-events: none;
 	}
 	.slot.active .number {
-		background: var(--select-live-border);
+		background: var(--tool-accent);
 	}
 	.axis-horizontal .number {
 		right: auto;
@@ -400,7 +400,7 @@
 		position: absolute;
 		z-index: 5;
 		pointer-events: none;
-		border: 0 dashed var(--ink);
+		border: 0 dashed var(--tool-text);
 	}
 	.seams .seam {
 		display: block;

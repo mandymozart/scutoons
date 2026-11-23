@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick, type Snippet } from 'svelte';
-	import { Icon } from '@scutoons/ui';
-	import { measureDrop, type Floats, type Rect } from '@scutoons/ui/editor';
+	import { Button, IconButton, Pill, measureDrop, type Floats, type Rect } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -11,7 +10,8 @@
 
 	/**
 	 * Taking the stage (research/redesign/stage.html): the tabs on the stage fill the whole window under the bar – a canvas
-	 * edge to edge, a page with its ground under the bar and its content clear of the bar's row and the panels; two tabs
+	 * edge to edge, a page with its ground under the bar and its content clear of the bar's row; the panels float over
+	 * both, the stage keeps no room for them; two tabs
 	 * share it with a hairline divider. The bottom pill holds the workspace's own view and the tabs on the stage. Every
 	 * move flies between the panel and the stage. `content(tab)` draws a tab; `stage` = the tabs on it that have content.
 	 */
@@ -32,7 +32,7 @@
 		}
 	}
 
-	// the room the panels leave free (client px): the right edge of the left column, the left edge of the right one
+	// the room the panels leave free (client px): the pill sits in its middle
 	const free = $derived(freeOf(floats, W));
 	const boxes = $derived.by<Rect[]>(() => {
 		if (stage.length < 2) return [{ x: 0, y: 0, w: W, h: H }];
@@ -42,11 +42,6 @@
 			{ x: sx, y: 0, w: W - sx, h: H }
 		];
 	});
-	/** a page's content keeps clear of the panels beside it */
-	const clearOf = (b: Rect) => {
-		const gap = rem();
-		return { l: Math.max(1.5 * gap, free.left - b.x + gap), rt: Math.max(1.5 * gap, b.x + b.w - free.right + gap) };
-	};
 
 	// ── the flight: measure, apply, measure again, fly ──
 	const stageEl = (tab: string) => document.querySelector(`[data-stage-box="${tab}"]`);
@@ -140,14 +135,12 @@
 	{#each stage as tab, i (tab)}
 		{@const b = boxes[i]}
 		{#if isCanvas(tab)}
-			{@const c = clearOf(b)}
-			<div class="box canvas" class:clear={shell.clear} style:--stage-left={r(c.l)} style:--stage-right={r(c.rt)} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
+			<div class="box canvas" class:clear={shell.clear} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
 				{@render content(tab)}
 			</div>
 		{:else}
-			{@const c = clearOf(b)}
 			<div class="box page" class:clear={shell.clear} style:left={r(b.x)} style:top={r(b.y)} style:width={r(b.w)} style:height={r(b.h)} data-stage-box={tab} data-testid="on-stage" data-tab={tab}>
-				<div class="page-body" style:padding-left={r(c.l)} style:padding-right={r(c.rt)}>
+				<div class="page-body">
 					<div class="page-col">{@render content(tab)}</div>
 				</div>
 			</div>
@@ -168,27 +161,24 @@
 			data-testid="stage-divider"
 		></div>
 	{/if}
-	<div class="pill" style:left={r((free.left + free.right) / 2)} data-testid="stage-pill">
-		<button type="button" onclick={() => shell.home()} title={m['shell.stage_view']()} data-testid="stage-view">
-			<Icon name={shell.state.front ? iconOf(shell.state.front) : 'home'} size="1rem" />{shell.front?.label ?? ''}
-		</button>
+	<Pill class="stage-pill" style="left: {r((free.left + free.right) / 2)}" data-testid="stage-pill" data-control-exempt="the stage pill's inset parts (deck-kit bar.rs)">
+		<Button variant="quiet" icon={shell.state.front ? iconOf(shell.state.front) : 'home'} onclick={() => shell.home()} title={m['shell.stage_view']()} data-testid="stage-view">{shell.front?.label ?? ''}</Button>
 		{#each stage as tab (tab)}
 			<span class="sep" aria-hidden="true"></span>
-			<button
-				type="button"
-				class="chip"
+			<Button
+				variant="quiet"
+				pressed
+				class="drag"
 				title={m['shell.stage_chip']({ tab: name(tab) })}
-				onpointerdown={(e) => pressChip(e, tab)}
+				onpointerdown={(e: PointerEvent) => pressChip(e, tab)}
 				onpointermove={moveChip}
 				onpointerup={() => dropChip(tab)}
 				onpointercancel={() => floats.cancelTab()}
-				data-testid="stage-chip"><span class="dot" aria-hidden="true"></span>{name(tab)}</button
+				data-testid="stage-chip"><span class="dot" aria-hidden="true"></span>{name(tab)}</Button
 			>
-			<button type="button" class="round" onclick={() => shell.back(tab)} aria-label={m['shell.main_back']()} title={m['shell.main_back']()} data-testid="stage-back">
-				<Icon name="minimize-2" size="0.9rem" strokeWidth={2} />
-			</button>
+			<IconButton label={m['shell.main_back']()} icon="minimize-2" onclick={() => shell.back(tab)} data-testid="stage-back" />
 		{/each}
-	</div>
+	</Pill>
 {/if}
 
 <style>
@@ -200,16 +190,18 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		overflow: hidden;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.box.canvas {
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	.box.canvas > :global(.ws-tab) {
 		flex: 1;
 	}
 	/* a canvas runs under the bar and the panels; its own controls read these to keep clear of them */
 	.box.canvas {
+		--stage-left: 1.5rem;
+		--stage-right: 1.5rem;
 		--stage-top: 0rem;
 		--stage-bottom: calc(var(--status-room) + var(--control-height) + 1rem);
 	}
@@ -217,12 +209,12 @@
 		--stage-top: var(--shell-top);
 	}
 	.box.page {
-		background: var(--editor-surface);
+		background: var(--tool-ground);
 		overflow: auto;
 	}
 	.page-body {
 		box-sizing: border-box;
-		padding-top: 1rem;
+		padding: 1rem 1.5rem 0;
 		padding-bottom: calc(var(--status-room) + var(--control-height) + 1.5rem);
 	}
 	.box.page.clear .page-body {
@@ -250,64 +242,36 @@
 		content: '';
 		width: var(--editor-edge);
 		height: 100%;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.divider:hover::before,
 	.divider.dragging::before {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	/* the bottom pill: the workspace's own view, then the tabs on the stage */
-	.pill {
+	:global(.kit-pill.stage-pill) {
 		position: fixed;
 		z-index: 45;
-		bottom: calc(var(--status-room) + 0.5rem);
+		bottom: calc(var(--status-room) + var(--kit-margin));
 		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		gap: 0.2rem;
-		min-height: var(--control-height);
-		padding: 0 0.2rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		font-family: var(--editor-sans);
 		white-space: nowrap;
 	}
-	.pill button {
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0 0.7rem;
-		border: 0;
-		border-radius: 1rem;
-		background: transparent;
-		gap: 0.35rem;
-	}
-	.pill button:hover {
-		background: var(--editor-hover);
-	}
-	.pill .chip {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
-		text-shadow: none;
+	/* a tab on the stage is dragged back into a panel */
+	:global(.kit-button.drag) {
 		cursor: grab;
 		touch-action: none;
-	}
-	.pill .round {
-		width: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		border-radius: 50%;
 	}
 	.sep {
 		width: var(--editor-edge);
 		height: 1.2rem;
 		margin: 0 0.15rem;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.dot {
 		width: 0.45rem;
 		height: 0.45rem;
 		border-radius: 50%;
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	:global(.stage-ghost) {
 		position: fixed;
@@ -316,12 +280,10 @@
 		overflow: hidden;
 		padding: 0.6rem 0.9rem;
 		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground);
-		color: var(--editor-text);
-		text-shadow: var(--editor-halo);
-		box-shadow:
-			0 0 0 1px var(--editor-accent),
-			0 0.6rem 2rem rgb(0 0 0 / 0.45);
+		background: var(--tool-panel);
+		color: var(--tool-text);
+		text-shadow: var(--tool-halo);
+		box-shadow: 0 0 0 1px var(--tool-accent);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);

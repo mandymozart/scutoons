@@ -248,7 +248,7 @@
 		display: flex;
 		justify-content: flex-end;
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.room {
 		flex: 1;
@@ -264,7 +264,7 @@
 		flex-direction: column;
 		gap: var(--space-1);
 		padding: var(--space-1);
-		border-left: var(--border-width-regular) solid var(--ink);
+		border-left: var(--border-width-regular) solid var(--tool-text);
 	}
 	.adds {
 		display: flex;
@@ -276,7 +276,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		margin: 0;
-		color: var(--state-warning);
+		color: var(--tool-warn);
 	}
 	/* narrower (a sidebar + 22rem + a phone screen need ≈ 1280px): the side region below the stage */
 	@media (max-width: 1279px) {
@@ -286,7 +286,7 @@
 		}
 		.side {
 			border-left: 0;
-			border-top: var(--border-width-regular) solid var(--ink);
+			border-top: var(--border-width-regular) solid var(--tool-text);
 		}
 		.stage :global(.side-resize) {
 			display: none;

@@ -30,7 +30,7 @@
 		gap: var(--space-05);
 		flex: none;
 		padding: var(--space-05) var(--space-05) var(--space-05) var(--space-1);
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 	}
 	h2 {
 		flex: 1;

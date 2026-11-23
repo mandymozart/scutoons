@@ -113,7 +113,7 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
-		background: var(--paper);
+		background: transparent;
 	}
 	.sb-timeline > :global(:last-child) {
 		flex: 1 1 auto;
@@ -159,8 +159,8 @@
 		gap: var(--space-025);
 		max-width: 100%;
 		padding: 0 var(--space-025);
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		white-space: nowrap;
 		overflow: hidden;
@@ -174,8 +174,8 @@
 	/* the board's current card plays here: a small ink tag (a tag, not a status) */
 	.aud {
 		padding: 0 var(--space-025);
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.peek {
 		display: grid;
@@ -189,6 +189,6 @@
 		width: 10rem;
 		max-height: 12rem;
 		object-fit: contain;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 </style>

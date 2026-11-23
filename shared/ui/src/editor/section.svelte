@@ -62,7 +62,7 @@
 
 <style>
 	.section {
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 	.section.nested {
 		border-top-style: dotted;
@@ -85,7 +85,7 @@
 		border: none;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font: inherit;
 		text-align: left;
 		text-shadow: inherit;
@@ -98,13 +98,13 @@
 		text-transform: uppercase;
 	}
 	.nested .name {
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font-size: inherit;
 		letter-spacing: normal;
 		text-transform: none;
 	}
 	.off .name {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		opacity: 0.7;
 	}
 	.summary {
@@ -115,12 +115,12 @@
 		font-size: var(--editor-small);
 	}
 	.toggle-open:focus-visible {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	@media (hover: hover) {
 		.toggle-open:hover {
-			color: var(--editor-text);
+			color: var(--tool-text);
 		}
 	}
 	.aside {

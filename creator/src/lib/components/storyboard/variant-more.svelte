@@ -82,15 +82,15 @@
 		padding: 0;
 		border: var(--border-width-regular) solid transparent;
 		background: transparent;
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.more :global(.sc-menu > .trigger:hover) {
-		border-color: var(--border-muted);
+		border-color: var(--tool-line);
 	}
 	.more :global(.sc-menu > .trigger[aria-expanded='true']) {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		border-color: var(--tool-text);
 	}
 	.more :global(.popup > button) {
 		white-space: nowrap;

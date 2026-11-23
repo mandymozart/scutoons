@@ -34,7 +34,7 @@
 // Exempt: comic lettering (Bangers, or text inside a slice: container-type inline-size, sized in cqw) and a CSS line
 // carrying the comment `px-ok` (with the reason).
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -196,6 +196,104 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 				fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (hand-built tabs: @scutoons/ui Tabs)`);
 		});
 }
+// colours (owner 2026-11-24, RULES H11 [editor-style]: "stick to the color schema of the deck editor … there is no grey
+// backgrounds in our concept"): the tools' CSS (creator, the editor kit, tools.css) takes every colour from the semantic
+// --tool-* tokens (shared/tokens/tool-colours.css, on deck-kit's generated editor.css) –
+//   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
+//   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
+//     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
+//   - a --tool-panel ground (the deck's see-through floating panel) carries the halo: text-shadow: var(--tool-halo)
+// COLOUR_ALLOW: file + text of the declaration + why, for what truly must stay (keep it short)
+const COLOUR_DIRS = ['creator/src', 'shared/ui/src/editor', 'shared/tokens/tools.css'];
+const COLOUR_ALLOW = [
+	// [file, a substring of the declaration, the reason]
+	// empty after #831's sweep; url() contents (the select chevron's data URI) are not read as colours
+];
+const COLOUR_PROPS = /^(color|background(-color|-image)?|border(-(top|right|bottom|left|block|inline)(-(start|end))?)?(-color)?|outline(-color)?|box-shadow|text-shadow|fill|stroke|caret-color|accent-color|text-decoration(-color)?|column-rule(-color)?|scrollbar-color|filter|stop-color|flood-color|lighting-color|--[a-z0-9-]+)$/;
+const LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(^|[\s,(])(white|black|gr[ae]y|silver|red|green|blue|yellow|orange|purple|pink|magenta|cyan|lime|navy|teal|maroon|olive|aqua|fuchsia)(?=$|[\s,)])/;
+const RAW_COLOUR = /var\(--(editor-(stage|surface|surface-head|line|text|muted|control|hover|pressed|pressed-text|selected|within|accent|primary|primary-line|primary-ink|bright|selection|danger|go|warn|stop|panel-ground|halo)|paper|ink|surface-panel)\b/;
+const colours = [];
+for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
+	const text = readFileSync(file, 'utf8');
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const styles = file.endsWith('.css') ? [{ css: text, at: 0 }] : [...text.matchAll(/(<style[^>]*>)([\s\S]*?)<\/style>/g)].map((m) => ({ css: m[2], at: m.index + m[1].length }));
+	for (const { css, at } of styles) {
+		const plain = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+		for (const rule of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+			const sel = rule[1].trim().replace(/\s+/g, ' ').slice(0, 60);
+			const body = rule[2];
+			let offset = at + rule.index + rule[1].length + 1;
+			for (const decl of body.split(';')) {
+				const m = decl.match(/^\s*([a-z-]+|--[a-z0-9-]+)\s*:\s*([\s\S]+)$/);
+				const where = offset + decl.search(/\S/);
+				offset += decl.length + 1;
+				if (!m || !COLOUR_PROPS.test(m[1])) continue;
+				const value = m[2].replace(/url\((['"]?)[^)]*\1\)/g, 'url()').trim();
+				const line = text.slice(0, where).split('\n').length;
+				if (COLOUR_ALLOW.some(([f, s]) => f === name && decl.includes(s))) continue;
+				const say = `${name}:${line}: ${sel} { ${m[1]}: ${m[2].trim().replace(/\s+/g, ' ').slice(0, 70)} }`;
+				if (LITERAL.test(value)) colours.push(`${say} (a literal colour: a --tool-* token)`);
+				else if (RAW_COLOUR.test(value)) colours.push(`${say} (a raw editor / reader colour: the --tool-* token – a grey ground only as --tool-panel / --tool-popover / --tool-head)`);
+			}
+			if (/background(-color)?\s*:[^;]*var\(--tool-panel\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
+				const line = text.slice(0, at + rule.index + rule[1].search(/\S/)).split('\n').length;
+				colours.push(`${name}:${line}: ${sel} (a --tool-panel ground without its halo: text-shadow: var(--tool-halo), as the deck's floating panel)`);
+			}
+		}
+	}
+}
+// one UI kit (owner 2026-11-24, RULES H12 [editor-style]: "Deck editor is the source of truth and we need a unique ui kit
+// with recurring components"): a button, pill, tab, menu line or chip of the creator is a @scutoons/ui/editor component
+// (Button, IconButton, Pill, PillTab(s), Menu, MenuItem …) – no border-radius / padding / height of its own on a
+// button-like selector in creator/src. The shell (the bar, menus, panels, status bar, Home) and the kit page are clean;
+// the area pages not on the kit yet are counted per file in KIT_BASELINE, which only shrinks (growth needs
+// `Owner-approved-baseline:`, RULES A7). A line carrying `kit-ok` + the reason is exempt.
+// `--kit-baseline` rewrites the baseline from what is there now (only after files got cleaner).
+const KIT_BASELINE_FILE = join(ROOT, 'scripts/tools-kit-baseline.json');
+const KIT_CLEAN = [/^creator\/src\/lib\/components\/shell\//, /^creator\/src\/lib\/components\/page\/ui-kit/, /^creator\/src\/routes\/\(app\)\/guide\//];
+// the last compound of a selector names a button-like thing: a button, a role that is one, or a class saying so
+const KIT_SEL = /(^|[\s>+~])(button|[\w-]*\[role=['"]?(button|tab|menuitem\w*|switch)['"]?\]|[\w-]*\.(btn|button|icon-button|round|pill|pills|tab|tabs|tab-button|chip|chips|seg|segment|menu-item|menuitem)(?![\w-]))[^\s>+~]*$/;
+const KIT_PROP = /^(border(-(top|bottom)-(left|right)|-(start|end)-(start|end))?-radius|padding(-(top|right|bottom|left|block|inline)(-(start|end))?)?|height|min-height)$/;
+const kitCounts = {};
+const kitLines = {};
+for (const file of walk('creator/src')) {
+	const text = readFileSync(file, 'utf8');
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const styles = file.endsWith('.css') ? [{ css: text, at: 0 }] : [...text.matchAll(/(<style[^>]*>)([\s\S]*?)<\/style>/g)].map((m) => ({ css: m[2], at: m.index + m[1].length }));
+	for (const { css, at } of styles) {
+		const plain = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+		for (const rule of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+			const selectors = rule[1].trim().replace(/:global\(([^()]*(?:\([^()]*\))*[^()]*)\)/g, '$1').replace(/:(where|is|not|has)\([^()]*\)/g, '').split(/,(?![^(]*\))/).map((x) => x.trim());
+			if (rule[1].trim().startsWith('@') || !selectors.some((x) => KIT_SEL.test(x))) continue;
+			let offset = at + rule.index + rule[1].length + 1;
+			for (const decl of rule[2].split(';')) {
+				const m = decl.match(/^\s*([a-z-]+)\s*:\s*([\s\S]+)$/);
+				const where = offset + decl.search(/\S/);
+				offset += decl.length + 1;
+				if (!m || !KIT_PROP.test(m[1])) continue;
+				const lineNo = text.slice(0, where).split('\n').length;
+				if (/kit-ok/.test(text.split('\n')[lineNo - 1] ?? '')) continue;
+				kitCounts[name] = (kitCounts[name] ?? 0) + 1;
+				(kitLines[name] ??= []).push(`${name}:${lineNo}: ${rule[1].trim().replace(/\s+/g, ' ').slice(0, 60)} { ${m[1]}: ${m[2].trim().slice(0, 40)} }`);
+			}
+		}
+	}
+}
+let kitBaseline = existsSync(KIT_BASELINE_FILE) ? JSON.parse(readFileSync(KIT_BASELINE_FILE, 'utf8')) : {};
+if (flag('--kit-baseline')) {
+	const next = Object.fromEntries(Object.entries(kitCounts).filter(([f]) => !KIT_CLEAN.some((r) => r.test(f))).sort(([a], [b]) => a.localeCompare(b)));
+	const grown = Object.entries(next).filter(([f, n]) => n > (kitBaseline[f] ?? 0));
+	if (grown.length && Object.keys(kitBaseline).length) console.warn(`kit baseline grows for ${grown.map(([f]) => f).join(', ')} – needs Owner-approved-baseline: (RULES A7)`);
+	writeFileSync(KIT_BASELINE_FILE, JSON.stringify(next, null, '\t') + '\n');
+	kitBaseline = next;
+	console.log(`kit baseline: ${Object.keys(next).length} files, ${Object.values(next).reduce((a, b) => a + b, 0)} local button / pill / tab rules written`);
+}
+const kitLocal = [];
+for (const [file, n] of Object.entries(kitCounts)) {
+	if (KIT_CLEAN.some((r) => r.test(file))) kitLocal.push(...kitLines[file]);
+	else if (n > (kitBaseline[file] ?? 0)) kitLocal.push(`${file}: ${n} local button / pill / tab rules, the baseline allows ${kitBaseline[file] ?? 0}:\n    ${kitLines[file].join('\n    ')}`);
+}
+const kitShrunk = Object.entries(kitBaseline).filter(([f, n]) => (kitCounts[f] ?? 0) < n).map(([f]) => f);
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
 const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
@@ -224,12 +322,17 @@ if (heights.length) console.error(`controls: ${heights.length} heights / vertica
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
 if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
 if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / start rules (owner 2026-11-21, RULES H10: a state is the frame's colour, a dot or coloured words – never a side bar; a line with \`sidebar-ok\` + the reason is exempt):\n  ${sideBars.join('\n  ')}`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length) && !flag('--browser-only')) process.exit(1);
+if (colours.length) console.error(`colours: ${colours.length} outside the deck editor's scheme (owner 2026-11-24, RULES H11: every colour through the --tool-* tokens of shared/tokens/tool-colours.css; no literal colours, no grey ground behind content on the stage; an exception goes into COLOUR_ALLOW with its reason):\n  ${colours.join('\n  ')}`);
+if (kitLocal.length) console.error(`ui kit: ${kitLocal.length} local button / pill / tab styling outside @scutoons/ui (owner 2026-11-24, RULES H12: one UI kit, the deck editor its source of truth – use the kit's Button / IconButton / Pill / PillTab / Menu / MenuItem / ListRow / Tile; the shell and the kit page are clean, the other files may not grow past scripts/tools-kit-baseline.json; \`kit-ok\` + the reason exempts a line):\n  ${kitLocal.join('\n  ')}`);
+if (kitShrunk.length && !flag('--kit-baseline')) console.log(`ui kit: ${kitShrunk.length} files got cleaner than the baseline – shrink it: node scripts/check-tools-ui.mjs --static --kit-baseline`);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 console.log('side bars: no thick left / start rules – ok');
+console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
+console.log(`ui kit: the shell on the kit, ${Object.values(kitCounts).reduce((a, b) => a + b, 0)} local button / pill / tab rules left in ${Object.keys(kitCounts).length} area files (the baseline) – ok`);
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -85,7 +85,7 @@
 		max-width: 100%;
 	}
 	.hint {
-		color: var(--muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 </style>

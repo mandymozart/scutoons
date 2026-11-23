@@ -94,13 +94,13 @@
 		left: 2.5rem;
 		right: 2.5rem;
 		bottom: 2.5rem;
-		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.55), 0 1rem 3rem rgb(0 0 0 / 0.5);
+		box-shadow: 0 0 0 100vmax var(--tool-scrim);
 		display: flex;
 		flex-direction: column;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 		pointer-events: auto;
 		overflow: hidden;
 	}
@@ -109,10 +109,10 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.45rem var(--editor-pad);
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 	}
 	.lbl {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing, 0.08em);
 		text-transform: uppercase;
@@ -132,16 +132,16 @@
 		gap: 0.3rem;
 		min-height: 1.7rem;
 		padding: 0 0.6rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font-size: var(--editor-small);
 		cursor: pointer;
 	}
 	.chip[aria-pressed='true'] {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.n {
 		font-size: var(--editor-label);
@@ -158,10 +158,10 @@
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--editor-primary-line);
+		border: var(--editor-edge) solid var(--tool-primary-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
 		cursor: pointer;
 	}
 	.body {
@@ -182,10 +182,10 @@
 	}
 	.foot {
 		margin: 0.8rem 0 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.note {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 </style>

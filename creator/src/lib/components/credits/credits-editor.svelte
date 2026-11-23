@@ -137,7 +137,7 @@
 	.preview {
 		position: sticky;
 		top: 0.5rem;
-		border: 2px solid var(--ink);
+		border: 2px solid var(--tool-text);
 		max-height: calc(100vh - 160px);
 		display: flex;
 		flex-direction: column;
@@ -147,7 +147,7 @@
 		gap: 0.4rem;
 		align-items: center;
 		padding: 0.3rem 0.5rem;
-		border-bottom: 2px solid var(--ink);
+		border-bottom: 2px solid var(--tool-text);
 	}
 	.preview header a {
 		margin-left: auto;

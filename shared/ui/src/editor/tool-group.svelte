@@ -176,13 +176,13 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.tool.on,
 	.tool.open {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.more::after {
 		content: '';
@@ -190,8 +190,8 @@
 		right: 0.125rem;
 		bottom: 0.125rem;
 		border: 0.15rem solid transparent;
-		border-right-color: var(--editor-muted);
-		border-bottom-color: var(--editor-muted);
+		border-right-color: var(--tool-muted);
+		border-bottom-color: var(--tool-muted);
 	}
 	.flyout {
 		position: fixed;
@@ -200,10 +200,10 @@
 		flex-direction: column;
 		min-width: 9rem;
 		padding: 0.25rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 		outline: none;
 		text-shadow: none;
 	}
@@ -223,8 +223,8 @@
 		white-space: nowrap;
 	}
 	.item.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.name {
 		flex: 1;
@@ -232,17 +232,17 @@
 	kbd {
 		font: inherit;
 		font-size: var(--editor-small);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.tool:focus-visible,
 	.item:focus-visible {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	@media (hover: hover) {
 		.tool:not(.on, .open):hover,
 		.item:not(.on):hover {
-			background: var(--editor-hover);
+			background: var(--tool-hover);
 		}
 	}
 </style>

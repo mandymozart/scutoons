@@ -44,19 +44,19 @@
 		min-height: var(--editor-tree-row);
 		padding: 0 0.5rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
-		text-shadow: var(--editor-halo);
+		text-shadow: var(--tool-halo);
 	}
 	.row:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.row[aria-current='page'] {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 	}
 	.head {
 		padding: var(--editor-pad) 0.5rem 0.2rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;

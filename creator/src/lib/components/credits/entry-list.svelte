@@ -162,9 +162,9 @@
 		gap: 2px;
 	}
 	li {
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 		padding: 0.25rem 0.4rem;
-		background: var(--paper);
+		background: transparent;
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
@@ -187,7 +187,7 @@
 		text-decoration: underline;
 	}
 	.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.chips {
 		display: flex;
@@ -206,7 +206,7 @@
 		align-items: flex-end;
 		flex-wrap: wrap;
 		padding: 0.3rem;
-		background: var(--surface-panel);
+		background: transparent;
 	}
 	.details label {
 		display: flex;

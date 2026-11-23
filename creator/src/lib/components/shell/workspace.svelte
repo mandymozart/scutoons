@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Floats, FloatingPanels } from '@scutoons/ui/editor';
-	import { CloseButton, Icon } from '@scutoons/ui';
+	import { Floats, FloatingPanels, IconButton } from '@scutoons/ui/editor';
+	import { CloseButton } from '@scutoons/ui';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -16,11 +16,12 @@
 	import { log } from '$lib/log/log.svelte.ts';
 	import { scopeOf } from '$lib/shell/address.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
-	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats the same –
-	 * the stage never gives way. A tab can take the stage (◱ main) or open over everything (⤢).
+	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats over the
+	 * stage – the stage never gives way. The front panel's tab takes the stage with M, opens over everything with Shift M.
 	 */
 	let { kind, toon = null }: { kind: WorkspaceKind | 'home'; toon?: string | null } = $props();
 
@@ -32,6 +33,7 @@
 	$effect(() => {
 		shell.floats = floats;
 		shell.kind = kind;
+		shell.available = available;
 	});
 	$effect(() => () => (shell.floats = null));
 
@@ -52,16 +54,19 @@
 		if (library.pick) shell.open('library');
 	});
 
-	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it)
+	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it, a hidden tab shows again)
 	$effect(() => {
 		const id = shell.wanted;
 		if (!id) return;
-		const panel = floats.spec(id) ? id : floats.specs.find((s) => floats.tabsOf(s.id).includes(id))?.id;
-		if (!panel) return;
-		floats.reopen(panel);
-		floats.setCollapsed(panel, false);
-		floats.front(panel);
-		if (panel !== id) floats.select(panel, id);
+		if (floats.panelOf(id)) {
+			floats.showTab(id);
+			shell.wanted = null;
+			return;
+		}
+		if (!floats.spec(id)) return;
+		floats.reopen(id);
+		floats.setCollapsed(id, false);
+		floats.front(id);
 		shell.wanted = null;
 	});
 
@@ -73,7 +78,7 @@
 	const over = $derived(shell.over && available.has(shell.over) ? shell.over : null);
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
 	let stage = $state<ReturnType<typeof Stage>>();
-	/** ◱: the tab alone on the stage, or back */
+	/** the tab alone on the stage, or back */
 	function onmain(tab: string) {
 		if (!staged.includes(tab)) stage?.take(tab);
 		shell.send(tab);
@@ -82,7 +87,7 @@
 		const t = e.target as HTMLElement | null;
 		return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
 	};
-	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: ◱ for the front panel's tab */
+	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: the front panel's tab takes the stage, Shift M: over everything */
 	function onkeydown(e: KeyboardEvent) {
 		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e) || floats.heldTab || library.browser) return;
 		if (e.key === 'Escape') {
@@ -95,7 +100,8 @@
 			const tab = front && floats.activeOf(front);
 			if (!tab) return;
 			e.preventDefault();
-			onmain(tab);
+			if (e.shiftKey) onover(tab);
+			else onmain(tab);
 		}
 	}
 
@@ -115,6 +121,8 @@
 			<LibraryPanel />
 		{:else if id === 'log'}
 			<LogPanel />
+		{:else if id === 'history'}
+			{#if shell.doc?.docs?.length}<HistoryPanel docs={shell.doc.docs} />{:else}<p class="sc-empty">{m['shell.history_none']()}</p>{/if}
 		{:else if id === 'settings'}
 			<SettingsPanel onreset={() => shell.resetView()} />
 		{:else if shell.tabs[id]}
@@ -130,10 +138,8 @@
 	{#key floats}
 		<FloatingPanels
 			{floats}
-			{onmain}
-			{onover}
 			stageDrop={{ zone: (t, x, y) => stage?.zone(t, x, y) ?? null, drop: (t, x, y) => stage?.drop(t, x, y) ?? false }}
-			labels={{ fold: m['creator.fold_panel'](), open: m['creator.unfold_panel'](), close: m['creator.close'](), main: m['shell.main'](), back: m['shell.main_back'](), over: m['shell.over']() }}
+			labels={{ close: m['creator.close']() }}
 		>
 			{#snippet tab(id)}
 				{#if staged.includes(id) || id === over}
@@ -151,7 +157,7 @@
 		<div class="box">
 			<div class="head">
 				<span class="name">{name(over)}</span>
-				<button type="button" class="back" onclick={() => (shell.over = null)} aria-label={m['shell.main_back']()} title={m['shell.main_back']()}><Icon name="minimize-2" size="0.9rem" strokeWidth={2} /></button>
+				<IconButton label={m['shell.main_back']()} icon="minimize-2" onclick={() => (shell.over = null)} />
 				<CloseButton label={m['creator.close']()} onclick={() => (shell.over = null)} />
 			</div>
 			<div class="body">{@render content(over)}</div>
@@ -187,43 +193,28 @@
 	.away {
 		margin: 0;
 		padding: var(--editor-pad);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
-	}
-	.back {
-		display: inline-grid;
-		place-items: center;
-		width: var(--control-height);
-		min-height: var(--control-height);
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: transparent;
-		color: inherit;
-	}
-	.back:hover {
-		background: var(--editor-hover);
-		color: var(--editor-text);
 	}
 	/* over everything (as OSCT's asset manager): a dialog over the whole creator, the bar included */
 	.over {
 		position: fixed;
 		z-index: 80;
 		inset: 0;
-		background: rgb(0 0 0 / 0.55);
+		background: var(--tool-scrim);
 	}
 	.over .box {
 		position: absolute;
 		inset: 2rem 2.5rem 2.5rem;
 		display: flex;
 		flex-direction: column;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
-		box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.5);
+		background: var(--tool-popover);
+		color: var(--tool-text);
+		box-shadow: none;
 		overflow: hidden;
 		font-family: var(--editor-sans);
 	}
@@ -232,7 +223,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		padding: 0.25rem 0.25rem 0.25rem 1rem;
-		background: var(--editor-surface-head);
+		background: var(--tool-head);
 	}
 	.over .name {
 		flex: 1;

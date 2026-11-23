@@ -59,19 +59,21 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font: inherit;
 		cursor: pointer;
 	}
+	/* deck-kit controls.rs `switch`: a round track with its line, the knob 0.76 of its height; on, the track goes green and
+	   the knob right in the light ink */
 	.track {
 		position: relative;
 		flex: none;
 		box-sizing: border-box;
-		width: 1.875rem;
+		width: 2.25rem;
 		height: 1.125rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 999px;
-		background: var(--editor-control);
+		background: var(--tool-within);
 		transition:
 			background-color 0.15s,
 			border-color 0.15s;
@@ -80,37 +82,33 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: 0.125rem;
-		width: 0.75rem;
-		height: 0.75rem;
+		left: 0.07rem;
+		width: 0.855rem;
+		height: 0.855rem;
 		border-radius: 50%;
-		background: var(--editor-muted);
+		background: var(--tool-muted);
 		transform: translateY(-50%);
 		transition:
 			transform 0.15s,
 			background-color 0.15s;
 	}
 	.switch[aria-checked='true'] .track {
-		border-color: var(--editor-text);
-		background: var(--editor-text);
+		background: var(--tool-go);
 	}
 	.switch[aria-checked='true'] .track::before {
-		background: var(--editor-surface);
-		transform: translate(0.75rem, -50%);
+		background: var(--tool-bright);
+		transform: translate(1.125rem, -50%);
 	}
 	@media (hover: hover) {
 		.switch:hover:not(:disabled) .track {
-			border-color: var(--editor-muted);
-		}
-		.switch[aria-checked='true']:hover:not(:disabled) .track {
-			border-color: var(--editor-text);
+			border-color: var(--tool-muted);
 		}
 	}
 	.switch:focus-visible {
 		outline: none;
 	}
 	.switch:focus-visible .track {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: 1px;
 	}
 	.switch:disabled {
@@ -118,7 +116,7 @@
 		cursor: not-allowed;
 	}
 	.value {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	@media (prefers-reduced-motion: reduce) {

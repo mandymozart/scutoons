@@ -101,6 +101,6 @@
 		object-fit: cover;
 	}
 	.still {
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 </style>

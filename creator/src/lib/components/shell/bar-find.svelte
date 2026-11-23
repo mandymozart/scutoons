@@ -6,7 +6,8 @@
 	import { resolveTyped } from '$lib/shell/address.ts';
 	import { matches, places } from '$lib/shell/places.svelte.ts';
 
-	/** Find anything by name or address – the bar's middle on Home (the deck editor's bar has no empty middle either) */
+	/** Find anything by name or address – the main menu's Search until the launcher (Alt Space) replaces it */
+	let { focus = false, onpick }: { focus?: boolean; onpick?: () => void } = $props();
 	const nav = getCreatorNav();
 	$effect(() => places.load(nav.toons));
 
@@ -19,6 +20,7 @@
 		const href = resolveTyped(query) ?? found[0]?.href;
 		if (href) {
 			open = false;
+			onpick?.();
 			void goto(href);
 		}
 	}
@@ -27,12 +29,12 @@
 <div class="bar-find" {@attach clickOutside(() => (open = false))} data-testid="home-find">
 	<form class="find" onsubmit={find} role="search">
 		<Icon name="search" size="1rem" />
-		<input type="search" bind:value={query} onfocus={() => (open = true)} oninput={() => (open = true)} placeholder={m['shell.find_placeholder']()} aria-label={m['shell.find']()} data-testid="home-find-input" />
+		<input type="search" {@attach (el) => void (focus && el.focus())} bind:value={query} onfocus={() => (open = true)} oninput={() => (open = true)} placeholder={m['shell.find_placeholder']()} aria-label={m['shell.find']()} data-testid="home-find-input" />
 	</form>
 	{#if open && found.length}
 		<ul class="rows">
 			{#each found as p (p.address)}
-				<li><a href={p.href} onclick={() => (open = false)}><Icon name={p.icon} size="1rem" /><span class="ell">{p.label}</span><span class="addr">{p.address}</span></a></li>
+				<li><a href={p.href} onclick={() => ((open = false), onpick?.())}><Icon name={p.icon} size="1rem" /><span class="ell">{p.label}</span><span class="addr">{p.address}</span></a></li>
 			{/each}
 		</ul>
 	{/if}
@@ -41,7 +43,7 @@
 <style>
 	.bar-find {
 		position: relative;
-		width: min(34rem, 100%);
+		width: 100%;
 	}
 	.find {
 		display: flex;
@@ -50,11 +52,15 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		padding: 0 0.3rem 0 0.9rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
-		color: var(--editor-muted);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
+		color: var(--tool-muted);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.find :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.find input {
 		flex: 1;
@@ -62,7 +68,7 @@
 		min-height: calc(var(--control-height) - 0.2rem);
 		border: 0;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		outline: none;
 	}
 	.rows {
@@ -74,10 +80,9 @@
 		margin: 0;
 		padding: 0.3rem;
 		list-style: none;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 0.4);
+		background: var(--tool-popover);
 	}
 	.rows a {
 		display: flex;
@@ -86,11 +91,11 @@
 		min-height: var(--editor-tree-row);
 		padding: 0 0.5rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.rows a:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.ell {
 		overflow: hidden;
@@ -99,7 +104,7 @@
 	}
 	.addr {
 		margin-left: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--font-mono);
 		font-size: var(--editor-small);
 	}

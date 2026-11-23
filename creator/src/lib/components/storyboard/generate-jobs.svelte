@@ -86,18 +86,18 @@
 		width: 100%;
 		height: 1rem;
 		appearance: none;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--tool-head);
+		color: var(--tool-text);
 	}
 	progress::-webkit-progress-bar {
-		background: var(--paper);
+		background: var(--tool-head);
 	}
 	progress::-webkit-progress-value {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	progress::-moz-progress-bar {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 </style>

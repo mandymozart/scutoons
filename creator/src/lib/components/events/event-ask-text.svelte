@@ -43,7 +43,7 @@
 <style>
 	.hint {
 		margin: 0;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 </style>

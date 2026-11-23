@@ -56,8 +56,8 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		border-top: var(--border-width-regular) solid var(--tool-text);
+		background: transparent;
 	}
 	.actions > :first-child {
 		margin-left: auto;

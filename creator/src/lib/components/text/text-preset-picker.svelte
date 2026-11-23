@@ -72,12 +72,12 @@
 		flex-direction: column;
 		gap: 0.25rem;
 		cursor: pointer;
-		border: var(--border-width-regular) solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--tool-line);
 		padding: 0.25rem;
 	}
 	.preset:hover,
 	.preset:focus-visible {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	/* a small slice: the reader's dialogs size in cqw of it */
 	.preview {
@@ -86,7 +86,7 @@
 		width: 100%;
 		overflow: hidden;
 		container-type: inline-size;
-		background: var(--border-subtle);
+		background: var(--tool-line);
 	}
 	.preview img {
 		position: absolute;

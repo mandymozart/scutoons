@@ -1,78 +1,68 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { IconButton, MenuItem } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
+	import { tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
-	import BarMenu from '$lib/components/shell/bar-menu.svelte';
 
 	/**
-	 * Views (the top right, as OSCT's and the deck editor's): which panels show here – ticked = open – with their tabs (a
-	 * tab opens its panel on it), which tab is on the stage, whether the content keeps clear of the bar, and back to the
-	 * workspace's preset.
+	 * Views (the main menu; OSCT's eye / eye-off): every view of the front workspace by itself, flat – no panels, no
+	 * hierarchy. The eye shows a view where it last was (its panel opens on it) or hides it; a view on the stage says so.
+	 * The row keeps room for the four states (hidden · panel · stage · full screen, TODO(#822)).
 	 */
+	let { onclose }: { onclose?: () => void } = $props();
+
+	const specs = tabSpecs();
 	const floats = $derived(shell.floats);
-	const panels = $derived(floats ? floats.specs.filter((s) => s.id !== 'settings') : []);
+	// Settings is the menu's own line
+	const views = $derived(specs.filter((t) => t.id !== 'settings' && shell.available.has(t.id)));
+	const onStage = (id: string) => shell.stage.includes(id);
+	const shown = (id: string) => onStage(id) || !!floats?.tabShown(id);
+
+	function flip(id: string) {
+		if (!floats) return;
+		if (!shown(id)) return shell.open(id);
+		if (onStage(id)) shell.back(id);
+		floats.hideTab(id);
+	}
 </script>
 
-<BarMenu label={m['shell.views']()} icon="layout" about={m['shell.views_about']()} testid="bar-views">
-	{#snippet children(close)}
-		{#if floats}
-			{#each panels as p (p.id)}
-				{@const open = !floats.closed(p.id)}
-				<button type="button" class="line" role="menuitemcheckbox" aria-checked={open} onclick={() => floats.flip(p.id)} data-testid="views-panel-{p.id}">
-					<span class="tick" class:on={open} aria-hidden="true">{#if open}<Icon name="check" size="0.8rem" />{/if}</span>{p.name}
-				</button>
-				{#each floats.tabsOf(p.id) as t (t)}
-					<button type="button" class="line tab" class:front={open && floats.activeOf(p.id) === t} onclick={() => shell.open(t)} data-testid="views-tab-{t}">
-						{floats.tab(t)?.name ?? t}{#if shell.stage.includes(t)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
-					</button>
-				{/each}
-			{/each}
-		{/if}
-		<hr />
-		<span class="head">{m['shell.views_stage']()}</span>
-		{#each shell.stage as t (t)}
-			<button type="button" class="line" onclick={() => shell.back(t)} title={m['shell.main_back']()} data-testid="views-stage">
-				<Icon name="monitor" size="1rem" />{floats?.tab(t)?.name ?? t}
-			</button>
-		{:else}
-			<button type="button" class="line" disabled data-testid="views-stage"><Icon name="monitor" size="1rem" />{m['shell.views_stage_none']()}</button>
-		{/each}
-		<button type="button" class="line" role="menuitemcheckbox" aria-checked={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear">
-			<span class="tick" class:on={shell.clear} aria-hidden="true">{#if shell.clear}<Icon name="check" size="0.8rem" />{/if}</span>{m['shell.views_clear']()}
-		</button>
-		<hr />
-		<button type="button" class="line" onclick={() => (shell.resetView(), close())} data-testid="views-reset"><Icon name="rotate-ccw" size="1rem" />{m['shell.views_back']()}</button>
-	{/snippet}
-</BarMenu>
+<div class="views" data-testid="views-list">
+	{#each views as v (v.id)}
+		{@const on = shown(v.id)}
+		<div class="view">
+			<MenuItem icon={v.icon} label={v.name} title={v.about} muted={!on} onclick={() => (shell.open(v.id), onclose?.())} data-testid="views-tab-{v.id}">
+				{v.name}{#if onStage(v.id)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
+			</MenuItem>
+			<IconButton label={on ? m['shell.views_hide']({ name: v.name }) : m['shell.views_show']({ name: v.name })} icon={on ? 'eye' : 'eye-off'} tone={on ? 'text' : 'muted'} aria-pressed={on} onclick={() => flip(v.id)} data-testid="views-eye-{v.id}" />
+		</div>
+	{/each}
+</div>
+<hr />
+<MenuItem label={m['shell.views_clear']()} role="menuitemcheckbox" aria-checked={shell.clear} on={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear" />
+<MenuItem icon="rotate-ccw" label={m['shell.views_back']()} onclick={() => (shell.resetView(), onclose?.())} data-testid="views-reset" />
 
 <style>
-	.line.tab {
-		padding-left: 2.2rem;
-		color: var(--editor-muted);
-		font-size: var(--editor-small);
+	.views {
+		display: flex;
+		flex-direction: column;
 	}
-	.line.tab.front {
-		color: var(--editor-text);
+	/* a view's line and its state buttons (one now, the eye; the panel, stage and full-screen states join it) */
+	.view {
+		display: flex;
+		align-items: center;
+		gap: var(--kit-seam);
+	}
+	/* the line takes the room the state buttons leave */
+	.view > :global(.kit-menu-item) {
+		flex: 1 1 auto;
+		width: auto;
+		min-width: 0;
 	}
 	.mark {
-		margin-left: auto;
-		color: var(--editor-accent);
+		margin-left: var(--editor-pad);
+		color: var(--tool-accent);
 		font-size: var(--editor-label);
 		text-transform: uppercase;
 		letter-spacing: var(--editor-label-spacing);
-	}
-	.tick {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1rem;
-		height: 1rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: 0.2rem;
-	}
-	.tick.on {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
 	}
 </style>

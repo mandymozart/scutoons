@@ -119,8 +119,8 @@
 
 <style>
 	.role-picker {
-		border: 2px solid var(--ink);
-		background: var(--paper);
+		border: 2px solid var(--tool-text);
+		background: var(--tool-popover);
 		padding: 0.5rem;
 		display: flex;
 		flex-direction: column;
@@ -154,25 +154,25 @@
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		min-width: 6.5rem;
 	}
 	.chip {
 		padding: 0 0.4rem;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--border-muted);
+		background: var(--tool-control);
+		color: var(--tool-text);
+		border: var(--border-width-regular) solid var(--tool-line);
 	}
 	.chip:hover {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.chip.has {
-		background: var(--surface-hover);
+		background: var(--tool-hover);
 	}
 	.tag {
 		font-size: var(--type-caption-size);
 		margin-left: 0.3em;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.create {
 		display: flex;

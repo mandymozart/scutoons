@@ -138,14 +138,14 @@
 		aspect-ratio: 1;
 		display: grid;
 		place-items: center;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 		overflow: hidden;
 	}
 	.tile:focus-visible .preview,
 	.tile.selected .preview {
-		outline: 0.125rem solid var(--editor-accent);
+		outline: 0.125rem solid var(--tool-accent);
 		outline-offset: 0.0625rem;
 	}
 	/* a version stack (OSCT #331): two sheets behind the tile; every card keeps the pile's room so they line up */
@@ -155,10 +155,10 @@
 	.tile.stack .preview {
 		overflow: visible;
 		box-shadow:
-			0.2rem -0.2rem 0 -0.0625rem var(--editor-surface),
-			0.2rem -0.2rem 0 0 var(--editor-line),
-			0.4rem -0.4rem 0 -0.0625rem var(--editor-surface),
-			0.4rem -0.4rem 0 0 var(--editor-line);
+			0.2rem -0.2rem 0 -0.0625rem var(--tool-head),
+			0.2rem -0.2rem 0 0 var(--tool-line),
+			0.4rem -0.4rem 0 -0.0625rem var(--tool-head),
+			0.4rem -0.4rem 0 0 var(--tool-line);
 	}
 	.preview img {
 		position: absolute;
@@ -169,7 +169,7 @@
 		border-radius: inherit;
 	}
 	.glyph {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.count {
 		position: absolute;
@@ -177,8 +177,8 @@
 		bottom: 0.25rem;
 		padding: 0 0.3rem;
 		border-radius: 0.3rem;
-		background: var(--editor-surface);
-		color: var(--editor-muted);
+		background: var(--tool-head);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 	}
 	.text {
@@ -194,14 +194,14 @@
 		white-space: nowrap;
 	}
 	.name {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.meta {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 	}
 	.meta.fresh {
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 	}
 	.more {
 		position: absolute;
@@ -212,10 +212,10 @@
 		display: none;
 		place-items: center;
 		padding: 0;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 50%;
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-head);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.tile:hover .more,
@@ -236,10 +236,10 @@
 		border-radius: var(--editor-radius);
 	}
 	.tile.row:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.tile.row.selected {
-		outline: 0.125rem solid var(--editor-accent);
+		outline: 0.125rem solid var(--tool-accent);
 	}
 	.row .preview {
 		flex: none;

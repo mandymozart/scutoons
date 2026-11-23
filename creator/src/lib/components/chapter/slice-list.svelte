@@ -310,20 +310,20 @@
 		font-size: var(--type-caption-size);
 		line-height: 1.2;
 		white-space: nowrap;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	/* image files from the computer: the drop line before / after a slice (new slices there) – the strip reads left to
 	   right, so the line stands at the thumbnail's side */
 	li.file-before {
-		box-shadow: calc(-1 * var(--border-width-focus)) 0 0 var(--cyan);
+		box-shadow: calc(-1 * var(--border-width-focus)) 0 0 var(--tool-accent);
 	}
 	li.file-after {
-		box-shadow: var(--border-width-focus) 0 0 var(--cyan);
+		box-shadow: var(--border-width-focus) 0 0 var(--tool-accent);
 	}
 	/* image files from the computer: the thumbnail framed in cyan (replace its image) */
 	li.file-on,
 	.empty.file-on {
-		outline: var(--border-width-focus) solid var(--cyan);
+		outline: var(--border-width-focus) solid var(--tool-accent);
 		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	.empty {
@@ -332,7 +332,7 @@
 		align-items: flex-start;
 		gap: var(--space-05);
 		padding: var(--space-1);
-		border: var(--border-width-hairline) dashed var(--ink);
+		border: var(--border-width-hairline) dashed var(--tool-text);
 	}
 	.thumb {
 		display: flex;
@@ -353,8 +353,8 @@
 		display: block;
 		width: 100%;
 		aspect-ratio: 390 / 624;
-		border: var(--border-width-hairline) solid var(--ink);
-		background: var(--surface-panel);
+		border: var(--border-width-hairline) solid var(--tool-text);
+		background: var(--tool-ground);
 	}
 	img {
 		display: block;
@@ -367,10 +367,10 @@
 		top: 0;
 		left: 0;
 		padding: 0 var(--space-025);
-		background: var(--paper);
-		color: var(--ink);
-		border-right: var(--border-width-hairline) solid var(--ink);
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		background: var(--tool-ground);
+		color: var(--tool-text);
+		border-right: var(--border-width-hairline) solid var(--tool-text);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
@@ -402,9 +402,9 @@
 		right: var(--space-025);
 		display: flex;
 		align-items: center;
-		background: var(--paper);
-		border-left: var(--border-width-hairline) solid var(--ink);
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		background: var(--tool-popover);
+		border-left: var(--border-width-hairline) solid var(--tool-text);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 		opacity: 0;
 	}
 	li[data-shot] .tools {
@@ -425,7 +425,7 @@
 		padding: 0 var(--space-025);
 		border: 0;
 		background: transparent;
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.add-last {
 		display: flex;
@@ -433,9 +433,9 @@
 		justify-content: center;
 		width: calc(100% - 2 * var(--space-05));
 		margin: 0 var(--space-05) var(--space-05);
-		border: var(--border-width-hairline) dashed var(--border-muted);
+		border: var(--border-width-hairline) dashed var(--tool-line);
 		background: transparent;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.file-pick {
 		display: none;

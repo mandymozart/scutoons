@@ -379,7 +379,7 @@
 		gap: 0.5rem;
 	}
 	.event {
-		border: 1px solid var(--border-muted);
+		border: 1px solid var(--tool-line);
 		padding: 0.4rem;
 		display: flex;
 		flex-direction: column;
@@ -414,7 +414,7 @@
 	/* a speaker who isn't on stage (vn-stage.ts): a mark in the line, the reason + the fix in the form */
 	.line .off-stage {
 		display: inline-flex;
-		color: var(--state-warning);
+		color: var(--tool-warn);
 	}
 	.event.open .line .off-stage :global(svg) {
 		transform: none;
@@ -434,7 +434,7 @@
 		height: 0.5em;
 		margin-right: var(--space-05);
 		border-radius: 50%;
-		background: var(--state-warning);
+		background: var(--tool-warn);
 	}
 	.line .type {
 		flex: none;
@@ -456,7 +456,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	/* the words keep their room; the trigger gives way first */
 	.line .sum {

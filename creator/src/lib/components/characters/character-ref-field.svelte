@@ -137,7 +137,7 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.ref {
 		all: unset;
@@ -147,18 +147,18 @@
 		gap: 0.4rem;
 		align-items: center;
 		min-height: var(--control-height);
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		padding: 0 0.3rem;
 		min-width: 0;
 	}
 	.ref:hover,
 	.ref:focus-visible {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.ref.unknown,
 	.ref.off-cast {
 		border-style: dashed;
-		border-color: var(--error);
+		border-color: var(--tool-stop);
 	}
 	.img {
 		width: 1.8rem;
@@ -184,6 +184,6 @@
 	.warn {
 		align-self: flex-start;
 		font-size: var(--type-caption-size);
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

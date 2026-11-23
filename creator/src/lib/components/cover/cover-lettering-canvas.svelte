@@ -182,7 +182,7 @@
 	}
 	.stage {
 		position: relative;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		touch-action: none;
 		user-select: none;
 	}
@@ -194,8 +194,8 @@
 	.box {
 		position: absolute;
 		box-sizing: border-box;
-		border: var(--border-width-regular) dashed rgb(255 255 255 / 0.7);
-		outline: var(--border-width-hairline) dashed rgb(0 0 0 / 0.6);
+		border: var(--border-width-regular) dashed var(--tool-over-light);
+		outline: var(--border-width-hairline) dashed var(--tool-over-dark);
 		cursor: move;
 	}
 	.box:hover {
@@ -203,11 +203,11 @@
 	}
 	/* selected = the cyan frame; live = + its handles; focus = the 3px ink ring (focus is not selection – E.8) */
 	.box.selected {
-		border: var(--border-width-regular) solid var(--primary-cyan);
-		outline: var(--border-width-hairline) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-accent);
+		outline: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.box:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: var(--focus-offset);
 	}
 	.guide {
@@ -215,15 +215,15 @@
 		left: 50%;
 		top: 0;
 		bottom: 0;
-		border-left: var(--border-width-hairline) solid var(--primary-cyan);
+		border-left: var(--border-width-hairline) solid var(--tool-accent);
 		pointer-events: none;
 	}
 	.handle {
 		position: absolute;
 		width: 0.75rem;
 		height: 0.75rem;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-control);
+		border: var(--border-width-regular) solid var(--tool-text);
 		box-sizing: border-box;
 	}
 	.handle.width {
@@ -236,7 +236,7 @@
 		right: -0.4rem;
 		bottom: -0.4rem;
 		cursor: nwse-resize;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.handle.rotate {
 		left: 50%;

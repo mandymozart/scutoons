@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge, Icon, ToonAvatar } from '@scutoons/ui';
+	import { Button, Card, ListRow, Tile } from '@scutoons/ui/editor';
 	import type { ContentIndexEntity } from '@scutoons/api';
 	import { toonAsset, toonName } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
@@ -70,77 +71,57 @@
 
 {#snippet topPublish()}
 	<!-- the bar's Publish on the dashboard is "publish everything" (nothing is open here to publish on its own) -->
-	<button type="button" class="primary" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="bar-publish-everything"><Icon name="upload-cloud" size="1rem" />{m['creator.publish']()} …</button>
+	<Button variant="primary" icon="upload-cloud" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="bar-publish-everything">{m['creator.publish']()} …</Button>
 {/snippet}
-<PagePublish publish={topPublish} />
+<PagePublish publish={topPublish} unpublished={pending.length > 0} />
 
 <main class="home" data-testid="dashboard">
 	<div class="col main">
-		<section class="card">
-			<h2>{m['shell.areas']()}</h2>
+		<Card title={m['shell.areas']()}>
 			<div class="areas">
 				{#each areas as a (a.address)}
-					<a class="area" href={a.href} data-testid="home-area"><Icon name={a.icon} size="1.3rem" /><span>{a.label}</span></a>
+					<Tile icon={a.icon} label={a.label} href={a.href} data-testid="home-area" />
 				{/each}
 			</div>
-		</section>
+		</Card>
 		{#if recent.list.length}
-			<section class="card" data-testid="dash-continue">
-				<h2>{m['creator.dash_continue']()}</h2>
+			<Card title={m['creator.dash_continue']()} data-testid="dash-continue">
 				<div class="recent">
 					{#each recent.list.slice(0, SHOWN) as r (r.href)}
 						{@const address = recentAddress(r.href)}
-						<a class="tile" href={r.href} data-testid="dash-open">
-							<span class="tile-head"><ToonAvatar src={avatarOf(r.toon)} name={r.trail[0] ?? ''} size="2rem" /><Icon name={iconOf(address)} size="1rem" /></span>
-							<span class="ell">{r.trail.join(' · ')}</span>
-							<span class="addr ell">{address}</span>
-							<span class="meta">{when(r.at)}</span>
-						</a>
+						<Tile label={r.trail.join(' · ')} sub={address} meta={when(r.at)} href={r.href} data-testid="dash-open">
+							{#snippet picture()}<ToonAvatar src={avatarOf(r.toon)} name={r.trail[0] ?? ''} size="2rem" /><Icon name={iconOf(address)} size="1rem" />{/snippet}
+						</Tile>
 					{/each}
 				</div>
-			</section>
+			</Card>
 		{/if}
 	</div>
 	<div class="col side">
-		<section class="card" data-testid="dash-waiting">
-			<h2>{m['creator.dash_waiting']()} {#if waiting}<span class="n">{waiting}</span>{/if}</h2>
+		<Card title={m['creator.dash_waiting']()} count={waiting} data-testid="dash-waiting">
 			{#if waiting}<ReviewList />{/if}
 			{#if pending.length}
-				<h2 data-testid="dash-not-live">{m['creator.dash_not_live']()} <span class="n">{pending.length}</span></h2>
-				<ul class="rows">
+				<h2 class="head" data-testid="dash-not-live">{m['creator.dash_not_live']()} <span class="n">{pending.length}</span></h2>
+				<div class="rows">
 					{#each pending.slice(0, SHOWN) as e (e.key)}
-						<li>
-							<a href={placeHref(e.key)}>
-								<Icon name={iconOf(e.key)} size="1rem" />
-								<span class="ell">{title(e)}</span>
-								<span class="meta">{when(e.latest_at)}</span>
-								<Badge tone="draft">{m['creator.status_draft']()}</Badge>
-							</a>
-						</li>
+						<ListRow icon={iconOf(e.key)} label={title(e)} meta={when(e.latest_at)} href={placeHref(e.key)}><Badge tone="draft">{m['creator.status_draft']()}</Badge></ListRow>
 					{/each}
-				</ul>
+				</div>
 				{#if pending.length > SHOWN}<p class="meta">{m['creator.dash_more']({ count: pending.length - SHOWN })}</p>{/if}
 			{:else if !waiting}
 				<p class="meta">{m['shell.nothing_waiting']()}</p>
 			{/if}
-			<button type="button" class="pill" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="publish-everything">
-				<Icon name="upload-cloud" size="1rem" />{m['creator.publish']()} …
-			</button>
-		</section>
-		<section class="card" data-testid="home-toons">
-			<h2>{m['creator.toons']()}</h2>
-			<ul class="rows">
+			<span class="actions"><Button icon="upload-cloud" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="publish-everything">{m['creator.publish']()} …</Button></span>
+		</Card>
+		<Card title={m['creator.toons']()} data-testid="home-toons">
+			<div class="rows">
 				{#each nav.toons as t (t.id)}
-					<li>
-						<a href="/{t.id}" data-testid="home-toon">
-							<ToonAvatar src={avatarOf(t.id)} name={nav.toonName(t.id)} size="2rem" />
-							<span class="ell">{nav.toonName(t.id)}</span>
-							<span class="addr">toon:{t.id}</span>
-						</a>
-					</li>
+					<ListRow label={nav.toonName(t.id)} meta="toon:{t.id}" href="/{t.id}" data-testid="home-toon">
+						{#snippet lead()}<ToonAvatar src={avatarOf(t.id)} name={nav.toonName(t.id)} size="2rem" />{/snippet}
+					</ListRow>
 				{/each}
-			</ul>
-		</section>
+			</div>
+		</Card>
 	</div>
 </main>
 
@@ -149,118 +130,57 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 1fr);
 		align-items: start;
-		gap: 1rem;
+		gap: var(--editor-gap);
 		max-width: 58rem;
 		margin: 0 auto 0 max(0rem, calc((100% - 88rem) / 2));
-		padding: 0.4rem 1rem 1rem;
-		color: var(--editor-text);
+		padding: calc(var(--editor-pad) / 2) var(--editor-gap) var(--editor-gap);
+		color: var(--tool-text);
 	}
 	.col {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--editor-gap);
 		min-width: 0;
-	}
-	.card {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: var(--editor-pad) 0.85rem 0.85rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-	}
-	h2 {
-		display: flex;
-		align-items: baseline;
-		gap: 0.5rem;
-		margin: 0.3rem 0 0;
-		color: var(--editor-muted);
-		font-size: var(--editor-label);
-		letter-spacing: var(--editor-label-spacing);
-		text-transform: uppercase;
-	}
-	.n {
-		color: var(--editor-warn);
 	}
 	.areas {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-		gap: 0.45rem;
-	}
-	.area,
-	.tile {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-		min-width: 0;
-		padding: 0.6rem 0.7rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--editor-control);
-		color: var(--editor-text);
-		text-decoration: none;
-	}
-	.area:hover,
-	.tile:hover {
-		background: var(--editor-hover);
+		gap: var(--kit-gap);
 	}
 	.recent {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-		gap: 0.6rem;
-	}
-	.tile-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		color: var(--editor-muted);
+		gap: var(--kit-gap);
 	}
 	.rows {
-		margin: 0;
-		padding: 0;
-		list-style: none;
+		display: flex;
+		flex-direction: column;
 	}
-	.rows a {
+	/* a second title in a card (its first is the Card's) */
+	.head {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
-		min-height: var(--editor-row);
-		padding: 0.15rem 0.3rem;
-		border-radius: var(--editor-radius);
-		color: var(--editor-text);
-		text-decoration: none;
+		gap: var(--kit-icon-gap);
+		min-height: var(--control-height);
+		margin: 0;
+		padding: 0 calc(var(--editor-pad) / 2);
+		color: var(--tool-muted);
+		font-size: var(--editor-label);
+		font-weight: inherit;
+		letter-spacing: var(--editor-label-spacing);
+		text-transform: uppercase;
 	}
-	.rows a:hover {
-		background: var(--editor-hover);
-	}
-	.ell {
-		flex: 1 1 auto;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.addr {
-		flex: none;
-		color: var(--editor-muted);
-		font-family: var(--font-mono);
-		font-size: var(--editor-small);
+	.n {
+		color: var(--tool-warn);
 	}
 	.meta {
 		margin: 0;
-		color: var(--editor-muted);
+		padding: 0 calc(var(--editor-pad) / 2);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
-	.pill {
-		display: inline-flex;
-		align-self: flex-start;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0 0.85rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: 1.2rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+	.actions {
+		display: flex;
+		padding-top: calc(var(--editor-pad) / 2);
 	}
 </style>

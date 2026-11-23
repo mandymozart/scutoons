@@ -939,7 +939,7 @@
 	.stage {
 		position: relative;
 		min-height: 0;
-		border-right: 2px solid var(--ink);
+		border-right: 2px solid var(--tool-text);
 	}
 	.side {
 		min-height: 0;
@@ -947,7 +947,7 @@
 	}
 	.hint {
 		font-size: var(--type-caption-size);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	@media (max-width: 1100px) {
 		.builder {
@@ -956,7 +956,7 @@
 		}
 		.stage {
 			border-right: 0;
-			border-bottom: 2px solid var(--ink);
+			border-bottom: 2px solid var(--tool-text);
 		}
 		/* below the canvas: no side drag edge */
 		.builder :global(.side-resize) {
@@ -972,8 +972,8 @@
 		position: absolute;
 		z-index: 2;
 		flex-direction: column;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-popover);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.strip.tools {
 		top: 0.6rem;
@@ -991,12 +991,12 @@
 		justify-content: center;
 		width: var(--control-height);
 		height: var(--control-height);
-		color: var(--ink);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.strip button.on {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.strip button:disabled {
 		opacity: 0.35;
@@ -1004,7 +1004,7 @@
 	}
 	.strip .sep {
 		height: var(--border-width-regular);
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.start-tab {
 		padding: 0 0.75rem 1rem;
@@ -1046,10 +1046,10 @@
 		gap: 0.2rem;
 		min-height: 2.25rem;
 		padding: 0 0.4rem 0 0.15rem;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		border-radius: 999rem;
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.mini {
@@ -1076,8 +1076,8 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
+		background: var(--tool-popover);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.toon-menu button {
 		all: unset;
@@ -1091,8 +1091,8 @@
 		cursor: pointer;
 	}
 	.toon-menu button.on {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 
 	/* the sidebar (rendered into the shell's left column) */
@@ -1101,7 +1101,7 @@
 		padding: 1rem 1rem 0.25rem; /* the sidebar's 1rem line (owner 2026-10-03) */
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	/* a fold-out section: the head is its summary (a chevron before it, turned when open) */
 	.map-nav summary.head {
@@ -1150,10 +1150,10 @@
 		cursor: pointer;
 	}
 	.map-nav .eye[aria-pressed='false'] {
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.map-nav .eye:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	.map-nav .item-row {
@@ -1175,14 +1175,14 @@
 	}
 	/* hover frames (never inverted); the selected one: tools.css .sc-selected */
 	.map-nav .item:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.map-nav .item.dim {
 		opacity: 0.45;
 	}
 	.map-nav .add {
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	.map-nav .name {
 		min-width: 0;
@@ -1195,8 +1195,8 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		border: 1.5px solid var(--ink);
-		background: var(--surface-tint-cyan, #f0fcff);
+		border: 1.5px solid var(--tool-text);
+		background: var(--tool-within);
 	}
 	.dot.hidden-dot {
 		border-style: dashed;
@@ -1207,9 +1207,9 @@
 		font-weight: var(--font-weight-regular);
 	}
 	.mark.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	.mark.warn {
-		color: var(--warn);
+		color: var(--tool-warn);
 	}
 </style>

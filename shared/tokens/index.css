@@ -1,6 +1,7 @@
 /* @scutoons/tokens: everything in one import (tokens, the editor style, fonts, base element styles, the tools' base) */
 @import './tokens.css';
 @import './editor.css';
+@import './tool-colours.css';
 @import './fonts.css';
 @import './base.css';
 @import './tools.css';

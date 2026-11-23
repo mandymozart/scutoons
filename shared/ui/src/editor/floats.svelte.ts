@@ -1,19 +1,16 @@
 import { readStoredJson, writeStoredJson } from './storage.ts';
 import {
+	clampInto,
 	defaultPlace,
-	evade,
 	layout,
 	moved,
 	placeOf,
 	raise,
 	readPlaces,
 	resized,
-	settle,
-	settleSize,
 	wantOf,
 	type Edge,
 	type Metrics,
-	type Neighbour,
 	type PanelSpec,
 	type Place,
 	type Rect,
@@ -26,10 +23,13 @@ import {
 	closeFree,
 	defaultArrangement,
 	freeSpec,
+	hideTab,
 	isEssential,
+	isHidden,
 	moveTab,
 	panelOf,
 	readArrangement,
+	showTab,
 	tabsOf,
 	tearOut,
 	type Arrangement,
@@ -51,10 +51,6 @@ interface Held {
 	from: [number, number];
 	rect: Rect;
 	moved: boolean;
-	/** A resize: every panel's view when it started and its least size – what `evade` lays out from */
-	base?: Record<string, View>;
-	neighbours?: Neighbour[];
-	views?: Record<string, View>;
 }
 
 /** A tab in the hand: where it was pressed, where the pointer is, where it would land and the marker there */
@@ -67,7 +63,6 @@ export interface HeldTab {
 	marker: Rect | null;
 }
 
-const sameRect = (a: Rect, b: Rect) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 const record = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 /**
@@ -127,19 +122,18 @@ export class Floats {
 		return [...declared, ...free];
 	});
 
-	readonly views: Record<string, View> = $derived.by(
-		() =>
-			this.held?.views ??
-			layout({
-				specs: this.specs,
-				places: this.resolved,
-				shown: this.shown,
-				area: this.area,
-				m: this.metrics,
-				measured: this.measured,
-				asks: this.asks,
-				held: this.held && this.held.moved ? { id: this.held.id, rect: this.held.rect } : null
-			})
+	readonly views: Record<string, View> = $derived.by(() =>
+		layout({
+			specs: this.specs,
+			places: this.resolved,
+			shown: this.shown,
+			area: this.area,
+			m: this.metrics,
+			measured: this.measured,
+			asks: this.asks,
+			placed: new Set(Object.keys(this.places)),
+			held: this.held && this.held.moved ? { id: this.held.id, rect: this.held.rect } : null
+		})
 	);
 
 	get resolved(): Record<string, Place> {
@@ -287,6 +281,35 @@ export class Floats {
 		this.save();
 	}
 
+	/** The panel holding a tab, shown or hidden */
+	panelOf(tab: string): string | undefined {
+		return panelOf(this.arrangement, tab);
+	}
+
+	/** A tab shows: in an open panel and not hidden */
+	tabShown(tab: string): boolean {
+		const panel = panelOf(this.arrangement, tab);
+		return !!panel && !isHidden(this.arrangement, tab) && !!this.spec(panel) && !this.closed(panel);
+	}
+
+	/** A tab hidden (the Views eye): its panel keeps its place for it; a panel left without a shown tab goes */
+	hideTab(tab: string): void {
+		this.arrangement = hideTab(this.arrangement, tab);
+		this.save();
+	}
+
+	/** A tab shown where it last was: its panel opens on it */
+	showTab(tab: string): void {
+		const panel = panelOf(this.arrangement, tab);
+		if (!panel) return;
+		this.arrangement = showTab(this.arrangement, tab);
+		if (this.closed(panel) || this.collapsed(panel)) this.reopen(panel);
+		else {
+			this.front(panel);
+			this.save();
+		}
+	}
+
 	grabTab(tab: string, x: number, y: number): void {
 		const panel = panelOf(this.arrangement, tab);
 		if (panel) this.front(panel);
@@ -329,12 +352,8 @@ export class Floats {
 		const size = torn || !view ? this.openSize(spec) : { w: view.rect.w, h: view.rect.h };
 		const half = this.metrics.head / 2;
 		const start = moved({ x: x - half, y: y - half, ...size }, 0, 0, this.area);
-		const others = Object.entries(this.views)
-			.filter(([o]) => o !== id)
-			.map(([, v]) => v.rect);
-		const rect = settle(start, others, this.area, this.metrics.gap);
 		const was = this.places[id] ?? (torn ? {} : this.place(id));
-		this.places = { ...this.places, [id]: { ...was, ...placeOf(rect, this.area), collapsed: false, closed: false } };
+		this.places = { ...this.keepOthers(id), [id]: { ...was, ...placeOf(start, this.area), collapsed: false, closed: false } };
 		this.front(id);
 		this.save();
 	}
@@ -356,16 +375,7 @@ export class Floats {
 		if (!view) return;
 		this.cancelFrame();
 		this.front(id);
-		const held: Held = { id, kind: edge ? 'size' : 'move', edge: edge ?? { x: 0, y: 0 }, start: view.rect, from: [x, y], rect: view.rect, moved: false };
-		if (edge) {
-			held.base = this.views;
-			held.neighbours = Object.entries(this.views).map(([other, v]) => {
-				const spec = this.spec(other);
-				const min = v.collapsed || !spec ? { w: v.rect.w, h: v.rect.h } : this.minOf(spec);
-				return { id: other, rect: v.rect, min: { w: Math.min(min.w, v.rect.w), h: Math.min(min.h, v.rect.h) } };
-			});
-		}
-		this.held = held;
+		this.held = { id, kind: edge ? 'size' : 'move', edge: edge ?? { x: 0, y: 0 }, start: view.rect, from: [x, y], rect: view.rect, moved: false };
 	}
 
 	/** The pointer moved while a panel is held: laid out at the next animation frame (without frames – a test – at once) */
@@ -405,44 +415,45 @@ export class Floats {
 			this.held = { ...h, rect: moved(h.start, dx, dy, this.area), moved: true };
 			return;
 		}
-		const target = resized(h.start, h.edge, dx, dy, this.minOf(spec), this.area);
-		const base = h.base ?? {};
-		const rects = evade(h.neighbours ?? [], h.id, target, h.edge, this.area, this.metrics.gap);
-		const views = Object.fromEntries(Object.entries(base).map(([id, v]) => [id, sameRect(v.rect, rects[id]) ? v : { ...v, rect: rects[id] }]));
-		this.held = { ...h, rect: rects[h.id], moved: true, views };
+		this.held = { ...h, rect: resized(h.start, h.edge, dx, dy, this.minOf(spec), this.area), moved: true };
 	}
 
-	/** Let go: a moved panel settles; a resized one keeps the room it made. True when it was a drag, not a click */
+	/**
+	 * Let go: the panel stays where it is, held inside the walls – no snap; a resized one keeps its size. No other panel
+	 * moves or changes size. True when it was a drag, not a click
+	 */
 	drop(): boolean {
 		this.flush();
 		const h = this.held;
 		if (!h) return false;
-		const views = this.views;
 		this.held = null;
 		if (!h.moved) return false;
 		const spec = this.spec(h.id);
 		if (!spec) return true;
-		const others = Object.entries(views)
-			.filter(([id]) => id !== h.id)
-			.map(([, v]) => v.rect);
-		const { gap } = this.metrics;
+		const rect = clampInto(h.rect, this.area);
 		const old = this.place(h.id);
-		if (h.kind === 'move') {
-			const rect = settle(h.rect, others, this.area, gap);
-			this.set(h.id, { ...old, ...placeOf(rect, this.area) });
-			return true;
-		}
-		const rect = settleSize(h.rect, h.edge, others, this.minOf(spec), this.area, gap);
-		const places = { ...this.places, [h.id]: { ...old, ...placeOf(rect, this.area), size: { w: rect.w, h: rect.h } } };
-		for (const [id, v] of Object.entries(h.views ?? {})) {
-			const was = h.base?.[id];
-			if (id === h.id || !was || v === was) continue;
-			const shrank = Math.abs(v.rect.w - was.rect.w) > 0.5 || Math.abs(v.rect.h - was.rect.h) > 0.5;
-			places[id] = { ...this.place(id), ...placeOf(v.rect, this.area), ...(shrank ? { size: { w: v.rect.w, h: v.rect.h } } : {}) };
-		}
-		this.places = places;
+		// a `fill` panel let go keeps the size it had: it stays as it was dropped
+		const keep = h.kind === 'size' || (!old.collapsed && (spec.size.w === 'fill' || spec.size.h === 'fill'));
+		this.places = { ...this.keepOthers(h.id), [h.id]: { ...old, ...placeOf(rect, this.area), ...(keep ? { size: { w: rect.w, h: rect.h } } : {}) } };
 		this.save();
 		return true;
+	}
+
+	/**
+	 * The places with every other panel held where it lies now – a panel let go must change no other: one still at its
+	 * default place keeps that rectangle, an open `fill` one the size it has (it grows only to panels clear of it)
+	 */
+	private keepOthers(id: string): Record<string, Place> {
+		const places = { ...this.places };
+		for (const [other, v] of Object.entries(this.views)) {
+			const spec = this.spec(other);
+			if (other === id || !spec) continue;
+			const stored = this.places[other];
+			const fill = !v.collapsed && !stored?.size && (spec.size.w === 'fill' || spec.size.h === 'fill');
+			if (stored && !fill) continue;
+			places[other] = { ...this.place(other), ...placeOf(v.rect, this.area), ...(fill ? { size: { w: v.rect.w, h: v.rect.h } } : {}) };
+		}
+		return places;
 	}
 
 	private minOf(spec: PanelSpec): Size {

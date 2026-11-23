@@ -1,6 +1,6 @@
 // The creator's one panel / tab model (research/redesign/panels.html): every section is a tab (declared once in panels.ts); a
 // panel is a set of tabs; a workspace is only a preset – which panels, their tabs, their places, which tab is main.
-// A page fills the tabs it has content for (`useTabs`, shell.svelte.ts); the Toon, the Library, Settings and the Log are
+// A page fills the tabs it has content for (`useTabs`, shell.svelte.ts); the Toon, the Library, Settings, the Log and History are
 // the shell's own. A tab with content that no preset panel holds still opens: it gets a closed panel of its own (Views).
 // Pure: test/shell.test.ts; the tabs' names and icons: panels.ts.
 import type { PanelSpec, TabSpec } from '@scutoons/ui/editor';
@@ -23,6 +23,8 @@ export type TabId =
 	| 'flow'
 	| 'preview'
 	| 'log'
+	/** the open item's saved versions (was the bar's History menu) */
+	| 'history'
 	/** the Log's old id: stored layouts and presets naming it open the Log */
 	| 'problems'
 	/** the character's old Moods panel tabs: they open Expressions */
@@ -38,7 +40,7 @@ export type TabId =
 	| 'settings';
 
 /** the tabs the shell draws itself (the others come from the front page) */
-export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log'];
+export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'history'];
 
 /** old tab ids and the tab they name now */
 export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log', moods: 'expressions', vocabulary: 'expressions' };

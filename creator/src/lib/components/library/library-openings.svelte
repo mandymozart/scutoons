@@ -72,16 +72,16 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font: inherit;
 		text-align: left;
 		text-decoration: none;
-		text-shadow: var(--editor-halo);
+		text-shadow: var(--tool-halo);
 		cursor: pointer;
 	}
 	.places a:hover,
 	.places button:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.head {
 		display: flex;
@@ -89,7 +89,7 @@
 		gap: 0.5rem;
 		margin-top: 0.5rem;
 		padding: 0 0.3rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.name {
@@ -101,7 +101,7 @@
 	}
 	.hint {
 		flex: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 </style>

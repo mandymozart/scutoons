@@ -263,7 +263,7 @@
 	.char-workspace {
 		flex: 1;
 		min-height: 0;
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	.kanon {
 		display: flex;
@@ -290,7 +290,7 @@
 		inset: 0;
 		overflow: auto;
 		box-sizing: border-box;
-		background: var(--editor-surface);
+		background: var(--tool-ground);
 		padding: calc(var(--shell-top) + 1rem) var(--in-r) calc(var(--status-room) + var(--control-height) + 1.5rem) var(--in-l);
 	}
 </style>

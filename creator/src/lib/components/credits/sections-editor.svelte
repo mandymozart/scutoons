@@ -98,7 +98,7 @@
 		gap: 1rem;
 	}
 	.section {
-		border: 2px solid var(--ink);
+		border: 2px solid var(--tool-text);
 		padding: 0.5rem 0.75rem 0.75rem;
 		display: flex;
 		flex-direction: column;
@@ -114,8 +114,8 @@
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		padding: 0 0.4rem;
 	}
 	.num input {

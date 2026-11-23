@@ -102,7 +102,7 @@
 		await Promise.all([reload(), load(sceneId)]);
 	}
 
-	usePageDoc(() => ({ publish: publishMenu }));
+	usePageDoc(() => ({ publish: publishMenu, unpublished: !!row && row.state !== 'published' }));
 	const states = $derived([
 		{ value: 'all' as const, label: m['creator.scenes_all']() },
 		{ value: 'draft' as const, label: m['creator.scenes_draft']() },
@@ -202,12 +202,12 @@
 		align-items: center;
 		gap: 0.1rem 0.5rem;
 		padding: 0.4rem 1rem;
-		color: var(--ink);
+		color: var(--tool-text);
 		text-decoration: none;
-		border-top: var(--border-width-regular) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--tool-line);
 	}
 	.item:hover {
-		outline: var(--border-width-regular) solid var(--ink);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.name {
@@ -218,7 +218,7 @@
 	}
 	.hint {
 		grid-column: 1 / -1;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		white-space: nowrap;
 		overflow: hidden;
@@ -231,6 +231,6 @@
 		padding: 0.5rem 1rem;
 	}
 	.error {
-		color: var(--state-error);
+		color: var(--tool-stop);
 	}
 </style>

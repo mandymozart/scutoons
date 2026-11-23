@@ -69,7 +69,7 @@
 		touch-action: none;
 	}
 	.track:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: var(--focus-offset);
 	}
 	.bar {
@@ -77,12 +77,12 @@
 		box-sizing: border-box;
 		width: 100%;
 		height: 0.75rem;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.bar > i {
 		display: block;
 		height: 100%;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.time {
 		flex: none;

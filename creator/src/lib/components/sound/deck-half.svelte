@@ -84,7 +84,7 @@
 		flex: 1;
 		min-height: 10rem;
 		position: relative;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.chips {
 		position: absolute;
@@ -103,7 +103,7 @@
 		z-index: 2;
 		pointer-events: none;
 		font-size: var(--type-nav-micro-size);
-		color: color-mix(in srgb, var(--paper) 60%, transparent);
+		color: color-mix(in srgb, var(--tool-pressed-text) 60%, transparent);
 		white-space: nowrap;
 	}
 </style>

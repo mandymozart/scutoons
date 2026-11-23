@@ -139,7 +139,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.box {
 		flex: 1;
@@ -159,8 +159,8 @@
 	.device {
 		flex: none;
 		overflow: hidden;
-		outline: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		outline: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-ground);
 	}
 	iframe {
 		display: block;

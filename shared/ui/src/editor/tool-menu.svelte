@@ -153,7 +153,7 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		cursor: pointer;
 	}
 	.tool::after {
@@ -162,8 +162,8 @@
 		right: 0.125rem;
 		bottom: 0.125rem;
 		border: 0.15rem solid transparent;
-		border-right-color: var(--editor-muted);
-		border-bottom-color: var(--editor-muted);
+		border-right-color: var(--tool-muted);
+		border-bottom-color: var(--tool-muted);
 	}
 	.tool.marked::before {
 		content: '';
@@ -176,16 +176,16 @@
 		background: currentColor;
 	}
 	.tool.open {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.tool:focus-visible {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	@media (hover: hover) {
 		.tool:not(.open):hover {
-			background: var(--editor-hover);
+			background: var(--tool-hover);
 		}
 	}
 	.flyout {
@@ -196,10 +196,10 @@
 		width: max-content;
 		max-width: calc(100vw - 0.5rem);
 		padding: 0.5rem var(--editor-pad);
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 		outline: none;
 		text-shadow: none;
 	}

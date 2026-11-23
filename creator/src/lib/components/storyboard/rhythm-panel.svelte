@@ -59,10 +59,10 @@
 		margin: 0;
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.outside {
-		color: var(--state-warning);
+		color: var(--tool-warn);
 	}
 	ul {
 		display: grid;
@@ -70,14 +70,14 @@
 		margin: var(--space-05) 0 0;
 		padding: var(--space-05) 0 0;
 		list-style: none;
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-hairline) solid var(--tool-line);
 	}
 	li {
 		display: grid;
 		padding-inline: var(--space-05);
 	}
 	li.current {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 	}
 	.scene {
 		text-transform: uppercase;

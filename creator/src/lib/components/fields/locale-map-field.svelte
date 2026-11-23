@@ -75,7 +75,7 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+		color: var(--tool-text);
 		font-weight: var(--font-weight-regular);
 		padding: 0;
 		margin-bottom: 0.15rem;
@@ -88,20 +88,20 @@
 	}
 	.lang {
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
 	}
 	.missing input,
 	.missing textarea {
-		border-color: var(--warn);
+		border-color: var(--tool-warn);
 	}
 	.pill {
 		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
-		background: var(--warn);
-		color: var(--ink);
+		background: var(--tool-warn);
+		color: var(--tool-text);
 	}
 	input,
 	textarea {

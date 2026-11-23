@@ -212,9 +212,9 @@
 		padding: 0;
 	}
 	.slice-tools :global(.sc-seg > button[aria-expanded='true']) {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		border-color: var(--tool-text);
 	}
 	.grid-button {
 		position: relative;
