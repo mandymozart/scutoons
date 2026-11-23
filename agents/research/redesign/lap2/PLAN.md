@@ -151,7 +151,7 @@ Filed 2026-11-24 on your word (*"create issues for the plan and than start with 
 | #858 | The Reload notice in the creator | P2 | M | – |
 | #842 | Thumbnails: full captures on the cards, stills for scenes, places and videos (built, held: rework) | P3 | L | #856 |
 | #859 | The apps open each other: the creator's side | P4 | M | #856 |
-| #860 | The creator as an Electron app | P5 | L | #859 · your word on the download |
+| #860 | The creator as an Electron app | P5 | L | #859 · the download allowed (your word, 2026-11-24 night); signing and the macOS build are yours |
 | #861 | Not twice: Import images, Bones and Clips, the Library's "To do", the Scenes Tree go | P6 | M | – |
 | #862 | The scene page as a preview with "Edit in deck"; media as previews | P6 | M | #842, #859 |
 | #863 | Bugs and wording: the Map's stage, the Storyboard's viewport ground, local styles, raw selects | P8 | M | #853 |
