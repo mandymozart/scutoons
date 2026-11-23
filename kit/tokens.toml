@@ -1,0 +1,152 @@
+# Grounds are translucent and never grey.
+#
+# The kit's tokens – the one source of the look of the deck's UI (deck-kit) and the web tools (shared/tokens).
+# Palette D (RULES H11): no accent, no lime, no green switch; on, focus, active and selected are the text colour, the one
+# primary action is the pressed fill, colour says only ok (go), warning (warn) and error (stop). The grounds a control
+# stands on are see-through: the text colour at a low alpha; a menu's or a panel's is the surface (the stage colour) at
+# panel_opacity – never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a
+# group of spores, the mixer's strips.
+#
+# Shape (deck-kit's `tokens.toml`, deck/kit/src/base/tokens.rs `File`): `[color]` and `[size]` for both looks,
+# `[day.<table>]` / `[night.<table>]` for one. Key names are deck-kit's field names. Colours "#rrggbb" or "#rrggbbaa".
+# Sizes in rem (multiples of `base`), except `base` and `edge` (px) and `spacing` (em).
+# The web tokens are generated from this file: npm run editor-tokens -w @scutoons/tokens (README.md).
+
+[color]
+# behind the stage (the creator's day stage is white: shared/tokens/tool-colours.css)
+stage = "#000000"
+# light ink: text over the stage and on a coloured ground
+bright = "#f3f3f0"
+danger = "#c0392b"
+# how much a surface covers the stage behind it (0..1): the see-through ground of panels, the bar, menus, popovers
+panel_opacity = 0.85
+# the view gizmo's x, y, z
+axis = ["#ed4552", "#78bf33", "#4087f2"]
+
+[size]
+# 1rem of the editor at 100 %, px
+base = 14
+top = 2.6
+tree = 20
+inspector = 27
+# a line or a region's edge, px
+edge = 1
+pad = 0.57
+gap = 1
+font = 1
+small = 0.86
+label = 0.72
+title = 1.15
+row = 2.15
+tree_row = 1.8
+radius = 0.36
+panel_w = 11.5
+panel_h = 3.4
+# the small uppercase labels' letter spacing, em
+spacing = 0.15
+
+[night.color]
+# the stage colour, opaque: at panel_opacity it is the ground of a floating panel, the bar, a menu, a popover, a dialog;
+# opaque only as the ink ring
+surface = "#000000"
+# a fold row's or a tile's head: text 5 %
+surface_head = "#f3f3f00d"
+line = "#3a4034"
+text = "#f3f3f0"
+muted = "#a7af9b"
+# a field's or a framed control's ground: text 6 %
+control = "#f3f3f00f"
+# under the pointer: text 10 %
+hover = "#f3f3f01a"
+# a pressed segment, tab, toggle, the primary action, a selected row – and the ink on it
+pressed = "#f3f3f0"
+pressed_text = "#171916"
+# a selected item: text 16 %
+selected = "#f3f3f029"
+# a track, a meter's unfilled part: text 10 %
+within = "#f3f3f01a"
+# selected text, a marquee: text 25 %
+selection = "#f3f3f040"
+# ok, warning, error
+go = "#4cc35a"
+warn = "#f0a030"
+stop = "#e5483b"
+# a mixer strip's stripe, round the list
+strips = ["#00d1ff", "#f0a030", "#b36bff", "#4cc35a", "#ff6b8a", "#e6d24a"]
+# a panel's text and icons get the surface as an outline
+ink_ring = true
+
+[day.color]
+surface = "#ffffff"
+surface_head = "#1719160d"
+line = "#d9decf"
+text = "#171916"
+muted = "#4f5747"
+control = "#1719160f"
+hover = "#1719161a"
+pressed = "#22271e"
+pressed_text = "#ffffff"
+selected = "#17191629"
+within = "#1719161a"
+selection = "#17191640"
+go = "#2e8a3e"
+warn = "#b86e0c"
+stop = "#d63a2d"
+strips = ["#00a6cc", "#e08e1c", "#9a52e6", "#3aa84a", "#e8577a", "#c9b42e"]
+ink_ring = false
+
+# What a port, a pin and a cable carries (deck-kit base/signal.rs): its colour.
+[night.signals]
+event = "#f3f3f0"
+control = "#46d36a"
+clock = "#e5484d"
+audio = "#19b8d8"
+picture = "#6f9bff"
+address = "#b46bff"
+vote = "#ffb020"
+scene = "#ff6b8a"
+far = "#a7af9b"
+
+[day.signals]
+event = "#22271e"
+control = "#2f9e4a"
+clock = "#c23238"
+audio = "#0089a8"
+picture = "#3a63c9"
+address = "#8a4fd0"
+vote = "#b07800"
+scene = "#c8385a"
+far = "#6b7461"
+
+# Where a thing plays: the reader's page, a deck's screen or speaker, an XR scene, a device (DMX …) – on lane and column
+# heads only.
+[night.outlets]
+page = "#7cc4ff"
+stage = "#ffb86b"
+target = "#b99cff"
+device = "#f2df6f"
+
+[day.outlets]
+page = "#2a7fc0"
+stage = "#c46a12"
+target = "#7448d6"
+device = "#a88a00"
+
+# A group of spores: one of six, a new group takes the first unused.
+[groups]
+colors = ["#5fb3ff", "#7fd68a", "#f2b84b", "#e07ad6", "#ff7a6b", "#9a8cff"]
+
+# The colour-blind mode (a setting): ok blue, warning yellow / orange, error vermillion (Okabe–Ito). It replaces the
+# colours of the same names; marks beside each colour (✓ ! ✕) stay in both modes.
+[night.colorblind]
+go = "#56b4e9"
+warn = "#f0e442"
+stop = "#d55e00"
+
+[day.colorblind]
+go = "#0072b2"
+warn = "#b07800"
+stop = "#8f3300"
+
+# Component states come here, one table per component and state, naming tokens:
+#   [component.<name>.<state>]   e.g.  [component.tab.hover]  border = "text"

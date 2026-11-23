@@ -198,7 +198,7 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 }
 // colours (owner 2026-11-24, RULES H11 [editor-style]: "stick to the color schema of the deck editor … there is no grey
 // backgrounds in our concept"): the tools' CSS (creator, the editor kit, tools.css) takes every colour from the semantic
-// --tool-* tokens (shared/tokens/tool-colours.css, on deck-kit's generated editor.css) –
+// --tool-* tokens (shared/tokens/tool-colours.css, on editor.css generated from kit/tokens.toml) –
 //   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
 //   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
 //     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
@@ -333,6 +333,13 @@ console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local fi
 console.log('side bars: no thick left / start rules – ok');
 console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
 console.log(`ui kit: the shell on the kit, ${Object.values(kitCounts).reduce((a, b) => a + b, 0)} local button / pill / tab rules left in ${Object.keys(kitCounts).length} area files (the baseline) – ok`);
+// the kit's tokens (kit/tokens.toml → shared/tokens/editor.css): a stale or hand-edited editor.css fails here too, so
+// check:tools-css covers it without a second script in package.json
+{
+	const { spawnSync } = await import('node:child_process');
+	const kit = spawnSync(process.execPath, ['--experimental-transform-types', '--no-warnings', join(ROOT, 'shared/tokens/scripts/editor-tokens.ts'), '--check'], { stdio: 'inherit' });
+	if (kit.status !== 0) process.exit(kit.status ?? 1);
+}
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

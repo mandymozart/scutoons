@@ -22,7 +22,7 @@ const required = [
 const tokens = read('tokens.css');
 const defined = new Set([...tokens.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
 for (const name of required) if (!defined.has(name)) errors.push(`tokens.css: --${name} is missing`);
-// the editor style (generated from deck-kit, scripts/editor-tokens.ts)
+// the editor style (generated from kit/tokens.toml, scripts/editor-tokens.ts)
 for (const [, name] of read('editor.css').matchAll(/--([a-z0-9-]+)\s*:/g)) defined.add(name);
 // the tools' semantic colours on top of them (RULES H11)
 for (const [, name] of read('tool-colours.css').matchAll(/--([a-z0-9-]+)\s*:/g)) defined.add(name);
