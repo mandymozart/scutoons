@@ -38,7 +38,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 |---|---|---|---|
 | C1 | Toon | the tree of one toon: the season, its chapters and a Cast branch; the season's cast listed and edited here (order, role per language, personas, Add from the Library, ✕); a character opened from it goes to Characters | current (from now/ws-toon, drawn with Cat Pope; card: the Toon tree's top level) |
 | C2 | Chapter | kit look | current (panels from presets.ts; the page not captured) |
-| C3 | Storyboard | kit look | current (panels from presets.ts; the page not captured) |
+| C3 | Storyboard | drawn from today's page (Cat Pope · chapter 3): the six steps and every choice as segments, the tools in their pills, the shot's page on the stage, the Inspector, the Timeline; the toon's tree on the left, the extended Library | current |
 | C4 | Characters | the Rig tab without the Bones and Clips lists – the rest as today (the look's 3D model, the model's line, Idle, Body, A-pose) – and "Open in the deck"; no Import images; 2D-first or 3D-first is open | current |
 | C4b | Characters: the Cast tab | "cast in": the seasons the character is cast in, each a link to the toon's season – not an editor | current (card: the Cast tab) |
 | C5 | Scenes: the scene page | no Tree of all scenes (the Library opens scenes); the scene's preview covers the whole back; "Edit in deck" on it; the facts and versions in a panel | current |

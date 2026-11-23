@@ -110,6 +110,7 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
+- The Storyboard's viewport ground: white by night and dark by day today (found 2026-11-24 on Cat Pope · chapter 3).
 - The 59 local style rules, the raw selects, the solid blue "Published" badges.
 - Wording: messages ending in "…", hard-coded texts, the translation dogma on the pages that miss it.
 

@@ -101,6 +101,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 
 ## 7 · Found broken (fixed with the lap)
 - The Map's stage is 0 px wide.
+- The Storyboard's viewport is white by night and dark by day.
 - The workspace row hides Map; its "more" menu only shows after a measurement.
 - The deck's "fires on" list has no ground; the stage shows through.
 - 59 local style rules in 27 files; raw selects; solid blue "Published" badges.
