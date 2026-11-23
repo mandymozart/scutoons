@@ -264,6 +264,7 @@
 		margin: 0;
 		padding: 0;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--tool-text);
 		max-height: 18rem;
 		overflow: auto;

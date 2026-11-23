@@ -87,6 +87,7 @@
 		flex-direction: column;
 		min-width: 12rem;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.clip-menu button {

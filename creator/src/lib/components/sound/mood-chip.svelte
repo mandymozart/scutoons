@@ -100,6 +100,7 @@
 		box-sizing: border-box;
 		gap: 0.25rem;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		border: var(--border-width-regular) solid var(--tool-text);
 		max-height: 16rem;

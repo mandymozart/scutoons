@@ -81,6 +81,11 @@
 	--kit-toggle-on-ground: var(--tool-pressed);
 	--kit-toggle-on-knob: var(--tool-pressed-text);
 	--kit-toggle-disabled-opacity: 0.4;
+	--kit-slider-rest-ground: var(--tool-within);
+	--kit-slider-rest-mark: var(--tool-text);
+	--kit-slider-rest-knob: var(--tool-text);
+	--kit-slider-hover-knob: var(--tool-bright);
+	--kit-slider-disabled-opacity: 0.4;
 	--kit-field-rest-border: var(--tool-line);
 	--kit-field-rest-ground: var(--tool-control);
 	--kit-field-rest-text: var(--tool-text);

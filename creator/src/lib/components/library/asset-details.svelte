@@ -156,6 +156,7 @@
 		border-left: 0;
 		border-top: var(--editor-edge) solid var(--tool-line);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 	}
 	.close {
 		position: absolute;

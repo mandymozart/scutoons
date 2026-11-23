@@ -65,6 +65,7 @@
 		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		box-shadow: none;
 	}
 	button {

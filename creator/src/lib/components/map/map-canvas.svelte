@@ -1069,6 +1069,7 @@
 		transform: translateX(-50%);
 		z-index: 3;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 	}
 	/* the regions' covers (agents/MAP.md §8.10): a light wash each, the selected one stronger with its outline */
 	.regions-layers {

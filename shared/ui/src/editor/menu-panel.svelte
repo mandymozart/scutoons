@@ -30,13 +30,14 @@
 		font-family: var(--editor-sans);
 		font-size: var(--editor-font);
 		text-align: left;
-		text-shadow: none;
+		/* the ink ring: over another panel the see-through ground alone lets the texts collide */
+		text-shadow: var(--tool-halo);
 		--kit-h: var(--control-height);
 		--kit-r: var(--editor-radius);
 		--kit-icon-in: var(--kit-icon);
 	}
 	.kit-menu-panel :global(svg) {
-		filter: none;
+		filter: var(--tool-icon-halo);
 	}
 	.open {
 		overflow: visible;

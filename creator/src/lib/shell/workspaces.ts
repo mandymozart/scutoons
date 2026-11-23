@@ -14,7 +14,7 @@ export interface WorkspaceUse {
 export const NO_USE: WorkspaceUse = { uses: {}, last: {} };
 
 /** the workspaces the row offers, in their order before any use (Help lives in the menu) */
-export const ROW: readonly WorkspaceKind[] = ['toon', 'chapter', 'storyboard', 'character', 'scene', 'catalog', 'map', 'flow', 'sound', 'text', 'generate'];
+export const ROW: readonly WorkspaceKind[] = ['toon', 'chapter', 'storyboard', 'character', 'scene', 'catalog', 'map', 'experience', 'flow', 'sound', 'text', 'generate'];
 
 /**
  * The workspaces the member's crafts start with (the server resolves them: GET /api/me/crafts `workspaces`), those this
@@ -26,7 +26,7 @@ export const startKinds = (ids: readonly string[] | null | undefined): Workspace
 const baseRow = (starts: readonly WorkspaceKind[]): readonly WorkspaceKind[] => (starts.length ? [...starts, ...ROW.filter((k) => !starts.includes(k))] : ROW);
 
 /** where a workspace starts when it has shown nothing yet (an area's own list); the others need an item first (a character opens from the Library) */
-const STARTS: Partial<Record<WorkspaceKind, string>> = { scene: '/scenes', catalog: '/catalog/items', map: '/map', flow: '/flow', generate: '/generate' };
+const STARTS: Partial<Record<WorkspaceKind, string>> = { scene: '/scenes', catalog: '/catalog/items', map: '/map', flow: '/flow', generate: '/generate', experience: '/experiences' };
 
 /** an address that only passes through (the old characters list goes Home): no workspace remembers it */
 const passing = (address: string) => address === AREAS.characters || isGone(address);

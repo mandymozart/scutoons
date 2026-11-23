@@ -59,7 +59,7 @@
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--tool-pressed);
+		background: var(--tool-ground);
 	}
 	.cap {
 		margin: 0;

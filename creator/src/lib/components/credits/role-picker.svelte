@@ -121,6 +121,7 @@
 	.role-picker {
 		border: 2px solid var(--tool-text);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		padding: 0.5rem;
 		display: flex;
 		flex-direction: column;

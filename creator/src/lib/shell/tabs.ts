@@ -58,6 +58,9 @@ export function retarget(state: TabsState, address: string | null, href: string)
 	return { tabs: state.tabs.map((t) => (t.address === state.front ? { address, href, label: address } : t)), front: address };
 }
 
+/** the name a page gives its own item (a crumb of its own with the item's href, as a scene's or an experience's title) */
+export const pageLabel = (crumbs: readonly { href: string; label: string }[], href: string | null): string => (href && crumbs.find((c) => c.href === href)?.label) || '';
+
 export function rename(state: TabsState, address: string, label: string): TabsState {
 	const tab = state.tabs.find((t) => t.address === address);
 	if (!tab || !label || tab.label === label) return state;

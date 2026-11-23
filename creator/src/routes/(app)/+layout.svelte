@@ -25,7 +25,8 @@
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
+	import { addressOf, hrefOf, pickedInArea, startsAtTop, workspaceOf } from '$lib/shell/address.ts';
+	import { pageLabel } from '$lib/shell/tabs.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
 	import { isSearchKey, isSwitcherKey } from '$lib/shell/launcher.ts';
 	import { ITEM_VIEW } from '$lib/shell/stage.ts';
@@ -144,11 +145,15 @@
 		const { pathname, search } = location;
 		const address = addressOf(pathname, search);
 		const href = pathname + search;
-		if (!navigated && pathname === lastPath) shell.retarget(address, href);
+		if ((!navigated && pathname === lastPath) || pickedInArea(shell.state.front, address)) shell.retarget(address, href);
 		else shell.visit(address, href);
 		lastPath = pathname;
 	}
 	afterNavigate(() => sync(true));
+	let stageEl: HTMLDivElement | undefined = $state();
+	afterNavigate(({ from, to, type }) => {
+		if (startsAtTop(from?.url, to?.url, type)) stageEl?.scrollTo({ top: 0 });
+	});
 	// nothing open: the dashboard lies over the empty stage; going to an item puts it away
 	afterNavigate(() => {
 		if (startDashboard !== null && (!start.go || location.pathname === new URL(start.go, location.origin).pathname)) {
@@ -228,7 +233,7 @@
 		if (!front || addressOf(location.pathname, location.search) !== front) return;
 		const item = hrefOf(front);
 		// an item picked inside an area's page (a character, a catalog entry) has no step of its own: its id names it
-		const label = item?.includes('?') ? front.slice(front.indexOf(':') + 1) : tabLabel(tabPath(nav.base), item);
+		const label = item?.includes('?') ? front.slice(front.indexOf(':') + 1) : pageLabel(nav.extra, item) || tabLabel(tabPath(nav.base), item);
 		if (label) shell.rename(front, label);
 	});
 	const workspace = $derived(shell.state.front ? (workspaceOf(shell.state.front) ?? 'home') : 'home');
@@ -302,7 +307,7 @@
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
-		<div class="stage" class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
+		<div class="stage" bind:this={stageEl} class:fill={nav.fill} class:clear={shell.clear} class:sheet={!nav.fill && workspace !== 'home'} data-testid="stage">
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>

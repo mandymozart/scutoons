@@ -1,22 +1,19 @@
 <script lang="ts">
 	import { Badge, Icon, Sheet } from '@scutoons/ui';
-	import type { AssetRequest } from '@scutoons/content';
 	import { imageExists } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * A missing (or broken) image cell: set its path – prefilled with the convention path, checked live against the CDN –
-	 * or leave a note for the image supplier (an asset request in the wanted images).
+	 * A missing (or broken) image cell: set its path – prefilled with the convention path, checked live against the CDN – or
+	 * pick the file in the Library. No wanted-image note (RULES H17: the tools do not flag what is missing).
 	 */
 	let {
 		open = $bindable(false),
 		title,
 		path,
 		convention,
-		request,
 		onset,
-		onrequest,
 		onlibrary
 	}: {
 		open?: boolean;
@@ -25,18 +22,13 @@
 		/** the stored path ('' = none) */
 		path: string;
 		convention: string;
-		/** the open request of the cell */
-		request?: AssetRequest;
 		onset: (path: string) => void;
-		onrequest: (note: string) => void;
 		/** pick the file in the Library instead (the slot on top, only what fits) */
 		onlibrary?: () => void;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
 	let value = $state(path || convention);
-	// svelte-ignore state_referenced_locally
-	let note = $state(request?.note ?? '');
 	let status = $state<'checking' | 'found' | 'missing' | 'empty'>('checking');
 
 	$effect(() => {
@@ -56,10 +48,6 @@
 
 	function save() {
 		onset(value.trim());
-		open = false;
-	}
-	function ask() {
-		onrequest(note);
 		open = false;
 	}
 </script>
@@ -86,24 +74,14 @@
 			</span>
 			{#if status === 'missing'}<p class="hint">{m['creator.characters_path_missing_hint']()}</p>{/if}
 		</section>
-		<section>
-			<h3>{m['creator.characters_leave_note']()}</h3>
-			{#if request}
-				<p class="hint">{m['creator.characters_requested']({ at: new Date(request.requested_at).toLocaleString(), by: request.requested_by ?? '–' })}</p>
-			{/if}
-			<textarea rows="3" bind:value={note} placeholder={m['creator.characters_note_placeholder']()} data-testid="asset-note"></textarea>
-			<p class="hint">{m['creator.characters_note_hint']({ file: convention.split('/').pop() ?? convention })}</p>
-			<button type="button" class="secondary" onclick={ask} data-testid="asset-request">{request ? m['creator.characters_update_request']() : m['creator.characters_request']()}</button>
-		</section>
 	</div>
 </Sheet>
 
 <style>
 	.asset {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
 		gap: 1.25rem;
-		min-width: min(44rem, 88vw);
+		width: min(30rem, 88vw);
 	}
 	.buttons {
 		display: flex;
@@ -146,9 +124,6 @@
 	}
 	.state.bad {
 		color: var(--tool-stop);
-	}
-	textarea {
-		width: 100%;
 	}
 	.mini {
 		font-size: var(--type-caption-size);

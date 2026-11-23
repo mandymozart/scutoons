@@ -952,6 +952,7 @@
 		top: 100%;
 		opacity: 1;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		border: 1px dashed var(--tool-text);
 	}
@@ -961,6 +962,7 @@
 		top: 100%;
 		opacity: 1;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 	}
 	.box:hover .tag,

@@ -157,7 +157,7 @@
 		flex: 1;
 		min-height: 0;
 		position: relative;
-		background: var(--tool-pressed);
+		background: var(--tool-ground);
 		overflow: hidden;
 		touch-action: none;
 	}

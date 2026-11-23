@@ -158,4 +158,7 @@
 		background: var(--kit-overlay-box-ground);
 		text-shadow: var(--tool-halo);
 	}
+	.place-edge .content :global(svg) {
+		filter: var(--tool-icon-halo);
+	}
 </style>

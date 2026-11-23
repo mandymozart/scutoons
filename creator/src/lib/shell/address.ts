@@ -63,6 +63,22 @@ export const AREAS = {
 	notifications: 'notifications:push'
 } as const;
 
+/** an area's list tab (`scenes:all`) opened one of its items (`scene:x`): the tab becomes that item, no second tab beside it */
+export function pickedInArea(front: string | null, address: string | null): boolean {
+	if (!front || !address || front === address || !(Object.values(AREAS) as string[]).includes(front)) return false;
+	const ws = workspaceOf(front);
+	return ws !== null && ws === workspaceOf(address);
+}
+
+/**
+ * A navigation brought another item to the front: its page starts at the top. The stage scrolls itself (not the window),
+ * so the router's own scroll reset never reaches it; Back keeps where the page was.
+ */
+export function startsAtTop(from: URL | null | undefined, to: URL | null | undefined, type: string): boolean {
+	if (!from || !to || type === 'popstate' || type === 'enter') return false;
+	return addressOf(from.pathname, from.search) !== addressOf(to.pathname, to.search);
+}
+
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
 const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
 

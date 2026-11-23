@@ -314,6 +314,7 @@
 		border: var(--editor-edge) dashed var(--tool-text);
 		border-radius: var(--editor-radius);
 		background: color-mix(in srgb, var(--tool-popover) 80%, transparent);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		pointer-events: none;
 	}

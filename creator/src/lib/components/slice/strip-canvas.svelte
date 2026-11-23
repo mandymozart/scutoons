@@ -380,6 +380,7 @@
 		padding: 0 var(--space-025);
 		border: var(--border-width-hairline) solid var(--tool-text);
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		line-height: 1.4;

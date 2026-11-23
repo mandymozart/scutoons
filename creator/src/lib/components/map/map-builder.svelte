@@ -864,6 +864,7 @@
 		z-index: 2;
 		flex-direction: column;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.strip.tools {
@@ -953,6 +954,7 @@
 		padding: 0;
 		list-style: none;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--tool-text);
 	}
 	.toon-menu button {

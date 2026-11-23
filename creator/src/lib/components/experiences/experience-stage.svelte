@@ -155,6 +155,7 @@
 		margin: 0;
 		padding: 0.5rem 0.75rem;
 		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		border: var(--border-width-regular) solid var(--border-subtle);
 		overflow-wrap: anywhere;
 	}
