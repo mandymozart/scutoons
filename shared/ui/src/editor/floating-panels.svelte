@@ -1,43 +1,28 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import FloatingPanel from './floating-panel.svelte';
-		import type { Floats } from './floats.svelte.ts';
-	import type { Rect } from './floats.ts';
+	import type { Floats } from './floats.svelte.ts';
 
 	/**
 	 * The floating panels of one workspace over its stage (`children`, the background): measures the room, lays every
-	 * panel out (`floats`) and draws the tab in the hand and where it would land. `tab(id)` renders a tab's content,
-	 * `toolbar(panel)` an inline panel's row.
+	 * panel out (`floats`) and draws the tab in the hand and where it would land in a panel (the stage's drop zones:
+	 * StageZones). `tab(id)` renders a tab's content, `toolbar(panel)` an inline panel's row.
 	 */
 	let {
 		floats,
 		tab,
 		toolbar,
-				children,
-		stageDrop,
+		children,
 		labels = {}
 	}: {
 		floats: Floats;
 		tab: Snippet<[tab: string]>;
 		toolbar?: Snippet<[panel: string]>;
 		children?: Snippet;
-		/**
-		 * The page's stage takes a tab let go over it: `zone` says where it would land (client px) and what happens – drawn
-		 * while the tab is in the hand; `drop` takes it (true: taken, no panel of its own)
-		 */
-		stageDrop?: {
-			zone: (tab: string, x: number, y: number) => { rect: Rect; label: string } | null;
-			drop: (tab: string, x: number, y: number) => boolean;
-		};
 		labels?: { close?: string; move?: string };
 	} = $props();
 
-		let layer = $state<HTMLDivElement>();
-
-	$effect(() => {
-		floats.dropOnStage = stageDrop ? stageDrop.drop : null;
-		return () => (floats.dropOnStage = null);
-	});
+	let layer = $state<HTMLDivElement>();
 
 	$effect(() => {
 		const el = layer;
@@ -49,6 +34,7 @@
 			const gap = rem;
 			floats.metrics = { rem, gap, head: control + 0.375 * rem + 2, button: control, char: 0.62 * rem };
 			floats.area = { x: r.left + gap, y: r.top + gap, w: Math.max(0, r.width - 2 * gap), h: Math.max(0, r.height - 2 * gap) };
+			floats.win = { w: window.innerWidth, h: window.innerHeight };
 		};
 		measure();
 		const observer = new ResizeObserver(measure);
@@ -60,9 +46,7 @@
 		};
 	});
 
-		const held = $derived(floats.heldTab?.moved ? floats.heldTab : null);
-	const zone = $derived(held && !held.target && stageDrop ? stageDrop.zone(held.tab, held.at[0], held.at[1]) : null);
-	const px = (v: number) => `${v / floats.metrics.rem}rem`;
+	const held = $derived(floats.heldTab?.moved ? floats.heldTab : null);
 	/** The layer's top left in client px */
 	const origin = $derived({ left: floats.area.x - floats.metrics.gap, top: floats.area.y - floats.metrics.gap });
 </script>
@@ -78,7 +62,7 @@
 	{#if floats.area.w > 0}
 		{#each floats.specs as spec (spec.id)}
 			<FloatingPanel
-								{floats}
+				{floats}
 				id={spec.id}
 				closeLabel={labels.close}
 				moveLabel={labels.move}
@@ -93,11 +77,6 @@
 			</FloatingPanel>
 		{/each}
 	{/if}
-		{#if zone}
-		<div class="zone" style:left={px(zone.rect.x - origin.left)} style:top={px(zone.rect.y - origin.top)} style:width={px(zone.rect.w)} style:height={px(zone.rect.h)}>
-			<span>{zone.label}</span>
-		</div>
-	{/if}
 	{#if held}
 		{#if held.marker}
 			<div
@@ -107,7 +86,7 @@
 				style:height="{held.marker.h}px"
 			></div>
 		{/if}
-		<div class="ghost" class:out={!held.target} style:left="{held.at[0] - origin.left}px" style:top="{held.at[1] - origin.top}px">
+		<div class="ghost" class:out={!held.target} class:staging={!!floats.zone} style:left="{held.at[0] - origin.left}px" style:top="{held.at[1] - origin.top}px">
 			{floats.tab(held.tab)?.name ?? held.tab}
 		</div>
 	{/if}
@@ -133,24 +112,6 @@
 		box-shadow: 0 0 0.375rem var(--tool-accent);
 		pointer-events: none;
 	}
-		.zone {
-		position: absolute;
-		z-index: 999;
-		display: grid;
-		place-items: center;
-		box-sizing: border-box;
-		outline: 2px dashed var(--tool-accent);
-		outline-offset: -0.4rem;
-		pointer-events: none;
-	}
-	.zone span {
-		padding: 0.3rem 0.8rem;
-		border-radius: 1rem;
-		background: var(--tool-popover);
-		color: var(--tool-accent);
-		font-family: var(--editor-sans);
-		font-size: var(--editor-small);
-	}
 	.ghost {
 		position: absolute;
 		z-index: 1001;
@@ -168,5 +129,9 @@
 	.ghost.out {
 		outline: 1px dashed var(--tool-accent);
 		outline-offset: 0.25rem;
+	}
+	/* over a drop zone the stage's preview says where it lands: the ghost steps back */
+	.ghost.staging {
+		opacity: 0;
 	}
 </style>

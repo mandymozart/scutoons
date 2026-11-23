@@ -226,7 +226,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -256,6 +256,11 @@
 		--status-height: var(--kit-status);
 		--status-room: calc(var(--status-height) + 2 * var(--kit-margin));
 		min-height: 100dvh;
+	}
+	/* a view full screen: the bar and the status bar step aside (the workspace hides its panels) */
+	.creator.full :global(.shell-bar),
+	.creator.full :global(.status-bar) {
+		display: none;
 	}
 	.stage {
 		position: fixed;

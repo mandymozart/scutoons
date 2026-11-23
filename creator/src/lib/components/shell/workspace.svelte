@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Floats, FloatingPanels, IconButton } from '@scutoons/ui/editor';
-	import { CloseButton } from '@scutoons/ui';
+	import { Floats, FloatingPanels, StageZones, type Cell, type StageZone } from '@scutoons/ui/editor';
+	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -21,7 +21,8 @@
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
 	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats over the
-	 * stage – the stage never gives way. The front panel's tab takes the stage with M, opens over everything with Shift M.
+	 * stage – the stage never gives way. A view takes the stage by a drag to a screen edge or corner, or through Views; it
+	 * goes full screen through Views, Ctrl Space (the view under the pointer) or a hold past the top edge; Esc leaves.
 	 */
 	let { kind, toon = null }: { kind: WorkspaceKind | 'home'; toon?: string | null } = $props();
 
@@ -70,48 +71,45 @@
 		shell.wanted = null;
 	});
 
-	/** the tabs on the stage, only while they have content */
-	const staged = $derived(shell.stage.filter((t) => available.has(t)));
-	$effect(() => {
-		floats.staged = staged;
-	});
-	const over = $derived(shell.over && available.has(shell.over) ? shell.over : null);
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
-	let stage = $state<ReturnType<typeof Stage>>();
-	/** the tab alone on the stage, or back */
-	function onmain(tab: string) {
-		if (!staged.includes(tab)) stage?.take(tab);
-		shell.send(tab);
-	}
-	const typing = (e: KeyboardEvent) => {
-		const t = e.target as HTMLElement | null;
-		return !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
-	};
-	/** Esc: the tab over everything closes, else the last tab on the stage goes back; M: the front panel's tab takes the stage, Shift M: over everything */
-	function onkeydown(e: KeyboardEvent) {
-		if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e) || floats.heldTab || library.browser) return;
-		if (e.key === 'Escape') {
-			if (shell.over) shell.over = null;
-			else if (staged.length && !document.querySelector('[aria-modal="true"]')) shell.back(staged.at(-1));
-			else return;
-			e.preventDefault();
-		} else if (e.key === 'm' || e.key === 'M') {
-			const front = [...floats.order].reverse().find((id) => floats.spec(id) && !floats.closed(id) && floats.activeOf(id));
-			const tab = front && floats.activeOf(front);
-			if (!tab) return;
-			e.preventDefault();
-			if (e.shiftKey) onover(tab);
-			else onmain(tab);
-		}
-	}
+	/** the view over everything, while it has content (the open item's own view is always there) */
+	const full = $derived(floats.full && (floats.full === ITEM_VIEW || available.has(floats.full)) ? floats.full : null);
 
-	function onover(tab: string) {
-		if (tab === 'library') library.browser = true;
-		else shell.over = tab;
+	const CELL_NAMES: Record<Cell, () => string> = {
+		whole: () => m['shell.cell_whole'](),
+		left: () => m['shell.cell_left'](),
+		right: () => m['shell.cell_right'](),
+		'top-left': () => m['shell.cell_top_left'](),
+		'top-right': () => m['shell.cell_top_right'](),
+		'bottom-left': () => m['shell.cell_bottom_left'](),
+		'bottom-right': () => m['shell.cell_bottom_right']()
+	};
+	const lands = (tab: string, zone: StageZone) =>
+		zone.full ? m['shell.stage_full']({ tab: name(tab) }) : m['shell.stage_lands']({ tab: name(tab), where: CELL_NAMES[zone.cell]() });
+
+	/** the view under the pointer: a cell of the stage, a panel's front tab, else the open item's own view */
+	let pointer: [number, number] = [0, 0];
+	function viewAt(x: number, y: number): string {
+		const el = document.elementFromPoint(x, y);
+		const cell = el?.closest<HTMLElement>('[data-stage-box]')?.dataset.stageBox;
+		if (cell) return cell;
+		const panel = el?.closest<HTMLElement>('[data-float]')?.dataset.float;
+		return (panel && floats.activeOf(panel)) || ITEM_VIEW;
+	}
+	/** Ctrl Space: the view under the pointer full screen, and back; Esc leaves full screen */
+	function onkeydown(e: KeyboardEvent) {
+		if (e.defaultPrevented || floats.heldTab || library.browser) return;
+		if (e.key === ' ' && e.ctrlKey && !e.metaKey && !e.altKey) {
+			e.preventDefault();
+			floats.toggleFull(full ?? viewAt(pointer[0], pointer[1]));
+		} else if (e.key === 'Escape' && full && !document.querySelector('[aria-modal="true"]')) {
+			e.preventDefault();
+			floats.full = null;
+		}
 	}
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} onpointermove={(e) => (pointer = [e.clientX, e.clientY])} />
 
 {#snippet content(id: string)}
 	<div class="ws-tab" data-testid="panel-{id}">
@@ -132,37 +130,28 @@
 {/snippet}
 
 <CoreLogProvider />
-<Stage bind:this={stage} {floats} stage={staged} {content} {name} />
+{#if !full}
+	<Stage {floats} {content} {name} has={(t) => available.has(t)} />
+{/if}
 
-<div class="ws-overlay" data-workspace={kind} data-testid="workspace">
+<div class="ws-overlay" class:gone={!!full} data-workspace={kind} data-testid="workspace">
 	{#key floats}
-		<FloatingPanels
-			{floats}
-			stageDrop={{ zone: (t, x, y) => stage?.zone(t, x, y) ?? null, drop: (t, x, y) => stage?.drop(t, x, y) ?? false }}
-			labels={{ close: m['creator.close']() }}
-		>
+		<FloatingPanels {floats} labels={{ close: m['creator.close']() }}>
 			{#snippet tab(id)}
-				{#if staged.includes(id) || id === over}
-					<p class="away">{id === over ? m['shell.over']() : m['shell.on_stage']()}</p>
-				{:else}
-					{@render content(id)}
-				{/if}
+				{@render content(id)}
 			{/snippet}
 		</FloatingPanels>
 	{/key}
 </div>
+<div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
-{#if over}
-	<div class="over" role="dialog" aria-modal="true" aria-label={name(over)} data-testid="over">
-		<div class="box">
-			<div class="head">
-				<span class="name">{name(over)}</span>
-				<IconButton label={m['shell.main_back']()} icon="minimize-2" onclick={() => (shell.over = null)} />
-				<CloseButton label={m['creator.close']()} onclick={() => (shell.over = null)} />
-			</div>
-			<div class="body">{@render content(over)}</div>
-		</div>
+{#if full && full !== ITEM_VIEW}
+	<div class="full" role="dialog" aria-label={name(full)} data-testid="full">
+		{#if isCanvas(full)}{@render content(full)}{:else}<div class="full-page">{@render content(full)}</div>{/if}
 	</div>
+{/if}
+{#if full}
+	<p class="full-hint" data-testid="full-hint">{m['shell.full_hint']()}</p>
 {/if}
 {#if library.browser}<LibraryBrowser />{/if}
 
@@ -190,49 +179,59 @@
 		min-height: 0;
 		box-sizing: border-box;
 	}
-	.away {
-		margin: 0;
-		padding: var(--editor-pad);
-		color: var(--tool-muted);
-		font-size: var(--editor-label);
-		letter-spacing: var(--editor-label-spacing);
-		text-transform: uppercase;
+	/* full screen: the panels step aside with the bar and the status bar */
+	.ws-overlay.gone {
+		display: none;
 	}
-	/* over everything (as OSCT's asset manager): a dialog over the whole creator, the bar included */
-	.over {
+	/* the drop zones reach the screen's edges: over the bar and the status bar */
+	.zones-layer {
+		position: fixed;
+		z-index: 70;
+		inset: 0;
+		pointer-events: none;
+	}
+	/* a view over everything: the whole window, on the stage's ground */
+	.full {
 		position: fixed;
 		z-index: 80;
 		inset: 0;
-		background: var(--tool-scrim);
-	}
-	.over .box {
-		position: absolute;
-		inset: 2rem 2.5rem 2.5rem;
-		display: flex;
-		flex-direction: column;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
-		color: var(--tool-text);
-		box-shadow: none;
-		overflow: hidden;
-		font-family: var(--editor-sans);
-	}
-	.over .head {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.25rem 0.25rem 1rem;
-		background: var(--tool-head);
-	}
-	.over .name {
-		flex: 1;
-	}
-	.over .body {
-		flex: 1;
-		min-height: 0;
 		display: flex;
 		flex-direction: column;
 		overflow: auto;
+		background: var(--tool-ground);
+		color: var(--tool-text);
+		font-family: var(--editor-sans);
+		animation: full-in 220ms ease-out;
+	}
+	.full-page {
+		box-sizing: border-box;
+		width: 100%;
+		max-width: 48rem;
+		margin: 0 auto;
+		padding: 2rem 1.5rem;
+	}
+	.full-hint {
+		position: fixed;
+		z-index: 81;
+		right: 1rem;
+		bottom: 0.75rem;
+		margin: 0;
+		color: var(--tool-muted);
+		font-family: var(--editor-sans);
+		font-size: var(--editor-small);
+		pointer-events: none;
+	}
+	@keyframes full-in {
+		from {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.full {
+			animation: none;
+		}
+	}
+	:global(:root[data-motion='reduced']) .full {
+		animation: none;
 	}
 </style>
