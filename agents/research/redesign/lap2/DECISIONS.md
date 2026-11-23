@@ -20,6 +20,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
 - **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), thumbnails and pictures, a group of spores (one of six colours), and outlet types – where a thing plays: page · stage · target · light, as started in the #703 draft.
 - **Tabs and panel titles:** no border at rest, the active one brighter, a rounded border only on hover and while dragged. (H4)
+- **No ground is grey** (H11): every ground is see-through – controls, panels, menus, popovers, dialogs, boxes, cards. A menu's and a panel's ground is the stage colour at 85 % (a first value, one token), not the surface grey. It stands at the top of the kit as its dogma, to always remember. A grey ground in a draft or a capture is not the reference.
 - **Selects:** one that filters or sorts in a toolbar is quiet – no box at rest, a rounded border on hover and while open; one that sets a value in a form is the boxed field. (H4)
 - **Icon buttons:** a standalone one is round and may stand without a pill; groups of icons and toolbars stay in their pill. (H4)
 - **Badges** are small and delicate. Design pictures use the kit. (H13)
@@ -81,11 +82,11 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - Trees: one per workspace, named like it (TREES.md). Decided since: a tree holds what one thing is made of, and trees do not travel between workspaces – the Library does the referencing.
 - A character is 2D-first or 3D-first, as a preference.
 - Module, instrument, preset and rig are one mechanism; a spore is a module with another driver (MODULES-RIGS.md, MODULES-DNA.md).
-- The creator's module editor might have to be removed.
+- **The creator's module editor stays** as the entry point when a module is opened from the Library (your word, 2026-11-24 night); it gets the kit look. Whether it is removed later is yours to follow up.
 
 **Open**
 - **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
-- What a good writing experience holds (C14) – your words, or a first draft from me to correct.
+- What a good writing experience holds (C14) – in the run on "go with the flow": one writing page drawn and built (#876), yours to correct.
 - Where the 2D-first / 3D-first preference sits.
 - Does the word "instrument" stay? MODULES-DNA.md points 2–7.
 

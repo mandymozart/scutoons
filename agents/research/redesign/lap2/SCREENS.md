@@ -56,7 +56,8 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | C12b | Library: the browser | the cast's place (Cat Pope · Season 1) with Cat Pope stepped into: personas → looks → moods, its files beside them, "used in"; no "To do" / Missing credits (H17) | current (card: "By cast") |
 | C12c | Library: the pick | opened from a chapter event's character slot: Characters only, "Cat Pope · Season 1 · cast" first, everyone else after; picking beyond the cast adds to it | current (card: one picker) |
 | C13 | Settings | kit look; the colour-blind mode as a setting | current |
-| C14 | Kanon · Notifications · Credits · Edit · Guide | to be redesigned for a good writing experience – not only the kit look; today's pages are not captured yet | words – no capture of today: empty frames and the open point |
+| C14 | The writing page (Kanon · Notifications · Credits · Edit · Guide) | the text on the stage in one reading column, no sheet or box; the tools come to the selection; Outline and Facts as panels; words, reading time and the save state in the status line – drawn on your word "go with the flow" (#876), yours to correct | current – drawn new, no capture of today |
+| C14b | The writing page: translating | Compare: the source beside the edit language, two columns of the same width; an untranslated paragraph is an empty line, never a warning | current – drawn new |
 | C15 | XR | a creator workspace, with the Place tab | moved – epic-drafts `?s=714` |
 
 ## D · The deck's workspaces

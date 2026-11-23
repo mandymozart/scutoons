@@ -23,6 +23,8 @@
   --kit-icon:1rem;--kit-icon-alone:1.15rem;--kit-icon-gap:calc(var(--editor-pad)*.6);--control-height:var(--editor-row)}
 /* ── palette D: the roles, pointed at existing tokens (no new colour). Set on every theme root so a day frame resolves its own. */
 :root,[data-theme]{
+  --tool-popover:color-mix(in srgb,var(--tool-ground) 85%,transparent);      /* no ground is grey (owner 2026-11-24): a menu's ground is the stage colour, see-through */
+  --tool-panel:color-mix(in srgb,var(--tool-ground) 85%,transparent);        /* a panel's ground likewise: the stage colour at the same one strength (kit/tokens.toml: surface × panel_opacity) */
   --d-on:var(--tool-text);                                             /* on, active, picked, a tick, a link, an insert mark */
   --d-focus:var(--tool-text);                                          /* the focus ring (note 4) */
   --d-on-ground:color-mix(in srgb,var(--tool-text) 12%,transparent);   /* the faint ground under an on chip / tile (H13 "faint ground") */
@@ -401,6 +403,11 @@ button.od{border:0;cursor:pointer}
   <div class="top">
     <h1>UI kit · palette D</h1><span class="label">lap 2 · #626 · one look per component · night first · pick in part 4 or on a yellow mark</span>
   </div>
+  <div class="always" style="margin:.2rem 0 1.2rem;padding:.7rem .9rem;border:var(--editor-edge) solid var(--tool-text);border-radius:var(--kit-radius-box)">
+    <div class="label" style="margin-bottom:.4rem">always · the kit's dogma</div>
+    <div style="font-size:var(--editor-title)">Grounds are translucent and never grey.</div>
+    <div class="small muted" style="margin-top:.35rem">Every ground – a control's, a panel's, a menu's, a popover's, a dialog's, a box's, a card's – is see-through, the stage showing through. An opaque grey fill does not exist. A grey ground in a draft or a capture is not the reference (your word, 2026-11-24).<br>The stage is black by night and white by day · a panel and a menu are the stage colour at one strength (0.85, one token) · a control is the text colour at 6 %, hover 10 %, selected 16 % · words on a see-through ground keep their ink ring.</div>
+  </div>
   <div class="weak" id="weak"></div>
 
   <section class="part">
@@ -413,7 +420,7 @@ button.od{border:0;cursor:pointer}
     </div>
     <div class="label" style="margin:1.6rem 0 .4rem" id="grounds">grounds <button class="od" data-n="16">16</button> · grey → see-through · picked: <span id="g16"></span></div>
     <div class="two"><div class="tbl" style="grid-template-columns:8rem 1fr 1fr 1fr" id="gtok"></div>
-      <div class="small muted" style="align-self:end">Menus and popovers keep one opaque ground (the surface) in every option, so their words stay legible.<br>Disabled = the whole control at a lower opacity, never a grey fill.</div></div>
+      <div class="small muted" style="align-self:end">No ground is grey (your word, 2026-11-24): menus, popovers and dialogs are see-through too – the stage colour at 85 % (a first value, to refine), a panel the same: one strength, one token.<br>Disabled = the whole control at a lower opacity, never a grey fill.</div></div>
     <div class="gspec" style="margin-top:.8rem" id="gspec-night" data-theme="night"></div>
     <div class="gspec" style="margin-top:.8rem" id="gspec-day" data-theme="day"></div>
     <div class="label" style="margin:1.6rem 0 .4rem" id="cbtokens">colour-blind tokens <button class="od" data-n="15">15</button> · a mode a member turns on in Settings · the default stays green / amber / red</div>
@@ -555,7 +562,7 @@ document.getElementById('oldnew').innerHTML = `<div class="hd label">token</div>
 
 /* D's tokens: [role, source, the CSS var to read]. The grounds are see-through (point 16 B, owner 2026-11-24): the text colour at a low alpha. */
 const DTOK = [
-  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'surface · see-through', '--tool-panel'], ['popover · menu', 'surface (opaque)', '--tool-popover'],
+  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'stage · see-through 85 %', '--tool-panel'], ['popover · menu', 'stage · see-through 85 %', '--tool-popover'],
   ['control', `text ${A16.control}%`, '--tool-control'], ['hover', `text ${A16.hover}%`, '--tool-hover'], ['selected', `text ${A16.selected}%`, '--tool-selected'],
   ['within (a track)', `text ${A16.within}%`, '--tool-within'], ['head (fold)', `text ${A16.head}%`, '--tool-head'], ['line', 'line', '--tool-line'],
   ['text = on · focus · active · link', 'text', '--tool-text'], ['muted', 'muted', '--tool-muted'],
@@ -771,7 +778,7 @@ const GTOK = [
   ['within (track)', WAS['--tool-within'].join(' · '), `text ${A16.within}%`, 'none, a line'],
   ['head (fold)', WAS['--tool-head'].join(' · '), `text ${A16.head}%`, 'none'],
   ['primary hover · press', 'the fill dims 85% · 70%', 'full fill + 1px text ring', 'as B'],
-  ['popover · menu', pairOf('--tool-popover'), 'stays opaque', 'stays opaque'],
+  ['popover · menu', pairOf('--tool-popover'), 'the stage at 85 %', 'the stage at 85 %'],
 ];
 document.getElementById('gtok').innerHTML = `<div class="hd label">token</div><div class="hd label">A · grey</div><div class="hd label">B · see-through</div><div class="hd label">C · line only</div>` +
   GTOK.map(([t, a, b, c]) => `<div>${t}</div><div>${a}</div><div>${b}</div><div class="muted">${c}</div>`).join('');

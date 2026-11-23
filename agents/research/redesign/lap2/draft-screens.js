@@ -559,10 +559,44 @@ add('C', 'C13', 'Settings', "the Settings panel in now/creator-6 (the owner's ci
     <div style="border-top:1px solid var(--tool-line);margin:.4rem -.6rem"></div><div class="fold label">AI &amp; generation</div><div style="text-decoration:underline;text-underline-offset:.2em">Docs ↗</div>`, { style: 'z-index:30' })}
   ${mk(1, 1012, 218)}${mk(1, 1012, 470)}${mk(2, 1012, 140)}${mk(3, 1012, 560)}${mk(3, 1012, 610)}`);
 
-add('C', 'C14', 'Kanon · Notifications · Credits · Edit · Guide', 'code: the routes (no capture of today)', [],
-  () => `${cbar({ chevron: true, wsOn: 'Kanon', ws: ['Kanon', ...WS_TODAY.slice(0, 6)] })}
-  ${['Kanon','Notifications','Credits','Edit','Guide'].map((n, i) => `<div class="abs" style="left:${30 + (i % 3) * 470}px;top:${80 + Math.floor(i / 3) * 370}px;width:440px;height:340px"><div class="label" style="margin-bottom:.4rem">${n}</div><div style="height:310px">${pageNotShot('today\'s page – not captured yet, not drawn')}</div></div>`).join('')}${cstatus()}
-  ${capn(970, 520, 'Open: what a good writing experience holds (C14) – your words, or a first draft to correct')}`, { idle: ' – nothing: an open point (words) – no capture of today' });
+/* the writing page (owner 2026-11-24: "i want a good writing experience"; "go with the flow" on #876): the text stands on the stage in one reading column – no sheet, no box, no grey; the tools come to the selection; outline and facts are panels */
+const WR_P = (t, o = {}) => `<p style="margin:0 0 ${o.gap ?? 1.15}rem;${o.style || ''}">${t}</p>`;
+const WR_SP = (who) => `<div class="label" style="margin:1.5rem 0 .3rem;letter-spacing:.12em">${who}</div>`;
+const writingCol = (x, w, o = {}) => `<div class="abs" style="left:${x}px;top:${o.top ?? 96}px;width:${w}px;font-size:${o.size || '1.18rem'};line-height:1.62;text-shadow:none">
+    ${o.lang ? `<div class="label" style="margin-bottom:.5rem">${o.lang}</div>` : ''}
+    <div style="font-size:${o.h || '2.1rem'};line-height:1.2;margin-bottom:.3rem">${o.title}</div>
+    <div class="small muted" style="margin-bottom:1.6rem">${o.sub}</div>
+    ${o.body}</div>`;
+const WR_DE = () => `${WR_P('Die Kathedrale liegt unter dem Meer. Wer hinabsteigt, hört zuerst die Glocken – lange bevor er das Licht sieht.')}
+    <div style="font-size:1.35rem;margin:1.7rem 0 .6rem">Wer dort wohnt</div>
+    ${WR_P('Der Katzenpapst hält Hof in der Apsis. Er spricht selten, und wenn, dann <span style="background:var(--tool-selection);box-shadow:0 0 0 2px var(--tool-selection)">so leise, dass man näher kommen muss</span>.')}
+    ${WR_SP('Katzenpapst')}${WR_P('Setz dich. Das Wasser wartet auch.', { gap: .4 })}
+    ${WR_P('<span class="muted" style="font-style:italic">(er rückt die Mitra zurecht)</span>')}
+    ${WR_SP('Krähe')}${WR_P('Wir haben nicht viel Zeit, Heiligkeit.<span style="display:inline-block;width:1px;height:1.2em;background:var(--tool-text);vertical-align:-.2em;margin-left:1px"></span>')}`;
+add('C', 'C14', 'The writing page: Kanon · Notifications · Credits · Edit · Guide', "today's routes (kanon/[subject] with the ScriptEditor, notifications, [toon]/credits, edit/[key], guide) – no capture of today; drawn new on your word \"go with the flow\" (#876)",
+  ['the text stands on the stage in one reading column (about 70 characters), large and open – no sheet, no box, no grey',
+   'the tools come to the selection as one pill; nothing sits above the text. Markdown as you type; a speaker is a label, a direction is muted',
+   'Outline and Facts are panels like any other – folded at rest; Views in the ☰ can clear the bar (H16)',
+   'the status line: words, reading time, the save state – no Save button, no refresh (H19)',
+   'translating: the edit language in the translator\'s bar; "Compare" puts the source beside it, same column width',
+   'the same page for all five: Kanon and Edit write, Notifications and Credits are lists of short texts in the same column, Guide reads'],
+  () => `${cbar({ chevron: true, wsOn: 'Toon', ws: WS_TODAY })}
+  ${writingCol(360, 640, { title: 'Die Kathedrale', sub: 'Kanon · Cat Pope · Ort', body: WR_DE() })}
+  <div class="kp abs" style="left:598px;top:318px;z-index:20;background:var(--tool-popover)">${[['B', 'Bold', 'font-weight:700'], ['I', 'Italic', 'font-style:italic'], ['H', 'Heading', ''], ['“', 'Quote', '']].map(([c, n, st], i) => `<span class="kib ${i === 0 ? 'on' : ''}" title="${n}" style="${st}">${c}</span>`).join('')}<span class="kib" title="Link">${ic('ext')}</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="small" style="padding:0 .5rem">Speaker</span><span class="small" style="padding:0 .5rem">Direction</span></div>
+  ${folded(14, 60, 'Outline', 148)}${folded(1278, 60, 'Facts', 148)}
+  ${fp(1076, 470, 350, 300, [['Facts', 1], ['Versions', 0]], `<div class="lrow"><span class="muted">Subject</span><span class="m">Die Kathedrale</span></div><div class="lrow"><span class="muted">Kind</span><span class="m">Place</span></div><div class="lrow"><span class="muted">Languages</span><span class="m">DE ★ · EN</span></div><div class="lrow"><span class="muted">Used in</span><span class="m" style="text-decoration:underline;text-underline-offset:.2em">Cat Pope · Chapter 3</span></div><div class="lrow"><span class="muted">Words</span><span class="m">412</span></div>`, { style: 'opacity:.55' })}
+  <div class="abs small muted" style="left:1076px;top:444px">Facts, opened (drawn faint: folded at rest)</div>
+  <div class="abs" style="left:14px;right:14px;bottom:44px;height:2.2rem;display:flex;align-items:center;gap:.9rem;padding:0 .9rem;border:1px solid var(--tool-line);border-radius:1.1rem;font-size:var(--editor-small)"><span>412 words</span><span class="muted">2 min to read</span><span style="flex:1"></span><span class="kc">DE ★</span><span class="kc" style="opacity:.6">EN</span><span class="kb plain" style="height:1.7rem">Compare</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted">Saved · 20:41</span></div>
+  ${mk(1, 330, 100)}${mk(2, 570, 318)}${mk(3, 170, 62)}${mk(4, 1300, 812)}${mk(5, 1090, 812)}`);
+add('C', 'C14b', 'The writing page: translating (Compare)', 'C14 · the translator\'s bar (A9)',
+  ['the source left, the edit language right – two reading columns of the same width, paragraph beside paragraph',
+   'the source is read-only and quieter; a paragraph not translated yet shows as an empty line to fill, never a warning (H17)'],
+  () => `${cbar({ chevron: true, wsOn: 'Toon', ws: WS_TODAY })}
+  ${writingCol(120, 540, { lang: 'DE ★ · source', title: 'Die Kathedrale', sub: 'Kanon · Cat Pope · Ort', size: '1.08rem', h: '1.8rem', body: `<div style="opacity:.62">${WR_P('Die Kathedrale liegt unter dem Meer. Wer hinabsteigt, hört zuerst die Glocken – lange bevor er das Licht sieht.')}<div style="font-size:1.25rem;margin:1.5rem 0 .6rem">Wer dort wohnt</div>${WR_P('Der Katzenpapst hält Hof in der Apsis. Er spricht selten, und wenn, dann so leise, dass man näher kommen muss.')}${WR_SP('Katzenpapst')}${WR_P('Setz dich. Das Wasser wartet auch.')}</div>` })}
+  <div class="abs" style="left:720px;top:96px;bottom:110px;width:1px;background:var(--tool-line)"></div>
+  ${writingCol(780, 540, { lang: 'EN · you write', title: 'The Cathedral', sub: 'Kanon · Cat Pope · Place', size: '1.08rem', h: '1.8rem', body: `${WR_P('The cathedral lies under the sea. Whoever climbs down hears the bells first – long before the light.')}<div style="font-size:1.25rem;margin:1.5rem 0 .6rem">Who lives there</div>${WR_P('The Cat Pope holds court in the apse. He rarely speaks, and when he does<span style="display:inline-block;width:1px;height:1.2em;background:var(--tool-text);vertical-align:-.2em;margin-left:1px"></span>')}${WR_SP('Cat Pope')}<div style="height:1.7rem;border-bottom:1px dashed var(--tool-line)"></div>` })}
+  <div class="abs" style="left:14px;right:14px;bottom:44px;height:2.2rem;display:flex;align-items:center;gap:.9rem;padding:0 .9rem;border:1px solid var(--tool-line);border-radius:1.1rem;font-size:var(--editor-small)"><span>3 of 4 paragraphs</span><span style="flex:1"></span><span class="kc" style="opacity:.6">DE ★</span><span class="kc">EN</span><span class="kb plain on" style="height:1.7rem">Compare</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted">Saved · 20:44</span></div>
+  ${mk(1, 700, 100)}${mk(2, 1330, 372)}`);
 
 add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e7758b), its palette moved to D; crafts-v2 `xr` as lap 1", ['the XR workspace is a creator workspace with the Place tab (E2) – as drawn there'],
   () => `<iframe class="draft" src="assets/drafts/epic-drafts.html?s=714${DAY ? '&theme=day' : ''}"></iframe>`);
