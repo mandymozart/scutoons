@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Floats, FloatingPanels, StageZones, type Cell, type StageZone } from '@scutoons/ui/editor';
+	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { Floats, FloatingPanels, StageZones, motionMs, type Cell, type StageZone } from '@scutoons/ui/editor';
 	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
@@ -17,10 +19,13 @@
 	import { scopeOf } from '$lib/shell/address.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import { layouts } from '$lib/shell/layouts.svelte.ts';
+	import { shownWorkspace } from '$lib/shell/layouts.ts';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
-	 * (lib/shell/panels.ts), their layout kept per workspace in this browser. Open or folded, a panel floats over the
+	 * (lib/shell/panels.ts), their layout kept per workspace in this browser between saves; a new browser and Reset start
+	 * from the workspace's saved layout (lib/shell/layouts.ts). An own workspace shows its kind's panels. Open or folded, a panel floats over the
 	 * stage – the stage never gives way. A view takes the stage by a drag to a screen edge or corner, or through Views; it
 	 * goes full screen through Views, Ctrl Space (the view under the pointer) or a hold past the top edge; Esc leaves.
 	 */
@@ -29,7 +34,15 @@
 	const specs = tabSpecs();
 	const filled = $derived(Object.keys(shell.tabs).sort().join(' '));
 	const available = $derived(availableTabs(filled ? filled.split(' ') : [], toon));
-	const floats = $derived(new Floats(`creator-host-${kind}`, panelSpecs(kind, available, specs), specs));
+	/** the workspace shown: the kind's own, or an own workspace made from it */
+	const id = $derived(shownWorkspace(layouts.chosen, layouts.state.own, kind));
+	const floats = $derived(new Floats(`creator-host-${id}`, panelSpecs(kind, available, specs), specs, untrack(() => layouts.startOf(id))));
+	// a saved layout arriving (or saved anew) is the workspace's start: shown while this browser kept none of its own
+	$effect(() => {
+		const start = layouts.startOf(id);
+		untrack(() => floats.setStart(start));
+	});
+	$effect(() => void layouts.load());
 
 	$effect(() => {
 		shell.floats = floats;
@@ -74,6 +87,8 @@
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
 	/** the view over everything, while it has content (the open item's own view is always there) */
 	const full = $derived(floats.full && (floats.full === ITEM_VIEW || available.has(floats.full)) ? floats.full : null);
+	/** the dashboard, the launcher or the user menu opened from full screen lies over it; closed, full screen is back */
+	const under = $derived(!!(shell.dashboard || shell.launcher || shell.userMenu));
 
 	const CELL_NAMES: Record<Cell, () => string> = {
 		whole: () => m['shell.cell_whole'](),
@@ -146,11 +161,11 @@
 <div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
 {#if full && full !== ITEM_VIEW}
-	<div class="full" role="dialog" aria-label={name(full)} data-testid="full">
+	<div class="full" class:under role="dialog" aria-label={name(full)} data-testid="full" out:fade={{ duration: motionMs('base') }}>
 		{#if isCanvas(full)}{@render content(full)}{:else}<div class="full-page">{@render content(full)}</div>{/if}
 	</div>
 {/if}
-{#if full}
+{#if full && !under}
 	<p class="full-hint" data-testid="full-hint">{m['shell.full_hint']()}</p>
 {/if}
 {#if library.browser}<LibraryBrowser />{/if}
@@ -201,7 +216,11 @@
 		background: var(--tool-ground);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
-		animation: full-in 220ms ease-out;
+		animation: full-in var(--motion-slow) var(--motion-ease);
+	}
+	/* under an overlay opened from full screen (the dashboard, the launcher, the user menu) */
+	.full.under {
+		z-index: 44;
 	}
 	.full-page {
 		box-sizing: border-box;
@@ -224,14 +243,7 @@
 	@keyframes full-in {
 		from {
 			opacity: 0;
+			transform: scale(0.97);
 		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.full {
-			animation: none;
-		}
-	}
-	:global(:root[data-motion='reduced']) .full {
-		animation: none;
 	}
 </style>

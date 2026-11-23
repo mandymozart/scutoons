@@ -9,19 +9,21 @@ import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings,
 import { PRESETS, tabIdOf } from './presets.ts';
 import { clampSplit, freeRoom } from './stage.ts';
 import { readPicks, remember, type LaunchEntry, type LaunchPick } from './launcher.ts';
+import { shownWorkspace } from './layouts.ts';
+import { layouts } from './layouts.svelte.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
 const PICKS_KEY = 'sc-creator-launcher';
 
-function readJson(key: string): unknown {
+export function readJson(key: string): unknown {
 	try {
 		return JSON.parse(localStorage.getItem(key) ?? 'null');
 	} catch {
 		return null;
 	}
 }
-function writeJson(key: string, value: unknown): void {
+export function writeJson(key: string, value: unknown): void {
 	try {
 		localStorage.setItem(key, JSON.stringify(value));
 	} catch {
@@ -71,10 +73,14 @@ class Shell {
 	dashboard = $state<false | 'cards' | 'views'>(false);
 	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
 	launcher = $state(false);
+	/** the user menu over everything: a swipe up from the bottom edge, or the account icon */
+	userMenu = $state(false);
 	/** the launcher's recent picks, newest first */
 	picks = $state<LaunchPick[]>(typeof localStorage === 'undefined' ? [] : readPicks(readJson(PICKS_KEY)));
 
 	readonly front = $derived(frontTab(this.state));
+	/** the front workspace's id: its kind, or the own workspace made from it that is chosen for it */
+	readonly workspace = $derived(shownWorkspace(layouts.chosen, layouts.state.own, this.kind));
 	/** the views on the stage in the front workspace (the floats keep them); empty: the workspace's own view */
 	readonly stage: readonly string[] = $derived(this.floats ? viewsOn(this.floats.stage) : []);
 	/** the view over everything – the bar, the panels and the status bar hidden – or none */
@@ -123,6 +129,12 @@ class Shell {
 	closeAll() {
 		this.#set(closeAll());
 	}
+	/** the tabs as resumed (the start, another member's, items gone left out): no workspace counts a use */
+	restore(next: TabsState) {
+		if (next === this.state) return;
+		this.state = next;
+		writeJson(TABS_KEY, next);
+	}
 
 	change(patch: Partial<MachineSettings>) {
 		const next = { ...this.settings, ...patch };
@@ -140,7 +152,7 @@ class Shell {
 	setSplit(split: number) {
 		this.changeView({ split: clampSplit(split) });
 	}
-	/** the front workspace back to its preset: its panels, tabs and the stage */
+	/** the front workspace back to its start – the last save, else its craft's default, else its preset: its panels, tabs and the stage */
 	resetView() {
 		this.floats?.reset();
 		const { [this.kind]: _gone, ...views } = this.settings.views;

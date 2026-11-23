@@ -61,7 +61,7 @@
 		background: var(--tool-ground);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
-		animation: crafts-in 160ms ease-out;
+		animation: crafts-in var(--motion-base) var(--motion-ease);
 	}
 	.body {
 		display: flex;
@@ -95,11 +95,6 @@
 	@keyframes crafts-in {
 		from {
 			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.question {
-			animation: none;
 		}
 	}
 </style>

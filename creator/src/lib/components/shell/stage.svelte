@@ -87,7 +87,7 @@
 		overflow: hidden;
 		background: var(--tool-ground);
 		color: var(--tool-text);
-		animation: cell-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+		animation: cell-in var(--motion-base) var(--motion-ease);
 	}
 	/* the hairlines between cells */
 	.cell.edge-l {
@@ -156,13 +156,5 @@
 			opacity: 0;
 			transform: scale(0.985);
 		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.cell {
-			animation: none;
-		}
-	}
-	:global(:root[data-motion='reduced']) .cell {
-		animation: none;
 	}
 </style>

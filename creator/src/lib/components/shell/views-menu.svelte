@@ -3,11 +3,13 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { canMakeOwn, defaultLabel, defaultWorkspace, deleteWorkspace, isOwn, nameOf, newWorkspace, resetLabel, resetWorkspace, saveWorkspace } from '$lib/shell/workspace-actions.ts';
 
 	/**
 	 * Views (the main menu; OSCT's eye / eye-off grown to four): every view of the front workspace by itself, flat – no
 	 * panels. Each row says and switches where the view is: hidden · in a panel · on the stage · full screen; the map above
-	 * shows the stage now. Leaving the stage is here (to a panel, or hidden) – nothing is left behind on the stage.
+	 * shows the stage now. Leaving the stage is here (to a panel, or hidden) – nothing is left behind on the stage. At the
+	 * end the workspace's own lines: Save, back to the last save, save as a new workspace, the craft default (quieter).
 	 */
 	let { onclose }: { onclose?: () => void } = $props();
 
@@ -25,6 +27,12 @@
 	};
 	const map = $derived(floats ? slotRects(floats.stage, { x: 0, y: 0, w: 100, h: 100 }) : []);
 	const empty = $derived(!map.some((c) => c.view));
+
+	const toDefault = $derived(defaultLabel(shell.workspace));
+	const run = (action: () => unknown) => () => {
+		onclose?.();
+		void action();
+	};
 
 	function set(id: string, state: ViewState) {
 		if (!floats) return;
@@ -68,7 +76,13 @@
 </div>
 <hr />
 <MenuItem label={m['shell.views_clear']()} role="menuitemcheckbox" aria-checked={shell.clear} on={shell.clear} onclick={() => shell.changeView({ clear: !shell.clear })} data-testid="views-clear" />
-<MenuItem icon="rotate-ccw" label={m['shell.views_back']()} onclick={() => (shell.resetView(), onclose?.())} data-testid="views-reset" />
+<hr />
+<MenuHead label={nameOf(shell.workspace)} />
+<MenuItem icon="save" label={m['shell.ws_save']()} onclick={run(saveWorkspace)} data-testid="views-save" />
+<MenuItem icon="rotate-ccw" label={resetLabel(shell.workspace)} onclick={run(resetWorkspace)} data-testid="views-reset" />
+{#if canMakeOwn()}<MenuItem icon="copy" label={m['shell.ws_new']()} onclick={run(newWorkspace)} data-testid="views-new" />{/if}
+{#if toDefault}<MenuItem label={toDefault} muted onclick={run(defaultWorkspace)} data-testid="views-default" />{/if}
+{#if isOwn(shell.workspace)}<MenuItem icon="trash-2" label={m['shell.ws_delete']()} muted onclick={run(deleteWorkspace)} data-testid="views-delete" />{/if}
 
 <style>
 	.views {

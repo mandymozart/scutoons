@@ -27,7 +27,7 @@
 
 	const nav = getCreatorNav();
 	const specs = tabSpecs();
-	const name = $derived(workspaceName(card.kind));
+	const name = $derived(card.name ?? workspaceName(card.kind));
 	const item = $derived(card.shown);
 	const toon = $derived(item ? (item.address.split(':')[1] ?? null) : null);
 	const avatar = $derived.by(() => {
@@ -40,7 +40,7 @@
 	const viewNames = $derived(card.front ? specs.filter((t) => t.id !== 'settings' && shell.available.has(t.id)).map((t) => t.name).join(' · ') : '');
 </script>
 
-<div class="ws-card" class:front={card.front} class:empty={!item} data-testid="dash-card" data-kind={card.kind}>
+<div class="ws-card" class:front={card.front} class:empty={!item} data-testid="dash-card" data-kind={card.kind} data-workspace={card.id}>
 	{#snippet inside()}
 		<span class="picture" aria-hidden="true">
 			{#if avatar}<ToonAvatar src={avatar} name={toon ?? ''} size="2.6rem" />{/if}

@@ -47,6 +47,8 @@
 	});
 
 	const held = $derived(floats.heldTab?.moved ? floats.heldTab : null);
+	const thrown = $derived(floats.thrownTab);
+	const rem = (px: number) => `${px / (floats.metrics.rem || 16)}rem`;
 	/** The layer's top left in client px */
 	const origin = $derived({ left: floats.area.x - floats.metrics.gap, top: floats.area.y - floats.metrics.gap });
 </script>
@@ -90,6 +92,19 @@
 			{floats.tab(held.tab)?.name ?? held.tab}
 		</div>
 	{/if}
+	{#if thrown}
+		<!-- a tab flung off the screen: its ghost flies on out -->
+		<div
+			class="ghost thrown"
+			data-testid="thrown-tab"
+			style:left="{thrown.rect.x - origin.left}px"
+			style:top="{thrown.rect.y - origin.top}px"
+			style:--throw-x={rem(thrown.x)}
+			style:--throw-y={rem(thrown.y)}
+		>
+			{floats.tab(thrown.id)?.name ?? thrown.id}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -125,6 +140,15 @@
 		box-shadow: none;
 		transform: translate(0.75rem, 0.5rem) rotate(-3deg);
 		pointer-events: none;
+	}
+	.ghost.thrown {
+		animation: throw-out var(--motion-slow) var(--motion-ease-in) forwards;
+	}
+	@keyframes throw-out {
+		to {
+			transform: translate(calc(0.75rem + var(--throw-x)), calc(0.5rem + var(--throw-y))) rotate(-3deg);
+			opacity: 0;
+		}
 	}
 	.ghost.out {
 		outline: 1px dashed var(--tool-accent);

@@ -18,6 +18,9 @@ import { places, type Place } from './places.svelte.ts';
 import { shell } from './shell.svelte.ts';
 import { workspaceName } from './workspace-names.ts';
 import { workspaceRow } from './workspaces.ts';
+import { withOwn } from './layouts.ts';
+import { layouts } from './layouts.svelte.ts';
+import { canMakeOwn, newWorkspace, resetLabel, saveWorkspace } from './workspace-actions.ts';
 
 /** what the lists need loaded once the launcher opens */
 export function loadSources(nav: CreatorNav) {
@@ -41,7 +44,7 @@ export function typed(query: string): LaunchEntry[] {
 }
 
 export function workspaces(): LaunchEntry[] {
-	return workspaceRow(shell.use, shell.state.tabs).map((e) => ({ id: `workspace:${e.kind}`, kind: 'workspace', label: workspaceName(e.kind), hint: m['shell.launch_workspace'](), icon: 'layout', href: e.href }));
+	return withOwn(workspaceRow(shell.use, shell.state.tabs), layouts.state.own).map((e) => ({ id: `workspace:${e.id}`, kind: 'workspace', label: e.name ?? workspaceName(e.kind), hint: m['shell.launch_workspace'](), icon: 'layout', href: e.href }));
 }
 
 /** the front workspace's views (Settings is a command) */
@@ -89,7 +92,9 @@ function commands(logout: () => unknown): Command[] {
 		{ id: 'dashboard', label: m['shell.dashboard'](), icon: 'menu', keywords: 'dashboard home menu', run: () => (shell.dashboard = 'cards') },
 		{ id: 'docs', label: m['shell.docs'](), icon: 'book-open', keywords: 'docs help documentation doku', run: () => void window.open('/docs', '_blank', 'noopener') },
 		{ id: 'theme', label: day ? m['shell.launch_night']() : m['shell.launch_day'](), icon: day ? 'moon' : 'sun', keywords: 'theme day night dark light tag nacht', run: () => shell.change({ theme: day ? 'night' : 'day' }) },
-		{ id: 'reset', label: m['shell.launch_reset'](), icon: 'rotate-ccw', keywords: 'reset workspace layout zurücksetzen', run: () => shell.resetView() },
+		{ id: 'save-workspace', label: m['shell.launch_save'](), icon: 'save', keywords: 'save workspace layout speichern arbeitsbereich', run: () => void saveWorkspace() },
+		{ id: 'reset', label: `${m['shell.launch_reset']()} – ${resetLabel()}`, icon: 'rotate-ccw', keywords: 'reset workspace layout zurücksetzen last save', run: () => shell.resetView() },
+		...(canMakeOwn() ? [{ id: 'new-workspace', label: m['shell.ws_new'](), icon: 'copy', keywords: 'new workspace save as layout neuer arbeitsbereich', run: () => void newWorkspace() }] : []),
 		{ id: language.id, label: language.label, icon: 'globe', keywords: language.keywords, run: language.run },
 		{ id: 'logout', label: m['creator.sign_out'](), icon: 'log-out', keywords: 'logout log out sign out abmelden', run: () => void logout() }
 	];
@@ -116,9 +121,12 @@ export function launch(entry: LaunchEntry, logout: () => unknown) {
 			if (entry.href) void goto(entry.href);
 			return;
 		}
-		case 'workspace':
+		case 'workspace': {
+			const own = layouts.state.own.find((o) => o.id === id);
+			layouts.show(own?.kind ?? id, id);
 			if (entry.href) void goto(entry.href);
 			return;
+		}
 		case 'view': {
 			const floats = shell.floats;
 			if (floats && floats.stateOf(id) === 'hidden') floats.setState(id, 'panel');

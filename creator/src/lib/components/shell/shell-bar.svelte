@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { IconButton, Menu, MenuItem, Pill } from '@scutoons/ui/editor';
+	import { IconButton, Menu, Pill } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
@@ -9,7 +9,7 @@
 	/**
 	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
 	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
-	 * something in its scope is not live), the account and the menu, far right: it lays the dashboard over everything and
+	 * something in its scope is not live), the account (the user menu, as a swipe up from the bottom) and the menu, far right: it lays the dashboard over everything and
 	 * takes it away again. Every part is a kit Pill, half a gap apart.
 	 */
 	const session = getCreatorSession();
@@ -36,14 +36,7 @@
 				{/snippet}
 			</Menu>
 		{/if}
-		<Menu label={m['shell.account_menu']({ who })} icon="user" testid="bar-account" width="19rem">
-			{#snippet children(close)}
-				<MenuItem label={who} />
-				<MenuItem label={session.roles.join(' · ')} muted />
-				<hr />
-				<MenuItem icon="log-out" label={m['creator.sign_out']()} onclick={() => (close(), void session.logout())} data-testid="sign-out" />
-			{/snippet}
-		</Menu>
+		<IconButton label={m['shell.account_menu']({ who })} title={m['shell.user_menu']()} icon="user" pressed={shell.userMenu} aria-expanded={shell.userMenu} onclick={() => (shell.userMenu = !shell.userMenu)} data-testid="bar-account" />
 		<IconButton label={m['shell.dashboard']()} title="{m['shell.dashboard']()} (Esc)" icon="menu" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => (shell.dashboard = shell.dashboard ? false : 'cards')} data-testid="menu-button" />
 	</Pill>
 </header>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '@scutoons/tokens';
 	import type { Snippet } from 'svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { installTooltips, DialogHost, ToastStack, provideColourSampler, provideUiLabels } from '@scutoons/ui';
@@ -34,7 +34,12 @@
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
 	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
+	import UserMenu from '$lib/components/shell/user-menu.svelte';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
+	import type { DashboardState } from '$lib/shell/resume.ts';
+	import { openings } from '$lib/shell/openings.svelte.ts';
+	import { log } from '$lib/log/log.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -123,9 +128,11 @@
 	});
 
 	// ── tabs: the URL is the front tab (lib/shell); a page that writes its selection into the URL moves its tab along ──
-	const startAt = page.url.pathname;
-	const resume = shell.settings.reopenTabs ? shell.front : null;
-	if (!shell.settings.reopenTabs) shell.closeAll();
+	// reopening resumes like a hibernated computer (lib/shell/resume.ts): the kept tabs with the URL opened, the dashboard
+	// as it was, each workspace's full screen, the scroll positions; a link opened is the front tab
+	const start = resume.start({ address: addressOf(page.url.pathname, page.url.search), href: page.url.pathname + page.url.search });
+	/** the dashboard as it was, once the start's page is there */
+	let startDashboard: DashboardState | null = start.dashboard;
 	let lastPath = '';
 	function sync(navigated: boolean) {
 		const { pathname, search } = location;
@@ -137,9 +144,55 @@
 	}
 	afterNavigate(() => sync(true));
 	// nothing open: the dashboard lies over the empty stage; going to an item puts it away
-	afterNavigate(() => (shell.dashboard = location.pathname === '/' ? shell.dashboard || 'cards' : false));
+	afterNavigate(() => {
+		if (startDashboard !== null && (!start.go || location.pathname === new URL(start.go, location.origin).pathname)) {
+			shell.dashboard = startDashboard;
+			startDashboard = null;
+			resumeScroll();
+			return;
+		}
+		shell.dashboard = location.pathname === '/' ? shell.dashboard || 'cards' : false;
+	});
+	$effect(() => resume.dashboard(shell.dashboard));
+	onMount(keepScroll);
+	// another member signed in on this browser: their own tabs come back
+	$effect(() => {
+		const id = session.user?.id;
+		if (id == null) return;
+		const go = untrack(() => resume.member(String(id)));
+		if (go && go !== location.pathname + location.search) void goto(go, { replaceState: true });
+	});
+	// the resumed tabs checked as the lists arrive: an item gone or no longer the member's leaves quietly, with a Log line
+	$effect(() => {
+		if (!isCreator || !shell.state.tabs.length) return;
+		untrack(() => void openings.load());
+	});
+	$effect(() => {
+		const lists = Object.fromEntries(Object.entries(openings.rows).map(([kind, rows]) => [kind, rows.map((r) => r.address)]));
+		const toons = nav.toons.length ? nav.toons.flatMap((t) => [t.id, t.uri].filter((v): v is string => !!v)) : null;
+		untrack(() => {
+			const front = shell.state.front;
+			const out = resume.check(lists, toons);
+			if (!out) return;
+			for (const name of out.gone) log.post({ level: 'info', text: m['shell.resume_dropped']({ name }), scope: '' });
+			if (front && out.tabs.front !== front && addressOf(location.pathname, location.search) === front) {
+				void goto(out.tabs.tabs.find((t) => t.address === out.tabs.front)?.href ?? '/', { replaceState: true });
+			}
+		});
+	});
+	// each workspace's full screen kept, and the kept one back once its view has content
+	$effect(() => {
+		const floats = shell.floats;
+		const full = shell.full;
+		const available = shell.available;
+		if (!floats) return;
+		untrack(() => {
+			const back = resume.full(floats.workspace, full, available);
+			if (back) floats.setState(back, 'full');
+		});
+	});
 	onMount(() => {
-		if (startAt === '/' && resume) void goto(resume.href, { replaceState: true });
+		if (start.go) void goto(start.go, { replaceState: true });
 		const { pushState, replaceState } = history;
 		const watch = (original: typeof pushState) =>
 			function (this: History, ...args: Parameters<typeof pushState>) {
@@ -221,7 +274,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full} data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher && !shell.userMenu} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -234,6 +287,7 @@
 		<StatusBar />
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		{#if shell.launcher}<Launcher />{/if}
+		<UserMenu />
 		{#if crafts.ask}<CraftsQuestion />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>

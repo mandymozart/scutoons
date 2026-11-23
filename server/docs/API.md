@@ -350,6 +350,20 @@ so which creator workspaces they start with – access stays with the roles. Not
 An invite signs no one up (the address still needs a signup code, #837); when that address's account is created or signs
 in, the invite is accepted and gives the member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet.
 
+## Workspace layouts (2026-11-24, #827 – migration `2026-11-24-workspace-layouts`)
+
+A member's saved creator workspaces: what Reset goes back to and a new device starts from; a row with a `name` is an own
+workspace made from another one (`kind`). `Domain\Layouts\WorkspaceLayouts`, tables `member_layouts (user_id, workspace,
+kind, name, layout, saved_at)` and `craft_layouts (craft_id, workspace, layout)` – a craft's default, configuration in the DB.
+The layout is the creator's floating panels' JSON `{ places, tabs, stage }`: the server checks only that outer shape (no
+other key, each an object) and ≤ 32 KB; the creator's readers check the inside when they load it. Own rows only.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/me/layouts` | `{ available, layouts: [{ workspace, kind, name, layout, saved_at }], defaults: [{ workspace, craft, layout }] }` – `defaults` per workspace from the member's first craft (crafts' order) that has one; before the migration `available: false`, empty |
+| PUT | `/me/layouts/{workspace}` | `{ layout, name?, kind? }` → `{ layout }`; a new own workspace needs `name` + `kind`; at most 60 rows (`409 too_many_layouts`); `400 bad_layout`, `413 layout_too_large`; not with an AI connection; `503 not_available` before the migration |
+| DELETE | `/me/layouts/{workspace}` | `{ deleted }` – back to the default (an own workspace is gone); not with an AI connection |
+
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 
 The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
