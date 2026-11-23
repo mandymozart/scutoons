@@ -12,7 +12,6 @@
 		entities,
 		isPlaceWaypoint,
 		mapName,
-		placeImagePath,
 		placeCells,
 		placeCellOffsets,
 		paintRuns,
@@ -20,16 +19,12 @@
 		runsIndex,
 		runsPaths,
 		hexCellAt,
-		placeImageTarget,
-		PLACE_IMAGE_WIDTHS,
 		placeView,
 		snapPlace,
 		placeSize,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
-		type MapPlace,
-		type QualityVariants,
 		type ToonMapView,
 		type Point,
 		type Problem,
@@ -37,7 +32,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, type GroupBarItem, choiceDialog } from '@scutoons/ui';
+	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, choiceDialog } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -52,7 +47,6 @@
 	import { addPlace, addRegion, addRoute, cdnHas, editMap, editPlace, editRegion, editRoute, connectWaypoint, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
 	import { regionBrush } from '$lib/editor/region-brush.svelte.ts';
@@ -72,95 +66,6 @@
 	const view = new MapViewport();
 	const locale = $derived(getLocale());
 	const map = $derived(mapOf(doc));
-
-	// ── import: place illustrations by file name (owner 2026-10-03) ──────────────────────────────────────────────
-	let importInput = $state<HTMLInputElement>();
-	let importing = $state<{ done: number; total: number } | null>(null);
-	let importSummary = $state('');
-	let importProblems = $state<string[]>([]);
-	/** set after an import: previews of files with new bytes at the same path load again */
-	let bust = $state(0);
-
-	/**
-	 * "Import images …" (owner 2026-10-03; 2026-10-12 through the media standard): files named after a place id –
-	 * `old-church.png` the painted diorama, `old-church-plaster.png` its plaster model, `.2x` / `.3x` (or `@2x`) for a
-	 * delivered density; case and extension don't matter. Each becomes WebP in 1x / 2x / 3x (PLACE_IMAGE_WIDTHS 256 / 512
-	 * / 1024 – `standardDensities`: a bigger file makes the smaller ones, nothing is scaled up) at the place's current WebP
-	 * path or its convention path (`<toon>/map/places/<id>.webp`, `<id>-plaster.webp`, `.2x.webp`, `.3x.webp`); a file
-	 * already there gets the new bytes (a new version, the CDN purged). One undo step; names that are no place are
-	 * reported, a plaster model needs the painted image (in the same import or before).
-	 */
-	async function importImages(event: Event) {
-		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
-		if (importInput) importInput.value = '';
-		if (!files.length || !map) return;
-		importProblems = [];
-		importSummary = '';
-		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
-		// one image per place and layer, its density files together; painted first (a plaster model needs it)
-		const groups = new Map<string, { place: string; plaster: boolean; files: File[] }>();
-		for (const file of files) {
-			const { stem } = splitMediaName(file.name);
-			const target = placeImageTarget(stem, map.locations);
-			if (!target) {
-				importProblems = [...importProblems, `${file.name}: ${m['creator.map_import_no_place']({ name: stem })}`];
-				continue;
-			}
-			const key = `${target.plaster ? 1 : 0}:${target.place}`;
-			groups.set(key, { ...target, files: [...(groups.get(key)?.files ?? []), file] });
-		}
-		const ordered = [...groups.values()].sort((a, b) => Number(a.plaster) - Number(b.plaster));
-		const withImage = new Set(map.locations.filter((p) => p.image?.src).map((p) => p.id));
-		const placed: { id: string; plaster: boolean; src: string; variants?: QualityVariants }[] = [];
-		importing = { done: 0, total: ordered.length };
-		for (const group of ordered) {
-			const place = map.locations.find((p) => p.id === group.place)!;
-			try {
-				if (group.plaster && !withImage.has(place.id)) throw new Error(m['creator.map_import_plaster_first']());
-				const encoded = await standardDensities(group.files, { 1: PLACE_IMAGE_WIDTHS.low, 2: PLACE_IMAGE_WIDTHS.medium, 3: PLACE_IMAGE_WIDTHS.high });
-				const base = placeImageBase(place, group.plaster);
-				const variants: QualityVariants = {};
-				for (const file of encoded) {
-					const path = densityPath(base, file.density);
-					counts[await uploadOrReplace(file.blob, path, 'map import')]++;
-					variants[densityLevel(file.density)] = path;
-				}
-				placed.push({ id: place.id, plaster: group.plaster, src: variants.low!, ...(encoded.length > 1 ? { variants } : {}) });
-				if (!group.plaster) withImage.add(place.id);
-			} catch (e) {
-				importProblems = [...importProblems, `${group.files.map((f) => f.name).join(' + ')}: ${e instanceof Error ? e.message : String(e)}`];
-			}
-			importing = { done: importing.done + 1, total: ordered.length };
-		}
-		if (placed.length)
-			editMap(doc, (next) => {
-				for (const { id, plaster, src, variants } of placed) {
-					const place = next.locations.find((p) => p.id === id);
-					if (!place) continue;
-					if (plaster) {
-						if (!place.image) continue;
-						place.image.plaster = src;
-						if (variants) place.image.plasterVariants = variants;
-						else delete place.image.plasterVariants;
-					} else {
-						place.image = { ...(place.image ?? {}), src };
-						if (variants) place.image.variants = variants;
-						else delete place.image.variants;
-					}
-				}
-			});
-		importing = null;
-		importSummary = m['creator.characters_import_summary'](counts);
-		bust = Date.now();
-	}
-
-	/** where a place image's files go (no extension, no density): its current WebP, else next to the painted one / the convention path */
-	function placeImageBase(place: MapPlace, plaster: boolean): string {
-		const bare = (path: string) => path.replace(/\.webp$/i, '').replace(/\.[123]x$/i, '');
-		const painted = bare(place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place));
-		if (!plaster) return painted;
-		return place.image?.plaster?.endsWith('.webp') ? bare(place.image.plaster) : `${painted}-plaster`;
-	}
 
 	let tool = $state<MapTool>('select');
 	let selection = $state<MapSelection>(null);
@@ -561,10 +466,6 @@
 	const sideSize = panelWidth('sc-panel-width:map-props', 16, () => builderEl?.getBoundingClientRect().right ?? window.innerWidth);
 	sideSize.room = () => (builderEl?.clientWidth ?? window.innerWidth) / 2;
 	const sideEmpty = $derived(!selection && !toonFilter);
-	// the page's line: Import, and the selection's own actions
-	const more = $derived<GroupBarItem[]>([
-		{ id: 'import', icon: 'upload', label: m['creator.characters_import'](), disabled: !!importing, run: () => importInput?.click() }
-	]);
 	/** the selected place's reader view = the canvas's view now (as the place form's "Use the current view") */
 	function useViewFor(id: string) {
 		const place = map?.locations.find((p) => p.id === id);
@@ -781,13 +682,6 @@
 			<li><button type="button" class="item add" onclick={newRegion} data-testid="nav-add-region">{m['creator.map_add_region']()}</button></li>
 		</ul>
 		</details>
-		<p class="nav-import">
-			<!-- a real button (owner 2026-10-20: the list-row look was "not really clearly a button") -->
-			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()} data-testid="map-import">
-				<Icon name="upload" size="1.1em" />
-				{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
-			</button>
-		</p>
 	</div>
 {/snippet}
 
@@ -821,14 +715,11 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" {more} selection={selectionActions}>
+<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" selection={selectionActions}>
 	{#if map}
 		<div class="builder" class:side-empty={sideEmpty} bind:this={builderEl} style:--map-side-width={sideSize.css} data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<!-- the tools are strips on the canvas at every width (owner 2026-10-11: "in Desktop platzeffizienter – Toons und
-			     Tools wie auf Mobile"); the toon filter is the pill in the header, Import sits under the lists -->
-			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
-			{#if importSummary}<p class="sc-caption import-summary" role="status">{importSummary}</p>{/if}
-			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
+			     Tools wie auf Mobile"); the toon filter is the pill in the header -->
 			<div class="stage">
 				<MapCanvas
 					bind:this={canvas}
@@ -888,7 +779,7 @@
 			{#if !sideEmpty}<Divider size={sideSize} edge="left" at="var(--map-side-width, 16rem)" label={m['creator.resize_panel']()} controls="map-sheet" class="side-resize" />{/if}
 			<aside class="side" id="map-sheet" data-testid="map-sheet">
 				{#if selection}
-					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} characters={characterOptions} onselect={(s) => select(s, true)} />
+					<MapProps {doc} {map} {selection} {view} {toons} {languages} {publishedIds} characters={characterOptions} onselect={(s) => select(s, true)} />
 				{:else}
 					<div class="group">
 						<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
@@ -1013,21 +904,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
-	}
-	.nav-import {
-		margin: var(--space-1) 0 0;
-		padding: 0 var(--space-05);
-	}
-	/* one line across the list (12rem) */
-	.nav-import button {
-		width: 100%;
-		padding: 0 var(--space-05);
-		white-space: nowrap;
-	}
-	.import-summary {
-		grid-column: 1 / -1;
-		margin: 0;
-		padding: 0.25rem 0.75rem;
 	}
 	.group {
 		display: contents;

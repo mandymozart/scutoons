@@ -14,7 +14,7 @@
 	/**
 	 * A family's details – the browser's drawer at the right, the panel's at its bottom (`drawer`): the preview, the
 	 * name (F2 renames it: URL and uses stay), Use / Set as cover, where the open item uses it (each part a jump to it),
-	 * where else the registry knows it used, its versions (a tray to use one exactly, the table, the missing on demand),
+	 * where else the registry knows it used, its versions (a tray to use one exactly, the table),
 	 * Download, Copy path, Credits (#690), Delete.
 	 */
 	let { family, drawer = false, onreplace, onclose }: { family: AssetFamily; drawer?: boolean; onreplace: (file: File) => void; onclose?: () => void } = $props();
@@ -22,7 +22,6 @@
 	let usages = $state<AssetUsage[] | null>(null);
 	let failed = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
-	let showMissing = $state(false);
 
 	$effect(() => {
 		const f = family;
@@ -134,16 +133,8 @@
 						<td>{#if v.quality}<span class="tag">{v.quality}</span>{/if}</td>
 					</tr>
 				{/each}
-				{#if showMissing}
-					{#each family.missing as label (label)}
-						<tr class="missing"><td class="mono">{label}</td><td class="mono" colspan="3">{m['library.missing']()}</td></tr>
-					{/each}
-				{/if}
 			</tbody>
 		</table>
-		{#if family.missing.length}
-			<button type="button" class="jump quiet" data-control-exempt="text link" aria-expanded={showMissing} onclick={() => (showMissing = !showMissing)}>{showMissing ? m['library.hide_missing']() : m['library.show_missing_n']({ count: family.missing.length })}</button>
-		{/if}
 	</Section>
 </aside>
 
@@ -260,9 +251,6 @@
 	.versions .num {
 		text-align: right;
 	}
-	.versions .missing {
-		color: var(--tool-warn);
-	}
 	.tag {
 		padding: 0 0.35rem;
 		border: var(--editor-edge) solid var(--tool-line);
@@ -291,10 +279,5 @@
 		font: inherit;
 		text-align: start;
 		cursor: pointer;
-	}
-	.jump.quiet {
-		display: block;
-		margin-top: 0.3rem;
-		color: var(--tool-muted);
 	}
 </style>

@@ -17,8 +17,7 @@
 		moods,
 		locale,
 		mood = $bindable('neutral'),
-		view = $bindable<CharacterView>('portrait'),
-		bust = 0
+		view = $bindable<CharacterView>('portrait')
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -27,7 +26,6 @@
 		locale: string;
 		mood?: string;
 		view?: CharacterView;
-		bust?: number;
 	} = $props();
 
 	const VIEWS: ToolGroupOption[] = $derived([
@@ -38,7 +36,6 @@
 	const strip = $derived(lookMoods(look, moods));
 	const filled = $derived(lookPortraitMoods(look).length);
 	const thumb = (x: string) => characterImage(character, { persona, look: look.id, mood: x }, 'avatar', { isMissing: isKnownMissing });
-	const busted = (path: string) => (path ? `${asset(path)}${bust ? `?v=${bust}` : ''}` : '');
 	const choose = (value: string) => (view = value as CharacterView);
 </script>
 
@@ -50,7 +47,7 @@
 	<div class="strip" use:edgeFade role="listbox" aria-label={m['creator.characters_moods']()} data-testid="mood-strip">
 		{#each strip as x (x)}
 			<button type="button" class="mood" class:on={x === mood} role="option" aria-selected={x === mood} onclick={() => (mood = x)} data-control-exempt="a mood thumbnail with its word" data-testid="strip-{x}">
-				<span class="pic">{#if thumb(x)}<img src={busted(thumb(x))} alt="" loading="lazy" draggable="false" />{/if}</span>
+				<span class="pic">{#if thumb(x)}<img src={asset(thumb(x))} alt="" loading="lazy" draggable="false" />{/if}</span>
 				<span class="word">{moodLabel(x, locale, moods)}</span>
 			</button>
 		{/each}

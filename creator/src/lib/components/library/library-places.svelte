@@ -1,16 +1,13 @@
 <script lang="ts">
 	import type { LibraryScope } from '@scutoons/media';
 	import { parseEntityKey } from '@scutoons/content';
-	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { NEEDS } from '$lib/editor/library-actions.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The browser's places (OSCT's sidebar): the scope, recently added (7 days), missing credits, one place per item with
-	 * its count (the chapters, characters … that use or hold files), one per season cast (its characters' files); the missing
-	 * versions on demand. The counts are the core's.
+	 * The browser's places (OSCT's sidebar): the scope, recently added (7 days), one place per item with its count (the
+	 * chapters, characters … that use or hold files), one per season cast (its characters' files). The counts are the core's.
 	 */
 	const view = $derived(library.view);
 	const scopes = $derived<{ id: LibraryScope; label: string; count: number }[]>([
@@ -36,9 +33,6 @@
 	<h3>{m['library.places']()}</h3>
 	<ul>
 		<li><button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'recent'} onclick={() => special('recent')} data-testid="place-recent">{m['library.recent']()}<span class="n">{view?.specials.recent ?? 0}</span></button></li>
-		<li>
-			<button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'credits'} disabled={view?.specials.credits == null} title={view?.specials.credits == null ? NEEDS.credits() : undefined} onclick={() => special('credits')}>{m['library.missing_credits']()}<span class="n">{view?.specials.credits ?? '–'}</span></button>
-		</li>
 	</ul>
 	{#if view?.specials.items.length}
 		<h3>{m['library.by_item']()}</h3>
@@ -56,9 +50,6 @@
 			{/each}
 		</ul>
 	{/if}
-	<Section id="library-places-missing" label={m['library.todo_missing']()} open={false} summary={String(view?.specials.missing ?? 0)}>
-		<button type="button" class="place" data-control-exempt="tree row" class:on={library.special === 'missing'} onclick={() => special('missing')}>{m['library.show_missing']()}<span class="n">{view?.specials.missing ?? 0}</span></button>
-	</Section>
 </nav>
 
 <style>
@@ -96,12 +87,8 @@
 		text-align: start;
 		cursor: pointer;
 	}
-	.place:hover:not(:disabled) {
+	.place:hover {
 		background: var(--tool-hover);
-	}
-	.place:disabled {
-		color: var(--tool-muted);
-		cursor: default;
 	}
 	.place.on {
 		background: var(--tool-pressed);

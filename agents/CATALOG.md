@@ -44,8 +44,7 @@ Rules:
    validation incl. `validateCatalog`, history + undo), toon creation API, AssetUsages on rows, tests.
 2. **Shared media components** (branch `shared/media`): the creator's asset picker sheet, media slot, media-variants
    slot and `media-upload.ts` (WebP + upload-or-replace) move into a shared package both creator and admin use.
-3. **Admin UI** (after 1 + 2): basic pages – Toons (create), Items (list, form, picture slot + variants, bulk
-   "Import images …" by `<item-id>[_<variant>].png`), Recipes, Albums (tracks with audio slots), Products (item
+3. **Admin UI** (after 1 + 2): basic pages – Toons (create), Items (list, form, picture slot + variants), Recipes, Albums (tracks with audio slots), Products (item
    relation, pictures), Editions, Featured, Permissions / code types; history per entry.
 
 ## Status
@@ -181,12 +180,7 @@ sizes, colours) + links to its codes / batches; toons – name, redirect URL ("F
 `CREATOR_URL/<id>`); permissions – the description; code types – claimable, signup, grants (checkboxes of the
 permissions), **saving asks first** (security); meta – version (+ currency, checked, source for `products`).
 
-**Import images …** (items tab, `admin/src/lib/catalog/import.ts`): `<item-id>.<ext>` / `<item-id>_<variant>.<ext>`,
-case-insensitive, the longest matching item id first (`dago_hoodie_black` = item `dago_hoodie`, variant `black`) →
-`toWebp` (scaled so the longest side is ≤ 1024 px, never up; transparency kept) → `uploadOrReplace` to
-`<toon|scutoons>/items/<item-id>[_<variant>].webp` (ids in their stored case) → one `catalogPut` per item (note
-`image import`) only when an icon path changed. A report above the list: "n new · n replaced · n unchanged", the items
-whose pictures were set, unknown names ("no item with this id" / "has no such variant") and failures.
+No bulk image import (#861, not twice): bulk comes through the MCP; the Library places files into slots.
 
 **Decisions:**
 - One page with tabs, not nine sidebar entries (the admin's nav stays short; the old page was tabs too).
