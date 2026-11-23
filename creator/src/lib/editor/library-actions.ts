@@ -11,7 +11,6 @@ import { m } from '$lib/paraglide/messages.js';
 
 /** why a control is off until the API carries it (the ticket) */
 export const NEEDS = {
-	credits: () => m['library.needs_api']({ issue: '#690' }),
 	server: () => m['library.needs_api']({ issue: '#700' })
 };
 
