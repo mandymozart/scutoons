@@ -44,7 +44,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | C5 | Scenes: the scene page | open: what it edits; "Edit in deck" | words |
 | C6 | Rigs | "Open in the deck" | old |
 | C7 | Flow | kit look | old |
-| C8 | Sound design | open: goes, or becomes a preview (modules are edited in the deck) | words |
+| C8 | Sound design: the module editor (Parameters · Nodes · Rust · Assignment, Problems, Console, the knobs) | never drawn – the draft is an empty frame. Thought aloud: it might have to be removed, because modules are edited in the deck; then a module in the creator is a preview with "Edit in deck" | words |
 | C9 | Catalog | no Import images; see F1 | old |
 | C10 | Map | the 0 px bug fixed; no Import images; kit look on its tool strip | old |
 | C11 | Generate | the stub stays in this lap; the deck's canvas comes with #764 | old |
@@ -59,7 +59,8 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | D1 | The switcher over a workspace | as A3; Home stays when nothing is open | shape |
 | D2 | Build | the shared bar, Views in the ☰, kit look | old |
 | D3 | Show | its sheets are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html, spores-view.html |
-| D4 | Module | the shared bar, kit look | old |
+| D4 | Module, nothing open | the shared bar, kit look | old |
+| D4b | **Module, a module open** (new) | never drawn: its Parameters, Problems, the module heard alone on the stage, Derive for a factory module; the code opens in the external editor | words |
 | D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here | old |
 | D6 | Rigging | #830 | old |
 | D7 | ~~XR~~ | dropped – XR is the creator's | – |
@@ -92,4 +93,4 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | universe.html | the twelve kinds as one tree, production counts | for reading |
 | modules-dna.html | module · rig · slot · network | draft, six points open |
 
-**Count:** 10 + 7 + 15 + 8 + 6 + 3 = 49 screens. **Current: 3 · shape: 7 · old: 32 · words: 5 · done or dropped: 2.**
+**Count:** 10 + 7 + 15 + 9 + 6 + 3 = 50 screens. **Current: 3 · shape: 7 · old: 32 · words: 6 · done or dropped: 2.**

@@ -70,9 +70,10 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - Trees: one per workspace, named like it, borrowable by other workspaces (TREES.md).
 - A character is 2D-first or 3D-first, as a preference.
 - Module, instrument, preset and rig are one mechanism; a spore is a module with another driver (MODULES-RIGS.md, MODULES-DNA.md).
+- The creator's module editor might have to be removed.
 
 **Open**
-- The creator's Sound design workspace: goes, or becomes a preview?
+- **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
 - What the scene page edits (C5).
 - Catalog and Library as one concept (F1).
 - Trees: the Library's "Items to open" against the trees; a borrowed tree – jump or reference.

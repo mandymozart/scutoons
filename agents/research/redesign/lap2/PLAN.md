@@ -55,7 +55,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - "Import images" removed from the Map, the Catalog and Characters.
 - The creator's Rig panel without Bones and Clips: the model's line and "Open in the deck".
 - Images, sound, video and 3D in the creator as previews with "Edit in deck".
-- **Waits for your word:** the creator's Sound design workspace – goes, or becomes a preview.
+- The creator's module editor: see P9.
 
 ### P7 · The Show: events at the row (deck)
 - The row's ⚡ slot opens Find under it, with the pills This toon · Show · Universe. No "fires on" sheet.
@@ -64,6 +64,19 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - The tab "Nodes" is "Spores". The selected row has no thick left bar. The picker list gets its ground.
 - **One change to the stored show:** a row holds several events instead of one. It is the only change to stored data in this lap.
 - **Done when:** D3 behaves as show.html `?v=1` and spores-view.html `?v=1…3` show it.
+
+### P9 · The module editor (found missing in the review)
+No picture of a module open exists for either app. Today there are two editors:
+- **The creator's** (Sound design, `/edit/module:…`): the tabs Parameters · Nodes · Rust · Assignment, the code in the browser, Problems, a Console, Derive, the module heard on the being with its meters and knobs. It still has the old look (a white tab strip).
+- **The deck's** (the Module workspace): a working copy on the machine, the code in your external editor, built by the deck's own compiler, Problems, Parameters as scrub numbers, the module heard alone on the stage, Derive for a factory module.
+
+Decided: modules are edited in the deck. Thought aloud: the creator's editor might have to be removed.
+- **To draw first (P0):** the deck's Module workspace with a module open (D4b), in the kit; and what a module is in the creator once its editor is gone – a preview with "Edit in deck".
+- **Waits for your word:**
+  - Is the creator's editor removed in this lap, or only marked and left?
+  - What only the creator's editor has: the Nodes and Assignment tabs, the Console, and writing code without the deck installed. Do they move to the deck, or go?
+  - A published module is made by the compile service from the creator. With the editor gone, Publish stays in the creator's one Publish.
+- **Not checked yet:** whether the deck already covers Nodes and Assignment in other views (asked of the deck orchestrator).
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
@@ -76,6 +89,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 3. **P2** and **P8** side by side.
 4. **P3** and **P4**.
 5. **P5**, then **P6** and **P7**.
+6. **P9** once its open points are answered.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -101,7 +115,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
 | A disabled primary button; the see-through grounds as redrawn | P1 |
-| The Sound design workspace: goes or a preview | P6 |
+| The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:
