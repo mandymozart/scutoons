@@ -118,6 +118,11 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .dcard .ico svg{width:1.6rem;height:1.6rem}
 .dcard .cx{position:absolute;right:.5rem;top:.4rem;color:var(--tool-muted)}
 .dcard .cx svg{width:1.3rem;height:1.3rem}
+/* a workspace card is its last capture, full-bleed; the name and the last content lie over it with the kit's halo (owner 2026-11-24) */
+.dcard.shot{padding:0;overflow:hidden;background-size:cover;background-position:top left}
+.dcard.shot .nm,.dcard.shot .wh,.dcard.shot .label,.dcard.shot .cx{text-shadow:0 0 2px var(--tool-ground),0 0 3px var(--tool-ground),0 0 6px var(--tool-ground);color:var(--tool-text);z-index:1}
+.dcard.shot .cx svg{filter:drop-shadow(0 0 2px var(--tool-ground))}
+.dcard.shot .nm{font-size:var(--editor-title)}
 
 /* annotations (not UI): change markers, question cards, the footer strip, the index */
 .mk{position:absolute;z-index:900;width:22px;height:22px;border-radius:50%;background:#ffd84a;color:#1b1700;font:700 12px/22px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px rgb(0 0 0/.55);text-shadow:none}
@@ -244,12 +249,19 @@ function characters(o = {}) {
 }
 
 /* the dashboard as today (now/creator-2): search field, Last opened, Needs review, the workspace cards, the foot */
+/* real captures of each workspace as last left (production 2026-11-24, now/ws-*; the deck's from now/deck-*) – owner: "not schematic, an actual screen capture" */
+const WS_TH = new URLSearchParams(location.search).get('theme') === 'day' ? 'day' : 'night';
+const WS_SHOT = { Characters: `now/ws-characters-${WS_TH}.jpg`, Toon: `now/ws-toon-${WS_TH}.jpg`, Flow: `now/ws-flow-${WS_TH}.jpg`, Scenes: `now/ws-scenes-${WS_TH}.jpg`, 'Sound design': `now/ws-sound-${WS_TH}.jpg`, Catalog: `now/ws-catalog-${WS_TH}.jpg`, Map: `now/ws-map-${WS_TH}.jpg`, Scene: 'now/deck-1-bar-stage.png', Rigging: 'now/deck-3-stage-workspace.png', Show: 'now/deck-3-show-workspace.png' };
 const CARDS = [['Characters','giantpopstar +4','smile','front'],['Toon','Sandbox +1','book','open'],['Flow','Nothing open yet','layout'],['Scenes','Scenes +2','box','open'],['Sound design','Module·arp','cpu','open'],['Catalog','Nothing open yet','layout'],['Map','Map','map','open']];
 function dashboard(o = {}) {
   /* cards: [name, last content, icon, state ('front' | 'open' | ''), badge (kit Chip: where it opens), picture (html)]; no Views row on a card (owner 2026-11-24) */
   const cols = o.cols || 5, x0 = 14, gap = 16, w = Math.floor((1412 - (cols - 1) * gap) / cols);
   const card = ([n, what, icon, st, badge, pic], i) => {
     const r = Math.floor(i / cols), c = i % cols, x = x0 + c * (w + gap), y = (o.top ?? 306) + r * 165, h = 152;
+    const shot = WS_SHOT[n];
+    if (shot) return `<div class="dcard shot ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background-image:url('${shot}')">${st === 'front' ? '<span class="label" style="position:absolute;left:.6rem;top:.45rem">Front</span>' : ''}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}
+      <span class="nm">${n}</span><span class="wh label" style="text-transform:none;letter-spacing:0">${what}</span>
+      ${badge ? `<span class="kc on" style="position:absolute;right:.55rem;bottom:.55rem;z-index:1;background:var(--tool-popover)">${badge}</span>` : ''}</div>`;
     const thumb = pic ? `<span class="abs" style="left:.6rem;right:.6rem;top:1.8rem;height:72px;border-radius:.3rem;overflow:hidden;border:1px solid var(--tool-line);background:var(--tool-ground)">${pic}</span>`
       : o.snap ? o.snap(n, i) : `<span class="ico">${i === 1 ? `<span style="display:inline-flex;gap:.5rem;align-items:center"><span style="width:1.9rem;height:1.9rem;border-radius:.3rem;background:#e7a06a;display:inline-block"></span>${ic('book')}</span>` : ic(icon)}</span>`;
     return `<div class="dcard ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${st === 'front' ? '<span class="label" style="position:absolute;left:.55rem;top:.35rem">Front</span>' : ''}${thumb}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}

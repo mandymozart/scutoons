@@ -45,7 +45,7 @@ add('A', 'A2', 'The ☰ menu open', "dashboard foot + front card's Views row (no
   ${qcard(1010, 610, "the deck's Publish in the creator", ["the bar's Publish icon (A1) – the line goes (H1, no duplicates)", 'the menu line as today – no Publish icon in the deck bar'], '', '20rem')}`);
 
 /* one switcher list for both apps (owner 2026-11-24, DECK-LINK.md): the creator's workspaces + the deck's (Scene · Rigging · Show), each with its
-   still (#842 / the deck's library.rs stills – a shot from now/ where there is one, else schematic), its name, its last content; a card of the other app
+   picture: a real capture of the workspace as last left, filling the card, the text over it (#842; owner 2026-11-24), its name, its last content; a card of the other app
    carries a kit Chip saying where it opens. No Views row on any card. */
 const still = (f, pos = 'top left') => `<img src="${f}" style="width:100%;height:100%;object-fit:cover;object-position:${pos}">`;
 const schem = (lay) => lay.map(([x, y, w, h]) => `<span class="abs" style="left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${h * 100}%;border:1px solid var(--tool-line);border-radius:.15rem;background:var(--tool-panel)"></span>`).join('');
@@ -70,7 +70,7 @@ add('A', 'A3', 'The switcher (Alt Tab / Ctrl K / ⌘K)', 'now/creator-2 (dashboa
    "one list: the deck's workspaces too, badged; Enter opens the deck there (A3b)"],
   () => `${characters({ bar: { chevron: true } })}${dashboard({ noSearch: true, cols: 6, cards: SW_CREATOR() })}
   ${mk(1, 20, 62)}${mk(2, 1405, 30)}${mk(3, 200, 412)}${ring(486, 467, 706, 160)}${mk(4, 478, 458)}
-  ${capn(14, 636, 'stills: a shot where now/ has one, else schematic')}
+  ${capn(14, 636, 'cards: real captures (production 2026-11-24, the deck from now/deck-*); XR has none yet')}
   ${qcard(14, 664, "the foot", ['stays as today', 'goes – the ☰ menu holds it (A2)'], '', '17rem')}`);
 
 add('A', 'A3b', 'Enter on a deck card (deck not running)', 'A3 · DECK-LINK.md',
