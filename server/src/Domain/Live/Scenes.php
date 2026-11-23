@@ -5,8 +5,10 @@ namespace Scutoons\Domain\Live;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogValidator;
+use Scutoons\Domain\Catalog\PublishOrder;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Library\SceneContent;
 use Scutoons\Domain\Rigs\CoreValidator;
 use stdClass;
 
@@ -18,13 +20,39 @@ use stdClass;
  * 2026-11-12-scene-format-2 and the schema refuses it). Like a show: the
  * server stamps `version` on every change (EntityStore::saveStamped); a draft is saved after the shape check (the JSON
  * Schema, ContentSchemas); what makes it playable is the Rust core's (deck-space over the build service's `POST /validate`,
- * kind `scenes`, as for shows and rigs): publishing asks it, a scene a deck could not load is refused with the core's words.
+ * kind `scenes`, as for shows and rigs): publishing asks it with the rigs its holders play (scene-content's answer, as a deck
+ * gets it, #815), a scene a deck could not load is refused with the core's words.
  * Without the service nothing is published, 503. A draft never leaves the editor: only the published version is public.
  */
 final class Scenes
 {
-    public function __construct(private readonly EntityStore $store, private readonly CoreValidator $core, private readonly CatalogValidator $catalog)
+    public function __construct(
+        private readonly EntityStore $store,
+        private readonly CoreValidator $core,
+        private readonly CatalogValidator $catalog,
+        private readonly SceneContent $content,
+    ) {
+    }
+
+    /**
+     * #815: scene-content's answer for the rigs the scene's holders play – what a deck asks for it (deck-space
+     * published.rs `content_path`: each filler's own rig and each pinned one, PublishOrder::refs' `rig:` subjects, asked
+     * as `character.<id>[.<persona>]` → `<id>[-<persona>]`, `item.<id>` → `<id>`); which rig plays is the core's
+     * (`SceneRigs::played`). Null when it names none, as a deck then asks nothing.
+     */
+    public function rigs(EntityKey $key, stdClass $doc): ?stdClass
     {
+        $asked = ['character' => [], 'item' => []];
+        foreach (PublishOrder::refs($key, json_decode((string) json_encode($doc), true)) as $ref) {
+            if (!str_starts_with($ref, 'rig:')) continue;
+            $subject = explode('.', substr($ref, strlen('rig:')), 2);
+            if (count($subject) !== 2 || !isset($asked[$subject[0]])) continue;
+            $id = $subject[0] === 'character' ? preg_replace('/\./', '-', $subject[1], 1) : $subject[1];
+            if (is_string($id) && preg_match(SceneContent::ID, $id) === 1 && !in_array($id, $asked[$subject[0]], true) && count($asked[$subject[0]]) < SceneContent::MAX_IDS) $asked[$subject[0]][] = $id;
+        }
+        if ($asked['character'] === [] && $asked['item'] === []) return null;
+        $answer = json_decode(SceneContent::json($this->content->of([], $asked['character'], $asked['item'])));
+        return $answer instanceof stdClass ? $answer : null;
     }
 
     /**
@@ -91,7 +119,7 @@ final class Scenes
         $row = $this->store->read((string) $key, true, $version ?? 0);
         $doc = json_decode((string) $row['json']);
         if (!$doc instanceof stdClass) throw new ApiError(422, 'invalid_content', 'Not a scene document.', ['problems' => ['/: not an object']]);
-        $problems = $this->core->sceneProblems((string) $key->id, $doc, $this->modules($doc));
+        $problems = $this->core->sceneProblems((string) $key->id, $doc, $this->modules($doc), $this->rigs($key, $doc));
         if ($problems !== []) throw new ApiError(422, 'invalid_scene', 'This scene has problems a deck would not play.', ['problems' => $problems]);
         return $this->store->publish((string) $key, $version);
     }

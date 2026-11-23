@@ -59,15 +59,18 @@ final class CoreValidator
      * rig/validate.rs kind `scenes`: the document's form and id, the graph, the browser engine's split); the requests and
      * answers with module nodes: server/tests/fixtures/scenes/modules.json
      * @param list<mixed> $modules the descriptors of the modules its nodes name, sent as `modules` when there are any
+     * @param ?\stdClass $content #815: scene-content's answer for its holders' rigs (Scenes::rigs), sent as `content` when
+     *        there is one – the core resolves the holders with the rigs a deck plays
      * @return list<string>
      */
-    public function sceneProblems(string $id, mixed $document, array $modules = []): array
+    public function sceneProblems(string $id, mixed $document, array $modules = [], ?\stdClass $content = null): array
     {
         $url = rtrim($this->settings->get('MODULE_BUILD_URL'), '/');
         $token = $this->settings->get('MODULE_BUILD_TOKEN');
         if ($url === '' || $token === '') throw new ApiError(503, 'no_build_service', 'The build service that checks scenes is not set up.');
         $request = ['kind' => 'scenes', 'id' => $id, 'document' => $document];
         if ($modules !== []) $request['modules'] = $modules;
+        if ($content !== null) $request['content'] = $content;
         return $this->ask($url, $token, $request, "scene $id");
     }
 

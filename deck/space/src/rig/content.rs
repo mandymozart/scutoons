@@ -61,6 +61,16 @@ pub struct SceneRigs {
     pub modules: BTreeMap<String, Stored>,
 }
 
+/// a rig subject → the kind and id scene-content is asked with (`character.catpope.pope` → `catpope-pope`)
+pub fn asked(subject: &str) -> Option<(&str, String)> {
+    let (kind, rest) = subject.split_once('.')?;
+    match kind {
+        "character" => Some((kind, rest.replacen('.', "-", 1))),
+        "item" => Some((kind, rest.to_string())),
+        _ => None,
+    }
+}
+
 /// an id a cache may use as a file name: letters, digits, `.`, `_`, `-`, not starting with a dot
 pub fn safe_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 160 && !id.starts_with('.') && id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
@@ -86,6 +96,23 @@ impl SceneRigs {
             .iter()
             .filter_map(|(k, h)| Some(("characters", k.as_str(), h.rig.as_ref()?)))
             .chain(self.items.iter().filter_map(|(k, h)| Some(("items", k.as_str(), h.rig.as_ref()?))))
+    }
+
+    /// The rig `subject` (`character.catpope`, `character.catpope.pope`, `item.incense_burner`) plays on a deck – the one
+    /// rule the decks' loader and the API's publish check share: the answer's entry filed as it, else the asked
+    /// character's or item's (a persona's rig is its character's when it has none), else the deck's core rig, else for a
+    /// character the default character rig (`Bundle::core_or_default`); none = it stands silent.
+    pub fn played(&self, subject: &str, _version: Option<&str>) -> Option<Bundle> {
+        self.served(subject).or_else(|| Bundle::core_or_default(subject).and_then(Result::ok))
+    }
+
+    /// the rig `subject` from the answer alone: the entry filed as it, else the asked character's or item's
+    pub fn served(&self, subject: &str) -> Option<Bundle> {
+        let entry = self.rigs().map(|(_, _, e)| e).find(|e| e.id == subject).or_else(|| {
+            let (kind, id) = asked(subject)?;
+            if kind == "character" { self.character(&id) } else { self.item(&id) }
+        })?;
+        self.bundle(entry).ok()
     }
 
     /// `entry` with what it names from the answer's maps, as a bundle (unknown fields refused, a missing one named)

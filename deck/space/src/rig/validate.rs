@@ -9,7 +9,8 @@
 //! - a scene (#243, kind `scenes`, the `scene:<id>` document the API publishes): `SceneDocument` format 2 (#489: id = the
 //!   request's, unknown fields refused), its `check` (the location, holders' ids, fillers and filters – a template's
 //!   placeholders and previews well formed –, spawn zones, rigs and values), then resolved with its previews
-//!   (scene_resolve.rs; no rigs travel with the request, so the holders stand silent) into `Graph::build` (kinds, ids,
+//!   (scene_resolve.rs) with the rigs a deck plays (#815: scene-content's answer in `content`, `SceneRigs::played` – the
+//!   decks' loader's rule, so a holder's value its rig lacks is refused here in the deck's words) into `Graph::build` (kinds, ids,
 //!   links, at most one sink of each kind, no cycle) and the browser engine's split (`engine::lower`) – what every deck
 //!   does before it plays a scene. Its `module:<id>` nodes take their kinds from the descriptors in `modules` (registered
 //!   as a deck's library registers them); a module none of them names is not in the catalog yet. Shared vectors:
@@ -70,6 +71,10 @@ pub struct Request {
     /// a use's toon book (#504, kind `uses`): the references of the toon's address book; none = not asked
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub book: Option<Vec<String>>,
+    /// a scene's rigs (#815, kind `scenes`): scene-content's answer for its holders, as a deck gets it (`SceneRigs`); none =
+    /// scene-content answered nothing, the deck's core rigs play
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<Value>,
 }
 
 /// The answer: the problems, none = valid; the warnings (RULES H7: they can be accepted).
@@ -229,7 +234,12 @@ impl Request {
             return Err(vec![format!("{who}: the document's id is \"{}\", the key's \"{}\"", doc.id, self.id)]);
         }
         self.scene_modules(&doc, who)?;
-        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &crate::scene_resolve::no_rigs, &crate::scene_resolve::no_sets)
+        let rigs: super::content::SceneRigs = match &self.content {
+            Some(c) => parse(&format!("{who}: its rigs"), c)?,
+            None => Default::default(),
+        };
+        let rig = |subject: &str, version: Option<&str>| rigs.played(subject, version);
+        let resolved = crate::scene_resolve::resolve(&doc, &Default::default(), true, &rig, &crate::scene_resolve::no_sets)
             .map_err(|problems| problems.into_iter().map(|p| format!("{who}: {p}")).collect::<Vec<_>>())?;
         super::engine::lower(&resolved.scene).map_err(said)?;
         Ok(())
