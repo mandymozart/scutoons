@@ -23,10 +23,13 @@ import {
 	closeFree,
 	defaultArrangement,
 	freeSpec,
+	hideTab,
 	isEssential,
+	isHidden,
 	moveTab,
 	panelOf,
 	readArrangement,
+	showTab,
 	tabsOf,
 	tearOut,
 	type Arrangement,
@@ -276,6 +279,35 @@ export class Floats {
 	select(panel: string, tab: string): void {
 		this.arrangement = activate(this.arrangement, panel, tab);
 		this.save();
+	}
+
+	/** The panel holding a tab, shown or hidden */
+	panelOf(tab: string): string | undefined {
+		return panelOf(this.arrangement, tab);
+	}
+
+	/** A tab shows: in an open panel and not hidden */
+	tabShown(tab: string): boolean {
+		const panel = panelOf(this.arrangement, tab);
+		return !!panel && !isHidden(this.arrangement, tab) && !!this.spec(panel) && !this.closed(panel);
+	}
+
+	/** A tab hidden (the Views eye): its panel keeps its place for it; a panel left without a shown tab goes */
+	hideTab(tab: string): void {
+		this.arrangement = hideTab(this.arrangement, tab);
+		this.save();
+	}
+
+	/** A tab shown where it last was: its panel opens on it */
+	showTab(tab: string): void {
+		const panel = panelOf(this.arrangement, tab);
+		if (!panel) return;
+		this.arrangement = showTab(this.arrangement, tab);
+		if (this.closed(panel) || this.collapsed(panel)) this.reopen(panel);
+		else {
+			this.front(panel);
+			this.save();
+		}
 	}
 
 	grabTab(tab: string, x: number, y: number): void {

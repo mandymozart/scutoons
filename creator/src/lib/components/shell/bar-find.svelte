@@ -6,7 +6,8 @@
 	import { resolveTyped } from '$lib/shell/address.ts';
 	import { matches, places } from '$lib/shell/places.svelte.ts';
 
-	/** Find anything by name or address – the bar's middle on Home (the deck editor's bar has no empty middle either) */
+	/** Find anything by name or address – the main menu's Search until the launcher (Alt Space) replaces it */
+	let { focus = false, onpick }: { focus?: boolean; onpick?: () => void } = $props();
 	const nav = getCreatorNav();
 	$effect(() => places.load(nav.toons));
 
@@ -19,6 +20,7 @@
 		const href = resolveTyped(query) ?? found[0]?.href;
 		if (href) {
 			open = false;
+			onpick?.();
 			void goto(href);
 		}
 	}
@@ -27,12 +29,12 @@
 <div class="bar-find" {@attach clickOutside(() => (open = false))} data-testid="home-find">
 	<form class="find" onsubmit={find} role="search">
 		<Icon name="search" size="1rem" />
-		<input type="search" bind:value={query} onfocus={() => (open = true)} oninput={() => (open = true)} placeholder={m['shell.find_placeholder']()} aria-label={m['shell.find']()} data-testid="home-find-input" />
+		<input type="search" {@attach (el) => void (focus && el.focus())} bind:value={query} onfocus={() => (open = true)} oninput={() => (open = true)} placeholder={m['shell.find_placeholder']()} aria-label={m['shell.find']()} data-testid="home-find-input" />
 	</form>
 	{#if open && found.length}
 		<ul class="rows">
 			{#each found as p (p.address)}
-				<li><a href={p.href} onclick={() => (open = false)}><Icon name={p.icon} size="1rem" /><span class="ell">{p.label}</span><span class="addr">{p.address}</span></a></li>
+				<li><a href={p.href} onclick={() => ((open = false), onpick?.())}><Icon name={p.icon} size="1rem" /><span class="ell">{p.label}</span><span class="addr">{p.address}</span></a></li>
 			{/each}
 		</ul>
 	{/if}
@@ -41,7 +43,7 @@
 <style>
 	.bar-find {
 		position: relative;
-		width: min(34rem, 100%);
+		width: 100%;
 	}
 	.find {
 		display: flex;
@@ -77,7 +79,6 @@
 		border: var(--editor-edge) solid var(--editor-line);
 		border-radius: var(--editor-radius);
 		background: var(--editor-surface);
-		box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 0.4);
 	}
 	.rows a {
 		display: flex;

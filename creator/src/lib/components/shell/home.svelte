@@ -72,7 +72,7 @@
 	<!-- the bar's Publish on the dashboard is "publish everything" (nothing is open here to publish on its own) -->
 	<button type="button" class="primary" disabled={publishing || !nav.toons.length} onclick={publishEverything} data-testid="bar-publish-everything"><Icon name="upload-cloud" size="1rem" />{m['creator.publish']()} …</button>
 {/snippet}
-<PagePublish publish={topPublish} />
+<PagePublish publish={topPublish} unpublished={pending.length > 0} />
 
 <main class="home" data-testid="dashboard">
 	<div class="col main">

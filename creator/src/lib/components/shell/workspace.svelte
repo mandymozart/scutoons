@@ -16,6 +16,7 @@
 	import { log } from '$lib/log/log.svelte.ts';
 	import { scopeOf } from '$lib/shell/address.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 
 	/**
 	 * One workspace's panels over the stage (panels.html): the preset's panels with the tabs that have content now
@@ -32,6 +33,7 @@
 	$effect(() => {
 		shell.floats = floats;
 		shell.kind = kind;
+		shell.available = available;
 	});
 	$effect(() => () => (shell.floats = null));
 
@@ -52,16 +54,19 @@
 		if (library.pick) shell.open('library');
 	});
 
-	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it)
+	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it, a hidden tab shows again)
 	$effect(() => {
 		const id = shell.wanted;
 		if (!id) return;
-		const panel = floats.spec(id) ? id : floats.specs.find((s) => floats.tabsOf(s.id).includes(id))?.id;
-		if (!panel) return;
-		floats.reopen(panel);
-		floats.setCollapsed(panel, false);
-		floats.front(panel);
-		if (panel !== id) floats.select(panel, id);
+		if (floats.panelOf(id)) {
+			floats.showTab(id);
+			shell.wanted = null;
+			return;
+		}
+		if (!floats.spec(id)) return;
+		floats.reopen(id);
+		floats.setCollapsed(id, false);
+		floats.front(id);
 		shell.wanted = null;
 	});
 
@@ -116,6 +121,8 @@
 			<LibraryPanel />
 		{:else if id === 'log'}
 			<LogPanel />
+		{:else if id === 'history'}
+			{#if shell.doc?.docs?.length}<HistoryPanel docs={shell.doc.docs} />{:else}<p class="sc-empty">{m['shell.history_none']()}</p>{/if}
 		{:else if id === 'settings'}
 			<SettingsPanel onreset={() => shell.resetView()} />
 		{:else if shell.tabs[id]}

@@ -19,6 +19,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'flow', name: m['creator.flow'](), icon: 'git-merge', about: m['shell.panel_flow_about']() },
 		{ id: 'preview', name: m['shell.panel_preview'](), icon: 'smartphone', about: m['shell.panel_preview_about']() },
 		{ id: 'log', name: m['shell.panel_log'](), icon: 'list', about: m['shell.panel_log_about'](), aliases: ['problems'] },
+		{ id: 'history', name: m['shell.history_menu'](), icon: 'clock', about: m['shell.history_about']() },
 		{ id: 'timeline', name: m['storyboard.tl_title'](), icon: 'film', about: m['shell.panel_timeline_about']() },
 		{ id: 'script', name: m['storyboard.panel_script'](), icon: 'file-text', about: m['storyboard.panel_script']() },
 		{ id: 'rhythm', name: m['storyboard.panel_rhythm'](), icon: 'activity', about: m['storyboard.panel_rhythm']() },

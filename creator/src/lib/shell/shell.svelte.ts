@@ -1,13 +1,16 @@
 import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { shared } from '$lib/utils/shared.ts';
-import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, visit, type TabsState } from './tabs.ts';
+import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, stepTab, visit, type TabsState } from './tabs.ts';
+import { workspaceOf } from './address.ts';
+import { entered, readUse, type WorkspaceUse } from './workspaces.ts';
 import type { Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
 import { PRESETS, stageOf, tabIdOf } from './presets.ts';
 import { back, clampSplit, freeRoom, send, splitIn, type Side, type Stage } from './stage.ts';
 
 const TABS_KEY = 'sc-creator-tabs';
+const USE_KEY = 'sc-creator-workspaces';
 
 function readJson(key: string): unknown {
 	try {
@@ -26,14 +29,14 @@ function writeJson(key: string, value: unknown): void {
 
 /**
  * What the open item's page hands the shell: whether an autosave runs (the status bar's "saving…") and ↶ ↷ for the bar,
- * its Publish for the bar's Publish menu (its dot: something saved is not live) and its documents for the bar's History
- * menu. A page without documents of its own (the scenes, the toon board) hands only its Publish.
+ * its Publish for the bar's Publish menu and its documents for the History view. A page without documents of its own
+ * (the scenes, the toon board) hands only its Publish.
  */
 export interface PageDoc {
 	saving?: boolean;
 	errors?: number;
 	warnings?: number;
-	/** something saved is not live yet: the Publish pill's dot */
+	/** something saved is not live yet; false hides the bar's Publish, unknown (not given) keeps it */
 	unpublished?: boolean;
 	publish?: Snippet;
 	docs?: ContentDoc[];
@@ -47,6 +50,8 @@ export interface PageDoc {
  */
 class Shell {
 	state = $state<TabsState>(typeof localStorage === 'undefined' ? EMPTY : readTabs(readJson(TABS_KEY)));
+	/** which workspaces were used how often and what each showed last (the bar's workspace row) */
+	use = $state<WorkspaceUse>(typeof localStorage === 'undefined' ? readUse(null) : readUse(readJson(USE_KEY)));
 	settings = $state<MachineSettings>(typeof localStorage === 'undefined' ? DEFAULTS : readSettings(readJson(SETTINGS_KEY)));
 	/** the front page's document (null: the page has nothing to save or publish) */
 	doc = $state.raw<PageDoc | null>(null);
@@ -54,6 +59,8 @@ class Shell {
 	tabs = $state.raw<Record<string, Snippet>>({});
 	/** the front workspace's panels (set by the workspace host: the Views menu reads and changes them) */
 	floats = $state.raw<Floats | null>(null);
+	/** the tabs with content in the front workspace (the Views list) */
+	available = $state.raw<ReadonlySet<string>>(new Set());
 	/** the front workspace's kind */
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
@@ -73,8 +80,15 @@ class Shell {
 
 	#set(next: TabsState) {
 		if (next === this.state) return;
+		const was = this.state.front;
 		this.state = next;
 		writeJson(TABS_KEY, next);
+		const tab = frontTab(next);
+		const use = entered(this.use, was ? workspaceOf(was) : null, tab?.address ?? null, tab?.href ?? '');
+		if (use !== this.use) {
+			this.use = use;
+			writeJson(USE_KEY, use);
+		}
 	}
 
 	visit(address: string | null, href: string, label?: string) {
@@ -94,6 +108,11 @@ class Shell {
 	}
 	closeOthers() {
 		this.#set(closeOthers(this.state));
+	}
+	/** the page of the tab `by` steps along the strip from the front one (Ctrl Tab, Ctrl Shift Tab), else null */
+	step(by: number): string | null {
+		const tab = stepTab(this.state, by);
+		return tab && tab.address !== this.state.front ? tab.href : null;
 	}
 	closeAll() {
 		this.#set(closeAll());

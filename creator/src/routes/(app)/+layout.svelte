@@ -234,7 +234,7 @@
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
-		<ShellBar {path} {reader} />
+		<ShellBar {reader} />
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
 		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />

@@ -3,8 +3,8 @@
 	import { Icon, clickOutside } from '@scutoons/ui';
 
 	/**
-	 * A menu under its pill in the bar's top right (Views, History, Publish – as OSCT's and the deck editor's): the pill
-	 * opens it, a press outside or Escape closes it. It lies over every panel (the bar's layer is above theirs).
+	 * A menu under its icon at the bar's right end (Publish, the account): the icon – no text, its name the tooltip – opens
+	 * it, a press outside or Escape closes it. It lies over every panel (the bar's layer is above theirs).
 	 */
 	let { label, icon, about, testid, dot = false, wide = false, children }: { label: string; icon: string; about?: string; testid: string; dot?: boolean; wide?: boolean; children: Snippet<[close: () => void]> } = $props();
 
@@ -15,8 +15,8 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
 
 <div class="bar-menu" {@attach clickOutside(close)}>
-	<button type="button" class="pill" aria-expanded={open} aria-haspopup="menu" title={about ?? label} onclick={() => (open = !open)} data-testid={testid}>
-		<Icon name={icon} size="1rem" />{label}{#if dot}<span class="dot" aria-hidden="true"></span>{/if}
+	<button type="button" class="round" aria-expanded={open} aria-haspopup="menu" aria-label={label} title={about ?? label} onclick={() => (open = !open)} data-testid={testid}>
+		<Icon name={icon} size="1rem" />{#if dot}<span class="dot" aria-hidden="true"></span>{/if}
 	</button>
 	{#if open}
 		<div class="menu" class:wide data-testid="{testid}-menu">{@render children(close)}</div>
@@ -27,26 +27,29 @@
 	.bar-menu {
 		position: relative;
 	}
-	.pill {
+	.round {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
-		min-height: var(--control-height);
-		padding: 0 0.85rem;
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		justify-content: center;
+		width: calc(var(--control-height) - 0.4rem);
+		min-height: calc(var(--control-height) - 0.4rem);
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: transparent;
 		color: var(--editor-text);
-		white-space: nowrap;
 	}
-	.pill:hover,
-	.pill[aria-expanded='true'] {
+	.round:hover,
+	.round[aria-expanded='true'] {
 		background: var(--editor-hover);
 	}
 	.dot {
-		width: 0.45rem;
-		height: 0.45rem;
+		position: absolute;
+		top: 0.2rem;
+		right: 0.2rem;
+		width: 0.4rem;
+		height: 0.4rem;
 		border-radius: 50%;
 		background: var(--editor-warn);
 	}
@@ -66,7 +69,6 @@
 		border-radius: var(--editor-radius);
 		background: var(--editor-surface);
 		color: var(--editor-text);
-		box-shadow: 0 0.4rem 1.2rem rgb(0 0 0 / 0.4);
 	}
 	.menu.wide {
 		width: 26rem;

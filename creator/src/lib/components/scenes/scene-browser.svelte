@@ -102,7 +102,7 @@
 		await Promise.all([reload(), load(sceneId)]);
 	}
 
-	usePageDoc(() => ({ publish: publishMenu }));
+	usePageDoc(() => ({ publish: publishMenu, unpublished: !!row && row.state !== 'published' }));
 	const states = $derived([
 		{ value: 'all' as const, label: m['creator.scenes_all']() },
 		{ value: 'draft' as const, label: m['creator.scenes_draft']() },
