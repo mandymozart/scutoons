@@ -391,7 +391,9 @@ centre-cut (`fitted`), taken once the thing has settled, keyed by what it shows.
 `stamp` = what the still was taken from: an asset's version number (set by the server when not given), an address's
 `updated_at` / hash as the uploader knows it. `stale: true` = the row was marked (a new asset version) or, for an asset, its
 stamp is not the current version – make it again. Files live in the primary asset storage (local in dev, bunny in production);
-`.thumbs/` is never registered as assets.
+`.thumbs/` is never registered as assets. The asset list (`GET /assets`) leaves the `thumb` rendition out (the detail keeps it), and Unused never offers a used
+asset's still. Stills of what was there before: `php bin/console assets:jobs --thumbs[=N]` queues the missing / stale ones, then
+`assets:jobs` makes them (ffmpeg).
 
 | Method | Path | |
 |---|---|---|

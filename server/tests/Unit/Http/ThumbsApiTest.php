@@ -148,6 +148,9 @@ final class ThumbsApiTest extends TestCase
         self::assertStringContainsString('/catpope/images/pic.thumb.webp?v=', $thumb['url']);
         $labels = array_column(self::json($this->request('GET', "/api/assets/$id", $creator))['versions'][0]['renditions'], 'label');
         self::assertContains('thumb', $labels);
+        // the list (the Library) does not show the still as a file of its own
+        $listed = self::json($this->request('GET', '/api/assets?q=pic', $creator))['items'][0];
+        self::assertNotContains('thumb', array_column($listed['renditions'], 'label'));
 
         // replacing the source: stale; still one queued job
         $r = $this->request('PUT', '/api/assets/replace?path=catpope/images/pic.png', $creator + ['Content-Type' => 'image/png'], $png . 'v2');

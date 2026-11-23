@@ -130,7 +130,8 @@
 	}
 	.picture {
 		display: block;
-		margin-top: calc(var(--editor-pad) * 1.75);
+		/* under the ✕ and the tag */
+		margin-top: calc(var(--control-height) + var(--editor-pad) / 4);
 	}
 	.front .picture :global(.kit-thumb) {
 		color: var(--tool-accent);
