@@ -12,10 +12,10 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | # | Screen | After today's decisions | Picture |
 |---|---|---|---|
 | A1 | The bar | one bar for both apps: item tabs · workspace row with its ⌄ always · undo, redo, Publish, account, ☰ as icons; no Show pill | current |
-| A2 | The ☰ menu | your list: Views with Save workspace · Search · Settings · Docs · the build · the edit language; Views only here | current |
-| A3 | The switcher | over the blurred bar, stage and panels; no bar, no search field, no Views; one list for both apps; cards are full captures; the content has a maximum width | current |
+| A2 | The ☰ menu | your list: Views with Save workspace · Search · Settings · Docs · Help · Go to · the build · the edit language; Views only here | current |
+| A3 | The switcher | over the blurred bar, stage and panels; no bar, no search field, no Views; one list for both apps; cards are full captures; the content has a maximum width; no foot | current |
 | A3b | Enter on a deck card | the browser asks once to open the deck; running, the deck comes up on that workspace | current (the browser's own dialog as Chrome draws it) |
-| A4 | Search | its own overlay (Alt Space); the field says "Find"; it finds things and files by name, each with its type or kind | current (drawn as today: the window dimmed; the level is an open point) |
+| A4 | Search | its own overlay (Alt Space); the field says "Find"; it finds things and files by name, each with its type or kind | current – on the overlay level, blurred behind (H15) |
 | A5 | The user menu | drops under the account icon | current |
 | A6 | The status bar | as today | current |
 | A7 | First open | the crafts question, asked once; the deck's Home | current (the deck's Home redrawn on the kit) |
@@ -27,7 +27,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | # | Screen | After today's decisions | Picture |
 |---|---|---|---|
 | B1 | Views: every view, four states | in the ☰ menu only | current |
-| B2 | The workspace tab's own menu | open: does the tab keep a menu at all | words – today on the kit (the tab opens no menu) and the open point |
+| B2 | The workspace tab's own menu | answered: no menu of its own in this lap; Views and Save workspace are in the ☰ | done or dropped – today on the kit |
 | B3 | The four stage layouts | built in lap 1; a reference sheet, not a screen – keep or drop | current |
 | B4 | A panel taken full | a box close to the window's edges over the blurred workspace; Esc back | current |
 | B5 | The Info view | hover text shows here; no info in panels | current |
@@ -62,7 +62,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 ## D · The deck's workspaces
 | # | Screen | After today's decisions | Picture |
 |---|---|---|---|
-| D1 | The switcher over a workspace | as A3; Home stays when nothing is open | current |
+| D1 | The switcher over a workspace | as A3; Home stays when nothing is open; no Needs review box | current |
 | D2 | Scene (today "Build") | the shared bar, Views in the ☰, kit look; the Library the same panel as C12 | current (the deck's panels redrawn on the kit over the shot; its colours – mixer, thumbnails, gizmo – as shot) |
 | D3 | Show | no pill of its own in the bar: Cues, Problems, Who, Session, Vote and Demos are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html `?v=0`, spores-view.html (the draft shows show.html, the Library drawn over it as C12) |
 | D3b | Show · Flash: the same dialog as Publish | opened from the bar beside Publish; on the overlay level: the devices ticked, All · None, "Flash 2", then the confirm, then the report; the words as today | current |

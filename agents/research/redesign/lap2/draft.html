@@ -288,7 +288,7 @@ function characters(o = {}) {
   ${cstatus(o.msg, o.right)}`;
 }
 
-/* the dashboard as today (now/creator-2): search field, Last opened, Needs review, the workspace cards, the foot */
+/* the dashboard as today (now/creator-2): Last opened, Needs review (creator only), the workspace cards – no foot: the ☰ menu holds it (settled 2026-11-24) */
 /* real captures of each workspace as last left (production 2026-11-24, now/ws-*; the deck's from now/deck-*) – owner: "not schematic, an actual screen capture" */
 const WS_TH = new URLSearchParams(location.search).get('theme') === 'day' ? 'day' : 'night';
 const WS_SHOT = { Characters: `now/ws-characters-${WS_TH}.jpg`, Toon: `now/ws-toon-${WS_TH}.jpg`, Flow: `now/ws-flow-${WS_TH}.jpg`, Scenes: `now/ws-scenes-${WS_TH}.jpg`, 'Sound design': `now/ws-sound-${WS_TH}.jpg`, Catalog: `now/ws-catalog-${WS_TH}.jpg`, Map: `now/ws-map-${WS_TH}.jpg`, Scene: 'now/deck-1-bar-stage.png', Rigging: 'now/deck-3-stage-workspace.png', Show: 'now/deck-3-show-workspace.png' };
@@ -314,14 +314,13 @@ function dashboard(o = {}) {
   return `<div class="dash ${o.over === false ? '' : 'over'}"><div class="abs" style="left:${(1440 - W) / 2}px;width:${W}px;top:0;bottom:0">${search}
   <div class="abs box" style="left:0;width:${(W - 12) / 2}px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
     ${(o.last || [['smile','Riesen-Popstar','Characters · now'],['map','Map','Map · 12 min'],['book','Sandbox','Toon · 8 h']]).map(([i, n, m]) => `<div class="lrow" style="min-height:1.85rem">${ic(i)}${n}<span class="m">${m}</span></div>`).join('')}</div>
-  ${o.review === false ? `<div class="abs box" style="left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;border-style:dashed;display:grid;place-items:center"><span class="label">Needs review · ?</span></div>` : ''}<div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
+  <div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
     ${['Sandgirl','Giant Popstar','Mellowmantis'].map(n => `<div class="lrow" style="min-height:1.85rem">${ic('smile')}${n}<span class="m" style="color:var(--tool-warn)">not published · Character</span></div>`).join('')}
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:.8rem" class="small"><span class="muted">+5</span><span class="kb plain" style="height:1.8rem">${ic('cloud')}Publish</span></div></div>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:.8rem" class="small"><span class="muted">+5</span></div></div>
   <div class="abs label" style="left:0;top:${(o.top ?? 306) - 22}px">Workspaces</div>
   ${(o.cards || CARDS).map(card).join('')}
-  ${o.noFoot ? '' : dfoot(o)}</div></div>`;
+  </div></div>`;
 }
-const dfoot = (o = {}) => `<div class="abs small" style="left:0;right:0;bottom:10px;height:1.8rem;display:flex;align-items:center;gap:.7rem">${ic('user')}tilman@porschuetz.de<span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Settings</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Docs ↗</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('help')}</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('ext')}</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted mono">0.1.0 · c9cf178</span></div>`;
 
 /* today's Views menu (now/creator-3 + views-menu.svelte): The stage now · Every view · Content clear of the bar · the workspace's lines */
 const VIEWS_CHAR = [['user','Sheet','panel'],['cube','3D','panel'],['file','Kanon','panel'],['smile','Expressions','panel'],['cube','Rig','panel'],['mic','Voice','panel'],['users','Cast','panel'],['zap','Generations','panel']];
