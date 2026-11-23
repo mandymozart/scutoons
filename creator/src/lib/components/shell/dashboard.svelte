@@ -125,15 +125,12 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		padding-top: var(--shell-top);
-		background: var(--tool-scrim);
-		backdrop-filter: blur(0.6rem);
+		/* the stage's own ground, nearly opaque and well blurred: a bright 3D stage or a panel must not read through (production 2026-11-24) */
+		background: color-mix(in srgb, var(--tool-ground) 88%, transparent);
+		backdrop-filter: blur(1.6rem);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 		animation: dash-in 160ms ease-out;
-	}
-	/* by day the scrim would grey the white stage under muted words: the stage's own ground veils it */
-	:global([data-theme='day']) .dashboard {
-		background: color-mix(in srgb, var(--tool-ground) 72%, transparent);
 	}
 	.body {
 		display: flex;
