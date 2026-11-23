@@ -2347,7 +2347,13 @@
 		"launch_reset": "Diesen Arbeitsbereich zurücksetzen",
 		"launch_recent": "Zuletzt",
 		"launch_none": "Nichts gefunden – versuch einen Namen, eine kind:id-Adresse oder einen Befehl.",
-		"launch_keys": "↑↓ wählen · Enter öffnen · Esc schließen · Alt Leertaste oder Strg K überall"
+		"launch_keys": "↑↓ wählen · Enter öffnen · Esc schließen · Alt Leertaste oder Strg K überall",
+		"crafts_ask": "Was machst du?",
+		"crafts_from_invite": "aus deiner Einladung",
+		"crafts_continue": "Weiter",
+		"crafts": "Dein Handwerk",
+		"crafts_summary": "{count} gewählt",
+		"crafts_admin": "Dein Handwerk ändert ein Admin"
 	},
 	"library": {
 		"actions": "Aktionen",

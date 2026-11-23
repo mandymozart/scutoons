@@ -403,7 +403,8 @@
 		"reading_spot": "group {group}, slice {slice}",
 		"rule_reviewer_hint": "Gets a mail for every request in this toon and publishes it or sends it back (physical changes excepted).",
 		"rule_needs_review_hint": "May not publish in this toon, only submit for review.",
-		"col_segments": "Segments"
+		"col_segments": "Segments",
+		"section_crafts": "Crafts"
 	},
 	"reading": {
 		"title": "Reading",
@@ -1436,5 +1437,18 @@
 		"publish": "Publish",
 		"publish_title": "Publish this version?",
 		"publish_message": "Makes the version of {when} the published list."
+	},
+	"invites": {
+		"title": "Team invites",
+		"email": "E-mail",
+		"crafts": "Crafts – the workspaces they start with",
+		"send": "Invite",
+		"sent": "{email} can sign up now",
+		"open": "open since {date}",
+		"accepted": "joined {date}",
+		"user": "Account",
+		"withdraw": "Withdraw",
+		"withdraw_title": "Withdraw the invite for {email}?",
+		"withdraw_message": "The address can no longer sign up without a code."
 	}
 }

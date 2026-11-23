@@ -3,15 +3,16 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { workspaceOf, type WorkspaceKind } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { fits, workspaceRow } from '$lib/shell/workspaces.ts';
 	import { workspaceName } from '$lib/shell/workspace-names.ts';
 
 	/**
-	 * The workspaces, the bar's middle: one flat row of pill tabs, most used first, never grouped by craft. The front item's
+	 * The workspaces, the bar's middle: one flat row of pill tabs – the member's crafts' and those used or open – most used first, never grouped by craft. The front item's
 	 * workspace is on (pressed); one the front item does not fit is dimmed and opens its own last item. Those that do not
 	 * fit the bar wait in the list at the row's end.
 	 */
-	const row = $derived(workspaceRow(shell.use, shell.state.tabs));
+	const row = $derived(workspaceRow(shell.use, shell.state.tabs, crafts.starts));
 	const front = $derived(shell.state.front);
 	const current = $derived(front ? workspaceOf(front) : null);
 	const dim = (kind: WorkspaceKind) => !!front && !fits(front, kind);

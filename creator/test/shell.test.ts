@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
-import { NO_USE, entered, fits, readUse, workspaceRow } from '../src/lib/shell/workspaces.ts';
+import { NO_USE, entered, fits, readUse, startKinds, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
@@ -252,6 +252,18 @@ test('the welcome: nothing used yet – every workspace of the row, empty', () =
 	assert.ok(cards.every((c) => !c.shown && c.href === null && !c.front));
 	assert.equal(greetName('mira.k@example.org'), 'Mira');
 	assert.equal(greetName(''), '');
+});
+
+test('crafts: the welcome and the row show the crafts\' workspaces, flat; used or open ones stay', () => {
+	assert.deepEqual(startKinds(['character', 'storyboard', 'nope', 'character', 'text']), ['character', 'storyboard', 'text'], 'known ones, each once, in order');
+	assert.deepEqual(startKinds(null), []);
+	const starts = startKinds(['scene', 'map', 'catalog']);
+	assert.deepEqual(workspaceCards(NO_USE, [], null, true, starts).map((c) => c.kind), ['scene', 'map', 'catalog'], 'the welcome: the crafts\' workspaces in their order');
+	assert.deepEqual(workspaceRow(NO_USE, [], starts).map((r) => r.kind), ['scene', 'map', 'catalog'], 'only theirs, the crafts\' order before use');
+	const tabs = [{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' }];
+	const use = { uses: { catalog: 4, flow: 1 }, last: { flow: { address: 'flow', href: '/flow' } } };
+	assert.deepEqual(workspaceRow(use, tabs, starts).map((r) => r.kind), ['catalog', 'flow', 'scene', 'map', 'chapter'], 'most used first; a used or open workspace outside the crafts stays');
+	assert.ok(workspaceRow(NO_USE, [], []).length >= 4, 'no crafts: every workspace with somewhere to go');
 });
 
 test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {
