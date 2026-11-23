@@ -1,16 +1,16 @@
 // The Generate canvas's stub (agents/research/redesign/AI-HOOKS.md §0): a generator is a weave of spores ending in one
 // output spore, whose format says what it makes. Nothing runs and nothing is saved yet – no generator documents, no
-// drivers; the gen-AI spores are where external tools hook in. Pure: test/shell.test.ts.
+// drivers; the hooked spores are where an agent, an LLM or an external tool runs. Pure: test/shell.test.ts.
 
 /** what an output spore makes (its format decides which slots take the generator – the core's `takes`, not checked here) */
 export type OutputFormat = 'picture' | 'model' | 'sound' | 'video' | 'text';
 export const OUTPUT_FORMATS: readonly OutputFormat[] = ['picture', 'model', 'sound', 'video', 'text'];
 
-/** a spore to weave in: our own (the Library, a character's sheet, a crop …) or a gen-AI one (an external tool's hook) */
+/** a spore to weave in: our own (the Library, a character's sheet, a crop …) or a hooked one (an agent, an LLM or an external tool runs it) */
 export interface SporeKind {
 	id: string;
 	icon: string;
-	/** an external gen-AI tool runs it: a hook point */
+	/** an agent, an LLM or an external tool runs it: a hook point */
 	hook: boolean;
 }
 
@@ -51,5 +51,5 @@ export function addSpore(spores: readonly Spore[], kind: string): Spore[] {
 
 export const removeSpore = (spores: readonly Spore[], id: string): Spore[] => spores.filter((s) => s.id !== id);
 
-/** the hook points among the placed spores (where an external gen-AI tool would run) */
+/** the hook points among the placed spores (where an agent, an LLM or an external tool would run) */
 export const hooksOf = (spores: readonly Spore[]): number => spores.filter((s) => sporeKind(s.kind)?.hook).length;

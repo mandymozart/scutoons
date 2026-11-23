@@ -34,6 +34,8 @@
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
 	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
+	import ResumeOffer from '$lib/components/shell/resume-offer.svelte';
+	import { devices } from '$lib/shell/devices.svelte.ts';
 	import UserMenu from '$lib/components/shell/user-menu.svelte';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
@@ -162,6 +164,13 @@
 		const go = untrack(() => resume.member(String(id)));
 		if (go && go !== location.pathname + location.search) void goto(go, { replaceState: true });
 	});
+	// the state follows the member across devices (lib/shell/devices.ts): this device's own first, another's newer one offered
+	$effect(() => {
+		const id = session.user?.id;
+		if (id == null || !isCreator) return;
+		untrack(() => void devices.start(String(id)));
+	});
+	onMount(() => () => devices.stop());
 	// the resumed tabs checked as the lists arrive: an item gone or no longer the member's leaves quietly, with a Log line
 	$effect(() => {
 		if (!isCreator || !shell.state.tabs.length) return;
@@ -288,7 +297,7 @@
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		{#if shell.launcher}<Launcher />{/if}
 		<UserMenu />
-		{#if crafts.ask}<CraftsQuestion />{/if}
+		{#if crafts.ask}<CraftsQuestion />{:else if devices.offer}<ResumeOffer />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />

@@ -14,6 +14,7 @@
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
 	import LogPanel from '$lib/components/shell/log-panel.svelte';
+	import InfoPanel from '$lib/components/shell/info-panel.svelte';
 	import CoreLogProvider from '$lib/components/shell/core-log-provider.svelte';
 	import { log } from '$lib/log/log.svelte.ts';
 	import { scopeOf } from '$lib/shell/address.ts';
@@ -139,6 +140,8 @@
 			<LibraryPanel />
 		{:else if id === 'log'}
 			<LogPanel />
+		{:else if id === 'info'}
+			<InfoPanel />
 		{:else if id === 'history'}
 			{#if shell.doc?.docs?.length}<HistoryPanel docs={shell.doc.docs} />{:else}<p class="sc-empty">{m['shell.history_none']()}</p>{/if}
 		{:else if id === 'settings'}

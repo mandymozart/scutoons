@@ -75,16 +75,15 @@
 		{/if}
 		<input class="find" type="search" placeholder={m['shell.log_find']()} aria-label={m['shell.log_find']()} bind:value={find} />
 		<Button variant="quiet" icon="copy" onclick={copyAll}>{m['shell.log_copy']()}</Button>
+		{#if typed && legend}
+			<!-- the types: small icon chips, their name and meaning on hover (the Info view) – no legend in the panel (RULES H14) -->
+			<span class="types" role="group" aria-label={m['shell.log_type']()} data-testid="log-types">
+				{#each legend.kinds as k (k.kind)}
+					<Chip label="" icon={KIND_ICONS[k.kind]} on={kinds.includes(k.kind)} onclick={() => toggleKind(k.kind)} title="{k.label}: {k.legend}" testid="log-type-{k.kind}" />
+				{/each}
+			</span>
+		{/if}
 	</div>
-	{#if typed}
-		<div class="row" data-testid="log-types">
-			<span class="lab">{m['shell.log_type']()}</span>
-			<Chip label={words('all')} on={!kinds.length} onclick={() => (kinds = [])} title={m['shell.log_types_all']()} />
-			{#each legend?.kinds ?? [] as k (k.kind)}
-				<Chip label={k.label} icon={KIND_ICONS[k.kind]} on={kinds.includes(k.kind)} onclick={() => toggleKind(k.kind)} title={k.legend} testid="log-type-{k.kind}" />
-			{/each}
-		</div>
-	{/if}
 	<div class="lines">
 		{#if show !== 'events' && view.problems.length}
 			<p class="group"><span>{words('problems')}</span><span>{view.problems.length}</span></p>
@@ -125,13 +124,6 @@
 			<p class="sc-empty">{m['shell.log_empty']()}</p>
 		{/if}
 	</div>
-	{#if typed && legend}
-		<div class="legend">
-			{#each legend.kinds as k (k.kind)}
-				<span><Icon name={KIND_ICONS[k.kind]} size="0.95em" strokeWidth={2} /><span class="name">{k.label}</span> {k.legend}</span>
-			{/each}
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -251,21 +243,8 @@
 	.accepted {
 		opacity: 0.5;
 	}
-	.legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.9rem;
-		padding: 0.45rem var(--editor-pad) 0.55rem;
-		border-top: var(--editor-edge) solid var(--tool-line);
-		color: var(--tool-muted);
-		font-size: var(--editor-label);
-	}
-	.legend > span {
+	.types {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-	}
-	.legend .name {
-		color: var(--tool-text);
+		gap: 0.125rem;
 	}
 </style>

@@ -178,7 +178,7 @@ final class CatalogApiTest extends TestCase
     public function testAdminsReadInstrumentsPresetsAndRigs(): void
     {
         $auth = $this->admin();
-        self::assertSame(['cathedral_voice', 'drone', 'incense', 'default_voice'], array_column(self::json($this->request('GET', '/api/admin/catalog/instruments', $auth))['items'], 'id'));
+        self::assertSame(['cathedral_voice', 'drone', 'incense', 'default_voice', 'cloud_storm'], array_column(self::json($this->request('GET', '/api/admin/catalog/instruments', $auth))['items'], 'id'));
         self::assertSame('character.catpope', self::json($this->request('GET', '/api/admin/catalog/rigs/character.catpope', $auth))['entry']['data']['subject']);
         self::assertSame('cathedral_voice.base', self::json($this->request('GET', '/api/admin/catalog/presets/cathedral_voice.bright', $auth))['entry']['data']['parent']);
         $r = $this->request('PUT', '/api/admin/catalog/presets/drone.dark', $auth, '{"data":{"id":"drone.dark","instrument":"drone","parent":"drone.base"}}');

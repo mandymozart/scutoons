@@ -6,7 +6,8 @@
 	/**
 	 * A lone icon you press (deck-kit controls.rs `icon_button`; in a pill bar.rs `inner_button`): square, its ground shows
 	 * under the pointer, open (`aria-expanded`) and `pressed` take the pressed ground. Its side and corner are where it
-	 * sits (--kit-h / --kit-r): in a Pill it is round, its corners sharing the pill's centre; in a panel a control's corner.
+	 * sits (--kit-h / --kit-r): in a Pill it is round, its corners sharing the pill's centre; standing alone it is round too (RULES H4, owner
+	 * 2026-11-24: the deck's corner was a slip).
 	 * `label` is its name and tooltip; `dot` marks it (Publish: something is not live); `tone` colours the icon.
 	 */
 	type Props = {
@@ -45,7 +46,7 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
-		border-radius: var(--kit-r, var(--editor-radius));
+		border-radius: var(--kit-r, 50%);
 		background: none;
 		color: var(--tool-text);
 		text-decoration: none;

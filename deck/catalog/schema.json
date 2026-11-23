@@ -33,11 +33,12 @@
       "type": "object"
     },
     "AssetKind": {
-      "description": "what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5)",
+      "description": "what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5);\na `model` slot (a .glb) is never handed to the module – the space draws the module's instances of the shape the slot is\nnamed after with it (`puff`, `segment`)",
       "enum": [
         "pcm",
         "bytes",
-        "image"
+        "image",
+        "model"
       ],
       "type": "string"
     },

@@ -7,7 +7,8 @@
 	 * the halo. What sits inside – IconButton, Button, PillTab – is inset by --kit-inset, the pill's height less twice the
 	 * inset, and rounded by the pill's radius less the inset (their corners share a centre: deck-kit's `pills_rounded`),
 	 * `--kit-seam` apart. `as` picks the element (a bar's `nav`, a status `footer`); `grow` lets it take the room left; `status` is the lower
-	 * pill of the status bar.
+	 * pill of the status bar. A group of icons and a toolbar always keep the pill's ground and line (owner 2026-11-24); a
+	 * single icon stands alone as a round IconButton.
 	 */
 	type Props = {
 		label?: string;

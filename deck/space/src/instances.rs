@@ -11,6 +11,8 @@ pub struct Table {
     pub node: String,
     capacity: usize,
     rows: Mutex<Vec<Instance>>,
+    /// the models its node's `model` slots name, loaded (a .glb's bytes), by the shape each draws (`shape::NAMES`)
+    pub models: Vec<(u32, Arc<[u8]>)>,
 }
 
 impl std::fmt::Debug for Table {
@@ -22,7 +24,12 @@ impl std::fmt::Debug for Table {
 impl Table {
     /// for node `node`, holding at most `capacity` instances (allocated here, once)
     pub fn new(node: &str, capacity: usize) -> Arc<Table> {
-        Arc::new(Table { node: node.to_string(), capacity, rows: Mutex::new(Vec::with_capacity(capacity)) })
+        Table::with_models(node, capacity, Vec::new())
+    }
+
+    /// … whose instances of a shape draw with that shape's model instead of the placeholder (`models`: shape, .glb bytes)
+    pub fn with_models(node: &str, capacity: usize, models: Vec<(u32, Arc<[u8]>)>) -> Arc<Table> {
+        Arc::new(Table { node: node.to_string(), capacity, rows: Mutex::new(Vec::with_capacity(capacity)), models })
     }
 
     pub fn capacity(&self) -> usize {

@@ -1,7 +1,10 @@
 //! scutoons.com for the stage (CYBERDECKS.md §8): the public library API read-only and the CDN files, mirrored into a
 //! disk cache so a venue runs offline – `<cache>/api/toons/<toon>/chapters/<n>.json` (refreshed when online, the cached
 //! copy when not) and `<cache>/cdn/<toon>/<path>` (CDN paths are immutable – a changed file gets a new name – so a
-//! cached file is never fetched again). Which rendition loads – and, offline, the best one the cache holds – is the
+//! cached file is never fetched again; a module's slot asset is the exception: the library's Replace keeps its path, so
+//! `load_fresh` asks the CDN once per load whether the cached copy is still current – a conditional GET on the ETag /
+//! Last-Modified kept with it under `<cache>/validators/` – and takes the new bytes when it was replaced; offline the
+//! cached copy stays). Which rendition loads – and, offline, the best one the cache holds – is the
 //! general-purpose loader's (deck-media `asset::load` over deck-catalog's pick rule); decoding: deck-media.
 use crate::audio::{MusicFeed, Track};
 use anyhow::{bail, Context, Result};
@@ -65,7 +68,16 @@ impl Library {
         }
     }
 
-    /// a CDN file of the toon's folder, downloaded once into the cache
+    /// where a cached CDN file's validators (its ETag, its Last-Modified) are kept
+    fn validators_path(&self, toon: &str, path: &str) -> Result<PathBuf> {
+        let mut p = self.cache.join("validators").join(safe_segment(toon)?);
+        for seg in path.split('/') {
+            p.push(safe_segment(seg)?);
+        }
+        Ok(p)
+    }
+
+    /// a CDN file of the toon's folder, downloaded once into the cache (its validators beside it, for `revalidate`)
     pub fn file(&self, toon: &str, path: &str) -> Result<PathBuf> {
         let local = self.file_cache_path(toon, path)?;
         if local.is_file() {
@@ -73,16 +85,92 @@ impl Library {
         }
         let url = format!("{}/{toon}/{path}", self.cdn.trim_end_matches('/'));
         let r = Self::agent().get(&url).call().with_context(|| format!("downloading {url}"))?;
+        self.keep(toon, path, r)?;
+        Ok(local)
+    }
+
+    /// a fetched file's bytes into the cache, its validators beside them
+    fn keep(&self, toon: &str, path: &str, r: ureq::Response) -> Result<Vec<u8>> {
+        let validators = Validators { etag: r.header("ETag").map(str::to_string), modified: r.header("Last-Modified").map(str::to_string) };
         let mut bytes = Vec::new();
         r.into_reader().take(512 << 20).read_to_end(&mut bytes)?;
-        write_atomic(&local, &bytes)?;
-        Ok(local)
+        write_atomic(&self.file_cache_path(toon, path)?, &bytes)?;
+        write_atomic(&self.validators_path(toon, path)?, validators.text().as_bytes())?;
+        Ok(bytes)
+    }
+
+    /// Whether the cached copy of a CDN file is still the CDN's: a conditional GET on its validators (none kept: a plain
+    /// GET, once); a replaced file's new bytes go into the cache. Offline (or any error) the cached copy stays.
+    pub fn revalidate(&self, toon: &str, path: &str) -> Fresh {
+        let Ok(local) = self.file_cache_path(toon, path) else { return Fresh::Missing };
+        if !local.is_file() {
+            return Fresh::Missing;
+        }
+        let kept = self.validators_path(toon, path).ok().and_then(|p| std::fs::read_to_string(p).ok()).map(|t| Validators::parse(&t)).unwrap_or_default();
+        let url = format!("{}/{toon}/{path}", self.cdn.trim_end_matches('/'));
+        let mut req = Self::agent().get(&url);
+        if let Some(e) = &kept.etag {
+            req = req.set("If-None-Match", e);
+        }
+        if let Some(m) = &kept.modified {
+            req = req.set("If-Modified-Since", m);
+        }
+        match req.call() {
+            Ok(r) if r.status() == 304 => Fresh::Unchanged,
+            Ok(r) => {
+                let before = std::fs::read(&local).ok();
+                match self.keep(toon, path, r) {
+                    Ok(bytes) if before.as_deref() == Some(bytes.as_slice()) => Fresh::Unchanged,
+                    Ok(_) => Fresh::Replaced,
+                    Err(e) => Fresh::Offline(format!("{e:#}")),
+                }
+            }
+            Err(e) => Fresh::Offline(e.to_string()),
+        }
     }
 
     /// `media`'s file for `q` through the general-purpose loader: paths under `folder` (a toon), or CDN-root paths
     /// `<folder>/<rest>` when `folder` is None
     pub fn load(&self, folder: Option<&str>, media: &Media, q: Quality) -> Result<Got> {
-        asset::load(media, q, &Cdn { lib: self, folder }).map_err(|e| anyhow::anyhow!("{}", e.0))
+        asset::load(media, q, &Cdn { lib: self, folder, fresh: false }).map_err(|e| anyhow::anyhow!("{}", e.0))
+    }
+
+    /// `load`, each cached file it takes first checked against the CDN (`revalidate`): a module's slot assets, which the
+    /// library's Replace changes under the same path – once per load (a scene's or rig's build), never per frame
+    pub fn load_fresh(&self, folder: Option<&str>, media: &Media, q: Quality) -> Result<Got> {
+        asset::load(media, q, &Cdn { lib: self, folder, fresh: true }).map_err(|e| anyhow::anyhow!("{}", e.0))
+    }
+}
+
+/// What `revalidate` found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Fresh {
+    /// not cached: nothing to check
+    Missing,
+    /// the cached copy is the CDN's
+    Unchanged,
+    /// the CDN has other bytes now: they are in the cache
+    Replaced,
+    /// the CDN could not be asked: the cached copy stays
+    Offline(String),
+}
+
+/// a cached file's HTTP validators, one per line (`etag: …`, `modified: …`)
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct Validators {
+    etag: Option<String>,
+    modified: Option<String>,
+}
+
+impl Validators {
+    fn text(&self) -> String {
+        let line = |k: &str, v: &Option<String>| v.as_ref().map(|v| format!("{k}: {v}\n")).unwrap_or_default();
+        line("etag", &self.etag) + &line("modified", &self.modified)
+    }
+
+    fn parse(text: &str) -> Validators {
+        let get = |k: &str| text.lines().find_map(|l| l.strip_prefix(k)).map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+        Validators { etag: get("etag:"), modified: get("modified:") }
     }
 }
 
@@ -90,6 +178,8 @@ impl Library {
 struct Cdn<'a> {
     lib: &'a Library,
     folder: Option<&'a str>,
+    /// check a cached file against the CDN first (`Library::revalidate`)
+    fresh: bool,
 }
 
 impl Cdn<'_> {
@@ -104,6 +194,11 @@ impl Cdn<'_> {
 impl Files for Cdn<'_> {
     fn cached(&self, path: &str) -> Option<Vec<u8>> {
         let (folder, rest) = self.split(path).ok()?;
+        if self.fresh {
+            if let Fresh::Offline(why) = self.lib.revalidate(folder, rest) {
+                tracing::info!("library: {path} could not be checked ({why}) – the cached copy");
+            }
+        }
         std::fs::read(self.lib.file_cache_path(folder, rest).ok()?).ok()
     }
 
@@ -260,6 +355,88 @@ mod tests {
         let root = lib.load(None, &Media::new("catpope/s1/c1/c.128.mp3"), Quality::High).unwrap();
         assert_eq!(root.bytes, b"128", "CDN-root paths name their folder");
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// a CDN's answer: status, headers, body
+    type Answer = (u16, Vec<(&'static str, &'static str)>, &'static [u8]);
+
+    /// a CDN on 127.0.0.1 answering `answers` in turn (status, headers, body), one connection each; what it was asked
+    fn cdn(answers: Vec<Answer>) -> (String, Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::Write;
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", server.local_addr().unwrap());
+        let asked = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = asked.clone();
+        std::thread::spawn(move || {
+            for (status, headers, body) in answers {
+                let Ok((mut s, _)) = server.accept() else { return };
+                let mut req = Vec::new();
+                let mut b = [0u8; 1];
+                while !req.ends_with(b"\r\n\r\n") && s.read(&mut b).unwrap_or(0) == 1 {
+                    req.push(b[0]);
+                }
+                log.lock().unwrap().push(String::from_utf8_lossy(&req).to_lowercase());
+                let mut head = format!("HTTP/1.1 {status} X\r\nConnection: close\r\nContent-Length: {}\r\n", if status == 304 { 0 } else { body.len() });
+                for (k, v) in headers {
+                    head += &format!("{k}: {v}\r\n");
+                }
+                let _ = s.write_all(head.as_bytes());
+                let _ = s.write_all(b"\r\n");
+                if status != 304 {
+                    let _ = s.write_all(body);
+                }
+            }
+        });
+        (base, asked)
+    }
+
+    fn fresh_lib(name: &str, cdn: &str) -> Library {
+        let dir = std::env::temp_dir().join(format!("w805-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        Library { api: "http://127.0.0.1:9".into(), cdn: cdn.into(), cache: dir }
+    }
+
+    const PUFF: &str = "scutoons/3d/cloud-puff.glb";
+
+    /// a slot asset kept: the next load asks with its ETag and Last-Modified, the CDN's 304 sends no bytes
+    #[test]
+    fn an_unchanged_slot_asset_is_not_downloaded_again() {
+        let (base, asked) = cdn(vec![(200, vec![("ETag", "\"v1\""), ("Last-Modified", "Mon, 23 Nov 2026 10:00:00 GMT")], b"bubble"), (304, vec![], b"")]);
+        let lib = fresh_lib("unchanged", &base);
+        assert_eq!(lib.load_fresh(None, &Media::new(PUFF), Quality::Medium).unwrap().bytes, b"bubble", "the first load downloads");
+        assert_eq!(lib.load_fresh(None, &Media::new(PUFF), Quality::Medium).unwrap().bytes, b"bubble");
+        let asked = asked.lock().unwrap();
+        assert_eq!(asked.len(), 2, "one check per load");
+        assert!(asked[1].contains("if-none-match: \"v1\"") && asked[1].contains("if-modified-since: mon, 23 nov 2026 10:00:00 gmt"), "{}", asked[1]);
+        let _ = std::fs::remove_dir_all(&lib.cache);
+    }
+
+    /// replaced in the library (same path, new bytes, a new ETag): the next load takes the new bytes and keeps the new ETag
+    #[test]
+    fn a_replaced_slot_asset_arrives_on_the_next_load() {
+        let (base, asked) = cdn(vec![(200, vec![("ETag", "\"v1\"")], b"bubble"), (200, vec![("ETag", "\"v2\"")], b"owner's cloud"), (304, vec![], b"")]);
+        let lib = fresh_lib("replaced", &base);
+        let load = || lib.load_fresh(None, &Media::new(PUFF), Quality::Medium).unwrap().bytes;
+        assert_eq!(load(), b"bubble");
+        assert_eq!(lib.revalidate("scutoons", "3d/cloud-puff.glb"), Fresh::Replaced);
+        assert_eq!(std::fs::read(lib.file_cache_path("scutoons", "3d/cloud-puff.glb").unwrap()).unwrap(), b"owner's cloud");
+        assert_eq!(load(), b"owner's cloud", "the cache holds the new file");
+        assert!(asked.lock().unwrap()[2].contains("if-none-match: \"v2\""), "the new ETag kept");
+        let _ = std::fs::remove_dir_all(&lib.cache);
+    }
+
+    /// offline the cached copy plays; a plain `load` (immutable CDN paths) never asks
+    #[test]
+    fn offline_the_cached_slot_asset_stays() {
+        let lib = fresh_lib("offline", "http://127.0.0.1:9");
+        write_atomic(&lib.file_cache_path("scutoons", "3d/cloud-puff.glb").unwrap(), b"bubble").unwrap();
+        write_atomic(&lib.validators_path("scutoons", "3d/cloud-puff.glb").unwrap(), b"etag: \"v1\"\n").unwrap();
+        assert!(matches!(lib.revalidate("scutoons", "3d/cloud-puff.glb"), Fresh::Offline(_)));
+        let got = lib.load_fresh(None, &Media::new(PUFF), Quality::Medium).unwrap();
+        assert_eq!((got.bytes.as_slice(), got.fallback), (&b"bubble"[..], false));
+        assert_eq!(lib.revalidate("scutoons", "3d/none.glb"), Fresh::Missing);
+        assert_eq!(Validators::parse("etag: \"v1\"\n"), Validators { etag: Some("\"v1\"".into()), modified: None });
+        let _ = std::fs::remove_dir_all(&lib.cache);
     }
 
     #[test]
