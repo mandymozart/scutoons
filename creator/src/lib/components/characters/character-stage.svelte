@@ -1,43 +1,33 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { characterImage, lookImage, moodLabel, type CharacterLook, type CharacterView, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
+	import { characterImage, lookImage, type CharacterLook, type CharacterView, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * The character's Sheet view: one picture of the current persona › look › mood · view, big (the Expressions tab picks
-	 * the mood and the view), in the room the panels leave (`--in-l` / `--in-r`). It zooms like a canvas: two fingers or
-	 * Ctrl + wheel, drag to pan while zoomed, a double click fits again.
+	 * the mood and the view), in its box – a stage cell or a panel (`--in-l` / `--in-r` and the cell's `--stage-*` room).
+	 * The item tab and the Inspector name what it shows. It zooms like a canvas: two fingers or Ctrl + wheel, drag to pan
+	 * while zoomed, a double click fits again.
 	 */
 	let {
 		character,
 		persona,
 		look,
-		moods,
-		locale,
 		mood = 'neutral',
 		view = 'portrait',
-		bust = 0,
-		label
+		bust = 0
 	}: {
 		character: RegistryCharacter;
 		persona: string;
 		look: CharacterLook;
 		moods: MoodVocabulary;
-		locale: string;
 		mood?: string;
 		view?: CharacterView;
 		bust?: number;
-		/** the path shown on the stage: "Regular › päpstlich" */
-		label: string;
 	} = $props();
 
-	const VIEW_LABELS: Record<CharacterView, () => string> = {
-		avatar: () => m['creator.characters_view_avatar'](),
-		portrait: () => m['creator.characters_view_portrait'](),
-		full: () => m['creator.characters_view_full']()
-	};
 	const own = $derived(lookImage(look, mood, view));
 	const src = $derived(characterImage(character, { persona, look: look.id, mood }, view, { isMissing: isKnownMissing }));
 	const busted = (path: string) => (path ? `${asset(path)}${bust ? `?v=${bust}` : ''}` : '');
@@ -114,13 +104,12 @@
 	<div class="frame" bind:this={box}>
 		{#if src}<img src={busted(src)} alt="" draggable="false" style:transform="translate({x}px, {y}px) scale({scale})" />{/if}
 	</div>
-	<span class="where" data-testid="stage-where">{label} › {moodLabel(mood, locale, moods)} · {VIEW_LABELS[view]()}</span>
 	{#if !own}<span class="fallback" title={m['creator.characters_stage_fallback_hint']()}>{m['creator.characters_stage_fallback']()}</span>{/if}
 	{#if scale > 1}<button type="button" class="sq fit" onclick={fit} title={m['creator.characters_stage_fit']()} aria-label={m['creator.characters_stage_fit']()}><Icon name="minimize" /></button>{/if}
 </div>
 
 <style>
-	/* the whole box; the picture keeps to the room between the bar, the panels and the view pill */
+	/* the whole box; the picture keeps to the cell's clear room */
 	.stage {
 		position: absolute;
 		inset: 0;
@@ -131,8 +120,8 @@
 	}
 	.frame {
 		position: absolute;
-		top: calc(var(--shell-top) + 2.5rem);
-		bottom: calc(var(--status-room) + var(--control-height) + 1.5rem);
+		top: calc(var(--stage-top, 0rem) + var(--control-height) + 1rem);
+		bottom: calc(var(--stage-bottom, 0rem) + 0.75rem);
 		left: var(--in-l, 1rem);
 		right: var(--in-r, 1rem);
 		display: flex;
@@ -154,7 +143,6 @@
 		max-width: min(24rem, 80%);
 		max-height: 80%;
 	}
-	.where,
 	.fallback {
 		position: absolute;
 		left: var(--in-l, 1rem);
@@ -167,13 +155,7 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	.where {
-		top: calc(var(--shell-top) + 0.25rem);
-		color: var(--tool-text);
-	}
-	.fallback {
-		top: calc(var(--shell-top) + 2.25rem);
+		top: calc(var(--stage-top, 0rem) + 0.5rem);
 		color: var(--tool-warn);
 	}
 	.sq {
@@ -194,7 +176,7 @@
 	.fit {
 		position: absolute;
 		right: var(--in-r, 1rem);
-		top: calc(var(--shell-top) + 0.25rem);
+		top: calc(var(--stage-top, 0rem) + 0.5rem);
 		background: var(--tool-panel);
 		text-shadow: var(--tool-halo);
 	}

@@ -7,7 +7,8 @@
 	import CharactersEditor from '$lib/components/characters/characters-editor.svelte';
 
 	// a character opens from the Library; without one (the old list's address) Home shows the Library's characters
-	const open = $derived(page.url.searchParams.has('id') || page.url.searchParams.get('tab') === 'wanted');
+	// the old Wanted pictures address (`?tab=wanted`) is a Library filter now: it goes Home like the list
+	const open = $derived(page.url.searchParams.has('id'));
 	$effect(() => {
 		if (open) return;
 		library.showOpenings('character');

@@ -1,9 +1,9 @@
 import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { shared } from '$lib/utils/shared.ts';
-import { close, closeAll, closeOthers, EMPTY, frontTab, readTabs, rename, retarget, stepTab, visit, type TabsState } from './tabs.ts';
-import { workspaceOf } from './address.ts';
-import { entered, readUse, type WorkspaceUse } from './workspaces.ts';
+import { close, closeAll, closeOthers, EMPTY, frontTab, keepIn, readTabs, rename, retarget, stepTab, visit, type Tab, type TabsState } from './tabs.ts';
+import { isGone, workspaceOf } from './address.ts';
+import { entered, readUse, workspaceFor, type WorkspaceRef, type WorkspaceUse } from './workspaces.ts';
 import { viewsOn, type Floats } from '@scutoons/ui/editor';
 import { clampScale, DEFAULTS, readSettings, SETTINGS_KEY, type MachineSettings, type ViewSettings } from './settings.ts';
 import { PRESETS, tabIdOf } from './presets.ts';
@@ -53,7 +53,7 @@ export interface PageDoc {
  * machine's settings applied to the page, the panel tabs the front page fills (lib/shell/panels.ts) and its document.
  */
 class Shell {
-	state = $state<TabsState>(typeof localStorage === 'undefined' ? EMPTY : readTabs(readJson(TABS_KEY)));
+	state = $state<TabsState>(typeof localStorage === 'undefined' ? EMPTY : readTabs(readJson(TABS_KEY), isGone));
 	/** which workspaces were used how often and what each showed last (the bar's workspace row) */
 	use = $state<WorkspaceUse>(typeof localStorage === 'undefined' ? readUse(null) : readUse(readJson(USE_KEY)));
 	settings = $state<MachineSettings>(typeof localStorage === 'undefined' ? DEFAULTS : readSettings(readJson(SETTINGS_KEY)));
@@ -101,6 +101,41 @@ class Shell {
 			this.use = use;
 			writeJson(USE_KEY, use);
 		}
+		if (tab && tab.address !== was) this.#arrive(tab, was);
+	}
+
+	/** an item came to the front: it shows in its workspace (the one it remembers, else the front one if it fits, else its kind's) and remembers it */
+	#arrive(tab: Tab, was: string | null) {
+		const kind = workspaceOf(tab.address);
+		if (!kind) return;
+		const own = layouts.state.own;
+		const wasKind = was ? workspaceOf(was) : null;
+		const front = wasKind ? { kind: wasKind, id: shownWorkspace(layouts.chosen, own, wasKind) } : null;
+		const picked = this.#picked?.kind === kind ? this.#picked.id : undefined;
+		this.#picked = null;
+		const id = workspaceFor(tab.address, picked ?? tab.workspace, front, layouts.chosen, own);
+		if (!id) return;
+		if (shownWorkspace(layouts.chosen, own, kind) !== id) layouts.show(kind, id);
+		this.keepFrontIn(id);
+	}
+
+	/** a workspace tab picked whose item is not the front one: the item it opens comes in it */
+	#picked: WorkspaceRef | null = null;
+	/** a workspace tab picked: shown for its kind; the front item keeps it when it fits (`keeps`), else the item it opens comes in it */
+	pickWorkspace(ref: WorkspaceRef, keeps: boolean) {
+		layouts.show(ref.kind, ref.id);
+		if (keeps) this.keepFrontIn(ref.id);
+		else this.#picked = ref;
+	}
+
+	/** the front item remembers workspace `id` */
+	keepFrontIn(id: string) {
+		const front = this.state.front;
+		if (!front) return;
+		const next = keepIn(this.state, front, id);
+		if (next === this.state) return;
+		this.state = next;
+		writeJson(TABS_KEY, next);
 	}
 
 	visit(address: string | null, href: string, label?: string) {
