@@ -3,8 +3,9 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, confirmDialog, DataTable, Field, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
-	import type { AdminReadingChapter, AdminReviewRule, AdminUserDetail, RoleInfo } from '@scutoons/api';
-	import { admin } from '$lib/api.ts';
+	import type { AdminReadingChapter, AdminReviewRule, AdminUserDetail, Craft, RoleInfo } from '@scutoons/api';
+	import { admin, crafts as craftsApi } from '$lib/api.ts';
+	import CraftChips from '$lib/components/craft-chips.svelte';
 	import { day, errorText, minute } from '$lib/format.ts';
 	import { tableLabels } from '$lib/labels.ts';
 	import { getAdminSession } from '$lib/session.svelte.ts';
@@ -20,6 +21,7 @@
 
 	let user = $state<AdminUserDetail | null>(null);
 	let roles = $state<RoleInfo[]>([]);
+	let crafts = $state<Craft[]>([]);
 	let toons = $state<{ id: string; name: string }[]>([]);
 	let error = $state<string | null>(null);
 	let working = $state<string | null>(null);
@@ -28,6 +30,7 @@
 		const current = id;
 		user = null;
 		error = null;
+		craftsApi.list().then((c) => (crafts = c.crafts)).catch(() => (crafts = []));
 		Promise.all([admin.getUser(current), admin.roles(), admin.catalog()])
 			.then(([u, r, c]) => {
 				user = u.user;
@@ -38,6 +41,19 @@
 	});
 
 	const isSelf = $derived(!!user && user.email === session.user?.email);
+
+	async function setCrafts(next: string[]) {
+		if (!user) return;
+		working = 'crafts';
+		try {
+			const result = await admin.setUserCrafts(user.id, next);
+			user = { ...user, crafts: result.crafts };
+		} catch (e) {
+			toaster.addToast({ message: errorText(e), type: 'error' });
+		} finally {
+			working = null;
+		}
+	}
 
 	async function setRole(role: string, on: boolean) {
 		if (!user) return;
@@ -196,6 +212,11 @@
 			</div>
 			<p class="current">{#each user.roles as r (r)}<Badge tone={r === 'admin' ? 'ink' : 'neutral'}>{r}</Badge> {/each}</p>
 		</Section>
+		{#if crafts.length}
+			<Section title={m['users.section_crafts']()}>
+				<CraftChips {crafts} selected={(user.crafts ?? []).map((c) => c.id)} disabled={working !== null} onchange={setCrafts} />
+			</Section>
+		{/if}
 	</div>
 
 	<Section title={m['users.section_reading']()}>

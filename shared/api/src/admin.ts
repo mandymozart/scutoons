@@ -1,6 +1,7 @@
 // Admin API (agents/ITEMS.md → "Admin API"): `/admin/*`, session + role `admin`. Framework-agnostic like the rest
 // of the package; the app keeps list state in its URLs and passes the query through.
 import type { ApiClient } from './client.ts';
+import type { MemberCraft, MemberInvite } from './crafts.ts';
 import type { FeaturedProduct } from '@scutoons/content';
 
 /** URL-driven list query: `page` from 1, `page_size` (server clamps 1…500), `sort` = field | -field, `q`, filters */
@@ -239,6 +240,8 @@ export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
 	review_rules?: AdminReviewRule[];
 	/** where this member is in the toons (BACKLOG 10.69); null = no save game on the server */
 	reading?: AdminUserReading | null;
+	/** what the member does (crafts, docs/API.md "Crafts") and where each came from */
+	crafts?: MemberCraft[];
 }
 
 /** One chapter checkpoint of a member's save game (BACKLOG 10.69, DATA.md "The save game") */
@@ -1074,6 +1077,11 @@ export function createAdminApi(api: ApiClient) {
 				`/admin/users/${seg(id)}/roles/${seg(role)}`
 			),
 		roles: () => api.get<{ status: string; items: RoleInfo[] }>('/admin/roles'),
+		setUserCrafts: (id: string, crafts: string[]) => api.put<{ status: string; crafts: MemberCraft[] }>(`/admin/users/${seg(id)}/crafts`, { crafts }),
+		/** team invites with crafts (given when the address's account comes; an invite signs no one up) */
+		memberInvites: () => api.get<{ status: string; items: MemberInvite[] }>('/admin/member-invites'),
+		inviteMember: (email: string, crafts: string[]) => api.post<{ status: string; invite: MemberInvite }>('/admin/member-invites', { email, crafts }),
+		withdrawMemberInvite: (id: string) => api.delete<{ status: string }>(`/admin/member-invites/${seg(id)}`),
 		/** review rules (toon id or `*`, reviewer | needs_review) */
 		reviewRules: () => api.get<{ status: string; items: AdminReviewRule[] }>('/admin/review-rules'),
 		setReviewRule: (id: string, toon: string, rule: AdminReviewRule['rule'], on: boolean) => {

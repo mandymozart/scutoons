@@ -528,6 +528,9 @@ page. Non-claimable types keep their direct redirect.
   - `membership` — physical product: signup + claim of that item (one owner, as before).
   - `promo` — PR code: **not claimable** (no item, no owner, reusable by many people), grants `catalog` and allows
     signup. Account = save progress across devices + optional promotional updates about new releases.
+  - An admin's **team invite** (admin → Users → Team invites, `member_invites`, #826) does NOT sign up: the address still
+    needs a signup code; when its account comes (or signs in) it gets the invite's crafts (Domain\Crafts). Whether an
+    invite should count as a signup code is the owner's call (#837).
 - `page`, `event`, `xr` → no signup.
 - `auth/request` for an email **without** an account and **without** a signup code → still `{status:"sent"}` (no user
   enumeration), but the mail says there is no account yet and how to get one (a code from a SCUTOONS product / promo).

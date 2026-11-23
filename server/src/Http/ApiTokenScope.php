@@ -22,6 +22,7 @@ final class ApiTokenScope
         ['POST', '#^/api/auth/(session|logout)$#'],
         ['*', '#^/api/me/tokens(/.*)?$#'],
         ['*', '#^/api/me/decks(/.*)?$#'],
+        ['PUT', '#^/api/me/crafts$#'],
         ['POST', '#^/api/entities(/[^/]+)?/(publish|unpublish)$#'],
         ['POST', '#^/api/scenes/[^/]+/publish$#'],
         ['PUT', '#^/api/assets/replace$#'],

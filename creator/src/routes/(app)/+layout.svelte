@@ -33,6 +33,8 @@
 	import StatusBar from '$lib/components/shell/status-bar.svelte';
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
+	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -92,6 +94,10 @@
 	});
 	$effect(() => {
 		if (isCreator) void reviews.load();
+	});
+	// what the member does: the workspaces they start with, and the first login's question
+	$effect(() => {
+		if (isCreator) void crafts.load();
 	});
 
 	const toonId = $derived((page.params.toonId as string | undefined) ?? null);
@@ -228,6 +234,7 @@
 		<StatusBar />
 		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		{#if shell.launcher}<Launcher />{/if}
+		{#if crafts.ask}<CraftsQuestion />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['creator.close']()} />

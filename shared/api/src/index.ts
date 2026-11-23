@@ -38,6 +38,7 @@ export {
 	needsReview
 } from './content.ts';
 export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
+export { createCraftsApi, craftName, type Craft, type CraftsApi, type MemberCraft, type MemberCrafts, type MemberInvite } from './crafts.ts';
 export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
 export {
 	EVENT_NAMES,

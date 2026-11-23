@@ -2353,7 +2353,13 @@
 		"launch_reset": "Reset this workspace",
 		"launch_recent": "Recent",
 		"launch_none": "Nothing found – try a name, a kind:id address or a command.",
-		"launch_keys": "↑↓ move · Enter open · Esc close · Alt Space or Ctrl K anywhere"
+		"launch_keys": "↑↓ move · Enter open · Esc close · Alt Space or Ctrl K anywhere",
+		"crafts_ask": "What do you do?",
+		"crafts_from_invite": "from your invite",
+		"crafts_continue": "Continue",
+		"crafts": "Your crafts",
+		"crafts_summary": "{count} picked",
+		"crafts_admin": "An admin changes your crafts"
 	},
 	"library": {
 		"actions": "Actions",

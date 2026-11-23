@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\Admin\UserAdmin;
 use Scutoons\Domain\Content\Reviews;
+use Scutoons\Domain\Crafts\Crafts;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -22,6 +23,7 @@ use Scutoons\Infrastructure\Config\Settings;
  *   PUT    /users/{id}/characters/{c}    unlock an avatar-body character { looks?, source?, ref? } → { changed, characters }
  *   DELETE /users/{id}/characters/{c}    revoke it (with its looks) → { changed, characters }
  *   DELETE /users/{id}/characters/{c}/looks/{persona}/{look}   revoke one look → { changed, characters }
+ *   PUT    /users/{id}/crafts            { crafts: [id] } → { crafts } (Domain\Crafts)
  *   GET    /roles                        every role
  *   GET    /review-rules                 every review rule (Domain\Content\Reviews) → { items }
  *   PUT    /users/{id}/review-rules/{toon}/{rule}   add (toon id or *, rule reviewer | needs_review) → { changed, review_rules }
@@ -29,7 +31,7 @@ use Scutoons\Infrastructure\Config\Settings;
  */
 final class UsersController
 {
-    public function __construct(private readonly UserAdmin $users, private readonly Roles $roles, private readonly Settings $settings, private readonly Reviews $reviews)
+    public function __construct(private readonly UserAdmin $users, private readonly Roles $roles, private readonly Settings $settings, private readonly Reviews $reviews, private readonly Crafts $crafts)
     {
     }
 
@@ -74,6 +76,14 @@ final class UsersController
     public function lockLook(Request $request, Response $response, array $args): Response
     {
         return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character'], $args['persona'], $args['look']));
+    }
+
+    /** @param array{id: string} $args */
+    public function setCrafts(Request $request, Response $response, array $args): Response
+    {
+        $body = JsonBody::of($request);
+        $this->users->detail($args['id']); // 404 for unknown accounts
+        return Json::response($response, 200, ['status' => 'success', 'crafts' => $this->crafts->setFor($args['id'], $body['crafts'] ?? null, self::by($request))]);
     }
 
     public function roles(Request $request, Response $response): Response

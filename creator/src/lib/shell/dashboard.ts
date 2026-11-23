@@ -22,9 +22,9 @@ export const isWelcome = (use: WorkspaceUse, tabs: readonly Tab[], recent: numbe
 
 /**
  * The cards: the front item's workspace first, then the others most used first (the bar's row order). The welcome shows
- * every workspace of the row, empty.
+ * the member's crafts' workspaces (`starts`), else every workspace of the row, empty.
  */
-export function workspaceCards(use: WorkspaceUse, tabs: readonly Tab[], front: string | null, welcome = false): WorkspaceCard[] {
+export function workspaceCards(use: WorkspaceUse, tabs: readonly Tab[], front: string | null, welcome = false, starts: readonly WorkspaceKind[] = []): WorkspaceCard[] {
 	const current = front ? workspaceOf(front) : null;
 	const card = (kind: WorkspaceKind, href: string | null): WorkspaceCard => {
 		const open = tabs.filter((t) => workspaceOf(t.address) === kind);
@@ -32,7 +32,7 @@ export function workspaceCards(use: WorkspaceUse, tabs: readonly Tab[], front: s
 		const shown = (kind === current ? open.find((t) => t.address === front) : null) ?? open.find((t) => t.address === last) ?? open[0] ?? null;
 		return { kind, href: shown?.href ?? href, shown, open, front: kind === current };
 	};
-	const cards = welcome ? ROW.map((kind) => card(kind, null)) : workspaceRow(use, tabs).map((e) => card(e.kind, e.href));
+	const cards = welcome ? (starts.length ? starts : ROW).map((kind) => card(kind, null)) : workspaceRow(use, tabs, starts).map((e) => card(e.kind, e.href));
 	if (!welcome && current && !cards.some((c) => c.kind === current)) cards.unshift(card(current, null));
 	const at = cards.findIndex((c) => c.front);
 	if (at > 0) cards.unshift(...cards.splice(at, 1));
