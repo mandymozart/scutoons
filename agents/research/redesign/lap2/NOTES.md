@@ -76,4 +76,7 @@ Later, after these: the scene page + open in the deck; Catalog + Library; the on
 2. **Tab hover / drag border:** the text colour.
 3. **Selected row:** no preference → as drawn (the pressed fill).
 4. **Focus:** no preference → as drawn (a 2px ring with a gap).
-5–14: not answered yet.
+5–14: approved as drawn.
+- **Kit D approved** (owner on kit-d.html: *"I agree on kit-d. That looks awesome."*) – the drawn proposals of all 14 points stand, with point 2 in the text colour.
+- **But no grey through the back door** (owner: *"there are some transparencies that I don't like since we are secretly introducing grey a lot again instead of transparency – can we please rework that"*) – the opaque grey control / hover / selected grounds and the dimmed white go; grounds become see-through (the text colour at a low alpha), states never a grey fill. Reworked on kit-d.html as point 16.
+- **Colour-blind tokens** (owner: *"also for the colour tokens add the colour-blind version. Blue and yellow or orange are the colours there respectively. Please search the web to be sure what is the recommended concept."*) – researched: never colour alone, every state also a mark or a word (WCAG 1.4.1); blue is the safe hue, paired with orange / yellow; red against green and hues of equal lightness are the failure; the Okabe–Ito palette is the standard (blue #0072B2, sky blue #56B4E9, orange #E69F00, yellow #F0E442, vermillion #D55E00). A second token set for ok / warning / error, a mode in Settings; the default stays green / amber / red. Sources: Smashing Magazine "A practical guide to designing for colorblind people" (2024), Datawrapper "colorblindness part 2", jfly.uni-koeln.de/color (Okabe–Ito), W3C Understanding SC 1.4.1.
