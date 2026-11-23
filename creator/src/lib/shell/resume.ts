@@ -3,7 +3,7 @@
 // screen, scroll positions – kept in this browser per member, and the start: the saved tabs merged with the URL opened.
 // Pure: test/resume.test.ts.
 import { parseEntityKey } from '@scutoons/content';
-import { AREAS, kindOf } from './address.ts';
+import { AREAS, isGone, kindOf } from './address.ts';
 import { close, EMPTY, readTabs, visit, type TabsState } from './tabs.ts';
 
 /** where this browser keeps it; a new shape takes a new version and the old key is simply not read */
@@ -69,7 +69,7 @@ export function readResume(raw: unknown): ResumeStore {
 	if (!isRecord(raw) || raw.v !== 1) return NO_RESUME;
 	const others: ResumeStore['others'] = {};
 	if (isRecord(raw.others))
-		for (const [id, o] of Object.entries(raw.others).slice(-MAX_OTHERS)) if (id && isRecord(o)) others[id] = { ...readSession(o), tabs: readTabs(o.tabs) };
+		for (const [id, o] of Object.entries(raw.others).slice(-MAX_OTHERS)) if (id && isRecord(o)) others[id] = { ...readSession(o), tabs: readTabs(o.tabs, isGone) };
 	return { v: 1, member: typeof raw.member === 'string' && raw.member ? raw.member : null, ...readSession(raw), others };
 }
 

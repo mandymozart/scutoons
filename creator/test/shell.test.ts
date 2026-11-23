@@ -1,11 +1,12 @@
 // The shell's pure parts (lib/shell): addresses ↔ routes, the tabs, this machine's settings.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
-import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
-import { NO_USE, entered, fits, readUse, startKinds, workspaceRow } from '../src/lib/shell/workspaces.ts';
+import { AREAS, addressOf, hrefOf, iconOf, isGone, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
+import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
+import { NO_USE, ROW, entered, fits, readUse, startKinds, workspaceClick, workspaceFor, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
-import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
+import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src/lib/shell/presets.ts';
+import { addSpore, hooksOf, removeSpore } from '../src/lib/editor/spores.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
 import { NO_CRAFTS, asksCrafts, readCrafts } from '../src/lib/shell/crafts.ts';
@@ -25,6 +26,8 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/characters'), AREAS.characters);
 	assert.equal(addressOf('/characters', '?id=catpope'), 'character:catpope');
 	assert.equal(addressOf('/characters', '?tab=moods'), AREAS.characters, 'the mood words are a panel tab, not a page');
+	assert.equal(addressOf('/characters', '?tab=wanted'), AREAS.characters, 'Wanted pictures is a Library filter now: the old address passes like the list');
+	assert.equal(addressOf('/generate'), 'generator:new');
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
@@ -45,7 +48,7 @@ test('an address leads back to its page, and every route round-trips', () => {
 		['/catpope/chapter/3', ''],
 		['/catpope/chapter/3/storyboard', ''],
 		['/characters', '?id=catpope'],
-		['/characters', '?tab=wanted'],
+		['/generate', ''],
 		['/map', ''],
 		['/scenes/duet', ''],
 		['/flow', ''],
@@ -170,8 +173,8 @@ test('an address as the Log’s scope: a toon’s items under the toon, a chapte
 });
 
 test('every workspace kind has a preset; canvas views fill their cell', () => {
-	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
-	assert.ok(isCanvas('flow') && isCanvas('preview') && !isCanvas('log'));
+	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'generate', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
+	assert.ok(isCanvas('flow') && isCanvas('preview') && isCanvas('sheet') && isCanvas('3d') && isCanvas('canvas') && !isCanvas('log') && !isCanvas('expressions'));
 	assert.equal(clampSplit(0.9), 0.75);
 	assert.equal(clampSplit(Number.NaN), 0.5);
 });
@@ -182,9 +185,28 @@ test('the free room: between the left and the right column of panels', () => {
 	assert.deepEqual(freeRoom([{ x: 0, w: 600 }, { x: 550, w: 450 }], 1000), { left: 600, right: 600 }, 'never less than nothing');
 });
 
-test('the character workspace: its sections in one panel, the old Moods tabs open Expressions', () => {
+test('one workspace model: a main view on the stage + panels; a main view always sits in a panel', () => {
+	for (const [kind, preset] of Object.entries(PRESETS)) {
+		if (!preset.main) {
+			assert.equal(presetStart(kind as keyof typeof PRESETS), null, `${kind}: its page under the stage`);
+			continue;
+		}
+		assert.ok(preset.panels.some((p) => p.tabs.includes(preset.main!)), `${kind}: its main view has a panel to go back to`);
+		assert.deepEqual(presetStart(kind as keyof typeof PRESETS), { stage: { layout: 'one', slots: [preset.main] } });
+	}
+	assert.equal(PRESETS.character.main, 'sheet');
+	assert.equal(PRESETS.generate.main, 'canvas');
+});
+
+test('the character workspace: views as tabs (Sheet on the stage, Expressions, 3D), no Tree; the old Moods tabs open Expressions', () => {
 	assert.deepEqual(PRESETS.character.panels[0].tabs, ['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']);
-	assert.equal(PRESETS.character.clear, false);
+	assert.ok(PRESETS.character.panels.some((p) => p.tabs.includes('sheet') && p.tabs.includes('3d')));
+	assert.ok(!PRESETS.character.panels.some((p) => p.tabs.includes('tree')), 'the Library opens characters');
+	assert.equal(PRESETS.character.clear, undefined, 'its views keep clear of the bar like every page');
+	const available = availableTabs(['sheet', '3d', 'kanon', 'expressions', 'rig'], null);
+	const specs = ['sheet', '3d', 'kanon', 'expressions', 'rig', 'library', 'log', 'settings', 'history'].map((id) => ({ id, name: id, icon: 'x', about: '' }));
+	const ids = panelSpecs('character', available, specs).flatMap((p) => p.tabs);
+	assert.ok(['sheet', '3d', 'expressions', 'rig'].every((t) => ids.includes(t)), 'every view has a panel');
 	assert.equal(tabIdOf('moods'), 'expressions');
 	assert.equal(tabIdOf('vocabulary'), 'expressions');
 });
@@ -226,6 +248,50 @@ test('the workspace row: most used first, never grouped; each goes to its last i
 	assert.ok(!fits(null, 'chapter'));
 	assert.deepEqual(readUse(JSON.parse(JSON.stringify(use))), use);
 	assert.deepEqual(readUse({ uses: { chapter: -1, nope: 3 }, last: { map: { address: 'chapter:x:1', href: '/x' } } }), NO_USE);
+});
+
+test("item ↔ workspace (point 48): an item comes back in its workspace; a new one in the front one if it fits, else its kind's", () => {
+	const own = [{ id: 'own-abc123', kind: 'character' as const }];
+	assert.equal(workspaceFor('character:catpope', 'own-abc123', null, {}, own), 'own-abc123', 'its tab brings it back in the workspace it remembers');
+	assert.equal(workspaceFor('character:catpope', 'own-gone', null, {}, own), 'character', "a remembered workspace that is gone: its kind's");
+	assert.equal(workspaceFor('character:catpope', 'chapter', null, {}, own), 'character', "a remembered workspace that does not fit: its kind's");
+	assert.equal(workspaceFor('character:feilchen', undefined, { kind: 'character', id: 'own-abc123' }, {}, own), 'own-abc123', 'new: the front workspace, it fits');
+	assert.equal(workspaceFor('character:feilchen', undefined, { kind: 'chapter', id: 'chapter' }, { character: 'own-abc123' }, own), 'own-abc123', 'new, the front one does not fit: the one its kind shows');
+	assert.equal(workspaceFor('character:feilchen', undefined, null, {}, own), 'character');
+	assert.equal(workspaceFor('characters:wanted', undefined, null, {}, own), null, 'a gone area has no workspace');
+	assert.equal(workspaceFor('nothing', undefined, null, {}, own), null);
+	assert.deepEqual(workspaceClick('character:catpope', '/characters?id=catpope', { id: 'own-abc123', kind: 'character' }, '/characters?id=feilchen'), { href: '/characters?id=catpope', keeps: true }, 'a workspace the item fits keeps it');
+	assert.deepEqual(workspaceClick('character:catpope', '/characters?id=catpope', { id: 'chapter', kind: 'chapter' }, '/catpope/chapter/3'), { href: '/catpope/chapter/3', keeps: false }, 'one it does not fit (dimmed) opens its own last item');
+	assert.deepEqual(workspaceClick(null, null, { id: 'scene', kind: 'scene' }, '/scenes'), { href: '/scenes', keeps: false });
+	let s = visit(EMPTY, 'character:catpope', '/characters?id=catpope');
+	s = keepIn(s, 'character:catpope', 'own-abc123');
+	assert.equal(s.tabs[0].workspace, 'own-abc123');
+	assert.equal(keepIn(s, 'character:catpope', 'own-abc123'), s, 'unchanged: the same state');
+	assert.equal(visit(s, 'character:catpope', '/characters?id=catpope&persona=pope').tabs[0].workspace, 'own-abc123', 'moving inside the item keeps it');
+	assert.equal(readTabs(JSON.parse(JSON.stringify(s))).tabs[0].workspace, 'own-abc123', 'kept across a reload');
+});
+
+test('a removed workspace leaves stored state quietly: tabs, uses, picks naming Wanted pictures go; Generate joins the row', () => {
+	assert.ok(isGone('characters:wanted'));
+	const kept = { tabs: [{ address: 'characters:wanted', href: '/characters?tab=wanted', label: 'Wanted' }, { address: 'map:world', href: '/map', label: 'Map' }], front: 'characters:wanted' };
+	assert.deepEqual(readTabs(kept, isGone), { tabs: [{ address: 'map:world', href: '/map', label: 'Map' }], front: null });
+	assert.deepEqual(readUse({ uses: { character: 2 }, last: { character: { address: 'characters:wanted', href: '/characters?tab=wanted' } } }), { uses: { character: 2 }, last: {} });
+	assert.deepEqual(readPicks([{ id: 'item:characters:wanted', kind: 'item', label: 'Wanted', icon: 'users', address: 'characters:wanted', href: '/characters?tab=wanted' }]), []);
+	assert.ok(!fits('characters:wanted', 'character'));
+	assert.ok(ROW.includes('generate'));
+	assert.equal(workspaceRow(NO_USE, []).find((r) => r.kind === 'generate')?.href, '/generate', 'Generate starts on an empty canvas');
+	assert.equal(workspaceOf('generator:new'), 'generate');
+});
+
+test('the spore canvas stub: spores woven in with unique ids, gen-AI ones counted as hooks', () => {
+	let s = addSpore([], 'library');
+	s = addSpore(s, 'image');
+	s = addSpore(s, 'image');
+	assert.deepEqual(s.map((x) => x.id), ['library-1', 'image-1', 'image-2']);
+	assert.equal(hooksOf(s), 2);
+	s = removeSpore(s, 'image-1');
+	assert.deepEqual(addSpore(s, 'image').map((x) => x.id), ['library-1', 'image-2', 'image-3'], 'never a taken id');
+	assert.deepEqual(addSpore(s, 'nonsense'), s);
 });
 
 test('the dashboard: the front workspace first, then most used; each card shows what is open in it', () => {

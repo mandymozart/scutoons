@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { Floats, FloatingPanels, StageZones, motionMs, type Cell, type StageZone } from '@scutoons/ui/editor';
+	import { Button, Floats, FloatingPanels, StageZones, motionMs, type Cell, type StageZone } from '@scutoons/ui/editor';
 	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
-	import { availableTabs, panelSpecs, tabSpecs } from '$lib/shell/panels.ts';
+	import { PRESETS, availableTabs, panelSpecs, presetStart, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SettingsPanel from '$lib/components/shell/settings-panel.svelte';
@@ -36,12 +36,17 @@
 	const available = $derived(availableTabs(filled ? filled.split(' ') : [], toon));
 	/** the workspace shown: the kind's own, or an own workspace made from it */
 	const id = $derived(shownWorkspace(layouts.chosen, layouts.state.own, kind));
-	const floats = $derived(new Floats(`creator-host-${id}`, panelSpecs(kind, available, specs), specs, untrack(() => layouts.startOf(id))));
+	/** where the workspace starts: its saved layout, else its preset's main view on the stage */
+	const startOf = (id: string) => layouts.startOf(id) ?? presetStart(kind);
+	const floats = $derived(new Floats(`creator-host-${id}`, panelSpecs(kind, available, specs), specs, untrack(() => startOf(id))));
 	// a saved layout arriving (or saved anew) is the workspace's start: shown while this browser kept none of its own
 	$effect(() => {
-		const start = layouts.startOf(id);
+		const start = startOf(id);
 		untrack(() => floats.setStart(start));
 	});
+	/** the opened item's main view, while the stage shows nothing of it: offered back onto the stage */
+	const main = $derived(kind === 'home' ? undefined : PRESETS[kind]?.main);
+	const mainAway = $derived(!!main && available.has(main) && floats.stage.slots.every((s) => !s || !available.has(s)));
 	$effect(() => void layouts.load());
 
 	$effect(() => {
@@ -149,6 +154,13 @@
 	<Stage {floats} {content} {name} has={(t) => available.has(t)} />
 {/if}
 
+{#if !full && main && mainAway}
+	<div class="main-away" data-testid="main-away">
+		<p class="sc-empty">{m['shell.main_away']({ tab: name(main) })}</p>
+		<Button icon="maximize-2" onclick={() => floats.setState(main, 'stage')} data-testid="main-to-stage">{m['shell.main_to_stage']({ tab: name(main) })}</Button>
+	</div>
+{/if}
+
 <div class="ws-overlay" class:gone={!!full} data-workspace={kind} data-testid="workspace">
 	{#key floats}
 		<FloatingPanels {floats} labels={{ close: m['creator.close']() }}>
@@ -171,6 +183,24 @@
 {#if library.browser}<LibraryBrowser />{/if}
 
 <style>
+	/* the stage without the item's main view: one quiet line and the way back, in the middle of the window */
+	.main-away {
+		position: fixed;
+		z-index: 30;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		pointer-events: none;
+	}
+	.main-away > :global(*) {
+		pointer-events: auto;
+	}
+	.main-away .sc-empty {
+		margin: 0;
+	}
 	/* the panels' layer: under the bar's row, above the status bar; only the panels take the pointer */
 	.ws-overlay {
 		position: fixed;

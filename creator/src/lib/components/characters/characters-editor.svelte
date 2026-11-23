@@ -26,7 +26,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
-	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 	import { askDialog, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
@@ -56,12 +56,11 @@
 	import CharacterEditor from '$lib/components/characters/character-editor.svelte';
 	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
-	import WantedImages from '$lib/components/characters/wanted-images.svelte';
-	import { mapDoc, mapOf, mapPlaces } from '$lib/editor/map.ts';
+	import { mapPlaces } from '$lib/editor/map.ts';
 
 	/**
 	 * A character's page: the registry (entity `characters`) with the open character as its workspace (CharacterEditor,
-	 * opened from the Library's Items to open), or the Wanted images of every character. No character open: Home with the
+	 * opened from the Library's Items to open). No character open: Home with the
 	 * Library's characters. Every toon's cast is read for "appears in", the Library's cast facet and the validation – and
 	 * edited in a character's Cast tab (saved with the page). The mood words sit under its Expressions tab.
 	 */
@@ -74,8 +73,6 @@
 	// the homes' places (research/CAVE.md D1): an unknown one warns – add it in the map builder
 	let placeIds = $state<string[] | undefined>(undefined);
 	onMount(() => void mapPlaces().then((list) => (placeIds = list.length ? list.map((p) => p.id) : undefined)));
-	// the world map: its places without an image are listed in Wanted images (read-only here, never saved from this page)
-	const worldMap = mapDoc();
 	const docs = [registry, moods, requests];
 
 	let toons = $state<ToonInfo[]>([]);
@@ -90,12 +87,11 @@
 	});
 	let persona = $state<string>(params.get('persona') ?? REGULAR_PERSONA);
 	let look = $state<string>(params.get('look') ?? '');
-	let tab = $state<string>(params.get('tab') === 'wanted' ? 'wanted' : 'characters');
 	/** a new character's toon when the page was opened for one (`?toon=`) */
 	const toonFilter = params.get('toon') ?? '';
 
 	onMount(async () => {
-		await Promise.all([registry.load(), moods.load(), requests.load(), worldMap.load()]);
+		await Promise.all([registry.load(), moods.load(), requests.load()]);
 		toons = await loadToons(getLocale());
 		const loaded: Record<string, ContentDoc> = {};
 		await Promise.all(
@@ -166,17 +162,15 @@
 		selected = id;
 		persona = p;
 		look = l;
-		tab = 'characters';
 	}
 	// the URL mirrors the selection (shareable, back to the same place)
 	$effect(() => {
 		const id = selected;
 		const p = persona;
-		const t = tab;
 		try {
 			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation
 			const url = new URL(location.href);
-			for (const [key, value] of [['id', id], ['persona', p === REGULAR_PERSONA ? '' : p], ['tab', t === 'characters' ? '' : t]] as const) {
+			for (const [key, value] of [['id', id], ['persona', p === REGULAR_PERSONA ? '' : p], ['tab', '']] as const) {
 				if (value) url.searchParams.set(key, value);
 				else url.searchParams.delete(key);
 			}
@@ -245,24 +239,22 @@
 			return !!selectedCharacter;
 		},
 		extra: () => {
-			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
+			const c = characters.find((x) => x.id === selected);
 			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: shownCharacterName(c) || c.id }] : [];
 		}
 	});
 	// URL → state (the Universe links in the sidebar, crumbs, back / forward); the effect below mirrors state → URL
 	$effect(() => {
 		const params = page.url.searchParams;
-		const nextTab = params.get('tab') === 'wanted' ? 'wanted' : 'characters';
 		const nextId = params.get('id');
 		untrack(() => {
-			if (nextTab !== tab) tab = nextTab;
-			if ((nextId ?? '') !== selected && (nextId !== null || nextTab === 'characters')) selected = nextId ?? '';
+			if ((nextId ?? '') !== selected) selected = nextId ?? '';
 		});
 	});
-	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
+	const selectedCharacter = $derived(characters.find((c) => c.id === selected));
 	// no character open (one removed, or an id that is gone): Home with the Library's characters
 	$effect(() => {
-		if (tab === 'characters' && !registry.loading && registry.present.length && !selectedCharacter) untrack(() => showCharacters());
+		if (!registry.loading && registry.present.length && !selectedCharacter) untrack(() => showCharacters());
 	});
 </script>
 
@@ -275,9 +267,7 @@
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
 	<div class="area" class:open={!!selectedCharacter}>
-		{#if tab === 'wanted'}
-			<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
-		{:else if registry.loading}
+		{#if registry.loading}
 			<p class="hint pad-top">{m['creator.loading']()}</p>
 		{:else if selectedCharacter}
 			{#key selected}

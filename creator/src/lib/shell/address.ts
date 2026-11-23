@@ -6,7 +6,7 @@ import { parseEntityKey } from '@scutoons/content';
 import { editHref, parseEditKey } from '../editor/edit-key.ts';
 
 /** what an opened item is edited in – one background and its default panels each */
-export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'flow' | 'sound' | 'text' | 'help';
+export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'flow' | 'sound' | 'text' | 'generate' | 'help';
 
 /** an item's kind → its workspace and the icon its tab carries */
 const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
@@ -24,6 +24,7 @@ const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
 	rig: { workspace: 'sound', icon: 'sliders' },
 	module: { workspace: 'sound', icon: 'cpu' },
 	kanon: { workspace: 'text', icon: 'file-text' },
+	generator: { workspace: 'generate', icon: 'zap' },
 	guide: { workspace: 'help', icon: 'help-circle' },
 	notifications: { workspace: 'help', icon: 'bell' }
 };
@@ -42,19 +43,24 @@ export function iconOf(address: string): string {
 	return KINDS[kindOf(address)]?.icon ?? 'file';
 }
 
+/** addresses of areas that are gone (Wanted pictures is a Library filter now): stored tabs, picks and uses naming them are dropped */
+export const GONE_ADDRESSES: readonly string[] = ['characters:wanted'];
+export const isGone = (address: string): boolean => GONE_ADDRESSES.includes(address);
+
 /** the areas' own addresses (a list, not one item): what their tab is called before an item is picked */
 export const AREAS = {
 	characters: 'characters:all',
-	wanted: 'characters:wanted',
 	map: 'map:world',
 	scenes: 'scenes:all',
 	flow: 'flow:universe',
+	/** a new spore generator on the Generate canvas (AI-HOOKS.md §0) – no stored generator documents yet */
+	generate: 'generator:new',
 	guide: 'guide:style',
 	notifications: 'notifications:push'
 } as const;
 
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED = new Set(['characters', 'map', 'scenes', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'toons', 'docs', 'h', 'kit']);
+const RESERVED = new Set(['characters', 'map', 'scenes', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
 
 /**
  * The address a creator URL edits: one item per tab, so a toon's own pages (its board, script, credits,
@@ -69,9 +75,7 @@ export function addressOf(pathname: string, search = ''): string | null {
 	switch (first) {
 		case 'characters': {
 			const id = params.get('id');
-			if (id) return `character:${id}`;
-			const tab = params.get('tab');
-			return tab === 'wanted' ? AREAS.wanted : AREAS.characters;
+			return id ? `character:${id}` : AREAS.characters;
 		}
 		case 'map':
 			return AREAS.map;
@@ -79,6 +83,8 @@ export function addressOf(pathname: string, search = ''): string | null {
 			return second ? `scene:${second}` : AREAS.scenes;
 		case 'flow':
 			return AREAS.flow;
+		case 'generate':
+			return AREAS.generate;
 		case 'guide':
 			return AREAS.guide;
 		case 'notifications':
@@ -105,10 +111,10 @@ export function hrefOf(address: string): string | null {
 	const [kind, ...rest] = address.split(':');
 	const id = rest.join(':');
 	if (address === AREAS.characters) return '/characters';
-	if (address === AREAS.wanted) return '/characters?tab=wanted';
 	if (address === AREAS.map || kind === 'place' || kind === 'route' || kind === 'region') return kind === 'map' ? '/map' : `/map?${kind === 'place' ? 'location' : kind}=${encodeURIComponent(id)}`;
 	if (address === AREAS.scenes) return '/scenes';
 	if (address === AREAS.flow) return '/flow';
+	if (address === AREAS.generate) return '/generate';
 	if (address === AREAS.guide) return '/guide';
 	if (address === AREAS.notifications) return '/notifications';
 	if (kind === 'catalog' && id) return `/catalog/${encodeURIComponent(id)}`;

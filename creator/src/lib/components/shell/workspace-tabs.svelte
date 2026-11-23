@@ -4,7 +4,7 @@
 	import { workspaceOf, type WorkspaceKind } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
-	import { fits, workspaceRow } from '$lib/shell/workspaces.ts';
+	import { fits, workspaceClick, workspaceRow, type WorkspaceRef } from '$lib/shell/workspaces.ts';
 	import { workspaceName } from '$lib/shell/workspace-names.ts';
 	import { layouts } from '$lib/shell/layouts.svelte.ts';
 	import { shownWorkspace, withOwn } from '$lib/shell/layouts.ts';
@@ -21,6 +21,10 @@
 	const dim = (kind: WorkspaceKind) => !!front && !fits(front, kind);
 	const isOn = (w: { kind: WorkspaceKind; id: string }) => w.kind === current && w.id === shownWorkspace(layouts.chosen, layouts.state.own, w.kind);
 	const nameOf = (w: { kind: WorkspaceKind; name?: string }) => w.name ?? workspaceName(w.kind);
+	const frontHref = $derived(shell.front?.href ?? null);
+	/** where a workspace tab goes: the front item if it fits (it stays and remembers that workspace), else the workspace's own last item */
+	const goes = (w: WorkspaceRef & { href: string }) => workspaceClick(front, frontHref, w, w.href);
+	const pick = (w: WorkspaceRef & { href: string }) => shell.pickWorkspace(w, goes(w).keeps);
 
 	let box = $state<HTMLElement>();
 	let hidden = $state(0);
@@ -44,14 +48,14 @@
 	<Pill as="nav" label={m['shell.workspaces']()} class="workspaces" data-testid="workspace-tabs">
 		<div class="row" bind:this={box}>
 			{#each row as w (w.id)}
-				<PillTab label={nameOf(w)} href={w.href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => layouts.show(w.kind, w.id)} data-workspace-tab data-testid="workspace-{w.id}" />
+				<PillTab label={nameOf(w)} href={goes(w).href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => pick(w)} data-workspace-tab data-testid="workspace-{w.id}" />
 			{/each}
 		</div>
 		{#if rest.length}
 			<Menu label={m['shell.workspaces_more']()} icon="chevron-down" width="12rem" testid="workspaces-more">
 				{#snippet children(close)}
 					{#each rest as w (w.id)}
-						<MenuItem label={nameOf(w)} href={w.href} current={isOn(w)} dim={dim(w.kind)} onclick={() => (layouts.show(w.kind, w.id), close())} />
+						<MenuItem label={nameOf(w)} href={goes(w).href} current={isOn(w)} dim={dim(w.kind)} onclick={() => (pick(w), close())} />
 					{/each}
 				{/snippet}
 			</Menu>

@@ -3,7 +3,6 @@
 	"creator/src/lib/components/chapter/slice-import.svelte": 1,
 	"creator/src/lib/components/characters/character-links.svelte": 3,
 	"creator/src/lib/components/characters/character-model-canvas.svelte": 8,
-	"creator/src/lib/components/characters/character-views.svelte": 8,
 	"creator/src/lib/components/credits/role-picker.svelte": 1,
 	"creator/src/lib/components/events/vn-events.svelte": 1,
 	"creator/src/lib/components/fields/expr-text.svelte": 4,

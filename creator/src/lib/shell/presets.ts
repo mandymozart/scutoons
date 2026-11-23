@@ -1,5 +1,6 @@
 // The creator's one panel / tab model (research/redesign/panels.html): every section is a tab (declared once in panels.ts); a
-// panel is a set of tabs; a workspace is only a preset – which panels, their tabs, their places.
+// panel is a set of tabs; a workspace is only a preset – the opened item's main view on the stage, which panels, their tabs,
+// their places. A workspace without a main view shows its page's own view under the stage (presetStart).
 // A page fills the tabs it has content for (`useTabs`, shell.svelte.ts); the Toon, the Library, Settings, the Log and History are
 // the shell's own. A tab with content that no preset panel holds still opens: it gets a closed panel of its own (Views).
 // Pure: test/shell.test.ts; the tabs' names and icons: panels.ts.
@@ -11,6 +12,13 @@ const at = (corner: PanelSpec['place']['corner'], dx: number, dy: number, more: 
 
 export type TabId =
 	| 'tree'
+	/** the character's views: its sheet (one picture), its 3D place – any of them, and Expressions, can take the stage */
+	| 'sheet'
+	| '3d'
+	/** the Generate workspace: the spore canvas, the spores to weave in, a generator's runs */
+	| 'canvas'
+	| 'spores'
+	| 'runs'
 	| 'toon'
 	| 'inspector'
 	| 'kanon'
@@ -58,6 +66,8 @@ export interface PresetPanel {
 
 export interface Preset {
 	panels: readonly PresetPanel[];
+	/** the opened item's main view: on the stage when the workspace starts (it must sit in one of the panels) */
+	main?: TabId;
 	/** the view's default for clear of the bar (a full-bleed workspace: false) */
 	clear?: boolean;
 }
@@ -68,6 +78,8 @@ const foot = (tabs: readonly TabId[], more: { collapsed?: boolean; closed?: bool
 const preview = (more: { collapsed?: boolean; closed?: boolean } = {}): PresetPanel => ({ id: 'preview', tabs: ['preview'], place: at('bottom-right', 0, 0, more), size: { w: 24, h: 26 }, min: { w: 16, h: 12 } });
 const library = (more: { collapsed?: boolean; closed?: boolean } = { collapsed: true }): PresetPanel => ({ id: 'library', tabs: ['library'], place: at('bottom-right', 0, 0, more), size: { w: 28, h: 'fill' }, min: { w: 18, h: 12 } });
 const FOLDED = { collapsed: true };
+/** the views that are not on the stage, folded at the bottom left */
+const views = (tabs: readonly TabId[]): PresetPanel => ({ id: 'views', tabs, place: at('bottom-left', 0, 0, FOLDED), size: { w: 30, h: 24 }, min: { w: 16, h: 12 } });
 const LOG: PresetPanel = { id: 'log', tabs: ['log'], place: at('bottom-right', 0, 0, { closed: true }), size: { w: 32, h: 24 }, min: { w: 20, h: 8 } };
 
 /** every workspace's preset (research/redesign/PLAN.md §4) */
@@ -76,13 +88,14 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
 	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
-	character: { panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, library()], clear: false },
+	character: { main: 'sheet', panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, views(['sheet', '3d']), library()] },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },
 	flow: { panels: [right(['log'], FOLDED)] },
 	sound: { panels: [right(['log'], FOLDED), library()] },
 	text: { panels: [left(['tree']), right(['log'], FOLDED)] },
+	generate: { main: 'canvas', panels: [left(['spores', 'canvas']), right(['runs', 'log'], FOLDED), library()] },
 	help: { panels: [] }
 };
 
@@ -108,6 +121,12 @@ export function panelSpecs(workspace: WorkspaceKind | 'home', available: Readonl
 		const first = name(tabs[0]);
 		return [{ id: p.id, name: first?.name ?? p.id, icon: first?.icon ?? 'square', about: first?.about ?? '', place: p.place, size: p.size, min: p.min, tabs }];
 	});
+}
+
+/** where a workspace starts without a saved layout: its main view on the stage (null: the specs' places, the page under the stage) */
+export function presetStart(workspace: WorkspaceKind | 'home'): { stage: { layout: 'one'; slots: [string] } } | null {
+	const main = PRESETS[workspace]?.main;
+	return main ? { stage: { layout: 'one', slots: [main] } } : null;
 }
 
 /** the tabs with content: the shell's own (the Toon only with a toon) and those the front page fills */

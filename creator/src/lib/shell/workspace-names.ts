@@ -13,6 +13,7 @@ const NAMES: Record<WorkspaceKind, () => string> = {
 	flow: () => m['shell.ws_flow'](),
 	sound: () => m['shell.ws_sound'](),
 	text: () => m['shell.ws_text'](),
+	generate: () => m['shell.ws_generate'](),
 	help: () => m['shell.help']()
 };
 
