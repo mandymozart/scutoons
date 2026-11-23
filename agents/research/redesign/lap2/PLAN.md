@@ -19,7 +19,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - **Done when:** every screen marked old or shape in SCREENS.md is current, each change against today numbered, nothing drawn that no decision covers.
 
 ### P1 · The kit
-- **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged.
+- **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged; the outlet types' colours as a table beside it.
 - **One shared source of truth for the kit, in a prominent place of the code base** (your word, 2026-11-24): the tokens and each component's states are written once; the deck's UI crate and the creator's UI kit both come from it, checked in deck:ci and the style check so they cannot drift. Today they are kept in step by hand, and the approved kit is only a research page. **Deck: a neutral file, in a top-level `kit/` folder** (`kit/tokens.toml` and a README of the components and their states). It is cheap there: deck-kit already reads a `tokens.toml` on top of its built-in values. The tokens' defaults move out of the Rust code into that file, deck-kit builds it in as its base, and a small script generates the web tools' CSS from it – small. The components' states (a tab's rest, hover, dragged …) become named entries in the same file, done component by component together with the restyle – medium. **Decided 2026-11-24: the `kit/` folder.**
 - **A kit page in each app, built from the real components**, is the reference to look at and refine; kit-d.html moves out of the research folder to that place.
 - **Creator:** the tokens generated from the deck; the kit's components to the new look (tabs, chips and badges, icon buttons, the primary button, focus, selected rows); the colour-blind mode as a setting – in the deck's settings too; the kit page.
@@ -139,7 +139,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
 | A disabled primary button; the see-through grounds as redrawn | P1 |
-| Colour for outlet types (stage · device · sub): none exists today – a new coding in the signal table, or not | P1 |
+| The outlet types' list and colours: page · stage · target · light are the start; three of them sit close to a signal's colour (page and picture, stage and vote, target and address) | P1 |
 | The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |
 | Installers for the deck on Windows and macOS: a package of this lap, or the link on Arch only | P4 |
 | "Open in the deck" with no deck installed | P4 |

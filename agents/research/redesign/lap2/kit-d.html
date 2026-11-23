@@ -264,6 +264,14 @@ html:is([data-p15="b"],[data-p15="c"]) .fld.err::after{content:'✕';margin-left
    and the error vermillion darkened to #8F3300 so it stands clearly darker than the warning and the blue. */
 :root,[data-theme]{--cb-ok:#56B4E9;--cb-warn:#F0E442;--cb-err:#D55E00}
 [data-theme="day"]{--cb-ok:#0072B2;--cb-warn:#B07800;--cb-err:#8F3300}
+/* what keeps its colour (RULES H11, 2026-11-24): signals – the deck's table, deck/kit/src/base/signal.rs – and outlet types – started in the #703 draft's lanes (research/scenes/scenes-drafts.html), to tune */
+:root{--sig-event:#f3f3f0;--sig-control:#46d36a;--sig-clock:#e5484d;--sig-audio:#19b8d8;--sig-picture:#6f9bff;--sig-address:#b46bff;--sig-vote:#ffb020;--sig-scene:#ff6b8a;--sig-far:#a7af9b;
+  --out-page:#7cc4ff;--out-stage:#ffb86b;--out-target:#b99cff;--out-light:#f2df6f}
+[data-theme="day"]{--sig-event:#22271e;--sig-control:#2f9e4a;--sig-clock:#c23238;--sig-audio:#0089a8;--sig-picture:#3a63c9;--sig-address:#8a4fd0;--sig-vote:#b07800;--sig-scene:#c8385a;--sig-far:#6b7461;
+  --out-page:#2a7fc0;--out-stage:#c46a12;--out-target:#7448d6;--out-light:#a88a00}
+.cc{display:inline-flex;align-items:center;gap:.35rem;margin:0 .7rem .25rem 0;font-size:var(--editor-small);white-space:nowrap}
+.cc svg{width:.8rem;height:.8rem;flex:none}
+.cc i{width:.62rem;height:.62rem;border-radius:.15rem;flex:none}
 /* 16 · grounds. B + C: the primary keeps its full fill in every state, hover / press = a 1px text-colour ring (no dimming) */
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary:is(.h,.on){background:var(--d-primary)}
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary.h{box-shadow:0 0 0 1px var(--tool-ground),0 0 0 2px var(--tool-text)}
@@ -626,6 +634,8 @@ const rows = () => [
   comp('Link', '', [`<span class="lnk">Open in the deck</span>`, `<span class="lnk h">Open in the deck</span>`, NA, `<span class="lnk f">Open in the deck</span>`, `<span class="lnk x">Open in the deck</span>`, NA, capt('no hue: the underline says link')]),
   comp('Status bar', od(7) + od(15), [stb('none', 'No messages yet', '0 · 0'), stb('none', 'No messages yet', '0 · 0', 'h'), NA, NA, NA, NA,
     `${stb('ok', 'Saved · giantpopstar')}${stb('warn', 'Fireface not found', '0 errors · <span class="c-warn">1 warning</span>')}${stb('err', 'Publish failed', '<span class="c-err">1 error</span> · <span class="c-warn">7 warnings</span>')}`]),
+  comp('Signals', capt('keep their colour · H11'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['event','M2 1.5L11 6L2 10.5Z'],['control','dot'],['clock','dot'],['audio','M2 2h8v8H2Z'],['picture','M2 2h8v8H2Z'],['address','M6 1L11 6L6 11L1 6Z'],['vote','dot'],['scene','M2 2h8v8H2Z'],['far','ring']].map(([k, d]) => `<span class="cc"><svg viewBox="0 0 12 12">${d === 'dot' ? `<circle cx="6" cy="6" r="3.6" fill="var(--sig-${k})"/>` : d === 'ring' ? `<circle cx="6" cy="6" r="4" fill="none" stroke="var(--sig-${k})" stroke-width="1.6"/>` : `<path d="${d}" fill="var(--sig-${k})"/>`}</svg>${k}</span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('ports, pins and cables – the deck’s table; the shape tells the kind too')]),
+  comp('Outlet types', capt('get colours · to tune'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['page', 'the reader’s page'], ['stage', 'a deck’s screen or speaker'], ['target', 'an XR scene'], ['light', 'a device: DMX …']].map(([k, w]) => `<span class="cc"><i style="background:var(--out-${k})"></i>${k}<span class="cap" style="margin-left:.2rem">${w}</span></span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('decided 2026-11-24; these four are the start from the #703 draft – the list and the values are open')]),
   comp('Deck stage', capt('live · out · cables') + od(14), [STAGE14, NA, NA, NA, NA, NA, capt('not a UI state – proposal')]),
 ];
 const renderGrid = () => { document.getElementById('cg').innerHTML = `<div class="ch label">component</div>${COLS.map(c => `<div class="ch label">${c}</div>`).join('')}` + rows().join(''); };
