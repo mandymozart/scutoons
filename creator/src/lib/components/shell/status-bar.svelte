@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { Button, Pill } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { log } from '$lib/log/log.svelte.ts';
 
 	/**
-	 * The status bar along the window's bottom, as the deck editor's (deck/kit/src/editor/status.rs): one pill – left the
+	 * The status bar along the window's bottom, as the deck editor's (deck/kit/src/editor/status.rs): one kit Pill (`status`) – left the
 	 * Log's newest line (its level's dot, its words, its age), in the middle a short "saving…" while an autosave runs (Publish's dot says what is not live), right
 	 * the open item's error and warning counts (the Log's problems in the Item scope). A press on the line or the counts
 	 * opens the Log; the panels end above it.
@@ -30,70 +31,33 @@
 	});
 </script>
 
-<footer class="status-bar" data-testid="status-bar">
-	<button type="button" class="message" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-message">
+<Pill as="footer" status class="status-bar" data-testid="status-bar" data-control-exempt="the status pill's parts: deck-kit status.rs's height">
+	<Button variant="quiet" fill onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-message">
 		<span class="dot {newest?.level ?? 'none'}" aria-hidden="true"></span>
 		<span class="words">{newest?.text ?? m['shell.status_none']()}</span>
 		{#if newest}<span class="age">{newest.age}</span>{/if}
-	</button>
-	<span class="chips">
-		{#if saving}<span class="chip" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
-	</span>
+	</Button>
+	{#if saving}<span class="saving" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
 	{#if counts && (doc?.errors !== undefined || counts.errors || counts.warnings)}
-		<button type="button" class="counts" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-counts">
+		<Button variant="quiet" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-counts">
 			<span class:bad={counts.errors > 0}>{m['creator.problems_errors']({ count: counts.errors })}</span>
 			<span class:warn={counts.warnings > 0}>{m['creator.problems_warnings']({ count: counts.warnings })}</span>
-		</button>
+		</Button>
 	{/if}
-</footer>
+</Pill>
 
 <style>
-	.status-bar {
+	/* along the window's bottom, a margin in from its edges (status.rs); the panels end above it */
+	:global(.kit-pill.status-bar) {
 		position: fixed;
 		z-index: 45;
-		left: 1rem;
-		right: 1rem;
-		bottom: 0.5rem;
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		box-sizing: border-box;
-		height: var(--status-height);
-		padding: 0 0.25rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 1.2rem;
-		background: var(--tool-panel);
-		color: var(--tool-text);
-		text-shadow: var(--tool-halo);
-		font-family: var(--editor-sans);
-		font-size: var(--editor-small);
-	}
-	/* the halo on its icons too (the deck's ink ring covers text and icons) */
-	.status-bar :global(svg) {
-		filter: var(--tool-icon-halo);
-	}
-	button {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		min-height: calc(var(--status-height) - 0.4rem); /* control-ok: the status bar is one pill, its parts sit inside it (deck status.rs) */
-		padding: 0 0.6rem;
-		border: 0;
-		border-radius: 1rem;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		text-shadow: inherit;
-	}
-	button:hover:not(:disabled) {
-		background: var(--tool-hover);
-	}
-	.message {
-		flex: 1 1 auto;
-		min-width: 0;
-		justify-content: flex-start;
+		left: var(--kit-margin);
+		right: var(--kit-margin);
+		bottom: var(--kit-margin);
+		--kit-icon-gap: calc(var(--editor-pad) * 0.8);
 	}
 	.words {
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -111,7 +75,7 @@
 	}
 	.dot.none {
 		background: transparent;
-		box-shadow: inset 0 0 0 1px var(--tool-line);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.dot.ok {
 		background: var(--tool-go);
@@ -125,24 +89,16 @@
 	.dot.error {
 		background: var(--tool-stop);
 	}
-	.chips {
-		display: flex;
-		flex: none;
-		align-items: center;
-		gap: 0.3rem;
-	}
-	.chip {
+	/* a short state word in the middle: on the control ground, the pill's inside high and round */
+	.saving {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		min-height: calc(var(--status-height) - 0.4rem);
-		padding: 0 0.6rem;
-		border-radius: 1rem;
-		background: var(--tool-control);
-		color: var(--tool-muted);
-	}
-	.counts {
 		flex: none;
+		align-items: center;
+		gap: var(--kit-icon-gap);
+		height: var(--kit-h);
+		padding: 0 var(--editor-pad);
+		border-radius: var(--kit-r);
+		background: var(--tool-control);
 		color: var(--tool-muted);
 	}
 	.bad {

@@ -63,15 +63,17 @@
 		font: inherit;
 		cursor: pointer;
 	}
+	/* deck-kit controls.rs `switch`: a round track with its line, the knob 0.76 of its height; on, the track goes green and
+	   the knob right in the light ink */
 	.track {
 		position: relative;
 		flex: none;
 		box-sizing: border-box;
-		width: 1.875rem;
+		width: 2.25rem;
 		height: 1.125rem;
 		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 999px;
-		background: var(--tool-control);
+		background: var(--tool-within);
 		transition:
 			background-color 0.15s,
 			border-color 0.15s;
@@ -80,9 +82,9 @@
 		content: '';
 		position: absolute;
 		top: 50%;
-		left: 0.125rem;
-		width: 0.75rem;
-		height: 0.75rem;
+		left: 0.07rem;
+		width: 0.855rem;
+		height: 0.855rem;
 		border-radius: 50%;
 		background: var(--tool-muted);
 		transform: translateY(-50%);
@@ -91,19 +93,15 @@
 			background-color 0.15s;
 	}
 	.switch[aria-checked='true'] .track {
-		border-color: var(--tool-text);
-		background: var(--tool-text);
+		background: var(--tool-go);
 	}
 	.switch[aria-checked='true'] .track::before {
-		background: var(--tool-pressed-text);
-		transform: translate(0.75rem, -50%);
+		background: var(--tool-bright);
+		transform: translate(1.125rem, -50%);
 	}
 	@media (hover: hover) {
 		.switch:hover:not(:disabled) .track {
 			border-color: var(--tool-muted);
-		}
-		.switch[aria-checked='true']:hover:not(:disabled) .track {
-			border-color: var(--tool-text);
 		}
 	}
 	.switch:focus-visible {

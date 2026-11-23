@@ -101,6 +101,34 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	--paper: var(--tool-control);
 }
 
+/* The UI kit's geometry (@scutoons/ui/editor, RULES H12), on deck-kit's editor sizes – what its controls draw with
+   (deck/kit/src/editor/controls.rs, floats.rs, fold.rs, deck/editor/src/bar.rs). Sizes only: the same by day and night.
+   --kit-h / --kit-r are a control's height and corner where it sits: a Pill sets them to its inside, so what sits in a
+   pill is rounded by the pill's radius less the inset and their corners share a centre (deck-kit's pills_rounded). */
+:root {
+	/* a bar pill: the toolbar's height, fully round (bar.rs `pill`) */
+	--kit-bar: var(--editor-top);
+	/* what sits inside a pill is inset by this (bar.rs `inset`; not a deck token yet) */
+	--kit-inset: 0.29rem;
+	--kit-inner: calc(var(--kit-bar) - 2 * var(--kit-inset));
+	--kit-inner-radius: calc(var(--kit-bar) / 2 - var(--kit-inset));
+	/* the status bar's pill (status.rs `height`) and the margin round the bar and the status bar (bar.rs `margin`) */
+	--kit-status: calc(var(--editor-small) * 1.25 + 0.86rem);
+	--kit-margin: var(--editor-pad);
+	/* between the pills of one group (tabs, segments: 2px in the deck) and between the pills of a row (half a gap) */
+	--kit-seam: calc(2 * var(--editor-edge));
+	--kit-gap: calc(var(--editor-gap) / 2);
+	/* a menu, a card and a floating panel: twice a control's corner (controls.rs `actions`, floats.rs, home.rs) */
+	--kit-radius-box: calc(var(--editor-radius) * 2);
+	/* a tile (fold.rs `tile`) */
+	--kit-radius-tile: calc(var(--editor-radius) * 1.4);
+	/* an icon beside words, and an icon alone in a pill (bar.rs `inner_button`) */
+	--kit-icon: 1rem;
+	--kit-icon-alone: 1.15rem;
+	/* between an icon and its words (bar.rs tabs, home.rs lines) */
+	--kit-icon-gap: calc(var(--editor-pad) * 0.6);
+}
+
 /* The tools' desktop root: deck-kit's base (14px); everything is rem, so the whole tool follows. Phones / tablets keep
    the reader's root. 768px: keep in sync with base.css. */
 @media (min-width: 768px) {

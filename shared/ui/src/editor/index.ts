@@ -14,3 +14,19 @@ export { type ToolOption } from './tool-groups.ts';
 // the one number field of the tools (typed maths, units, reset) – the same component for the editor kit
 export { default as ScrubNumber } from '../scrub-number.svelte';
 export { measureDrop } from './measure-drop.ts';
+// the UI kit (RULES H12): deck-kit's editor controls as components – sizes, radii, insets from the tokens (tools.css
+// --kit-*); a Pill rounds what sits in it concentric with itself
+export { default as Button } from './button.svelte';
+export { default as IconButton } from './icon-button.svelte';
+export { default as Pill } from './pill.svelte';
+export { default as PillTab } from './pill-tab.svelte';
+export { default as PillTabs, type PillTabItem } from './pill-tabs.svelte';
+export { default as Menu } from './menu.svelte';
+export { default as MenuPanel } from './menu-panel.svelte';
+export { default as MenuItem } from './menu-item.svelte';
+export { default as MenuHead } from './menu-head.svelte';
+export { default as Field } from './field.svelte';
+export { default as ListRow } from './list-row.svelte';
+export { default as Tile } from './tile.svelte';
+export { default as Card } from './card.svelte';
+export { default as Chip } from './chip.svelte';

@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import StyleGuide from '$lib/components/page/style-guide.svelte';
 	import ScriptRules from '$lib/components/script/script-rules.svelte';
+	import UiKit from '$lib/components/page/ui-kit.svelte';
 	import { onMount, tick } from 'svelte';
 
 	// a link with an anchor (e.g. /guide#script-format from the script page): the page renders after sign-in, too late for
@@ -24,6 +25,11 @@
 			<ScriptRules />
 		</section>
 	</main>
+	<!-- the UI kit (RULES H12): every component by night and by day, to hold against the deck editor -->
+	<section id="ui-kit" class="ui-kit">
+		<h2>UI kit</h2>
+		<UiKit />
+	</section>
 </div>
 
 <style>
@@ -34,6 +40,11 @@
 	.guide h1 {
 		font-size: var(--type-title-size);
 		line-height: var(--type-title-line);
+	}
+	.ui-kit {
+		max-width: 72rem;
+		padding: 0 1rem 3rem;
+		scroll-margin-top: var(--shell-top);
 	}
 	.script-format {
 		margin-top: 2rem;

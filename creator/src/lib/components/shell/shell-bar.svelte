@@ -1,18 +1,16 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { IconButton, Menu, MenuItem, Pill } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import BarMenu from '$lib/components/shell/bar-menu.svelte';
 	import MainMenu from '$lib/components/shell/main-menu.svelte';
 	import TabStrip from '$lib/components/shell/tab-strip.svelte';
 	import WorkspaceTabs from '$lib/components/shell/workspace-tabs.svelte';
 
 	/**
-	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`): the open items' tabs
-	 * at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while something in its
-	 * scope is not live), the account and the menu, far right. Home, Search, Views, Settings, Docs and the build are the
-	 * menu's; History is a view.
+	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
+	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
+	 * something in its scope is not live), the account and the menu, far right. Every part is a kit Pill, half a gap apart.
 	 */
 	let { reader }: { reader: string | null } = $props();
 
@@ -23,37 +21,37 @@
 	const publishing = $derived(!!doc?.publish && doc.unpublished !== false);
 </script>
 
-<header class="shell-bar" data-testid="creator-bar">
+<header class="shell-bar" data-testid="creator-bar" data-control-exempt="the bar's pills: deck-kit bar.rs's inset height">
 	<TabStrip />
 	<span class="middle"><WorkspaceTabs /></span>
 	{#if doc?.undo}
-		<span class="pill pair">
-			<button type="button" class="round" onclick={() => doc?.undo?.()} aria-label={m['history.undo']()} title={m['history.undo_hint']()} data-testid="bar-undo"><Icon name="rotate-ccw" size="1rem" /></button>
-			<button type="button" class="round" onclick={() => doc?.redo?.()} aria-label={m['history.redo']()} title={m['history.redo_hint']()} data-testid="bar-redo"><Icon name="rotate-cw" size="1rem" /></button>
-		</span>
+		<Pill label={m['history.undo']()}>
+			<IconButton label={m['history.undo']()} title={m['history.undo_hint']()} icon="rotate-ccw" onclick={() => doc?.undo?.()} data-testid="bar-undo" />
+			<IconButton label={m['history.redo']()} title={m['history.redo_hint']()} icon="rotate-cw" onclick={() => doc?.redo?.()} data-testid="bar-redo" />
+		</Pill>
 	{/if}
-	<span class="pill pair end">
+	<Pill>
 		{#if publishing}
-			<BarMenu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_bar']()} testid="bar-publish" dot={!!doc?.unpublished}>
+			<Menu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_bar']()} testid="bar-publish" dot={!!doc?.unpublished} width="19rem">
 				{#snippet children()}
 					{#if doc?.publish}{@render doc.publish()}{/if}
 				{/snippet}
-			</BarMenu>
+			</Menu>
 		{/if}
-		<BarMenu label={m['shell.account_menu']({ who })} icon="user" testid="bar-account">
+		<Menu label={m['shell.account_menu']({ who })} icon="user" testid="bar-account" width="19rem">
 			{#snippet children(close)}
-				<span class="line">{who}</span>
-				<span class="line muted">{session.roles.join(' · ')}</span>
+				<MenuItem label={who} />
+				<MenuItem label={session.roles.join(' · ')} muted />
 				<hr />
-				<button type="button" class="line" onclick={() => (close(), void session.logout())} data-testid="sign-out"><Icon name="log-out" size="1rem" />{m['creator.sign_out']()}</button>
+				<MenuItem icon="log-out" label={m['creator.sign_out']()} onclick={() => (close(), void session.logout())} data-testid="sign-out" />
 			{/snippet}
-		</BarMenu>
+		</Menu>
 		<MainMenu {reader} />
-	</span>
+	</Pill>
 </header>
 
 <style>
-	/* the bar's row lies on the stage: only its pills take the pointer */
+	/* the bar's row lies on the stage a margin from the top (bar.rs `margin`): only its pills take the pointer */
 	.shell-bar {
 		position: fixed;
 		z-index: 50;
@@ -63,52 +61,16 @@
 		display: flex;
 		flex-wrap: nowrap;
 		align-items: center;
-		gap: 0.45rem;
+		gap: var(--kit-gap);
 		box-sizing: border-box;
 		height: var(--shell-top);
-		padding: 0 1rem;
+		padding: 0 var(--editor-gap);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 		pointer-events: none;
 	}
 	.shell-bar > :global(*) {
 		pointer-events: auto;
-	}
-	.pill {
-		display: inline-flex;
-		flex: none;
-		align-items: center;
-		justify-content: center;
-		box-sizing: border-box;
-		min-height: var(--control-height);
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 1.2rem;
-		background: var(--tool-panel);
-		text-shadow: var(--tool-halo);
-		color: var(--tool-text);
-	}
-	/* the halo on its icons too (the deck's ink ring covers text and icons) */
-	.pill :global(svg) {
-		filter: var(--tool-icon-halo);
-	}
-	.pair {
-		gap: 0.15rem;
-		padding: 0 0.2rem;
-	}
-	.round {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: calc(var(--control-height) - 0.4rem);
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		border: 0;
-		border-radius: 50%;
-		background: transparent;
-		color: var(--tool-text);
-	}
-	.round:hover {
-		background: var(--tool-hover);
 	}
 	.middle {
 		display: flex;
@@ -119,9 +81,5 @@
 	}
 	.middle > :global(*) {
 		pointer-events: auto;
-	}
-	.muted {
-		color: var(--tool-muted);
-		font-size: var(--editor-small);
 	}
 </style>
