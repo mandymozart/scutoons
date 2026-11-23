@@ -44,6 +44,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **A craft shapes the bar:** the translator's bar carries the edit language.
 - **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace, listed in the ☰ Views. The bar's middle holds the workspace row and nothing else. (H16)
 - **Sending out has one pattern** (H18): Publish and Flash are one icon each in the bar, with a dot when something is not out yet, and the same dialog – what goes out, ticked; All · None; one primary button with the count; a report after.
+- **No refresh buttons** (H19): the deck's Load goes. When a newer version of the open show exists, the deck says so and offers Reload, as the creator does.
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.
 - **Settled for the run (2026-11-24):** the switcher's content is at most 1160 px wide; its foot goes; the workspace tab has no menu of its own in this lap; the deck's switcher has no Needs review box; Help and Go to are in the ☰ menu; the Show's Flash, Scene and New show are dialogs on the overlay level – one-off tasks that end in a confirm or a save.
 
