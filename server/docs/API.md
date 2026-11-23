@@ -364,6 +364,18 @@ other key, each an object) and ≤ 32 KB; the creator's readers check the inside
 | PUT | `/me/layouts/{workspace}` | `{ layout, name?, kind? }` → `{ layout }`; a new own workspace needs `name` + `kind`; at most 60 rows (`409 too_many_layouts`); `400 bad_layout`, `413 layout_too_large`; not with an AI connection; `503 not_available` before the migration |
 | DELETE | `/me/layouts/{workspace}` | `{ deleted }` – back to the default (an own workspace is gone); not with an AI connection |
 
+## Resume across devices (2026-11-24, #838 – migration `2026-11-24-member-sessions`)
+
+The creator's resume state per member and device (open items, their workspaces, panels, views, scroll), so another device
+can offer to continue. `Domain\Layouts\DeviceSessions`, table `member_sessions (user_id, device_id, device_name, state,
+updated_at)`; the device id is random and kept in the browser. The server checks only that `state` is an object and
+≤ 256 KB; at most 12 devices per member (the oldest goes). Own rows only.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/me/session?device=<id>` | `{ available, mine: { device, name, state, updated_at } \| null, other: … \| null }` – `other` is the newest other device; before the migration `available: false`; `400 bad_device` |
+| PUT | `/me/session` | `{ device, name, state }` → `{ session }`; `400 bad_device` / `bad_state`, `413 state_too_large`; not with an AI connection; `503 not_available` before the migration |
+
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 
 The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
