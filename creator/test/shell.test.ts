@@ -1,8 +1,8 @@
 // The shell's pure parts (lib/shell): addresses ↔ routes, the tabs, this machine's settings.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, addressOf, hrefOf, iconOf, isGone, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
-import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
+import { AREAS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
+import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, pageLabel, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
 import { NO_USE, ROW, entered, fits, readUse, startKinds, workspaceClick, workspaceFor, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src/lib/shell/presets.ts';
@@ -104,6 +104,22 @@ test('a pick inside the page retargets the front tab, unless the item has its ow
 	assert.equal(s.front, 'character:catpope');
 	assert.equal(s.tabs.length, 3);
 	assert.equal(rename(s, 'character:catpope', 'Catpope').tabs[0].label, 'Catpope');
+});
+
+test('an area\'s list tab that opens one of its items becomes that item, named by the page', () => {
+	assert.equal(pickedInArea(AREAS.scenes, 'scene:avatar-home'), true);
+	assert.equal(pickedInArea(AREAS.experiences, 'experience:poster'), true);
+	assert.equal(pickedInArea(AREAS.scenes, 'experience:poster'), false);
+	assert.equal(pickedInArea('scene:a', 'scene:b'), false);
+	assert.equal(pickedInArea(AREAS.scenes, AREAS.scenes), false);
+	assert.equal(pickedInArea(null, 'scene:a'), false);
+	let s = visit(EMPTY, AREAS.scenes, '/scenes');
+	s = retarget(s, 'scene:avatar-home', '/scenes/avatar-home');
+	assert.deepEqual(s.tabs.map((t) => t.address), ['scene:avatar-home']);
+	const crumbs = [{ href: '/scenes', label: 'Scenes' }, { href: '/scenes/avatar-home', label: 'Avatar home' }];
+	assert.equal(pageLabel(crumbs, hrefOf('scene:avatar-home')), 'Avatar home');
+	assert.equal(pageLabel(crumbs, '/scenes/other'), '');
+	assert.equal(pageLabel(crumbs, null), '');
 });
 
 test('closing hands the front over to the right, then the left, then Home', () => {
@@ -292,6 +308,8 @@ test('a removed workspace leaves stored state quietly: tabs, uses, picks naming 
 	assert.ok(ROW.includes('generate'));
 	assert.equal(workspaceRow(NO_USE, []).find((r) => r.kind === 'generate')?.href, '/generate', 'Generate starts on an empty canvas');
 	assert.equal(workspaceOf('generator:new'), 'generate');
+	assert.equal(workspaceRow(NO_USE, []).find((r) => r.kind === 'experience')?.href, '/experiences', 'XR is in the row and starts on its list');
+	assert.ok(fits('experience:poster', 'experience'));
 });
 
 test('the spore canvas stub: spores woven in with unique ids, gen-AI ones counted as hooks', () => {

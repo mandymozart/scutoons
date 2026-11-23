@@ -63,6 +63,13 @@ export const AREAS = {
 	notifications: 'notifications:push'
 } as const;
 
+/** an area's list tab (`scenes:all`) opened one of its items (`scene:x`): the tab becomes that item, no second tab beside it */
+export function pickedInArea(front: string | null, address: string | null): boolean {
+	if (!front || !address || front === address || !(Object.values(AREAS) as string[]).includes(front)) return false;
+	const ws = workspaceOf(front);
+	return ws !== null && ws === workspaceOf(address);
+}
+
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
 const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
 

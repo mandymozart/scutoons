@@ -25,7 +25,8 @@
 	import { recent } from '$lib/recent.svelte.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
+	import { addressOf, hrefOf, pickedInArea, workspaceOf } from '$lib/shell/address.ts';
+	import { pageLabel } from '$lib/shell/tabs.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
 	import { isSearchKey, isSwitcherKey } from '$lib/shell/launcher.ts';
 	import { ITEM_VIEW } from '$lib/shell/stage.ts';
@@ -144,7 +145,7 @@
 		const { pathname, search } = location;
 		const address = addressOf(pathname, search);
 		const href = pathname + search;
-		if (!navigated && pathname === lastPath) shell.retarget(address, href);
+		if ((!navigated && pathname === lastPath) || pickedInArea(shell.state.front, address)) shell.retarget(address, href);
 		else shell.visit(address, href);
 		lastPath = pathname;
 	}
@@ -228,7 +229,7 @@
 		if (!front || addressOf(location.pathname, location.search) !== front) return;
 		const item = hrefOf(front);
 		// an item picked inside an area's page (a character, a catalog entry) has no step of its own: its id names it
-		const label = item?.includes('?') ? front.slice(front.indexOf(':') + 1) : tabLabel(tabPath(nav.base), item);
+		const label = item?.includes('?') ? front.slice(front.indexOf(':') + 1) : pageLabel(nav.extra, item) || tabLabel(tabPath(nav.base), item);
 		if (label) shell.rename(front, label);
 	});
 	const workspace = $derived(shell.state.front ? (workspaceOf(shell.state.front) ?? 'home') : 'home');
