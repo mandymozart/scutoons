@@ -224,9 +224,7 @@
 			title="{character.id} · {persona} · {look.id} · {moodLabel(dialog.mood, locale, moods)} ({dialog.view})"
 			path={c.path}
 			convention={c.convention}
-			request={requestFor(dialog.mood, dialog.view)}
 			onset={(path) => dialog && onset(dialog.mood, dialog.view, path)}
-			onrequest={(note) => dialog && onrequest(dialog.mood, dialog.view, note)}
 			onlibrary={() => dialog && pickInLibrary(dialog.mood, dialog.view)}
 		/>
 	{/key}
