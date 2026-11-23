@@ -202,12 +202,12 @@ pub trait AssetLoader: Send + Sync {
     fn log(&self, _line: &str) {}
 }
 
-/// A module node's loaded slot assets: what the module is handed, and its `model` slots' files for the space (by the
-/// shape each slot is named after – `deck_module::instances::shape::NAMES`).
+/// A module node's loaded slot assets: what the module is handed, and its `model` slots' files for the space (each
+/// with its slot and the shape the slot is named after – `deck_module::instances::shape::NAMES`).
 #[derive(Default)]
 pub(crate) struct NodeAssets {
     pub(crate) bound: Vec<AssetData>,
-    pub(crate) models: Vec<(u32, Arc<[u8]>)>,
+    pub(crate) models: Vec<deck_space::instances::Model>,
 }
 
 /// The assets a module node names (deck-space `node_assets`, checked by the graph), loaded; one that cannot be had is
@@ -217,16 +217,10 @@ fn node_assets(node: &Node, kind: ModuleKind, loader: Option<&Arc<dyn AssetLoade
     let Ok(named) = deck_space::node_assets::of(&node.params, kind.spec().assets) else { return out };
     for a in named {
         let Some(loader) = loader else { continue };
-        let shape = deck_module::instances::shape::NAMES.iter().position(|s| *s == a.name);
-        if a.kind == deck_catalog::AssetKind::Model && shape.is_none() {
-            loader.log(&format!("node '{}': model slot '{}' names no shape ({}) – nothing draws it", node.id, a.name, deck_module::instances::shape::NAMES.join(", ")));
-            continue;
-        }
+        let shape = deck_module::instances::shape::NAMES.iter().position(|s| *s == a.name).map(|s| s as u32);
         match loader.load(a.slot, &a.media, a.kind) {
-            Ok(data) => match shape.filter(|_| a.kind == deck_catalog::AssetKind::Model) {
-                Some(s) => out.models.push((s as u32, data.bytes)),
-                None => out.bound.push(data),
-            },
+            Ok(data) if a.kind == deck_catalog::AssetKind::Model => out.models.push(deck_space::instances::Model { slot: a.slot as u32, shape, bytes: data.bytes }),
+            Ok(data) => out.bound.push(data),
             Err(e) => loader.log(&format!("node '{}': asset '{}' ({}): {e} – it plays without it", node.id, a.name, a.media.src)),
         }
     }
@@ -271,7 +265,7 @@ pub(crate) struct Prepared {
     /// (graph output, value) a bound path output holds until the module writes it (deck-space's `Graph::holds`)
     holds: Vec<(usize, f32)>,
     /// its `model` slots' files: the space draws its table's shapes with them
-    models: Vec<(u32, Arc<[u8]>)>,
+    models: Vec<deck_space::instances::Model>,
     #[cfg(feature = "events")]
     pub(crate) ports: Option<super::evhost::Ports>,
 }

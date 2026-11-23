@@ -9,7 +9,10 @@
 //!
 //! The simulation runs in fixed ticks of 64 frames whatever the calls' cut, so the grove and its notes are the same on
 //! every deck. Every call rewrites the instance table: a stalk is six `segment`s with a node ring at each joint and a
-//! leafy crown (12 instances; 80 stalks fill 960).
+//! leafy crown (12 instances; 80 stalks fill 960). Its look may come from the library: the slots `thin` and `thick` each
+//! hold a set of internode models (one stem section, its node ring at the top); every segment of a stalk draws the same
+//! model of its kind's set, stretched to the segment, and the rings step aside – while a set is empty, the segments and
+//! rings as they are. The sway and the hits stay on these segments either way: a model is only the look.
 //!
 //! Build: `cargo build --release --target wasm32-unknown-unknown -p bamboo-module`.
 #![allow(clippy::duplicated_attributes)]
@@ -63,6 +66,8 @@ const TALLEST: f32 = 10.0;
 #[port(output, control, name = "hit_rate", doc = "hits a second (a one-second average)")]
 #[port(output, control, name = "breeze", doc = "the wind in the grove's middle now, 0 … 1 (more in a gust)")]
 #[port(output, control, name = "sway", doc = "how far the stalks bend, their tips' mean share of their height")]
+#[asset(name = "thin", kind = "model", max_bytes = 4194304, doc = "the thin bamboo's internodes: a set of models of one stem section, its node ring at the top (.glb, each at most 4 MiB, stretched to a segment); each stalk one of them; none: the drawn stalks")]
+#[asset(name = "thick", kind = "model", max_bytes = 4194304, doc = "the thick bamboo's internodes: a set of models of one stem section, its node ring at the top (.glb, each at most 4 MiB, stretched to a segment); each stalk one of them; none: the drawn stalks")]
 #[preset(name = "storm", doc = "a dense grove in a gusty gale", values(thin = 3.0, thick = 2.0, wind = 0.9, gust = 0.8))]
 pub struct Bamboo {
     #[param(range = 0.0..4.0, default = 1.0, doc = "the thin, tall bamboo: how many (10 stalks × this, at most 40)")]
@@ -345,8 +350,11 @@ impl Bamboo {
         let colours = [self.thin_hue, self.thick_hue].map(|hue| {
             [hsv(hue, 0.55, 0.78), hsv(hue - 0.03, 0.5, 0.5), hsv(hue + 0.08, 0.65, 0.5)].map(|c| c.map(|v| math::pow(v, 2.2)))
         });
-        for s in self.grove.stalks.iter().filter(|s| s.live) {
+        for (n, s) in self.grove.stalks.iter().enumerate().filter(|(_, s)| s.live) {
             let [cane, ring, leaves] = colours[usize::from(s.thick)];
+            // its kind's internode models: one for the whole stalk (its group)
+            let slot = if s.thick { Self::THICK_SLOT } else { Self::THIN_SLOT };
+            let group = n as u32 + 1;
             let lean = length(s.bend) / s.height;
             let at = |f: f32| {
                 let r = f * f;
@@ -363,11 +371,11 @@ impl Bamboo {
                 let q = [q[0] / ql, 0.0, q[2] / ql, q[3] / ql];
                 let w = s.width * (1.0 - 0.25 * k as f32 / SEGMENTS as f32);
                 let shade = if k % 2 == 0 { 1.0 } else { 0.9 };
-                table.push(Instance::new(shape::SEGMENT, p0).turned(q).scaled([w, long, w]).coloured([cane[0] * shade, cane[1] * shade, cane[2] * shade, 1.0]));
+                table.push(Instance::new(shape::SEGMENT, p0).turned(q).scaled([w, long, w]).coloured([cane[0] * shade, cane[1] * shade, cane[2] * shade, 1.0]).looks(slot, group));
                 let band = (w * 0.5).max(0.03);
                 if k + 1 < SEGMENTS {
                     let foot = [p1[0] - u[0] * band * 0.5, p1[1] - u[1] * band * 0.5, p1[2] - u[2] * band * 0.5];
-                    table.push(Instance::new(shape::SEGMENT, foot).turned(q).scaled([w * 1.18, band, w * 1.18]).coloured([ring[0], ring[1], ring[2], 1.0]));
+                    table.push(Instance::new(shape::SEGMENT, foot).turned(q).scaled([w * 1.18, band, w * 1.18]).coloured([ring[0], ring[1], ring[2], 1.0]).standing_in(slot));
                 } else {
                     let crown = 0.25 + 0.06 * s.height;
                     let yaw = TAU * s.phase;

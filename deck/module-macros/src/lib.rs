@@ -15,7 +15,7 @@
 //! sidechain, doc, names / props = "a|b", capacity, path, mode, choices)]`; on `f32` fields `#[param(range = a..b,
 //! default, curve = log, unit (a unit of deck-core's catalogue, by id or word: "Hz", "st", "dB" – the compile checks it), choices = "saw|pulse" (the value is the index), doc, section = "SRC/OSC 1", slot = 0..7
 //! (its knob on the page, two rows of four; without, the next free one))]`; `#[asset(name, kind, max_bytes,
-//! doc)]`; `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
+//! doc)]` (`Self::NAME`; `Self::NAME_SLOT` when a param or port has the name); `#[preset(name, doc, values(p = x, …))]` (the one factory preset).
 //!
 //! Everything it needs is a literal in the source, so the descriptor is a constant: a host reads it without running
 //! the module. A mistake is a compile error at the attribute.
@@ -882,7 +882,9 @@ fn module(ty: &syn::Ident, spec: &Spec) -> Result<proc_macro2::TokenStream, Erro
         consts.push(quote! { pub const #c: ::deck_module::Var = ::deck_module::Var(#i); });
     }
     for (i, a) in spec.assets.iter().enumerate() {
-        let c = format_ident!("{}", upper(&a.name));
+        // a slot named like a parameter or a port (bamboo's `thin` slot beside its `thin` param) is `Self::THIN_SLOT`
+        let taken = spec.params.iter().map(|p| &p.name).chain(spec.ports.iter().map(|p| &p.name)).any(|n| *n == a.name);
+        let c = format_ident!("{}{}", upper(&a.name), if taken { "_SLOT" } else { "" });
         let i = i as u8;
         consts.push(quote! { pub const #c: ::deck_module::AssetSlot = ::deck_module::AssetSlot(#i); });
     }

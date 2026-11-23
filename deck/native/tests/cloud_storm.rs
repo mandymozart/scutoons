@@ -152,10 +152,10 @@ fn the_cloud_draws_its_puffs_with_the_library_model() {
     seams.assets = Some(stand_ins::loader("cloud-puff"));
     let (_e, h) = Engine::build_seams(&g, RATE as f32, 1.0, Build::detect(), Sequencing::InBlock, &seams).unwrap();
     let table = h.instances.iter().find(|t| t.node == "storm_cloud").expect("the cloud draws");
-    let shapes: Vec<u32> = table.models.iter().map(|(s, _)| *s).collect();
-    assert_eq!(shapes, [0, 0], "the puff (shape 0) only, two models");
-    assert_eq!(&*table.models[0].1, include_bytes!("../../space/tests/fixtures/cloud-three-blobs.glb").as_slice());
-    assert_eq!(&*table.models[1].1, include_bytes!("../../space/tests/fixtures/cloud-four-blobs.glb").as_slice());
+    let shapes: Vec<Option<u32>> = table.models.iter().map(|m| m.shape).collect();
+    assert_eq!(shapes, [Some(0), Some(0)], "the puff (shape 0) only, two models");
+    assert_eq!(&*table.models[0].bytes, include_bytes!("../../space/tests/fixtures/cloud-three-blobs.glb").as_slice());
+    assert_eq!(&*table.models[1].bytes, include_bytes!("../../space/tests/fixtures/cloud-four-blobs.glb").as_slice());
 }
 
 /// Held, every repeat is a thunder and a kick on the 1/8 grid (the rig's rate 0.6); let go, nothing more

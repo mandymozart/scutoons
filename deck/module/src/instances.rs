@@ -4,7 +4,8 @@
 //! frame, one block late. Both records are `repr(C)` and frozen with the region: a field added is a new region.
 
 /// What an instance draws: one of the core's placeholder shapes – or, when the module has a `model` slot of the shape's word
-/// (`puff`) and its node names a .glb there, that model fitted to the placeholder's size.
+/// (`puff`), or the instance names a slot in its `look`, and its node names .glb files there, one model of that set fitted
+/// to the placeholder's size.
 pub mod shape {
     /// a low-poly lumpy ball, about 1 m across (a cloud's puff)
     pub const PUFF: u32 = 0;
@@ -24,12 +25,42 @@ pub struct Instance {
     pub shape: u32,
     pub rotation: [f32; 4],
     pub scale: [f32; 3],
-    pub _pad: u32,
+    /// which models may draw it instead of its placeholder (`look`; 0: its shape's slot, picked by its place)
+    pub look: u32,
     pub colour: [f32; 4],
 }
 
+/// An instance's `look`: the `model` slot whose set draws it (its index + 1 in bits 0–7; 0: the slot named after its
+/// shape), the group whose instances all draw the same model of the set (bits 8–30; 0: each picks by its place among
+/// its shape's instances) and `STANDS_IN` (bit 31): a part the model brings itself, drawn only while the set is empty
+/// (a bamboo stalk's node ring).
+pub mod look {
+    /// drawn only while its slot's set is empty
+    pub const STANDS_IN: u32 = 1 << 31;
+    /// the most groups
+    pub const GROUPS: u32 = (1 << 23) - 1;
+
+    /// slot `slot`'s set, all of `group` (1 … GROUPS) one model
+    pub const fn of(slot: u8, group: u32) -> u32 {
+        (slot as u32 + 1) | ((group & GROUPS) << 8)
+    }
+
+    /// the slot a look names, if any
+    pub const fn slot(look: u32) -> Option<u8> {
+        match look & 0xff {
+            0 => None,
+            s => Some((s - 1) as u8),
+        }
+    }
+
+    /// the group a look names (0: none)
+    pub const fn group(look: u32) -> u32 {
+        (look >> 8) & GROUPS
+    }
+}
+
 impl Instance {
-    pub const ZERO: Instance = Instance { position: [0.0; 3], shape: 0, rotation: [0.0, 0.0, 0.0, 1.0], scale: [1.0; 3], _pad: 0, colour: [1.0; 4] };
+    pub const ZERO: Instance = Instance { position: [0.0; 3], shape: 0, rotation: [0.0, 0.0, 0.0, 1.0], scale: [1.0; 3], look: 0, colour: [1.0; 4] };
 
     /// `shape` at `position`, unturned, 1 m, white
     pub const fn new(shape: u32, position: [f32; 3]) -> Instance {
@@ -48,6 +79,18 @@ impl Instance {
 
     pub const fn coloured(mut self, colour: [f32; 4]) -> Instance {
         self.colour = colour;
+        self
+    }
+
+    /// drawn by a model of `slot`'s set (a `model` slot), every instance of `group` (1 … `look::GROUPS`) the same one
+    pub const fn looks(mut self, slot: crate::AssetSlot, group: u32) -> Instance {
+        self.look = look::of(slot.0, group);
+        self
+    }
+
+    /// a part `slot`'s models bring themselves: drawn only while its set is empty
+    pub const fn standing_in(mut self, slot: crate::AssetSlot) -> Instance {
+        self.look = look::of(slot.0, 0) | look::STANDS_IN;
         self
     }
 }

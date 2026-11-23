@@ -11,8 +11,17 @@ pub struct Table {
     pub node: String,
     capacity: usize,
     rows: Mutex<Vec<Instance>>,
-    /// the models its node's `model` slots name, loaded (a .glb's bytes), by the shape each draws (`shape::NAMES`)
-    pub models: Vec<(u32, Arc<[u8]>)>,
+    /// the models its node's `model` slots name, loaded, each slot's set in its order
+    pub models: Vec<Model>,
+}
+
+/// One model of a `model` slot's set: the slot's index in the module's descriptor, the shape the slot is named after
+/// (`shape::NAMES`; none: only instances whose `look` names the slot draw it), a .glb's bytes.
+#[derive(Debug, Clone)]
+pub struct Model {
+    pub slot: u32,
+    pub shape: Option<u32>,
+    pub bytes: Arc<[u8]>,
 }
 
 impl std::fmt::Debug for Table {
@@ -27,8 +36,8 @@ impl Table {
         Table::with_models(node, capacity, Vec::new())
     }
 
-    /// … whose instances of a shape draw with that shape's model instead of the placeholder (`models`: shape, .glb bytes)
-    pub fn with_models(node: &str, capacity: usize, models: Vec<(u32, Arc<[u8]>)>) -> Arc<Table> {
+    /// … whose instances draw with its slots' models instead of the placeholder
+    pub fn with_models(node: &str, capacity: usize, models: Vec<Model>) -> Arc<Table> {
         Arc::new(Table { node: node.to_string(), capacity, rows: Mutex::new(Vec::with_capacity(capacity)), models })
     }
 
