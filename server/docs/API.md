@@ -54,6 +54,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
 | GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
 | GET | `/entities?toon=`, `/entities/<key>[?draft=1\|?version=<id>][&wrap=1]`, `/entities/<key>/versions` | creator | the content store by entity key – see "Entities" |
+| GET | `/entities/<key>?only=version`, `/scenes/<id>?only=version`, `/shows/<id>?only=version` | as reading the item; a deck token | the newest version's id, `ETag` / `If-None-Match` → 304 – see "Is there a newer version" |
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
 | GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
@@ -632,6 +633,35 @@ library (below); everything here needs a content editor: role `creator` – or, 
 `meta = { id, key, kind, toon, locale, status, created_at, author, author_email, message, size }`. Errors:
 `400 invalid_key|invalid_toon|invalid_json|missing_content`, `413 content_too_large`, `422 invalid_content`,
 `401 unauthorized`, `403 forbidden` (`role: "creator"`).
+
+### Is there a newer version (2026-11-24, #858 – RULES H19; no migration)
+
+One question for every app that holds an item open (the creator's editors, the deck's show): "is the version I hold
+still the newest?" – asked when the window gets the focus and every 30 s while it is visible, the answer is the Reload
+notice. `Http\NewestVersion`; tests `NewestVersionApiTest`.
+
+| Method | Path | Who (the item route's own read rights, never wider) |
+|---|---|---|
+| GET | `/entities/<key>?only=version` | a content editor (creator, admin); `show:` → 403 (go to `/shows`), `scene:` → 400 `wrong_route` |
+| GET | `/scenes/<id>?only=version` | a content editor (the newest of a scene is a draft) |
+| GET | `/shows/<id>?only=version` | role `live` |
+
+- **Request:** the member's session (cookie or Bearer) or a deck's token `Authorization: Bearer scd_…` (a deck reads with
+  its paired member's roles, "Decks"), plus `If-None-Match: "<id>"` – the version id the client holds, in double quotes
+  (a list and `W/"<id>"` are taken too). Other query parameters are ignored.
+- **`200`** `{ "status": "success", "key": "<entity key>", "version": <id> }` – `version` is the id of the key's newest
+  version, draft or published (the same id as `version.id` of `?draft=1&wrap=1`, `/shows/<id>?draft=1`, and of a save's
+  answer). Headers `ETag: "<id>"`, `Cache-Control: private, no-cache`, `Access-Control-Expose-Headers: ETag`.
+- **`304 Not Modified`**, no body, the same `ETag`: the held id is the newest.
+- **A newer version** = a `200` whose `version` differs from the held id: a save, restore or revert anywhere (another
+  window, another member, the MCP). A publish changes no id (it marks a version live), so it brings no notice. After its
+  own save a client holds the id the save answered, so its own save never answers 200.
+- **Errors** as reading the item: `401 unauthorized` · `403 forbidden` (missing role; `not_for_deck` never – it is a GET) ·
+  `404 not_found` nothing stored under the key · `400 invalid_key`.
+- **The client** (`@scutoons/api` `newestVersion(client, key, held)` → `{ state: "same" }` | `{ state: "newer", version }`;
+  `itemPath(key)` picks the route by the key's kind): a
+  newer version is never loaded by itself – the app says "A newer version is there" with Reload; unsaved local changes
+  are not dropped without a confirm. The refused save (`409 conflict`) stays the backstop.
 
 **Seeding / interchange** – a local database gets production's content from the production seed (docs/DATABASE.md);
 `php bin/console import-content <folder> [--toon=] [--only=<kinds>] [--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the

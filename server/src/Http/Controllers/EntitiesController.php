@@ -23,6 +23,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
+use Scutoons\Http\NewestVersion;
 use stdClass;
 
 /**
@@ -37,6 +38,7 @@ use stdClass;
  *   POST /api/entities/publish { versions: [{ key, version? }], partial? }   several documents live at once (one transaction);
  *                                                `partial: true`: in dependency order, each unit on its own – refusals named
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
+ *   GET  /api/entities/<key>?only=version         the newest version's id, ETag / 304 (NewestVersion)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
  *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
  *                                                or can get the reader stuck: FlowCheck; 422 item_limit { problems }
@@ -85,6 +87,7 @@ final class EntitiesController
     {
         $key = (string) EntityKey::parse($args['key']);
         $this->creator($request, $args['key']);
+        if (NewestVersion::asked($request)) return NewestVersion::answer($request, $response, $this->store, $key);
         $query = $request->getQueryParams();
         $row = $this->store->read($key, ($query['draft'] ?? '') === '1', isset($query['version']) ? (int) $query['version'] : 0);
         if (($query['wrap'] ?? '') === '1') return Json::response($response, 200, $this->store->wrapped($row));

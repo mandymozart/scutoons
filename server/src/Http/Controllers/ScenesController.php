@@ -14,6 +14,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
+use Scutoons\Http\NewestVersion;
 use stdClass;
 
 /**
@@ -26,6 +27,7 @@ use stdClass;
  *   GET  /api/scenes/<id>?v=<n>              the document at version <n> { status, scene } – public only the published one
  *   GET  /api/scenes/<id>?draft=1[&at=<id>]  the newest – or the stored version <id> – wrapped { status, version, published,
  *                                            content } (content editors)
+ *   GET  /api/scenes/<id>?only=version       the newest version's id, ETag / 304 (content editors: the newest is a draft)
  *   GET  /api/scenes/<id>/versions?limit=    the history (content editors)
  *   PUT  /api/scenes/<id> { content, base?, message? }   a new draft (422 invalid_content: not the scene's shape); the
  *                                            server stamps `version`
@@ -57,6 +59,10 @@ final class ScenesController
     {
         $key = $this->key($args['id']);
         $query = $request->getQueryParams();
+        if (NewestVersion::asked($request)) {
+            $this->requireEditor($request);
+            return NewestVersion::answer($request, $response, $this->store, (string) $key);
+        }
         if (($query['draft'] ?? '') === '1') {
             $this->requireEditor($request);
             return Json::response($response, 200, $this->store->wrapped($this->store->read((string) $key, true, (int) ($query['at'] ?? 0))));
