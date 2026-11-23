@@ -135,9 +135,40 @@ impl Stage {
             out.insert("turned".into(), Value::Object(turned));
         }
         out.insert("picked".into(), json!(self.space.pick_holder().unwrap_or_default()));
+        // #819: the sing button held (true) or let go, then the stage's time running on (`wait`, ms): the triggers go to
+        // the engine
+        if let Some(on) = step.get("sing").and_then(|v| v.as_bool()) {
+            out.insert("sang".into(), json!(self.space.sing(on)));
+            self.frames(1);
+        }
+        if let Some(ms) = step.get("wait").and_then(|v| v.as_integer().or_else(|| v.as_float().map(|f| f as i64))) {
+            self.frames((ms.max(0) as f32 / 1000.0 / DT).ceil() as usize);
+        }
+        out.insert("triggers".into(), self.send_triggers(deck)?);
+        out.insert("picked".into(), json!(self.space.pick_holder().unwrap_or_default()));
         out.insert("selection".into(), json!(self.space.selection_name()));
         out.insert("knobs".into(), json!(self.space.hand_paths()));
         out.insert("mark".into(), json!(self.space.mark().is_some()));
+        Ok(Value::Object(out))
+    }
+
+    /// #819: a story event to the stage (Space `sing_line`: a text line opens its character's trigger), the triggers sent
+    /// → whether one opened, the triggers
+    pub fn story(&mut self, event: &Value, deck: &mut Deck) -> Result<Value, String> {
+        let opened = self.space.sing_line(event);
+        self.frames(1);
+        Ok(json!({ "opened": opened, "triggers": self.send_triggers(deck)? }))
+    }
+
+    /// each trigger's value as the stage set it, to the engine → path → value
+    fn send_triggers(&mut self, deck: &mut Deck) -> Result<Value, String> {
+        let mut out = Map::new();
+        for node in self.space.sing_nodes().collect::<Vec<_>>() {
+            let v = self.hands.table.input(node, "a", 0.0);
+            let path = path_name(&self.graph, Path::Input(node, 0));
+            deck.send(&path, v, Mode::Force, 1.0)?;
+            out.insert(path, json!(round(f64::from(v), 2)));
+        }
         Ok(Value::Object(out))
     }
 

@@ -40,6 +40,7 @@ pub mod portrait;
 pub mod post;
 #[cfg(feature = "gpu")]
 pub mod post_gpu;
+pub mod sing;
 pub mod spots;
 pub mod stream;
 pub mod sync;
@@ -354,6 +355,8 @@ pub struct Space {
     pub focus: f32,
     /// the subjects whose rigs read the focus's outlets (`camera:focus`, `camera:distance`)
     focus_outlets: Vec<focus::Outlet>,
+    /// the subjects whose rigs read `trigger:sing` (sing.rs): what opens them
+    triggers: Vec<sing::Trigger>,
     /// a phone holds this deck's camera: the picture follows it (live_cameras.rs `Follow`), the deck's own view put
     /// aside, not changed – it returns when the phone lets go
     pub held: Option<crate::live_cameras::Follow>,
@@ -528,6 +531,7 @@ impl Space {
             row_from: None,
             focus: 0.0,
             focus_outlets: focus::outlets(graph),
+            triggers: sing::triggers(graph),
             held: None,
             held_by: None,
             held_moved: false,
@@ -890,6 +894,8 @@ impl Space {
     /// #517: whether the deck's playing scene listens to story events (scene_play.rs `Playing::listens`): the link asks the
     /// session for them while it does (nothing without a link, or on the conductor)
     pub fn ask_story(&mut self, on: bool) {
+        // a stage whose subjects sing on a text line hears the story too (sing.rs)
+        let on = on || self.sings();
         if let Some(l) = self.link.as_ref().filter(|_| self.join == Join::Deck && self.story != on) {
             l.story(on);
             self.story = on;
@@ -964,6 +970,7 @@ impl Space {
             None => Some(self.being.focus().0),
         };
         focus::push(&self.focus_outlets, self.camera.eye(), self.focus, &at, ctl);
+        sing::push(&mut self.triggers, time, ctl);
         // #209: the knobs face the camera; #224: and fold into its view close up
         self.being.eye = Some(self.camera.eye());
         self.being.frame = Some(self.camera.frame(self.view.0 / self.view.1));
@@ -1418,6 +1425,7 @@ impl Space {
     pub fn replace_being(&mut self, graph: &Graph, look: &Look) {
         self.cast = Cast::of(graph, &mut self.portraits);
         self.focus_outlets = focus::outlets(graph);
+        self.triggers = sing::triggers(graph);
         self.picked = None;
         let mut being = if self.cast.is_empty() { Being::new(graph, look) } else { Space::scene_part(graph, look) };
         being.head.sprites = self.portraits.request(&look.character, &being.moods);
@@ -1475,6 +1483,10 @@ impl Space {
                 In::Held(h) => self.held(h),
                 In::Address { address, action, beat } if self.camera_word_on(&address, &action, beat) => {}
                 cast @ (In::Address { .. } | In::Story(_)) => {
+                    // a text line opens its character's trigger here, whether the scene listens or not
+                    if let In::Story(s) = &cast {
+                        self.sing_line(&serde_json::Value::Object(s.clone()));
+                    }
                     if self.cast_in.len() == CAST_CAP {
                         self.cast_in.pop_front();
                     }
