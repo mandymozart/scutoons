@@ -29,11 +29,13 @@ pub enum Kind {
     Audio,
     Video,
     Model,
+    /// #817: a shared animation – a skeleton and clips, nothing drawn (the API's kind `animation`)
+    Animation,
     File,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 12] = [Kind::Module, Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Character, Kind::Item, Kind::Place, Kind::Image, Kind::Audio, Kind::Video, Kind::Model, Kind::File];
+    pub const ALL: [Kind; 13] = [Kind::Module, Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Character, Kind::Item, Kind::Place, Kind::Image, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation, Kind::File];
 
     /// its facet's word
     pub fn word(self) -> &'static str {
@@ -49,6 +51,7 @@ impl Kind {
             Kind::Audio => "audio",
             Kind::Video => "video",
             Kind::Model => "3d models",
+            Kind::Animation => "animations",
             Kind::File => "files",
         }
     }
@@ -67,13 +70,14 @@ impl Kind {
             Kind::Audio => "audio",
             Kind::Video => "video",
             Kind::Model => "model",
+            Kind::Animation => "animation",
             Kind::File => "file",
         }
     }
 
     /// a toon's file (what the shelf's families hold), not a catalog thing
     pub fn is_file(self) -> bool {
-        matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::File)
+        matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::Animation | Kind::File)
     }
 
     pub fn of_id(id: &str) -> Option<Kind> {
@@ -94,6 +98,7 @@ impl Kind {
             Kind::Audio => "activity",
             Kind::Video => "video",
             Kind::Model => "model",
+            Kind::Animation => "activity",
             Kind::File => "entry",
         }
     }
@@ -168,7 +173,7 @@ pub enum Purpose {
 impl Purpose {
     pub fn kinds(self) -> &'static [Kind] {
         match self {
-            Purpose::Build => &[Kind::Module, Kind::Instrument, Kind::Character, Kind::Image, Kind::Audio, Kind::Video, Kind::Model],
+            Purpose::Build => &[Kind::Module, Kind::Instrument, Kind::Character, Kind::Image, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation],
             Purpose::Show => &[Kind::Scene, Kind::Character, Kind::Item, Kind::Place],
             Purpose::Module => &[Kind::Module],
             Purpose::Scene => &[Kind::Character, Kind::Item, Kind::Image, Kind::Module],
@@ -339,6 +344,7 @@ fn asset(a: &Value, cdn: &str) -> Option<Entry> {
         "audio" => Kind::Audio,
         "video" => Kind::Video,
         "model" => Kind::Model,
+        "animation" => Kind::Animation,
         _ => Kind::File,
     };
     let url = |p: &str| if cdn.is_empty() { p.to_string() } else { format!("{cdn}/{}", p.trim_start_matches('/')) };

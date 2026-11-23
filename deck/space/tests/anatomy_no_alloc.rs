@@ -68,7 +68,7 @@ fn the_bone_queries_of_a_frame_do_not_allocate() {
 /// a member's figure posed every frame – its clip looped, its palette into the renderer's buffer – allocates nothing
 #[test]
 fn a_figure_s_palette_per_frame_does_not_allocate() {
-    let f = figure::read(&bones::glb(), &mut |_, _| anyhow::bail!("no images")).unwrap();
+    let f = figure::read(&bones::glb(), None, &mut |_, _| anyhow::bail!("no images")).unwrap();
     let mut nodes = vec![Mat4::IDENTITY; f.anatomy.nodes.len()];
     let mut palette = [[0.0f32; 16]; figure::MAX_JOINTS];
     let mut written = 0;

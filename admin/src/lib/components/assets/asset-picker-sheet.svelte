@@ -231,7 +231,7 @@
 	const rank = (r: AssetRendition) =>
 		r.label === 'original' ? 0 : r.quality ? 1 + ['low', 'medium', 'high'].indexOf(r.quality) : /^\d+[wpk]$/.test(r.label) ? 10 + parseInt(r.label, 10) / 10000 : 20;
 	const ordered = (list: AssetRendition[]) => [...list].sort((x, y) => rank(x) - rank(y) || x.label.localeCompare(y.label));
-	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', model: 'box', font: 'type', other: 'file' })[k];
+	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', model: 'box', animation: 'activity', font: 'type', other: 'file' })[k];
 
 	/** the asset's own file (its current path) – the size a reader loads, not the master's (BACKLOG 10.20) */
 	const mainSize = (a: { path?: string; size: number; renditions?: AssetRendition[] }) => a.renditions?.find((r) => r.path === a.path)?.size || a.size;

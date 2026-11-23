@@ -241,6 +241,14 @@
             "null"
           ]
         },
+        "clip": {
+          "description": "character's idle – a name the file lacks is named at load (figure.rs `choose`) and the model plays its own",
+          "title": "817: the clip its member's 3D model plays, by name (its own model's `walk`, or the idle it adopted); none = its",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "enter": {
           "allOf": [
             {

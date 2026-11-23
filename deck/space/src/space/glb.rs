@@ -290,6 +290,17 @@ pub fn anatomy(bytes: &[u8]) -> Result<Anatomy> {
     Ok(parse_with(bytes, 1, &[], &mut |_, _| Ok(image::RgbaImage::new(1, 1)))?.anatomy)
 }
 
+/// The tree, skins and clips of a file that may have no meshes at all (an animation asset, #817): nothing is drawn.
+pub fn skeleton(bytes: &[u8]) -> Result<Anatomy> {
+    let (doc, bin) = split_glb(bytes)?;
+    let doc: Doc = serde_json::from_slice(doc).context("the glTF JSON")?;
+    for e in &doc.extensions_required {
+        ensure!(SUPPORTED.contains(&e.as_str()), "the file requires the glTF extension {e}, which the stage does not read");
+    }
+    let roots = doc.scenes.get(doc.scene.unwrap_or(0)).map(|s| s.nodes.clone()).unwrap_or_else(|| (0..doc.nodes.len()).collect());
+    anatomy_of(&doc, bin, &mut HashMap::new(), roots, Vec::new())
+}
+
 /// `parse` with the images' decoder given: (the glTF image index, its encoded bytes) → RGBA8
 pub fn parse_with(bytes: &[u8], max_texture: u32, hide: &[String], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Model> {
     read_model(bytes, max_texture, hide, decode, true)

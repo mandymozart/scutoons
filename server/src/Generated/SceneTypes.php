@@ -18,7 +18,7 @@ namespace Scutoons\Generated;
  * @phpstan-type Fill array{kind: list<'character' | 'persona' | 'look' | 'item' | 'location'>, parent?: string | null, ref?: list<string>}
  * @phpstan-type Fillers string | list<string>
  * @phpstan-type Form 'look' | 'card'
- * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, enter?: Enter, fill?: Fill | null, form?: Form | null, id: string, label?: array<string, string> | null, max?: int | null, module?: list<Attach>, preset?: string | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
+ * @phpstan-type Holder array{arrange?: Arrange | null, at?: array{float, float, float} | null, clip?: string | null, enter?: Enter, fill?: Fill | null, form?: Form | null, id: string, label?: array<string, string> | null, max?: int | null, module?: list<Attach>, preset?: string | null, preview?: Fillers | null, ref?: string | null, rig?: RigPin | null, spot?: string | null, take?: Take, values?: array<string, HolderValue>}
  * @phpstan-type HolderValue float | string
  * @phpstan-type Layer array{anchor?: Anchor, depth: float, image?: string | null}
  * @phpstan-type Length array{beats: float} | array{bars: float} | array{seconds: float}

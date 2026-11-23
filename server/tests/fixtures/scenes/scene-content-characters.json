@@ -22,7 +22,12 @@
             "model": {
                 "path": "characters/catpope/catpope-robe.glb",
                 "size": null
-            }
+            },
+            "idle": {
+                "path": "characters/animations/catpope-idle.glb",
+                "size": null
+            },
+            "clip": null
         },
         "toptoy": {
             "character": "toptoy",
@@ -44,7 +49,9 @@
             "model": {
                 "path": "characters/toptoy/toptoy.glb",
                 "size": null
-            }
+            },
+            "idle": null,
+            "clip": "walk"
         },
         "boy": {
             "character": "boy",
@@ -53,7 +60,9 @@
             "portraits": {},
             "full": {},
             "form": null,
-            "model": null
+            "model": null,
+            "idle": null,
+            "clip": null
         },
         "mellowmantis": {
             "character": "mellowmantis",
@@ -75,7 +84,9 @@
             "model": {
                 "path": "characters/mellowmantis/mellowmantis.glb",
                 "size": null
-            }
+            },
+            "idle": null,
+            "clip": null
         }
     },
     "items": {},

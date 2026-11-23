@@ -1,6 +1,6 @@
 //! A character's own 3D model on the stage: a cast member whose form is its look and whose character has a model
 //! (scene-content's `model`) is drawn as that model – skinned on the GPU by a joint palette per member, posed by its
-//! first clip (looped), else its rest pose.
+//! idle (an animation asset by joint name, #817), else its first clip (looped), else its rest pose.
 //!
 //! - **The file** (glb.rs `figure_with`): every part kept in its own mesh space – the bind space its skin poses –
 //!   with normals, UVs and the base colour texture (WebP, PNG, JPEG).
@@ -142,12 +142,28 @@ impl Figure {
         self.clip.and_then(|c| self.anatomy.clips.get(c)).map_or(0.0, |c| c.duration)
     }
 
+    /// The clip a member plays, chosen by name (#817: a holder's `clip`, else its persona's idle clip): none = its own
+    /// (the idle it adopted, else its first clip); a name the file lacks is the sentence why – deck-catalog
+    /// `Skeleton::clip_problem`, the rule the creator and the API ask too.
+    pub fn choose(&self, name: Option<&str>) -> Result<Option<usize>, String> {
+        let Some(name) = name else { return Ok(self.clip) };
+        match self.anatomy.clip(name) {
+            Some(c) => Ok(Some(c)),
+            None => Err(self.anatomy.skeleton().clip_problem(name).unwrap_or_default()),
+        }
+    }
+
     /// The palette at `t` seconds (its clip looped) under `world`: `joints()` matrices into `out`, `nodes` the caller's
     /// buffer (one per node of its anatomy). No allocation.
     pub fn pose(&self, t: f32, world: Mat4, nodes: &mut [Mat4], out: &mut [[f32; 16]]) -> usize {
-        let d = self.duration();
+        self.pose_clip(self.clip, t, world, nodes, out)
+    }
+
+    /// `pose` with the clip chosen (`choose`; none = the rest pose)
+    pub fn pose_clip(&self, clip: Option<usize>, t: f32, world: Mat4, nodes: &mut [Mat4], out: &mut [[f32; 16]]) -> usize {
+        let d = clip.and_then(|c| self.anatomy.clips.get(c)).map_or(0.0, |c| c.duration);
         let t = if d > 0.0 && t.is_finite() { t.rem_euclid(d) } else { 0.0 };
-        self.anatomy.pose(self.clip, t, nodes);
+        self.anatomy.pose(clip, t, nodes);
         let n = self.bones.len().min(out.len());
         for (o, b) in out.iter_mut().zip(&self.bones).take(n) {
             let m = match *b {
@@ -214,6 +230,10 @@ fn smooth_normals(v: &mut [FigureVertex], indices: &[u32]) {
 #[cfg(feature = "native")]
 pub trait Source: Send + 'static {
     fn load(&self, character: &str) -> Result<Vec<u8>, String>;
+    /// the character's idle (#817): a shared animation its model plays by joint name; None = its own first clip
+    fn idle(&self, _character: &str) -> Option<Vec<u8>> {
+        None
+    }
 }
 
 /// a local folder: `<dir>/<char>/<char>_model.glb` (the sync's layout), else `<dir>/<char>/<char>-regular.glb` (media/)
@@ -227,6 +247,11 @@ impl Source for LocalDir {
         let path = [format!("{character}_model.glb"), format!("{character}-regular.glb")].into_iter().map(|f| dir.join(f)).find(|p| p.is_file());
         let path = path.ok_or_else(|| format!("no model of {character} in {}", self.0.display()))?;
         std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    /// `<dir>/<char>/<char>_idle.glb` (the sync's layout)
+    fn idle(&self, character: &str) -> Option<Vec<u8>> {
+        std::fs::read(self.0.join(character).join(format!("{character}_idle.glb"))).ok()
     }
 }
 
@@ -242,6 +267,11 @@ impl<W: Fn(&str) + Send + 'static> Source for Arriving<W> {
     fn load(&self, character: &str) -> Result<Vec<u8>, String> {
         (self.wait)(character);
         self.dir.load(character)
+    }
+
+    /// asked after `load`: the wait covers the idle too
+    fn idle(&self, character: &str) -> Option<Vec<u8>> {
+        self.dir.idle(character)
     }
 }
 
@@ -273,9 +303,23 @@ pub struct Figures {
     fresh: Vec<usize>,
 }
 
-/// a model's file → a figure, or why not
-pub fn read(bytes: &[u8], decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Figure> {
-    Figure::of(super::glb::figure_with(bytes, MAX_TEXTURE, decode)?)
+/// A model's file → a figure, or why not. With an `idle` (an animation asset, #817) the figure plays it instead of its
+/// own first clip: its rotations on the model's joints of the same name (anatomy.rs `adopt`); the joints it turns that
+/// the model lacks stay at rest and are logged. An idle that cannot be read leaves the model's own clip.
+pub fn read(bytes: &[u8], idle: Option<&[u8]>, decode: &mut dyn FnMut(usize, &[u8]) -> Result<image::RgbaImage>) -> Result<Figure> {
+    let mut figure = Figure::of(super::glb::figure_with(bytes, MAX_TEXTURE, decode)?)?;
+    let Some(idle) = idle else { return Ok(figure) };
+    match super::glb::skeleton(idle).map(|source| figure.anatomy.adopt(&source)) {
+        Ok(Some((clip, fit))) => {
+            figure.clip = Some(clip);
+            if let Some(why) = fit.problem() {
+                tracing::warn!("figure: its idle plays on {} of {} joints – {why}", fit.matched, fit.of);
+            }
+        }
+        Ok(None) => tracing::warn!("figure: its idle has no clip – the model's own plays"),
+        Err(e) => tracing::warn!("figure: its idle can't be read ({e:#}) – the model's own clip plays"),
+    }
+    Ok(figure)
 }
 
 impl Figures {
@@ -289,9 +333,12 @@ impl Figures {
             .name("figures".into())
             .spawn(move || {
                 while let Ok((slot, character)) = asked.recv() {
-                    let r = source.load(&character).and_then(|b| read(&b, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8())).map_err(|e| format!("{character}: {e:#}")));
+                    let r = source.load(&character).and_then(|b| {
+                        let idle = source.idle(&character);
+                        read(&b, idle.as_deref(), &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8())).map_err(|e| format!("{character}: {e:#}"))
+                    });
                     match &r {
-                        Ok(f) => tracing::info!("figure {character}: {} triangles, {} joints, {}", f.indices.len() / 3, f.joints(), if f.clip.is_some() { "its first clip" } else { "its rest pose" }),
+                        Ok(f) => tracing::info!("figure {character}: {} triangles, {} joints, {}", f.indices.len() / 3, f.joints(), f.clip.and_then(|c| f.anatomy.clips.get(c)).map_or("its rest pose".to_string(), |c| format!("the clip {:?}", c.name))),
                         Err(e) => tracing::warn!("figure: {e} – the member keeps its being"),
                     }
                     if teller.send((slot, r)).is_err() {
@@ -375,6 +422,8 @@ impl Figures {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FigureDraw {
     pub slot: usize,
+    /// the clip it plays (`Figure::choose`)
+    pub clip: Option<usize>,
     pub world: Mat4,
     pub glow: f32,
     pub hue: f32,
@@ -401,7 +450,7 @@ mod tests {
 
     #[test]
     fn the_two_bone_model_keeps_its_bind_space_and_skin() {
-        let f = read(&bones::glb(), &mut no_images()).unwrap();
+        let f = read(&bones::glb(), None, &mut no_images()).unwrap();
         // the body's node sits under "rig" at (0, 1, 0): a room flattens it there, a figure keeps its mesh space
         let room = glb::parse_with(&bones::glb(), 2048, &[], &mut no_images()).unwrap();
         assert_eq!(room.vertices[2].pos, [0.0, 3.0, 0.0]);
@@ -414,8 +463,24 @@ mod tests {
     }
 
     #[test]
+    fn an_idle_plays_instead_of_the_model_s_own_clip() {
+        let idle = super::super::animation::extract(&bones::glb()).unwrap();
+        let f = read(&bones::glb(), Some(&idle), &mut no_images()).unwrap();
+        assert_eq!((f.clip, f.anatomy.clips.len(), f.anatomy.clips[1].channels.len()), (Some(1), 2, 1), "the idle, rotations only");
+        let broken = read(&bones::glb(), Some(b"not a glb"), &mut no_images()).unwrap();
+        assert_eq!(broken.clip, Some(0), "an idle that can't be read leaves the model's own clip");
+    }
+
+    #[test]
+    fn a_clip_is_chosen_by_name() {
+        let f = read(&bones::glb(), None, &mut no_images()).unwrap();
+        assert_eq!((f.choose(None), f.choose(Some("wave"))), (Ok(Some(0)), Ok(Some(0))));
+        assert_eq!(f.choose(Some("walk")), Err("no clip 'walk': the model has wave".to_string()));
+    }
+
+    #[test]
     fn the_rest_palette_is_the_identity_and_the_fit_stands_on_the_feet() {
-        let f = read(&bones::glb(), &mut no_images()).unwrap();
+        let f = read(&bones::glb(), None, &mut no_images()).unwrap();
         let mut nodes = vec![Mat4::IDENTITY; f.anatomy.nodes.len()];
         let mut out = [[0.0; 16]; MAX_JOINTS];
         let mut rest = f.clone_rest();
@@ -471,7 +536,7 @@ mod tests {
         assert_eq!(figs.request("boy", "mellowmantis"), a);
         assert_eq!(figs.requests(), [(a, "mellowmantis".to_string())], "the page fetches the default character's model");
         assert!(figs.requests().is_empty() && !figs.ready(a));
-        figs.deliver(a, read(&bones::glb(), &mut no_images()).map_err(|e| e.to_string()));
+        figs.deliver(a, read(&bones::glb(), None, &mut no_images()).map_err(|e| e.to_string()));
         assert!(figs.poll() && figs.ready(a));
         assert_eq!(figs.take_fresh(), [a]);
         let b = figs.request("ghost", "ghost");
@@ -485,7 +550,7 @@ mod tests {
     #[test]
     fn mellowmantis_loads_when_present() {
         let Some(file) = bones::media("characters/mellowmantis/mellowmantis-regular.glb") else { return };
-        let f = read(&file, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8())).unwrap();
+        let f = read(&file, None, &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8())).unwrap();
         assert_eq!((f.joints(), f.clip, f.images.len()), (65, None, 1));
         assert!(f.images[0].size().0 <= MAX_TEXTURE);
         assert!((0.5..2.0).contains(&f.height), "{}", f.height);

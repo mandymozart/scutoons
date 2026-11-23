@@ -304,8 +304,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     // own (#492): a `look` node at its holder's spot that only its own rig's links to the being move – no rig, or a rig
     // with no mapping to the being, moves nothing (owner 2026-11-12 [rigs])
     let chosen = |m: &Member| doc.holders.iter().find(|h| h.id == m.holder).and_then(|h| h.form);
-    // a chosen form needs a look of its own to stand in
-    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3] && chosen(&cast[0]).is_none();
+    let clip = |m: &Member| doc.holders.iter().find(|h| h.id == m.holder).and_then(|h| h.clip.as_deref());
+    // a chosen form or clip needs a look of its own to stand in
+    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3] && chosen(&cast[0]).is_none() && clip(&cast[0]).is_none();
     let prefixes: Vec<String> = (0..cast.len())
         .map(|i| {
             let m = &cast[i];
@@ -376,7 +377,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     if !alone {
         for (i, m) in cast.iter().enumerate() {
             let Some(w) = who(m) else { continue };
-            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, chosen(m), m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
+            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, crate::scene::Chosen { form: chosen(m), clip: clip(m) }, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
         }
     }
 
@@ -809,6 +810,10 @@ mod tests {
         let lone = doc(r#"{"format":2,"id":"one","holder":[{"id":"a","ref":"character:catpope","form":"card"}],"node":[{"id":"space","kind":"space"}]}"#);
         let r = resolve(&lone, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
         assert_eq!(r.scene.nodes.iter().find(|n| n.kind == "look").and_then(|n| n.params["form"].as_str()), Some("card"));
+        // #817: a holder's clip reaches its look the same way (a lone holder with a clip gets a look of its own)
+        let walking = doc(r#"{"format":2,"id":"one","holder":[{"id":"a","ref":"character:catpope","clip":"walk"}],"node":[{"id":"space","kind":"space"}]}"#);
+        let r = resolve(&walking, &BTreeMap::new(), false, &core_rigs, &no_sets).unwrap();
+        assert_eq!(r.scene.nodes.iter().find(|n| n.kind == "look").and_then(|n| n.params["clip"].as_str()), Some("walk"));
     }
 
     /// two rigs on one stage: prefixed by their holders, summed into the one `out` – each rig moves its own look, an

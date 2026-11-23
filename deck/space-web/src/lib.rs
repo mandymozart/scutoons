@@ -378,7 +378,8 @@ pub(crate) fn portrait_asks(space: &mut Space) -> js_sys::Array {
 pub(crate) const ASK: usize = 5;
 
 /// the cast's 3D models the stage asks for, `FIGURE_ASK` values each: slot, then where scene-content holds the file – the
-/// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`)
+/// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`), the field of its idle (`idle`,
+/// #817: a library animation, when the entry names one)
 pub(crate) fn figure_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
     for (slot, character) in space.figures.requests() {
@@ -386,17 +387,18 @@ pub(crate) fn figure_asks(space: &mut Space) -> js_sys::Array {
         out.push(&JsValue::from_str("characters"));
         out.push(&JsValue::from_str(&character));
         out.push(&JsValue::from_str("model"));
+        out.push(&JsValue::from_str("idle"));
     }
     out
 }
 
 /// the values of one ask in `figure_asks`
-pub(crate) const FIGURE_ASK: usize = 4;
+pub(crate) const FIGURE_ASK: usize = 5;
 
-/// a figure's .glb and its images as the browser decoded them (`encoded_images`) into its slot
-pub(crate) fn figure_from_page(space: &mut Space, slot: usize, glb_bytes: &[u8], images: js_sys::Array) {
+/// a figure's .glb and its images as the browser decoded them (`encoded_images`) into its slot, with its idle's .glb
+pub(crate) fn figure_from_page(space: &mut Space, slot: usize, glb_bytes: &[u8], images: js_sys::Array, idle: Option<&[u8]>) {
     let mut decoded = decoded_images(images);
-    let figure = deck_space::space::figure::read(glb_bytes, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
+    let figure = deck_space::space::figure::read(glb_bytes, idle, &mut |i, _| decoded.remove(&i).ok_or_else(|| anyhow::anyhow!("not decoded by the browser")));
     if let Err(e) = &figure {
         web_sys::console::warn_1(&JsValue::from_str(&format!("figure: {e:#} – the member keeps its being")));
     }

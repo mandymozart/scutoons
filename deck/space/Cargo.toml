@@ -108,3 +108,10 @@ required-features = ["gpu", "media"]
 name = "deck-schema"
 path = "src/bin/deck-schema.rs"
 required-features = ["schema"]
+
+# #817: an animation asset (skeleton + clips, nothing drawn) out of a character's model:
+# `cargo run -p deck-space --bin extract-animation -- MODEL.glb OUT.glb`
+[[bin]]
+name = "extract-animation"
+path = "src/bin/extract-animation.rs"
+required-features = ["being"]

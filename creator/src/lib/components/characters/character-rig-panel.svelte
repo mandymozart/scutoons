@@ -50,7 +50,7 @@
 <div class="rig" data-testid="character-rig">
 	<Section id="character-rig-slots" label={m['character.rig_model']()} summary={look.model ? look.model.split('/').at(-1) : ''}>
 		<FileSlot kind="model" value={look.model} label={m['creator.characters_look_model']()} place="characters/{character.id}/" player={false} onchange={(p) => edits.setModel(p)} testid="look-model" />
-		<PersonaModel {registry} {character} {persona} lookId={look.id} />
+		<PersonaModel {registry} {character} {persona} lookId={look.id} {model} />
 		{#key `${persona.id}/${look.id}`}<AposeEditor character={character.id} persona={persona.id} {look} {bust} onchange={(p) => edits.setApose(p)} />{/key}
 	</Section>
 	{#if !model.path}

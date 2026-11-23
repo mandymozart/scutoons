@@ -33,7 +33,7 @@
 		onmenu: (x: number, y: number) => void;
 	} = $props();
 
-	const ICONS: Record<AssetFamily['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', file: 'file' };
+	const ICONS: Record<AssetFamily['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 	const picture = $derived(previewPicture(family.preview));
 	const still = $derived(previewStill(family.preview));
 	const meta = $derived(

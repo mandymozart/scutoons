@@ -253,6 +253,25 @@ export interface CharacterPersona {
 	model?: string;
 	/** the body preset for the 3D fallback (which mannequin): `more-legs` (four or more), `wings`; none = two legs */
 	body?: PersonaBody;
+	/** what its 3D model plays (#817); none = the model's own first clip */
+	animations?: PersonaAnimations;
+}
+
+/**
+ * A persona's animations (#817): each names a shared animation of the library (`animation`: a .glb path in an
+ * `animations/` folder, played on the model's joints of the same name) or a clip of its own model by name (`clip`) –
+ * one of the two. Whether it fits the model is the core's (deck-catalog's `FitCheck`), checked when saved.
+ */
+export interface PersonaAnimations {
+	/** what it plays when it stands */
+	idle?: PersonaAnimation;
+}
+
+export interface PersonaAnimation {
+	/** a library animation, CDN path from the CDN root */
+	animation?: string;
+	/** a clip of the persona's own model, by name */
+	clip?: string;
 }
 
 /**
@@ -1428,6 +1447,10 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			// 3D models: binary glTF only (agents/ASSETS.md)
 			if (p.model !== undefined && (!isStr(p.model) || !MODEL_PATH.test(p.model))) add('warning', [...pp, 'model'], `${pwho}: the 3D model must be a CDN path to a .glb`);
 			if (p.body !== undefined && !(PERSONA_BODIES as readonly unknown[]).includes(p.body)) add('warning', [...pp, 'body'], `${pwho}: body must be one of ${PERSONA_BODIES.join(', ')}`);
+			const idle = isObj(p.animations) ? p.animations.idle : undefined;
+			if (idle !== undefined && (!isObj(idle) || (idle.animation !== undefined) === (idle.clip !== undefined))) add('error', [...pp, 'animations', 'idle'], `${pwho}: the idle names a library animation or a clip of its model – one of the two`);
+			else if (isObj(idle) && idle.animation !== undefined && (!isStr(idle.animation) || !MODEL_PATH.test(idle.animation))) add('error', [...pp, 'animations', 'idle', 'animation'], `${pwho}: the idle animation must be a CDN path to a .glb`);
+			else if (isObj(idle) && idle.clip !== undefined && (!isStr(idle.clip) || !idle.clip.trim())) add('error', [...pp, 'animations', 'idle', 'clip'], `${pwho}: the idle clip must be a clip name`);
 			p.looks.forEach((l: any, k: number) => {
 				if (isObj(l) && l.model !== undefined && (!isStr(l.model) || !MODEL_PATH.test(l.model))) add('warning', [...pp, 'looks', k, 'model'], `${pwho}: look ${l.id}: the 3D model must be a CDN path to a .glb`);
 			});

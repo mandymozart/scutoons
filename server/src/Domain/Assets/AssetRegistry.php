@@ -45,6 +45,22 @@ final class AssetRegistry
 
     private ?bool $shapes = null;
 
+    private ?bool $skeletons = null;
+
+    /** The skeleton column (migration 2026-11-23-asset-skeletons) – until it runs, lists carry none */
+    public function skeletonsAvailable(): bool
+    {
+        if ($this->skeletons === null) {
+            try {
+                $this->db->value('SELECT COUNT(skeleton) FROM asset_versions WHERE 1 = 0');
+                $this->skeletons = true;
+            } catch (\Throwable) {
+                $this->skeletons = false;
+            }
+        }
+        return $this->skeletons;
+    }
+
     /** The shape table (migration 2026-10-17-asset-shapes) – until it runs, lists simply have no shapes */
     public function shapesAvailable(): bool
     {
@@ -473,6 +489,7 @@ final class AssetRegistry
             default => $list->orderBy('a.slug', 'a.id'),
         };
         [$shapeColumns, $shapeJoin] = $this->shapeJoin();
+        $shapeColumns .= $this->skeletonsAvailable() ? ', v.skeleton' : '';
         $sql = "FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'$shapeJoin WHERE " . implode(' AND ', $where);
         $rows = $this->db->all("SELECT a.*, v.id AS version_id, v.number AS version, v.path AS main_path, v.width, v.height, v.duration, v.size AS main_size,
                 (SELECT COALESCE(SUM(r.size), 0) FROM asset_renditions r WHERE r.version_id = v.id) AS total_size,
@@ -550,7 +567,8 @@ final class AssetRegistry
             'usages' => (int) $row['usages'],
             'updated_at' => Time::iso($row['updated_at']),
             'renditions' => array_map(fn(array $r) => self::rendition($r) + ['usages' => (int) $r['usages']], $renditions),
-        ] + (($shape = self::shapeOf($row)) !== null ? ['shape' => $shape] : []) + (($edits = self::edits($row)) !== null ? ['edits' => $edits] : []);
+        ] + (($shape = self::shapeOf($row)) !== null ? ['shape' => $shape] : []) + (($edits = self::edits($row)) !== null ? ['edits' => $edits] : [])
+            + (($skeleton = AssetSkeletons::of($row)) !== null ? ['skeleton' => $skeleton] : []);
     }
 
     /**
@@ -601,7 +619,7 @@ final class AssetRegistry
                 'created_at' => Time::iso($v['created_at']),
                 'created_by' => $v['created_by'],
                 'renditions' => array_map([self::class, 'rendition'], $this->renditions((int) $v['id'])),
-            ] + (($spots = AssetSpots::of($v)) !== null ? ['spots' => $spots] : []);
+            ] + (($spots = AssetSpots::of($v)) !== null ? ['spots' => $spots] : []) + (($skeleton = AssetSkeletons::of($v)) !== null ? ['skeleton' => $skeleton] : []);
         }
         $paths = $this->currentPaths($id);
         $jobs = $this->db->all('SELECT id, kind, status, created_at, finished_at FROM asset_jobs WHERE asset_id = ? ORDER BY id DESC LIMIT 20', [$id]);

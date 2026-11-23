@@ -278,7 +278,7 @@ impl push::Cache for Config {
     fn has(&self, w: &Want) -> bool {
         match w {
             Want::Set { id, quality } => self.sets.as_ref().is_none_or(|d| d.join(id).join(format!("{id}.{quality}.glb")).is_file()),
-            Want::Model { .. } => self.portraits.as_ref().is_none_or(|d| character_file(d, w, "glb").is_some_and(|f| f.is_file())),
+            Want::Model { .. } | Want::Idle { .. } => self.portraits.as_ref().is_none_or(|d| character_file(d, w, "glb").is_some_and(|f| f.is_file())),
             Want::Portrait { .. } | Want::Full { .. } => self.portraits.as_ref().is_none_or(|d| ["webp", "png"].iter().any(|ext| character_file(d, w, ext).is_some_and(|f| f.is_file()))),
             Want::Media { path } => self.portraits.as_ref().is_none_or(|d| push::media_file(d, path).is_some_and(|f| f.is_file())),
         }
@@ -304,12 +304,12 @@ impl push::Cache for Config {
 }
 
 /// a character's file below the portraits folder (`LocalDir`'s layout): `<char>/<char>_portrait-<mood>.<ext>`,
-/// `<char>/<char>_full-<mood>.<ext>`, `<char>/<char>_model.<ext>`; None for any other want
+/// `<char>/<char>_full-<mood>.<ext>`, `<char>/<char>_model.<ext>`, `<char>/<char>_idle.<ext>` (#817); None for any other want
 fn character_file(dir: &Path, w: &Want, ext: &str) -> Option<PathBuf> {
     let (character, name) = match w {
         Want::Portrait { character, mood } => (character, format!("{character}_portrait-{mood}")),
         Want::Full { character, mood } => (character, format!("{character}_full-{mood}")),
-        Want::Model { character } => (character, format!("{character}_model")),
+        Want::Model { character } | Want::Idle { character } => (character, format!("{character}_{}", if matches!(w, Want::Model { .. }) { "model" } else { "idle" })),
         Want::Set { .. } | Want::Media { .. } => return None,
     };
     Some(dir.join(character).join(format!("{name}.{ext}")))
@@ -510,7 +510,7 @@ impl Worker {
     fn fetch(&mut self, w: &Want) -> Result<Got, String> {
         let (is_set, id) = match w {
             Want::Set { id, .. } => (true, id.as_str()),
-            Want::Portrait { character, .. } | Want::Full { character, .. } | Want::Model { character } => (false, character.as_str()),
+            Want::Portrait { character, .. } | Want::Full { character, .. } | Want::Model { character } | Want::Idle { character } => (false, character.as_str()),
             Want::Media { path } => {
                 let Some(dir) = &self.cfg.portraits else { return Ok(Got::Cached) };
                 let local = push::media_file(dir, path).ok_or_else(|| format!("{path}: not a media path"))?;
@@ -523,12 +523,12 @@ impl Worker {
         }
         let Some(dir) = (if is_set { &self.cfg.sets } else { &self.cfg.portraits }) else { return Ok(Got::Cached) };
         let Some(file) = self.content.file(w)?.cloned() else {
-            return Ok(if push::Cache::has(&self.cfg, w) { Got::Cached } else { Got::Absent });
+            return Ok(if matches!(w, Want::Idle { .. }) && self.known.contains(&(false, id.to_string())) { let _ = std::fs::remove_file(dir.join(id).join(format!("{id}_idle.glb"))); Got::Absent } else if push::Cache::has(&self.cfg, w) { Got::Cached } else { Got::Absent });
         };
         let local = match w {
             Want::Set { id, quality } => dir.join(id).join(format!("{id}.{quality}.glb")),
             _ => {
-                let fallback = if matches!(w, Want::Model { .. }) { "glb" } else { "webp" };
+                let fallback = if matches!(w, Want::Model { .. } | Want::Idle { .. }) { "glb" } else { "webp" };
                 let ext = Path::new(&file.path).extension().and_then(|e| e.to_str()).unwrap_or(fallback);
                 character_file(dir, w, ext).ok_or("settled above")?
             }
