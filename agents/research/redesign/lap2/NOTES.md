@@ -16,6 +16,7 @@ The owner's words (dictation typos fixed), then what the review found. Input for
 8. **Wording:** *"many pages there are not following the translation dogma"* (DESIGN.md "Creator wording").
 10. **The deck too:** *"implementation means also to implement it in the deck."* → every lap-2 item has its creator and its deck side; the plan names both (the deck side is the deck orchestrator's).
 11. **Design from what is there:** *"please design the views based on what is there atm, so we don't fuck up things, and stick to our design more closely. There was plenty of interpretation going on last night."* → the pictures start from screenshots of today's creator and deck, change only what a note asks, and mark each change; where a note leaves something open, the picture asks instead of choosing.
+12. **The deck's dashboard follows the creator's** (2026-11-23, on #830): *"the dashboard is weird. i said it should use the same design dogma as the creators"* · *"lap two needs design first"*. #830 stays on its branch (49009f380) until the plan. Open: whether the deck can show Needs review / Not published.
 9. **How to work:** *"plan first carefully before creating tickets"* · *"you work much better when a lap has a specific plan and designs to follow."*
 
 ## The review of lap 1 (2026-11-24, code read against the 64 points)
@@ -43,3 +44,6 @@ creator-1-character (bar + panels, day) · creator-2-dashboard (the menu button'
 3. Workspace editing reachable inside a workspace (where: open – the owner decides).
 4. Map: today's page with its stage width back (a fix, no design change).
 Later, after these: the scene page + open in the deck; Catalog + Library; the one-look sheet.
+
+## Decided in the planning session (2026-11-24)
+- **B1 – Views live only in the ☰ menu** (owner: *"Only the ☰"*), not on the workspace tab's menu. Still open: whether the workspace tab keeps its own menu for Save / Rename / Back to the last save (B2).
