@@ -176,22 +176,26 @@ impl Figure {
         n
     }
 
-    /// the rest pose's bounds, every vertex through its weighted palette
-    fn rest_bounds(&self) -> (Vec3, Vec3) {
+    /// every vertex in the rest pose, through its weighted palette (model space)
+    pub fn rest_positions(&self) -> Vec<Vec3> {
         let mut nodes = vec![Mat4::IDENTITY; self.anatomy.nodes.len()];
         let mut palette = vec![[0.0; 16]; self.bones.len()];
         self.anatomy.pose(None, 0.0, &mut nodes);
         let n = self.pose(0.0, Mat4::IDENTITY, &mut nodes, &mut palette);
         let palette: Vec<Mat4> = palette[..n].iter().map(Mat4::from_cols_array).collect();
-        let (mut min, mut max) = (Vec3::INFINITY, Vec3::NEG_INFINITY);
-        for v in &self.vertices {
-            let sum = v.weights.iter().map(|&w| w as f32).sum::<f32>().max(1.0);
-            let m = v.joints.iter().zip(v.weights).fold(Mat4::ZERO, |m, (&j, w)| m + palette.get(j as usize).copied().unwrap_or(Mat4::IDENTITY) * (w as f32 / sum));
-            let p = m.transform_point3(Vec3::from(v.pos));
-            min = min.min(p);
-            max = max.max(p);
-        }
-        (min, max)
+        self.vertices
+            .iter()
+            .map(|v| {
+                let sum = v.weights.iter().map(|&w| w as f32).sum::<f32>().max(1.0);
+                let m = v.joints.iter().zip(v.weights).fold(Mat4::ZERO, |m, (&j, w)| m + palette.get(j as usize).copied().unwrap_or(Mat4::IDENTITY) * (w as f32 / sum));
+                m.transform_point3(Vec3::from(v.pos))
+            })
+            .collect()
+    }
+
+    /// the rest pose's bounds
+    fn rest_bounds(&self) -> (Vec3, Vec3) {
+        self.rest_positions().iter().fold((Vec3::INFINITY, Vec3::NEG_INFINITY), |(lo, hi), p| (lo.min(*p), hi.max(*p)))
     }
 }
 

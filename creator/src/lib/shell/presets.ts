@@ -33,6 +33,8 @@ export type TabId =
 	| 'weave'
 	| 'preview'
 	| 'log'
+	/** what is under the pointer (deck-kit info.rs): opened by the member, in no preset */
+	| 'info'
 	/** the open item's saved versions (was the bar's History menu) */
 	| 'history'
 	/** the Log's old id: stored layouts and presets naming it open the Log */
@@ -52,7 +54,7 @@ export type TabId =
 	| 'settings';
 
 /** the tabs the shell draws itself (the others come from the front page) */
-export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'history', 'weave'];
+export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'history', 'info', 'weave'];
 
 /** old tab ids and the tab they name now */
 export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log', moods: 'expressions', vocabulary: 'expressions' };

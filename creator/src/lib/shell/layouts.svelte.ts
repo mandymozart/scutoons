@@ -8,7 +8,7 @@ import { NO_LAYOUTS, readLayouts, readChosen, readKept, startKind, startOf, toKe
 import type { WorkspaceKind } from './address.ts';
 
 const KEPT_KEY = 'sc-creator-layouts';
-const CHOSEN_KEY = 'sc-creator-chosen';
+export const CHOSEN_KEY = 'sc-creator-chosen';
 
 const layoutsApi = createLayoutsApi(api);
 

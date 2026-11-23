@@ -434,7 +434,8 @@ fn parse_asset(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                     "pcm" => "pcm",
                     "bytes" => "bytes",
                     "image" => "image",
-                    _ => return Err(Error::new(s.span(), "kind = \"pcm\", \"bytes\" or \"image\"")),
+                    "model" => "model",
+                    _ => return Err(Error::new(s.span(), "kind = \"pcm\", \"bytes\", \"image\" or \"model\"")),
                 };
             }
             "max_bytes" => {
@@ -446,7 +447,7 @@ fn parse_asset(a: &Attribute, spec: &mut Spec) -> Result<(), Error> {
                 max_bytes = v as u64;
             }
             "doc" => doc = lit_str(&m)?.value(),
-            _ => return Err(m.error("asset(name = \"…\", kind = \"pcm\"|\"bytes\"|\"image\", max_bytes = n, doc = \"…\")")),
+            _ => return Err(m.error("asset(name = \"…\", kind = \"pcm\"|\"bytes\"|\"image\"|\"model\", max_bytes = n, doc = \"…\")")),
         }
         Ok(())
     })?;

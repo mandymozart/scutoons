@@ -25,6 +25,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'weave', name: m['shell.panel_spores'](), icon: 'share-2', about: m['shell.panel_spores_about']() },
 		{ id: 'preview', name: m['shell.panel_preview'](), icon: 'smartphone', about: m['shell.panel_preview_about']() },
 		{ id: 'log', name: m['shell.panel_log'](), icon: 'list', about: m['shell.panel_log_about'](), aliases: ['problems'] },
+		{ id: 'info', name: m['shell.panel_info'](), icon: 'info', about: m['shell.panel_info_about']() },
 		{ id: 'history', name: m['shell.history_menu'](), icon: 'clock', about: m['shell.history_about']() },
 		{ id: 'timeline', name: m['storyboard.tl_title'](), icon: 'film', about: m['shell.panel_timeline_about']() },
 		{ id: 'script', name: m['storyboard.panel_script'](), icon: 'file-text', about: m['storyboard.panel_script']() },

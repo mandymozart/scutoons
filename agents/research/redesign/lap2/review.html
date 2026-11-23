@@ -1,0 +1,137 @@
+<!-- status: the owner's review page for lap 2, 2026-11-24 – shows DECISIONS.md, SCREENS.md and PLAN.md as they are (read from the files, nothing copied) and the screens as pictures. Served from this folder (http://localhost:10626/review.html); ?theme=day. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lap 2 review</title>
+<style>
+:root{--stage:#000;--text:#f3f3f0;--muted:#a7af9b;--line:#3a4034;--warn:#ffb020;--ok:#46d36a;
+  --g-control:color-mix(in srgb,var(--text) 6%,transparent);--g-hover:color-mix(in srgb,var(--text) 10%,transparent);--g-sel:color-mix(in srgb,var(--text) 16%,transparent);
+  --sans:'ABC Areal','Noto Sans',system-ui,sans-serif;--mono:ui-monospace,'Cascadia Mono',Consolas,monospace}
+[data-theme=day]{--stage:#fff;--text:#22271e;--muted:#6b7461;--line:#cfd4c8;--warn:#b07800;--ok:#2f9e4a}
+*{box-sizing:border-box}
+html{font-size:15px}
+body{margin:0;background:var(--stage);color:var(--text);font-family:var(--sans);line-height:1.5}
+a{color:inherit}
+.top{position:sticky;top:0;z-index:5;background:var(--stage);border-bottom:1px solid var(--line)}
+.top .in,.page{max-width:1160px;margin:0 auto;padding:0 16px}
+.top .in{display:flex;align-items:center;gap:.4rem;height:3rem;flex-wrap:wrap}
+.top b{font-weight:400;letter-spacing:.15em;text-transform:uppercase;font-size:.8rem;color:var(--muted);margin-right:.8rem}
+.tab{padding:.25rem .7rem;border-radius:1rem;border:1px solid transparent;color:var(--muted);cursor:pointer;background:none;font:inherit}
+.tab:hover{border-color:var(--text)}
+.tab.on{color:var(--text)}
+.sp{flex:1}
+.page{padding-top:1.2rem;padding-bottom:4rem}
+h1{font-size:1.5rem;font-weight:400;margin:.6rem 0 1rem}
+h2{font-size:1.05rem;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:2.2rem 0 .6rem;padding-top:.8rem;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;font-weight:600;margin:1.6rem 0 .4rem}
+p{margin:.5rem 0;max-width:75ch}
+ul,ol{margin:.4rem 0;padding-left:1.3rem;max-width:85ch}
+li{margin:.28rem 0}
+li::marker{color:var(--muted)}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.88em;background:var(--g-control);border-radius:.25rem;padding:.05rem .3rem}
+del{color:var(--muted)}
+.lbl{display:block;margin:1rem 0 .2rem;font-weight:600}
+.lbl.open{color:var(--warn)}
+.lbl.aloud{color:var(--muted)}
+.tw{overflow-x:auto;margin:.6rem 0}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.4rem .6rem;border-bottom:1px solid var(--line)}
+th{font-weight:400;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-size:.75rem}
+td:first-child{white-space:nowrap}
+.st{display:inline-block;padding:0 .5rem;border:1px solid var(--line);border-radius:1rem;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.st.current{color:var(--ok);border-color:var(--ok)}
+.st.words{color:var(--warn);border-color:var(--warn)}
+.st.shape{color:var(--text);border-color:var(--text)}
+.links{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 1.4rem}
+.links a{display:inline-block;padding:.3rem .8rem;border:1px solid var(--line);border-radius:1rem;text-decoration:none;background:var(--g-control)}
+.links a:hover{background:var(--g-hover);border-color:var(--text)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{display:block;border:1px solid var(--line);border-radius:.6rem;overflow:hidden;text-decoration:none;background:var(--g-control)}
+.card:hover{border-color:var(--text)}
+.card img{display:block;width:100%;aspect-ratio:1440/900;object-fit:cover;background:#000}
+.card .c{display:flex;gap:.5rem;align-items:baseline;padding:.4rem .6rem;font-size:.88rem}
+.card .c i{font-style:normal;color:var(--muted);font-family:var(--mono);font-size:.8rem}
+.card .c span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{color:var(--muted);font-size:.9rem}
+.filt{display:flex;gap:.3rem;margin:.4rem 0 1rem;flex-wrap:wrap}
+[hidden]{display:none!important}
+</style>
+<div class="top"><div class="in"><b>Lap 2 review</b>
+  <button class="tab" data-t="decisions">Decisions</button><button class="tab" data-t="screens">Screens</button><button class="tab" data-t="plan">Plan</button><button class="tab" data-t="library">Library</button><button class="tab" data-t="pictures">Pictures</button>
+  <span class="sp"></span><a class="tab" id="th" href="#"></a></div></div>
+<div class="page">
+  <section id="decisions"></section>
+  <section id="screens"></section>
+  <section id="plan"></section>
+  <section id="library"></section>
+  <section id="pictures">
+    <h1>The pictures</h1>
+    <div class="links" id="pages"></div>
+    <div class="filt" id="filt"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+<script>
+const Q = new URLSearchParams(location.search), DAY = Q.get('theme') === 'day';
+if (DAY) document.documentElement.dataset.theme = 'day';
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/* inline: code, bold, strike, italic */
+const inl = (s) => esc(s)
+  .replace(/`([^`]+)`/g, (m, c) => `<code>${c}</code>`)
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+  .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+const STATES = ['current', 'shape', 'old', 'words'];
+const cell = (c) => { const t = c.trim(), k = STATES.find(s => t === s || t.startsWith(s + ' –') || t.startsWith(s + ' ('));
+  return k ? `<span class="st ${k}">${k}</span>${inl(t.slice(k.length))}` : inl(t); };
+/* a small Markdown reader: headings, lists, tables, paragraphs – what the three files use */
+function md(src) {
+  const L = src.replace(/\r/g, '').replace(/<!--[\s\S]*?-->/g, '').split('\n'); let o = '', i = 0;
+  const row = (l) => l.replace(/^\||\|$/g, '').split('|');
+  while (i < L.length) {
+    const l = L[i];
+    if (!l.trim()) { i++; continue; }
+    let m;
+    if ((m = l.match(/^(#{1,3}) (.*)/))) { o += `<h${m[1].length}>${inl(m[2])}</h${m[1].length}>`; i++; continue; }
+    if (l.startsWith('|') && L[i + 1] && /^\|[-| :]+\|$/.test(L[i + 1].trim())) {
+      o += `<div class="tw"><table><tr>${row(l).map(c => `<th>${inl(c.trim())}</th>`).join('')}</tr>`; i += 2;
+      while (i < L.length && L[i].startsWith('|')) { o += `<tr>${row(L[i]).map(c => `<td>${cell(c)}</td>`).join('')}</tr>`; i++; }
+      o += '</table></div>'; continue;
+    }
+    if (/^(\s*)(- |\d+\. )/.test(l)) {
+      const ord = /^\s*\d+\. /.test(l); o += ord ? '<ol>' : '<ul>';
+      while (i < L.length && /^(\s*)(- |\d+\. )/.test(L[i])) { o += `<li>${inl(L[i].replace(/^\s*(- |\d+\. )/, ''))}</li>`; i++; }
+      o += ord ? '</ol>' : '</ul>'; continue;
+    }
+    if ((m = l.match(/^\*\*(Open|Thought aloud)\*\*$/))) { o += `<span class="lbl ${m[1] === 'Open' ? 'open' : 'aloud'}">${m[1]}</span>`; i++; continue; }
+    o += `<p>${inl(l)}</p>`; i++;
+  }
+  return o;
+}
+const get = (f) => fetch(f, { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(f));
+const PAGES = [['kit-d.html', 'The kit in palette D'], ['draft.html', 'The screens (draft)'], ['show.html', 'The Show view'], ['spores-view.html', 'The Spores view'], ['spores-demo.html', 'The Spores demo'], ['STORYBOARD.md', 'The Storyboard review (text)'], ['universe.html', 'The universe as one tree'], ['modules-dna.html', 'Modules in the DNA']];
+document.getElementById('pages').innerHTML = PAGES.map(([h, t]) => `<a href="${h}${DAY ? '?theme=day' : ''}" target="_blank">${t}</a>`).join('');
+Promise.all(['DECISIONS.md', 'SCREENS.md', 'PLAN.md', 'LIBRARY.md'].map(get)).then(([d, s, p, lib]) => {
+  document.getElementById('library').innerHTML = md(lib);
+  document.getElementById('decisions').innerHTML = md(d);
+  document.getElementById('screens').innerHTML = md(s);
+  document.getElementById('plan').innerHTML = md(p);
+  /* the gallery: every row of SCREENS.md whose first cell is a screen number */
+  const rows = s.replace(/\r/g, '').split('\n').filter(l => /^\| [A-F]\d+b? \|/.test(l)).map(l => l.replace(/^\||\|$/g, '').split('|').map(c => c.trim()));
+  const state = (r) => STATES.find(k => (r[r.length - 1] || '').startsWith(k)) || 'other';
+  document.getElementById('grid').innerHTML = rows.map(r => `<a class="card" data-s="${state(r)}" href="draft.html?s=${r[0]}${DAY ? '&theme=day' : ''}" target="_blank"><img loading="lazy" src="shots/${r[0]}-night.png" alt=""><span class="c"><i>${r[0]}</i><span>${esc(r[1])}</span><b class="st ${state(r)}">${state(r)}</b></span></a>`).join('');
+  const n = (k) => rows.filter(r => state(r) === k).length;
+  const F = [['all', rows.length], ...STATES.map(k => [k, n(k)])];
+  document.getElementById('filt').innerHTML = F.map(([k, c]) => `<button class="tab" data-f="${k}">${k} · ${c}</button>`).join('');
+  const filt = (k) => { document.querySelectorAll('#filt .tab').forEach(b => b.classList.toggle('on', b.dataset.f === k)); document.querySelectorAll('#grid .card').forEach(c => c.hidden = k !== 'all' && c.dataset.s !== k); };
+  document.getElementById('filt').onclick = (e) => e.target.dataset.f && filt(e.target.dataset.f);
+  filt('all');
+}).catch(f => { document.getElementById('decisions').innerHTML = `<p class="note">Could not read ${f}. Open this page from the lap 2 server: http://localhost:10626/review.html</p>`; });
+const show = (t) => { ['decisions', 'screens', 'plan', 'library', 'pictures'].forEach(k => document.getElementById(k).hidden = k !== t); document.querySelectorAll('.top .tab[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === t)); history.replaceState(null, '', '#' + t); scrollTo(0, 0); };
+document.querySelector('.top').onclick = (e) => e.target.dataset.t && show(e.target.dataset.t);
+const th = document.getElementById('th'); th.textContent = DAY ? 'night' : 'day'; th.href = (DAY ? 'review.html' : 'review.html?theme=day') + location.hash;
+show(['decisions', 'screens', 'plan', 'library', 'pictures'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'decisions');
+</script>
+</html>

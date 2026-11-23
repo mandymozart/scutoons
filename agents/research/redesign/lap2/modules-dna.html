@@ -1,0 +1,98 @@
+<!-- status: picture for the concept draft MODULES-DNA.md, 2026-11-24 – the same ladder (module → rig → slot → network) twice: run by the engine (built today, production examples) and run by an agent (spores, drafted). Palette D: no signal colour. A draft to correct, nothing decided. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<meta charset="utf-8">
+<title>Modules in the DNA – draft</title>
+<style>
+:root{--stage:#000;--panel:rgb(26 28 24 / .5);--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:rgb(243 243 240 / .06);--sans:'ABC Areal','Noto Sans',system-ui,sans-serif}
+html{font-size:14px}body{margin:0;background:var(--stage);color:var(--text);font-family:var(--sans);width:1440px}
+h1{font-size:1.15rem;font-weight:400;margin:0;padding:1.2rem 1.4rem .2rem}
+.sub{color:var(--muted);font-size:.86rem;padding:0 1.4rem 1rem}
+.grid{display:grid;grid-template-columns:8.5rem repeat(4,minmax(0,1fr));gap:.7rem;padding:0 1.4rem .7rem;align-items:stretch}
+.h{letter-spacing:.15em;text-transform:uppercase;font-size:.78rem;color:var(--muted);padding:.2rem .2rem .1rem}
+.h b{display:block;color:var(--text);font-weight:400;letter-spacing:.15em;font-size:.86rem}
+.h span{display:block;letter-spacing:0;text-transform:none;font-size:.78rem;margin-top:.15rem}
+.lane{letter-spacing:.15em;text-transform:uppercase;font-size:.78rem;display:flex;flex-direction:column;justify-content:center;gap:.4rem}
+.lane small{letter-spacing:0;text-transform:none;color:var(--muted);font-size:.78rem;line-height:1.35}
+.cell{border:1px solid var(--line);border-radius:.72rem;background:var(--panel);padding:.7rem;display:flex;flex-direction:column;gap:.5rem;position:relative;min-height:11.5rem}
+.cell.draft{border-style:dashed}
+.cell::after{content:'→';position:absolute;right:-.62rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.9rem}
+.cell.last::after{content:none}
+.t{font-size:1rem}.d{color:var(--muted);font-size:.86rem;line-height:1.4}
+.nodes{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+.nd{display:inline-flex;align-items:center;height:1.7rem;padding:0 .6rem;border:1px solid var(--line);border-radius:.36rem;background:var(--control);font-size:.86rem;white-space:nowrap}
+.nd.out{border-color:var(--text)}
+.w{color:var(--muted)}
+.box{border:1px solid var(--line);border-radius:.5rem;padding:.45rem;display:flex;flex-direction:column;gap:.35rem}
+.box .bt{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.ch{display:inline-flex;align-items:center;height:1.2rem;padding:0 .5rem;border:1px solid var(--line);border-radius:.6rem;font-size:.72rem;color:var(--muted);align-self:flex-start}
+.ch.on{border-color:var(--text);color:var(--text)}
+.foot{display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:.7rem;padding:0 1.4rem 1.2rem}
+.strip{border:1px solid var(--line);border-radius:.72rem;background:var(--panel);padding:.6rem .7rem;display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.86rem}
+.strip b{font-weight:400}.strip span{color:var(--muted)}
+</style>
+<h1>Modules in the DNA – a draft</h1>
+<div class="sub">Everything that does something is a module · made of modules is a rig · takes one is a slot · connects them is the network. The same ladder twice: run by the engine, and run by an agent.</div>
+
+<div class="grid">
+  <div></div>
+  <div class="h"><b>Module</b><span>the leaf: ports, parameters, a driver</span></div>
+  <div class="h"><b>Rig</b><span>modules wired; a rig can hold rigs</span></div>
+  <div class="h"><b>Slot</b><span>takes what fits its definition</span></div>
+  <div class="h"><b>Network</b><span>what one thing fires reaches another</span></div>
+
+  <div class="lane">Driver: the engine<small>every block of 128 frames – sound, picture, control<br>built · production data</small></div>
+  <div class="cell">
+    <span class="ch on">built</span>
+    <div class="nodes"><span class="nd">osc</span><span class="nd">osc</span><span class="nd">mixer</span></div>
+    <div class="d">20 modules written in Rust · 35 node kinds built into the engine (screen, space, video, bus …)</div>
+  </div>
+  <div class="cell">
+    <span class="ch on">built</span>
+    <div class="box"><div class="bt">Instrument · drone</div><div class="nodes"><span class="nd">osc</span><span class="w">→</span><span class="nd">mixer</span><span class="w">←</span><span class="nd">osc</span><span class="nd out">out</span></div><div class="d">a closed rig: one outlet, two knobs, ownable</div></div>
+    <div class="box"><div class="bt">Character rig · Sandy</div><div class="nodes"><span class="nd">worm_rumble</span><span class="nd">sand_wind</span></div><div class="d">two tracks, the sticks, a set of values per mood</div></div>
+  </div>
+  <div class="cell">
+    <span class="ch on">built</span>
+    <div class="t">Sandy dunes – Sandgirl and Sandy</div>
+    <div class="nodes"><span class="nd">sandgirl ← character · spot_left</span><span class="nd">sandy ← character · spot_right</span></div>
+    <div class="d">a scene's holders take a character – and with it its rig</div>
+  </div>
+  <div class="cell last">
+    <span class="ch">partly built</span>
+    <div class="nodes"><span class="nd">a reader's choice</span><span class="w">→</span><span class="nd">story event</span><span class="w">→</span><span class="nd">a show's row</span><span class="w">→</span><span class="nd">the scene on a deck</span></div>
+    <div class="d">the deck's wiring and "fires on" exist; the one view of it is drafted (network)</div>
+  </div>
+
+  <div class="lane">Driver: an agent, an LLM, a tool<small>once per run – a run yields an asset<br>drafted · spores</small></div>
+  <div class="cell draft">
+    <span class="ch">drafted</span>
+    <div class="nodes"><span class="nd">Library</span><span class="nd">crop · pose</span><span class="nd">image → 3D</span><span class="nd">auto-rig</span><span class="nd">condition</span></div>
+    <div class="d">spores: the same shape as a module – ports in and out, settings, a driver</div>
+  </div>
+  <div class="cell draft">
+    <span class="ch">drafted</span>
+    <div class="box"><div class="bt">Generator · Summer model</div><div class="nodes"><span class="nd">sheet</span><span class="w">→</span><span class="nd">image → 3D</span><span class="w">→</span><span class="nd">auto-rig</span><span class="w">→</span><span class="nd out">output · GLB</span></div><div class="d">a rig of spores that ends in an output: a document, found and versioned</div></div>
+  </div>
+  <div class="cell draft">
+    <span class="ch">drafted</span>
+    <div class="t">Katzenpapst · Summer · 3D model</div>
+    <div class="nodes"><span class="nd">takes a GLB · rigged · ≤ 48 bones</span></div>
+    <div class="d">the slot takes an asset – or the generator as its stand-in, until a run yields</div>
+  </div>
+  <div class="cell draft last">
+    <span class="ch">drafted</span>
+    <div class="nodes"><span class="nd">the sheet changed</span><span class="w">→</span><span class="nd">a run</span><span class="w">→</span><span class="nd">a new version in the slot</span></div>
+    <div class="d">what starts a run is a signal like any other</div>
+  </div>
+</div>
+
+<div class="foot">
+  <div class="lane">Presets<small>saved values, on every level</small></div>
+  <div class="strip"><b>a module's defaults</b><span>osc · freq 55</span><b>an instrument's preset</b><span>sand_song.bright (on sand_song.base)</span><b>a rig's mood</b><span>Sandy · angry</span><b>a generator's settings</b><span>drafted</span></div>
+</div>
+<div class="foot">
+  <div class="lane">Open<small>the owner's word needed</small></div>
+  <div class="strip"><span>1 · where the spore canvas lives – creator or deck</span><span>2 · one catalog of leaves, or built-ins apart</span><span>3 · rigs of modules or of instruments</span><span>4 · where a module is written</span><span>5 · one port system or two</span><span>6 · rights on modules and generators</span><span>7 · is a scene a rig with a stage</span></div>
+</div>
+</html>

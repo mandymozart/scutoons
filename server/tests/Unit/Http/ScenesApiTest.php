@@ -102,6 +102,8 @@ final class ScenesApiTest extends TestCase
 
     public function testCreatorsSaveDraftsWithVersionsAndOnlyThePublishedOneIsPublic(): void
     {
+        // from an empty list: without the scene a migration publishes (scene:cloud-light, CloudLightSandboxTest)
+        $this->db->exec("DELETE FROM entity_versions WHERE kind = 'scene'");
         $creator = $this->session([Roles::CREATOR], 'creator@example.test');
         $reader = $this->session([], 'reader@example.test');
 

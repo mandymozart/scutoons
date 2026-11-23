@@ -3,7 +3,8 @@
 //! it last wrote (a step that writes nothing keeps it), the host reads it after every call and the space draws it each
 //! frame, one block late. Both records are `repr(C)` and frozen with the region: a field added is a new region.
 
-/// What an instance draws: one of the core's placeholder shapes, until a shape may name a model asset.
+/// What an instance draws: one of the core's placeholder shapes – or, when the module has a `model` slot of the shape's word
+/// (`puff`) and its node names a .glb there, that model fitted to the placeholder's size.
 pub mod shape {
     /// a low-poly lumpy ball, about 1 m across (a cloud's puff)
     pub const PUFF: u32 = 0;

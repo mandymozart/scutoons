@@ -2,7 +2,7 @@
 //! (`assets = { ir = "scutoons/irs/plate.wav" }`) or the content's `{ src, variants }` (`ir = { src = "….128.mp3",
 //! variants = { low = "….96.mp3", high = "….320.mp3" } }`), paths CDN-root as the Library hands them. The check is
 //! here once: the slot is declared, every file is of the kind the slot holds (a `pcm` slot a sound, an `image` slot a
-//! picture), the paths stay inside the CDN. Which file plays is the one pick rule's (deck-catalog `rendition`).
+//! picture, a `model` slot a .glb), the paths stay inside the CDN. Which file plays is the one pick rule's (deck-catalog `rendition`).
 use deck_catalog::library::{family::kind_of_ext, Kind as FileKind};
 use deck_catalog::rendition::Media;
 use deck_catalog::AssetKind;
@@ -93,8 +93,14 @@ fn path_problem(path: &str, kind: AssetKind) -> Option<String> {
         AssetKind::Pcm => kind_of_ext(ext) == FileKind::Audio,
         AssetKind::Image => kind_of_ext(ext) == FileKind::Image,
         AssetKind::Bytes => true,
+        AssetKind::Model => ext.eq_ignore_ascii_case("glb"),
     };
-    (!fits).then(|| format!("'{path}' is no {} file", if kind == AssetKind::Pcm { "sound" } else { "picture" }))
+    let what = match kind {
+        AssetKind::Pcm => "sound",
+        AssetKind::Model => ".glb",
+        _ => "picture",
+    };
+    (!fits).then(|| format!("'{path}' is no {what} file"))
 }
 
 #[cfg(test)]
@@ -102,7 +108,7 @@ mod tests {
     use super::*;
     use deck_catalog::rendition::Quality;
 
-    const SLOTS: [(&str, AssetKind); 2] = [("ir", AssetKind::Pcm), ("look", AssetKind::Image)];
+    const SLOTS: [(&str, AssetKind); 3] = [("ir", AssetKind::Pcm), ("look", AssetKind::Image), ("puff", AssetKind::Model)];
 
     fn params(toml: &str) -> toml::Table {
         toml.parse().unwrap()
@@ -120,7 +126,9 @@ mod tests {
     #[test]
     fn the_check_names_slot_kind_and_path() {
         let bad = |t: &str| of(&params(t), &SLOTS).unwrap_err().join(" | ");
-        assert_eq!(bad(r#"assets = { room = "a/b.wav" }"#), "asset 'room': the module has no such slot (it has ir, look)");
+        assert_eq!(bad(r#"assets = { room = "a/b.wav" }"#), "asset 'room': the module has no such slot (it has ir, look, puff)");
+        assert_eq!(bad(r#"assets = { puff = "a/b.gltf" }"#), "asset 'puff': 'a/b.gltf' is no .glb file");
+        assert_eq!(of(&params(r#"assets = { puff = "scutoons/3d/cloud-puff.GLB" }"#), &SLOTS).unwrap()[0].kind, AssetKind::Model);
         assert_eq!(bad(r#"assets = { ir = "a/b.webp" }"#), "asset 'ir': 'a/b.webp' is no sound file");
         assert_eq!(bad(r#"assets = { look = "a/b.wav" }"#), "asset 'look': 'a/b.wav' is no picture file");
         assert_eq!(bad(r#"assets = { ir = "../etc/x.wav" }"#), "asset 'ir': '../etc/x.wav' is no CDN path (`<folder>/…/<file>`)");

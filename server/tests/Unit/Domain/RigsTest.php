@@ -79,9 +79,9 @@ final class RigsTest extends TestCase
     public function testTheMigratedCoreRigsAreValidCatalogEntries(): void
     {
         $store = $this->get(CatalogStore::class);
-        self::assertSame(['cathedral_voice', 'drone', 'incense', 'default_voice'], array_column($store->rows('instruments'), 'id'));
+        self::assertSame(['cathedral_voice', 'drone', 'incense', 'default_voice', 'cloud_storm'], array_column($store->rows('instruments'), 'id'));
         self::assertSame(['cathedral_voice.base', 'cathedral_voice.bright', 'cathedral_voice.low', 'drone.base', 'incense.base', 'default_voice.base'], array_column($store->rows('presets'), 'id'));
-        self::assertSame(['character.catpope', 'item.incense_burner', 'character.default'], array_column($store->rows('rigs'), 'id'), 'in migration order: the core rigs of 2026-11-01-rigs_core, then the default character rig of 2026-11-22-rig-default');
+        self::assertSame(['character.catpope', 'item.incense_burner', 'character.default', 'item.cloud'], array_column($store->rows('rigs'), 'id'), 'in migration order: the core rigs of 2026-11-01-rigs_core, the default character rig of 2026-11-22-rig-default, the storm cloud of 2026-11-24-cloud-light-sandbox');
         foreach (['instruments', 'presets', 'rigs'] as $kind) {
             foreach ($store->rows($kind) as $row) {
                 self::assertSame([], $this->problems($kind, $row['id'], self::o($row['data'])), "$kind {$row['id']}");
@@ -115,7 +115,7 @@ final class RigsTest extends TestCase
             }
         }
         self::assertSame($before, $this->db->all('SELECT id, data FROM catalog_presets ORDER BY id'), 'an edited row stays as edited');
-        self::assertSame(['character.catpope', 'character.default', 'item.incense_burner'], array_column($this->db->all('SELECT id FROM catalog_rigs ORDER BY id'), 'id'),
+        self::assertSame(['character.catpope', 'character.default', 'item.cloud', 'item.incense_burner'], array_column($this->db->all('SELECT id FROM catalog_rigs ORDER BY id'), 'id'),
             'INSERT IGNORE by id: a second run only fills what is missing (production runs each file once – schema_migrations)');
     }
 

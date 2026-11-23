@@ -1,6 +1,6 @@
 //! STAND-INS, synthesized here – not recordings: the sounds the cloud-storm and bamboo-forest rigs' samplers name until
 //! real ones are uploaded under the same CDN paths (a thunder, a kick, a wooden knock at middle C; 48 kHz mono 16-bit
-//! WAV, seeded, the same bytes every run). The rig tests serve them from a library cache of their own with the CDN
+//! WAV, seeded, the same bytes every run) – and the cloud's puff model, the bubble (deck-space `space::bubble`). The rig tests serve them from a library cache of their own with the CDN
 //! offline, through the deck's loader. `SAMPLER_OUT_DIR=<dir>` writes them as `<dir>/<file>` (the test
 //! `write_the_stand_ins_when_asked`).
 #![allow(dead_code)]
@@ -13,9 +13,14 @@ use std::sync::Arc;
 
 const RATE: f64 = 48_000.0;
 
-/// the CDN path each rig names and its stand-in
-pub fn all() -> [(&'static str, Vec<u8>); 3] {
-    [("scutoons/sounds/cloud-thunder.wav", thunder()), ("scutoons/sounds/cloud-kick.wav", kick()), ("scutoons/sounds/bamboo-knock.wav", knock())]
+/// the CDN path each rig names and its stand-in (the cloud's puff: its default model, the low-poly bubble)
+pub fn all() -> [(&'static str, Vec<u8>); 4] {
+    [
+        ("scutoons/sounds/cloud-thunder.wav", thunder()),
+        ("scutoons/sounds/cloud-kick.wav", kick()),
+        ("scutoons/sounds/bamboo-knock.wav", knock()),
+        ("scutoons/3d/cloud-puff.glb", deck_space::space::bubble::glb()),
+    ]
 }
 
 /// the deck's loader over a cache of its own holding the stand-ins (the CDN offline)

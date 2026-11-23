@@ -216,7 +216,9 @@ pub struct PortDesc {
     pub choices: Cow<'static, [Cow<'static, str>]>,
 }
 
-/// what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5)
+/// what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5);
+/// a `model` slot (a .glb) is never handed to the module – the space draws the module's instances of the shape the slot is
+/// named after with it (`puff`, `segment`)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
@@ -224,6 +226,7 @@ pub enum AssetKind {
     Pcm,
     Bytes,
     Image,
+    Model,
 }
 
 /// a read-only data slot of a module; a node binds an asset id to it, the host fills it at instantiation (ABI-V2 §1.5)

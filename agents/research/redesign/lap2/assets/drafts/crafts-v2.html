@@ -1,0 +1,736 @@
+<!-- Status: draft round 2 for the owner's review (epic #626), 2026-11-22 night – one consistent set: the dashboard behind the menu button, workspaces flat, the stage as the whole window, snap gestures, the launcher, item + workspace tabs, first login, admin crafts, the canvases, the deck editor in the same model, the first open, resume like hibernation, the user menu from the bottom. Concept only, no build. Thoughts it draws: workspace-thoughts.md (56 points, thought aloud). Rejected in round 1 and gone here: craft grouping, Home button, text on the bar's right icons, the dashboard's side column, a separate "Open" row, "Wanted pictures", drag grips, coloured panel heads, filled-pill active tabs, Views / History pills, the version in the bar, the tab-style comparison. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crafts and workspaces v2</title>
+<!-- ?view=<id> · ?theme=day · ?quiet hides the notes. Keys: 0–9 the first ten screens, ← / → all screens, T day / night, N notes. Open at 1440×900.
+     Colours: shared/tokens/editor.css (night / day), copied 1:1. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("file:///C:/Development/scutoons/deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("file:///C:/Development/scutoons/deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#f3f3f0;
+  --primary:#f3f3f0;--primary-line:#f3f3f0;--primary-ink:#171916;--warn:#f0a030;--go:#4cc35a;
+  --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;--ai:#c58cff;--glow:#1f251c;--veil:rgb(0 0 0/.76);--shade:rgb(0 0 0/.45);
+}
+[data-theme=day]{
+  --stage:#ffffff;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#f3f3f0;--primary-line:#f3f3f0;--primary-ink:#171916;--warn:#b86e0c;--go:#2e8a3e;
+  --ground:rgb(243 243 240 / 0.8);--halo:none;--ai:#7a3fc0;--glow:#e6eadd;--veil:rgb(255 255 255/.8);--shade:rgb(255 255 255/.5);
+}
+:root{--gap:1rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* the one bar */
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap);pointer-events:none}
+.bar>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line),0 .2rem .6rem rgb(0 0 0/.2);backdrop-filter:blur(6px);flex:none}
+.pill button{flex:none;height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap;font-size:var(--small);position:relative}
+.pill button.on{color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.pill.tabs button:not(.on):not(.round){color:var(--muted)}
+.pill button.lit{box-shadow:0 0 0 2px var(--accent)}
+.pill button.dimws{opacity:.45}
+.pill .round{padding:0;justify-content:center}
+.pill .lab{display:flex;align-items:center;gap:.3rem;white-space:nowrap;padding:0 .4rem;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.pill .strip{display:flex;gap:.25rem;overflow:hidden;min-width:0;flex:1;mask-image:linear-gradient(90deg,transparent,#000 1.6rem,#000 calc(100% - 1.6rem),transparent)}
+.pill .seg2{display:flex;border-radius:1rem;box-shadow:inset 0 0 0 1px var(--line);padding:.12rem}
+.pill .seg2 span{padding:.1rem .55rem;border-radius:.8rem;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+.pill .seg2 span.on{color:var(--text);box-shadow:inset 0 0 0 1px var(--muted)}
+.middle{flex:1;display:flex;justify-content:center;min-width:0}
+.dirty{width:.42rem;height:.42rem;border-radius:50%;background:var(--warn);flex:none}
+.pdot{position:absolute;right:.15rem;top:.15rem;width:.42rem;height:.42rem;border-radius:50%;background:var(--warn)}
+.face{width:1.15rem;height:1.15rem;border-radius:50%;flex:none;box-shadow:inset 0 0 0 2px rgb(255 255 255/.7)}
+
+/* panels: the head has no background of its own, no grip; the whole head drags */
+.panel{position:fixed;z-index:20;background:var(--surface);border-radius:.6rem;box-shadow:0 0 0 1px var(--line),0 .5rem 1.5rem rgb(0 0 0/.4);display:flex;flex-direction:column;overflow:hidden}
+.ph{display:flex;align-items:center;gap:.2rem;height:2.3rem;padding:0 .35rem 0 .45rem;flex:none;cursor:grab}
+.ph .t{height:1.7rem;padding:0 .7rem;border-radius:1rem;display:flex;align-items:center;font-size:var(--small);color:var(--muted);opacity:.8;white-space:nowrap}
+.ph .t.on{color:var(--text);opacity:1;box-shadow:inset 0 0 0 1px var(--line)}
+.ph .sp{flex:1}
+.ph .ic{width:1.7rem;height:1.7rem;display:flex;align-items:center;justify-content:center;color:var(--muted);border-radius:50%}
+.pb{padding:.6rem .8rem;overflow:hidden;flex:1;font-size:var(--small)}
+.field{margin:0 0 .65rem}
+.field .v{margin-top:.25rem;height:2rem;border-radius:var(--radius);background:var(--control);display:flex;align-items:center;padding:0 .6rem;gap:.4rem}
+.field .v.area{height:4rem;align-items:flex-start;padding-top:.4rem;color:var(--muted)}
+.lrow{display:flex;align-items:center;gap:.5rem;height:1.95rem}
+.lrow .m{margin-left:auto;color:var(--muted);font-size:.72rem}
+.lrow.sel{background:var(--selected);border-radius:var(--radius);margin:0 -.4rem;padding:0 .4rem}
+
+/* stage */
+.art{position:fixed;inset:0;z-index:1}
+.art svg{width:100%;height:100%}
+.ground{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 55% 55% at 50% 50%,var(--glow),var(--stage) 72%)}
+
+/* status bar */
+.status{position:fixed;z-index:40;left:var(--gap);right:var(--gap);bottom:.6rem;height:2.1rem;border-radius:1.05rem;background:var(--ground);box-shadow:0 0 0 1px var(--line);display:flex;align-items:center;padding:0 1rem;gap:1rem;font-size:var(--small);color:var(--muted);backdrop-filter:blur(6px)}
+.status .r{margin-left:auto}
+.status b{font-weight:400;color:var(--warn)}
+
+/* menus */
+.menu{position:fixed;z-index:60;background:var(--surface);border-radius:.6rem;box-shadow:0 0 0 1px var(--line),0 .6rem 1.8rem rgb(0 0 0/.5);padding:.35rem;font-size:var(--small);min-width:17rem}
+.menu .row{display:flex;align-items:center;gap:.55rem;height:2.1rem;padding:0 .6rem;border-radius:var(--radius);white-space:nowrap}
+.menu .row.hi{background:var(--hover)}
+.menu .row .meta{margin-left:auto;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.menu .row.off{color:var(--muted)}
+.menu .hr{height:1px;background:var(--line);margin:.35rem .2rem}
+.menu .head{padding:.45rem .6rem .2rem}
+.seg{display:flex;gap:.1rem;margin-left:auto}
+.seg span{width:1.75rem;height:1.55rem;display:flex;align-items:center;justify-content:center;border-radius:.8rem;color:var(--muted)}
+.seg span.on{color:var(--text);box-shadow:inset 0 0 0 1px var(--text)}
+
+/* pages */
+.page{position:fixed;inset:0;overflow:hidden;padding:calc(var(--top) + 1.5rem) 0 4rem}
+.col{max-width:72rem;margin:0 auto;padding:0 2rem}
+h1{font-size:1.5rem;font-weight:400;margin:0 0 .3rem}
+h2{font-size:var(--title);font-weight:400;margin:0}
+.sub{color:var(--muted);font-size:var(--small)}
+.chip{display:inline-flex;align-items:center;gap:.35rem;height:1.75rem;padding:0 .7rem;border-radius:.9rem;background:transparent;box-shadow:0 0 0 1px var(--line);font-size:var(--small);color:var(--muted)}
+.chip.on{color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.box{background:var(--surface);border-radius:.6rem;box-shadow:0 0 0 1px var(--line);padding:.8rem 1rem}
+.list .li{display:flex;align-items:center;gap:.6rem;height:2.05rem;font-size:var(--small);border-bottom:1px solid var(--line)}
+.list .li:last-child{border:0}
+.list .li .m{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;height:2.1rem;padding:0 1rem;border-radius:1.05rem;border:0;background:var(--control);box-shadow:0 0 0 1px var(--line);font-size:var(--small)}
+.btn.primary{background:var(--primary);color:var(--primary-ink);box-shadow:none}
+
+/* dashboard (app switcher) */
+.dboard{position:fixed;z-index:47;top:calc(var(--top) + .6rem);left:1.4rem;right:1.4rem;bottom:3.4rem}
+.dsearch{display:flex;align-items:center;gap:.6rem;height:2.9rem;padding:0 1rem;border-radius:1.45rem;background:var(--surface);box-shadow:0 0 0 1px var(--line);color:var(--muted)}
+.dsearch .kbd{margin-left:auto}
+.twobox{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-top:.8rem}
+.wgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;align-items:start}
+.wcard{background:var(--surface);border-radius:.7rem;box-shadow:0 0 0 1px var(--line);overflow:hidden;padding-bottom:.6rem;position:relative}
+.wcard.focus{box-shadow:0 0 0 2px var(--accent)}
+.wcard.lift{box-shadow:0 0 0 1px var(--text),0 1rem 2rem rgb(0 0 0/.6)}
+.wcard .wthumb{height:6rem;position:relative;background:#0b0c0a}
+.wcard .wthumb svg{position:absolute;inset:0;width:100%;height:100%}
+.wcard .x{position:absolute;right:.4rem;top:.4rem;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--ground);display:flex;align-items:center;justify-content:center}
+.wcard .front{position:absolute;left:.5rem;top:.5rem;padding:.1rem .5rem;border-radius:.8rem;background:var(--ground);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.wcard .wname{padding:.5rem .75rem 0;display:flex;align-items:center;gap:.4rem}
+.wcard .what{padding:.12rem .75rem 0;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wcard .wviews{display:flex;align-items:center;gap:.4rem;margin:.5rem .6rem 0;padding:.3rem .5rem;border-radius:var(--radius);box-shadow:inset 0 0 0 1px var(--line);font-size:var(--small)}
+.wcard .wviews.open{box-shadow:inset 0 0 0 1px var(--text)}
+.wcard .wviews .meta{margin-left:auto;color:var(--muted);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.wcard.new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;color:var(--muted);background:transparent;border:1px dashed var(--line);box-shadow:none;font-size:var(--small);min-height:9.4rem}
+.dfoot{position:fixed;z-index:47;left:1.4rem;right:1.4rem;bottom:.6rem;height:2.1rem;display:flex;align-items:center;gap:.6rem;padding:0 .4rem;color:var(--muted);font-size:var(--small)}
+.dfoot .sep{width:1px;height:1rem;background:var(--line)}
+
+/* first login */
+.cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem}
+.ctile{position:relative;height:8.2rem;border-radius:.8rem;background:var(--surface);box-shadow:0 0 0 1px var(--line);display:flex;flex-direction:column;justify-content:flex-end;padding:.9rem;color:var(--muted)}
+.ctile > svg{position:absolute;left:.9rem;top:.9rem}
+.ctile .cn{font-size:1.05rem}
+.ctile .cm{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;margin-top:.2rem}
+.ctile.on{color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.ctile .ck{position:absolute;right:.7rem;top:.7rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--text);color:var(--surface);display:flex;align-items:center;justify-content:center}
+
+/* notes */
+.note{position:fixed;z-index:70;max-width:20rem;padding:.55rem .75rem;border-radius:.5rem;background:#fff6c8;color:#2a2610;font-size:.78rem;line-height:1.42;box-shadow:0 .3rem 1rem rgb(0 0 0/.5)}
+.note b{display:block;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.12rem}
+.note.ai{background:#efe0ff;color:#2b1240}
+.note i{font-style:normal;background:rgb(0 0 0/.08);padding:0 .25rem;border-radius:.2rem}
+body.quiet .note{display:none}
+.kbd{margin-left:.6rem;padding:.05rem .45rem;border-radius:.3rem;box-shadow:0 0 0 1px var(--line);font-size:.72rem;color:var(--muted);white-space:nowrap}
+
+/* launcher */
+.launch{position:fixed;z-index:70;left:50%;top:15%;transform:translateX(-50%);width:42rem;background:var(--surface);border-radius:.8rem;box-shadow:0 0 0 1px var(--line),0 1rem 3rem rgb(0 0 0/.6);overflow:hidden}
+.launch .in{display:flex;align-items:center;gap:.6rem;height:3.4rem;padding:0 1rem;font-size:1.25rem;border-bottom:1px solid var(--line)}
+.launch .in .caret{width:2px;height:1.4rem;background:var(--accent)}
+.launch .grp{padding:.35rem .4rem .15rem}
+.launch .grp .label{padding:.25rem .6rem}
+.launch .grp.cur .label{color:var(--text)}
+.launch .r{display:flex;align-items:center;gap:.6rem;height:2.3rem;padding:0 .6rem;border-radius:var(--radius);font-size:var(--small)}
+.launch .r.hi{box-shadow:inset 0 0 0 1px var(--accent)}
+.launch .r .m{margin-left:auto;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.launch .foot{display:flex;gap:1.2rem;padding:.5rem 1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem}
+.dim{position:fixed;inset:0;z-index:46;background:var(--shade)}
+
+/* drag + snap */
+.ghost{position:fixed;z-index:55;border:2px dashed var(--accent);border-radius:.6rem;background:rgb(243 243 240/.07)}
+.zone{position:fixed;z-index:56;border-radius:.5rem;border:1px dashed var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;text-align:center;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;background:rgb(0 0 0/.7)}
+.zone.on{background:rgb(243 243 240/.22);border-style:solid}
+.preview{position:fixed;z-index:53;background:rgb(243 243 240/.13);border:2px solid var(--accent)}
+.offzone{position:fixed;z-index:57;background:linear-gradient(90deg,transparent,rgb(229 72 59/.3));display:flex;align-items:center;justify-content:center;color:#a7af9b;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.cursor{position:fixed;z-index:90;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .3rem .8rem rgb(0 0 0/.5);white-space:nowrap}
+
+/* frames (a screen drawn small inside a screen) */
+.frame{position:fixed;z-index:30;overflow:hidden;border-radius:.6rem;box-shadow:0 0 0 1px var(--line),0 1rem 2.5rem rgb(0 0 0/.6);background:#000}
+.frame .inner{position:absolute;left:0;top:0;width:1440px;height:900px;transform-origin:0 0;overflow:hidden}
+.fcap{position:fixed;z-index:31;font-size:var(--small);color:var(--muted)}
+.fcap b{color:var(--text);font-weight:400;font-size:1rem;display:block}
+
+/* user sheet */
+.sheet{position:fixed;z-index:62;left:50%;transform:translateX(-50%);bottom:0;width:34rem;background:var(--surface);border-radius:1rem 1rem 0 0;box-shadow:0 0 0 1px var(--line),0 -1rem 3rem rgb(0 0 0/.6);padding:.6rem .8rem 2.6rem;font-size:var(--small)}
+.sheet .handle{width:3rem;height:.3rem;border-radius:.2rem;background:var(--muted);margin:0 auto .8rem;opacity:.6}
+.sheet .row{display:flex;align-items:center;gap:.7rem;height:2.6rem;padding:0 .6rem;border-radius:var(--radius)}
+.sheet .row.hi{box-shadow:inset 0 0 0 1px var(--accent)}
+.sheet .row .m{margin-left:auto;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase}
+.sheet .hr{height:1px;background:var(--line);margin:.4rem .2rem}
+.av{width:2rem;height:2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:#fff;flex:none}
+
+/* the screen selector: a small pill at the bottom, the whole list on hover */
+.tabsel{position:fixed;z-index:95;left:50%;bottom:.85rem;transform:translateX(-50%);display:flex;align-items:center;gap:.2rem;padding:.15rem .3rem;border-radius:1rem;background:rgb(40 44 36/.92);box-shadow:0 0 0 1px #3a4034;font-size:.72rem;max-width:calc(100vw - 2rem);flex-wrap:wrap;justify-content:center}
+.tabsel a{white-space:nowrap;color:#cfd6c4;text-decoration:none;padding:.1rem .5rem;border-radius:.8rem;display:none}
+.tabsel a.on,.tabsel:hover a{display:block}
+.tabsel a.on{box-shadow:inset 0 0 0 1px #f3f3f0;color:#f3f3f0}
+.tabsel .arr{color:#a7af9b;padding:0 .3rem}
+.tabsel:hover .arr{display:none}
+</style>
+<style>
+/* palette D (lap 2 redraw, 2026-11-24 – RULES H4, H11, kit-d.html): no accent, no lime – on, selected and the primary are the text colour /
+   the pressed fill; grounds see-through (the text colour at 6 / 10 / 16 %); tabs without a border at rest, the active one brighter;
+   blur only on the overlay level (H15): panels and menus have none, menus opaque */
+:root,[data-theme]{--accent:var(--text);--primary:var(--pressed);--primary-line:var(--pressed);--primary-ink:var(--pressed-text);
+  --control:color-mix(in srgb,var(--text) 6%,transparent);--hover:color-mix(in srgb,var(--text) 10%,transparent);
+  --selected:color-mix(in srgb,var(--text) 16%,transparent);--within:color-mix(in srgb,var(--text) 10%,transparent);
+  --head:color-mix(in srgb,var(--text) 5%,transparent)}
+.tab.on,.t.on{box-shadow:none!important;color:var(--text)}
+.pill button.on,.ph .t.on{box-shadow:none!important;color:var(--text)}
+.seg span.on{box-shadow:none!important;background:var(--pressed);color:var(--pressed-text)}
+.panel{backdrop-filter:none!important}.menu{backdrop-filter:none!important;background:var(--surface)!important}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav class="tabsel" id="sel"></nav>
+<script>
+const Q = new URLSearchParams(location.search);
+let view = Q.get('view') || 'dash';
+if (Q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
+if (Q.has('quiet')) document.body.classList.add('quiet');
+
+const I = {
+  menu:'<path d="M3 6h18M3 12h18M3 18h18"/>', plus:'<path d="M12 5v14M5 12h14"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>', down:'<path d="M6 9l6 6 6-6"/>', undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/>',
+  redo:'<path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/>', views:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+  hist:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', pub:'<path d="M7 18a5 5 0 01-.9-9.9A6 6 0 0118 9a4 4 0 01-1 7.9"/><path d="M12 12v8M9 15l3-3 3 3"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/>', eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0112 5c6.4 0 10 7 10 7a17 17 0 01-3.2 4.1M6.6 6.6A17 17 0 002 12s3.6 7 10 7a9.7 9.7 0 004.4-1"/><path d="M9.9 9.9a3 3 0 004.2 4.2"/>',
+  stage:'<rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/>', panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/>',
+  save:'<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>', reset:'<path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8"/><path d="M3 3v5h5"/>',
+  copy:'<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h3"/>',
+  spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>', grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/>', cube:'<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
+  lang:'<path d="M4 5h9M8.5 3v2M6 5c1 4 4 7 7 8M11 5c-1 4-4 7-7 8"/><path d="M13 21l4-9 4 9M14.5 18h5"/>', film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+  wave:'<path d="M2 12h2l2-6 3 12 3-9 2 6 2-3h6"/>', code:'<path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/>', show:'<path d="M3 5h18v11H3z"/><path d="M8 21l4-5 4 5"/>',
+  dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>', check:'<path d="M5 12l5 5L20 7"/>', mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  play:'<path d="M7 5l12 7-12 7z" fill="currentColor"/>', map:'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>', bone:'<path d="M7 7l10 10"/><circle cx="5.5" cy="5.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+  xr:'<rect x="2" y="7" width="20" height="10" rx="4"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="12" r="2"/>', flow:'<circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6c6 0 6 6 10 6M7 18c6 0 6-6 10-6"/>',
+  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>', out:'<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/>', swap:'<path d="M4 8h14l-4-4M20 16H6l4 4"/>', cam:'<path d="M3 7h12v10H3z"/><path d="M15 10l6-3v10l-6-3"/>', full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
+};
+const ic = (n, s='') => `<svg class="i" viewBox="0 0 24 24" ${s}>${I[n]}</svg>`;
+const f = (c) => `<span class="face" style="background:${c}"></span>`;
+let FRAME = false;   // drawing a screen small inside another: no notes
+const note = (x, y, title, text, cls = '', w = '') => FRAME ? '' : `<div class="note ${cls}" style="left:${x}px;top:${y}px;${w ? 'max-width:' + w : ''}"><b>${title}</b>${text}</div>`;
+
+const CRAFTS = {
+  showrunner:{n:'Show runner',i:'show'}, illustrator:{n:'Illustrator',i:'pen'}, video:{n:'Video editor',i:'film'}, writer:{n:'Writer',i:'pen'},
+  translator:{n:'Translator',i:'lang'}, animator:{n:'Animator',i:'cube'}, sound:{n:'Sound designer',i:'wave'}, developer:{n:'Developer',i:'code'}
+};
+
+/* ── the one bar: item tabs left (a scrolling strip) · workspace tabs middle (flat, most used) · right, icons only: play pill (only where
+      something plays) · undo / redo · Publish (only when something needs it) · account · menu (= the dashboard), far right ── */
+const IT_C = [[ic('film'),'Chapter 2'],[f('#4a4d46'),'Katzenpapst'],[f('#2d8a4e'),'Weiche Priesterin'],[ic('film'),'Chapter 3'],[ic('cube'),'catpope-regular.v2']];
+const WS_C = ['Expressions','Looks for 3D','Write a chapter','Generate','Kanon'];
+const IT_D = [[ic('show'),'three-crows'],[ic('map'),'Nave at night'],[f('#4a4d46'),'Katzenpapst'],[ic('xr'),'Poster: Krähen'],[ic('film'),'Crypt chase']];
+const WS_D = ['Scene','Rigging','XR','Show'];
+function bar(o = {}) {
+  const items = o.items === undefined ? IT_C : o.items, front = o.front ?? 2;
+  const ws = o.ws === undefined ? WS_C : o.ws, wsOn = o.wsOn ?? ws?.[0];
+  const strip = items && items.length ? `<span class="pill tabs" style="max-width:${o.stripW || 33}rem;flex:none"><button class="round" title="scroll left">‹</button><span class="strip">${items.map(([i, n], k) =>
+      `<button class="${k === front ? 'on' : ''}">${i}${n}${k === front ? `<span style="opacity:.6">${ic('x')}</span>` : ''}</button>`).join('')}</span><button class="round" title="scroll right">›</button><button class="round" title="open anything">${ic('plus')}</button></span>` : '';
+  const wsr = ws && ws.length ? `<span class="pill tabs">${ws.map(n => `<button class="${n === wsOn ? 'on' : ''} ${o.dimWs?.includes(n) ? 'dimws' : ''} ${o.wsLit === n ? 'lit' : ''}">${n}${n === wsOn && o.dirty ? '<span class="dirty" title="changed since saved"></span>' : ''}</button>`).join('')}<button class="round" title="all workspaces">${ic('down')}</button></span>` : '';
+  const play = o.play ? `<span class="pill"><span class="seg2"><span class="${o.play === 'edit' ? 'on' : ''}">Edit</span><span class="${o.play !== 'edit' ? 'on' : ''}">Play</span></span><button class="round" title="play">${ic('play')}</button><span class="lab">${o.bpm || '120.0 BPM · INT'}</span>${o.panic ? '<button style="color:#a7af9b">Panic</button>' : ''}</span>` : '';
+  const ur = o.noUndo ? '' : `<span class="pill"><button class="round" title="Undo">${ic('undo')}</button><button class="round" title="Redo">${ic('redo')}</button></span>`;
+  const pub = o.pub === false ? '' : `<button class="round" title="Publish – 3 changes">${ic('pub')}<span class="pdot"></span></button>`;
+  return `<div class="bar">${strip}<span class="middle">${wsr}</span>${play}${ur}<span class="pill">${pub}<button class="round ${o.accOn ? 'on' : ''}" title="account">${ic('user')}</button><button class="round ${o.menuOn ? 'on' : ''}" title="menu · the dashboard">${ic('menu')}</button></span></div>`;
+}
+const status = (msg = 'Saved 2 s ago', r = '0 errors <b>6 warnings</b>') => `<div class="status"><span>${msg}</span><span class="r">${r}</span></div>`;
+
+/* ── stage art ── */
+function mantis(tx = 720, ty = 470, s = 1) {
+  return `<g transform="translate(${tx} ${ty}) scale(${s})">
+    <path d="M-60 -250 C-140 -380 -210 -400 -250 -420" stroke="#4e9a5b" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M60 -250 C140 -380 210 -400 250 -420" stroke="#4e9a5b" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M-250 120 C-280 -80 -170 -140 0 -140 C170 -140 280 -80 250 120 C250 260 200 380 0 380 C-200 380 -250 260 -250 120z" fill="#6b6e66"/>
+    <path d="M-80 -150 C-60 -60 60 -60 80 -150" fill="#b02a69"/>
+    <ellipse cx="0" cy="-215" rx="125" ry="105" fill="#3e8a4f"/>
+    <ellipse cx="-80" cy="-245" rx="52" ry="60" fill="#8b9084"/><ellipse cx="80" cy="-245" rx="52" ry="60" fill="#8b9084"/>
+    <ellipse cx="-80" cy="-245" rx="40" ry="46" fill="#2a2c28"/><ellipse cx="80" cy="-245" rx="40" ry="46" fill="#2a2c28"/>
+    <path d="M-40 -150 C-20 -120 20 -120 40 -150" stroke="#f0d8cf" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <rect x="-30" y="-130" width="60" height="70" rx="20" fill="#3e8a4f"/></g>`;
+}
+const figure = () => `<div class="ground"></div><div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid meet">${mantis()}</svg></div>`;
+
+/* ── panels ── */
+const P = (x, y, w, h, tabs, body, extra = '') => `<div class="panel" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}"><div class="ph">${tabs.map(([t, on]) => `<span class="t ${on ? 'on' : ''}">${t}</span>`).join('')}<span class="sp"></span><span class="ic">${ic('dots')}</span></div><div class="pb">${body}</div></div>`;
+const inspector = (x, y, w, h, tabs = [['Inspector',1],['Kanon',0]]) => P(x, y, w, h, tabs,
+  `<div class="field"><div class="label">Name</div><div class="v">Weiche Priesterin</div></div><div class="field"><div class="label">Description</div><div class="v area">KPop, Bubble Team, Sweatpants …</div></div>
+  <div class="field"><div class="label">Colour</div><div class="v"><span style="width:1rem;height:1rem;border-radius:.2rem;background:#6b6e66"></span>#6b6e66</div></div><div class="field"><div class="label">Own toon</div><div class="v">Top Toy</div></div>`);
+function moods(x, y, w, h) {
+  const faces = ['neutral','happy','sad','angry','smug','scared','thinking','dizzy'];
+  return P(x, y, w, h, [['Moods',1],['Mood words',0]], `<div style="display:flex;gap:.55rem">${faces.map((n, i) => `<div style="text-align:center;font-size:.72rem;color:var(--muted)"><div style="width:4.1rem;height:4.1rem;border-radius:.4rem;background:${i ? 'var(--control)' : '#2a2c28'};box-shadow:0 0 0 ${i ? 1 : 2}px ${i ? 'var(--line)' : 'var(--accent)'};${i > 4 ? 'border:1px dashed var(--warn);background:transparent' : ''}"></div>${n}</div>`).join('')}</div>`);
+}
+function library(x, y, w, h, rows) {
+  rows = rows || [[`<span style="width:1.4rem;height:1.4rem;border-radius:.2rem;background:#6b6e66"></span>`,'Weiche Priesterin – 3D model','1.2 MB'],[`<span style="width:1.4rem;height:1.4rem;border-radius:.2rem;background:#6b6e66"></span>`,'avatar · neutral','600×600'],[`<span style="width:1.4rem;height:1.4rem;border-radius:.2rem;background:#6b6e66"></span>`,'full · neutral v2','600×1200'],[`<span style="width:1.4rem;height:1.4rem;border-radius:.2rem;background:#6b6e66"></span>`,'portrait · neutral','600×600']];
+  return P(x, y, w, h, [['Library',1]], `<div class="field"><div class="v" style="color:var(--muted)">${ic('search')} Search name, folder …</div></div>${rows.map(([i, n, m]) => `<div class="lrow">${i}${n}<span class="m">${m}</span></div>`).join('')}`);
+}
+
+/* the creator workspace "Expressions", as it is drawn on most screens */
+const workBase = (o = {}) => `${figure()}${bar(o)}${library(20, 64, 300, 250)}${inspector(1110, 64, 310, 420)}${moods(20, 712, 680, 132)}${status(o.msg)}`;
+
+/* ── dashboard thumbs ── */
+const fig = (body, head, bg) => `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="${bg}"/>${head}<ellipse cx="100" cy="98" rx="38" ry="34" fill="${body}"/><rect x="150" y="10" width="42" height="60" rx="3" fill="#1a1c18" stroke="#3a4034"/><rect x="8" y="92" width="80" height="22" rx="3" fill="#1a1c18" stroke="#3a4034"/></svg>`;
+const TH = {
+  mantis: fig('#6b6e66', '<circle cx="100" cy="52" r="22" fill="#3e8a4f"/>', '#170f14'),
+  pope: fig('#e8eae2', '<circle cx="100" cy="54" r="20" fill="#4a4d46"/>', '#0f161b'),
+  page: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#141612"/><rect x="50" y="14" width="100" height="92" rx="3" fill="#262922"/><path d="M62 32h76M62 46h60M62 60h70M62 74h50M62 88h66" stroke="#a7af9b" stroke-width="4"/></svg>`,
+  spores: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#120f17"/><g fill="#1a1c18" stroke="#a7af9b" stroke-width="1.5"><rect x="14" y="48" width="34" height="22" rx="4"/><rect x="150" y="48" width="38" height="22" rx="4" stroke="#f3f3f0"/></g><g fill="#1a1c18" stroke="#c58cff" stroke-width="2"><rect x="66" y="26" width="34" height="22" rx="4"/><rect x="108" y="68" width="34" height="22" rx="4"/></g><path d="M48 59C58 59 56 37 66 37M100 37C110 37 98 79 108 79M142 79C150 79 140 59 150 59" stroke="#a7af9b" fill="none" stroke-width="1.5"/></svg>`,
+  pub: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#141612"/><g fill="#a7af9b">${[0,1,2,3,4].map(i => `<rect x="40" y="${16+i*18}" width="${120-i*12}" height="8" rx="2"/>`).join('')}</g><text x="168" y="108" fill="#f0a030" font-size="18" font-family="sans-serif" text-anchor="end">18</text></svg>`,
+  kanon: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#100f0c"/><circle cx="60" cy="60" r="24" fill="#c0392b"/><circle cx="60" cy="48" r="12" fill="#222"/><g stroke="#a7af9b" stroke-width="4"><path d="M104 36h70M104 50h54M104 64h64M104 78h40"/></g></svg>`,
+  plan: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#0f1210"/><g fill="#262922" stroke="#3a4034">${[0,1,2,3,4,5].map(i => `<rect x="${14+(i%3)*60}" y="${18+Math.floor(i/3)*46}" width="52" height="38" rx="3"/>`).join('')}</g></svg>`,
+  scene: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#0d1218"/><path d="M0 90L200 90" stroke="#f3f3f0" opacity=".3"/><g fill="#26313b" stroke="#4a5a68"><rect x="20" y="30" width="30" height="60"/><rect x="150" y="30" width="30" height="60"/><rect x="80" y="50" width="40" height="40"/></g><path d="M100 110l-18-14h36z" fill="none" stroke="#f3f3f0"/></svg>`,
+  rig: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#10140f"/><ellipse cx="100" cy="80" rx="30" ry="30" fill="#4a4d46" opacity=".6"/><circle cx="100" cy="40" r="16" fill="#4a4d46" opacity=".6"/><path d="M100 40v60M80 70h40" stroke="#f3f3f0" stroke-width="2"/><rect x="146" y="20" width="40" height="18" rx="3" fill="#1a1c18" stroke="#f3f3f0"/><path d="M146 29C130 29 120 70 104 70" stroke="#f3f3f0" fill="none"/></svg>`,
+  xr: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#16130f"/><rect x="70" y="14" width="60" height="86" fill="#e8e0cc"/><circle cx="100" cy="50" r="16" fill="#c0392b"/><path d="M60 8h12M60 8v12M140 8h-12M140 8v12M60 106h12M60 106v-12M140 106h-12M140 106v-12" stroke="#f3f3f0" stroke-width="2"/></svg>`,
+  show: `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#0e0f12"/><g>${Array.from({length:12},(_,i)=>`<rect x="${16+(i%4)*36}" y="${20+Math.floor(i/4)*28}" width="30" height="22" rx="3" fill="${i===5?'#4cc35a':'#262922'}" stroke="#3a4034"/>`).join('')}</g><circle cx="176" cy="60" r="14" fill="#4cc35a"/></svg>`,
+  empty: (l = [[3,8,22,60],[72,8,25,80],[3,74,60,20]]) => `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice"><rect width="200" height="120" fill="#0b0c0a"/>${l.map(([x,y,w,h]) => `<rect x="${x*2}" y="${y*1.2}" width="${w*2}" height="${h*1.2}" rx="3" fill="#1a1c18" stroke="#3a4034"/>`).join('')}</svg>`
+};
+
+function wcard([name, what, svg, state], i, o = {}) {
+  const cls = [i === o.focus ? 'focus' : '', state === 'front' && o.lift ? 'lift' : ''].join(' ');
+  return `<div class="wcard ${cls}"><div class="wthumb">${svg}${state === 'front' ? '<span class="front">front</span>' : ''}${state === 'open' || state === 'front' ? `<span class="x" title="close the item">${ic('x')}</span>` : ''}</div>
+    <div class="wname">${name}</div><div class="what">${what}</div>${state === 'front' && !o.noViews ? `<div class="wviews ${o.viewsOpen ? 'open' : ''}">${ic('views')}Views<span class="meta">Inspector · Moods · Library · 3D place …</span></div>` : ''}</div>`;
+}
+const WC = [['Expressions', 'Weiche Priesterin · now', TH.mantis, 'front'], ['Write a chapter', 'Chapter 3 · 3 h', TH.page, 'open'], ['Looks for 3D', 'Katzenpapst · 1 h', TH.pope, 'open'], ['Generate', 'Summer 3D look · yesterday', TH.spores, 'open'],
+  ['Publish', '18 not live yet', TH.pub], ['Kanon', 'last: Fuchskrähe · 2 d', TH.kanon], ['Plan the season', 'last: Season 1 · 5 d', TH.plan]];
+const WD = [['Scene', 'Nave at night · now', TH.scene, 'front'], ['Show', 'three-crows · 20 min', TH.show, 'open'], ['Rigging', 'Katzenpapst · 1 h', TH.rig, 'open'], ['XR', 'Poster: Krähen · yesterday', TH.xr, 'open'], ['Publish', '4 not live yet', TH.pub]];
+
+function dashboard(o = {}) {
+  const W = o.W || WC;
+  const unpub = `<div class="box" style="margin-top:1rem"><div class="label" style="margin-bottom:.2rem;display:flex">Not published · 18<span style="margin-left:auto">in the toons you work on</span></div><div class="list">
+        <div class="li">${ic('film')}Chase through the crypt<span class="m" style="color:var(--warn)">not published · scene · sandgirl</span></div>
+        <div class="li">${f('#c0392b')}Fuchskrähe<span class="m" style="color:var(--warn)">not published · character · tilman</span></div>
+        <div class="li">${ic('show')}three-crows<span class="m" style="color:var(--warn)">not published · show · tilman</span></div>
+        <div class="li">${ic('film')}Chapter 4 · Feilchen<span class="m" style="color:var(--warn)">not published · chapter · tilman</span></div></div></div>`;
+  const boxes = o.empty ? (o.unpub ? unpub : '') : `<div class="twobox">
+      <div class="box"><div class="label" style="margin-bottom:.2rem">Last opened</div><div class="list">
+        ${(o.deck ? [[ic('map'),'Nave at night','Scene · now'],[ic('show'),'three-crows','Show · 20 min'],[f('#4a4d46'),'Katzenpapst','Rigging · 1 h']] : [[f('#2d8a4e'),'Weiche Priesterin','Expressions · now'],[f('#4a4d46'),'Katzenpapst','Looks for 3D · 1 h'],[ic('film'),'Chapter 3','Write a chapter · 3 h']]).map(([i,n,m]) => `<div class="li">${i}${n}<span class="m">${m}</span></div>`).join('')}</div></div>
+      <div class="box"><div class="label" style="margin-bottom:.2rem;display:flex">Needs review · 3<span style="margin-left:auto">Not published · 18</span></div><div class="list">
+        <div class="li">${ic('film')}Chase through the crypt<span class="m">review asked by sandgirl · scene</span></div>
+        <div class="li">${f('#c0392b')}Fuchskrähe<span class="m">review · character</span></div>
+        <div class="li">${ic('show')}three-crows<span class="m" style="color:var(--warn)">not published · show</span></div></div></div></div>`;
+  return `<div class="dim" style="background:${o.empty ? 'var(--stage)' : 'var(--veil)'};backdrop-filter:blur(6px)"></div>
+  <div class="dboard">${o.hello ? `<h1 style="margin:0 0 .8rem">${o.hello}</h1>` : ''}
+    <div class="dsearch">${ic('search')}<span>Open anything – an item, a workspace, an asset …</span><span class="kbd">Alt Space · Cmd Space · pad Y</span></div>
+    ${boxes}
+    <div class="label" style="margin:1rem 0 .55rem">Workspaces · most used first${o.empty ? '' : ' · each shows what is open in it'}</div>
+    <div class="wgrid">${W.map((w, i) => wcard(w, i, o)).join('')}${o.noNew ? '' : `<div class="wcard new">${ic('plus')}New workspace</div>`}</div></div>
+  <div class="dfoot">${ic('user')}${o.who || 'tilman'}<span class="sep"></span>Settings<span class="sep"></span>Docs<span class="sep"></span><span style="font-family:monospace">0.1.0 · f3d884c</span>&nbsp;up to date${o.deck ? '<span class="sep"></span>CPU 12% · GPU 60 fps' : ''}<span style="margin-left:auto">Tab · Shift Tab · the pad’s stick move · Enter opens · Esc goes back</span></div>`;
+}
+
+/* ── 1 · the dashboard behind the menu button ── */
+function dash() {
+  return `${figure()}${bar({ menuOn: true })}${dashboard({ focus: 1 })}
+  ${note(400, 605, 'The menu button is the dashboard', 'App-switcher style; no Home button. Each workspace card previews what is open in it (✕ closes that item, a fling too); the front card carries its Views. Tab moves the ring (on Write a chapter), Enter opens (points 37, 38, 42, 44).')}
+  ${note(780, 605, 'Last opened · needs review', 'On top; the side column is gone – account, Settings, Docs, build are the bottom line (points 43, 50).')}
+  ${note(20, 605, 'Gen-AI hook', 'Generate is the spore canvas (screen 11): any output, the output spore sets the fit (point 33).', 'ai')}`;
+}
+
+/* ── 2 · a creator workspace ── */
+function work() {
+  return `${workBase()}
+  ${note(560, 590, 'The stage is the whole window', 'Weiche Priesterin is drawn full-bleed on the whole window; panels float over her, nothing is pushed aside (point 1). No pills left on the stage (point 2).')}
+  ${note(340, 64, 'One bar', 'Items left (scrolling strip), workspaces middle, flat and most used first – no craft (points 28, 30, 47). Right, icons only: undo · redo · Publish · account · menu (points 36, 37).', '', '19rem')}
+  ${note(20, 330, 'No Tree', 'The Library opens a character (point 5).', '', '17rem')}
+  ${note(725, 760, 'Gen-AI hook', 'An empty mood (dashed) is filled from the Library: pick, upload or generate (point 23, not this iteration).', 'ai', '24rem')}
+  <div class="panel" style="left:1110px;top:500px;width:310px;height:2.3rem"><div class="ph"><span class="t on">Voice</span><span class="t">Cast</span><span class="sp"></span><span class="ic">${ic('dots')}</span></div></div>
+  ${note(1110, 548, 'Panel heads: only tabs', 'No colour of their own, no grip, no minimize or place buttons – at most a quiet ⋯; the whole head drags, the front tab a thin outline (points 40, 45, 46, 59). Voice above is collapsed: double-click the head to collapse / expand (point 58).', '', '19rem')}`;
+}
+
+/* ── 3 · the Views list, opened from the front workspace's card ── */
+function views() {
+  const rows = [['Sheet · the item','stage','left half'],['3D place','stage','top-right quarter'],['Inspector','panel','right'],['Kanon','panel','tab in Inspector'],['Moods','panel','bottom'],['Library','panel','left'],['History','hidden'],['Mood words','hidden'],['Voice','hidden'],['Cast','hidden'],['Generations','hidden'],['Log','hidden']];
+  const seg = (s) => `<span class="seg"><span class="${s==='hidden'?'on':''}" title="hidden">${ic('eyeoff')}</span><span class="${s==='panel'?'on':''}" title="in a panel">${ic('panel')}</span><span class="${s==='stage'?'on':''}" title="on the stage">${ic('stage')}</span><span class="${s==='full'?'on':''}" title="full screen">${ic('full')}</span></span>`;
+  const map = `<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;height:4.6rem;padding:0 .6rem .3rem">
+    <div style="grid-row:1/3;border-radius:.3rem;box-shadow:inset 0 0 0 1px var(--text);display:flex;align-items:center;justify-content:center;font-size:.72rem">Sheet</div>
+    <div style="border-radius:.3rem;box-shadow:inset 0 0 0 1px var(--text);display:flex;align-items:center;justify-content:center;font-size:.72rem">3D place</div>
+    <div style="border-radius:.3rem;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:.72rem;color:var(--muted)">free</div></div>`;
+  return `${figure()}${bar({ menuOn: true })}${dashboard({ lift: true, viewsOpen: true })}
+  <div class="menu" style="left:364px;top:300px;width:27rem;border-radius:.7rem;z-index:61"><div class="head label">Views · Expressions · Weiche Priesterin</div><div class="head label" style="padding-top:.1rem">The stage now</div>${map}
+  <div class="hr"></div><div class="head label" style="display:flex">Every view<span style="margin-left:auto;display:flex;gap:1.1rem;padding-right:.4rem">${ic('eyeoff')}${ic('panel')}${ic('stage')}${ic('full')}</span></div>
+  ${rows.map(([n,s,where]) => `<div class="row ${s==='hidden'?'off':''}" style="height:1.85rem">${n}${where?`<span class="meta" style="margin-left:.5rem">${where}</span>`:''}${seg(s)}</div>`).join('')}
+  <div class="hr"></div><div class="row">${ic('save')}Save workspace<span class="meta">Ctrl S</span></div><div class="row">${ic('reset')}Back to the last save</div></div>
+  ${note(740, 600, 'Views live on the front card', 'Opened from the front workspace’s card: one row per view, not per panel – hidden · in a panel · on the stage with its place · full screen. History is a view. The map shows the stage now (points 4, 8, 36, 38, 43, 60).')}
+  ${note(1080, 600, 'Leaving the stage', 'Only here: set a view to hidden or to a panel. No pill, no shrink button on a panel head (point 8).')}
+  ${note(1080, 715, 'Save · back to the last save', 'Saved with the account in the database; reset = the last save, not a code preset (points 14, 15).')}`;
+}
+
+/* ── 4 · snap gestures while dragging a panel ── */
+function snap() {
+  const z = (l, t, w, h, txt, on) => `<div class="zone ${on ? 'on' : ''}" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px">${txt}</div>`;
+  return `${figure()}${bar()}${library(20, 64, 300, 250)}${moods(20, 712, 680, 132)}${status('Dragging Kanon')}
+  <div style="position:fixed;inset:0;z-index:52;background:var(--shade)"></div>
+  <div class="preview" style="left:720px;top:0;width:720px;height:900px"></div>
+  <div class="panel" style="left:1070px;top:330px;width:290px;height:220px;z-index:58;opacity:.9;box-shadow:0 0 0 1px var(--accent),0 1rem 2rem rgb(0 0 0/.6)"><div class="ph"><span class="t on">Kanon</span></div><div class="pb" style="color:var(--muted)">Weiche Priesterin: a KPop priestess of the Bubble Team …</div></div>
+  <div class="cursor" style="left:1120px;top:300px">Kanon → right half</div>
+  ${z(0, 0, 120, 110, 'quarter', 0)}${z(1320, 0, 120, 110, 'quarter', 0)}${z(0, 790, 120, 110, 'quarter', 0)}${z(1320, 790, 120, 110, 'quarter', 0)}
+  ${z(140, 0, 1160, 46, 'top edge · whole stage · hold ≈ 0.5 s → full screen', 0)}<div style="position:fixed;z-index:57;left:140px;top:40px;width:1160px;height:4px;border-radius:2px;background:rgb(243 243 240/.15)"><div style="width:35%;height:100%;background:var(--accent);border-radius:2px"></div></div>${z(0, 130, 56, 640, 'left half', 0)}${z(1384, 130, 56, 640, 'right half', 1)}
+  <div class="offzone" style="left:1384px;top:130px;width:56px;height:640px;opacity:0"></div>
+  <div class="ghost" style="left:420px;top:330px;width:260px;height:200px;border-style:dotted;opacity:.7"></div>
+  <div class="label" style="position:fixed;z-index:58;left:430px;top:540px;color:var(--accent)">a free drop here = its own panel</div>
+  <svg style="position:fixed;z-index:58;left:1050px;top:600px;width:320px;height:60px;overflow:visible"><path d="M0 40 C 120 40, 200 10, 300 10" stroke="#a7af9b" stroke-width="2" stroke-dasharray="5 5" fill="none"/><path d="M300 10 l-12 -6 M300 10 l-10 9" stroke="#a7af9b" stroke-width="2"/></svg>
+  <div class="label" style="position:fixed;z-index:58;left:1060px;top:660px;color:#a7af9b">a fast fling past the edge = close</div>
+  ${note(470, 130, 'The view lands on the stage – panels never snap', 'Drag a panel slowly and let go:<br>· top edge → its view takes the whole stage (hold ≈ 0.5 s → full screen)<br>· left / right edge → its view takes that half<br>· a corner → that quarter<br>· anywhere else → it stays a floating panel there.<br>The stage’s layouts: 1 · ½ + ¼ + ¼ · ¼ + ¼ + ½ · four quarters. Panels themselves never dock or snap: they float on top of the stage at all times and push nothing. A fast fling past an edge closes (points 27, 60, 63, 64).', '', '24rem')}
+  ${note(470, 600, 'To the very edges', 'The places reach the screen’s edges and corners, over the bar and the status bar – they don’t matter while dragging (point 29).', '', '22rem')}`;
+}
+
+/* ── 5 · the workspace tab's menu ── */
+function save() {
+  return `${figure()}${bar({ dirty: true })}${library(20, 330, 300, 250)}${inspector(1110, 64, 310, 420)}${moods(20, 712, 680, 132)}${status('Workspace changed – Library moved')}
+  <div class="menu" style="left:575px;top:3.3rem;width:19rem"><div class="head label" style="display:flex;align-items:center;gap:.4rem">Expressions <span class="dirty"></span><span style="margin-left:auto;text-transform:none;letter-spacing:0">changed</span></div>
+  <div class="row hi">${ic('save')}Save<span class="meta">Ctrl S</span></div><div class="row">${ic('reset')}Back to the last save</div><div class="row">${ic('copy')}Save as new workspace …</div><div class="row">${ic('pen')}Rename</div>
+  <div class="hr"></div><div class="row off">Back to the craft default (Illustrator)</div></div>
+  <div class="ghost" style="left:20px;top:64px;width:300px;height:250px;opacity:.45"></div><div class="label" style="position:fixed;z-index:56;left:30px;top:140px;color:var(--accent)">was here at the last save</div>
+  ${note(900, 520, 'The changed dot', 'Moving a panel only marks the workspace changed (the dot on its tab). Save keeps it with the account; Back to the last save resets to it; the craft default stays reachable, quieter (points 9, 13–15).', '', '20rem')}
+  ${note(340, 330, 'Right-click or hold the tab', 'The tab itself opens this menu – no extra button (assumed).', '', '15rem')}`;
+}
+
+/* ── 6 · open anything ── */
+function launch() {
+  const g = (t, rows, cur) => `<div class="grp ${cur ? 'cur' : ''}"><div class="label">${t}</div>${rows.map(([i,n,m,hi]) => `<div class="r ${hi?'hi':''}">${i}${n}<span class="m">${m}</span></div>`).join('')}</div>`;
+  return `${workBase()}<div class="dim" style="z-index:65"></div>
+  <div class="launch"><div class="in">${ic('search')}<span>kat</span><span class="caret"></span><span class="kbd" style="margin-left:auto">Esc</span></div>
+  ${g('Items', [[f('#4a4d46'),'Katzenpapst','character · Top Toy',1],[f('#4a4d46'),'Katzenpapst › Biker','persona',0]], 1)}
+  ${g('Workspaces', [[ic('pen'),'Expressions · with Katzenpapst','workspace',0],[ic('cube'),'Looks for 3D · with Katzenpapst','workspace',0]])}
+  ${g('Assets', [[ic('cube'),'catpope-regular.v2.glb','3D model · 1.4 MB',0],[ic('grid'),'catpope_portrait-neutral.webp','image · 600×600',0]])}
+  ${g('Actions', [[ic('plus'),'New character “kat…”','create',0]])}
+  <div class="foot"><span>↑ ↓ choose</span><span>Tab next group</span><span>↵ open</span><span>Ctrl ↵ on the stage</span><span>Alt ↵ in a panel</span></div></div>
+  ${note(1050, 560, 'One key opens anything', 'Alt Space · Cmd Space · the pad’s Y – from anywhere. Items, workspaces, assets, actions in one list instead of search fields on every page; Tab jumps group to group (points 24, 25, 37).', '', '19rem')}
+  ${note(1050, 700, 'Also in the dashboard', 'The same field sits on top of the dashboard for anyone who doesn’t know the keys yet (point 39).', '', '19rem')}`;
+}
+
+/* ── 7 · item tabs + workspace tabs ── */
+function tabs() {
+  const T = (i, n, on) => `<button class="${on ? 'on' : ''}">${i}${n}${on ? `<span style="opacity:.6">${ic('x')}</span>` : ''}</button>`;
+  const many = [[ic('film'),'Chapter 1'],[ic('film'),'Chapter 2'],[f('#4a4d46'),'Katzenpapst'],[f('#2d8a4e'),'Weiche Priesterin'],[ic('film'),'Chapter 3'],[ic('cube'),'catpope-regular.v2'],[f('#c0392b'),'Fuchskrähe'],[ic('show'),'three-crows'],[ic('map'),'Nave at night']];
+  const big = (front, label, sub, lit) => `<div style="margin:0 0 1.1rem"><div class="label" style="margin-bottom:.4rem">${label}</div><div style="display:flex;align-items:center;gap:1rem">
+    <span class="pill tabs" style="width:46rem"><button class="round">‹</button><span class="strip">${many.map(([i,n],k) => T(i, n, k === front)).join('')}</span><button class="round">›</button><button class="round">${ic('plus')}</button></span>
+    <span class="pill tabs">${WS_C.slice(0,4).map(n => `<button class="${n === lit ? 'on' : ''} ${n === 'Write a chapter' && lit !== 'Write a chapter' ? 'dimws' : ''}">${n}</button>`).join('')}</span></div><div class="sub" style="margin-top:.35rem">${sub}</div></div>`;
+  const rule = (n, t, d) => `<div style="display:flex;gap:.7rem;margin:0 0 .7rem"><span style="flex:none;width:1.5rem;height:1.5rem;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;justify-content:center;font-size:var(--small);color:var(--muted)">${n}</span><div><div>${t}</div><div class="sub">${d}</div></div></div>`;
+  return `<div style="position:fixed;inset:0;background:radial-gradient(ellipse at 50% 35%,var(--glow),var(--stage) 70%)"></div>${bar()}
+  <div class="page" style="padding-top:calc(var(--top) + 1.4rem)"><div class="col" style="max-width:84rem">
+    ${big(3, 'Now · Weiche Priesterin in Expressions', 'Nine items open: the strip scrolls (wheel, trackpad, ‹ ›), the ends fade. Write a chapter is dimmed – it doesn’t fit a character.', 'Expressions')}
+    ${big(2, 'Click Katzenpapst → it stays in its place', 'No jump to the first position; the workspace row lights Looks for 3D, where Katzenpapst was last.', 'Looks for 3D')}
+    ${big(4, 'Click Write a chapter → Chapter 3 comes to the front', 'A workspace that doesn’t fit the front item opens with its own last item; its tab lights up where it is.', 'Write a chapter')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2.5rem;margin-top:1.4rem">
+      <div>${rule(1, 'An open item remembers its workspace.', 'That is what the dashboard’s cards preview.')}
+      ${rule(2, 'Clicking an item tab brings it back in its workspace.', 'The tab stays where it is in the strip.')}
+      ${rule(3, 'Clicking a workspace keeps the item, if it fits.', 'The item then remembers that workspace.')}</div>
+      <div>${rule(4, 'A workspace that doesn’t fit is dimmed.', 'Clicking it opens its own last item.')}
+      ${rule(5, 'Something new opens in the front workspace if it fits,', 'else in its kind’s most used one; its tab right of the front one.')}
+      ${rule('·', 'Order changes only by dragging a tab.', 'Ctrl Tab / Ctrl Shift Tab go along the strip; Ctrl W closes the front one.')}</div></div>
+  </div></div>
+  ${note(1130, 640, 'Item + workspace', 'Left: what is open. Middle: how you look at it. The stage shows the front item in the front workspace. Same rules in the deck editor (points 47, 48).', '', '20rem')}`;
+}
+
+/* ── 8 · first login: the crafts question ── */
+function crafts() {
+  const pick = { illustrator: 'invite', translator: 'invite', animator: 'picked' };
+  const tile = ([k, c]) => { const on = pick[k];
+    return `<div class="ctile ${on ? 'on' : ''}">${ic(c.i, 'style="width:1.6rem;height:1.6rem"')}<div class="cn">${c.n}</div>${on === 'invite' ? '<div class="cm">from your invite</div>' : ''}${on ? `<span class="ck">${ic('check')}</span>` : ''}</div>`; };
+  return `<div style="position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,var(--glow),var(--stage) 70%)"></div>
+  <div class="page" style="display:flex;align-items:center;justify-content:center;padding:0"><div style="width:52rem">
+    <h1 style="font-size:2rem">Welcome, Mira</h1><div class="sub" style="font-size:1rem;margin:.3rem 0 1.6rem">What do you do?</div>
+    <div class="cgrid">${Object.entries(CRAFTS).map(tile).join('')}</div>
+    <div style="display:flex;align-items:center;gap:1rem;margin-top:1.6rem"><span class="sub">You can change this any time in Settings.</span><button class="btn primary" style="margin-left:auto">Continue</button></div>
+  </div></div>
+  ${note(1130, 640, 'Asked at the first login', 'The invite’s crafts are ticked; she picks more or unticks. Continue → the dashboard with those crafts’ workspaces, flat. No tour (points 20, 21, 28, 49).', '', '19rem')}`;
+}
+
+/* ── 9 · first login: the dashboard after it ── */
+const EMPTYW = [['Expressions', 'nothing open yet', TH.empty()], ['Generate', 'nothing open yet', TH.empty([[3,8,94,84]])], ['Looks for 3D', 'nothing open yet', TH.empty([[3,8,25,84],[70,8,27,84]])], ['Translate a chapter', 'nothing open yet', TH.empty([[3,8,25,84],[70,8,27,84]])], ['Animate a scene', 'nothing open yet', TH.empty([[3,70,94,24]])], ['Kanon in two languages', 'nothing open yet', TH.empty([[3,8,25,84],[70,8,27,84]])]];
+function first() {
+  return `<div style="position:fixed;inset:0;background:var(--stage)"></div>${bar({ items: [], ws: [], pub: false, noUndo: true, menuOn: true })}${dashboard({ empty: true, unpub: true, hello: 'Welcome, Mira', W: EMPTYW, focus: 0, who: 'mira', noNew: false })}
+  ${note(1090, 470, 'Welcome: what isn’t published yet', 'Nothing opened yet, so no "last opened" – but what the team hasn’t published in her toons is there from the start, so she sees at once where work is waiting. Below, her crafts’ default workspaces, flat and empty. Nothing explains (points 21, 28, 49, 62).', '', '20rem')}
+  ${note(1090, 700, 'An empty bar', 'No items, no workspace tabs yet – only account and menu. Undo and Publish appear when they mean something (point 35).', '', '20rem')}`;
+}
+
+/* ── 10 · admin: invite + user page with crafts ── */
+function admin() {
+  const all = Object.entries(CRAFTS);
+  const chips = (on) => all.map(([k,c]) => `<span class="chip ${on.includes(k)?'on':''}">${on.includes(k)?ic('check'):''}${c.n}</span>`).join(' ');
+  return `<div style="position:fixed;inset:0;background:var(--stage)"></div>${bar({ items: [[ic('mail'),'Invite: mira@…'],[ic('user'),'Mira']], front: 1, ws: ['Users','Invites','Crafts'], wsOn: 'Users', pub: false, stripW: 24 })}
+  <div class="page"><div class="col"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start">
+  <div><h1>Invite</h1><div class="sub">admin · Invites</div><div class="box" style="margin-top:1rem">
+    <div class="field"><div class="label">E-mail</div><div class="v">mira@…</div></div>
+    <div class="field"><div class="label">Access (roles)</div><div style="display:flex;gap:.4rem;margin-top:.4rem"><span class="chip on">creator</span><span class="chip">live</span><span class="chip">developer</span><span class="chip">admin</span></div></div>
+    <div class="field"><div class="label">Crafts – the workspaces they start with</div><div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem">${chips(['illustrator','translator'])}</div></div>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem"><button class="btn">Cancel</button><button class="btn primary">${ic('mail')}Send invite</button></div></div></div>
+  <div><h1>Mira</h1><div class="sub">Users · detail</div><div class="box" style="margin-top:1rem">
+    <div class="field"><div class="label">Access (roles)</div><div style="display:flex;gap:.4rem;margin-top:.4rem"><span class="chip on">creator</span></div></div>
+    <div class="field"><div class="label">Crafts</div><div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem">${chips(['illustrator','translator','animator'])}</div></div>
+    <div class="label" style="margin-top:1rem">Her workspaces · most used first</div><div class="list">
+      <div class="li">Expressions<span class="m">default</span></div><div class="li">Generate<span class="m">changed by her</span></div>
+      <div class="li">Translate a chapter<span class="m">default</span></div><div class="li">Animate a scene<span class="m">new – from Animator</span></div></div></div></div>
+  </div></div></div>
+  ${note(560, 660, 'Craft ≠ role', 'Roles stay access (creator, live, developer, admin). Crafts say which workspaces someone starts with – admin-only for now, in the invite and on the user’s page; her list is flat (points 12, 18–20, 28).', '', '22rem')}
+  ${note(20, 660, 'Same bar in the admin', 'Assumed: the admin app uses the one bar too – open records as item tabs, its pages as workspaces.', '', '17rem')}`;
+}
+
+/* ── 11 · canvases: Generate (spores) and Flow ── */
+function node(x, y, w, h, t, s, o = {}) {
+  const st = o.ai ? '#c58cff' : o.out ? '#f3f3f0' : '#5a6250';
+  return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#1a1c18" stroke="${o.sel ? '#f3f3f0' : st}" stroke-width="${o.sel || o.ai || o.out ? 2 : 1}"/>
+    <text x="${x + 12}" y="${y + 22}" fill="#f3f3f0" font-size="14" font-family="Noto Sans, sans-serif">${t}</text><text x="${x + 12}" y="${y + 42}" fill="#a7af9b" font-size="11.5" font-family="Noto Sans, sans-serif">${s}</text>
+    ${o.lock ? `<text x="${x + w - 22}" y="${y + 22}" fill="#f3f3f0" font-size="13">🔒</text>` : ''}${o.run ? `<rect x="${x + 12}" y="${y + h - 12}" width="${(w - 24) * o.run}" height="4" rx="2" fill="${o.run < 1 ? '#f3f3f0' : '#4cc35a'}"/>` : ''}
+    <circle cx="${x}" cy="${y + h / 2}" r="5" fill="#1a1c18" stroke="${st}" stroke-width="1.5"/><circle cx="${x + w}" cy="${y + h / 2}" r="5" fill="#1a1c18" stroke="${st}" stroke-width="1.5"/></g>`;
+}
+const wire = (x1, y1, x2, y2, c = '#7d8670', dash = '') => `<path d="M${x1} ${y1} C ${x1 + 60} ${y1}, ${x2 - 60} ${y2}, ${x2} ${y2}" stroke="${c}" stroke-width="1.8" fill="none" ${dash ? 'stroke-dasharray="5 4"' : ''}/>`;
+const gridBg = (c = '#14161a') => `<defs><pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#2a2e26"/></pattern></defs><rect width="1440" height="900" fill="${c}"/><rect width="1440" height="900" fill="url(#dots)"/>`;
+function gen() {
+  const svg = `${gridBg('#0f0d13')}
+    ${wire(250, 330, 330, 330)}${wire(250, 520, 560, 300, '#a7af9b', 1)}${wire(480, 330, 560, 330)}${wire(760, 330, 820, 420)}${wire(1000, 420, 1010, 560)}${wire(760, 330, 820, 250)}
+    ${node(70, 300, 180, 60, 'Library', 'Summer · front sheet', { run: 1 })}${node(70, 490, 180, 60, 'Skills', 'skills.md · catpope style', { run: 1 })}
+    ${node(330, 300, 150, 60, 'Crop · pose', 'our spore', { run: 1 })}${node(560, 300, 200, 60, 'Image', 'gen-AI · external driver', { ai: 1, run: 1 })}
+    ${node(820, 220, 180, 60, 'Upscale', 'gen-AI', { ai: 1, run: 1 })}${node(820, 390, 180, 60, '3D model', 'gen-AI · external driver', { ai: 1, run: .6, sel: 1 })}
+    ${node(1010, 530, 200, 60, 'Output · GLB', 'set by the slot · rigged ≤ 48 bones', { out: 1, lock: 1 })}`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>
+  ${bar({ items: [[f('#4a4d46'),'Katzenpapst'],[ic('spark'),'Summer 3D look'],[f('#2d8a4e'),'Weiche Priesterin']], front: 1, ws: ['Generate','Flow','Looks for 3D','Expressions'], wsOn: 'Generate' })}
+  ${P(1110, 64, 310, 330, [['Spore',1],['Driver',0]], `<div class="field"><div class="label">3D model</div><div class="v">image → mesh</div></div><div class="field"><div class="label">Driver</div><div class="v" style="box-shadow:inset 0 0 0 1px var(--ai)">${ic('spark','style="color:var(--ai)"')} external 3D generator</div></div><div class="field"><div class="label">Format out</div><div class="v">GLB</div></div><div class="field"><div class="label">Seed</div><div class="v">4120</div></div>`)}
+  ${P(20, 640, 900, 205, [['Runs',1],['Takes',0]], `<div style="display:flex;gap:.8rem">${['take 1','take 2','take 3'].map((t,i) => `<div style="width:9rem"><div style="height:7rem;border-radius:.4rem;background:#14161a;box-shadow:0 0 0 ${i===1?2:1}px ${i===1?'var(--primary)':'var(--line)'};display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 60 60" width="60" height="60"><ellipse cx="30" cy="38" rx="16" ry="16" fill="#4a4d46"/><circle cx="30" cy="18" r="10" fill="#4a4d46"/></svg></div><div class="sub" style="margin-top:.3rem">${t}${i===2?' · <span style="color:var(--warn)">too many bones</span>':i===1?' · assign to slot':''}</div></div>`).join('')}<div style="flex:1;padding-left:.6rem"><div class="lrow">run 3<span class="m">running · 60 %</span></div><div class="lrow">run 2<span class="m">3 takes</span></div><div class="lrow">run 1<span class="m">kept until deleted</span></div></div></div>`)}
+  ${status('Run 3 · 3D model 60 %', 'generator v1 · in the Library')}
+  ${note(1110, 410, 'Generate = a canvas', 'Not a picture tool: the output spore defines what it makes (picture, model, sound, video, text) and what fits the slot (points 33, 52; AI-HOOKS §0).', '', '19rem')}
+  ${note(560, 120, 'Gen-AI hooks', 'Purple spores are where external gen-AI tools plug in (drivers). The chain is a document – a spore generator, versioned, findable in the Library.', 'ai', '21rem')}
+  ${note(940, 640, 'Same model as every workspace', 'The canvas is the stage, full window; Spore and Runs are ordinary floating panels; the generator is an item tab.', '', '20rem')}`;
+}
+function flow() {
+  const svg = `${gridBg()}
+    ${wire(260, 420, 340, 300)}${wire(260, 420, 340, 540)}${wire(540, 300, 640, 300)}${wire(540, 540, 640, 540)}${wire(840, 300, 940, 420)}${wire(840, 540, 940, 420)}${wire(1140, 420, 1190, 420, '#7d8670', 1)}
+    ${node(60, 390, 200, 60, 'Ch. 3 · The nave', 'scene · start')}${node(340, 270, 200, 60, 'Choice: follow', 'vote · 2 options', { sel: 1 })}${node(340, 510, 200, 60, 'Choice: hide', 'vote')}
+    ${node(640, 270, 200, 60, 'Crypt chase', 'scene · needs review')}${node(640, 510, 200, 60, 'Behind the altar', 'scene')}${node(940, 390, 200, 60, 'Ch. 4 · Morning', 'scene · trust ≥ 2')}`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>
+  ${bar({ items: [[ic('film'),'Chapter 3'],[ic('flow'),'three-crows flow'],[ic('map'),'Nave at night']], front: 1, ws: ['Flow','Write a chapter','Plan the season','Generate'], wsOn: 'Flow' })}
+  ${P(1150, 64, 270, 330, [['Inspector',1],['Variables',0]], `<div class="field"><div class="label">Choice</div><div class="v">follow the crows</div></div><div class="field"><div class="label">Asked as</div><div class="v">audience vote · 20 s</div></div><div class="field"><div class="label">Sets</div><div class="v">trust + 1</div></div>`)}
+  ${P(20, 700, 520, 145, [['Library',1]], `<div class="lrow">${ic('film')}Crypt chase<span class="m">scene</span></div><div class="lrow">${ic('film')}Behind the altar<span class="m">scene</span></div><div class="lrow">${ic('film')}Morning on the roof<span class="m">scene</span></div>`)}
+  ${status('Flow · 6 nodes', '0 errors')}
+  ${note(560, 700, 'A second canvas: Flow (assumed)', 'Assumed: a story’s branching flow – scenes joined by choices and conditions (variables). The same canvas model as the spore canvas: the graph is the stage, panels float, the flow is an item (points 7, 52).', '', '24rem')}`;
+}
+
+/* ── 12–15 · the deck editor in the same model ── */
+const deckBar = (wsOn, o = {}) => bar(Object.assign({ items: IT_D, ws: WS_D, wsOn, stripW: 24, play: 'edit' }, o));
+function scene() {
+  const holders = [[330,330,140,330,'back wall'],[500,380,90,280,'pillar L'],[860,380,90,280,'pillar R'],[620,470,200,190,'altar'],[980,300,170,360,'window']];
+  const svg = `<rect width="1440" height="900" fill="#0b1016"/>
+    <g stroke="#f3f3f0" opacity=".25">${Array.from({length:15},(_,i)=>`<line x1="${i*103}" y1="660" x2="${720+(i*103-720)*2.5}" y2="900"/>`).join('')}<line x1="0" y1="660" x2="1440" y2="660"/><line x1="0" y1="720" x2="1440" y2="720"/><line x1="0" y1="800" x2="1440" y2="800"/></g>
+    ${holders.map(([x,y,w,h,n],i) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${i===3?'#26313b':'#1b242c'}" stroke="${i===3?'#f3f3f0':'#4a5a68'}" stroke-width="${i===3?2:1}"/><text x="${x+8}" y="${y+18}" fill="#a7af9b" font-size="12" font-family="Noto Sans, sans-serif">${n}</text>`).join('')}
+    <g transform="translate(720 560)"><path d="M0 0v-70" stroke="#4cc35a" stroke-width="2"/><path d="M0 0h70" stroke="#e5483b" stroke-width="2"/><circle r="5" fill="#f3f3f0"/></g>
+    ${mantis(700, 590, .22)}
+    <g stroke="#f3f3f0" fill="none" stroke-width="1.5"><path d="M720 690 L600 600 M720 690 L840 600"/><rect x="700" y="680" width="40" height="26" rx="3" fill="#1a1c18"/></g><text x="748" y="699" fill="#f3f3f0" font-size="12" font-family="Noto Sans, sans-serif">camera · shot 2</text>
+    <g fill="#f0a030">${[[420,700],[960,712],[1200,700]].map(([x,y],i)=>`<path d="M${x} ${y-8}l8 8-8 8-8-8z"/><text x="${x+12}" y="${y+4}" font-size="12" font-family="Noto Sans, sans-serif">${['door opens','crows','bell'][i]}</text>`).join('')}</g>`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>${deckBar('Scene', { front: 1 })}
+  ${library(20, 64, 290, 280, [[ic('cube'),'pillar_stone.glb','model'],[ic('grid'),'nave_backwall.png','layer'],[f('#4a4d46'),'Katzenpapst','character'],[ic('wave'),'bell_far.wav','sound']])}
+  ${P(1130, 64, 290, 360, [['Holder',1],['Events',0]], `<div class="field"><div class="label">Holder</div><div class="v">altar</div></div><div class="field"><div class="label">Holds</div><div class="v">${f('#4a4d46')} Katzenpapst · sitting</div></div><div class="field"><div class="label">Depth (parallax)</div><div class="v">0.62</div></div><div class="field"><div class="label">On event</div><div class="v">crows → turn head</div></div>`)}
+  ${P(20, 735, 760, 110, [['Shots',1],['Timeline',0]], `<div style="display:flex;gap:.6rem">${['1 · wide','2 · altar','3 · window','4 · crows'].map((s,i)=>`<div style="width:9rem;height:3.6rem;border-radius:.35rem;background:#111820;box-shadow:0 0 0 ${i===1?2:1}px ${i===1?'var(--accent)':'var(--line)'};padding:.3rem .45rem;font-size:.75rem;color:var(--muted)">shot ${s}</div>`).join('')}</div>`)}
+  ${status('Edit · Nave at night', 'deck: studio · 0 errors')}
+  ${note(330, 64, 'Scene = the map', 'The deck editor’s Scene view as a workspace: holders, camera and shots, events on the map. Edit / Play sit in the play pill (deck.md [workspaces]; points 22, 52).', '', '19rem')}
+  ${note(800, 735, 'Assumed', 'Holders drawn as frames in a parallax map; shots as a strip panel; the gizmo on the selected holder.', '', '18rem')}`;
+}
+function rig() {
+  const joints = [[720,300],[720,420],[720,560],[620,440],[820,440],[660,680],[780,680]];
+  const svg = `<rect width="1440" height="900" fill="#0c100c"/>
+    <g stroke="#2c3328">${Array.from({length:13},(_,i)=>`<line x1="${i*120}" y1="760" x2="${720+(i*120-720)*2.4}" y2="900"/>`).join('')}<line x1="0" y1="760" x2="1440" y2="760"/></g>
+    <g opacity=".55">${mantis(720, 520, .62).replace(/#6b6e66/g,'#4a4d46').replace(/#b02a69/g,'#3d58ad').replace(/#3e8a4f/g,'#e8eae2').replace(/#8b9084/g,'#cfd3c4').replace(/#4e9a5b/g,'#e8eae2')}</g>
+    <g stroke="#f3f3f0" stroke-width="3">${[[0,1],[1,2],[1,3],[1,4],[2,5],[2,6]].map(([a,b])=>`<line x1="${joints[a][0]}" y1="${joints[a][1]}" x2="${joints[b][0]}" y2="${joints[b][1]}"/>`).join('')}</g>
+    ${joints.map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="${i===2?9:6}" fill="${i===2?'#f3f3f0':'#0c100c'}" stroke="#f3f3f0" stroke-width="2"/>`).join('')}
+    <g stroke="#f3f3f0" stroke-width="5" fill="none" opacity=".75" stroke-linecap="round"><path d="M720 560 C 860 600, 900 640, 980 640"/><path d="M620 440 C 520 420, 470 380, 430 380"/><path d="M720 300 C 820 240, 900 230, 960 230"/></g>
+    ${node(960, 205, 170, 52, 'hum', 'module · sound', { out: 1 })}${node(980, 615, 170, 52, 'walk', 'module · motion', { out: 1, sel: 1 })}${node(260, 355, 170, 52, 'analog_seq', 'module · clock', { out: 1 })}`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>${deckBar('Rigging', { front: 2 })}
+  ${P(20, 64, 230, 270, [['Modules',1],['Library',0]], `<div class="lrow">walk<span class="m">in rig</span></div><div class="lrow">hum<span class="m">in rig</span></div><div class="lrow">analog_seq<span class="m">in rig</span></div><div class="lrow sel">blink<span class="m">drag in</span></div><div class="lrow">look_at<span class="m">factory</span></div>`)}
+  <div class="cursor" style="left:300px;top:470px">blink → onto the head</div>
+  ${P(1150, 64, 270, 400, [['Ports',1],['Inspector',0]], `<div class="label" style="margin-bottom:.3rem">walk · in</div><div class="lrow">◆ clock<span class="m">from analog_seq</span></div><div class="lrow">◆ speed<span class="m">0.8</span></div><div class="lrow">◆ /character:katzenpapst<span class="m">far</span></div><div class="label" style="margin:.6rem 0 .3rem">out</div><div class="lrow">● pose → hip<span class="m">bone</span></div><div class="lrow">● step<span class="m">event</span></div>`)}
+  ${P(20, 735, 560, 110, [['Skeleton',1],['Problems',0]], `<div class="lrow">hip › spine › neck › head<span class="m">7 bones</span></div><div class="lrow">arm_L · arm_R · leg_L · leg_R<span class="m">≤ 48 ok</span></div>`)}
+  ${status('Edit · Katzenpapst rig', 'compile current · 0 errors')}
+  ${note(600, 735, 'Rigging = the Asset view', 'An isolated stage for one entity: Katzenpapst with skeleton in 3D; modules dragged in from the list, placed in 3D, joined by tubes – as in a scene (deck.md [workspaces] 11-16, 11-18).', '', '22rem')}
+  ${note(940, 735, 'Assumed', 'Ports as a panel tab of the selected module; Play runs the rig with the external clock.', '', '15rem')}`;
+}
+function xr() {
+  const svg = `<rect width="1440" height="900" fill="#14110d"/><rect x="0" y="660" width="1440" height="240" fill="#1c1813"/>
+    <g transform="translate(720 400)"><rect x="-190" y="-270" width="380" height="540" fill="#e8e0cc"/><rect x="-170" y="-250" width="340" height="300" fill="#2a2a2e"/>
+      <circle cx="0" cy="-120" r="70" fill="#c0392b"/><circle cx="0" cy="-160" r="34" fill="#222"/><text x="0" y="110" fill="#222" font-size="34" font-family="Noto Sans, sans-serif" text-anchor="middle">KRÄHEN</text><text x="0" y="150" fill="#555" font-size="16" font-family="Noto Sans, sans-serif" text-anchor="middle">scutoons · Feb 2027</text>
+      <g stroke="#f3f3f0" stroke-width="3" fill="none"><path d="M-210 -250v-40h40M210 -250v-40h-40M-210 250v40h40M210 250v40h-40"/></g></g>
+    <g transform="translate(860 300)" opacity=".95"><ellipse cx="0" cy="60" rx="70" ry="80" fill="#c0392b"/><circle cx="0" cy="-40" r="44" fill="#222"/><path d="M60 20 l70 -60" stroke="#c0392b" stroke-width="20" stroke-linecap="round"/></g>
+    <text x="1120" y="480" text-anchor="end" fill="#f3f3f0" font-size="13" font-family="Noto Sans, sans-serif">AR layer · steps out of the poster</text>`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>${deckBar('XR', { front: 3 })}
+  ${P(20, 64, 280, 300, [['Target',1],['Library',0]], `<div style="height:6.5rem;border-radius:.4rem;background:#e8e0cc;margin-bottom:.6rem"></div><div class="lrow">poster_kraehen_A2.pdf<span class="m">print</span></div><div class="lrow">tracking<span class="m" style="color:var(--go)">good · 4/5</span></div>`)}
+  ${P(1140, 64, 280, 330, [['Layers',1],['Triggers',0]], `<div class="lrow sel">${f('#c0392b')}Fuchskrähe · steps out<span class="m">AR</span></div><div class="lrow">${ic('wave')}crows_caw.wav<span class="m">sound</span></div><div class="lrow">${ic('show')}the print<span class="m">base</span></div><div class="label" style="margin:.7rem 0 .3rem">When</div><div class="lrow">seen<span class="m">play intro</span></div><div class="lrow">tapped<span class="m">vote · follow?</span></div>`)}
+  ${P(1140, 410, 280, 300, [['Device preview',1]], `<div style="margin:0 auto;width:8.5rem;height:15rem;border-radius:1rem;box-shadow:0 0 0 2px var(--line);background:#2a251d;display:flex;align-items:center;justify-content:center"><div style="width:4rem;height:5.6rem;background:#e8e0cc;position:relative"><span style="position:absolute;left:1.6rem;top:-.8rem;width:2rem;height:2.4rem;border-radius:50%;background:#c0392b"></span></div></div>`)}
+  ${status('Edit · Poster: Krähen', 'XR type Poster (#674)')}
+  ${note(330, 730, 'XR (assumed)', 'An XR experience of the type Poster (#674): the printed poster is the tracking target on the stage; AR layers step out of it; triggers say what happens when it is seen or tapped. Same stage + floating panels (point 52).', '', '24rem')}`;
+}
+function show() {
+  const cols = ['Nave','Crypt','Altar','Roof'], rows = ['intro','crows','vote','chase','bell'];
+  const cell = (r, c) => { const live = r === 1 && c === 0, next = r === 2 && c === 0, q = r === 3 && c === 1;
+    return `<div style="height:1.9rem;border-radius:.3rem;box-shadow:0 0 0 1px ${live ? 'var(--go)' : next ? 'var(--accent)' : 'var(--line)'};background:${live ? 'rgb(76 195 90/.25)' : 'transparent'};font-size:.72rem;display:flex;align-items:center;padding:0 .4rem;color:${live || next ? 'var(--text)' : 'var(--muted)'}">${live ? '▶ live' : next ? 'next' : q ? 'queued' : rows[r]}</div>`; };
+  const matrix = `<div style="display:grid;grid-template-columns:4rem repeat(4,1fr);gap:.3rem;align-items:center"><span></span>${cols.map(c=>`<span class="label">${c}</span>`).join('')}${rows.map((r,ri)=>`<span class="sub">${r}</span>${cols.map((c,ci)=>cell(ri,ci)).join('')}`).join('')}</div>`;
+  const svg = `<rect width="1440" height="900" fill="#08090b"/><rect x="330" y="90" width="780" height="440" fill="#0b1016" stroke="#3a4034"/>${mantis(720, 340, .3).replace(/#6b6e66/g,'#4a4d46')}<text x="342" y="112" fill="#4cc35a" font-size="12" font-family="Noto Sans, sans-serif">LIVE · output 1 · Nave › crows</text>`;
+  return `<div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">${svg}</svg></div>${deckBar('Show', { front: 0, play: 'play', panic: true, bpm: '96.0 BPM · MIDI' })}
+  ${P(20, 560, 760, 285, [['Cue matrix',1],['Session',0]], matrix)}
+  ${P(800, 560, 230, 285, [['GO',1]], `<div style="height:9rem;border-radius:.8rem;background:var(--go);color:#0b1a0d;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:2rem">GO<span style="font-size:.8rem">next: vote</span></div><div class="sub" style="margin-top:.6rem">Space · pad A</div>`)}
+  ${P(1050, 560, 370, 285, [['Vote',1],['Outputs',0]], `<div class="lrow">follow the crows<span class="m">64 %</span></div><div style="height:.4rem;border-radius:.2rem;background:var(--control)"><div style="width:64%;height:100%;background:var(--accent);border-radius:.2rem"></div></div><div class="lrow">hide<span class="m">36 %</span></div><div style="height:.4rem;border-radius:.2rem;background:var(--control)"><div style="width:36%;height:100%;background:var(--muted);border-radius:.2rem"></div></div><div class="sub" style="margin-top:.6rem">212 phones · 14 s left</div>`)}
+  ${P(20, 64, 290, 220, [['Session rail',1]], `<div class="lrow sel">crows<span class="m">live</span></div><div class="lrow">vote<span class="m">next</span></div><div class="lrow">chase<span class="m">queued</span></div><div class="lrow">bell<span class="m"></span></div>`)}
+  ${status('Play · three-crows live', 'clock: MIDI 96.0 · outputs 1/2')}
+  ${note(1130, 64, 'Show with Perform panels', 'No Perform workspace: cue matrix, GO, session rail, vote are optional panels of Show (deck.md 11-18). The play pill carries Panic here – only where something plays (point 52).', '', '19rem')}
+  ${note(1130, 260, 'Assumed', 'The stage shows the live output; previews would go to the cue group.', '', '19rem')}`;
+}
+
+/* ── 16 · the deck's very first open ── */
+function frame(html, x, y, s, cap) {
+  FRAME = true; const inner = typeof html === 'function' ? html() : html; FRAME = false;
+  return `<div class="frame" style="left:${x}px;top:${y}px;width:${1440 * s}px;height:${900 * s}px"><div class="inner" style="transform:scale(${s})">${inner}</div></div><div class="fcap" style="left:${x}px;top:${y + 900 * s + 10}px;width:${1440 * s}px">${cap}</div>`;
+}
+const signin = () => `<div style="position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,var(--glow),var(--stage) 70%)"></div>
+  <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:30rem"><h1 style="font-size:2rem">SCUTOONS</h1><div class="sub" style="font-size:1rem;margin-bottom:1.4rem">Sign in to open your work.</div>
+  <div class="field"><div class="label">E-mail</div><div class="v" style="height:2.6rem">you@…</div></div><button class="btn primary" style="width:100%;justify-content:center;height:2.6rem">Send me a sign-in link</button>
+  <div class="sub" style="margin-top:1rem">or scan with the phone you are signed in on</div></div>`;
+const deckEmpty = () => `<div style="position:fixed;inset:0;background:var(--stage)"></div>${bar({ items: [], ws: [], pub: false, noUndo: true, menuOn: true })}${dashboard({ empty: true, deck: true, W: [['Scene','nothing open yet',TH.empty([[3,70,94,24],[72,8,25,55]])],['Show','nothing open yet',TH.empty([[3,60,60,34],[66,60,31,34]])],['Rigging','nothing open yet',TH.empty([[3,8,22,60],[72,8,25,80]])],['XR','nothing open yet',TH.empty([[3,8,22,40],[72,8,25,60]])]], focus: 0, hello: 'Nothing open yet' })}`;
+function deckfirst() {
+  const arrow = (x, y) => `<div style="position:fixed;z-index:32;left:${x}px;top:${y}px;font-size:2rem;color:var(--muted)">→</div>`;
+  return `<div style="position:fixed;inset:0;background:var(--stage)"></div>
+  <div style="position:fixed;left:40px;top:28px"><h1>The deck editor’s very first open</h1><div class="sub">Before anything was done on this machine. Two cases.</div></div>
+  <div class="label" style="position:fixed;left:40px;top:108px">New here</div>
+  ${frame(signin, 40, 130, .25, '<b>1 · Sign in</b>a link by mail, or the phone')}${arrow(408, 220)}
+  ${frame(crafts, 440, 130, .25, '<b>2 · What do you do?</b>the crafts question (screen 8)')}${arrow(808, 220)}
+  <div class="fcap" style="left:850px;top:225px;width:200px"><b>→ 3</b>the dashboard with those crafts’ workspaces</div>
+  <div class="label" style="position:fixed;left:40px;top:425px">Signed in before, nothing open (and after step 2)</div>
+  ${frame(deckEmpty, 40, 447, .45, '')}
+  <div class="fcap" style="left:700px;top:460px;width:300px"><b>3 · The empty dashboard</b>Open anything on top; the crafts’ workspaces, flat, empty. No item tabs, no workspace tabs, no Home – the menu’s dashboard is the start.</div>
+  ${note(1080, 40, 'How the deck opens first', 'A new person signs in, answers the crafts question, then lands on the dashboard. Someone known with nothing open lands on the empty dashboard; Alt Space opens anything. From then on it always resumes (screen 17) (points 49, 53, 55).', '', '21rem')}`;
+}
+
+/* ── 17 · reopening resumes like a hibernated computer ── */
+function resume() {
+  const st = () => `${figure()}${bar({})}${library(20, 64, 300, 250)}${inspector(1110, 64, 310, 420)}${moods(20, 712, 680, 132)}`;
+  return `${st()}${status('Resumed – exactly as you left it at 23:14 yesterday on studio-pc', 'items 5 · Expressions · 3 panels')}
+  ${frame(() => st() + status('Closing … everything kept'), 380, 450, .22, '<b>Closed 23:14 yesterday</b>studio-pc')}
+  <div style="position:fixed;z-index:32;left:712px;top:520px;font-size:2rem;color:var(--text)">→</div>
+  <div class="box" style="position:fixed;z-index:32;left:760px;top:470px;width:440px;padding:.6rem .9rem;font-size:var(--small)"><div class="label" style="margin-bottom:.3rem">Reopened 09:02 · the same</div>
+    ${['5 item tabs, same order, Weiche Priesterin in front','workspace Expressions, unsaved change kept','panels: Library · Inspector · Moods, same places','stage: same zoom and place','scroll in the Library, selected mood: neutral'].map(t => `<div class="lrow" style="height:1.6rem">${ic('check','style="color:var(--go)"')}${t}</div>`).join('')}</div>
+  ${note(340, 330, 'Like a hibernated computer', 'Reopening shows exactly what was there – items, workspace, panels, stage places, scroll, selection. No start page in between (point 55).', '', '19rem')}
+  ${note(780, 330, 'A drive logic – agent’s reading, to confirm', 'The session state is kept with the account like a drive, so it follows between machines (studio-pc → laptop) and apps (deck editor ↔ creator in the browser) (point 54).', '', '19rem')}`;
+}
+
+/* ── 18 · swipe up from the bottom: the user menu ── */
+function user() {
+  return `${workBase({ accOn: true })}<div class="dim" style="z-index:61"></div>
+  <div class="sheet"><div class="handle"></div>
+    <div class="row"><span class="av" style="background:#4a4d46">T</span><div><div>tilman</div><div class="sub">creator · admin · signed in</div></div><span class="m">this device</span></div>
+    <div class="hr"></div><div class="label" style="padding:.3rem .6rem">Switch user</div>
+    <div class="row hi"><span class="av" style="background:#2d8a4e">M</span><div><div>mira</div><div class="sub">illustrator · translator · animator</div></div><span class="m">on this machine</span></div>
+    <div class="row"><span class="av" style="background:#c0392b">S</span><div><div>sandgirl</div><div class="sub">show runner</div></div><span class="m">on this machine</span></div>
+    <div class="row">${ic('plus')}Sign in as someone else …</div>
+    <div class="hr"></div><div class="row">${ic('out')}Sign out</div></div>
+  <div style="position:fixed;z-index:63;left:50%;bottom:300px;transform:translateX(-50%);color:var(--muted);font-size:1.6rem">↑</div>
+  ${note(1000, 560, 'Swipe up from the bottom', 'The user menu slides up from the bottom edge and offers to switch the signed-in user: other accounts on this machine, someone else, sign out. Each person resumes their own state (points 54, 55, 56).', '', '20rem')}
+  ${note(1000, 64, 'The account icon opens the same', 'Clicking the account icon in the bar opens this very sheet (point 56).', '', '16rem')}`;
+}
+
+/* ── 19 · a view in full screen over everything ── */
+function full() {
+  return `<div class="ground"></div><div class="art"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid meet">${mantis(720, 455, 1.08)}</svg></div>
+  <div style="position:fixed;z-index:30;right:14px;bottom:10px;font-size:.72rem;color:var(--muted);opacity:.7">Esc / Ctrl Space</div>
+  ${note(40, 40, 'Full screen over everything', 'Bar, panels and status bar are gone; only the view (here the sheet) is left, with a tiny hint bottom right. In: Ctrl Space on the view under the pointer (as Blender) · the Views list’s 4th state · dragging past the top edge and holding ≈ 0.5 s · the pad’s shoulder button · a two-finger spread. Out: Esc or the same again. Not a fling up – a fling only closes (point 60).', '', '22rem')}`;
+}
+
+/* ── 20 · motion: the transitions ── */
+function motion() {
+  const rows = [['Hot zones while dragging','appear on drag start: fade 120 ms ease-out; the zone under the pointer lights in 100 ms','A'],
+    ['Panel → snap place','the panel morphs from where it was dropped into its place: 180 ms cubic-bezier(.2,.8,.2,1)','B'],
+    ['Hold → full screen','the top-edge line fills during the hold (500 ms linear = the hold), then 220 ms ease-out to full screen','C'],
+    ['Take the stage','the view grows from its panel to the stage: 200 ms ease-out, the stage behind crossfades',''],
+    ['Full screen in / out','bar + panels fade 120 ms, the view grows 220 ms ease-out · out 180 ms ease-in-out',''],
+    ['Collapse by double-click','the body folds into the head: 160 ms ease-out (expand the same)','D'],
+    ['Fling to close','follows the finger’s speed past the edge, then fades 140 ms ease-in; Ctrl Z brings it back','E'],
+    ['Dashboard open / close','stage scales to .97 + blur 200 ms, cards rise 8 px with a 20 ms stagger · close 160 ms',''],
+    ['Item / workspace switch','panels crossfade 150 ms; the stage item keeps its place, nothing slides','']];
+  const demo = (k, t, inner) => `<div style="background:var(--surface);border-radius:.6rem;box-shadow:0 0 0 1px var(--line);padding:.6rem;height:9.6rem;position:relative;overflow:hidden"><div class="label" style="margin-bottom:.4rem">${k} · ${t}</div><div style="position:absolute;left:.6rem;right:.6rem;top:2rem;bottom:.6rem;border-radius:.4rem;background:#0b0c0a;overflow:hidden">${inner}</div></div>`;
+  return `<style>
+  @keyframes zoneLit{0%,15%{opacity:0}25%{opacity:1;background:transparent}45%,80%{opacity:1;background:rgb(243 243 240/.25);border-style:solid}100%{opacity:0}}
+  @keyframes zoneFade{0%,15%{opacity:0}25%,80%{opacity:.6}100%{opacity:0}}
+  @keyframes snapMove{0%,20%{left:30%;top:30%;width:30%;height:40%}45%,85%{left:50%;top:0;width:50%;height:100%}100%{left:30%;top:30%;width:30%;height:40%}}
+  @keyframes holdFill{0%,15%{width:0}55%{width:100%}100%{width:100%}}
+  @keyframes holdFull{0%,55%{inset:20% 25% 20% 25%;border-radius:.4rem}68%,92%{inset:0;border-radius:0}100%{inset:20% 25% 20% 25%}}
+  @keyframes fold{0%,25%{height:4.6rem}40%,70%{height:1.3rem}85%,100%{height:4.6rem}}
+  @keyframes fling{0%,20%{transform:translateX(0);opacity:1}45%{transform:translateX(260%);opacity:0}70%{transform:translateX(0);opacity:0}85%,100%{transform:translateX(0);opacity:1}}
+  .mz{position:absolute;border:1px dashed var(--accent);border-radius:.3rem;animation:zoneFade 3s infinite}
+  .mz.lit{animation:zoneLit 3s infinite}
+  @media (prefers-reduced-motion: reduce){.mo *{animation-duration:0s!important;animation-iteration-count:1!important}}
+  </style>
+  <div style="position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,var(--glow),var(--stage) 70%)"></div>
+  <div class="page mo" style="padding-top:2rem"><div class="col" style="max-width:86rem;display:grid;grid-template-columns:1.25fr 1fr;gap:2rem">
+   <div><h1>Motion</h1><div class="sub" style="margin-bottom:.8rem">Short, 100–220 ms: ease-out for arriving, ease-in for leaving. With reduced motion: no movement, a ≤ 80 ms crossfade; the hold shows as a filling line only.</div>
+    <div class="box" style="padding:.3rem .9rem"><div class="list">${rows.map(([n,d,k]) => `<div class="li" style="height:auto;min-height:2.6rem;padding:.35rem 0;align-items:flex-start"><span style="width:12.5rem;flex:none">${n}${k ? ` <span class="kbd" style="margin-left:.3rem">${k}</span>` : ''}</span><span class="sub">${d}</span></div>`).join('')}</div></div></div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;align-content:start;padding-top:3.2rem">
+    ${demo('A','hot zones light up', `<span class="mz" style="left:4%;top:6%;width:20%;height:22%"></span><span class="mz" style="right:4%;top:6%;width:20%;height:22%"></span><span class="mz" style="left:28%;top:6%;width:44%;height:12%"></span><span class="mz lit" style="right:4%;top:34%;width:10%;height:60%"></span><span class="mz" style="left:4%;top:34%;width:10%;height:60%"></span>`)}
+    ${demo('B','panel → right half', `<span style="position:absolute;background:var(--surface);box-shadow:0 0 0 1px var(--accent);border-radius:.3rem;animation:snapMove 3s cubic-bezier(.2,.8,.2,1) infinite"></span>`)}
+    ${demo('C','hold → full screen', `<span style="position:absolute;left:0;right:0;top:0;height:4px;background:rgb(243 243 240/.15)"><span style="display:block;height:100%;background:var(--accent);animation:holdFill 3s linear infinite"></span></span><span style="position:absolute;background:#2d1a24;box-shadow:0 0 0 1px var(--accent);animation:holdFull 3s cubic-bezier(.2,.8,.2,1) infinite"></span>`)}
+    ${demo('D','double-click: collapse', `<span style="position:absolute;left:15%;right:15%;top:12%;background:var(--surface);box-shadow:0 0 0 1px var(--line);border-radius:.3rem;overflow:hidden;animation:fold 3s ease-out infinite"><span style="display:block;padding:.15rem .4rem;font-size:.7rem">Voice · Cast</span></span>`)}
+    ${demo('E','fling to close', `<span style="position:absolute;left:20%;top:20%;width:40%;height:60%;background:var(--surface);box-shadow:0 0 0 1px var(--line);border-radius:.3rem;animation:fling 3s ease-in infinite"></span><span style="position:absolute;right:0;top:0;bottom:0;width:12%;background:linear-gradient(90deg,transparent,rgb(229 72 59/.35))"></span>`)}
+   </div></div></div>
+  ${note(1060, 640, 'Transitions say what happened', 'Owner: animations for these transitions and when things get activated, like the hot zones. Proposed timings; the demos A–E run live in the page (points 58, 60, 61).', '', '20rem')}`;
+}
+
+/* ── 0 · the bars: deck and creator today, and one bar for both ── */
+function bars() {
+  const PL = (inner) => `<span class="pill">${inner}</span>`;
+  const B = (t, on = '') => `<button class="${on}">${t}</button>`;
+  const R = (i) => `<button class="round">${ic(i)}</button>`;
+  const row = (y, title, items, sub) => `<div style="position:fixed;left:0;right:0;top:${y}px"><div class="label" style="padding:0 1rem .4rem">${title}</div>
+    <div class="bar" style="position:relative;top:auto">${items}</div>${sub ? `<div class="sub" style="padding:.2rem 1rem 0">${sub}</div>` : ''}</div>`;
+  const deck = PL(R('menu') + `<button class="round" style="opacity:.6">⌂</button>`) + PL(B(ic('show') + 'three-crows', 'on') + B(ic('film') + 'Nave at night') + R('plus')) + PL(B('▶') + '<span class="lab">120.0 BPM · INT</span>') + PL(B('Panic'))
+    + '<span class="middle"></span>' + PL(B(ic('user') + 'tilman') + '<span class="lab">CPU 12% · GPU 60 fps</span><span class="lab" style="font-family:monospace">0.1.0 · f3d884c</span>');
+  const creator = PL(R('menu') + `<button class="round" style="opacity:.6">⌂</button>`) + PL(B(f('#2d8a4e') + 'Weiche Priesterin', 'on') + B(ic('film') + 'Chapter 3') + R('plus'))
+    + '<span class="middle"><span class="pill" style="padding:0 .9rem;color:var(--muted);font-size:var(--small)">Characters › Weiche Priesterin</span></span>'
+    + PL(R('undo') + R('redo')) + PL(B(ic('views') + 'Views')) + PL(B(ic('hist') + 'History')) + PL(B(ic('pub') + 'Publish')) + PL(B(ic('user') + 'tilman')) + PL('<span class="lab" style="font-family:monospace">0.1.0 · 5e76406</span>');
+  return `<div style="position:fixed;inset:0;background:radial-gradient(ellipse at 50% 60%,var(--glow),var(--stage) 70%)"></div>
+  ${row(30, 'Deck editor today (deck/editor/src/bar.rs)', deck, 'Left: menu · Home · item tabs · tempo + Panic. Right: account · CPU / GPU · version. Panels are listed inside the menu.')}
+  ${row(160, 'Creator today', creator, 'Left: menu · Home · item tabs. Middle: the path. Right: undo / redo · Views · History · Publish · account · version.')}
+  <div style="position:fixed;left:0;right:0;top:300px"><div class="label" style="padding:0 1rem .4rem">One bar for both – the creator (nothing plays)</div><div style="position:relative;height:var(--top)">${bar({ dirty: false }).replace('position:fixed', 'position:absolute').replace('class="bar"', 'class="bar" style="position:absolute"')}</div></div>
+  <div style="position:fixed;left:0;right:0;top:400px"><div class="label" style="padding:0 1rem .4rem">One bar for both – the deck editor (something plays)</div><div style="position:relative;height:var(--top)">${deckBar('Show', { front: 0 }).replace('class="bar"', 'class="bar" style="position:absolute"')}</div>
+    <div class="sub" style="padding:.3rem 1rem 0">Left: item tabs, a scrolling strip (no Home). Middle: workspace tabs, flat, most used first. Right, icons only: the play pill (Edit / Play, BPM, clock source) only where something plays · undo / redo · Publish only when something needs it · account · the menu, far right = the dashboard.</div></div>
+  ${note(40, 560, 'Moved out of the bar', 'Home → the menu button’s dashboard (point 38). Views → the front card in the dashboard; History → a view (point 36). Version, CPU / GPU → the dashboard’s bottom line, a one-time status note on update (point 34). The path → Open anything (point 24).', '', '24rem')}
+  ${note(420, 560, 'One place for the menu', 'Far right in both apps (points 32, 36). Icons without text (point 37). Publish hides when nothing needs it (point 35).', '', '20rem')}`;
+}
+
+const SCREENS = [['bars','0 Bars',bars],['dash','1 Dashboard',dash],['work','2 Workspace',work],['views','3 Views',views],['snap','4 Snap',snap],['save','5 Save',save],['launch','6 Open anything',launch],['tabs','7 Tabs',tabs],['crafts','8 Crafts?',crafts],['first','9 First dashboard',first],
+  ['admin','10 Admin',admin],['gen','11 Generate',gen],['flow','11b Flow',flow],['scene','12 Scene',scene],['rig','13 Rigging',rig],['xr','14 XR',xr],['show','15 Show',show],['deckfirst','16 Deck first open',deckfirst],['resume','17 Resume',resume],['user','18 User menu',user],['full','19 Full screen',full],['motion','20 Motion',motion]];
+
+function render() {
+  const s = SCREENS.find(x => x[0] === view) || SCREENS[1];
+  view = s[0];
+  document.getElementById('app').innerHTML = s[2]();
+  document.getElementById('sel').innerHTML = '<span class="arr">‹</span>' + SCREENS.map(([k,n]) => `<a href="?view=${k}" class="${k===view?'on':''}" data-v="${k}">${n}</a>`).join('') + '<span class="arr">›</span>';
+}
+const go = (k) => { view = k; history.replaceState(null, '', '?view=' + view + (document.body.classList.contains('quiet') ? '&quiet' : '')); render(); };
+document.addEventListener('click', (e) => { const a = e.target.closest('[data-v]'); if (a) { e.preventDefault(); go(a.dataset.v); } });
+document.addEventListener('keydown', (e) => {
+  const i = SCREENS.findIndex(x => x[0] === view);
+  if (/^[0-9]$/.test(e.key)) go(SCREENS[Number(e.key)][0]);
+  if (e.key === 'ArrowRight') go(SCREENS[(i + 1) % SCREENS.length][0]);
+  if (e.key === 'ArrowLeft') go(SCREENS[(i - 1 + SCREENS.length) % SCREENS.length][0]);
+  if (e.key === 't' || e.key === 'T') { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'day' ? 'night' : 'day'; }
+  if (e.key === 'n' || e.key === 'N') document.body.classList.toggle('quiet');
+});
+render();
+</script>
+</body>
+</html>

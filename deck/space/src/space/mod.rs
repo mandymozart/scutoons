@@ -19,6 +19,7 @@ pub mod anatomy;
 pub mod animation;
 pub mod backdrop;
 pub mod being;
+pub mod bubble;
 pub mod camera;
 pub mod decks;
 pub mod dop;

@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Library</title>
+<!-- #653 (owner 2026-11-21): the Library draft - one panel like OSCT's, pre-filtered per workspace, one tile per asset with its versions folded in. ?w=panel|browser|pick -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root{--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;--hover:#2e3229;
+--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--accent:#00d1ff;--primary:#b4ff32;--warn:#f0a030;--go:#4cc35a;--danger:#e5483b;
+--glass:rgba(26,28,24,.55);--glass2:rgba(26,28,24,.86);--pad:.57rem;--small:.86rem;--label:.72rem;--row:2.15rem;--tr:1.8rem;--r:.36rem;
+--mono:"IBM Plex Mono",ui-monospace,monospace;
+--s0:#00d1ff;--s1:#f0a030;--s2:#b36bff;--s3:#4cc35a;--s4:#ff6b8a;--s5:#e6d24a}
+*{box-sizing:border-box}html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:#000;color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+.lbl{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.mono{font-family:var(--mono);font-size:var(--small)}.sp{flex:1}.warn{color:var(--warn)}.ok{color:var(--go)}.acc{color:var(--accent)}
+.bg{position:absolute;inset:0;overflow:hidden}
+/* top bar */
+.bar{position:absolute;top:1rem;left:1rem;right:1rem;display:flex;gap:.5rem;align-items:center;z-index:3}
+.pill{display:flex;align-items:center;gap:.2rem;background:var(--glass2);border:1px solid var(--line);border-radius:2rem;padding:.2rem;height:2.55rem;white-space:nowrap}
+.logo{font-weight:700;letter-spacing:.04em;padding:0 .5rem 0 .7rem}
+.ib{width:var(--row);height:var(--row);border-radius:50%;display:inline-grid;place-items:center;color:var(--text)}
+.ws{display:flex;align-items:center;gap:.45rem;height:var(--row);padding:0 .8rem;border-radius:1.2rem;background:var(--control)}
+.ws b{font-weight:400}
+.tab{display:flex;align-items:center;gap:.4rem;height:var(--row);padding:0 .35rem 0 .65rem;border-radius:1.2rem;color:var(--muted)}
+.tab.on{background:var(--pressed);color:var(--pressed-text)}
+.tab .x{width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.75rem;opacity:.55}
+.tab img{width:1.2rem;height:1.2rem;border-radius:50%;object-fit:cover}
+.seg{display:flex;gap:2px}.seg span{height:var(--row);padding:0 .75rem;border-radius:1.2rem;display:flex;align-items:center}
+.seg span.on{background:var(--pressed);color:var(--pressed-text)}.seg span.play{color:var(--go)}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--go);display:inline-block;margin-right:.35rem}
+/* panels */
+.p{position:absolute;background:var(--glass);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;z-index:2}
+.p.solid{background:var(--glass2)}
+.ph{display:flex;align-items:center;gap:.2rem;padding:.3rem .35rem .3rem .2rem;flex:none}
+.grip{width:.9rem;align-self:stretch;display:grid;place-items:center;color:var(--line);cursor:grab;font-size:.8rem;letter-spacing:-.15em}
+.pt{font-size:var(--small);padding:.18rem .6rem;border-radius:1rem;color:var(--muted);white-space:nowrap}
+.pt.on{background:var(--pressed);color:var(--pressed-text)}
+.ph .f{margin-left:auto;color:var(--muted);font-size:.75rem;padding:0 .3rem}
+.pb{overflow:hidden;flex:1;min-height:0;position:relative}
+.mini{position:absolute;z-index:2;display:flex;align-items:center;gap:.45rem;height:2.35rem;padding:0 .8rem 0 .4rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);white-space:nowrap;font-size:var(--small)}
+.mini .grip{width:.8rem}
+.ghost{position:absolute;z-index:4;padding:.25rem .7rem;border-radius:1rem;background:var(--pressed);color:var(--pressed-text);font-size:var(--small);box-shadow:0 .4rem 1rem #000a;transform:rotate(-3deg)}
+.drop{position:absolute;z-index:4;width:2px;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.note{position:absolute;z-index:5;max-width:19rem;font-size:var(--small);line-height:1.4;background:#fffbe6;color:#1d1d14;padding:.5rem .65rem;border-radius:var(--r);box-shadow:0 .3rem .9rem #0008}
+.note b{font-weight:700}
+.note::before{content:"Draft note";display:block;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:#7a6a00;margin-bottom:.15rem}
+/* content */
+.search{margin:0 var(--pad) var(--pad);height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);gap:.4rem}
+.chips{display:flex;gap:.3rem;padding:0 var(--pad) var(--pad);flex-wrap:wrap}
+.chip{font-size:var(--small);padding:.08rem .55rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+.tr{height:var(--tr);display:flex;align-items:center;gap:.45rem;padding:0 var(--pad) 0 calc(var(--pad) + var(--d,0)*1.05rem);white-space:nowrap;overflow:hidden}
+.tr.sel{background:var(--selected)}.tr.in{background:rgba(35,38,31,.6)}
+.tr .c{width:.8rem;color:var(--muted);font-size:.65rem;flex:none}
+.tr img,.tr .sw{width:1.25rem;height:1.25rem;border-radius:50%;object-fit:cover;flex:none;background:var(--control)}
+.tr .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted);padding-left:.4rem}
+.grp{padding:.55rem var(--pad) .2rem}
+.sec{border-top:1px solid var(--line)}
+.sh{height:var(--row);display:flex;align-items:center;gap:.5rem;padding:0 var(--pad)}
+.sh .c{color:var(--muted);font-size:.65rem;width:.8rem}.sh .s{margin-left:auto;color:var(--muted);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.si{padding:0 var(--pad) .75rem;display:grid;gap:.42rem}
+.prop{display:grid;grid-template-columns:6.3rem minmax(0,1fr);align-items:center;gap:.5rem;min-height:var(--row)}
+.prop>span:first-child{color:var(--muted);font-size:var(--small)}
+.fd{height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot{height:4.2rem;border:1px dashed var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.6rem;padding:.3rem;color:var(--muted);font-size:var(--small)}
+.slot img{height:100%;aspect-ratio:1;object-fit:cover;border-radius:calc(var(--r) - 1px)}
+.slot.full{border-style:solid}
+.toggle{width:1.875rem;height:1.125rem;border-radius:1rem;background:var(--text);position:relative;display:inline-block}
+.toggle::after{content:"";position:absolute;width:.75rem;height:.75rem;border-radius:50%;background:var(--surface);top:.1875rem;left:.9375rem}
+/* canonical sheet: reads like a page, every value edits in place */
+.sheet{padding:.2rem 1rem 1rem;line-height:1.55}
+.sheet h2{font-size:1.15rem;font-weight:700;margin:.4rem 0 .1rem}
+.sheet .sub{color:var(--muted);font-size:var(--small);margin-bottom:.6rem}
+.sheet p{margin:.45rem 0}
+.sheet .v{border-bottom:1px dashed #5a6450;padding:0 .1rem}
+.sheet .ref{color:var(--accent);border-bottom:1px solid #0e5566}
+.sheet .h{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:.9rem 0 .2rem}
+.state{font-size:var(--label);text-transform:uppercase;letter-spacing:.08em;padding:.02rem .45rem;border-radius:1rem;border:1px solid var(--go);color:var(--go)}
+.state.draft{border-color:var(--muted);color:var(--muted)}.state.warn{border-color:var(--warn);color:var(--warn)}
+/* links: where used · events · deck */
+.lk{display:grid;grid-template-columns:auto 1fr auto;gap:.15rem .5rem;align-items:center;padding:.15rem var(--pad);font-size:var(--small)}
+.lk .k{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.ev{display:flex;align-items:center;gap:.35rem;padding:.25rem var(--pad);font-size:var(--small);white-space:nowrap}
+.ev .on{font-family:var(--mono);font-size:var(--label);padding:.05rem .4rem;border-radius:var(--r);background:var(--control);border:1px solid var(--line)}
+.ev .ar{color:var(--muted)}
+.ev .to{color:var(--accent)}
+/* tiles */
+.tiles{display:grid;gap:.5rem;padding:0 var(--pad) var(--pad)}
+.tile{position:relative;aspect-ratio:1;border-radius:var(--r);background:#0c0d0b;border:1px solid var(--line);overflow:hidden}
+.tile img{width:100%;height:100%;object-fit:contain}
+.tile.cover img{object-fit:cover}
+.tile .k{position:absolute;left:.3rem;top:.3rem;font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .u{position:absolute;right:.3rem;top:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .u.zero{border:1px dashed var(--muted);color:var(--muted)}
+.tile .q{position:absolute;right:.3rem;bottom:.3rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--muted)}
+.tile .nm{position:absolute;left:0;right:0;bottom:0;padding:.9rem .4rem .25rem;background:linear-gradient(transparent,#000d);font-size:var(--small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.sel{outline:2px solid var(--accent);outline-offset:1px}
+.tile.want{border-style:dashed;border-color:var(--warn);display:grid;place-items:center;color:var(--warn);font-size:var(--label);text-transform:uppercase;letter-spacing:.08em}
+.strip{display:flex;gap:.45rem;padding:0 var(--pad) var(--pad);overflow:hidden}
+.card{flex:none;width:7.5rem}
+.card .th{height:4.6rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#000;position:relative}
+.card .th img{width:100%;height:100%;object-fit:cover}
+.card .t{font-size:var(--small);color:var(--muted);display:flex;justify-content:space-between;padding-top:.2rem;white-space:nowrap}
+.card.sel .th{outline:2px solid var(--accent);outline-offset:1px}.card.sel .t{color:var(--text)}
+textarea,.txt{font:inherit;color:var(--text)}
+.txt{padding:.4rem 1rem 1rem;line-height:1.6;font-size:.95rem}
+.txt .sl{font-family:var(--mono);font-size:var(--label);color:var(--muted);letter-spacing:.06em;margin-top:.7rem}
+.txt .who{color:var(--accent);font-size:var(--small);letter-spacing:.06em;text-transform:uppercase}
+.txt .cur{background:rgba(0,209,255,.12);border-left:2px solid var(--accent);margin-left:-.6rem;padding-left:.5rem}
+svg text{font-family:"Noto Sans",sans-serif}
+</style></head><body><script>
+// workspaces2.html's script (assembled with workspaces.html's style) – #673 round 2, everything evolved on 2026-11-20
+const R='../../../../../../media/', C=R+'characters/', CP=R+'catpope/', IT=R+'scutoons/items/';
+const W=innerWidth,H=innerHeight,rem=14,g=rem,T=g+2.55*rem+g;
+const ch=(c,v,m)=>`${C}${c}/${c}_${v}-${m}.webp`;
+const w=new URLSearchParams(location.search).get('w')||'panel';
+const ICON={home:'⌂',library:'▤',toons:'▦',chapter:'▥',characters:'☺',catalog:'◈',map:'⌖',storyboard:'▶',experiences:'◳',flows:'⟴',generations:'✶'};
+const NAME={home:'Home',library:'Library',toons:'Toons',chapter:'Chapter',characters:'Characters',catalog:'Catalog',map:'Map',storyboard:'Storyboard',experiences:'Experiences',flows:'Flows',generations:'Generations'};
+let out='';const add=x=>out+=x;
+add(`<style>
+.chip.gen{background:var(--primary);color:#171916;border-color:#9ce327}
+.sb{display:flex;gap:.3rem;flex-wrap:wrap}
+.blank{border:1.5px dashed var(--warn)!important;background:rgba(240,160,48,.06)!important;display:grid;place-items:center;color:var(--warn);font-size:var(--label);letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.3}
+.back{position:absolute;z-index:2;left:50%;transform:translateX(-50%);top:${T}px;display:flex;align-items:center;gap:.4rem;height:2.1rem;padding:0 .7rem;border:1px solid var(--line);border-radius:2rem;background:var(--glass2);font-size:var(--small);white-space:nowrap}
+.k3{font-family:var(--mono);font-size:var(--label);padding:.02rem .35rem;border-radius:.3rem;border:1px solid var(--s2);color:var(--s2)}
+.node{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:.35rem .5rem;font-size:var(--small)}
+</style>`);
+function bar(tabs=[],o={}){
+  add(`<div class="bar"><div class="pill"><span class="logo">SCUTOONS</span><span class="ib">☰</span></div>
+  <div class="pill"><span class="ws"><span>${ICON[w]||'◎'}</span><b>${NAME[w]||'Overview'}</b><span class="muted">▾</span></span>${tabs.map((t,i)=>`<span class="tab ${i===0?'on':''}">${t.img?`<img src="${t.img}">`:`<span>${t.i||''}</span>`}<span>${t.n}</span><span class="x">✕</span></span>`).join('')}${tabs.length?'<span class="ib">＋</span>':''}</div>
+  <span class="sp"></span>
+  ${o.saved!==false?`<div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>`:''}
+  ${o.play?`<div class="pill"><div class="seg"><span class="on">Edit</span><span class="play">▶ Play</span></div></div>`:''}
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">?</span></div></div>`);
+}
+// the background is a maximized panel: its pill says what is in the back and swaps it
+const BACK=(what)=>add(`<div class="back"><span class="muted">back:</span>${what}<span class="muted">· ⤢ swap</span></div>`);
+function P(x,y,wd,ht,tabs,body,o={}){
+  add(`<div class="p ${o.solid?'solid':''}" style="left:${x}px;top:${y}px;width:${wd}px;height:${ht}px;${o.hi?'outline:2px solid var(--primary);outline-offset:2px;':''}"><div class="ph"><span class="grip">⋮⋮</span>${tabs.map((t,i)=>`<span class="pt ${i===(o.on||0)?'on':''}">${t}</span>`).join('')}<span class="f">⤢ —</span></div><div class="pb">${body}</div></div>`);
+}
+function M(x,y,label,extra=''){add(`<div class="mini" style="left:${x}px;top:${y}px"><span class="grip">⋮⋮</span>${label}${extra}</div>`)}
+function NOTE(x,y,html,wd){add(`<div class="note" style="left:${x}px;top:${y}px;${wd?`max-width:${wd}px`:''}">${html}</div>`)}
+const tr=(d,label,o={})=>`<div class="tr ${o.sel?'sel':''} ${o.in?'in':''}" style="--d:${d}"><span class="c">${o.c??''}</span>${o.img?`<img src="${o.img}" onerror="this.style.visibility='hidden'">`:o.blank?`<span class="sw" style="background:none;border:1px dashed var(--warn)"></span>`:o.sw?`<span class="sw" style="background:${o.sw}"></span>`:''}<span>${label}</span>${o.k3?'<span class="k3">3D</span>':''}${o.n!==undefined?`<span class="n ${o.nw?'warn':''}">${o.n}</span>`:''}</div>`;
+const sec=(open,name,sum,body='')=>`<div class="sec"><div class="sh"><span class="c">${open?'▾':'▸'}</span><span class="lbl">${name}</span><span class="s">${sum}</span></div>${open?`<div class="si">${body}</div>`:''}</div>`;
+const prop=(k,v)=>`<div class="prop"><span>${k}</span>${v.startsWith('<')?v:`<div class="fd">${v}</div>`}</div>`;
+const FILL=`<div class="sb"><span class="chip">⇪ Upload</span><span class="chip">▤ Library</span><span class="chip gen">✶ Generate</span></div>`;
+const blankSlot=(addr,brief)=>`<div class="slot blank" style="height:auto;display:block;padding:.5rem .6rem;text-transform:none;letter-spacing:0;font-size:var(--small);text-align:left;color:var(--text)"><div class="lbl" style="color:var(--warn)">blank asset</div><div class="mono" style="font-size:var(--label);color:var(--muted)">${addr}</div><div style="margin:.3rem 0">${brief}</div>${FILL}</div>`;
+// story events: the real names – triggers intersect · click · hover; actions giveItem, unlockLocation, joinScene …
+const ev=(trig,act,target,deck)=>`<div class="ev"><span class="on">${trig}</span><span class="ar">→</span><span>${act}</span><span class="to">${target}</span>${deck?`<span class="ar">→</span><span class="acc">⚡ ${deck}</span>`:''}</div>`;
+const lk=(rows)=>rows.map(([k,n,s])=>`<div class="lk"><span class="k">${k}</span><span>${n}</span><span class="muted mono" style="font-size:var(--label)">${s||''}</span></div>`).join('');
+const LINKS=(addr,addressable,used,evs,deck)=>`<div class="ev"><span class="mono" style="font-size:var(--label)">${addr}</span><span class="state ${addressable?'':'warn'}">${addressable?'address':'reference only'}</span></div><div class="grp lbl">Used in · ${used.length}</div>${lk(used)}<div class="grp lbl">Story events</div>${evs.join('')}<div class="grp lbl">Deck</div>${lk(deck)}`;
+const tile=(src,k,n,o={})=>o.blank?`<div class="tile blank" style="aspect-ratio:1">blank<br>${o.gen?'✶ generating':'⇪ ▤ ✶'}<span class="nm" style="color:var(--warn);text-transform:none;letter-spacing:0">${n}</span></div>`:`<div class="tile ${o.sel?'sel':''} ${o.cover?'cover':''}"><img src="${src}" onerror="this.style.opacity=0"><span class="k">${k}${o.k3?' · 3D':''}</span><span class="u ${o.u===0?'zero':''}">${o.u??''}</span>${o.q?`<span class="q">${o.q}</span>`:''}<span class="nm">${n}</span></div>`;
+const kanon=(t)=>`<div class="h">Kanon</div><p class="muted">${t} <span class="acc">open ↗</span></p>`;
+
+
+// ───────────────────────────────────────── LIBRARY (#653, PLAN.md §2 – one panel, pre-filtered per workspace)
+add(`<style>
+.ln2{display:flex;align-items:center;gap:.35rem;padding:0 var(--pad) var(--pad)}
+.scp{display:flex;gap:.25rem;flex-wrap:nowrap}
+.scp span{font-size:var(--small);padding:.12rem .6rem;border:1px solid var(--line);border-radius:1rem;color:var(--muted);white-space:nowrap}
+.scp span.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.scp .n,.chip .n{border:0;padding:0;background:none;font-family:var(--mono);font-size:var(--label);opacity:.75;margin-left:.2rem}
+.fld{flex:1;height:var(--row);border:1px solid var(--line);background:var(--control);border-radius:var(--r);display:flex;align-items:center;padding:0 .6rem;color:var(--muted);font-size:var(--small);gap:.4rem}
+.btn{height:var(--row);padding:0 .7rem;border:1px solid var(--line);border-radius:var(--r);display:flex;align-items:center;gap:.35rem;font-size:var(--small);white-space:nowrap}
+.btn.pri{background:var(--primary);color:#171916;border-color:var(--primary)}
+.ico{width:var(--row);height:var(--row);display:grid;place-items:center;color:var(--muted);border-radius:var(--r);flex:none}
+.ico.on{background:var(--control);color:var(--text)}
+.tile .v{position:absolute;right:.3rem;bottom:1.55rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem;color:var(--text);border:1px solid var(--line)}
+.tile .v.open{background:var(--accent);color:#06222a;border-color:var(--accent)}
+.tile .d{position:absolute;left:.3rem;bottom:1.55rem;font-family:var(--mono);font-size:var(--label);background:var(--glass2);padding:.02rem .35rem;border-radius:.3rem}
+.tile .hv{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;gap:.3rem}
+.tile .hv span{height:1.7rem;padding:0 .55rem;border-radius:1rem;background:var(--glass2);border:1px solid var(--line);display:grid;place-items:center;font-size:var(--small)}
+.tile .hv span.use{background:var(--primary);color:#171916;border-color:var(--primary)}
+.tile.aud{display:grid;place-items:center;background:linear-gradient(#141712,#0c0d0b)}
+.wave{display:flex;align-items:center;gap:2px;height:40%}
+.wave i{display:block;width:3px;background:var(--s2,#00d1ff);border-radius:2px;opacity:.8}
+.tile.off{opacity:.28}
+.tray{grid-column:1/-1;border:1px solid var(--accent);border-radius:var(--r);background:rgba(0,209,255,.05);padding:.45rem}
+.tray .th2{display:flex;align-items:center;gap:.4rem;font-size:var(--small);margin-bottom:.4rem}
+.tray .lv{display:grid;gap:.35rem}
+.tray .lvt{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#0c0d0b}
+.tray .lvt img{width:100%;height:100%;object-fit:cover}
+.tray .lvt b{position:absolute;left:0;right:0;bottom:0;font-weight:400;font-family:var(--mono);font-size:.62rem;padding:.6rem .25rem .15rem;background:linear-gradient(transparent,#000e)}
+.tray .lvt.miss{border:1.5px dashed var(--warn);display:grid;place-items:center;color:var(--warn);font-size:.62rem;text-align:center;font-family:var(--mono)}
+.vt{width:100%;border-collapse:collapse;font-size:var(--small)}
+.vt td{padding:.28rem .3rem;border-top:1px solid var(--line);white-space:nowrap}
+.vt td:first-child{padding-left:0}
+.vt .m{font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.vt tr.src td{color:var(--text)}
+.dev{font-family:var(--mono);font-size:.62rem;padding:.02rem .3rem;border-radius:.3rem;border:1px solid var(--line);color:var(--muted);margin-right:.15rem}
+.place{height:var(--tr);display:flex;align-items:center;padding:0 var(--pad);font-size:var(--small);white-space:nowrap;gap:.4rem}
+.place .n{margin-left:auto;font-family:var(--mono);font-size:var(--label);color:var(--muted)}
+.place.on{background:var(--selected)}
+.place.w{color:var(--warn)}.place.w .n{color:var(--warn)}
+.ovl{position:absolute;z-index:4;left:${g}px;right:${g}px;top:${T}px;bottom:${g}px;border:1px solid var(--line);border-radius:var(--r);background:#0d0f0b;box-shadow:0 1rem 3rem rgba(0,0,0,.6);display:grid;grid-template-rows:auto 1fr}
+.ovl .hd{display:flex;align-items:center;gap:.45rem;padding:.55rem .6rem;border-bottom:1px solid var(--line)}
+.ovl .bd{display:grid;grid-template-columns:15rem 1fr 25rem;min-height:0}
+.ovl .bd>div{overflow:hidden;min-height:0}
+.ovl .side{border-right:1px solid var(--line);padding:.3rem 0}
+.ovl .det{border-left:1px solid var(--line)}
+.pickh{display:flex;align-items:center;gap:.4rem;margin:0 var(--pad) var(--pad);padding:.35rem .6rem;border-radius:var(--r);background:rgba(180,255,50,.08);border:1px solid var(--primary);font-size:var(--small)}
+.ctx{width:100%;border-collapse:collapse;font-size:var(--small)}
+.ctx td{padding:.18rem .3rem;border-top:1px solid #e6dfb8;vertical-align:top}
+.ctx td:first-child{white-space:nowrap;font-weight:700;padding-left:0}
+</style>`);
+const KV=CP+'s1/c1/s1c1-key-visual.jpg', SL=n=>`${CP}s1/c1/s1c1-slice-${n}.webp`, CI=CP+'items/';
+const wave=(n=22)=>`<div class="wave">${Array.from({length:n},(_,i)=>`<i style="height:${20+Math.round(80*Math.abs(Math.sin(i*1.7)*Math.cos(i*.45)))}%"></i>`).join('')}</div>`;
+// tile with the version badge (⧉ n = n versions folded into this one tile), duration, use count
+const T2=(src,k,n,o={})=>{
+  if(o.blank) return `<div class="tile blank">blank<br>⇪ ▤ ✶<span class="nm" style="color:var(--warn);text-transform:none;letter-spacing:0">${n}</span></div>`;
+  const pic=o.aud?wave():`<img src="${src}" style="${o.cover?'object-fit:cover':''}" onerror="this.style.opacity=0">`;
+  return `<div class="tile ${o.aud?'aud':''} ${o.sel?'sel':''} ${o.off?'off':''}">${pic}<span class="k">${k}</span><span class="u ${o.u===0?'zero':''}">${o.u??''}</span>${o.d?`<span class="d">${o.d}</span>`:''}${o.v?`<span class="v ${o.vo?'open':''}">⧉ ${o.v}</span>`:''}${o.hov?`<div class="hv"><span class="use">Use</span><span>⇄</span><span>⋯</span></div>`:''}<span class="nm">${n}</span></div>`;
+};
+const kinds=(list)=>`<div class="chips">${list.map(([n,c,cl])=>`<span class="chip ${cl||''}">${n}${c!==undefined?`<span class="n">${c}</span>`:''}</span>`).join('')}</div>`;
+const tools=(sort)=>`<div class="ln2"><span class="btn">⇅ ${sort} ▾</span><span class="ico">⊟</span><span class="ico on">▦</span><span class="ico">☰</span><span class="sp"></span><span class="btn">Group: kind ▾</span><span class="ico">⋯</span></div>`;
+// the creator's bar (#664): ☰ · ⌂ · the open items, each in its own workspace
+function bar3(tabs){
+  add(`<div class="bar"><div class="pill"><span class="ib">☰</span><span class="ib">⌂</span></div>
+  <div class="pill">${tabs.map(([i,n,on])=>`<span class="tab ${on?'on':''}"><span>${i}</span><span class="mono" style="font-size:var(--small)">${n}</span><span class="x">✕</span></span>`).join('')}<span class="ib">＋</span></div>
+  <span class="sp"></span>
+  <div class="pill"><span style="padding:0 .7rem;font-size:var(--small)" class="muted"><span class="dot"></span>Saved 14:02</span></div>
+  <div class="pill"><span style="padding:0 .6rem" class="mono">EN ▾</span><span class="ib">☺</span></div></div>`);
+}
+const chapterStage=()=>{
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 45% 40%,#1c2118,#000 70%)"></div>`);
+  add(`<div style="position:absolute;left:${g+16*rem+(W-g-16*rem-27*rem-g-390)/2}px;top:${T+2*rem}px;width:390px;height:${H-T-4*rem}px;overflow:hidden;border:1px solid var(--line)"><img src="${SL(1)}" style="width:100%"><img src="${SL(2)}" style="width:100%"></div>`);
+};
+
+// ── 1 · the panel, in a chapter's workspace: pre-filtered to this chapter
+if(w==='panel'){
+  chapterStage();
+  bar3([['▥','chapter:catpope/s1/c1',1],['☺','character:catpope'],['◳','experience:poster-feilchen']]);
+  P(g,T,15*rem,H-T-g,['Slices','Text'],`${tr(0,'C1 Nave',{c:'▾'})}${tr(1,'Slice 1 · header',{sel:1})}${tr(2,'video · key visual',{sw:'#00d1ff'})}${tr(2,'bubble · Cat Pope')}${tr(1,'Slice 2')}${tr(1,'Slice 3')}${tr(1,'Slice 4')}${tr(1,'Slice 5 · choir')}${tr(2,'audio · choir loud',{sw:'#b4ff32'})}${tr(1,'Slice 6')}`);
+  const lw=27*rem, lx=W-g-lw;
+  P(lx,T,lw,H-T-g,['Library','Inspector'],`
+   <div class="ln2"><div class="scp"><span class="on">Chapter<span class="n">38</span></span><span>Toon<span class="n">412</span></span><span>All<span class="n">1240</span></span><span>Unused<span class="n">37</span></span></div><span class="sp"></span><span class="ico">⤢</span></div>
+   <div class="ln2"><span class="fld">⌕ Search name, slice, character…  <span class="sp"></span><span class="mono" style="font-size:var(--label)">Ctrl L</span></span><span class="btn pri">⇪ Upload</span></div>
+   ${kinds([['All',undefined,'on'],['Images',21],['Video',3],['Audio',9],['3D',2],['Characters',4],['Items',3],['Blank',3,'warn']])}
+   ${tools('Order in the chapter')}
+   <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
+    ${T2(KV,'video','Key visual',{u:3,d:'0:12',v:8,vo:1,sel:1,cover:1})}
+    <div class="tray"><div class="th2"><b>Key visual</b><span class="muted">· 1 source, 8 versions · 41 MB</span><span class="sp"></span><span class="acc">close</span></div>
+     <div class="lv" style="grid-template-columns:repeat(5,1fr)">${[['1080p','src'],['720p','hevc'],['480p','h264'],['900w','web'],['jpg','poster'],['2x','webp'],['3x','webp']].map(([a,b])=>`<div class="lvt"><img src="${KV}"><b>${a} ${b}</b></div>`).join('')}<div class="lvt miss">HAP<br>deck<br>missing</div></div></div>
+    ${T2(SL(1),'image','Slice 1 · bg',{u:1,v:3,cover:1})}
+    ${T2(SL(4),'image','Slice 4 · crowd',{u:1,v:3,cover:1,hov:1})}
+    ${T2('', 'audio','Choir – loud',{aud:1,u:2,d:'0:41',v:3})}
+    ${T2(ch('catpope','avatar','angry'),'character','Cat Pope · angry',{u:4})}
+    ${T2(CI+'awakening_test_press.webp','item','Test press',{u:2,v:2})}
+    ${T2('', 'audio','Bells',{aud:1,u:0,d:'0:08',v:3})}
+    ${T2('','','Slice 9 · crypt door',{blank:1})}
+   </div>`,{solid:true});
+  NOTE(g+16*rem,H-14.5*rem,'<b>One Library panel, OSCT\'s shape.</b> The chapter\'s workspace opens it <b>pre-filtered to this chapter</b>; Toon / All / Unused widen it. Kinds are chips counted within the scope. <b>⧉ 8 = one tile per asset:</b> its versions fold in; the badge opens them as a tray (OSCT 3.16 levels). A missing version is dashed. Hover: Use · Replace · ⋯; double-click uses; drag onto the stage places it. ⤢ opens the browser.',26*rem);
+}
+
+// ── 2 · the browser (⤢): the same Library over the stage, every place, the details with the versions
+if(w==='browser'){
+  chapterStage();
+  bar3([['▥','chapter:catpope/s1/c1',1],['☺','character:catpope'],['◳','experience:poster-feilchen']]);
+  const pl=(n,c,o={})=>`<div class="place ${o.on?'on':''} ${o.w?'w':''}" style="padding-left:calc(var(--pad) + ${o.d||0}rem)">${o.i?`<span class="muted" style="width:.9rem">${o.i}</span>`:''}${n}<span class="n">${c}</span></div>`;
+  const grp=(t,c,tiles)=>`<div class="grp lbl">${t} · ${c}</div><div class="tiles" style="grid-template-columns:repeat(6,1fr)">${tiles}</div>`;
+  add(`<div class="ovl"><div class="hd"><span class="lbl" style="padding:0 .4rem">Library</span><span class="fld" style="max-width:34rem">⌕ Search name, slice, character, credit…</span><div class="scp"><span>Images</span><span class="on">Video</span><span class="on">Audio</span><span>3D</span><span>Entities</span></div><span class="sp"></span><span class="btn">✎ Name by use…</span><span class="btn pri">⇪ Upload</span><span class="ico">✕</span></div>
+   <div class="bd"><div class="side">
+    <div class="grp lbl">Scope</div>${pl('This chapter · C1 Nave',38,{on:1})}${pl('This toon · CatPope',412)}${pl('All toons',1240)}${pl('Recently added',17)}${pl('Unused',37)}
+    <div class="grp lbl">To do</div>${pl('Blank – wanted',37,{w:1})}${pl('Missing versions',6,{w:1})}${pl('Missing credits',12,{w:1})}${pl('Generating · review',7)}
+    <div class="grp lbl">Toon › chapters</div>${pl('Season 1',268,{i:'▾'})}${pl('C1 Nave',38,{d:1})}${pl('C2 Cloister',44,{d:1})}${pl('C3 Crypt stairs',29,{d:1})}${pl('Characters',96,{i:'▸'})}${pl('Catalog',61,{i:'▸'})}${pl('Map',23,{i:'▸'})}
+    <div class="grp lbl">From</div>${pl('Uploaded',980)}${pl('Generated',214)}${pl('Deck imports',46)}
+   </div>
+   <div>${grp('Video','3',`${T2(KV,'video','Key visual',{u:3,d:'0:12',v:8,sel:1,cover:1})}${T2(SL(5),'video','Choir – loop',{u:1,d:'0:06',v:5,cover:1})}${T2(SL(9),'video','Feilchen intro',{u:0,d:'0:20',v:2,cover:1})}`)}
+    ${grp('Audio','9',`${T2('','audio','Choir – loud',{aud:1,u:2,d:'0:41',v:3})}${T2('','audio','Choir – once',{aud:1,u:1,d:'0:33',v:3})}${T2('','audio','Brass – Morton',{aud:1,u:1,d:'2:10',v:3})}${T2('','audio','Brass – loop',{aud:1,u:2,d:'0:16',v:3})}${T2('','audio','Bells',{aud:1,u:0,d:'0:08',v:3})}${T2('','audio','Organ drone',{aud:1,u:1,d:'1:02',v:2})}`)}
+    <div class="grp muted" style="font-size:var(--small)">Grouped by kind · 1 selected · Shift / Ctrl select several – one credits line for all of them</div></div>
+   <div class="det"><div style="padding:var(--pad)"><div style="height:12rem;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);position:relative"><img src="${KV}" style="width:100%;height:100%;object-fit:cover"><span class="tile" style="position:absolute;inset:auto auto .4rem .4rem;aspect-ratio:auto;border:0;background:none"><span class="d" style="position:static">▶ 0:12</span></span></div></div>
+    <div class="sheet" style="padding-bottom:.2rem;padding-top:0"><h2>Key visual</h2><div class="sub mono">asset:s1c1-key-visual · video · 1 source, 8 versions</div></div>
+    ${sec(true,'Versions','7 ready · 1 missing',`<table class="vt">
+     <tr class="src"><td>source</td><td class="m">1080p · ProRes</td><td class="m">22 MB</td><td><span class="dev">master</span></td></tr>
+     <tr><td>720p</td><td class="m">HEVC</td><td class="m">6.1 MB</td><td><span class="dev">phone</span><span class="dev">X1</span></td></tr>
+     <tr><td>480p</td><td class="m">H.264</td><td class="m">3.2 MB</td><td><span class="dev">web</span><span class="dev">slow</span></td></tr>
+     <tr><td>900w</td><td class="m">H.264</td><td class="m">4.0 MB</td><td><span class="dev">reader</span></td></tr>
+     <tr><td>poster</td><td class="m">jpg · 2x · 3x webp</td><td class="m">1.1 MB</td><td><span class="dev">all</span></td></tr>
+     <tr><td class="warn">HAP</td><td class="m warn">missing</td><td></td><td><span class="chip warn">Make</span></td></tr></table>
+     <div class="muted" style="font-size:var(--label)">Edits (trim, time map #651) go on the asset, once, for every version.</div>`)}
+    ${sec(true,'Where used','3 · click jumps there',`${lk([['chapter','C1 · slice 1','header'],['reader','share card','poster'],['deck','scene Nave','HAP']])}`)}
+    ${sec(true,'Credits','',`<div class="fd">Video: Studio Feilchen · 2026</div>`)}
+    ${sec(false,'Actions','Use · Replace · Download · Rename · Delete')}
+   </div></div></div>`);
+  NOTE(W-g-25*rem-21.5*rem,H-11*rem,'<b>⤢ – the browser</b> over the stage, like OSCT\'s: places on the left (scope, a to-do list, the toon\'s tree, where it came from), the grid grouped, the details on the right. <b>The versions live here</b>: codec, size, which device takes which, a missing one made with one click. Esc closes back to the panel.',20*rem);
+}
+
+// ── 3 · another workspace, another pre-filter – and picking for a slot
+if(w==='pick'){
+  add(`<div class="bg" style="background:radial-gradient(ellipse at 40% 45%,#202418,#000 70%)"></div>`);
+  add(`<img src="${ch('catpope','apose','tourist')}" style="position:absolute;left:${g+16*rem+60}px;top:${T+3*rem}px;height:${H-T-6*rem}px" onerror="this.style.opacity=0">`);
+  bar3([['▥','chapter:catpope/s1/c1'],['☺','character:catpope',1],['◳','experience:poster-feilchen']]);
+  P(g,T,15*rem,H-T-g,['Character'],`${tr(0,'Cat Pope',{c:'▾',img:ch('catpope','avatar','neutral')})}${tr(1,'Persona · Pope',{c:'▾'})}${tr(2,'Look · tourist',{sel:1})}${tr(2,'Look · swim')}${tr(1,'Persona · Biker',{c:'▸'})}${tr(1,'Persona · Mountain tiger',{c:'▸'})}`);
+  const iw=22*rem, ix=W-g-iw, lw=25*rem, lx=ix-g-lw;
+  P(ix,T,iw,H-T-g,['Inspector'],`<div class="sheet" style="padding-bottom:.2rem"><h2>Look · tourist</h2><div class="sub mono">look:catpope/pope/tourist</div></div>
+   ${sec(true,'Moods','12 of 14',`<div class="tiles" style="grid-template-columns:repeat(4,1fr);padding:0">${['neutral','angry','confused','crying','denial','bargaining','acceptance'].map(m=>T2(ch('catpope','avatar',m),'',m,{})).join('')}<div class="tile blank" style="outline:2px solid var(--primary);outline-offset:1px">happy<br>picking…</div></div>`)}
+   ${sec(false,'Model','catpope-regular.glb · ⧉ 3')}${sec(false,'Kanon','open ↗')}`,{solid:true});
+  P(lx,T,lw,H-T-g,['Library'],`
+   <div class="pickh"><span>Pick for <b>Look tourist · mood happy</b></span><span class="sp"></span><span class="acc">cancel · Esc</span></div>
+   <div class="ln2"><div class="scp"><span class="on">Character<span class="n">46</span></span><span>Toon<span class="n">412</span></span><span>All<span class="n">1240</span></span></div><span class="sp"></span><span class="ico">⤢</span></div>
+   <div class="ln2"><span class="fld">⌕ happy</span><span class="btn pri">⇪ Upload</span><span class="btn" style="background:var(--primary);color:#171916;border-color:#9ce327">✶ Generate</span></div>
+   ${kinds([['Square images',31,'on'],['Moods',26],['Looks',4],['3D',3],['Video',0,'off']])}
+   <div class="tiles" style="grid-template-columns:repeat(3,1fr)">
+    ${T2(ch('catpope','avatar','neutral'),'mood','tourist · neutral',{u:6,v:2,hov:1})}
+    ${T2(ch('catpope-biker','avatar','neutral'),'mood','biker · neutral',{u:2,v:2})}
+    ${T2(ch('catpope','avatar','acceptance'),'mood','pope · acceptance',{u:3,v:2})}
+    ${T2(ch('catpope','avatar','bargaining'),'mood','pope · bargaining',{u:1,v:2})}
+    ${T2(ch('catpope-cat','avatar','neutral'),'mood','cat · neutral',{u:0,v:2})}
+    ${T2(ch('catpope-human','avatar','neutral'),'mood','human · neutral',{u:1,v:2})}
+    ${T2(KV,'video','Key visual',{off:1,cover:1})}${T2(SL(4),'image','Slice 4 · wide',{off:1,cover:1})}${T2(CI+'awakening_test_press.webp','item','Test press',{off:1})}
+   </div>
+   <div class="grp muted" style="font-size:var(--small)">Only what fits the slot is pickable (square, a mood); the rest is dimmed, not hidden, under All.</div>`,{solid:true,hi:1});
+  NOTE(g+15.5*rem,H-25*rem,`<b>Every workspace pre-filters the same Library</b> – no Asset workspace, no per-editor pickers:<table class="ctx">
+   <tr><td>Home</td><td>All</td></tr><tr><td>Chapter</td><td>this chapter · its slices' media</td></tr><tr><td>Character</td><td>this character · moods, looks, 3D</td></tr><tr><td>Catalog item</td><td>items · renders · 3D</td></tr><tr><td>Map</td><td>places · tiles · sets</td></tr><tr><td>Experience</td><td>this experience · print, targets</td></tr><tr><td>Generations</td><td>the subject · its takes</td></tr></table>
+   A blank slot's <b>▤ Library</b> opens it as a picker: the slot on top, only what fits. Upload and Generate sit in the same row – the result lands in the Library and fills the slot.`,21*rem);
+}
+document.body.insertAdjacentHTML('beforeend',out);
+</script></body></html>

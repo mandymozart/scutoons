@@ -1,0 +1,123 @@
+{
+  "format": 2,
+  "id": "cloud-light",
+  "toons": [
+    "sandbox"
+  ],
+  "holder": [
+    {
+      "id": "cloud",
+      "rig": {
+        "ref": "rig:item.cloud"
+      },
+      "values": {
+        "storm:cloud.hold": 1.0,
+        "storm:cloud.hue": 0.62,
+        "storm:cloud.tint": 60.0
+      }
+    }
+  ],
+  "stage": {
+    "name": "Cloud light",
+    "render_scale": 1.0,
+    "transition": "fade",
+    "transition_secs": 0.4
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space",
+      "bloom": 0.6,
+      "glow": 0.6,
+      "glow_light": 1.0,
+      "glow_range": 7.0,
+      "hue": 0.52,
+      "join": "deck",
+      "light": 0.85,
+      "post": [
+        "bloom",
+        "curves",
+        "pixelate",
+        "fxaa"
+      ],
+      "quality": "low",
+      "threshold": 0.55
+    }
+  ],
+  "link": [],
+  "outputs": {
+    "dmx": "auto",
+    "fixture": [
+      {
+        "address": 1,
+        "id": "wash",
+        "profile": "thunderwash-600-rgbw"
+      },
+      {
+        "address": 10,
+        "id": "strobe",
+        "profile": "strobe"
+      }
+    ],
+    "map": [
+      {
+        "from": "cloud_storm_cloud.red",
+        "gain": [
+          {
+            "from": "cloud_storm_cloud.pulse",
+            "in": [
+              0.25,
+              1
+            ]
+          }
+        ],
+        "to": [
+          {
+            "dmx": "wash.red"
+          }
+        ]
+      },
+      {
+        "from": "cloud_storm_cloud.green",
+        "gain": [
+          {
+            "from": "cloud_storm_cloud.pulse",
+            "in": [
+              0.25,
+              1
+            ]
+          }
+        ],
+        "to": [
+          {
+            "dmx": "wash.green"
+          }
+        ]
+      },
+      {
+        "from": "cloud_storm_cloud.blue",
+        "gain": [
+          {
+            "from": "cloud_storm_cloud.pulse",
+            "in": [
+              0.25,
+              1
+            ]
+          }
+        ],
+        "to": [
+          {
+            "dmx": "wash.blue"
+          }
+        ]
+      }
+    ],
+    "strobe": [
+      {
+        "duration": 30,
+        "fixture": "strobe",
+        "trigger": "cloud_storm_cloud.gate"
+      }
+    ]
+  }
+}
