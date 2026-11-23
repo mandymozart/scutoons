@@ -14,7 +14,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Palette D – no signal hue.** On, focus, active and selected are the text colour. The one primary action is the pressed fill. Colour only says ok, warning, error. (H11)
 - **Grounds are see-through**, never an opaque grey: the text colour at a low strength (control 6 %, hover 10 %, selected 16 %). Menus stay opaque.
 - **Kit D is approved** (kit-d.html), all 14 points as drawn; the tab's hover border is the text colour.
-- **The kit gets a prominent place in the code base and one shared source of truth** for the deck's UI crate and the creator's UI kit – tokens and components, to go to for reference and to refine.
+- **The kit's one source of truth is a top-level `kit/` folder:** a neutral `kit/tokens.toml` (the tokens and each component's states) and a README. The deck's UI crate and the creator's UI kit both come from it; it is the place to go for reference and to refine.
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
 - **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), and thumbnails and pictures.
 - **Tabs and panel titles:** no border at rest, the active one brighter, a rounded border only on hover and while dragged. (H4)
