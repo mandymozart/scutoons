@@ -2,6 +2,7 @@
 //! bone above it), its clips, its spots and the plain sentences for what it lacks. Read once from the GLB through the
 //! anatomy (anatomy.rs) and the file's spots (spots.rs); the page draws these and decides nothing.
 use super::{glb, spots};
+use deck_catalog::skeleton::Skeleton;
 use deck_catalog::spot::Spots;
 use serde::Serialize;
 
@@ -34,12 +35,25 @@ pub struct Facts {
     pub spots: Vec<SpotFacts>,
     /// what the file lacks or gets wrong, one sentence each (none: nothing to say)
     pub missing: Vec<String>,
+    /// its joints, the ones its first clip turns, its clips, its family (#817: what the API stores on the asset version)
+    pub skeleton: Skeleton,
+    /// a skeleton and clips with nothing drawn: an animation asset (#817)
+    pub animation: bool,
 }
 
-/// The facts of a model file (its images are not decoded).
+/// The facts of a model file (its images are not decoded) – or of an animation asset: a skeleton and clips, no mesh.
 pub fn facts(bytes: &[u8]) -> anyhow::Result<Facts> {
-    let model = glb::parse_with(bytes, 1, &[], &mut |_, _| Ok(image::RgbaImage::new(1, 1)))?;
-    let a = &model.anatomy;
+    let (anatomy, triangles) = match glb::parse_with(bytes, 1, &[], &mut |_, _| Ok(image::RgbaImage::new(1, 1))) {
+        Ok(model) => {
+            let triangles = model.triangles();
+            (model.anatomy, triangles)
+        }
+        Err(drawn) => match glb::skeleton(bytes) {
+            Ok(a) if !a.skins.is_empty() && !a.clips.is_empty() => (a, 0),
+            _ => return Err(drawn),
+        },
+    };
+    let a = &anatomy;
     let joint_above = |n: usize| {
         let mut p = a.nodes[n].parent;
         while let Some(i) = p {
@@ -77,7 +91,7 @@ pub fn facts(bytes: &[u8]) -> anyhow::Result<Facts> {
         .iter()
         .filter_map(|s| Some(SpotFacts { name: s.name.clone(), kind: s.kind.word(), at: spots::world(a, s, None, 0.0)?.w_axis.truncate().to_array() }))
         .collect();
-    Ok(Facts { triangles: model.triangles(), bones, clips, spots, missing })
+    Ok(Facts { triangles, bones, clips, spots, missing, skeleton: a.skeleton(), animation: triangles == 0 })
 }
 
 /// `facts` as the page reads it: `{ ok: true, triangles, bones, clips, spots, missing }` or `{ ok: false, why }`
@@ -111,6 +125,13 @@ mod tests {
         assert_eq!(f.clips, [ClipFacts { name: "wave".into(), seconds: 2.0 }]);
         assert!(f.spots.is_empty());
         assert!(f.missing.is_empty(), "{:?}", f.missing);
+        assert_eq!((f.skeleton.joints.len(), f.skeleton.animated.as_slice(), f.skeleton.family.as_deref(), f.animation), (2, ["upper".to_string()].as_slice(), None, false));
+    }
+
+    #[test]
+    fn an_animation_asset_has_facts_too() {
+        let f = facts(&crate::space::animation::extract(&bones::glb()).unwrap()).unwrap();
+        assert_eq!((f.triangles, f.animation, f.clips.len(), f.skeleton.animated.len()), (0, true, 1, 1));
     }
 
     #[test]

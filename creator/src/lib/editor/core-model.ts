@@ -12,6 +12,25 @@ export interface ModelFacts {
 	spots: { name: string; kind: string; at: [number, number, number] }[];
 	/** the core's sentences for what the file lacks */
 	missing: string[];
+	/** #817: its joints, the joints its first clip turns, its clips, its family (what the API stores on the asset version) */
+	skeleton: Skeleton;
+	/** a skeleton and clips with nothing drawn: an animation asset */
+	animation: boolean;
+}
+
+/** deck-catalog's `Skeleton` */
+export interface Skeleton {
+	family?: string;
+	joints: string[];
+	animated?: string[];
+	clips?: string[];
+}
+
+/** what a character's idle names, against its model's skeleton (deck-catalog `FitCheck`) */
+export interface IdleCheck {
+	animation?: Skeleton;
+	clip?: string;
+	model: Skeleton;
 }
 
 export type ModelAnswer = ({ ok: true } & ModelFacts) | { ok: false; why: string };
@@ -33,4 +52,22 @@ export async function modelFacts(bytes: Uint8Array): Promise<ModelAnswer> {
 		throw e;
 	});
 	return (await core)(bytes);
+}
+
+type IdleRule = (check: IdleCheck) => string[];
+let loadIdle: (() => Promise<IdleRule>) | null = null;
+let idleCore: Promise<IdleRule> | null = null;
+
+export function provideIdleCore(loader: () => Promise<IdleRule>): void {
+	loadIdle = loader;
+}
+
+/** #817: the core's problems of an idle on a model (none: it plays) – the one rule the API and the stage ask too */
+export async function idleProblems(check: IdleCheck): Promise<string[]> {
+	if (!loadIdle) return ['the core is not loaded'];
+	idleCore ??= loadIdle().catch((e) => {
+		idleCore = null;
+		throw e;
+	});
+	return (await idleCore)(check);
 }

@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
+use Scutoons\Domain\Assets\IdleCheck;
 use Scutoons\Domain\Catalog\CatalogDocs;
 use Scutoons\Domain\Catalog\PublishOrder;
 use Scutoons\Domain\Content\ContentSchemas;
@@ -56,7 +57,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs, private readonly IdleCheck $idles)
     {
     }
 
@@ -140,6 +141,8 @@ final class EntitiesController
         $this->placements->guard($key, $content);
         // a route through a place that is not on the map / a place taken off a route's way (owner D7)
         $this->mapRefs->guard([(string) $key => $content]);
+        // a character's idle that doesn't play on its model (#817, the core's FitCheck)
+        $this->idles->guard($key, $content);
     }
 
     /** POST /api/entities/batch – several saves in one transaction (each document checked like a PUT) */
@@ -164,6 +167,7 @@ final class EntitiesController
                     $this->schemas->guard($key, $save->content);
                     $this->flow->guard($key, $save->content);
                     $this->placements->guard($key, $save->content);
+                    $this->idles->guard($key, $save->content);
                 }
             } catch (ApiError $e) {
                 throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $key] + $e->extra);

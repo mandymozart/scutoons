@@ -10,7 +10,7 @@
 	 */
 	let { family, onuse, onclose }: { family: AssetFamily; onuse: (version: FamilyVersion) => void; onclose?: () => void } = $props();
 
-	const ICONS: Record<FamilyVersion['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', file: 'file' };
+	const ICONS: Record<FamilyVersion['kind'], string> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 	const total = $derived(family.versions.reduce((n, v) => n + v.size, 0));
 </script>
 

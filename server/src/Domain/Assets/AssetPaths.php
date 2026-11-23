@@ -17,13 +17,15 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  */
 final class AssetPaths
 {
-    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'model', 'font', 'other'];
+    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'model', 'animation', 'font', 'other'];
     public const IMAGE = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'];
     public const VIDEO = ['mp4', 'webm', 'mov', 'm4v'];
     public const AUDIO = ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'wav', 'flac'];
     /** 3D models: binary glTF only – one self-contained file (a .gltf points to separate .bin / textures that a move or
      * rename would break; GLB ↔ glTF converts losslessly when a model must be edited) – owner 2026-10-13 */
     public const MODEL = ['glb'];
+    /** #817: a shared animation (a skeleton + clips, nothing drawn) is a .glb in an `animations/` folder of the library */
+    public const ANIMATION_FOLDER = '#(^|/)animations/#';
     /** the quality level of a video height (MediaQuality, PLAN.md "one file per quality level") */
     public const VIDEO_QUALITY = [480 => 'low', 720 => 'medium', 1080 => 'high'];
     /** slice densities (IMAGE_QUALITY_DENSITIES) */
@@ -63,7 +65,7 @@ final class AssetPaths
             in_array($ext, self::AUDIO, true) => 'audio',
             $ext === 'zip' => 'archive',
             in_array($ext, ['woff2', 'woff'], true) => 'font',
-            in_array($ext, self::MODEL, true) => 'model',
+            in_array($ext, self::MODEL, true) => preg_match(self::ANIMATION_FOLDER, $key) ? 'animation' : 'model',
             in_array($ext, ['pdf', 'mscz', 'musicxml', 'mxl', 'xml', 'json', 'txt'], true) => 'document',
             default => 'other',
         };

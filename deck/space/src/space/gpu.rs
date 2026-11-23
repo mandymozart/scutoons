@@ -670,7 +670,7 @@ impl SpaceGpu {
                 self.figure_nodes.resize(n, glam::Mat4::IDENTITY);
             }
             let u = &mut *self.figure_uniform;
-            f.pose(time, d.world, &mut self.figure_nodes[..n], &mut u.joints);
+            f.pose_clip(d.clip, time, d.world, &mut self.figure_nodes[..n], &mut u.joints);
             u.look = [d.glow, d.hue, d.pulse, 0.0];
             queue.write_buffer(buf, 0, bytemuck::bytes_of(u));
         }

@@ -107,7 +107,7 @@ impl Serialize for Workspace {
 
 /// every kind of address the Library can list, in the order "Items to open" groups them: its word before `:` and
 /// how a list names it
-pub const KINDS: [(&str, &str); 27] = [
+pub const KINDS: [(&str, &str); 28] = [
     ("toon", "toons"),
     ("season", "seasons"),
     ("chapter", "chapters"),
@@ -135,6 +135,7 @@ pub const KINDS: [(&str, &str); 27] = [
     ("audio", "audio"),
     ("video", "video"),
     ("model", "3d models"),
+    ("animation", "animations"),
 ];
 
 /// a toon's file without a kind of its own (a PDF, a font): listed apart from `KINDS`, since its address is `file:<path>`
@@ -155,14 +156,14 @@ fn workspace(kind: &str, editor: Editor) -> Option<Workspace> {
             "item" | "recipe" | "album" | "product" | "edition" | "home-scene" | "airlift-carrier" => W::Catalog,
             "rig" | "module" => W::Sound,
             "kanon" => W::Text,
-            "image" | "audio" | "video" | "model" | "file" => W::Asset,
+            "image" | "audio" | "video" | "model" | "animation" | "file" => W::Asset,
             _ => return None,
         }),
         Editor::Deck => Some(match kind {
             "scene" | "character" => W::Stage,
             "module" => W::Module,
             "show" => W::Show,
-            "image" | "audio" | "video" | "model" => W::Asset,
+            "image" | "audio" | "video" | "model" | "animation" => W::Asset,
             _ => return None,
         }),
     }

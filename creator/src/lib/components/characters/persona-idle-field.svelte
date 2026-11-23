@@ -1,0 +1,93 @@
+<script lang="ts">
+	import type { CharacterPersona, RegistryCharacter } from '@scutoons/content';
+	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import type { CharacterModel } from '$lib/editor/character-model.svelte.ts';
+	import { editPersona } from '$lib/editor/characters.ts';
+	import { idleProblems } from '$lib/editor/core-model.ts';
+	import { keepSkeleton, readSkeleton } from '$lib/editor/asset-skeletons.ts';
+	import { idleChoices, idleOf, idleValue, type IdleChoice, type LibraryAnimation } from '$lib/editor/persona-idle.ts';
+	import { assetsApi } from '$lib/api.ts';
+	import { m } from '$lib/paraglide/messages.js';
+
+	/**
+	 * A persona's idle (#817): what its model plays when it stands – its own first clip (none), a clip of its model by
+	 * name, or a shared animation of the library. Only what the core says plays on the model is offered.
+	 */
+	let { registry, character, persona, model }: { registry: ContentDoc; character: RegistryCharacter; persona: CharacterPersona; model: CharacterModel } = $props();
+
+	let animations = $state<LibraryAnimation[]>([]);
+	let clips = $state<IdleChoice[]>([]);
+	let library = $state<IdleChoice[]>([]);
+	const value = $derived(idleValue(persona.animations?.idle));
+
+	$effect(() => {
+		void (async () => {
+			const list = await assetsApi.list({ kind: 'animation', page_size: 200 }).catch(() => null);
+			const found: LibraryAnimation[] = [];
+			for (const a of list?.items ?? []) found.push({ path: a.path, title: a.title, skeleton: a.skeleton ?? (await readSkeleton(a.path).catch(() => null)) ?? undefined });
+			animations = found;
+		})();
+	});
+	$effect(() => {
+		const facts = model.facts;
+		if (facts && model.path) void keepSkeleton(model.path, facts.skeleton).catch(() => undefined);
+	});
+	$effect(() => {
+		const skeleton = model.facts?.skeleton;
+		const offered = animations;
+		if (!skeleton) {
+			clips = [];
+			library = [];
+			return;
+		}
+		void idleChoices(skeleton, offered, idleProblems).then((c) => {
+			clips = c.clips;
+			library = c.library;
+		});
+	});
+
+	function pick(next: string) {
+		const idle = idleOf(next);
+		editPersona(
+			registry,
+			character.id,
+			persona.id,
+			(p) => {
+				if (idle) p.animations = { ...p.animations, idle };
+				else if (p.animations) {
+					delete p.animations.idle;
+					if (!Object.keys(p.animations).length) delete p.animations;
+				}
+			},
+			`${character.id}:${persona.id}:idle`
+		);
+	}
+</script>
+
+<label class="idle">
+	<span>{m['creator.characters_idle']()}</span>
+	{#if model.facts}
+		<select {value} onchange={(e) => pick(e.currentTarget.value)} data-testid="persona-idle">
+			<option value="">{m['creator.characters_idle_own']()}</option>
+			{#if value && ![...clips, ...library].some((c) => `${c.kind}:${c.value}` === value)}<option {value}>{value.replace(/^\w+:/, '')}</option>{/if}
+			{#if clips.length}<optgroup label={m['creator.characters_idle_clips']()}>{#each clips as c (c.value)}<option value="clip:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
+			{#if library.length}<optgroup label={m['creator.characters_idle_library']()}>{#each library as c (c.value)}<option value="animation:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
+		</select>
+		{#if !library.length}<span class="hint">{m['creator.characters_idle_none_fit']()}</span>{/if}
+	{:else}
+		<span class="hint">{m['creator.characters_idle_no_model']()}</span>
+	{/if}
+</label>
+
+<style>
+	.idle {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025, 0.25rem);
+	}
+	.hint {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		color: var(--muted);
+	}
+</style>

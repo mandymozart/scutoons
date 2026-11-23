@@ -136,7 +136,7 @@
 		if (a.kind === 'image') return [...a.renditions].filter((r) => r.mime?.startsWith('image/')).sort((x, y) => x.size - y.size)[0]?.path ?? a.path;
 		return a.renditions.find((r) => r.label === 'poster')?.path ?? '';
 	}
-	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', model: 'box', font: 'type', other: 'file' })[k];
+	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', model: 'box', animation: 'activity', font: 'type', other: 'file' })[k];
 	const kindLabel = (k: string) => (m as unknown as Record<string, () => string>)[`assets.kind_${k}`]?.() ?? k;
 
 	async function rescan() {

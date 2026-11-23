@@ -99,7 +99,7 @@ pub fn plan(view: View, kind: Kind) -> Result<Outcome, String> {
         (View::ShowRow, Image) => return Ok(Reference(Preview::Picture)),
         (View::ShowRow, Audio) => return Ok(Reference(Preview::Playable)),
         (View::ShowRow, Video) => return Ok(Reference(Preview::FirstFrame)),
-        (View::ShowRow, File) => return Ok(Reference(Preview::Plain)),
+        (View::ShowRow, File | Animation) => return Ok(Reference(Preview::Plain)),
         (View::ShowRow, Module | Instrument | Rig) => "a row holds pieces: scenes, characters, items and places",
 
         (View::Rig, Module | Instrument) => return Ok(Track),
@@ -111,6 +111,7 @@ pub fn plan(view: View, kind: Kind) -> Result<Outcome, String> {
         (View::Rig, Video) => return Ok(PictureSource),
         (View::Rig, Kind::Scene | Place) => "a show's row plays it, a rig plays modules and instruments",
         (View::Rig, File) => "a rig takes no plain file: drop it in a Show row as a reference",
+        (View::Rig, Animation) => "an animation plays on a character's model: pick it as the character's idle",
 
         (View::Scene, Character | Item) => return Ok(Slot),
         (View::Scene, Image) => return Ok(Layer),
@@ -181,7 +182,7 @@ mod tests {
         assert_eq!(ok(Kind::Image), Ok(Outcome::Layer));
         assert_eq!(ok(Kind::Module), Ok(Outcome::Modules));
         let refused: Vec<Kind> = table(View::Scene).into_iter().filter(|(_, r)| r.is_err()).map(|(k, _)| k).collect();
-        assert_eq!(refused, [Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Place, Kind::Audio, Kind::Video, Kind::Model, Kind::File]);
+        assert_eq!(refused, [Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Place, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation, Kind::File]);
         assert_eq!(ok(Kind::Audio), Err("audio cannot be dropped on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules".into()));
     }
 

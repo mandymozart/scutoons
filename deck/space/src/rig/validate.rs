@@ -25,6 +25,11 @@
 //!   (unknown fields refused), its `problems` – names, doubles, hand edits of what the file does not have, a bone or node
 //!   the model does not have – and, with the descriptor of the module this model is the body of in `modules`, its port
 //!   spots against the module's ports. Shared vectors: server/tests/fixtures/assets/spots.json.
+//! - a model's or an animation's skeleton (#817, kind `skeleton`, `id` = the asset's id): deck-catalog `Skeleton`
+//!   (unknown fields refused), its `problems` – names, doubles, turned joints it lacks, the family `FAMILIES` says;
+//! - a character's idle on its model (#817, kind `animation-fit`, `id` = `character:<id>/<persona>`): `FitCheck
+//!   { animation | clip, model }`, the one rule – a library animation's turned joints all in the model, or a clip of the
+//!   model by name. Shared vectors for both: server/tests/fixtures/assets/skeletons.json.
 //!
 //! The lookups travel by value: the instruments it names, the presets it names with their ancestors, the descriptors of
 //! the modules it names (the API reads them from its catalog). Every problem a check lists is in the answer, each naming
@@ -137,7 +142,9 @@ impl Request {
             "device-presets" => "device preset",
             "rig-presets" => "rig preset",
             "spots" => "spots of asset",
-            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets, spots)")),
+            "skeleton" => "skeleton of asset",
+            "animation-fit" => "animation of",
+            other => return Err(format!("unknown kind '{other}' (instruments, presets, rigs, scenes, uses, device-presets, rig-presets, spots, skeleton, animation-fit)")),
         };
         let who = format!("{label} {}", self.id);
         let checked = match label {
@@ -148,6 +155,8 @@ impl Request {
             "device preset" => self.device_preset(&who).map(|_| Vec::new()),
             "rig preset" => self.rig_preset(&who).map(|_| Vec::new()),
             "spots of asset" => self.spots(&who).map(|_| Vec::new()),
+            "skeleton of asset" => self.said(&who, |d: deck_catalog::Skeleton| d.problems()),
+            "animation of" => self.said(&who, |d: deck_catalog::FitCheck| d.problems()),
             _ => self.rig(&who),
         };
         Ok(match checked {
@@ -205,6 +214,12 @@ impl Request {
         let module: Option<Descriptor> = self.descriptors()?.into_iter().next();
         let problems: Problems = spots.problems(module.as_ref()).into_iter().map(|s| format!("{who}: {s}")).collect();
         if problems.is_empty() { Ok(()) } else { Err(problems) }
+    }
+
+    /// a document of type `T` and its one check's sentences
+    fn said<T: DeserializeOwned>(&self, who: &str, check: impl Fn(T) -> Vec<String>) -> Result<Vec<String>, Problems> {
+        let problems: Problems = check(parse(who, &self.document)?).into_iter().map(|s| format!("{who}: {s}")).collect();
+        if problems.is_empty() { Ok(Vec::new()) } else { Err(problems) }
     }
 
     /// a scene document's problems (#243): what a deck refuses to load
@@ -437,6 +452,34 @@ mod tests {
             std::fs::write(path, &written).unwrap();
         } else {
             assert_eq!(stored, written, "spots.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space spots_vectors");
+        }
+    }
+
+    /// Skeletons and idles as the API sends them (server/tests/fixtures/assets/skeletons.json) – the core's words for
+    /// each. `UPDATE_FIXTURES=1` writes the problems.
+    #[test]
+    fn skeleton_vectors() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/assets/skeletons.json");
+        let stored = std::fs::read_to_string(path).unwrap().replace('\r', "");
+        let mut set: Value = serde_json::from_str(&stored).unwrap();
+        for case in set["cases"].as_array_mut().unwrap() {
+            let request: Request = serde_json::from_value(case["request"].clone()).unwrap();
+            case["problems"] = serde_json::to_value(request.problems().unwrap()).unwrap();
+        }
+        let cases = set["cases"].as_array().unwrap();
+        let said = |name: &str| cases.iter().find(|c| c["name"] == name).unwrap_or_else(|| panic!("no case {name}"))["problems"].to_string();
+        assert_eq!(said("a mixamo animation's skeleton"), "[]");
+        assert_eq!(said("a model without a family"), "[]");
+        assert!(said("a skeleton that hides its family").contains("should say so"));
+        assert_eq!(said("an idle that fits"), "[]");
+        assert!(said("an idle the model lacks joints for").contains("the model lacks 1 of the 2 joints the animation turns: mixamorig:Spine"));
+        assert_eq!(said("an idle clip of the model's own"), "[]");
+        assert!(said("an idle clip the model lacks").contains("no clip 'run': the model has walk, stand"));
+        let written = format!("{}\n", serde_json::to_string_pretty(&set).unwrap());
+        if std::env::var_os("UPDATE_FIXTURES").is_some() {
+            std::fs::write(path, &written).unwrap();
+        } else {
+            assert_eq!(stored, written, "skeletons.json is stale: UPDATE_FIXTURES=1 cargo test -p deck-space skeleton_vectors");
         }
     }
 

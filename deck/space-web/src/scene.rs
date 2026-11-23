@@ -638,7 +638,7 @@ impl SceneView {
         asks
     }
 
-    /// the cast's 3D models the stage asks for (lib.rs `figure_asks`: slot, kind, id, field, …) – the page fetches each
+    /// the cast's 3D models the stage asks for (lib.rs `figure_asks`: slot, kind, id, field, idle field, …) – the page fetches each
     /// file and hands it in (`give_figure`)
     pub fn figure_requests(&mut self) -> js_sys::Array {
         let asks = self.show.space.as_mut().map(figure_asks).unwrap_or_default();
@@ -648,10 +648,10 @@ impl SceneView {
         asks
     }
 
-    /// a figure's .glb and its images, decoded by the browser (`SpaceView.encoded_images`)
-    pub fn give_figure(&mut self, slot: u32, glb_bytes: &[u8], images: js_sys::Array) {
+    /// a figure's .glb and its images, decoded by the browser (`SpaceView.encoded_images`), and its idle's .glb (#817)
+    pub fn give_figure(&mut self, slot: u32, glb_bytes: &[u8], images: js_sys::Array, idle: Option<Vec<u8>>) {
         if let (Some(slot), Some(s)) = (self.mine(slot as usize), self.show.space.as_mut()) {
-            figure_from_page(s, slot, glb_bytes, images);
+            figure_from_page(s, slot, glb_bytes, images, idle.as_deref());
         }
     }
 

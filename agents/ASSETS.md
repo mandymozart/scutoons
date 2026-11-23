@@ -36,8 +36,8 @@ way we could even migrate in the future or run various systems behind it. Long-t
 
 | Table | What | Key columns |
 |---|---|---|
-| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
-| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, `spots` (JSON, #724: the model's spots – "Spots" below), created/by |
+| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / animation / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
+| `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, `spots` (JSON, #724: the model's spots – "Spots" below), `skeleton` (JSON, #817 – "Shared animations" below), created/by |
 | `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_shapes` | the vector library (migration `2026-10-17-asset-shapes`) | `asset_id` (1:1), `tile` x / y / null, `mask`, `colors` (JSON, measured), `source` / `derived` (JSON, provenance) – an asset with a row is a shape: `GET /api/assets?kind=shape`, each row + `shape: { tile, mask, colors }` (research/VECTORS.md §5a) |
@@ -396,6 +396,24 @@ asset titles): two legs `scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three
 `scutoons/3d/mannequin-more-legs.glb` (Fox, Khronos glTF Sample Assets: model PixelMannen CC0, rigging & animation
 tomkranis CC BY 4.0, glTF @AsoboStudio & @scurest CC BY 4.0); wings `scutoons/3d/mannequin-wings.glb` (the storyboard's
 crow figure from figures.js, ours – posable nodes, no skin).
+
+## Shared animations (#817, owner 2026-11-22/23 [assets])
+
+Kind `animation`: a `.glb` in an `animations/` folder (`characters/animations/catpope-idle.glb`; AssetPaths `ANIMATION_FOLDER`) –
+a skeleton and clips, nothing drawn. Made from a model with `cargo run -p deck-space --bin extract-animation -- MODEL.glb OUT.glb`
+(nodes, skins, animations kept; meshes, materials, images left out). **Skeleton** (migration `2026-11-23-asset-skeletons`,
+`asset_versions.skeleton`): what the core read from a model or an animation – `{ family?, joints, animated?, clips? }`
+(deck-catalog skeleton.rs `Skeleton`); the creator reads it through the wasm and stores it the first time it opens a file
+(`PUT /api/assets/{id} { skeleton }`, checked by the core, `/validate` kind `skeleton`); the list carries it per asset.
+**Families** are a table (`FAMILIES`: name, joint prefix, anchor joints – `mixamo` first); a new family is one row, a label
+for people, never what fits is decided by. **Fit** (`fit` / `FitCheck`, the one rule): an animation plays on a model when the
+model has every joint it turns, by name; a named clip when the model has a clip of that name. Asked by the creator's idle
+picker (wasm `idle_problems`), by the API when a character is saved (IdleCheck → `/validate` kind `animation-fit`; a
+file without a stored skeleton is named) and by the stage at load (anatomy.rs `adopt`: rotations only, so the figure keeps
+its proportions; joints it lacks stay at rest and are logged). **A persona's idle** (`personas[].animations.idle`:
+`{ animation }` a library path or `{ clip }` its own model's clip by name; none = the model's first clip) reaches the deck
+through scene-content (`characters[id].idle` a file the sync fetches as `<char>/<char>_idle.glb`, `clip` a name); a scene
+holder's `clip` overrides it for its member (figure.rs `choose`; a name the file lacks is logged, the model plays its own).
 
 ## Albums and downloads (owner: the season "Downloads" fields are redundant)
 

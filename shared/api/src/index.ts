@@ -189,6 +189,7 @@ export {
 	type AssetDetail,
 	type AssetJob,
 	type AssetKind,
+	type AssetSkeleton,
 	type AssetList,
 	type AssetLookup,
 	type AssetMissing,

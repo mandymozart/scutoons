@@ -16,6 +16,7 @@
 //! behind the feature `native` (the set's loader thread and file, the portraits') or in deck-native (the relay link, a
 //! `Wire`); a host without threads hands a set in with `set_arrived`.
 pub mod anatomy;
+pub mod animation;
 pub mod backdrop;
 pub mod being;
 pub mod camera;
@@ -170,6 +171,12 @@ pub struct Cast {
     pub model: Option<String>,
     /// its figure's slot (figure.rs), asked for once it stands as its look
     pub figure: Option<usize>,
+    /// #817: the clip its figure plays, by name – its holder's `clip`, else its character's idle clip (`set_looks`)
+    pub clip: Option<String>,
+    /// its holder's `clip` (the look node's)
+    held_clip: Option<String>,
+    /// `clip` as its figure's clip, once the figure is here (`Figure::choose`); None = not chosen yet
+    played: Option<Option<usize>>,
 }
 
 /// One card on the stage this frame (#495): an upright picture with its feet on its spot, turned to the eye around the
@@ -225,7 +232,8 @@ impl Cast {
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
                 let chosen = n.str("form").and_then(Form::parse);
-                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, figure: None }
+                let held_clip = n.str("clip").map(String::from);
+                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, figure: None, clip: held_clip.clone(), held_clip, played: None }
             })
             .collect()
     }
@@ -725,9 +733,22 @@ impl Space {
             let character = c.who.character();
             c.look = content.look_form(character);
             c.model = content.model_of(character).map(String::from);
+            c.clip = c.held_clip.clone().or_else(|| content.art(character).and_then(|a| a.clip.clone()));
+            c.played = None;
         }
         self.looks = Some(content.clone());
         self.place_cast();
+    }
+
+    /// #817: each member's clip by name, once its figure is here; a name the file lacks is said once, the figure plays its own
+    fn choose_clips(&mut self) {
+        for c in &mut self.cast {
+            let Some(f) = c.played.is_none().then(|| c.figure.and_then(|s| self.figures.get(s))).flatten() else { continue };
+            c.played = Some(f.choose(c.clip.as_deref()).unwrap_or_else(|why| {
+                tracing::warn!("figure of {}: {why} – it plays its own", c.holder);
+                f.clip
+            }));
+        }
     }
 
     /// the character whose pictures draw `character` (push.rs `drawn_as`, once scene-content answered)
@@ -767,7 +788,7 @@ impl Space {
             let height = cast::card_height(&c.who);
             let feet = at + Vec3::Y * c.being.bounce * CARD_HOP * height;
             // TODO(#491): the look's `mouth` opens the mouth once a model carries blend shapes
-            out.push(figure::FigureDraw { slot, world: figure::placed(f, feet, yaw, height, scale), glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
+            out.push(figure::FigureDraw { slot, clip: c.played.unwrap_or(f.clip), world: figure::placed(f, feet, yaw, height, scale), glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
         }
     }
 
@@ -884,6 +905,7 @@ impl Space {
         if self.figures.poll() {
             self.generation += 1;
         }
+        self.choose_clips();
         #[cfg(feature = "media")]
         self.portraits.play(f64::from(time) + crate::video::shown_ahead(dt));
         self.clock = time;
@@ -2664,7 +2686,7 @@ to = "burner_look.pulse"
         assert_eq!(space.drawn_as("mute"), "mellowmantis");
         let drawings = |s: &Space| s.cast.iter().map(|c| s.drawing(c)).collect::<Vec<_>>();
         assert_eq!(drawings(&space), [Drawing::Being, Drawing::Being, Drawing::Card], "until its model is here: its being");
-        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
+        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), None, &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
         space.figures.deliver(asked[1].0, Err("no file".into()));
         let generation = space.generation;
         run(&mut space, &mut ctl, 1, &mut |_| {});

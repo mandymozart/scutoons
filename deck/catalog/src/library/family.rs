@@ -55,6 +55,7 @@ pub fn kind_of_asset(kind: &str) -> Kind {
         "video" => Kind::Video,
         "audio" => Kind::Audio,
         "model" => Kind::Model,
+        "animation" => Kind::Animation,
         _ => Kind::File,
     }
 }
@@ -248,7 +249,12 @@ fn u32_of(v: &Value) -> Option<u32> {
 fn version_of(asset: &Value, file: &Value, id: &str) -> Option<(String, Version)> {
     let path = file["path"].as_str()?;
     let name = version_name(path);
-    let kind = if name.kind == Kind::File { kind_of_asset(asset["kind"].as_str().unwrap_or("")) } else { name.kind };
+    // the API's kind wins for a file its extension can't tell (a .glb in `animations/` is an animation, #817)
+    let kind = match kind_of_asset(asset["kind"].as_str().unwrap_or("")) {
+        Kind::Animation => Kind::Animation,
+        k if name.kind == Kind::File => k,
+        _ => name.kind,
+    };
     let origin = file["origin"].as_str().and_then(Origin::of_id).unwrap_or(Origin::Imported);
     let version = Version {
         label: name.label,

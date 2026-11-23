@@ -5,9 +5,9 @@ import { toonAsset } from '@scutoons/content';
 import type { ApiClient } from './client.ts';
 import { toQuery, type ListParams, type ListResult } from './admin.ts';
 
-export type AssetKind = 'image' | 'video' | 'audio' | 'archive' | 'document' | 'model' | 'font' | 'other';
+export type AssetKind = 'image' | 'video' | 'audio' | 'archive' | 'document' | 'model' | 'animation' | 'font' | 'other';
 /** `model` = a 3D model, binary glTF (.glb) only (agents/ASSETS.md) */
-export const ASSET_KINDS: AssetKind[] = ['image', 'video', 'audio', 'archive', 'document', 'model', 'font', 'other'];
+export const ASSET_KINDS: AssetKind[] = ['image', 'video', 'audio', 'archive', 'document', 'model', 'animation', 'font', 'other'];
 export type AssetQuality = 'low' | 'medium' | 'high';
 
 /** One file of an asset version: the source ("original" / its marker) or a derived copy (480p, 1280w, webp, 2x …) */
@@ -67,6 +67,16 @@ export interface AssetSummary {
 	renditions: AssetRendition[];
 	/** only on shapes (the vector library) */
 	shape?: AssetShape;
+	/** #817: a model's / an animation's current skeleton, as the deck's core read it (none: not read yet) */
+	skeleton?: AssetSkeleton;
+}
+
+/** deck-catalog's `Skeleton`: the joints by name, the joints its first clip turns, its clips, its family */
+export interface AssetSkeleton {
+	family?: string;
+	joints: string[];
+	animated?: string[];
+	clips?: string[];
 }
 
 export interface AssetUsage {
@@ -98,6 +108,7 @@ export interface AssetVersion {
 	created_at: string | null;
 	created_by: string | null;
 	renditions: AssetRendition[];
+	skeleton?: AssetSkeleton;
 }
 
 export interface AssetJob {
@@ -260,7 +271,7 @@ export function createAssetsApi(api: ApiClient) {
 		get: (id: string) => api.get<AssetDetail>(`/assets/${enc(id)}`),
 		lookup: (path: string) => api.get<AssetLookup>(`/assets/lookup/${toQuery({ path })}`),
 		/** `shape`: the shape's facts (makes the asset part of the vector library), null = no shape any more */
-		update: (id: string, body: { title?: string; tags?: string[]; shape?: (AssetShape & Partial<Pick<AssetShapeDetail, 'source' | 'derived'>>) | null }) =>
+		update: (id: string, body: { title?: string; tags?: string[]; shape?: (AssetShape & Partial<Pick<AssetShapeDetail, 'source' | 'derived'>>) | null; skeleton?: AssetSkeleton | null }) =>
 			api.put<AssetDetail>(`/assets/${enc(id)}`, body),
 		/** a NEW file at `path` (409 `exists` when the path is taken) */
 		upload: (file: Blob, path: string, meta: { title?: string; tags?: string[] } = {}) =>

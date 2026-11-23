@@ -1,7 +1,7 @@
 // The Library's data as the core gives it (deck-catalog `library::family` / `library::shelf`, through space-web's
 // `Library`): JSON types only, no rule here. Formatting for the page (a duration) is the page's.
 
-export type LibraryKind = 'image' | 'video' | 'audio' | 'model' | 'file';
+export type LibraryKind = 'image' | 'video' | 'audio' | 'model' | 'animation' | 'file';
 export type LibraryOrigin = 'uploaded' | 'imported' | 'generated';
 export type LibraryScope = 'context' | 'toon' | 'all' | 'unused';
 export type LibraryGrouping = 'use' | 'kind' | 'none';
