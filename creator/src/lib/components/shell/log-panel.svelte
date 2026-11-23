@@ -21,7 +21,7 @@
 	// and legend, find and Copy all. The lines, filters, counts and pills are the core's (lib/log/log.svelte.ts); a
 	// problem's accept and jump are its page's.
 	import { Icon } from '@scutoons/ui';
-	import { Button, Chip, IconButton, PillTabs } from '@scutoons/ui/editor';
+	import { Button, Chip, IconButton, Menu, MenuItem, PillTabs } from '@scutoons/ui/editor';
 	import type { LogScope, LogShow, LogShown } from '@scutoons/content';
 	import { log } from '$lib/log/log.svelte.ts';
 	import { toast } from '$lib/toasts.ts';
@@ -75,16 +75,20 @@
 		{/if}
 		<input class="find" type="search" placeholder={m['shell.log_find']()} aria-label={m['shell.log_find']()} bind:value={find} />
 		<Button variant="quiet" icon="copy" onclick={copyAll}>{m['shell.log_copy']()}</Button>
+		{#if typed && legend}
+			<!-- the types and what each means: in the info box, not as rows in the panel (owner 2026-11-24: real estate) -->
+			<Menu label={m['shell.log_type']()} icon="info" about={m['shell.log_types_all']()} dot={kinds.length > 0} align="end" width="24rem" testid="log-types">
+				{#snippet children()}
+					<MenuItem role="menuitemcheckbox" on={!kinds.length} label={words('all')} onclick={() => (kinds = [])} />
+					{#each legend.kinds as k (k.kind)}
+						<MenuItem role="menuitemcheckbox" on={kinds.includes(k.kind)} icon={KIND_ICONS[k.kind]} onclick={() => toggleKind(k.kind)} data-testid="log-type-{k.kind}">
+							{k.label} <span class="means">{k.legend}</span>
+						</MenuItem>
+					{/each}
+				{/snippet}
+			</Menu>
+		{/if}
 	</div>
-	{#if typed}
-		<div class="row" data-testid="log-types">
-			<span class="lab">{m['shell.log_type']()}</span>
-			<Chip label={words('all')} on={!kinds.length} onclick={() => (kinds = [])} title={m['shell.log_types_all']()} />
-			{#each legend?.kinds ?? [] as k (k.kind)}
-				<Chip label={k.label} icon={KIND_ICONS[k.kind]} on={kinds.includes(k.kind)} onclick={() => toggleKind(k.kind)} title={k.legend} testid="log-type-{k.kind}" />
-			{/each}
-		</div>
-	{/if}
 	<div class="lines">
 		{#if show !== 'events' && view.problems.length}
 			<p class="group"><span>{words('problems')}</span><span>{view.problems.length}</span></p>
@@ -125,13 +129,6 @@
 			<p class="sc-empty">{m['shell.log_empty']()}</p>
 		{/if}
 	</div>
-	{#if typed && legend}
-		<div class="legend">
-			{#each legend.kinds as k (k.kind)}
-				<span><Icon name={KIND_ICONS[k.kind]} size="0.95em" strokeWidth={2} /><span class="name">{k.label}</span> {k.legend}</span>
-			{/each}
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -251,21 +248,9 @@
 	.accepted {
 		opacity: 0.5;
 	}
-	.legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.9rem;
-		padding: 0.45rem var(--editor-pad) 0.55rem;
-		border-top: var(--editor-edge) solid var(--tool-line);
+	/* a type's meaning beside its name in the info box */
+	.means {
 		color: var(--tool-muted);
-		font-size: var(--editor-label);
-	}
-	.legend > span {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-	}
-	.legend .name {
-		color: var(--tool-text);
+		font-size: var(--editor-small);
 	}
 </style>
