@@ -171,6 +171,12 @@ pub struct Cast {
     pub moved: Option<motion::Pose>,
     /// the character whose 3D model draws it (scene-content names one: `set_looks`); none = its being
     pub model: Option<String>,
+    /// a placed rig: it stands there itself, in 3D (its look node's `rig`)
+    pub placed: bool,
+    /// its rig's body: the model by CDN path that draws it in 3D, over its character's (its look node's `body`)
+    pub body: Option<String>,
+    /// its body's height in metres; none = its kind's card height
+    pub height: Option<f32>,
     /// its figure's slot (figure.rs), asked for once it stands as its look
     pub figure: Option<usize>,
     /// #817: the clip its figure plays, by name – its holder's `clip`, else its character's idle clip (`set_looks`)
@@ -238,14 +244,18 @@ impl Cast {
                 };
                 // #495: who it is (a look node of #492 without `who` is its character's)
                 let who = n.str("who").and_then(Who::parse).unwrap_or_else(|| Who::Character(look.character.clone()));
+                // a placed rig is never a card: no picture to ask for
+                let placed = n.str("rig").is_some();
                 let pictures = match &who {
+                    _ if placed => Vec::new(),
                     Who::Character(c) => portraits.request_view(c, cast::CARD_VIEW, &being.moods),
                     Who::Item(id) => vec![portraits.picture(cast::Picture::item(id))],
                 };
                 let (holder, spot) = (n.str("holder").unwrap_or_default().to_string(), n.str("spot").map(String::from));
                 let chosen = n.str("form").and_then(Form::parse);
                 let held_clip = n.str("clip").map(String::from);
-                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, figure: None, clip: held_clip.clone(), held_clip, played: None }
+                let (body, height) = (n.str("body").map(String::from), n.params.get("height").and_then(|v| v.as_float()).map(|h| h as f32));
+                Cast { being, holder, spot, at, who, form: Form::Card, chosen, look: None, feet: Vec3::ZERO, pictures, moved: None, model: None, placed, body, height, figure: None, clip: held_clip.clone(), held_clip, played: None }
             })
             .collect()
     }
@@ -745,11 +755,16 @@ impl Space {
             let row = Vec3::X * (k as f32 - (n as f32 - 1.0) * 0.5) * CAST_SPACING;
             c.feet = spot.unwrap_or(self.being.anchor - Vec3::Y * self.lift + row) + c.at;
             c.being.anchor = c.feet + Vec3::Y * self.lift;
-            let form = cast::form(&c.who, stage_3d, c.chosen, c.look);
+            let form = cast::form_rigged(&c.who, stage_3d, c.chosen, c.look, cast::Rigged { placed: c.placed, body: c.body.is_some() });
             changed |= form != c.form;
             c.form = form;
-            if let (Form::Look, Some(model), None) = (form, &c.model, c.figure) {
-                c.figure = Some(self.figures.request(c.who.character(), model));
+            // its rig's body draws it before its character's model
+            if form == Form::Look && c.figure.is_none() {
+                if let Some(path) = &c.body {
+                    c.figure = Some(self.figures.request_body(path));
+                } else if let Some(model) = &c.model {
+                    c.figure = Some(self.figures.request(c.who.character(), model));
+                }
             }
         }
         if changed {
@@ -816,7 +831,7 @@ impl Space {
                 yaw += m.rotation.y;
                 scale = m.scale;
             }
-            let height = cast::card_height(&c.who);
+            let height = c.height.unwrap_or_else(|| cast::card_height(&c.who));
             let feet = at + Vec3::Y * c.being.bounce * CARD_HOP * height;
             // TODO(#491): the look's `mouth` opens the mouth once a model carries blend shapes
             out.push(figure::FigureDraw { slot, clip: c.played.unwrap_or(f.clip), world: figure::placed(f, feet, yaw, height, scale), glow: c.being.glow, hue: c.being.hue, pulse: c.being.pulse });
@@ -2722,7 +2737,7 @@ to = "burner_look.pulse"
         let (_g, mut space, mut ctl) = stage(true);
         space.set_looks(&content);
         let asked = space.figures.requests();
-        assert_eq!(asked.iter().map(|(_, c)| c.as_str()).collect::<Vec<_>>(), ["catpope", "mellowmantis"], "mute has no art: the default character's model");
+        assert_eq!(asked.iter().map(|(_, c)| c.id()).collect::<Vec<_>>(), ["catpope", "mellowmantis"], "mute has no art: the default character's model");
         assert_eq!(space.drawn_as("mute"), "mellowmantis");
         let drawings = |s: &Space| s.cast.iter().map(|c| s.drawing(c)).collect::<Vec<_>>();
         assert_eq!(drawings(&space), [Drawing::Being, Drawing::Being, Drawing::Card], "until its model is here: its being");
@@ -2741,6 +2756,49 @@ to = "burner_look.pulse"
         assert!((feet - space.cast[0].feet).length() < 1e-4, "on its spot: {feet}");
         let top = d.world.transform_point3(f.feet + Vec3::Y * f.height);
         assert!((top.y - feet.y - cast::card_height(&space.cast[0].who)).abs() < 1e-4, "as tall as its card: {top}");
+    }
+
+    /// a placed rig stands in 3D even on a stage without a set and asks for its body by the model's path, drawn as it
+    /// once it is here, as tall as the body says; one without a body stands as its being; neither asks for a picture
+    #[test]
+    fn a_placed_rig_stands_as_its_body() {
+        let text = r#"
+[[node]]
+id = "space"
+kind = "space"
+[[node]]
+id = "drums_look"
+kind = "look"
+holder = "drums"
+who = "item:drum-machine"
+rig = "item.drum-machine"
+body = "characters/takeyari-drum/takeyari-drum-regular.glb"
+height = 1.0
+[[node]]
+id = "bell_look"
+kind = "look"
+holder = "bell"
+who = "item:bell"
+rig = "item.bell"
+"#;
+        let scene = Scene::parse(text).unwrap();
+        let g = Graph::build(&scene).unwrap();
+        let node = g.first(crate::graph::Kind::Space).unwrap();
+        let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
+        let mut ctl = Table::new(&g);
+        space.set_looks(&crate::push::Content::default());
+        assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look], "no set, still 3D");
+        assert!(space.portraits.requests().is_empty(), "a placed rig has no card");
+        let asked = space.figures.requests();
+        assert_eq!(asked.iter().map(|(_, a)| a.clone()).collect::<Vec<_>>(), [figure::Ask::Body("characters/takeyari-drum/takeyari-drum-regular.glb".into())]);
+        space.figures.deliver(asked[0].0, figure::read(&anatomy::bones::glb(), None, &mut |_, _| anyhow::bail!("no images")).map_err(|e| e.to_string()));
+        run(&mut space, &mut ctl, 1, &mut |_| {});
+        assert_eq!(space.cast.iter().map(|c| space.drawing(c)).collect::<Vec<_>>(), [Drawing::Model, Drawing::Being]);
+        let mut out = Vec::with_capacity(space.figures_drawn());
+        space.write_figures(&mut out);
+        let f = space.figures.get(out[0].slot).unwrap();
+        let (feet, top) = (out[0].world.transform_point3(f.feet), out[0].world.transform_point3(f.feet + Vec3::Y * f.height));
+        assert!((top.y - feet.y - 1.0).abs() < 1e-4, "the body's height: {}", top.y - feet.y);
     }
 
     /// #495 (owner 2026-11-12: "We fall back to 2d in all cases"): a stage with no set – every member a card, its feet on

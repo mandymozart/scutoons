@@ -28,10 +28,11 @@
 //!   character already, else the first placeholder or spawn zone with room, in the scene's order, whose `fill` admits it;
 //!   `Casting::leave` frees it again. A scene that plays takes both as words (scene_play.rs, #516).
 use crate::problem::sentences;
-use crate::rig::address::{node_port, Address, Leaf};
+use crate::rig::address::{node_port, Address, Leaf, Place};
+use crate::rig::body::Body;
 use crate::rig::bundle::Bundle;
 use crate::scene::{LinkDef, NodeDef, Scene};
-use crate::scene_document::{Arrange, ArrangeKind, Enter, FillerRef, Fillers, HolderValue, LocationSlot, SceneDocument};
+use crate::scene_document::{Arrange, ArrangeKind, Enter, FillerRef, Fillers, Holder, HolderValue, LocationSlot, SceneDocument};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
@@ -103,6 +104,22 @@ pub fn core_rigs(subject: &str, _: Option<&str>) -> Option<Bundle> {
     Bundle::core_or_default(subject).and_then(Result::ok)
 }
 
+/// a placed rig's place: its subject's (`rig:item.drum-machine` → `item:drum-machine`); none = the holder is no placed rig
+fn placed_place(h: &Holder) -> Option<Place> {
+    h.is_placed().then(|| h.rig.as_ref()?.subject().and_then(Place::of_subject)).flatten()
+}
+
+/// The rig a member of holder `h` plays, with its persona: the holder's pinned rig, else its filler's own; a placed rig
+/// plays its own (no persona). None = nothing to play.
+pub fn played(h: &Holder, filler: &str) -> Option<(String, Option<String>)> {
+    let pinned = h.rig.as_ref().and_then(|r| r.subject().map(String::from));
+    if h.is_placed() {
+        return pinned.map(|s| (s, None));
+    }
+    let f = FillerRef::parse(filler).ok()?;
+    Some((pinned.or_else(|| f.rig_subject())?, f.persona))
+}
+
 /// the nodes every rig's scene has once and the holders share (graph.rs: one sink of each kind; the clock)
 const SHARED: [&str; 3] = ["out", "space", "tempo"];
 
@@ -159,7 +176,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     let location_ph = doc.location_placeholder();
     for key in with.keys() {
         let holder = doc.holders.iter().find(|h| &h.id == key);
-        if holder.is_some_and(|h| !h.is_placeholder()) {
+        if holder.is_some_and(Holder::is_placed) {
+            problems.push(format!("'{key}' is a placed rig: nothing outside replaces it"));
+        } else if holder.is_some_and(|h| !h.is_placeholder()) {
             problems.push(format!("'{key}' has an authored filler: a use fills placeholders only"));
         } else if holder.is_none() && location_ph.is_none_or(|p| &p.id != key) {
             problems.push(format!("'{key}' is no placeholder of scene:{}", doc.id));
@@ -195,6 +214,7 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     for h in &doc.holders {
         let given: Vec<String> = match (&h.filler, with.get(&h.id), &h.preview) {
             (Some(r), _, _) => vec![r.clone()],
+            _ if h.is_placed() => h.rig.iter().map(|r| r.rig.clone()).collect(),
             (None, Some(f), _) => f.list().into_iter().map(String::from).collect(),
             (None, None, Some(p)) if previews => p.list().into_iter().map(String::from).collect(),
             _ => Vec::new(),
@@ -214,14 +234,13 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
                 problems.push(format!("holder {}: {e}", h.id));
                 continue;
             }
-            let f = match FillerRef::parse(&filler) {
-                Ok(f) => f,
+            let place = match placed_place(h).map_or_else(|| FillerRef::parse(&filler).map(|f| f.place), Ok) {
+                Ok(p) => format!("{}:{}", p.kind, p.id),
                 Err(e) => {
                     problems.push(format!("holder {}: {e}", h.id));
                     continue;
                 }
             };
-            let place = format!("{}:{}", f.place.kind, f.place.id);
             if !places.insert(place.clone()) {
                 problems.push(format!("holder {}: '{filler}' stands on this stage already (a second copy is reserved)", h.id));
                 continue;
@@ -236,12 +255,14 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     // the rigs, flattened with each holder's preset choices and values
     let mut notes = Vec::new();
     let mut flat: Vec<(usize, Scene)> = Vec::new();
+    // each member's placed rig (its subject) and its rig's body: what draws it besides its being
+    let mut bodies: BTreeMap<usize, (Option<String>, Option<Body>)> = BTreeMap::new();
     let (mut rig_bg, mut module_bg) = (None, None);
     for (i, m) in cast.iter().enumerate() {
         let h = doc.holders.iter().find(|h| h.id == m.holder).expect("a member's holder");
-        let f = FillerRef::parse(&m.filler).expect("parsed above");
         let pinned = h.rig.as_ref();
-        let Some(subject) = pinned.and_then(|r| r.subject().map(String::from)).or_else(|| f.rig_subject()) else { continue };
+        let Some((subject, persona)) = played(h, &m.filler) else { continue };
+        bodies.insert(i, (h.is_placed().then(|| subject.clone()), None));
         let Some(bundle) = rigs(&subject, pinned.and_then(|r| r.version.as_deref())) else {
             notes.push(format!("holder {}: no rig {subject} at hand: '{}' stands silent", h.id, m.filler));
             continue;
@@ -255,7 +276,10 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
                 chosen.insert(track, p.clone());
             }
         }
-        let mut scene = match bundle.rig.flatten_with(&bundle.library(), f.persona.as_deref(), None, &chosen) {
+        if let Some(b) = bodies.get_mut(&i) {
+            b.1.clone_from(&bundle.rig.body);
+        }
+        let mut scene = match bundle.rig.flatten_with(&bundle.library(), persona.as_deref(), None, &chosen) {
             Ok(s) => s,
             Err(e) => {
                 problems.extend(sentences(&e).into_iter().map(|s| format!("holder {}: {s}", h.id)));
@@ -305,8 +329,9 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     // with no mapping to the being, moves nothing (owner 2026-11-12 [rigs])
     let chosen = |m: &Member| doc.holders.iter().find(|h| h.id == m.holder).and_then(|h| h.form);
     let clip = |m: &Member| doc.holders.iter().find(|h| h.id == m.holder).and_then(|h| h.clip.as_deref());
-    // a chosen form or clip needs a look of its own to stand in
-    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3] && chosen(&cast[0]).is_none() && clip(&cast[0]).is_none();
+    // a chosen form or clip, a placed rig or a body needs a look of its own to stand in
+    let drawn = |i: usize| bodies.get(&i).is_some_and(|(placed, body)| placed.is_some() || body.is_some());
+    let alone = cast.len() == 1 && flat.len() == 1 && cast[0].spot.is_none() && cast[0].at == [0.0; 3] && chosen(&cast[0]).is_none() && clip(&cast[0]).is_none() && !drawn(0);
     let prefixes: Vec<String> = (0..cast.len())
         .map(|i| {
             let m = &cast[i];
@@ -377,7 +402,11 @@ pub fn resolve(doc: &SceneDocument, with: &BTreeMap<String, Fillers>, previews: 
     if !alone {
         for (i, m) in cast.iter().enumerate() {
             let Some(w) = who(m) else { continue };
-            scene.nodes.push(crate::scene::look_node(&prefixes[i], &m.holder, &w, crate::scene::Chosen { form: chosen(m), clip: clip(m) }, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default()));
+            let mut look = crate::scene::look_node(&prefixes[i], &m.holder, &w, crate::scene::Chosen { form: chosen(m), clip: clip(m) }, m.spot.as_deref(), m.at, looks.remove(&i).unwrap_or_default());
+            if let Some((placed, body)) = bodies.get(&i) {
+                crate::scene::body_params(&mut look, placed.as_deref(), body.as_ref());
+            }
+            scene.nodes.push(look);
         }
     }
 

@@ -89,7 +89,7 @@ export type Holder = {
 	preview?: Fillers | null;
 	/** an authored filler (`character:catpope`, `item:incense`) – or `fill`, never both */
 	ref?: string | null;
-	/** the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`) */
+	/** the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`). Without a filler and a `fill` it is a placed rig: the rig stands there as its body, like a 3D model – not replaceable from outside */
 	rig?: RigPin | null;
 	/** the spot of the set where it stands and enters (`spot_left`); none = the scene's spot */
 	spot?: string | null;

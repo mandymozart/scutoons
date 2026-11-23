@@ -6,6 +6,7 @@
 	import { AssignmentTab, RigCoverageList, designerMessages as m } from '@scutoons/rig-designer';
 	import { editHref } from '$lib/editor/edit-key.ts';
 	import { rigKey } from '$lib/editor/rig-assign.ts';
+	import RigBodySlot from '$lib/components/rigs/rig-body-slot.svelte';
 	import type { PlayHost, RigSession } from '$lib/editor/rig-session.svelte.ts';
 
 	let { session, host, moods = [] }: {
@@ -27,6 +28,7 @@
 </script>
 
 <div class="pane" data-testid="assignment-pane">
+	<RigBodySlot {session} />
 	<div class="form">
 		<AssignmentTab rig={session.rig} instruments={session.lists.instruments} presets={session.lists.presets} {moods} coverage={session.mine} problem={session.problem} face={session.face} onchange={(next) => session.change(next)} oncreate={() => session.create()} />
 	</div>

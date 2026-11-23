@@ -138,3 +138,72 @@ fn the_holders_leave_the_audio_graph_as_it_is() {
     }
     assert_eq!(r.scene.nodes.iter().filter(|n| n.kind == "audio_out").count(), 1);
 }
+
+const DRUM_MACHINE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/drum-machine.json");
+
+/// the drum machine as a rig (server/tests/fixtures/rigs/drum-machine.json): the sequencer and the four voices, its body
+/// the Takeyari node
+fn drum_machine() -> deck_space::rig::Bundle {
+    serde_json::from_str(&std::fs::read_to_string(DRUM_MACHINE).unwrap()).unwrap()
+}
+
+/// a body-part rig: `item.drum-machine`, its tracks the drumseq and crows-rave's four drum voices with their values as
+/// written, each lane cabled to its voice, its body the Takeyari exhaust's model – the core checks it as the catalog does
+#[test]
+fn the_drum_machine_is_a_rig_with_the_takeyari_body() {
+    register_modules();
+    let b = drum_machine();
+    b.rig.check(&b.library()).unwrap();
+    assert_eq!(b.rig.tracks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(), ["seq", "kick", "snare", "hat_closed", "hat_open"]);
+    assert_eq!(b.rig.body.as_ref().map(|b| b.model.as_str()), Some("characters/takeyari-drum/takeyari-drum-regular.glb"));
+    let scene = b.rig.flatten(&b.library(), None, None).unwrap();
+    let doc = document();
+    for (track, node) in [("seq", "drumseq"), ("kick", "drum-kick"), ("snare", "drum-snare"), ("hat_closed", "drum-hat-closed"), ("hat_open", "drum-hat-open")] {
+        let inner = if track == "seq" { "seq" } else { "voice" };
+        let got = scene.nodes.iter().find(|n| n.id == format!("{track}_{inner}")).unwrap_or_else(|| panic!("{track}"));
+        let want = doc.nodes.iter().find(|n| n.id == node).unwrap();
+        assert_eq!((&got.kind, &got.params), (&want.kind, &want.params), "{track} plays crows-rave's {node}");
+    }
+    for (lane, voice) in [(1, "kick"), (2, "snare"), (3, "hat_closed"), (4, "hat_open")] {
+        assert!(scene.links.iter().any(|l| l.from == format!("seq_seq.lane{lane}") && l.to == format!("{voice}_voice.notes")), "lane {lane} → {voice}");
+    }
+}
+
+/// scene-content's answer for `items=drum-machine` (server SceneContentRigsTest writes it): the rig a deck places is the
+/// fixture's, its body served beside it as a file with its size
+#[test]
+fn scene_content_serves_the_drum_machine_with_its_body() {
+    let answer = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../server/tests/fixtures/rigs/scene-content-drum-machine.json")).unwrap();
+    let rigs = deck_space::rig::content::SceneRigs::parse_json(&answer).unwrap();
+    let served = rigs.served("item.drum-machine").expect("the item's rig");
+    assert_eq!((&served.rig, &served.instruments), (&drum_machine().rig, &drum_machine().instruments));
+    let v: serde_json::Value = serde_json::from_str(&answer).unwrap();
+    assert_eq!(v["items"]["drum-machine"]["body"]["path"], served.rig.body.as_ref().unwrap().model.as_str());
+    assert!(v["items"]["drum-machine"]["body"]["size"].is_u64());
+}
+
+/// crows-rave's drum-machine holder as a placed rig (`rig: rig:item.drum-machine`, no `fill`): the rig stands at the
+/// holder's place as its body – in 3D, drawn as the model once it is here – its tracks under the holder's prefix; a use
+/// cannot replace it
+#[test]
+fn crows_rave_s_drum_machine_holder_places_the_rig() {
+    use deck_space::cast::{form_rigged, Rigged};
+    use deck_space::scene_document::{Fillers, RigPin};
+    register_modules();
+    let mut doc = document();
+    let h = doc.holders.iter_mut().find(|h| h.id == "drum-machine").unwrap();
+    (h.fill, h.label, h.rig) = (None, None, Some(RigPin { rig: "rig:item.drum-machine".into(), version: None }));
+    assert_eq!(doc.check(), Vec::<String>::new());
+    let b = drum_machine();
+    let rigs = |s: &str, v: Option<&str>| if s == "item.drum-machine" { Some(b.clone()) } else { core_rigs(s, v) };
+    let r = resolve(&doc, &BTreeMap::new(), false, &rigs, &no_sets).unwrap();
+    let look = r.scene.nodes.iter().find(|n| n.id == "drum-machine_look").expect("a look of its own");
+    let word = |k: &str| look.params.get(k).and_then(|v| v.as_str());
+    assert_eq!((word("who"), word("rig"), word("body")), (Some("item:drum-machine"), Some("item.drum-machine"), Some("characters/takeyari-drum/takeyari-drum-regular.glb")));
+    assert_eq!(look.params["at"][0].as_float(), Some(2.25));
+    let f = form_rigged(&Who::parse("item:drum-machine").unwrap(), stage_3d(&r.scene), None, None, Rigged { placed: true, body: true });
+    assert_eq!((f, drawing(f, true), drawing(f, false)), (Form::Look, Drawing::Model, Drawing::Being));
+    assert!(r.scene.links.iter().any(|l| l.from == "drum-machine_seq_seq.lane1" && l.to == "drum-machine_kick_voice.notes"));
+    let refused = resolve(&doc, &BTreeMap::from([("drum-machine".to_string(), Fillers::One("item:cowbell".into()))]), false, &rigs, &no_sets).unwrap_err();
+    assert_eq!(refused, ["'drum-machine' is a placed rig: nothing outside replaces it"]);
+}

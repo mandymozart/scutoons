@@ -8,8 +8,9 @@
 //!   (its vertices ride that node whole). At most `MAX_JOINTS`; a model with more is refused and its member keeps its being.
 //! - **The fit:** the rest pose's bottom middle is the feet, its height scaled to the member's card height (cast.rs) –
 //!   the same figure whether it stands as its card or its model; the Space turns it toward the scene camera's eye.
-//! - **Loading:** `Figures` holds the models by character, asked once: on a deck a thread reads them (`Source`); in the
-//!   browser the page fetches what `requests` names and hands the parsed file in (`deliver`).
+//! - **Loading:** `Figures` holds the models by character – and a rig's body by its model's path (rig/body.rs) – asked
+//!   once: on a deck a thread reads them (`Source`); in the browser the page fetches what `requests` names and hands the
+//!   parsed file in (`deliver`).
 use super::anatomy::Anatomy;
 use super::glb::{Draw, Image, Model};
 use anyhow::{ensure, Result};
@@ -226,13 +227,42 @@ fn smooth_normals(v: &mut [FigureVertex], indices: &[u32]) {
     }
 }
 
-/// where a deck's figures come from: a character's model file as it is
+/// What a figure's file is: a character's model, or a rig's body by its model's CDN path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Ask {
+    /// the character whose model it is (push.rs `drawn_as`) – the scene-content entry a page looks up
+    Character(String),
+    /// a rig's body: its model's path from the CDN's root
+    Body(String),
+}
+
+impl Ask {
+    /// where a page finds it: scene-content's entry kind (`characters`) and id, or "" and the file's path
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Ask::Character(_) => "characters",
+            Ask::Body(_) => "",
+        }
+    }
+
+    pub fn id(&self) -> &str {
+        match self {
+            Ask::Character(id) | Ask::Body(id) => id,
+        }
+    }
+}
+
+/// where a deck's figures come from: a character's model file as it is, a rig's body by its path
 #[cfg(feature = "native")]
 pub trait Source: Send + 'static {
     fn load(&self, character: &str) -> Result<Vec<u8>, String>;
     /// the character's idle (#817): a shared animation its model plays by joint name; None = its own first clip
     fn idle(&self, _character: &str) -> Option<Vec<u8>> {
         None
+    }
+    /// a rig's body: its model by its CDN path
+    fn body(&self, path: &str) -> Result<Vec<u8>, String> {
+        Err(format!("no body {path} here"))
     }
 }
 
@@ -253,9 +283,17 @@ impl Source for LocalDir {
     fn idle(&self, character: &str) -> Option<Vec<u8>> {
         std::fs::read(self.0.join(character).join(format!("{character}_idle.glb"))).ok()
     }
+
+    /// the path below the folder (the sync's media layout), else below its parent (the media copy, `media/characters/…`)
+    fn body(&self, path: &str) -> Result<Vec<u8>, String> {
+        let dirs = std::iter::once(self.0.as_path()).chain(self.0.parent());
+        let file = dirs.filter_map(|d| crate::push::media_file(d, path)).find(|f| f.is_file());
+        let file = file.ok_or_else(|| format!("no body {path} in {}", self.0.display()))?;
+        std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))
+    }
 }
 
-/// a folder whose files arrive from elsewhere (a deck's sync): `wait` for a character's model, then read it
+/// a folder whose files arrive from elsewhere (a deck's sync): `wait` for a character's model or a body, then read it
 #[cfg(feature = "native")]
 pub struct Arriving<W> {
     pub dir: LocalDir,
@@ -263,15 +301,20 @@ pub struct Arriving<W> {
 }
 
 #[cfg(feature = "native")]
-impl<W: Fn(&str) + Send + 'static> Source for Arriving<W> {
+impl<W: Fn(&Ask) + Send + 'static> Source for Arriving<W> {
     fn load(&self, character: &str) -> Result<Vec<u8>, String> {
-        (self.wait)(character);
+        (self.wait)(&Ask::Character(character.to_string()));
         self.dir.load(character)
     }
 
     /// asked after `load`: the wait covers the idle too
     fn idle(&self, character: &str) -> Option<Vec<u8>> {
         self.dir.idle(character)
+    }
+
+    fn body(&self, path: &str) -> Result<Vec<u8>, String> {
+        (self.wait)(&Ask::Body(path.to_string()));
+        self.dir.body(path)
     }
 }
 
@@ -283,10 +326,10 @@ pub enum State {
 }
 
 pub struct Slot {
-    /// the member's character
-    pub character: String,
-    /// the character whose model it is (push.rs `drawn_as`) – the entry a page looks up
-    pub file_of: String,
+    /// the member's character, or the body's path
+    pub key: String,
+    /// its file
+    pub ask: Ask,
     pub state: State,
     figure: Option<Figure>,
 }
@@ -295,7 +338,7 @@ pub struct Slot {
 pub struct Figures {
     pub slots: Vec<Slot>,
     /// the loader thread's inbox; None = manual (the host asks: `requests`)
-    ask: Option<Sender<(usize, String)>>,
+    ask: Option<Sender<(usize, Ask)>>,
     asked: Vec<usize>,
     got: Receiver<(usize, Result<Figure, String>)>,
     tell: Sender<(usize, Result<Figure, String>)>,
@@ -326,17 +369,19 @@ impl Figures {
     /// the loader thread over `source` (it ends with the Figures)
     #[cfg(feature = "native")]
     pub fn new(source: Box<dyn Source>) -> Figures {
-        let (ask, asked) = mpsc::channel::<(usize, String)>();
+        let (ask, asked) = mpsc::channel::<(usize, Ask)>();
         let (tell, got) = mpsc::channel();
         let teller = tell.clone();
         std::thread::Builder::new()
             .name("figures".into())
             .spawn(move || {
-                while let Ok((slot, character)) = asked.recv() {
-                    let r = source.load(&character).and_then(|b| {
-                        let idle = source.idle(&character);
-                        read(&b, idle.as_deref(), &mut |_, b| Ok(image::load_from_memory(b)?.to_rgba8())).map_err(|e| format!("{character}: {e:#}"))
-                    });
+                while let Ok((slot, file)) = asked.recv() {
+                    let character = file.id().to_string();
+                    let decode = &mut |_: usize, b: &[u8]| Ok(image::load_from_memory(b)?.to_rgba8());
+                    let r = match &file {
+                        Ask::Character(c) => source.load(c).and_then(|b| read(&b, source.idle(c).as_deref(), decode).map_err(|e| format!("{c}: {e:#}"))),
+                        Ask::Body(path) => source.body(path).and_then(|b| read(&b, None, decode).map_err(|e| format!("{path}: {e:#}"))),
+                    };
                     match &r {
                         Ok(f) => tracing::info!("figure {character}: {} triangles, {} joints, {}", f.indices.len() / 3, f.joints(), f.clip.and_then(|c| f.anatomy.clips.get(c)).map_or("its rest pose".to_string(), |c| format!("the clip {:?}", c.name))),
                         Err(e) => tracing::warn!("figure: {e} – the member keeps its being"),
@@ -350,7 +395,7 @@ impl Figures {
         Figures::with(Some(ask), got, tell)
     }
 
-    fn with(ask: Option<Sender<(usize, String)>>, got: Receiver<(usize, Result<Figure, String>)>, tell: Sender<(usize, Result<Figure, String>)>) -> Figures {
+    fn with(ask: Option<Sender<(usize, Ask)>>, got: Receiver<(usize, Result<Figure, String>)>, tell: Sender<(usize, Result<Figure, String>)>) -> Figures {
         Figures { slots: Vec::new(), ask, asked: Vec::new(), got, tell, fresh: Vec::new() }
     }
 
@@ -362,23 +407,32 @@ impl Figures {
 
     /// The slot of `character`'s figure, `file_of` the character whose model it is (asked for once).
     pub fn request(&mut self, character: &str, file_of: &str) -> usize {
-        if let Some(i) = self.slots.iter().position(|s| s.character == character) {
+        self.ask_for(character, Ask::Character(file_of.to_string()))
+    }
+
+    /// The slot of a rig's body, its model by CDN path (asked for once: members with the same body share it).
+    pub fn request_body(&mut self, path: &str) -> usize {
+        self.ask_for(path, Ask::Body(path.to_string()))
+    }
+
+    fn ask_for(&mut self, key: &str, file: Ask) -> usize {
+        if let Some(i) = self.slots.iter().position(|s| s.key == key && s.ask.kind() == file.kind()) {
             return i;
         }
         let i = self.slots.len();
         match &self.ask {
             Some(ask) => {
-                let _ = ask.send((i, character.to_string()));
+                let _ = ask.send((i, file.clone()));
             }
             None => self.asked.push(i),
         }
-        self.slots.push(Slot { character: character.to_string(), file_of: file_of.to_string(), state: State::Loading, figure: None });
+        self.slots.push(Slot { key: key.to_string(), ask: file, state: State::Loading, figure: None });
         i
     }
 
-    /// the slots asked for since the last call, with the character whose model to fetch – manual Figures only
-    pub fn requests(&mut self) -> Vec<(usize, String)> {
-        std::mem::take(&mut self.asked).into_iter().map(|i| (i, self.slots[i].file_of.clone())).collect()
+    /// the slots asked for since the last call, with the file to fetch – manual Figures only
+    pub fn requests(&mut self) -> Vec<(usize, Ask)> {
+        std::mem::take(&mut self.asked).into_iter().map(|i| (i, self.slots[i].ask.clone())).collect()
     }
 
     /// a requested figure, read by the host (`read`), or why there is none – it draws from the next `poll`
@@ -534,7 +588,7 @@ mod tests {
         let mut figs = Figures::manual();
         let a = figs.request("boy", "mellowmantis");
         assert_eq!(figs.request("boy", "mellowmantis"), a);
-        assert_eq!(figs.requests(), [(a, "mellowmantis".to_string())], "the page fetches the default character's model");
+        assert_eq!(figs.requests(), [(a, Ask::Character("mellowmantis".into()))], "the page fetches the default character's model");
         assert!(figs.requests().is_empty() && !figs.ready(a));
         figs.deliver(a, read(&bones::glb(), None, &mut no_images()).map_err(|e| e.to_string()));
         assert!(figs.poll() && figs.ready(a));

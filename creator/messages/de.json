@@ -1714,6 +1714,8 @@
 		"characters_sound_design": "Sounddesign",
 		"sound_publish": "Veröffentlichen",
 		"sound_publish_needs": "Veröffentlichen braucht einen gespeicherten Entwurf mit aktuellem Kompilat.",
+		"sound_body": "3D-Körper (glb)",
+		"sound_body_hint": "Das Modell, das die Bühne dort zeichnet, wo dieses Rig steht – in eine Szene gestellt oder von einem anderen Rig getragen. Ohne eines steht es als sein Wesen.",
 		"sound_out": "Ausgänge",
 		"sound_limiter": "Limiter-Absenkung",
 		"sound_in": "Eingänge",

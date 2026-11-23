@@ -1714,6 +1714,8 @@
 		"characters_sound_design": "Sound design",
 		"sound_publish": "Publish",
 		"sound_publish_needs": "Publish needs a saved draft with a current compile.",
+		"sound_body": "3D body (glb)",
+		"sound_body_hint": "The model the stage draws where this rig stands – placed in a scene or carried by another rig. Without one it stands as its being.",
 		"sound_out": "out",
 		"sound_limiter": "Limiter gain reduction",
 		"sound_in": "in",

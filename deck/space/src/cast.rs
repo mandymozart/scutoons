@@ -5,6 +5,8 @@
 //!   stage whose set is 3D (rung 1). Everywhere else it is a **card**, its picture standing at its holder's spot: a
 //!   character on a stage with no 3D set (a still or a video backdrop – rungs 2 and 3 – or no set at all) and every item
 //!   (an item has no being to draw). Either form is moved only by its own rig's `being:` wires (its look node's inputs).
+//! - **A rig's body** (rig/body.rs): a placed rig stands as its body, else its being, never a card; an item whose rig names
+//!   a body takes a character's form, its body drawn where a character's model would be.
 //! - **Picture:** a character's card shows its `full` view in the mood its being reports, else the nearest mood it has,
 //!   else its portrait (`<character>_<view>-<mood>`, agents/ASSETS.md); an item's card its item picture. Where a picture
 //!   comes from is a `Picture`: scene-content's entry (`kind`, `id`) and field, the same words on every deck – the browser
@@ -87,10 +89,28 @@ impl Form {
 /// `chosen` form, else its character look's own (`look`, scene-content's `form`), else the stage's – a chosen `look`
 /// stays 3D on a stage without a set, `card` is always a card – except for an item, which has no being.
 pub fn form(who: &Who, stage_3d: bool, chosen: Option<Form>, look: Option<Form>) -> Form {
+    form_rigged(who, stage_3d, chosen, look, Rigged::default())
+}
+
+/// What a member's rig brings to its form (its look node's `rig` and `body`, scene.rs `body_params`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Rigged {
+    /// a placed rig: it stands there itself, like a 3D model
+    pub placed: bool,
+    /// its rig names a 3D body
+    pub body: bool,
+}
+
+/// `form` with what its rig brings: a placed rig always stands in 3D – as its body, else as its being (it has no picture
+/// to stand as a card); an item whose rig names a body takes a character's rule, its body being its 3D look.
+pub fn form_rigged(who: &Who, stage_3d: bool, chosen: Option<Form>, look: Option<Form>, rigged: Rigged) -> Form {
+    if rigged.placed {
+        return Form::Look;
+    }
     match (who, chosen.or(look)) {
-        (Who::Item(_), _) => Form::Card,
-        (Who::Character(_), Some(f)) => f,
-        (Who::Character(_), None) if stage_3d => Form::Look,
+        (Who::Item(_), _) if !rigged.body => Form::Card,
+        (_, Some(f)) => f,
+        (_, None) if stage_3d => Form::Look,
         _ => Form::Card,
     }
 }
@@ -207,6 +227,21 @@ mod tests {
         assert_eq!((form(&burner, true, None, None), form(&burner, false, None, None)), (Form::Card, Form::Card));
         assert_eq!(Who::parse("location:dom"), None);
         assert_eq!((pope.character(), burner.character(), burner.id()), ("catpope", "", "incense_burner"));
+    }
+
+    #[test]
+    fn a_placed_rig_stands_in_3d_an_item_with_a_body_like_a_character() {
+        let drums = Who::Item("drum-machine".into());
+        let placed = Rigged { placed: true, body: true };
+        for (s3, chosen) in [(false, None), (true, None), (false, Some(Form::Card))] {
+            assert_eq!(form_rigged(&drums, s3, chosen, None, placed), Form::Look, "a placed rig has no card");
+        }
+        assert_eq!(form_rigged(&drums, false, None, None, Rigged { placed: true, body: false }), Form::Look, "no body: its being");
+        let body = Rigged { placed: false, body: true };
+        assert_eq!(form_rigged(&drums, true, None, None, body), Form::Look);
+        assert_eq!(form_rigged(&drums, false, None, None, body), Form::Card);
+        assert_eq!(form_rigged(&drums, true, Some(Form::Card), None, body), Form::Card);
+        assert_eq!(form_rigged(&drums, true, None, None, Rigged::default()), Form::Card, "an item without a body: its card");
     }
 
     #[test]

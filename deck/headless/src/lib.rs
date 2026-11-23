@@ -850,7 +850,10 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
             let character = n.params.get("being").and_then(|b| b.get("character")).and_then(|v| v.as_str()).unwrap_or_default();
             let who = word(n, "who").as_deref().and_then(Who::parse);
             let look = who.as_ref().and_then(|w| content.look_form(w.character()));
-            let form = who.as_ref().map(|w| cast::form(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse), look));
+            // a placed rig and its rig's body (scene.rs `body_params`): its body draws it
+            let (placed, body) = (word(n, "rig"), word(n, "body"));
+            let rigged = cast::Rigged { placed: placed.is_some(), body: body.is_some() };
+            let form = who.as_ref().map(|w| cast::form_rigged(w, stage_3d, word(n, "form").as_deref().and_then(Form::parse), look, rigged));
             let picture = match (&who, form) {
                 (Some(Who::Character(c)), Some(Form::Card)) => Some(Picture::character(content.drawn_as(c), cast::CARD_VIEW, "")),
                 (Some(Who::Item(i)), Some(Form::Card)) => Some(Picture::item(i)),
@@ -858,9 +861,9 @@ fn stage_facts(r: &deck_space::scene_resolve::Resolved, content: &deck_space::pu
             }
             .map(|p| format!("{}.{}.{}", p.kind, p.id, p.field()));
             // a member in its look: drawn as its model when scene-content names one (a card says so by its form)
-            let model = who.as_ref().is_some_and(|w| content.model_of(w.character()).is_some());
+            let model = body.is_some() || who.as_ref().is_some_and(|w| content.model_of(w.character()).is_some());
             let drawing = form.filter(|f| *f == Form::Look).map(|f| cast::drawing(f, model).word());
-            let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "drawing": drawing, "picture": picture });
+            let fact = json!({ "holder": word(n, "holder"), "look": n.id, "character": character, "spot": word(n, "spot"), "who": word(n, "who"), "form": form.map(Form::word), "drawing": drawing, "picture": picture, "rig": placed, "body": body });
             // what a member does not have is left out (a scenario's TOML has no null to expect)
             Value::Object(fact.as_object().into_iter().flatten().filter(|(_, v)| !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect())
         })

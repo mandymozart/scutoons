@@ -1,7 +1,7 @@
 // The Assignment tab's document edits (#283): pure, on catpope's rig as the core writes it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addTrack, emptyRig, faceTrack, moodPreset, moodRows, ownedBy, ownedInputs, policyOf, presetsOf, removeTrack, setMoodPreset, setPolicy, setTrack, trackId, type CatalogPreset, type RigDoc, type RigFace } from '../src/assignment.ts';
+import { addTrack, emptyRig, faceTrack, moodPreset, moodRows, ownedBy, ownedInputs, policyOf, presetsOf, removeTrack, setBody, setMoodPreset, setPolicy, setTrack, trackId, type CatalogPreset, type RigDoc, type RigFace } from '../src/assignment.ts';
 
 const PRESETS: CatalogPreset[] = [
 	{ id: 'cathedral_voice.base', instrument: 'cathedral_voice' },
@@ -104,4 +104,14 @@ test('the face’s owners, as the core says: only what it marks owned locks a ro
 	assert.equal(faceTrack(null, 'voice'), undefined);
 	assert.deepEqual(ownedInputs(face), [{ path: 'voice:voice.index', by: set }]);
 	assert.deepEqual(ownedInputs(null), []);
+});
+
+test('a body is the rig\'s model: set, changed with its height kept, removed', () => {
+	const drums = emptyRig('item.drum-machine');
+	const glb = 'characters/takeyari-drum/takeyari-drum-regular.glb';
+	assert.deepEqual(setBody(drums, glb).body, { model: glb });
+	const tall = { ...drums, body: { model: 'a.glb', height: 1.2 } };
+	assert.deepEqual(setBody(tall, glb).body, { model: glb, height: 1.2 });
+	assert.equal('body' in setBody(tall, null), false);
+	assert.deepEqual(tall.body, { model: 'a.glb', height: 1.2 }, 'a new rig, the old one untouched');
 });

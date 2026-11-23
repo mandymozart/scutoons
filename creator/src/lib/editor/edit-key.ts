@@ -11,8 +11,10 @@ export type EditTarget =
 	| { kind: 'module'; key: string; id: string };
 
 const CHARACTER = /^character\.([a-z0-9][a-z0-9_-]*)(?:\.[a-z0-9][a-z0-9_-]*)?$/;
+/** an item's rig – a body part, a vehicle, a scene object (the catalog's subject `item.<id>`); it names no character */
+const ITEM = /^item\.[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
-/** `rig:character.catpope` · `rig:character.catpope.dj` · `module:walk`; anything else (an unknown kind, a bad id) → null */
+/** `rig:character.catpope` · `rig:character.catpope.dj` · `rig:item.drum-machine` · `module:walk`; anything else (an unknown kind, a bad id) → null */
 export function parseEditKey(key: string): EditTarget | null {
 	const cut = key.indexOf(':');
 	if (cut < 1) return null;
@@ -22,6 +24,7 @@ export function parseEditKey(key: string): EditTarget | null {
 	if (kind === 'rig') {
 		const c = CHARACTER.exec(id);
 		if (c) return { kind: 'rig', key, subject: id, character: c[1] };
+		if (ITEM.test(id)) return { kind: 'rig', key, subject: id, character: '' };
 	}
 	return null;
 }

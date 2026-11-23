@@ -1,0 +1,57 @@
+name = "a placed rig: a rig standing in a scene by itself as its body, picked like a cast member, its knobs its own"
+about = "#833 (owner 2026-11-22 [rigs]: a rig can be placed in a scene like a 3D model, then it is not replaceable from outside; 2026-11-23: body parts are module rigs with a 3D body of their own): a holder with `rig` alone (no `ref`, no `fill`) is a placed rig – the core's resolve gives it a look of its own at the holder's place, marked `rig` with its rig's body (`body`, the model by CDN path; deck-space rig/body.rs, scene.rs `body_params`). It stands in 3D on any stage (cast.rs `form_rigged`: never a card) – drawn as its body once the model is here, its being until then; a click picks it, its hand holds its own rig's knobs and a knob turns its own value (heard back), Cat Pope's knobs stay hers"
+
+[[step]]
+do = "load"
+document = "headless/documents/placed-rig.json"
+[step.rigs."item.bell".rig]
+subject = "item.bell"
+track = [{ id = "tone", instrument = "bell_tone" }]
+body = { model = "characters/takeyari-drum/takeyari-drum-regular.glb", height = 0.8 }
+[[step.rigs."item.bell".instrument]]
+id = "bell_tone"
+kind = "texture"
+name = { en = "Bell tone" }
+out = "osc"
+node = [{ id = "osc", kind = "osc", freq = 660.0, gain = 0.1 }]
+expose = [{ path = "osc.gain", range = [0.0, 0.3] }]
+[step.expect]
+stage = { stage_3d = false, cast = [{ holder = "pope", look = "pope_look", character = "catpope", who = "character:catpope", form = "card", picture = "characters.catpope.full" }, { holder = "bell", look = "bell_look", character = "", who = "item:bell", rig = "item.bell", body = "characters/takeyari-drum/takeyari-drum-regular.glb", form = "look", drawing = "model" }] }
+
+[[step]]
+do = "run"
+ms = 200
+
+# a click on the placed rig picks it: its hand holds its own rig's knobs
+[[step]]
+do = "pick"
+click = "bell"
+expect = { picked = "bell", mark = true, knobs = { has = "bell_tone_osc.gain" } }
+
+# its knob turns its own value …
+[[step]]
+do = "pick"
+drag = "bell_tone_osc.gain"
+by = 0.3
+expect = { picked = "bell", reach = true, turned = { "bell_tone_osc.gain" = { min = 0.11 } } }
+
+[[step]]
+do = "run"
+ms = 100
+
+[[step]]
+do = "heard"
+path = "bell_tone_osc.gain"
+expect = { value = { min = 0.11 } }
+
+# … and Cat Pope's knob is none of its hand
+[[step]]
+do = "pick"
+drag = "pope_voice_voice.gain"
+expect = { picked = "bell", reach = false }
+
+# the empty floor drops the pick
+[[step]]
+do = "pick"
+click = [40, 700]
+expect = { picked = "" }
