@@ -32,7 +32,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
-- **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open.
+- **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
 - **The Show has three more sheets today** – Flash, Scene and New show (and "fires on", which P7 replaces). What each becomes is open.
 - **Fixes with it:** the workspace row that hides Map; Views reachable only from the dashboard.
 - **Done when:** A1–A9, B1, B4 and D1–D4 look and behave as drawn in both apps.

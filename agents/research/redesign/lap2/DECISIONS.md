@@ -20,7 +20,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Icon buttons:** a standalone one is round and may stand without a pill; groups of icons and toolbars stay in their pill. (H4)
 - **Badges** are small and delicate. Design pictures use the kit. (H13)
 - **No info in the UI unless asked:** explanations are hover text, shown in the Info view. (H14)
-- **Depth layers:** stage · surfaces (bar, panels, status line) · popovers (menus, pickers) · the overlay (the switcher, a panel taken full). Under the overlay everything is blurred, the bar included. Blur exists on that level only. (H15)
+- **Depth layers:** stage · surfaces (bar, panels, status line) · popovers (menus, pickers) · the overlay (the switcher, a panel taken full). Under the overlay everything is blurred, the bar included. Blur exists on that level only. "Reduce motion" turns the blur off too – one setting for animations and effects. (H15)
 - **A panel taken full is a box** close to the window's edges (the margin panels have today), not the whole window; the workspace stays behind it, blurred.
 - **The switcher's content has a maximum width**, centred.
 - **No thick left bar** on a selected row. (H10)
