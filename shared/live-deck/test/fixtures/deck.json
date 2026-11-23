@@ -1001,6 +1001,10 @@
             {
               "name": "glide",
               "type": "control"
+            },
+            {
+              "name": "open",
+              "type": "control"
             }
           ],
           "kind": "walk",
@@ -2395,6 +2399,10 @@
           "inputs": [
             {
               "name": "rate",
+              "type": "control"
+            },
+            {
+              "name": "open",
               "type": "control"
             }
           ],
