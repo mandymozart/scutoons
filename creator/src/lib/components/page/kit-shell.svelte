@@ -6,17 +6,22 @@
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { setCreatorNav } from '$lib/nav.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
+	import Dashboard from '$lib/components/shell/dashboard.svelte';
+	import Launcher from '$lib/components/shell/launcher.svelte';
+	import FullView from '$lib/components/shell/full-view.svelte';
 
 	/**
 	 * Dev only (the /kit page's Shell): the creator's bar, its ☰ menu with Views and the user menu, without a sign-in – a
 	 * test account, a character open in its workspace with the character views filled, something to undo and to publish,
-	 * three text languages. The
-	 * Translator switch gives the bar the translator's craft.
+	 * three text languages. The Translator switch gives the bar the translator's craft; the overlay level's three – the
+	 * switcher, Search, a view taken full – open from the foot (Ctrl K and Alt Space are the creator's own).
 	 */
 	let { onleave }: { onleave: () => void } = $props();
 
 	setContext(contextKey('creator-session'), { user: { email: 'agent@scutoons.test' }, roles: ['admin', 'creator'], logout: () => {} });
+	setCreatorNav();
 
 	const FILLED = ['sheet', '3d', 'kanon', 'expressions', 'rig', 'voice', 'cast', 'generations'];
 	const specs = tabSpecs();
@@ -40,6 +45,9 @@
 			shell.doc = null;
 			shell.menu = false;
 			shell.userMenu = false;
+			shell.toggleSwitcher(false);
+			shell.toggleLauncher(false);
+			floats.full = null;
 			crafts.mine = null;
 			textLanguage.page = { languages: [], source: 'de' };
 		};
@@ -50,19 +58,26 @@
 	const name = (id: string) => specs.find((t) => t.id === id)?.name ?? id;
 </script>
 
+{#snippet view(id: string)}<p class="view">{name(id)}</p>{/snippet}
 {#snippet publish()}<p class="view">giantpopstar · Expressions</p>{/snippet}
 
 <div class="kit-shell">
 	<ShellBar />
 	<div class="room">
 		<FloatingPanels {floats}>
-			{#snippet tab(id)}<p class="view">{name(id)}</p>{/snippet}
+			{#snippet tab(id)}{@render view(id)}{/snippet}
 		</FloatingPanels>
 	</div>
+	{#if floats.full}<FullView {floats} full={floats.full} {name} has={(t) => FILLED.includes(t)} content={view} />{/if}
+	{#if shell.dashboard}<Dashboard />{/if}
+	{#if shell.launcher}<Launcher />{/if}
 	<div class="foot">
 		<Pill label="Kit">
 			<span class="word">Translator</span>
 			<Toggle on={translator} label="Translator" onchange={(on) => (translator = on)} />
+			<Button variant="quiet" onclick={() => shell.toggleSwitcher(true)} data-testid="kit-switcher">Switcher</Button>
+			<Button variant="quiet" onclick={() => shell.toggleLauncher(true)} data-testid="kit-search">Search</Button>
+			<Button variant="quiet" onclick={() => floats.setState('rig', 'full')} data-testid="kit-full">Full</Button>
 			<Button variant="quiet" onclick={onleave}>Kit</Button>
 		</Pill>
 	</div>

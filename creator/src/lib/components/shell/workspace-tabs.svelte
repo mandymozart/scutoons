@@ -51,7 +51,7 @@
 				<PillTab label={nameOf(w)} href={goes(w).href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => pick(w)} data-workspace-tab data-testid="workspace-{w.id}" />
 			{/each}
 		</div>
-		<IconButton label={m['shell.all_workspaces']()} icon="chevron-down" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => (shell.dashboard = shell.dashboard ? false : 'cards')} data-testid="workspaces-all" />
+		<IconButton label={m['shell.all_workspaces']()} icon="chevron-down" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => shell.toggleSwitcher()} data-testid="workspaces-all" />
 	</Pill>
 {/if}
 

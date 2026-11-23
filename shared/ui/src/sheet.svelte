@@ -4,6 +4,8 @@
 	import Divider from './divider.svelte';
 	import { resizable } from './resizable.svelte.ts';
 	import { region } from './selection.svelte.ts';
+	import Overlay from './editor/overlay.svelte';
+	import { onOverlayLevel } from './editor/overlay-level.ts';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
@@ -42,6 +44,8 @@
 	} = $props();
 
 	let dialog: HTMLDialogElement | null = $state(null);
+	/** in an app on the editor kit the sheet lies on the overlay level: the overlay's veil blurs what is under it */
+	const level = onOverlayLevel();
 
 	// ---------- resizable right drawer (resizable.svelte.ts) ----------
 	let baseWidth = 0;
@@ -72,10 +76,12 @@
 	}
 </script>
 
+{#if level && open}<Overlay place="veil" />{/if}
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 <dialog
 	bind:this={dialog}
 	class="sc-sheet side-{side}"
+	class:on-overlay={level}
 	style:width={side === 'right' && width !== null ? `${width}px` : undefined}
 	style:max-width={side === 'right' && width !== null ? 'none' : undefined}
 	aria-label={title}
@@ -115,6 +121,9 @@
 	}
 	.sc-sheet::backdrop {
 		background: rgb(0 0 0 / 0.4);
+	}
+	.sc-sheet.on-overlay::backdrop {
+		background: transparent;
 	}
 	.side-bottom {
 		width: 100%;

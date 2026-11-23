@@ -15,6 +15,8 @@ export interface LaunchEntry {
 	label: string;
 	/** muted after the name: the toon, the workspace, the kind's word */
 	hint?: string;
+	/** at the line's end: what it is – an item's kind, a file's kind (else the launcher's word for the entry's kind) */
+	type?: string;
 	/** an item's `kind:id` address */
 	address?: string;
 	keywords?: string;
@@ -132,15 +134,24 @@ export interface KeyLike {
 }
 
 /**
- * The keys that open (and close) the launcher: Alt Space, Cmd Space, Ctrl K / Cmd K and Ctrl O / Cmd O anywhere, `/`
- * outside a text field. Ctrl Space is not one of them (a view full screen).
+ * The keys that open (and close) Search: Alt Space, Cmd Space and Ctrl O / Cmd O anywhere, `/` outside a text field.
+ * Ctrl Space is not one of them (a view full screen).
  */
-export function isLaunchKey(e: KeyLike, typing: boolean): boolean {
+export function isSearchKey(e: KeyLike, typing: boolean): boolean {
 	if (e.shiftKey) return false;
 	const space = e.code === 'Space' || e.key === ' ';
 	if (space) return (e.altKey && !e.ctrlKey && !e.metaKey) || (e.metaKey && !e.ctrlKey && !e.altKey);
 	const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
-	const letter = e.key.toLowerCase();
-	if (mod && (letter === 'k' || letter === 'o')) return true;
+	if (mod && e.key.toLowerCase() === 'o') return true;
 	return e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey;
+}
+
+/**
+ * The keys that open (and close) the switcher: Ctrl K / Cmd K anywhere, and Alt Tab where the system leaves it to the
+ * page (a browser on Windows never gets it: the system's own switcher has it).
+ */
+export function isSwitcherKey(e: KeyLike): boolean {
+	if (e.shiftKey) return false;
+	if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') return true;
+	return e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'Tab';
 }

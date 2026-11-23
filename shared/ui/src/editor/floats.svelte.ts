@@ -251,6 +251,12 @@ export class Floats {
 		return tabsOf(this.shownArrangement, panel);
 	}
 
+	/** The tabs of the panel holding `tab`, in order, it among them: those not hidden and not on the stage (a panel taken full) */
+	tabsBeside(tab: string): readonly string[] {
+		const panel = panelOf(this.arrangement, tab);
+		return panel ? tabsOf(this.arrangement, panel).filter((t) => t === tab || !isOn(this.stage, t)) : [tab];
+	}
+
 	activeOf(panel: string): string | undefined {
 		return activeOf(this.shownArrangement, panel);
 	}

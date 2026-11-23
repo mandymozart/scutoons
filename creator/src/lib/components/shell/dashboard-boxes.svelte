@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Card, ListRow } from '@scutoons/ui/editor';
+	import { Card, ListRow } from '@scutoons/ui/editor';
 	import { toonName } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
@@ -16,8 +16,9 @@
 	import ReviewList from '$lib/components/page/review-list.svelte';
 
 	/**
-	 * The dashboard's two boxes: Last opened · Needs review / Not published – each line named by the item's own name,
-	 * its kind beside it (scenes and shows too). The welcome has nothing opened yet: Not published alone, wide.
+	 * The switcher's two boxes: Last opened · Needs review / Not published – each line named by the item's own name,
+	 * its kind beside it (scenes and shows too); sending out is Publish's alone (RULES H18). The welcome has nothing
+	 * opened yet: Not published alone, wide.
 	 */
 	let { welcome = false }: { welcome?: boolean } = $props();
 
@@ -72,11 +73,8 @@
 			{/each}
 			{#if !waiting && !notPublished.list.length}<p class="quiet">{m['shell.nothing_waiting']()}</p>{/if}
 		</div>
-		{#if notPublished.list.length}
-			<span class="actions">
-				{#if notPublished.list.length > shown}<span class="quiet">{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span>{/if}
-				<Button variant="quiet" icon="upload-cloud" disabled={notPublished.busy || !toons.length} onclick={() => notPublished.publishAll(toons)} data-testid="publish-everything">{m['shell.dash_publish_all']()}</Button>
-			</span>
+		{#if notPublished.list.length > shown}
+			<span class="actions"><span class="quiet">{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span></span>
 		{/if}
 	</Card>
 </div>

@@ -11,7 +11,7 @@ import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
 import { NO_CRAFTS, asksCrafts, readCrafts, showsTextLanguage } from '../src/lib/shell/crafts.ts';
 import { NO_LAYOUTS, cleanName, fromAnswer, ownId, readChosen, readKept, shownWorkspace, startKind, startOf, toKept, withOwn, withSaved, without } from '../src/lib/shell/layouts.ts';
-import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
+import { MAX_PICKS, isSearchKey, isSwitcherKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -437,19 +437,23 @@ test('launcher: what the browser kept is checked', () => {
 	assert.deepEqual(readPicks([{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }, { id: 'b', kind: 'nope', label: 'B', icon: 'f' }, { id: 'c', kind: 'item', label: 'C', icon: 'f', href: 'https://evil' }, 7]), [{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }]);
 });
 
-test('launcher keys: Alt Space, Cmd Space, Ctrl or Cmd K and O, / outside a field – never Ctrl Space', () => {
+test('Search keys: Alt Space, Cmd Space, Ctrl or Cmd O, / outside a field – never Ctrl Space; the switcher: Ctrl or Cmd K, Alt Tab', () => {
 	const k = (key: string, code: string, mods: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) => ({ key, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...mods });
-	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), false));
-	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
-	assert.ok(isLaunchKey(k(' ', 'Space', { metaKey: true }), true));
-	assert.ok(!isLaunchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
-	assert.ok(!isLaunchKey(k(' ', 'Space'), false));
-	assert.ok(isLaunchKey(k('k', 'KeyK', { ctrlKey: true }), true));
-	assert.ok(isLaunchKey(k('K', 'KeyK', { metaKey: true }), true));
-	assert.ok(isLaunchKey(k('o', 'KeyO', { ctrlKey: true }), false));
-	assert.ok(!isLaunchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
-	assert.ok(isLaunchKey(k('/', 'Slash'), false));
-	assert.ok(!isLaunchKey(k('/', 'Slash'), true), 'typing a slash in a field');
+	assert.ok(isSearchKey(k(' ', 'Space', { altKey: true }), false));
+	assert.ok(isSearchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
+	assert.ok(isSearchKey(k(' ', 'Space', { metaKey: true }), true));
+	assert.ok(!isSearchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
+	assert.ok(!isSearchKey(k(' ', 'Space'), false));
+	assert.ok(!isSearchKey(k('k', 'KeyK', { ctrlKey: true }), true), 'Ctrl K is the switcher');
+	assert.ok(isSwitcherKey(k('k', 'KeyK', { ctrlKey: true })));
+	assert.ok(isSwitcherKey(k('K', 'KeyK', { metaKey: true })));
+	assert.ok(isSwitcherKey(k('Tab', 'Tab', { altKey: true })), 'Alt Tab where the system leaves it to the page');
+	assert.ok(!isSwitcherKey(k('Tab', 'Tab')));
+	assert.ok(!isSwitcherKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true })));
+	assert.ok(isSearchKey(k('o', 'KeyO', { ctrlKey: true }), false));
+	assert.ok(!isSearchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
+	assert.ok(isSearchKey(k('/', 'Slash'), false));
+	assert.ok(!isSearchKey(k('/', 'Slash'), true), 'typing a slash in a field');
 });
 
 test('saved layouts: the server answer checked; the start is the last save, else the craft default, else the preset', () => {
