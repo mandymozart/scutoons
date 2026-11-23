@@ -123,6 +123,10 @@ section.part{padding:1.3rem 0 1.5rem;border-top:1px solid var(--tool-line)}
 .fld.on{border-color:var(--d-on)}
 .fld.x{color:var(--tool-muted);opacity:.55}
 .fld.err{border-color:var(--d-error)}
+/* a quiet select – a filter or a sort in a toolbar: no box at rest, a rounded border on hover and while open, as tabs have (H4). A proposal after the owner's question of 2026-11-24; the boxed Select above is the approved one. */
+.fld.q{width:auto;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
+.fld.q.h{border-color:var(--d-edge)}
+.fld.q.on{border-color:var(--d-on)}
 .sel-text{background:var(--d-selection);color:var(--d-selection-ink)}
 /* Menu, MenuItem, MenuHead */
 .km{display:inline-flex;flex-direction:column;width:13rem;padding:calc(var(--editor-pad)/2);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none;--kit-h:var(--control-height);--kit-r:var(--editor-radius);--kit-icon-in:var(--kit-icon)}
@@ -608,6 +612,7 @@ const rows = () => [
   comp('Field', '', [fld(''), fld('h'), fld('on'), fld('f') + od(4), fld('x'), NA, `${fld('err')}${capt('error = the stop outline (H10)')}`]),
   comp('Search', capt('says "Find"'), [fld('', 'search'), fld('h', 'search'), NA, fld('f', 'search'), fld('x', 'search'), NA, `<span class="fld">crow-<span class="sel-text">fox</span></span>${od(8)}`]),
   comp('Select', '', [fld('', 'select'), fld('h', 'select'), fld('on', 'select'), fld('f', 'select'), fld('x', 'select'), NA, capt('open = the text-colour line, the chevron up')]),
+  comp('Select quiet', capt('proposal · a filter or sort'), [fld('q', 'select'), fld('q h', 'select'), fld('q on', 'select'), fld('q f', 'select'), fld('q x', 'select'), NA, capt('no box at rest · a rounded border on hover and open, as tabs (H4) – not approved yet')]),
   comp('MenuItem', capt('tick = text dot'), [mi(''), mi('h'), mi('', 'Night', true), mi('f'), mi('x', 'Day'), NA, `<span class="km" style="width:12rem"><span class="kmh">Theme</span><span class="kmi"><span class="tick lit"></span><span class="w">Night</span></span><span class="kmi h"><span class="tick"></span><span class="w">Day</span></span><hr><span class="kmi">${ic('settings')}<span class="w">Settings …</span><span class="kbd">Ctrl ,</span></span><span class="kmi x">${ic('book')}<span class="w">Docs ↗</span></span></span>`]),
   comp('ListRow', od(3), [lrow(''), lrow('h'), lrow('on'), lrow('f'), lrow('x'), `${lrow('g')}<span class="insert" style="width:10.6rem"></span>`, `${lrow('on f')}${capt('selected + focus')}`]),
   comp('Tree row', od(11), [trow(''), trow('h'), trow('on'), trow('f'), trow('x'), trow('g'),

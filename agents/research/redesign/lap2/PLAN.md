@@ -20,7 +20,8 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 
 ### P1 · The kit
 - **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged.
-- **A generator** (deck: it does not exist – today deck-kit's `tokens.rs` and the web tools' CSS are kept in step by hand): `tokens.rs` → the CSS variables, run in deck:ci and in the style check, so the two cannot drift.
+- **One shared source of truth for the kit, in a prominent place of the code base** (your word, 2026-11-24): the tokens and each component's states are written once; the deck's UI crate and the creator's UI kit both come from it, checked in deck:ci and the style check so they cannot drift. Today they are kept in step by hand, and the approved kit is only a research page. Where the source lives – a neutral kit file both sides are generated from, or the deck's `tokens.rs` generating the CSS – is settled with the deck orchestrator before the ticket.
+- **A kit page in each app, built from the real components**, is the reference to look at and refine; kit-d.html moves out of the research folder to that place.
 - **Creator:** the tokens generated from the deck; the kit's components to the new look (tabs, chips and badges, icon buttons, the primary button, focus, selected rows); the colour-blind mode as a setting – in the deck's settings too; the kit page.
 - **Size of the change in the web tools:** the accent is used in 201 places, lime in 36, the green in 23.
 - **Done when:** the kit page in both apps matches kit-d.html, the generator runs in the checks, and the style check fails on any colour outside the tokens.
@@ -137,7 +138,8 @@ These block a package. Each is in DECISIONS.md under its area.
 | The switcher's maximum width (1160 px drawn) | P2 |
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
-| A disabled primary button; the see-through grounds as redrawn | P1 |
+| A disabled primary button; the see-through grounds as redrawn; a quiet select for filters and sorts (drawn on kit-d.html as a proposal) | P1 |
+| Where the kit's one source lives (a neutral kit file, or the deck's tokens as the source) | P1 |
 | The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |
 | Installers for the deck on Windows and macOS: a package of this lap, or the link on Arch only | P4 |
 | "Open in the deck" with no deck installed | P4 |
