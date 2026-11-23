@@ -93,13 +93,13 @@ add('A', 'A4', 'Search (Alt Space / ⌘ Space, the pad\'s Y)', "the launcher tod
     <div class="cap" style="padding:.5rem .6rem .3rem;border-top:1px solid var(--tool-line);margin-top:.3rem">↑↓ move · Enter open · Esc close · Alt Space or ⌘ Space anywhere · the pad's Y</div></div>
   ${mk(1, 1015, 345)}${mk(2, 1015, 160)}`);
 
-add('A', 'A5', 'The user menu (swipe up / account)', 'today\'s user menu (user-menu.svelte, code – no screenshot in now/)',
-  [],
-  () => `${characters({ bar: { accOn: true, chevron: true } })}<div class="abs" style="inset:0;z-index:55;background:var(--tool-scrim)"></div>
-  <div class="km" style="left:566px;bottom:0;width:308px;border-radius:var(--kit-radius-box) var(--kit-radius-box) 0 0;padding-bottom:1.6rem">
+add('A', 'A5', 'The user menu (the account icon)', 'today\'s user menu (user-menu.svelte, code – no screenshot in now/)',
+  ['opens under the account icon, like the ☰ menu – not from the bottom', 'no swipe up: it collides with the systems\' own gestures (owner 2026-11-24)'],
+  () => `${characters({ bar: { accOn: true, chevron: true } })}
+  <div class="km" style="left:1086px;top:52px;width:308px;z-index:60">
     <div class="kmh">admin · creator</div><div class="kmi">${ic('user')}<span class="w">tilman@porschuetz.de</span></div><hr>
     <div class="kmi">${ic('settings')}<span class="w">Settings …</span></div><div class="kmi">${ic('users')}<span class="w">Switch user</span></div><div class="kmi">${ic('logout')}<span class="w">Sign out</span></div></div>
-  ${capn(890, 820, 'Switch user is built (point 56) – in the set as it is; roles line: the account\'s roles')}`);
+  ${mk(1, 1398, 44)}${mk(2, 700, 860)}`);
 
 add('A', 'A6', 'The status bar', 'now/creator-1', [], () => `${characters({ bar: { chevron: true } })}${ring(6, 832, 1428, 34)}`);
 
