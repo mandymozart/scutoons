@@ -4,9 +4,10 @@
 import { CATALOG_DOC_KINDS, catalogDocKey, type CatalogDocKind } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
 import { editHref, parseEditKey } from '../editor/edit-key.ts';
+import { experienceHref } from '../editor/experiences.ts';
 
 /** what an opened item is edited in – one background and its default panels each */
-export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'flow' | 'sound' | 'text' | 'generate' | 'help';
+export type WorkspaceKind = 'toon' | 'chapter' | 'storyboard' | 'character' | 'catalog' | 'map' | 'scene' | 'experience' | 'flow' | 'sound' | 'text' | 'generate' | 'help';
 
 /** an item's kind → its workspace and the icon its tab carries */
 const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
@@ -20,6 +21,8 @@ const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
 	map: { workspace: 'map', icon: 'map' },
 	scene: { workspace: 'scene', icon: 'box' },
 	scenes: { workspace: 'scene', icon: 'box' },
+	experience: { workspace: 'experience', icon: 'aperture' },
+	experiences: { workspace: 'experience', icon: 'aperture' },
 	flow: { workspace: 'flow', icon: 'git-merge' },
 	rig: { workspace: 'sound', icon: 'sliders' },
 	module: { workspace: 'sound', icon: 'cpu' },
@@ -52,6 +55,7 @@ export const AREAS = {
 	characters: 'characters:all',
 	map: 'map:world',
 	scenes: 'scenes:all',
+	experiences: 'experiences:all',
 	flow: 'flow:universe',
 	/** a new spore generator on the Generate canvas (AI-HOOKS.md §0) – no stored generator documents yet */
 	generate: 'generator:new',
@@ -60,7 +64,7 @@ export const AREAS = {
 } as const;
 
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED = new Set(['characters', 'map', 'scenes', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
+const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
 
 /**
  * The address a creator URL edits: one item per tab, so a toon's own pages (its board, script, credits,
@@ -81,6 +85,8 @@ export function addressOf(pathname: string, search = ''): string | null {
 			return AREAS.map;
 		case 'scenes':
 			return second ? `scene:${second}` : AREAS.scenes;
+		case 'experiences':
+			return second ? `experience:${second}` : AREAS.experiences;
 		case 'flow':
 			return AREAS.flow;
 		case 'generate':
@@ -113,6 +119,7 @@ export function hrefOf(address: string): string | null {
 	if (address === AREAS.characters) return '/characters';
 	if (address === AREAS.map || kind === 'place' || kind === 'route' || kind === 'region') return kind === 'map' ? '/map' : `/map?${kind === 'place' ? 'location' : kind}=${encodeURIComponent(id)}`;
 	if (address === AREAS.scenes) return '/scenes';
+	if (address === AREAS.experiences) return '/experiences';
 	if (address === AREAS.flow) return '/flow';
 	if (address === AREAS.generate) return '/generate';
 	if (address === AREAS.guide) return '/guide';
@@ -135,6 +142,8 @@ export function hrefOf(address: string): string | null {
 			return `/characters?id=${encodeURIComponent(ref.id ?? '')}`;
 		case 'scene':
 			return `/scenes/${encodeURIComponent(ref.id ?? '')}`;
+		case 'experience':
+			return experienceHref(ref.id ?? '');
 		case 'kanon':
 			return `/kanon/${ref.id}`;
 	}

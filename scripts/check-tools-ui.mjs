@@ -36,7 +36,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
 
@@ -150,6 +150,17 @@ for (const file of [...new Set([...CONTROL_DIRS, 'shared/catalog/src', 'shared/r
 		if ((SIDE_BAR.test(line) || SIDE_STATE.test(line)) && !/sidebar-ok/.test(line)) sideBars.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
 	});
 }
+// blur (owner 2026-11-24, RULES H15 [editor-style]): blur exists on the overlay level only – the kit's Overlay
+// (shared/ui/src/editor/overlay.svelte); no panel, menu, popover or page of the tools blurs what lies behind it
+const blurs = [];
+const OVERLAY = 'shared/ui/src/editor/overlay.svelte';
+for (const file of DIRS.flatMap(walk)) {
+	const name = relative(ROOT, file).split(sep).join('/');
+	if (name === OVERLAY) continue;
+	readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+		if (/backdrop-filter\s*:\s*(?!none\b)/.test(line)) blurs.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
+	});
+}
 // field grid (owner 2026-10-03, COMPONENTS.md 4.4.2): one tools.css `.sc-fields[data-cols][data-density]` – no local
 // `.g2/.g3/.g4` copies (selector or `class="grid gN"` markup), no local field-grid class (`.grid`, `.two`, `.pair`,
 // `.form-grid`, `.meta-grid` with display: grid; a line with `grid-ok` + the reason is exempt, e.g. a thumbnail grid)
@@ -198,7 +209,7 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 }
 // colours (owner 2026-11-24, RULES H11 [editor-style]: "stick to the color schema of the deck editor … there is no grey
 // backgrounds in our concept"): the tools' CSS (creator, the editor kit, tools.css) takes every colour from the semantic
-// --tool-* tokens (shared/tokens/tool-colours.css, on deck-kit's generated editor.css) –
+// --tool-* tokens (shared/tokens/tool-colours.css, on editor.css generated from kit/tokens.toml) –
 //   - no literal colour (hex, rgb()/hsl()/…, a named colour) in a declaration; the token files are the only place for them
 //   - no raw editor colour (--editor-surface, --editor-text …) and no reader ground (--paper, --ink, --surface-panel):
 //     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
@@ -212,7 +223,52 @@ const COLOUR_ALLOW = [
 const COLOUR_PROPS = /^(color|background(-color|-image)?|border(-(top|right|bottom|left|block|inline)(-(start|end))?)?(-color)?|outline(-color)?|box-shadow|text-shadow|fill|stroke|caret-color|accent-color|text-decoration(-color)?|column-rule(-color)?|scrollbar-color|filter|stop-color|flood-color|lighting-color|--[a-z0-9-]+)$/;
 const LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(|(^|[\s,(])(white|black|gr[ae]y|silver|red|green|blue|yellow|orange|purple|pink|magenta|cyan|lime|navy|teal|maroon|olive|aqua|fuchsia)(?=$|[\s,)])/;
 const RAW_COLOUR = /var\(--(editor-(stage|surface|surface-head|line|text|muted|control|hover|pressed|pressed-text|selected|within|accent|primary|primary-line|primary-ink|bright|selection|danger|go|warn|stop|panel-ground|halo)|paper|ink|surface-panel)\b/;
+// no ground is grey (owner 2026-11-24, kit/README.md "Always"): a ground is see-through. Opaque greys as a fill: the line,
+// muted, bright or text colour at full strength (a dot or a 1–2px line is a mark, not a ground), a colour mixed into
+// another opaque one (color-mix without `transparent`), a glow that fades into the stage (a gradient to --tool-ground)
+const GROUND_PROP = /^background(-color|-image)?$/;
+const OPAQUE_GREY = /var\(--tool-(line|muted|bright|text)\)/;
+const MARK_RULE = /border-radius\s*:\s*50%|(^|;|\s)(width|height)\s*:\s*(1px|2px|var\(--editor-edge\)|0\.125rem|calc\(2 \* var\(--editor-edge\)\))\s*(;|$)/;
+function greyGround(value, body) {
+	if (/-gradient\((?:[^()]|\([^()]*\))*var\(--tool-ground\)/.test(value)) return 'a glow into the stage is a grey ground';
+	if (/color-mix\(/.test(value) && !/transparent/.test(value)) return 'an opaque colour-mix – mix into transparent';
+	const solid = value.replace(/color-mix\((?:[^()]|\([^()]*\))*\)/g, '');
+	if (OPAQUE_GREY.test(solid) && !/gradient\(/.test(solid) && !MARK_RULE.test(body)) return 'an opaque grey fill – a see-through ground (--tool-control / hover / selected / panel / popover, a kit state)';
+	return null;
+}
+// every --tool-* and kit state a tool reads is defined (tool-colours.css, tools.css, kit.css): a deleted alias such as
+// --tool-accent or a mistyped state would silently paint nothing
+const DEFINED = new Set(['shared/tokens/tool-colours.css', 'shared/tokens/tools.css', 'shared/tokens/kit.css'].flatMap((f) => [...readFileSync(join(ROOT, f), 'utf8').matchAll(/(--(?:tool|kit)-[a-z0-9-]+)\s*:/g)].map((m) => m[1])));
+const STATE_VAR = /var\((--kit-[a-z0-9-]+-(text|ground|border|ring|knob|mark|opacity))\b|var\((--tool-[a-z0-9-]+)\b/g;
+// literal colours: also in the shared media and sign-in parts the tools use, and in inline styles of the tools' markup
+// (shared/ui outside its editor kit also serves the reader apps, which keep their own scrims and the colour picker its hues)
+const LITERAL_ONLY_DIRS = ['shared/media/src', 'shared/auth/src'];
+const INLINE_LITERAL = /\bstyle(:[a-z-]+)?=(["'{])[^"'}]*(#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?)\()/;
 const colours = [];
+for (const file of [...new Set([...COLOUR_DIRS, ...LITERAL_ONLY_DIRS].flatMap(walk))]) {
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const text = readFileSync(file, 'utf8');
+	const onlyLiterals = !COLOUR_DIRS.some((d) => name === d || name.startsWith(d + '/'));
+	if (file.endsWith('.svelte')) {
+		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').forEach((l, i) => {
+			if (INLINE_LITERAL.test(l)) colours.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (a literal colour in an inline style: a --tool-* token)`);
+		});
+	}
+	if (onlyLiterals) {
+		const styles = file.endsWith('.css') ? [text] : [...text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+		for (const css of styles) {
+			const plain = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\((['"]?)[^)]*\1\)/g, 'url()');
+			for (const m of plain.matchAll(/([a-z-]+|--[a-z0-9-]+)\s*:\s*([^;{}]+)/g)) {
+				if (COLOUR_PROPS.test(m[1]) && /#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?|hwb|oklch)\(/.test(m[2])) colours.push(`${name}: ${m[1]}: ${m[2].trim().slice(0, 60)} (a literal colour: a token)`);
+			}
+		}
+		continue;
+	}
+	for (const m of text.matchAll(STATE_VAR)) {
+		const v = m[1] ?? m[3];
+		if (!DEFINED.has(v) && !/^--tool-(bar|sidebar|panel)-(height|width)$/.test(v)) colours.push(`${name}:${text.slice(0, m.index).split('\n').length}: ${v} (not a token: tool-colours.css, tools.css and kit.css define none of that name)`);
+	}
+}
 for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
 	const text = readFileSync(file, 'utf8');
 	const name = relative(ROOT, file).replace(/\\/g, '/');
@@ -234,6 +290,7 @@ for (const file of [...new Set(COLOUR_DIRS.flatMap(walk))]) {
 				const say = `${name}:${line}: ${sel} { ${m[1]}: ${m[2].trim().replace(/\s+/g, ' ').slice(0, 70)} }`;
 				if (LITERAL.test(value)) colours.push(`${say} (a literal colour: a --tool-* token)`);
 				else if (RAW_COLOUR.test(value)) colours.push(`${say} (a raw editor / reader colour: the --tool-* token – a grey ground only as --tool-panel / --tool-popover / --tool-head)`);
+				else if (GROUND_PROP.test(m[1]) && greyGround(value, body)) colours.push(`${say} (${greyGround(value, body)})`);
 			}
 			if (/background(-color)?\s*:[^;]*var\(--tool-panel\)/.test(body) && !/text-shadow\s*:\s*var\(--tool-halo\)/.test(body)) {
 				const line = text.slice(0, at + rule.index + rule[1].search(/\S/)).split('\n').length;
@@ -321,18 +378,27 @@ if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
 if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
+if (blurs.length) console.error(`blur: ${blurs.length} outside the overlay level (owner 2026-11-24, RULES H15: blur exists on the overlay level only – the switcher, Search, a panel taken full, the dialogs go through @scutoons/ui/editor Overlay):\n  ${blurs.join('\n  ')}`);
 if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / start rules (owner 2026-11-21, RULES H10: a state is the frame's colour, a dot or coloured words – never a side bar; a line with \`sidebar-ok\` + the reason is exempt):\n  ${sideBars.join('\n  ')}`);
 if (colours.length) console.error(`colours: ${colours.length} outside the deck editor's scheme (owner 2026-11-24, RULES H11: every colour through the --tool-* tokens of shared/tokens/tool-colours.css; no literal colours, no grey ground behind content on the stage; an exception goes into COLOUR_ALLOW with its reason):\n  ${colours.join('\n  ')}`);
 if (kitLocal.length) console.error(`ui kit: ${kitLocal.length} local button / pill / tab styling outside @scutoons/ui (owner 2026-11-24, RULES H12: one UI kit, the deck editor its source of truth – use the kit's Button / IconButton / Pill / PillTab / Menu / MenuItem / ListRow / Tile; the shell and the kit page are clean, the other files may not grow past scripts/tools-kit-baseline.json; \`kit-ok\` + the reason exempts a line):\n  ${kitLocal.join('\n  ')}`);
 if (kitShrunk.length && !flag('--kit-baseline')) console.log(`ui kit: ${kitShrunk.length} files got cleaner than the baseline – shrink it: node scripts/check-tools-ui.mjs --static --kit-baseline`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || blurs.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 console.log('side bars: no thick left / start rules – ok');
+console.log('blur: on the overlay level only – ok');
 console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
 console.log(`ui kit: the shell on the kit, ${Object.values(kitCounts).reduce((a, b) => a + b, 0)} local button / pill / tab rules left in ${Object.keys(kitCounts).length} area files (the baseline) – ok`);
+// the kit's tokens (kit/tokens.toml → shared/tokens/editor.css): a stale or hand-edited editor.css fails here too, so
+// check:tools-css covers it without a second script in package.json
+{
+	const { spawnSync } = await import('node:child_process');
+	const kit = spawnSync(process.execPath, ['--experimental-transform-types', '--no-warnings', join(ROOT, 'shared/tokens/scripts/editor-tokens.ts'), '--check'], { stdio: 'inherit' });
+	if (kit.status !== 0) process.exit(kit.status ?? 1);
+}
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

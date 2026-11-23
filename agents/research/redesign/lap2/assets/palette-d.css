@@ -1,0 +1,35 @@
+/*
+ * Palette D for the lap 2 drafts (RULES H11, kit-d.html, owner 2026-11-24) – loaded after editor.css + tool-colours.css.
+ * No new colour: on, focus, active, selected and links are the text colour; the one primary action is the pressed fill;
+ * colour only says ok, warning, error (go, warn, stop). The grounds are see-through – the text colour at a low strength
+ * (control 6 %, hover 10 %, selected 16 %, a track 10 %, a fold head 5 %). No ground is grey (owner 2026-11-24: "they are translucent and never grey"): a menu's, a popover's, a dialog's ground is see-through too – the stage colour at 85 % (a first value, to refine), not the grey surface; a panel the same – one strength, one token (kit/tokens.toml: surface × panel_opacity, the deck orchestrator's shape).
+ * Signals (ports, cables) keep their colours: --sig-* from the deck's signal table, as spores-view.html.
+ * Set on every theme root, as tool-colours.css, so a day part resolves its own values.
+ */
+:root,
+[data-theme] {
+	--tool-accent: var(--tool-text);
+	--tool-popover: color-mix(in srgb, var(--tool-ground) 85%, transparent);
+	--tool-panel: color-mix(in srgb, var(--tool-ground) 85%, transparent);
+	--tool-primary: var(--tool-pressed);
+	--tool-primary-line: var(--tool-pressed);
+	--tool-primary-ink: var(--tool-pressed-text);
+	--tool-selection: color-mix(in srgb, var(--tool-text) 25%, transparent);
+	--tool-control: color-mix(in srgb, var(--tool-text) 6%, transparent);
+	--tool-hover: color-mix(in srgb, var(--tool-text) 10%, transparent);
+	--tool-selected: color-mix(in srgb, var(--tool-text) 16%, transparent);
+	--tool-within: color-mix(in srgb, var(--tool-text) 10%, transparent);
+	--tool-head: color-mix(in srgb, var(--tool-text) 5%, transparent);
+	--tool-checker: color-mix(in srgb, var(--tool-text) 10%, transparent);
+	--d-on-ground: color-mix(in srgb, var(--tool-text) 12%, transparent);
+	--d-edge: var(--tool-text);
+}
+/* the deck's signal table (deck/kit/src/base/signal.rs), copied as spores-view.html has it */
+:root {
+	--sig-event: #f3f3f0; --sig-control: #46d36a; --sig-clock: #e5484d; --sig-audio: #19b8d8; --sig-picture: #6f9bff;
+	--sig-address: #b46bff; --sig-vote: #ffb020; --sig-scene: #ff6b8a; --sig-far: #a7af9b;
+}
+[data-theme='day'] {
+	--sig-event: #22271e; --sig-control: #2f9e4a; --sig-clock: #c23238; --sig-audio: #0089a8; --sig-picture: #3a63c9;
+	--sig-address: #8a4fd0; --sig-vote: #b07800; --sig-scene: #c8385a; --sig-far: #6b7461;
+}

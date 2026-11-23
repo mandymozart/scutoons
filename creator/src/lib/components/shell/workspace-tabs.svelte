@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, MenuItem, Pill, PillTab } from '@scutoons/ui/editor';
+	import { IconButton, Pill, PillTab } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { workspaceOf, type WorkspaceKind } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -10,10 +10,11 @@
 	import { shownWorkspace, withOwn } from '$lib/shell/layouts.ts';
 
 	/**
-	 * The workspaces, the bar's middle: one flat row of pill tabs – the member's crafts' and those used or open – most used first, never grouped by craft. The front item's
-	 * workspace is on (pressed); one the front item does not fit is dimmed and opens its own last item. Those that do not
-	 * fit the bar wait in the list at the row's end. An own workspace stands beside the one it is made from; picking it
-	 * makes it the one that kind shows.
+	 * The workspaces, the bar's middle (lap 2 A1): one flat row of pill tabs – the member's crafts' and those used or open –
+	 * most used first, never grouped by craft. The front item's workspace is on; one the front item does not fit is dimmed
+	 * and opens its own last item. A row longer than the bar scrolls (wheel, trackpad), the front one in view – no workspace
+	 * is ever left out. It always ends in its ⌄: all workspaces, the switcher. An own workspace stands beside the one it is
+	 * made from; picking it makes it the one that kind shows.
 	 */
 	const row = $derived(withOwn(workspaceRow(shell.use, shell.state.tabs, crafts.starts), layouts.state.own));
 	const front = $derived(shell.state.front);
@@ -27,39 +28,30 @@
 	const pick = (w: WorkspaceRef & { href: string }) => shell.pickWorkspace(w, goes(w).keeps);
 
 	let box = $state<HTMLElement>();
-	let hidden = $state(0);
+	// the one that is on scrolls into view (only as far as needed)
 	$effect(() => {
+		void current;
 		void row.length;
-		const el = box;
-		if (!el) return;
-		const count = () => {
-			const edge = el.getBoundingClientRect().right;
-			hidden = [...el.querySelectorAll<HTMLElement>('[data-workspace-tab]')].filter((t) => t.getBoundingClientRect().right > edge + 1).length;
-		};
-		count();
-		const observer = new ResizeObserver(count);
-		observer.observe(el);
-		return () => observer.disconnect();
+		const on = box?.querySelector<HTMLElement>('.kit-pill-tab.on');
+		on?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 	});
-	const rest = $derived(hidden ? row.slice(row.length - hidden) : []);
+	/** a wheel turned over the row scrolls it sideways */
+	function wheel(event: WheelEvent) {
+		const el = box;
+		if (!el || el.scrollWidth <= el.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+		event.preventDefault();
+		el.scrollLeft += event.deltaY;
+	}
 </script>
 
 {#if row.length}
 	<Pill as="nav" label={m['shell.workspaces']()} class="workspaces" data-testid="workspace-tabs">
-		<div class="row" bind:this={box}>
+		<div class="row" bind:this={box} onwheel={wheel}>
 			{#each row as w (w.id)}
 				<PillTab label={nameOf(w)} href={goes(w).href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => pick(w)} data-workspace-tab data-testid="workspace-{w.id}" />
 			{/each}
 		</div>
-		{#if rest.length}
-			<Menu label={m['shell.workspaces_more']()} icon="chevron-down" width="12rem" testid="workspaces-more">
-				{#snippet children(close)}
-					{#each rest as w (w.id)}
-						<MenuItem label={nameOf(w)} href={goes(w).href} current={isOn(w)} dim={dim(w.kind)} onclick={() => (pick(w), close())} />
-					{/each}
-				{/snippet}
-			</Menu>
-		{/if}
+		<IconButton label={m['shell.all_workspaces']()} icon="chevron-down" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => shell.toggleSwitcher()} data-testid="workspaces-all" />
 	</Pill>
 {/if}
 
@@ -72,7 +64,12 @@
 		flex: 0 1 auto;
 		gap: var(--kit-seam);
 		min-width: 0;
-		overflow: hidden;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: none;
 		border-radius: var(--kit-r);
+	}
+	.row::-webkit-scrollbar {
+		display: none;
 	}
 </style>

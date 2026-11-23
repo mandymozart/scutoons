@@ -1629,6 +1629,161 @@
 				"image"
 			],
 			"description": "A carrier of the creature airlift (catalog `airlift_carriers`, research/CAVE.md D8): a crazy creature or a flying robot taxi – one drawn at random per flight; the owner adds more without code"
+		},
+		"XrExperience": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"type": {
+					"$ref": "#/definitions/XrExperienceType"
+				},
+				"title": {
+					"$ref": "#/definitions/Localized",
+					"description": "{ <locale>: text }"
+				},
+				"toons": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "the toons it belongs to"
+				},
+				"source": {
+					"type": "object",
+					"properties": {
+						"osct": {
+							"$ref": "#/definitions/XrOsctSource"
+						}
+					},
+					"required": [
+						"osct"
+					]
+				},
+				"assets": {
+					"type": "string",
+					"description": "the CDN-root folder its files lie below (`xr/poster-catpope/e8f9fbfd81b2`, no slash at either end): the engine's base, so the configuration's `/assets/content/library/x.glb` is the asset `<assets>/assets/content/library/x.glb`"
+				},
+				"configuration": {
+					"$ref": "#/definitions/XrGameConfiguration"
+				},
+				"plugins": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/XrPlugin"
+					}
+				}
+			},
+			"required": [
+				"id",
+				"type",
+				"title",
+				"toons",
+				"assets",
+				"configuration",
+				"plugins"
+			],
+			"description": "The catalog document `experience:<id>` (id `^[a-z][a-z0-9-]{1,63}$`)"
+		},
+		"XrExperienceType": {
+			"type": "string",
+			"enum": [
+				"book",
+				"record",
+				"poster",
+				"exhibition",
+				"concert-reading"
+			]
+		},
+		"XrOsctSource": {
+			"type": "object",
+			"properties": {
+				"experience": {
+					"type": "string",
+					"description": "the OSCT experience's id"
+				},
+				"scene": {
+					"type": "string",
+					"description": "the OSCT scene it was taken from, when only one"
+				},
+				"build": {
+					"type": "string",
+					"description": "the published content version (build)"
+				},
+				"schema": {
+					"type": "string",
+					"description": "the content schema it was written in (`6.0`)"
+				},
+				"app": {
+					"type": "string",
+					"description": "the OSCT app version that wrote it (`6.3.2`)"
+				}
+			},
+			"required": [
+				"experience",
+				"build",
+				"schema",
+				"app"
+			],
+			"description": "The OSCT content version an experience was imported from"
+		},
+		"XrGameConfiguration": {
+			"type": "object",
+			"properties": {
+				"version": {
+					"type": "object",
+					"properties": {
+						"schema": {
+							"type": "string",
+							"description": "the content schema (`6.0`)"
+						}
+					},
+					"required": [
+						"schema"
+					],
+					"additionalProperties": {}
+				},
+				"scenes": {
+					"type": "array",
+					"items": {},
+					"description": "at least one"
+				},
+				"entries": {
+					"type": "array",
+					"items": {}
+				}
+			},
+			"required": [
+				"version",
+				"scenes",
+				"entries"
+			],
+			"additionalProperties": {},
+			"description": "OSCT's game configuration, unchanged: only the fields the server's shallow check reads are named here; the rest is the engine's type (@scutoons/xr-engine), checked by its guard in the reader and the importer"
+		},
+		"XrPlugin": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z][a-z0-9-]{0,39}$`, unique in the experience"
+				},
+				"api": {
+					"type": "string",
+					"description": "the plugin API it was built for (`4.0`)"
+				},
+				"code": {
+					"type": "string",
+					"description": "the module's source, at most 262144 bytes"
+				}
+			},
+			"required": [
+				"id",
+				"api",
+				"code"
+			],
+			"description": "A compiled plugin of the configuration: an ES module as text (the reader imports it from a blob)"
 		}
 	}
 }

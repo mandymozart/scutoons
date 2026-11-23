@@ -27,17 +27,16 @@
  * Deck scenes (`scene:<id>`) are lines too (owner 2026-11-22): the partial publish takes them last, through the core's
  * scene check (as their own page publishes them), after the modules, instruments, presets and rigs they play.
  *
- * Every Publish of the creator is this one (owner 2026-11-22: "the same publish algo everywhere"): a level, a page's
- * files, one item (a module, a rig, a scene) or one older version – the scope's drafts plus the unpublished drafts they
- * depend on, transitively, which the server names (`POST /entities/publish/plan`, the one dependency rule:
- * PublishOrder::refs); those lines say what needs them.
+ * Every Publish of the creator is this one (owner 2026-11-22: "the same publish algo everywhere"), and it has one way in
+ * (RULES H18): the bar's Publish opens its dialog (publish-flow.svelte.ts) on everything – the scope's drafts plus the
+ * unpublished drafts they depend on, transitively, which the server names (`POST /entities/publish/plan`, the one
+ * dependency rule: PublishOrder::refs); those lines say what needs them.
  */
-import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import { catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, publishPartial, publishPlan, withContent } from '$lib/api.ts';
 import { publishNotices, type PublishNotice, type PublishRefusal } from '$lib/editor/publish-report.ts';
 import { parseEntityKey } from '@scutoons/content';
-import { fileLabel } from '$lib/labels.ts';
+import { fileLabel, kindWord } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { toast } from '$lib/toasts.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -152,7 +151,6 @@ const CHANGE_WORD: Record<'added' | 'changed' | 'removed', () => string> = {
 	changed: () => m['creator.publish_part_changed'](),
 	removed: () => m['creator.publish_part_removed']()
 };
-const lineLabel = (l: Line) => (l.part ? `${PART_WORD[l.part.kind]()}: ${nameOf(l.part.name, l.file.key.split(':')[1] ?? null)}` : label(l.file.key));
 const lineDetail = (l: Line) => {
 	const base = l.part ? `${CHANGE_WORD[l.part.change]()} · ${detail(l.file)}` : detail(l.file);
 	return l.neededBy ? `${m['creator.publish_tree_needed_by']({ name: label(l.neededBy) })} · ${base}` : base;
@@ -182,7 +180,6 @@ export interface PublishTreeResult {
 	notices: PublishNotice[];
 }
 
-const nothing = (): PublishTreeResult => ({ message: m['creator.nothing_to_publish'](), published: [], refused: [], notices: [{ type: 'info', text: m['creator.nothing_to_publish']() }] });
 
 /**
  * The one collector: the scope's drafts and the unpublished drafts they depend on, transitively (the server's rule) –
@@ -201,30 +198,52 @@ export async function collectPublishable(scope: PublishScope): Promise<{ files: 
 	return { files, neededBy: new Map(deps.map((d) => [d.key, d.needed_by])) };
 }
 
-/** The checklist for a scope (its drafts and what they need), then publish / submit the ticked lines (null when cancelled) */
-export async function publishTree(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
+/** one line of the Publish dialog (lap 2 A10): a file by its name, what its draft does, its kind; the rest is hover text */
+export interface PublishLine {
+	id: string;
+	label: string;
+	/** the kind's word (and the toon, in the list of everything) */
+	type: string;
+	/** what the draft does: new · changed · removed (a submit decided here: in review) */
+	chip: string;
+	/** version, when, who, the note – and the key that needs it, for a dependency */
+	hint: string;
+	/** this account submits it for review instead of publishing it */
+	review: boolean;
+	/** someone else's submit this account decides on: its reviews, published as submitted */
+	decide?: number[];
+}
+
+/** what a scope has to publish: the files and their lines, in the tree's order */
+export interface Publishable {
+	files: ContentIndexEntity[];
+	lines: PublishLine[];
+}
+
+/** The dialog's list for a scope: its drafts and what they need, one line each */
+export async function publishable(scope: PublishScope): Promise<Publishable> {
 	const { files, neededBy } = await collectPublishable(scope);
-	if (!files.length) return nothing();
-	const lines = await linesOf(files, neededBy);
-	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());
-	const item = (l: Line) => ({ id: l.id, label: lineLabel(l), detail: lineDetail(l) });
-	const groups: ChecklistGroup[] =
-		scope.kind === 'all'
-			? [...new Set(lines.map((l) => l.file.toon ?? ''))].map((t) => ({ label: toonName(t || null), items: lines.filter((l) => (l.file.toon ?? '') === t).map(item) }))
-			: [{ items: lines.map(item) }];
-	const review = files.some((f) => reviews.needsReview(f.toon));
-	const picked = await checklistDialog({
-		title,
-		message: m['creator.publish_tree_message'](),
-		groups,
-		countLabel: (n) => (review ? m['creator.publish_tree_submit']({ count: n }) : m['creator.publish_tree_publish']({ count: n })),
-		allLabel: m['creator.publish_tree_all'](),
-		noneLabel: m['creator.publish_tree_none'](),
-		cancelLabel: m['creator.cancel']()
-	});
-	if (!picked?.length) return null;
-	const chosen = new Set(picked);
-	const done: string[] = [];
+	if (!files.length) return { files, lines: [] };
+	const toonName = (id: string | null) => (id ? ((scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id) : '');
+	const lines = (await linesOf(files, neededBy)).map((l) => ({
+		id: l.id,
+		label: l.part ? nameOf(l.part.name, l.file.key.split(':')[1] ?? null) : label(l.file.key),
+		type: [kindWord(l.file.key) ?? '', scope.kind === 'all' ? toonName(l.file.toon) : ''].filter(Boolean).join(' · '),
+		chip: CHANGE_WORD[l.part?.change ?? (l.file.published === null ? 'added' : 'changed')](),
+		hint: lineDetail(l),
+		review: reviews.needsReview(l.file.toon)
+	}));
+	return { files, lines };
+}
+
+/**
+ * Publish / submit the ticked files: they go to the server in one ordered partial publish; what the account's review
+ * rules (or the server's answer) send to review is submitted with the note `askNote` returns (null: not submitted).
+ * `decided`: the keys a reviewer's decision put live just before, named with the rest. The Publishes lines go to the Log
+ * as well.
+ */
+export async function publishChosen(files: ContentIndexEntity[], chosen: ReadonlySet<string>, askNote: () => Promise<string | null>, decided: string[] = []): Promise<PublishTreeResult> {
+	const done: string[] = [...decided];
 	const refused: PublishRefusal[] = [];
 	const forReview: { key: string; version: number }[] = [];
 	// the version the list showed – a newer save in between is not published unseen
@@ -244,7 +263,7 @@ export async function publishTree(scope: PublishScope, title: string): Promise<P
 	}
 	let submitted = '';
 	if (forReview.length) {
-		const note = await askDialog({ title: m['creator.submit_title'](), label: m['creator.submit_note_label'](), placeholder: m['creator.submit_note_placeholder'](), confirmLabel: m['creator.submit_send'](), skipLabel: m['creator.submit_send']() });
+		const note = await askNote();
 		if (note !== null) {
 			const result = await contentApi.submitReview(forReview, note.trim());
 			void reviews.load();
@@ -256,20 +275,13 @@ export async function publishTree(scope: PublishScope, title: string): Promise<P
 		refused: (name, reason) => m['creator.publish_tree_refused']({ name, reason }),
 		nothing: () => m['creator.nothing_to_publish']()
 	}, submitted);
+	for (const n of notices) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
 	return { message: notices[0]?.text ?? '', published: done, refused, notices };
 }
 
-/** Every Publish button: the checklist, the ordered partial publish, the Publishes lines in the Log (null when cancelled) */
-export async function publishAndLog(scope: PublishScope, title: string): Promise<PublishTreeResult | null> {
-	try {
-		const result = await publishTree(scope, title);
-		for (const n of result?.notices ?? []) toast(n.text, { type: n.type, kind: 'publish', ...(n.detail ? { detail: n.detail } : {}) });
-		return result;
-	} catch (e) {
-		toast(e instanceof Error ? e.message : String(e), { type: 'error', kind: 'publish' });
-		return null;
-	}
+/** a publish that failed as a whole: its words, as the report's and the Log's line */
+export function publishFailed(e: unknown): PublishTreeResult {
+	const text = e instanceof Error ? e.message : String(e);
+	toast(text, { type: 'error', kind: 'publish' });
+	return { message: text, published: [], refused: [], notices: [{ type: 'error', text }] };
 }
-
-/** one item's Publish (a module, a rig, a scene): itself and what it needs */
-export const publishItem = (key: string, title = m['creator.publish_tree_title']({ name: label(key) })) => publishAndLog({ kind: 'files', toon: '', keys: [key] }, title);

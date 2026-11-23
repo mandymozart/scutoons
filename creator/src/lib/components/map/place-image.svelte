@@ -205,7 +205,7 @@
 		position: relative;
 		flex: 1;
 		min-width: 3rem;
-		background: var(--tool-accent);
+		background: var(--tool-ground);
 		overflow: hidden;
 	}
 	.preview img {

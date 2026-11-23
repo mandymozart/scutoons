@@ -1,0 +1,447 @@
+# Grounds are translucent and never grey.
+#
+# The kit's tokens – the one source of the look of the deck's UI (deck-kit) and the web tools (shared/tokens).
+# Palette D (RULES H11): no accent, no lime, no green switch; on, focus, active and selected are the text colour, the one
+# primary action is the pressed fill, colour says only ok (go), warning (warn) and error (stop). The grounds a control
+# stands on are see-through: the text colour at a low alpha; a menu's or a panel's is the surface (the stage colour) at
+# panel_opacity – never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a
+# group of spores, the mixer's strips.
+#
+# Shape (deck-kit's `tokens.toml`, deck/kit/src/base/tokens.rs `File`): `[color]` and `[size]` for both looks,
+# `[day.<table>]` / `[night.<table>]` for one. Key names are deck-kit's field names. Colours "#rrggbb" or "#rrggbbaa".
+# Sizes in rem (multiples of `base`), except `base` and `edge` (px) and `spacing` (em).
+# The web tokens are generated from this file: npm run editor-tokens -w @scutoons/tokens (README.md).
+
+[color]
+# behind the stage (the creator's day stage is white: shared/tokens/tool-colours.css)
+stage = "#000000"
+# light ink: text over the stage and on a coloured ground
+bright = "#f3f3f0"
+danger = "#c0392b"
+# how much a surface covers the stage behind it (0..1): the see-through ground of panels, the bar, menus, popovers
+panel_opacity = 0.85
+# the view gizmo's x, y, z
+axis = ["#ed4552", "#78bf33", "#4087f2"]
+
+[size]
+# 1rem of the editor at 100 %, px
+base = 14
+top = 2.6
+tree = 20
+inspector = 27
+# a line or a region's edge, px
+edge = 1
+pad = 0.57
+gap = 1
+font = 1
+small = 0.86
+label = 0.72
+title = 1.15
+row = 2.15
+tree_row = 1.8
+radius = 0.36
+panel_w = 11.5
+panel_h = 3.4
+# the small uppercase labels' letter spacing, em
+spacing = 0.15
+
+[night.color]
+# the stage colour, opaque: at panel_opacity it is the ground of a floating panel, the bar, a menu, a popover, a dialog;
+# opaque only as the ink ring
+surface = "#000000"
+# a fold row's or a tile's head: text 5 %
+surface_head = "#f3f3f00d"
+line = "#3a4034"
+text = "#f3f3f0"
+muted = "#a7af9b"
+# a field's or a framed control's ground: text 6 %
+control = "#f3f3f00f"
+# under the pointer: text 10 %
+hover = "#f3f3f01a"
+# a pressed segment, tab, toggle, the primary action, a selected row – and the ink on it
+pressed = "#f3f3f0"
+pressed_text = "#171916"
+# a selected item: text 16 %
+selected = "#f3f3f029"
+# a track, a meter's unfilled part: text 10 %
+within = "#f3f3f01a"
+# selected text, a marquee: text 25 %
+selection = "#f3f3f040"
+# ok, warning, error
+go = "#4cc35a"
+warn = "#f0a030"
+stop = "#e5483b"
+# a mixer strip's stripe, round the list
+strips = ["#00d1ff", "#f0a030", "#b36bff", "#4cc35a", "#ff6b8a", "#e6d24a"]
+# a panel's text and icons get the surface as an outline
+ink_ring = true
+
+[day.color]
+surface = "#ffffff"
+surface_head = "#1719160d"
+line = "#d9decf"
+text = "#171916"
+muted = "#4f5747"
+control = "#1719160f"
+hover = "#1719161a"
+pressed = "#22271e"
+pressed_text = "#ffffff"
+selected = "#17191629"
+within = "#1719161a"
+selection = "#17191640"
+go = "#2e8a3e"
+warn = "#b86e0c"
+stop = "#d63a2d"
+strips = ["#00a6cc", "#e08e1c", "#9a52e6", "#3aa84a", "#e8577a", "#c9b42e"]
+ink_ring = false
+
+# What a port, a pin and a cable carries (deck-kit base/signal.rs): its colour.
+[night.signals]
+event = "#f3f3f0"
+control = "#46d36a"
+clock = "#e5484d"
+audio = "#19b8d8"
+picture = "#6f9bff"
+address = "#b46bff"
+vote = "#ffb020"
+scene = "#ff6b8a"
+far = "#a7af9b"
+
+[day.signals]
+event = "#22271e"
+control = "#2f9e4a"
+clock = "#c23238"
+audio = "#0089a8"
+picture = "#3a63c9"
+address = "#8a4fd0"
+vote = "#b07800"
+scene = "#c8385a"
+far = "#6b7461"
+
+# Where a thing plays: the reader's page, a deck's screen or speaker, an XR scene, a device (DMX …) – on lane and column
+# heads only.
+[night.outlets]
+page = "#7cc4ff"
+stage = "#ffb86b"
+target = "#b99cff"
+device = "#f2df6f"
+
+[day.outlets]
+page = "#2a7fc0"
+stage = "#c46a12"
+target = "#7448d6"
+device = "#a88a00"
+
+# A group of spores: one of six, a new group takes the first unused.
+[groups]
+colors = ["#5fb3ff", "#7fd68a", "#f2b84b", "#e07ad6", "#ff7a6b", "#9a8cff"]
+
+# The colour-blind mode (a setting): ok blue, warning yellow / orange, error vermillion (Okabe–Ito). It replaces the
+# colours of the same names; marks beside each colour (✓ ! ✕) stay in both modes.
+[night.colorblind]
+go = "#56b4e9"
+warn = "#f0e442"
+stop = "#d55e00"
+
+[day.colorblind]
+go = "#0072b2"
+warn = "#b07800"
+stop = "#8f3300"
+
+# The components' states (kit/README.md "Components and their states"), one table per component and state:
+#   [component.<name>.<state>]   <part> = "<token>"   or   "<token> <n>%"   (the token see-through at n %)
+# Parts: text · ground · border · ring (the focus outline) · knob · mark (a tick, a dot, a chevron, the insert line) ·
+# opacity (a number) · blur (rem; the overlay's alone). Tokens: the colours above by name (text, muted, line, control, hover, pressed, pressed_text,
+# selected, within, selection, surface_head, go, warn, stop) and panel / popover (the surface at panel_opacity) and
+# none. A ground is never an opaque grey: line, muted, text and bright are refused as a ground (the generator).
+# The web tools get them as --kit-<name>-<state>-<part> (shared/tokens/kit.css).
+
+# every control's keyboard focus: a ring in the text colour, no hue
+[component.focus.rest]
+ring = "text"
+
+# PillTab, the workspace row and a panel head's tabs (H4): no border at rest, the active one the text colour, a rounded
+# border on hover and while dragged
+[component.tab.rest]
+text = "muted"
+border = "none"
+ground = "none"
+[component.tab.hover]
+text = "text"
+border = "line"
+[component.tab.on]
+text = "text"
+[component.tab.dragged]
+text = "text"
+border = "line"
+ground = "popover"
+[component.tab.disabled]
+opacity = 0.4
+
+# a group of icons or a toolbar: line + the panel ground
+[component.pill.rest]
+border = "line"
+ground = "panel"
+
+[component.icon_button.rest]
+text = "text"
+ground = "none"
+[component.icon_button.hover]
+ground = "hover"
+[component.icon_button.on]
+ground = "pressed"
+text = "pressed_text"
+[component.icon_button.disabled]
+opacity = 0.35
+# standing alone: round, its line on the panel ground (H4)
+[component.icon_button.alone]
+border = "line"
+ground = "panel"
+[component.icon_button.dot]
+mark = "warn"
+
+# the one primary action = the pressed fill; disabled = that fill, faded
+[component.button_primary.rest]
+ground = "pressed"
+text = "pressed_text"
+[component.button_primary.hover]
+ground = "pressed 85%"
+[component.button_primary.on]
+ground = "pressed 70%"
+[component.button_primary.disabled]
+opacity = 0.45
+
+[component.button_plain.rest]
+border = "line"
+ground = "control"
+text = "text"
+[component.button_plain.hover]
+ground = "hover"
+[component.button_plain.on]
+border = "muted"
+ground = "hover"
+[component.button_plain.disabled]
+opacity = 0.45
+
+[component.button_quiet.rest]
+ground = "none"
+text = "text"
+[component.button_quiet.hover]
+ground = "hover"
+[component.button_quiet.on]
+ground = "hover"
+text = "muted"
+[component.button_quiet.disabled]
+opacity = 0.45
+[component.button_quiet.destroy]
+text = "stop"
+
+[component.segments.rest]
+border = "line"
+ground = "control"
+text = "muted"
+[component.segments.hover]
+ground = "hover"
+text = "text"
+[component.segments.on]
+ground = "pressed"
+text = "pressed_text"
+[component.segments.disabled]
+opacity = 0.45
+
+# the badge (H13): small, round, delicate – line and words; on = the text colour on a faint ground
+[component.chip.rest]
+border = "line"
+text = "muted"
+ground = "none"
+[component.chip.hover]
+border = "muted"
+text = "text"
+[component.chip.on]
+border = "text"
+ground = "text 12%"
+text = "text"
+[component.chip.disabled]
+opacity = 0.4
+# the status badges: the only chips with a hue
+[component.chip.ok]
+border = "go"
+ground = "go 12%"
+text = "go"
+[component.chip.warning]
+border = "warn"
+ground = "warn 12%"
+text = "warn"
+[component.chip.error]
+border = "stop"
+ground = "stop 12%"
+text = "stop"
+
+# the one switch: no green – on is the pressed fill with the pressed-text knob
+[component.toggle.off]
+border = "line"
+ground = "within"
+knob = "muted"
+[component.toggle.hover]
+border = "muted"
+[component.toggle.on]
+border = "pressed"
+ground = "pressed"
+knob = "pressed_text"
+[component.toggle.disabled]
+opacity = 0.4
+
+# a field, a search and the boxed select (a value in a form, H4)
+[component.field.rest]
+border = "line"
+ground = "control"
+text = "text"
+mark = "muted"
+[component.field.hover]
+border = "muted"
+[component.field.on]
+border = "text"
+mark = "text"
+[component.field.disabled]
+text = "muted"
+opacity = 0.55
+[component.field.error]
+border = "stop"
+
+# the quiet select – a filter or a sort in a toolbar (H4): no box at rest, a rounded border on hover and while open
+[component.select_quiet.rest]
+border = "none"
+ground = "none"
+text = "text"
+mark = "muted"
+[component.select_quiet.hover]
+border = "line"
+[component.select_quiet.on]
+border = "text"
+mark = "text"
+[component.select_quiet.disabled]
+opacity = 0.45
+
+# menus, popovers, dialogs: the see-through popover ground, sharp, their line
+[component.menu.rest]
+border = "line"
+ground = "popover"
+[component.menu_item.rest]
+text = "text"
+ground = "none"
+[component.menu_item.hover]
+ground = "hover"
+[component.menu_item.on]
+mark = "text"
+[component.menu_item.disabled]
+text = "muted"
+[component.menu_item.head]
+text = "muted"
+
+# a list row and a tree row: selected = the pressed fill (no side bar, H10)
+[component.list_row.rest]
+text = "text"
+ground = "none"
+[component.list_row.hover]
+ground = "hover"
+[component.list_row.selected]
+ground = "pressed"
+text = "pressed_text"
+[component.list_row.dragged]
+border = "line"
+ground = "popover"
+[component.list_row.disabled]
+text = "muted"
+opacity = 0.6
+[component.list_row.insert]
+mark = "text"
+
+[component.tile.rest]
+border = "line"
+ground = "none"
+[component.tile.hover]
+ground = "hover"
+[component.tile.on]
+border = "text"
+ground = "text 12%"
+mark = "text"
+[component.tile.dragged]
+border = "line"
+ground = "popover"
+[component.tile.disabled]
+opacity = 0.4
+
+# a thumbnail keeps its own colours; selected = a ring in the text colour
+[component.thumb.rest]
+border = "line"
+[component.thumb.hover]
+border = "muted"
+[component.thumb.on]
+ring = "text"
+mark = "text"
+[component.thumb.disabled]
+opacity = 0.4
+[component.thumb.dragged]
+opacity = 0.75
+
+[component.workspace_card.rest]
+border = "line"
+[component.workspace_card.hover]
+ground = "hover 35%"
+[component.workspace_card.on]
+border = "text"
+[component.workspace_card.dragged]
+opacity = 0.75
+
+# a floating panel: the see-through panel ground, its line
+[component.panel.rest]
+border = "line"
+ground = "panel"
+
+# the overlay level (RULES H15) – the switcher, Search, a panel taken full, a dialog: what lies under it (the bar too) is
+# blurred and dimmed; the only blur of the UI (blur in rem). Reduce motion turns the blur off: a see-through dim instead.
+# The box is what it carries close to the window's edges (a panel taken full) or in its middle (a dialog).
+[component.overlay.rest]
+ground = "panel 70%"
+blur = 1.6
+[component.overlay.reduced]
+ground = "panel"
+[component.overlay.box]
+border = "line"
+ground = "popover"
+
+[component.section.rest]
+mark = "muted"
+[component.section.hover]
+ground = "hover"
+[component.section.on]
+ground = "surface_head"
+mark = "text"
+[component.section.disabled]
+opacity = 0.45
+
+[component.drop.rest]
+border = "muted"
+text = "muted"
+[component.drop.on]
+border = "text"
+ground = "text 12%"
+text = "text"
+
+# a link: no hue, the underline says link
+[component.link.rest]
+text = "text"
+[component.link.disabled]
+text = "muted"
+
+# the status bar's dot: colour only for ok, warning, error
+[component.status.none]
+mark = "muted"
+[component.status.ok]
+mark = "go"
+[component.status.warning]
+mark = "warn"
+[component.status.error]
+mark = "stop"
+[component.status.info]
+mark = "text"

@@ -749,7 +749,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background: var(--tool-accent);
+		background: var(--tool-ground);
 		touch-action: none;
 		user-select: none;
 		cursor: default;
@@ -825,9 +825,9 @@
 	}
 	/* the hexagon a dragged gate snaps to lights up */
 	.footprint path.snap {
-		fill: var(--tool-accent);
+		fill: var(--tool-text);
 		fill-opacity: 0.45;
-		stroke: var(--tool-accent);
+		stroke: var(--tool-text);
 		stroke-opacity: 1;
 		stroke-width: 1.5;
 	}
@@ -923,7 +923,7 @@
 	}
 	.active .marker {
 		background: var(--tool-pressed);
-		box-shadow: 0 0 0 4px var(--tool-accent);
+		box-shadow: 0 0 0 4px var(--tool-text);
 	}
 	.collides .marker {
 		outline: 2px solid var(--tool-stop);
@@ -931,7 +931,7 @@
 	}
 	/* a free route point dragged over this place: let go and it connects here */
 	.connect-target .marker {
-		box-shadow: 0 0 0 6px var(--tool-accent);
+		box-shadow: 0 0 0 6px var(--tool-text);
 	}
 	/* with an image the name goes under the point (the image stands above it) */
 	.has-image .label {
@@ -962,7 +962,7 @@
 	}
 	/* the active handle – the only one a drag moves (the safeguard: a tap activates) */
 	.handle.active {
-		outline: var(--border-width-focus) solid var(--tool-accent);
+		outline: var(--border-width-focus) solid var(--tool-text);
 		outline-offset: var(--focus-offset);
 	}
 	.handle {
@@ -977,7 +977,7 @@
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid var(--tool-text);
-		background: var(--tool-accent);
+		background: var(--tool-text);
 		color: var(--tool-text);
 		font: 700 9px/1 var(--font-mono);
 		pointer-events: auto;
@@ -993,7 +993,7 @@
 	}
 	.route-patches path {
 		fill: none;
-		stroke: var(--tool-accent);
+		stroke: var(--tool-text);
 		stroke-width: 3;
 		stroke-linecap: round;
 	}

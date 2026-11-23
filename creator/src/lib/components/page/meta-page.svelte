@@ -4,8 +4,6 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
-	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
-	import type { PublishScope } from '$lib/editor/publish-tree.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
@@ -19,7 +17,7 @@
 
 	/**
 	 * The documents of a page (season, toon settings, characters, the map …): every edit saves on its own (useAutosave),
-	 * it hands the shell its Publish and History (the bar's menus) and its Problems (a panel tab), the local copy +
+	 * it hands the shell what the bar's Publish asks of it and its History and its Problems (a panel tab), the local copy +
 	 * recover, missing-locale bars (only the blocking ones stay in the flow – E.1) and Ctrl+S / Ctrl+Z (outside a field). `docs`
 	 * are validated, saved and published; `companions()` are files that follow them (the chapter files whose status
 	 * mirrors the season) – saved when dirty, published with the docs; `along()` are files edited here along with them (a
@@ -42,16 +40,13 @@
 		status,
 		more = [],
 		selection = null,
-		tree,
 		ongoto
 	}: {
 		/** a Problems row's "go to" (the page's own places – the storyboard's shots); without it a row only restores */
 		ongoto?: (problem: Problem) => void;
-		/** the page's level in the tree: Publish lists every file below it with a draft (BACKLOG 10.60, publish-tree.ts) */
-		tree?: () => { scope: PublishScope; title: string } | null;
-		/** the page's own entries in the Publish panel (the map builder's Import) */
+		/** the page's own entries in its line (the map builder's Import) */
 		more?: GroupBarItem[];
-		/** the selected object's own actions in the Publish panel */
+		/** the selected object's own actions in the page's line */
 		selection?: { label: string; items: GroupBarItem[] } | null;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
@@ -67,7 +62,7 @@
 		wide?: boolean;
 		/** the content fills the page's height without padding (a canvas: the map builder; with `usePageNav({ fill })`) */
 		fill?: boolean;
-		/** page-level actions in the Publish panel (e.g. "New character") */
+		/** page-level actions in the page's line (e.g. "New character") */
 		actions?: Snippet;
 		/** the page's help (Info) */
 		help: HelpPage;
@@ -82,7 +77,7 @@
 	const undo = () => void pageUndo(docs, creator.user?.email ?? '');
 	const redo = () => void pageRedo(docs);
 	const loaded = $derived(docs.every((d) => !d.loading));
-	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
+	const session = new DocSession({ docs: () => docs, companions: () => [...companions(), ...along()], beforeSave: () => beforeSave(), errorCount: () => errorCount });
 	const anySaving = $derived(session.anySaving);
 	useAutosave(session);
 
@@ -118,11 +113,12 @@
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 	const unpublished = $derived(docs.some((d) => d.unpublished.length));
+	const extras = $derived(!!selection || more.length > 0 || !!actions);
 	/** a page entry or a selection's action as a button (a group gives its actions) */
 	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
-	// the bar: ↶ ↷, Publish (its dot) and History; the status bar: "saving…" and the counts; Problems is a panel tab
-	usePageDoc(() => ({ saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, publish: publishTab, docs, undo, redo }));
+	// the bar: ↶ ↷, Publish (its dot; the page saved first) and History; the status bar: "saving…" and the counts; Problems is a panel tab
+	usePageDoc(() => ({ saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, ...session.publishHooks, docs, undo, redo }));
 	useProblems(() => (loaded ? { problems, docs, home: main?.entity, place: (p) => problemPlace(p, main?.entity), message: problemMessage, ongoto } : null));
 
 	$effect(() => {
@@ -145,7 +141,7 @@
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
 		<!-- the page's own status line (the script's rules link + cursor) -->
-		{#if status}<div class="files" data-testid="page-status"><span class="status-end">{@render status()}</span></div>{/if}
+		{#if status || extras}<div class="files" data-testid="page-status">{#if extras}{@render pageActions()}{/if}{#if status}<span class="status-end">{@render status()}</span>{/if}</div>{/if}
 		<DocNotices {session} docs={[...docs, ...along()]} />
 		<main class="content">
 			{@render children()}
@@ -153,16 +149,9 @@
 	{/if}
 </div>
 
-{#snippet publishTab()}
-	<div class="publish" data-testid="publish-panel">
-		<div class="row">
-			<button type="button" onclick={() => session.publishAll()} data-testid="publish">
-				<Icon name="upload-cloud" />{publishLabel(toon)}{#if unpublished}<span class="dot" aria-hidden="true"></span>{/if}
-			</button>
-		</div>
-		{#if errorCount || warningCount}
-			<p class="counts"><span class:bad={errorCount > 0}>{m['creator.problems_errors']({ count: errorCount })}</span> · {m['creator.problems_warnings']({ count: warningCount })}</p>
-		{/if}
+<!-- the page's own actions (they lay in the bar's Publish menu until Publish became one dialog, RULES H18) -->
+{#snippet pageActions()}
+	<div class="page-actions" data-testid="page-actions">
 		{#if selection}
 			<p class="label">{selection.label}</p>
 			<div class="row wrap">
@@ -220,11 +209,11 @@
 		padding: 0;
 		max-width: none;
 	}
-	.publish {
+	.page-actions {
 		display: flex;
-		flex-direction: column;
+		flex-wrap: wrap;
+		align-items: center;
 		gap: var(--space-05);
-		padding: 0 var(--space-1) var(--space-1);
 	}
 	.row {
 		display: flex;
@@ -233,19 +222,9 @@
 	.row.wrap {
 		flex-wrap: wrap;
 	}
-	.dot {
-		width: 0.45rem;
-		height: 0.45rem;
-		border-radius: 50%;
-		background: var(--tool-warn);
-	}
-	.counts,
 	.label {
 		margin: 0;
 		color: var(--tool-muted);
-	}
-	.bad {
-		color: var(--tool-stop);
 	}
 	.pad {
 		padding: 1rem;

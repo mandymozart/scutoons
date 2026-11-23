@@ -3,6 +3,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { cdnFonts } from '@scutoons/tokens/vite';
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+import { xr8Engine } from './vite/xr8-engine.ts';
 import paraglide from './paraglide.config.js';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
 
@@ -52,6 +53,7 @@ export default defineConfig(({ command }) => ({
 	define: { __SW_OFF__: JSON.stringify(process.env.VITE_SW === 'off') },
 	plugins: [
 		liveIsolation,
+		xr8Engine(), // the image tracking's prebuilt files at /xr8/ (the XR mode loads them on its first start)
 		cdnFonts(), // @font-face from the CDN (VITE_CDN_URL), the bundled copy as fallback
 		sveltekit(),
 		paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })

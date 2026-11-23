@@ -72,7 +72,15 @@ pub struct Node {
     pub group: Option<usize>,
 }
 
+/// the id prefix of a folded group's pill (`group:<id>`): a node that stands for the group's members
+pub const PILL: &str = "group:";
+
 impl Node {
+    /// the signal a node is known by – its colour and its tone: its first outlet's, else its first inlet's
+    pub fn signal(&self) -> Option<Signal> {
+        self.outs.first().or(self.ins.first()).map(|p| p.signal)
+    }
+
     /// the signals of `pins`, each once, in the order they first come
     pub fn merged(pins: &[Pin]) -> Vec<Signal> {
         let mut out: Vec<Signal> = Vec::new();

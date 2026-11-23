@@ -13,6 +13,7 @@
 		"./tokens.css": "./tokens.css",
 		"./editor.css": "./editor.css",
 		"./tool-colours.css": "./tool-colours.css",
+		"./kit.css": "./kit.css",
 		"./fonts.css": "./fonts.css",
 		"./base.css": "./base.css",
 		"./tools.css": "./tools.css",

@@ -22,7 +22,7 @@ deck-native = { path = "../native", default-features = false, features = ["bundl
 # the Module workspace: a local build by the compile service's own rules (deck/build `local`), the descriptors
 scutoons-build = { path = "../build" }
 deck-catalog = { path = "../catalog" }
-deck-kit = { path = "../kit", features = ["editor"] }
+deck-kit = { path = "../kit", features = ["editor", "icons"] }
 deck-space = { path = "../space", default-features = false, features = ["being", "gpu", "native", "media"] }
 # the hardware video decoders (Media Foundation on Windows) for the Build cards' videos
 deck-media-hw = { path = "../media/hw" }
@@ -56,6 +56,8 @@ arboard = { version = "3", default-features = false }
 serde_json.workspace = true
 # #91: the Show and Perform workspaces draw deck-show's conductor; the relay's envelopes; show documents over /api/shows
 deck-show = { path = "../show" }
+# #763: the node view's painting, shared with the creator's Spores tab
+deck-spores = { path = "../spores" }
 # #531: the Session sheet – deck-ui's panel model, the viewer's address (deck-link `app_url`: DECK_APP, else scutoons.com)
 deck-ui = { path = "../ui" }
 # the editor's sign-in: the decks' handshake as the kind editor (sign_in.rs)

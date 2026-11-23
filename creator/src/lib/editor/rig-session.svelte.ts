@@ -5,12 +5,11 @@
 import { onMount } from 'svelte';
 import { emptyRig, policyOf, setPolicy, type ModuleFiles, type RigCoverage, type RigDesigner, type RigDoc, type RigFace } from '@scutoons/rig-designer';
 import { api, getDraft, library, putDraft } from '$lib/api.ts';
-import { publishItem } from '$lib/editor/publish-tree.ts';
 import type { EditTarget } from '$lib/editor/edit-key.ts';
 import { Autosaver } from '$lib/editor/autosaver.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { toast } from '$lib/toasts.ts';
-import { NO_RIG_LISTS, bundleRequest, coverageRequest, createRigStore, moduleIdsOf, rigKey, rigLists, templateRequest, type CatalogEntryLike, type RigLists, type RigResult } from '$lib/editor/rig-assign.ts';
+import { NO_RIG_LISTS, bundleRequest, coverageRequest, createRigStore, moduleIdsOf, rigLists, templateRequest, type CatalogEntryLike, type RigLists, type RigResult } from '$lib/editor/rig-assign.ts';
 
 /** the core's rig rules (shared/live-deck `assign`): JSON in and out, a throw carries the core's words */
 export interface RigRules {
@@ -67,9 +66,6 @@ export class RigSession {
 	}
 	get mine(): RigCoverage | null {
 		return this.coverage.find((c) => c.subject === this.subject) ?? null;
-	}
-	get draftWaiting(): boolean {
-		return !!this.lists.rigs.find((r) => r.id === this.subject)?.draft;
 	}
 
 	async load(): Promise<void> {
@@ -138,6 +134,16 @@ export class RigSession {
 		return ok ? { ok: true } : this.lastSave;
 	}
 
+	/** what the bar's one Publish asks of the rig page (RULES H18): the rig saved first, its lists read again after */
+	get publishHooks() {
+		return {
+			prepare: async () => !this.rig || (await this.flush()).ok,
+			published: async (result: { published: string[] }) => {
+				if (result.published.length) await this.loadLists();
+			}
+		};
+	}
+
 	create(): void {
 		this.change(emptyRig(this.subject));
 	}
@@ -152,17 +158,6 @@ export class RigSession {
 		this.saved = JSON.stringify(draft);
 		await this.loadLists();
 		return r;
-	}
-
-	/** the one Publish (publish-tree.ts): the rig with the drafts it plays, the checklist, the Log's Publishes lines */
-	async publish(): Promise<void> {
-		this.busy = true;
-		try {
-			const result = await publishItem(rigKey(this.subject));
-			if (result?.published.length) await this.loadLists();
-		} finally {
-			this.busy = false;
-		}
 	}
 
 	/** the first files of a new policy `module:<id>` for this rig, written by the core from its tracks (throws its words) */

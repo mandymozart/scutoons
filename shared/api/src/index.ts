@@ -37,7 +37,7 @@ export {
 	catalogDocKey,
 	needsReview
 } from './content.ts';
-export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
+export { createAssetLibrary, createLibraryApi, type AssetLibrary, type AssetLibraryPage, type LibraryApi, type LibraryApiOptions, type LibraryOptions, type XrExperienceAnswer } from './library.ts';
 export { createCraftsApi, craftName, type Craft, type CraftsApi, type MemberCraft, type MemberCrafts, type MemberInvite } from './crafts.ts';
 export { createLayoutsApi, type CraftLayout, type LayoutsApi, type MemberLayouts, type SavedLayout } from './layouts.ts';
 export { createDeviceSessionApi, type DeviceSession, type DeviceSessionApi, type MemberSession } from './device-session.ts';
@@ -226,6 +226,8 @@ export {
 	type MigrationStatement,
 	type MigrationStatus
 } from './dev.ts';
+// one level of the spore network (#763): a weave of spores and threads, generated from server/schema/api/spore-network.schema.json
+export type * as Spores from './spore-network.ts';
 // the address book's shape (#477), generated from server/schema/api/address-book.schema.json
 export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabels, Origin as AddressOrigin, OriginState as AddressOriginState } from './address-book.ts';
 // the stored scene document `scene:<id>` (#243), generated from server/schema/content/scene.schema.json (itself from deck-space's Rust)

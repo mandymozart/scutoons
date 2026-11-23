@@ -130,6 +130,37 @@ pub fn named(name: &str) -> Option<&'static str> {
 }
 
 /// the icon of a node view's kind (graph.rs `Node::kind`); one it does not know draws as a node
+/// the height of the icons rastered `side` px each into rows `w` px wide
+#[cfg(feature = "icons")]
+pub fn raster_height(w: u32, side: u32) -> u32 {
+    (ICONS.len() as u32).div_ceil(w / side) * side
+}
+
+/// Feather's icons (stroke 2.5, square caps) rastered white into `pixels` (rgba rows `w` px wide, their coverage in its
+/// alpha), `side` px each from the top; each icon's place in texture coordinates of the whole image (`h` high)
+#[cfg(feature = "icons")]
+pub fn raster(pixels: &mut [u8], (w, h): (u32, u32), side: u32) -> std::collections::HashMap<&'static str, egui::Rect> {
+    let cols = w / side;
+    let (wf, hf) = (w as f32, h as f32);
+    let mut icons = std::collections::HashMap::new();
+    for (i, (name, body)) in ICONS.iter().enumerate() {
+        let (x0, y0) = (i as u32 % cols * side, i as u32 / cols * side);
+        let svg = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"square\" stroke-linejoin=\"miter\">{body}</svg>");
+        let scale = (side - 4) as f32 / 24.0;
+        let mut map = resvg::tiny_skia::Pixmap::new(side, side).expect("an icon's pixmap");
+        if let Ok(tree) = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()) {
+            resvg::render(&tree, resvg::tiny_skia::Transform::from_translate(2.0, 2.0).pre_scale(scale, scale), &mut map.as_mut());
+        }
+        for (k, p) in map.pixels().iter().enumerate() {
+            let (px, py) = (x0 + k as u32 % side, y0 + k as u32 / side);
+            pixels[((py * w + px) * 4 + 3) as usize] = p.alpha();
+        }
+        let r = egui::Rect::from_min_max(egui::pos2((x0 as f32 + 0.5) / wf, (y0 as f32 + 0.5) / hf), egui::pos2(((x0 + side) as f32 - 0.5) / wf, ((y0 + side) as f32 - 0.5) / hf));
+        icons.insert(*name, r);
+    }
+    icons
+}
+
 pub fn of_kind(kind: &str) -> &'static str {
     match kind {
         "reader" => "book",

@@ -1,5 +1,6 @@
 import { untrack, type Snippet } from 'svelte';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { close, closeAll, closeOthers, EMPTY, frontTab, keepIn, readTabs, rename, retarget, stepTab, visit, type Tab, type TabsState } from './tabs.ts';
 import { isGone, workspaceOf } from './address.ts';
@@ -33,20 +34,29 @@ export function writeJson(key: string, value: unknown): void {
 
 /**
  * What the open item's page hands the shell: whether an autosave runs (the status bar's "saving…") and ↶ ↷ for the bar,
- * its Publish for the bar's Publish menu and its documents for the History view. A page without documents of its own
- * (the scenes, the toon board) hands only its Publish.
+ * what the bar's one Publish dialog asks of it (RULES H18) and its documents for the History view.
  */
 export interface PageDoc {
 	saving?: boolean;
 	errors?: number;
 	warnings?: number;
-	/** something saved is not live yet; false hides the bar's Publish, unknown (not given) keeps it */
+	/** something saved is not live yet (the bar's Publish dot) */
 	unpublished?: boolean;
-	publish?: Snippet;
+	/** before the Publish dialog sends: what waits is saved (false: it stops – a conflict, a failed save) */
+	prepare?: () => Promise<boolean>;
+	/** after a publish: the page reads again what went live and shows its own outcome */
+	published?: (result: { published: string[]; refused: PublishRefusal[] }) => void | Promise<void>;
+	/** errors that make Publish ask once more before it sends (the problem list's) */
+	blocking?: number;
+	/** files the page holds back: unticked in the dialog, the reason as their hover text */
+	held?: { key: string; reason: string }[];
 	docs?: ContentDoc[];
 	undo?: () => void;
 	redo?: () => void;
 }
+
+/** a line of the ☰ menu that opens its own panel beside it */
+export type MenuSub = 'views' | 'help' | 'go';
 
 /**
  * The creator's shell (research/redesign/PLAN.md §2.4–§2.5, panels.html): the open tabs (the front one is the URL), this
@@ -69,11 +79,16 @@ class Shell {
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
-	/** the dashboard lies over everything (the menu button, Esc back); `views`: with the front workspace's Views open */
-	dashboard = $state<false | 'cards' | 'views'>(false);
-	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
+	/** the switcher lies on the overlay level (Ctrl K, ⌘K, Alt Tab where the page gets it, the workspace row's ⌄; Esc back) */
+	dashboard = $state<false | 'cards'>(false);
+	/** the ☰ menu is open, and which of its lines has its panel open beside it */
+	menu = $state(false);
+	menuSub = $state<MenuSub | null>(null);
+	/** Search lies on the overlay level (Alt Space, Cmd Space; Esc closes) */
 	launcher = $state(false);
-	/** the user menu over everything: a swipe up from the bottom edge, or the account icon */
+	/** what Search starts with (a key typed in the switcher) */
+	searchSeed = $state('');
+	/** the user menu under the account icon */
 	userMenu = $state(false);
 	/** the launcher's recent picks, newest first */
 	picks = $state<LaunchPick[]>(typeof localStorage === 'undefined' ? [] : readPicks(readJson(PICKS_KEY)));
@@ -194,17 +209,33 @@ class Shell {
 		this.change({ views });
 	}
 
-	/** the launcher over everything, or away again – the keys call it, and the pad's Y once the shell reads a pad */
-	toggleLauncher(open = !this.launcher) {
+	/** Search on the overlay level, or away again – the keys call it, and the pad's Y once the shell reads a pad; it takes the switcher's place */
+	toggleLauncher(open = !this.launcher, seed = '') {
+		this.searchSeed = open ? seed : '';
+		if (open) this.dashboard = false;
 		this.launcher = open;
+	}
+	/** the switcher on the overlay level, or away again; it takes Search's place */
+	toggleSwitcher(open = !this.dashboard) {
+		if (open) this.launcher = false;
+		this.dashboard = open ? 'cards' : false;
 	}
 	remember(entry: LaunchEntry) {
 		this.picks = remember(this.picks, entry);
 		writeJson(PICKS_KEY, this.picks);
 	}
 
+	/** the ☰ menu with Views open beside it (Alt V, the launcher's Views) */
+	openViews() {
+		this.dashboard = false;
+		this.menu = true;
+		this.menuSub = 'views';
+	}
+
 	open(tab: string) {
 		this.dashboard = false;
+		this.menu = false;
+		this.menuSub = null;
 		this.wanted = tabIdOf(tab);
 	}
 }

@@ -1,15 +1,14 @@
-// What is saved but not live, in every toon this member works on (the dashboard's Not published, the bar's Publish when
-// nothing is open): the one collector's list (publish-tree.ts `pendingFiles`, scenes and shows included) and its Publish.
+// What is saved but not live, in every toon this member works on (the switcher's Not published, the bar's Publish dot):
+// the one collector's list (publish-tree.ts `pendingFiles`, scenes and shows included). Sending it out is the bar's
+// Publish dialog (publish-flow.svelte.ts, RULES H18).
 import type { ContentIndexEntity } from '@scutoons/api';
-import { pendingFiles, publishAndLog } from '$lib/editor/publish-tree.ts';
-import { m } from '$lib/paraglide/messages.js';
+import { pendingFiles } from '$lib/editor/publish-tree.ts';
 import { shared } from '$lib/utils/shared.ts';
 
 export type ToonRef = { id: string; name: string };
 
 class NotPublished {
 	list = $state.raw<ContentIndexEntity[]>([]);
-	busy = $state(false);
 	#for = '';
 
 	/** the list for these toons (once per set of toons, unless `again`) */
@@ -22,16 +21,6 @@ class NotPublished {
 			this.list = list.sort((a, b) => (b.latest_at ?? '').localeCompare(a.latest_at ?? ''));
 		} catch {
 			this.list = [];
-		}
-	}
-
-	/** the list to tick, everything not live in these toons */
-	async publishAll(toons: ToonRef[]): Promise<void> {
-		this.busy = true;
-		try {
-			if (await publishAndLog({ kind: 'all', toons }, m['creator.publish_tree_title_all']())) await this.load(toons, true);
-		} finally {
-			this.busy = false;
 		}
 	}
 }

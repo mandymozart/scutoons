@@ -23,6 +23,8 @@
   --kit-icon:1rem;--kit-icon-alone:1.15rem;--kit-icon-gap:calc(var(--editor-pad)*.6);--control-height:var(--editor-row)}
 /* ── palette D: the roles, pointed at existing tokens (no new colour). Set on every theme root so a day frame resolves its own. */
 :root,[data-theme]{
+  --tool-popover:color-mix(in srgb,var(--tool-ground) 85%,transparent);      /* no ground is grey (owner 2026-11-24): a menu's ground is the stage colour, see-through */
+  --tool-panel:color-mix(in srgb,var(--tool-ground) 85%,transparent);        /* a panel's ground likewise: the stage colour at the same one strength (kit/tokens.toml: surface × panel_opacity) */
   --d-on:var(--tool-text);                                             /* on, active, picked, a tick, a link, an insert mark */
   --d-focus:var(--tool-text);                                          /* the focus ring (note 4) */
   --d-on-ground:color-mix(in srgb,var(--tool-text) 12%,transparent);   /* the faint ground under an on chip / tile (H13 "faint ground") */
@@ -123,6 +125,50 @@ section.part{padding:1.3rem 0 1.5rem;border-top:1px solid var(--tool-line)}
 .fld.on{border-color:var(--d-on)}
 .fld.x{color:var(--tool-muted);opacity:.55}
 .fld.err{border-color:var(--d-error)}
+/* a quiet select – a filter or a sort in a toolbar: no box at rest, a rounded border on hover and while open, as tabs have (H4). Approved 2026-11-24 ("Yes, quiet"); the boxed Select above is for a value set in a form. */
+.fld.q{width:auto;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
+.fld.q.h{border-color:var(--d-edge)}
+.fld.q.on{border-color:var(--d-on)}
+/* spores – the canvas's parts, one definition for both apps (owner 2026-11-24): the dotted ground, the spore's card and its states, its face, a run's marks, a cable, a take */
+/* the Spores view's ground and a group (deck: show/node_paint.rs – the latent grid under the pointer, a group's dots and edge in its colour, its head: fold, swatch, name) */
+.ks-ground{display:block;position:relative;width:100%;height:3.6rem;border-radius:.4rem;background-color:var(--editor-stage,#000);background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1rem 1rem;overflow:hidden}
+.ks-ground.rev::after{content:'';position:absolute;left:22%;top:12%;width:56%;height:76%;border-radius:.4rem;background-image:radial-gradient(circle,color-mix(in srgb,var(--tool-text) 70%,transparent) 1px,transparent 1.2px);background-size:1rem 1rem;background-position:-.25rem .2rem;-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%);mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%)}
+.ksg{display:block;position:relative;width:100%;height:3.6rem;border:1px solid color-mix(in srgb,var(--gc,var(--tool-text)) 45%,transparent);border-radius:.6rem;background-image:radial-gradient(circle,color-mix(in srgb,var(--gc,var(--tool-text)) 32%,transparent) 1px,transparent 1.2px);background-size:.8rem .8rem}
+.ksg .gh{position:absolute;left:.4rem;top:.2rem;display:flex;align-items:center;gap:.3rem;font-size:.72rem;color:var(--gc,var(--tool-text));white-space:nowrap}
+.ksg .gh i{width:.5rem;height:.5rem;border-radius:50%;background:currentColor}
+.ksg.h{border-color:var(--gc,var(--tool-text))}
+.ksg.fold{height:1.5rem;background-image:none}
+/* corrected after the deck's check (2026-11-24): a spore's outline is the colour of the signal it gives (55 %; a far one 35 %), its head is tinted 9 % toward it over a hairline; pins are solid; the plain canvas has no dots */
+.ks{border-color:color-mix(in srgb,var(--sc,var(--tool-muted)) 55%,transparent);border-radius:.54rem}
+.ks .t{height:2rem;background:color-mix(in srgb,var(--sc,var(--tool-muted)) 9%,transparent);border-bottom:1px solid color-mix(in srgb,var(--sc,var(--tool-muted)) 30%,transparent)}
+.ks .t .kw{margin-left:auto;color:var(--tool-muted);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase}
+.ks.h{border-color:var(--sc,var(--tool-muted))}
+.ks.on{border-color:var(--d-on);background:var(--tool-selected)}
+.ks.fl{box-shadow:0 0 0 3px color-mix(in srgb,var(--sc,var(--tool-muted)) 45%,transparent)}
+.ks.far{border-color:color-mix(in srgb,var(--sc,var(--tool-muted)) 35%,transparent)}
+.ks.free{border-style:dashed;border-color:var(--tool-line);background:none} .ks.free .t{background:none;border-bottom:0}
+.ks .pn{display:flex;align-items:center;gap:.3rem;height:1.25rem;padding:0 .5rem 0 0;margin-left:-.5rem;color:var(--tool-muted);font-size:.68rem}
+.ks .pn.o{flex-direction:row-reverse;padding:0 0 0 .5rem;margin:0 -.5rem 0 0}
+.ks.pins{overflow:visible}
+.ks-ground.plain{background-image:none}
+/* a group as the deck draws it (show/canvas.rs, nodes.rs): its dots 1 rem apart, radius 0.72 rem; folded it is a pill node tinted in its colour; its colour is one of six */
+.ksg{border-radius:.72rem;background-size:1rem 1rem}
+.ksg.fold{height:1.7rem;border-radius:.85rem;background-image:none;background-color:color-mix(in srgb,var(--gc,var(--tool-text)) 9%,transparent)}
+.ksw{display:inline-flex;gap:.2rem;vertical-align:middle;margin-left:.2rem} .ksw i{width:.55rem;height:.55rem;border-radius:50%}
+.ks-dots{display:block;width:100%;height:3.2rem;border-radius:.4rem;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1rem 1rem}
+.ks{display:inline-flex;flex-direction:column;width:100%;max-width:9rem;border:var(--editor-edge) solid var(--tool-line);border-radius:.45rem;background:var(--tool-control);font-size:.78rem;text-shadow:none;overflow:hidden}
+.ks .t{display:flex;align-items:center;gap:.3rem;height:1.55rem;padding:0 .5rem;white-space:nowrap}
+.ks .t .kc,.ks .t .m{margin-left:auto}
+.ks .fc{display:grid;place-items:center;height:2.6rem;margin:0 .35rem;border:1px solid var(--tool-line);border-radius:.2rem;color:var(--tool-muted);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 8%,transparent) 5px 6px)}
+.ks .s{height:1.25rem;padding:0 .5rem;color:var(--tool-muted);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ks.h{border-color:var(--tool-muted)} .ks.on{border-color:var(--d-on);background:var(--tool-selected)} .ks.x{opacity:.5} .ks.free{border-style:dashed;background:none}
+.ks .m{display:inline-grid;place-items:center;width:.85rem;height:.85rem;font-size:.7rem;line-height:1}
+.ks .m.wait::before{content:'';width:.45rem;height:.45rem;border-radius:50%;border:1px solid var(--tool-muted)}
+.ks .m.run::before{content:'';width:.6rem;height:.6rem;border-radius:50%;border:1.5px solid var(--tool-text);border-right-color:transparent}
+.ks .m.done{color:var(--d-ok)} .ks .m.fail{color:var(--d-error)}
+.kst{display:inline-flex;flex-direction:column;align-items:center;gap:.25rem;font-size:.7rem;color:var(--tool-muted)}
+.kst i{display:block;width:1.5rem;height:2.9rem;border:1px solid var(--tool-line);border-radius:.2rem;background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 8%,transparent) 5px 6px)}
+.kst.h i{border-color:var(--tool-muted)} .kst.on{color:var(--tool-text)} .kst.on i{outline:2px solid var(--d-on);outline-offset:1px}
 .sel-text{background:var(--d-selection);color:var(--d-selection-ink)}
 /* Menu, MenuItem, MenuHead */
 .km{display:inline-flex;flex-direction:column;width:13rem;padding:calc(var(--editor-pad)/2);border:var(--editor-edge) solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none;--kit-h:var(--control-height);--kit-r:var(--editor-radius);--kit-icon-in:var(--kit-icon)}
@@ -260,6 +306,14 @@ html:is([data-p15="b"],[data-p15="c"]) .fld.err::after{content:'✕';margin-left
    and the error vermillion darkened to #8F3300 so it stands clearly darker than the warning and the blue. */
 :root,[data-theme]{--cb-ok:#56B4E9;--cb-warn:#F0E442;--cb-err:#D55E00}
 [data-theme="day"]{--cb-ok:#0072B2;--cb-warn:#B07800;--cb-err:#8F3300}
+/* what keeps its colour (RULES H11, 2026-11-24): signals – the deck's table, deck/kit/src/base/signal.rs – and outlet types – started in the #703 draft's lanes (research/scenes/scenes-drafts.html), to tune */
+:root{--sig-asset:var(--tool-muted);--sig-event:#f3f3f0;--sig-control:#46d36a;--sig-clock:#e5484d;--sig-audio:#19b8d8;--sig-picture:#6f9bff;--sig-address:#b46bff;--sig-vote:#ffb020;--sig-scene:#ff6b8a;--sig-far:#a7af9b;
+  --out-page:#7cc4ff;--out-stage:#ffb86b;--out-target:#b99cff;--out-light:#f2df6f}
+[data-theme="day"]{--sig-event:#22271e;--sig-control:#2f9e4a;--sig-clock:#c23238;--sig-audio:#0089a8;--sig-picture:#3a63c9;--sig-address:#8a4fd0;--sig-vote:#b07800;--sig-scene:#c8385a;--sig-far:#6b7461;
+  --out-page:#2a7fc0;--out-stage:#c46a12;--out-target:#7448d6;--out-light:#a88a00}
+.cc{display:inline-flex;align-items:center;gap:.35rem;margin:0 .7rem .25rem 0;font-size:var(--editor-small);white-space:nowrap}
+.cc svg{width:.8rem;height:.8rem;flex:none}
+.cc i{width:.62rem;height:.62rem;border-radius:.15rem;flex:none}
 /* 16 · grounds. B + C: the primary keeps its full fill in every state, hover / press = a 1px text-colour ring (no dimming) */
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary:is(.h,.on){background:var(--d-primary)}
 html:is([data-p16="b"],[data-p16="c"]) .kb.primary.h{box-shadow:0 0 0 1px var(--tool-ground),0 0 0 2px var(--tool-text)}
@@ -349,6 +403,11 @@ button.od{border:0;cursor:pointer}
   <div class="top">
     <h1>UI kit · palette D</h1><span class="label">lap 2 · #626 · one look per component · night first · pick in part 4 or on a yellow mark</span>
   </div>
+  <div class="always" style="margin:.2rem 0 1.2rem;padding:.7rem .9rem;border:var(--editor-edge) solid var(--tool-text);border-radius:var(--kit-radius-box)">
+    <div class="label" style="margin-bottom:.4rem">always · the kit's dogma</div>
+    <div style="font-size:var(--editor-title)">Grounds are translucent and never grey.</div>
+    <div class="small muted" style="margin-top:.35rem">Every ground – a control's, a panel's, a menu's, a popover's, a dialog's, a box's, a card's – is see-through, the stage showing through. An opaque grey fill does not exist. A grey ground in a draft or a capture is not the reference (your word, 2026-11-24).<br>The stage is black by night and white by day · a panel and a menu are the stage colour at one strength (0.85, one token) · a control is the text colour at 6 %, hover 10 %, selected 16 % · words on a see-through ground keep their ink ring.</div>
+  </div>
   <div class="weak" id="weak"></div>
 
   <section class="part">
@@ -361,7 +420,7 @@ button.od{border:0;cursor:pointer}
     </div>
     <div class="label" style="margin:1.6rem 0 .4rem" id="grounds">grounds <button class="od" data-n="16">16</button> · grey → see-through · picked: <span id="g16"></span></div>
     <div class="two"><div class="tbl" style="grid-template-columns:8rem 1fr 1fr 1fr" id="gtok"></div>
-      <div class="small muted" style="align-self:end">Menus and popovers keep one opaque ground (the surface) in every option, so their words stay legible.<br>Disabled = the whole control at a lower opacity, never a grey fill.</div></div>
+      <div class="small muted" style="align-self:end">No ground is grey (your word, 2026-11-24): menus, popovers and dialogs are see-through too – the stage colour at 85 % (a first value, to refine), a panel the same: one strength, one token.<br>Disabled = the whole control at a lower opacity, never a grey fill.</div></div>
     <div class="gspec" style="margin-top:.8rem" id="gspec-night" data-theme="night"></div>
     <div class="gspec" style="margin-top:.8rem" id="gspec-day" data-theme="day"></div>
     <div class="label" style="margin:1.6rem 0 .4rem" id="cbtokens">colour-blind tokens <button class="od" data-n="15">15</button> · a mode a member turns on in Settings · the default stays green / amber / red</div>
@@ -503,7 +562,7 @@ document.getElementById('oldnew').innerHTML = `<div class="hd label">token</div>
 
 /* D's tokens: [role, source, the CSS var to read]. The grounds are see-through (point 16 B, owner 2026-11-24): the text colour at a low alpha. */
 const DTOK = [
-  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'surface · see-through', '--tool-panel'], ['popover · menu', 'surface (opaque)', '--tool-popover'],
+  ['ground', 'stage (white by day)', '--tool-ground'], ['panel', 'stage · see-through 85 %', '--tool-panel'], ['popover · menu', 'stage · see-through 85 %', '--tool-popover'],
   ['control', `text ${A16.control}%`, '--tool-control'], ['hover', `text ${A16.hover}%`, '--tool-hover'], ['selected', `text ${A16.selected}%`, '--tool-selected'],
   ['within (a track)', `text ${A16.within}%`, '--tool-within'], ['head (fold)', `text ${A16.head}%`, '--tool-head'], ['line', 'line', '--tool-line'],
   ['text = on · focus · active · link', 'text', '--tool-text'], ['muted', 'muted', '--tool-muted'],
@@ -567,6 +626,24 @@ const tabRow = cls => `<span class="kp" style="--pill:2.4rem"><span class="kt">T
 const ibtn = (cls, n = 'eye') => `<span class="kib ${cls}">${ic(n)}</span>`;
 const ingroup = cls => `<span class="kp"><span class="kib">${ic('pointer')}</span><span class="kib ${cls}">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>`;
 const btn = (v, cls, w) => `<span class="kb ${v} ${cls}">${w}</span>`;
+const kgroup = (cls, col) => `<span class="ksg ${cls}" ${col ? `style="--gc:${col}"` : ''}><span class="gh">${cls === 'fold' ? '›' : '⌄'}<i></i>from the shot</span></span>`;
+/* a plug – a port's pin: always filled, in its signal's shape and colour (deck-kit base/signal.rs: five shapes for nine signals; the ring is hollow by shape). st: rest · hover (a soft disc behind it) · may (a cable in the hand may go in: a disc and a ring) · off (new – the deck has none) */
+const kpin = (k, st) => { const c = `var(--sig-${k})`;
+  const sh = k === 'event' ? `<path d="M5.4 4.4L12.4 8L5.4 11.6Z" fill="${c}" stroke="${c}" stroke-width="1" stroke-linejoin="round"/>` : k === 'control' ? `<circle cx="8" cy="8" r="3" fill="${c}"/>` : k === 'picture' || k === 'asset' ? `<rect x="5" y="5" width="6" height="6" fill="${c}"/>` : k === 'address' ? `<path d="M8 4L12 8L8 12L4 8Z" fill="${c}"/>` : `<circle cx="8" cy="8" r="3" fill="none" stroke="${c}" stroke-width="1.5"/>`;
+  return `<svg viewBox="0 0 16 16" style="width:1.1rem;height:1.1rem;flex:none;opacity:${st === 'off' ? .4 : 1}"><title>${k}</title>${st === 'hover' ? `<circle cx="8" cy="8" r="7" fill="${c}" opacity=".22"/>` : ''}${st === 'may' ? `<circle cx="8" cy="8" r="7" fill="${c}" opacity=".25"/><circle cx="8" cy="8" r="5.4" fill="none" stroke="${c}" stroke-width="1" opacity=".9"/>` : ''}${sh}</svg>`; };
+const kpins = (st) => `<span style="display:inline-flex;gap:.3rem">${['event', 'control', 'picture', 'address', 'far'].map(k => kpin(k, st)).join('')}</span>`;
+/* a pore – for organic matter, a whole being (owner 2026-11-22); its shape is a proposal: a round opening, wider than a plug */
+const kpore = (wired) => `<svg viewBox="0 0 22 22" style="width:1.4rem;height:1.4rem"><circle cx="11" cy="11" r="8.5" fill="none" stroke="var(--tool-text)" stroke-width="1.2" opacity=".55"/><circle cx="11" cy="11" r="5" fill="${wired ? 'var(--tool-text)' : 'var(--tool-popover)'}" stroke="var(--tool-text)" stroke-width="1.3"/></svg>`;
+/* a cable – hangs under its ends, deeper the farther apart (deck-kit base/wire.rs); st: rest · hover · lit (beads run) · hand (in the hand, dashed) · no (refused) */
+/* a spore's card as the deck draws it (show/node_card.rs): o.sig = the signal it gives; o.form: 'pins' (its pins on the edge with their names), 'head' (collapsed) */
+const ksp = (cls, o = {}) => { const sig = o.sig === undefined ? 'picture' : o.sig;
+  return `<span class="ks ${cls} ${o.form === 'pins' ? 'pins' : ''}" ${sig ? `style="--sc:var(--sig-${sig})"` : ''}><span class="t">${o.t || 'image'}${o.hook ? `<span class="kc">${ic('zap')}hook</span>` : ''}${o.kind ? `<span class="kw">${o.kind}</span>` : ''}${o.mark ? `<span class="m ${o.mark}">${o.mark === 'done' ? '✓' : o.mark === 'fail' ? '✕' : ''}</span>` : ''}</span>${o.form === 'head' ? '' : `${o.face ? `<span class="fc">${o.face}</span>` : ''}${o.form === 'pins' ? `<span class="pn">${kpin('asset', 'wired')}prompt</span><span class="pn o">${kpin('picture', 'wired')}picture</span>` : `<span class="s">${o.s || 'Luma – by hand'}</span>`}`}</span>`; };
+/* a cable (deck-kit base/wire.rs, draw.rs): it hangs under its ends, with two soft glows under it; the plugs are its ends. st: rest (idle: thin, 32 %) · hover (a wide halo, the line unchanged) · lit (a stream of beads) · pulse (one bead with a halo) · no (refused: the reason as words at the pointer) · hand (in the hand: solid, a dot at the pointer) */
+const kcab = (st) => { const c = 'var(--sig-picture)', inHand = st === 'hand' || st === 'no', d = inHand ? 'M8 7 C 30 24, 66 26, 90 19' : 'M8 7 C 34 25, 86 25, 112 7', idle = st === 'rest';
+  return `<svg viewBox="0 0 120 34" style="width:7.5rem;height:2.1rem"><path d="${d}" fill="none" stroke="${c}" stroke-width="5" opacity=".07" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="2.8" opacity=".1" stroke-linecap="round"/>${st === 'hover' ? `<path d="${d}" fill="none" stroke="${c}" stroke-width="7" opacity=".18" stroke-linecap="round"/>` : ''}<path d="${d}" fill="none" stroke="${c}" stroke-width="${idle ? 1 : st === 'pulse' ? 1.6 : st === 'lit' ? 1.5 : 1.25}" opacity="${idle ? .32 : 1}"/>${st === 'lit' ? [[30, 17.5], [60, 20.5], [90, 17.5]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.7" fill="${c}"/>`).join('') : ''}${st === 'pulse' ? `<circle cx="60" cy="20.5" r="5.5" fill="${c}" opacity=".25"/><circle cx="60" cy="20.5" r="2.3" fill="${c}"/>` : ''}
+    <rect x="5" y="4" width="6" height="6" fill="${c}"/>${inHand ? `<circle cx="90" cy="19" r="2.2" fill="${c}"/>${st === 'no' ? `<text x="96" y="31" font-size="6.5" fill="var(--tool-muted)" font-family="var(--editor-sans)" text-anchor="end">the reason, in words</text>` : ''}` : `<rect x="109" y="4" width="6" height="6" fill="${c}"/>`}</svg>`; };
+const kcable = (lit) => `<svg viewBox="0 0 120 26" style="width:7.5rem;height:1.6rem"><path d="M8 19 C 48 19, 72 7, 112 7" fill="none" stroke="var(--sig-picture)" stroke-width="${lit ? 1.9 : 1.1}" opacity="${lit ? 1 : .6}"/><rect x="2" y="15" width="8" height="8" fill="var(--tool-popover)" stroke="var(--sig-picture)" stroke-width="1.4"/><rect x="110" y="3" width="8" height="8" fill="${lit ? 'var(--sig-picture)' : 'var(--tool-popover)'}" stroke="var(--sig-picture)" stroke-width="1.4"/></svg>`;
+const ktake = (cls) => `<span class="kst ${cls}"><i></i>take 2</span>`;
 const chip = (cls, w = 'Voice') => `<span class="kc ${cls}">${w}</span>`;
 const fld = (cls, kind) => kind === 'search' ? `<span class="fld ${cls}">${ic('search')}<span class="ph">Find</span></span>` : kind === 'select' ? `<span class="fld sel ${cls}">Night</span>` : `<span class="fld ${cls}">crow-fox</span>`;
 const mi = (cls, w = 'Night', tick = false) => `<span class="km" style="width:auto;padding:2px"><span class="kmi lone ${cls}"><span class="tick ${tick ? 'lit' : ''}"></span><span class="w">${w}</span></span></span>`;
@@ -608,6 +685,7 @@ const rows = () => [
   comp('Field', '', [fld(''), fld('h'), fld('on'), fld('f') + od(4), fld('x'), NA, `${fld('err')}${capt('error = the stop outline (H10)')}`]),
   comp('Search', capt('says "Find"'), [fld('', 'search'), fld('h', 'search'), NA, fld('f', 'search'), fld('x', 'search'), NA, `<span class="fld">crow-<span class="sel-text">fox</span></span>${od(8)}`]),
   comp('Select', '', [fld('', 'select'), fld('h', 'select'), fld('on', 'select'), fld('f', 'select'), fld('x', 'select'), NA, capt('open = the text-colour line, the chevron up')]),
+  comp('Select quiet', capt('a filter or sort · H4'), [fld('q', 'select'), fld('q h', 'select'), fld('q on', 'select'), fld('q f', 'select'), fld('q x', 'select'), NA, capt('no box at rest · a rounded border on hover and open, as tabs – approved 2026-11-24')]),
   comp('MenuItem', capt('tick = text dot'), [mi(''), mi('h'), mi('', 'Night', true), mi('f'), mi('x', 'Day'), NA, `<span class="km" style="width:12rem"><span class="kmh">Theme</span><span class="kmi"><span class="tick lit"></span><span class="w">Night</span></span><span class="kmi h"><span class="tick"></span><span class="w">Day</span></span><hr><span class="kmi">${ic('settings')}<span class="w">Settings …</span><span class="kbd">Ctrl ,</span></span><span class="kmi x">${ic('book')}<span class="w">Docs ↗</span></span></span>`]),
   comp('ListRow', od(3), [lrow(''), lrow('h'), lrow('on'), lrow('f'), lrow('x'), `${lrow('g')}<span class="insert" style="width:10.6rem"></span>`, `${lrow('on f')}${capt('selected + focus')}`]),
   comp('Tree row', od(11), [trow(''), trow('h'), trow('on'), trow('f'), trow('x'), trow('g'),
@@ -621,6 +699,18 @@ const rows = () => [
   comp('Link', '', [`<span class="lnk">Open in the deck</span>`, `<span class="lnk h">Open in the deck</span>`, NA, `<span class="lnk f">Open in the deck</span>`, `<span class="lnk x">Open in the deck</span>`, NA, capt('no hue: the underline says link')]),
   comp('Status bar', od(7) + od(15), [stb('none', 'No messages yet', '0 · 0'), stb('none', 'No messages yet', '0 · 0', 'h'), NA, NA, NA, NA,
     `${stb('ok', 'Saved · giantpopstar')}${stb('warn', 'Fireface not found', '0 errors · <span class="c-warn">1 warning</span>')}${stb('err', 'Publish failed', '<span class="c-err">1 error</span> · <span class="c-warn">7 warnings</span>')}`]),
+  comp('Signals', capt('keep their colour · H11'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['event','M2 1.5L11 6L2 10.5Z'],['control','dot'],['clock','dot'],['audio','M2 2h8v8H2Z'],['picture','M2 2h8v8H2Z'],['address','M6 1L11 6L6 11L1 6Z'],['vote','dot'],['scene','M2 2h8v8H2Z'],['far','ring']].map(([k, d]) => `<span class="cc"><svg viewBox="0 0 12 12">${d === 'dot' ? `<circle cx="6" cy="6" r="3.6" fill="var(--sig-${k})"/>` : d === 'ring' ? `<circle cx="6" cy="6" r="4" fill="none" stroke="var(--sig-${k})" stroke-width="1.6"/>` : `<path d="${d}" fill="var(--sig-${k})"/>`}</svg>${k}</span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('ports, pins and cables – the deck’s table; the shape tells the kind too')]),
+  comp('Outlet types', capt('get colours · to tune'), [`<span style="display:flex;flex-wrap:wrap;width:44rem">${[['page', 'the reader’s page'], ['stage', 'a deck’s screen or speaker'], ['target', 'an XR scene'], ['light', 'a device: DMX …']].map(([k, w]) => `<span class="cc"><i style="background:var(--out-${k})"></i>${k}<span class="cap" style="margin-left:.2rem">${w}</span></span>`).join('')}</span>`, NA, NA, NA, NA, NA, capt('decided 2026-11-24; these four are the start from the #703 draft – the list and the values are open')]),
+  comp('Spores view', capt('its ground'), [`<span class="ks-ground"></span>`, `<span class="ks-ground rev"></span>`, NA, NA, NA, `<span class="ks-ground plain"></span>`, capt('a faint ground of dots across the whole canvas (decided 2026-11-24); a group’s dots lie on top in its colour; under what the pointer is on, the dots come up brighter in that thing’s colour and follow it – no blur, off with reduce motion. Last cell: the deck today, no dots on the plain canvas')]),
+  comp('Group', capt('a frame'), [kgroup('', '#5fb3ff'), kgroup('h', '#5fb3ff'), kgroup('', '#f2b84b'), NA, NA, kgroup('fold', '#5fb3ff'), capt(`round its spores, one step out (two on top): its dots and its edge (45 %) in its colour; its head – fold, swatch, name, renamed in place. Its colour is one of six, the first unused; the swatch goes to the next <span class="ksw">${['#5fb3ff', '#7fd68a', '#f2b84b', '#e07ad6', '#ff7a6b', '#9a8cff'].map(c => `<i style="background:${c}"></i>`).join('')}</span>. Hover (second) is new in the deck. Folded it is a pill spore tinted in its colour`)]),
+  comp('Spore', capt('a card'), [ksp(''), ksp('h'), ksp('on'), ksp('fl'), ksp('x'), ksp('free', { t: 'sb-25-1', s: 'a free item', sig: null }), capt('its outline is the colour of the signal it gives – muted when it gives none –, its head tinted toward it. Rest · hover (new in the deck) · selected: the text colour (the deck’s cyan ring goes) · focus: a flash, a ring closing in · off · a free item')]),
+  comp('Spore · forms', capt('as the deck'), [ksp('', { form: 'pins', kind: 'hook' }), ksp('', { form: 'head' }), ksp('far', { s: 'from far' }), NA, NA, NA, capt('with its pins on the edge, their names beside them · collapsed to its head · from far: a fainter outline')]),
+  comp('Spore · face', capt('its result'), [ksp('', { face: 'pending', hook: 1 }), NA, ksp('on', { face: 'take 2', hook: 1 }), NA, NA, NA, capt('a spore shows its result as its face (the deck’s card has a preview picture today); a hooked one carries the hook chip; its driver: Automatic or picked')]),
+  comp('Spore · run', capt('its marks'), [ksp('', { mark: 'wait' }), ksp('', { mark: 'run' }), ksp('', { mark: 'done' }), ksp('', { mark: 'fail' }), NA, NA, capt('waiting · running · done · failed – new: the deck knows a cable’s activity today, not a spore’s run; comes with the generators')]),
+  comp('Plug', capt('a port’s pin'), [kpins('wired'), kpins('hover'), NA, NA, kpins('off'), kpins('may'), capt('always filled, in its signal’s shape and colour – five shapes for the nine signals (event · value, clock, vote · audio, picture, scene · address · far). Hover: a soft disc behind it · off: new, the deck has none · while a cable is in the hand, the plugs it may go into carry a disc and a ring')]),
+  comp('Pore', capt('organic matter'), [kpore(false), NA, kpore(true), NA, NA, NA, capt('where a whole being passes – combined, complex data; a picture or a file is data and goes through a plug (decided 2026-11-22). The shape is a proposal: a round opening, wider than a plug')]),
+  comp('Cable', capt('by signal'), [kcab('rest'), kcab('hover'), kcab('lit'), kcab('pulse'), kcab('no'), kcab('hand'), capt('hangs under its ends over two soft glows; the plugs are its ends. Idle: thin and faint · hover: a wide halo · lit: a stream of slow beads, or one pulse with a halo · refused: the reason as words at the pointer, the cable stays as it is · in the hand: solid, a dot at the pointer. Also: an event’s cable is heavier; a value tag; ctrl + right drag cuts (a stroke in the error colour); a spore dropped on a cable stands between its ends')]),
+  comp('Take', capt('pick one'), [ktake(''), ktake('h'), ktake('on'), NA, NA, NA, capt('a run’s takes at the output; the picked one has the ring – “Assign” puts it into the slot')]),
   comp('Deck stage', capt('live · out · cables') + od(14), [STAGE14, NA, NA, NA, NA, NA, capt('not a UI state – proposal')]),
 ];
 const renderGrid = () => { document.getElementById('cg').innerHTML = `<div class="ch label">component</div>${COLS.map(c => `<div class="ch label">${c}</div>`).join('')}` + rows().join(''); };
@@ -688,7 +778,7 @@ const GTOK = [
   ['within (track)', WAS['--tool-within'].join(' · '), `text ${A16.within}%`, 'none, a line'],
   ['head (fold)', WAS['--tool-head'].join(' · '), `text ${A16.head}%`, 'none'],
   ['primary hover · press', 'the fill dims 85% · 70%', 'full fill + 1px text ring', 'as B'],
-  ['popover · menu', pairOf('--tool-popover'), 'stays opaque', 'stays opaque'],
+  ['popover · menu', pairOf('--tool-popover'), 'the stage at 85 %', 'the stage at 85 %'],
 ];
 document.getElementById('gtok').innerHTML = `<div class="hd label">token</div><div class="hd label">A · grey</div><div class="hd label">B · see-through</div><div class="hd label">C · line only</div>` +
   GTOK.map(([t, a, b, c]) => `<div>${t}</div><div>${a}</div><div>${b}</div><div class="muted">${c}</div>`).join('');

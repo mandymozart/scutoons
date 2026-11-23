@@ -13,6 +13,8 @@ const config = {
 	// single-page app: every route is rendered in the browser (session + role gate), index.html as fallback
 	kit: {
 		adapter: adapter({ fallback: 'index.html' }),
+		// OSCT's engine and stage files (shared/xr-engine/osct) import each other through these names
+		alias: { '@shared': '../shared/xr-engine/osct/shared', '@engine': '../shared/xr-engine/osct/engine/src' },
 		// the build's name = the service worker's cache name (agents/research/PWA-APPS.md): every build a new version
 		version: { name: `${pkg.version}-${gitSha().slice(0, 12)}-${process.env.SCUTOONS_BUILD_ID}`, pollInterval: 60_000 },
 		// pollInterval: an open tab learns of a new build within a minute (routes/+layout.svelte reloads on its next navigation)

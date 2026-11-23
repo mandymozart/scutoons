@@ -56,6 +56,15 @@ final class CatalogValidator
     public const PRESET_ID = '#^(?=.{1,100}$)[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*){0,3}$#';
     /** a rig's id = its subject (KANON's form): `character.<id>[.<persona>]` or `item.<id>` */
     public const SUBJECT = '#^(?:character\.[a-z0-9][a-z0-9_-]{0,63}(?:\.[a-z0-9][a-z0-9_-]{0,63})?|item\.[A-Za-z0-9][A-Za-z0-9_-]{0,63})$#';
+    /** an XR experience's id = the reader's `/xr/<id>` */
+    public const EXPERIENCE_ID = '#^[a-z][a-z0-9-]{1,63}$#';
+    public const XR_PLUGIN_ID = '#^[a-z][a-z0-9-]{0,39}$#';
+    /** the CDN-root folder an experience's files lie below (its configuration's `/assets/content/…` paths) */
+    public const XR_ASSETS_FOLDER = '#^[A-Za-z0-9_-]+(?:/(?!\.+(?:/|$))[A-Za-z0-9_.-]+)*$#';
+    /** a plugin's compiled module, in bytes */
+    public const XR_PLUGIN_MAX_BYTES = 262144;
+    /** @var list<string>|null */
+    private static ?array $experienceTypes = null;
 
     public function __construct(private readonly CatalogStore $store, private readonly Database $db, private readonly CoreValidator $core)
     {
@@ -82,6 +91,7 @@ final class CatalogValidator
             'presets' => self::PRESET_ID,
             'rigs' => self::SUBJECT,
             'device-presets', 'rig-presets' => self::DEVICE_PRESET_ID,
+            'experiences' => self::EXPERIENCE_ID,
             default => self::ID_PATTERN,
         };
         if (!preg_match($pattern, $id)) $p[] = "id \"$id\" is not a valid $kind id";
@@ -114,9 +124,81 @@ final class CatalogValidator
             'device-presets' => $this->devicePreset($id, $data, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
             'rig-presets' => $core ? $this->core->problems('rig-presets', $id, self::rigData($raw ?? json_decode((string) json_encode($data))), [], []) : [],
             'instruments', 'presets', 'rigs' => $this->rigKind($kind, $id, self::rigData($raw ?? json_decode((string) json_encode($data))), $core),
+            'experiences' => self::experience($data),
             default => [],
         };
         return [...$p, ...$add];
+    }
+
+    /**
+     * An XR experience (@scutoons/content xr.ts XrExperience): its fields and their types only. Whether the configuration
+     * plays is the contract's guard in @scutoons/xr-engine (the reader, the importer), never checked here.
+     * @param array<string, mixed> $experience
+     * @return list<string>
+     */
+    private static function experience(array $experience): array
+    {
+        $p = [];
+        $extra = array_diff(array_keys($experience), ['id', 'type', 'title', 'toons', 'source', 'assets', 'configuration', 'plugins', CatalogStore::ACCEPTED_WARNINGS]);
+        if ($extra) $p[] = 'an experience has no field ' . implode(', ', $extra);
+        if (!in_array($experience['type'] ?? null, self::experienceTypes(), true)) $p[] = 'type must be one of ' . implode(', ', self::experienceTypes());
+        $title = $experience['title'] ?? null;
+        $texts = is_array($title) && $title !== [] && !array_is_list($title)
+            && array_filter($title, fn($t, $l) => !is_string($l) || !preg_match(EntityKey::LOCALE_PATTERN, $l) || !is_string($t) || trim($t) === '', ARRAY_FILTER_USE_BOTH) === [];
+        if (!$texts) $p[] = 'title must be { <locale>: text }';
+        $toons = $experience['toons'] ?? null;
+        if (!is_array($toons) || !array_is_list($toons) || array_filter($toons, fn($t) => !is_string($t) || !preg_match(EntityKey::TOON_PATTERN, $t)) !== []) $p[] = 'toons must be a list of toon ids';
+        if (array_key_exists('source', $experience)) {
+            $osct = is_array($experience['source']) ? ($experience['source']['osct'] ?? null) : null;
+            $named = fn(string $f) => is_array($osct) && is_string($osct[$f] ?? null) && $osct[$f] !== '';
+            if (!is_array($osct) || !($named('experience') && $named('build') && $named('schema') && $named('app') && (!array_key_exists('scene', $osct) || $named('scene')))) {
+                $p[] = 'source must be { osct: { experience, scene?, build, schema, app } } (texts)';
+            }
+        }
+        $assets = $experience['assets'] ?? null;
+        if (!is_string($assets) || !preg_match(self::XR_ASSETS_FOLDER, $assets)) $p[] = 'assets must be the CDN folder of its files (`xr/<id>/<build>`, no slash at either end)';
+        $config = $experience['configuration'] ?? null;
+        if (!self::isObject($config)) {
+            $p[] = 'configuration must be OSCT\'s game configuration (an object)';
+        } else {
+            /** @var array<string, mixed> $config */
+            $schema = is_array($config['version'] ?? null) ? ($config['version']['schema'] ?? null) : null;
+            if (!is_string($schema) || !preg_match('#^[0-9]{1,3}\.[0-9]{1,3}$#', $schema)) $p[] = 'configuration.version.schema must be a schema version like "5.0"';
+            $scenes = $config['scenes'] ?? null;
+            if (!is_array($scenes) || $scenes === [] || !array_is_list($scenes)) $p[] = 'configuration.scenes must be a list of at least one scene';
+            $entries = $config['entries'] ?? null;
+            if (!is_array($entries) || !array_is_list($entries)) $p[] = 'configuration.entries must be a list';
+        }
+        $plugins = $experience['plugins'] ?? null;
+        if (!is_array($plugins) || !array_is_list($plugins)) return [...$p, 'plugins must be a list'];
+        $seen = [];
+        foreach ($plugins as $i => $plugin) {
+            $id = is_array($plugin) ? ($plugin['id'] ?? null) : null;
+            $at = is_string($id) ? "plugin $id" : "plugins[$i]";
+            if (!is_string($id) || !preg_match(self::XR_PLUGIN_ID, $id)) $p[] = "$at: id must match " . trim(self::XR_PLUGIN_ID, '#');
+            elseif (isset($seen[$id])) $p[] = "$at: the id is used twice";
+            else $seen[$id] = true;
+            $api = is_array($plugin) ? ($plugin['api'] ?? null) : null;
+            if (!is_string($api) || !preg_match('#^[0-9]{1,3}\.[0-9]{1,3}$#', $api)) $p[] = "$at: api must be a plugin API version like \"3.1\"";
+            $code = is_array($plugin) ? ($plugin['code'] ?? null) : null;
+            if (!is_string($code) || trim($code) === '') $p[] = "$at: code must be the compiled module (a text)";
+            elseif (strlen($code) > self::XR_PLUGIN_MAX_BYTES) $p[] = "$at: code is larger than " . self::XR_PLUGIN_MAX_BYTES . ' bytes';
+        }
+        return $p;
+    }
+
+    /**
+     * The experience types: @scutoons/content xr.ts XR_EXPERIENCE_TYPES, read from the schema generated from it
+     * @return list<string>
+     */
+    public static function experienceTypes(): array
+    {
+        if (self::$experienceTypes === null) {
+            $schema = json_decode((string) file_get_contents(dirname(__DIR__, 3) . '/schema/content/catalog.schema.json'), true);
+            $enum = is_array($schema) ? ($schema['definitions']['XrExperienceType']['enum'] ?? null) : null;
+            self::$experienceTypes = is_array($enum) ? array_values(array_filter($enum, 'is_string')) : [];
+        }
+        return self::$experienceTypes;
     }
 
     /**

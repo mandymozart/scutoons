@@ -278,7 +278,7 @@
 	.is-unreachable,
 	.is-never,
 	.is-loop {
-		border-color: var(--badge-warning);
+		border-color: var(--tool-warn);
 		border-width: var(--border-width-regular);
 		border-style: solid;
 	}

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import { Button, Floats, FloatingPanels, StageZones, motionMs, type Cell, type StageZone } from '@scutoons/ui/editor';
-	import { ITEM_VIEW, isCanvas } from '$lib/shell/stage.ts';
+	import { Button, Floats, FloatingPanels, StageZones, type Cell, type StageZone } from '@scutoons/ui/editor';
+	import { ITEM_VIEW } from '$lib/shell/stage.ts';
 	import type { WorkspaceKind } from '$lib/shell/address.ts';
 	import { PRESETS, availableTabs, panelSpecs, presetStart, tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
@@ -13,7 +12,9 @@
 	import { library } from '$lib/editor/library.svelte.ts';
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
+	import FullView from '$lib/components/shell/full-view.svelte';
 	import LogPanel from '$lib/components/shell/log-panel.svelte';
+	import SporesPanel from '$lib/components/shell/spores-panel.svelte';
 	import InfoPanel from '$lib/components/shell/info-panel.svelte';
 	import CoreLogProvider from '$lib/components/shell/core-log-provider.svelte';
 	import { log } from '$lib/log/log.svelte.ts';
@@ -28,7 +29,8 @@
 	 * (lib/shell/panels.ts), their layout kept per workspace in this browser between saves; a new browser and Reset start
 	 * from the workspace's saved layout (lib/shell/layouts.ts). An own workspace shows its kind's panels. Open or folded, a panel floats over the
 	 * stage – the stage never gives way. A view takes the stage by a drag to a screen edge or corner, or through Views; it
-	 * goes full screen through Views, Ctrl Space (the view under the pointer) or a hold past the top edge; Esc leaves.
+	 * is taken full (a box on the overlay level, full-view.svelte) through Views, Ctrl Space (the view under the pointer) or
+	 * a hold past the top edge; Esc leaves.
 	 */
 	let { kind, toon = null }: { kind: WorkspaceKind | 'home'; toon?: string | null } = $props();
 
@@ -91,10 +93,8 @@
 	});
 
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
-	/** the view over everything, while it has content (the open item's own view is always there) */
+	/** the view taken full, while it has content (the open item's own view is always there) */
 	const full = $derived(floats.full && (floats.full === ITEM_VIEW || available.has(floats.full)) ? floats.full : null);
-	/** the dashboard, the launcher or the user menu opened from full screen lies over it; closed, full screen is back */
-	const under = $derived(!!(shell.dashboard || shell.launcher || shell.userMenu));
 
 	const CELL_NAMES: Record<Cell, () => string> = {
 		whole: () => m['shell.cell_whole'](),
@@ -117,15 +117,12 @@
 		const panel = el?.closest<HTMLElement>('[data-float]')?.dataset.float;
 		return (panel && floats.activeOf(panel)) || ITEM_VIEW;
 	}
-	/** Ctrl Space: the view under the pointer full screen, and back; Esc leaves full screen */
+	/** Ctrl Space: the view under the pointer taken full, and back (Esc: the overlay's) */
 	function onkeydown(e: KeyboardEvent) {
 		if (e.defaultPrevented || floats.heldTab || library.browser) return;
 		if (e.key === ' ' && e.ctrlKey && !e.metaKey && !e.altKey) {
 			e.preventDefault();
 			floats.toggleFull(full ?? viewAt(pointer[0], pointer[1]));
-		} else if (e.key === 'Escape' && full && !document.querySelector('[aria-modal="true"]')) {
-			e.preventDefault();
-			floats.full = null;
 		}
 	}
 </script>
@@ -140,6 +137,8 @@
 			<LibraryPanel />
 		{:else if id === 'log'}
 			<LogPanel />
+		{:else if id === 'weave'}
+			<SporesPanel />
 		{:else if id === 'info'}
 			<InfoPanel />
 		{:else if id === 'history'}
@@ -153,9 +152,7 @@
 {/snippet}
 
 <CoreLogProvider />
-{#if !full}
-	<Stage {floats} {content} {name} has={(t) => available.has(t)} />
-{/if}
+<Stage {floats} {content} {name} has={(t) => available.has(t) && t !== full} />
 
 {#if !full && main && mainAway}
 	<div class="main-away" data-testid="main-away">
@@ -164,7 +161,7 @@
 	</div>
 {/if}
 
-<div class="ws-overlay" class:gone={!!full} data-workspace={kind} data-testid="workspace">
+<div class="ws-overlay" data-workspace={kind} data-testid="workspace">
 	{#key floats}
 		<FloatingPanels {floats} labels={{ close: m['creator.close']() }}>
 			{#snippet tab(id)}
@@ -175,14 +172,7 @@
 </div>
 <div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
-{#if full && full !== ITEM_VIEW}
-	<div class="full" class:under role="dialog" aria-label={name(full)} data-testid="full" out:fade={{ duration: motionMs('base') }}>
-		{#if isCanvas(full)}{@render content(full)}{:else}<div class="full-page">{@render content(full)}</div>{/if}
-	</div>
-{/if}
-{#if full && !under}
-	<p class="full-hint" data-testid="full-hint">{m['shell.full_hint']()}</p>
-{/if}
+{#if full}<FullView {floats} {full} {name} {content} has={(t) => available.has(t)} />{/if}
 {#if library.browser}<LibraryBrowser />{/if}
 
 <style>
@@ -227,56 +217,11 @@
 		min-height: 0;
 		box-sizing: border-box;
 	}
-	/* full screen: the panels step aside with the bar and the status bar */
-	.ws-overlay.gone {
-		display: none;
-	}
 	/* the drop zones reach the screen's edges: over the bar and the status bar */
 	.zones-layer {
 		position: fixed;
 		z-index: 70;
 		inset: 0;
 		pointer-events: none;
-	}
-	/* a view over everything: the whole window, on the stage's ground */
-	.full {
-		position: fixed;
-		z-index: 80;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		overflow: auto;
-		background: var(--tool-ground);
-		color: var(--tool-text);
-		font-family: var(--editor-sans);
-		animation: full-in var(--motion-slow) var(--motion-ease);
-	}
-	/* under an overlay opened from full screen (the dashboard, the launcher, the user menu) */
-	.full.under {
-		z-index: 44;
-	}
-	.full-page {
-		box-sizing: border-box;
-		width: 100%;
-		max-width: 48rem;
-		margin: 0 auto;
-		padding: 2rem 1.5rem;
-	}
-	.full-hint {
-		position: fixed;
-		z-index: 81;
-		right: 1rem;
-		bottom: 0.75rem;
-		margin: 0;
-		color: var(--tool-muted);
-		font-family: var(--editor-sans);
-		font-size: var(--editor-small);
-		pointer-events: none;
-	}
-	@keyframes full-in {
-		from {
-			opacity: 0;
-			transform: scale(0.97);
-		}
 	}
 </style>

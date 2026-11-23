@@ -105,7 +105,7 @@
 			label,
 			data: { bends: (route?.points ?? []).slice(1, -1), ...(label && route?.x !== undefined && route.y !== undefined ? { labelAt: { x: route.x, y: route.y } } : {}) },
 			class: `flow-edge kind-${e.kind} from-${e.status}${e.never ? ' is-never' : ''}${e.condition || e.status === 'conditional' ? ' is-conditional' : ''}`,
-			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--badge-warning)' : 'var(--tool-text)' }, // px-ok: the marker's own units
+			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--tool-warn)' : 'var(--tool-text)' }, // px-ok: the marker's own units
 			deletable: false,
 			selectable: false
 			};
@@ -114,8 +114,8 @@
 
 	const miniColor = (n: Node) => {
 		const f = (n.data as FlowNodeData).flow;
-		if (f.status === 'stuck') return 'var(--badge-error)';
-		if (f.status === 'unreachable' || f.status === 'never' || f.status === 'loop') return 'var(--badge-warning)';
+		if (f.status === 'stuck') return 'var(--tool-stop)';
+		if (f.status === 'unreachable' || f.status === 'never' || f.status === 'loop') return 'var(--tool-warn)';
 		return f.kind === 'group' || f.kind === 'chapter' || f.kind === 'toon' ? 'var(--tool-text)' : 'var(--tool-line)';
 	};
 	const miniSize = rem();
@@ -188,7 +188,7 @@
 	}
 	.graph :global(.flow-edge.is-never path.svelte-flow__edge-path),
 	.graph :global(.flow-edge.from-unreachable path.svelte-flow__edge-path) {
-		stroke: var(--badge-warning);
+		stroke: var(--tool-warn);
 	}
 	/* on the stage the graph runs under the bar and the panels: its own controls keep clear of them (stage.svelte) */
 	.graph :global(.svelte-flow__minimap) {

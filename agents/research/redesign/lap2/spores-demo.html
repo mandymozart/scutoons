@@ -8,7 +8,7 @@
   ?d=xr – a found XR target fires a row · ?d=gen – a generation is triggered, runs, and its finish fires two listeners.
   ?step=0…n sets the step · Play on the source spore · the step dots · ← / → · Reset · ?theme=day. 1440×900, night by default.
   Base: spores-view.html (?v=4's nested frames at the universe level, its kit, bar, spores, picker, status line and foot).
-  Signals by shape only: triangle event, square scene, dot value, diamond address, ring far. Cables in the text colour.
+  Signals keep their colour and shape (the deck's signal table): triangle event, square scene / picture, dot value / clock, diamond address, ring far. Cables in their signal's colour.
 -->
 <link rel="stylesheet" href="assets/editor.css">
 <link rel="stylesheet" href="assets/tool-colours.css">
@@ -19,6 +19,9 @@
   --kit-seam:calc(2*var(--editor-edge));--kit-gap:calc(var(--editor-gap)/2);--kit-radius-box:calc(var(--editor-radius)*2);--kit-radius-tile:calc(var(--editor-radius)*1.4);
   --kit-icon:1rem;--kit-icon-alone:1.15rem;--kit-icon-gap:calc(var(--editor-pad)*.6);--control-height:var(--editor-row)}
 /* palette D (kit-d.html) + the owner's latest word: grounds are see-through – the text colour at a low alpha, never an opaque grey */
+/* signals keep their colour – the one exception to "no colour" (owner 2026-11-24, RULES H11); the deck's table: deck/kit/src/base/signal.rs */
+:root{--sig-event:#f3f3f0;--sig-control:#46d36a;--sig-clock:#e5484d;--sig-audio:#19b8d8;--sig-picture:#6f9bff;--sig-address:#b46bff;--sig-vote:#ffb020;--sig-scene:#ff6b8a;--sig-far:#a7af9b;--sig-asset:var(--tool-muted)}
+[data-theme=day]{--sig-event:#22271e;--sig-control:#2f9e4a;--sig-clock:#c23238;--sig-audio:#0089a8;--sig-picture:#3a63c9;--sig-address:#8a4fd0;--sig-vote:#b07800;--sig-scene:#c8385a;--sig-far:#6b7461}
 :root,[data-theme]{
   --d-on:var(--tool-text);--d-focus:var(--tool-text);--d-edge:var(--tool-text);--d-error:var(--tool-stop);
   --d-primary:var(--tool-pressed);--d-primary-ink:var(--tool-pressed-text);
@@ -270,14 +273,15 @@ const status = () => `<div class="abs" style="left:8px;right:8px;bottom:8px;z-in
   <span style="display:flex;gap:.6rem;align-items:center"><span style="width:.45rem;height:.45rem;border-radius:50%;background:var(--tool-warn)"></span>audio: 'Fireface' not found – running silent, waiting for it<span class="muted">now</span></span>
   <span style="display:flex;gap:.6rem;align-items:center">not live: Go live joins the relay<span class="muted">|</span>not saved yet<span class="muted">|</span>signing in<span class="muted">|</span><span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-muted)"></span>0<span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-warn)"></span>2${ic('file')}</span></span></div>`;
 const RH = 20;
+const SIG = (k) => `var(--sig-${k === 'value' ? 'control' : k})`;
 function shape(kind, x, y, lit) {
-  const st = lit ? 'var(--tool-text)' : 'var(--tool-muted)', fill = lit ? 'var(--tool-text)' : 'var(--tool-popover)';
-  const t = `<title>${kind}</title>`;
-  if (kind === 'event') return `<path d="M${x - 4} ${y - 5}L${x + 5} ${y}L${x - 4} ${y + 5}Z" fill="${fill}" stroke="${st}" stroke-width="1.3" stroke-linejoin="round">${t}</path>`;
-  if (kind === 'scene') return `<rect x="${x - 4}" y="${y - 4}" width="8" height="8" fill="${fill}" stroke="${st}" stroke-width="1.3">${t}</rect>`;
-  if (kind === 'value') return `<circle cx="${x}" cy="${y}" r="3.4" fill="${lit ? 'var(--tool-text)' : 'var(--tool-muted)'}">${t}</circle>`;
-  if (kind === 'address') return `<path d="M${x} ${y - 5}L${x + 5} ${y}L${x} ${y + 5}L${x - 5} ${y}Z" fill="${fill}" stroke="${st}" stroke-width="1.3">${t}</path>`;
-  if (kind === 'far') return `<circle cx="${x}" cy="${y}" r="4.6" fill="var(--tool-popover)" stroke="${st}" stroke-width="1.5">${t}</circle>`;
+  const c = SIG(kind), fill = lit ? c : 'var(--tool-popover)', o = lit ? 1 : .8;
+  const t = `<title>${kind === 'asset' ? 'a file (a model) – no signal in the table yet' : kind}</title>`;
+  if (kind === 'event') return `<path opacity="${o}" d="M${x - 4} ${y - 5}L${x + 5} ${y}L${x - 4} ${y + 5}Z" fill="${fill}" stroke="${c}" stroke-width="1.3" stroke-linejoin="round">${t}</path>`;
+  if (kind === 'scene' || kind === 'picture' || kind === 'asset') return `<rect opacity="${o}" x="${x - 4}" y="${y - 4}" width="8" height="8" fill="${fill}" stroke="${c}" stroke-width="1.3">${t}</rect>`;
+  if (kind === 'value' || kind === 'clock') return `<circle opacity="${o}" cx="${x}" cy="${y}" r="3.4" fill="${c}">${t}</circle>`;
+  if (kind === 'address') return `<path opacity="${o}" d="M${x} ${y - 5}L${x + 5} ${y}L${x} ${y + 5}L${x - 5} ${y}Z" fill="${fill}" stroke="${c}" stroke-width="1.3">${t}</path>`;
+  if (kind === 'far') return `<circle opacity="${o}" cx="${x}" cy="${y}" r="4.6" fill="var(--tool-popover)" stroke="${c}" stroke-width="1.5">${t}</circle>`;
   return '';
 }
 const islot = (o) => `<span class="islot ${o.st || ''}" title="${o.slot ? 'fires on ' + o.slot : MANUAL}">${ic('zap')}${o.slot || ''}</span>${o.later ? '<span class="kc" style="height:1.05rem" title="jobs and assets – not built yet">later</span>' : ''}`;
@@ -366,11 +370,11 @@ const CHAINS = {
     nodes: [
       { id: 'sheet', x: 30, y: 86, w: 172, t: 'sheet', play: 1, s: 'character:catpope', outs: [['changed', 'event']] },
       { id: 'gin', edge: 'in', x: 232, y: 126, w: 120, ins: [['', 'event', { slot: 'sheet changed' }]] },
-      { id: 'isheet', x: 368, y: 124, w: 74, pill: 1, t: 'sheet', ins: [['', 'value']], outs: [['', 'value']] },
-      { id: 'img', x: 462, y: 124, w: 74, pill: 1, t: 'image', title: 'image to 3D', ins: [['', 'value']], outs: [['', 'value']] },
-      { id: 'm3d', x: 556, y: 124, w: 56, pill: 1, t: '3D', ins: [['', 'value']], outs: [['', 'value']] },
-      { id: 'rig', x: 632, y: 124, w: 94, pill: 1, t: 'auto-rig', ins: [['', 'value']], outs: [['', 'value']] },
-      { id: 'glb', x: 746, y: 124, w: 112, pill: 1, t: 'output GLB', ins: [['', 'value']], outs: [['', 'value']] },
+      { id: 'isheet', x: 368, y: 124, w: 74, pill: 1, t: 'sheet', ins: [['', 'picture']], outs: [['', 'picture']] },
+      { id: 'img', x: 462, y: 124, w: 74, pill: 1, t: 'image', title: 'image to 3D', ins: [['', 'picture']], outs: [['', 'picture']] },
+      { id: 'm3d', x: 556, y: 124, w: 56, pill: 1, t: '3D', ins: [['', 'picture']], outs: [['', 'asset']] },
+      { id: 'rig', x: 632, y: 124, w: 94, pill: 1, t: 'auto-rig', ins: [['', 'asset']], outs: [['', 'asset']] },
+      { id: 'glb', x: 746, y: 124, w: 112, pill: 1, t: 'output GLB', ins: [['', 'asset']], outs: [['', 'asset']] },
       { id: 'gout', edge: 'out', x: 966, y: 86, w: 80, ins: [['', 'value'], ['', 'value'], ['', 'value'], ['', 'value'], ['', 'value']],
         outs: [['queued', 'event'], ['running', 'event'], ['succeeded', 'event'], ['failed', 'event'], ['cancelled', 'event']] },
       { id: 'slot', x: 1006, y: 82, w: 384, t: '3D model', k: 'slot', s: 'stand-in · catpope → rigged GLB', ins: [['', 'event', { slot: 'succeeded' }]] },
@@ -477,11 +481,12 @@ function sporeD(n, st, showArrivals) {
 function frameD(f) {
   return `<div class="fr" style="left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px"><div class="fh"><span class="nm" ${f.title ? `title="${f.title}"` : ''}>${f.t}</span>${f.kind ? `<span class="fk">${f.kind}</span>` : ''}${runChip(f.run)}</div></div>`;
 }
+const cabKind = (c) => c.kind || ((((C.nodes.find(n => n.id === c.a[0]) || {}).outs || [])[c.a[1]] || [])[1]) || 'event';
 function canvas(st, showArrivals) {
   const by = st.by;
   const cab = (c) => {
     const s = st.hop[c.id] || 'rest';
-    return `<path id="cab-${c.id}" class="cab ${s}" d="${cablePath(by, c)}"/>`;
+    return `<path id="cab-${c.id}" class="cab ${s}" style="stroke:${SIG(cabKind(c))}" d="${cablePath(by, c)}"/>`;
   };
   let ports = '';
   for (const n of C.nodes) {
@@ -515,7 +520,7 @@ function render(animate) {
   const anim = animate && !CALM && (s.hops || []).length > 0;
   if (s.picker) st.pick = C.picker.node;
   const panel = `<div class="fp" style="left:${P[0]}px;top:${P[1]}px;width:${P[2]}px;height:${P[3]}px">${head('node', { noX: true, tabs: `<span class="tab on">${ic('node')}Spores</span>${crumb('<b>Universe</b>')}`, right: VIEWBAR() })}
-    <div class="abs" id="cvs" style="left:0;top:0;width:100%;height:100%">${canvas(st, !anim)}</div></div>`;
+    <div class="abs" id="cvs" style="left:0;top:0;width:100%;height:100%;border-radius:inherit;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem">${canvas(st, !anim)}</div></div>`;
   const other = D === 'xr' ? 'gen' : 'xr';
   const th = DAY ? '&theme=day' : '';
   const tabs = Object.entries(CHAINS).map(([k, c]) => `<a href="?d=${k}${th}" class="${k === D ? 'on' : ''}" title="?d=${k}">${c.tab}</a>`).join('')
@@ -534,7 +539,7 @@ function beads(s) {
   s.hops.forEach((h, i) => {
     BEADS.push(setTimeout(() => {
       const ns = 'http://www.w3.org/2000/svg';
-      const b = document.createElementNS(ns, 'circle'); b.setAttribute('r', '3.6'); b.setAttribute('class', 'bead');
+      const b = document.createElementNS(ns, 'circle'); b.setAttribute('r', '3.6'); b.setAttribute('class', 'bead'); b.setAttribute('style', 'fill:' + SIG(cabKind(cab[h])));
       const m = document.createElementNS(ns, 'animateMotion'); m.setAttribute('dur', per + 's'); m.setAttribute('fill', 'freeze'); m.setAttribute('begin', 'indefinite');
       const mp = document.createElementNS(ns, 'mpath'); mp.setAttribute('href', '#cab-' + h);
       m.appendChild(mp); b.appendChild(m); svg.appendChild(b); m.beginElement();

@@ -54,8 +54,8 @@
 		padding: 0 calc(var(--editor-pad) / 2);
 		border: 0;
 		border-radius: var(--editor-radius);
-		background: none;
-		color: var(--tool-text);
+		background: var(--kit-list-row-rest-ground);
+		color: var(--kit-list-row-rest-text);
 		font: inherit;
 		text-align: left;
 		text-decoration: none;
@@ -90,24 +90,39 @@
 	.meta {
 		margin-left: auto;
 	}
+	.kit-list-row[data-kit-state~='hover'] {
+		background: var(--kit-list-row-hover-ground);
+	}
 	@media (hover: hover) {
 		a.kit-list-row:hover:not(.selected),
 		button.kit-list-row:hover:not(.selected) {
-			background: var(--tool-hover);
+			background: var(--kit-list-row-hover-ground);
 		}
 	}
+	/* selected: the pressed fill, no side bar (RULES H10) */
 	.selected {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-list-row-selected-ground);
+		color: var(--kit-list-row-selected-text);
 		text-shadow: none;
 	}
 	.selected > :global(svg),
 	.selected .detail,
 	.selected .meta {
-		color: var(--tool-pressed-text);
+		color: var(--kit-list-row-selected-text);
 	}
-	.kit-list-row:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	.kit-list-row[data-kit-state~='dragged'],
+	.kit-list-row[aria-grabbed='true'] {
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--kit-list-row-dragged-border);
+		background: var(--kit-list-row-dragged-ground);
+		text-shadow: none;
+	}
+	.kit-list-row[aria-disabled='true'] {
+		color: var(--kit-list-row-disabled-text);
+		opacity: var(--kit-list-row-disabled-opacity);
+	}
+	.kit-list-row:focus-visible,
+	.kit-list-row[data-kit-state~='focus'] {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
 </style>

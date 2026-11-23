@@ -52,8 +52,8 @@
 	.arm {
 		position: absolute;
 		box-sizing: border-box;
-		border: var(--editor-edge) dashed var(--tool-accent);
-		background: color-mix(in srgb, var(--tool-accent) 6%, transparent);
+		border: var(--editor-edge) dashed var(--kit-drop-rest-border);
+		background: transparent;
 		opacity: 0.7;
 		transition:
 			opacity var(--motion-fast) var(--motion-ease),
@@ -65,7 +65,8 @@
 		opacity: 1;
 		border-style: solid;
 		transform: scale(1.04);
-		background: color-mix(in srgb, var(--tool-accent) 22%, transparent);
+		border-color: var(--kit-drop-on-border);
+		background: var(--kit-drop-on-ground);
 	}
 	/* where the view lands: the accent's outline around its cell, the name and the place in a pill */
 	.lands {
@@ -73,9 +74,9 @@
 		box-sizing: border-box;
 		display: grid;
 		place-items: center;
-		border: 0.125rem solid var(--tool-accent);
+		border: 0.125rem solid var(--kit-drop-on-border);
 		border-radius: var(--kit-radius-box);
-		background: color-mix(in srgb, var(--tool-accent) 10%, transparent);
+		background: var(--kit-drop-on-ground);
 		animation: lands-in var(--motion-fast) var(--motion-ease);
 		transition:
 			left var(--motion-base) var(--motion-ease),
@@ -88,7 +89,7 @@
 	}
 	.label {
 		padding: 0.3rem 0.8rem;
-		border: var(--editor-edge) solid var(--tool-accent);
+		border: var(--editor-edge) solid var(--kit-drop-on-border);
 		border-radius: 1rem;
 		background: var(--tool-panel);
 		color: var(--tool-text);
@@ -104,13 +105,13 @@
 		left: 0;
 		right: 0;
 		height: 0.25rem;
-		background: color-mix(in srgb, var(--tool-accent) 18%, transparent);
+		background: var(--kit-drop-on-ground);
 	}
 	.hold span {
 		display: block;
 		height: 100%;
 		width: 0;
-		background: var(--tool-accent);
+		background: var(--kit-list-row-insert-mark);
 		animation: hold-fill 500ms linear forwards;
 	}
 	.hold.armed span {

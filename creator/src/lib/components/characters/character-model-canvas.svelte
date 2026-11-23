@@ -46,7 +46,7 @@
 	function colours() {
 		const css = getComputedStyle(document.documentElement);
 		const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-		return { bone: v('--editor-accent', '#00d1ff'), spot: v('--editor-primary', '#b4ff32'), grid: v('--editor-accent', '#00d1ff') };
+		return { bone: v('--tool-text', '#f3f3f0'), spot: v('--tool-pressed', '#f3f3f0'), grid: v('--tool-line', '#3a4034') };
 	}
 
 	$effect(() => {
@@ -171,12 +171,12 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
-		background: radial-gradient(ellipse 70% 45% at 50% 45%, color-mix(in srgb, var(--tool-accent) 14%, var(--tool-ground)), var(--tool-ground) 70%);
+		background: var(--tool-ground);
 		color: var(--tool-text);
 		font-family: var(--editor-sans);
 	}
 	.place.over {
-		outline: var(--editor-edge) dashed var(--tool-accent);
+		outline: var(--editor-edge) dashed var(--tool-text);
 		outline-offset: -0.5rem;
 	}
 	.place.misfit {
@@ -301,7 +301,7 @@
 		height: 0.3rem;
 		margin: 0 0.5rem;
 		border-radius: 0.15rem;
-		background: var(--tool-line);
+		background: var(--tool-within);
 		flex: none;
 	}
 	.bar i {
@@ -310,7 +310,7 @@
 		top: 0;
 		bottom: 0;
 		border-radius: 0.15rem;
-		background: var(--tool-accent);
+		background: var(--tool-pressed);
 	}
 	.pill .quiet-button {
 		color: var(--tool-muted);
@@ -332,7 +332,7 @@
 		border-radius: 0.6rem;
 		background: var(--tool-panel);
 		text-shadow: var(--tool-halo);
-		color: var(--tool-accent);
+		color: var(--tool-text);
 		text-align: center;
 	}
 	.way-in .big {

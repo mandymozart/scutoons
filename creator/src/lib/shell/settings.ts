@@ -16,6 +16,8 @@ export interface MachineSettings {
 	reduceMotion: boolean;
 	/** the last tabs come back when the creator starts */
 	reopenTabs: boolean;
+	/** a 3D stage's gizmo handles show on the selection even with the select tool (#482); off: only while moving, turning or scaling */
+	gizmoAlways: boolean;
 	/** per workspace: where a split of its own view divides it, and whether its content keeps clear of the bar's row */
 	views: Record<string, ViewSettings>;
 }
@@ -27,7 +29,7 @@ export interface ViewSettings {
 	clear?: boolean;
 }
 
-export const DEFAULTS: MachineSettings = { theme: 'day', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true, views: {} };
+export const DEFAULTS: MachineSettings = { theme: 'day', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true, gizmoAlways: false, views: {} };
 
 /** a workspace's view settings, every field checked */
 export function readViews(raw: unknown): Record<string, ViewSettings> {
@@ -64,6 +66,7 @@ export function readSettings(raw: unknown): MachineSettings {
 		panelTransitions: bool('panelTransitions'),
 		reduceMotion: bool('reduceMotion'),
 		reopenTabs: bool('reopenTabs'),
+		gizmoAlways: bool('gizmoAlways'),
 		views: readViews(v.views)
 	};
 }

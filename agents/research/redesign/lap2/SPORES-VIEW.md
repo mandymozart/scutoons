@@ -60,15 +60,15 @@
 | 4 | **Spores · the universe:** the toon, the show, the scenes and the deck as nested scopes; the one crossing *chapter 3 → top-toy · row 02* lit; the breadcrumb | NETWORK.md round 2–3 (B) |
 | 5 | **The same inlet elsewhere:** a scene's listen spore, a generator's run, an XR rule – each with the ⚡ slot and the same picker | AI-HOOKS.md §0, world.rs |
 
-The look: palette D, see-through grounds, cables in the text colour (kit point 14), a signal's kind told by its shape (triangle event, square scene, dot value, diamond address, ring far), not by a colour.
+The look: palette D, see-through grounds, ports and cables in their signal's colour and shape (the deck's signal table: event triangle, scene square, value dot, address diamond, far ring) – the one exception to "no colour" (owner 2026-11-24, replacing kit point 14).
 
 ## Open – each needs the owner's word
-1. **One event, many listeners?** Today an event fires one row; a second row picking it is refused. In a universe-wide network several listeners are the normal case. Recommended: allow it; the picker's line says who else listens.
-2. **May a row fire on several events** (any of them)? Today one.
-3. **Which sources can fire a row in lap 2?** Recommended: story as today, another row, a vote's result; the rest drawn greyed as "later" so the picker's shape already holds them.
-4. **Signals by shape only?** NETWORK.md gave each signal a colour (2026-11-17's grammar); palette D and kit point 14 put cables in the text colour. Recommended: shape only, a cable lights when its event fires.
-5. **The creator's Generate stub** (Svelte cards): replaced by the deck's canvas through wasm – in lap 2, or with #764 (the creator inside the deck's wasm)?
-6. **The deck's "Nodes" tab** becomes "Spores" (the name decided 2026-11-21) – applied with this lap?
+1. **Answered 2026-11-24: yes – several listeners can hang on one event.** Asked as: **One event, many listeners?** Today an event fires one row; a second row picking it is refused. In a universe-wide network several listeners are the normal case. Recommended: allow it; the picker's line says who else listens.
+2. ~~May a row fire on several events?~~ **Answered 2026-11-24: yes, several – any of them wakes the row.** Today one (`fire.event`).
+3. **Which sources can fire a row in lap 2?** **Answered 2026-11-24: the ones not built stay greyed in the picker, as a marker that they get a plan of their own after this iteration.** Confirmed 2026-11-24: besides story events, **a row's fire and a vote's result count as sources** in this lap. Recommended: story as today, another row, a vote's result; the rest drawn greyed as "later" so the picker's shape already holds them.
+4. ~~Signals by shape only?~~ **Answered 2026-11-24: no – signals keep their colours, the one exception under palette D (RULES H11); the deck's signal table is the concept, OSCT's missing kinds are adopted.** The pictures are redrawn with the table's colours. Asked as: NETWORK.md gave each signal a colour (2026-11-17's grammar); palette D and kit point 14 put cables in the text colour. Recommended: shape only, a cable lights when its event fires.
+5. **Answered 2026-11-24: not in this lap – with #764.** *"This is a design and UX round. That other thing is fundamental refactoring."* Asked as: **The creator's Generate stub** (Svelte cards): replaced by the deck's canvas through wasm – in lap 2, or with #764 (the creator inside the deck's wasm)?
+6. **Answered 2026-11-24: yes, "Spores" is decided.** Asked as: **The deck's "Nodes" tab** becomes "Spores" (the name decided 2026-11-21) – applied with this lap?
 
 ## The demo – two chains played step by step (spores-demo.html)
 The owner, 2026-11-24, on round 1: *"I want to have a demo of how this would be triggered from an action like a found XR target or a generation that finished or got triggered."*
@@ -96,4 +96,4 @@ One page, the Spores view at the universe level (nested frames as in `?v=4`), a 
 
 Names that are not in production (the XR experience and its target) are generic and marked as examples.
 
-7. **Whose event counts?** (new, from chain A) A target is found on one reader's phone. Does one reader's find fire the row for everyone – any reader, the readers of one group (a QR group), or a count ("ten readers found it")? Today's `how` (auto · suggest · hand) already lets the conductor hold it: *suggest* waits for GO.
+7. **Answered 2026-11-24: any reader's. Later a filter can allow some automatically.** Asked as: **Whose event counts?** (new, from chain A) A target is found on one reader's phone. Does one reader's find fire the row for everyone – any reader, the readers of one group (a QR group), or a count ("ten readers found it")? Today's `how` (auto · suggest · hand) already lets the conductor hold it: *suggest* waits for GO.

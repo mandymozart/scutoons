@@ -8,20 +8,23 @@
 	 * under the pointer, open (`aria-expanded`) and `pressed` take the pressed ground. Its side and corner are where it
 	 * sits (--kit-h / --kit-r): in a Pill it is round, its corners sharing the pill's centre; standing alone it is round too (RULES H4, owner
 	 * 2026-11-24: the deck's corner was a slip).
-	 * `label` is its name and tooltip; `dot` marks it (Publish: something is not live); `tone` colours the icon.
+	 * `alone` gives a lone one (no pill round it) its line on the panel ground. `label` is its name and tooltip; `dot` marks
+	 * it (Publish: something is not out yet); `tone` mutes it or says destroy (no hue for on: RULES H11). The states'
+	 * colours are kit.css's `--kit-icon-button-*`.
 	 */
 	type Props = {
 		label: string;
 		icon?: string;
 		pressed?: boolean;
 		dot?: boolean;
-		tone?: 'text' | 'muted' | 'go' | 'stop' | 'danger';
+		tone?: 'text' | 'muted' | 'stop' | 'danger';
+		alone?: boolean;
 		href?: string;
 		children?: Snippet;
 	} & Omit<HTMLButtonAttributes, 'children'> &
 		Omit<HTMLAnchorAttributes, 'children'>;
 
-	let { label, icon, pressed, dot = false, tone = 'text', href, type = 'button', title, children, ...rest }: Props = $props();
+	let { label, icon, pressed, dot = false, tone = 'text', alone = false, href, type = 'button', title, children, ...rest }: Props = $props();
 </script>
 
 {#snippet inside()}
@@ -29,9 +32,9 @@
 {/snippet}
 
 {#if href}
-	<a {href} aria-label={label} title={title ?? label} {...rest as HTMLAnchorAttributes} class="kit-icon-button {tone} {rest.class ?? ''}" class:pressed>{@render inside()}</a>
+	<a {href} aria-label={label} title={title ?? label} {...rest as HTMLAnchorAttributes} class="kit-icon-button {tone} {rest.class ?? ''}" class:pressed class:alone>{@render inside()}</a>
 {:else}
-	<button {type} aria-label={label} title={title ?? label} aria-pressed={pressed} {...rest as HTMLButtonAttributes} class="kit-icon-button {tone} {rest.class ?? ''}" class:pressed>{@render inside()}</button>
+	<button {type} aria-label={label} title={title ?? label} aria-pressed={pressed} {...rest as HTMLButtonAttributes} class="kit-icon-button {tone} {rest.class ?? ''}" class:pressed class:alone>{@render inside()}</button>
 {/if}
 
 <style>
@@ -47,8 +50,8 @@
 		padding: 0;
 		border: 0;
 		border-radius: var(--kit-r, 50%);
-		background: none;
-		color: var(--tool-text);
+		background: var(--kit-icon-button-rest-ground);
+		color: var(--kit-icon-button-rest-text);
 		text-decoration: none;
 		cursor: pointer;
 		/* a lone icon is 0.6 of its square (controls.rs); in a pill bar.rs's 1.15rem (the pill sets it) */
@@ -58,11 +61,18 @@
 		width: var(--kit-icon-size);
 		height: var(--kit-icon-size);
 	}
+	/* alone (RULES H4): round, its line on the panel ground, the halo on its icon */
+	.alone {
+		border: var(--editor-edge) solid var(--kit-icon-button-alone-border);
+		border-radius: 50%;
+		background: var(--kit-icon-button-alone-ground);
+		text-shadow: var(--tool-halo);
+	}
+	.alone :global(svg) {
+		filter: var(--tool-icon-halo);
+	}
 	.muted {
 		color: var(--tool-muted);
-	}
-	.go {
-		color: var(--tool-go);
 	}
 	.stop {
 		color: var(--tool-stop);
@@ -70,27 +80,35 @@
 	.danger {
 		color: var(--tool-danger);
 	}
+	.kit-icon-button[data-kit-state~='hover'] {
+		background: var(--kit-icon-button-hover-ground);
+	}
+	@media (hover: hover) {
+		.kit-icon-button:hover:not(:disabled, .pressed, [aria-expanded='true']) {
+			background: var(--kit-icon-button-hover-ground);
+		}
+	}
 	.pressed,
 	.kit-icon-button[aria-expanded='true'] {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-icon-button-on-ground);
+		color: var(--kit-icon-button-on-text);
 		text-shadow: none;
 	}
 	.pressed :global(svg),
 	.kit-icon-button[aria-expanded='true'] :global(svg) {
 		filter: none;
 	}
-	@media (hover: hover) {
-		.kit-icon-button:hover:not(:disabled, .pressed, [aria-expanded='true']) {
-			background: var(--tool-hover);
-		}
-	}
-	.kit-icon-button:focus-visible {
-		outline: 2px solid var(--tool-accent);
+	.kit-icon-button:focus-visible,
+	.kit-icon-button[data-kit-state~='focus'] {
+		outline: 2px solid var(--kit-focus-rest-ring);
 		outline-offset: -2px;
 	}
+	.alone:focus-visible,
+	.alone[data-kit-state~='focus'] {
+		outline-offset: 1px;
+	}
 	.kit-icon-button:disabled {
-		opacity: 0.35;
+		opacity: var(--kit-icon-button-disabled-opacity);
 		cursor: not-allowed;
 	}
 	.dot {
@@ -100,6 +118,6 @@
 		width: 0.4rem;
 		height: 0.4rem;
 		border-radius: 50%;
-		background: var(--tool-warn);
+		background: var(--kit-icon-button-dot-mark);
 	}
 </style>

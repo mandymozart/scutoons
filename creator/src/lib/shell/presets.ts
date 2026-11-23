@@ -29,6 +29,8 @@ export type TabId =
 	| 'cast'
 	| 'generations'
 	| 'flow'
+	/** #763: the front item's weave of the spore network (its own id: 'spores' is the Generate workspace's list) */
+	| 'weave'
 	| 'preview'
 	| 'log'
 	/** what is under the pointer (deck-kit info.rs): opened by the member, in no preset */
@@ -46,11 +48,13 @@ export type TabId =
 	| 'generate'
 	| 'handheld'
 	| 'output'
+	| 'experience'
+	| 'scenes'
 	| 'library'
 	| 'settings';
 
 /** the tabs the shell draws itself (the others come from the front page) */
-export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'history', 'info'];
+export const SHELL_TABS: readonly TabId[] = ['toon', 'library', 'settings', 'log', 'history', 'info', 'weave'];
 
 /** old tab ids and the tab they name now */
 export const TAB_ALIASES: Readonly<Record<string, TabId>> = { problems: 'log', moods: 'expressions', vocabulary: 'expressions' };
@@ -88,12 +92,14 @@ const LOG: PresetPanel = { id: 'log', tabs: ['log'], place: at('bottom-right', 0
 export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	home: { panels: [library({})] },
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
-	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow']), preview(FOLDED), library()] },
+	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow', 'weave']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
 	character: { main: 'sheet', panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, views(['sheet', '3d']), library()] },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	scene: { panels: [left(['tree']), library()] },
+	// the XR editor (#482): the stage is the experience, the whole window; the panels float over it
+	experience: { panels: [left(['tree']), right(['inspector', 'experience', 'weave']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['log'], FOLDED)] },
 	sound: { panels: [right(['log'], FOLDED), library()] },
 	text: { panels: [left(['tree']), right(['log'], FOLDED)] },

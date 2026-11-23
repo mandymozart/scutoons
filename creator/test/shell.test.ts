@@ -9,9 +9,9 @@ import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src
 import { addSpore, hooksOf, removeSpore } from '../src/lib/editor/spores.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
-import { NO_CRAFTS, asksCrafts, readCrafts } from '../src/lib/shell/crafts.ts';
+import { NO_CRAFTS, asksCrafts, readCrafts, showsTextLanguage } from '../src/lib/shell/crafts.ts';
 import { NO_LAYOUTS, cleanName, fromAnswer, ownId, readChosen, readKept, shownWorkspace, startKind, startOf, toKept, withOwn, withSaved, without } from '../src/lib/shell/layouts.ts';
-import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
+import { MAX_PICKS, isSearchKey, isSwitcherKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -31,6 +31,8 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/map', '?location=crypt'), AREAS.map);
 	assert.equal(addressOf('/scenes'), AREAS.scenes);
 	assert.equal(addressOf('/scenes/duet'), 'scene:duet');
+	assert.equal(addressOf('/experiences'), AREAS.experiences);
+	assert.equal(addressOf('/experiences/poster-catpope'), 'experience:poster-catpope');
 	assert.equal(addressOf('/flow'), AREAS.flow);
 	assert.equal(addressOf('/catalog/items'), 'catalog:items');
 	assert.equal(addressOf('/catalog/items', '?id=camera'), 'item:camera');
@@ -51,6 +53,8 @@ test('an address leads back to its page, and every route round-trips', () => {
 		['/generate', ''],
 		['/map', ''],
 		['/scenes/duet', ''],
+		['/experiences', ''],
+		['/experiences/poster-catpope', ''],
 		['/flow', ''],
 		['/catalog/items', '?id=camera'],
 		['/catalog/recipes', ''],
@@ -69,7 +73,11 @@ test('every address has a workspace and an icon; a typed address resolves', () =
 	assert.equal(workspaceOf('item:camera'), 'catalog');
 	assert.equal(workspaceOf('module:walk'), 'sound');
 	assert.equal(workspaceOf('nothing'), null);
+	assert.equal(workspaceOf('experience:poster-catpope'), 'experience');
+	assert.equal(workspaceOf(AREAS.experiences), 'experience');
 	assert.equal(iconOf('character:catpope'), 'smile');
+	assert.equal(iconOf('experience:poster-catpope'), 'aperture');
+	assert.equal(resolveTyped('experience:poster-catpope'), '/experiences/poster-catpope');
 	assert.equal(resolveTyped(' chapter:catpope:2 '), '/catpope/chapter/2');
 	assert.equal(resolveTyped('catpope'), null);
 });
@@ -127,6 +135,8 @@ test('machine settings: day by default (owner 2026-11-21), every field checked',
 	assert.equal(DEFAULTS.theme, 'day');
 	assert.deepEqual(readSettings({ theme: 'night', scale: 9, reduceMotion: 'yes', reopenTabs: false }), { ...DEFAULTS, theme: 'night', scale: 1.5, reopenTabs: false });
 	assert.equal(readSettings({ theme: 'dusk' }).theme, 'day');
+	assert.equal(DEFAULTS.gizmoAlways, false);
+	assert.equal(readSettings({ gizmoAlways: true }).gizmoAlways, true);
 	assert.equal(clampScale(1.04), 1);
 	assert.equal(clampScale(0.1), 0.8);
 	assert.equal(clampScale(NaN), 1);
@@ -139,9 +149,10 @@ test('a workspace is a preset: its panels hold only the tabs with content, Libra
 	const ids = specs.map((p) => p.id);
 	assert.deepEqual(ids, ['left', 'right', 'library', 'settings']);
 	assert.deepEqual(specs[0].tabs, ['toon', 'tree']);
-	assert.deepEqual(specs[1].tabs, ['log', 'flow'], 'the inspector without content is not offered; the Log is the shell’s own');
+	assert.deepEqual(specs[1].tabs, ['log', 'flow', 'weave'], 'the inspector without content is not offered; the Log and the Spores tab are the shell’s own');
 	assert.ok(!ids.includes('preview'), 'a panel without a tab with content goes');
 	assert.equal(specs.find((p) => p.id === 'settings')?.place.closed, true);
+	assert.deepEqual(panelSpecs('experience', availableTabs(['tree', 'inspector', 'experience', 'scenes'], null), TABS).find((p) => p.id === 'right')?.tabs, ['inspector', 'experience', 'weave'], 'the XR workspace offers its weave (#763)');
 });
 
 test('a tab with content that no preset panel holds gets a closed panel of its own', () => {
@@ -351,6 +362,13 @@ test('crafts before the migration: a missing or failing API means no crafts – 
 	assert.equal(asksCrafts({ list: [], mine: ok.mine }), false, 'nothing to pick: no question');
 });
 
+test("the translator's bar carries the text language; other crafts and no crafts do not", () => {
+	const mine = (crafts: string[]) => ({ crafts, invited: [], workspaces: [], ask: false, can_edit: false });
+	assert.equal(showsTextLanguage(mine(['writer', 'translator'])), true);
+	assert.equal(showsTextLanguage(mine(['writer'])), false);
+	assert.equal(showsTextLanguage(null), false);
+});
+
 test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {
 	assert.equal(stepRing(0, -1, 5), 4);
 	assert.equal(stepRing(4, 1, 5), 0);
@@ -419,19 +437,23 @@ test('launcher: what the browser kept is checked', () => {
 	assert.deepEqual(readPicks([{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }, { id: 'b', kind: 'nope', label: 'B', icon: 'f' }, { id: 'c', kind: 'item', label: 'C', icon: 'f', href: 'https://evil' }, 7]), [{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }]);
 });
 
-test('launcher keys: Alt Space, Cmd Space, Ctrl or Cmd K and O, / outside a field – never Ctrl Space', () => {
+test('Search keys: Alt Space, Cmd Space, Ctrl or Cmd O, / outside a field – never Ctrl Space; the switcher: Ctrl or Cmd K, Alt Tab', () => {
 	const k = (key: string, code: string, mods: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) => ({ key, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...mods });
-	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), false));
-	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
-	assert.ok(isLaunchKey(k(' ', 'Space', { metaKey: true }), true));
-	assert.ok(!isLaunchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
-	assert.ok(!isLaunchKey(k(' ', 'Space'), false));
-	assert.ok(isLaunchKey(k('k', 'KeyK', { ctrlKey: true }), true));
-	assert.ok(isLaunchKey(k('K', 'KeyK', { metaKey: true }), true));
-	assert.ok(isLaunchKey(k('o', 'KeyO', { ctrlKey: true }), false));
-	assert.ok(!isLaunchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
-	assert.ok(isLaunchKey(k('/', 'Slash'), false));
-	assert.ok(!isLaunchKey(k('/', 'Slash'), true), 'typing a slash in a field');
+	assert.ok(isSearchKey(k(' ', 'Space', { altKey: true }), false));
+	assert.ok(isSearchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
+	assert.ok(isSearchKey(k(' ', 'Space', { metaKey: true }), true));
+	assert.ok(!isSearchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
+	assert.ok(!isSearchKey(k(' ', 'Space'), false));
+	assert.ok(!isSearchKey(k('k', 'KeyK', { ctrlKey: true }), true), 'Ctrl K is the switcher');
+	assert.ok(isSwitcherKey(k('k', 'KeyK', { ctrlKey: true })));
+	assert.ok(isSwitcherKey(k('K', 'KeyK', { metaKey: true })));
+	assert.ok(isSwitcherKey(k('Tab', 'Tab', { altKey: true })), 'Alt Tab where the system leaves it to the page');
+	assert.ok(!isSwitcherKey(k('Tab', 'Tab')));
+	assert.ok(!isSwitcherKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true })));
+	assert.ok(isSearchKey(k('o', 'KeyO', { ctrlKey: true }), false));
+	assert.ok(!isSearchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
+	assert.ok(isSearchKey(k('/', 'Slash'), false));
+	assert.ok(!isSearchKey(k('/', 'Slash'), true), 'typing a slash in a field');
 });
 
 test('saved layouts: the server answer checked; the start is the last save, else the craft default, else the preset', () => {

@@ -504,7 +504,7 @@
 	}
 	textarea::selection {
 		color: transparent;
-		background: color-mix(in srgb, var(--tool-accent) 35%, transparent);
+		background: color-mix(in srgb, var(--tool-text) 35%, transparent);
 	}
 	.backdrop {
 		z-index: 0;
@@ -540,7 +540,7 @@
 	.chip {
 		background: var(--tool-within);
 		box-shadow:
-			0 0 0 var(--border-width-hairline) var(--tool-accent),
+			0 0 0 var(--border-width-hairline) var(--tool-text),
 			0 0 0 0.125rem var(--tool-within);
 		box-decoration-break: clone;
 		-webkit-box-decoration-break: clone;

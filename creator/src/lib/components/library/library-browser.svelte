@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CloseButton, Icon } from '@scutoons/ui';
+	import { Overlay } from '@scutoons/ui/editor';
 	import type { AssetFamily } from '@scutoons/media';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { deleteFamilies, renameFamily } from '$lib/editor/library-actions.ts';
@@ -11,8 +12,9 @@
 	import LibraryToolbar from '$lib/components/library/library-toolbar.svelte';
 
 	/**
-	 * The Library over the stage (⤢, research/redesign/library.html ?w=browser): the places at the left, the core's
-	 * groups in the middle, the details at the right; the levels stacked or single. Esc closes it back to the panel.
+	 * The Library taken full (⤢, research/redesign/library.html ?w=browser): a box on the overlay level (RULES H15) – the
+	 * places at the left, the core's groups in the middle, the details at the right; the levels stacked or single. Esc or
+	 * a click outside closes it back to the panel.
 	 */
 	let fileInput: HTMLInputElement | null = $state(null);
 	let replaceInput: HTMLInputElement | null = $state(null);
@@ -23,10 +25,7 @@
 
 	function keys(event: KeyboardEvent) {
 		const typing = event.target instanceof HTMLElement && !!event.target.closest('input, textarea, select');
-		if (event.key === 'Escape' && !menu) {
-			event.preventDefault();
-			library.browser = false;
-		} else if (typing) return;
+		if (typing) return;
 		else if (event.key === 'F2' && library.selectedFamily) (event.preventDefault(), renameFamily(library.selectedFamily));
 		else if (event.key === 'Delete' && library.chosen.length) (event.preventDefault(), deleteFamilies(library.chosenFamilies));
 	}
@@ -50,7 +49,7 @@
 
 <svelte:window onkeydown={keys} />
 
-<div class="browser" role="dialog" aria-label={m['library.title']()} data-testid="library-browser">
+<Overlay place="edge" label={m['library.title']()} onclose={() => !menu && (library.browser = false)} class="browser" data-testid="library-browser">
 	<header>
 		<span class="lbl">{m['library.title']()}</span>
 		<input class="find" type="search" bind:value={library.query} placeholder={m['library.search']()} aria-label={m['library.search']()} />
@@ -80,30 +79,12 @@
 			<AssetDetails family={library.selectedFamily} onreplace={(file) => run(() => library.replace(library.selectedFamily!, file))} />
 		{/if}
 	</div>
-</div>
-
-{#if menu}
-	<LibraryMenu x={menu.x} y={menu.y} onclose={() => (menu = null)} onreplace={(f) => ((replacing = f), replaceInput?.click())} />
-{/if}
+	{#if menu}
+		<LibraryMenu x={menu.x} y={menu.y} onclose={() => (menu = null)} onreplace={(f) => ((replacing = f), replaceInput?.click())} />
+	{/if}
+</Overlay>
 
 <style>
-	.browser {
-		position: fixed;
-		z-index: 80; /* over everything, the bar too (as OSCT's asset manager) */
-		top: 2rem;
-		left: 2.5rem;
-		right: 2.5rem;
-		bottom: 2.5rem;
-		box-shadow: 0 0 0 100vmax var(--tool-scrim);
-		display: flex;
-		flex-direction: column;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
-		color: var(--tool-text);
-		pointer-events: auto;
-		overflow: hidden;
-	}
 	header {
 		display: flex;
 		align-items: center;
@@ -158,10 +139,10 @@
 		align-items: center;
 		gap: 0.3rem;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--tool-primary-line);
+		border: var(--editor-edge) solid var(--tool-pressed);
 		border-radius: var(--editor-radius);
-		background: var(--tool-primary);
-		color: var(--tool-primary-ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		cursor: pointer;
 	}
 	.body {

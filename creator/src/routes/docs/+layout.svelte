@@ -27,7 +27,7 @@
 		--d-line: var(--tool-line);
 		--d-card: transparent;
 		--d-hover: var(--tool-hover);
-		--d-accent: var(--tool-accent);
+		--d-accent: var(--tool-text);
 		--d-logo: invert(1);
 		min-height: 100vh;
 		background: var(--d-bg);

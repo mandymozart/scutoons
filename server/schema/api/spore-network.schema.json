@@ -1,0 +1,477 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://scutoons.com/schema/api/spore-network.v1.json",
+	"title": "SporeNetwork",
+	"description": "One level of the spore network as a weave (#763, agents/research/redesign/NETWORK.md §4; owner 2026-11-21: the tab is \"Spores\", connecting is \"weaving\"): the spores and threads a scope's projector computes from its documents, drawn by every canvas – the creator's Spores tab, the native deck editor, the Reception tab, the MCP. The documents stay the truth; a weave is never stored (only its canvas). Each scope's projector lives where that scope's rules live (story: shared/content; XR: the OSCT logic package; show and rig: the Rust core). Edit this file, run `npm run generate` (server/schema/generate.ts writes the Rust and TS types), commit the outputs; spore-network.vectors.json holds the weaves every language reads.",
+	"$ref": "#/definitions/Weave",
+	"definitions": {
+		"Signal": {
+			"description": "What travels on a port or thread – deck-kit's one signal table (deck/kit/src/base/signal.rs, owner 2026-11-17 [design]): its shapes and colours draw every port and thread. OSCT's `value` is `control`, its `node` is `address`, its `media` is `picture`. `job` is a run that starts, progresses and ends (a generation, a night run, a publish); `asset` is a reference to a Library asset of any kind (a picture that arrived, an approved text) – owner 2026-11-21: spores get job and asset signals.",
+			"type": "string",
+			"enum": [
+				"event",
+				"control",
+				"clock",
+				"audio",
+				"picture",
+				"address",
+				"vote",
+				"scene",
+				"far",
+				"job",
+				"asset"
+			]
+		},
+		"Scope": {
+			"description": "Which documents a weave projects: `story` chapters and toons, `xr` experiences, `show` rows and cells, `rig` rigs and instruments, `scene` deck scenes, `creator` the creator's own events that can trigger spores (a night run, a publish, a draft saved, a job triggered, a picture arriving in another spore, a budget authorized, a Kanon text or script approved, a storyboard cut, a chapter's status changed – owner 2026-11-21), `network` the spore network's levels above them all.",
+			"type": "string",
+			"enum": [
+				"story",
+				"xr",
+				"show",
+				"rig",
+				"scene",
+				"creator",
+				"network"
+			]
+		},
+		"Driver": {
+			"description": "The driver that runs a spore (the runtimes): the `reader` (the VN runner), `xr` (OSCT's engine in the reader), the `conductor`, a `deck` (the engine, its own audio context), the `server` (jobs, generations), the `editor` (authoring-time nodes only, never at reading time).",
+			"type": "string",
+			"enum": [
+				"reader",
+				"xr",
+				"conductor",
+				"deck",
+				"server",
+				"editor"
+			]
+		},
+		"Family": {
+			"description": "A spore's family – how a canvas draws it and what a gesture may do. `container` can be entered (a chapter, a group, a row, a cell, a track); `world` comes from outside the level with an image of its origin (MIDI, clock, carrier bag, VN state); `free` lives only in the canvas (a reference, a generation, a manual instruction – OSCT L11–L13); `far` is a stub's far end.",
+			"type": "string",
+			"enum": [
+				"event",
+				"rule",
+				"action",
+				"variable",
+				"entity",
+				"scene",
+				"plugin",
+				"container",
+				"sound",
+				"world",
+				"free",
+				"far"
+			]
+		},
+		"Direction": {
+			"type": "string",
+			"enum": [
+				"in",
+				"out"
+			]
+		},
+		"Transport": {
+			"description": "How a thread crosses runtimes: `same` (one runtime), `relay` (the Live relay), `navigation` (the reader moves to another place), `savegame` (a variable or item read elsewhere).",
+			"type": "string",
+			"enum": [
+				"same",
+				"relay",
+				"navigation",
+				"savegame"
+			]
+		},
+		"Matter": {
+			"description": "What a port connects to: `cyber` (devices, modules, the engine – called a port) or `organic` (beings, characters, living matter – called a pore). Only the word and the look differ; the signal decides what may connect.",
+			"type": "string",
+			"enum": [
+				"cyber",
+				"organic"
+			]
+		},
+		"Level": {
+			"description": "One step of the breadcrumb, root first.",
+			"type": "object",
+			"properties": {
+				"address": {
+					"type": "string",
+					"description": "The level's address in the one grammar (rig/address.rs), e.g. `chapter:sandbox/1/2`."
+				},
+				"label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"address",
+				"label"
+			]
+		},
+		"Port": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				},
+				"signal": {
+					"$ref": "#/definitions/Signal"
+				},
+				"dir": {
+					"$ref": "#/definitions/Direction"
+				},
+				"many": {
+					"type": "boolean",
+					"description": "Several edges may meet here (a multi-in socket)."
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "Unused and folded behind the node's `+`."
+				},
+				"matter": {
+					"$ref": "#/definitions/Matter"
+				}
+			},
+			"required": [
+				"id",
+				"label",
+				"signal",
+				"dir"
+			]
+		},
+		"Spore": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "Unique within the view."
+				},
+				"kind": {
+					"type": "string",
+					"description": "The spore type."
+				},
+				"family": {
+					"$ref": "#/definitions/Family"
+				},
+				"label": {
+					"type": "string"
+				},
+				"detail": {
+					"type": "string"
+				},
+				"address": {
+					"type": "string",
+					"description": "What the spore is, in the one grammar."
+				},
+				"driver": {
+					"$ref": "#/definitions/Driver"
+				},
+				"ports": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Port"
+					}
+				},
+				"enter": {
+					"type": "string",
+					"description": "The address of the level a double-click opens; none: a leaf."
+				},
+				"picture": {
+					"type": "string",
+					"description": "An asset reference for the spore's image (a world spore's origin, a preview)."
+				}
+			},
+			"required": [
+				"id",
+				"kind",
+				"family",
+				"label",
+				"address",
+				"driver",
+				"ports"
+			],
+			"description": "A spore: one thing of a level – a group, a rule, a cell, a module, a generator. Its `kind` is its spore type, registered by a scope's projector, a plugin, a component or a module."
+		},
+		"End": {
+			"description": "One end of a thread: a spore and one of its ports.",
+			"type": "object",
+			"properties": {
+				"spore": {
+					"type": "string"
+				},
+				"port": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"spore",
+				"port"
+			]
+		},
+		"Home": {
+			"description": "The one document field that holds a thread or a spore: an edit is an op on it. None on a thread: derived (a by-name join, a computed link).",
+			"type": "object",
+			"properties": {
+				"doc": {
+					"type": "string",
+					"description": "The document's address, e.g. `rig:crow`, `chapter:sandbox/1/2`, `show:demo`."
+				},
+				"path": {
+					"type": "string",
+					"description": "A JSON pointer into the document."
+				}
+			},
+			"required": [
+				"doc",
+				"path"
+			]
+		},
+		"Thread": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"from": {
+					"$ref": "#/definitions/End"
+				},
+				"to": {
+					"$ref": "#/definitions/End"
+				},
+				"signal": {
+					"$ref": "#/definitions/Signal"
+				},
+				"label": {
+					"type": "string"
+				},
+				"home": {
+					"$ref": "#/definitions/Home"
+				},
+				"crosses": {
+					"$ref": "#/definitions/Transport"
+				},
+				"count": {
+					"type": "integer",
+					"minimum": 2,
+					"description": "A bundle of this many threads of one kind between one pair."
+				}
+			},
+			"required": [
+				"id",
+				"from",
+				"to",
+				"signal"
+			],
+			"description": "A thread woven between two spores' ports."
+		},
+		"Stub": {
+			"description": "A thread that leaves the level, named by its far end; following it changes the weave's scope.",
+			"type": "object",
+			"properties": {
+				"thread": {
+					"type": "string",
+					"description": "The thread's id; its spore at the level's edge is a `far` spore."
+				},
+				"side": {
+					"$ref": "#/definitions/Direction"
+				},
+				"far": {
+					"type": "string",
+					"description": "The far end's address."
+				},
+				"label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"thread",
+				"side",
+				"far",
+				"label"
+			]
+		},
+		"Severity": {
+			"type": "string",
+			"enum": [
+				"error",
+				"warning"
+			]
+		},
+		"Problem": {
+			"type": "object",
+			"properties": {
+				"at": {
+					"type": "string",
+					"description": "A spore's or a thread's id."
+				},
+				"severity": {
+					"$ref": "#/definitions/Severity"
+				},
+				"text": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"at",
+				"severity",
+				"text"
+			]
+		},
+		"Group": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				},
+				"colour": {
+					"type": "string",
+					"description": "`#rrggbb`."
+				},
+				"spores": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "The spores it frames – the one place a spore's group is kept."
+				},
+				"folded": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"id",
+				"label",
+				"spores"
+			]
+		},
+		"Note": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"text": {
+					"type": "string"
+				},
+				"author": {
+					"type": "string",
+					"description": "Who wrote it (the member's name)."
+				},
+				"near": {
+					"type": "string",
+					"description": "The spore it sits beside; none: after the weave."
+				}
+			},
+			"required": [
+				"id",
+				"text"
+			]
+		},
+		"Point": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			]
+		},
+		"Canvas": {
+			"description": "Authoring data beside the documents, never played – the shape deck-show keeps per row (deck/show/src/canvas.rs): groups, notes, spores folded (true) or opened (false) by hand over how they come, positions placed by hand (rem) over the auto layout.",
+			"type": "object",
+			"properties": {
+				"groups": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Group"
+					}
+				},
+				"notes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Note"
+					}
+				},
+				"folded": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "boolean"
+					},
+					"description": "By spore id: folded (true) or opened (false) by hand; none: as it comes."
+				},
+				"placed": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/Point"
+					}
+				}
+			}
+		},
+		"Weave": {
+			"description": "One level of the spore network: its spores, the threads woven between them, the threads that leave it.",
+			"type": "object",
+			"properties": {
+				"scope": {
+					"$ref": "#/definitions/Scope"
+				},
+				"context": {
+					"type": "string",
+					"description": "The level's address."
+				},
+				"levels": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Level"
+					}
+				},
+				"spores": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Spore"
+					}
+				},
+				"threads": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Thread"
+					}
+				},
+				"stubs": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Stub"
+					}
+				},
+				"problems": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Problem"
+					}
+				},
+				"canvas": {
+					"$ref": "#/definitions/Canvas"
+				}
+			},
+			"required": [
+				"scope",
+				"context",
+				"levels",
+				"spores",
+				"threads",
+				"stubs",
+				"problems"
+			]
+		}
+	}
+}

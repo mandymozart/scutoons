@@ -184,7 +184,7 @@
 	}
 	/* an image (a portrait slice) is a small preview, like the single media slot (owner 2026-10-03) */
 	.slot.fits {
-		outline: var(--border-width-focus) dashed var(--editor-accent);
+		outline: var(--border-width-focus) dashed var(--tool-text);
 		outline-offset: 2px;
 	}
 	.slot.misfit {

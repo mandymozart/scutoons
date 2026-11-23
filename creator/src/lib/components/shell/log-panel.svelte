@@ -181,19 +181,19 @@
 		height: 0.5rem;
 		margin-top: 0.4em;
 		border-radius: 50%;
-		background: var(--tool-muted);
+		background: var(--kit-status-none-mark);
 	}
 	.error .dot {
-		background: var(--tool-stop);
+		background: var(--kit-status-error-mark);
 	}
 	.warn .dot {
-		background: var(--tool-warn);
+		background: var(--kit-status-warning-mark);
 	}
 	.ok .dot {
-		background: var(--tool-go);
+		background: var(--kit-status-ok-mark);
 	}
 	.info .dot {
-		background: var(--tool-accent);
+		background: var(--kit-status-info-mark);
 	}
 	.body {
 		display: flex;

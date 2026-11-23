@@ -8,7 +8,7 @@
   Base: show.html (the approved kit: palette D, see-through grounds, tabs without borders at rest) and its real data – the show
   top-toy, rows 01–04, the events of catpope chapter 3. The row graph as deck/show nodes.rs row_graph builds it.
   ?v=0 · 1 · 1b · 2 · 3 · 4 · 5 · ‹ › keys · ?theme=day. Screens 1440×900 (the deck 1440×868 + the one-line foot).
-  Signals by shape only: triangle event, square scene, dot value, diamond address, ring far. Cables in the text colour.
+  Signals keep their colour and shape (the deck's signal table): triangle event, square scene / picture, dot value / clock, diamond address, ring far. Cables in their signal's colour.
 -->
 <link rel="stylesheet" href="assets/editor.css">
 <link rel="stylesheet" href="assets/tool-colours.css">
@@ -19,6 +19,9 @@
   --kit-seam:calc(2*var(--editor-edge));--kit-gap:calc(var(--editor-gap)/2);--kit-radius-box:calc(var(--editor-radius)*2);--kit-radius-tile:calc(var(--editor-radius)*1.4);
   --kit-icon:1rem;--kit-icon-alone:1.15rem;--kit-icon-gap:calc(var(--editor-pad)*.6);--control-height:var(--editor-row)}
 /* palette D (kit-d.html) + the owner's latest word: grounds are see-through – the text colour at a low alpha, never an opaque grey */
+/* signals keep their colour – the one exception to "no colour" (owner 2026-11-24, RULES H11); the deck's table: deck/kit/src/base/signal.rs */
+:root{--sig-event:#f3f3f0;--sig-control:#46d36a;--sig-clock:#e5484d;--sig-audio:#19b8d8;--sig-picture:#6f9bff;--sig-address:#b46bff;--sig-vote:#ffb020;--sig-scene:#ff6b8a;--sig-far:#a7af9b;--sig-asset:var(--tool-muted)}
+[data-theme=day]{--sig-event:#22271e;--sig-control:#2f9e4a;--sig-clock:#c23238;--sig-audio:#0089a8;--sig-picture:#3a63c9;--sig-address:#8a4fd0;--sig-vote:#b07800;--sig-scene:#c8385a;--sig-far:#6b7461}
 :root,[data-theme]{
   --d-on:var(--tool-text);--d-focus:var(--tool-text);--d-edge:var(--tool-text);--d-error:var(--tool-stop);
   --d-primary:var(--tool-pressed);--d-primary-ink:var(--tool-pressed-text);
@@ -232,13 +235,13 @@ const up = ic('d').replace('M6 9l6 6 6-6', 'M18 15l-6-6-6 6');
 const lvlUp = `<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`;
 
 /* ── the shared bar, as show.html ── */
-function bar() {
+function bar(o = {}) {
   return `<div class="abs" style="left:10px;right:96px;top:7px;height:var(--kit-bar);display:flex;align-items:center;gap:var(--kit-gap);z-index:50">
-    <span class="kp"><span class="kib muted">${ic('l')}</span><span class="kt on">${ic('list')}top-toy<span class="muted">›</span>2 dialog<span class="cl muted">${ic('x')}</span></span><span class="kib muted">${ic('r')}</span><span class="kib muted">${ic('d')}</span><span class="kib">${ic('plus')}</span></span>
+    <span class="kp"><span class="kib muted">${ic('l')}</span><span class="kt on">${o.tab || `${ic('list')}top-toy<span class="muted">›</span>2 dialog`}<span class="cl muted">${ic('x')}</span></span><span class="kib muted">${ic('r')}</span><span class="kib muted">${ic('d')}</span><span class="kib">${ic('plus')}</span></span>
     <span class="kp" style="padding:0 .7rem;gap:.5rem"><span class="tg"></span>Go live</span>
     <span class="kp" style="padding:0 .75rem;gap:.55rem"><span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-muted)"></span><span class="mono" style="font-size:1rem">120.0</span><span style="display:inline-flex;gap:2px">${[1,0,0,0].map(o => `<i style="display:block;width:7px;height:3px;border-radius:1px;background:${o ? 'var(--tool-text)' : 'var(--tool-line)'}"></i>`).join('')}</span><span class="label">INT</span><span class="kib muted" style="--kit-h:1.5rem">${ic('bell')}</span></span>
     <span class="kp" style="background:var(--tool-danger);border-color:var(--tool-danger);padding:0 1rem;letter-spacing:.12em;font-size:var(--editor-small);color:#fff;text-shadow:none">PANIC</span>
-    <span style="flex:1;display:flex;justify-content:center"><span class="kp"><span class="kt">Scene</span><span class="kt">Rigging</span><span class="kt on">Show</span><span class="kib muted">${ic('d')}</span></span></span>
+    <span style="flex:1;display:flex;justify-content:center"><span class="kp">${['Scene', 'Rigging', 'Show'].map((n, k) => `<span class="kt ${k === (o.ws ?? 2) ? 'on' : ''}">${n}</span>`).join('')}<span class="kib muted">${ic('d')}</span></span></span>
     <span class="kp"><span class="kib">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>
     <span class="kp"><span class="kib">${ic('cloud')}</span><span class="kib">${ic('user')}</span><span class="kib">${ic('menu')}</span></span></div>
   <div class="abs muted" style="right:16px;top:15px;display:flex;gap:22px;font-size:14px;z-index:50"><span>–</span><span>▫</span><span>✕</span></div>`;
@@ -297,7 +300,7 @@ const status = () => `<div class="abs" style="left:8px;right:8px;bottom:8px;z-in
   <span style="display:flex;gap:.6rem;align-items:center"><span style="width:.45rem;height:.45rem;border-radius:50%;background:var(--tool-warn)"></span>audio: 'Fireface' not found – running silent, waiting for it<span class="muted">now</span></span>
   <span style="display:flex;gap:.6rem;align-items:center">not live: Go live joins the relay<span class="muted">|</span>not saved yet<span class="muted">|</span>signing in<span class="muted">|</span><span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-muted)"></span>0<span style="width:.42rem;height:.42rem;border-radius:50%;background:var(--tool-warn)"></span>2${ic('file')}</span></span></div>`;
 
-/* ══════════ the Spores canvas: spores, ports by shape, cables in the text colour ══════════ */
+/* ══════════ the Spores canvas: spores, ports and cables in their signal's colour and shape ══════════ */
 const RH = 20;
 const KIND = { event: 'event', scene: 'scene', value: 'value', address: 'address', far: 'far' };
 const flat = (n) => n.pill || n.fold || n.stub;
@@ -311,14 +314,15 @@ function portXY(n, side, i) {
   if (flat(n)) return [side === 'in' ? n.x : n.x + n.w, n.y + Math.round(g.h / 2)];
   return [side === 'in' ? n.x : n.x + n.w, n.y + g.hh + i * RH + RH / 2];
 }
+const SIG = (k) => `var(--sig-${k === 'value' ? 'control' : k})`;
 function shape(kind, x, y, lit) {
-  const st = lit ? 'var(--tool-text)' : 'var(--tool-muted)', fill = lit ? 'var(--tool-text)' : 'var(--tool-popover)';
-  const t = `<title>${kind}</title>`;
-  if (kind === 'event') return `<path d="M${x - 4} ${y - 5}L${x + 5} ${y}L${x - 4} ${y + 5}Z" fill="${fill}" stroke="${st}" stroke-width="1.3" stroke-linejoin="round">${t}</path>`;
-  if (kind === 'scene') return `<rect x="${x - 4}" y="${y - 4}" width="8" height="8" fill="${fill}" stroke="${st}" stroke-width="1.3">${t}</rect>`;
-  if (kind === 'value') return `<circle cx="${x}" cy="${y}" r="3.4" fill="${lit ? 'var(--tool-text)' : 'var(--tool-muted)'}">${t}</circle>`;
-  if (kind === 'address') return `<path d="M${x} ${y - 5}L${x + 5} ${y}L${x} ${y + 5}L${x - 5} ${y}Z" fill="${fill}" stroke="${st}" stroke-width="1.3">${t}</path>`;
-  if (kind === 'far') return `<circle cx="${x}" cy="${y}" r="4.6" fill="var(--tool-popover)" stroke="${st}" stroke-width="1.5">${t}</circle>`;
+  const c = SIG(kind), fill = lit ? c : 'var(--tool-popover)', o = lit ? 1 : .8;
+  const t = `<title>${kind === 'asset' ? 'a file (a model) – no signal in the table yet' : kind}</title>`;
+  if (kind === 'event') return `<path opacity="${o}" d="M${x - 4} ${y - 5}L${x + 5} ${y}L${x - 4} ${y + 5}Z" fill="${fill}" stroke="${c}" stroke-width="1.3" stroke-linejoin="round">${t}</path>`;
+  if (kind === 'scene' || kind === 'picture' || kind === 'asset') return `<rect opacity="${o}" x="${x - 4}" y="${y - 4}" width="8" height="8" fill="${fill}" stroke="${c}" stroke-width="1.3">${t}</rect>`;
+  if (kind === 'value' || kind === 'clock') return `<circle opacity="${o}" cx="${x}" cy="${y}" r="3.4" fill="${c}">${t}</circle>`;
+  if (kind === 'address') return `<path opacity="${o}" d="M${x} ${y - 5}L${x + 5} ${y}L${x} ${y + 5}L${x - 5} ${y}Z" fill="${fill}" stroke="${c}" stroke-width="1.3">${t}</path>`;
+  if (kind === 'far') return `<circle opacity="${o}" cx="${x}" cy="${y}" r="4.6" fill="var(--tool-popover)" stroke="${c}" stroke-width="1.5">${t}</circle>`;
   return '';
 }
 const islot = (o) => `<span class="islot ${o.st || ''}" title="${o.slot ? 'fires on ' + o.slot : MANUAL}">${ic('zap')}${o.slot || ''}</span>${o.later ? '<span class="kc" style="height:1.05rem" title="jobs and assets – not built yet">later</span>' : ''}`;
@@ -349,7 +353,7 @@ function graph(G) {
     const dx = Math.max(30, (x2 - x1) * .45);
     const d = `M${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
     const lab = c.label ? `<text x="${x1 + (x2 - x1) * .62}" y="${y1 + (y2 - y1) * .62 - 8}" text-anchor="middle" font-size="10.5" fill="var(--tool-muted)" font-family="var(--editor-sans)" stroke="var(--editor-stage)" stroke-width="3" paint-order="stroke">${c.label}</text>` : '';
-    return `<path d="${d}" fill="none" stroke="${c.lit ? 'var(--tool-text)' : 'var(--tool-muted)'}" stroke-width="${c.lit ? 1.7 : 1}" opacity="${c.lit ? 1 : .55}" ${c.dash ? 'stroke-dasharray="3 3"' : ''}/>${lab}`;
+    return `<path d="${d}" fill="none" stroke="${SIG(c.kind || ((by[c.a[0]].outs || [])[c.a[1]] || [])[1] || 'event')}" stroke-width="${c.lit ? 1.7 : 1}" opacity="${c.lit ? 1 : .55}" ${c.dash ? 'stroke-dasharray="3 3"' : ''}/>${lab}`;
   };
   const ports = G.nodes.map(n => {
     let s = '';
@@ -366,7 +370,7 @@ const crumb = (html) => `<span class="ic" title="up a level">${lvlUp}</span><spa
 function sporesPanel(p, G, o = {}) {
   const tabs = o.nodes ? `<span class="tab on">${ic('node')}Nodes</span>` : `<span class="tab on">${ic('node')}Spores</span>${o.crumb ? crumb(o.crumb) : ''}`;
   return `<div class="fp" style="left:${p[0]}px;top:${p[1]}px;width:${p[2]}px;height:${p[3]}px">${head('node', { noX: true, tabs, right: VIEWBAR() })}
-    <div class="abs" style="left:0;top:0;width:100%;height:100%">${graph(G)}</div></div>`;
+    <div class="abs" style="left:0;top:0;width:100%;height:100%;border-radius:inherit;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem">${graph(G)}</div></div>`;
 }
 
 /* ══════════ the picker at an inlet ══════════ */
@@ -410,9 +414,9 @@ function rowGraph(stub) {
   return {
     nodes: [
       first,
-      { id: 'clock', x: stub ? 24 : 28, y: 182, w: stub ? 232 : 200, far: 1, t: 'clock', s: 'show', outs: [['beat', 'value'], ['bar', 'value']] },
+      { id: 'clock', x: stub ? 24 : 28, y: 182, w: stub ? 232 : 200, far: 1, t: 'clock', s: 'show', outs: [['beat', 'clock'], ['bar', 'clock']] },
       { id: 'row', x: 300, y: 100, w: 220, on: 1, t: 'ch3.dialog-start', s: 'row 02 · dialog',
-        ins: [stub ? ['', 'event', { lit: 1, slot: 'ch3.dialog-start', st: 'on' }] : ['on event', 'event', { lit: 1 }], ['on next bar', 'value']], outs: [['fire', 'event']] },
+        ins: [stub ? ['', 'event', { lit: 1, slot: 'ch3.dialog-start', st: 'on' }] : ['on event', 'event', { lit: 1 }], ['on next bar', 'clock']], outs: [['fire', 'event']] },
       { id: 'left', x: 590, y: 52, w: 190, t: 'left', s: 'values · di…', sw: '● nothing plays', ins: [['', 'event']] },
       { id: 'right', x: 590, y: 150, w: 190, t: 'right', k: 'carries on', fold: 1 },
       { id: 'lamps', x: 590, y: 192, w: 190, t: 'lamps', s: 'look warm ·…', ins: [['', 'event']] },
@@ -427,15 +431,15 @@ function rowGraph(stub) {
 }
 /* the show: its events grouped by where they come from, every row a spore with its inlet, the roles its cells play on */
 function showGraph() {
-  const row = (id, y, t, slot, o = {}) => ({ id, x: 340, y, w: 236, t, on: o.on, ins: [['', 'event', { slot, st: slot ? 'set' : '', lit: o.on }], ...(o.bar ? [['on next bar', 'value']] : [])], outs: [['cells', 'scene', { lit: o.on }]] });
+  const row = (id, y, t, slot, o = {}) => ({ id, x: 340, y, w: 236, t, on: o.on, ins: [['', 'event', { slot, st: slot ? 'set' : '', lit: o.on }], ...(o.bar ? [['on next bar', 'clock']] : [])], outs: [['cells', 'scene', { lit: o.on }]] });
   const role = (id, y, k) => ({ id, x: 690, y, w: 200, t: id, k, ins: [['plays', 'scene']] });
   return {
     frames: [{ x: 16, y: 44, w: 270, h: 122, t: 'catpope › ch 3', chip: 'story' }, { x: 16, y: 182, w: 270, h: 116, t: 'clock', chip: 'show' }],
     nodes: [
       { id: 'e1', x: 30, y: 78, w: 238, pill: 1, on: 1, t: 'ch3.dialog-start', title: 'catpope › ch 3 › nave', outs: [['', 'event', { lit: 1 }]] },
       { id: 'e2', x: 30, y: 118, w: 238, pill: 1, t: 'ch3 l…', lead: '<span class="dot2"></span>', title: 'row 03’s event – the id is cut off in the base shot and is not among ch 3’s events', outs: [['', 'event']] },
-      { id: 'c1', x: 30, y: 216, w: 238, pill: 1, t: 'beat', outs: [['', 'value']] },
-      { id: 'c2', x: 30, y: 254, w: 238, pill: 1, t: 'bar', outs: [['', 'value']] },
+      { id: 'c1', x: 30, y: 216, w: 238, pill: 1, t: 'beat', outs: [['', 'clock']] },
+      { id: 'c2', x: 30, y: 254, w: 238, pill: 1, t: 'bar', outs: [['', 'clock']] },
       row('r1', 44, '01 opening', ''), row('r2', 106, '02 dialog', 'ch3.dialog-start', { on: 1, bar: 1 }), row('r3', 190, '03 yellowmouse-…', 'ch3 l…'), row('r4', 254, '04 finale', ''),
       role('left', 44, 'stage'), role('right', 106, 'stage'), role('lamps', 168, 'device'), role('foyer', 230, 'sub'),
     ],
@@ -448,6 +452,19 @@ function showGraph() {
   };
 }
 /* the universe: the toon, the show, the deck and its scenes as nested scopes (NETWORK.md B, redrawn in the kit) */
+/* the generator opened from a storyboard shot's picture slot (AI-HOOKS.md §0 step 3–4): the shot's own sources placed, the output spore set by the slot */
+function shotGenGraph() {
+  return {
+    frames: [{ x: 24, y: 64, w: 320, h: 330, t: 'sb-25-1', chip: 'shot' }, { x: 372, y: 64, w: 400, h: 330, t: 'generator', chip: 'draft' }, { x: 1120, y: 64, w: 272, h: 200, t: 'Storyboard', chip: 'slot' }],
+    nodes: [
+      { id: 'prompt', x: 48, y: 112, w: 272, t: 'prompt', s: 'built from the shot', title: 'the shot’s action, framing and light as text', outs: [['text', 'asset']] },
+      { id: 'ref', x: 48, y: 220, w: 272, t: 'catpope (human) · sad', s: 'reference · Characters', outs: [['picture', 'picture']] },
+      { id: 'img', x: 420, y: 150, w: 304, t: 'image', k: 'hook', s: 'Luma – by hand', title: 'a hooked spore: an external tool makes the picture', on: true, ins: [['prompt', 'asset'], ['reference', 'picture']], outs: [['picture', 'picture']] },
+      { id: 'out', x: 820, y: 166, w: 252, t: 'output · picture', s: '1:3 · set by the slot', title: 'the output spore says what the generator makes – the slot it was opened from set it', ins: [['', 'picture']], outs: [['', 'picture']] },
+      { id: 'slot', x: 1144, y: 166, w: 224, t: 'sb-25-1 · picture', s: 'the generator stands in', ins: [['', 'picture']] }],
+    cables: [{ a: ['prompt', 0], b: ['img', 0] }, { a: ['ref', 0], b: ['img', 1] }, { a: ['img', 0], b: ['out', 0], lit: 1 }, { a: ['out', 0], b: ['slot', 0], lit: 1 }]
+  };
+}
 function universeGraph() {
   const ev = (id, x, y, w, t, o = {}) => ({ id, x, y, w, pill: 1, t, on: o.on, grey: o.grey, title: o.title || '', outs: o.grey ? [] : [['', 'event', { lit: o.on }]] });
   const fold = (id, x, y, w, t, title) => ({ id, x, y, w, pill: 1, fold: 1, t, title });
@@ -514,7 +531,7 @@ const SCREENS = [
         cables: [{ a: ['l', 0], b: ['a', 0], lit: 1 }] };
       const B = { nodes: [
         { id: 'g', x: 22, y: 70, w: 250, t: 'catpope → rigged GLB', s: 'generator · stand-in', title: 'a spore generator standing in for the asset (spores.html step 8)', ins: [['', 'event', { slot: 'sheet changed', st: 'set', later: 1 }]], outs: [['GLB', 'value']] },
-        { id: 's', x: 310, y: 70, w: 130, t: '3D model', s: 'catpope', ins: [['asset', 'value']] }],
+        { id: 's', x: 310, y: 70, w: 130, t: '3D model', s: 'catpope', ins: [['asset', 'asset']] }],
         cables: [{ a: ['g', 0], b: ['s', 0] }] };
       const C = { nodes: [
         { id: 'r', x: 22, y: 70, w: 236, t: 'rule', k: 'xr', ins: [['when', 'event', { slot: '', st: 'on' }]], outs: [['then', 'event']] },
@@ -530,6 +547,9 @@ const SCREENS = [
       return P(0, A, 'Nave <span>›</span> <b>catpope</b>') + P(1, B, 'catpope <span>›</span> <b>3D model</b>') + P(2, C, 'experience <span>›</span> scene <span>›</span> <b>rule</b>')
         + picker({ x: xs[2] + 22, y: 52 + 118, w: 430, scope: 2, idw: 150, groups }) + cursor(xs[2] + 92, 52 + 102) + status();
     } },
+  { id: '6', name: 'v6 · The generator for a storyboard shot', bar: { tab: `${ic('node')}sb-25-1<span class="muted">›</span>generator`, ws: -1 }, changed: 'New: drawn in the deck, where the canvas lives (in the creator it shows through the deck’s wasm, #764). Opened from the shot’s picture slot (the Storyboard’s step 5) – the shot’s prompt and reference are placed, the output spore is set by the slot (a picture, 1:3); one hooked spore is woven between; what it yields comes back to the slot. In lap 2 the creator still has the stub.',
+    draw: () => sporesPanel(BIG, shotGenGraph(), { crumb: '<b>Storyboard</b> <span class="tr">› sb-25-1 › generator</span>' })
+      + `<div class="abs" style="left:36px;top:470px;right:36px;display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;z-index:6"><span class="label" style="margin-right:.4rem" title="the spores to weave in – today’s list">＋</span>${['Library', 'Sheet', 'Crop', 'Pose', 'Condition', 'Skills', 'Reference'].map(n => `<span class="kc">${n}</span>`).join('')}<span style="width:1px;height:1rem;background:var(--tool-line);margin:0 .3rem"></span>${['Image', 'Upscale', 'Video', '3D model', 'Rig', 'Voice'].map(n => `<span class="kc" title="a hook: an agent, an LLM or an external tool runs it">${ic('zap')}${n}</span>`).join('')}</div>` + status() },
 ];
 const STILLS = 'stills are made in the background and shared (#842)';
 
@@ -538,7 +558,7 @@ const VI = Math.max(0, SCREENS.findIndex(s => s.id === VQ));
 function render() {
   const s = SCREENS[VI];
   const idx = SCREENS.map((x, i) => `<a href="?v=${x.id}${DAY ? '&theme=day' : ''}" class="${i === VI ? 'on' : ''}" title="${x.name}">v${x.id}</a>`).join('') + `<a href="?v=${s.id}${DAY ? '' : '&theme=day'}">${DAY ? 'night' : 'day'}</a>`;
-  document.getElementById('root').innerHTML = `<div class="screen"><div class="deck">${bar() + s.draw()}</div>
+  document.getElementById('root').innerHTML = `<div class="screen"><div class="deck">${bar(s.bar) + s.draw()}</div>
     <div class="foot"><b>${s.name}</b><span>${s.changed}${VI < 5 ? ' · ' + STILLS : ''}</span><span class="idx">${idx}</span></div></div>`;
   document.title = s.name + ' · Spores view · lap 2';
 }

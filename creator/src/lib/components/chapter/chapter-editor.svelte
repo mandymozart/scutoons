@@ -9,7 +9,6 @@
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
-	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys, isField } from '$lib/editor/editor-keys.ts';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -78,6 +77,9 @@
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
+	import { chapterFlow } from '@scutoons/content';
+	import { sporeScope } from '$lib/spores/scope.svelte.ts';
+	import { storyWeave } from '$lib/spores/story.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
@@ -319,6 +321,26 @@
 			onopen: openFlowNode
 		}
 	});
+	// the Spores tab (#763): this chapter's story as a weave, offered while the chapter is open
+	const sporesAddress = $derived(`chapter:${toon}/${chapterNumber}`);
+	$effect(() => {
+		const address = sporesAddress;
+		sporeScope.set({
+			address,
+			weave: () => {
+				const p = flowProps().input;
+				if (!p.groups || !p.reach) return null;
+				const flow = chapterFlow(p.groups, { chapter: p.chapter, toon: p.toon, reach: p.reach, name: p.name, text: p.text, facts: p.facts, nextChapter: p.nextChapter });
+				const levels = [
+					{ address: 'network', label: 'SCUTOONS' },
+					{ address: `toon:${p.toon}`, label: p.toon },
+					{ address, label: `${p.chapter}` }
+				];
+				return storyWeave(flow, { context: address, levels });
+			}
+		});
+		return () => sporeScope.drop(address);
+	});
 	// the Reader (UI-CONCEPTS E.6): the viewer's draft preview at the open group / slice (the chapter's start on its meta /
 	// audio), in the text language when the reader has it (de / en), else the first it has
 	const readerLocale = $derived(displayLocale === 'de' || displayLocale === 'en' ? displayLocale : (chapter.textLanguages.find((l) => l === 'de' || l === 'en') ?? 'de'));
@@ -430,8 +452,6 @@
 	/** autosave / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
-		// Publish lists the chapter and its files with drafts (BACKLOG 10.60)
-		tree: () => ({ scope: { kind: 'chapter', toon, number: chapterNumber }, title: m['creator.publish_tree_title']({ name: fileLabel(`chapter:${toon}:${chapterNumber}`) }) }),
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
 			syncChapter(chapter);
@@ -816,7 +836,7 @@
 		errors: errorCount,
 		warnings: warningCount,
 		unpublished: liveFiles.some((f) => f.doc.unpublished.length > 0),
-		publish: publishMenu,
+		...session.publishHooks,
 		docs: activeDoc && activeDoc !== chapter ? [activeDoc, chapter] : [chapter],
 		undo: undoLast,
 		redo: redoLast
@@ -944,11 +964,6 @@
 {/snippet}
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
-{/snippet}
-{#snippet publishMenu()}
-	<div class="publish-menu" data-testid="publish-panel">
-		<button type="button" onclick={() => session.publishAll()} data-testid="publish"><Icon name="upload-cloud" />{publishLabel(toon)}</button>
-	</div>
 {/snippet}
 
 {#snippet tree()}
@@ -1125,11 +1140,6 @@
 	}
 	.inspector-tab .slice-nav {
 		padding: 0 var(--editor-pad);
-	}
-	.publish-menu {
-		display: flex;
-		gap: var(--space-05);
-		padding: var(--space-05);
 	}
 	/* a form is a sheet in the stage's middle; the slice canvas lies between the preset's panels (they float over it) */
 	.main {

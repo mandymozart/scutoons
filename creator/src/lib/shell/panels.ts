@@ -22,6 +22,7 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'cast', name: m['character.cast'](), icon: 'users', about: m['character.cast_about']() },
 		{ id: 'generations', name: m['character.generations'](), icon: 'zap', about: m['character.generations_about']() },
 		{ id: 'flow', name: m['creator.flow'](), icon: 'git-merge', about: m['shell.panel_flow_about']() },
+		{ id: 'weave', name: m['shell.panel_spores'](), icon: 'share-2', about: m['shell.panel_spores_about']() },
 		{ id: 'preview', name: m['shell.panel_preview'](), icon: 'smartphone', about: m['shell.panel_preview_about']() },
 		{ id: 'log', name: m['shell.panel_log'](), icon: 'list', about: m['shell.panel_log_about'](), aliases: ['problems'] },
 		{ id: 'info', name: m['shell.panel_info'](), icon: 'info', about: m['shell.panel_info_about']() },
@@ -32,6 +33,8 @@ export function tabSpecs(): TabSpec[] {
 		{ id: 'generate', name: m['storyboard.panel_generate'](), icon: 'zap', about: m['storyboard.panel_generate']() },
 		{ id: 'handheld', name: m['storyboard.panel_handheld'](), icon: 'smartphone', about: m['storyboard.panel_handheld']() },
 		{ id: 'output', name: m['storyboard.panel_output'](), icon: 'download', about: m['storyboard.panel_output']() },
+		{ id: 'experience', name: m['shell.panel_experience'](), icon: 'aperture', about: m['shell.panel_experience_about']() },
+		{ id: 'scenes', name: m['shell.panel_scenes'](), icon: 'film', about: m['shell.panel_scenes_about']() },
 		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: m['shell.library_about']() },
 		{ id: 'settings', name: m['shell.settings'](), icon: 'settings', about: m['shell.settings_about']() }
 	];

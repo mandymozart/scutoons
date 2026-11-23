@@ -17,13 +17,21 @@ import {
 	type ToonBundle,
 	type ToonCast,
 	type ToonCredits,
-	type ToonIndex
+	type ToonIndex,
+	type XrExperience
 } from '@scutoons/content';
 
 export interface LibraryOptions {
 	/** the newest versions without status gates (role creator; uses the session client) */
 	draft?: boolean;
 	signal?: AbortSignal;
+}
+
+/** GET /library/experiences/<id>: a published XR experience (the reader's `/xr/<id>`) */
+export interface XrExperienceAnswer {
+	experience: XrExperience;
+	/** when it was published (ISO 8601) */
+	updatedAt: string;
 }
 
 export interface LibraryApiOptions {
@@ -118,7 +126,10 @@ export function createLibraryApi({ publicClient, sessionClient, cacheMs = 0 }: L
 			if (toon) params.set('toon', toon);
 			const query = params.toString();
 			return get<ReaderMap>(`/library/map${query ? `?${query}` : ''}`, options);
-		}
+		},
+
+		/** A published XR experience; ApiError 404 `not_found` until it is published (`draft`: its newest version) */
+		experience: (id: string, options?: LibraryOptions) => get<XrExperienceAnswer>(`/library/experiences/${encodeURIComponent(id)}`, options)
 	};
 }
 

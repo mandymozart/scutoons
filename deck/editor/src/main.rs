@@ -1293,8 +1293,8 @@ impl App {
         n.pictures.clear();
         if n.motion.previews {
             self.library.pictures.want_stills(&n.wanted);
-            for k in &n.wanted {
-                if let Some(id) = self.library.pictures.of(k) {
+            for k in n.wanted.clone() {
+                if let Some(id) = self.library.pictures.of(&k) {
                     n.pictures.insert(k.clone(), id);
                 }
             }

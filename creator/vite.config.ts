@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import { ENGINE_PATH } from './src/lib/isolation.ts';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
+import { xrStageFiles } from './vite/xr-stage-files.ts';
 
 /**
  * Cross-origin isolation in dev (#298; production: static/.htaccess, the same paths): the engine's routes get COOP + COEP,
@@ -35,6 +36,7 @@ const engineIsolation = {
 export default defineConfig(({ command }) => ({
 	plugins: [
 		engineIsolation,
+		xrStageFiles(), // the XR stage's desk and sky at /xr-stage/
 		cdnFonts(), // @font-face from the CDN (VITE_CDN_URL), the bundled copy as fallback
 		sveltekit(),
 		paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })

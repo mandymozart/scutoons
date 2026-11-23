@@ -14,6 +14,7 @@ test('every kind of stored file leads to the page that edits it', () => {
 	assert.equal(placeHref('place:cathedral'), '/map');
 	assert.equal(placeHref('character:catpope'), '/characters');
 	assert.equal(placeHref('scene:avatar-home'), '/scenes/avatar-home');
+	assert.equal(placeHref('experience:poster-catpope'), '/experiences/poster-catpope');
 	assert.equal(placeHref('module:walk'), '/edit/module:walk');
 	assert.equal(placeHref('rig:character.catpope'), '/edit/rig:character.catpope');
 	assert.equal(placeHref('rig:character.catpope.dj'), '/edit/rig:character.catpope.dj');

@@ -19,6 +19,8 @@ egui-text = []
 live = ["pixel"]
 # #386: the deck's pixel face (the HUD's font8x8) as a bitmap atlas egui samples (base pixel.rs)
 pixel = ["dep:font8x8"]
+# #763: Feather's icons rastered into the screen's pictures (resvg) – the editor and the Spores widget in the browser
+icons = ["editor", "dep:resvg"]
 
 [dependencies]
 # #485: the base stands on egui's primitives – the context, epaint's meshes, text and fonts, the input. Without its
@@ -35,3 +37,4 @@ deck-catalog = { path = "../catalog", optional = true }
 # the unit-switch field's catalogue and conversions (units)
 deck-core = { workspace = true, optional = true }
 toml.workspace = true
+resvg = { version = "0.45", default-features = false, optional = true }

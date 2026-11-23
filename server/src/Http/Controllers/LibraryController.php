@@ -10,6 +10,7 @@ use Scutoons\Domain\Catalog\CatalogValidator;
 use Scutoons\Domain\Library\Answer;
 use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\DevicePresets;
+use Scutoons\Domain\Library\Experiences;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Library\SceneContent;
 use Scutoons\Domain\Roles\Roles;
@@ -31,6 +32,7 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/scene-content?sets=&characters=&items=  what a deck's scene needs: set models per level, portraits per
  *                                                        mood, rigs with their instruments / presets (SceneContent, #195, #258)
  *   GET /api/library/device-presets                      { presets: [{ version, document }] } – the catalog's device presets
+ *   GET /api/library/experiences/{id}                    { experience, updatedAt } – a published XR experience (Experiences)
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -47,6 +49,7 @@ final class LibraryController
         private readonly ChapterFiles $files,
         private readonly SceneContent $scenes,
         private readonly DevicePresets $devicePresets,
+        private readonly Experiences $experiences,
     ) {
     }
 
@@ -143,6 +146,18 @@ final class LibraryController
     {
         $body = (string) json_encode(['presets' => $this->devicePresets->listed()], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         return $this->send($request, $response, new Answer($body, '"d' . substr(sha1($body), 0, 24) . '"', false, null));
+    }
+
+    /**
+     * GET /api/library/experiences/{id}: what the reader's `/xr/<id>` plays – 404 until it is published
+     * @param array{id: string} $args
+     */
+    public function experience(Request $request, Response $response, array $args): Response
+    {
+        $draft = $this->draft($request);
+        $answer = $this->experiences->get($args['id'], $draft) ?? throw new ApiError(404, 'not_found', "No experience {$args['id']}.");
+        $body = (string) json_encode($answer, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+        return $this->send($request, $response, new Answer($body, '"x' . substr(sha1($body), 0, 24) . '"', $draft, null));
     }
 
     public function events(Request $request, Response $response): Response

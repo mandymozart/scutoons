@@ -24,6 +24,5 @@
 	"creator/src/lib/components/slice/slice-toolbar.svelte": 3,
 	"creator/src/lib/components/sound/mood-chip.svelte": 3,
 	"creator/src/lib/docs/chips.svelte": 1,
-	"creator/src/routes/(app)/[toonId]/+page.svelte": 1,
-	"creator/src/routes/kit/+page.svelte": 3
+	"creator/src/routes/(app)/[toonId]/+page.svelte": 1
 }

@@ -99,7 +99,7 @@
 	}
 	.group.pinned {
 		padding: 0.4rem;
-		border: var(--editor-edge) solid var(--tool-primary-line);
+		border: var(--editor-edge) solid var(--tool-pressed);
 		border-radius: var(--editor-radius);
 	}
 	.head {

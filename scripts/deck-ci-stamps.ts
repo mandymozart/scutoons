@@ -28,6 +28,7 @@ export const WATCH: readonly string[] = [
 	// what deck's tests and builds read outside deck/ (include_str!, fixtures): a change there is a change of their result
 	'server/tests/fixtures',
 	'server/schema/tables/locale-order.vectors.json',
+	'server/schema/api/spore-network.vectors.json',
 	'server/src/Domain/Modules/ModuleSource.php',
 	'shared/content/test/fixtures',
 	'creator/static/SCUTOONS-logo-animated.svg'

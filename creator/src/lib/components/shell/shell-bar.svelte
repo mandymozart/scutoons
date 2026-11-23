@@ -1,27 +1,51 @@
 <script lang="ts">
-	import { IconButton, Menu, Pill } from '@scutoons/ui/editor';
+	import { Icon } from '@scutoons/ui';
+	import { IconButton, Pill } from '@scutoons/ui/editor';
+	import { toonName } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { notPublished } from '$lib/editor/not-published.svelte.ts';
+	import { publishFlow } from '$lib/editor/publish-flow.svelte.ts';
+	import { reviews } from '$lib/editor/reviews.svelte.ts';
+	import PublishDialog from '$lib/components/shell/publish-dialog.svelte';
 	import { shell } from '$lib/shell/shell.svelte.ts';
-	import { getCreatorSession } from '$lib/session.svelte.ts';
+	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { showsTextLanguage } from '$lib/shell/crafts.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TabStrip from '$lib/components/shell/tab-strip.svelte';
 	import WorkspaceTabs from '$lib/components/shell/workspace-tabs.svelte';
+	import MainMenu from '$lib/components/shell/main-menu.svelte';
+	import UserMenu from '$lib/components/shell/user-menu.svelte';
+	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 
 	/**
-	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
-	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
-	 * something in its scope is not live), the account (the user menu, as a swipe up from the bottom) and the menu, far right: it lays the dashboard over everything and
-	 * takes it away again. Every part is a kit Pill, half a gap apart, groups and toolbars bordered (owner 2026-11-24).
+	 * The bar (lap 2 A1; deck/editor/src/bar.rs): the open items' tabs at the left, the workspace row in the middle and
+	 * nothing else there, round icons in pills at the right end – ↶ ↷, Publish (RULES H18: the one way to send drafts to
+	 * readers – its dot while something is not live, its dialog on the overlay level), the account (the user menu) and ☰
+	 * (the menu), far right. A craft may add its own: the translator's bar carries the text language (A9).
 	 */
-	const session = getCreatorSession();
+	let { reader = null }: { reader?: string | null } = $props();
+
 	const doc = $derived(shell.doc);
-	const who = $derived(session.user?.email ?? '');
-	// a page that cannot tell (unpublished not given) keeps Publish; one that says nothing waits hides it
-	const publishing = $derived(!!doc?.publish && doc.unpublished !== false);
+	const nav = getCreatorNav();
+	const toons = $derived(nav.toons.map((t) => ({ id: t.id, name: toonName(t, getLocale()) })));
+	$effect(() => void notPublished.load(toons));
+	const waiting = $derived(notPublished.list.length > 0 || !!doc?.unpublished || !!reviews.overview?.to_review?.length);
+	const openPublish = () => void publishFlow.show(toons, shell.doc);
+	const languages = $derived(textLanguage.page.languages);
+	const translating = $derived(showsTextLanguage(crafts.mine) && languages.length > 1);
 </script>
 
 <header class="shell-bar" data-testid="creator-bar" data-control-exempt="the bar's pills: deck-kit bar.rs's inset height">
 	<TabStrip />
 	<span class="middle"><WorkspaceTabs /></span>
+	{#if translating}
+		<Pill label={m['shell.text_language']()} data-testid="bar-text-language">
+			<span class="globe" aria-hidden="true"><Icon name="globe" size="1rem" strokeWidth={2} /></span>
+			<TextLanguageSwitch {languages} source={textLanguage.page.source} quiet />
+		</Pill>
+	{/if}
 	{#if doc?.undo}
 		<Pill label={m['history.undo']()}>
 			<IconButton label={m['history.undo']()} title={m['history.undo_hint']()} icon="rotate-ccw" onclick={() => doc?.undo?.()} data-testid="bar-undo" />
@@ -29,17 +53,12 @@
 		</Pill>
 	{/if}
 	<Pill>
-		{#if publishing}
-			<Menu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_bar']()} testid="bar-publish" dot={!!doc?.unpublished} width="19rem">
-				{#snippet children()}
-					{#if doc?.publish}{@render doc.publish()}{/if}
-				{/snippet}
-			</Menu>
-		{/if}
-		<IconButton label={m['shell.account_menu']({ who })} title={m['shell.user_menu']()} icon="user" pressed={shell.userMenu} aria-expanded={shell.userMenu} onclick={() => (shell.userMenu = !shell.userMenu)} data-testid="bar-account" />
-		<IconButton label={m['shell.dashboard']()} title="{m['shell.dashboard']()} (Esc)" icon="menu" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => (shell.dashboard = shell.dashboard ? false : 'cards')} data-testid="menu-button" />
+		<IconButton label={m['shell.panel_publish']()} title={m['shell.publish_bar']()} icon="upload-cloud" dot={waiting} pressed={publishFlow.open} onclick={openPublish} data-testid="bar-publish" />
+		<UserMenu />
+		<MainMenu {reader} />
 	</Pill>
 </header>
+{#if publishFlow.open}<PublishDialog />{/if}
 
 <style>
 	/* the bar's row lies on the stage a margin from the top (bar.rs `margin`): only its pills take the pointer */
@@ -72,5 +91,10 @@
 	}
 	.middle > :global(*) {
 		pointer-events: auto;
+	}
+	.globe {
+		display: inline-grid;
+		place-items: center;
+		padding-left: calc(var(--editor-pad) / 2);
 	}
 </style>

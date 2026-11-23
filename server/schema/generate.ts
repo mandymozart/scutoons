@@ -13,6 +13,8 @@
 //   server/schema/content/chapter.schema.json  → deck/protocol/src/story_events.rs    (#517: the story event types a VNEvent takes:
 //                                                protocol::story_events – what a scene's listener may name)
 //                                                server/src/Generated/StoryEventTypes.php (the same list, #521: the server's story events)
+//   server/schema/api/spore-network.schema.json → deck/protocol/src/spore_network.rs (#763: one level of the spore network, a weave – protocol::spore_network)
+//                                                shared/api/src/spore-network.ts       (TS types, @scutoons/api: Spores)
 //
 // The Rust and TS types come from the relay protocol's emitters (same schema subset, same output style); only their file header
 // differs. The PHP shapes and the tables are written here. A construct outside the subset throws, so a new one is a change here first.
@@ -55,7 +57,10 @@ export const paths = {
 	scenePhp: join(repo, 'server', 'src', 'Generated', 'SceneTypes.php'),
 	chapterSchema: join(here, 'content', 'chapter.schema.json'),
 	storyRs: join(repo, 'deck', 'protocol', 'src', 'story_events.rs'),
-	storyPhp: join(repo, 'server', 'src', 'Generated', 'StoryEventTypes.php')
+	storyPhp: join(repo, 'server', 'src', 'Generated', 'StoryEventTypes.php'),
+	viewSchema: join(here, 'api', 'spore-network.schema.json'),
+	viewRs: join(repo, 'deck', 'protocol', 'src', 'spore_network.rs'),
+	viewTs: join(repo, 'shared', 'api', 'src', 'spore-network.ts')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -77,6 +82,14 @@ export function addressBookTs(root: ContractRoot): string {
 
 export function addressBookRs(root: ContractRoot): string {
 	return rehead(emitRust(root), '//', 'pub const PROTOCOL_VERSION: i64 = 1;\n', rel(paths.schema));
+}
+
+export function sporeNetworkTs(root: ContractRoot): string {
+	return rehead(emitTypeScript(root), '//', 'export const PROTOCOL_VERSION = 1 as const;\n', rel(paths.viewSchema));
+}
+
+export function sporeNetworkRs(root: ContractRoot): string {
+	return rehead(emitRust(root), '//', 'pub const PROTOCOL_VERSION: i64 = 1;\n', rel(paths.viewSchema));
 }
 
 const refName = (ref: string): string => {
@@ -434,7 +447,10 @@ export function generate(): Record<string, string> {
 	const order = read<LocaleOrder>(paths.localeOrder);
 	const scene = read<Draft07>(paths.sceneSchema);
 	const chapter = read<Draft07>(paths.chapterSchema);
+	const view = read<ContractRoot>(paths.viewSchema);
 	return {
+		[paths.viewRs]: sporeNetworkRs(view),
+		[paths.viewTs]: sporeNetworkTs(view),
 		[paths.storyRs]: storyEventsRs(chapter),
 		[paths.storyPhp]: storyEventTypesPhp(chapter),
 		[paths.sceneTs]: sceneTs(scene),

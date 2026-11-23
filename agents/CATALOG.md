@@ -284,3 +284,9 @@ fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in m
   own; a `factory` one is never changed – Save makes a derived one naming it in `origin`); publishing is the creator's. scene-content
   serves a rig's published presets inline as `rig_presets` (its `version` covers them); a scene holder's `preset` plays its rig on one,
   its `values` single knobs over it (holders without `preset` read as before).
+- **XR experiences** (#482, migration `2026-11-21-xr-experiences`): the kind `experiences` (`catalog_experiences`, documents
+  `experience:<id>`, ids `[a-z][a-z0-9-]{1,63}`) = @scutoons/content `xr.ts` `XrExperience` { id, type, title, toons, source?, assets,
+  configuration, plugins }: OSCT's game configuration unchanged, the CDN folder of its files, its compiled plugins as code. Checked
+  shallowly (the configuration's contract is the engine's guard, in the reader). The reader reads the published one with
+  `GET /api/library/experiences/<id>` and plays it at `/xr/<id>`; the MCP's `import_xr_experience` saves drafts from a published OSCT
+  version. No creator page yet (research/XR.md §10.8).

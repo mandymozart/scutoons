@@ -1,6 +1,6 @@
 // The map builder's region brush (agents/MAP.md §8.10, owner 2026-10-12: "the brush can be scaled from 1 to 256 so it can
 // go faster to paint regions"): which region's cover is being painted, add or remove, the brush's size. The region form
-// and the Publish panel's selection switch it; the builder hands the canvas a bulk HexBrushTarget for it (paintRuns on the row runs).
+// and the page line's selection actions switch it; the builder hands the canvas a bulk HexBrushTarget for it (paintRuns on the row runs).
 import { BRUSH_MAX } from '@scutoons/content';
 import { shared } from '$lib/utils/shared.ts';
 

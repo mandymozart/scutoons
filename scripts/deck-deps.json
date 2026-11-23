@@ -14,6 +14,7 @@
 		{ "crate": "deck-headless", "args": [], "why": "the headless deck host (#363): the third adapter, platform-free by construction" },
 		{ "crate": "deck-outlet", "args": [], "why": "the Live outlet's logic (#378): a cell's plan, the composer, the crossfade, the dialog / text layout, the relay messages' routing" },
 		{ "crate": "deck-show", "args": [], "why": "the show core (#89): the show document, its validation, the bare conductor" },
+		{ "crate": "deck-spores", "args": [], "why": "the Spores widget (#763): a weave of the spore network painted and touched alike in the editor and the creator (wasm) – deck-kit's editor components and the contract, no window, no GPU" },
 		{ "crate": "deck-ui", "args": [], "why": "the deck's UI model (#374): the HUD's lines, the stats bar's items, the F1 mode" },
 		{ "crate": "deck-media", "args": [], "why": "media decoding (#326): demux, the software decode backend, audio through symphonia – bytes in, pictures and samples out (owner 2026-11-17: symphonia allowed here)" }
 	],

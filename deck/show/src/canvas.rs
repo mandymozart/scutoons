@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 /// a group's colours, in the order new groups take them
 pub const COLOURS: [&str; 6] = ["#5fb3ff", "#7fd68a", "#f2b84b", "#e07ad6", "#ff7a6b", "#9a8cff"];
 /// a folded group's pill in the graph: `group:<id>`
-pub const GROUP: &str = "group:";
+pub const GROUP: &str = deck_kit::base::graph::PILL;
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

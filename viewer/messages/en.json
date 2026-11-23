@@ -1022,5 +1022,14 @@
 		"origin_3": "Our characters share this trait. That is why every one of them sings or makes music at some point – or lives out their stories.",
 		"name_title": "The name",
 		"name_1": "The name comes from Kiki Hitomi and appears in the credits on the record’s sleeve notes. It joins SCU – the Japanese syllable スク for “screen” – and TOON: written T-O-O-N, heard as tunes, as in Looney Tunes. The toons are our little characters, the tunes the music that drives them. It is also a nod to graphic novels and the endless scroll of webtoons."
+	},
+	"xr": {
+		"loading": "Loading …",
+		"hint": "Point the camera at the print.",
+		"start": "Start camera",
+		"scanning": "Looking for the picture …",
+		"failed_content": "This experience cannot be shown here.",
+		"failed_other": "That did not work.",
+		"retry": "Try again"
 	}
 }

@@ -1,25 +1,29 @@
 /*
- * @scutoons/tokens: the web tools' colours – the deck editor's scheme (RULES H11, [editor-style] 2026-11-24). Tool CSS
- * (tools.css, shared/ui/src/editor, the creator) takes every colour from these `--tool-*` names; they point at deck-kit's
- * editor tokens (editor.css, generated from deck/kit/src/base/tokens.rs). No literal colours outside this file and
- * editor.css; `npm run check:tools-css` fails on them and on a grey ground behind content on the stage.
+ * @scutoons/tokens: the web tools' colours – palette D of the kit (RULES H11). Tool CSS (tools.css, shared/ui/src/editor,
+ * the creator) takes every colour from these `--tool-*` names; they point at the kit's tokens (editor.css, generated
+ * from kit/tokens.toml). No literal colours outside this file and editor.css; `npm run check:tools-css` fails on them
+ * and on a grey ground behind content on the stage. No signal hue: on, focus, active and selected are the text colour,
+ * the one primary action is the pressed fill, colour says only ok (go), warning (warn) and error (stop).
  *
  *   ground          the stage: everything on the stage stands on it (black at night; white by day in the creator)
- *   panel           a floating panel's see-through ground (surface × panel opacity, deck floats.rs) – only panels
- *   halo            text-shadow on a panel's text: the ink ring of its ground's colour (DrawList::halo; none by day)
+ *   panel           a floating panel's see-through ground (the surface, the stage colour, × panel opacity)
+ *   halo            text-shadow on a panel's text: the ink ring of its ground's colour (none by day)
  *   icon-halo       the same ring on icons and SVGs on a panel (filter: drop-shadow)
- *   popover         the opaque ground of a menu, a dropdown, a dialog, a tooltip, a toast (deck controls.rs menus)
- *   head            a fold row's / a tile's ground inside a panel or popover (deck surface_head)
- *   control         a field's or a framed control's ground · hover the same under the pointer
- *   pressed         a pressed segment / tab / toggle / an open menu's trigger, pressed-text the ink on it
- *   selected        a selected row or item · within: a track, a meter's unfilled part, a range
+ *   popover         the ground of a menu, a dropdown, a dialog, a tooltip, a toast: the same see-through ground as a
+ *                   panel, with its 1px line – never a grey
+ *   head            a fold row's / a tile's ground (the text colour at 5 %)
+ *   control         a field's or a framed control's ground (text 6 %) · hover the same under the pointer (text 10 %)
+ *   pressed         a pressed segment / tab / toggle / the primary action, pressed-text the ink on it
+ *   selected        a selected row or item (text 16 %) · within: a track, a meter's unfilled part, a range (text 10 %)
  *   line            1px frames and dividers · text · muted (secondary text, quiet icons) · bright (light ink)
- *   accent          the one colour with a meaning: live, focus, a link, an insertion mark · selection: selected text
- *   primary         the view's one primary action (lime), primary-line its edge, primary-ink its text
- *   danger go warn stop   states (error / destroy, ok / play, warning, stop / an error mark)
+ *   selection       selected text, a marquee (text 25 %)
+ *   danger go warn stop   states (destroy, ok, warning, error) – go is ok and the mixer's meters, never "on"
  *   scrim           behind a modal: the stage dimmed · over-dark / over-light: marks drawn on artwork (any theme)
  *   checker         the second square of a transparency checker (the first is the ground)
  *
+ * Signals (--signal-*), outlet types (--outlet-*) and a group's colours (--group-1 … 6) come straight from editor.css;
+ * the components' states (--kit-<component>-<state>-<part>) from kit.css, which names these.
+ * `data-colorblind` on <html> or a tool root turns ok / warning / error into the colour-blind set.
  * Night is the default; `data-theme="day"` on <html> or a tool root is the day variant. Set on every theme root so a
  * part in the other theme resolves its own values.
  */
@@ -29,7 +33,7 @@
 	--tool-panel: var(--editor-panel-ground);
 	--tool-halo: var(--editor-halo);
 	--tool-icon-halo: drop-shadow(0 0 1px var(--editor-surface)) drop-shadow(0 0 1px var(--editor-surface));
-	--tool-popover: var(--editor-surface);
+	--tool-popover: var(--editor-panel-ground);
 	--tool-head: var(--editor-surface-head);
 	--tool-control: var(--editor-control);
 	--tool-hover: var(--editor-hover);
@@ -41,11 +45,7 @@
 	--tool-text: var(--editor-text);
 	--tool-muted: var(--editor-muted);
 	--tool-bright: var(--editor-bright);
-	--tool-accent: var(--editor-accent);
 	--tool-selection: var(--editor-selection);
-	--tool-primary: var(--editor-primary);
-	--tool-primary-line: var(--editor-primary-line);
-	--tool-primary-ink: var(--editor-primary-ink);
 	--tool-danger: var(--editor-danger);
 	--tool-go: var(--editor-go);
 	--tool-warn: var(--editor-warn);
@@ -55,8 +55,15 @@
 	--tool-over-light: rgb(255 255 255 / 0.8);
 	--tool-checker: var(--editor-hover);
 }
-/* day: the creator's stage is white (the deck keeps its black stage behind its own day panels); no halo by day, as the deck */
+/* day: the creator's stage is white (the deck keeps its black stage behind its own day panels); no halo by day */
 [data-theme='day'] {
 	--tool-ground: #ffffff;
 	--tool-icon-halo: none;
+}
+/* the colour-blind mode: ok blue, warning yellow / orange, error vermillion */
+[data-colorblind],
+[data-colorblind] [data-theme] {
+	--tool-go: var(--editor-colorblind-go);
+	--tool-warn: var(--editor-colorblind-warn);
+	--tool-stop: var(--editor-colorblind-stop);
 }

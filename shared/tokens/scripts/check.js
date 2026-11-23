@@ -22,12 +22,13 @@ const required = [
 const tokens = read('tokens.css');
 const defined = new Set([...tokens.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
 for (const name of required) if (!defined.has(name)) errors.push(`tokens.css: --${name} is missing`);
-// the editor style (generated from deck-kit, scripts/editor-tokens.ts)
+// the editor style (generated from kit/tokens.toml, scripts/editor-tokens.ts)
 for (const [, name] of read('editor.css').matchAll(/--([a-z0-9-]+)\s*:/g)) defined.add(name);
-// the tools' semantic colours on top of them (RULES H11)
+// the tools' semantic colours on top of them (RULES H11) and the kit components' states (generated: kit.css)
 for (const [, name] of read('tool-colours.css').matchAll(/--([a-z0-9-]+)\s*:/g)) defined.add(name);
+for (const [, name] of read('kit.css').matchAll(/--([a-z0-9-]+)\s*:/g)) defined.add(name);
 
-for (const file of ['tokens.css', 'editor.css', 'tool-colours.css', 'base.css', 'fonts.css', 'tools.css']) {
+for (const file of ['tokens.css', 'editor.css', 'tool-colours.css', 'kit.css', 'base.css', 'fonts.css', 'tools.css']) {
 	const css = read(file);
 	// a custom property the file sets itself on a rule (e.g. tools.css --switch-knob) is local, not a token
 	const local = new Set([...css.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
@@ -53,7 +54,7 @@ for (const file of readdirSync(join(root, 'fonts'))) {
 }
 
 const index = read('index.css');
-for (const file of ['tokens.css', 'editor.css', 'tool-colours.css', 'fonts.css', 'base.css', 'tools.css']) {
+for (const file of ['tokens.css', 'editor.css', 'tool-colours.css', 'kit.css', 'fonts.css', 'base.css', 'tools.css']) {
 	if (!index.includes(`'./${file}'`)) errors.push(`index.css does not import ${file}`);
 }
 

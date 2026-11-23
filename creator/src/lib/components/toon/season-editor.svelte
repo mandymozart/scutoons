@@ -113,7 +113,6 @@
 	docs={[season]}
 	companions={() => Object.values(chapters)}
 	beforeSave={() => syncChapters(chapters)}
-	tree={() => ({ scope: { kind: 'season', toon, number, chapters: numbers }, title: m['creator.publish_tree_title']({ name: m['creator.season']({ number }) }) })}
 >
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>

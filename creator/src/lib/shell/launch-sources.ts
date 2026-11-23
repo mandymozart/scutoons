@@ -29,7 +29,7 @@ export function loadSources(nav: CreatorNav) {
 	void library.load();
 }
 
-const item = (p: Place): LaunchEntry => ({ id: `item:${p.address}`, kind: 'item', label: p.label, hint: p.hint ?? kindWord(p.address) ?? undefined, address: p.address, keywords: p.keywords, icon: p.icon, href: p.href });
+const item = (p: Place): LaunchEntry => ({ id: `item:${p.address}`, kind: 'item', label: p.label, hint: p.hint ?? kindWord(p.address) ?? undefined, type: kindWord(p.address) ?? undefined, address: p.address, keywords: p.keywords, icon: p.icon, href: p.href });
 
 /** every item: the toons with their seasons and chapters (the front toon first), the areas, every kind the core opens */
 export function items(nav: CreatorNav, toon: string | null): LaunchEntry[] {
@@ -40,7 +40,7 @@ export function items(nav: CreatorNav, toon: string | null): LaunchEntry[] {
 export function typed(query: string): LaunchEntry[] {
 	const href = resolveTyped(query);
 	const address = query.trim();
-	return href ? [{ id: `item:${address}`, kind: 'item', label: address, hint: m['shell.launch_address'](), address, icon: iconOf(address), href }] : [];
+	return href ? [{ id: `item:${address}`, kind: 'item', label: address, hint: m['shell.launch_address'](), type: kindWord(address) ?? undefined, address, icon: iconOf(address), href }] : [];
 }
 
 export function workspaces(): LaunchEntry[] {
@@ -54,6 +54,7 @@ export function views(): LaunchEntry[] {
 		.map((t) => ({ id: `view:${t.id}`, kind: 'view', label: t.name, hint: m['shell.launch_view'](), keywords: t.about, icon: t.icon }));
 }
 
+const capital = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 const ASSET_ICONS: Record<LibraryKind, string> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 const MAX_ASSETS = 20;
 
@@ -67,7 +68,7 @@ export function assets(query: string): LaunchEntry[] {
 		.slice(0, MAX_ASSETS)
 		.map((key) => families.get(key))
 		.filter((f): f is AssetFamily => !!f)
-		.map((f) => ({ id: `asset:${f.key}`, kind: 'asset', label: f.title || f.name, hint: f.folder, keywords: `${f.name} ${f.folder} ${f.tags.join(' ')} ${f.kind}`, icon: ASSET_ICONS[f.kind] ?? 'file' }));
+		.map((f) => ({ id: `asset:${f.key}`, kind: 'asset', label: f.title || f.name, hint: f.folder, type: capital(m[`library.kind_${f.kind}`]()), keywords: `${f.name} ${f.folder} ${f.tags.join(' ')} ${f.kind}`, icon: ASSET_ICONS[f.kind] ?? 'file' }));
 }
 
 interface Command {
@@ -79,17 +80,14 @@ interface Command {
 }
 
 function commands(logout: () => unknown): Command[] {
-	const doc = shell.doc;
 	const day = shell.settings.theme === 'day';
 	const language = languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }) });
 	return [
-		// the bar's Publish menu (only while something in its scope is not live)
-		...(doc?.publish && doc.unpublished !== false
-			? [{ id: 'publish', label: m['shell.launch_publish'](), icon: 'upload-cloud', keywords: 'publish live veröffentlichen', run: () => document.querySelector<HTMLElement>('[data-testid="bar-publish"]')?.click() }]
-			: []),
+		// a press of the bar's Publish (its one dialog, RULES H18)
+		{ id: 'publish', label: m['shell.launch_publish'](), icon: 'upload-cloud', keywords: 'publish live veröffentlichen', run: () => document.querySelector<HTMLElement>('[data-testid="bar-publish"]')?.click() },
 		{ id: 'settings', label: m['shell.settings'](), icon: 'settings', keywords: 'settings preferences einstellungen', run: () => shell.open('settings') },
-		{ id: 'views', label: m['shell.views'](), icon: 'eye', keywords: 'views panels ansichten', run: () => (shell.dashboard = shell.state.front ? 'views' : 'cards') },
-		{ id: 'dashboard', label: m['shell.dashboard'](), icon: 'menu', keywords: 'dashboard home menu', run: () => (shell.dashboard = 'cards') },
+		{ id: 'views', label: m['shell.views'](), icon: 'eye', keywords: 'views panels ansichten', run: () => shell.openViews() },
+		{ id: 'dashboard', label: m['shell.dashboard'](), icon: 'menu', keywords: 'switcher dashboard home workspaces', run: () => shell.toggleSwitcher(true) },
 		{ id: 'docs', label: m['shell.docs'](), icon: 'book-open', keywords: 'docs help documentation doku', run: () => void window.open('/docs', '_blank', 'noopener') },
 		{ id: 'theme', label: day ? m['shell.launch_night']() : m['shell.launch_day'](), icon: day ? 'moon' : 'sun', keywords: 'theme day night dark light tag nacht', run: () => shell.change({ theme: day ? 'night' : 'day' }) },
 		{ id: 'save-workspace', label: m['shell.launch_save'](), icon: 'save', keywords: 'save workspace layout speichern arbeitsbereich', run: () => void saveWorkspace() },

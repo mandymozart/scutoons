@@ -1,4 +1,4 @@
-<!-- status: lap 2 draft for the owner's review (epic #626), 2026-11-24 – the screen set of SCREENS.md (A–F), each drawn from its base (now/ screenshots, the deck code, the drawn drafts) with only its row's change, every change numbered; open points as "Owner decides" cards. Design only, no build, nothing decided. -->
+<!-- status: lap 2 draft for the owner's review (epic #626), 2026-11-24 – the screen set of SCREENS.md (A–F), each drawn from its base (now/ screenshots, the deck code, the drawn drafts) with only its row's change, every change numbered; open points as "Owner decides" cards only where DECISIONS.md lists them open. Redrawn on the kit (kit-d.html, palette D: assets/palette-d.css) 2026-11-24. Design only, no build. -->
 <!doctype html>
 <html lang="en" data-theme="night">
 <head>
@@ -6,9 +6,11 @@
 <title>Lap 2 draft</title>
 <!-- ?s=A1 … F3 picks the screen · ?theme=day · ?shot hides the index (for the PNGs). Keys: ‹ › (← →) previous / next, T day / night, I the index.
      Colours: assets/editor.css + assets/tool-colours.css, copied 1:1 from shared/tokens. Sizes: the kit's (tools.css :root block, copied).
-     Components: the shapes of shared/ui/src/editor (pill, pill-tab, icon-button, chip, button, toggle, menu, floating panel). -->
+     Components: the shapes of shared/ui/src/editor (pill, pill-tab, icon-button, chip, button, toggle, menu, floating panel), drawn as kit-d.html
+     draws them in palette D (assets/palette-d.css: no accent, no lime, see-through grounds; RULES H4, H10, H11, H13). -->
 <link rel="stylesheet" href="assets/editor.css">
 <link rel="stylesheet" href="assets/tool-colours.css">
+<link rel="stylesheet" href="assets/palette-d.css">
 <style>
 @font-face{font-family:"Noto Sans";src:url("../../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
 @font-face{font-family:"Noto Sans";src:url("../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
@@ -19,7 +21,7 @@
   --control-height:var(--editor-row)}
 *{box-sizing:border-box}
 html{font-size:14px}
-body{margin:0;background:#202020;font-family:var(--editor-sans);color:var(--tool-text)}
+body{margin:0;background:var(--tool-ground);font-family:var(--editor-sans);color:var(--tool-text)}
 svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .frame{position:relative;width:1440px;height:900px;overflow:hidden;background:var(--tool-ground)}
 .app{position:absolute;left:0;top:0;width:1440px;height:856px;overflow:hidden;background:var(--tool-ground);color:var(--tool-text);font-size:1rem;line-height:1.35}
@@ -27,6 +29,9 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .label{font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase;color:var(--tool-muted)}
 .muted{color:var(--tool-muted)} .small{font-size:var(--editor-small)}
 .mono{font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+/* kit states (kit-d.html): focus = a 2px ring in the text colour; a selected row = the selected ground, no side bar (H10) */
+.f{outline:2px solid var(--tool-text)!important;outline-offset:1px}
+.sel{background:var(--tool-selected)}
 
 /* kit: Pill */
 .kp{display:inline-flex;flex:none;align-items:center;gap:var(--kit-seam);height:var(--kit-bar);padding:0 calc(var(--kit-inset) - 1px);border:1px solid var(--tool-line);border-radius:calc(var(--kit-bar)/2);background:var(--tool-panel);color:var(--tool-text);text-shadow:var(--tool-halo);--kit-h:calc(var(--kit-bar) - 2*var(--kit-inset));--kit-r:calc(var(--kit-bar)/2 - var(--kit-inset));--kit-icon-in:var(--kit-icon-alone);min-width:0}
@@ -34,7 +39,8 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .kp.status{height:var(--kit-status);border-radius:calc(var(--kit-status)/2);font-size:var(--editor-small);--kit-h:calc(var(--kit-status) - 2*var(--kit-inset));--kit-r:calc(var(--kit-status)/2 - var(--kit-inset))}
 /* kit: PillTab */
 .kt{display:inline-flex;flex:none;align-items:center;gap:var(--kit-icon-gap);height:var(--kit-h,var(--control-height));border-radius:var(--kit-r,var(--editor-radius));color:var(--tool-muted);padding:0 var(--editor-pad);white-space:nowrap;max-width:14rem;position:relative}
-.kt.on{box-shadow:inset 0 0 0 1px var(--tool-text);color:var(--tool-text)}
+.kt.on{color:var(--tool-text)}
+.kt.h{box-shadow:inset 0 0 0 1px var(--d-edge);color:var(--tool-text)}
 .kt.dim{opacity:.55}
 .kt .x{display:inline-grid;place-items:center;width:1.2rem;height:1.2rem;margin-right:-.25rem;color:var(--tool-muted)}
 .kt.on .x{color:var(--tool-text)}
@@ -44,6 +50,7 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .kib{position:relative;display:inline-grid;flex:none;place-items:center;width:var(--kit-h,var(--control-height));height:var(--kit-h,var(--control-height));border-radius:var(--kit-r,50%);color:var(--tool-text)}
 .kib svg{width:var(--kit-icon-in,1.1rem);height:var(--kit-icon-in,1.1rem)}
 .kib.muted{color:var(--tool-muted)}
+.kib.h{background:var(--tool-hover)}
 .kib.pressed{background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none}
 .kib.pressed svg{filter:none}
 .kib .dot{position:absolute;top:18%;right:18%;width:.4rem;height:.4rem;border-radius:50%;background:var(--tool-warn)}
@@ -51,17 +58,19 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 /* kit: Chip (the small delicate badge) */
 .kc{display:inline-flex;flex:none;align-items:center;gap:calc(var(--editor-pad)/2);height:calc(var(--editor-tree-row) - 8px);padding:0 calc(var(--editor-pad)*1.25);border:1px solid var(--tool-line);border-radius:1rem;color:var(--tool-muted);font-size:var(--editor-label);line-height:1;white-space:nowrap}
 .kc svg{width:var(--editor-label);height:var(--editor-label)}
-.kc.on{border-color:var(--tool-accent);background:color-mix(in srgb,var(--tool-accent) 14%,transparent);color:var(--tool-accent)}
+.kc.on{border-color:var(--tool-text);background:var(--d-on-ground);color:var(--tool-text)}
+.kc.ok{border-color:var(--tool-go);color:var(--tool-go)} .kc.warn{border-color:var(--tool-warn);color:var(--tool-warn)} .kc.err{border-color:var(--tool-stop);color:var(--tool-stop)}
 /* kit: Button */
 .kb{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:var(--kit-icon-gap);height:var(--kit-h,var(--control-height));padding:0 calc(var(--editor-pad)*1.5);border:1px solid transparent;border-radius:var(--kit-r,var(--editor-radius));color:var(--tool-text);white-space:nowrap;line-height:1}
 .kb svg{width:var(--kit-icon);height:var(--kit-icon)}
-.kb.framed{border-color:var(--tool-line);background:var(--tool-control);text-shadow:none}
-.kb.primary{border-color:var(--tool-primary-line);background:var(--tool-primary);color:var(--tool-primary-ink);text-shadow:none}
+.kb.framed,.kb.plain{border-color:var(--tool-line);background:var(--tool-control);text-shadow:none}
+.kb.primary{border-color:transparent;background:var(--tool-pressed);color:var(--tool-pressed-text);text-shadow:none}
+.kb.primary svg{filter:none}
 .kb.pressed{background:var(--tool-pressed);color:var(--tool-pressed-text)}
 /* kit: Toggle */
 .tg{display:inline-block;width:2.25rem;height:1.125rem;border:1px solid var(--tool-line);border-radius:999px;background:var(--tool-within);position:relative;vertical-align:middle}
 .tg::before{content:'';position:absolute;top:50%;left:.07rem;width:.855rem;height:.855rem;border-radius:50%;background:var(--tool-muted);transform:translateY(-50%)}
-.tg.on{background:var(--tool-go)} .tg.on::before{background:var(--tool-bright);transform:translate(1.125rem,-50%)}
+.tg.on{border-color:var(--tool-pressed);background:var(--tool-pressed)} .tg.on::before{background:var(--tool-pressed-text);transform:translate(1.125rem,-50%)}
 /* kit: Menu */
 .km{position:absolute;z-index:60;display:flex;flex-direction:column;padding:calc(var(--editor-pad)/2);border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);color:var(--tool-text);text-shadow:none;--kit-h:var(--control-height);--kit-r:var(--editor-radius);--kit-icon-in:var(--kit-icon)}
 .km hr{width:100%;margin:calc(var(--editor-pad)/2) 0;border:0;border-top:1px solid var(--tool-line)}
@@ -75,7 +84,7 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .fp svg{filter:var(--tool-icon-halo)}
 .fp .hd{flex:none;display:flex;align-items:center;gap:.125rem;padding:.1875rem .1875rem .1875rem .375rem;--kit-r:calc(var(--kit-radius-box) - .1875rem)}
 .fp .tab{display:inline-flex;align-items:center;height:calc(var(--control-height) - .25rem);padding:0 var(--editor-pad);border-radius:var(--kit-r);color:var(--tool-muted);font-size:var(--editor-small);white-space:nowrap}
-.fp .tab.on{box-shadow:inset 0 0 0 1px var(--tool-text);color:var(--tool-text)}
+.fp .tab.on{color:var(--tool-text)}
 .fp .hd .sp{flex:1}
 .fp .hd .ic{display:inline-grid;place-items:center;width:var(--control-height);height:calc(var(--control-height) - .25rem);color:var(--tool-muted)}
 .fp .hd .ic svg{width:.9rem;height:.9rem}
@@ -83,11 +92,19 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .fp.col{border-radius:2rem}
 /* small page parts: field, select, slot, seg (today's sc-seg), fold rows, tree rows, list rows */
 .fld{display:flex;align-items:center;height:var(--control-height);padding:0 var(--editor-pad);border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);text-shadow:none;gap:.4rem}
+.fld .ph,.fld>svg{color:var(--tool-muted)}
 .fld.sel::after{content:'';margin-left:auto;width:.5rem;height:.5rem;border-right:1.5px solid var(--tool-muted);border-bottom:1.5px solid var(--tool-muted);transform:translateY(-25%) rotate(45deg)}
+/* kit: the quiet select (kit-d.html "Select quiet" .fld.q, owner 2026-11-24; named .quiet here: .q is the draft's question card) – a filter or sort: no box at rest, a rounded border on hover (.h) and while open (.on), the chevron after the word */
+.fld.quiet{width:auto!important;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
+.fld.quiet.sel::after{margin-left:0}
+.fld.quiet{white-space:nowrap;flex:none}
+.fld.quiet.h{border-color:var(--d-edge)} .fld.quiet.on{border-color:var(--tool-text)}
 .slot{display:grid;place-items:center;border:1px dashed var(--tool-muted);border-radius:var(--editor-radius);color:var(--tool-text)}
 .seg{display:inline-flex;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);text-shadow:none}
-.seg span{display:inline-flex;align-items:center;height:calc(var(--control-height) - 2px);padding:0 .55rem;border-radius:var(--editor-radius)}
+.seg span{display:inline-flex;align-items:center;height:calc(var(--control-height) - 2px);padding:0 .55rem;border-radius:var(--editor-radius);color:var(--tool-muted)}
 .seg span.on{background:var(--tool-pressed);color:var(--tool-pressed-text)}
+.seg span{gap:.3rem}
+:root{--sig-asset:var(--tool-muted)}
 .fold{display:flex;align-items:center;gap:.4rem;height:1.8rem}
 .fold::before{content:'';width:.4rem;height:.4rem;border-right:1.2px solid var(--tool-muted);border-bottom:1.2px solid var(--tool-muted);transform:rotate(45deg) translateY(-2px);margin:0 .2rem}
 .fold.shut::before{transform:rotate(-45deg)}
@@ -97,7 +114,22 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 .cap{font-size:var(--editor-small);color:var(--tool-muted)}
 .tile{border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-panel)}
 .box{border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);padding:.6rem .75rem}
-.today-badge{display:inline-flex;align-items:center;height:1.2rem;padding:0 .35rem;border-radius:.2rem;background:var(--tool-accent);color:#000;font-size:.8rem}
+/* kit: Thumb (library/asset-tile = kit-d .th): the preview square, the name, a muted line; selected = a 2px ring in the text colour */
+.th{display:flex;flex-direction:column;min-width:0;font-size:var(--editor-small);text-shadow:var(--tool-halo)}
+.th .pv{position:relative;aspect-ratio:1;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-ground);overflow:hidden;display:grid;place-items:center;color:var(--tool-muted)}
+.th .pv img{position:absolute;max-width:none}
+.th .pv svg{width:1.5rem;height:1.5rem;stroke-width:1.4}
+.th .pv.pend{border-style:dashed;background:var(--tool-control)}
+.th .pv.pend span{font-size:.6rem;letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+.th .nm{padding:.2rem .1rem 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tool-text)}
+.th .mt{padding:0 .1rem;color:var(--tool-muted);font-size:var(--editor-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th.on .pv{outline:2px solid var(--tool-text);outline-offset:1px}
+.th.x{opacity:.4}
+/* a still that does not exist yet (#842) */
+.pending{display:grid;place-items:center;border:1px dashed var(--tool-muted);border-radius:var(--editor-radius);background:var(--tool-control);color:var(--tool-muted);font-size:var(--editor-label);letter-spacing:var(--editor-label-spacing);text-transform:uppercase}
+/* the toolbar range (tile size): a thin track, the knob the text colour */
+.rng{display:inline-block;position:relative;width:4.5rem;height:3px;border-radius:2px;background:var(--tool-within)}
+.rng::after{content:'';position:absolute;left:45%;top:50%;width:.7rem;height:.7rem;border-radius:50%;background:var(--tool-text);transform:translate(-50%,-50%)}
 
 /* the shell */
 .bar{position:absolute;z-index:50;left:var(--kit-margin);right:var(--kit-margin);top:var(--kit-margin);height:var(--kit-bar);display:flex;align-items:center;gap:var(--kit-gap)}
@@ -110,8 +142,11 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 
 /* dashboard (today's switcher) */
 .dash{position:absolute;z-index:45;inset:0;background:color-mix(in srgb,var(--tool-ground) 82%,transparent);backdrop-filter:blur(3px)}
+/* the switcher lies over everything – the bar, the stage and the panels are blurred behind it, no bar of its own (owner 2026-11-24); S toggles it in this draft */
+.dash.over{z-index:55;background:color-mix(in srgb,var(--editor-stage) 46%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:opacity .25s}
+.dash.over.off{opacity:0;pointer-events:none}
 .dcard{position:absolute;border:1px solid var(--tool-line);border-radius:var(--kit-radius-box);background:var(--tool-popover);padding:.5rem .6rem}
-.dcard.focus{box-shadow:0 0 0 2px var(--tool-accent)}
+.dcard.focus{border-color:var(--tool-text);box-shadow:0 0 0 1px var(--tool-text)}
 .dcard .nm{position:absolute;left:.6rem;bottom:1.9rem}
 .dcard .wh{position:absolute;left:.6rem;bottom:.6rem}
 .dcard .ico{position:absolute;left:50%;top:1.2rem;transform:translateX(-50%);color:var(--tool-muted)}
@@ -156,11 +191,12 @@ iframe.draft{position:absolute;left:35px;top:0;width:1440px;height:900px;border:
 const Q = new URLSearchParams(location.search);
 const DAY = Q.get('theme') === 'day';
 if (DAY) document.documentElement.dataset.theme = 'day';
-if (Q.has('shot')) document.body.classList.add('shot');
+if (Q.has("shot") || navigator.webdriver) document.body.classList.add("shot");
 
 /* ── icons (lucide shapes, as the kit's Icon) ── */
 const I = {
   smile:'<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/>',
+  package:'<path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
   book:'<path d="M4 19.5A2.5 2.5 0 016.5 17H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M6.5 17A2.5 2.5 0 004 19.5 2.5 2.5 0 006.5 22H20v-5"/>',
   box:'<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/>',
   layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
@@ -213,7 +249,7 @@ function cbar(o = {}) {
   const ws = o.ws || WS_TODAY, on = o.wsOn ?? 'Characters';
   const strip = `<span class="kp" style="flex:0 1 auto;max-width:${o.stripW || 47}rem"><span class="kib muted">${ic('l')}</span><span class="strip">${items.map(([i, n], k) =>
     `<span class="kt ${k === front ? 'on' : ''}">${ic(i)}${n}<span class="x">${ic('x')}</span></span>`).join('')}</span><span class="kib muted">${ic('r')}</span><span class="kib muted">${ic('d')}</span><span class="kib">${ic('plus')}</span></span>`;
-  const wsr = `<span class="kp" ${o.wsId ? `id="${o.wsId}"` : ''}>${ws.map(n => `<span class="kt ${n === on ? 'on' : ''}">${n}${o.dirty && n === on ? '<span class="kib" style="width:.6rem;height:.6rem;margin-left:.1rem"><span class="dot" style="position:static;display:block"></span></span>' : ''}</span>`).join('')}${o.chevron ? `<span class="kib">${ic('d')}</span>` : ''}</span>`;
+  const wsr = !ws.length ? "" : `<span class="kp" ${o.wsId ? `id="${o.wsId}"` : ''}>${ws.map(n => `<span class="kt ${n === on ? 'on' : ''}">${n}${o.dirty && n === on ? '<span class="kib" style="width:.6rem;height:.6rem;margin-left:.1rem"><span class="dot" style="position:static;display:block"></span></span>' : ''}</span>`).join('')}${o.chevron ? `<span class="kib">${ic('d')}</span>` : ''}</span>`;
   const undo = o.undo === false ? '' : `<span class="kp"><span class="kib">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>`;
   const extra = o.extra || '';
   const pub = o.pub === false ? '' : `<span class="kib">${ic('cloud')}${o.pubDot === false ? '' : '<span class="dot"></span>'}</span>`;
@@ -226,19 +262,23 @@ const fp = (x, y, w, h, tabs, body = '', o = {}) => `<div class="fp ${o.col ? 'c
 const folded = (x, y, name, w = 148) => fp(x, y, w, 0, [[name, 1]], '', { col: true });
 
 /* the Characters workspace (now/creator-1): the Rig tab in front, Sheet folded bottom left, Library folded bottom right */
+/* the Rig tab after 2026-11-24 ("not twice"): only the Bones and Clips lists go (the deck's asset view has them); the rest as today
+   (now/creator-1, now/ws-characters): the look's 3D model, the model's line, Idle, Body (for the placeholder), A-pose – and "Open in the deck" under the model's line */
 const RIG_BODY = `<div class="fold label">3D model</div>
-  <div class="label" style="margin:.1rem 0 .3rem">This look's 3D model (else the persona's)</div>
-  <div class="slot" style="width:110px;height:34px">${ic('plus')}</div>
-  <div style="display:flex;gap:.8rem;margin-top:.5rem"><div style="width:170px;height:170px;border:1px solid var(--tool-line);flex:none"></div>
-  <div style="flex:1"><div class="label" style="margin:.15rem 0 .3rem">3D model (GLB)</div>
-  <div style="display:flex;align-items:center;gap:.4rem"><span class="fld" style="height:1.9rem;border-radius:.3rem">${ic('cube')}giantpopstar-regular.glb</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('x')}</span></div>
-  <div style="margin:.45rem 0 .25rem">Idle</div><div class="fld sel">walk</div>
-  <div class="cap" style="margin:.3rem 0 .35rem">No library animation fits this model's skeleton.</div>
-  <div class="label" style="margin-bottom:.3rem">Body (for the placeholder)</div>
-  <span class="seg"><span class="on">2 legs</span><span>more legs</span><span>wings</span></span></div></div>
-  <div class="label" style="margin:.7rem 0 .3rem">A-pose (avatar body)</div><div class="slot" style="width:110px;height:60px">${ic('plus')}</div>
-  <div style="border-top:1px solid var(--tool-line);margin:.7rem -.6rem .2rem"></div><div class="fold label">Bones</div>
-  ${[['hips',0],['spine',1],['chest',2],['neck',3],['head',4],['upperArm_L',3],['foreArm_L',4],['hand_L',5],['upperArm_R',3],['foreArm_R',4],['hand_R',5]].map(([n, d]) => `<div class="trow" style="padding-left:${d * .85}rem;height:1.55rem">${n}</div>`).join('')}`;
+  <div class="label" style="margin:.35rem 0 .3rem">This look's 3D model (else the persona's)</div>
+  <div class="slot" style="width:112px;height:30px">${ic('plus')}</div>
+  <div style="display:flex;gap:.9rem;margin-top:.75rem">
+    <div style="flex:none;width:176px;height:176px;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-ground)"></div>
+    <div style="flex:1;min-width:0">
+      <div class="label" style="margin-bottom:.3rem">3D model (GLB)</div>
+      <div style="display:flex;align-items:center;gap:.4rem"><span class="fld" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden">${ic('cube')}giantpopstar-regular.glb</span><span class="kib alone" style="width:1.7rem;height:1.7rem" title="Remove the model">${ic('x')}</span></div>
+      <span class="kb plain" style="margin:.45rem 0 .2rem">${ic('ext')}Open in the deck</span>
+      <div style="margin:.45rem 0 .25rem">Idle</div><div class="fld sel">walk</div>
+      <div class="cap" style="margin:.25rem 0 .55rem">No library animation fits this model's skeleton.</div>
+      <div class="label" style="margin-bottom:.3rem">Body (for the placeholder)</div>
+      <span class="seg"><span class="on">2 legs</span><span>more legs</span><span>wings</span></span></div></div>
+  <div class="label" style="margin:.9rem 0 .3rem">A-pose (avatar body)</div>
+  <div class="slot" style="width:112px;height:76px">${ic('plus')}</div>`;
 const RIG_TABS = [['Kanon',0],['Expressions',0],['Rig',1],['Voice',0],['Cast',0],['Generations',0]];
 function characters(o = {}) {
   return `${cbar(o.bar)}
@@ -248,52 +288,52 @@ function characters(o = {}) {
   ${cstatus(o.msg, o.right)}`;
 }
 
-/* the dashboard as today (now/creator-2): search field, Last opened, Needs review, the workspace cards, the foot */
+/* the dashboard as today (now/creator-2): Last opened, Needs review (creator only), the workspace cards – no foot: the ☰ menu holds it (settled 2026-11-24) */
 /* real captures of each workspace as last left (production 2026-11-24, now/ws-*; the deck's from now/deck-*) – owner: "not schematic, an actual screen capture" */
 const WS_TH = new URLSearchParams(location.search).get('theme') === 'day' ? 'day' : 'night';
 const WS_SHOT = { Characters: `now/ws-characters-${WS_TH}.jpg`, Toon: `now/ws-toon-${WS_TH}.jpg`, Flow: `now/ws-flow-${WS_TH}.jpg`, Scenes: `now/ws-scenes-${WS_TH}.jpg`, 'Sound design': `now/ws-sound-${WS_TH}.jpg`, Catalog: `now/ws-catalog-${WS_TH}.jpg`, Map: `now/ws-map-${WS_TH}.jpg`, Scene: 'now/deck-1-bar-stage.png', Rigging: 'now/deck-3-stage-workspace.png', Show: 'now/deck-3-show-workspace.png' };
 const CARDS = [['Characters','giantpopstar +4','smile','front'],['Toon','Sandbox +1','book','open'],['Flow','Nothing open yet','layout'],['Scenes','Scenes +2','box','open'],['Sound design','Module·arp','cpu','open'],['Catalog','Nothing open yet','layout'],['Map','Map','map','open']];
 function dashboard(o = {}) {
   /* cards: [name, last content, icon, state ('front' | 'open' | ''), badge (kit Chip: where it opens), picture (html)]; no Views row on a card (owner 2026-11-24) */
-  const cols = o.cols || 5, x0 = 14, gap = 16, w = Math.floor((1412 - (cols - 1) * gap) / cols);
+  /* the content has a max width, centred (owner 2026-11-24) – 1160px drawn */
+  const W = 1160, cols = o.cols || 5, x0 = 0, gap = 16, w = Math.floor((W - (cols - 1) * gap) / cols);
   const card = ([n, what, icon, st, badge, pic], i) => {
     const r = Math.floor(i / cols), c = i % cols, x = x0 + c * (w + gap), y = (o.top ?? 306) + r * 165, h = 152;
     const shot = WS_SHOT[n];
-    if (shot) return `<div class="dcard shot ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background-image:url('${shot}')">${st === 'front' ? '<span class="label" style="position:absolute;left:.6rem;top:.45rem">Front</span>' : ''}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}
+    if (shot) return `<div class="dcard shot ${i === (o.focus ?? 1) ? "focus" : ""}" ${shot.includes("deck-") ? `data-theme="night"` : ""} style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background-image:url('${shot}')">${st === 'front' ? '<span class="label" style="position:absolute;left:.6rem;top:.45rem">Front</span>' : ''}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}
       <span class="nm">${n}</span><span class="wh label" style="text-transform:none;letter-spacing:0">${what}</span>
-      ${badge ? `<span class="kc on" style="position:absolute;right:.55rem;bottom:.55rem;z-index:1;background:var(--tool-popover)">${badge}</span>` : ''}</div>`;
+      ${badge ? `<span class="kc" style="position:absolute;right:.55rem;bottom:.55rem;z-index:1;background:var(--tool-popover)">${badge}</span>` : ''}</div>`;
     const thumb = pic ? `<span class="abs" style="left:.6rem;right:.6rem;top:1.8rem;height:72px;border-radius:.3rem;overflow:hidden;border:1px solid var(--tool-line);background:var(--tool-ground)">${pic}</span>`
-      : o.snap ? o.snap(n, i) : `<span class="ico">${i === 1 ? `<span style="display:inline-flex;gap:.5rem;align-items:center"><span style="width:1.9rem;height:1.9rem;border-radius:.3rem;background:#e7a06a;display:inline-block"></span>${ic('book')}</span>` : ic(icon)}</span>`;
+      : o.snap ? o.snap(n, i) : `<span class="ico">${ic(icon)}</span>`;
     return `<div class="dcard ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${st === 'front' ? '<span class="label" style="position:absolute;left:.55rem;top:.35rem">Front</span>' : ''}${thumb}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}
       <span class="nm">${n}</span><span class="wh label" style="text-transform:none;letter-spacing:0">${what}</span>
-      ${badge ? `<span class="kc on" style="position:absolute;right:.55rem;bottom:1.85rem">${badge}</span>` : ''}</div>`;
+      ${badge ? `<span class="kc" style="position:absolute;right:.55rem;bottom:1.85rem">${badge}</span>` : ''}</div>`;
   };
-  const search = o.noSearch ? '' : `<div class="abs fld" style="left:14px;right:14px;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
+  const search = o.noSearch ? '' : `<div class="abs fld" style="left:0;right:0;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
   const by = o.by ?? 99;
-  return `<div class="dash">${search}
-  <div class="abs box" style="left:14px;width:700px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
+  return `<div class="dash ${o.over === false ? '' : 'over'}"><div class="abs" style="left:${(1440 - W) / 2}px;width:${W}px;top:0;bottom:0">${search}
+  <div class="abs box" style="left:0;width:${(W - 12) / 2}px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
     ${(o.last || [['smile','Riesen-Popstar','Characters · now'],['map','Map','Map · 12 min'],['book','Sandbox','Toon · 8 h']]).map(([i, n, m]) => `<div class="lrow" style="min-height:1.85rem">${ic(i)}${n}<span class="m">${m}</span></div>`).join('')}</div>
-  ${o.review === false ? `<div class="abs box" style="left:726px;right:14px;top:${by}px;height:165px;border-style:dashed;display:grid;place-items:center"><span class="label">Needs review · ?</span></div>` : ''}<div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:726px;right:14px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
+  <div class="abs box" style="${o.review === false ? 'display:none;' : ''}left:${(W + 12) / 2}px;right:0;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="display:flex;margin-bottom:.6rem">Needs review<span style="margin-left:auto">Not published · <span style="color:var(--tool-warn)">8</span></span></div>
     ${['Sandgirl','Giant Popstar','Mellowmantis'].map(n => `<div class="lrow" style="min-height:1.85rem">${ic('smile')}${n}<span class="m" style="color:var(--tool-warn)">not published · Character</span></div>`).join('')}
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:.8rem" class="small"><span class="muted">5 more – Publish lists them all</span><span class="kb" style="height:1.8rem">${ic('cloud')}Publish …</span></div></div>
-  <div class="abs label" style="left:14px;top:${(o.top ?? 306) - 22}px">Workspaces</div>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:.8rem" class="small"><span class="muted">+5</span></div></div>
+  <div class="abs label" style="left:0;top:${(o.top ?? 306) - 22}px">Workspaces</div>
   ${(o.cards || CARDS).map(card).join('')}
-  ${o.noFoot ? '' : dfoot(o)}</div>`;
+  </div></div>`;
 }
-const dfoot = (o = {}) => `<div class="abs small" style="left:14px;right:14px;bottom:10px;height:1.8rem;display:flex;align-items:center;gap:.7rem">${ic('user')}tilman@porschuetz.de<span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Settings …</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span>Docs ↗</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('help')}</span><span class="kib" style="width:1.6rem;height:1.6rem">${ic('ext')}</span><span style="width:1px;height:1rem;background:var(--tool-line)"></span><span class="muted mono">0.1.0 · c9cf178</span><span class="muted" style="margin-left:auto">Tab · Shift Tab · arrows move · Enter opens · Esc goes back</span></div>`;
 
 /* today's Views menu (now/creator-3 + views-menu.svelte): The stage now · Every view · Content clear of the bar · the workspace's lines */
 const VIEWS_CHAR = [['user','Sheet','panel'],['cube','3D','panel'],['file','Kanon','panel'],['smile','Expressions','panel'],['cube','Rig','panel'],['mic','Voice','panel'],['users','Cast','panel'],['zap','Generations','panel']];
 function viewsMenu(x, y, o = {}) {
   const rows = o.rows || VIEWS_CHAR;
-  const st = (s, on) => `<span class="kib ${on ? 'pressed' : 'muted'}" style="width:1.65rem;height:1.65rem;border-radius:.3rem">${ic({ hidden: 'eyeoff', panel: 'panel', stage: 'monitor', full: 'full' }[s])}</span>`;
+  const st = (s, on) => `<span class="kib ${on ? 'pressed' : 'muted'}" style="width:1.65rem;height:1.65rem">${ic({ hidden: 'eyeoff', panel: 'panel', stage: 'monitor', full: 'full' }[s])}</span>`;
   return `<div class="km" style="left:${x}px;top:${y}px;width:${o.w || 378}px">
     <div class="kmh">The stage now</div>
     <div style="margin:0 .4rem .4rem;height:${o.mapH || 52}px;border:1px solid var(--tool-line);border-radius:.3rem;display:grid;place-items:center;font-size:var(--editor-small)" class="muted">giantpopstar</div>
     <div class="kmh">Every view</div>
     ${rows.map(([i, n, s, mark]) => `<div class="kmi ${s === 'hidden' ? 'muted' : ''}" style="min-height:1.75rem">${ic(i)}<span class="w">${n}</span>${mark || ''}${['hidden','panel','stage','full'].map(k => st(k, k === s)).join('')}</div>`).join('')}
     ${o.cut ? '' : `<hr><div class="kmi">Content clear of the bar</div><hr><div class="kmh">${o.ws || 'Characters'}</div>
-    <div class="kmi">${ic('save')}<span class="w">Save workspace</span></div><div class="kmi">${ic('undo')}<span class="w">Back to the last save</span></div><div class="kmi">${ic('copy')}<span class="w">Save as new workspace …</span></div>`}</div>`;
+    <div class="kmi">${ic('save')}<span class="w">Save workspace</span></div><div class="kmi">${ic('undo')}<span class="w">Back to the last save</span></div><div class="kmi">${ic('copy')}<span class="w">Save as new workspace</span></div>`}</div>`;
 }
 
 /* ── the deck editor as on main: its screenshots (now/deck-*.png, 1600×900, r4781) at .9 = 1440×810; changes drawn over them
@@ -316,7 +356,7 @@ function deckBarNew(o = {}) {
     <span class="kp" style="padding:0 .7rem;gap:.6rem"><span style="width:.45rem;height:.45rem;border-radius:50%;background:var(--tool-muted)"></span>120.0<span class="label">INT</span></span>
     <span class="kp" style="background:var(--tool-danger);border-color:var(--tool-danger);padding:0 1rem;letter-spacing:.12em;font-size:var(--editor-small)">PANIC</span>
     ${o.extra || ''}
-    <span style="flex:1;display:flex;justify-content:center">${o.ws ?? `<span class="kp">${(o.wsNames || ['?','?','?']).map((n, k) => `<span class="kt ${k === (o.wsOn ?? 0) ? 'on' : ''}">${n}</span>`).join('')}<span class="kib">${ic('d')}</span></span>`}</span>
+    <span style="flex:1;display:flex;justify-content:center">${o.ws ?? `<span class="kp">${(o.wsNames || ['Scene','Rigging','Show']).map((n, k) => `<span class="kt ${k === (o.wsOn ?? 0) ? 'on' : ''}">${n}</span>`).join('')}<span class="kib">${ic('d')}</span></span>`}</span>
     <span class="kp"><span class="kib">${ic('undo')}</span><span class="kib">${ic('redo')}</span></span>
     <span class="kp"><span class="kib">${ic('cloud')}</span><span class="kib">${ic('user')}</span><span class="kib ${o.menuOn ? 'pressed' : ''}">${ic('menu')}</span></span></div>
   <div class="abs" style="right:12px;top:18px;display:flex;gap:26px;color:#f3f3f0;font-size:14px">–<span>▫</span><span>✕</span></div>`;
@@ -324,17 +364,98 @@ function deckBarNew(o = {}) {
 /* a crop of a deck shot: the part (sx, sy, sw, sh in 1600×900) drawn at x, y in screen px, scale k */
 const dkCrop = (file, sx, sy, sw, sh, x, y, k = .9) => `<div class="abs" style="left:${x}px;top:${y}px;width:${sw * k}px;height:${sh * k}px;overflow:hidden;border-radius:.3rem"><img src="${DK}${file}" style="position:absolute;left:${-sx * k}px;top:${-sy * k}px;width:${1600 * k}px;height:${900 * k}px"></div>`;
 
-/* (kept for the drawn small frames) */
-function deckBarToday(y, o = {}) {
-  return `<div class="abs" style="left:8px;right:8px;top:${y}px;height:var(--kit-bar);display:flex;align-items:center;gap:var(--kit-gap)">
-    <span class="kp"><span class="kib">${ic('menu')}</span><span class="kib ${o.home ? 'pressed' : ''}">${ic('home')}</span></span>
-    <span class="kp"><span class="strip" style="display:flex;gap:var(--kit-seam)">${(o.tabs || [['box','Three crows rave'],['smile','giantpopstar'],['code','arp']]).map(([i, n], k) => `<span class="kt ${k === 0 && !o.home ? 'on' : ''}">${ic(i)}${n}</span>`).join('')}</span><span class="kib muted">${ic('d')}</span></span>
-    ${o.home ? '' : `<span class="kp"><span class="kt on">Edit</span><span class="kt">Play</span></span><span class="kp"><span class="kib">${ic('play')}</span><span class="kt" style="font-size:var(--editor-small)">120.0 BPM</span></span>`}
-    <span style="flex:1"></span>
-    <span class="kp"><span class="kt">${ic('user')}tilman@porschuetz.de</span></span>
-    <span class="kp"><span class="kt" style="font-size:var(--editor-small)"><span class="muted">CPU</span> 12% <span class="muted">GPU</span> 4.1 ms</span></span>
-    <span class="kp"><span class="kt mono muted" style="font-size:var(--editor-small)">0.1.0 · c9cf178</span></span></div>`;
+/* the deck's panels redrawn on the kit over its screenshot (1600-wide frame): each today's panel is covered with the stage black and drawn
+   again from the kit – the same place, the same contents (read off the shot), only the look changed (H4, H10, H11, H13). The stage stays the shot. */
+const dkCover = (x, y, w, h) => `<span class="abs" style="left:${x - 2}px;top:${y - 2}px;width:${w + 4}px;height:${h + 4}px;background:#000"></span>`;
+const dkGrip = '<span class="muted" style="font-size:.8rem;padding:0 .15rem">⠿</span>';
+const dkUp = I.d.replace('M6 9l6 6 6-6', 'M18 15l-6-6-6 6');
+const dkHead = (icon, o = {}) => `<div class="hd">${dkGrip}${o.tabs || `<span class="tab on">${ic(icon)}${o.name ? '&nbsp;' + o.name : ''}</span>`}<span class="sp"></span>${o.right || ''}<span class="ic"><svg class="i" viewBox="0 0 24 24">${dkUp}</svg></span>${o.noX ? '' : `<span class="ic">${ic('x')}</span>`}</div>`;
+const dkPanel = (x, y, w, h, head, body, o = {}) => `${dkCover(x, y, w, h)}<div class="fp" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${o.style || ''}">${head}<div class="bd" style="font-size:1rem;${o.bd || ''}">${body}</div></div>`;
+const dkRow = (icon, name, meta = '', o = {}) => `<div class="trow ${o.sel ? 'sel' : ''}" style="padding:0 .4rem;margin:0 -.3rem;border-radius:var(--editor-radius);padding-left:${.4 + (o.d || 0)}rem">${o.chev ? ic(o.chev === 'open' ? 'd' : 'r', 'i') : ''}${ic(icon)}<span>${name}</span>${meta ? `<span class="label" style="margin-left:auto">${meta}</span>` : ''}</div>`;
+/* a Library tile in the deck: its picture is a crop of the shot where the shot shows one, else the kind's icon */
+const dkTile = (file, n, m, crop) => `<div class="th"><div class="pv" style="aspect-ratio:auto;height:80px">${crop ? `<img src="${DK}${file}" style="left:${-crop[0]}px;top:${-crop[1]}px;width:1600px;height:900px">` : ic('users')}</div><div class="nm">${n}</div><div class="mt">${m}</div></div>`;
+const dkStatus = (msg, right) => `${dkCover(8, 866, 1584, 26)}<div class="abs" style="left:8px;right:8px;top:866px;display:flex;z-index:40"><span class="kp status" style="flex:1;justify-content:space-between;padding:0 .7rem"><span style="display:flex;gap:.5rem;align-items:center"><span class="sdot" style="background:var(--tool-warn);border-color:var(--tool-warn);margin:0"></span>${msg}<span class="muted">now</span></span><span style="display:flex;gap:.5rem;align-items:center">${right}</span></span></div>`;
+/* Build (now/deck-3-stage-workspace): Rig tree · Camera · tools · Inspector · Library · Info · Audio · Mixer */
+function deckBuild(o = {}) {
+  const F = 'deck-3-stage-workspace.png';
+  const lib = [['cathedral_voice', 'voice · 2 nodes', [26, 453]], ['drone', 'pad · 3 nodes', [166, 453]], ['Cat Pope', 'character:catpope', [306, 453]],
+    ['Boy', 'character:boy'], ['Crows', 'character:crows'], ['Top Toy', 'character:toptoy'],
+    ['Fox Crow', 'character:crow-fox', [26, 720]], ['Lizard Crow', 'character:crow-lizard'], ['Wolf Crow', 'character:crow-wolf']];
+  return dkPanel(14, 58, 296, 110, dkHead('tree'), dkRow('branch', 'rig', '', { sel: 1, chev: 'open' }) + dkRow('file', 'voice', 'cathedral_voice', { chev: 'shut', d: 1 }) + dkRow('file', 'drone', 'drone', { chev: 'shut', d: 1 }))
+    + dkPanel(354, 58, 392, 98, dkHead('film'), `<span class="mono muted">open a scene: its camera, shots and moves</span>`)
+    + dkCover(878, 58, 348, 38) + `<div class="abs" style="left:878px;top:58px;z-index:20"><span class="kp" style="--pill:2.6rem">${dkGrip}${['settings', 'pointer', 'expand', 'refresh', 'full'].map(i => `<span class="kib">${ic(i)}</span>`).join('')}<span class="kib pressed">${ic('eye')}</span><span class="kib">${ic('image')}</span><span class="kib">${ic('grid')}</span><span class="kib">${ic('full')}</span><span class="kib muted"><svg class="i" viewBox="0 0 24 24">${dkUp}</svg></span></span></div>`
+    + dkPanel(1240, 58, 345, 404, dkHead('node', { noX: true }), `
+      <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.5rem"><span class="fld mono" style="flex:1;font-size:.9rem">character.catpope <span class="muted">no version</span></span><span class="kb plain">Add</span></div>
+      <div style="display:flex;gap:.2rem;margin-bottom:.4rem"><span class="kt on" style="height:1.8rem">Inspector</span><span class="kt" style="height:1.8rem">Text</span></div>
+      <div class="label" style="margin:.3rem 0 .2rem">Rig</div>
+      ${[['subject', 'character.catpope'], ['tracks', '2'], ['moods', 'happy laughing sad surprised'], ['background', 'none · its modules\'…']].map(([k, v]) => `<div class="lrow" style="min-height:1.8rem"><span style="width:6.4rem;flex:none" class="muted">${k}</span><span class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v}</span></div>`).join('')}
+      <div class="label" style="margin:.4rem 0 .2rem">Preset</div>
+      <div class="lrow" style="min-height:1.8rem"><span style="width:6.4rem;flex:none" class="muted">preset</span><span class="mono">none · the working state</span></div>
+      <span class="kb plain" style="margin:.2rem 0 .3rem">Save as preset</span>
+      <div class="label" style="margin:.4rem 0 .3rem">Knobs</div>
+      ${[['FM ratio', '1.500', 30], ['FM index', '2.000', 40]].map(([k, v, f]) => `<div class="lrow" style="min-height:2rem"><span style="width:6.4rem;flex:none" class="muted">${k}</span><span class="fld mono" style="flex:1;position:relative;overflow:hidden"><span class="abs" style="left:0;top:0;bottom:0;width:${f}%;background:var(--tool-hover)"></span><span style="position:relative">${v}</span></span></div>`).join('')}`)
+    /* the Library: the same panel as the creator's (C12, LIBRARY.md) – today's tiles (Everything: two instruments, seven characters), each with its type */
+    + dkPanel(14, 323, 427, 527, dkHead('grid'), libraryBody({ cols: 3, place: 'Everything', pvH: 58, gap: '.45rem .5rem', tiles: DECK_LIB_TILES }), { bd: 'font-size:var(--editor-small)' })
+    + dkPanel(465, 712, 275, 138, dkHead('info'), `<div style="margin-bottom:.2rem">Stage</div><div class="mono small" style="line-height:1.45">Left drag orbits; middle or right drag, Shift + drag or two fingers pan; the wheel zooms, F frames. Right click finds any port.</div>`)
+    + dkCover(755, 815, 130, 36) + `<div class="abs" style="left:755px;top:815px;z-index:20"><span class="kp" style="--pill:2.4rem;padding:0 .6rem;gap:.4rem">${dkGrip}${ic('activity')}Audio${ic('d')}<span class="muted">${ic('x')}</span></span></div>`
+    + dkCover(1376, 478, 209, 372) + `<div class="fp" style="left:1376px;top:478px;width:209px;height:372px">${dkHead('sliders', { tabs: `<span class="tab on">${ic('sliders')}&nbsp;rig</span>` })}<div class="bd" style="padding:0"><div class="abs" style="left:4px;top:40px;width:200px;height:326px;overflow:hidden"><img src="${DK}${F}" style="position:absolute;left:-1380px;top:-538px;width:1600px;height:900px"></div></div></div>`
+    + (o.status === false ? '' : dkStatus("audio: 'Fireface' not found – running silent, waiting for it", 'signing in <span class="muted">|</span> <span class="sdot" style="margin:0"></span>0 <span class="sdot" style="background:var(--tool-warn);border-color:var(--tool-warn);margin:0"></span>2'));
 }
+/* Module (now/deck-3-module-workspace), nothing open: Library · tools · Module · Problems · Info */
+function deckModule() {
+  return dkPanel(14, 58, 427, 88, dkHead('grid'), `<div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.3rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span><span class="kib muted" title="As a list">${ic('list')}</span></div><span class="muted small">nothing here yet</span>`)
+    + dkCover(1042, 58, 124, 38) + `<div class="abs" style="left:1042px;top:58px;z-index:20"><span class="kp" style="--pill:2.6rem">${dkGrip}<span class="kib">${ic('settings')}</span><span class="kib">${ic('full')}</span><span class="kib muted"><svg class="i" viewBox="0 0 24 24">${dkUp}</svg></span><span class="kib muted">${ic('x')}</span></span></div>`
+    + dkPanel(1210, 58, 375, 60, dkHead('code', { noX: true }), `<span class="mono">Pick a module in the Library.</span>`)
+    + dkPanel(14, 762, 655, 88, dkHead('alert'), `<span class="label">Problems</span> <span class="mono muted">· no problems</span>`)
+    + dkCover(1466, 815, 119, 36) + `<div class="abs" style="left:1466px;top:815px;z-index:20"><span class="kp" style="--pill:2.4rem;padding:0 .6rem;gap:.4rem">${dkGrip}${ic('info')}Info${ic('d')}<span class="muted">${ic('x')}</span></span></div>`
+    + dkStatus('modules: signed out – approve the editor on the account page, then save again', 'asio 48000 Hz <span class="muted">|</span> signing in <span class="muted">|</span> <span class="sdot" style="margin:0"></span>0 <span class="sdot" style="background:var(--tool-warn);border-color:var(--tool-warn);margin:0"></span>3');
+}
+
+/* ── the creator's workspace captures (now/ws-*, production 2026-11-24, 800 wide = the 1440 window at 1/1.8): a crop of one, drawn at x, y ── */
+const WSK = 1.8;
+const wsCrop = (name, sx, sy, sw, sh, x, y, o = {}) => `<div class="abs" style="left:${x}px;top:${y}px;width:${sw * WSK}px;height:${sh * WSK}px;overflow:hidden;${o.style || ''}"><img src="now/ws-${name}-${WS_TH}.jpg" style="position:absolute;left:${-sx * WSK}px;top:${-sy * WSK}px;width:${800 * WSK}px;height:${485 * WSK}px;${o.img || ''}"></div>`;
+/* a picture cropped from a capture, filling a box (a tile's preview) */
+const wsPic = (name, sx, sy, sw, sh, k) => `<img src="now/ws-${name}-${WS_TH}.jpg" style="position:absolute;max-width:none;left:${-sx * k}px;top:${-sy * k}px;width:${800 * k}px;height:${485 * k}px">`;
+
+/* the Catalog's items as the capture shows them (now/ws-catalog): name, id, the picture's row in the list (y of the 20 px picture) */
+const CAT_ITEMS = [['Kamera','camera · catpope',112],['SCUTOONS T-Shirt','scutoons_tshirt',138],['SCUTOONS Badehose','scutoons_swim_pants',164],['SCUTOONS Shorts','scutoons_shorts',190],
+  ['SCUTOONS Sandalen','scutoons_sandals',216],['Gurke','cucumber · catpope',242],['Gurkenkamera','cucumber_camera · catpope',268],['Gurkenkreuz','cucumber_cross · catpope',294],
+  ['Testo','testo',320],['Testo-Kamera','testo_camera',348],['Check It Kamera','checkit_camera',374],['Zauberpilz','psilocybin',400],['Bunte Pappe','lsd',426],['Semaglutid-Pen','semaglutide',452]];
+
+/* ── the extended Library (LIBRARY.md, owner 2026-11-24) on the kit – today's library-panel.svelte, its parts in its order, with the decided
+      changes: the type as the first filter – things (Characters, Scenes, Places, Items) | files (Images, 3D, Audio, Video), "Items to open" gone;
+      the places that narrow it (this item · this season's cast · this toon · everything; Unused kept as today); Find + Upload; the view tools;
+      the tiles – a thing's tile shows its type, a file's tile its kind. Chips = the kit's Chip; selects = the kit's select; tile = the kit's Thumb. ── */
+/* a picture from a capture filling its box at any size: the part (sx, sy, sw, sh) of an image W × H */
+const capPic = (src, W, H, sx, sy, sw, sh = sw) => `<span style="position:absolute;inset:0;background:url('${src}') ${sx / (W - sw) * 100}% ${sy / (H - sh) * 100}% / ${W / sw * 100}% ${H / sh * 100}% no-repeat"></span>`;
+/* the real pictures now/ has: the items' pictures (now/ws-catalog), Cat Pope as the deck draws it (deck-3-stage-workspace), cathedral_voice's graph (the deck's tile) */
+const PIC = {
+  catpope: capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, 692, 178, 222),
+  voice: capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, 40, 453, 90, 72),
+  item: (k) => capPic(`now/ws-catalog-${WS_TH}.jpg`, 800, 485, 171, CAT_ITEMS[k][2] - 9, 20)
+};
+/* a tile: [name, type or kind, picture ('<…>' html · an icon name · null = a still that does not exist yet), {on, x}] */
+const libTile = ([n, m, pic, o = {}]) => `<div class="th ${o.on ? 'on' : ''} ${o.x ? 'x' : ''}" title="${n}"><div class="pv ${pic === null ? 'pend' : ''}" ${o.pvH ? `style="aspect-ratio:auto;height:${o.pvH}px"` : ''}>${pic === null ? '<span>still pending</span>' : pic.startsWith('<') ? pic : ic(pic)}</div><div class="nm">${n}</div><div class="mt">${m}</div></div>`;
+/* the types the Library lists (owner 2026-11-24): eleven kinds of thing and four kinds of file – one quiet select, its list in two groups ("Yes, a select") */
+const LIB_THINGS = ['Toons', 'Characters', 'Scenes', 'Shows', 'Places', 'Items', 'Modules', 'Instruments and rigs', 'Generators', 'Kanon', 'People'], LIB_FILES = ['Images', '3D', 'Audio', 'Video'];
+const LIB_PLACES = ['This item', "This season's cast", 'This toon', 'Everything', 'Unused'];
+const libSep = '<span style="flex:none;width:1px;height:1rem;margin:0 .15rem;background:var(--tool-line)"></span>';
+function libraryBody(o = {}) {
+  const cols = o.cols || 3, type = o.type || 'All', place = o.place || 'This toon';
+  const chip = (n, on) => `<span class="kc ${on ? 'on' : ''}">${n}</span>`;
+  const grid = (tiles, c = cols) => `<div style="display:grid;grid-template-columns:repeat(${c},minmax(0,1fr));gap:${o.gap || '.65rem .55rem'}">${tiles.map(t => libTile(o.pvH ? [t[0], t[1], t[2], { ...(t[3] || {}), pvH: o.pvH }] : t)).join('')}</div>`;
+  return `${o.pick ? `<div style="display:flex;align-items:center;gap:.45rem;margin:.1rem 0 .5rem">Pick for <span class="kc on">${o.pick}</span><span style="flex:1"></span><span class="kb plain" style="height:1.75rem" title="Esc">Cancel</span></div>` : ''}
+    <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem">${(o.places || LIB_PLACES).map(n => chip(n, n === place)).join('')}</div>
+    <div style="display:flex;gap:.4rem;margin-bottom:.5rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span>${o.pick ? '' : `<span class="kb primary">${ic('upload')}Upload</span>`}</div>
+    <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem"><span style="position:relative;display:inline-flex;flex:none"><span class="fld sel quiet ${o.typeOpen ? 'on' : ''}" title="Type">${type === 'All' ? 'All types' : type}</span>${o.typeOpen ? `<div class="km" style="left:0;top:calc(var(--control-height) + 4px);min-width:13rem;z-index:70"><div class="kmi"><span class="w">All types</span></div><div class="kmh">Things</div>${LIB_THINGS.map(n => `<div class="kmi" style="min-height:1.7rem">${n === type ? '<span style="width:.4rem;height:.4rem;border-radius:50%;background:var(--tool-text)"></span>' : '<span style="width:.4rem"></span>'}<span class="w">${n}</span></div>`).join('')}<div class="kmh">Files</div>${LIB_FILES.map(n => `<div class="kmi" style="min-height:1.7rem"><span style="width:.4rem"></span><span class="w">${n}</span></div>`).join('')}</div>` : ''}</span><span class="fld sel quiet" style="width:6.4rem" title="Grouping">By use</span><span class="fld sel quiet" style="width:7.2rem" title="Sort">By name</span><span style="flex:1"></span><span class="rng" title="Tile size" style="min-width:0;flex:0 1 auto"></span><span class="kib muted" title="As a list">${ic('list')}</span><span class="kib muted" title="More" style="font-size:1.1rem">⋯</span></div>
+    ${o.content || (o.groups ? o.groups.map(([label, tiles]) => `<div class="label" style="margin:.2rem 0 .35rem">${label}</div>${grid(tiles)}`).join('<div style="height:.7rem"></div>') : grid(o.tiles || []))}`;
+}
+/* the deck's Library tiles as shot (now/deck-3-stage-workspace): the pictures are the shot's own tiles, else the kind's icon */
+const dkLibPic = (sx, sy, sw = 116, sh = 70) => capPic(DK + 'deck-3-stage-workspace.png', 1600, 900, sx, sy, sw, sh);
+const DECK_LIB_TILES = [['cathedral_voice', 'Instrument', dkLibPic(32, 455)], ['drone', 'Instrument', dkLibPic(158, 455)], ['Cat Pope', 'Character', dkLibPic(290, 458, 100, 62)],
+  ['Boy', 'Character', 'users'], ['Crows', 'Character', 'users'], ['Top Toy', 'Character', 'users'],
+  ['Fox Crow', 'Character', dkLibPic(32, 722)], ['Lizard Crow', 'Character', 'users'], ['Wolf Crow', 'Character', 'users']];
+const libraryPanel = (x, y, w, h, o = {}) => fp(x, y, w, h, [['Library', 1]], libraryBody(o), { icons: `<span class="ic" title="Open the browser">${ic('expand')}</span>`, style: o.style || '' });
 
 /* ── the screens ── */
 const S = [];
@@ -346,7 +467,7 @@ const SECTIONS = { A: 'A · The shell (C+D)', B: 'B · Designing a workspace (C+
 function render() {
   let id = (Q.get('s') || 'A1').toUpperCase();
   let s = S.find(x => x.id.toUpperCase() === id) || S[0];
-  const ch = s.changes.length ? s.changes.map((c, i) => `<span class="n">${i + 1}</span>${c}`).join('') : s.sec === 'F' ? ' – nothing: a question screen, its picture waits for the owner’s words' : ' – nothing (in the set as it is)';
+  const ch = s.changes.length ? s.changes.map((c, i) => `<span class="n">${i + 1}</span>${c}`).join('') : s.idle ? s.idle : s.sec === 'F' ? ' – nothing: a question screen, its picture waits for the owner’s words' : ' – nothing (in the set as it is)';
   document.getElementById('frame').innerHTML = `<div class="app">${s.render()}</div><div class="foot"><span class="id">${s.id}</span><span>${s.name}</span><span class="ch"><span style="color:#a7af9b">Base: ${s.base}</span> · <b style="color:#ffd84a;font-weight:600">Changed:</b>${ch}</span></div>`;
   document.title = `${s.id} ${s.name} – lap 2 draft`;
   let h = '';
@@ -364,6 +485,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === '‹' || e.key === ',') go(i - 1);
   if (e.key === 't' || e.key === 'T') location.search = `?s=${window.__cur.id}${DAY ? '' : '&theme=day'}`;
   if (e.key === 'i' || e.key === 'I') document.getElementById('idx').classList.toggle('open');
+  if (e.key === 's' || e.key === 'S') document.querySelectorAll('.dash.over').forEach(d => d.classList.toggle('off'));
 });
 render();
 </script>

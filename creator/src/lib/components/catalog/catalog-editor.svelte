@@ -28,8 +28,6 @@
 	import { contentApi, putDraft } from '$lib/api.ts';
 	import { toast } from '$lib/toasts.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { PLATFORM_ALONG } from '$lib/editor/publish-tree.ts';
-	import { docLabel } from '$lib/labels.ts';
 	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDoc, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
 	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
@@ -152,15 +150,6 @@
 			.map(({ list: _list, place, ...p }) => ({ ...p, path: place?.path ?? p.path, file: doc!.entity }));
 	}
 
-	/**
-	 * a score's Publish lists the custom collage presets too (research/COLLAGE.md §12.4, as on its collage stage): no
-	 * level ships pieces whose preset is still a draft. Catalog entries and the presets are platform rows (toon '')
-	 */
-	const tree = () =>
-		doc && kind === 'items' && data?.category === 'score'
-			? { scope: { kind: 'files' as const, toon: '', keys: [doc.entity, ...PLATFORM_ALONG] }, title: m['creator.publish_tree_title']({ name: docLabel(doc) }) }
-			: null;
-
 	// ── Removing (owner 2026-10-12, D5 – the same as the map's places) ─────────────────────────────────────────────
 	/**
 	 * never published: the document goes (its id is free again); published: a version = the entry + removed: true – a
@@ -252,7 +241,7 @@
 	usePageNav({ extra: () => (entry ? [{ href: `/catalog/${kind}?id=${encodeURIComponent(entry.id)}`, label: title(entry) }] : []) });
 </script>
 
-<MetaPage toon="" title={CATALOG_LABELS[kind]()} docs={doc ? [doc] : []} {validate} {tree} wide help="catalog">
+<MetaPage toon="" title={CATALOG_LABELS[kind]()} docs={doc ? [doc] : []} {validate} wide help="catalog">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={create} data-testid="catalog-new"><Icon name="plus" /> {m['creator.catalog_new']({ what: def.singular() })}</button>
 		{#if kind === 'items' || kind === 'recipes'}

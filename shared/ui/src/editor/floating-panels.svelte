@@ -123,8 +123,8 @@
 		position: absolute;
 		z-index: 1000;
 		width: 2px;
-		background: var(--tool-accent);
-		box-shadow: 0 0 0.375rem var(--tool-accent);
+		background: var(--kit-list-row-insert-mark);
+		box-shadow: 0 0 0.375rem var(--kit-list-row-insert-mark);
 		pointer-events: none;
 	}
 	.ghost {
@@ -151,7 +151,7 @@
 		}
 	}
 	.ghost.out {
-		outline: 1px dashed var(--tool-accent);
+		outline: 1px dashed var(--kit-drop-on-border);
 		outline-offset: 0.25rem;
 	}
 	/* over a drop zone the stage's preview says where it lands: the ghost steps back */

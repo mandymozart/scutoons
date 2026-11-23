@@ -1,0 +1,52 @@
+{
+	"name": "@scutoons/xr-engine",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "OSCT's XR engine (three.js and image tracking) with its content contract: an unchanged copy at one recorded OSCT commit (osct/, see README.md) – the reader's XR mode runs it (#482)",
+	"imports": {
+		"#lib/*": "./osct/editor/src/lib/*"
+	},
+	"exports": {
+		"./reader": {
+			"types": "./src/reader-api.ts",
+			"default": "./src/reader.ts"
+		},
+		"./stage": {
+			"types": "./src/stage-api.ts",
+			"default": "./src/stage.ts"
+		},
+		"./scene": "./osct/engine/src/scene/index.ts",
+		"./tracker": "./osct/engine/src/scene/xr8-tracker.ts",
+		"./types": "./osct/engine/src/types/index.ts",
+		"./content": "./osct/engine/src/content/game-config.ts",
+		"./contract": "./osct/shared/types/game-config.ts",
+		"./network": {
+			"types": "./src/network-api.ts",
+			"default": "./src/network.ts"
+		},
+		"./tree": {
+			"types": "./src/tree-api.ts",
+			"default": "./src/tree.ts"
+		}
+	},
+	"files": [
+		"osct",
+		"src"
+	],
+	"scripts": {
+		"check": "tsc --noEmit -p ./tsconfig.json",
+		"test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test test/network.test.ts test/tree.test.ts"
+	},
+	"peerDependencies": {
+		"three": "0.186.1"
+	},
+	"devDependencies": {
+		"@types/three": "0.186.0",
+		"three": "0.186.1",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@scutoons/api": "*"
+	}
+}

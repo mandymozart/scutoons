@@ -112,5 +112,7 @@ export const fetchToons = (locale?: string) => preview((draft) => library.fetchT
 export const fetchToon = (toon: string, locale?: string) => preview((draft) => library.fetchToon(toon, locale, { draft }));
 export const fetchChapter = (toon: string, number: number, locale?: string) =>
 	preview((draft) => library.fetchChapter(toon, number, locale, { draft }));
+/** a published XR experience (`/xr/<id>`), a creator's draft with the draft preview on */
+export const fetchExperience = (id: string) => preview((draft) => library.experience(id, { draft })).then((answer) => answer.experience);
 /** the cast with the draft preview too: a draft chapter's new characters (a draft cast) are on stage */
 export const fetchCharacters = (toon: string, locale: string) => preview((draft) => library.fetchCharacters(toon, locale, { draft }));

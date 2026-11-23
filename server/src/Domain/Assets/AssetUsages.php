@@ -31,7 +31,7 @@ final class AssetUsages
 {
     public const SKIP_KINDS = ['asset-requests'];
     /** the catalog kinds whose rows may reference media (permissions / code types / meta never do) */
-    public const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'toons', 'home-scenes', 'airlift-carriers'];
+    public const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'toons', 'home-scenes', 'airlift-carriers', 'experiences'];
     /**
      * CDN paths (a trailing `/` = everything below) that app code references directly → the code file (repo-relative).
      * Keep in step with the code: AssetsTest checks every entry still appears in its file.
@@ -91,6 +91,12 @@ final class AssetUsages
         return $this->tiles[$set] ?? [];
     }
 
+    /** @return list<string> the known files below a folder (`xr/poster-catpope/e8f9fbfd81b2/`) */
+    private function below(string $prefix): array
+    {
+        return array_values(array_filter(array_map('strval', array_keys($this->known())), fn(string $p) => str_starts_with($p, $prefix)));
+    }
+
     /**
      * Rebuilds the whole index
      * @return array{content: int, catalog: int, code: int, entities: int, missing: int}
@@ -122,9 +128,7 @@ final class AssetUsages
     {
         $rows = [];
         foreach (self::CODE_REFERENCES as $reference => $file) {
-            $paths = str_ends_with($reference, '/')
-                ? array_values(array_filter(array_keys($this->known()), fn(string $p) => str_starts_with($p, $reference)))
-                : [$reference];
+            $paths = str_ends_with($reference, '/') ? $this->below($reference) : [$reference];
             foreach ($paths as $path) {
                 $rows[] = ['path' => $path, 'source' => 'code', 'ref' => $file, 'field' => '', 'state' => 'config', 'version_id' => null, 'toon' => null, 'raw' => $reference];
             }
@@ -240,6 +244,12 @@ final class AssetUsages
                     // a map layer's tile pyramid (MapTiles.path, CDN-root): every tile of the set is in use
                     $set = trim((string) $node['tiles']['path'], '/');
                     foreach ($this->tilesOf($set) as $tile) $out[] = ['path' => $tile, 'field' => $pointer . '/tiles/path', 'toon' => null, 'raw' => $set];
+                }
+                if ($pointer === '' && is_string($node['assets'] ?? null) && is_array($node['configuration'] ?? null)) {
+                    // an XR experience: its configuration names its files below its `assets` folder (CDN-root) – every file there is in use
+                    $folder = trim($node['assets'], '/');
+                    foreach ($this->below("$folder/") as $file) $out[] = ['path' => $file, 'field' => '/assets', 'toon' => null, 'raw' => $folder];
+                    unset($node['configuration'], $node['plugins']);
                 }
                 if ($toonContext && isset($node['toon']) && is_string($node['toon']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['toon'])) $base = $node['toon'];
                 foreach ($node as $k => $v) $walk($v, $pointer . '/' . strtr((string) $k, ['~' => '~0', '/' => '~1']), $base);

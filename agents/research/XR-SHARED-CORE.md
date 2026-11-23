@@ -1,4 +1,13 @@
-Status 2026-11-10: research, finished once as the owner asked (#482); nothing built, nothing changed in OSCT. Read from OSCT's code at commit ebbadf3b (1.64.6), read-only. §5 is to be applied before the engine or the editor is copied (XR.md §7 slice 2 and 3). §8 is the owner's.
+Status 2026-11-20: **replaced for OSCT's side** by OSCT's own research, `C:\Development\osct\osct\agents\research\2026-11-20-shared-xr-core.md` (osct#255, read at OSCT 3.8.1, schema 4.0; OSCT is at 3.21.0, schema 4.3 now): read that for the cut line, the versions, the phases and the decisions D1 to D9. This file is the research of 2026-11-10 (OSCT ebbadf3b, 1.64.6, schema 2.x), kept for SCUTOONS's side; what of it no longer holds is listed below. Nothing built, nothing changed in OSCT.
+
+**What no longer holds (2026-11-20):**
+- §3's real conflict, surfaces without pages, is gone: schema 3.0 / 4.0 has scenes with free surfaces in mm and no pages. The workaround ("a number stands in for the page", §5) must not be built.
+- §1 and §2's counts: the editor is 29k lines, and 68 files reach its `api.ts` (41 then). The gold palette is out of the engine. One experience per environment still holds until osct#87.
+- §4's ten steps are OSCT's phases 0 to 2 now (a workspace with packages `engine` and `contract`, the editor's `Backend` interface, a first tag; then `editor-kit`; after February 2027 `reader-core`).
+- §5's advice "copy unchanged with the commit recorded" stands as the fallback; OSCT's recommendation is a pinned tag in place of a copy (XR.md §9.1). The commit to record is ≥ 41ed6673, not ebbadf3b. Its points on named patches, no renames inside, SCUTOONS's words outside, one function that makes the configuration, Svelte views over a controller and one three version stand.
+- §8's question who posts on osct#255 is answered: OSCT's research posted its own result there.
+
+What is new there and not here: world tracking (the MIT 8th Wall engine has no SLAM; the binary's licence), the contract additions SCUTOONS would ask for (an open entry category or a title field, `goto`, translations, `experience.kind`), and the shared logic package (osct#334).
 
 # One XR core out of OSCT, with SCUTOONS as its second title
 
