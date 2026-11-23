@@ -5,6 +5,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { installTooltips, DialogHost, ToastStack, provideColourSampler, provideUiLabels } from '@scutoons/ui';
+	import { useOverlayLevel } from '@scutoons/ui/editor';
 	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { toaster } from '$lib/toasts.ts';
 	import { InstallBar, UpdateBar, pwaLabels } from '@scutoons/pwa';
@@ -26,7 +27,8 @@
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
-	import { isLaunchKey } from '$lib/shell/launcher.ts';
+	import { isSearchKey, isSwitcherKey } from '$lib/shell/launcher.ts';
+	import { ITEM_VIEW } from '$lib/shell/stage.ts';
 	import { saveWorkspace } from '$lib/shell/workspace-actions.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
@@ -46,6 +48,8 @@
 	let { children }: { children: Snippet } = $props();
 
 	const session = setCreatorSession();
+	// the creator's dialogs and sheets open on the overlay level (RULES H15)
+	useOverlayLevel();
 	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale, host: libraryHost });
 	setupCatalog({ locale: getLocale, locales, adminUrl: ADMIN_URL });
 	provideUiLabels({
@@ -247,12 +251,17 @@
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';
 	});
 
-	/** Alt Space / Cmd Space / Ctrl K / Ctrl O / `/`: the launcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the ☰ menu's Views; Ctrl+S: Save workspace where the page has no documents */
+	/** Alt Space / Cmd Space / Ctrl O / `/`: Search; Ctrl K / Cmd K / Alt Tab (where the page gets it): the switcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the ☰ menu's Views; Ctrl+S: Save workspace where the page has no documents */
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target instanceof Element ? event.target : null;
 		const typing = !!target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
-		if (isLaunchKey(event, typing)) {
+		if (isSwitcherKey(event)) {
+			event.preventDefault();
+			shell.toggleSwitcher();
+			return;
+		}
+		if (isSearchKey(event, typing)) {
 			event.preventDefault();
 			shell.toggleLauncher();
 			return;
@@ -289,7 +298,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher} data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:item-full={shell.full === ITEM_VIEW && !shell.dashboard && !shell.launcher} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -322,11 +331,6 @@
 		--status-room: calc(var(--status-height) + 2 * var(--kit-margin));
 		min-height: 100dvh;
 	}
-	/* a view full screen: the bar and the status bar step aside (the workspace hides its panels) */
-	.creator.full :global(.shell-bar),
-	.creator.full :global(.status-bar) {
-		display: none;
-	}
 	.stage {
 		position: fixed;
 		inset: 0;
@@ -335,6 +339,15 @@
 		overflow: auto;
 		background: var(--tool-ground);
 		color: var(--tool-text);
+	}
+	/* the item's own view taken full (RULES H15): the stage is the box over the overlay's veil, close to the window's edges */
+	.creator.item-full .stage {
+		z-index: 91;
+		inset: var(--kit-margin);
+		padding-top: 0;
+		padding-bottom: 0;
+		border: var(--editor-edge) solid var(--kit-overlay-box-border);
+		border-radius: var(--kit-radius-box);
 	}
 	/* a view clear of the bar keeps its content under the bar's row (the stage itself still runs under it) */
 	.stage.clear {

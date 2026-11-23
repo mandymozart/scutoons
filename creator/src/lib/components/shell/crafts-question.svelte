@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { Button, Tile } from '@scutoons/ui/editor';
+	import { Button, Overlay, Tile } from '@scutoons/ui/editor';
 	import { craftName } from '@scutoons/api';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -11,8 +11,9 @@
 	import { toaster } from '$lib/toasts.ts';
 
 	/**
-	 * The first login's question (research/redesign/lap/crafts-v2.html view `crafts`): what do you do? The crafts as tiles,
-	 * an invite's ticked; Continue saves them and opens the dashboard with their workspaces. Nothing explains.
+	 * The first login's question (research/redesign/lap/crafts-v2.html view `crafts`), on the overlay level: what do you do?
+	 * The crafts as tiles, an invite's ticked; Continue saves them and opens the switcher with their workspaces. It stays
+	 * until answered.
 	 */
 	const session = getCreatorSession();
 	let picked = $state<string[]>([...(crafts.mine?.crafts ?? [])]);
@@ -25,7 +26,7 @@
 		saving = true;
 		try {
 			await crafts.save(picked);
-			shell.dashboard = 'cards';
+			shell.toggleSwitcher(true);
 		} catch (e) {
 			toaster.addToast({ message: e instanceof Error ? e.message : String(e), type: 'error' });
 		} finally {
@@ -34,7 +35,7 @@
 	}
 </script>
 
-<div class="question" role="dialog" aria-modal="true" aria-labelledby="crafts-hello" data-testid="crafts-question">
+<Overlay place="center" label={m['shell.crafts_ask']()} data-testid="crafts-question">
 	<div class="body">
 		<h1 id="crafts-hello" class="hello">{m['shell.dash_welcome']({ name: greetName(session.user?.email ?? '') })}</h1>
 		<p class="ask">{m['shell.crafts_ask']()}</p>
@@ -48,21 +49,9 @@
 		</div>
 		<div class="end"><Button variant="primary" disabled={saving} onclick={onContinue} data-testid="crafts-continue">{m['shell.crafts_continue']()}</Button></div>
 	</div>
-</div>
+</Overlay>
 
 <style>
-	/* over everything, the stage's own ground (night black, day white): the first thing a new member sees */
-	.question {
-		position: fixed;
-		z-index: 60;
-		inset: 0;
-		display: grid;
-		place-items: center;
-		background: var(--tool-ground);
-		color: var(--tool-text);
-		font-family: var(--editor-sans);
-		animation: crafts-in var(--motion-base) var(--motion-ease);
-	}
 	.body {
 		display: flex;
 		flex-direction: column;
@@ -91,10 +80,5 @@
 		display: flex;
 		justify-content: flex-end;
 		margin-top: var(--editor-gap);
-	}
-	@keyframes crafts-in {
-		from {
-			opacity: 0;
-		}
 	}
 </style>

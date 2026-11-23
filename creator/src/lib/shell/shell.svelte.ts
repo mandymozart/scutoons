@@ -72,13 +72,15 @@ class Shell {
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
-	/** the dashboard lies over everything (the workspace row's ⌄, Esc back) */
+	/** the switcher lies on the overlay level (Ctrl K, ⌘K, Alt Tab where the page gets it, the workspace row's ⌄; Esc back) */
 	dashboard = $state<false | 'cards'>(false);
 	/** the ☰ menu is open, and which of its lines has its panel open beside it */
 	menu = $state(false);
 	menuSub = $state<MenuSub | null>(null);
-	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
+	/** Search lies on the overlay level (Alt Space, Cmd Space; Esc closes) */
 	launcher = $state(false);
+	/** what Search starts with (a key typed in the switcher) */
+	searchSeed = $state('');
 	/** the user menu under the account icon */
 	userMenu = $state(false);
 	/** the launcher's recent picks, newest first */
@@ -200,9 +202,16 @@ class Shell {
 		this.change({ views });
 	}
 
-	/** the launcher over everything, or away again – the keys call it, and the pad's Y once the shell reads a pad */
-	toggleLauncher(open = !this.launcher) {
+	/** Search on the overlay level, or away again – the keys call it, and the pad's Y once the shell reads a pad; it takes the switcher's place */
+	toggleLauncher(open = !this.launcher, seed = '') {
+		this.searchSeed = open ? seed : '';
+		if (open) this.dashboard = false;
 		this.launcher = open;
+	}
+	/** the switcher on the overlay level, or away again; it takes Search's place */
+	toggleSwitcher(open = !this.dashboard) {
+		if (open) this.launcher = false;
+		this.dashboard = open ? 'cards' : false;
 	}
 	remember(entry: LaunchEntry) {
 		this.picks = remember(this.picks, entry);
