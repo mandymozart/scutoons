@@ -1,12 +1,13 @@
 # The default character rig (deck-space rig/extend.rs): one simple character rig – a built-in singing voice whose
-# loudness opens the being's mouth, no other instrument. A character without a rig of its own plays it; a scutoon's rig
-# extends it (`extends = "character.default"`), takes the voice over with a track of its own (`takes = "voice"`) or
-# turns it off (`off = ["voice"]`).
+# loudness opens the being's mouth, no other instrument. It sings only while triggered (`trigger:sing` opens the voice's
+# gates: the player's held button or key on the picked one, a story's text line of its character – space/sing.rs). A
+# character without a rig of its own plays it; a scutoon's rig extends it (`extends = "character.default"`), takes the
+# voice over with a track of its own (`takes = "voice"`, the trigger opens that track then) or turns it off (`off = ["voice"]`).
 
 [rig]
 subject = "character.default"
 track = [{ id = "voice", instrument = "default_voice", preset = "default_voice.base" }]
-route = [{ from = "voice:ear.level", to = "being:mouth", scale = 4.0 }]
+route = [{ from = "voice:ear.level", to = "being:mouth", scale = 4.0 }, { from = "trigger:sing", to = "voice:@open" }]
 sticks = [["voice:voice.vowel", "voice:melody.spread"], ["voice:voice.vibrato", "voice:voice.breath"]]
 [rig.moods.happy]
 values = { "voice:voice.vowel" = 1.0 }
@@ -20,7 +21,7 @@ id = "default_voice"
 kind = "voice"
 name = { en = "Voice", de = "Stimme" }
 out = "voice"
-# the melody: a seeded walk around middle C, so the voice sings by default; `ear` hears the voice for the mouth
+# the melody: a seeded walk around middle C, its gates shut until the rig's trigger opens them; `ear` hears the voice for the mouth
 node = [
   { id = "voice", kind = "voice", freq = 262.0, gain = 0.2, vowel = 2.0, glide = 0.08, vibrato = 0.3, rate = 5.5, breath = 0.1 },
   { id = "melody", kind = "walk", seed = 491, base = 262.0, octaves = 1.0, bpm = 84.0, spread = 0.4, rate = 1.0, glide = 0.3 },

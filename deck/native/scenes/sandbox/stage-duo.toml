@@ -112,6 +112,10 @@ id = "right_fft"
 kind = "fft"
 
 [[node]]
+id = "right_trigger_sing"
+kind = "add"
+
+[[node]]
 id = "left_look"
 kind = "look"
 at = [0.0, 0.0, 0.0]
@@ -229,6 +233,12 @@ offset = 0.0
 from = "right_voice_ear.level"
 to = "right_look.mouth"
 scale = 4.0
+offset = 0.0
+
+[[link]]
+from = "right_trigger_sing.out"
+to = "right_voice_melody.open"
+scale = 1.0
 offset = 0.0
 
 [being]

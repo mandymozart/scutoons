@@ -57,6 +57,10 @@ id = "wolf_fft"
 kind = "fft"
 
 [[node]]
+id = "wolf_trigger_sing"
+kind = "add"
+
+[[node]]
 id = "space"
 kind = "space"
 glow = 0.6
@@ -101,6 +105,10 @@ id = "lizard_fft"
 kind = "fft"
 
 [[node]]
+id = "lizard_trigger_sing"
+kind = "add"
+
+[[node]]
 id = "fox_voice_voice"
 kind = "voice"
 breath = 0.1
@@ -134,6 +142,10 @@ gain1 = 1.0
 [[node]]
 id = "fox_fft"
 kind = "fft"
+
+[[node]]
+id = "fox_trigger_sing"
+kind = "add"
 
 [[node]]
 id = "wolf_look"
@@ -639,6 +651,12 @@ scale = 4.0
 offset = 0.0
 
 [[link]]
+from = "wolf_trigger_sing.out"
+to = "wolf_voice_melody.open"
+scale = 1.0
+offset = 0.0
+
+[[link]]
 from = "lizard_voice_melody.cv"
 to = "lizard_voice_voice.cv"
 scale = 1.0
@@ -675,6 +693,12 @@ scale = 4.0
 offset = 0.0
 
 [[link]]
+from = "lizard_trigger_sing.out"
+to = "lizard_voice_melody.open"
+scale = 1.0
+offset = 0.0
+
+[[link]]
 from = "fox_voice_melody.cv"
 to = "fox_voice_voice.cv"
 scale = 1.0
@@ -708,6 +732,12 @@ offset = 0.0
 from = "fox_voice_ear.level"
 to = "fox_look.mouth"
 scale = 4.0
+offset = 0.0
+
+[[link]]
+from = "fox_trigger_sing.out"
+to = "fox_voice_melody.open"
+scale = 1.0
 offset = 0.0
 
 [[link]]

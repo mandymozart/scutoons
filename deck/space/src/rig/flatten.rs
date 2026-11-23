@@ -7,7 +7,7 @@
 //! descriptor), its parameters and seed, the context it starts with (character, persona, mood – the live one is #409's),
 //! and the strips its `@gain` targets drive; routes reach it as `policy:<port>`.
 //! The being's `character` (from the subject) and `expose` (the instruments' shown parameters) come along.
-use super::address::{node_port, Address, Leaf};
+use super::address::{node_port, Address, Leaf, CAMERA, OPEN, SOURCES, TRIGGER};
 use super::instrument::canonical;
 use super::policy::{self, Member};
 use super::wiring::Home;
@@ -85,32 +85,44 @@ impl Rig {
         self.policy_node(lib, &played, persona, mood, &mut scene)?;
         let playing = |t: &str| played.iter().any(|p| p.track == t) || (t == policy::NODE && self.policy.is_some());
         let mut clock = false;
-        // the camera's outlets for the rig's subject: a node each that the stage sets every frame (space/focus.rs)
+        // the camera's outlets and the triggers for the rig's subject: a node each that the stage sets every frame
+        // (space/focus.rs, space/sing.rs)
         let mut outlets: Vec<String> = Vec::new();
-        // a route end as the compiled slot it lands on, and the track it is off with (`check` refused every other form)
-        let end = |s: &str| -> Option<(String, Option<String>)> {
-            match Address::leaf(s).ok()? {
+        // a route end as the compiled slots it lands on, and the track it is off with (`check` refused every other form);
+        // `<track>:@open` lands on the `open` of each of the track's sequencers
+        let ends = |s: &str| -> Vec<(String, Option<String>)> {
+            let Ok(leaf) = Address::leaf(s) else { return Vec::new() };
+            let one = match leaf {
                 Leaf::Port { track: Some(t), node, port } => Some((prefixed(&t, &format!("{node}.{port}")), Some(t))),
                 Leaf::Policy(port) => Some((format!("{}.{port}", policy::NODE), Some(policy::NODE.to_string()))),
                 Leaf::Being(input) => Some((format!("space.{input}"), None)),
                 Leaf::Source(scope, name) => super::address::source_slot(&scope, &name).map(|slot| (slot.to_string(), None)),
-                _ => None,
-            }
-        };
-        for (index, r) in self.routes.iter().enumerate() {
-            let (Some((from, ft)), Some((to, tt))) = (end(&r.from), end(&r.to)) else { continue };
-            // a route from or to a muted track is off with it
-            if !ft.as_deref().is_none_or(playing) || !tt.as_deref().is_none_or(playing) {
-                continue;
-            }
-            clock |= from.starts_with("tempo.");
-            if let Some((n, _)) = from.split_once('.').filter(|(n, _)| super::address::SOURCES.iter().any(|(s, _, slot)| *s == super::address::CAMERA && slot.starts_with(&format!("{n}.")))) {
-                if !outlets.iter().any(|o| o == n) {
-                    outlets.push(n.to_string());
+                Leaf::Member { track, member } if member == OPEN => {
+                    let nodes = played.iter().filter(|p| p.track == track).flat_map(|p| &p.patch.nodes);
+                    let gated = nodes.filter(|n| crate::graph::Kind::parse(&n.kind).is_some_and(|k| k.input(OPEN).is_some()));
+                    return gated.map(|n| (prefixed(&track, &format!("{}.{OPEN}", n.id)), Some(track.clone()))).collect();
                 }
+                _ => None,
+            };
+            one.into_iter().collect()
+        };
+        let set_by_stage = |n: &str| SOURCES.iter().any(|(s, _, slot)| (*s == CAMERA || *s == TRIGGER) && slot.starts_with(&format!("{n}.")));
+        for (index, r) in self.routes.iter().enumerate() {
+            let Some((from, ft)) = ends(&r.from).into_iter().next() else { continue };
+            for (to, tt) in ends(&r.to) {
+                // a route from or to a muted track is off with it
+                if !ft.as_deref().is_none_or(playing) || !tt.as_deref().is_none_or(playing) {
+                    continue;
+                }
+                clock |= from.starts_with("tempo.");
+                if let Some((n, _)) = from.split_once('.').filter(|(n, _)| set_by_stage(n)) {
+                    if !outlets.iter().any(|o| o == n) {
+                        outlets.push(n.to_string());
+                    }
+                }
+                scene.links.push(link(from.clone(), to, r.scale, r.offset));
+                homes.push(Home::Route { index });
             }
-            scene.links.push(link(from, to, r.scale, r.offset));
-            homes.push(Home::Route { index });
         }
         // the clock joins the rig's scene only when a route reads it
         if clock {

@@ -35,8 +35,11 @@ fn the_default_character_rig_sings_and_its_voice_opens_the_mouth() {
     assert!(b.rig.extends.is_none() && b.rig.tracks.len() == 1, "one track, extending nothing");
     let s = flat(&b);
     assert_eq!(kind_of(&s, "voice_voice"), Some("voice"));
-    assert_eq!(kind_of(&s, "voice_melody"), Some("walk"), "a melody, so it sings by default");
+    assert_eq!(kind_of(&s, "voice_melody"), Some("walk"), "a melody");
     assert!(has_link(&s, "voice_melody.cv", "voice_voice.cv") && has_link(&s, "voice_voice.out", "mix1.in1"));
+    // #819: it sings only when triggered – the trigger (a node the stage sets, 0 until then) opens the walk's gates
+    assert_eq!(kind_of(&s, "trigger_sing"), Some("add"));
+    assert!(has_link(&s, "trigger_sing.out", "voice_melody.open"), "{:?}", s.links);
     assert!(has_link(&s, "voice_ear.level", "space.mouth"), "the voice's level opens the mouth");
     let instruments: Vec<_> = b.instruments.iter().map(|i| (i.id.as_str(), i.kind)).collect();
     assert_eq!(instruments, [("default_voice", crate::rig::instrument::InstrumentKind::Voice)], "no other instrument");
@@ -51,6 +54,7 @@ fn the_voice_turned_off_is_not_compiled_and_the_rig_still_plays() {
     let s = flat(&b);
     assert!(!s.nodes.iter().any(|n| n.id.starts_with("voice_") || n.kind == "voice" || n.kind == "walk"), "nothing of the voice: {:?}", s.nodes);
     assert!(!s.links.iter().any(|l| l.to == "space.mouth"), "its route is off with it");
+    assert!(!s.nodes.iter().any(|n| n.id == "trigger_sing"), "and the trigger with it: nothing to open");
     let p = b.play(None, Some("sad")).unwrap();
     assert!(p.tracks.is_empty() && p.engine.page.is_empty() && p.character == "giantpopstar", "silent, the being stands");
     // muting every own track is still refused
@@ -67,6 +71,9 @@ fn a_track_of_its_own_takes_the_voice_over() {
     assert_eq!(kind_of(&s, "sing_voice"), Some("fm"));
     assert!(has_link(&s, "sing_voice.out", "mix1.in1") && has_link(&s, "mix1.out", "out.in"));
     assert!(!s.links.iter().any(|l| l.to == "space.mouth"), "the extended mouth route drops with its track");
+    // #819: the trigger opens the taker's gates – its hook plays only when triggered too
+    assert!(has_link(&s, "trigger_sing.out", "sing_melody.open"), "{:?}", s.links);
+    assert_eq!(s.links.iter().filter(|l| l.from == "trigger_sing.out").count(), 1);
     let p = b.play(None, Some("sad")).unwrap();
     assert_eq!(p.tracks.iter().map(|t| t.track.as_str()).collect::<Vec<_>>(), ["sing"]);
     assert!(p.knobs.iter().all(|k| !k.path.starts_with("voice_")), "and no knob of it");
@@ -111,4 +118,24 @@ fn a_character_without_a_rig_of_its_own_falls_back_to_the_default_character_rig(
     let json = serde_json::to_string(&b).unwrap();
     assert!(json.contains(r#""extends":"character.default""#) && !json.contains("default_voice"), "the link is stored, not a copy: {json}");
     assert_eq!(Bundle::parse_json(&json).unwrap(), b);
+}
+
+/// #819: a taker that wires the trigger itself is not wired twice; a route to a track's gates is a target only and names a
+/// track of the rig
+#[test]
+fn the_trigger_is_carried_once_and_checked() {
+    let mut b = popstar();
+    b.rig.routes.push(crate::rig::Route { from: "trigger:sing".into(), to: "sing:@open".into(), scale: 1.0, offset: 0.0 });
+    let s = flat(&b);
+    assert_eq!(s.links.iter().filter(|l| l.from == "trigger_sing.out").count(), 1, "{:?}", s.links);
+    let refuse = |from: &str, to: &str, says: &str| {
+        let mut b = default_rig();
+        b.rig.routes.push(crate::rig::Route { from: from.into(), to: to.into(), scale: 1.0, offset: 0.0 });
+        let e = format!("{:#}", b.rig.check(&b.library()).unwrap_err());
+        assert!(e.contains(says), "{says}: {e}");
+    };
+    refuse("voice:@open", "being:pulse", "target only");
+    refuse("trigger:sing", "drone:@open", "drone");
+    refuse("voice:voice.gain", "trigger:sing", "a source only");
+    refuse("trigger:shout", "voice:@open", "trigger has no 'shout'");
 }

@@ -141,7 +141,7 @@
             "clip": null,
             "rig": {
                 "id": "character.default",
-                "version": "c31d01585720b083",
+                "version": "65e3d9f28e56e8d1",
                 "data": {
                     "subject": "character.default",
                     "track": [
@@ -159,6 +159,12 @@
                             "from": "voice:ear.level",
                             "to": "being:mouth",
                             "scale": 4.0,
+                            "offset": 0.0
+                        },
+                        {
+                            "from": "trigger:sing",
+                            "to": "voice:@open",
+                            "scale": 1.0,
                             "offset": 0.0
                         }
                     ],
