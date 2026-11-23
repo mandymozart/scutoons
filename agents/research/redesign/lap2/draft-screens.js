@@ -255,12 +255,12 @@ add('C', 'C7', 'Flow', 'now/ws-flow (the Flow workspace, 2026-11-24)', [KIT],
     ${folded(1265, 70, 'Log')}${cstatus('No messages yet', '')}${mk(1, 1400, 92)}`;
   });
 
-add('C', 'C8', 'Sound design: the module editor', 'now/ws-sound (module:arp open, 2026-11-24) – the code is the capture in grey: its colours are not part of the kit', [],
+add('C', 'C8', 'Sound design: the module editor', 'now/ws-sound (module:arp open, 2026-11-24) – the code is the capture, in its own colours (what the UI shows keeps its colours)', [],
   () => `${cbar({ chevron: true, wsOn: 'Sound design', items: WS_ITEMS, front: 0 })}
   <div class="abs" style="left:14px;top:60px;right:396px;display:flex;align-items:center;gap:.5rem"><span class="mono" style="font-size:1.05rem">module:arp</span><span style="flex:1"></span><span class="kb primary">Derive</span><span class="kib alone">${ic('plus')}</span></div>
   <div class="abs" style="left:14px;top:100px;display:flex;gap:.2rem">${['Parameters','Nodes','Rust','Assignment'].map(t => `<span class="kt ${t === 'Rust' ? 'on' : ''}" style="height:1.9rem;font-size:var(--editor-small)">${t}</span>`).join('')}</div>
   <div class="abs" style="left:14px;top:138px;right:396px;display:flex;align-items:center;gap:.5rem"><span class="kt on" style="height:1.7rem;font-size:var(--editor-small)">lib.rs</span><span style="flex:1"></span><span class="label">a factory module is read-only</span></div>
-  ${wsCrop('sound', 0, 95, 585, 284, 14, 172, { style: 'width:1030px;border:1px solid var(--tool-line);border-radius:var(--editor-radius)', img: 'filter:grayscale(1)' })}
+  ${wsCrop('sound', 0, 95, 585, 284, 14, 172, { style: 'width:1030px;border:1px solid var(--tool-line);border-radius:var(--editor-radius)' })}
   ${fp(14, 690, 512, 130, [['Problems', 1]], '<span class="muted">no problems</span>')}
   ${fp(532, 690, 512, 130, [['Console', 1]], `<div class="mono small">arp 0.0.0 · ABI 2 · 8 params · 1 in · 1 out<br>loaded: module:arp</div>`, { icons: '<span class="kb" style="height:1.6rem;font-size:var(--editor-label)">Clear</span>' })}
   <div class="abs" style="left:1056px;top:60px"><span class="fld sel" style="width:7rem"><span class="muted">Mood</span>&nbsp;auto</span></div>
@@ -380,16 +380,14 @@ const DKKIT = "the panels on the kit, as kit-d.html: tabs without a border at re
 add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-3-stage-workspace · A3 (the same design)',
   ['the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)', 'the switcher as in A3, no Views on cards',
    "one list: the creator's workspaces too, with a quiet chip \"Creator\" – the same order in both apps"],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild() + DKNOCOL)}
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}
   ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
   ${mk(1, 560, 30)}${mk(2, 146, 62)}${mk(3, 722, 298)}
   ${qcard(1010, 120, "does the deck's switcher show a Needs review box?", ['yes – the box as in the creator', 'no – left out (drawn dashed)'], '', '18rem')}`);
-/* palette D on the deck's screenshot: the mixer's meters, the Library's thumbnails and the axis gizmo without colour (today green, cyan, red) – a grey filter over those spots of the shot, in the deck's 1600-wide frame */
-const DKNOCOL = [[1378, 480, 205, 368], [16, 456, 424, 390], [764, 62, 74, 76]].map(([x, y, w, h]) => `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:30;pointer-events:none;backdrop-filter:grayscale(1);-webkit-backdrop-filter:grayscale(1)"></div>`).join('');
 add('D', 'D2', 'Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools', 'now/deck-3-stage-workspace (catpope open in Build)',
   ['the shared bar (A1): the workspace row Scene · Rigging · Show', "Views: the ☰ menu's PANELS become Views (A2, B1)", DKKIT],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild() + DKNOCOL)}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}`);
 add('D', 'D3', 'Show: the rows band, Spores, Library', 'show.html `?v=0` (current: the bar without the Show pill, the views, the rows band, the Library) – from now/deck-3-show-workspace, now/deck-6-fires-on', [],
   () => `<iframe class="draft" src="show.html?v=0${DAY ? '&theme=day' : ''}"></iframe>`);
 add('D', 'D4', 'Module: Library · Drives · Module · Problems', 'now/deck-3-module-workspace', ['the shared bar (A1); Module open, so it shows in the row', 'Views (B1)', DKKIT],
@@ -398,13 +396,13 @@ add('D', 'D4b', 'Module: a module open', 'none – never captured', [],
   () => `${deckFrame(deckBarNew({ tabs: [['code','arp']], mode: false, wsNames: ['Scene','Rigging','Show','Module'], wsOn: 3 }) + `<div class="abs" style="left:14px;top:60px;width:1572px;height:790px">${notShot('a module open in the deck – never captured, not drawn')}</div>`)}
   ${capn(14, 820, 'Open: the module editor was never designed (P9) – Parameters, Problems, the module heard alone, Derive; the code in the external editor')}`, { idle: ' – nothing: an open point (words) – no capture of today' });
 add('D', 'D5', 'An asset open (character, module, video)', 'now/deck-3-stage-workspace (catpope, a character, open in Build)', ['the shared bar (A1)', 'Views (B1)', DKKIT],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild() + DKNOCOL)}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}${capn(14, 812, 'module and video assets: not captured – the same bar')}`);
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ wsOn: 0 }) + deckBuild())}${mk(1, 640, 38)}${mk(2, 1318, 38)}${mk(3, 20, 330)}${capn(14, 812, 'module and video assets: not captured – the same bar')}`);
 add('D', 'D6', 'Rigging', 'crafts-v2 `rig` (#830, not on main), its palette moved to D', [],
   () => `<iframe class="draft" src="assets/drafts/crafts-v2.html?view=rig${DAY ? '&theme=day' : ''}"></iframe>`);
 add('D', 'D7', 'XR → a creator workspace', 'crafts-v2 `xr` → C15 (XR is a creator workspace)', [],
   () => `<iframe class="draft" src="assets/drafts/epic-drafts.html?s=714${DAY ? '&theme=day' : ''}"></iframe>${capn(600, 820, "dropped: XR is drawn as C15; the deck's workspaces are Scene · Rigging · Show")}`);
 add('D', 'D8', 'A scene opened from the creator', 'D2 (now/deck-3-stage-workspace)', ['the deck launched with that scene: its tab in front (Avatar home, from C5 Edit in deck)'],
-  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ tabs: [['box','Avatar home'],['user','catpope']], wsOn: 0 }) + deckBuild() + DKNOCOL)}${mk(1, 230, 38)}${capn(560, 400, 'the stage: that scene – not drawn (the shot shows catpope)')}`);
+  () => `${deckShot('deck-3-stage-workspace.png', deckBarNew({ tabs: [['box','Avatar home'],['user','catpope']], wsOn: 0 }) + deckBuild())}${mk(1, 230, 38)}${capn(560, 400, 'the stage: that scene – not drawn (the shot shows catpope)')}`);
 
 /* ════════ E · feature designs already drawn ════════ */
 const fr = (f, q) => () => `<iframe class="draft" src="assets/drafts/${f}${q}${DAY ? '&theme=day' : ''}"></iframe>`;
