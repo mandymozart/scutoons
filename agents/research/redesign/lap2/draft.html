@@ -97,6 +97,7 @@ svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stro
 /* kit: the quiet select (kit-d.html "Select quiet" .fld.q, owner 2026-11-24; named .quiet here: .q is the draft's question card) – a filter or sort: no box at rest, a rounded border on hover (.h) and while open (.on), the chevron after the word */
 .fld.quiet{width:auto!important;gap:.55rem;padding:0 .7rem;border-color:transparent;background:none;border-radius:calc(var(--control-height)/2)}
 .fld.quiet.sel::after{margin-left:0}
+.fld.quiet{white-space:nowrap;flex:none}
 .fld.quiet.h{border-color:var(--d-edge)} .fld.quiet.on{border-color:var(--tool-text)}
 .slot{display:grid;place-items:center;border:1px dashed var(--tool-muted);border-radius:var(--editor-radius);color:var(--tool-text)}
 .seg{display:inline-flex;border:1px solid var(--tool-line);border-radius:var(--editor-radius);background:var(--tool-control);text-shadow:none}
@@ -433,7 +434,8 @@ const PIC = {
 };
 /* a tile: [name, type or kind, picture ('<…>' html · an icon name · null = a still that does not exist yet), {on, x}] */
 const libTile = ([n, m, pic, o = {}]) => `<div class="th ${o.on ? 'on' : ''} ${o.x ? 'x' : ''}" title="${n}"><div class="pv ${pic === null ? 'pend' : ''}" ${o.pvH ? `style="aspect-ratio:auto;height:${o.pvH}px"` : ''}>${pic === null ? '<span>still pending</span>' : pic.startsWith('<') ? pic : ic(pic)}</div><div class="nm">${n}</div><div class="mt">${m}</div></div>`;
-const LIB_THINGS = ['Characters', 'Scenes', 'Places', 'Items'], LIB_FILES = ['Images', '3D', 'Audio', 'Video'];
+/* the types the Library lists (owner 2026-11-24): eleven kinds of thing and four kinds of file – one quiet select, its list in two groups ("Yes, a select") */
+const LIB_THINGS = ['Toons', 'Characters', 'Scenes', 'Shows', 'Places', 'Items', 'Modules', 'Instruments and rigs', 'Generators', 'Kanon', 'People'], LIB_FILES = ['Images', '3D', 'Audio', 'Video'];
 const LIB_PLACES = ['This item', "This season's cast", 'This toon', 'Everything', 'Unused'];
 const libSep = '<span style="flex:none;width:1px;height:1rem;margin:0 .15rem;background:var(--tool-line)"></span>';
 function libraryBody(o = {}) {
@@ -441,10 +443,9 @@ function libraryBody(o = {}) {
   const chip = (n, on) => `<span class="kc ${on ? 'on' : ''}">${n}</span>`;
   const grid = (tiles, c = cols) => `<div style="display:grid;grid-template-columns:repeat(${c},minmax(0,1fr));gap:${o.gap || '.65rem .55rem'}">${tiles.map(t => libTile(o.pvH ? [t[0], t[1], t[2], { ...(t[3] || {}), pvH: o.pvH }] : t)).join('')}</div>`;
   return `${o.pick ? `<div style="display:flex;align-items:center;gap:.45rem;margin:.1rem 0 .5rem">Pick for <span class="kc on">${o.pick}</span><span style="flex:1"></span><span class="kb plain" style="height:1.75rem" title="Esc">Cancel</span></div>` : ''}
-    <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;margin-bottom:.45rem">${chip('All', type === 'All')}${LIB_THINGS.map(n => chip(n, n === type)).join('')}${libSep}${LIB_FILES.map(n => chip(n, n === type)).join('')}</div>
     <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem">${(o.places || LIB_PLACES).map(n => chip(n, n === place)).join('')}</div>
     <div style="display:flex;gap:.4rem;margin-bottom:.5rem"><span class="fld" style="flex:1">${ic('search')}<span class="ph">Find</span></span>${o.pick ? '' : `<span class="kb primary">${ic('upload')}Upload</span>`}</div>
-    <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem"><span class="fld sel quiet" style="width:6.4rem" title="Grouping">By use</span><span class="fld sel quiet" style="width:7.2rem" title="Sort">By name</span><span style="flex:1"></span><span class="rng" title="Tile size"></span><span class="kib muted" title="As a list">${ic('list')}</span><span class="kib muted" title="More" style="font-size:1.1rem">⋯</span></div>
+    <div style="display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem"><span style="position:relative;display:inline-flex;flex:none"><span class="fld sel quiet ${o.typeOpen ? 'on' : ''}" title="Type">${type === 'All' ? 'All types' : type}</span>${o.typeOpen ? `<div class="km" style="left:0;top:calc(var(--control-height) + 4px);min-width:13rem;z-index:70"><div class="kmi"><span class="w">All types</span></div><div class="kmh">Things</div>${LIB_THINGS.map(n => `<div class="kmi" style="min-height:1.7rem">${n === type ? '<span style="width:.4rem;height:.4rem;border-radius:50%;background:var(--tool-text)"></span>' : '<span style="width:.4rem"></span>'}<span class="w">${n}</span></div>`).join('')}<div class="kmh">Files</div>${LIB_FILES.map(n => `<div class="kmi" style="min-height:1.7rem"><span style="width:.4rem"></span><span class="w">${n}</span></div>`).join('')}</div>` : ''}</span><span class="fld sel quiet" style="width:6.4rem" title="Grouping">By use</span><span class="fld sel quiet" style="width:7.2rem" title="Sort">By name</span><span style="flex:1"></span><span class="rng" title="Tile size" style="min-width:0;flex:0 1 auto"></span><span class="kib muted" title="As a list">${ic('list')}</span><span class="kib muted" title="More" style="font-size:1.1rem">⋯</span></div>
     ${o.content || (o.groups ? o.groups.map(([label, tiles]) => `<div class="label" style="margin:.2rem 0 .35rem">${label}</div>${grid(tiles)}`).join('<div style="height:.7rem"></div>') : grid(o.tiles || []))}`;
 }
 /* the deck's Library tiles as shot (now/deck-3-stage-workspace): the pictures are the shot's own tiles, else the kind's icon */

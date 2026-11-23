@@ -106,7 +106,7 @@ The Library lists things and files; a thing is stepped into; an assignment shows
   - **Order:** after P3 and after the endpoint exists. Medium to large for the deck.
 - **In lap 2** (decided). It is the largest package: the Library learns to list things of eleven kinds beside the files, in both apps.
 - **Types** (decided): Toon · Character · Scene · Show · Place · Item · Module · Instrument and rig · Generator, and for now Kanon texts and people.
-- **Waits for your word:** the five consequences marked "to confirm" in LIBRARY.md, and how the type filter is drawn with fifteen types.
+- **Waits for your word:** the five consequences marked "to confirm" in LIBRARY.md.
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
@@ -153,7 +153,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The extended Library: its five consequences to confirm; the type filter with fifteen types; what dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens (LIBRARY.md) | P11 |
+| The extended Library: its five consequences to confirm; what dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens (LIBRARY.md) | P11 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:

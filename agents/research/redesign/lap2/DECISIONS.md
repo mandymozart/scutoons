@@ -68,7 +68,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **"Import images" goes** from the Map, the Catalog and Characters. Bulk comes through MCP; the Library places things into slots.
 - **A scene in the creator has a preview** that covers the whole back of the page; "Edit in deck" goes from there. The page previews and links, it does not edit.
 - **The writing pages are redesigned** for a good writing experience: Kanon, Notifications, Credits, Edit, Guide.
-- **The extended Library lists things and files** (LIBRARY.md), in both apps with the same panel, built in lap 2. Things: Toon · Character · Scene · Show · Place · Item (with recipes, products, editions, albums, home scenes) · Module · Instrument and rig · Generator, and for now Kanon texts and people. Files: a picture, a model, a sound, a video.
+- **The extended Library lists things and files** (LIBRARY.md), in both apps with the same panel, built in lap 2. Things: Toon · Character · Scene · Show · Place · Item (with recipes, products, editions, albums, home scenes) · Module · Instrument and rig · Generator, and for now Kanon texts and people. Files: a picture, a model, a sound, a video. The type is one quiet select with its list in two groups; the places are chips.
 - **A thing is stepped into.** A character's personas, looks and moods stay inside it, with the files it uses beside them.
 - **A cast is characters assigned to a toon:** found in the Library, edited in the toon's season. Opening a character from there comes to the Characters workspace.
 - **A list of characters or scenes beside the Library is redundant.** The Scenes workspace has no list of scenes of its own.
@@ -83,7 +83,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 **Open**
 - **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
 - What a good writing experience holds (C14) – your words, or a first draft from me to correct.
-- The extended Library's consequences to confirm (LIBRARY.md): one list instead of two; one picker instead of five sheets; the Catalog's and the Toon's top-level lists go; the Cast tab becomes "cast in"; "By cast" lists the characters; trees do not travel. And how the type filter is drawn with fifteen types.
+- The extended Library's consequences to confirm (LIBRARY.md): one list instead of two; one picker instead of five sheets; the Catalog's and the Toon's top-level lists go; the Cast tab becomes "cast in"; "By cast" lists the characters; trees do not travel.
 - Trees: the Library's "Items to open" against the trees; a borrowed tree – jump or reference.
 - Where the 2D-first / 3D-first preference sits.
 - Does the word "instrument" stay? MODULES-DNA.md points 2–7.

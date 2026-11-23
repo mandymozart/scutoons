@@ -66,7 +66,7 @@
 2. **Built in lap 2.**
 3. **A video's tile is one frame.** Playing on hover is not needed at this point.
 4. **The deck's Library is the same extended Library, with the same panel.**
+5. **The type filter is one quiet select** ("All types"), its list in two groups – things and files. The places stay a row of chips.
 
 ## Open
-1. **The type filter in the picture.** C12 draws the types as a row of chips for four kinds of thing; with eleven kinds of thing and four kinds of file a row of chips no longer fits.
-2. **The five consequences marked "follows – confirm"** in the recap above; each has a question card on its screen.
+1. **The five consequences marked "follows – confirm"** in the recap above; each has a question card on its screen.

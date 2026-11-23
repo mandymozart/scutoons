@@ -358,7 +358,7 @@ const catalogBack = (o = {}) => `${cbar({ chevron: true, wsOn: 'Catalog', items:
   ${o.log === false ? '' : folded(1265, 70, 'Log')}${cstatus('No messages yet', '0 errors · 0 warnings')}`;
 const qOneList = (x, y, w = '21rem') => qcard(x, y, 'confirm: one list – "Items to open" goes', ['as drawn: things and files in one list, the type the first filter', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', w);
 add('C', 'C12', 'Library: the panel', "today's library-panel.svelte (its parts and words) in now/ws-catalog (Kamera open) · LIBRARY.md (the extended Library)",
-  ['the type is the first filter: things (Characters, Scenes, Places, Items) | files (Images, 3D, Audio, Video) – "Items to open" goes',
+  ['the type is one quiet select ("All types"): eleven kinds of thing and four kinds of file, its list in two groups (F1 shows it open) – "Items to open" goes',
    "the places narrow it: This item · This season's cast · This toon · Everything (Unused as today)",
    "things and files in one list: a thing's tile shows its type, a file's tile its kind; a video's tile its preview picture – a still that does not exist yet says so (#842)",
    "every part from the kit: the kit's small chips, the selected one in the text colour; Grouping and Sort the kit's quiet select; Upload the one primary action; \"Find\"; a selected tile the 2px ring"],
@@ -497,9 +497,9 @@ add('E', 'E5d', 'Scenes follow-ups: a show with several toons', 'scenes/epic-dra
 
 /* ════════ F · concepts ════════ */
 add('F', 'F1', 'Catalog + Library: one concept', 'C12, C9 · LIBRARY.md (the extended Library – answers F1)',
-  ["the Catalog's entries are things in the Library: the type Items, the place This toon",
+  ["the Catalog's entries are things in the Library: the type Items, the place This toon – the type is one quiet select, its list in two groups: eleven kinds of thing, four kinds of file (decided 2026-11-24)",
    'opening one opens it in the Catalog (Kamera)', 'the Catalog has no list of every entry of its own (C9)'],
-  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, type: 'Items', place: 'This toon', tiles: [tl('kamera', { on: 1 }), tl('gurke'), tl('gurkenkamera'), tl('gurkenkreuz')] })}
+  () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, type: 'Items', typeOpen: true, place: 'This toon', tiles: [tl('kamera', { on: 1 }), tl('gurke'), tl('gurkenkamera'), tl('gurkenkreuz')] })}
   ${mk(1, 990, 96)}${mk(2, 990, 300)}${mk(3, 560, 118)}
   ${qcard(620, 470, 'confirm: no top-level list of every entry; one list for things and files', ['as drawn: the Catalog shows the open entry, the Library finds them', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}`);
 add('F', 'F2', 'The one-look sheet', 'kit-d.html (approved 2026-11-24)', [], frl('kit-d.html', ''), { idle: ' – nothing: approved as drawn' });
