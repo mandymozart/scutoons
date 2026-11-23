@@ -8,8 +8,9 @@ Every screen is drawn **from its base** – today's screen (`now/`) or an existi
 |---|---|---|---|
 | A1 | The bar | now/creator-1, deck-bar | one bar for both: item tabs · workspace row (always its ⌄ "all workspaces") · undo redo Publish account ☰, icons only (points 30, 34–37, 41, 47) |
 | A2 | The ☰ menu open | dashboard foot + front card | the owner's list (points 34, 36, 39): Views with Save workspace · Search · Settings · Docs · the build (version, account, load meters) · the edit language (note 2) |
-| A3 | The switcher (Alt Tab / Ctrl K / ⌘K) | now/creator-2 | today's dashboard without its search field; not on the ☰ any more (note 1) |
-| A4 | Search (Alt Space / ⌘ Space, the pad's Y) | the launcher today | its own overlay (points 24, 25, 37) |
+| A3 | The switcher (Alt Tab / Ctrl K / ⌘K) | now/creator-2 | today's dashboard without its search field; not on the ☰ any more (note 1) · **redrawn 2026-11-24 after the review:** no Views row on any card (Views: ☰ only) and one list with the deck's Scene · Rigging · Show, each card still + name + last content, a deck card badged "Deck · running / starts" (owner: "vice versa … more seamless") |
+| A3b | Enter on a deck card | A3, DECK-LINK.md | new: the deck not running – the browser's one-time "Open SCUTOONS Deck?" over the switcher; running – no prompt, the deck comes up on that workspace and item |
+| A4 | Search (Alt Space / ⌘ Space, the pad's Y) | the launcher today | its own overlay (points 24, 25, 37); placeholder just "Find" (owner 2026-11-24: "too long placeholder text") |
 | A5 | The user menu (swipe up / account) | today's user menu | switch the signed-in user (point 56) |
 | A6 | The status bar | today | – (in the set for completeness) |
 | A7 | First open | creator first login (crafts question) · deck Home | the deck's first open (point 53) beside the creator's |
@@ -49,7 +50,7 @@ Every screen is drawn **from its base** – today's screen (`now/`) or an existi
 ## D. The deck editor's workspaces (as on main today, plus #830's)
 | # | Screen | Base | What changes |
 |---|---|---|---|
-| D1 | Home | deck-home | the shared bar (A1); its place beside the switcher (A3) |
+| D1 | Home + the switcher | deck-home, A3 | the shared bar (A1); **redrawn 2026-11-24:** the deck's switcher in A3's design over Home ("the same design dogma as the creators"), the one list with the creator's workspaces badged "Creator", no Views on cards; Home vs switcher and the list order left to the owner |
 | D2 | Build: Rig · Library · Inspector · Audio · Info · Mixer · Camera tools · Tools | deck-build | the shared bar, Views (B1), the kit look |
 | D3 | Show: Outline · Inspector · Sheet · Nodes · Library · Rows · Session · Stage now · Next | deck-show | same |
 | D4 | Module: Library · Drives · Module · Problems | deck-module | same |

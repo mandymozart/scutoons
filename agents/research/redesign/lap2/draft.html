@@ -246,15 +246,17 @@ function characters(o = {}) {
 /* the dashboard as today (now/creator-2): search field, Last opened, Needs review, the workspace cards, the foot */
 const CARDS = [['Characters','giantpopstar +4','smile','front'],['Toon','Sandbox +1','book','open'],['Flow','Nothing open yet','layout'],['Scenes','Scenes +2','box','open'],['Sound design','Module·arp','cpu','open'],['Catalog','Nothing open yet','layout'],['Map','Map','map','open']];
 function dashboard(o = {}) {
-  const x0 = 14, w = 269, gap = 16;
-  const card = ([n, what, icon, st], i) => {
-    const r = Math.floor(i / 5), c = i % 5, x = x0 + c * (w + gap), y = (o.top ?? 306) + r * 165, h = st === 'front' && !o.noViews ? 152 : 152;
-    const thumb = o.snap ? o.snap(n, i) : `<span class="ico">${i === 1 ? `<span style="display:inline-flex;gap:.5rem;align-items:center"><span style="width:1.9rem;height:1.9rem;border-radius:.3rem;background:#e7a06a;display:inline-block"></span>${ic('book')}</span>` : ic(icon)}</span>`;
-    return `<div class="dcard ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${st === 'front' ? '<span class="label" style="position:absolute;left:.55rem;top:.35rem">Front</span>' : ''}${thumb}${st ? `<span class="cx">${ic('x')}</span>` : ''}
-      <span class="nm" style="${st === 'front' && !o.noViews ? 'bottom:3.6rem' : ''}">${n}</span><span class="wh label" style="${st === 'front' && !o.noViews ? 'bottom:2.4rem' : ''}">${what}</span>
-      ${st === 'front' && !o.noViews ? `<span style="position:absolute;left:.4rem;right:.4rem;bottom:.35rem;display:flex;align-items:center;gap:.4rem;height:1.6rem;padding:0 .3rem;border-radius:.3rem;${o.viewsOn ? 'box-shadow:inset 0 0 0 1px var(--tool-text)' : ''}"><span class="kib ${o.viewsOn ? 'pressed' : ''}" style="width:1.4rem;height:1.4rem;border-radius:.25rem">${ic('layout')}</span>Views <span class="cap" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sheet · 3D · Kanon · Expressions…</span></span>` : ''}</div>`;
+  /* cards: [name, last content, icon, state ('front' | 'open' | ''), badge (kit Chip: where it opens), picture (html)]; no Views row on a card (owner 2026-11-24) */
+  const cols = o.cols || 5, x0 = 14, gap = 16, w = Math.floor((1412 - (cols - 1) * gap) / cols);
+  const card = ([n, what, icon, st, badge, pic], i) => {
+    const r = Math.floor(i / cols), c = i % cols, x = x0 + c * (w + gap), y = (o.top ?? 306) + r * 165, h = 152;
+    const thumb = pic ? `<span class="abs" style="left:.6rem;right:.6rem;top:1.8rem;height:72px;border-radius:.3rem;overflow:hidden;border:1px solid var(--tool-line);background:var(--tool-ground)">${pic}</span>`
+      : o.snap ? o.snap(n, i) : `<span class="ico">${i === 1 ? `<span style="display:inline-flex;gap:.5rem;align-items:center"><span style="width:1.9rem;height:1.9rem;border-radius:.3rem;background:#e7a06a;display:inline-block"></span>${ic('book')}</span>` : ic(icon)}</span>`;
+    return `<div class="dcard ${i === (o.focus ?? 1) ? 'focus' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${st === 'front' ? '<span class="label" style="position:absolute;left:.55rem;top:.35rem">Front</span>' : ''}${thumb}${st && !badge ? `<span class="cx">${ic('x')}</span>` : ''}
+      <span class="nm">${n}</span><span class="wh label" style="text-transform:none;letter-spacing:0">${what}</span>
+      ${badge ? `<span class="kc on" style="position:absolute;right:.55rem;bottom:1.85rem">${badge}</span>` : ''}</div>`;
   };
-  const search = o.noSearch ? '' : `<div class="abs fld" style="left:14px;right:14px;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find anything – items, workspaces, views, files, commands; or an address: chapter:catpope:3 …</div>`;
+  const search = o.noSearch ? '' : `<div class="abs fld" style="left:14px;right:14px;top:56px;height:2.1rem;border-radius:1.05rem;color:var(--tool-muted);background:var(--tool-popover)">${ic('search')}Find</div>`;
   const by = o.by ?? 99;
   return `<div class="dash">${search}
   <div class="abs box" style="left:14px;width:700px;top:${by}px;height:165px;background:var(--tool-popover)"><div class="label" style="margin-bottom:.6rem">Last opened</div>
