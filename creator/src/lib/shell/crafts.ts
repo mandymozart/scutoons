@@ -24,3 +24,9 @@ export async function readCrafts(list: () => Promise<{ crafts?: unknown }>, mine
 
 /** the first-login question: only when the API says it is open and there are crafts to pick */
 export const asksCrafts = (state: CraftsState): boolean => !!state.mine?.ask && state.list.length > 0;
+
+/** the crafts whose bar carries the text language beside the workspace row (lap 2 A9: the translator's bar) */
+const TEXT_LANGUAGE_CRAFTS = ['translator'];
+
+/** the member's bar carries the text language */
+export const showsTextLanguage = (mine: MemberCrafts | null): boolean => !!mine?.crafts.some((c) => TEXT_LANGUAGE_CRAFTS.includes(c));

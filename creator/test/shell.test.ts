@@ -9,7 +9,7 @@ import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src
 import { addSpore, hooksOf, removeSpore } from '../src/lib/editor/spores.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
-import { NO_CRAFTS, asksCrafts, readCrafts } from '../src/lib/shell/crafts.ts';
+import { NO_CRAFTS, asksCrafts, readCrafts, showsTextLanguage } from '../src/lib/shell/crafts.ts';
 import { NO_LAYOUTS, cleanName, fromAnswer, ownId, readChosen, readKept, shownWorkspace, startKind, startOf, toKept, withOwn, withSaved, without } from '../src/lib/shell/layouts.ts';
 import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
@@ -360,6 +360,13 @@ test('crafts before the migration: a missing or failing API means no crafts – 
 	const ok = await readCrafts(okList, okMine);
 	assert.equal(asksCrafts(ok), true);
 	assert.equal(asksCrafts({ list: [], mine: ok.mine }), false, 'nothing to pick: no question');
+});
+
+test("the translator's bar carries the text language; other crafts and no crafts do not", () => {
+	const mine = (crafts: string[]) => ({ crafts, invited: [], workspaces: [], ask: false, can_edit: false });
+	assert.equal(showsTextLanguage(mine(['writer', 'translator'])), true);
+	assert.equal(showsTextLanguage(mine(['writer'])), false);
+	assert.equal(showsTextLanguage(null), false);
 });
 
 test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {

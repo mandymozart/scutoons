@@ -3,11 +3,12 @@
 	import UnitNumber from '$lib/components/fields/unit-number.svelte';
 	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
 	import KitStates from '$lib/components/page/kit-states.svelte';
+	import KitShell from '$lib/components/page/kit-shell.svelte';
 	import { at, Button, Floats, FloatingPanels, ListRow, Pill, PillTabs, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
 	// Dev only: the editor kit over a stage – drag a panel by its grip, a tab into another panel or out onto the stage,
 	// resize an edge (the neighbours make room), fold by a double-click on the head; reload and the layout is back.
-	// States: every component of the kit in its states (kit-states.svelte).
+	// States: every component of the kit in its states (kit-states.svelte). Shell: the creator's bar and menus (kit-shell.svelte).
 	const TABS: TabSpec[] = [
 		{ id: 'outline', name: 'Outline', icon: 'list', about: 'The open item’s structure' },
 		{ id: 'history', name: 'History', icon: 'clock', about: 'Saved versions' },
@@ -36,7 +37,8 @@
 	const WORKSPACES = [
 		{ id: 'scene', label: 'Scene' },
 		{ id: 'character', label: 'Character' },
-		{ id: 'states', label: 'States' }
+		{ id: 'states', label: 'States' },
+		{ id: 'shell', label: 'Shell' }
 	];
 
 	let workspace = $state('scene');
@@ -78,6 +80,8 @@
 	<main class="room" class:scroll={workspace === 'states'}>
 		{#if workspace === 'states'}
 			<KitStates />
+		{:else if workspace === 'shell'}
+			<KitShell onleave={() => (workspace = 'scene')} />
 		{:else}
 		{#key floats}
 			<FloatingPanels {floats}>

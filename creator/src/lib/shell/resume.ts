@@ -9,7 +9,7 @@ import { close, EMPTY, readTabs, visit, type TabsState } from './tabs.ts';
 /** where this browser keeps it; a new shape takes a new version and the old key is simply not read */
 export const RESUME_KEY = 'sc-creator-resume.v1';
 
-export type DashboardState = false | 'cards' | 'views';
+export type DashboardState = false | 'cards';
 
 /** a scroll position: how far down, and – inside a panel – the scroller's child path from the panel */
 export interface Scroll {
@@ -44,7 +44,7 @@ export const MAX_OTHERS = 6;
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-const readDashboard = (v: unknown): DashboardState => (v === 'cards' || v === 'views' ? v : false);
+const readDashboard = (v: unknown): DashboardState => (v === 'cards' ? v : false);
 
 function readScroll(v: unknown): Scroll | null {
 	if (!isRecord(v) || typeof v.top !== 'number' || !Number.isFinite(v.top) || v.top <= 0) return null;
