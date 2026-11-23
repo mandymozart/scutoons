@@ -14,6 +14,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Palette D – no signal hue.** On, focus, active and selected are the text colour. The one primary action is the pressed fill. Colour only says ok, warning, error. (H11)
 - **Grounds are see-through**, never an opaque grey: the text colour at a low strength (control 6 %, hover 10 %, selected 16 %). Menus stay opaque.
 - **Kit D is approved** (kit-d.html), all 14 points as drawn; the tab's hover border is the text colour.
+- **The spores are part of the kit:** the canvas's dotted ground, the spore's card and its states, its face (its result), a run's marks, a cable, a take – one definition for both apps.
 - **The kit's one source of truth is a top-level `kit/` folder:** a neutral `kit/tokens.toml` (the tokens and each component's states) and a README. The deck's UI crate and the creator's UI kit both come from it; it is the place to go for reference and to refine.
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
 - **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), thumbnails and pictures, and outlet types – where a thing plays: page · stage · target · light, as started in the #703 draft.
@@ -45,6 +46,8 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **The Show's own pill goes.** Cues, Problems, Who, Session, Vote and Demos are views of the Show workspace, listed in the ☰ Views. The bar's middle holds the workspace row and nothing else. (H16)
 - **Sending out has one pattern** (H18): Publish and Flash are one icon each in the bar, with a dot when something is not out yet, and the same dialog – what goes out, ticked; All · None; one primary button with the count; a report after.
 - **"New scene" in the deck** opens from the ☰ menu's "New …" (scene and show, each a dialog); a recast from the scene's own menu. **The Flash icon is a box.**
+- **A slot is an asset slot:** it takes a file (a picture, a video) from the Library, an upload, or a generator added from the Library. A shot in the Storyboard has one.
+- **The generator's canvas** is the one of 2026-11-22: a spore shows its result as its face, free items lie on it unwoven, a run yields takes and one is assigned to the slot; a spore's driver is Automatic or picked.
 - **The Storyboard's left panel is the Shots filmstrip** – the chapter's shots in order, by scene; the Timeline shows the picked shots back to back (STORYBOARD.md).
 - **No refresh buttons** (H19): the deck's Load goes. When a newer version of the open show exists, the deck says so and offers Reload, as the creator does.
 - **Resume across devices** (built, #838). Existing members are asked their crafts once.

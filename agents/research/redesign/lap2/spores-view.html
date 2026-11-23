@@ -370,7 +370,7 @@ const crumb = (html) => `<span class="ic" title="up a level">${lvlUp}</span><spa
 function sporesPanel(p, G, o = {}) {
   const tabs = o.nodes ? `<span class="tab on">${ic('node')}Nodes</span>` : `<span class="tab on">${ic('node')}Spores</span>${o.crumb ? crumb(o.crumb) : ''}`;
   return `<div class="fp" style="left:${p[0]}px;top:${p[1]}px;width:${p[2]}px;height:${p[3]}px">${head('node', { noX: true, tabs, right: VIEWBAR() })}
-    <div class="abs" style="left:0;top:0;width:100%;height:100%">${graph(G)}</div></div>`;
+    <div class="abs" style="left:0;top:0;width:100%;height:100%;border-radius:inherit;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem">${graph(G)}</div></div>`;
 }
 
 /* ══════════ the picker at an inlet ══════════ */

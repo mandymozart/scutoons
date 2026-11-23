@@ -297,26 +297,60 @@ add('C', 'C3b', 'Storyboard · 4 Handheld: connecting a phone', 'today’s Handh
     ${SB_LBL('Render')}<span class="kb plain">Render t1</span>` })}
   ${mk(1, 1062, 70)}${mk(2, 1062, 190)}${mk(3, 1062, 372)}${mk(4, 1062, 498)}
   ${capn(396, 640, 'before connecting, the Phone part is one button: “Connect a phone” · what the panel shows once the phone is connected was not read – not drawn')}`);
-add('C', 'C3c', 'Storyboard · 5 Generate: the way into the generator', 'today’s Generate panel, its words read from the page (generate-panel.svelte; 2026-11-24) · AI-HOOKS.md §0 (a slot takes a file or a generator; entering a generation opens the spore canvas) · the canvas itself: C11',
-  ['the shot’s picture is a slot: it takes a file from the Library or a generator (decided 2026-11-22) – today the panel only makes a prompt for one tool',
-   '“Open the generator” is the way in: the Generate workspace opens with this shot woven in – its prompt, its still, its references – the canvas is C3d (in lap 2 the Generate workspace is still the stub, C11; the deck’s canvas comes with #764)',
-   'what the generator yields comes back to the slot; “by hand” stays as today: copy the prompt, drop the result',
-   'the generator’s choice is a boxed select (a value); the notes about keys that are not set up are hover text on the choices (H14)'],
+add('C', 'C3c', 'Storyboard · 5 Generate: the shot’s asset slot', 'today’s Generate panel, its words read from the page (generate-panel.svelte; 2026-11-24) · the general concept of a slot (owner 2026-11-24; AI-HOOKS.md §0) · the pick: C12c · the canvas: C3d',
+  ['the shot has an asset slot: it takes a picture or a video – picked from the Library, uploaded, or a generator added from the Library (decided 2026-11-24); today the panel only makes a prompt for one tool',
+   '“Pick” opens the Library for this slot (C12c): files and generators that fit, Upload there; a file dropped on the slot is an upload',
+   'with a generator in the slot: it stands in until a take is assigned – “Open” goes to its canvas (C3d)',
+   '“by hand” stays as today below: copy the prompt, drop the result; the notes about keys that are not set up are hover text on the choices (H14)'],
   () => `${sbScreen(5, { clip: 3, tabs: [['Inspector', 0], ['Generate', 1], ['Log', 0]], body: `
-    ${SB_LBL('Picture · sb-25-1', '0')}
-    <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem;border:1px dashed var(--tool-line);border-radius:.4rem"><span style="flex:none;width:44px;height:58px;border:1px solid var(--tool-line);border-radius:.2rem;display:grid;place-items:center" class="cap" title="the shot has no picture yet – its source is a schematic">–</span><span style="flex:1;min-width:0"><div>empty</div><div class="cap">takes a picture · 1:3</div></span><span class="kb plain" title="Pick a file or a generator from the Library (C12c)">${ic('grid')}Pick</span></div>
-    <div style="display:flex;gap:.4rem;margin-top:.5rem"><span class="kb primary">${ic('sparkles')}Open the generator</span><span class="kc" title="where an external tool runs">${ic('zap')}hook</span></div>
+    ${SB_LBL('Asset · sb-25-1', '0')}
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem;border:1px dashed var(--tool-line);border-radius:.4rem" title="Drop a file here to upload it into the slot"><span style="flex:none;width:44px;height:58px;border:1px solid var(--tool-line);border-radius:.2rem;display:grid;place-items:center" class="cap">–</span><span style="flex:1;min-width:0"><div>empty</div><div class="cap">a picture or a video · 1:3</div></span><span class="kb primary" title="The Library, for this slot: files and generators that fit (C12c)">${ic('grid')}Pick</span></div>
+    <div class="cap" style="margin:.5rem 0 .25rem">with a generator in it</div>
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.45rem;border:1px solid var(--tool-line);border-radius:.4rem"><span style="flex:none;width:44px;height:58px;border:1px solid var(--tool-line);border-radius:.2rem;display:grid;place-items:center">${ic('sparkles')}</span><span style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sb-25-1 · generator</div><div class="cap">stands in · no take yet</div></span><span class="kb plain" title="Its canvas (C3d)">Open</span></div>
     ${SB_LBL('By hand', '1rem')}
     <div class="fld sel" style="width:auto" title="Luma (uni-1) – not set up · Luma – by hand · Runway – not set up · Gemini (image) – unavailable">Luma – by hand</div>
     ${SB_LBL('Prompt')}<span class="kb plain">Build from the shot</span>
-    ${SB_LBL('Still')}<div class="cap">none</div>
     ${SB_LBL('Attach')}<div class="lrow" style="min-height:1.7rem">${ic('smile')}catpope (human) · sad<span class="cap" style="margin-left:auto">Characters</span></div>
-    ${SB_LBL('Result')}<div style="height:74px;border:1px dashed var(--tool-line);border-radius:.4rem;display:grid;place-items:center" class="cap" title="Choose a workspace folder first – the result is saved there.">Drop the result here – or pick it</div>` })}
-  ${mk(1, 1062, 100)}${mk(2, 1062, 176)}${mk(3, 1062, 478)}${mk(4, 1062, 238)}
-  ${qcard(290, 500, 'confirm: the shot’s picture as a slot with “Open the generator”', ['as drawn: the slot on top, the generator one press away, “by hand” below as today', 'not so – your words'], 'Drawn from AI-HOOKS.md §0; the panel today has no slot and no way into a canvas.', '19rem')}`);
-
-add('C', 'C3d', 'Storyboard → the generator: the canvas for a shot', 'spores-view.html `?v=6` – drawn in the Spores look (the demo you approved); AI-HOOKS.md §0 step 3–4; the spores to add are today’s (spores.ts)', [],
-  () => `<iframe class="draft" src="spores-view.html?v=6${DAY ? '&theme=day' : ''}"></iframe>`, { idle: ' – see the page’s own foot' });
+    ${SB_LBL('Result')}<div style="height:60px;border:1px dashed var(--tool-line);border-radius:.4rem;display:grid;place-items:center" class="cap" title="Choose a workspace folder first – the result is saved there.">Drop the result here – or pick it</div>` })}
+  ${mk(1, 1062, 100)}${mk(2, 1388, 96)}${mk(3, 1062, 222)}${mk(4, 1062, 296)}`);
+/* C3d – the generator's canvas for a shot, as designed on 2026-11-22 (research/redesign/spores.html, AI-HOOKS.md §0 and §0a): every spore shows its result as its face, free items lie on the canvas unwoven, a run yields takes at the output and one is picked for the slot. Drawn on the kit; the drivers are today's Generate panel's. No generated picture exists, so the takes are the "still pending" tile. */
+const gcPend = (label) => `<span style="position:absolute;inset:0;display:grid;place-items:center;background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--tool-text) 8%,transparent) 5px 6px)" title="no picture exists yet – still pending"><span class="label" style="font-size:.6rem">${label || ''}</span></span>`;
+/* a spore's card: its name, a chip, its face (the result), a line under it; lit = the one that is selected */
+const gcCard = (x, y, w, h, o) => `<div class="abs" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border:1px ${o.free ? 'dashed' : 'solid'} var(--tool-${o.lit ? 'text' : 'line'});border-radius:var(--kit-radius-box);background:var(--tool-panel);display:flex;flex-direction:column;overflow:hidden" title="${o.title || ''}">
+    <div style="flex:none;display:flex;align-items:center;gap:.4rem;padding:.3rem .55rem;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis">${o.t}</span><span style="flex:1"></span>${o.chip ? `<span class="kc">${o.chip}</span>` : ''}</div>
+    <div style="flex:1;position:relative;margin:0 .45rem;border-radius:.25rem;overflow:hidden;${o.text ? 'padding:.35rem .45rem;font-size:var(--editor-small);line-height:1.35;color:var(--tool-muted);background:var(--tool-control)' : 'border:1px solid var(--tool-line)'}">${o.face || ''}</div>
+    <div class="cap" style="flex:none;padding:.3rem .55rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.s || '&nbsp;'}</div></div>`;
+const gcPort = (x, y, kind) => `<rect x="${x - 4}" y="${y - 4}" width="8" height="8" fill="var(--tool-popover)" stroke="var(--sig-${kind})" stroke-width="1.4"/>`;
+const gcWire = (x1, y1, x2, y2, kind, lit) => `<path d="M${x1} ${y1} C ${x1 + 46} ${y1}, ${x2 - 46} ${y2}, ${x2} ${y2}" fill="none" stroke="var(--sig-${kind})" stroke-width="${lit ? 1.8 : 1.1}" opacity="${lit ? 1 : .6}"/>`;
+add('C', 'C3d', 'Storyboard → the generator: the canvas for a shot', 'spores.html (the canvas as designed 2026-11-22, its nine steps) · AI-HOOKS.md §0, §0a · the drivers from today’s Generate panel · the shot sb-25-1',
+  ['opened from the shot’s picture slot (C3c): the shot’s own things are already placed – its prompt, its reference – and the output spore is set by the slot (a picture, 1:3)',
+   'every spore shows its result as its face; a hooked spore carries the hook chip – its driver is chosen in its panel – Automatic, or one of today’s four',
+   'free items: things laid on the canvas and woven to nothing – here the shot’s page, to look at while working',
+   'a run yields takes at the output; one is picked and “Assign” puts it into the shot’s slot; “Again” runs once more; every run stays (Runs)',
+   'yields by hand, or automated: then the slot takes each run by itself',
+   'the canvas has its dotted ground again (it was lost in the redraw)'],
+  () => `${cbar({ chevron: true, wsOn: 'Generate', ws: ['Characters', 'Toon', 'Flow', 'Scenes', 'Storyboard', 'Generate', 'Catalog', 'Map'], items: [['film', 'Storyboard'], ['sparkles', 'sb-25-1 · generator']] })}
+  <div class="abs" style="left:0;top:50px;right:0;bottom:0;background-image:radial-gradient(circle,var(--tool-line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem" title="the canvas’s dotted ground"></div>
+  <svg class="abs" style="left:0;top:0;width:1440px;height:856px;z-index:2;pointer-events:none">
+    ${gcWire(470, 160, 530, 210, 'asset')}${gcWire(470, 350, 530, 250, 'picture')}${gcWire(810, 230, 870, 230, 'picture', 1)}${gcWire(1100, 230, 1170, 150, 'picture', 1)}
+    ${gcPort(470, 160, 'asset')}${gcPort(470, 350, 'picture')}${gcPort(530, 210, 'asset')}${gcPort(530, 250, 'picture')}${gcPort(810, 230, 'picture')}${gcPort(870, 230, 'picture')}${gcPort(1100, 230, 'picture')}${gcPort(1170, 150, 'picture')}</svg>
+  ${gcCard(40, 84, 132, 330, { t: 'sb-25-1', chip: 'free', free: 1, face: capPic(`now/ws-storyboard-${WS_TH}.jpg`, 800, 476, 342, 100, 116, 256), s: 'the shot’s page', title: 'a free item: on the canvas, woven to nothing' })}
+  ${gcCard(210, 84, 260, 152, { t: 'Prompt', text: 1, face: 'Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht …', s: 'built from the shot' })}
+  ${gcCard(210, 262, 260, 176, { t: 'catpope (human) · sad', face: gcPend('no picture captured'), s: 'reference · Characters' })}
+  ${gcCard(530, 110, 280, 300, { t: 'Image', chip: ic('zap') + 'hook', lit: 1, face: gcPend('take 2'), s: 'Luma – by hand', title: 'a hooked spore: an external tool makes the picture' })}
+  ${gcCard(870, 130, 230, 200, { t: 'Output', chip: 'picture', face: gcPend('take 2'), s: '1:3 · set by the slot' })}
+  ${gcCard(1170, 96, 232, 108, { t: 'sb-25-1 · picture', chip: 'slot', text: 1, face: 'the generator stands in until a take is assigned', s: 'Storyboard' })}
+  <div class="abs" style="left:870px;top:352px;display:flex;gap:.5rem">${[1, 2, 3].map(n => `<span style="display:flex;flex-direction:column;gap:.25rem"><span style="position:relative;width:58px;height:174px;border-radius:.25rem;overflow:hidden;border:1px solid var(--tool-line);${n === 2 ? 'outline:2px solid var(--tool-text);outline-offset:1px' : ''}">${gcPend('')}</span><span class="cap" style="text-align:center;${n === 2 ? 'color:var(--tool-text)' : ''}">take ${n}</span></span>`).join('')}
+</div>
+  <div class="abs" style="left:870px;top:566px;display:flex;gap:.4rem"><span class="kb plain">Again</span><span class="kb primary">Assign take 2</span></div>
+  ${fp(1076, 420, 350, 344, [['Spore', 1], ['Runs', 0], ['Generator', 0]], `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem"><span>Image</span><span class="kc">${ic('zap')}hook</span></div>
+    <div class="label" style="margin-bottom:.3rem">Driver</div>
+    ${[['Automatic', '', 0], ['Luma (uni-1)', 'not set up', 0], ['Luma', 'by hand', 1], ['Runway', 'not set up', 0], ['Gemini (image)', 'unavailable', 0]].map(([n, m, on]) => `<div class="lrow" style="min-height:1.8rem;${on ? '' : 'color:var(--tool-muted)'}"><span style="flex:none;width:.8rem;height:.8rem;border-radius:50%;border:1px solid var(--tool-${on ? 'text' : 'line'});display:grid;place-items:center">${on ? '<span style="width:.4rem;height:.4rem;border-radius:50%;background:var(--tool-text)"></span>' : ''}</span>${n}<span class="cap" style="margin-left:auto">${m}</span></div>`).join('')}
+    <div style="display:grid;grid-template-columns:4.2rem 1fr;gap:.45rem .6rem;align-items:center;margin-top:.6rem"><span class="label">Prompt</span><span class="cap">woven from Prompt</span><span class="label">Takes</span><span class="fld" style="width:4rem">3</span></div>`)}
+  <div class="abs" style="left:0;right:0;top:776px;display:flex;justify-content:center;z-index:6"><span class="kp" style="gap:.6rem;padding:0 .45rem"><span class="kb plain" style="height:1.8rem">${ic('play')}Run · 3 takes</span><span class="label">Yields</span><span class="seg"><span class="on">by hand</span><span>automated</span></span><span class="kb quiet" style="height:1.8rem">${ic('plus')}Weave a spore</span><span class="kib" title="The picked result over everything">${ic('full')}</span></span></div>
+  ${cstatus('No messages yet', '0 errors · 0 warnings')}
+  ${mk(1, 196, 72)}${mk(2, 516, 98)}${mk(3, 26, 72)}${mk(4, 856, 340)}${mk(5, 590, 764)}
+  ${capn(40, 456, 'in lap 2 the creator has only the stub (C11); this is the canvas as designed – the deck’s, reaching the creator with #764')}`);
 
 add('C', 'C4', 'Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations', 'now/creator-1, now/ws-characters (Rig in front)',
   ['the Rig tab without the Bones and Clips lists (the deck\'s asset view has them, not twice) – the rest as today: the look\'s 3D model, the model\'s line, Idle, Body, A-pose',

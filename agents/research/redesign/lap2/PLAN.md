@@ -21,6 +21,7 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 ### P1 · The kit
 - **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged; the outlet types' colours as a table beside it.
 - **One shared source of truth for the kit, in a prominent place of the code base** (your word, 2026-11-24): the tokens and each component's states are written once; the deck's UI crate and the creator's UI kit both come from it, checked in deck:ci and the style check so they cannot drift. Today they are kept in step by hand, and the approved kit is only a research page. **Deck: a neutral file, in a top-level `kit/` folder** (`kit/tokens.toml` and a README of the components and their states). It is cheap there: deck-kit already reads a `tokens.toml` on top of its built-in values. The tokens' defaults move out of the Rust code into that file, deck-kit builds it in as its base, and a small script generates the web tools' CSS from it – small. The components' states (a tab's rest, hover, dragged …) become named entries in the same file, done component by component together with the restyle – medium. **Decided 2026-11-24: the `kit/` folder.**
+- **The spores' definitions are in the kit** (decided): the canvas's dotted ground, the spore's card and its states, its face, a run's marks, a cable, a take – drawn on kit-d.html, written into `kit/` with the rest, used by the deck's node view and the creator's canvas.
 - **A kit page in each app, built from the real components**, is the reference to look at and refine; kit-d.html moves out of the research folder to that place.
 - **Creator:** the tokens generated from the deck; the kit's components to the new look (tabs, chips and badges, icon buttons, the primary button, focus, selected rows); the colour-blind mode as a setting – in the deck's settings too; the kit page.
 - **Size of the change in the web tools:** the accent is used in 201 places, lime in 36, the green in 23.
@@ -117,7 +118,9 @@ Drawn from today's page: C3, C3b, C3c, C3d.
 - **The viewport's ground** – with P8.
 - **The Shots filmstrip** as the left panel (decided): the chapter's shots in order, by scene, each a frame in its own shape; picking as today; the Timeline shows the picked shots' clips back to back. Today the panel shows the toon's pages.
 - **The Handheld panel** as drawn (C3b): the code to scan and the waiting state, Disconnect · Recenter · Record, the conditions and the trim's sentence as hover text.
-- **Waits for your word:** the shot's picture as a slot with "Open the generator" (C3c) and the canvas it opens (C3d – in lap 2 the creator has only the stub); the review's six open points in STORYBOARD.md – how a shot hands over to the chapter, the deck and XR.
+- **The shot's asset slot** (decided, C3c): a picture or a video from the Library, an upload, or a generator added from the Library; with a generator in it, "Open" goes to its canvas.
+- **The generator's canvas** (C3d) as designed on 2026-11-22: faces, free items, takes to pick, the driver Automatic or picked. In lap 2 the creator has only the stub – is that enough for this lap?
+- **Waits for your word:** the review's six open points in STORYBOARD.md – how a shot hands over to the chapter, the deck and XR.
 - **Not drawn:** the steps Script, Layout and Export, the Variants view, the 3D view of a handheld shot, the panel once a phone is connected.
 
 ### P8 · Bugs and wording
@@ -177,7 +180,7 @@ You approved these on 2026-11-24 ("yes, use them").
 |---|---|
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The shot's picture as a slot with "Open the generator" (a question card on C3c) and its canvas (C3d); STORYBOARD.md's six open points | P12 |
+| STORYBOARD.md's six open points; whether the generator's canvas stays the stub in this lap | P12 |
 
 These do not block the run; their screens stay out of it:
 - Where the 2D-first / 3D-first preference sits (C4).
