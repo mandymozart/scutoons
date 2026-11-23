@@ -32,6 +32,7 @@ The set of SCREENS.md is redrawn in the approved kit with the day's decisions, e
 - **The switcher:** over the blurred bar, stage and panels; no bar, no search field, no Views; a maximum width; one list for both apps in the same order.
 - **A panel taken full:** a box close to the window's edges over the blurred workspace.
 - **Sending out (H18):** Publish as a dialog on the overlay level (A10); Flash in the deck the same dialog, opened from the bar beside Publish, its button leaves the Show's Inspector (D3, D3b).
+- **Flash's dot** (deck): lit when at least one device of the tree is not on the show's current version – the deck already knows that per device. A device that is offline counts as unknown, not as behind, and is listed under its own word. Updates of the deck's software are another path and do not light it.
 - **Search** as its own overlay. **The user menu** under the account icon. **The translator's bar** with the edit language.
 - **Deck:** the same bar, menu and switcher (#830 continues from its branch); the Show's Cues, Problems, Who, Session, Vote and Demos become views; Home stays when nothing is open, built like the creator's dashboard (your review of 2026-11-23). #830 merges main first.
 - **Blur in the deck** (deck: decided there): a still of the frame, taken when the overlay opens, blurred once and drawn under it. It costs nothing per frame and the projector's output is not touched. **A known limit:** during a live show the operator's stage preview stands still while the switcher is open. You said: try it; "reduce motion" turns the blur off as it turns the animations off, in both apps.
@@ -170,8 +171,8 @@ You approved these on 2026-11-24 ("yes, use them").
 ## Open – out of the run until you say
 | Point | Package |
 |---|---|
-| Where "New scene" opens from in the deck: today a button in the Show's Library, which the extended Library no longer has | P2 (deck) |
-| The Flash icon in the bar (a screen is drawn; the bolt is taken by events) | P2 (deck) |
+| Where "New scene" opens from in the deck. Deck: the ☰ menu's "New …", which exists today – it offers scene and show, each a dialog on the overlay level; a recast opens from the scene's own menu, since it acts on a scene that exists | P2 (deck) |
+| The Flash icon in the bar. A screen is drawn; deck: a box ("ship this version") reads better, since a screen says "a display" and a flash goes to many devices; the bolt stays with events | P2 (deck) |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
 | The Storyboard's tree as its scenes and shots; the shot's picture as a slot with "Open the generator" (two question cards on C3 and C3c) | P12 |
