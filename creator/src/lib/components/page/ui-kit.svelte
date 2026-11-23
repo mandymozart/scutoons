@@ -24,7 +24,7 @@
 		<div class="sheet" data-theme={theme} data-control-exempt="the kit's sheet shows the bar's inset sizes" data-testid="ui-kit-{theme}">
 			<h3>{theme === 'night' ? 'Night' : 'Day'}</h3>
 
-			<p class="cap">Bar · Pill, IconButton, PillTab (concentric)</p>
+			<p class="cap">Bar · Pill, IconButton, PillTab (concentric; the active tab outlined; icons alone in a bare pill)</p>
 			<div class="bar">
 				<Pill><IconButton label="Home" icon="home" pressed /></Pill>
 				<Pill>
@@ -35,7 +35,7 @@
 			</div>
 			<div class="bar">
 				<Pill as="nav" label="Workspaces"><PillTabs items={WORKSPACES} on={tab} onselect={(id) => (tab = id)} /></Pill>
-				<Pill>
+				<Pill bare>
 					<IconButton label="Publish" icon="upload-cloud" dot />
 					<IconButton label="Account" icon="user" />
 					<IconButton label="Menu" icon="menu" aria-expanded="true" />

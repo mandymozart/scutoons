@@ -7,20 +7,22 @@
 	 * the halo. What sits inside – IconButton, Button, PillTab – is inset by --kit-inset, the pill's height less twice the
 	 * inset, and rounded by the pill's radius less the inset (their corners share a centre: deck-kit's `pills_rounded`),
 	 * `--kit-seam` apart. `as` picks the element (a bar's `nav`, a status `footer`); `grow` lets it take the room left; `status` is the lower
-	 * pill of the status bar.
+	 * pill of the status bar; `bare` drops the ground and the line where room is tight (icons without words, the bar's right
+	 * end – owner 2026-11-24), the geometry and the halo stay.
 	 */
 	type Props = {
 		label?: string;
 		as?: 'div' | 'span' | 'nav' | 'footer' | 'header';
 		grow?: boolean;
 		status?: boolean;
+		bare?: boolean;
 		children: Snippet;
 	} & Omit<HTMLAttributes<HTMLElement>, 'children'>;
 
-	let { label, as = 'div', grow = false, status = false, children, ...rest }: Props = $props();
+	let { label, as = 'div', grow = false, status = false, bare = false, children, ...rest }: Props = $props();
 </script>
 
-<svelte:element this={as} role={label && as !== 'nav' ? 'group' : undefined} aria-label={label} {...rest} class="kit-pill {rest.class ?? ''}" class:grow class:status>{@render children()}</svelte:element>
+<svelte:element this={as} role={label && as !== 'nav' ? 'group' : undefined} aria-label={label} {...rest} class="kit-pill {rest.class ?? ''}" class:grow class:status class:bare>{@render children()}</svelte:element>
 
 <style>
 	.kit-pill {
@@ -52,6 +54,10 @@
 		--pill: var(--kit-status);
 		--kit-font: var(--editor-small);
 		font-size: var(--editor-small);
+	}
+	.bare {
+		border-color: transparent;
+		background: none;
 	}
 	.grow {
 		flex: 1 1 auto;
