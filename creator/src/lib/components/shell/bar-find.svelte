@@ -6,7 +6,7 @@
 	import { resolveTyped } from '$lib/shell/address.ts';
 	import { matches, places } from '$lib/shell/places.svelte.ts';
 
-	/** Find anything by name or address – the main menu's Search until the launcher (Alt Space) replaces it */
+	/** Find anything by name or address – the dashboard's open-anything field until the launcher (Alt Space, TODO(#825)) replaces it */
 	let { focus = false, onpick }: { focus?: boolean; onpick?: () => void } = $props();
 	const nav = getCreatorNav();
 	$effect(() => places.load(nav.toons));

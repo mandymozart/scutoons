@@ -40,8 +40,34 @@ export function fileLabel(key: string): string {
 		region: (id) => `${m['creator.publish_part_region']()}: ${id}`,
 		character: (id) => `${m['creator.publish_part_character']()}: ${id}`,
 		scene: (id) => `${m['creator.publish_part_scene']()}: ${id}`,
+		show: (id) => `${m['creator.publish_part_show']()}: ${id}`,
 		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? `${kind[0].toUpperCase()}${kind.slice(1)}`} ${id}`
 	});
+}
+
+/** the kinds stored one document per entry, named by the entry's own name */
+const PART_WORD: Record<string, () => string> = {
+	place: () => m['creator.publish_part_place'](),
+	route: () => m['creator.publish_part_route'](),
+	region: () => m['creator.publish_part_region'](),
+	character: () => m['creator.publish_part_character'](),
+	scene: () => m['creator.publish_part_scene'](),
+	show: () => m['creator.publish_part_show']()
+};
+
+/** an entity key's kind as a word, for a line that shows the item's own name ("Scene", "Item" …); null: none */
+export function kindWord(key: string): string | null {
+	const kind = key.split(':')[0];
+	const word = PART_WORD[kind] ?? CATALOG_WORD[kind];
+	if (word) return word();
+	return key.includes(':') ? `${kind[0].toUpperCase()}${kind.slice(1)}` : null;
+}
+
+/** a line's name: the item's own name when known (`known`), an entry by its id, else the file's label */
+export function ownName(key: string, known?: string): string {
+	if (known) return known;
+	const kind = key.split(':')[0];
+	return kind in PART_WORD || kind in CATALOG_WORD ? key.slice(key.lastIndexOf(':') + 1) : fileLabel(key);
 }
 
 /** Several storage keys as one readable list ("Chapter 2, Season 1"). */

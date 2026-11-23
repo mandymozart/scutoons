@@ -65,6 +65,8 @@ class Shell {
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
+	/** the dashboard lies over everything (the menu button, Esc back); `views`: with the front workspace's Views open */
+	dashboard = $state<false | 'cards' | 'views'>(false);
 
 	readonly front = $derived(frontTab(this.state));
 	/** the views on the stage in the front workspace (the floats keep them); empty: the workspace's own view */
@@ -140,6 +142,7 @@ class Shell {
 	}
 
 	open(tab: string) {
+		this.dashboard = false;
 		this.wanted = tabIdOf(tab);
 	}
 }

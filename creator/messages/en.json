@@ -1711,7 +1711,8 @@
 		"sound_out": "out",
 		"sound_limiter": "Limiter gain reduction",
 		"sound_in": "in",
-		"sound_perf": "Engine: state, frame rate, work per frame, dropouts – the picture and the sound together"
+		"sound_perf": "Engine: state, frame rate, work per frame, dropouts – the picture and the sound together",
+		"publish_part_show": "Show"
 	},
 	"palette": {
 		"search": "Search or jump to …",
@@ -2297,7 +2298,7 @@
 		"key_tab_next": "Next tab (Alt PageDown where the browser keeps Ctrl Tab)",
 		"key_tab_prev": "Previous tab (Alt PageUp)",
 		"key_tab_close": "Close the front tab (Alt W where the browser keeps Ctrl W)",
-		"dashboard": "Home – the dashboard",
+		"dashboard": "Dashboard",
 		"search": "Search …",
 		"views_menu": "Views",
 		"build": "Build",
@@ -2324,7 +2325,24 @@
 		"views_stage_item": "The item",
 		"views_stage_free": "free",
 		"views_every": "Every view",
-		"key_full": "Full screen: the view under the pointer (Esc leaves)"
+		"key_full": "Full screen: the view under the pointer (Esc leaves)",
+		"dash_last_opened": "Last opened",
+		"dash_needs_review": "Needs review",
+		"dash_not_published": "Not published",
+		"dash_in_your_toons": "In the toons you work on",
+		"dash_front": "Front",
+		"dash_nothing_open": "Nothing open yet",
+		"dash_welcome": "Welcome, {name}",
+		"dash_keys": "Tab · Shift Tab · arrows move · Enter opens · Esc goes back",
+		"dash_now": "now",
+		"dash_minutes": "{n} min",
+		"dash_hours": "{n} h",
+		"dash_days": "{n} d",
+		"dash_review_asked": "review asked by {who}",
+		"dash_not_published_row": "not published",
+		"dash_publish_all": "Publish …",
+		"key_views": "Views of the front workspace (opens the dashboard)",
+		"key_dashboard": "The dashboard (the menu button)"
 	},
 	"library": {
 		"actions": "Actions",
