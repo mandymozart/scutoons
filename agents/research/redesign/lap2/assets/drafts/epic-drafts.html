@@ -1,0 +1,411 @@
+<!-- Status: draft for the owner's review (2026-11-23, #703 follow-ups) – one screen per ticket: ?s=706|cleanup|707|708|714|714m|714r. Night first (?theme=day). Concept only, no build. Plan: PLAN.md beside it. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<title>Scenes epic drafts</title>
+<!-- Colours: shared/tokens/editor.css night / day copied 1:1 (RULES H13); components as research/redesign/characters.html (pills, panels, chips). Open at 1440×900. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;--go:#4cc35a;--stop:#e5483b;
+  --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+}
+[data-theme=day]{
+  --stage:#000000;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;--go:#2e8a3e;--stop:#d63a2d;
+  --ground:rgb(243 243 240 / 0.8);--halo:none;
+}
+:root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;width:1440px;height:900px;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif;position:relative}
+button{font:inherit;color:inherit;cursor:pointer}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
+/* stage grounds */
+.stage{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,#2a2a22 0,#141410 55%,#0b0b09 100%)}
+/* top bar pills */
+.bar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;z-index:20}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line),0 .2rem .6rem rgb(0 0 0/.2)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap;font-size:var(--small)}
+.pill button{color:var(--muted)}.pill button.on{color:var(--text);box-shadow:0 0 0 1px var(--text)}
+.pill .sep{width:1px;height:1.2rem;background:var(--line);margin:0 .15rem}
+/* panels */
+.panel{position:absolute;z-index:10;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--ground);box-shadow:0 0 0 1px var(--line),0 .3rem 1rem rgb(0 0 0/.25);overflow:hidden;text-shadow:var(--halo);backdrop-filter:blur(6px)}
+.head{display:flex;align-items:center;gap:.15rem;min-height:2.35rem;padding:.3rem .5rem .3rem .3rem}
+.tab{padding:.2rem .6rem;border-radius:1rem;font-size:var(--small);color:var(--muted)}
+.tab.on{color:var(--text);box-shadow:0 0 0 1px var(--line)}
+.head .more{margin-left:auto;color:var(--muted)}
+.body{padding:.6rem .7rem;overflow:hidden;flex:1}
+.rows{display:flex;flex-direction:column;gap:1px}
+.row{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:0 .5rem;border-radius:var(--radius);font-size:var(--small)}
+.row.sel{background:var(--selected)}
+.row .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.row.gone{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--stop)}
+.sub{padding:.5rem .5rem .2rem}
+.field{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.7rem}
+.field .ro,.field input{width:100%;min-height:var(--row);padding:.45rem .55rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);color:var(--text);font:inherit;font-size:var(--small)}
+.field.gone{opacity:.45}.field.gone .label{text-decoration:line-through;text-decoration-color:var(--stop)}
+.hint{font-size:var(--label);color:var(--muted)}
+.btn{height:var(--row);padding:0 var(--pad);border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);white-space:nowrap;text-shadow:none;color:var(--text)}
+.btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
+.btn.q{border-color:transparent;background:transparent;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:.3rem;height:1.35rem;padding:0 .5rem;border-radius:.7rem;background:var(--control);box-shadow:0 0 0 1px var(--line);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.chip.c{color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:rgb(0 209 255/.07)}
+.chip.go{color:var(--go);box-shadow:0 0 0 1px var(--go);background:rgb(76 195 90/.07)}
+.chip.warn{color:var(--warn);box-shadow:0 0 0 1px var(--warn);background:rgb(240 160 48/.07)}
+.chip.ai{color:var(--primary);box-shadow:0 0 0 1px var(--primary);background:rgb(180 255 50/.07)}
+/* draft notes: a quiet card, no side bar (H10) */
+.note{position:absolute;z-index:30;max-width:340px;padding:.6rem .75rem;border-radius:var(--radius);background:#f4ecc4;color:#2a2616;font-size:.8rem;line-height:1.35;box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
+.note b.t{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.2rem}
+.foot{position:absolute;bottom:12px;left:12px;right:12px;z-index:20;display:flex;justify-content:space-between;align-items:center}
+.title{position:absolute;left:24px;bottom:60px;z-index:20;font-size:var(--title)}
+/* dialog */
+.scrim{position:absolute;inset:0;z-index:40;background:rgb(0 0 0/.45)}
+.dialog{position:absolute;z-index:41;left:50%;top:50%;transform:translate(-50%,-50%);width:540px;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1rem 3rem rgb(0 0 0/.5)}
+.dialog .dh{padding:.9rem 1rem .3rem;font-size:var(--title)}
+.dialog .db{padding:.3rem 1rem 1rem}
+.dialog .df{display:flex;justify-content:flex-end;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line)}
+.ref{display:grid;grid-template-columns:1.3rem 1fr auto;gap:.5rem;align-items:center;padding:.35rem .4rem;border-radius:var(--radius);font-size:var(--small)}
+.ref:nth-child(odd){background:var(--within)}
+.ref del{color:var(--muted);text-decoration-color:var(--stop)} .ref ins{text-decoration:none;color:var(--accent)}
+/* strip of slices (chapter editor) */
+.strip{position:absolute;left:340px;right:340px;top:70px;bottom:70px;display:flex;gap:14px;justify-content:center;align-items:flex-start;overflow:hidden}
+.slice{width:180px;height:288px;border-radius:3px;background:linear-gradient(160deg,#5b4552,#22303f);position:relative;flex:none}
+.slice.g2{background:linear-gradient(160deg,#3b5547,#28233b)}
+.slice .gl{position:absolute;top:-22px;left:0;font-size:var(--label);color:var(--muted);letter-spacing:var(--spacing);text-transform:uppercase}
+.slice.selg{box-shadow:0 0 0 2px var(--accent)}
+.bubble{position:absolute;left:14px;right:30px;top:40px;background:#f3f3f0;color:#171916;border-radius:12px;padding:6px 8px;font-size:11px}
+/* screens */
+.screen{display:none}.screen.on{display:block}
+/* map */
+.map{position:absolute;inset:0;background:
+ radial-gradient(circle at 30% 40%,#2b3a2a 0 9%,transparent 10%),radial-gradient(circle at 62% 58%,#2f3b2c 0 12%,transparent 13%),
+ linear-gradient(115deg,transparent 48%,#3a3f33 48.2% 48.8%,transparent 49%),linear-gradient(20deg,transparent 60%,#3a3f33 60.2% 60.7%,transparent 61%),#151a15}
+.pin{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgb(0 209 255/.25)}
+.acc{position:absolute;border-radius:50%;border:1px dashed var(--accent);background:rgb(0 209 255/.06)}
+/* phone */
+.phone{position:absolute;width:250px;height:520px;border-radius:30px;background:#0b0c0a;box-shadow:0 0 0 2px #333,0 1rem 2rem rgb(0 0 0/.5);overflow:hidden}
+.cam{position:absolute;inset:0;background:linear-gradient(180deg,#5a6470 0,#7d8086 45%,#6d6a60 46%,#4a463c 100%)}
+.floorgrid{position:absolute;left:-40%;right:-40%;bottom:-10%;height:55%;background:repeating-linear-gradient(90deg,rgb(0 209 255/.35) 0 1px,transparent 1px 34px),repeating-linear-gradient(0deg,rgb(0 209 255/.35) 0 1px,transparent 1px 34px);transform:perspective(300px) rotateX(62deg);transform-origin:bottom}
+.ring{position:absolute;left:50%;bottom:120px;width:120px;height:40px;margin-left:-60px;border-radius:50%;border:2px solid var(--primary);box-shadow:0 0 12px var(--primary)}
+.ptext{position:absolute;left:12px;right:12px;bottom:18px;padding:.6rem .7rem;border-radius:14px;background:rgb(20 22 18/.8);font-size:.8rem;text-align:center}
+.pcap{position:absolute;top:-30px;left:0;right:0;text-align:center;font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+.crow{position:absolute;width:56px;height:70px;border-radius:50% 50% 40% 40%;background:#c0392b}
+
+.menu{position:absolute;z-index:45;right:12px;top:52px;width:300px;border-radius:var(--radius);background:var(--ground);backdrop-filter:blur(8px);box-shadow:0 0 0 1px var(--line),0 .5rem 1.5rem rgb(0 0 0/.4);padding:.4rem;text-shadow:var(--halo)}
+.vs{display:grid;grid-template-columns:1fr repeat(4,1.6rem);gap:.15rem;align-items:center;padding:.15rem .4rem;font-size:var(--small);border-radius:var(--radius)}
+.vs i{font-style:normal;text-align:center;color:var(--muted);font-size:.75rem;border-radius:.8rem;height:1.4rem;line-height:1.4rem}
+.vs i.on{box-shadow:0 0 0 1px var(--text);color:var(--text)}
+.slot{position:absolute;overflow:hidden;box-shadow:0 0 0 1px rgb(255 255 255/.06)}
+</style>
+</head>
+<body>
+
+<!-- ===================== #706 group label = id, rename-along ===================== -->
+<section class="screen" id="s-706">
+ <div class="stage"></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>Cat Pope</button><button>Chapter 2 · Wut</button></div>
+  <div class="pill"><button class="on">Chapter</button><button>Storyboard</button><button>Flow</button><button>Cast</button></div>
+  <div class="pill"><button>Draft</button><span class="sep"></span><button>Publish</button></div>
+ </div>
+ <div class="strip">
+  <div class="slice"><span class="gl">mama-start · 4</span><div class="bubble">Mama! The cat is back.</div></div>
+  <div class="slice selg g2"><span class="gl" style="color:var(--accent)">mama-crossroads · 6</span><div class="bubble">Left to the church, right to the market?</div></div>
+  <div class="slice"><span class="gl">scene-17 · 3</span></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:300px;height:500px">
+  <div class="head"><span class="tab on">Groups</span><span class="tab">Layers</span><span class="more">⋯</span></div>
+  <div class="body"><div class="rows">
+   <div class="row">mama-start <span class="n">4</span></div>
+   <div class="row sel">mama-crossroads <span class="n">6</span></div>
+   <div class="row">scene-17 <span class="n">3</span></div>
+   <div class="row">church-door <span class="n">5</span></div>
+   <div class="row">market-chase <span class="n">8</span></div>
+   <div class="row">end-anger <span class="n">2</span></div>
+  </div></div>
+ </div>
+ <div class="panel" style="right:12px;top:64px;width:320px;height:420px">
+  <div class="head"><span class="tab on">Group</span><span class="tab">Slice</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Id</span><div class="ro mono">mama-crossroads</div><span class="hint">The group's address – links, jumps, shows and XR lead here: <code>chapter:2.mama-crossroads</code></span></div>
+   <div class="field"><span class="label">Name</span><div class="ro">Crossroads</div><span class="hint">What a person reads (any language). Changing it moves nothing.</span></div>
+   <div class="field"><span class="label">Layout</span><div class="ro">Vertical strip</div></div>
+   <div class="field"><span class="label">Continues</span><div class="ro mono">scene-17</div></div>
+  </div>
+ </div>
+ <div class="scrim"></div>
+ <div class="dialog">
+  <div class="dh">Rename the group's id</div>
+  <div class="db">
+   <div class="field"><span class="label">New id</span><input class="mono" value="crossroads"></div>
+   <div class="label" style="margin:.3rem 0 .4rem">5 references follow it</div>
+   <div class="ref"><span>↪</span><span>Chapter 2 · mama-start · jump <del>mama-crossroads</del> → <ins>crossroads</ins></span><span class="chip">jump</span></div>
+   <div class="ref"><span>↪</span><span>Chapter 2 · church-door · choice "Back" → <ins>crossroads</ins></span><span class="chip">choice</span></div>
+   <div class="ref"><span>⇢</span><span>Chapter 2 · mama-start · continues → <ins>crossroads</ins></span><span class="chip">continues</span></div>
+   <div class="ref"><span>▶</span><span>Show "Nave at night" · row 3 fires on <ins>chapter:2.crossroads</ins></span><span class="chip c">deck</span></div>
+   <div class="ref"><span>◎</span><span>XR "Krähen" · trigger opens <ins>chapter:2.crossroads</ins></span><span class="chip c">xr</span></div>
+   <div class="hint" style="margin-top:.6rem">Saved reading progress is kept (it remembers positions, not ids). A reader's link with the old id lands at the chapter start.</div>
+  </div>
+  <div class="df"><button class="btn q">Cancel</button><button class="btn primary">Rename and update 5</button></div>
+ </div>
+ <div class="note" style="left:24px;bottom:70px"><b class="t">#706 · label becomes the id</b>The group field "Label" becomes <b>Id</b> (unique in the chapter, lowercase words with dashes). A separate <b>Name</b> is what people read – optional, falls back to the id. Renaming the id opens this dialog: every reference in the toon and in shows / XR follows, in one save, undoable. No old-id aliases.</div>
+</section>
+
+<!-- ===================== cleanup #709 #710 #711 ===================== -->
+<section class="screen" id="s-cleanup">
+ <div class="stage"></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>Cat Pope</button></div>
+  <div class="pill"><button>Chapter</button><button>Cast</button><button class="on">Map</button></div>
+  <div class="pill"><button>Draft</button><span class="sep"></span><button>Publish</button></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:320px;height:330px">
+  <div class="head"><span class="tab on">Chapter 2 · Meta</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Title</span><div class="ro">Wut</div></div>
+   <div class="field"><span class="label">Release</span><div class="ro">12 Dec 2026</div></div>
+   <div class="field gone"><span class="label">Featuring</span><div class="ro">Cat Pope · Sphynx · Mama</div></div>
+   <div class="field gone"><span class="label">Related items</span><div class="ro">Awakening LP</div></div>
+  </div>
+ </div>
+ <div class="panel" style="left:344px;top:64px;width:320px;height:330px">
+  <div class="head"><span class="tab on">Character · Cat Pope</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Name</span><div class="ro">Cat Pope</div></div>
+   <div class="field gone"><span class="label">Voiced by</span><div class="ro">—</div></div>
+   <div class="field gone"><span class="label">Origin · Residence</span><div class="ro">Vienna · Nave</div></div>
+   <div class="field"><span class="label">Home</span><div class="ro">Nave</div></div>
+  </div>
+ </div>
+ <div class="map" style="left:676px;top:64px;right:12px;bottom:70px;position:absolute;border-radius:var(--radius)"></div>
+ <div class="pin" style="left:960px;top:330px"></div>
+ <div class="panel" style="right:24px;top:80px;width:300px;height:300px">
+  <div class="head"><span class="tab on">Place · Nave</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Name</span><div class="ro">Nave</div></div>
+   <div class="field"><span class="label">Set</span><div class="ro mono">set:nave</div></div>
+   <div class="field gone"><span class="label">Chapter</span><div class="ro">Cat Pope · 2</div></div>
+  </div>
+ </div>
+ <div class="panel" style="right:24px;top:396px;width:300px;height:150px">
+  <div class="head"><span class="tab on">Route · Nave → Market</span></div>
+  <div class="body"><div class="field gone"><span class="label">Toons</span><div class="ro">Cat Pope</div></div></div>
+ </div>
+ <!-- reader card (viewer style: paper and ink) -->
+ <div style="position:absolute;left:720px;top:420px;width:300px;padding:14px;background:#f2efe8;color:#111;border-radius:6px;box-shadow:0 1rem 2rem rgb(0 0 0/.5);font-size:13px">
+  <div style="font-size:17px;margin-bottom:4px">Nave</div><div style="color:#555">Visited · 3 times</div>
+  <div style="margin-top:10px;color:#999;text-decoration:line-through;text-decoration-color:#e5483b">Read chapter 2 ›</div>
+  <div style="position:absolute;top:-22px;left:0;font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase">Reader · place card</div>
+ </div>
+ <div class="note" style="left:24px;top:420px;max-width:620px"><b class="t">#709 · #710 · #711 · what disappears (struck = removed)</b>
+ <b>#709</b> chapter Featuring and Related items, character Voiced by / Origin / Residence, persona Introduced, slice _type/_label, event toon – fields, schema, validation, saved data stripped. The season keeps its related items.<br>
+ <b>#710</b> place → chapter link (field, the reader's "Read chapter N", the Flow's place boxes) and route Toons.<br>
+ <b>#711</b> no screen: the old per-toon map output for old reader builds goes (server + types).<br>
+ Nothing new is drawn: the panels only get shorter. No design question – these can be built tonight.</div>
+</section>
+
+<!-- ===================== #707 events + choices in the address book ===================== -->
+<section class="screen" id="s-707">
+ <div class="stage"></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>Nave at night</button></div>
+  <div class="pill"><button>Scene</button><button>Rigging</button><button>XR</button><button class="on">Show</button></div>
+  <div class="pill"><button>EDIT</button><button>PLAY</button><span class="sep"></span><button>120 BPM</button></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:460px;height:560px">
+  <div class="head"><span class="tab on">Show</span><span class="tab">Rows</span><span class="more">⋯</span></div>
+  <div class="body"><div class="rows">
+   <div class="row">1 · Intro · crows enter <span class="n">bar 1</span></div>
+   <div class="row">2 · Sphynx theme <span class="n">on cue</span></div>
+   <div class="row sel">3 · Market chase <span class="n">fires on …</span></div>
+   <div class="row">4 · Vote: church or market <span class="n">on vote</span></div>
+   <div class="row">5 · Finale <span class="n">bar 64</span></div>
+  </div></div>
+ </div>
+ <div class="panel" style="left:490px;top:64px;width:520px;height:620px;background:var(--surface)">
+  <div class="head"><span class="tab on">Fires on</span><span class="more">search ⌕</span></div>
+  <div class="body">
+   <div style="display:flex;gap:.3rem;margin-bottom:.6rem;flex-wrap:wrap"><span class="chip c">Events</span><span class="chip">Choices</span><span class="chip">Scenes</span><span class="chip">Groups</span><span class="chip">Characters</span><span class="chip">Clock</span></div>
+   <div class="label sub">Chapter 2 · Wut › mama-start</div>
+   <div class="rows">
+    <div class="row">◆ mama calls · Mama, Cat Pope <span class="n mono">event:ch2-mama-calls</span></div>
+    <div class="row">◆ sphynx appears · Sphynx <span class="n mono">event:ch2-sphynx</span></div>
+   </div>
+   <div class="label sub">Chapter 2 · Wut › crossroads</div>
+   <div class="rows">
+    <div class="row sel">? Left or right? · church / market <span class="n mono">event:ch2-crossroads-q</span></div>
+    <div class="row" style="padding-left:1.8rem">↳ answer: market <span class="n mono">event:ch2-crossroads-q.market</span></div>
+    <div class="row" style="padding-left:1.8rem">↳ answer: church <span class="n mono">event:ch2-crossroads-q.church</span></div>
+   </div>
+   <div class="label sub">Platform</div>
+   <div class="rows"><div class="row">◇ any story event <span class="n mono">story.*</span></div><div class="row">◇ chapter finished <span class="n mono">story.end</span></div></div>
+  </div>
+ </div>
+ <div class="note" style="right:24px;top:80px;max-width:390px"><b class="t">#707 · decide: the reference form</b>
+ <b>A (recommended)</b> <code>event:&lt;id&gt;</code> – the event's own stable id (already unique in the toon, the history keys use it). Short, survives moving the event to another group.<br><br>
+ <b>B</b> <code>chapter:2.crossroads/&lt;id&gt;</code> – under its group (#706). Readable, but moving an event changes its address.<br><br>
+ The group / chapter is shown beside it either way (as here). A choice's answers are <code>&lt;event&gt;.&lt;option&gt;</code>.</div>
+ <div class="note" style="right:24px;top:380px;max-width:390px"><b class="t">#707 · decide: who reads events</b>
+ <b>Recommended:</b> as today – creators and the <code>live</code> role (a show's conductor). Readers never get the list (it would spoil the story). The story-events endpoint goes once the picker and the VN typeahead read the book.</div>
+</section>
+
+<!-- ===================== #708 shows across toons ===================== -->
+<section class="screen" id="s-708">
+ <div class="stage"></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>Nave at night</button></div>
+  <div class="pill"><button>Scene</button><button>Rigging</button><button>XR</button><button class="on">Show</button></div>
+  <div class="pill"><button>EDIT</button><button>PLAY</button></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:420px;height:300px;background:var(--surface)">
+  <div class="head"><span class="tab on">Show settings</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Toons</span>
+    <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.3rem 0">
+     <span class="chip c">Cat Pope · home</span><span class="chip">Yellow Mouse ×</span><button class="btn q">+ Add a toon</button></div>
+    <span class="hint">The home toon lists the show and labels it in its language. Every toon's characters, scenes and events can be used.</span></div>
+   <div class="field"><span class="label">Title</span><div class="ro">Nave at night</div></div>
+  </div>
+ </div>
+ <div class="panel" style="left:450px;top:64px;width:460px;height:560px;background:var(--surface)">
+  <div class="head"><span class="tab on">Cast picker</span><span class="more">⌕</span></div>
+  <div class="body">
+   <div style="display:flex;gap:.3rem;margin-bottom:.6rem"><span class="chip c">All toons</span><span class="chip">Cat Pope</span><span class="chip">Yellow Mouse</span></div>
+   <div class="label sub">Cat Pope</div>
+   <div class="rows"><div class="row sel">Cat Pope <span class="n mono">character:catpope</span></div><div class="row">Sphynx <span class="n mono">character:sphynx</span></div><div class="row">Mama <span class="n mono">character:mama</span></div></div>
+   <div class="label sub">Yellow Mouse</div>
+   <div class="rows"><div class="row">Yellow Mouse <span class="n mono">character:yellowmouse</span></div><div class="row">Node 004 <span class="n mono">character:node004</span></div></div>
+   <div class="label sub">Shared</div>
+   <div class="rows"><div class="row">Mellow Mantis <span class="n mono">character:mellowmantis</span></div></div>
+  </div>
+ </div>
+ <div class="note" style="right:24px;top:80px;max-width:440px"><b class="t">#708 · decide: the migration</b>
+ <b>Recommended:</b> the show document's <code>toon</code> becomes <code>toons: [home, …]</code>, saved shows migrated once (one toon → a list of one), no reader of the old field kept. Character ids are already global, so a mixed show needs no prefix.<br><br>
+ One request for all books: <code>GET /api/addresses?toons=catpope,yellowmouse</code>, one ETag. The deck editor caches the combined book.</div>
+</section>
+
+<!-- ===================== #714 XR editor: place anchor – the Map as a view in a panel ===================== -->
+<section class="screen" id="s-714">
+ <div class="stage" style="background:radial-gradient(ellipse at 50% 70%,#24261f 0,#10110d 60%,#080806 100%)"></div>
+ <div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;left:-10%;right:-10%;top:52%;height:70%;background:repeating-linear-gradient(90deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px),repeating-linear-gradient(0deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px);transform:perspective(600px) rotateX(64deg);transform-origin:top"></div>
+  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(0 209 255/.5)"></div>
+  <div class="crow" style="left:calc(50% - 70px);top:calc(66% - 120px)"></div><div class="crow" style="left:calc(50% + 10px);top:calc(66% - 140px);background:#a8322a"></div><div style="position:absolute;left:calc(50% + 115px);top:calc(66% + 18px);color:var(--accent);font-size:var(--small)">anchor · floor · 0 m</div></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>▦ Krähen poster</button><button class="on">◎ Karlsplatz · crows</button><button>›</button><button>+</button></div>
+  <div class="pill"><button>Scene</button><button>Rigging</button><button class="on">XR</button><button>Show</button></div>
+  <div class="pill"><button>↶</button><button>↷</button><span class="sep"></span><button>☁</button><button>◯</button><button>≡</button></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:360px;height:420px"><div class="head"><span class="tab on">Place</span><span class="tab">Target</span><span class="tab">Library</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Anchored on</span><div style="display:flex;gap:.3rem"><span class="chip">Image target</span><span class="chip c">Place on the floor</span></div></div>
+   <div class="label" style="margin:.2rem 0 .3rem">Site markers · 4</div>
+   <div class="rows">
+    <div class="row sel">▦ Poster north <span class="n mono">48.19881 16.36937 · 1.6 m · 40°</span></div>
+    <div class="row">▦ Poster church <span class="n mono">48.19869 16.36952 · 1.6 m · 220°</span></div>
+    <div class="row">▣ QR bench <span class="n mono">48.19872 16.36925 · 0.8 m · 95°</span></div>
+    <div class="row">▣ QR kiosk <span class="n mono">48.19884 16.36958 · 1.2 m · 300°</span></div>
+   </div>
+   <div style="display:flex;gap:.4rem;margin:.6rem 0 .8rem"><button class="btn">+ Marker</button><button class="btn q">Use this device's position</button></div>
+   <div class="field"><span class="label">GPS gate</span><div class="ro">25 m around the anchor</div><span class="hint">GPS narrows it in; any marker found aligns the world.</span></div>
+  </div></div>
+ <div class="panel" style="left:12px;top:500px;width:360px;height:340px"><div class="head"><span class="tab on">Map</span><span class="tab">Device preview</span><span class="more">⋯</span></div><div class="body" style="position:relative;padding:0"><div class="map" style="position:absolute;inset:0"></div>
+   <div class="acc" style="left:calc(50% - 60px);top:calc(50% - 60px);width:120px;height:120px"></div><div class="pin" style="left:calc(50% - 7px);top:calc(50% - 7px)"></div>
+   <div style="position:absolute;left:calc(50% - 70px);top:calc(50% - 50px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% + 55px);top:calc(50% - 40px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% - 55px);top:calc(50% + 40px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(180 255 50/.3)"></div><span class="chip" style="position:absolute;left:8px;bottom:8px">Karlsplatz · 4 markers</span></div></div>
+ <div class="panel" style="right:12px;top:64px;width:300px;height:300px"><div class="head"><span class="tab on">Layers</span><span class="tab">Triggers</span><span class="more">⋯</span></div>
+  <div class="body"><div class="rows">
+   <div class="row sel">● Fuchskrähe · lands <span class="n">AR</span></div><div class="row">● Krähe 2 <span class="n">AR</span></div><div class="row">∿ crows_caw.wav <span class="n">sound</span></div>
+   <div class="label sub">When</div>
+   <div class="row">arrived (GPS gate) <span class="n">caw from afar</span></div><div class="row">aligned (a marker found) <span class="n">crows land</span></div><div class="row">tapped <span class="n">vote</span></div>
+  </div></div></div>
+ <button class="btn" style="position:absolute;left:386px;top:72px;z-index:12"><span class="chip ai">AI hook</span> Generate a scene for this place</button>
+ <div class="note" style="left:386px;top:120px;max-width:380px"><b class="t">#714 · the Map is a view</b>Map is a tab like any other (here in a panel beside Device preview). Its markers are the Place tab's rows – select one in either, both follow. Like every view it can go to the stage: drag its tab there, or Views in the menu (next screen). The place opens as an item (◎) in the XR workspace; nothing new in the bar.</div>
+ <div class="note" style="right:24px;top:380px;max-width:300px"><b class="t">decided: surveyed markers (owner 2026-11-23)</b>No VPS. A place is a site: our posters and QR codes around it, each at a known position, height and facing. GPS narrows it in, any marker aligns our world, SLAM holds it. New content QR codes print their own position in the link (<code>?c=…&amp;g=lat,lng,h,facing,size</code>).</div>
+ <div class="foot"><div class="pill" style="padding:0 .8rem;font-size:var(--small)">Saved 2 s ago</div><div class="pill" style="padding:0 .6rem;font-size:var(--label)">‹ XR workspace ›</div><div class="pill" style="padding:0 .8rem;font-size:var(--small)">0 errors <span style="color:var(--warn);margin-left:.3rem">1 warning</span></div></div>
+</section>
+
+<!-- ===================== #714 the Map on the stage (1/2/2) + Views ===================== -->
+<section class="screen" id="s-714m">
+ <div class="stage" style="background:#000"></div>
+ <div class="slot" style="left:0;top:0;width:50%;height:100%;background:radial-gradient(ellipse at 50% 70%,#24261f 0,#10110d 60%,#080806 100%)"><div style="position:absolute;left:-10%;right:-10%;top:52%;height:70%;background:repeating-linear-gradient(90deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px),repeating-linear-gradient(0deg,rgb(167 175 155/.18) 0 1px,transparent 1px 60px);transform:perspective(600px) rotateX(64deg);transform-origin:top"></div>
+  <div style="position:absolute;left:calc(50% - 100px);top:66%;width:200px;height:60px;border-radius:50%;border:2px solid var(--accent);box-shadow:0 0 18px rgb(0 209 255/.5)"></div>
+  <div class="crow" style="left:calc(50% - 70px);top:calc(66% - 120px)"></div><div class="crow" style="left:calc(50% + 10px);top:calc(66% - 140px);background:#a8322a"></div></div>
+ <div class="slot" style="left:50%;top:0;width:50%;height:50%"><div class="map" style="position:absolute;inset:0"></div>
+   <div class="acc" style="left:calc(50% - 60px);top:calc(50% - 60px);width:120px;height:120px"></div><div class="pin" style="left:calc(50% - 7px);top:calc(50% - 7px)"></div>
+   <div style="position:absolute;left:calc(50% - 70px);top:calc(50% - 50px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% + 55px);top:calc(50% - 40px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% - 55px);top:calc(50% + 40px);width:10px;height:10px;background:var(--primary)"></div>
+   <div style="position:absolute;left:calc(50% + 60px);top:calc(50% + 35px);width:10px;height:10px;background:var(--primary);box-shadow:0 0 0 3px rgb(180 255 50/.3)"></div><span class="chip" style="position:absolute;left:12px;bottom:56px">Map · on the stage</span></div>
+ <div class="slot" style="left:50%;top:50%;width:50%;height:50%;background:#14150f"><div style="position:absolute;left:calc(50% - 90px);top:30px;width:180px;height:330px;border-radius:22px;background:#2a2721;overflow:hidden"><div class="floorgrid" style="height:45%"></div><div class="crow" style="left:60px;top:120px;width:50px;height:62px"></div></div><span class="chip" style="position:absolute;left:12px;bottom:56px">Device preview · on the stage</span></div>
+ <div class="bar">
+  <div class="pill"><button>‹</button><button>▦ Krähen poster</button><button class="on">◎ Karlsplatz · crows</button><button>›</button><button>+</button></div>
+  <div class="pill"><button>Scene</button><button>Rigging</button><button class="on">XR</button><button>Show</button></div>
+  <div class="pill"><button>↶</button><button>↷</button><span class="sep"></span><button>☁</button><button>◯</button><button>≡</button></div>
+ </div>
+ <div class="panel" style="left:12px;top:64px;width:360px;height:420px"><div class="head"><span class="tab on">Place</span><span class="tab">Target</span><span class="tab">Library</span><span class="more">⋯</span></div>
+  <div class="body">
+   <div class="field"><span class="label">Anchored on</span><div style="display:flex;gap:.3rem"><span class="chip">Image target</span><span class="chip c">Place on the floor</span></div></div>
+   <div class="label" style="margin:.2rem 0 .3rem">Site markers · 4</div>
+   <div class="rows">
+    <div class="row sel">▦ Poster north <span class="n mono">48.19881 16.36937 · 1.6 m · 40°</span></div>
+    <div class="row">▦ Poster church <span class="n mono">48.19869 16.36952 · 1.6 m · 220°</span></div>
+    <div class="row">▣ QR bench <span class="n mono">48.19872 16.36925 · 0.8 m · 95°</span></div>
+    <div class="row">▣ QR kiosk <span class="n mono">48.19884 16.36958 · 1.2 m · 300°</span></div>
+   </div>
+   <div style="display:flex;gap:.4rem;margin:.6rem 0 .8rem"><button class="btn">+ Marker</button><button class="btn q">Use this device's position</button></div>
+   <div class="field"><span class="label">GPS gate</span><div class="ro">25 m around the anchor</div><span class="hint">GPS narrows it in; any marker found aligns the world.</span></div>
+  </div></div>
+ <div class="menu">
+  <div class="label" style="padding:.3rem .4rem">Views</div>
+  <div class="vs"><span></span><span class="label" style="text-align:center">off</span><span class="label" style="text-align:center">▭</span><span class="label" style="text-align:center">▣</span><span class="label" style="text-align:center">⛶</span></div>
+  <div class="vs"><span>XR scene</span><i>–</i><i>▭</i><i class="on">▣</i><i>⛶</i></div>
+  <div class="vs" style="background:var(--hover)"><span>Map</span><i>–</i><i>▭</i><i class="on">▣</i><i>⛶</i></div>
+  <div class="vs"><span>Device preview</span><i>–</i><i>▭</i><i class="on">▣</i><i>⛶</i></div>
+  <div class="vs"><span>Place</span><i>–</i><i class="on">▭</i><i>▣</i><i>⛶</i></div>
+  <div class="vs"><span>Layers</span><i class="on">–</i><i>▭</i><i>▣</i><i>⛶</i></div>
+  <div class="vs"><span>Target</span><i class="on">–</i><i>▭</i><i>▣</i><i>⛶</i></div>
+  <div style="border-top:1px solid var(--line);margin:.4rem 0 .2rem"></div>
+  <div class="row">Save workspace</div><div class="row">Search</div><div class="row">Settings</div>
+ </div>
+ <div class="note" style="left:386px;top:520px;max-width:330px"><b class="t">the Map on the stage · layout 1/2/2</b>The Map tab dragged to the stage's top-right corner: the stage splits into a half (the XR scene) and two quarters (Map, Device preview). The panel it left is gone, no pill stays behind. Views in the menu says where each view is: off · in a panel · on the stage · full screen. Walking the site, the Map goes full screen (Ctrl Space).</div>
+ <div class="foot"><div class="pill" style="padding:0 .8rem;font-size:var(--small)">Saved 2 s ago</div><div class="pill" style="padding:0 .6rem;font-size:var(--label)">‹ XR workspace ›</div><div class="pill" style="padding:0 .8rem;font-size:var(--small)">0 errors <span style="color:var(--warn);margin-left:.3rem">1 warning</span></div></div>
+</section>
+
+<!-- ===================== #714 reader flow ===================== -->
+<section class="screen" id="s-714r">
+ <div class="stage" style="background:#0e0f0c"></div>
+ <div class="title" style="top:24px;bottom:auto">XR at a place · the reader's way in (phone)</div>
+ <div class="phone" style="left:60px;top:110px"><div class="map" style="position:absolute;inset:0"></div><div class="acc" style="left:85px;top:150px;width:80px;height:80px"></div><div class="pin" style="left:118px;top:183px"></div>
+  <div style="position:absolute;left:60px;top:330px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgb(255 255 255/.3)"></div>
+  <div class="ptext">The crows are at <b>Karlsplatz</b><br><span class="muted">140 m · walk there</span></div></div>
+ <div class="pcap" style="position:absolute;left:60px;top:80px;width:250px">1 · go to the place</div>
+ <div class="phone" style="left:400px;top:110px"><div class="cam"></div>
+  <div style="position:absolute;left:85px;top:300px;width:80px;height:80px;background:#e8e2d0;transform:perspective(200px) rotateX(60deg)"></div>
+  <div class="ptext">You're there. Find one of the <b>crow posters or QR codes</b> around the square.</div></div>
+ <div class="pcap" style="position:absolute;left:400px;top:80px;width:250px">2 · find any site marker</div>
+ <div class="phone" style="left:740px;top:110px"><div class="cam"></div><div class="floorgrid"></div><div class="ring"></div>
+  <div class="crow" style="left:80px;top:250px;width:44px;height:56px"></div><div class="crow" style="left:135px;top:236px;width:44px;height:56px;background:#a8322a"></div>
+  <div class="ptext">Walk around them. Tap a crow to vote.</div></div>
+ <div class="pcap" style="position:absolute;left:740px;top:80px;width:250px">3 · the scene stands on the floor</div>
+ <div class="phone" style="left:1080px;top:110px"><div class="cam" style="filter:brightness(.6)"></div>
+  <div class="ptext">Too far away or no signal.<br><span class="muted">Not at Karlsplatz? Watch it on any floor →</span></div></div>
+ <div class="pcap" style="position:absolute;left:1080px;top:80px;width:250px">4 · elsewhere: a fallback</div>
+ <div class="note" style="left:60px;top:665px;max-width:1260px"><b class="t">#714 · the reader</b>Step 1 asks for the location only when the reader opens a place scene (never earlier). Steps 2–3 run the 8th Wall image engine + its SLAM binary together: the marker gives the exact spot and facing, SLAM gives the floor and keeps the scene standing in metres. <b>Decide:</b> does step 4 exist (watch it anywhere, on any floor, without the place) – or is the place the point and it stays locked?</div>
+</section>
+
+<script>
+const q=new URLSearchParams(location.search);const s=q.get('s')||'706';
+document.getElementById('s-'+s).classList.add('on');
+if(q.get('theme')==='day')document.documentElement.dataset.theme='day';
+</script>
+</body></html>

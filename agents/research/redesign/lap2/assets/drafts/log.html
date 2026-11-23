@@ -1,0 +1,252 @@
+<!doctype html>
+<!-- status: decided 2026-11-21 – #767: A, one Log (owner: "a one log, also make it so i can filter events by type" – "with their legends"); B stays below as considered. -->
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log draft</title>
+<style>
+[data-theme='night'] {
+	--stage: #000000; --surface: #1a1c18; --head: #141612; --line: #3a4034; --text: #f3f3f0; --muted: #a7af9b;
+	--control: #262922; --hover: #2e3229; --pressed: #f3f3f0; --pressed-text: #171916; --selected: #3a4132;
+	--accent: #00d1ff; --primary: #b4ff32; --danger: #e5533f; --warn: #f0a020; --ok: #4cc26a;
+	--ground: rgb(26 28 24 / 0.5); --halo: 0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+}
+[data-theme='day'] {
+	--stage: #000000; --surface: #f3f3f0; --head: #e8eae2; --line: #d9decf; --text: #171916; --muted: #4f5747;
+	--control: #fffffb; --hover: #e4e8dc; --pressed: #22271e; --pressed-text: #ffffff; --selected: #d5dbc9;
+	--accent: #00728d; --primary: #b4ff32; --danger: #c0392b; --warn: #b26a00; --ok: #2e8a47;
+	--ground: rgb(243 243 240 / 0.8); --halo: none;
+}
+:root { --pad: 0.57rem; --font: 1rem; --small: 0.86rem; --label: 0.72rem; --radius: 0.36rem; --sans: 'ABC Areal', 'Noto Sans', system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--stage); color: var(--text); font: var(--font)/1.35 var(--sans); }
+body { display: grid; grid-template-rows: auto 1fr auto; gap: 1rem; padding: 1rem; min-height: 100vh;
+	background: radial-gradient(circle at 30% 40%, #1c2a1a 0, transparent 40%), radial-gradient(circle at 75% 60%, #13212a 0, transparent 45%), var(--stage); }
+header { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; text-shadow: var(--halo); color: #f3f3f0; }
+header h1 { font-size: 1.1rem; font-weight: 400; margin: 0; }
+header p { margin: 0; color: #a7af9b; font-size: var(--small); }
+main { display: grid; grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr)); gap: 1.5rem; align-items: start; }
+.col h2 { margin: 0 0 0.5rem; font-size: var(--label); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 400; color: #a7af9b; }
+.note { margin: 0.6rem 0 0; color: #a7af9b; font-size: var(--small); max-width: 38rem; }
+.note b { color: #f3f3f0; font-weight: 400; }
+
+/* the panel, as the creator's floating panel */
+.panel { background: var(--ground); backdrop-filter: blur(6px); border-radius: calc(var(--radius) * 2); text-shadow: var(--halo);
+	display: grid; grid-template-rows: auto auto auto 1fr;
+}
+#a.panel { grid-template-rows: auto auto auto auto 1fr auto; height: calc(100vh - 8.5rem); }
+.panel { height: 34rem; overflow: hidden; }
+#a.panel { height: calc(100vh - 8.5rem); }
+.phead { display: flex; align-items: center; gap: 0.25rem; padding: 0.4rem 0.5rem; }
+.grip { color: var(--muted); font-size: 0.8rem; margin-right: 0.2rem; }
+.tab { all: unset; cursor: pointer; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: var(--small); }
+.tab:hover { background: var(--hover); }
+.tab.on { background: var(--pressed); color: var(--pressed-text); text-shadow: none; }
+.tab .n { margin-left: 0.35rem; font-size: var(--label); }
+.tab .n.bad { color: var(--danger); }
+.tab.on .n.bad { color: var(--danger); }
+.phead .icons { margin-left: auto; display: flex; gap: 0.6rem; color: var(--muted); font-size: 0.85rem; }
+
+.row { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; padding: 0.15rem 0.6rem 0.35rem; }
+.lab { font-size: var(--label); letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-right: 0.3rem; }
+.pill { all: unset; cursor: pointer; font-size: var(--small); padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--control); }
+.pill:hover { background: var(--hover); }
+.pill.on { background: var(--pressed); color: var(--pressed-text); text-shadow: none; }
+.pill[disabled] { opacity: 0.4; cursor: default; }
+.find { margin-left: auto; font: inherit; font-size: var(--small); background: var(--control); color: var(--text); border: 1px solid transparent; border-radius: var(--radius); padding: 0.1rem 0.5rem; width: 8rem; }
+.sep { width: 1px; height: 1rem; background: var(--line); margin: 0 0.25rem; }
+
+.lines { overflow: auto; padding: 0 0.6rem 0.6rem; scrollbar-width: thin; scrollbar-color: var(--selected) transparent; }
+.group { font-size: var(--label); letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); padding: 0.6rem 0 0.25rem; display: flex; gap: 0.5rem; }
+.line { display: grid; grid-template-columns: 0.6rem 1fr auto; gap: 0.5rem; align-items: start; padding: 0.35rem 0.2rem; border-bottom: 1px solid var(--line); font-size: var(--small); }
+.line:hover { background: var(--hover); }
+.dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; margin-top: 0.4em; background: var(--muted); }
+.error .dot { background: var(--danger); } .warn .dot { background: var(--warn); } .ok .dot { background: var(--ok); } .info .dot { background: var(--accent); }
+.where { color: var(--muted); font-size: var(--label); }
+.where .lvl { text-transform: uppercase; letter-spacing: 0.12em; }
+.error .lvl { color: var(--danger); } .warn .lvl { color: var(--warn); }
+.side { display: flex; gap: 0.4rem; align-items: center; color: var(--muted); font-size: var(--label); white-space: nowrap; }
+.acc { all: unset; cursor: pointer; width: 1.4rem; height: 1.4rem; display: grid; place-items: center; border-radius: 50%; }
+.acc:hover { background: var(--hover); color: var(--text); }
+.accepted { opacity: 0.5; }
+.empty { color: var(--muted); font-size: var(--small); padding: 1rem 0.2rem; }
+
+.ic { width: 0.95em; height: 0.95em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.12em; }
+.kind { color: var(--text); margin-right: 0.35rem; }
+.pill .ic { margin-right: 0.3rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; padding: 0.45rem 0.6rem 0.55rem; border-top: 1px solid var(--line); font-size: var(--label); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.legend .ic { color: var(--text); }
+.legend b { font-weight: 400; color: var(--text); }
+footer { display: flex; gap: 0.5rem; align-items: center; }
+.bar { flex: 1; display: flex; gap: 0.75rem; align-items: center; background: var(--ground); backdrop-filter: blur(6px); border-radius: 999px; padding: 0.35rem 0.9rem; font-size: var(--small); text-shadow: var(--halo); color: var(--text); }
+.bar .dot { margin: 0; }
+.bar .age { color: var(--muted); }
+.bar .counts { margin-left: auto; display: flex; gap: 0.6rem; }
+.bar .counts .bad { color: var(--danger); } .bar .counts .w { color: var(--warn); }
+.toggle { all: unset; cursor: pointer; background: var(--ground); color: var(--text); border-radius: 999px; padding: 0.35rem 0.9rem; font-size: var(--small); text-shadow: var(--halo); }
+</style>
+</head>
+<body>
+<header>
+	<h1>One Log or two tabs</h1>
+	<p>#767 · the chapter "Cat Pope › Chapter 2" is open, slice 2.3 selected · press the pills · T = day / night</p>
+</header>
+
+<main>
+	<section class="col">
+		<h2>A · One Log, Problems as a filter – chosen</h2>
+		<div class="panel" id="a">
+			<div class="phead"><span class="grip">⠿</span>
+				<button class="tab on">Log <span class="n bad">2</span></button>
+				<button class="tab">Library</button>
+				<span class="icons">⤢ ◱ – ×</span>
+			</div>
+			<div class="row" data-group="scope"></div>
+			<div class="row" data-group="show"></div>
+			<div class="row" data-group="types"></div>
+			<div class="lines"></div>
+			<div class="legend"></div>
+		</div>
+		<p class="note"><b>Event types with their legend:</b> every event carries its type's icon; the Type pills show the same icons and pick which kinds show (several at once, none = all); the legend under the list says what each means. Problems aren't typed – they're the standing part. <b>One place, one set of pills.</b> "Problems" is a filter of the Log: the default view (All) shows the problems on top and the events below. One count, one list, one way to scope. <b>Cost:</b> a busy session puts many events under the problems; the Problems filter hides them.</p>
+	</section>
+
+	<section class="col">
+		<h2>B · Two tabs, the scope shared – considered, not chosen</h2>
+		<div class="panel" id="b">
+			<div class="phead"><span class="grip">⠿</span>
+				<button class="tab on" data-tab="problems">Problems <span class="n bad">2</span></button>
+				<button class="tab" data-tab="log">Log</button>
+				<button class="tab">Library</button>
+				<span class="icons">⤢ ◱ – ×</span>
+			</div>
+			<div class="row" data-group="scope"></div>
+			<div class="row" data-group="show"></div>
+			<div class="lines"></div>
+		</div>
+		<p class="note"><b>Problems and what happened stay apart.</b> Each tab is a clean list, but the scope pills repeat on both tabs and must stay in sync: change the scope on Problems and the Log changes too, which reads as two lists pretending to be separate. <b>Cost:</b> two counts, two filters to learn, the "weird" shared pills.</p>
+	</section>
+</main>
+
+<footer>
+	<div class="bar"><span class="dot" style="background:var(--ok)"></span><span>Chapter 2 saved</span><span class="age">12 s</span>
+		<span class="counts"><span class="bad">2 errors</span><span class="w">3 warnings</span></span></div>
+	<button class="toggle" id="theme">Day / Night</button>
+</footer>
+
+<script>
+const LINES = [
+	{ k: 'problem', lvl: 'error', scope: 'chapter/2/group/2/slice/3', where: 'Group 2 › Slice 3', text: 'Slice 2.3 has no image' },
+	{ k: 'problem', lvl: 'error', scope: 'chapter/2/group/4', where: 'Group 4', text: 'Group 4 jumps to a group that is gone' },
+	{ k: 'problem', lvl: 'warn', scope: 'chapter/2/group/2/slice/6', where: 'Group 2 › Slice 6', text: 'Lettering runs past the safe area' },
+	{ k: 'problem', lvl: 'warn', scope: 'chapter/2', where: 'Chapter', text: "Description is short for the reader's card" },
+	{ k: 'problem', lvl: 'warn', scope: 'season/1', where: 'Season 1', text: 'Season 1 has no cover', accepted: true },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2', where: 'Chapter 2 › Group 2 · event:bell', text: 'bell fired – choice "Ring it?" → yes; heard by Group 4, the show', t: '4 s', type: 'logic' },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3 · event:has_key', text: 'has_key set true – the condition on Group 3 opens', t: '6 s', type: 'logic' },
+	{ k: 'event', lvl: 'warn', scope: 'show', where: 'Experience "Cathedral XR" · plugin Bells · event:toll', text: 'toll fired, nobody listens to it', t: '7 s', type: 'logic' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved', t: '12 s', type: 'save' },
+	{ k: 'event', lvl: 'info', scope: 'chapter/2/group/2/slice/3', where: 'Slice 2.3', text: 'Generation started – 4 variants', t: '1 min', type: 'generation' },
+	{ k: 'event', lvl: 'error', scope: 'chapter/2/group/2/slice/2', where: 'Slice 2.2', text: 'Generation failed – the model timed out', t: '3 min', type: 'generation' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/1', where: 'Chapter 1', text: 'Published by tilman', t: '20 min', type: 'publish' },
+	{ k: 'event', lvl: 'ok', scope: 'chapter/2', where: 'Chapter 2', text: 'Restored the version of 14:02', t: '8 min', type: 'history' },
+	{ k: 'event', lvl: 'warn', scope: 'chapter/2', where: 'Chapter 2', text: 'Saved again after a lost connection', t: '9 min', type: 'sync' },
+	{ k: 'event', lvl: 'info', scope: 'season/1', where: 'Library', text: 'Uploaded cathedral_night.png', t: '25 min', type: 'library' },
+	{ k: 'event', lvl: 'info', scope: 'show', where: 'Show', text: 'Cue 4 "Choir" fired', t: '40 min', type: 'show' },
+	{ k: 'tech', lvl: 'warn', scope: 'app', where: 'App', text: 'wasm core: slow frame 48 ms', t: '41 min', type: 'technical' },
+];
+const ICON = {
+	save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/>',
+	publish: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+	history: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+	generation: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z"/>',
+	library: '<rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="M20 15l-5-5-9 9"/>',
+	show: '<path d="M7 4l12 8-12 8z"/>',
+	logic: '<circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l6-6M11 12l6 6"/>',
+	sync: '<path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/>',
+	technical: '<path d="M4 7l5 5-5 5M12 18h8"/>',
+};
+const icon = (t) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[t]}</svg>`;
+const TYPES = [['logic', 'Logic', 'an address-book event fired in a chapter, experience or plugin'], ['save', 'Saves', 'an autosave of the item'], ['publish', 'Publishes', 'made live for readers'], ['history', 'History', 'a version restored'], ['generation', 'Generations', 'image / video jobs'], ['library', 'Library', 'uploads, replaces, deletes'], ['show', 'Show', 'cues, devices, the conductor'], ['sync', 'Sync', 'connection, saving again'], ['technical', 'Technical', 'the app and the core']];
+const SCOPES = [['selection', 'Selection'], ['item', 'Item'], ['chapter', 'Chapter'], ['season', 'Season'], ['toon', 'Toon'], ['show', 'Show'], ['all', 'All']];
+const inScope = (l, s) => s === 'all' ? true
+	: s === 'show' ? l.scope === 'show'
+	: s === 'selection' ? l.scope.startsWith('chapter/2/group/2/slice/3')
+	: s === 'item' || s === 'chapter' ? l.scope.startsWith('chapter/2')
+	: s === 'season' || s === 'toon' ? l.scope.startsWith('chapter/') || l.scope.startsWith('season/')
+	: true;
+
+const shared = { scope: 'item' }; // B: one scope for both tabs
+const state = { a: { show: 'default', scope: 'item', types: new Set() }, b: { tab: 'problems' } }; // A: no type picked = every type
+
+function lineHtml(l) {
+	const right = l.k === 'problem'
+		? `<span class="side">jump ›<button class="acc" title="${l.accepted ? 'accepted' : 'accept'}">✓</button></span>`
+		: `<span class="side">${l.t}</span>`;
+	const kind = l.type ? `<span class="kind" title="${TYPES.find(([v]) => v === l.type)[1]}">${icon(l.type)}</span>` : '';
+	return `<div class="line ${l.lvl}${l.accepted ? ' accepted' : ''}"><span class="dot"></span><div><div class="where">${kind}<span class="lvl">${l.lvl === 'ok' ? '' : l.lvl}</span> ${l.where}</div>${l.text}</div>${right}</div>`;
+}
+function pills(row, items, on, pick) {
+	row.innerHTML = items.map(([v, t]) => v === '|' ? '<span class="sep"></span>' : v === 'find' ? '<input class="find" placeholder="Find">' : `<button class="pill${v === on ? ' on' : ''}" data-v="${v}">${t}</button>`).join('');
+	row.querySelectorAll('.pill').forEach((b) => (b.onclick = () => pick(b.dataset.v)));
+}
+function group(title, list, more = '') {
+	return list.length ? `<div class="group"><span>${title}</span><span>${list.length}${more}</span></div>${list.map(lineHtml).join('')}` : '';
+}
+
+function drawA() {
+	const p = document.getElementById('a'), s = state.a;
+	const lab = (t) => `<span class="lab">${t}</span>`;
+	pills(p.querySelector('[data-group=scope]'), SCOPES, s.scope, (v) => { s.scope = v; drawA(); });
+	p.querySelector('[data-group=scope]').insertAdjacentHTML('afterbegin', lab('Scope'));
+	pills(p.querySelector('[data-group=show]'), [['default', 'All'], ['problems', 'Problems'], ['events', 'Events'], ['|'], ['find']], s.show, (v) => { s.show = v; drawA(); });
+	p.querySelector('[data-group=show]').insertAdjacentHTML('afterbegin', lab('Show'));
+	const typeRow = p.querySelector('[data-group=types]');
+	const typed = s.show !== 'problems';
+	typeRow.style.display = typed ? '' : 'none';
+	p.querySelector('.legend').style.display = typed ? '' : 'none';
+	typeRow.innerHTML = lab('Type') + `<button class="pill${s.types.size ? '' : ' on'}" data-v="*">All</button>` + TYPES.map(([v, t]) => `<button class="pill${s.types.has(v) ? ' on' : ''}" data-v="${v}" title="${t}">${icon(v)}${t}</button>`).join('');
+	typeRow.querySelectorAll('.pill').forEach((b) => (b.onclick = () => { const v = b.dataset.v; if (v === '*') s.types.clear(); else if (s.types.has(v)) s.types.delete(v); else s.types.add(v); drawA(); }));
+	p.querySelector('.legend').innerHTML = TYPES.map(([v, t, what]) => `<span>${icon(v)}<b>${t}</b> ${what}</span>`).join('');
+	const here = LINES.filter((l) => inScope(l, s.scope));
+	const probs = here.filter((l) => l.k === 'problem');
+	const happened = here.filter((l) => l.k !== 'problem' && (!s.types.size || s.types.has(l.type)));
+	const picked = s.types.size ? ' · ' + TYPES.filter(([v]) => s.types.has(v)).map(([, t]) => t.toLowerCase()).join(', ') : '';
+	let html = '';
+	if (s.show === 'default') html = group('Problems', probs) + group('Events', happened, picked);
+	if (s.show === 'problems') html = group('Problems', probs);
+	if (s.show === 'events') html = group('Events', happened, picked);
+	p.querySelector('.lines').innerHTML = html || '<div class="empty">Nothing in this scope.</div>';
+}
+
+function drawB() {
+	const p = document.getElementById('b'), s = state.b;
+	p.querySelectorAll('[data-tab]').forEach((t) => { t.classList.toggle('on', t.dataset.tab === s.tab); t.onclick = () => { s.tab = t.dataset.tab; drawB(); }; });
+	const lab = (t) => `<span class="lab">${t}</span>`;
+	pills(p.querySelector('[data-group=scope]'), SCOPES, shared.scope, (v) => { shared.scope = v; drawB(); });
+	p.querySelector('[data-group=scope]').insertAdjacentHTML('afterbegin', lab('Scope') );
+	p.querySelector('[data-group=scope]').insertAdjacentHTML('beforeend', '<span class="where" style="margin-left:auto">shared with the ' + (s.tab === 'problems' ? 'Log' : 'Problems') + ' tab</span>');
+	const here = LINES.filter((l) => inScope(l, shared.scope));
+	if (s.tab === 'problems') {
+		pills(p.querySelector('[data-group=show]'), [['all', 'All'], ['error', 'Errors'], ['warn', 'Warnings'], ['acc', 'Accepted'], ['|'], ['find']], 'all', () => {});
+		p.querySelector('.lines').innerHTML = group('Problems', here.filter((l) => l.k === 'problem')) || '<div class="empty">Nothing in this scope.</div>';
+	} else {
+		pills(p.querySelector('[data-group=show]'), [['all', 'All'], ['error', 'Errors'], ['info', 'Info'], ['tech', 'Technical'], ['|'], ['find']], 'all', () => {});
+		p.querySelector('.lines').innerHTML = group('Events', here.filter((l) => l.k !== 'problem')) || '<div class="empty">Nothing in this scope.</div>';
+	}
+	p.querySelector('[data-group=show]').insertAdjacentHTML('afterbegin', lab('Show'));
+}
+
+const theme = () => { const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; };
+document.getElementById('theme').onclick = theme;
+addEventListener('keydown', (e) => { if (e.key === 't' && e.target.tagName !== 'INPUT') theme(); });
+const q = new URLSearchParams(location.search);
+if (q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
+if (q.get('b')) state.b.tab = q.get('b');
+if (q.get('a')) state.a.show = q.get('a');
+if (q.get('types')) q.get('types').split(',').forEach((t) => state.a.types.add(t));
+if (q.get('scope')) { state.a.scope = q.get('scope'); shared.scope = q.get('scope'); }
+drawA(); drawB();
+</script>
+</body>
+</html>

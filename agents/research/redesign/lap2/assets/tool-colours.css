@@ -1,0 +1,62 @@
+/*
+ * @scutoons/tokens: the web tools' colours – the deck editor's scheme (RULES H11, [editor-style] 2026-11-24). Tool CSS
+ * (tools.css, shared/ui/src/editor, the creator) takes every colour from these `--tool-*` names; they point at deck-kit's
+ * editor tokens (editor.css, generated from deck/kit/src/base/tokens.rs). No literal colours outside this file and
+ * editor.css; `npm run check:tools-css` fails on them and on a grey ground behind content on the stage.
+ *
+ *   ground          the stage: everything on the stage stands on it (black at night; white by day in the creator)
+ *   panel           a floating panel's see-through ground (surface × panel opacity, deck floats.rs) – only panels
+ *   halo            text-shadow on a panel's text: the ink ring of its ground's colour (DrawList::halo; none by day)
+ *   icon-halo       the same ring on icons and SVGs on a panel (filter: drop-shadow)
+ *   popover         the opaque ground of a menu, a dropdown, a dialog, a tooltip, a toast (deck controls.rs menus)
+ *   head            a fold row's / a tile's ground inside a panel or popover (deck surface_head)
+ *   control         a field's or a framed control's ground · hover the same under the pointer
+ *   pressed         a pressed segment / tab / toggle / an open menu's trigger, pressed-text the ink on it
+ *   selected        a selected row or item · within: a track, a meter's unfilled part, a range
+ *   line            1px frames and dividers · text · muted (secondary text, quiet icons) · bright (light ink)
+ *   accent          the one colour with a meaning: live, focus, a link, an insertion mark · selection: selected text
+ *   primary         the view's one primary action (lime), primary-line its edge, primary-ink its text
+ *   danger go warn stop   states (error / destroy, ok / play, warning, stop / an error mark)
+ *   scrim           behind a modal: the stage dimmed · over-dark / over-light: marks drawn on artwork (any theme)
+ *   checker         the second square of a transparency checker (the first is the ground)
+ *
+ * Night is the default; `data-theme="day"` on <html> or a tool root is the day variant. Set on every theme root so a
+ * part in the other theme resolves its own values.
+ */
+:root,
+[data-theme] {
+	--tool-ground: var(--editor-stage);
+	--tool-panel: var(--editor-panel-ground);
+	--tool-halo: var(--editor-halo);
+	--tool-icon-halo: drop-shadow(0 0 1px var(--editor-surface)) drop-shadow(0 0 1px var(--editor-surface));
+	--tool-popover: var(--editor-surface);
+	--tool-head: var(--editor-surface-head);
+	--tool-control: var(--editor-control);
+	--tool-hover: var(--editor-hover);
+	--tool-pressed: var(--editor-pressed);
+	--tool-pressed-text: var(--editor-pressed-text);
+	--tool-selected: var(--editor-selected);
+	--tool-within: var(--editor-within);
+	--tool-line: var(--editor-line);
+	--tool-text: var(--editor-text);
+	--tool-muted: var(--editor-muted);
+	--tool-bright: var(--editor-bright);
+	--tool-accent: var(--editor-accent);
+	--tool-selection: var(--editor-selection);
+	--tool-primary: var(--editor-primary);
+	--tool-primary-line: var(--editor-primary-line);
+	--tool-primary-ink: var(--editor-primary-ink);
+	--tool-danger: var(--editor-danger);
+	--tool-go: var(--editor-go);
+	--tool-warn: var(--editor-warn);
+	--tool-stop: var(--editor-stop);
+	--tool-scrim: rgb(0 0 0 / 0.55);
+	--tool-over-dark: rgb(0 0 0 / 0.6);
+	--tool-over-light: rgb(255 255 255 / 0.8);
+	--tool-checker: var(--editor-hover);
+}
+/* day: the creator's stage is white (the deck keeps its black stage behind its own day panels); no halo by day, as the deck */
+[data-theme='day'] {
+	--tool-ground: #ffffff;
+	--tool-icon-halo: none;
+}

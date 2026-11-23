@@ -1,0 +1,618 @@
+<!-- Status: draft round 1 for the owner's review (#773, #763, epic #626), 2026-11-22 – the slot picker with spore generators, Create new, the spore canvas, the slot afterwards, the generator in the Library; concept only, no build. Spec: AI-HOOKS.md §0. -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spore canvas</title>
+<!-- A generation is a spore canvas, not a dialog (owner 2026-11-21, AI-HOOKS.md §0; #763's words: a node is a spore, connecting is weaving,
+     ports to cybernetics, pores to organic matter, the whole is the spore network, what runs it is a driver).
+     Starting point: characters.html (the character workspace, the 3D place, the hook pill), stage.html (a tab fills the stage under the bar),
+     library.html (the pick, version stacks). Colours: shared/tokens/editor.css, night and day, copied 1:1 – nothing else for the UI (the figure
+     and the models are content and keep characters.html's colours). Night first; T = day.
+     ?step=1…9 (or a name: picker · create · new · woven · running · candidates · filled · standin · library) · ?yield=waiting|running|yielded (step 8)
+     · ?theme=day · ?quiet folds the notes.
+     Keys: ← / → or 1–9 = the steps · R = the stand-in's next state (step 8) · T = day / night · N = notes. Open at 1440×900. -->
+<style>
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Regular-latin.ttf");font-weight:400}
+@font-face{font-family:"Noto Sans";src:url("../../../../../../deck/kit/assets/NotoSans-Bold-latin.ttf");font-weight:700}
+/* shared/tokens/editor.css – night */
+:root,[data-theme=night]{
+  --stage:#000000;--surface:#1a1c18;--head:#141612;--line:#3a4034;--text:#f3f3f0;--muted:#a7af9b;--control:#262922;
+  --hover:#2e3229;--pressed:#f3f3f0;--pressed-text:#171916;--selected:#3a4132;--within:#23261f;--accent:#00d1ff;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#f0a030;--go:#4cc35a;--stop:#e5483b;
+  --ground:rgb(26 28 24 / 0.5);--halo:0 0 2px #1a1c18, 0 0 2px #1a1c18, 0 0 3px #1a1c18;
+}
+/* shared/tokens/editor.css – day */
+[data-theme=day]{
+  --stage:#000000;--surface:#f3f3f0;--head:#e8eae2;--line:#d9decf;--text:#171916;--muted:#4f5747;--control:#fffffb;
+  --hover:#e4e8dc;--pressed:#22271e;--pressed-text:#ffffff;--selected:#d5dbc9;--within:#e2e6da;--accent:#00728d;
+  --primary:#b4ff32;--primary-line:#9ce327;--primary-ink:#171916;--danger:#c0392b;--warn:#b86e0c;--go:#2e8a3e;--stop:#d63a2d;
+  --ground:rgb(243 243 240 / 0.8);--halo:none;
+}
+:root{--gap:1rem;--pad:.57rem;--small:.86rem;--label:.72rem;--title:1.15rem;--row:2.15rem;--tree-row:1.8rem;--radius:.36rem;--top:3.6rem;--spacing:.15em}
+*{box-sizing:border-box}
+html{font-size:14px}
+body{margin:0;height:100vh;overflow:hidden;background:var(--stage);color:var(--text);font:400 1rem/1.35 "Noto Sans",system-ui,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.label{font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+svg.i{width:1rem;height:1rem;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ── the bar: pills floating on the stage ── */
+.bar{position:fixed;z-index:50;top:0;left:0;right:0;height:var(--top);display:flex;align-items:center;gap:.5rem;padding:0 var(--gap);pointer-events:none}
+.bar>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:.25rem;height:var(--row);padding:0 .3rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);box-shadow:0 0 0 1px var(--line),0 .2rem .6rem rgb(0 0 0/.2)}
+.pill button{height:calc(var(--row) - .5rem);min-width:calc(var(--row) - .5rem);padding:0 .6rem;border:0;border-radius:1rem;background:transparent;display:flex;align-items:center;gap:.35rem;white-space:nowrap;font-size:var(--small)}
+.pill button:hover{background:var(--hover)}
+.pill button.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.pill button.go{background:var(--primary);color:var(--primary-ink);text-shadow:none}
+.pill button[disabled]{opacity:.45;cursor:default}
+.pill .round{padding:0;justify-content:center}
+.pill .sep{width:1px;height:1.2rem;background:var(--line);margin:0 .15rem}
+.pill .lab{padding:0 .4rem;color:var(--muted);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;white-space:nowrap}
+.middle{flex:1;display:flex;justify-content:center;pointer-events:none}
+.path{pointer-events:auto;display:flex;align-items:center;gap:.3rem;height:var(--row);padding:0 1rem;border-radius:calc(var(--row)/2);background:var(--ground);text-shadow:var(--halo);color:var(--muted);font-size:var(--small);box-shadow:0 0 0 1px var(--line)}
+.path b{color:var(--text);font-weight:400}
+.face{width:1.2rem;height:1.2rem;border-radius:50%;background:#4f5747;display:inline-block;flex:none;box-shadow:inset 0 0 0 2px #e8eae2}
+.floatpill{position:fixed;z-index:30;left:50%;bottom:var(--gap);transform:translateX(-50%)}
+
+/* ── the stage ── */
+.box{position:fixed;inset:0;overflow:hidden;background:var(--stage)}
+.ground2d{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 42% 48%,#22281f,var(--stage) 75%)}
+.art{position:absolute;inset:0}
+.art svg{position:absolute;inset:0;width:100%;height:100%}
+.s3d{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse 60% 45% at 38% 45%,#1b2a30,var(--stage) 70%);perspective:80rem;perspective-origin:38% 25%}
+.floor{position:absolute;left:38%;top:58%;width:150rem;height:110rem;margin-left:-75rem;transform-origin:50% 0;transform:rotateX(72deg);
+  background-image:linear-gradient(rgb(0 209 255/.22) 1px,transparent 1px),linear-gradient(90deg,rgb(0 209 255/.22) 1px,transparent 1px);background-size:6rem 6rem}
+.horizon{position:absolute;left:0;right:0;top:0;height:60%;background:linear-gradient(var(--stage) 35%,transparent);pointer-events:none}
+.tag{position:absolute;padding:.2rem .55rem;border-radius:1rem;background:var(--ground);color:var(--text);text-shadow:var(--halo);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.tag.c{box-shadow:0 0 0 1px var(--accent)}
+svg .cap{fill:#a7af9b;font:400 11px "Noto Sans",sans-serif;letter-spacing:.15em;text-transform:uppercase}
+
+/* ── panels (floating-panel.svelte's look) ── */
+.panel{position:fixed;z-index:10;display:flex;flex-direction:column;border-radius:var(--radius);background:var(--ground);box-shadow:0 0 0 1px rgb(0 0 0/.25),0 .3rem 1rem rgb(0 0 0/.25);overflow:hidden;text-shadow:var(--halo);backdrop-filter:blur(6px)}
+.panel.solid{background:var(--surface)}
+.head{display:flex;align-items:center;gap:.15rem;min-height:2.35rem;padding:.3rem .3rem .3rem .15rem;background:var(--head);user-select:none}
+.grip{width:.9rem;color:var(--muted);text-align:center;font-size:.8rem}
+.tabs{flex:1;display:flex;align-items:center;gap:.15rem;min-width:0;overflow:hidden}
+.tab{flex:none;height:1.75rem;padding:0 .6rem;border:0;border-radius:.9rem;background:transparent;font-size:var(--small);display:flex;align-items:center;gap:.35rem}
+.tab:hover{background:var(--hover)}
+.tab.on{background:var(--pressed);color:var(--pressed-text);text-shadow:none}
+.hb{width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:var(--radius);background:transparent;color:var(--muted);display:grid;place-items:center;flex:none}
+.hb:hover{background:var(--hover);color:var(--text)}
+.content{flex:1;overflow:auto;padding:var(--pad)}
+.group{margin:.8rem .1rem .35rem;display:flex;align-items:center;gap:.5rem}
+.group:first-child{margin-top:.2rem}
+.group .sp{flex:1}
+.kv{display:grid;grid-template-columns:6.4rem 1fr;gap:.35rem .6rem;align-items:center;font-size:var(--small);margin:.2rem .1rem}
+.kv>.label{align-self:start;padding-top:.2rem}
+.ro{min-height:var(--row);padding:.35rem .55rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);display:flex;align-items:center;gap:.4rem;text-shadow:none}
+.ro.locked{color:var(--muted)}
+.opt{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:0 .5rem;border-radius:var(--radius);font-size:var(--small)}
+.opt:hover{background:var(--hover)}
+.opt.sel{background:var(--selected)}
+.opt .r{width:.8rem;height:.8rem;border-radius:50%;box-shadow:inset 0 0 0 1px var(--muted);flex:none}
+.opt.sel .r{box-shadow:inset 0 0 0 .25rem var(--accent)}
+.opt .n{margin-left:auto;color:var(--muted);font-size:var(--label)}
+.btn{height:var(--row);padding:0 var(--pad);border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);white-space:nowrap;text-shadow:none;display:inline-flex;align-items:center;gap:.35rem}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--primary);border-color:var(--primary-line);color:var(--primary-ink)}
+.btn.q{border-color:transparent;background:transparent;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:.3rem;height:1.35rem;padding:0 .5rem;border-radius:.7rem;background:var(--control);box-shadow:0 0 0 1px var(--line);font-size:var(--label);letter-spacing:var(--spacing);text-transform:uppercase;color:var(--muted);white-space:nowrap;text-shadow:none}
+.chip.c{color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.chip.ok{color:var(--go);box-shadow:0 0 0 1px var(--go)}
+.chip.w{color:var(--warn);box-shadow:0 0 0 1px var(--warn)}
+.seg{display:inline-flex;gap:.15rem;padding:.15rem;border-radius:1rem;background:var(--control);text-shadow:none}
+.seg button{height:1.6rem;padding:0 .7rem;border:0;border-radius:.85rem;background:transparent;font-size:var(--small);display:flex;align-items:center;gap:.35rem;white-space:nowrap}
+.seg button:hover{background:var(--hover)}
+.seg button.on{background:var(--pressed);color:var(--pressed-text)}
+.prog{position:relative;height:.25rem;border-radius:.13rem;background:var(--line);overflow:hidden}
+.prog i{position:absolute;left:0;top:0;bottom:0;background:var(--accent)}
+.runrow{display:flex;align-items:center;gap:.5rem;min-height:var(--tree-row);padding:.15rem .5rem;border-radius:var(--radius);font-size:var(--small)}
+.runrow.sel{background:var(--selected)}
+.runrow .n{margin-left:auto;color:var(--muted);font-size:var(--label);white-space:nowrap}
+
+/* the generator mark: a woven chain (three spores, the last an output) */
+.gmark{display:inline-grid;place-items:center;flex:none}
+
+/* ── slots (H6: preview = button, empty = dashed) ── */
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.slot{position:relative;display:flex;flex-direction:column;gap:.3rem;padding:0;border:0;background:none;text-align:left;color:var(--text);font-size:var(--small)}
+.slot .pv{position:relative;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;background:var(--within);box-shadow:0 0 0 1px var(--line)}
+.slot .pv svg{position:absolute;inset:0;width:100%;height:100%}
+.slot .pv.empty{background:transparent;box-shadow:none;border:1px dashed var(--line);display:grid;place-items:center;color:var(--muted)}
+.slot .pv.picking{border-color:var(--accent);color:var(--accent)}
+.slot .pv.gen{background:var(--stage);box-shadow:0 0 0 1px var(--accent)}
+.slot .pv .corner{position:absolute;left:.35rem;top:.35rem}
+.slot .pv .corner2{position:absolute;right:.35rem;bottom:.35rem}
+.prov{font-size:var(--small);color:var(--muted);line-height:1.5}
+.prov b{font-weight:400;color:var(--text)}
+
+/* ── the pick: a modal drawer (Sheet) ── */
+.scrim{position:fixed;inset:0;z-index:70;background:rgb(0 0 0/.55)}
+.drawer{position:fixed;z-index:71;top:0;right:0;bottom:0;width:46rem;display:flex;flex-direction:column;background:var(--surface);box-shadow:0 0 2rem rgb(0 0 0/.5)}
+.dh{display:flex;align-items:center;gap:.5rem;min-height:3.2rem;padding:0 .5rem 0 1.1rem;background:var(--head)}
+.dh .t{font-size:var(--title)}
+.dh .sp{flex:1}
+.dtools{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.1rem;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.search{flex:1;min-width:9rem;height:var(--row);padding:0 .6rem;border:1px solid var(--line);border-radius:var(--radius);background:var(--control);font-size:var(--small);display:flex;align-items:center;gap:.4rem;color:var(--muted)}
+.search b{font-weight:400;color:var(--text)}
+.dbody{flex:1;overflow:auto;padding:.4rem 1.1rem 1rem}
+.dfoot{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.1rem;border-top:1px solid var(--line)}
+.dfoot .sp{flex:1}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem}
+.tile{position:relative;display:flex;flex-direction:column;gap:.3rem;padding:0;border:0;background:none;text-align:left;color:var(--text);font-size:var(--small);min-width:0}
+.tile .pv{position:relative;aspect-ratio:1;border-radius:var(--radius);overflow:hidden;background:var(--within);box-shadow:0 0 0 1px var(--line)}
+.tile .pv svg{position:absolute;inset:0;width:100%;height:100%}
+.tile .pv .corner{position:absolute;left:.35rem;top:.35rem}
+.tile .pv .corner2{position:absolute;right:.35rem;bottom:.35rem}
+.tile .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .m{font-size:var(--label);color:var(--muted);line-height:1.4}
+.tile.sel .pv{box-shadow:0 0 0 2px var(--accent)}
+.tile.mis{cursor:not-allowed}
+.tile.mis .pv,.tile.mis .nm{opacity:.38}
+.tile.mis .m{color:var(--muted)}
+.tile .why{font-size:var(--label);line-height:1.4;color:var(--text)}
+.tile.gen .pv{background:var(--stage)}
+/* a version family drawn as a stack: sheets behind the tile (library.html, [stacks]) */
+.tile.stack .pv{box-shadow:0 0 0 1px var(--line),.25rem -.25rem 0 -1px var(--surface),.25rem -.25rem 0 0 var(--line),.5rem -.5rem 0 -1px var(--surface),.5rem -.5rem 0 0 var(--line)}
+.tile.stack.sel .pv{box-shadow:0 0 0 2px var(--accent),.3rem -.3rem 0 -1px var(--surface),.3rem -.3rem 0 0 var(--line),.55rem -.55rem 0 -1px var(--surface),.55rem -.55rem 0 0 var(--line)}
+.none{display:flex;align-items:center;gap:1rem;margin:.6rem 0 .2rem;padding:1rem 1.1rem;border:1px dashed var(--line);border-radius:var(--radius);font-size:var(--small)}
+.none .sp{flex:1}
+.none .big{font-size:var(--title)}
+
+/* ── the spore canvas: full-bleed under the bar ── */
+.weave{position:absolute;inset:0;background-color:var(--stage);background-image:radial-gradient(circle,var(--line) 1px,transparent 1.2px);background-size:1.6rem 1.6rem}
+#wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+#wires path{fill:none;stroke:var(--muted);stroke-width:1.6}
+#wires path.port{stroke-width:1.2;stroke-dasharray:5 4}
+#wires path.hot{stroke:var(--accent);stroke-width:2}
+#wires path.ghost{stroke-dasharray:3 6;opacity:.7}
+#wires path.flow{stroke:var(--accent);stroke-dasharray:3 9;stroke-width:2.2;animation:flow .9s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.spore{position:absolute;z-index:2;width:10.8rem;padding:.45rem .6rem .5rem;border-radius:.7rem;background:var(--surface);box-shadow:0 0 0 1px var(--line),0 .3rem 1rem rgb(0 0 0/.35);font-size:var(--small)}
+.spore.sel{box-shadow:0 0 0 1px var(--accent),0 0 0 .25rem rgb(0 209 255/.15),0 .3rem 1rem rgb(0 0 0/.35)}
+.spore.out{border-radius:.7rem;box-shadow:0 0 0 1px var(--primary-line),0 .3rem 1rem rgb(0 0 0/.35)}
+.spore.out.sel{box-shadow:0 0 0 1px var(--primary-line),0 0 0 .25rem rgb(180 255 50/.15),0 .3rem 1rem rgb(0 0 0/.35)}
+.spore.done{box-shadow:0 0 0 1px var(--go),0 .3rem 1rem rgb(0 0 0/.35)}
+.spore.run{box-shadow:0 0 0 1px var(--accent),0 0 1.2rem rgb(0 209 255/.25)}
+.spore.wait{opacity:.6}
+.sh{display:flex;align-items:center;gap:.35rem;margin-bottom:.15rem}
+.sh .sp{flex:1}
+.sh .st{font-size:var(--label);color:var(--muted);white-space:nowrap}
+.sh .st.ok{color:var(--go)}
+.sh .st.on{color:var(--accent)}
+.mk{width:.85rem;height:.85rem;flex:none;position:relative}
+.mk.gen{border-radius:50%;border:1.5px solid var(--accent)}
+.mk.gen::after{content:"";position:absolute;left:50%;top:50%;width:.3rem;height:.3rem;margin:-.15rem;border-radius:50%;background:var(--accent)}
+.mk.ours{border-radius:50%;background:var(--muted);transform:scale(.7)}
+.mk.out{border-radius:.15rem;border:1.5px solid var(--primary-line)}
+.spore .nm{font-size:1rem;line-height:1.25}
+.spore .sub{color:var(--muted);font-size:var(--label);margin-top:.05rem}
+.spore .pic{height:4.6rem;margin:.4rem 0 .2rem;border-radius:var(--radius);overflow:hidden;background:#1a1c18;position:relative}
+.spore .pic svg{position:absolute;inset:0;width:100%;height:100%}
+.spore .prog{margin:.35rem 0 .1rem}
+.ios{margin:.35rem -.6rem 0;display:flex;flex-direction:column;gap:.05rem}
+.io{position:relative;display:flex;align-items:center;min-height:1.3rem;padding:0 .75rem;font-size:var(--label);color:var(--muted)}
+.io.o{justify-content:flex-end}
+.io .d{position:absolute;top:50%;width:.7rem;height:.7rem;margin-top:-.35rem;background:var(--stage);border:1.5px solid var(--muted)}
+.io.i .d{left:-.35rem}
+.io.o .d{right:-.35rem}
+.io .d.pore{border-radius:50%}
+.io .d.port{border-radius:.1rem;transform:rotate(45deg) scale(.85)}
+.io .d.linked{background:var(--muted)}
+.io .d.hot{border-color:var(--accent);background:var(--accent)}
+.spore .fit{margin-top:.4rem;padding-top:.35rem;border-top:1px solid var(--line);font-size:var(--label);color:var(--muted);line-height:1.45}
+.spore .fit b{font-weight:400;color:var(--text)}
+.plus{position:absolute;z-index:3;width:2.3rem;height:2.3rem;margin:-1.15rem 0 0 -1.15rem;border-radius:50%;border:1px dashed var(--accent);background:var(--stage);color:var(--accent);display:grid;place-items:center;font-size:1.3rem}
+.menu{position:absolute;z-index:4;width:24rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 .8rem 2rem rgb(0 0 0/.5);font-size:var(--small);overflow:hidden}
+.menu .search{margin:.5rem;flex:none}
+.menu .mcols{display:grid;grid-template-columns:1fr 1fr;gap:0 .3rem;padding:0 .3rem .5rem}
+.menu .mrow{display:flex;align-items:center;gap:.45rem;min-height:var(--tree-row);padding:0 .45rem;border-radius:var(--radius)}
+.menu .mrow:hover,.menu .mrow.sel{background:var(--hover)}
+.menu .mrow .n{margin-left:auto;font-size:var(--label);color:var(--muted)}
+.menu .mh{padding:.35rem .45rem .15rem}
+.cands{position:absolute;z-index:3;display:flex;gap:.6rem}
+.cand{width:8.6rem;display:flex;flex-direction:column;gap:.25rem;padding:.35rem;border-radius:var(--radius);background:var(--surface);box-shadow:0 0 0 1px var(--line);font-size:var(--label);color:var(--muted)}
+.cand .pv{position:relative;height:7rem;border-radius:calc(var(--radius) - .1rem);overflow:hidden;background:radial-gradient(ellipse at 50% 70%,#1b2a30,#000)}
+.cand .pv svg{position:absolute;inset:0;width:100%;height:100%}
+.cand b{font-weight:400;color:var(--text);font-size:var(--small)}
+.cand.sel{box-shadow:0 0 0 2px var(--accent)}
+.cand.mis .pv{opacity:.4}
+.cand .why{color:var(--text)}
+.assign{position:absolute;z-index:3}
+
+/* ── the draft's notes (not part of the design) ── */
+.notes{position:fixed;z-index:90;left:var(--gap);bottom:var(--gap);width:27rem;max-height:22rem;overflow:auto;padding:.7rem .9rem;border:1px dashed var(--muted);border-radius:var(--radius);background:var(--head);color:var(--text);font-size:var(--small);box-shadow:0 .3rem 1rem rgb(0 0 0/.35)}
+.notes.min{width:auto}
+.notes.min .more{display:none}
+.notes h3{margin:0 0 .4rem;font-size:1rem;font-weight:400;display:flex;align-items:center;gap:.4rem}
+.notes.min h3{margin:0}
+.notes h3 .sp{flex:1}
+.notes p{margin:.3rem 0}
+.notes .steps{display:flex;gap:.2rem;margin:.5rem 0 0;flex-wrap:wrap}
+.notes .steps button{min-width:1.6rem;height:1.6rem;padding:0 .35rem;border:1px solid var(--line);border-radius:.8rem;background:transparent;font-size:var(--label)}
+.notes .steps button.on{background:var(--pressed);color:var(--pressed-text);border-color:var(--pressed)}
+.notes kbd{font:inherit;font-size:var(--label);padding:0 .3rem;border:1px solid var(--line);border-radius:.2rem}
+.notes .open{color:var(--muted)}
+.notes.drawer-open{left:var(--gap);right:auto}
+</style>
+</head>
+<body>
+
+<div class="box" id="stage"></div>
+<div class="bar" id="bar"></div>
+<div id="over"></div>
+<div class="notes" id="notes"></div>
+
+<script>
+const q = new URLSearchParams(location.search);
+const STEPS = ['picker','create','new','woven','running','candidates','filled','standin','library'];
+const TITLES = {
+  picker:'The slot picker – assets and spore generators',
+  create:'Nothing fits – Create new',
+  new:'A new generator – the output spore is already there',
+  woven:'The spore canvas, woven',
+  running:'A run – progress on the spores',
+  candidates:'Candidates at the output – pick one',
+  filled:'The slot afterwards – filled, with provenance',
+  standin:'The slot afterwards – the generator as a stand-in',
+  library:'The generator is a document – in the Library'};
+const NOTES = {
+  picker:`<p>The 3D model slot of Katzenpapst's Summer look opens the Library pick. It shows two kinds of thing: <b>assets</b> and <b>spore generators</b>. A generator tile shows its <b>output spore's format</b>, because that output decides whether it fits.</p><p>A misfit is greyed out with the core's sentence (<code>takes</code>), the same for an asset and a generator. It stays visible, not hidden.</p>`,
+  create:`<p>Narrowed to Katzenpapst, nothing takes a rigged GLB: no asset and no generator. The pick offers <b>Create new</b>, a generator that starts with the slot's required output spore. Create new also stays in the footer of every pick.</p>`,
+  new:`<p>The spore canvas opens on the stage under the bar. Its new tab sits in the bar, because a generator is a document. Two spores are already placed: the slot's source, which is the Summer look's front sheet from the Library, and the <b>required output spore</b> (GLB, rigged, at most 48 bones), whose settings are locked by the slot.</p><p>You weave toward the output: the ＋ opens the spore list, with our own spores and gen-AI spores side by side.</p>`,
+  woven:`<p>The chain has our own spores (Library, crop / pose, Kanon, condition, output) and gen-AI spores (upscale, image → 3D, auto-rig) side by side. They're told apart by the mark: a plain dot is ours, and the cyan socket from the hook pill is gen-AI.</p><p><b>Corrected by the owner 2026-11-22:</b> a picture is data, not organic matter, so its wires here should be <b>ports</b>. <b>Pores</b> carry combined, complex data: the organic matter (for example a character as a whole). The round / diamond marks in this step predate that and are not redrawn yet. A spore's settings are a panel tab, and its <b>driver</b> is where it runs.</p>`,
+  running:`<p>Run 3, by hand, with 3 takes. Spores that are done turn green, the running spore shows its progress (take 2 of 3 on the local GPU), and the rest wait. You can keep working, because the run belongs to the driver, not the tab. The Runs tab lists earlier runs: run 1 failed the condition and run 2 was cancelled.</p>`,
+  candidates:`<p>The takes appear at the output spore as candidates. Take 3 failed the condition and shows the core's sentence. It's shown but can't be assigned, since an error can't be accepted (H7). Picking take 2 and pressing <b>Assign to the slot</b> fills Katzenpapst · Summer · 3D model.</p>`,
+  filled:`<p>The slot holds the picked output as an asset of its own (v1). Its provenance is the generation record's <code>from</code>: the generator and its version, the run and the take. The 3D place shows it with the figures.js joints. Open the run goes back to the canvas at run 3.</p>`,
+  standin:`<p>Instead of an asset, the slot holds the <b>generator itself, as a stand-in</b>, set to automated. Its state is <b>waiting</b>, <b>running</b> or <b>yielded v2</b> (press <kbd>R</kbd> to cycle). Its trigger is a job signal: <b>on: sheet changed</b>. Each run yields a new version of the slot's asset, and <code>from</code> points to the generator and its run.</p><p class="open">Open: does an automated yield go straight in, or wait as a candidate for a person's Accept (AI-HOOKS §0 vs §3)? Here it goes in, marked "not looked at yet", with "Keep v1" one press away.</p>`,
+  library:`<p>The generator is a document in the Library, with a tile of its own kind (the woven-chain mark and the output spore's format). Its versions stack like every version family (v1 by hand, v2 with the signal). The details show where it's used: the slots that hold it, as a stand-in or as the source of a picked output.</p>`};
+
+let step = STEPS.indexOf(q.get('step')) >= 0 ? STEPS.indexOf(q.get('step')) : Math.max(0, Math.min(8, (parseInt(q.get('step')) || 1) - 1));
+const YIELDS = ['waiting','running','yielded'];
+let yieldState = YIELDS.includes(q.get('yield')) ? q.get('yield') : 'yielded';
+let quiet = q.has('quiet');
+if (q.get('theme') === 'day') document.documentElement.dataset.theme = 'day';
+const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+const ICON = {
+  close:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  fold:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+  take:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="6" y="8" width="12" height="8" rx="1" fill="currentColor" stroke="none" opacity=".35"/></svg>',
+  search:'<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
+  play:'<svg class="i" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>',
+  fitv:'<svg class="i" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  up:'<svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>'};
+function gmark(size=1, out='var(--primary-line)'){
+  return `<svg class="gmark" viewBox="0 0 30 14" style="width:${1.9*size}rem;height:${.9*size}rem"><path d="M5 7h7M16 7h6" stroke="var(--muted)" stroke-width="1.4" fill="none"/><circle cx="4" cy="7" r="3" fill="var(--muted)"/><circle cx="14" cy="7" r="3" fill="none" stroke="var(--accent)" stroke-width="1.4"/><circle cx="14" cy="7" r="1.1" fill="var(--accent)"/><rect x="22" y="3.5" width="7" height="7" rx="1" fill="none" stroke="${out}" stroke-width="1.4"/></svg>`;
+}
+
+// ── content art (characters.html's figure; its own colours, as content) ──
+function figure(cx, gy, s, view='front', opts={}){
+  const side = view === 'side', back = view === 'back';
+  const bw = side ? 62 : 95, eyes = back ? '' : side ? `<circle cx="34" cy="-415" r="9" fill="#b4ff32"/>` : `<circle cx="-26" cy="-415" r="9" fill="#b4ff32"/><circle cx="26" cy="-415" r="9" fill="#b4ff32"/>`;
+  const robe = opts.summer ? '#d9decf' : '#e8eae2';
+  const cross = back || side ? '' : `<path d="M-14 -340 V0 M-60 -230 H60" stroke="#b4932f" stroke-width="10"/>`;
+  const hat = opts.summer ? `<ellipse cx="0" cy="-478" rx="120" ry="20" fill="#b4932f"/><path d="M-55 -480 C-55 -560 55 -560 55 -480 Z" fill="#b4932f"/>` : `<path d="M-50 -470 C-50 -600 50 -600 50 -470 Z" fill="#f3f3f0" stroke="#b4932f" stroke-width="6"/>`;
+  const arms = side ? `<path d="M10 -280 C40 -200 40 -150 30 -110" stroke="#d9decf" stroke-width="34" fill="none" stroke-linecap="round"/>`
+    : `<path d="M-${bw} -280 C-${bw+60} -230 -${bw+75} -170 -${bw+60} -110" stroke="${robe}" stroke-width="34" fill="none" stroke-linecap="round"/><path d="M${bw} -280 C${bw+60} -230 ${bw+75} -170 ${bw+60} -110" stroke="${robe}" stroke-width="34" fill="none" stroke-linecap="round"/>`;
+  const clay = opts.clay ? ` filter="url(#clay)"` : '';
+  return `<g transform="translate(${cx} ${gy}) scale(${s})" opacity="${opts.ghost ? .3 : 1}"${clay}>
+    <ellipse cx="0" cy="0" rx="${bw+40}" ry="22" fill="rgb(0 0 0/.55)"/>
+    <path d="M-${bw} 0 C-${bw+5} -160 -${bw*.85} -330 0 -340 C${bw*.85} -330 ${bw+5} -160 ${bw} 0 Z" fill="${back ? '#d9decf' : robe}" stroke="#a7af9b" stroke-width="3"/>
+    ${cross}<circle cx="0" cy="-410" r="78" fill="#4f5747"/>
+    <path d="M-62 -460 L-78 -530 L-40 -488 Z M62 -460 L78 -530 L40 -488 Z" fill="#4f5747"/>
+    ${hat}${eyes}${arms}</g>`;
+}
+const CLAY = `<defs><filter id="clay"><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope=".8"/><feFuncG type="linear" slope=".85"/><feFuncB type="linear" slope=".9"/></feComponentTransfer></filter></defs>`;
+const JOINTS = [['head',0,410],['neck',0,335],['chest',0,250],['spine',0,170],['pelvis',0,95],
+  ['sh L',95,285],['el L',150,200],['wr L',155,115],['sh R',-95,285],['el R',-150,200],['wr R',-155,115],
+  ['hip L',45,90],['kn L',48,48],['an L',50,8],['hip R',-45,90],['kn R',-48,48],['an R',-50,8],['robe',0,40]];
+const BONES = [['head','neck'],['neck','chest'],['chest','spine'],['spine','pelvis'],['chest','sh L'],['sh L','el L'],['el L','wr L'],['chest','sh R'],['sh R','el R'],['el R','wr R'],
+  ['pelvis','hip L'],['hip L','kn L'],['kn L','an L'],['pelvis','hip R'],['hip R','kn R'],['kn R','an R'],['pelvis','robe']];
+function skeleton(cx, gy, s, w=2){
+  const P = Object.fromEntries(JOINTS.map(([n,x,y]) => [n, [cx + x*s, gy - y*s]]));
+  return BONES.map(([a,b]) => `<line x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}" stroke="#00d1ff" stroke-width="${w}" opacity=".85"/>`).join('')
+    + JOINTS.map(([n]) => `<circle cx="${P[n][0]}" cy="${P[n][1]}" r="${w*2.5}" fill="#000" stroke="#00d1ff" stroke-width="${w*.75}"/>`).join('');
+}
+const svgSheet = (summer=true) => `<svg viewBox="-720 -640 1440 700" preserveAspectRatio="xMidYMid meet">${figure(-460,0,.95,'front',{summer})}${figure(0,0,.95,'side',{summer})}${figure(460,0,.95,'back',{summer})}</svg>`;
+const svgFront = (summer=true) => `<svg viewBox="-300 -640 600 700" preserveAspectRatio="xMidYMid meet">${figure(0,0,1,'front',{summer})}</svg>`;
+const svgModel = (o={}) => `<svg viewBox="-330 -660 660 720" preserveAspectRatio="xMidYMid meet">${CLAY}${figure(0,0,1,'front',{summer:o.summer!==false,clay:true,ghost:o.ghost})}${o.skel ? skeleton(0,0,1,o.w||4) : ''}</svg>`;
+const svgVideo = () => `<svg viewBox="-720 -640 1440 700" preserveAspectRatio="xMidYMid meet">${figure(-300,0,.95,'front')}${figure(300,0,.95,'side')}<circle cx="0" cy="-280" r="90" fill="rgb(0 0 0/.6)"/><path d="M-30 -330 L45 -280 L-30 -230 Z" fill="#f3f3f0"/></svg>`;
+const svgMoods = () => `<svg viewBox="0 0 90 90">${[0,1,2,3].map(i=>`<g transform="translate(${(i%2)*45+22} ${Math.floor(i/2)*45+22})"><circle r="17" fill="#4f5747"/><circle cx="-6" cy="-3" r="2.5" fill="#b4ff32"/><circle cx="6" cy="-3" r="2.5" fill="#b4ff32"/><path d="M-6 6 q6 ${i%2?-4:4} 12 0" stroke="#e8eae2" stroke-width="2" fill="none"/></g>`).join('')}</svg>`;
+const svgCrow = () => `<svg viewBox="-60 -70 120 100">${CLAY}<g filter="url(#clay)"><ellipse cx="0" cy="12" rx="40" ry="7" fill="rgb(0 0 0/.5)"/><path d="M-30 5 C-35 -30 0 -55 25 -35 L45 -40 L30 -25 C35 -5 20 10 -30 5 Z" fill="#4f5747"/><circle cx="18" cy="-33" r="3" fill="#b4ff32"/></g></svg>`;
+const genPic = (out, st='') => `<svg viewBox="0 0 120 120" style="${st}"><g transform="translate(25 51) scale(.62)">${[0,1,2].map(i=>`<circle cx="${i*30}" cy="14" r="9" fill="${i===1?'none':'#4f5747'}" stroke="${i===1?'#00d1ff':'none'}" stroke-width="2"/>${i===1?'<circle cx="30" cy="14" r="3" fill="#00d1ff"/>':''}`).join('')}<path d="M9 14h12M39 14h12M69 14h12" stroke="#a7af9b" stroke-width="2"/><rect x="81" y="2" width="24" height="24" rx="3" fill="none" stroke="#9ce327" stroke-width="2"/></g></svg>`;
+
+// ── the bar ──
+function bar(){
+  const canvas = ['new','woven','running','candidates'].includes(STEPS[step]);
+  const lib = STEPS[step] === 'library';
+  const gtab = canvas ? `<button class="on">${gmark(.8)}Katzenpapst → rigged GLB${STEPS[step]==='new' ? ' · new' : ' · v1'}</button>` : '';
+  const path = canvas ? `Katzenpapst › Summer › 3D model › <b>Generator</b>` : lib ? `Cat Pope › <b>Library</b>` : `Cat Pope › Characters › <b>Katzenpapst</b>`;
+  return `<div class="pill"><button class="round" title="Main menu">☰</button><button class="round" title="Home">⌂</button><button title="Library" class="${lib?'on':''}">Library</button></div>
+  <div class="pill"><button class="${canvas||lib?'':'on'}"><span class="face"></span>Katzenpapst</button>${gtab}<button>Cat Pope › Chapter 2</button><button class="round" title="Open from the Library">+</button></div>
+  <div class="middle"><span class="path">${path}</span></div>
+  <div class="pill"><button class="on">Edit</button><button>Play</button></div>
+  <div class="pill"><button>Views</button><button>History</button><button>Publish</button></div>
+  <div class="pill"><button>tilman</button></div>`;
+}
+
+function panel({x, y, w, h, tabs, on, body, right, bottom, solid}){
+  const pos = `${right != null ? `right:${right}` : `left:${x}`};${bottom != null ? `bottom:${bottom}` : `top:${y}`};width:${w};height:${h}`;
+  return `<div class="panel ${solid?'solid':''}" style="${pos}"><div class="head"><span class="grip">⋮</span><div class="tabs">${tabs.map(t=>`<button class="tab ${t===on?'on':''}">${t}</button>`).join('')}</div><button class="hb" title="Takes the stage">${ICON.take}</button><button class="hb" title="Fold">${ICON.fold}</button></div><div class="content">${body}</div></div>`;
+}
+
+// ── the character workspace (steps 1, 2, 7, 8) ──
+function workspace(mode){
+  const W = innerWidth, H = innerHeight, r = rem();
+  let stage;
+  if (mode === 'filled' || mode === 'standin'){
+    const st = mode === 'standin' ? yieldState : null;
+    const ghost = st === 'running';
+    const ver = st === 'yielded' ? 'v2' : 'v1';
+    const cx = W * .38, gy = H * .8, s = H / 1250;
+    const sv = `<svg>${CLAY}${figure(cx, gy, s, 'front', {summer:true, clay:true, ghost})}${skeleton(cx, gy, s, 1.6)}</svg>`;
+    stage = `<div class="s3d"><div class="floor"></div><div class="horizon"></div></div><div class="art">${sv}</div>
+      <span class="tag ${mode==='standin'?'c':''}" style="left:${cx - 7*r}px;top:${gy + 1.2*r}px">3D model · ${ver} · ${mode==='standin' ? (st==='running' ? 'run 5 · 1:12 – v1 shows meanwhile' : st==='waiting' ? 'from run 4' : 'from run 5') : 'from run 3 · take 2'}</span>
+      <span class="tag" style="left:${cx + 9*r}px;top:${gy - 30*r}px">46 bones · the deck takes 48 ✓</span>`;
+  } else {
+    stage = `<div class="ground2d"></div><div class="art">${svgSheet()}</div><span class="tag" style="left:${W*.42 - 9*r}px;top:${H*.86}px">Katzenpapst · Regular · Summer · sheet v3</span>`;
+  }
+  // the section panel (variant A of characters.html), Looks in front
+  const looks = ['Cassock','Summer','Night mass'];
+  let slot3d;
+  if (mode === 'filled'){
+    slot3d = `<button class="slot"><div class="pv">${svgModel({skel:true,w:6})}<span class="chip corner">GLB · v1</span></div><span>3D model</span></button>`;
+  } else if (mode === 'standin'){
+    const st = yieldState;
+    const chip = st === 'waiting' ? '<span class="chip corner2">waiting</span>' : st === 'running' ? '<span class="chip c corner2">running · 62 %</span>' : '<span class="chip ok corner2">yielded v2</span>';
+    slot3d = `<button class="slot"><div class="pv gen">${st === 'running' ? svgModel({ghost:true}) : svgModel({})}<span class="chip c corner">generator · v2</span>${chip}</div><span>3D model</span></button>`;
+  } else {
+    slot3d = `<button class="slot"><div class="pv empty picking">picking…</div><span>3D model · takes GLB</span></button>`;
+  }
+  let prov = '';
+  if (mode === 'filled') prov = `<div class="prov" style="margin-top:.7rem"><b>katzenpapst_regular-summer.glb</b> · v1 · 46 bones<br>from: generator <b>Katzenpapst → rigged GLB v1</b>, run 3 · take 2<br>picked by hand · tilman · 22 Nov 21:08</div>
+      <div style="display:flex;gap:.4rem;margin-top:.6rem"><button class="btn">${gmark(.7)} Open the run</button><button class="btn q">Replace…</button></div>`;
+  if (mode === 'standin'){
+    const st = yieldState;
+    const stRow = `<div class="seg" style="margin:.2rem 0">${YIELDS.map(y=>`<button class="${y===st?'on':''}" data-yield="${y}">${y==='yielded'?'yielded v2':y}</button>`).join('')}</div>`;
+    prov = `<div class="prov" style="margin-top:.7rem"><b>Katzenpapst → rigged GLB</b> · v2 · stands in for the asset</div>
+      <div class="kv" style="margin-top:.5rem"><span class="label">Yields</span><span class="ro locked">automated – the output becomes the asset</span>
+      <span class="label">On</span><span class="ro"><span class="mk ours" style="display:inline-block"></span>sheet changed <span class="muted" style="margin-left:auto;font-size:var(--label)">job signal</span></span>
+      <span class="label">State</span><span>${stRow}</span>
+      <span class="label">Asset</span><span class="prov">${st==='yielded' ? '<b>v2</b> from run 5 · 21:14 · <span style="color:var(--warn)">not looked at yet</span>' : st==='running' ? 'run 5 started 21:13 (sheet v4 saved) · v1 holds' : '<b>v1</b> from run 4 · waits for the sheet'}</span></div>
+      <div style="display:flex;gap:.4rem;margin-top:.6rem">${st==='yielded' ? '<button class="btn">Keep v1</button>' : ''}<button class="btn">${gmark(.7)} Open the generator</button><button class="btn q">Run now</button></div>`;
+  }
+  const body = `<div class="group"><span class="label">Persona</span><span class="sp"></span><span class="chip">Regular</span></div>
+    <div class="seg" style="margin:0 .1rem .7rem">${looks.map(l=>`<button class="${l==='Summer'?'on':''}">${l}</button>`).join('')}</div>
+    <div class="slots"><button class="slot"><div class="pv">${svgFront()}<span class="chip corner">PNG · v3</span></div><span>Sheet</span></button>${slot3d}</div>${prov}`;
+  const p = panel({...(mode === 'pick' ? {x:'1rem'} : {right:'1rem'}), y:'calc(var(--top) + .4rem)', w:'26rem', h: mode==='standin' ? '38rem' : mode==='filled' ? '30rem' : '27rem', tabs:['Kanon','Looks','Rig','Voice','Generations'], on:'Looks', body});
+  return stage + p;
+}
+
+// ── the pick (steps 1, 2) ──
+function picker(mode){
+  const create = mode === 'create';
+  const scope = create ? 'Katzenpapst' : 'Cat Pope';
+  const T = (o) => `<button class="tile ${o.mis?'mis':''} ${o.sel?'sel':''} ${o.gen?'gen':''} ${o.stack?'stack':''}" title="${o.mis ? o.why : 'Fits the slot'}">
+      <div class="pv">${o.pic}${o.chip ? `<span class="chip ${o.gen?'c':''} corner">${o.chip}</span>` : ''}${o.out ? `<span class="chip corner2" style="${o.mis?'':'color:var(--primary-line);box-shadow:0 0 0 1px var(--primary-line)'}">out · ${o.out}</span>` : ''}</div>
+      <span class="nm">${o.name}</span>${o.mis ? `<span class="why">${o.why}</span>` : `<span class="m">${o.meta}</span>`}</button>`;
+  const assetsAll = [
+    {name:'katzenpapst_regular-cassock.glb', meta:'v3 · 46 bones · Cassock', pic:svgModel({summer:false}), chip:'GLB', stack:true, sel:false},
+    {name:'feilchen_base.glb', meta:'v1 · 38 bones · Feilchen', pic:svgCrow(), chip:'GLB'},
+    {name:'crow_rig.glb', mis:true, why:'Rigged with 61 bones – the deck takes 48.', pic:svgCrow(), chip:'GLB'},
+    {name:'katzenpapst_turnaround.mp4', mis:true, why:'An MP4 video – this slot takes a GLB model.', pic:svgVideo(), chip:'MP4'},
+    {name:'katzenpapst_regular-summer.png', mis:true, why:'A PNG picture – this slot takes a GLB model.', pic:svgSheet(), chip:'PNG'}];
+  const gensAll = [
+    {name:'Character → rigged GLB', meta:'Feilchen · v2 · 7 spores · used in 2 slots', pic:genPic('GLB'), chip:'generator', out:'GLB rigged', gen:true, stack:true, sel:!create},
+    {name:'Sheet → turnaround', mis:true, why:'Its output spore is MP4 – this slot takes a GLB model.', pic:genPic('MP4'), chip:'generator', out:'MP4', gen:true},
+    {name:'Moods from the Kanon', mis:true, why:'Its output spore is PNG ×14 – this slot takes a GLB model.', pic:genPic('PNG'), chip:'generator', out:'PNG ×14', gen:true}];
+  const assets = create ? assetsAll.slice(3) : assetsAll;
+  const gens = create ? gensAll.slice(1) : gensAll;
+  const none = create ? `<div class="none">${gmark(1.6)}<div><div class="big">Nothing here takes a rigged GLB.</div><div class="muted">Create new: a spore generator that starts with a <b style="font-weight:400;color:var(--text)">GLB output spore</b> (rigged, ≤ 48 bones) and the Summer sheet woven in.</div></div><span class="sp"></span><button class="btn primary">Create new</button></div>` : '';
+  return `<div class="scrim"></div><div class="drawer">
+    <div class="dh"><span class="t">Pick for <b style="font-weight:400">Katzenpapst · Summer · 3D model</b></span><span class="sp"></span><button class="hb" title="Close (Esc)">${ICON.close}</button></div>
+    <div class="dtools"><span class="label">takes</span><span class="chip c">GLB</span><span class="chip c">rigged</span><span class="chip c">≤ 48 bones</span><span class="muted" style="font-size:var(--label)">– the core's <code>takes</code>, the same for assets and generators</span></div>
+    <div class="dtools"><div class="seg">${['Katzenpapst','Cat Pope','All'].map(s=>`<button class="${s===scope?'on':''}">${s}</button>`).join('')}</div>
+      <div class="search">${ICON.search}${create ? '<b>summer</b>' : 'Search the Library'}</div>
+      <div class="seg"><button class="on">Both</button><button>Assets</button><button>Generators</button></div></div>
+    <div class="dbody">${none}
+      <div class="group"><span class="label">Assets</span><span class="sp"></span><span class="muted" style="font-size:var(--label)">${create ? '0 of 2 fit' : '2 of 5 fit'}</span></div>
+      <div class="tiles">${assets.map(T).join('')}</div>
+      <div class="group" style="margin-top:1.2rem">${gmark(.8)}<span class="label">Spore generators</span><span class="sp"></span><span class="muted" style="font-size:var(--label)">${create ? '0 of 2 fit' : '1 of 3 fits · the output spore decides'}</span></div>
+      <div class="tiles">${gens.map(T).join('')}</div>
+    </div>
+    <div class="dfoot"><button class="btn">${ICON.up} Upload…</button>${create ? '' : `<button class="btn">${gmark(.7)} Create new…</button>`}<span class="sp"></span>
+      ${create ? '' : `<span class="muted" style="font-size:var(--small)">Character → rigged GLB stands in until it yields</span><button class="btn primary">Pick the generator</button>`}</div>
+  </div>`;
+}
+
+// ── the spore canvas (steps 3–6) ──
+function io(sid, list, dir){ return list.map(p => `<span class="io ${dir}">${dir==='o' ? p.label : ''}<i class="d ${p.t}" data-d="${sid}.${dir}.${p.id}"></i>${dir==='i' ? p.label : ''}</span>`).join(''); }
+function spore(o){
+  const cls = ['spore', o.kind === 'out' ? 'out' : '', o.sel ? 'sel' : '', o.state || ''].join(' ');
+  const st = o.state === 'done' ? `<span class="st ok">✓ ${o.time||''}</span>` : o.state === 'run' ? `<span class="st on">${o.time||''}</span>` : o.state === 'wait' ? '<span class="st">waiting</span>' : (o.st ? `<span class="st">${o.st}</span>` : '');
+  const tag = {gen:'gen ai', ours:'ours', out:'output'}[o.kind];
+  return `<div class="${cls}" id="sp-${o.id}" style="left:${o.x}%;top:${o.y}%;${o.w ? `width:${o.w}rem` : ''}">
+    <div class="sh"><span class="mk ${o.kind}"></span><span class="label">${tag}</span><span class="sp"></span>${st}</div>
+    <div class="nm">${o.name}</div>${o.sub ? `<div class="sub">${o.sub}</div>` : ''}
+    ${o.pic ? `<div class="pic">${o.pic}</div>` : ''}
+    ${o.prog != null ? `<div class="prog"><i style="width:${o.prog}%"></i></div><div class="sub" style="color:var(--accent)">${o.progText}</div>` : ''}
+    <div class="ios">${io(o.id, o.ins || [], 'i')}${io(o.id, o.outs || [], 'o')}</div>
+    ${o.fit ? `<div class="fit">${o.fit}</div>` : ''}</div>`;
+}
+const X = (i) => 1.6 + i * 13.9;
+function canvas(mode){
+  const isNew = mode === 'new', run = mode === 'running', cand = mode === 'candidates';
+  const done = (id) => run ? ['src','crop','up','kanon'].includes(id) : cand;
+  const state = (id) => (run || cand) ? (done(id) ? 'done' : run && id === 'img3d' ? 'run' : run ? 'wait' : '') : '';
+  const T = {src:'0:00', crop:'0:01', up:'0:09', img3d:'2:41', kanon:'0:00', rig:'0:38', cond:'0:01', out:''};
+  const sp = [];
+  const outFit = `fits <b>Katzenpapst · Summer · 3D model</b><br>GLB · rigged · ≤ 48 bones – set by the slot`;
+  if (isNew){
+    sp.push({id:'src', kind:'ours', tag:'library', name:'Summer · front sheet', sub:'Katzenpapst · sheet v3 · PNG', pic:svgSheet(), x:12, y:26, outs:[{id:'img',label:'image',t:'pore'}]});
+    sp.push({id:'out', kind:'out', tag:'GLB', name:'Rigged model', sub:'the slot\'s required output', x:70, y:26, sel:true, w:13, ins:[{id:'model',label:'rigged model',t:'pore'}], fit:outFit});
+  } else {
+    const st = (id) => ({state:state(id), time: state(id)==='run' ? '62 %' : state(id)==='done' ? T[id] : '', progText:'take 2 of 3 · 1:12'});
+    sp.push({id:'src', kind:'ours', tag:'library', name:'Summer · front sheet', sub:'Katzenpapst · sheet v3', pic:svgSheet(), x:X(0), y:20, ins:[], outs:[{id:'img',label:'image',t:'pore'}], ...st('src')});
+    sp.push({id:'crop', kind:'ours', tag:'crop / pose', name:'Front A-pose', sub:'crop 1 of 3 · square', pic:svgFront(), x:X(1), y:20, ins:[{id:'img',label:'image',t:'pore'}], outs:[{id:'img',label:'image',t:'pore'}], ...st('crop')});
+    sp.push({id:'up', kind:'gen', tag:'upscale', name:'Upscale 2×', sub:'driver: local GPU', x:X(2), y:20, ins:[{id:'img',label:'image',t:'pore'}], outs:[{id:'img',label:'image',t:'pore'}], ...st('up')});
+    sp.push({id:'img3d', kind:'gen', tag:'image → 3D', name:'Image → 3D', sub:'driver: local GPU · TripoSR', x:X(3), y:20, sel: mode==='woven', prog: run ? 62 : null, ins:[{id:'img',label:'image',t:'pore'},{id:'prompt',label:'prompt',t:'port'}], outs:[{id:'mesh',label:'mesh',t:'pore'}], ...st('img3d')});
+    sp.push({id:'rig', kind:'gen', tag:'auto-rig', name:'Auto-rig', sub:'figures.js joints', x:X(4), y:20, ins:[{id:'mesh',label:'mesh',t:'pore'}], outs:[{id:'model',label:'rigged model',t:'pore'}], ...st('rig')});
+    sp.push({id:'cond', kind:'ours', tag:'condition', name:'≤ 48 bones', sub:'joint names · feet on the floor', x:X(5), y:20, ins:[{id:'model',label:'model',t:'pore'}], outs:[{id:'model',label:'passes',t:'pore'},{id:'fail',label:'fails',t:'port'}], ...st('cond')});
+    sp.push({id:'out', kind:'out', tag:'GLB', name:'Rigged model', sub: cand ? '3 takes · 1 fails' : 'the slot\'s required output', x:X(6), y:20, sel:cand, ins:[{id:'model',label:'rigged model',t:'pore'}], fit:outFit.replace('<br>',' · '), ...st('out')});
+    sp.push({id:'kanon', kind:'ours', tag:'kanon', name:'Look: Summer', sub:'"straw hat, light robe, sandals"', x:X(1) + 6.5, y:52, outs:[{id:'text',label:'text',t:'port'}], ...st('kanon')});
+  }
+  const E = isNew ? [] : [
+    ['src.img','crop.img','pore'],['crop.img','up.img','pore'],['up.img','img3d.img','pore'],['kanon.text','img3d.prompt','port'],
+    ['img3d.mesh','rig.mesh','pore'],['rig.model','cond.model','pore'],['cond.model','out.model','pore']];
+  const hotUpTo = run ? ['src','crop','up','kanon'] : cand ? ['src','crop','up','kanon','img3d','rig','cond'] : [];
+  const flowInto = run ? 'img3d' : null;
+  window.EDGES = E.map(([a,b,t]) => ({a, b, t, hot: hotUpTo.includes(a.split('.')[0]), flow: b.startsWith(flowInto + '.')}));
+  let extra = '';
+  if (isNew){
+    window.EDGES = [{a:'src.img', b:'@plus', t:'pore', ghost:true}, {a:'@plus', b:'out.model', t:'pore', ghost:true}];
+    extra += `<button class="plus" id="plus" style="left:47%;top:38%" title="Weave a spore">＋</button>`;
+    extra += `<div class="menu" style="left:calc(47% - 12rem);top:calc(38% + 2rem)"><div class="search">${ICON.search}<span>Weave toward <b>image → rigged model</b>…</span></div>
+      <div class="mcols"><div><div class="mh label">Ours</div>${[['Library source',''],['Crop / pose','image'],['Kanon text','text'],['Condition','check'],['Signal','job']].map(([n,k])=>`<div class="mrow"><span class="mk ours"></span>${n}<span class="n">${k}</span></div>`).join('')}</div>
+      <div><div class="mh label">Gen AI</div>${[['image → 3D','mesh',1],['auto-rig','rig'],['upscale','image'],['text → image','image'],['image → video','video']].map(([n,k,s])=>`<div class="mrow ${s?'sel':''}"><span class="mk gen"></span>${n}<span class="n">${k}</span></div>`).join('')}</div></div>
+      <div class="muted" style="font-size:var(--label);padding:0 .75rem .6rem">The ones that lead toward the output's rigged model come first.</div></div>`;
+  }
+  if (cand){
+    const c = (i, o) => `<div class="cand ${o.sel?'sel':''} ${o.mis?'mis':''}"><div class="pv">${svgModel({skel:o.skel, w:5})}</div><b>take ${i}</b>${o.mis ? `<span class="why">${o.why}</span>` : `<span>${o.m}</span>`}</div>`;
+    extra += `<div class="cands" style="right:calc(100% - ${X(6)}% - 10.8rem);top:calc(20% + 13.5rem)">${c(1,{m:'44 bones ✓ · 9.8k tris'})}${c(2,{m:'46 bones ✓ · 12k tris',sel:true,skel:true})}${c(3,{mis:true,why:'61 bones – the deck takes 48.'})}</div>`;
+    extra += `<div class="assign pill" style="right:calc(100% - ${X(6)}% - 10.8rem);top:calc(20% + 25.2rem)"><button>Again</button><button class="go">Assign take 2 to the slot</button></div>`;
+  }
+  // the panel: the selected spore's settings, or the runs
+  let tabs = ['Spore','Runs','Generator'], on = 'Spore', body;
+  if (isNew){
+    body = `<div class="group"><span class="mk out"></span><span>Output · Rigged model</span><span class="sp"></span><span class="chip" style="color:var(--primary-line);box-shadow:0 0 0 1px var(--primary-line)">output</span></div>
+      <div class="kv"><span class="label">Format</span><span class="ro locked">GLB – set by the slot 🔒</span>
+      <span class="label">Kind</span><span class="ro locked">rigged model · ≤ 48 bones</span>
+      <span class="label">Lands in</span><span class="ro">Katzenpapst · Summer · 3D model</span>
+      <span class="label">Yields</span><span><span class="seg"><button class="on">by hand – pick one</button><button>automated</button></span></span></div>
+      <p class="muted" style="font-size:var(--label);margin:.7rem .1rem 0">The output spore defines the fit: the core checks it with the slot's <code>takes</code>, as for an asset.</p>`;
+  } else if (mode === 'woven'){
+    body = `<div class="group"><span class="mk gen"></span><span>Image → 3D</span><span class="sp"></span><span class="chip c">gen ai</span></div>
+      <div class="kv"><span class="label">Driver</span><div>${[['local GPU · TripoSR','free',1],['local GPU · Hunyuan3D-2 mini','free'],['local GPU · InstantMesh','free'],['a service, by key','budget gate'],['by hand','copy out, drop the GLB back']].map(([n,k,s])=>`<div class="opt ${s?'sel':''}"><span class="r"></span>${n}<span class="n">${k}</span></div>`).join('')}</div>
+      <span class="label">Prompt</span><span class="ro"><i class="d" style="display:inline-block;width:.55rem;height:.55rem;border:1.5px solid var(--muted);transform:rotate(45deg)"></i>woven from Kanon · Look: Summer</span>
+      <span class="label">Takes</span><span class="ro">3</span>
+      <span class="label">Licence</span><span class="ro locked">noted on the record, not blocking</span></div>`;
+  } else {
+    on = 'Runs';
+    const r3 = run ? `<div class="runrow sel"><span class="mk gen"></span>Run 3 · by hand · 3 takes<span class="n">running · 2:41</span></div><div style="padding:.2rem .5rem .5rem"><div class="prog"><i style="width:55%"></i></div><div class="muted" style="font-size:var(--label);margin-top:.3rem">image → 3D · take 2 of 3 · local GPU · the run belongs to the driver – close the tab, it goes on</div></div>`
+      : `<div class="runrow sel"><span class="mk out"></span>Run 3 · by hand · 3 takes<span class="n">done · 2 fit · 1 fails</span></div>`;
+    body = `${r3}<div class="runrow"><span class="mk ours"></span>Run 2 · by hand<span class="n">cancelled · 21:01</span></div>
+      <div class="runrow"><span class="mk ours"></span>Run 1 · by hand · 1 take<span class="n">fails · 61 bones</span></div>
+      <p class="muted" style="font-size:var(--label);margin:.7rem .5rem 0">Every run is a generation record: the generator and its version, the spores' drivers and models, the takes, the cost and who started it.</p>`;
+  }
+  const pnl = panel({right:'1rem', bottom:'1rem', w:'27rem', h: isNew || mode === 'woven' ? '21rem' : '15rem', tabs, on, body});
+  const runBtn = isNew ? `<button class="go" disabled>${ICON.play} Run</button>` : run ? `<button class="on">■ Stop run 3</button>` : `<button class="go">${ICON.play} Run · 3 takes</button>`;
+  const fp = `<div class="pill floatpill">${runBtn}<span class="sep"></span><span class="lab">yields</span><button class="on">by hand</button><button>automated</button><span class="sep"></span><button>＋ Weave a spore</button><button class="round" title="Fit the weave">${ICON.fitv}</button></div>`;
+  return `<div class="weave"></div><svg id="wires"></svg>${sp.map(spore).join('')}${extra}${pnl}${fp}`;
+}
+
+// ── the Library (step 9) ──
+function library(){
+  const T = (o) => `<button class="tile ${o.sel?'sel':''} ${o.gen?'gen':''} ${o.stack?'stack':''}"><div class="pv">${o.pic}<span class="chip ${o.gen?'c':''} corner">${o.chip}</span>${o.out ? `<span class="chip corner2" style="color:var(--primary-line);box-shadow:0 0 0 1px var(--primary-line)">out · ${o.out}</span>` : ''}</div><span class="nm">${o.name}</span><span class="m">${o.meta}</span></button>`;
+  const tiles = [
+    {name:'Katzenpapst → rigged GLB', meta:'v2 · 7 spores · used in 2 slots', pic:genPic('GLB'), chip:'generator', out:'GLB rigged', gen:true, stack:true, sel:true},
+    {name:'Character → rigged GLB', meta:'Feilchen · v2 · used in 1 slot', pic:genPic('GLB'), chip:'generator', out:'GLB rigged', gen:true, stack:true},
+    {name:'Sheet → turnaround', meta:'v1 · used in 0 slots', pic:genPic('MP4'), chip:'generator', out:'MP4', gen:true},
+    {name:'katzenpapst_regular-summer.glb', meta:'v2 · from generator, run 5', pic:svgModel({}), chip:'GLB', stack:true},
+    {name:'katzenpapst_regular-summer.png', meta:'sheet · v4', pic:svgSheet(), chip:'PNG', stack:true},
+    {name:'katzenpapst_regular-cassock.glb', meta:'v3 · 46 bones', pic:svgModel({summer:false}), chip:'GLB', stack:true},
+    {name:'katzenpapst_turnaround.mp4', meta:'v1 · 0:12', pic:svgVideo(), chip:'MP4'},
+    {name:'Moods from the Kanon', meta:'v1 · used in 14 slots', pic:genPic('PNG'), chip:'generator', out:'PNG ×14', gen:true}];
+  const places = `<div class="group"><span class="label">Scope</span></div>${['Katzenpapst','Cat Pope','All'].map((s,i)=>`<div class="opt ${i===1?'sel':''}">${s}</div>`).join('')}
+    <div class="group"><span class="label">Kinds</span></div>${[['Pictures',212],['Models',9],['Video',31],['Sound',48],['Spore generators',4]].map(([s,n])=>`<div class="opt ${s==='Spore generators'?'':''}">${s==='Spore generators'?gmark(.7):''}${s}<span class="n">${n}</span></div>`).join('')}`;
+  const det = `<div style="height:9rem;border-radius:var(--radius);overflow:hidden;background:var(--stage);box-shadow:0 0 0 1px var(--line);position:relative">${genPic('GLB','position:absolute;inset:0;width:100%;height:100%')}</div>
+    <div style="font-size:var(--title);margin:.7rem 0 .1rem">Katzenpapst → rigged GLB</div>
+    <div class="muted" style="font-size:var(--small)">Spore generator · Cat Pope · tilman</div>
+    <div class="kv" style="margin-top:.6rem"><span class="label">Output</span><span><span class="chip" style="color:var(--primary-line);box-shadow:0 0 0 1px var(--primary-line)">GLB · rigged · ≤ 48 bones</span></span>
+    <span class="label">Spores</span><span class="prov">Library · crop / pose · upscale · image → 3D · auto-rig · condition · signal → output</span></div>
+    <div class="group" style="margin-top:1rem"><span class="label">Versions</span></div>
+    <div class="runrow sel">v2 · + signal "sheet changed", automated<span class="n">22 Nov · current</span></div>
+    <div class="runrow">v1 · by hand · 6 spores + output<span class="n">22 Nov</span></div>
+    <div class="group" style="margin-top:1rem"><span class="label">Used in · the slots that hold it</span></div>
+    <div class="runrow">${gmark(.6)}Katzenpapst · Summer · 3D model<span class="n">v2 · stand-in · automated</span></div>
+    <div class="runrow"><span class="mk out"></span>Katzenpapst · Summer · 3D model (before)<span class="n">v1 · run 3 picked</span></div>
+    <div class="group" style="margin-top:1rem"><span class="label">Runs</span><span class="sp"></span><span class="muted" style="font-size:var(--label)">5 · last yielded v2 at 21:14</span></div>
+    <div style="display:flex;gap:.4rem;margin-top:.8rem"><button class="btn">Duplicate</button><span style="flex:1"></span><button class="btn primary">Open in the spore canvas</button></div>`;
+  const body = `<div style="display:grid;grid-template-columns:13rem 1fr 25rem;gap:1.2rem;height:100%">
+    <div>${places}</div>
+    <div style="overflow:auto"><div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem"><div class="search">${ICON.search}Search the Library</div><div class="seg"><button class="on">Both</button><button>Assets</button><button>Generators</button></div></div>
+      <div class="group"><span class="label">Katzenpapst</span><span class="sp"></span><span class="muted" style="font-size:var(--label)">generators sit among the assets, a kind of their own</span></div>
+      <div class="tiles">${tiles.map(T).join('')}</div></div>
+    <div style="overflow:auto">${det}</div></div>`;
+  return `<div class="weave" style="background-image:none"></div>` + panel({x:'1rem', y:'calc(var(--top) + .4rem)', w:'calc(100% - 2rem)', h:'calc(100% - var(--top) - 1.4rem)', tabs:['Library','History','Wanted'], on:'Library', body, solid:true});
+}
+
+// ── wires: drawn from the pores' and ports' places after layout ──
+function wires(){
+  const svg = document.getElementById('wires'); if (!svg || !window.EDGES) return;
+  const key = (k, dir) => k === '@plus' ? k : k.replace('.', `.${dir}.`);
+  const at = (k) => { const el = k === '@plus' ? document.getElementById('plus') : document.querySelector(`[data-d="${k}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return [r.left + r.width/2, r.top + r.height/2]; };
+  let s = '';
+  for (const e of window.EDGES){
+    const ka = key(e.a, 'o'), kb = key(e.b, 'i');
+    const a = at(ka), b = at(kb); if (!a || !b) continue;
+    const dx = Math.max(50, Math.abs(b[0] - a[0]) / 2);
+    const d = `M${a[0]},${a[1]} C${a[0]+dx},${a[1]} ${b[0]-dx},${b[1]} ${b[0]},${b[1]}`;
+    s += `<path d="${d}" class="${e.t} ${e.hot?'hot':''} ${e.ghost?'ghost':''}"/>`;
+    if (e.flow) s += `<path d="${d}" class="flow"/>`;
+    for (const k of [ka, kb]){ const el = document.querySelector(`[data-d="${k}"]`); if (el) el.classList.add(e.hot ? 'hot' : 'linked'); }
+  }
+  svg.innerHTML = s;
+}
+
+function notes(){
+  const n = document.getElementById('notes');
+  const k = STEPS[step];
+  n.className = 'notes' + (quiet ? ' min' : '');
+  n.innerHTML = `<h3><span class="label">Step ${step+1} / 9</span><span>${TITLES[k]}</span><span class="sp"></span><button class="btn q" data-nav="-1" title="Back (←)">‹</button><button class="btn q" data-nav="1" title="Next (→)">›</button><button class="btn q" data-quiet title="Fold the notes (N)">${quiet ? '+' : '–'}</button></h3>
+    <div class="more">${NOTES[k]}<div class="steps">${STEPS.map((s,i)=>`<button class="${i===step?'on':''}" data-step="${i}" title="${TITLES[s]}">${i+1}</button>`).join('')}</div>
+    <p class="muted" style="font-size:var(--label);margin-top:.5rem">Draft notes, not part of the design · <kbd>←</kbd> <kbd>→</kbd> <kbd>1–9</kbd> steps · <kbd>R</kbd> stand-in state · <kbd>T</kbd> day / night · <kbd>N</kbd> notes</p></div>`;
+}
+
+function render(){
+  const k = STEPS[step];
+  document.getElementById('bar').innerHTML = bar();
+  const stage = document.getElementById('stage'), over = document.getElementById('over');
+  window.EDGES = null; over.innerHTML = '';
+  if (k === 'picker' || k === 'create'){ stage.innerHTML = workspace('pick'); over.innerHTML = picker(k); }
+  else if (k === 'filled' || k === 'standin') stage.innerHTML = workspace(k);
+  else if (k === 'library') stage.innerHTML = library();
+  else stage.innerHTML = canvas(k);
+  notes();
+  requestAnimationFrame(wires);
+  const u = new URL(location.href); u.searchParams.set('step', step + 1); history.replaceState(null, '', u);
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-nav],[data-step],[data-quiet],[data-yield]'); if (!t) return;
+  if (t.dataset.nav) step = Math.max(0, Math.min(8, step + +t.dataset.nav));
+  else if (t.dataset.step) step = +t.dataset.step;
+  else if (t.dataset.yield) yieldState = t.dataset.yield;
+  else quiet = !quiet;
+  render();
+});
+document.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowright') step = Math.min(8, step + 1);
+  else if (k === 'arrowleft') step = Math.max(0, step - 1);
+  else if (/^[1-9]$/.test(k)) step = +k - 1;
+  else if (k === 'r') yieldState = YIELDS[(YIELDS.indexOf(yieldState) + 1) % 3];
+  else if (k === 't'){ const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'day' ? 'night' : 'day'; }
+  else if (k === 'n') quiet = !quiet;
+  else return;
+  render();
+});
+addEventListener('resize', render);
+render();
+</script>
+</body>
+</html>
