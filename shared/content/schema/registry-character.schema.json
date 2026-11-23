@@ -122,6 +122,10 @@
 				"body": {
 					"$ref": "#/definitions/PersonaBody",
 					"description": "the body preset for the 3D fallback (which mannequin): `more-legs` (four or more), `wings`; none = two legs"
+				},
+				"animations": {
+					"$ref": "#/definitions/PersonaAnimations",
+					"description": "what its 3D model plays (#817); none = the model's own first clip"
 				}
 			},
 			"required": [
@@ -281,6 +285,29 @@
 				"more-legs",
 				"wings"
 			]
+		},
+		"PersonaAnimations": {
+			"type": "object",
+			"properties": {
+				"idle": {
+					"$ref": "#/definitions/PersonaAnimation",
+					"description": "what it plays when it stands"
+				}
+			},
+			"description": "A persona's animations (#817): each names a shared animation of the library (`animation`: a .glb path in an `animations/` folder, played on the model's joints of the same name) or a clip of its own model by name (`clip`) – one of the two. Whether it fits the model is the core's (deck-catalog's `FitCheck`), checked when saved."
+		},
+		"PersonaAnimation": {
+			"type": "object",
+			"properties": {
+				"animation": {
+					"type": "string",
+					"description": "a library animation, CDN path from the CDN root"
+				},
+				"clip": {
+					"type": "string",
+					"description": "a clip of the persona's own model, by name"
+				}
+			}
 		}
 	}
 }

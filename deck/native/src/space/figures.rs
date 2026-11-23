@@ -24,6 +24,8 @@ pub fn loaders(sync: Option<&crate::sync::DeckSync>, faces: &Path) -> (Portraits
             let wait = y.clone();
             let models = figure::Arriving { dir: figure::LocalDir(dir), wait: move |c: &str| {
                 wait.wait(crate::sync::Want::Model { character: c.to_string() }, FIGURE_WAIT);
+                // #817: its idle (a library animation) – settled at once when the answer names none
+                wait.wait(crate::sync::Want::Idle { character: c.to_string() }, FIGURE_WAIT);
             } };
             (Portraits::new(Box::new(p)), Figures::new(Box::new(models)))
         }

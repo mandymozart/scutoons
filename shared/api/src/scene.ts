@@ -67,6 +67,8 @@ export type Holder = {
 	arrange?: Arrange | null;
 	/** where it stands from its spot, metres (x across, y up, z deep): a member moved on the stage */
 	at?: [number, number, number] | null;
+	/** character's idle – a name the file lacks is named at load (figure.rs `choose`) and the model plays its own */
+	clip?: string | null;
 	/** `start` (the default): on stage when the scene starts; `join`: waits for the story (`joinScene`, SCENES.md §9.4) */
 	enter?: Enter;
 	/** a placeholder's filter – or `ref` */

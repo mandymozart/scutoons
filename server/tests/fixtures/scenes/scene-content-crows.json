@@ -17,7 +17,9 @@
             "model": {
                 "path": "characters/crow-wolf/crow-wolf-regular.glb",
                 "size": null
-            }
+            },
+            "idle": null,
+            "clip": null
         },
         "crow-lizard": {
             "character": "crow-lizard",
@@ -34,7 +36,9 @@
             "model": {
                 "path": "characters/crow-lizard/crow-lizard.glb",
                 "size": null
-            }
+            },
+            "idle": null,
+            "clip": null
         },
         "crow-fox": {
             "character": "crow-fox",
@@ -51,7 +55,9 @@
             "model": {
                 "path": "characters/crow-fox/crow-fox-regular.glb",
                 "size": null
-            }
+            },
+            "idle": null,
+            "clip": null
         }
     },
     "items": {},

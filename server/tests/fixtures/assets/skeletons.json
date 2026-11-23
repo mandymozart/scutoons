@@ -1,0 +1,186 @@
+{
+  "cases": [
+    {
+      "name": "a mixamo animation's skeleton",
+      "problems": [],
+      "request": {
+        "document": {
+          "animated": [
+            "mixamorig:Hips",
+            "mixamorig:Spine"
+          ],
+          "family": "mixamo",
+          "joints": [
+            "mixamorig:Hips",
+            "mixamorig:Spine",
+            "mixamorig:Neck",
+            "mixamorig:Head",
+            "mixamorig:LeftArm",
+            "mixamorig:RightArm",
+            "mixamorig:LeftUpLeg",
+            "mixamorig:RightUpLeg"
+          ]
+        },
+        "id": "asset-anim",
+        "kind": "skeleton"
+      }
+    },
+    {
+      "name": "a model without a family",
+      "problems": [],
+      "request": {
+        "document": {
+          "joints": [
+            "root",
+            "upper",
+            "lower"
+          ]
+        },
+        "id": "asset-model",
+        "kind": "skeleton"
+      }
+    },
+    {
+      "name": "a skeleton that hides its family",
+      "problems": [
+        "skeleton of asset asset-anim: the joints are the family 'mixamo' – the skeleton should say so"
+      ],
+      "request": {
+        "document": {
+          "joints": [
+            "mixamorig:Hips",
+            "mixamorig:Spine",
+            "mixamorig:Neck",
+            "mixamorig:Head",
+            "mixamorig:LeftArm",
+            "mixamorig:RightArm",
+            "mixamorig:LeftUpLeg",
+            "mixamorig:RightUpLeg"
+          ]
+        },
+        "id": "asset-anim",
+        "kind": "skeleton"
+      }
+    },
+    {
+      "name": "an idle that fits",
+      "problems": [],
+      "request": {
+        "document": {
+          "animation": {
+            "animated": [
+              "mixamorig:Hips",
+              "mixamorig:Spine"
+            ],
+            "family": "mixamo",
+            "joints": [
+              "mixamorig:Hips",
+              "mixamorig:Spine",
+              "mixamorig:Neck",
+              "mixamorig:Head",
+              "mixamorig:LeftArm",
+              "mixamorig:RightArm",
+              "mixamorig:LeftUpLeg",
+              "mixamorig:RightUpLeg"
+            ]
+          },
+          "model": {
+            "family": "mixamo",
+            "joints": [
+              "mixamorig:Hips",
+              "mixamorig:Spine",
+              "mixamorig:Neck",
+              "mixamorig:Head",
+              "mixamorig:LeftArm",
+              "mixamorig:RightArm",
+              "mixamorig:LeftUpLeg",
+              "mixamorig:RightUpLeg",
+              "tail"
+            ]
+          }
+        },
+        "id": "character:crow-fox/regular",
+        "kind": "animation-fit"
+      }
+    },
+    {
+      "name": "an idle the model lacks joints for",
+      "problems": [
+        "animation of character:crow-fox/regular: the model lacks 1 of the 2 joints the animation turns: mixamorig:Spine"
+      ],
+      "request": {
+        "document": {
+          "animation": {
+            "animated": [
+              "mixamorig:Hips",
+              "mixamorig:Spine"
+            ],
+            "family": "mixamo",
+            "joints": [
+              "mixamorig:Hips",
+              "mixamorig:Spine",
+              "mixamorig:Neck",
+              "mixamorig:Head",
+              "mixamorig:LeftArm",
+              "mixamorig:RightArm",
+              "mixamorig:LeftUpLeg",
+              "mixamorig:RightUpLeg"
+            ]
+          },
+          "model": {
+            "joints": [
+              "mixamorig:Hips",
+              "tail"
+            ]
+          }
+        },
+        "id": "character:crow-fox/regular",
+        "kind": "animation-fit"
+      }
+    },
+    {
+      "name": "an idle clip of the model's own",
+      "problems": [],
+      "request": {
+        "document": {
+          "clip": "walk",
+          "model": {
+            "clips": [
+              "walk",
+              "stand"
+            ],
+            "joints": [
+              "root",
+              "hip"
+            ]
+          }
+        },
+        "id": "character:giantpopstar/regular",
+        "kind": "animation-fit"
+      }
+    },
+    {
+      "name": "an idle clip the model lacks",
+      "problems": [
+        "animation of character:giantpopstar/regular: no clip 'run': the model has walk, stand"
+      ],
+      "request": {
+        "document": {
+          "clip": "run",
+          "model": {
+            "clips": [
+              "walk",
+              "stand"
+            ],
+            "joints": [
+              "root",
+              "hip"
+            ]
+          }
+        },
+        "id": "character:giantpopstar/regular",
+        "kind": "animation-fit"
+      }
+    }
+  ]
+}

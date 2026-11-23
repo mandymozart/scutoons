@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { loadModelFacts } from '@scutoons/live-deck/model';
-	import { provideModelCore } from '$lib/editor/core-model.ts';
+	import { loadIdleProblems, loadModelFacts } from '@scutoons/live-deck/model';
+	import { provideIdleCore, provideModelCore } from '$lib/editor/core-model.ts';
 
-	/** Hands deck-space's reading of a model file (through the deck's wasm) to the 3D place; the wasm loads when it first asks. */
+	/** Hands deck-space's reading of a model file and its idle rule (through the deck's wasm) to the pages; the wasm loads when it first asks. */
 	provideModelCore(() => loadModelFacts('/live/'));
+	provideIdleCore(() => loadIdleProblems('/live/'));
 </script>

@@ -250,6 +250,10 @@ pub struct Holder {
     /// how its member stands (`card`: 2D, `look`: 3D) over what the stage gives (cast.rs `form`); none = the stage's
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub form: Option<crate::cast::Form>,
+    /// #817: the clip its member's 3D model plays, by name (its own model's `walk`, or the idle it adopted); none = its
+    /// character's idle – a name the file lacks is named at load (figure.rs `choose`) and the model plays its own
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<String>,
 }
 
 impl Holder {

@@ -17,10 +17,12 @@ pub mod layer;
 pub mod library;
 pub mod rendition;
 pub mod slot;
+pub mod skeleton;
 pub mod spot;
 mod builtin;
 pub use background::Background;
 pub use layer::Layer;
+pub use skeleton::{Fit, FitCheck, Skeleton};
 pub use spot::{Spot, Spots};
 pub use builtin::builtin_kinds;
 

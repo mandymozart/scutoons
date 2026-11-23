@@ -15,6 +15,8 @@
             "full": {},
             "form": null,
             "model": null,
+            "idle": null,
+            "clip": null,
             "rig": {
                 "id": "character.catpope",
                 "version": "a72eca7ce6c0f563",
@@ -123,6 +125,8 @@
             "full": {},
             "form": null,
             "model": null,
+            "idle": null,
+            "clip": null,
             "rig": null
         },
         "default": {
@@ -133,6 +137,8 @@
             "full": {},
             "form": null,
             "model": null,
+            "idle": null,
+            "clip": null,
             "rig": {
                 "id": "character.default",
                 "version": "c31d01585720b083",
