@@ -84,7 +84,7 @@ No picture of a module open exists for either app. Today there are two editors:
 - **The creator's** (Sound design, `/edit/module:…`): the tabs Parameters · Nodes · Rust · Assignment, the code in the browser, Problems, a Console, Derive, the module heard on the being with its meters and knobs. It still has the old look (a white tab strip).
 - **The deck's** (the Module workspace): a working copy on the machine, the code in your external editor, built by the deck's own compiler, Problems, Parameters as scrub numbers, the module heard alone on the stage, Derive for a factory module.
 
-Decided: modules are edited in the deck. Thought aloud: the creator's editor might have to be removed.
+Decided: modules are edited in the deck. **Your word for the run (2026-11-24, night):** the creator's editor stays as the entry point when a module is opened from the Library; it gets the kit look and nothing is removed (#875). The points below wait for your follow-up and do not block that.
 - **To draw first (P0):** the deck's Module workspace with a module open (D4b), in the kit; and what a module is in the creator once its editor is gone – a preview with "Edit in deck".
 - **Waits for your word:**
   - Is the creator's editor removed in this lap, or only marked and left?
@@ -95,7 +95,7 @@ Decided: modules are edited in the deck. Thought aloud: the creator's editor mig
 ### P10 · The writing pages
 Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing experience, not only moved to the kit.
 - **First (P0):** capture today's five pages, then one draft of the writing page for you to correct – nothing is built before that.
-- **Waits for your word:** what a good writing experience holds.
+- **Your word for the run (2026-11-24, night): go with the flow** – I draw one writing page (the kit, a reading column, the tools out of the way) and the five pages are built from it (#876); you correct it afterwards.
 
 ### P11 · The extended Library (LIBRARY.md)
 The Library lists things and files; a thing is stepped into; an assignment shows as a place and as "used in"; a picker is the Library opened from a slot.
@@ -120,7 +120,7 @@ Drawn from today's page: C3, C3b, C3c, C3d.
 - **The Handheld panel** as drawn (C3b): the code to scan and the waiting state, Disconnect · Recenter · Record, the conditions and the trim's sentence as hover text.
 - **The shot's asset slot** (decided, C3c): a picture or a video from the Library, an upload, or a generator added from the Library; with a generator in it, "Open" goes to its canvas.
 - **The generator's canvas** (C3d) as designed on 2026-11-22: faces, free items, takes to pick, the driver Automatic or picked. In lap 2 the creator has only the stub; the canvas is the deck's and comes with #764 (your word: not in this lap).
-- **Waits for your word:** the review's six open points in STORYBOARD.md – how a shot hands over to the chapter, the deck and XR.
+- **Your word for the run (2026-11-24, night): go with the flow** – the review's recommendations stand: one Filmstrip for shots, slices and XR scenes; a shot hands over by a link that creates on first use; the picked shots side by side on the stage; the deck in Unreal's place; a storyboard's scene points at the deck scene (#868, #877). You follow up afterwards.
 - **Not drawn:** the steps Script, Layout and Export, the Variants view, the 3D view of a handheld shot, the panel once a phone is connected.
 
 ### P8 · Bugs and wording
@@ -135,7 +135,7 @@ Drawn from today's page: C3, C3b, C3c, C3d.
 3. **P2** and **P8** side by side. **P7** can run beside them: it is the deck's alone and needs the kit, not the shell.
 4. **P3** and **P4**. **P11** follows P3: its tiles come from the stills, and both apps wait for its endpoint.
 5. **P5**, then **P6**.
-6. **P9** and **P10** once their open points are answered.
+6. **P9**, **P10** and the rest of **P12** last – on your word to go with the flow; each is corrected with you afterwards.
 
 ## The tickets
 Filed 2026-11-24 on your word (*"create issues for the plan and than start with opus to run your night shift"*). One worker at a time; the creator's in this order, the deck's by the deck orchestrator.
@@ -168,7 +168,11 @@ Filed 2026-11-24 on your word (*"create issues for the plan and than start with 
 | #873 | Deck: opens on the workspace and item it is handed | P4 | M | #830 |
 | #874 | Deck: the Library reads the shared endpoint | P11 | L | #864, #842 |
 
-For you to decide (not in the run): #875 the module editor (P9) · #876 the writing pages (P10) · #877 the Storyboard's open points (P12).
+| #875 | The module editor stays in the creator as the entry from the Library, in the kit look | P9 | M | #853 |
+| #876 | The writing pages: one writing page in the kit, then the five pages | P10 | M | #853 · the picture drawn first |
+| #877 | Storyboard: a shot hands over by a link; the deck in Unreal's place | P12 | M | #868 |
+
+The last three were questions for you; you said to go with the flow (2026-11-24, night) and follow up afterwards.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -208,12 +212,8 @@ You approved these on 2026-11-24 ("yes, use them").
 | "Open in the deck" with no deck installed | the installed creator offers a download link; the web version just tries | P4 |
 | Dropping a Toon, a Show, a Generator, a Kanon text or a person | nothing yet; each opens in its own workspace | P11 |
 
-## Open – out of the run until you say
-| Point | Package |
-|---|---|
-| The module editor: is the creator's removed, and what happens to what only it has | P9 |
-| What a good writing experience holds | P10 |
-| STORYBOARD.md's open points | P12 |
+## Open – for your follow-up
+In the run on your word, built from my recommendations: the module editor (#875), the writing pages (#876), the Storyboard's handover (#877). What you correct afterwards becomes a ticket.
 
 These do not block the run; their screens stay out of it:
 - Where the 2D-first / 3D-first preference sits (C4).
