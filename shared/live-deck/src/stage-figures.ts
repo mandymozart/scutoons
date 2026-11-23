@@ -23,8 +23,9 @@ export function askCast(host: StageHost & { view: FigureView }, cdn: string, ent
 
 async function giveFigure(host: { view: FigureView; stopped: boolean }, cdn: string, entryOf: Entry, glb: Glb, slot: number, kind: string, id: string, field: string, idleField: string) {
 	try {
-		const entry = await entryOf(kind, id);
-		const file = entry[field] as { path?: string } | undefined;
+		// kind "": a rig's body, its file by CDN path
+		const entry: ContentEntry = kind ? await entryOf(kind, id) : { model: { path: id } };
+		const file = entry[kind ? field : 'model'] as { path?: string } | undefined;
 		if (!file?.path) throw new Error(`no ${kind}.${id}.${field}`);
 		const bytes = new Uint8Array(await (await fetch(cdn + file.path)).arrayBuffer());
 		const idleFile = entry[idleField] as { path?: string } | undefined;

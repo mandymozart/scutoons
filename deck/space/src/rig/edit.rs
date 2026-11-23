@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "document", rename_all = "lowercase")]
 pub enum Doc {
-    Rigs(Rig),
+    Rigs(Box<Rig>),
     Instruments(Instrument),
     Presets(Preset),
 }
@@ -150,7 +150,7 @@ impl Doc {
     pub fn from_toml(kind: &str, text: &str) -> Result<Doc, String> {
         let say = |e: toml::de::Error| format!("{kind}: {e}");
         match kind {
-            "rigs" => toml::from_str(text).map(Doc::Rigs).map_err(say),
+            "rigs" => toml::from_str(text).map(|r| Doc::Rigs(Box::new(r))).map_err(say),
             "instruments" => toml::from_str(text).map(Doc::Instruments).map_err(say),
             "presets" => toml::from_str(text).map(Doc::Presets).map_err(say),
             other => Err(format!("unknown kind '{other}' (instruments, presets, rigs)")),
@@ -407,10 +407,10 @@ impl Bundle {
     }
 
     fn on_rig(&self, op: &Op) -> Result<Bundle, String> {
-        let mut doc = Doc::Rigs(self.rig.clone());
+        let mut doc = Doc::Rigs(Box::new(self.rig.clone()));
         doc.apply(op, &self.library())?;
         let Doc::Rigs(rig) = doc else { unreachable!("a rig stays a rig") };
-        Ok(Bundle { rig, ..self.clone() })
+        Ok(Bundle { rig: *rig, ..self.clone() })
     }
 
     /// A far world node's address in a track (#477), on the track's instrument.
@@ -774,7 +774,7 @@ mod tests {
     #[test]
     fn a_rigs_cables_are_its_routes_and_a_control_input_takes_one() {
         let (b, lib) = set();
-        let mut d = Doc::Rigs(b.rig.clone());
+        let mut d = Doc::Rigs(Box::new(b.rig.clone()));
         let routes = |d: &Doc| if let Doc::Rigs(r) = d { r.routes.iter().map(|x| format!("{} → {}", x.from, x.to)).collect::<Vec<_>>() } else { unreachable!() };
         d.apply(&connect("a:lfo.out", "being:glow"), &lib).unwrap();
         assert_eq!(routes(&d), ["a:lfo.out → b:osc.freq", "a:lfo.out → being:glow"]);
@@ -798,14 +798,14 @@ mod tests {
         // the result is a rig like any: checked and played
         let Doc::Rigs(r) = d else { unreachable!() };
         r.check(&lib).unwrap();
-        let b2 = Bundle { rig: r, ..b };
+        let b2 = Bundle { rig: *r, ..b };
         b2.play(None, None).unwrap();
     }
 
     #[test]
     fn a_track_comes_and_goes_with_its_routes_variants_and_sticks() {
         let (b, lib) = set();
-        let mut d = Doc::Rigs(b.rig);
+        let mut d = Doc::Rigs(Box::new(b.rig));
         d.apply(&Op::AddTrack { id: "c".into(), instrument: "tone".into(), preset: Some("tone.low".into()) }, &lib).unwrap();
         assert!(d.apply(&Op::AddTrack { id: "c".into(), instrument: "tone".into(), preset: None }, &lib).unwrap_err().contains("there already"));
         assert!(d.apply(&Op::AddTrack { id: "d".into(), instrument: "kazoo".into(), preset: None }, &lib).unwrap_err().contains("unknown instrument"));
@@ -839,7 +839,7 @@ mod tests {
         }
         let Doc::Instruments(i) = &d else { unreachable!() };
         assert_eq!(i.nodes.iter().find(|n| n.id == "in").unwrap().params["address"].as_str(), Some("/deck:pc/scene:demo/item:incense/analog:seq.notes"), "a refused op changes nothing");
-        assert!(Doc::Rigs(b.rig.clone()).apply(&set("item:x/a:b.c"), &lib).unwrap_err().contains("edit the track's instrument"));
+        assert!(Doc::Rigs(Box::new(b.rig.clone())).apply(&set("item:x/a:b.c"), &lib).unwrap_err().contains("edit the track's instrument"));
     }
 
     #[test]
@@ -905,7 +905,7 @@ mod tests {
     #[test]
     fn documents_round_trip_through_toml() {
         let b = Bundle::core("character.catpope").unwrap().unwrap();
-        let docs = [Doc::Rigs(b.rig.clone()), Doc::Instruments(b.instruments[0].clone()), Doc::Presets(b.presets[1].clone())];
+        let docs = [Doc::Rigs(Box::new(b.rig.clone())), Doc::Instruments(b.instruments[0].clone()), Doc::Presets(b.presets[1].clone())];
         for d in docs {
             let text = d.to_toml().unwrap();
             assert!(text.contains(d.id()), "{text}");

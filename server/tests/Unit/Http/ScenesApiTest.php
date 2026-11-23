@@ -332,6 +332,33 @@ final class ScenesApiTest extends TestCase
         self::assertArrayNotHasKey('content', $this->core->requests[count($this->core->requests) - 1]['request']);
     }
 
+    /**
+     * a placed rig (a holder with `rig` alone, deck-space scene_document.rs) – the drum machine of
+     * tests/fixtures/rigs/drum-machine.json: the shape takes it, publishing sends its rig and the descriptors of the
+     * modules its instruments play (the core builds the graph with them)
+     */
+    public function testAPlacedRigSavesAndItsRigGoesToTheCore(): void
+    {
+        $store = $this->get(CatalogStore::class);
+        $bundle = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/rigs/drum-machine.json'));
+        foreach ($bundle->instrument as $i) $store->save('instruments', $i->id, $i, 'test');
+        $store->save('rigs', 'item.drum-machine', $bundle->rig, 'test');
+        $analog = json_decode((string) file_get_contents(self::root() . '/tests/fixtures/modules/service-answer-analog.json'))->descriptor;
+        $store->save('modules', 'analog', (object) ['id' => 'analog', 'name' => 'analog', 'descriptor' => $analog], 'test');
+        $creator = $this->session([Roles::CREATOR], 'placed@example.test');
+        $scene = ['format' => 2, 'id' => 'placed', 'toons' => [], 'holder' => [
+            ['id' => 'drum-machine', 'at' => [2.25, 0.0, 0.0], 'rig' => ['ref' => 'rig:item.drum-machine']],
+        ], 'stage' => ['name' => 'Placed'], 'node' => []];
+        $saved = $this->request('PUT', '/api/scenes/placed', $creator, ['content' => $scene]);
+        self::assertSame(200, $saved->getStatusCode(), (string) $saved->getBody());
+        $this->core->answer = fn(array $request): array => [];
+        self::assertSame(200, $this->request('POST', '/api/scenes/placed/publish', $creator, [])->getStatusCode());
+        $request = $this->core->requests[count($this->core->requests) - 1]['request'];
+        self::assertSame('item.drum-machine', $request['content']['items']['drum-machine']['rig']['id']);
+        self::assertSame('characters/takeyari-drum/takeyari-drum-regular.glb', $request['content']['items']['drum-machine']['body']['path']);
+        self::assertSame(['analog'], array_column($request['modules'] ?? [], 'name'), 'its voices\' module (drumseq is not in this catalog: left out, the core names it)');
+    }
+
     public function testWithoutTheBuildServiceNothingIsPublished(): void
     {
         $creator = $this->session([Roles::CREATOR], 'nobuild@example.test');

@@ -30,13 +30,13 @@ fn main() -> anyhow::Result<()> {
         show(&played.wire_view(c)?);
     }
     // W6: one gesture on the rig document – the voice sent into the drone's mixer at half level –, then the rig as played again
-    let mut doc = Doc::Rigs(b.rig.clone());
+    let mut doc = Doc::Rigs(Box::new(b.rig.clone()));
     let op = Op::Connect { from: "voice:voice.out".into(), to: "drone:mix.in3".into(), scale: 0.5, offset: 0.0 };
     println!("\n== edit {op:?}");
     match doc.apply(&op, &b.library()) {
         Ok(()) => {
             let Doc::Rigs(rig) = &doc else { unreachable!() };
-            let edited = Bundle { rig: rig.clone(), ..b.clone() }.play(None, None)?;
+            let edited = Bundle { rig: (**rig).clone(), ..b.clone() }.play(None, None)?;
             show(&edited.wire_view("")?);
             println!("\n== the rig document as text (the view's ids, the form the core sets ship in)\n{}", doc.to_toml()?);
             println!("problems after the edit: {:?}", deck_space::rig::validate::Request { kind: "rigs".into(), id: rig.subject.clone(), document: serde_json::to_value(rig)?, instruments: b.instruments.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, presets: b.presets.iter().map(serde_json::to_value).collect::<Result<_, _>>()?, modules: vec![], ..Default::default() }.answer().map(|a| a.problems));

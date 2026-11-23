@@ -22,10 +22,16 @@ pub fn loaders(sync: Option<&crate::sync::DeckSync>, faces: &Path) -> (Portraits
     let (portraits, figures) = match (y.portraits(), y.portraits.clone()) {
         (Some(p), Some(dir)) => {
             let wait = y.clone();
-            let models = figure::Arriving { dir: figure::LocalDir(dir), wait: move |c: &str| {
-                wait.wait(crate::sync::Want::Model { character: c.to_string() }, FIGURE_WAIT);
-                // #817: its idle (a library animation) – settled at once when the answer names none
-                wait.wait(crate::sync::Want::Idle { character: c.to_string() }, FIGURE_WAIT);
+            let models = figure::Arriving { dir: figure::LocalDir(dir), wait: move |file: &figure::Ask| match file {
+                figure::Ask::Character(c) => {
+                    wait.wait(crate::sync::Want::Model { character: c.clone() }, FIGURE_WAIT);
+                    // #817: its idle (a library animation) – settled at once when the answer names none
+                    wait.wait(crate::sync::Want::Idle { character: c.clone() }, FIGURE_WAIT);
+                }
+                // a rig's body: a file by its CDN path, fetched as any stage media
+                figure::Ask::Body(path) => {
+                    wait.wait(crate::sync::Want::Media { path: path.clone() }, FIGURE_WAIT);
+                }
             } };
             (Portraits::new(Box::new(p)), Figures::new(Box::new(models)))
         }

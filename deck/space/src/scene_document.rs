@@ -10,7 +10,8 @@
 //! - its `location`: a reference `location:<id>`, or a placeholder (`id`, `fill`, `label`, `preview`) a use fills; the set
 //!   follows from the location (one set, §8.4; the lookup is scene_resolve.rs, #512). A scene without one names its set on its `space` node
 //!   (`set`, a neutral staging or a set not yet a location's); both at once is refused;
-//! - its `holder`s: places on its stage, each carrying an authored filler (`ref`) or a placeholder's filter (`fill`), one
+//! - its `holder`s: places on its stage, each carrying an authored filler (`ref`), a placeholder's filter (`fill`) or a
+//!   placed rig (`rig` alone: the rig stands there as its body, not replaceable from outside), one
 //!   filler (`take: one`) or a spawn zone's several (`take: many`, arranged by code – `arrange` – up to `max`), at a spot
 //!   (missing: the scene's spot), with the filler's rig or a pinned one, values and preset choices, `enter: start | join`;
 //! - its own graph (`node`, `link`: the space, mixers – the holders' rigs flatten in at resolve), `stage`, `outputs`.
@@ -225,7 +226,9 @@ pub struct Holder {
     /// a spawn zone's limit; none = any number
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max: Option<u32>,
-    /// the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`)
+    /// the rig its filler plays; none = the filler's own (`character:catpope` → `rig:character.catpope`). Without a
+    /// filler and a `fill` it is a placed rig: the rig stands there as its body, like a 3D model – not replaceable from
+    /// outside
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rig: Option<RigPin>,
     /// the rig preset (`rig-preset:<id>`) its rig plays on; `values` set single knobs over it
@@ -262,7 +265,7 @@ impl Holder {
         let item = match (&self.filler, &self.fill) {
             (Some(r), _) => FillerRef::parse(r).is_ok_and(|f| f.kind == AddressKind::Item),
             (None, Some(f)) => !f.kind.is_empty() && f.kind.iter().all(|k| *k == AddressKind::Item),
-            (None, None) => false,
+            (None, None) => self.rig.as_ref().and_then(RigPin::subject).and_then(Place::of_subject).is_some_and(|p| p.kind == "item"),
         };
         if item {
             deck_catalog::slot::Entity::Item
@@ -501,6 +504,11 @@ impl Holder {
     /// a placeholder: filled by a use, not authored
     pub fn is_placeholder(&self) -> bool {
         self.fill.is_some()
+    }
+
+    /// a placed rig: its rig stands there itself, no filler and no placeholder – nothing outside replaces it
+    pub fn is_placed(&self) -> bool {
+        self.filler.is_none() && self.fill.is_none() && self.rig.is_some()
     }
 
     /// room for one more filler beside `taken`
@@ -753,7 +761,12 @@ impl SceneDocument {
             }
             match (&h.filler, &h.fill) {
                 (Some(_), Some(_)) => out.push(format!("{who}: an authored filler (`ref`) or a placeholder (`fill`), not both")),
-                (None, None) => out.push(format!("{who}: neither a filler (`ref`) nor a placeholder (`fill`)")),
+                (None, None) => match h.rig.as_ref().and_then(RigPin::subject).and_then(Place::of_subject) {
+                    Some(place) if !places.insert(place.clone()) => out.push(format!("{who}: {place} stands on this stage already (a second copy is reserved)")),
+                    Some(_) => {}
+                    None if h.rig.is_some() => {}
+                    None => out.push(format!("{who}: neither a filler (`ref`), a placeholder (`fill`) nor a placed rig (`rig`)")),
+                },
                 (Some(r), None) => match FillerRef::parse(r) {
                     Ok(f) if !HOLDER_KINDS.contains(&f.kind) => out.push(format!("{who}: {} cannot stand on a stage", a(f.kind))),
                     // the same filler twice on one stage: `#2` is reserved (address.rs)
@@ -955,6 +968,11 @@ mod tests {
         one(problems(r#"[{"id":"a","fill":{"kind":["item"]},"take":"many","arrange":{"kind":"cluster"},"max":1,"preview":["item:x","item:y"]}]"#, ""), "more previews");
         one(problems(r#"[{"id":"a","fill":{"kind":["item"]},"preview":"character:catpope"}]"#, ""), "its preview");
         one(problems(r#"[{"id":"a","ref":"item:x","rig":{"ref":"character.catpope"}}]"#, ""), "no `rig:<subject>`");
+        // a placed rig: the rig alone – once per stage, never a spawn zone, a malformed one named once
+        assert!(problems(r#"[{"id":"a","rig":{"ref":"rig:item.drum-machine"}}]"#, "").is_empty());
+        one(problems(r#"[{"id":"a","rig":{"ref":"rig:item.drum-machine"}},{"id":"b","ref":"item:drum-machine"}]"#, ""), "a second copy is reserved");
+        one(problems(r#"[{"id":"a","rig":{"ref":"rig:item.drum-machine"},"take":"many","arrange":{"kind":"row"}}]"#, ""), "needs `fill`");
+        one(problems(r#"[{"id":"a","rig":{"ref":"item.drum-machine"}}]"#, ""), "no `rig:<subject>`");
         one(problems(r#"[{"id":"a","ref":"item:x","values":{"voice_voice.index":1.0}}]"#, ""), "value 'voice_voice.index'");
         one(problems(r#"[{"id":"a","ref":"item:x","values":{"voice:@preset":1.0}}]"#, ""), "value 'voice:@preset'");
         one(problems(r#"[{"id":"where","ref":"item:x"}]"#, r#","location":{"id":"where","fill":{"kind":["location"]}}"#), "taken twice");

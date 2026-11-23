@@ -38,7 +38,8 @@ use stdClass;
  *   `version` = a hash of the stored data, so a deck's cache skips what it has. `{ rig: data, instrument: […], preset: […] }`
  *   is a deck-space `rig::Bundle` (its the_servers_scene_content_reads_as_bundles test reads this answer). A code rig (`policy`,
  *   #408 / #414) also names its policy module, `modules: [id]`; the top-level `modules` map (there only when a rig has one)
- *   holds its descriptor as `data` (`Bundle.module`) – never its sources.
+ *   holds its descriptor as `data` (`Bundle.module`) – never its sources. An item whose rig names a 3D body (`body.model`,
+ *   deck-space rig/body.rs) has it as `items.<id>.body` (`{ path, size }`): the file the deck syncs and draws the rig as.
  * - `&presets=<ids>` adds factory presets to the top-level map with their ancestors; an unknown id lands in
  *   `missing.presets`. Everything is public like the catalog and the registry (readers save nothing, #302).
  */
@@ -250,7 +251,7 @@ final class SceneContent
         foreach (array_values(array_unique($items)) as $id) {
             $found = $rig("item.$id");
             if ($found === null) $answer['missing']['items'][] = $id;
-            else $answer['items'][$id] = ['rig' => $found];
+            else $answer['items'][$id] = ['rig' => $found] + (($body = self::body($found['data'])) === null ? [] : ['body' => $body]);
         }
         // #270: the asked presets (a member's own derivatives, or factory ones) with their ancestors
         $answer['missing']['presets'] = [];
@@ -439,6 +440,17 @@ final class SceneContent
     }
 
     /**
+     * a rig's 3D body as a file (`{ path }`, its size filled later), null when it names none
+     * @return ?array{path: string}
+     */
+    public static function body(mixed $rig): ?array
+    {
+        $body = $rig instanceof stdClass ? ($rig->body ?? null) : null;
+        $model = $body instanceof stdClass ? ($body->model ?? null) : null;
+        return is_string($model) && $model !== '' ? ['path' => $model] : null;
+    }
+
+    /**
      * every file path of an answer
      * @param array<string, mixed> $answer
      * @return list<string>
@@ -452,7 +464,10 @@ final class SceneContent
             if (is_array($c['model'] ?? null)) $paths[] = $c['model']['path'];
             if (is_array($c['idle'] ?? null)) $paths[] = $c['idle']['path'];
         }
-        foreach ($answer['items'] ?? [] as $i) if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
+        foreach ($answer['items'] ?? [] as $i) {
+            if (is_array($i['picture'] ?? null)) $paths[] = $i['picture']['path'];
+            if (is_array($i['body'] ?? null)) $paths[] = $i['body']['path'];
+        }
         return array_values(array_unique($paths));
     }
 
@@ -479,6 +494,7 @@ final class SceneContent
         }
         foreach ($answer['items'] ?? [] as $id => $i) {
             if (is_array($i['picture'] ?? null)) $answer['items'][$id]['picture'] = ['path' => $i['picture']['path'], 'size' => $sizes[$i['picture']['path']] ?? null];
+            if (is_array($i['body'] ?? null)) $answer['items'][$id]['body'] = ['path' => $i['body']['path'], 'size' => $sizes[$i['body']['path']] ?? null];
         }
         return $answer;
     }

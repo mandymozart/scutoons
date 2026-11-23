@@ -7,7 +7,8 @@ test('a rig key names its character; a module key its id; the rest is not editab
 	assert.deepEqual(parseEditKey('rig:character.catpope'), { kind: 'rig', key: 'rig:character.catpope', subject: 'character.catpope', character: 'catpope' });
 	assert.equal(parseEditKey('rig:character.catpope.dj')?.kind === 'rig' && (parseEditKey('rig:character.catpope.dj') as { character: string }).character, 'catpope');
 	assert.deepEqual(parseEditKey('module:walk'), { kind: 'module', key: 'module:walk', id: 'walk' });
-	for (const bad of ['', 'walk', 'module:', 'module:Walk', 'module:a b', 'rig:item.camera', 'rig:character.', 'chapter:catpope:1', ':x']) assert.equal(parseEditKey(bad), null, bad);
+	assert.deepEqual(parseEditKey('rig:item.drum-machine'), { kind: 'rig', key: 'rig:item.drum-machine', subject: 'item.drum-machine', character: '' }, 'an item\'s rig names no character');
+	for (const bad of ['', 'walk', 'module:', 'module:Walk', 'module:a b', 'rig:item.', 'rig:item.a.b', 'rig:character.', 'chapter:catpope:1', ':x']) assert.equal(parseEditKey(bad), null, bad);
 });
 
 test('the workspace defaults to sound for rigs and modules', () => {

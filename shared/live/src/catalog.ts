@@ -15,6 +15,14 @@ export type AssetDesc = {
 /** what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5) */
 export type AssetKind = "pcm" | "bytes" | "image";
 
+/** A rig carried at a spot of this rig's body. */
+export type Attached = {
+	/** the rig: `rig:<subject>` (`rig:item.takeyari-exhaust`) */
+	rig: string;
+	/** the spot of this rig's body it rides (`exhaust_left`: the model's `spot_exhaust_left`) */
+	spot: string;
+};
+
 /** One of a colour, an image or a video. */
 export type Background = {
 	/** `#rgb` or `#rrggbb` */
@@ -23,6 +31,14 @@ export type Background = {
 	image?: string | null;
 	/** a video's media path, laid over the stage */
 	video?: string | null;
+};
+
+/** What a rig looks like on a stage: its own model. */
+export type Body = {
+	/** how tall it stands, metres; none = its kind's card height */
+	height?: number | null;
+	/** the model: a `.glb` by its CDN path from the root (`characters/takeyari-drum/takeyari-drum-regular.glb`) */
+	model: string;
 };
 
 export type Bundle = {
@@ -269,8 +285,12 @@ export type Preset = {
 
 /** A character's (or object's) set of tracks. */
 export type Rig = {
+	/** the rigs carried at spots of its body (body.rs), each a body part of its own */
+	attach?: Attached[];
 	/** the stage's background while it plays, over its modules' and under a scene's or a show's */
 	background?: Background | null;
+	/** its 3D body: the model the stage draws where it stands (body.rs); none = its being */
+	body?: Body | null;
 	/** the core rig it extends (`character.default`): that rig's tracks and routes play under this one's own (extend.rs) */
 	extends?: string | null;
 	/** mood (the `moods` registry's ids) → overrides (applied after the persona's) */

@@ -1,0 +1,36 @@
+{
+  "format": 2,
+  "id": "placed-rig",
+  "toons": [],
+  "holder": [
+    {
+      "id": "pope",
+      "at": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "ref": "character:catpope"
+    },
+    {
+      "id": "bell",
+      "at": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "rig": {
+        "ref": "rig:item.bell"
+      }
+    }
+  ],
+  "stage": {
+    "name": "Placed rig"
+  },
+  "node": [
+    {
+      "id": "space",
+      "kind": "space"
+    }
+  ]
+}

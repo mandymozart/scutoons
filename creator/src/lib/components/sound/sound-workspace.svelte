@@ -134,7 +134,7 @@
 	</section>
 	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
 		{#key target.key}
-			<DeckHalf character={'character' in target ? target.character : 'catpope'} bind:host bind:wiring />
+			<DeckHalf character={('character' in target && target.character) || 'catpope'} bind:host bind:wiring />
 		{/key}
 	</section>
 	{#if !stacked.current}

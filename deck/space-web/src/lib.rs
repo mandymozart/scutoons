@@ -379,15 +379,16 @@ pub(crate) const ASK: usize = 5;
 
 /// the cast's 3D models the stage asks for, `FIGURE_ASK` values each: slot, then where scene-content holds the file – the
 /// kind (`characters`), the character whose model it is (`drawn_as`), the field (`model`), the field of its idle (`idle`,
-/// #817: a library animation, when the entry names one)
+/// #817: a library animation, when the entry names one); a rig's body: kind "", its model's CDN path, no fields
 pub(crate) fn figure_asks(space: &mut Space) -> js_sys::Array {
     let out = js_sys::Array::new();
-    for (slot, character) in space.figures.requests() {
+    for (slot, file) in space.figures.requests() {
+        let entry = !file.kind().is_empty();
         out.push(&JsValue::from(slot as u32));
-        out.push(&JsValue::from_str("characters"));
-        out.push(&JsValue::from_str(&character));
-        out.push(&JsValue::from_str("model"));
-        out.push(&JsValue::from_str("idle"));
+        out.push(&JsValue::from_str(file.kind()));
+        out.push(&JsValue::from_str(file.id()));
+        out.push(&JsValue::from_str(if entry { "model" } else { "" }));
+        out.push(&JsValue::from_str(if entry { "idle" } else { "" }));
     }
     out
 }

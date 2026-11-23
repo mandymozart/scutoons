@@ -266,6 +266,20 @@ pub fn look_node(prefix: &str, holder: &str, who: &crate::cast::Who, chosen: Cho
     NodeDef { id: look_id(prefix), kind: "look".into(), params }
 }
 
+/// A look node's placed rig and body: `rig` – the subject of a placed rig (it stands there itself, cast.rs), `body` – its
+/// rig's model by CDN path, `height` – the body's in metres (none = its kind's card height).
+pub fn body_params(look: &mut NodeDef, placed: Option<&str>, body: Option<&crate::rig::body::Body>) {
+    if let Some(subject) = placed {
+        look.params.insert("rig".into(), subject.into());
+    }
+    if let Some(b) = body {
+        look.params.insert("body".into(), b.model.as_str().into());
+        if let Some(h) = b.height {
+            look.params.insert("height".into(), toml::Value::Float(f64::from(h)));
+        }
+    }
+}
+
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
