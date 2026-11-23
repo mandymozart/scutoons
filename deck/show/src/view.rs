@@ -293,9 +293,9 @@ pub fn word_text(w: Word) -> &'static str {
 
 /// `roar · suggest`, or `manual` for a row only the operator fires
 pub fn fires(fire: &Fire) -> String {
-    match &fire.event {
-        Some(e) => format!("{e} · {}", how_text(fire.how)),
-        None => how_text(How::Manual).into(),
+    match fire.event.is_empty() {
+        false => format!("{} · {}", fire.event.words(), how_text(fire.how)),
+        true => how_text(How::Manual).into(),
     }
 }
 
@@ -336,9 +336,15 @@ pub fn fire_chip(fire: &Fire, row: &str, waiting: bool) -> Option<FireChip> {
         How::Suggest => false,
         How::Manual => return None,
     };
-    let event = fire.event.clone()?;
-    let (tag, named) = fire_tag(&event, row);
-    Some(FireChip { event, tag, named, auto, moment: fire.moment, waiting: waiting && !auto })
+    let first = fire.event.first()?;
+    let (tag, named) = fire_tag(first, row);
+    // several events: the first and how many more
+    let tag = match fire.event.len() {
+        1 => tag,
+        n if tag.is_empty() => format!("+{}", n - 1),
+        n => format!("{tag} +{}", n - 1),
+    };
+    Some(FireChip { event: fire.event.words(), tag, named, auto, moment: fire.moment, waiting: waiting && !auto })
 }
 
 /// what a kept cell says: what an earlier row started there carries on
@@ -354,7 +360,10 @@ pub const ADDRESS: &str = "address";
 
 /// `event: roar`, or `by hand only` for a row no event fires
 pub fn fires_on(fire: &Fire) -> String {
-    fire.event.as_ref().map_or(crate::story::BY_HAND.to_string(), |e| format!("event: {e}"))
+    match fire.event.is_empty() {
+        true => crate::story::BY_HAND.to_string(),
+        false => format!("event: {}", fire.event.words()),
+    }
 }
 
 fn origin_text(o: Origin) -> &'static str {
@@ -374,6 +383,7 @@ pub fn line(what: &Logged) -> String {
         Logged::Withdrawn { row } => format!("{row}: suggestion gone"),
         Logged::Ignored { row, event } => format!("{event}: {row} is manual, ignored"),
         Logged::NoRow { event } => format!("{event}: no row listens"),
+        Logged::Looped { row } => format!("{row}: fired already in this pass – the loop stops"),
         Logged::NoId { kind } if kind.is_empty() => "a story event without an id: dropped – no row can listen to it".into(),
         Logged::NoId { kind } => format!("a {kind} without an id: dropped – no row can listen to it"),
         Logged::CellLaunched { row, column, off_row: true } => format!("off-row: {column} > {row}"),
@@ -647,13 +657,13 @@ pub struct Cue {
 
 /// `ch3.end · hand` → the trigger in words, with the hold and the moment when they say something
 pub fn trigger(fire: &Fire) -> String {
-    let Some(e) = &fire.event else {
+    if fire.event.is_empty() {
         return match fire.moment {
             Moment::Now => "manual".into(),
             m => format!("manual · {}", moment_text(m)),
         };
     };
-    let mut s = format!("{e} · {}", how_text(fire.how));
+    let mut s = format!("{} · {}", fire.event.words(), how_text(fire.how));
     if fire.hold_ms > 0 {
         s = format!("{s} · hold {:.1} s", fire.hold_ms as f32 / 1000.0);
     }
@@ -835,7 +845,7 @@ mod tests {
         assert_eq!(fire_tag("meet", "meet"), (String::new(), true), "a bare event it is named after: nothing but the bolt");
         assert_eq!(fire_tag("ch3.yellowmouse-enters", "yellowmouse enters"), ("ch3 · yellowmouse-enters".to_string(), false), "another name: the whole event");
         assert_eq!(fire_tag("meet", "together"), ("meet".to_string(), false));
-        let fire = Fire { event: Some("ch3.dialog".into()), how: How::Suggest, hold_ms: 0, moment: Moment::Bar };
+        let fire = Fire { event: crate::document::Events::one("ch3.dialog"), how: How::Suggest, hold_ms: 0, moment: Moment::Bar };
         let chip = fire_chip(&fire, "dialog", true).unwrap();
         assert_eq!((chip.tag.as_str(), chip.named, chip.event.as_str(), chip.waiting), ("ch3", true, "ch3.dialog", true));
     }

@@ -137,54 +137,6 @@ pub fn no_toon() -> String {
     "no toon – the editor lists a toon's story events with --toon <toon>".into()
 }
 
-/// One line of the event picker.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EventView {
-    /// what a pick sets: the id, or none for [`BY_HAND`]
-    pub event: Option<String>,
-    /// the id; `no id` for an event without one
-    pub label: String,
-    /// `ch 3 · nave · showMessage · catpope · Miau, Freunde!`, `· fires dialog` when another row fires on it
-    pub detail: String,
-    /// it can be picked (an event without an id cannot)
-    pub can: bool,
-}
-
-/// The picker's lines for `row`: [`BY_HAND`] first while nothing is typed, then the toon's story events that match
-/// `query` (its id, type, characters, group or text), in the chapters' order.
-pub fn lines(show: &Show, row: &str, events: &[StoryEvent], query: &str) -> Vec<EventView> {
-    let q = query.trim().to_lowercase();
-    let mut out = vec![];
-    if q.is_empty() {
-        out.push(EventView { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), can: true });
-    }
-    for e in events {
-        let mut words: Vec<String> = e.toon.iter().cloned().collect();
-        words.push(format!("ch {}", e.chapter));
-        words.extend(e.group.clone());
-        words.push(e.kind.clone());
-        if !e.characters.is_empty() {
-            words.push(e.characters.join(", "));
-        }
-        words.extend(e.excerpt.clone());
-        let hay = format!("{} {}", e.id.as_deref().unwrap_or_default(), words.join(" ")).to_lowercase();
-        if !q.is_empty() && !hay.contains(&q) {
-            continue;
-        }
-        let mut detail = words.join(" · ");
-        match &e.id {
-            None => detail = format!("no id – the chapter editor gives it one · {detail}"),
-            Some(id) => {
-                if let Some(other) = show.rows.iter().find(|r| r.id != row && r.fire.event.as_deref() == Some(id.as_str())) {
-                    detail.push_str(&format!(" · fires {}", other.id));
-                }
-            }
-        }
-        out.push(EventView { event: e.id.clone(), label: e.id.clone().unwrap_or_else(|| "no id".into()), detail, can: e.id.is_some() });
-    }
-    out
-}
-
 /// what the question picker says when no story question matches
 pub const NO_CHOICE_FOUND: &str = "No story question matches.";
 
@@ -338,17 +290,11 @@ fn asked_by<'a>(show: &'a Show, toon: &str, c: &StoryChoice) -> Option<&'a str> 
     show.questions.iter().find(|q| q.story.as_ref().is_some_and(|s| s.toon == toon && u64::from(s.chapter) == c.chapter && s.event == event)).map(|q| q.id.as_str())
 }
 
-/// the picker's heading for `row`
-pub fn picker_title(show: &Show, row: &str, toon: &str) -> String {
-    let n = show.rows.iter().position(|r| r.id == row).map_or(0, |i| i + 1);
-    let of = if toon.is_empty() { "THE TOON'S".to_string() } else { format!("{}'S", toon.to_uppercase()) };
-    format!("EVENT FOR ROW {n} {} – A STORY EVENT OF {of} CHAPTERS", row.to_uppercase())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document::parse as show;
+    use crate::document::{parse as show, Events};
+    use crate::inlet::{lines, Line, Scope, Source};
     use crate::rows::{edit, Edit};
 
     const EVENTS: &str = include_str!("../../demos/story-events.json");
@@ -367,7 +313,7 @@ mod tests {
         assert_eq!((story.events[5].id.as_deref(), story.events[5].toon.as_deref()), (Some("set1"), Some("toptoy")));
         assert!(story.events[..5].iter().all(|e| e.toon.is_none()), "the home's unmarked");
         assert_eq!(story.choices, read(EVENTS, "catpope").unwrap().choices);
-        let found = lines(&top_toy(), "dialog", &story.events, "toptoy");
+        let found = lines(&top_toy(), "dialog", &story.events, Scope::Universe, "toptoy");
         assert_eq!(found.iter().map(|l| l.label.as_str()).collect::<Vec<_>>(), ["set1"]);
         assert!(found[0].detail.starts_with("toptoy · ch 1"), "{}", found[0].detail);
         assert_eq!(read_toons(EVENTS, &toons[..1]).unwrap(), read(EVENTS, "catpope").unwrap(), "one toon: as before");
@@ -385,30 +331,30 @@ mod tests {
         assert_eq!(url("http://127.0.0.1:9000/api/"), "http://127.0.0.1:9000/api/creator/story-events");
 
         let s = top_toy();
-        let all = lines(&s, "opening", &events, "");
-        assert_eq!(all[0], EventView { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), can: true });
+        let all = lines(&s, "opening", &events, Scope::Toon, "");
+        assert_eq!(all[0], Line { event: None, label: BY_HAND.into(), detail: "no event – its ▶ and GO fire it".into(), source: Source::Manual, on: true, can: true });
         assert_eq!(all[1].detail, "ch 3 · nave · showMessage · catpope · Miau, Freunde! · fires dialog");
         assert_eq!((all[2].label.as_str(), all[2].can), ("no id", false));
         assert!(all[2].detail.starts_with("no id – the chapter editor gives it one · ch 3 · nave"), "{}", all[2].detail);
         assert_eq!(all[4].detail, "ch 3 · crypt · showMessage · catpope, yellowmouse · Die Kerzen brennen.");
         assert_eq!(all[5].detail, "ch 3 · jumpTo · fires finale");
         // the row's own event is not "another row's"
-        assert!(!lines(&s, "dialog", &events, "dialog")[0].detail.contains("fires"));
+        assert!(!lines(&s, "dialog", &events, Scope::Toon, "dialog")[0].detail.contains("fires"));
         // found by type, character, text; typing hides the by-hand line
-        assert_eq!(lines(&s, "opening", &events, "kerzen").iter().map(|l| l.label.as_str()).collect::<Vec<_>>(), ["ch3.vigil"]);
-        assert_eq!(lines(&s, "opening", &events, "JOINSCENE").len(), 1);
-        assert!(lines(&s, "opening", &events, "nothing like it").is_empty());
+        assert_eq!(lines(&s, "opening", &events, Scope::Toon, "kerzen").iter().map(|l| l.label.as_str()).collect::<Vec<_>>(), ["ch3.vigil"]);
+        assert_eq!(lines(&s, "opening", &events, Scope::Toon, "JOINSCENE").len(), 1);
+        assert!(lines(&s, "opening", &events, Scope::Toon, "nothing like it").is_empty());
 
-        // picked: the row fires on it; another row's event is refused in validate's words; by hand clears it
+        // picked: the row fires on it; another row's event too – several rows hear one event; by hand clears it
         let vigil = all.iter().find(|l| l.label == "ch3.vigil").unwrap();
         let picked = edit(&s, &Edit::Event { row: "opening".into(), event: vigil.event.clone() }).unwrap();
         assert_eq!(picked.said, "row 1 opening fires on ch3.vigil");
-        assert_eq!(picked.show.rows[0].fire.event.as_deref(), Some("ch3.vigil"));
+        assert_eq!(picked.show.rows[0].fire.event, Events::one("ch3.vigil"));
         assert_eq!(picked.show.rows[0].fire.how, s.rows[0].fire.how, "how stays");
-        assert_eq!(edit(&s, &Edit::Event { row: "opening".into(), event: Some("ch3.end".into()) }).unwrap_err(), "not changed: row 'finale': the event 'ch3.end' already fires row 'opening'");
+        assert_eq!(edit(&s, &Edit::Event { row: "opening".into(), event: Some("ch3.end".into()) }).unwrap().said, "row 1 opening fires on ch3.end");
         let hand = edit(&picked.show, &Edit::Event { row: "opening".into(), event: None }).unwrap();
-        assert_eq!((hand.said.as_str(), hand.show.rows[0].fire.event.as_ref()), ("row 1 opening: manual", None));
-        assert_eq!(edit(&s, &Edit::Event { row: "dialog".into(), event: Some("  ".into()) }).unwrap().show.rows[1].fire.event, None, "empty typed: by hand");
+        assert_eq!((hand.said.as_str(), hand.show.rows[0].fire.event.is_empty()), ("row 1 opening: manual", true));
+        assert_eq!(edit(&s, &Edit::Event { row: "dialog".into(), event: Some("  ".into()) }).unwrap().show.rows[1].fire.event, Events::default(), "empty typed: by hand");
     }
 
     /// #550, the core's half: the toon's questions read with its events, the question picker's lines, an id-less one not pickable
@@ -522,6 +468,5 @@ mod tests {
         assert_eq!(refused(Some(500), ""), "the story events: HTTP 500");
         assert_eq!(refused(None, "offline"), "the story events: offline");
         assert!(no_toon().contains("--toon"));
-        assert_eq!(picker_title(&top_toy(), "dialog", "catpope"), "EVENT FOR ROW 2 DIALOG – A STORY EVENT OF CATPOPE'S CHAPTERS");
     }
 }

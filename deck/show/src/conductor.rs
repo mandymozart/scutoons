@@ -135,6 +135,8 @@ struct Standing {
     event: String,
     how: How,
     until_ms: u64,
+    /// the rows its pass fired already: a row fired by a row fires once per pass (A fires B fires A stops at A)
+    pass: Vec<String>,
 }
 
 /// What an outlet is playing.
@@ -179,6 +181,8 @@ pub enum Logged {
     Ignored { row: String, event: String },
     /// no row listens to this event
     NoRow { event: String },
+    /// a row fired by a row came round in the same pass: it fires once per pass, the loop stops here
+    Looped { row: String },
     /// #539: a story event without an id (its type, empty: none): dropped, no row can name it
     NoId { kind: String },
     /// a single cell, by hand
@@ -243,7 +247,7 @@ pub struct Conductor {
     /// the last cell sent per outlet: a mirror only sends when it would show something else
     sent: BTreeMap<String, protocol::Cell>,
     current: Option<String>,
-    standing: Option<Standing>,
+    standing: Vec<Standing>,
     suggestion: Option<Suggestion>,
     log: VecDeque<Entry>,
 }
@@ -295,7 +299,7 @@ fn beat_at(at: Option<i64>, now: Now) -> Option<f64> {
 
 impl Conductor {
     pub fn new(show: Show) -> Conductor {
-        Conductor { show, stage: BTreeMap::new(), sent: BTreeMap::new(), current: None, standing: None, suggestion: None, log: VecDeque::new() }
+        Conductor { show, stage: BTreeMap::new(), sent: BTreeMap::new(), current: None, standing: Vec::new(), suggestion: None, log: VecDeque::new() }
     }
 
     pub fn show(&self) -> &Show {
@@ -373,46 +377,69 @@ impl Conductor {
     }
 
     /// A reader's event: it fires its row on auto, is held as a suggestion on suggest, does nothing on hand.
+    /// Every row that listens to it hears it, in the show's order.
     pub fn on_event(&mut self, event: &str, now: Now) -> Vec<Out> {
-        let Some(row) = self.show.rows.iter().find(|r| r.fire.event.as_deref() == Some(event)) else {
+        self.on_event_in(event, now, &[])
+    }
+
+    /// An event inside a pass: `pass` holds the rows this pass fired already.
+    fn on_event_in(&mut self, event: &str, now: Now, pass: &[String]) -> Vec<Out> {
+        let rows: Vec<(String, How, u32)> = self.show.rows.iter().filter(|r| r.fire.event.contains(event)).map(|r| (r.id.clone(), r.fire.how, r.fire.hold_ms)).collect();
+        if rows.is_empty() {
             self.record(now.ms, Logged::NoRow { event: event.to_string() });
             return vec![];
-        };
-        let (id, how, hold) = (row.id.clone(), row.fire.how, row.fire.hold_ms);
-        if how == How::Manual {
-            self.record(now.ms, Logged::Ignored { row: id, event: event.to_string() });
-            return vec![];
         }
-        // a newer event replaces the one still standing; one standing for the same event keeps its time
-        let until_ms = match &self.standing {
-            Some(s) if s.event == event => s.until_ms,
-            _ => now.ms + hold as u64,
-        };
-        self.standing = Some(Standing { row: id, event: event.to_string(), how, until_ms });
+        // a newer reader's event replaces those still standing; one standing for the same event keeps its time. A row's
+        // fire replaces nothing: it is part of the pass that stands.
+        if !event.starts_with(crate::document::ROW_FIRED) {
+            self.standing.retain(|s| s.event == event || s.event.starts_with(crate::document::ROW_FIRED));
+        }
+        for (id, how, hold) in rows {
+            if how == How::Manual {
+                self.record(now.ms, Logged::Ignored { row: id, event: event.to_string() });
+                continue;
+            }
+            if !self.standing.iter().any(|s| s.row == id && s.event == event) {
+                self.standing.push(Standing { row: id, event: event.to_string(), how, until_ms: now.ms + hold as u64, pass: pass.to_vec() });
+            }
+        }
         self.tick(now)
     }
 
     /// The reader scrolled back: the event no longer stands and its suggestion goes.
     pub fn on_left(&mut self, event: &str, now: Now) {
-        if let Some(row) = self.standing.take_if(|s| s.event == event).map(|s| s.row) {
-            self.record(now.ms, Logged::Withdrawn { row });
+        let (gone, stays): (Vec<Standing>, Vec<Standing>) = std::mem::take(&mut self.standing).into_iter().partition(|s| s.event == event);
+        self.standing = stays;
+        for s in gone {
+            self.record(now.ms, Logged::Withdrawn { row: s.row });
         }
         if let Some(row) = self.suggestion.take_if(|s| s.event.as_deref() == Some(event)).map(|s| s.row) {
             self.record(now.ms, Logged::Withdrawn { row });
         }
     }
 
-    /// Time passes: an event that stood its hold time counts.
+    /// Time passes: the events that stood their hold time count, in the order they came. Several suggestions at once: the
+    /// first is held, the operator's GO takes it.
     pub fn tick(&mut self, now: Now) -> Vec<Out> {
-        let Some(standing) = self.standing.take_if(|s| now.ms >= s.until_ms) else { return vec![] };
-        match standing.how {
-            How::Auto => self.fire_row(&standing.row, Origin::Auto, now),
-            _ => {
-                self.record(now.ms, Logged::Suggested { row: standing.row.clone() });
-                self.suggestion = Some(Suggestion { row: standing.row, event: Some(standing.event) });
-                vec![]
+        let (due, stays): (Vec<Standing>, Vec<Standing>) = std::mem::take(&mut self.standing).into_iter().partition(|s| now.ms >= s.until_ms);
+        self.standing = stays;
+        let mut out = vec![];
+        let mut held = false;
+        for s in due {
+            match s.how {
+                How::Auto => {
+                    let mut pass = s.pass;
+                    out.extend(self.fire_in_pass(&s.row, Origin::Auto, None, now, &mut pass));
+                }
+                _ if held => {}
+                _ => {
+                    held = true;
+                    self.record(now.ms, Logged::Suggested { row: s.row.clone() });
+                    self.suggestion = Some(Suggestion { row: s.row, event: Some(s.event) });
+                }
             }
         }
+        out
     }
 
     /// The operator fires a row. Always allowed.
@@ -513,7 +540,28 @@ impl Conductor {
         self.fire_row_at(id, origin, None, now)
     }
 
+    /// a row fired from outside – by hand, GO, a parent, a reader's event: a new pass
     fn fire_row_at(&mut self, id: &str, origin: Origin, at: Option<i64>, now: Now) -> Vec<Out> {
+        self.fire_in_pass(id, origin, at, now, &mut Vec::new())
+    }
+
+    /// A row fires in a pass; its fire is an event the rows that listen to it hear in the same pass. A row the pass fired
+    /// already does not fire again: the loop stops there.
+    fn fire_in_pass(&mut self, id: &str, origin: Origin, at: Option<i64>, now: Now, pass: &mut Vec<String>) -> Vec<Out> {
+        if pass.iter().any(|r| r == id) {
+            self.record(now.ms, Logged::Looped { row: id.to_string() });
+            return vec![];
+        }
+        pass.push(id.to_string());
+        let mut out = self.fire_once(id, origin, at, now);
+        let fired = crate::document::row_fired(id);
+        if self.show.rows.iter().any(|r| r.fire.event.contains(&fired)) {
+            out.extend(self.on_event_in(&fired, now, pass));
+        }
+        out
+    }
+
+    fn fire_once(&mut self, id: &str, origin: Origin, at: Option<i64>, now: Now) -> Vec<Out> {
         let Some(row) = self.show.row(id).cloned() else { return vec![] };
         let beat = if at.is_some() { beat_at(at, now) } else { moment_beat(row.fire.moment, now) };
         let at = at.or_else(|| moment_at(row.fire.moment, now));

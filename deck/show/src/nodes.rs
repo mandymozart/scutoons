@@ -25,7 +25,7 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     let Some(r) = show.rows.get(row) else { return g };
     let events: Vec<&str> = {
         let mut e: Vec<&str> = Vec::new();
-        for x in show.rows.iter().filter_map(|r| r.fire.event.as_deref()) {
+        for x in show.rows.iter().flat_map(|r| r.fire.event.iter()) {
             if !e.contains(&x) {
                 e.push(x);
             }
@@ -38,18 +38,22 @@ pub fn row_graph(show: &Show, row: usize, far: &[FarLink]) -> Graph {
     }
     g.nodes.push(Node { id: CLOCK.into(), title: CLOCK.into(), kind: "clock", detail: "show".into(), outs: vec![Pin::new("beat", Signal::Clock), Pin::new("bar", Signal::Clock)], far: true, ..Node::default() });
     let mut ins = Vec::new();
-    if r.fire.event.is_some() {
+    if !r.fire.event.is_empty() {
         ins.push(Pin::new("on event", Signal::Event));
     }
     if r.fire.moment != Moment::Now {
         ins.push(Pin::new(format!("on {}", view::moment_text(r.fire.moment)), Signal::Clock));
     }
-    g.nodes.push(Node { id: ROW.into(), title: r.fire.event.clone().unwrap_or_else(|| r.id.clone()), kind: "event", detail: view::how_text(r.fire.how).into(), ins, outs: vec![Pin::new("fire", Signal::Event)], ..Node::default() });
+    let title = if r.fire.event.is_empty() { r.id.clone() } else { r.fire.event.words() };
+    g.nodes.push(Node { id: ROW.into(), title, kind: "event", detail: view::how_text(r.fire.how).into(), ins, outs: vec![Pin::new("fire", Signal::Event)], ..Node::default() });
     let row_at = g.nodes.len() - 1;
     let wire = |g: &mut Graph, from: (usize, usize), to: (usize, usize), signal: Signal| g.links.push(Link::new(from, to, signal));
-    if let (Some(e), Some(reader)) = (r.fire.event.as_deref(), g.node(READER)) {
-        if let Some(k) = events.iter().position(|x| *x == e) {
-            wire(&mut g, (reader, k), (row_at, 0), Signal::Event);
+    // every event of the row into its one "on event"
+    if let Some(reader) = g.node(READER) {
+        for e in r.fire.event.iter() {
+            if let Some(k) = events.iter().position(|x| *x == e) {
+                wire(&mut g, (reader, k), (row_at, 0), Signal::Event);
+            }
         }
     }
     if r.fire.moment != Moment::Now {
@@ -222,7 +226,7 @@ mod tests {
     #[test]
     fn a_row_fires_from_its_event_into_the_cells_it_changes() {
         let show = parse(SHOW).unwrap();
-        let row = show.rows.iter().position(|r| r.fire.event.is_some()).unwrap();
+        let row = show.rows.iter().position(|r| !r.fire.event.is_empty()).unwrap();
         let g = row_graph(&show, row, &[]);
         let (reader, at) = (g.node(READER).unwrap(), g.node(ROW).unwrap());
         assert!(g.links.iter().any(|l| l.from.0 == reader && l.to.0 == at && l.signal == Signal::Event), "the event fires the row");
@@ -253,7 +257,7 @@ mod tests {
     #[test]
     fn a_fired_row_pulses_from_far_into_the_row_then_on_and_its_cells_stream() {
         let show = parse(SHOW).unwrap();
-        let (i, r) = show.rows.iter().enumerate().find(|(_, r)| r.fire.event.is_some()).unwrap();
+        let (i, r) = show.rows.iter().enumerate().find(|(_, r)| !r.fire.event.is_empty()).unwrap();
         let mut c = Conductor::new(show.clone());
         let mut g = row_graph(&show, i, &[]);
         activity(&mut g, &show, i, &c, 1_000);
@@ -303,10 +307,10 @@ mod tests {
     #[test]
     fn a_wire_says_what_it_carries() {
         let show = parse(SHOW).unwrap();
-        let (i, r) = show.rows.iter().enumerate().find(|(_, r)| r.fire.event.is_some()).unwrap();
+        let (i, r) = show.rows.iter().enumerate().find(|(_, r)| !r.fire.event.is_empty()).unwrap();
         let g = row_graph(&show, i, &[]);
         let into_row = g.links.iter().find(|l| l.to.0 == g.node(ROW).unwrap()).unwrap();
-        assert_eq!(into_row.value.as_deref().map(|v| v.split(" → ").next().unwrap()), r.fire.event.as_deref(), "the event's name");
+        assert_eq!(into_row.value.as_deref().map(|v| v.split(" → ").next().unwrap()), r.fire.event.first(), "the event's name");
         assert!(g.links.iter().all(|l| l.value.is_some()));
     }
 
@@ -316,7 +320,7 @@ mod tests {
         for (i, r) in show.rows.iter().enumerate() {
             let g = row_graph(&show, i, &[]);
             let at = g.node(ROW).unwrap();
-            assert_eq!(g.nodes[at].ins.is_empty(), r.fire.event.is_none() && r.fire.moment == Moment::Now);
+            assert_eq!(g.nodes[at].ins.is_empty(), r.fire.event.is_empty() && r.fire.moment == Moment::Now);
             for (o, cell) in &r.cells {
                 if let Cell::Play { values, .. } | Cell::Values { values, .. } = cell {
                     let n = &g.nodes[g.node(o).unwrap()];
