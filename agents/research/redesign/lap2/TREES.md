@@ -1,32 +1,33 @@
-<!-- status: concept for the owner, 2026-11-24 – the owner's idea of trees thought through; nothing decided, nothing drawn yet. -->
-# Trees – what they are for
+<!-- status: concept for the owner, round 2 (2026-11-24) – the tree concept rethought after the owner's answer on "inside a document"; nothing decided, nothing drawn yet. Round 1 is in git (b524eb5b8). -->
+# Trees – what they are for (round 2)
 
-## The owner's concept (2026-11-24, on the Tree panels of Scenes, Catalog and the Rig panel's bones)
-*"Tree is a very ambiguous concept at this point. Rethink what its purpose is and how it relates to hierarchies in the other deck edit views and in the XR editor and map editor etc. Some trees are very opinionated, others a bit more free. In the end they all first of all have a name. It seems like the workspace kind of mirrors the tree, so the name should be the same. Which would allow us to open trees across workspaces in case we need some referencing."*
+## The owner's words (2026-11-24)
+- *"Tree is a very ambiguous concept at this point. Rethink what its purpose is and how it relates to hierarchies in the other deck edit views and in the XR editor and map editor etc. Some trees are very opinionated, others a bit more free. In the end they all first of all have a name. It seems like the workspace kind of mirrors the tree, so the name should be the same. Which would allow us to open trees across workspaces in case we need some referencing."*
+- On a model's bones in the creator's Rig panel: *"I see this as a model view rather than a workspace that is about assigning stuff to a character. So like in the deck editor it's sort of an isolated asset view, in this case 3D. But we should [not] do this in two places. If the deck editor is our place for 3D manipulation or video etc., we will open the deck rather than showing information twice."* ("not" is the agent's reading of the dictation – the next sentence says it.)
 
-## Today: eight different things, three names
-| Where | Called | What it holds | Fixed or free |
-|---|---|---|---|
-| Creator · Toon / Chapter / Storyboard | Tree | the toon's seasons → chapters → its parts (chapter-tree) | fixed (the story's order) |
-| Creator · Scenes | Tree | every scene, filtered by toon and state, with Published / Draft | free (a list, groups by name) |
-| Creator · Catalog | Tree | the catalog by kind (items, recipes, albums …) | fixed by kind, free inside |
-| Creator · Map | Tree | Layers · Places · Routes · Regions | fixed sections, free inside |
-| Creator · Text | Tree | – | – |
-| Creator · Characters | – (point 5: no Tree, the Library opens characters) | – | – |
-| Creator · Rig panel | Bones | a model's skeleton | fixed (the model's) |
-| Deck · Build | Rig | the rig → its tracks → their nodes | fixed |
-| Deck · Show | Outline | conductors · roles · rows | fixed |
-| Deck · Module | – (the Library lists modules) | – | – |
-| XR (drafts) | – | places come from the Map | – |
+## The one distinction that sorts everything: composing vs. the asset itself
+- **A workspace composes.** It is about one kind of thing made of other things: a chapter of slices, a scene of a place and who is in it, a character of looks, a model, a voice and a cast, a show of rows, a rig of tracks and nodes, a map of places and routes. Its work is assigning and arranging.
+- **An asset view shows one asset by itself.** A 3D model with its bones and clips, a video with its trim, a sound with its waveform, a module with its code. The deck editor already has exactly this – the Asset tab (media.rs: video, image, sound, 3D; a module and a character open as an asset too).
+- **Not twice:** an asset's inside is shown in one place only – the asset view, in the app that edits that kind. For 3D and video that is the deck. The creator shows that the asset is assigned (its name, a still, a line like "17 bones · 2 clips") and **Open in the deck**.
 
-## The concept, thought through
-1. **What a tree is for:** the workspace's own things and how they hang together – where you pick what the stage shows and the Inspector edits. Not the Library (files you drop in) and not the Inspector (one thing's values).
-2. **One tree per workspace, named like it:** the Scenes workspace's tree is "Scenes", Map's is "Map", Catalog's "Catalog", Characters' "Characters", the deck's Rigging tree "Rigging", Show's "Show". The panel tab says the workspace's name; "Tree", "Outline" and "Rig" as names go.
-3. **Opinionated or free is the tree's own business:** fixed levels where the data has them (a toon's seasons and chapters, a rig's tracks and nodes, a show's rows), free groups where it doesn't (scenes, catalog entries, map places). Same look, same keys, same search, same drag.
-4. **Trees travel:** because a tree is named by its workspace, any workspace can open another's tree as a view (the ☰ Views list: "Characters", "Map" …) – to reference: drag a character from "Characters" into a scene, a place from "Map" into the XR's Place tab, a scene from "Scenes" into a show row. Opening an item from a borrowed tree jumps to its own workspace (or stays, holding it as a reference – open).
-5. **Across the apps:** the deck's trees (Rigging, Show) and the creator's could be borrowed the same way once the two apps talk (DECK-LINK.md) – e.g. "Scenes" inside the deck's Show.
+## So a tree is: the composition, top to bottom, ending at the assets
+1. **One tree per workspace, named like the workspace** (the owner's concept). It runs from the collection down through the open item to its parts: "Toon": toons → seasons → chapters → slices. "Scenes": scenes → a scene's place, spots and who. "Characters": characters → looks → what is assigned. "Map": layers, places, routes, regions. "Catalog": kinds → entries. Deck: "Rigging": rig → tracks → nodes; "Show": conductors, roles, rows.
+2. **The answer to "inside a document":** it depends on what the inside is.
+   - Parts you compose (a chapter's slices, a rig's nodes, a scene's spots, a show's rows) are the **same tree, one level deeper** – no second small tree in a panel.
+   - An asset's inside (a model's bones and clips, a video's tracks) is **not in any workspace tree**. The tree ends at the asset: a leaf with its name and still. Opening the leaf opens the asset view – for 3D and video, the deck.
+3. **Opinionated or free** is each tree's own business: fixed levels where the data has them (seasons, tracks, rows), free groups where it doesn't (scenes, catalog entries, places). Same look, keys, search and drag everywhere.
+4. **Trees travel** (the owner's concept): any workspace can open another's tree by its name from the ☰ Views list, to reference – drag a character from "Characters" into a scene, a place from "Map" into the XR's Place tab, a scene from "Scenes" into a show row. Later across the apps too (DECK-LINK.md).
+5. **Tree, Library, Inspector – three different jobs:** the tree is what the workspace is made of; the Library is the assets to put into slots; the Inspector is the selected thing's values.
+
+## What it would change on today's screens
+- **Creator · Characters · Rig panel:** stays what the character workspace is for – assigning the model to the look, the idle, the placeholder body, the A-pose. The **Bones** and **Clips** lists go; in their place the model's line and **Open in the deck** (the deck's asset view has them).
+- **The 3D on the stage in the creator** (the owner's 2D-first / 3D-first thought) is then a viewer of the assigned model – looking, not manipulating.
+- **Panel names:** "Tree" (creator), "Rig" and "Outline" (deck) become the workspace's name.
+- **Found while checking "not twice":** a module's code is edited in the creator (Sound design, `/edit/module:…`) and in the deck (the Module workspace). Under the rule one of them goes – the owner's call.
 
 ## Open for the owner
-- **Inside a document:** the bones of a model, a chapter's slices, a rig's nodes – are they the same tree one level deeper (the workspace tree opens down into the open item), or the open item's own small tree in its panel?
-- **Characters get a tree** ("Characters") again – against point 5 (the Library opens characters) – or the Library stays their tree?
-- **Borrowed tree, open an item:** jump to its workspace, or stay and only reference?
+1. **Characters:** a "Characters" tree (characters → looks → assigned assets), or does the Library stay the way to open characters (lap 1's point 5)?
+2. **The Library's "Items to open"** lists the same things as the top of each tree – keep both, or does the tree take that over once it travels?
+3. **Borrowed tree, open an item:** jump to its own workspace, or stay and only reference?
+4. **Modules:** edited in the creator, in the deck, or (the rule says) only one – which?
+5. **Images and sound:** is their asset view the deck's too (it has both), or does the creator keep a light one for 2D work?
