@@ -20,7 +20,10 @@ pub fn all() -> [(&'static str, Vec<u8>); 3] {
 
 /// the deck's loader over a cache of its own holding the stand-ins (the CDN offline)
 pub fn loader(name: &str) -> Arc<dyn AssetLoader> {
-    let dir = std::env::temp_dir().join(format!("w804-stand-ins-{name}-{}", std::process::id()));
+    // one folder a call: tests of a file run in parallel and each clears its folder first (#778 – they deleted each other's)
+    static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("w804-stand-ins-{name}-{}-{call}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     for (path, bytes) in all() {
         let p = dir.join("cdn").join(path);
