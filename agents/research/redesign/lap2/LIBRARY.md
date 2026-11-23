@@ -41,7 +41,7 @@
 | The five picker sheets (character, item, asset, person, role) | the Library opened from a slot | decided |
 | Editing the cast from each character's Cast tab | the cast is edited in the toon's season; the tab shows "cast in" and links there | decided |
 | "By cast" showing files only | the place lists the characters and their files | decided |
-| Trees that travel between workspaces (TREES.md, point 4) | referencing is done from the Library | follows – confirm |
+| Trees that travel between workspaces (TREES.md, point 4) | referencing is done from the Library | decided |
 
 ## What stays
 - **A tree for what a thing is made of:** a toon's seasons, chapters and cast; a chapter's slices; a show's rows; a rig's tracks; the map's layers, places and routes.
@@ -70,4 +70,4 @@
 5. **The type filter is one quiet select** ("All types"), its list in two groups – things and files. The places stay a row of chips.
 
 ## Open
-1. **Trees that travel between workspaces** (the recap's last line) is the one consequence not confirmed – no screen shows it.
+Nothing in this concept. What dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens, is asked in PLAN.md (P11).

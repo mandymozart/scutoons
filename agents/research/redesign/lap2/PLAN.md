@@ -13,10 +13,10 @@ One look and one shell for the creator and the deck, as decided on 2026-11-24: t
 ## The packages
 Each becomes one or a few tickets once you agree. Sizes and costs are set with the tickets.
 
-### P0 · The pictures (first, no code)
-Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 screens are still in the old palette, 7 have the right shape and old colours. Night and day.
-- **Follows:** kit-d.html, RULES H4, H10, H11, H13, H14, H15, DECISIONS.md.
-- **Done when:** every screen marked old or shape in SCREENS.md is current, each change against today numbered, nothing drawn that no decision covers.
+### P0 · The pictures (done 2026-11-24, no code)
+The set of SCREENS.md is redrawn in the approved kit with the day's decisions, each screen checked for leftover colours: draft.html `?s=<id>`, the shots in `shots/`.
+- **What is not drawn:** the screens marked "words" in SCREENS.md (the workspace tab's menu, the module editor in both apps, the writing pages); the eight feature drafts brought in from other sessions have their palette moved, not a redraw.
+- **Rule for the run:** a package is built from its pictures. Where a picture is missing, the package does not start.
 
 ### P1 · The kit
 - **Deck (the source):** palette D in deck-kit's tokens – no accent, no lime, no green switch; the see-through grounds; the colour-blind token set; tabs and panel titles without a border at rest; the signal table unchanged; the outlet types' colours as a table beside it.
@@ -110,11 +110,12 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
+- The Storyboard's viewport ground: white by night and dark by day today (found 2026-11-24 on Cat Pope · chapter 3).
 - The 59 local style rules, the raw selects, the solid blue "Published" badges.
 - Wording: messages ending in "…", hard-coded texts, the translation dogma on the pages that miss it.
 
 ## The order
-1. **P0** – the pictures. Nothing else starts before them.
+1. **P0** – the pictures: done.
 2. **P1** – the kit, the deck first because the tokens come from it.
 3. **P2** and **P8** side by side. **P7** can run beside them: it is the deck's alone and needs the kit, not the shell.
 4. **P3** and **P4**. **P11** follows P3: its tiles come from the stills, and both apps wait for its endpoint.
@@ -154,9 +155,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
 | The extended Library: what dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens (LIBRARY.md) | P11 |
-| P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:
-- Catalog and Library as one concept (F1).
 - Where the 2D-first / 3D-first preference sits (C4).
-- The trees' open questions; the word "instrument"; MODULES-DNA.md points 2–7.
+- The word "instrument"; MODULES-DNA.md points 2–7.

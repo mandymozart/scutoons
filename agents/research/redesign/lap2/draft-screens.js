@@ -226,8 +226,35 @@ add('C', 'C1', 'Toon: one toon – seasons, chapters, the cast', 'now/ws-toon (2
   });
 add('C', 'C2', 'Chapter', presetBase('chapter'), [KIT],
   () => `${wsFromPreset('Chapter', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 420, tabs: [['Inspector',1],['Log',0],['Flow',0]] }, { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
-add('C', 'C3', 'Storyboard', presetBase('storyboard'), [KIT],
-  () => `${wsFromPreset('Storyboard', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 560, tabs: [['Inspector',1],['Script',0],['Rhythm',0],['Generate',0],['Handheld',0],['Output',0],['Log',0]] }, { x: 280, y: 640, w: 780, h: 170, tabs: [['Timeline',1]] }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
+/* C3 – the Storyboard workspace, drawn from today's page (now/ws-storyboard, creator.scutoons.com/catpope/chapter/3/storyboard, 2026-11-24): the steps, the tools, the shot's page, the Inspector, the Timeline – on the kit */
+const SB_PAGE = (x, y, w, h) => `<span class="abs" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden;outline:1px solid var(--tool-line)" title="the shot's page as today (sb-25-1)">${capPic(`now/ws-storyboard-${WS_TH}.jpg`, 800, 476, 342, 100, 116, 256)}</span>`;
+const SB_SEG = (names, on, o = {}) => `<span class="seg" ${o.style ? `style="${o.style}"` : ''}>${names.map((n, k) => `<span class="${k === on ? 'on' : ''}" ${o.grow ? 'style="flex:1;justify-content:center"' : ''}>${n}</span>`).join('')}</span>`;
+const SB_LBL = (t, top = '.7rem') => `<div class="label" style="margin:${top} 0 .3rem">${t}</div>`;
+const SB_TEXT = (t, h) => `<div class="fld" style="width:auto;height:${h}px;align-items:flex-start;padding:.35rem .55rem;white-space:normal;line-height:1.35;overflow:hidden">${t}</div>`;
+add('C', 'C3', 'Storyboard', 'now/ws-storyboard (today, Cat Pope · chapter 3, shot sb-25-1 open in step 2 Shots)',
+  ['kit look: the steps and every choice as the kit’s segments – the one that is on is the pressed fill; the tools in their pills, round icon buttons; no accent, see-through grounds, tabs without a border at rest (H4, H11)',
+   'the stage is the stage’s ground: today the shot’s viewport is white by night and dark by day – found 2026-11-24, drawn as it should be',
+   'the left panel is the toon’s tree (C1), the Library the extended Library (C12) – nothing else moves: the Inspector, the Timeline and the steps as today'],
+  () => `${cbar({ chevron: true, wsOn: 'Storyboard', ws: ['Characters', 'Toon', 'Flow', 'Scenes', 'Storyboard', 'Sound design', 'Catalog', 'Map'], items: [['box', 'Scenes'], ['map', 'Map'], ['film', 'Storyboard']] })}
+  ${fp(14, 60, 252, 572, [['Toon', 1], ['Tree', 0]], ['Stories', 'Script', 'Credits', 'Settings'].map(n => `<div class="lrow" style="min-height:1.85rem">${n}</div>`).join(''))}
+  <div class="abs" style="left:396px;top:60px;display:flex;flex-direction:column;gap:.5rem;width:662px">
+    <div>${SB_SEG(['1 Script', '2 Shots', '3 Layout', '4 Handheld', '5 Generate', '6 Export'].map(n => `<span style="color:inherit;opacity:.6;margin-right:.35rem">${n[0]}</span>${n.slice(2)}`), 1)}</div>
+    <div style="display:flex;align-items:center"><span class="kp">${['sliders', 'file', 'activity', 'zap', 'phone', 'upload'].map((n, k) => `<span class="kib ${k === 0 ? 'pressed' : ''}">${ic(n)}</span>`).join('')}</span><span style="flex:1"></span><span class="kb plain">${ic('file')}Choose folder</span></div>
+    <div style="display:flex;align-items:center;gap:.5rem">${SB_SEG([ic('cube') + 'Viewport', ic('grid') + 'Variants'], 0)}${SB_SEG([ic('pointer') + 'Move', ic('refresh') + 'Turn'], 0)}<span class="kb plain pressed" style="background:var(--tool-pressed);color:var(--tool-pressed-text)" title="Texts shown">${ic('edit')}Texts</span><span class="kb quiet">Shot camera</span><span class="kc" title="This shot is filmed by hand">Hand camera</span></div>
+  </div>
+  ${SB_PAGE(616, 196, 209, 461)}
+  ${fp(1076, 60, 350, 690, [['Inspector', 1], ['Log', 0]], `<div class="label" style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">${ic('sliders')}Shot · sb-25-1</div>
+    ${SB_SEG(['Shot', 'Camera', 'Light', 'Figures'], 0, { style: 'display:flex', grow: 1 })}
+    ${SB_LBL('Action')}${SB_TEXT('Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht …', 92)}
+    ${SB_LBL('Image')}${SB_TEXT('', 70)}
+    ${SB_LBL('View')}${SB_SEG(['real', 'belief', 'narration', 'memory'], 0, { style: 'display:flex', grow: 1 })}
+    ${SB_LBL('Source')}<div class="fld sel" style="width:auto">photo</div>
+    ${SB_LBL('Note')}${SB_TEXT('Anschluss an das Ende von Kapitel 2 (Zug durch die Berge). Gipfel oben – Luft vor der Szene …', 92)}`)}
+  ${fp(14, 664, 1046, 146, [['Timeline', 1]], `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem"><span class="label" style="display:inline-flex;align-items:center;gap:.35rem">${ic('film')}Timeline</span>${SB_SEG(['Shot', 'Take', 'Rendered', 'Generated'], 0)}<span class="cap">1 clip · 0:05</span><span style="flex:1"></span><span class="kib" style="box-shadow:inset 0 0 0 1px var(--tool-line)" title="Play">${ic('play')}</span></div>
+    <div style="display:flex;border-top:1px solid var(--tool-line);padding-top:.25rem" class="mono cap"><span style="width:4.2rem;color:var(--tool-text)">0:00.0</span>${['0:00.0', '0:00.5', '0:01.0', '0:01.5', '0:02.0', '0:02.5', '0:03.0', '0:03.5', '0:04.0', '0:04.5'].map(t => `<span style="flex:1;border-left:1px solid var(--tool-line);padding-left:.25rem">${t}</span>`).join('')}</div>
+    <div style="display:flex;align-items:center;margin-top:.3rem"><span class="label" style="width:4.2rem">Clips</span><span style="flex:1;height:1.6rem;border-radius:.25rem;background:var(--tool-selected);display:flex;align-items:center;padding:0 .5rem;font-size:var(--editor-small)">25-1 still</span></div>`)}
+  ${folded(1278, 780, 'Library')}${cstatus('No messages yet', '0 errors <span class="warn">62 warnings</span>')}
+  ${mk(1, 380, 62)}${mk(2, 596, 200)}${mk(3, 270, 70)}`);
 
 add('C', 'C4', 'Characters: Sheet · 3D · Kanon · Expressions · Rig · Voice · Cast · Generations', 'now/creator-1, now/ws-characters (Rig in front)',
   ['the Rig tab without the Bones and Clips lists (the deck\'s asset view has them, not twice) – the rest as today: the look\'s 3D model, the model\'s line, Idle, Body, A-pose',
