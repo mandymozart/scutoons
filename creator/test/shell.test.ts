@@ -7,6 +7,7 @@ import { NO_USE, entered, fits, readUse, workspaceRow } from '../src/lib/shell/w
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
 import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
+import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -222,4 +223,47 @@ test('the workspace row: most used first, never grouped; each goes to its last i
 	assert.ok(!fits(null, 'chapter'));
 	assert.deepEqual(readUse(JSON.parse(JSON.stringify(use))), use);
 	assert.deepEqual(readUse({ uses: { chapter: -1, nope: 3 }, last: { map: { address: 'chapter:x:1', href: '/x' } } }), NO_USE);
+});
+
+test('the dashboard: the front workspace first, then most used; each card shows what is open in it', () => {
+	const tabs = [
+		{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' },
+		{ address: 'scene:duet', href: '/scenes/duet', label: 'Duet' },
+		{ address: 'scene:crypt', href: '/scenes/crypt', label: 'Crypt' }
+	];
+	const use = { uses: { scene: 5, chapter: 2, map: 1 }, last: { scene: { address: 'scene:crypt', href: '/scenes/crypt' } } };
+	const cards = workspaceCards(use, tabs, 'chapter:catpope:3');
+	assert.deepEqual(cards.map((c) => c.kind).slice(0, 3), ['chapter', 'scene', 'map']);
+	assert.equal(cards[0].front, true);
+	assert.equal(cards[1].shown?.address, 'scene:crypt', 'a workspace shows its last item while it is open');
+	assert.equal(cards[1].open.length, 2);
+	assert.equal(cards[2].shown, null);
+	assert.equal(cards[2].href, '/map', 'nothing open: its start');
+	assert.equal(firstRing(cards), 1, 'the ring starts on the card after the front one');
+	assert.equal(firstRing(workspaceCards(use, tabs, null)), 0);
+});
+
+test('the welcome: nothing used yet – every workspace of the row, empty', () => {
+	assert.equal(isWelcome(NO_USE, [], 0), true);
+	assert.equal(isWelcome(NO_USE, [], 1), false);
+	const cards = workspaceCards(NO_USE, [], null, true);
+	assert.ok(cards.length >= 8);
+	assert.ok(cards.every((c) => !c.shown && c.href === null && !c.front));
+	assert.equal(greetName('mira.k@example.org'), 'Mira');
+	assert.equal(greetName(''), '');
+});
+
+test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {
+	assert.equal(stepRing(0, -1, 5), 4);
+	assert.equal(stepRing(4, 1, 5), 0);
+	assert.equal(stepRing(0, 1, 0), 0);
+	assert.equal(rowStep(1, 1, 7, 4), 5);
+	assert.equal(rowStep(5, 1, 7, 4), 5, 'no card below: it stays');
+	assert.equal(rowStep(5, -1, 7, 4), 1);
+	const now = 10 * 86400000;
+	assert.deepEqual(ago(now - 20000, now), { unit: 'now', n: 0 });
+	assert.deepEqual(ago(now - 5 * 60000, now), { unit: 'minute', n: 5 });
+	assert.deepEqual(ago(now - 3 * 3600000, now), { unit: 'hour', n: 3 });
+	assert.deepEqual(ago(now - 2 * 86400000, now), { unit: 'day', n: 2 });
+	assert.equal(ago(undefined, now), null);
 });

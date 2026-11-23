@@ -1711,7 +1711,8 @@
 		"sound_out": "Ausgänge",
 		"sound_limiter": "Limiter-Absenkung",
 		"sound_in": "Eingänge",
-		"sound_perf": "Engine: Zustand, Bildrate, Arbeit pro Bild, Aussetzer – Bild und Ton zusammen"
+		"sound_perf": "Engine: Zustand, Bildrate, Arbeit pro Bild, Aussetzer – Bild und Ton zusammen",
+		"publish_part_show": "Show"
 	},
 	"palette": {
 		"search": "Suchen oder springen …",
@@ -2297,7 +2298,7 @@
 		"key_tab_next": "Nächster Tab (Alt Bild↓, wo der Browser Strg Tab behält)",
 		"key_tab_prev": "Vorheriger Tab (Alt Bild↑)",
 		"key_tab_close": "Vorderen Tab schließen (Alt W, wo der Browser Strg W behält)",
-		"dashboard": "Start – das Dashboard",
+		"dashboard": "Dashboard",
 		"search": "Suchen …",
 		"views_menu": "Ansichten",
 		"build": "Build",
@@ -2324,7 +2325,24 @@
 		"views_stage_item": "Das Objekt",
 		"views_stage_free": "frei",
 		"views_every": "Jede Ansicht",
-		"key_full": "Vollbild: die Ansicht unter dem Zeiger (Esc verlässt)"
+		"key_full": "Vollbild: die Ansicht unter dem Zeiger (Esc verlässt)",
+		"dash_last_opened": "Zuletzt geöffnet",
+		"dash_needs_review": "Zur Durchsicht",
+		"dash_not_published": "Nicht veröffentlicht",
+		"dash_in_your_toons": "In den Toons, an denen du arbeitest",
+		"dash_front": "Vorne",
+		"dash_nothing_open": "Noch nichts offen",
+		"dash_welcome": "Willkommen, {name}",
+		"dash_keys": "Tab · Umschalt Tab · Pfeile bewegen · Enter öffnet · Esc zurück",
+		"dash_now": "jetzt",
+		"dash_minutes": "{n} Min.",
+		"dash_hours": "{n} Std.",
+		"dash_days": "{n} T.",
+		"dash_review_asked": "Durchsicht erbeten von {who}",
+		"dash_not_published_row": "nicht veröffentlicht",
+		"dash_publish_all": "Veröffentlichen …",
+		"key_views": "Ansichten des vorderen Arbeitsbereichs (öffnet das Dashboard)",
+		"key_dashboard": "Das Dashboard (die Menütaste)"
 	},
 	"library": {
 		"actions": "Aktionen",

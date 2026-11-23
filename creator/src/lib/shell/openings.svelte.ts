@@ -38,21 +38,25 @@ class Openings {
 	rows = $state.raw<Record<string, Place[]>>({});
 	#rule: LibraryOpener | null = null;
 	#asked = false;
+	#listed = false;
 
 	async load() {
 		if (this.#asked) return;
 		this.#asked = true;
+		// the lists name items by their own names (the dashboard's lines) even while the rule is not there yet
+		if (!this.#listed) {
+			this.#listed = true;
+			for (const [kind, load] of Object.entries(LOADERS)) {
+				load()
+					.then((list) => (this.rows = { ...this.rows, [kind]: list.map((r) => this.#place(r)).filter((p): p is Place => !!p) }))
+					.catch(() => undefined);
+			}
+		}
 		try {
 			this.#rule = await library.opener();
 			this.kinds = this.#rule.kinds();
 		} catch {
 			this.#asked = false;
-			return;
-		}
-		for (const [kind, load] of Object.entries(LOADERS)) {
-			load()
-				.then((list) => (this.rows = { ...this.rows, [kind]: list.map((r) => this.#place(r)).filter((p): p is Place => !!p) }))
-				.catch(() => undefined);
 		}
 	}
 

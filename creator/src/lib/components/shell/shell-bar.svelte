@@ -3,17 +3,15 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import MainMenu from '$lib/components/shell/main-menu.svelte';
 	import TabStrip from '$lib/components/shell/tab-strip.svelte';
 	import WorkspaceTabs from '$lib/components/shell/workspace-tabs.svelte';
 
 	/**
 	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
 	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
-	 * something in its scope is not live), the account and the menu, far right. Every part is a kit Pill, half a gap apart.
+	 * something in its scope is not live), the account and the menu, far right: it lays the dashboard over everything and
+	 * takes it away again. Every part is a kit Pill, half a gap apart.
 	 */
-	let { reader }: { reader: string | null } = $props();
-
 	const session = getCreatorSession();
 	const doc = $derived(shell.doc);
 	const who = $derived(session.user?.email ?? '');
@@ -46,7 +44,7 @@
 				<MenuItem icon="log-out" label={m['creator.sign_out']()} onclick={() => (close(), void session.logout())} data-testid="sign-out" />
 			{/snippet}
 		</Menu>
-		<MainMenu {reader} />
+		<IconButton label={m['shell.dashboard']()} title="{m['shell.dashboard']()} (Esc)" icon="menu" pressed={!!shell.dashboard} aria-expanded={!!shell.dashboard} onclick={() => (shell.dashboard = shell.dashboard ? false : 'cards')} data-testid="menu-button" />
 	</Pill>
 </header>
 

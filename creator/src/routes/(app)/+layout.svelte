@@ -43,6 +43,7 @@
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
 	import StatusBar from '$lib/components/shell/status-bar.svelte';
+	import Dashboard from '$lib/components/shell/dashboard.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -140,6 +141,8 @@
 		lastPath = pathname;
 	}
 	afterNavigate(() => sync(true));
+	// nothing open: the dashboard lies over the empty stage; going to an item puts it away
+	afterNavigate(() => (shell.dashboard = location.pathname === '/' ? shell.dashboard || 'cards' : false));
 	onMount(() => {
 		if (startAt === '/' && resume) void goto(resume.href, { replaceState: true });
 		const { pushState, replaceState } = history;
@@ -171,7 +174,7 @@
 	/** where the open item is read: the toon or its chapter in the reader (printed URLs, RULES I1) */
 	const reader = $derived(toonId ? `${VIEWER_URL}/${toonId}${page.params.chapterNumber ? `/chapter/${page.params.chapterNumber}` : ''}` : null);
 
-	// where this member was (Home's Continue): every place with a tab, once the toons' names are known
+	// where this member was (the dashboard's Last opened): every place with a tab, once the toons' names are known
 	$effect(() => {
 		const crumbs = tabPath(nav.crumbs);
 		if (!isCreator || !nav.toons.length || !shell.state.front || !crumbs.length) return;
@@ -187,9 +190,14 @@
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';
 	});
 
-	/** Alt+ArrowUp: one step up the path; Ctrl+O: open (the Library); Ctrl+,: Settings */
+	/** Alt+ArrowUp: one step up the path; Ctrl+O: open (the Library); Ctrl+,: Settings; Alt+V: the front workspace's Views (on the dashboard) */
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
+		if (event.altKey && !mod && !event.shiftKey && event.code === 'KeyV') {
+			event.preventDefault();
+			shell.dashboard = shell.state.front ? 'views' : 'cards';
+			return;
+		}
 		if (mod && !event.altKey && !event.shiftKey && (event.key === 'o' || event.key === ',')) {
 			event.preventDefault();
 			shell.open(event.key === 'o' ? 'library' : 'settings');
@@ -234,9 +242,10 @@
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
-		<ShellBar {reader} />
+		<ShellBar />
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
+		{#if shell.dashboard}<Dashboard {reader} />{/if}
 		<CommandPalette bind:open={paletteOpen} commands={paletteCommands} label={m['palette.label']()} placeholder={m['palette.placeholder']()} hint={m['palette.keys']()} />
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
