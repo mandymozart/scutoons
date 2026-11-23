@@ -130,9 +130,10 @@ is a control module's output like its control values and events – a port, decl
 that both sounds and draws (a bamboo forest: hits → notes, stalks → instances) into two; the Object slot runs on the render
 thread per drawn frame, which would make a simulation depend on the frame rate. The slot can later take a table too.
 A shape draws with a model instead of its placeholder when the module declares a `model` slot named after it
-(`#[asset(name = "puff", kind = "model", max_bytes = …)]`) and the node names a .glb there (`assets = { puff =
-"scutoons/3d/cloud-puff.glb" }`): the engine loads it through the platform's `AssetLoader` like any slot asset and hands it
-with the table (`Table::models`), the space reads its rest pose, fits it to the placeholder's metre (a puff centred, a
+(`#[asset(name = "puff", kind = "model", max_bytes = …)]`) and the node names a set of .glb files there (`assets = { puff =
+["scutoons/3d/cloud-three-blobs.glb", "scutoons/3d/cloud-four-blobs.glb"] }`; one path is a set of one): the engine loads
+each through the platform's `AssetLoader` like any slot asset and hands them with the table (`Table::models`), each
+instance of the shape picks one (`drawn::pick`, steady by its place among the shape's instances), the space reads its rest pose, fits it to the placeholder's metre (a puff centred, a
 segment on its foot) and draws it flat shaded in the instance's colour; without it (none named, not had, not readable, over
 20 000 triangles) the placeholder stands in. A model replaced in the library under the same path is drawn from a deck's next load (the native deck checks a cached slot
 asset against the CDN once per load – library.rs `load_fresh`; offline its cached copy). The browser

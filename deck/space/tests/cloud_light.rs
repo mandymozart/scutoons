@@ -69,7 +69,7 @@ fn named(outputs: &toml::Table) -> BTreeSet<String> {
     out
 }
 
-/// The placed rig is the sandbox's flattened rig: its cloud held and tinted, its puff the library's model, the samplers'
+/// The placed rig is the sandbox's flattened rig: its cloud held and tinted, its puffs the library's set of models, the samplers'
 /// sounds; the outputs drive the wash and the strobe from the cloud's ports, which the resolved graph has.
 #[test]
 fn the_scene_places_the_cloud_storm_with_its_light() {
@@ -79,7 +79,8 @@ fn the_scene_places_the_cloud_storm_with_its_light() {
     for (k, v) in [("hold", 1.0), ("hue", 0.62), ("tint", 60.0)] {
         assert_eq!(cloud.params[k].as_float().map(|x| x as f32), Some(v), "{k}");
     }
-    assert_eq!(cloud.params["assets"]["puff"].as_str(), Some("scutoons/3d/cloud-puff.glb"));
+    let set: Vec<&str> = cloud.params["assets"]["puff"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert_eq!(set, ["scutoons/3d/cloud-three-blobs.glb", "scutoons/3d/cloud-four-blobs.glb"], "the owner's two blob clouds");
     let outputs = s.outputs.as_ref().expect("its light");
     let paths = named(outputs);
     assert_eq!(paths.len(), 5, "red, green, blue, pulse, gate: {paths:?}");

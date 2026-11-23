@@ -41,7 +41,7 @@ final class CloudLightSandboxTest extends TestCase
         self::assertSame($bundle['rig'], $this->row('catalog_rigs', 'item.cloud'));
         self::assertSame($bundle['instrument'][0], $this->row('catalog_instruments', 'cloud_storm'));
         $cloud = array_values(array_filter($bundle['instrument'][0]['node'], fn(array $n) => $n['id'] === 'cloud'))[0];
-        self::assertSame(['kind' => 'module:cloud', 'puff' => 'scutoons/3d/cloud-puff.glb'], ['kind' => $cloud['kind'], 'puff' => $cloud['assets']['puff']]);
+        self::assertSame(['kind' => 'module:cloud', 'puff' => ['scutoons/3d/cloud-three-blobs.glb', 'scutoons/3d/cloud-four-blobs.glb']], ['kind' => $cloud['kind'], 'puff' => $cloud['assets']['puff']], 'its puff set by 2026-11-25-cloud-puff-set');
         $sounds = [];
         foreach ($bundle['instrument'][0]['node'] as $n) if ($n['kind'] === 'module:sampler') $sounds[] = $n['assets']['sample'];
         self::assertSame(['scutoons/sounds/cloud-thunder.wav', 'scutoons/sounds/cloud-kick.wav'], $sounds, 'the stand-ins, replaced in the library under the same paths (#804)');

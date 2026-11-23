@@ -2,9 +2,10 @@
 //! the core's placeholder shapes (`deck_module::instances::shape`), one instanced draw per mesh for all tables. A table
 //! stands at its module node's place: a node of a holder's rig (its id under the member's prefix, the rule `Cast::of`
 //! uses) at that member's feet, turned as its motion module turns it; any other at the scene's spot on the floor.
-//! Instance positions are metres from that place. A table whose node names a model in a `model` slot called after a
-//! shape (the cloud's `puff`) draws that shape with the model instead – fitted to the placeholder's metre (`fit`), flat
-//! shaded like it; a model that cannot be read leaves the placeholder.
+//! Instance positions are metres from that place. A table whose node names models in a `model` slot called after a
+//! shape (the cloud's `puff`) draws that shape with them instead – each instance one model of the set (`pick`: by its
+//! place among the table's instances of that shape, so it keeps its model while the table lives), fitted to the
+//! placeholder's metre (`fit`), flat shaded like it; a model that cannot be read leaves the set, an empty set the placeholder.
 use super::Space;
 use crate::instances::Table;
 use deck_module::instances::shape;
@@ -35,13 +36,13 @@ pub struct DrawnInst {
     pub colour: [f32; 4],
 }
 
-/// One table on this stage: whose it is (a cast member's index; none = the scene's) and, per shape, the model mesh that
-/// draws it (an index into `Drawn::models`).
+/// One table on this stage: whose it is (a cast member's index; none = the scene's) and, per shape, the set of model
+/// meshes its instances pick from (indices into `Drawn::models`; empty: the placeholder).
 #[derive(Debug)]
 struct Placed {
     table: Arc<Table>,
     owner: Option<usize>,
-    models: [Option<usize>; SHAPES],
+    models: [Vec<usize>; SHAPES],
 }
 
 /// The tables on this stage and the models their shapes draw with.
@@ -91,11 +92,11 @@ impl Space {
         let placed = tables
             .into_iter()
             .map(|table| {
-                let mut by_shape = [None; SHAPES];
+                let mut by_shape: [Vec<usize>; SHAPES] = Default::default();
                 for (s, bytes) in table.models.iter().filter(|(s, _)| (*s as usize) < SHAPES) {
                     match model_mesh(bytes, *s) {
                         Ok(mesh) => {
-                            by_shape[*s as usize] = Some(models.len());
+                            by_shape[*s as usize].push(models.len());
                             models.push(mesh);
                         }
                         Err(e) => tracing::warn!("node '{}': its {} model can't be drawn ({e:#}) – the placeholder stands in", table.node, shape::NAMES[*s as usize]),
@@ -128,7 +129,11 @@ impl Space {
         for t in &self.drawn.tables {
             let (at, turn) = self.drawn_place(t.owner);
             t.table.with(|rows| {
+                let mut nth = [0u32; SHAPES];
                 for r in rows.iter().filter(|r| (r.shape as usize) < SHAPES) {
+                    let s = r.shape as usize;
+                    let at_shape = nth[s];
+                    nth[s] += 1;
                     let p = Vec3::from_array(r.position);
                     let q = Quat::from_array(r.rotation);
                     if !p.is_finite() || !q.is_finite() || !r.scale.iter().chain(&r.colour).all(|v| v.is_finite()) {
@@ -136,7 +141,8 @@ impl Space {
                     }
                     let q = turn * if q.length_squared() > 1e-12 { q.normalize() } else { Quat::IDENTITY };
                     let w = at + turn * p;
-                    let mesh = t.models[r.shape as usize].map_or(r.shape as usize, |k| SHAPES + k);
+                    let set = &t.models[s];
+                    let mesh = if set.is_empty() { s } else { SHAPES + set[pick(at_shape, set.len())] };
                     out.push(DrawnInst { position: [w.x, w.y, w.z, mesh as f32], rotation: q.to_array(), scale: [r.scale[0], r.scale[1], r.scale[2], 0.0], colour: r.colour });
                 }
             });
@@ -149,6 +155,16 @@ impl Space {
             first += n;
         }
     }
+}
+
+/// Which model of a set of `n` the `nth` instance of a shape draws with: steady for that place in the table, the set's
+/// models mixed rather than in turn.
+pub fn pick(nth: u32, n: usize) -> usize {
+    let mut z = u64::from(nth).wrapping_add(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^= z >> 31;
+    (z % n.max(1) as u64) as usize
 }
 
 /// The placeholder shapes in one vertex list, and each shape's vertex range in it (by its index).
@@ -462,6 +478,53 @@ mod tests {
         assert_eq!(spans, [(0, 0), (0, 1), (1, 2)], "no placeholder puff, one segment, two puffs of the model");
         space.set_tables(Vec::new());
         assert_eq!((space.drawn.meshes(), space.drawn.version), (SHAPES, 2), "the next scene without it");
+    }
+
+    /// a shape's set of models: each instance picks one, steadily by its place among the shape's instances (moving or
+    /// a split keeps it), the set's models mixed; a broken model leaves the set, an empty set draws the placeholder
+    #[test]
+    fn each_instance_picks_one_model_of_the_set() {
+        let mut space = space();
+        let bubble: Arc<[u8]> = super::super::bubble::glb().into();
+        let models = vec![(shape::PUFF, bubble.clone()), (shape::PUFF, Arc::from(&b"no glb"[..])), (shape::PUFF, bubble)];
+        let t = Table::with_models("sky", 16, models);
+        let puffs = |dx: f32| -> Vec<Instance> { (0..12).map(|i| Instance::new(shape::PUFF, [i as f32 * dx, 0.0, 0.0])).collect() };
+        let mut rows = vec![Instance::new(shape::SEGMENT, [0.0; 3])];
+        rows.extend(puffs(1.0));
+        t.publish(&rows);
+        space.set_tables(vec![t.clone()]);
+        assert_eq!(space.drawn.meshes(), SHAPES + 2, "two of the three models read");
+        let meshes = |space: &Space| {
+            let mut spans = vec![(0, 0); space.drawn.meshes()];
+            let mut out = Vec::new();
+            space.write_drawn(&mut out, &mut spans);
+            let mut by_x: Vec<(i32, u32)> = out.iter().filter(|i| i.position[3] as usize >= SHAPES).map(|i| ((i.position[0] * 100.0) as i32, i.position[3] as u32)).collect();
+            by_x.sort_unstable();
+            (spans, by_x.into_iter().map(|(_, m)| m).collect::<Vec<_>>())
+        };
+        let (spans, first) = meshes(&space);
+        assert_eq!(spans[shape::SEGMENT as usize].1, 1, "a shape without models: the placeholder");
+        assert!(spans[SHAPES].1 > 0 && spans[SHAPES + 1].1 > 0 && spans[SHAPES].1 + spans[SHAPES + 1].1 == 12, "a mix of both: {spans:?}");
+        t.publish(&{
+            let mut moved = vec![Instance::new(shape::SEGMENT, [0.0; 3])];
+            moved.extend(puffs(1.5));
+            moved
+        });
+        assert_eq!(meshes(&space).1, first, "every puff keeps its model when the cloud moves or splits");
+        assert_eq!((0..12).map(|i| pick(i, 2)).collect::<Vec<_>>(), (0..12).map(|i| pick(i, 2)).collect::<Vec<_>>());
+        assert_eq!(pick(5, 1), 0);
+    }
+
+    /// the owner's Tripo models (one textured material, `KHR_materials_volume` and `FB_ngon_encoding` used, not
+    /// required): their triangles read, fitted to a metre and centred; the extensions and the texture are not drawn
+    #[test]
+    fn the_owners_blob_clouds_read_as_puffs() {
+        for (bytes, tris) in [(&include_bytes!("../../tests/fixtures/cloud-three-blobs.glb")[..], 4118), (&include_bytes!("../../tests/fixtures/cloud-four-blobs.glb")[..], 2178)] {
+            let mesh = model_mesh(bytes, shape::PUFF).unwrap();
+            assert_eq!(mesh.len(), tris * 3);
+            let (lo, hi) = mesh.iter().fold((Vec3::INFINITY, Vec3::NEG_INFINITY), |(l, h), v| (l.min(v.pos.into()), h.max(v.pos.into())));
+            assert!(((hi - lo).max_element() - 1.0).abs() < 1e-4 && (lo + hi).length() < 1e-4, "a metre, centred: {lo} … {hi}");
+        }
     }
 
     #[test]
