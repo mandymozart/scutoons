@@ -138,7 +138,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | The switcher's maximum width (1160 px drawn) | P2 |
 | The workspace tab's own menu | P2 (B2) |
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
-| A disabled primary button; the see-through grounds as redrawn; a quiet select for filters and sorts (drawn on kit-d.html as a proposal) | P1 |
+| A disabled primary button; the see-through grounds as redrawn | P1 |
 | The kit's one source as a top-level `kit/` folder with `kit/tokens.toml` (the deck orchestrator's proposal) | P1 |
 | Colour for outlet types (stage · device · sub): none exists today – a new coding in the signal table, or not | P1 |
 | The Show's Flash, Scene and New show sheets: a view, a dialog on the overlay level, or gone | P2 (deck) |

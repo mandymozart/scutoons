@@ -18,6 +18,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
 - **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), and thumbnails and pictures.
 - **Tabs and panel titles:** no border at rest, the active one brighter, a rounded border only on hover and while dragged. (H4)
+- **Selects:** one that filters or sorts in a toolbar is quiet – no box at rest, a rounded border on hover and while open; one that sets a value in a form is the boxed field. (H4)
 - **Icon buttons:** a standalone one is round and may stand without a pill; groups of icons and toolbars stay in their pill. (H4)
 - **Badges** are small and delicate. Design pictures use the kit. (H13)
 - **No info in the UI unless asked:** explanations are hover text, shown in the Info view. (H14)
@@ -33,7 +34,6 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - The switcher's maximum width: 1160 px is drawn – confirm or give the number.
 - Do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)?
 - How a disabled primary button looks.
-- A quiet select for filters and sorts in a toolbar: no box at rest, a rounded border on hover and while open, as tabs have. The approved Select is boxed at rest (kit-d.html shows both).
 - The see-through grounds as redrawn on kit-d.html: do they match what you meant?
 
 ## 3 · The shell
