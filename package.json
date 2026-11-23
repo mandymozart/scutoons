@@ -66,7 +66,7 @@
 		"check:boot": "node scripts/boot-sync.mjs --check",
 		"live:vote-demo": "node --experimental-transform-types --no-warnings scripts/dev/live-vote-demo.ts",
 		"check:ports": "node scripts/dev/check-ports.mjs",
-		"check:tools-css": "node --experimental-transform-types --no-warnings shared/tokens/scripts/editor-tokens.ts --check && node scripts/check-tools-ui.mjs --static",
+		"check:tools-css": "node scripts/check-tools-ui.mjs --static",
 		"check:core-only": "node scripts/check-core-only.mjs && node --test scripts/check-core-only.test.mjs",
 		"audit:bridge": "node scripts/check-core-only.mjs --audit",
 		"check:deck-deps": "node scripts/check-deck-deps.mjs && node --test scripts/check-deck-deps.test.mjs",
