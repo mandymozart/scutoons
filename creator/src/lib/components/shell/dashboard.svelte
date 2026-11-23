@@ -11,24 +11,20 @@
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { layouts } from '$lib/shell/layouts.svelte.ts';
 	import DashboardBoxes from '$lib/components/shell/dashboard-boxes.svelte';
-	import DashboardFoot from '$lib/components/shell/dashboard-foot.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
 	import WorkspaceCardView from '$lib/components/shell/workspace-card.svelte';
 
 	/**
 	 * The dashboard – the app switcher (research/redesign/lap/crafts-v2.html views `dash`, `first`): over everything, the
-	 * stage dimmed and blurred under it; the menu button or Esc goes back to where you were. On top the launcher
+	 * stage dimmed and blurred under it; the workspace row's ⌄ or Esc goes back to where you were. On top the launcher
 	 * (inline), then Last opened · Needs review / Not published, then the workspaces – flat, the front one first, then most
 	 * used – each showing what is open in it. Tab / Shift Tab and the arrows move the ring, Enter opens; typing finds.
 	 * Nothing used yet: the welcome – Not published in her toons, her crafts' workspaces empty. Nothing explains itself.
 	 */
-	let { reader }: { reader: string | null } = $props();
-
 	const session = getCreatorSession();
 	const welcome = $derived(isWelcome(shell.use, shell.state.tabs, recent.list.length));
 	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome, crafts.starts, layouts.state.own, layouts.chosen));
 	let ring = $state(0);
-	let views = $state(false);
 	let box = $state<HTMLElement>();
 	let grid = $state<HTMLElement>();
 
@@ -37,15 +33,9 @@
 		ring = at;
 		cardEls()[at]?.focus();
 	}
-	// opened: the ring on the card after the front one (app-switcher style); asked for Views: the front card's Views open
+	// opened: the ring on the card after the front one (app-switcher style)
 	$effect(() => {
-		const wantViews = shell.dashboard === 'views';
-		void tick().then(() =>
-			untrack(() => {
-				focusRing(firstRing(cards));
-				if (wantViews && cards[0]?.front) views = true;
-			})
-		);
+		void tick().then(() => untrack(() => focusRing(firstRing(cards))));
 	});
 	$effect(() => {
 		if (ring >= cards.length) ring = Math.max(0, cards.length - 1);
@@ -68,7 +58,7 @@
 	function onKeydown(event: KeyboardEvent) {
 		// the launcher over everything takes its own keys
 		if (!box || shell.launcher) return;
-		// a menu open inside (Views, help): its own Escape and keys
+		// a menu open inside: its own Escape and keys
 		if (box.querySelector('[aria-expanded="true"]')) return;
 		const active = document.activeElement;
 		if (event.key === 'Escape') {
@@ -112,15 +102,14 @@
 		<h2 class="label">{m['shell.workspaces']()}</h2>
 		<div class="cards" bind:this={grid}>
 			{#each cards as card, i (card.id)}
-				<WorkspaceCardView {card} ring={i === ring} bind:views={() => (card.front ? views : false), (v) => (views = v)} onopen={open} onclose={closeItem} onfocus={() => (ring = i)} />
+				<WorkspaceCardView {card} ring={i === ring} onopen={open} onclose={closeItem} onfocus={() => (ring = i)} />
 			{/each}
 		</div>
 	</div>
-	<div class="foot"><DashboardFoot {reader} /></div>
 </div>
 
 <style>
-	/* over the stage, the panels and the status bar, under the bar's row (the menu button stays to go back) */
+	/* over the stage, the panels and the status bar, under the bar's row (the workspace row's ⌄ stays to go back) */
 	.dashboard {
 		position: fixed;
 		z-index: 48;
@@ -168,9 +157,6 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
 		gap: var(--editor-gap);
-	}
-	.foot {
-		padding: var(--kit-margin) var(--editor-gap);
 	}
 	@keyframes dash-rise {
 		from {

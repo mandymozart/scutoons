@@ -25,25 +25,26 @@ test('a kept store reads back field by field; bad parts are left out', () => {
 	const read = readResume({
 		v: 1,
 		member: 'm1',
-		dashboard: 'views',
+		dashboard: 'cards',
 		full: { 'creator-host-character': 'moods', bad: 3, empty: '' },
 		scroll: { 'stage:toon:catpope': { top: 420.4 }, 'panel:w/p/t': { top: 30, path: [0, 2] }, 'stage:x': { top: -1 }, other: { top: 5 }, 'panel:w/q/t': { top: 9, path: [-1] } },
 		others: { m2: { dashboard: 'cards', tabs: { tabs: [{ address: 'scene:a', href: '/scenes/a' }], front: 'scene:a' } }, '': {} }
 	});
 	assert.equal(read.member, 'm1');
-	assert.equal(read.dashboard, 'views');
+	assert.equal(read.dashboard, 'cards');
 	assert.deepEqual(read.full, { 'creator-host-character': 'moods' });
 	assert.deepEqual(read.scroll, { 'stage:toon:catpope': { top: 420 }, 'panel:w/p/t': { top: 30, path: [0, 2] }, 'panel:w/q/t': { top: 9 } });
 	assert.deepEqual(Object.keys(read.others), ['m2']);
 	assert.equal(read.others.m2.dashboard, 'cards');
 	assert.equal(read.others.m2.tabs.front, 'scene:a');
 	assert.equal(readResume({ v: 1, dashboard: 'open' }).dashboard, false);
+	assert.equal(readResume({ v: 1, dashboard: 'views' }).dashboard, false, 'Views live in the menu now');
 });
 
 test('opened at Home: the front tab comes back, the dashboard as it was', () => {
-	const start = startOf(three, { ...NO_SESSION, dashboard: 'views' }, true, { address: null, href: '/' });
+	const start = startOf(three, { ...NO_SESSION, dashboard: 'cards' }, true, { address: null, href: '/' });
 	assert.equal(start.go, '/characters?id=priestess');
-	assert.equal(start.dashboard, 'views');
+	assert.equal(start.dashboard, 'cards');
 	assert.deepEqual(start.tabs, three);
 	assert.equal(startOf(three, NO_SESSION, true, { address: null, href: '/' }).dashboard, false);
 });
@@ -57,7 +58,7 @@ test('opened at Home with nothing in front, or nothing kept: the dashboard', () 
 });
 
 test('reopening tabs off: an empty start', () => {
-	assert.deepEqual(startOf(three, { ...NO_SESSION, dashboard: 'views' }, false, { address: null, href: '/' }), { tabs: EMPTY, go: null, dashboard: 'cards' });
+	assert.deepEqual(startOf(three, { ...NO_SESSION, dashboard: 'cards' }, false, { address: null, href: '/' }), { tabs: EMPTY, go: null, dashboard: 'cards' });
 	const linked = startOf(three, NO_SESSION, false, { address: 'scene:rave', href: '/scenes/rave' });
 	assert.deepEqual(linked.tabs.tabs.map((t) => t.address), ['scene:rave']);
 });
@@ -70,7 +71,7 @@ test('a reload on the front tab keeps it and the dashboard as it was', () => {
 });
 
 test('a link opened wins the front but keeps the other tabs, no dashboard', () => {
-	const known = startOf(three, { ...NO_SESSION, dashboard: 'views' }, true, { address: 'scene:rave', href: '/scenes/rave?view=top' });
+	const known = startOf(three, { ...NO_SESSION, dashboard: 'cards' }, true, { address: 'scene:rave', href: '/scenes/rave?view=top' });
 	assert.equal(known.go, null);
 	assert.equal(known.dashboard, false);
 	assert.equal(known.tabs.front, 'scene:rave');
@@ -89,7 +90,7 @@ test('the first member known takes the store; the same member changes nothing', 
 });
 
 test('another member on the same browser: each gets their own tabs and state back', () => {
-	const mine: ResumeStore = { ...NO_RESUME, member: 'm1', dashboard: 'views', full: { w: 'moods' } };
+	const mine: ResumeStore = { ...NO_RESUME, member: 'm1', dashboard: 'cards', full: { w: 'moods' } };
 	const toM2 = switchMember(mine, three, 'm2');
 	assert.equal(toM2.store.member, 'm2');
 	assert.deepEqual(toM2.tabs, EMPTY);
@@ -99,7 +100,7 @@ test('another member on the same browser: each gets their own tabs and state bac
 	const back = switchMember(toM2.store, m2tabs, 'm1');
 	assert.equal(back.store.member, 'm1');
 	assert.deepEqual(back.tabs, three);
-	assert.equal(back.store.dashboard, 'views');
+	assert.equal(back.store.dashboard, 'cards');
 	assert.deepEqual(back.store.full, { w: 'moods' });
 	assert.deepEqual(back.store.others.m2.tabs, m2tabs);
 	assert.equal(back.store.others.m1, undefined);

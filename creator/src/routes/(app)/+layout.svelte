@@ -27,6 +27,7 @@
 	import { addressOf, hrefOf, workspaceOf } from '$lib/shell/address.ts';
 	import { routeCrumbs, tabLabel, tabPath } from '$lib/shell/crumbs.ts';
 	import { isLaunchKey } from '$lib/shell/launcher.ts';
+	import { saveWorkspace } from '$lib/shell/workspace-actions.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
@@ -36,7 +37,6 @@
 	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
 	import ResumeOffer from '$lib/components/shell/resume-offer.svelte';
 	import { devices } from '$lib/shell/devices.svelte.ts';
-	import UserMenu from '$lib/components/shell/user-menu.svelte';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
 	import type { DashboardState } from '$lib/shell/resume.ts';
@@ -247,7 +247,7 @@
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';
 	});
 
-	/** Alt Space / Cmd Space / Ctrl K / Ctrl O / `/`: the launcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the front workspace's Views (on the dashboard) */
+	/** Alt Space / Cmd Space / Ctrl K / Ctrl O / `/`: the launcher; Alt+ArrowUp: one step up the path; Ctrl+,: Settings; Alt+V: the ☰ menu's Views; Ctrl+S: Save workspace where the page has no documents */
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target instanceof Element ? event.target : null;
@@ -259,7 +259,13 @@
 		}
 		if (event.altKey && !mod && !event.shiftKey && event.code === 'KeyV') {
 			event.preventDefault();
-			shell.dashboard = shell.state.front ? 'views' : 'cards';
+			shell.openViews();
+			return;
+		}
+		// a page with documents of its own saves them on Ctrl S (lib/editor/editor-keys.ts)
+		if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 's' && !shell.doc?.docs?.length) {
+			event.preventDefault();
+			void saveWorkspace();
 			return;
 		}
 		if (mod && !event.altKey && !event.shiftKey && event.key === ',') {
@@ -283,7 +289,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher && !shell.userMenu} data-testid="creator">
+<div class="creator sc-tool sc-desktop-only" class:full={!!shell.full && !shell.dashboard && !shell.launcher} data-testid="creator">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- the stage is the whole window, under the bar too: the open item's page is its ground; the bar's pills, the
 		     panels and the status bar float on it, and the stage never gives way to them -->
@@ -291,12 +297,11 @@
 			<!-- another toon = the same route with a new param: the pages load once on mount, so they start anew -->
 			<div class="stage-page">{#key toonId}{@render children()}{/key}</div>
 		</div>
-		<ShellBar />
+		<ShellBar {reader} />
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
-		{#if shell.dashboard}<Dashboard {reader} />{/if}
+		{#if shell.dashboard}<Dashboard />{/if}
 		{#if shell.launcher}<Launcher />{/if}
-		<UserMenu />
 		{#if crafts.ask}<CraftsQuestion />{:else if devices.offer}<ResumeOffer />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>

@@ -94,8 +94,8 @@
 	const name = (tab: string) => floats.tab(tab)?.name ?? tab;
 	/** the view over everything, while it has content (the open item's own view is always there) */
 	const full = $derived(floats.full && (floats.full === ITEM_VIEW || available.has(floats.full)) ? floats.full : null);
-	/** the dashboard, the launcher or the user menu opened from full screen lies over it; closed, full screen is back */
-	const under = $derived(!!(shell.dashboard || shell.launcher || shell.userMenu));
+	/** the dashboard or the launcher opened from full screen lies over it; closed, full screen is back */
+	const under = $derived(!!(shell.dashboard || shell.launcher));
 
 	const CELL_NAMES: Record<Cell, () => string> = {
 		whole: () => m['shell.cell_whole'](),
@@ -254,7 +254,7 @@
 		font-family: var(--editor-sans);
 		animation: full-in var(--motion-slow) var(--motion-ease);
 	}
-	/* under an overlay opened from full screen (the dashboard, the launcher, the user menu) */
+	/* under an overlay opened from full screen (the dashboard, the launcher) */
 	.full.under {
 		z-index: 44;
 	}

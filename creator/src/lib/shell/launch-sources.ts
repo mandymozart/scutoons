@@ -88,7 +88,7 @@ function commands(logout: () => unknown): Command[] {
 			? [{ id: 'publish', label: m['shell.launch_publish'](), icon: 'upload-cloud', keywords: 'publish live veröffentlichen', run: () => document.querySelector<HTMLElement>('[data-testid="bar-publish"]')?.click() }]
 			: []),
 		{ id: 'settings', label: m['shell.settings'](), icon: 'settings', keywords: 'settings preferences einstellungen', run: () => shell.open('settings') },
-		{ id: 'views', label: m['shell.views'](), icon: 'eye', keywords: 'views panels ansichten', run: () => (shell.dashboard = shell.state.front ? 'views' : 'cards') },
+		{ id: 'views', label: m['shell.views'](), icon: 'eye', keywords: 'views panels ansichten', run: () => shell.openViews() },
 		{ id: 'dashboard', label: m['shell.dashboard'](), icon: 'menu', keywords: 'dashboard home menu', run: () => (shell.dashboard = 'cards') },
 		{ id: 'docs', label: m['shell.docs'](), icon: 'book-open', keywords: 'docs help documentation doku', run: () => void window.open('/docs', '_blank', 'noopener') },
 		{ id: 'theme', label: day ? m['shell.launch_night']() : m['shell.launch_day'](), icon: day ? 'moon' : 'sun', keywords: 'theme day night dark light tag nacht', run: () => shell.change({ theme: day ? 'night' : 'day' }) },

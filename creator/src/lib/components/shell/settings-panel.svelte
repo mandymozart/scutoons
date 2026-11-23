@@ -10,8 +10,6 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from '$lib/shell/settings.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
-	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 
 	/**
 	 * Settings as a floating panel (research/redesign/PLAN.md §2.5, the deck's settings.rs): this machine's look, motion
@@ -85,20 +83,13 @@
 	<Section id="shell-sound" label={m['shell.sound']()} open={false} summary={m['shell.later']()}>
 		<p class="note">{m['shell.sound_later']()}</p>
 	</Section>
-	<Section id="shell-language" label={m['shell.language']()} summary={`${getLocale().toUpperCase()} · ${textLanguage.names.toUpperCase()}`}>
+	<Section id="shell-language" label={m['shell.language']()} summary={getLocale().toUpperCase()}>
 		<div class="row">
 			<span>{m['shell.interface']()}</span>
 			<select value={getLocale()} onchange={(e) => setLocale(e.currentTarget.value as (typeof locales)[number])} aria-label={m['shell.interface']()}>
 				{#each locales as l (l)}<option value={l}>{l.toUpperCase()}</option>{/each}
 			</select>
 		</div>
-		{#if textLanguage.page.languages.length > 1}
-			<div class="row">
-				<span>{m['shell.text_language']()}</span>
-				<TextLanguageSwitch languages={textLanguage.page.languages} source={textLanguage.page.source} />
-			</div>
-		{/if}
-		<p class="note">{m['shell.text_language_note']()}</p>
 	</Section>
 	<Section id="shell-folder" label={m['shell.local_folder']()} summary={m['shell.this_machine']()}>
 		<div class="row">

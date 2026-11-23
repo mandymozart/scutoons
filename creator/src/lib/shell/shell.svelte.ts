@@ -48,6 +48,9 @@ export interface PageDoc {
 	redo?: () => void;
 }
 
+/** a line of the ☰ menu that opens its own panel beside it */
+export type MenuSub = 'views' | 'help' | 'go';
+
 /**
  * The creator's shell (research/redesign/PLAN.md §2.4–§2.5, panels.html): the open tabs (the front one is the URL), this
  * machine's settings applied to the page, the panel tabs the front page fills (lib/shell/panels.ts) and its document.
@@ -69,11 +72,14 @@ class Shell {
 	kind = $state<string>('home');
 	/** a tab (or a panel) asked to open in the front workspace (the workspace takes it and clears it) */
 	wanted = $state<string | null>(null);
-	/** the dashboard lies over everything (the menu button, Esc back); `views`: with the front workspace's Views open */
-	dashboard = $state<false | 'cards' | 'views'>(false);
+	/** the dashboard lies over everything (the workspace row's ⌄, Esc back) */
+	dashboard = $state<false | 'cards'>(false);
+	/** the ☰ menu is open, and which of its lines has its panel open beside it */
+	menu = $state(false);
+	menuSub = $state<MenuSub | null>(null);
 	/** the launcher lies centred over everything (Alt Space, Cmd Space, Ctrl K; Esc closes) */
 	launcher = $state(false);
-	/** the user menu over everything: a swipe up from the bottom edge, or the account icon */
+	/** the user menu under the account icon */
 	userMenu = $state(false);
 	/** the launcher's recent picks, newest first */
 	picks = $state<LaunchPick[]>(typeof localStorage === 'undefined' ? [] : readPicks(readJson(PICKS_KEY)));
@@ -203,8 +209,17 @@ class Shell {
 		writeJson(PICKS_KEY, this.picks);
 	}
 
+	/** the ☰ menu with Views open beside it (Alt V, the launcher's Views) */
+	openViews() {
+		this.dashboard = false;
+		this.menu = true;
+		this.menuSub = 'views';
+	}
+
 	open(tab: string) {
 		this.dashboard = false;
+		this.menu = false;
+		this.menuSub = null;
 		this.wanted = tabIdOf(tab);
 	}
 }
