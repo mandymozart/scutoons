@@ -222,7 +222,7 @@ add('C', 'C1', 'Toon: one toon – seasons, chapters, the cast', 'now/ws-toon (2
   ${fp(1053, 60, 373, 710, [['Flow', 0], ['Log', 1]], LOG_BODY)}
   ${folded(1278, 780, 'Library')}${cstatus('No messages yet', '')}
   ${mk(1, 270, 60)}${mk(2, 236, 96)}${ring(306, 96, 732, 280)}${mk(3, 940, 76)}${mk(4, 282, 118)}
-  ${qcard(306, 560, 'confirm: no top-level list of every toon in the Toon tree', ['as drawn: the tree of the open toon only – the toons are found in the Library', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '24rem')}`;
+  `;
   });
 add('C', 'C2', 'Chapter', presetBase('chapter'), [KIT],
   () => `${wsFromPreset('Chapter', TOON_ITEMS, [LEFT([['Toon',1],['Tree',0]]), { x: 1076, y: 60, w: 350, h: 420, tabs: [['Inspector',1],['Log',0],['Flow',0]] }, { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }, LIBF], pageNotShot())}${mk(1, 270, 60)}`);
@@ -244,8 +244,7 @@ add('C', 'C4b', 'Characters: the Cast tab – cast in', "today's Cast tab (creat
   () => characters({ bar: { chevron: true, items: [['smile','crow-fox'],['smile','crow-lizard'],['smile','mellowmantis'],['smile','catpope']] }, tabs: [['Kanon',0],['Expressions',0],['Rig',0],['Voice',0],['Cast',1],['Generations',0]],
       body: `<div class="label" style="margin:.2rem 0 .5rem">Cast in</div>
       ${CAST_IN.map(([s, p]) => `<div style="display:flex;align-items:center;gap:.6rem;min-height:2.6rem;border-bottom:1px solid var(--tool-line)"><span style="font-size:1rem;text-decoration:underline;text-underline-offset:.2em">${s}</span><span class="muted" style="margin-left:auto">${p}</span><span class="kib muted" title="Open the season's cast in the toon">${ic('r')}</span></div>`).join('')}` })
-    + mk(1, 928, 120) + ring(952, 92, 470, 120) + mk(2, 928, 230)
-    + qcard(420, 140, 'confirm: the cast is no longer edited from each character\'s Cast tab', ['as drawn: the tab shows "cast in" and links to the toon\'s season', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem'));
+    + mk(1, 928, 120) + ring(952, 92, 470, 120) + mk(2, 928, 230));
 
 const TREE_SCENES = [['Avatar home','‹home› · spot_home · ‹who›','Published'],['Nave','cathedral · catpope','Published'],['Place','‹where›','Published'],['Sandy dunes','dunes','Published'],['Sandy dunes – Giant Popstar','dunes · giantpopstar · mellowmantis','Published'],['Sandy dunes – Sandgirl','dunes · sandgirl','Published'],['Sandy dunes – Sandgirl and S…','dunes · sandgirl · sandy','Published'],['Sandy dunes – stage','dunes · ‹left› · ‹right›','Published'],['Solo','‹where› · ‹who›','Published'],['Stage','‹where› · spot_centre · ‹left› · ‹centre› · ‹right› · ‹b…','Published'],['Three crows rave','crow-wolf · crow-lizard · crow-fox · yellowmouse','Draft']];
 /* today's Tree of every scene (now/creator-6) – gone in lap 2 (LIBRARY.md, decided): kept here only as today's record */
@@ -320,7 +319,7 @@ add('C', 'C9', 'Catalog', 'now/ws-catalog (Items, Kamera open, 2026-11-24)', [KI
       <div style="display:flex;gap:1.2rem;align-items:center">${[['stackable', 0], ['starter', 1], ['a story may take it', 0]].map(([n, on]) => `<span style="display:flex;gap:.45rem;align-items:center"><span class="tg ${on ? 'on' : ''}"></span>${n}</span>`).join('')}</div></div>
     ${folded(1265, 70, 'Log')}${folded(1278, 780, 'Library')}${cstatus('No messages yet', '0 errors · 0 warnings')}
     ${mk(1, 274, 60)}${ring(302, 112, 268, 700)}${mk(2, 546, 118)}${capn(330, 440, 'the list of every entry was here – gone')}${mk(3, 1110, 118)}
-    ${qcard(1100, 300, 'confirm: no top-level list of every entry in the Catalog', ['as drawn: an entry open – the entries are found in the Library (F1)', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm. The kind tabs (Items … Airlift carriers) kept as today – unclear.', '19rem')}`;
+    `;
   });
 
 add('C', 'C10', 'Map', 'now/creator-5 (the stage 0 px wide) · now/ws-map',
@@ -356,7 +355,7 @@ const catalogBack = (o = {}) => `${cbar({ chevron: true, wsOn: 'Catalog', items:
     <div class="label" style="margin-bottom:.3rem">Name</div><div class="fld" style="margin-bottom:.4rem">Kamera</div><div class="fld" style="margin-bottom:.8rem">Camera</div>
     <div class="label" style="margin-bottom:.3rem">Picture</div><div class="slot" style="width:108px;height:108px;border-style:solid;border-color:var(--tool-line);position:relative;overflow:hidden">${wsPic('catalog', 331, 343, 60, 60, 1.8)}</div></div>
   ${o.log === false ? '' : folded(1265, 70, 'Log')}${cstatus('No messages yet', '0 errors · 0 warnings')}`;
-const qOneList = (x, y, w = '21rem') => qcard(x, y, 'confirm: one list – "Items to open" goes', ['as drawn: things and files in one list, the type the first filter', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', w);
+const qOneList = () => '';   /* confirmed 2026-11-24: one list – no card */
 add('C', 'C12', 'Library: the panel', "today's library-panel.svelte (its parts and words) in now/ws-catalog (Kamera open) · LIBRARY.md (the extended Library)",
   ['the type is one quiet select ("All types"): eleven kinds of thing and four kinds of file, its list in two groups (F1 shows it open) – "Items to open" goes',
    "the places narrow it: This item · This season's cast · This toon · Everything (Unused as today)",
@@ -400,7 +399,7 @@ add('C', 'C12b', 'Library: the browser – a character stepped into', "today's l
       <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem"><span style="font-size:var(--editor-title)">Library</span><span style="flex:1"></span><span class="kib muted" title="Close the browser (Esc)">${ic('x')}</span></div>
       ${libraryBody({ place: "This season's cast", content: stepIn() })}</div></div>
   ${mk(1, 40, 250)}${mk(2, 300, 330)}${mk(3, 902, 280)}${mk(4, 902, 478)}${mk(5, 40, 230)}${mk(6, 1390, 60)}
-  ${qcard(1000, 600, 'confirm: "By cast" lists the characters and their files', ['as drawn: the cast\'s place shows the characters, stepped into each its files', 'not so – files only, as today'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}
+  
   ${capn(60, 822, 'Open: do Search and dialogs sit on the overlay level (blurred behind) or on the popover level (sharp)? – drawn as today')}`);
 
 /* C12c: the Library opened from a slot – the "who" (character) of a showMessage event in a chapter of Cat Pope; the cast first, everyone else after (the registry's characters) */
@@ -417,7 +416,7 @@ add('C', 'C12c', 'Library: the pick (a slot asks)', "today's pick mode (library-
     ${libraryPanel(660, 60, 400, 760, { cols: 4, pick: 'character · showMessage', type: 'Characters', place: 'Everything', gap: '.5rem .5rem',
       groups: [['Cat Pope · Season 1 · cast', [tl('catpope'), tl('boy'), tl('crows'), tl('toptoy')]], ['Everyone else', OTHERS]] })}
     ${ring(1082, 154, 340, 36)}${mk(1, 1062, 160)}${mk(2, 640, 300)}${mk(3, 640, 450)}${capn(790, 446, 'picked from here: added to the cast')}${mk(4, 640, 96)}
-    ${qcard(150, 520, 'confirm: one picker – the Library opened from a slot', ['as drawn: the five sheets (character, item, asset, person, role) go', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}`);
+    `);
 
 add('C', 'C13', 'Settings', "the Settings panel in now/creator-6 (the owner's circles)",
   ["kit look: the crafts as the kit's small chips, the theme as the kit's segments, the interface language as the kit's select (today a raw select)", 'the colour-blind mode as a setting (blue, yellow, vermilion – each state with a mark ✓ ! ✕)', "no hint lines in the panel (H14) – the text language's and the local folder's explanations go to hover"],
@@ -501,7 +500,7 @@ add('F', 'F1', 'Catalog + Library: one concept', 'C12, C9 · LIBRARY.md (the ext
    'opening one opens it in the Catalog (Kamera)', 'the Catalog has no list of every entry of its own (C9)'],
   () => `${catalogBack({ log: false })}${libraryPanel(1010, 60, 416, 760, { cols: 4, type: 'Items', typeOpen: true, place: 'This toon', tiles: [tl('kamera', { on: 1 }), tl('gurke'), tl('gurkenkamera'), tl('gurkenkreuz')] })}
   ${mk(1, 990, 96)}${mk(2, 990, 300)}${mk(3, 560, 118)}
-  ${qcard(620, 470, 'confirm: no top-level list of every entry; one list for things and files', ['as drawn: the Catalog shows the open entry, the Library finds them', 'not so – your words'], 'LIBRARY.md: follows from the model – to confirm.', '22rem')}`);
+  `);
 add('F', 'F2', 'The one-look sheet', 'kit-d.html (approved 2026-11-24)', [], frl('kit-d.html', ''), { idle: ' – nothing: approved as drawn' });
 add('F', 'F3', "The scene page's contents", 'C5 (answered: a preview and the link to the deck)', [],
   () => `${scenePageC5()}${capn(640, 820, 'answered – drawn as C5: the page previews and links, it does not edit')}`, { idle: ' – nothing: answered, drawn as C5' });
