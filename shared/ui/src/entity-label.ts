@@ -29,6 +29,8 @@ export interface EntityLabels {
 	character: (id: string) => string;
 	/** one deck scene (`scene:<id>`, research/SCENES.md §9) */
 	scene: (id: string) => string;
+	/** one live show (`show:<id>`; the document has no name of its own) */
+	show: (id: string) => string;
 	events: string;
 	/** a chapter's storyboard (`storyboard:<toon>:<n>`, creator only) */
 	storyboard: (number: number) => string;
@@ -60,6 +62,7 @@ export const ENTITY_LABELS: EntityLabels = {
 	region: (id) => `Region ${id}`,
 	character: (id) => `Character ${id}`,
 	scene: (id) => `Scene ${id}`,
+	show: (id) => `Show ${id}`,
 	events: 'Events',
 	storyboard: (n) => `Storyboard · Chapter ${n}`,
 	seasonScript: (n) => `Script · Season ${n}`,
@@ -99,7 +102,7 @@ export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): st
 	if (kind === 'season-script' && number) return l.seasonScript(Number(number));
 	if (kind === 'chapter-script' && number) return l.chapterScript(Number(number));
 	if (kind === 'kanon' && id) return l.kanon(id);
-	if ((kind === 'place' || kind === 'route' || kind === 'region' || kind === 'character' || kind === 'scene') && id) return l[kind](id);
+	if ((kind === 'place' || kind === 'route' || kind === 'region' || kind === 'character' || kind === 'scene' || kind === 'show') && id) return l[kind](id);
 	const named = NAMED[kind];
 	if (named) return l[named] as string;
 	return kind;

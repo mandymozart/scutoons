@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { IconButton, MenuItem } from '@scutoons/ui/editor';
+	import { IconButton, MenuHead, MenuItem, VIEW_STATES, slotRects, type ViewState } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { tabSpecs } from '$lib/shell/panels.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 
 	/**
-	 * Views (the main menu; OSCT's eye / eye-off): every view of the front workspace by itself, flat – no panels, no
-	 * hierarchy. The eye shows a view where it last was (its panel opens on it) or hides it; a view on the stage says so.
-	 * The row keeps room for the four states (hidden · panel · stage · full screen, TODO(#822)).
+	 * Views (the main menu; OSCT's eye / eye-off grown to four): every view of the front workspace by itself, flat – no
+	 * panels. Each row says and switches where the view is: hidden · in a panel · on the stage · full screen; the map above
+	 * shows the stage now. Leaving the stage is here (to a panel, or hidden) – nothing is left behind on the stage.
 	 */
 	let { onclose }: { onclose?: () => void } = $props();
 
@@ -15,25 +15,54 @@
 	const floats = $derived(shell.floats);
 	// Settings is the menu's own line
 	const views = $derived(specs.filter((t) => t.id !== 'settings' && shell.available.has(t.id)));
-	const onStage = (id: string) => shell.stage.includes(id);
-	const shown = (id: string) => onStage(id) || !!floats?.tabShown(id);
+	const name = (id: string) => specs.find((t) => t.id === id)?.name ?? id;
+	const ICONS: Record<ViewState, string> = { hidden: 'eye-off', panel: 'sidebar', stage: 'monitor', full: 'maximize' };
+	const STATE_NAMES: Record<ViewState, () => string> = {
+		hidden: () => m['shell.view_hidden'](),
+		panel: () => m['shell.view_panel'](),
+		stage: () => m['shell.view_stage'](),
+		full: () => m['shell.view_full']()
+	};
+	const map = $derived(floats ? slotRects(floats.stage, { x: 0, y: 0, w: 100, h: 100 }) : []);
+	const empty = $derived(!map.some((c) => c.view));
 
-	function flip(id: string) {
+	function set(id: string, state: ViewState) {
 		if (!floats) return;
-		if (!shown(id)) return shell.open(id);
-		if (onStage(id)) shell.back(id);
-		floats.hideTab(id);
+		floats.setState(id, state);
+		if (state === 'full') onclose?.();
 	}
 </script>
 
+<MenuHead label={m['shell.views_stage_now']()} />
+<div class="map" class:empty data-testid="views-map">
+	{#each map as c (c.cell)}
+		<span class="cell" class:free={!c.view} style:left="calc({c.rect.x}% + 0.125rem)" style:top="calc({c.rect.y}% + 0.125rem)" style:width="calc({c.rect.w}% - 0.25rem)" style:height="calc({c.rect.h}% - 0.25rem)" data-cell={c.cell}>
+			{c.view ? name(c.view) : empty ? (shell.front?.label ?? m['shell.views_stage_item']()) : m['shell.views_stage_free']()}
+		</span>
+	{/each}
+</div>
+<MenuHead label={m['shell.views_every']()} />
 <div class="views" data-testid="views-list">
 	{#each views as v (v.id)}
-		{@const on = shown(v.id)}
-		<div class="view">
-			<MenuItem icon={v.icon} label={v.name} title={v.about} muted={!on} onclick={() => (shell.open(v.id), onclose?.())} data-testid="views-tab-{v.id}">
-				{v.name}{#if onStage(v.id)}<span class="mark">{m['shell.on_stage']()}</span>{/if}
+		{@const state = floats?.stateOf(v.id) ?? 'hidden'}
+		<div class="view" data-state={state}>
+			<MenuItem icon={v.icon} label={v.name} title={v.about} muted={state === 'hidden'} onclick={() => (shell.open(v.id), onclose?.())} data-testid="views-tab-{v.id}">
+				<span class="name">{v.name}</span>
 			</MenuItem>
-			<IconButton label={on ? m['shell.views_hide']({ name: v.name }) : m['shell.views_show']({ name: v.name })} icon={on ? 'eye' : 'eye-off'} tone={on ? 'text' : 'muted'} aria-pressed={on} onclick={() => flip(v.id)} data-testid="views-eye-{v.id}" />
+			<span class="states" role="radiogroup" aria-label={m['shell.views_states']({ name: v.name })}>
+				{#each VIEW_STATES as s (s)}
+					<IconButton
+						label={m['shell.views_set']({ name: v.name, state: STATE_NAMES[s]() })}
+						icon={ICONS[s]}
+						tone={state === s ? 'text' : 'muted'}
+						pressed={state === s}
+						role="radio"
+						aria-checked={state === s}
+						onclick={() => set(v.id, s)}
+						data-testid="views-{s}-{v.id}"
+					/>
+				{/each}
+			</span>
 		</div>
 	{/each}
 </div>
@@ -46,7 +75,7 @@
 		display: flex;
 		flex-direction: column;
 	}
-	/* a view's line and its state buttons (one now, the eye; the panel, stage and full-screen states join it) */
+	/* a view's line and its four states */
 	.view {
 		display: flex;
 		align-items: center;
@@ -58,11 +87,39 @@
 		width: auto;
 		min-width: 0;
 	}
-	.mark {
-		margin-left: var(--editor-pad);
-		color: var(--tool-accent);
-		font-size: var(--editor-label);
-		text-transform: uppercase;
-		letter-spacing: var(--editor-label-spacing);
+	.name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.states {
+		flex: none;
+		display: inline-flex;
+		gap: var(--kit-seam);
+	}
+	/* the stage now: its cells to scale, each with the view in it */
+	.map {
+		position: relative;
+		height: 4.5rem;
+		margin: 0 var(--editor-pad) var(--editor-pad);
+	}
+	.cell {
+		position: absolute;
+		box-sizing: border-box;
+		display: grid;
+		place-items: center;
+		overflow: hidden;
+		padding: 0 0.25rem;
+		border: var(--editor-edge) solid var(--tool-accent);
+		border-radius: var(--editor-radius);
+		color: var(--tool-text);
+		font-size: var(--editor-small);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.cell.free {
+		border-style: dashed;
+		border-color: var(--tool-line);
+		color: var(--tool-muted);
 	}
 </style>

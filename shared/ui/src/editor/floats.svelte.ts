@@ -36,6 +36,23 @@ import {
 	type DropTarget,
 	type TabSpec
 } from './panel-tabs.ts';
+import {
+	EMPTY_STAGE,
+	HOLD_MS,
+	addTo,
+	isOn,
+	isPastTop,
+	keepOn,
+	offStage,
+	placeOn,
+	readStageState,
+	viewsOn,
+	zoneAt,
+	type Cell,
+	type StageState,
+	type ViewState,
+	type ZoneSize
+} from './stage.ts';
 
 /** Every workspace's layout in this browser: `{ [workspace]: { places, tabs } }` */
 export const PANELS_KEY = 'sc-editor-panels';
@@ -51,7 +68,18 @@ interface Held {
 	from: [number, number];
 	rect: Rect;
 	moved: boolean;
+	/** a pointer drag (not the arrow keys): the drop zones take it */
+	zones: boolean;
 }
+
+/** Where a tab or a panel let go now would land on the stage: a cell, or – held past the top edge – full screen */
+export interface StageZone {
+	cell: Cell;
+	full: boolean;
+}
+
+/** The view over everything per workspace: kept while the page lives (a workspace's floats are made anew when its tabs change) */
+const FULL = new Map<string, string | null>();
 
 /** A tab in the hand: where it was pressed, where the pointer is, where it would land and the marker there */
 export interface HeldTab {
@@ -67,8 +95,9 @@ const record = (v: unknown): Record<string, unknown> => (typeof v === 'object' &
 
 /**
  * One workspace's floating panels: the declared panels and tabs, where the person left each panel and which tabs it
- * holds (stored per workspace), what the page draws, the room – and the panel or tab in the hand. A drag is laid out once
- * per animation frame and stored when it ends.
+ * holds (stored per workspace), the views on the stage and over everything, what the page draws, the room – and the panel
+ * or tab in the hand. A drag is laid out once per animation frame and stored when it ends. Over 400 lines: one drag crosses
+ * panels, tabs and the stage, so they share this state (the pure parts: floats.ts, panel-tabs.ts, stage.ts).
  */
 export class Floats {
 	places = $state<Record<string, Place>>({});
@@ -82,10 +111,16 @@ export class Floats {
 	order = $state<string[]>([]);
 	held = $state.raw<Held | null>(null);
 	heldTab = $state.raw<HeldTab | null>(null);
-	/** Tabs the page shows elsewhere (on its stage): a panel whose front tab is one of them lays out as its head */
-	staged = $state.raw<readonly string[]>([]);
-	/** The page takes a tab let go over the stage (true: taken – it does not become a panel of its own) */
-	dropOnStage: ((tab: string, x: number, y: number) => boolean) | null = null;
+	/** The views on the stage – the whole window under the panels (stored with the layout) */
+	stage = $state<StageState>(EMPTY_STAGE);
+	#full = $state<string | null>(null);
+	/** The window (client px): the drop zones reach its edges, over the bar and the status bar */
+	win = $state<Size>({ w: 0, h: 0 });
+	/** The drop zone under the pointer while a tab or a panel is in the hand; `past`: beyond the top edge */
+	hover = $state.raw<{ cell: Cell; past: boolean } | null>(null);
+	/** Held past the top edge long enough: a drop goes full screen */
+	armed = $state(false);
+	private holdTimer: ReturnType<typeof setTimeout> | 0 = 0;
 	private pending: [number, number] | null = null;
 	private frame = 0;
 	/** How many layouts of the hand ran (one per animation frame) */
@@ -99,19 +134,31 @@ export class Floats {
 		const stored = record(record(readStoredJson(PANELS_KEY))[workspace]);
 		this.arrangement = readArrangement(stored.tabs, panels, tabs);
 		this.places = readPlaces({ [workspace]: stored.places }, workspace, this.specs);
+		this.stage = keepOn(readStageState(stored.stage), (t) => !!panelOf(this.arrangement, t));
+		this.#full = FULL.get(workspace) ?? null;
 		this.order = this.specs.map((s) => s.id);
 	}
 
+	/** The view over everything (the bar and the panels hidden), or none */
+	get full(): string | null {
+		return this.#full;
+	}
+	set full(tab: string | null) {
+		this.#full = tab;
+		FULL.set(this.workspace, tab);
+	}
+
+	/** What the panels show: the arrangement less the views on the stage or over everything (they keep their place in it) */
+	readonly shownArrangement: Arrangement = $derived.by(() => {
+		const a = this.arrangement;
+		const away = [...viewsOn(this.stage), ...(this.#full ? [this.#full] : [])].filter((t) => !isHidden(a, t));
+		return away.length ? { ...a, hidden: [...(a.hidden ?? []), ...away] } : a;
+	});
+
 	/** The panels there are now, in the order of growth: the declared ones that hold tabs (or are toolbars), then the free ones */
 	readonly specs: PanelSpec[] = $derived.by(() => {
-		const a = this.arrangement;
-		// a staged panel's head shows every tab: its pill is as wide as all their names (the gaps for the tabs' padding)
-		const name = (id: string, fallback: string) =>
-			this.staged.includes(activeOf(a, id) ?? '')
-				? tabsOf(a, id)
-						.map((t) => this.tab(t)?.name ?? t)
-						.join('    ')
-				: (this.tab(activeOf(a, id) ?? '')?.name ?? fallback);
+		const a = this.shownArrangement;
+		const name = (id: string, fallback: string) => this.tab(activeOf(a, id) ?? '')?.name ?? fallback;
 		const declared = this.panels
 			.filter((p) => !p.tabs || tabsOf(a, p.id).length)
 			.map((p) => (p.tabs ? { ...p, name: name(p.id, p.name), essential: p.essential || isEssential(a, p.id, this.tabs) } : p));
@@ -137,18 +184,7 @@ export class Floats {
 	);
 
 	get resolved(): Record<string, Place> {
-		return Object.fromEntries(
-			this.specs.map((s) => {
-				const place = this.places[s.id] ?? defaultPlace(s, this.metrics);
-				return [s.id, this.isStaged(s.id) ? { ...place, collapsed: true } : place];
-			})
-		);
-	}
-
-	/** The panel's front tab is on the page's stage: only its head shows */
-	isStaged(id: string): boolean {
-		const active = activeOf(this.arrangement, id);
-		return !!active && this.staged.includes(active);
+		return Object.fromEntries(this.specs.map((s) => [s.id, this.places[s.id] ?? defaultPlace(s, this.metrics)]));
 	}
 
 	spec(id: string): PanelSpec | undefined {
@@ -159,12 +195,13 @@ export class Floats {
 		return this.tabs.find((t) => t.id === id);
 	}
 
+	/** A panel's shown tabs (not those on the stage or over everything) */
 	tabsOf(panel: string): readonly string[] {
-		return tabsOf(this.arrangement, panel);
+		return tabsOf(this.shownArrangement, panel);
 	}
 
 	activeOf(panel: string): string | undefined {
-		return activeOf(this.arrangement, panel);
+		return activeOf(this.shownArrangement, panel);
 	}
 
 	place(id: string): Place {
@@ -254,9 +291,11 @@ export class Floats {
 		return this.specs.filter((s) => !s.essential).map((s) => ({ id: s.id, name: s.name, icon: s.icon, open: !this.closed(s.id) }));
 	}
 
-	/** Every panel and tab back where the specs put them (this workspace's stored layout goes) */
+	/** Every panel and tab back where the specs put them, the stage empty (this workspace's stored layout goes) */
 	reset(): void {
 		this.places = {};
+		this.stage = EMPTY_STAGE;
+		this.full = null;
 		this.arrangement = defaultArrangement(this.panels);
 		this.order = this.specs.map((s) => s.id);
 		const all = { ...record(readStoredJson(PANELS_KEY)) };
@@ -266,7 +305,7 @@ export class Floats {
 
 	private save(): void {
 		const all = { ...record(readStoredJson(PANELS_KEY)) };
-		all[this.workspace] = { places: this.places, tabs: this.arrangement };
+		all[this.workspace] = { places: this.places, tabs: this.arrangement, stage: this.stage };
 		writeStoredJson(PANELS_KEY, all);
 	}
 
@@ -310,6 +349,89 @@ export class Floats {
 		}
 	}
 
+	// ── the four states of a view: hidden · in a panel · on the stage · full screen ──
+
+	stateOf(tab: string): ViewState {
+		if (this.#full === tab) return 'full';
+		if (isOn(this.stage, tab)) return 'stage';
+		return this.tabShown(tab) ? 'panel' : 'hidden';
+	}
+
+	/** A view to a state (Views): leaving the stage or full screen it goes where it is asked to – its panel, or hidden */
+	setState(tab: string, state: ViewState): void {
+		if (state === 'full') {
+			this.full = tab;
+			return;
+		}
+		if (this.#full === tab) this.full = null;
+		if (state === 'stage') return this.toStage(tab);
+		this.stage = offStage(this.stage, tab);
+		if (state === 'panel') this.showTab(tab);
+		else this.hideTab(tab);
+	}
+
+	/** A view onto the stage – into a cell (a drop), or where Views finds room; it keeps its place in its panel for when it leaves */
+	toStage(tab: string, cell?: Cell): void {
+		if (!panelOf(this.arrangement, tab)) return;
+		if (isHidden(this.arrangement, tab)) this.arrangement = showTab(this.arrangement, tab);
+		this.stage = cell ? placeOn(this.stage, tab, cell) : addTo(this.stage, tab);
+		if (this.#full === tab) this.full = null;
+		this.save();
+	}
+
+	/** Full screen on and off for a view; off, it is where it was before */
+	toggleFull(tab: string): void {
+		this.full = this.#full === tab ? null : tab;
+	}
+
+	/** What is in the hand now: the tab, or the front tab of the panel dragged by its head */
+	get dragged(): string | null {
+		if (this.heldTab?.moved) return this.heldTab.tab;
+		const h = this.held;
+		return h?.moved && h.kind === 'move' && h.zones ? (this.activeOf(h.id) ?? null) : null;
+	}
+
+	/** Where a drop now lands on the stage */
+	get zone(): StageZone | null {
+		return this.hover ? { cell: this.hover.cell, full: this.hover.past && this.armed } : null;
+	}
+
+	/** How far the drop zones reach in from the edges (px) */
+	get zoneSize(): ZoneSize {
+		return { band: 2 * this.metrics.rem, corner: 6 * this.metrics.rem };
+	}
+
+	/** The pointer at x, y with something in the hand: the zone under it; past the top edge a hold starts toward full screen */
+	private track(x: number, y: number): void {
+		const cell = zoneAt(x, y, this.win, this.zoneSize);
+		const past = isPastTop(y);
+		if (past && !this.armed && !this.holdTimer)
+			this.holdTimer = setTimeout(() => {
+				this.holdTimer = 0;
+				this.armed = true;
+			}, HOLD_MS);
+		if (!past) this.disarm();
+		this.hover = cell ? { cell: past ? 'whole' : cell, past } : null;
+	}
+
+	private disarm(): void {
+		if (this.holdTimer) clearTimeout(this.holdTimer);
+		this.holdTimer = 0;
+		this.armed = false;
+	}
+
+	/** The hand is empty: no zone */
+	private endZone(): void {
+		this.disarm();
+		this.hover = null;
+	}
+
+	/** A tab or a panel let go over a zone: its view onto the stage, or full screen */
+	private land(tab: string, zone: StageZone): void {
+		if (zone.full) this.setState(tab, 'full');
+		else this.toStage(tab, zone.cell);
+	}
+
 	grabTab(tab: string, x: number, y: number): void {
 		const panel = panelOf(this.arrangement, tab);
 		if (panel) this.front(panel);
@@ -321,22 +443,28 @@ export class Floats {
 		const h = this.heldTab;
 		if (!h) return;
 		if (!h.moved && Math.hypot(x - h.from[0], y - h.from[1]) < CLICK_PX) return;
-		this.heldTab = { ...h, at: [x, y], moved: true, target, marker };
+		this.track(x, y);
+		// a zone at the screen's edge comes first: over it the tab goes to the stage, not into a panel there
+		this.heldTab = this.hover ? { ...h, at: [x, y], moved: true, target: null, marker: null } : { ...h, at: [x, y], moved: true, target, marker };
 	}
 
 	/**
-	 * Let go of a tab: a click selects it; over a panel it moves there; over the stage it becomes a panel of its own at the
-	 * pointer – or, the only tab of its panel, that panel moves there
+	 * Let go of a tab: a click selects it; over a drop zone its view goes onto the stage (or full screen); over a panel it
+	 * moves there; anywhere else it becomes a panel of its own at the pointer – or, the only tab of its panel, that panel
+	 * moves there. A view dragged off the stage leaves it
 	 */
 	dropTab(): void {
 		const h = this.heldTab;
+		const zone = this.zone;
 		this.heldTab = null;
+		this.endZone();
 		if (!h) return;
 		const from = panelOf(this.arrangement, h.tab);
 		if (!from) return;
-		if (!h.moved) return this.select(from, h.tab);
+		if (!h.moved) return isOn(this.stage, h.tab) ? undefined : this.select(from, h.tab);
+		if (zone) return this.land(h.tab, zone);
 		const [x, y] = h.at;
-		if (!h.target && this.dropOnStage?.(h.tab, x, y)) return;
+		this.stage = offStage(this.stage, h.tab);
 		if (h.target) {
 			this.arrangement = moveTab(this.arrangement, h.tab, h.target.panel, h.target.index);
 			this.front(h.target.panel);
@@ -360,6 +488,7 @@ export class Floats {
 
 	cancelTab(): void {
 		this.heldTab = null;
+		this.endZone();
 	}
 
 	/** The open size a panel asks for (px), held inside the room */
@@ -370,12 +499,13 @@ export class Floats {
 
 	// ── the hand: a move by the handle, a resize by an edge ──
 
-	grab(id: string, x: number, y: number, edge: Edge | null = null): void {
+	/** A panel taken by its head (a move) or an edge (a resize); `zones`: false for the arrow keys, which never drop on the stage */
+	grab(id: string, x: number, y: number, edge: Edge | null = null, zones = true): void {
 		const view = this.views[id];
 		if (!view) return;
 		this.cancelFrame();
 		this.front(id);
-		this.held = { id, kind: edge ? 'size' : 'move', edge: edge ?? { x: 0, y: 0 }, start: view.rect, from: [x, y], rect: view.rect, moved: false };
+		this.held = { id, kind: edge ? 'size' : 'move', edge: edge ?? { x: 0, y: 0 }, start: view.rect, from: [x, y], rect: view.rect, moved: false, zones: zones && !edge };
 	}
 
 	/** The pointer moved while a panel is held: laid out at the next animation frame (without frames – a test – at once) */
@@ -412,6 +542,7 @@ export class Floats {
 		if (!spec) return;
 		this.passes++;
 		if (h.kind === 'move') {
+			if (h.zones) this.track(x, y);
 			this.held = { ...h, rect: moved(h.start, dx, dy, this.area), moved: true };
 			return;
 		}
@@ -420,14 +551,22 @@ export class Floats {
 
 	/**
 	 * Let go: the panel stays where it is, held inside the walls – no snap; a resized one keeps its size. No other panel
-	 * moves or changes size. True when it was a drag, not a click
+	 * moves or changes size. Over a drop zone the panel goes back where it was and its front view lands on the stage (the
+	 * panel never docks). True when it was a drag, not a click
 	 */
 	drop(): boolean {
 		this.flush();
 		const h = this.held;
-		if (!h) return false;
+		const zone = h?.zones ? this.zone : null;
 		this.held = null;
+		this.endZone();
+		if (!h) return false;
 		if (!h.moved) return false;
+		const front = zone && this.activeOf(h.id);
+		if (zone && front) {
+			this.land(front, zone);
+			return true;
+		}
 		const spec = this.spec(h.id);
 		if (!spec) return true;
 		const rect = clampInto(h.rect, this.area);

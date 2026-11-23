@@ -5,8 +5,10 @@ import { AREAS, addressOf, hrefOf, iconOf, resolveTyped, scopeOf, workspaceOf } 
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
 import { NO_USE, entered, fits, readUse, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
-import { PRESETS, availableTabs, panelSpecs, stageOf, tabIdOf } from '../src/lib/shell/presets.ts';
-import { back, clampSplit, dropPlan, isCanvas, leaving, arriving, readStage, send, splitIn, freeRoom } from '../src/lib/shell/stage.ts';
+import { PRESETS, availableTabs, panelSpecs, tabIdOf } from '../src/lib/shell/presets.ts';
+import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
+import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
+import { MAX_PICKS, isLaunchKey, rank, readPicks, recentFirst, remember, score, wordsIn, type LaunchEntry } from '../src/lib/shell/launcher.ts';
 
 test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/'), null);
@@ -152,7 +154,6 @@ test('the Log is in every workspace; its old id Problems still names it', () => 
 	}
 	assert.equal(panelSpecs('scene', availableTabs([], null), TABS).find((p) => p.id === 'log')?.place.closed, true, 'a workspace without it in its preset: a closed panel');
 	assert.equal(tabIdOf('problems'), 'log');
-	assert.deepEqual(stageOf('chapter', { stage: ['problems'] }), ['log'], 'a stored stage naming Problems');
 });
 
 test('an address as the Log’s scope: a toon’s items under the toon, a chapter under its season', () => {
@@ -166,39 +167,11 @@ test('an address as the Log’s scope: a toon’s items under the toon, a chapte
 	assert.equal(scopeOf(null), null);
 });
 
-test('every workspace kind has a preset; the stage holds the person’s tab, else the preset’s', () => {
+test('every workspace kind has a preset; canvas views fill their cell', () => {
 	for (const kind of ['home', 'toon', 'chapter', 'storyboard', 'character', 'catalog', 'map', 'scene', 'flow', 'sound', 'text', 'help']) assert.ok(PRESETS[kind as keyof typeof PRESETS], kind);
-	assert.deepEqual(stageOf('chapter', {}), []);
-	assert.deepEqual(stageOf('chapter', { stage: ['flow'] }), ['flow']);
-	assert.deepEqual(stageOf('chapter', { stage: [] }), []);
-	// a preset without `main`: its own view is the stage, full-bleed under the bar
-	for (const [kind, preset] of Object.entries(PRESETS)) if (!preset.main) assert.deepEqual(stageOf(kind, {}), [], kind);
-});
-
-test('taking the stage: ◱ alone, a drop splits, never more than two', () => {
-	assert.deepEqual(send([], 'flow'), ['flow']);
-	assert.deepEqual(send(['flow'], 'flow'), [], 'pressed again: back');
-	assert.deepEqual(send(['flow', 'preview'], 'problems'), ['problems'], 'this one alone; the others fly back');
-	assert.deepEqual(splitIn(['flow'], 'preview', 'right'), ['flow', 'preview']);
-	assert.deepEqual(splitIn(['flow'], 'preview', 'left'), ['preview', 'flow']);
-	assert.deepEqual(splitIn(['flow', 'preview'], 'problems', 'left'), ['problems', 'preview'], 'replaces that half');
-	assert.deepEqual(splitIn([], 'flow', 'left'), ['flow']);
-	assert.deepEqual(back(['flow', 'preview']), ['flow'], 'Esc: the last one');
-	assert.deepEqual(back(['flow', 'preview'], 'flow'), ['preview'], 'the other keeps the whole stage');
-	assert.deepEqual(leaving(['flow', 'preview'], ['problems']), ['flow', 'preview']);
-	assert.deepEqual(arriving(['flow'], ['flow', 'preview']), ['preview']);
-	assert.ok(isCanvas('flow') && isCanvas('preview') && !isCanvas('problems'));
-});
-
-test('a tab dragged over the stage: takes it, splits a half, replaces a half', () => {
-	assert.deepEqual(dropPlan([], 'flow', 0.2), { kind: 'take' });
-	assert.deepEqual(dropPlan(['flow'], 'preview', 0.7), { kind: 'split', side: 'right' });
-	assert.deepEqual(dropPlan(['flow', 'preview'], 'problems', 0.1), { kind: 'replace', side: 'left', out: 'flow' });
-	assert.equal(dropPlan(['flow'], 'flow', 0.5), null);
+	assert.ok(isCanvas('flow') && isCanvas('preview') && !isCanvas('log'));
 	assert.equal(clampSplit(0.9), 0.75);
 	assert.equal(clampSplit(Number.NaN), 0.5);
-	assert.deepEqual(readStage(['a', 'a', 3, 'b', 'c']), ['a', 'b']);
-	assert.equal(readStage('flow'), undefined);
 });
 
 test('the free room: between the left and the right column of panels', () => {
@@ -215,7 +188,7 @@ test('the character workspace: its sections in one panel, the old Moods tabs ope
 });
 
 test('view settings: per workspace, every field checked', () => {
-	assert.deepEqual(readViews({ chapter: { stage: ['flow', 'preview'], split: 0.9, clear: false }, map: { stage: 3, clear: 'no' }, bad: 1 }), { chapter: { stage: ['flow', 'preview'], split: 0.75, clear: false }, map: {} });
+	assert.deepEqual(readViews({ chapter: { stage: ['flow', 'preview'], split: 0.9, clear: false }, map: { stage: 3, clear: 'no' }, bad: 1 }), { chapter: { split: 0.75, clear: false }, map: {} }, 'the stage lives with the panels now');
 	assert.deepEqual(readViews([]), {});
 	assert.deepEqual(readSettings({ views: { home: { clear: true } } }).views, { home: { clear: true } });
 });
@@ -251,4 +224,115 @@ test('the workspace row: most used first, never grouped; each goes to its last i
 	assert.ok(!fits(null, 'chapter'));
 	assert.deepEqual(readUse(JSON.parse(JSON.stringify(use))), use);
 	assert.deepEqual(readUse({ uses: { chapter: -1, nope: 3 }, last: { map: { address: 'chapter:x:1', href: '/x' } } }), NO_USE);
+});
+
+test('the dashboard: the front workspace first, then most used; each card shows what is open in it', () => {
+	const tabs = [
+		{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' },
+		{ address: 'scene:duet', href: '/scenes/duet', label: 'Duet' },
+		{ address: 'scene:crypt', href: '/scenes/crypt', label: 'Crypt' }
+	];
+	const use = { uses: { scene: 5, chapter: 2, map: 1 }, last: { scene: { address: 'scene:crypt', href: '/scenes/crypt' } } };
+	const cards = workspaceCards(use, tabs, 'chapter:catpope:3');
+	assert.deepEqual(cards.map((c) => c.kind).slice(0, 3), ['chapter', 'scene', 'map']);
+	assert.equal(cards[0].front, true);
+	assert.equal(cards[1].shown?.address, 'scene:crypt', 'a workspace shows its last item while it is open');
+	assert.equal(cards[1].open.length, 2);
+	assert.equal(cards[2].shown, null);
+	assert.equal(cards[2].href, '/map', 'nothing open: its start');
+	assert.equal(firstRing(cards), 1, 'the ring starts on the card after the front one');
+	assert.equal(firstRing(workspaceCards(use, tabs, null)), 0);
+});
+
+test('the welcome: nothing used yet – every workspace of the row, empty', () => {
+	assert.equal(isWelcome(NO_USE, [], 0), true);
+	assert.equal(isWelcome(NO_USE, [], 1), false);
+	const cards = workspaceCards(NO_USE, [], null, true);
+	assert.ok(cards.length >= 8);
+	assert.ok(cards.every((c) => !c.shown && c.href === null && !c.front));
+	assert.equal(greetName('mira.k@example.org'), 'Mira');
+	assert.equal(greetName(''), '');
+});
+
+test('the focus ring goes round the ends and by rows; the dashboard says how long ago', () => {
+	assert.equal(stepRing(0, -1, 5), 4);
+	assert.equal(stepRing(4, 1, 5), 0);
+	assert.equal(stepRing(0, 1, 0), 0);
+	assert.equal(rowStep(1, 1, 7, 4), 5);
+	assert.equal(rowStep(5, 1, 7, 4), 5, 'no card below: it stays');
+	assert.equal(rowStep(5, -1, 7, 4), 1);
+	const now = 10 * 86400000;
+	assert.deepEqual(ago(now - 20000, now), { unit: 'now', n: 0 });
+	assert.deepEqual(ago(now - 5 * 60000, now), { unit: 'minute', n: 5 });
+	assert.deepEqual(ago(now - 3 * 3600000, now), { unit: 'hour', n: 3 });
+	assert.deepEqual(ago(now - 2 * 86400000, now), { unit: 'day', n: 2 });
+	assert.equal(ago(undefined, now), null);
+});
+
+const L = (id: string, kind: LaunchEntry['kind'], label: string, extra: Partial<LaunchEntry> = {}): LaunchEntry => ({ id, kind, label, icon: 'file', ...extra });
+
+test('launcher: every word must appear; the address typed exactly wins, then the name, its start, a word, inside', () => {
+	assert.ok(wordsIn('Cat Pope · Chapter 3', 'pope chap'));
+	assert.ok(!wordsIn('Cat Pope', 'pope dog'));
+	assert.ok(wordsIn('anything', '  '));
+	const chapter = L('item:chapter:catpope:3', 'item', 'Chapter 3', { address: 'chapter:catpope:3', hint: 'Cat Pope' });
+	assert.equal(score(chapter, 'chapter:catpope:3'), 1000);
+	assert.equal(score(chapter, 'chapter 3'), 800);
+	assert.equal(score(chapter, 'chapter:catpope'), 700);
+	assert.equal(score(chapter, 'chap'), 600);
+	assert.equal(score(L('a', 'item', 'The Big Map'), 'big'), 400);
+	assert.equal(score(L('a', 'item', 'Moodboard'), 'board'), 300);
+	assert.equal(score(chapter, 'pope'), 100);
+	assert.equal(score(chapter, 'dog'), 0);
+});
+
+test('launcher: one ranked list across kinds, each id once; ties go to the recent pick, then the kind order', () => {
+	const entries = [
+		L('asset:map.png', 'asset', 'Map', { hint: 'media' }),
+		L('command:theme', 'command', 'Switch to night', { keywords: 'theme day night' }),
+		L('workspace:map', 'workspace', 'Map'),
+		L('item:map:world', 'item', 'Map', { address: 'map:world' }),
+		L('item:map:world', 'item', 'A duplicate'),
+		L('view:library', 'view', 'Library')
+	];
+	assert.deepEqual(rank(entries, 'map').map((e) => e.id), ['item:map:world', 'workspace:map', 'asset:map.png']);
+	assert.deepEqual(rank(entries, 'map', ['asset:map.png']).map((e) => e.id)[0], 'asset:map.png');
+	assert.deepEqual(rank(entries, 'night').map((e) => e.id), ['command:theme']);
+	assert.deepEqual(rank(entries, 'map:world').map((e) => e.id), ['item:map:world']);
+	assert.equal(rank(entries, 'a', [], 2).length, 2);
+});
+
+test('launcher: nothing typed lists the recent picks first, then fills up; a pick goes first, once', () => {
+	const now = [L('workspace:scene', 'workspace', 'Scenes', { href: '/scenes' }), L('command:settings', 'command', 'Settings')];
+	const picks = remember(remember([], L('item:toon:catpope', 'item', 'Cat Pope', { href: '/catpope', address: 'toon:catpope' })), L('command:settings', 'command', 'Settings (old name)'));
+	assert.deepEqual(picks.map((p) => p.id), ['command:settings', 'item:toon:catpope']);
+	// a command as the lists know it now; an item not loaded yet as it was picked (it can open by its href)
+	const shown = recentFirst(now, picks, now);
+	assert.deepEqual(shown.map((e) => e.label), ['Settings', 'Cat Pope', 'Scenes']);
+	// a recent command the lists do not offer now (no href) is left out
+	assert.deepEqual(recentFirst([], [{ id: 'command:publish', kind: 'command', label: 'Publish', icon: 'x' }]).length, 0);
+	let many = picks;
+	for (let i = 0; i < 20; i++) many = remember(many, L(`item:x${i}`, 'item', `x${i}`));
+	assert.equal(many.length, MAX_PICKS);
+	assert.equal(remember(many, L('item:x3', 'item', 'x3')).filter((p) => p.id === 'item:x3').length, 1);
+});
+
+test('launcher: what the browser kept is checked', () => {
+	assert.deepEqual(readPicks(null), []);
+	assert.deepEqual(readPicks([{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }, { id: 'b', kind: 'nope', label: 'B', icon: 'f' }, { id: 'c', kind: 'item', label: 'C', icon: 'f', href: 'https://evil' }, 7]), [{ id: 'a', kind: 'item', label: 'A', icon: 'file', href: '/a' }]);
+});
+
+test('launcher keys: Alt Space, Cmd Space, Ctrl or Cmd K and O, / outside a field – never Ctrl Space', () => {
+	const k = (key: string, code: string, mods: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) => ({ key, code, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...mods });
+	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), false));
+	assert.ok(isLaunchKey(k(' ', 'Space', { altKey: true }), true), 'macOS Option Space types a no-break space');
+	assert.ok(isLaunchKey(k(' ', 'Space', { metaKey: true }), true));
+	assert.ok(!isLaunchKey(k(' ', 'Space', { ctrlKey: true }), false), 'Ctrl Space is full screen');
+	assert.ok(!isLaunchKey(k(' ', 'Space'), false));
+	assert.ok(isLaunchKey(k('k', 'KeyK', { ctrlKey: true }), true));
+	assert.ok(isLaunchKey(k('K', 'KeyK', { metaKey: true }), true));
+	assert.ok(isLaunchKey(k('o', 'KeyO', { ctrlKey: true }), false));
+	assert.ok(!isLaunchKey(k('k', 'KeyK', { ctrlKey: true, shiftKey: true }), false));
+	assert.ok(isLaunchKey(k('/', 'Slash'), false));
+	assert.ok(!isLaunchKey(k('/', 'Slash'), true), 'typing a slash in a field');
 });
