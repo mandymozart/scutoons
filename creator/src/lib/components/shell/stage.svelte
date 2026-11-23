@@ -194,10 +194,10 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		overflow: hidden;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.box.canvas {
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 	}
 	.box.canvas > :global(.ws-tab) {
 		flex: 1;
@@ -213,7 +213,7 @@
 		--stage-top: var(--shell-top);
 	}
 	.box.page {
-		background: var(--page-ground, var(--editor-surface));
+		background: var(--tool-ground);
 		overflow: auto;
 	}
 	.page-body {
@@ -246,11 +246,11 @@
 		content: '';
 		width: var(--editor-edge);
 		height: 100%;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.divider:hover::before,
 	.divider.dragging::before {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	/* the bottom pill: the workspace's own view, then the tabs on the stage */
 	.pill {
@@ -263,12 +263,16 @@
 		gap: 0.2rem;
 		min-height: var(--control-height);
 		padding: 0 0.2rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
 		white-space: nowrap;
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.pill :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	.pill button {
 		min-height: calc(var(--control-height) - 0.4rem);
@@ -279,11 +283,11 @@
 		gap: 0.35rem;
 	}
 	.pill button:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.pill .chip {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		text-shadow: none;
 		cursor: grab;
 		touch-action: none;
@@ -297,13 +301,13 @@
 		width: var(--editor-edge);
 		height: 1.2rem;
 		margin: 0 0.15rem;
-		background: var(--editor-line);
+		background: var(--tool-line);
 	}
 	.dot {
 		width: 0.45rem;
 		height: 0.45rem;
 		border-radius: 50%;
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	:global(.stage-ghost) {
 		position: fixed;
@@ -312,12 +316,10 @@
 		overflow: hidden;
 		padding: 0.6rem 0.9rem;
 		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground);
-		color: var(--editor-text);
-		text-shadow: var(--editor-halo);
-		box-shadow:
-			0 0 0 1px var(--editor-accent),
-			0 0.6rem 2rem rgb(0 0 0 / 0.45);
+		background: var(--tool-panel);
+		color: var(--tool-text);
+		text-shadow: var(--tool-halo);
+		box-shadow: 0 0 0 1px var(--tool-accent);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);

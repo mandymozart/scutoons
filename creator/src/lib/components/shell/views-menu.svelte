@@ -58,13 +58,13 @@
 		align-items: center;
 		gap: 0.25rem;
 		border-radius: var(--editor-radius);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.view.on {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.view:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.name {
 		display: flex;
@@ -87,7 +87,7 @@
 	}
 	.mark {
 		margin-left: auto;
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 		font-size: var(--editor-label);
 		text-transform: uppercase;
 		letter-spacing: var(--editor-label-spacing);
@@ -113,10 +113,10 @@
 		color: inherit;
 	}
 	.eye[aria-pressed='true'] {
-		border-color: var(--editor-line);
+		border-color: var(--tool-line);
 	}
 	.eye:hover {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.tick {
 		display: inline-flex;
@@ -124,12 +124,12 @@
 		justify-content: center;
 		width: 1rem;
 		height: 1rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 0.2rem;
 	}
 	.tick.on {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
+		border-color: var(--tool-primary-line);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
 	}
 </style>

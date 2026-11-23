@@ -198,7 +198,7 @@
 	}
 	.hint {
 		margin: 0;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 	}
 	.warn {
@@ -212,6 +212,6 @@
 		height: 0.5em;
 		margin-right: var(--space-05);
 		border-radius: 50%;
-		background: var(--state-warning);
+		background: var(--tool-warn);
 	}
 </style>

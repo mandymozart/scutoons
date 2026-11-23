@@ -749,7 +749,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background: var(--primary-cyan, #00d1ff);
+		background: var(--tool-accent);
 		touch-action: none;
 		user-select: none;
 		cursor: default;
@@ -787,7 +787,7 @@
 	}
 	.hex-grid path {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.25;
 		stroke-width: 1;
 	}
@@ -802,16 +802,16 @@
 	/* the cells (owner 2026-10-12: "more transparent, less dark the outlines … the peripheral ones darker"): a light fill,
 	   faint inner lines, the patch's outer edge in ink */
 	.footprint path {
-		fill: var(--primary-yellow, #ffe600);
+		fill: var(--tool-warn);
 		fill-opacity: 0.18;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.2;
 		stroke-width: 1;
 	}
 	.footprint path.edge,
 	.place-hit path.edge {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.85;
 		stroke-width: 1.5;
 		stroke-linecap: round;
@@ -825,9 +825,9 @@
 	}
 	/* the hexagon a dragged gate snaps to lights up */
 	.footprint path.snap {
-		fill: var(--primary-cyan, #00d1ff);
+		fill: var(--tool-accent);
 		fill-opacity: 0.45;
-		stroke: var(--primary-cyan, #00d1ff);
+		stroke: var(--tool-accent);
 		stroke-opacity: 1;
 		stroke-width: 1.5;
 	}
@@ -847,8 +847,8 @@
 	}
 	/* a place without a diorama: its cells, dashed (owner 2026-10-12) */
 	.place-hit.bare path {
-		fill: rgb(255 255 255 / 0.2);
-		stroke: var(--ink);
+		fill: color-mix(in srgb, var(--tool-over-light) 25%, transparent);
+		stroke: var(--tool-text);
 		stroke-opacity: 0.2;
 		stroke-width: 1;
 	}
@@ -864,7 +864,7 @@
 		pointer-events: none;
 	}
 	.arms line {
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-width: 1;
 		stroke-dasharray: 3 2;
 	}
@@ -878,10 +878,10 @@
 		height: 0.8rem;
 		border-radius: 0;
 		border-width: 0.125rem;
-		background: var(--paper);
+		background: var(--tool-control);
 	}
 	.handle.curve.set {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.place-image {
 		position: absolute;
@@ -901,8 +901,8 @@
 		box-sizing: border-box;
 		padding: 0;
 		border-radius: 50%;
-		border: 2px solid var(--ink);
-		background: var(--surface-tint-cyan, #f0fcff);
+		border: 2px solid var(--tool-text);
+		background: var(--tool-within);
 		pointer-events: auto;
 		cursor: pointer;
 	}
@@ -922,16 +922,16 @@
 		border-style: dashed;
 	}
 	.active .marker {
-		background: var(--ink);
-		box-shadow: 0 0 0 4px var(--primary-cyan, #00d1ff);
+		background: var(--tool-pressed);
+		box-shadow: 0 0 0 4px var(--tool-accent);
 	}
 	.collides .marker {
-		outline: 2px solid var(--error, #e00);
+		outline: 2px solid var(--tool-stop);
 		outline-offset: 2px;
 	}
 	/* a free route point dragged over this place: let go and it connects here */
 	.connect-target .marker {
-		box-shadow: 0 0 0 6px var(--primary-cyan, #00d1ff);
+		box-shadow: 0 0 0 6px var(--tool-accent);
 	}
 	/* with an image the name goes under the point (the image stands above it) */
 	.has-image .label {
@@ -951,18 +951,18 @@
 		line-height: 1;
 		pointer-events: none;
 		text-shadow:
-			-1px -1px 0 #fff,
-			1px -1px 0 #fff,
-			1px 1px 0 #fff,
-			-1px 1px 0 #fff,
-			-2px 0 0 #fff,
-			2px 0 0 #fff,
-			0 -2px 0 #fff,
-			0 2px 0 #fff;
+			-1px -1px 0 var(--tool-ground),
+			1px -1px 0 var(--tool-ground),
+			1px 1px 0 var(--tool-ground),
+			-1px 1px 0 var(--tool-ground),
+			-2px 0 0 var(--tool-ground),
+			2px 0 0 var(--tool-ground),
+			0 -2px 0 var(--tool-ground),
+			0 2px 0 var(--tool-ground);
 	}
 	/* the active handle – the only one a drag moves (the safeguard: a tap activates) */
 	.handle.active {
-		outline: var(--border-width-focus) solid var(--primary-cyan);
+		outline: var(--border-width-focus) solid var(--tool-accent);
 		outline-offset: var(--focus-offset);
 	}
 	.handle {
@@ -976,9 +976,9 @@
 		box-sizing: border-box;
 		padding: 0;
 		border-radius: 50%;
-		border: 2px solid var(--ink);
-		background: var(--primary-cyan, #00d1ff);
-		color: var(--ink);
+		border: 2px solid var(--tool-text);
+		background: var(--tool-accent);
+		color: var(--tool-text);
 		font: 700 9px/1 var(--font-mono);
 		pointer-events: auto;
 		cursor: move;
@@ -993,13 +993,13 @@
 	}
 	.route-patches path {
 		fill: none;
-		stroke: var(--primary-cyan, #00d1ff);
+		stroke: var(--tool-accent);
 		stroke-width: 3;
 		stroke-linecap: round;
 	}
 	/* a dark line under the region's colour: the outline reads on any terrain */
 	.region-edge.under {
-		stroke: var(--ink, #000);
+		stroke: var(--tool-text);
 		stroke-width: 5;
 	}
 	/* a place waypoint's number: a small ink chip at its entry gate */
@@ -1010,8 +1010,8 @@
 		height: 0.9rem;
 		border-radius: 0;
 		border-width: 0.0625rem;
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		font-size: var(--type-caption-size);
 	}
 	/* a free point: a small dot */
@@ -1021,15 +1021,15 @@
 		width: 0.6rem;
 		height: 0.6rem;
 		border-width: 0.125rem;
-		background: var(--paper);
+		background: var(--tool-control);
 	}
 	/* a route gate (BACKLOG 10.66 (4)): hollow while computed, filled once the author set it */
 	.handle.gate {
-		background: var(--paper);
+		background: var(--tool-control);
 	}
 	.handle.gate.set {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.draft {
 		position: absolute;
@@ -1040,7 +1040,7 @@
 	}
 	.draft polyline {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-width: 3px;
 		stroke-dasharray: 6 4;
 	}
@@ -1049,7 +1049,7 @@
 		left: 50%;
 		top: 50%;
 		transform: translate(-50%, -50%);
-		border: 2px dashed var(--ink);
+		border: 2px dashed var(--tool-text);
 		pointer-events: none;
 		box-sizing: border-box;
 	}
@@ -1058,7 +1058,7 @@
 		top: -1.4rem;
 		left: 0;
 		font-size: var(--type-caption-size);
-		background: var(--paper);
+		background: var(--tool-ground);
 		padding: 0 0.3rem;
 	}
 	/* drawing a route: undo / done, bottom centre over the map */
@@ -1068,7 +1068,7 @@
 		bottom: 1rem;
 		transform: translateX(-50%);
 		z-index: 3;
-		background: var(--paper);
+		background: var(--tool-popover);
 	}
 	/* the regions' covers (agents/MAP.md §8.10): a light wash each, the selected one stronger with its outline */
 	.regions-layers {

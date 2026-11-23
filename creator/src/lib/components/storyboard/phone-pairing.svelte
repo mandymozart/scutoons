@@ -79,8 +79,8 @@
 		gap: var(--space-05);
 	}
 	.rec {
-		background: var(--state-error);
-		border-color: var(--state-error);
-		color: var(--paper);
+		background: var(--tool-stop);
+		border-color: var(--tool-stop);
+		color: var(--tool-pressed-text);
 	}
 </style>

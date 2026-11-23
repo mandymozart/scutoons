@@ -94,9 +94,9 @@
 		gap: 0.5rem;
 	}
 	a {
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

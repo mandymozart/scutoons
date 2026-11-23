@@ -76,6 +76,6 @@
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 </style>

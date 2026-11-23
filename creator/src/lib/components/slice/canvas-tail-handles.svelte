@@ -204,30 +204,30 @@
 		width: 0.875rem;
 		height: 0.875rem;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		transform: translate(-50%, -50%);
 		cursor: grab;
 		touch-action: none;
 	}
 	.tip {
 		border-radius: 50%;
-		background: var(--ink);
-		outline: var(--border-width-regular) solid var(--paper);
+		background: var(--tool-pressed);
+		outline: var(--border-width-regular) solid var(--tool-ground);
 	}
 	/* past the slice's edge: shown on the edge, hollow */
 	.tip.off {
-		background: var(--paper);
+		background: var(--tool-control);
 		border-style: dashed;
 	}
 	.base {
-		background: var(--paper);
+		background: var(--tool-control);
 		transform: translate(-50%, -50%) rotate(45deg);
 	}
 	.handle.dragging {
 		cursor: grabbing;
 	}
 	.handle:focus-visible {
-		outline: var(--border-width-regular) solid var(--select-live-text);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: 0.125rem;
 	}
 	/* touch screens: a 2.75rem target around it (like the canvas handles) */

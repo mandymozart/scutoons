@@ -193,7 +193,7 @@
 	.away {
 		margin: 0;
 		padding: var(--editor-pad);
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
@@ -210,26 +210,26 @@
 		color: inherit;
 	}
 	.back:hover {
-		background: var(--editor-hover);
-		color: var(--editor-text);
+		background: var(--tool-hover);
+		color: var(--tool-text);
 	}
 	/* over everything (as OSCT's asset manager): a dialog over the whole creator, the bar included */
 	.over {
 		position: fixed;
 		z-index: 80;
 		inset: 0;
-		background: rgb(0 0 0 / 0.55);
+		background: var(--tool-scrim);
 	}
 	.over .box {
 		position: absolute;
 		inset: 2rem 2.5rem 2.5rem;
 		display: flex;
 		flex-direction: column;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
-		box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.5);
+		background: var(--tool-popover);
+		color: var(--tool-text);
+		box-shadow: none;
 		overflow: hidden;
 		font-family: var(--editor-sans);
 	}
@@ -238,7 +238,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		padding: 0.25rem 0.25rem 0.25rem 1rem;
-		background: var(--editor-surface-head);
+		background: var(--tool-head);
 	}
 	.over .name {
 		flex: 1;

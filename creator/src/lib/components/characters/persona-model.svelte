@@ -73,7 +73,7 @@
 	.hint {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--muted);
+		color: var(--tool-muted);
 	}
 	fieldset {
 		margin: 0;

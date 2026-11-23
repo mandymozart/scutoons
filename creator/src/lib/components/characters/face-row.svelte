@@ -118,26 +118,26 @@
 		gap: var(--space-05);
 		height: var(--control-height);
 		padding: 0 var(--space-05) 0 var(--space-025);
-		border: var(--border-width-hairline) solid var(--border-muted);
+		border: var(--border-width-hairline) solid var(--tool-line);
 		white-space: nowrap;
 		cursor: pointer;
 	}
 	.face:hover,
 	.face:focus-visible {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.face.on {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		border-color: var(--tool-text);
 	}
 	.face.ringed {
-		outline: calc(2 * var(--border-width-regular)) solid var(--ink);
+		outline: calc(2 * var(--border-width-regular)) solid var(--tool-text);
 		outline-offset: var(--border-width-regular);
 	}
 	.face.warning:not(.on) {
 		border-style: dashed;
-		border-color: var(--state-error);
+		border-color: var(--tool-stop);
 	}
 	.face img,
 	.noimg {
@@ -145,7 +145,7 @@
 		height: calc(var(--control-height) - 0.5rem);
 		object-fit: cover;
 		flex: none;
-		background: var(--surface-hover);
+		background: var(--tool-hover);
 	}
 	.count {
 		font-size: var(--type-caption-size);
@@ -160,14 +160,14 @@
 		justify-content: center;
 		width: var(--control-height);
 		height: var(--control-height);
-		border: var(--border-width-hairline) dashed var(--border-muted);
-		color: var(--text-muted);
+		border: var(--border-width-hairline) dashed var(--tool-line);
+		color: var(--tool-muted);
 		cursor: pointer;
 	}
 	.plus:hover,
 	.plus:focus-visible {
-		border-color: var(--ink);
-		color: var(--ink);
+		border-color: var(--tool-text);
+		color: var(--tool-text);
 	}
 	.add-field input {
 		width: 12rem;

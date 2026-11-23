@@ -60,13 +60,17 @@
 		box-sizing: border-box;
 		height: var(--status-height);
 		padding: 0 0.25rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1.2rem;
-		background: var(--editor-panel-ground);
-		color: var(--editor-text);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		color: var(--tool-text);
+		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
+	}
+	/* the halo on its icons too (the deck's ink ring covers text and icons) */
+	.status-bar :global(svg) {
+		filter: var(--tool-icon-halo);
 	}
 	button {
 		display: inline-flex;
@@ -82,7 +86,7 @@
 		text-shadow: inherit;
 	}
 	button:hover:not(:disabled) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.message {
 		flex: 1 1 auto;
@@ -96,30 +100,30 @@
 	}
 	.age {
 		flex: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.dot {
 		flex: none;
 		width: 0.5rem;
 		height: 0.5rem;
 		border-radius: 50%;
-		background: var(--editor-muted);
+		background: var(--tool-muted);
 	}
 	.dot.none {
 		background: transparent;
-		box-shadow: inset 0 0 0 1px var(--editor-line);
+		box-shadow: inset 0 0 0 1px var(--tool-line);
 	}
 	.dot.ok {
-		background: var(--editor-go);
+		background: var(--tool-go);
 	}
 	.dot.info {
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 	}
 	.dot.warn {
-		background: var(--editor-warn);
+		background: var(--tool-warn);
 	}
 	.dot.error {
-		background: var(--editor-stop);
+		background: var(--tool-stop);
 	}
 	.chips {
 		display: flex;
@@ -134,17 +138,17 @@
 		min-height: calc(var(--status-height) - 0.4rem);
 		padding: 0 0.6rem;
 		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-muted);
+		background: var(--tool-control);
+		color: var(--tool-muted);
 	}
 	.counts {
 		flex: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.bad {
-		color: var(--editor-stop);
+		color: var(--tool-stop);
 	}
 	.warn {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 </style>

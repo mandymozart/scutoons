@@ -152,16 +152,16 @@
 		gap: 0.75rem;
 	}
 	.checker {
-		background-color: #fff;
-		background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%);
+		background-color: var(--tool-ground);
+		background-image: linear-gradient(45deg, var(--tool-checker) 25%, transparent 25%), linear-gradient(-45deg, var(--tool-checker) 25%, transparent 25%),
+			linear-gradient(45deg, transparent 75%, var(--tool-checker) 75%), linear-gradient(-45deg, transparent 75%, var(--tool-checker) 75%);
 		background-size: 16px 16px;
 		background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 	}
 	.anchor {
 		position: relative;
 		width: 160px;
-		border: 1px solid var(--ink);
+		border: 1px solid var(--tool-text);
 		cursor: crosshair;
 		touch-action: none;
 	}
@@ -180,9 +180,9 @@
 		pointer-events: none;
 	}
 	.tiles path {
-		fill: var(--primary-yellow, #ffe600);
+		fill: var(--tool-warn);
 		fill-opacity: 0.3;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-width: 1;
 		vector-effect: non-scaling-stroke;
 	}
@@ -193,8 +193,8 @@
 		transform: translate(-50%, -50%);
 		pointer-events: none;
 		background:
-			linear-gradient(var(--error, #e00), var(--error, #e00)) center / 2px 100% no-repeat,
-			linear-gradient(var(--error, #e00), var(--error, #e00)) center / 100% 2px no-repeat;
+			linear-gradient(var(--tool-stop), var(--tool-stop)) center / 2px 100% no-repeat,
+			linear-gradient(var(--tool-stop), var(--tool-stop)) center / 100% 2px no-repeat;
 	}
 	.previews {
 		display: flex;
@@ -205,7 +205,7 @@
 		position: relative;
 		flex: 1;
 		min-width: 3rem;
-		background: var(--primary-cyan, #00d1ff);
+		background: var(--tool-accent);
 		overflow: hidden;
 	}
 	.preview img {
@@ -219,7 +219,7 @@
 		height: 6px;
 		transform: translate(-50%, -50%);
 		border-radius: 50%;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.preview .z {
 		position: absolute;

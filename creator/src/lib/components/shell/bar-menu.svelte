@@ -38,11 +38,11 @@
 		border: 0;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.round:hover,
 	.round[aria-expanded='true'] {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.dot {
 		position: absolute;
@@ -51,7 +51,7 @@
 		width: 0.4rem;
 		height: 0.4rem;
 		border-radius: 50%;
-		background: var(--editor-warn);
+		background: var(--tool-warn);
 	}
 	.menu {
 		position: absolute;
@@ -65,10 +65,10 @@
 		max-height: calc(100dvh - var(--shell-top) - var(--status-room));
 		padding: 0.3rem;
 		overflow: auto;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 	}
 	.menu.wide {
 		width: 26rem;
@@ -84,15 +84,15 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-align: left;
 	}
 	.menu :global(button.line:hover:not(:disabled)) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.menu :global(.head) {
 		padding: 0.4rem 0.6rem 0.2rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
@@ -100,12 +100,12 @@
 	.menu :global(.empty) {
 		margin: 0;
 		padding: 0.6rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.menu :global(hr) {
 		width: 100%;
 		margin: 0.25rem 0;
 		border: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

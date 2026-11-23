@@ -91,13 +91,13 @@
 	}
 	th,
 	td {
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: 1px solid var(--tool-line);
 		padding: 0.25rem;
 		text-align: left;
 		vertical-align: top;
 	}
 	.warn {
-		color: var(--warn);
+		color: var(--tool-warn);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}

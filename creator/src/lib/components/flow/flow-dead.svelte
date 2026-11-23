@@ -60,17 +60,17 @@
 <style>
 	.dead {
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		/* under the frameless canvas (owner 2026-10-06): a divider edge to edge, the text on the panel's 1rem line */
 		margin: 0;
 		padding: 0 var(--space-1) var(--space-05);
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 		max-height: 40vh;
 		overflow: auto;
 	}
 	.title {
 		margin: var(--space-05) 0 var(--space-025);
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	ul {
 		margin: 0;

@@ -125,7 +125,7 @@
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 		touch-action: none;
 		user-select: none;
 	}
@@ -161,8 +161,8 @@
 		max-width: calc(100% - var(--in-l, 1rem) - var(--in-r, 1rem));
 		padding: 0.25rem 0.6rem;
 		border-radius: var(--editor-radius);
-		background: var(--editor-panel-ground);
-		text-shadow: var(--editor-halo);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
 		font-size: var(--editor-small);
 		white-space: nowrap;
 		overflow: hidden;
@@ -170,11 +170,11 @@
 	}
 	.where {
 		top: calc(var(--shell-top) + 0.25rem);
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.fallback {
 		top: calc(var(--shell-top) + 2.25rem);
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.sq {
 		all: unset;
@@ -189,12 +189,13 @@
 	}
 	.sq:hover,
 	.sq:focus-visible {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.fit {
 		position: absolute;
 		right: var(--in-r, 1rem);
 		top: calc(var(--shell-top) + 0.25rem);
-		background: var(--editor-panel-ground);
+		background: var(--tool-panel);
+		text-shadow: var(--tool-halo);
 	}
 </style>

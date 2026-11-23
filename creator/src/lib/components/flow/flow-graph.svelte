@@ -105,7 +105,7 @@
 			label,
 			data: { bends: (route?.points ?? []).slice(1, -1), ...(label && route?.x !== undefined && route.y !== undefined ? { labelAt: { x: route.x, y: route.y } } : {}) },
 			class: `flow-edge kind-${e.kind} from-${e.status}${e.never ? ' is-never' : ''}${e.condition || e.status === 'conditional' ? ' is-conditional' : ''}`,
-			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--badge-warning)' : 'var(--ink)' }, // px-ok: the marker's own units
+			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--badge-warning)' : 'var(--tool-text)' }, // px-ok: the marker's own units
 			deletable: false,
 			selectable: false
 			};
@@ -116,7 +116,7 @@
 		const f = (n.data as FlowNodeData).flow;
 		if (f.status === 'stuck') return 'var(--badge-error)';
 		if (f.status === 'unreachable' || f.status === 'never' || f.status === 'loop') return 'var(--badge-warning)';
-		return f.kind === 'group' || f.kind === 'chapter' || f.kind === 'toon' ? 'var(--ink)' : 'var(--border-muted)';
+		return f.kind === 'group' || f.kind === 'chapter' || f.kind === 'toon' ? 'var(--tool-text)' : 'var(--tool-line)';
 	};
 	const miniSize = rem();
 </script>
@@ -152,13 +152,13 @@
 	}
 	/* Svelte Flow in the house look: paper, ink lines, the reader's caption type for edge labels */
 	.graph :global(.svelte-flow) {
-		--xy-background-color: var(--paper);
-		--xy-edge-stroke: var(--ink);
+		--xy-background-color: var(--tool-ground);
+		--xy-edge-stroke: var(--tool-text);
 		--xy-edge-stroke-width: 1.5;
-		--xy-edge-label-background-color: var(--paper);
-		--xy-edge-label-color: var(--ink);
-		--xy-minimap-background-color: var(--paper);
-		--xy-minimap-mask-background-color: color-mix(in srgb, var(--ink) 12%, transparent);
+		--xy-edge-label-background-color: var(--tool-ground);
+		--xy-edge-label-color: var(--tool-text);
+		--xy-minimap-background-color: var(--tool-ground);
+		--xy-minimap-mask-background-color: color-mix(in srgb, var(--tool-pressed) 12%, transparent);
 		--xy-node-border-radius: 0;
 		font-family: inherit;
 	}
@@ -192,7 +192,7 @@
 	}
 	/* on the stage the graph runs under the bar and the panels: its own controls keep clear of them (stage.svelte) */
 	.graph :global(.svelte-flow__minimap) {
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 		margin: var(--space-05);
 		margin-right: calc(var(--stage-right, 0rem) + var(--space-05));
 		margin-bottom: calc(var(--stage-bottom, 0rem) + var(--space-05));

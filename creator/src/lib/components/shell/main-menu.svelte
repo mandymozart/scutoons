@@ -109,11 +109,11 @@
 		border: 0;
 		border-radius: 50%;
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.round:hover,
 	.round[aria-expanded='true'] {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	/* far right: the menu opens leftwards, a sub menu left of it */
 	.menu {
@@ -128,10 +128,10 @@
 		max-height: calc(100dvh - var(--shell-top) - var(--status-room));
 		padding: 0.3rem;
 		overflow: auto;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		background: var(--editor-surface);
-		color: var(--editor-text);
+		background: var(--tool-popover);
+		color: var(--tool-text);
 	}
 	.menu.sub {
 		right: 17.3rem;
@@ -158,7 +158,7 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: transparent;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		text-align: left;
 		text-decoration: none;
 	}
@@ -166,31 +166,31 @@
 	.menu a:hover,
 	.menu button[aria-expanded='true'],
 	.menu a[aria-current='page'] {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.menu button:disabled {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	kbd {
 		margin-left: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--font-mono);
 		font-size: var(--editor-small);
 	}
 	.menu :global(.head) {
 		padding: 0.4rem 0.6rem 0.2rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
 	}
 	.muted {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.menu :global(hr) {
 		width: 100%;
 		margin: 0.25rem 0;
 		border: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

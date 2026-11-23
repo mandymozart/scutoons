@@ -384,11 +384,11 @@
 		gap: 0.5rem;
 		align-items: center;
 		padding: 0.3rem;
-		border: 1px solid var(--border-subtle);
+		border: 1px solid var(--tool-line);
 		cursor: pointer;
 	}
 	.item:hover {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.thumb {
 		width: 2.6rem;
@@ -421,7 +421,7 @@
 		gap: 0.15rem;
 	}
 	.removed {
-		color: var(--error);
+		color: var(--tool-stop);
 		font-size: var(--type-caption-size);
 	}
 	.detail {
@@ -435,9 +435,9 @@
 		gap: 0.4rem;
 		align-items: center;
 		margin: 0;
-		color: var(--muted, inherit);
+		color: var(--tool-muted);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

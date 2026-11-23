@@ -126,8 +126,8 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		background: var(--paper);
-		border: 2px solid var(--ink);
+		background: var(--tool-popover);
+		border: 2px solid var(--tool-text);
 		max-height: 18rem;
 		overflow: auto;
 	}

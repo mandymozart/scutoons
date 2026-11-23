@@ -250,16 +250,21 @@
 		flex-direction: column;
 		box-sizing: border-box;
 		min-width: 0;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
-		/* solid: a panel floats over the stage's content, which must not show through it */
-		background: var(--editor-surface);
-		color: var(--editor-text);
-		text-shadow: var(--editor-halo);
+		/* the deck editor's floating panel (deck-kit floats.rs, RULES H11): the surface at the panel opacity, see-through, no
+		   blur, no shadow; its text and icons carry the halo (the ink ring of the ground's colour) so they read over any
+		   stage. Controls keep their own opaque ground (no halo on them, as the deck's DrawList::halo) */
+		background: var(--tool-panel);
+		color: var(--tool-text);
+		text-shadow: var(--tool-halo);
 		font-family: var(--editor-sans);
+		/* content in a panel stands on the panel's ground: a component's "ground" (or the shared --paper) is see-through here */
+		--tool-ground: transparent;
+		--paper: transparent;
 	}
-	.float.held {
-		box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 0.35);
+	.float :global(svg:not(:is([role='menu'], [role='listbox'], [role='dialog'], [popover]) svg)) {
+		filter: var(--tool-icon-halo);
 	}
 	.head,
 	.line {
@@ -284,14 +289,14 @@
 		justify-content: center;
 		width: 1rem;
 		align-self: stretch;
-		color: var(--editor-line);
+		color: var(--tool-line);
 		outline: none;
 	}
 	.head .handle {
 		width: 0.375rem;
 	}
 	.handle:focus-visible {
-		box-shadow: inset 0 0 0 2px var(--editor-accent);
+		box-shadow: inset 0 0 0 2px var(--tool-accent);
 	}
 	.held .head,
 	.held .line {
@@ -301,7 +306,7 @@
 	.grip {
 		width: 0.375rem;
 		height: 0.875rem;
-		background: radial-gradient(circle, var(--editor-muted) 1px, transparent 1.5px) 0 0 / 0.1875rem 0.21875rem;
+		background: radial-gradient(circle, var(--tool-muted) 1px, transparent 1.5px) 0 0 / 0.1875rem 0.21875rem;
 		opacity: 0.7;
 	}
 	.strip {
@@ -323,7 +328,7 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font: inherit;
 		font-size: var(--editor-small);
 		white-space: nowrap;
@@ -339,8 +344,8 @@
 	}
 	/* the front tab: a thin outline, the others muted */
 	.tab.on {
-		color: var(--editor-text);
-		box-shadow: inset 0 0 0 var(--editor-edge) var(--editor-line);
+		color: var(--tool-text);
+		box-shadow: inset 0 0 0 var(--editor-edge) var(--tool-line);
 	}
 	.tab.dragged {
 		opacity: 0.4;
@@ -353,12 +358,12 @@
 		height: 0.45rem;
 		margin-right: 0.35rem;
 		border-radius: 50%;
-		background: var(--editor-accent);
+		background: var(--tool-accent);
 		vertical-align: 0.05rem;
 	}
 	.tab:focus-visible,
 	.icon:focus-visible {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: -2px;
 	}
 	.buttons {
@@ -376,19 +381,19 @@
 		border: 0;
 		border-radius: 50%;
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: pointer;
 	}
 	.buttons :global(.panel-close) {
 		border-radius: 50%;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	@media (hover: hover) {
 		.tab:not(.on):hover,
 		.icon:hover,
 		.buttons :global(.panel-close:hover) {
-			color: var(--editor-text);
-			background: var(--editor-hover);
+			color: var(--tool-text);
+			background: var(--tool-hover);
 		}
 	}
 	.vertical .line {

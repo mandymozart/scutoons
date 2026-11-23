@@ -134,7 +134,7 @@
 		width: 5rem;
 		height: 5rem;
 		flex: none;
-		background: var(--surface-hover);
+		background: var(--tool-hover);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -145,7 +145,7 @@
 		object-fit: contain;
 	}
 	.state.bad {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 	textarea {
 		width: 100%;

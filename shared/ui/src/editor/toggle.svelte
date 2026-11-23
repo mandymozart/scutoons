@@ -59,7 +59,7 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font: inherit;
 		cursor: pointer;
 	}
@@ -69,9 +69,9 @@
 		box-sizing: border-box;
 		width: 1.875rem;
 		height: 1.125rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 999px;
-		background: var(--editor-control);
+		background: var(--tool-control);
 		transition:
 			background-color 0.15s,
 			border-color 0.15s;
@@ -84,33 +84,33 @@
 		width: 0.75rem;
 		height: 0.75rem;
 		border-radius: 50%;
-		background: var(--editor-muted);
+		background: var(--tool-muted);
 		transform: translateY(-50%);
 		transition:
 			transform 0.15s,
 			background-color 0.15s;
 	}
 	.switch[aria-checked='true'] .track {
-		border-color: var(--editor-text);
-		background: var(--editor-text);
+		border-color: var(--tool-text);
+		background: var(--tool-text);
 	}
 	.switch[aria-checked='true'] .track::before {
-		background: var(--editor-surface);
+		background: var(--tool-pressed-text);
 		transform: translate(0.75rem, -50%);
 	}
 	@media (hover: hover) {
 		.switch:hover:not(:disabled) .track {
-			border-color: var(--editor-muted);
+			border-color: var(--tool-muted);
 		}
 		.switch[aria-checked='true']:hover:not(:disabled) .track {
-			border-color: var(--editor-text);
+			border-color: var(--tool-text);
 		}
 	}
 	.switch:focus-visible {
 		outline: none;
 	}
 	.switch:focus-visible .track {
-		outline: 2px solid var(--editor-accent);
+		outline: 2px solid var(--tool-accent);
 		outline-offset: 1px;
 	}
 	.switch:disabled {
@@ -118,7 +118,7 @@
 		cursor: not-allowed;
 	}
 	.value {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	@media (prefers-reduced-motion: reduce) {

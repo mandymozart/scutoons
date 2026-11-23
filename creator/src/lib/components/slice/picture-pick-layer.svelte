@@ -85,9 +85,9 @@
 		gap: var(--space-025);
 		padding: var(--space-025) var(--space-05);
 		transform: translate(var(--space-05), var(--space-05));
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		pointer-events: none;
@@ -96,6 +96,6 @@
 	.swatch {
 		width: 1rem;
 		height: 1rem;
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--tool-text);
 	}
 </style>

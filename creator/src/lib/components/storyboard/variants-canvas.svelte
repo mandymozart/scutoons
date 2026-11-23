@@ -243,7 +243,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 	.split {
 		position: relative;

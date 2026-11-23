@@ -19,7 +19,7 @@
 	}
 	path {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--tool-text);
 		stroke-width: var(--border-width-regular);
 		stroke-linecap: square;
 		vector-effect: non-scaling-stroke;

@@ -80,7 +80,7 @@
 		gap: 0.4rem;
 		align-items: end;
 		padding: 0.3rem 0;
-		border-top: 1px dashed var(--border-muted);
+		border-top: 1px dashed var(--tool-line);
 	}
 	.action-fields {
 		min-width: 0;

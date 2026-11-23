@@ -117,14 +117,14 @@
 <style>
 	.band {
 		position: relative;
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.band.over::after {
 		content: '';
 		position: absolute;
 		inset: 0;
 		z-index: 4;
-		border: var(--border-width-regular) dashed var(--ink);
+		border: var(--border-width-regular) dashed var(--tool-text);
 		pointer-events: none;
 	}
 	.head {
@@ -132,8 +132,8 @@
 		top: 0;
 		z-index: 3;
 		height: 2.5rem;
-		background: var(--paper);
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		background: transparent;
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 		font-size: var(--type-caption-size);
 		cursor: pointer;
 	}
@@ -154,19 +154,19 @@
 		font-size: var(--type-button-size);
 	}
 	.facts {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.band.current .head {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.band.current .facts {
-		color: var(--paper);
+		color: var(--tool-pressed-text);
 	}
 	.band.current .fold {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
+		border-color: var(--tool-ground);
 	}
 	.dot {
 		display: inline-block;
@@ -180,7 +180,7 @@
 		background: currentColor;
 	}
 	.dot.change {
-		background: var(--state-warning);
+		background: var(--tool-warn);
 	}
 	.body {
 		position: relative;
@@ -196,7 +196,7 @@
 		line-height: 1;
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 		white-space: nowrap;
 		pointer-events: none;
 	}

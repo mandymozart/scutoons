@@ -65,12 +65,12 @@
 	.places {
 		overflow: auto;
 		padding: 0.3rem 0.5rem var(--editor-pad) var(--editor-pad);
-		border-right: var(--editor-edge) solid var(--editor-line);
+		border-right: var(--editor-edge) solid var(--tool-line);
 		font-size: var(--editor-small);
 	}
 	h3 {
 		margin: 0.8rem 0 0.2rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		font-weight: 400;
 		letter-spacing: var(--editor-label-spacing, 0.08em);
@@ -91,21 +91,21 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-text);
+		color: var(--tool-text);
 		font: inherit;
 		text-align: start;
 		cursor: pointer;
 	}
 	.place:hover:not(:disabled) {
-		background: var(--editor-hover);
+		background: var(--tool-hover);
 	}
 	.place:disabled {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: default;
 	}
 	.place.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.label {
 		flex: 1 1 auto;
@@ -116,7 +116,7 @@
 	}
 	.n {
 		margin-inline-start: auto;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-family: var(--editor-mono, ui-monospace, monospace);
 		font-size: var(--editor-label);
 	}

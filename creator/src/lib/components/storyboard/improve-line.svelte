@@ -74,7 +74,7 @@
 		gap: var(--space-05);
 		min-width: 0;
 		padding-bottom: var(--space-05);
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.words {
 		flex: 1;
@@ -89,6 +89,6 @@
 		line-height: var(--type-button-line);
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 </style>

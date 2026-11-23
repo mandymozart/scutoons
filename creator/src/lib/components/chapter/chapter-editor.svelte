@@ -1142,9 +1142,7 @@
 		width: min(60rem, 100% - 2rem);
 		margin-bottom: var(--space-1);
 		padding: var(--space-1) var(--space-1) var(--space-3);
-		border: var(--editor-edge) solid var(--editor-line);
-		border-radius: var(--editor-radius);
-		background: var(--page-ground, var(--editor-surface));
+		/* the form stands on the stage itself: no sheet behind it (RULES H11) */
 	}
 	.canvas-scroll {
 		overflow: auto;
@@ -1178,6 +1176,6 @@
 		padding: var(--space-1);
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

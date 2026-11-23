@@ -74,23 +74,23 @@
 		border: 0;
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		display: inline-grid;
 		place-items: center;
 		cursor: pointer;
 	}
 	.square[aria-pressed='true'] {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.lbl {
 		padding: 0.2rem 0.5rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 		text-transform: uppercase;
 	}
 	[aria-checked='true'] {
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 	}
 	.n {
 		opacity: 0.7;
@@ -98,6 +98,6 @@
 	hr {
 		margin: 0.2rem 0;
 		border: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
+		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

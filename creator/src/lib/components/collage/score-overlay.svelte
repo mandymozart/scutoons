@@ -152,7 +152,7 @@
 	.box {
 		position: absolute;
 		box-sizing: border-box;
-		outline: calc(var(--border-width-hairline) / var(--stage-scale, 1)) dashed var(--ink);
+		outline: calc(var(--border-width-hairline) / var(--stage-scale, 1)) dashed var(--tool-text);
 		outline-offset: calc(-1 * var(--border-width-hairline) / var(--stage-scale, 1));
 		pointer-events: auto;
 		touch-action: none;
@@ -162,7 +162,7 @@
 		outline-style: dotted;
 	}
 	.box.selected {
-		outline: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--primary-cyan);
+		outline: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--tool-accent);
 	}
 	/* the round scale handle on the box's bottom-right corner (--x / --y: % of the page), held on the page at its edges */
 	.corner {
@@ -174,9 +174,9 @@
 		height: calc(2 * var(--half));
 		translate: -50% -50%;
 		box-sizing: border-box;
-		border: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--ink);
+		border: calc(var(--border-width-regular) / var(--stage-scale, 1)) solid var(--tool-text);
 		border-radius: 50%;
-		background: var(--paper);
+		background: var(--tool-control);
 		cursor: nwse-resize;
 		touch-action: none;
 		pointer-events: auto;

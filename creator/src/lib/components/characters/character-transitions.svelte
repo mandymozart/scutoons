@@ -77,7 +77,7 @@
 		width: 6rem;
 		height: 6rem;
 		object-fit: cover;
-		background: var(--surface-hover);
+		background: var(--tool-hover);
 	}
 	.col {
 		display: flex;

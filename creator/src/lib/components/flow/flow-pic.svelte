@@ -65,8 +65,8 @@
 		flex: none;
 		box-sizing: border-box;
 		overflow: hidden;
-		background: var(--paper);
-		border: var(--border-width-hairline) solid var(--ink);
+		background: var(--tool-ground);
+		border: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.round {
 		border-radius: 50%;
@@ -74,7 +74,7 @@
 	/* nothing to show: the dashed empty slot (DESIGN.md: an empty media slot is dashed) */
 	.empty {
 		border-style: dashed;
-		border-color: var(--border-muted);
+		border-color: var(--tool-line);
 	}
 	img {
 		display: block;

@@ -138,7 +138,7 @@
 		justify-content: space-between;
 		gap: 0.5rem 1rem;
 		padding: 0.75rem 0;
-		border-bottom: 2px solid var(--border-muted);
+		border-bottom: 2px solid var(--tool-line);
 	}
 	.what {
 		display: flex;
@@ -147,10 +147,10 @@
 		min-width: 0;
 	}
 	.what a {
-		color: var(--ink);
+		color: var(--tool-text);
 	}
 	.meta {
-		color: var(--muted);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
@@ -160,6 +160,6 @@
 		gap: 0.5rem;
 	}
 	.error {
-		color: var(--error);
+		color: var(--tool-stop);
 	}
 </style>

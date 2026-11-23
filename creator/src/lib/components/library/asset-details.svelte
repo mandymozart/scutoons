@@ -152,7 +152,7 @@
 		position: relative;
 		overflow: auto;
 		padding: var(--editor-pad);
-		border-left: var(--editor-edge) solid var(--editor-line);
+		border-left: var(--editor-edge) solid var(--tool-line);
 		font-size: var(--editor-small);
 	}
 	.details.drawer {
@@ -163,8 +163,8 @@
 		max-height: min(40vh, 22rem);
 		margin: 0 calc(-1 * var(--editor-pad));
 		border-left: 0;
-		border-top: var(--editor-edge) solid var(--editor-line);
-		background: var(--editor-surface);
+		border-top: var(--editor-edge) solid var(--tool-line);
+		background: var(--tool-popover);
 	}
 	.close {
 		position: absolute;
@@ -178,7 +178,7 @@
 		place-items: center;
 		aspect-ratio: 16 / 10;
 		border-radius: var(--editor-radius);
-		background: var(--editor-stage);
+		background: var(--tool-ground);
 		overflow: hidden;
 	}
 	.drawer .preview {
@@ -214,14 +214,14 @@
 	}
 	.sub {
 		margin: 0 0 0.5rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		word-break: break-all;
 	}
 	.mono {
 		font-family: var(--editor-mono, ui-monospace, monospace);
 	}
 	.muted {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.actions {
 		display: flex;
@@ -239,13 +239,13 @@
 	.icon {
 		width: var(--editor-row);
 		padding: 0;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.icon:hover {
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.icon.danger:hover {
-		color: var(--editor-danger);
+		color: var(--tool-danger);
 	}
 	.versions {
 		width: 100%;
@@ -254,20 +254,20 @@
 	}
 	.versions td {
 		padding: 0.25rem 0.3rem 0.25rem 0;
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 		white-space: nowrap;
 	}
 	.versions .num {
 		text-align: right;
 	}
 	.versions .missing {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.tag {
 		padding: 0 0.35rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-label);
 	}
 	.uses {
@@ -287,7 +287,7 @@
 		padding: 0;
 		border: 0;
 		background: none;
-		color: var(--editor-accent);
+		color: var(--tool-accent);
 		font: inherit;
 		text-align: start;
 		cursor: pointer;
@@ -295,6 +295,6 @@
 	.jump.quiet {
 		display: block;
 		margin-top: 0.3rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 </style>

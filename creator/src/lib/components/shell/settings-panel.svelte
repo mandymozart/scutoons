@@ -115,7 +115,7 @@
 		gap: 0.5rem;
 		min-height: var(--editor-row);
 		padding: 0 var(--editor-pad);
-		text-shadow: var(--editor-halo);
+		text-shadow: var(--tool-halo);
 	}
 	.row.actions {
 		justify-content: flex-start;
@@ -132,16 +132,16 @@
 		display: inline-flex;
 		align-items: center;
 		padding: 0 0.7rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 1rem;
-		background: var(--editor-control);
-		color: var(--editor-text);
+		background: var(--tool-control);
+		color: var(--tool-text);
 		text-decoration: none;
 	}
 	.pill[aria-pressed='true'] {
-		border-color: var(--editor-primary-line);
-		background: var(--editor-primary);
-		color: var(--editor-primary-ink);
+		border-color: var(--tool-primary-line);
+		background: var(--tool-primary);
+		color: var(--tool-primary-ink);
 	}
 	.value {
 		min-width: 4rem;
@@ -154,7 +154,7 @@
 	.note {
 		margin: 0;
 		padding: 0.2rem var(--editor-pad) 0.4rem;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 </style>

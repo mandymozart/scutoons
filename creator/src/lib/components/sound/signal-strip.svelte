@@ -85,14 +85,14 @@
 
 <style>
 	.strip {
-		--meter-ok: var(--acid-green);
-		--meter-hot: #ffd400;
-		--meter-clip: var(--acid-red);
+		--meter-ok: var(--tool-go);
+		--meter-hot: var(--tool-warn);
+		--meter-clip: var(--tool-stop);
 		flex: none;
 		height: 10rem;
 		display: flex;
 		flex-direction: column;
-		border-top: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
 		font-size: 0.75rem;
 	}
 	.cols {
@@ -106,7 +106,7 @@
 		min-width: 0;
 		min-height: 0;
 		padding: var(--space-025) var(--space-05);
-		border-right: 1px solid var(--border-muted);
+		border-right: 1px solid var(--tool-line);
 	}
 	.col.knobs {
 		flex: 1;
@@ -118,7 +118,7 @@
 		font-weight: inherit;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.bars {
 		flex: 1;
@@ -146,8 +146,8 @@
 		min-height: 0;
 		position: relative;
 		overflow: hidden;
-		background: var(--surface-panel);
-		border: 1px solid var(--ink);
+		background: var(--tool-head);
+		border: 1px solid var(--tool-text);
 	}
 	/* the part above the level hides the zones; the 0.0 dB mark stays */
 	.cover {
@@ -155,28 +155,28 @@
 		left: 0;
 		right: 0;
 		top: 0;
-		background: var(--paper);
+		background: var(--tool-ground);
 	}
 	.zero {
 		position: absolute;
 		left: 0;
 		right: 0;
 		height: 0;
-		border-top: 2px solid var(--ink);
+		border-top: 2px solid var(--tool-text);
 	}
 	.gr {
 		position: absolute;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--acid-red);
+		background: var(--tool-stop);
 	}
 	/* the dB marks beside the first output meter */
 	.axis {
 		position: relative;
 		width: 1.25rem;
 		margin-bottom: 1rem;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.axis span {
 		position: absolute;
@@ -193,7 +193,7 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--surface-panel);
+		background: var(--tool-control);
 		text-decoration: none;
 	}
 	.knob .tick {
@@ -201,11 +201,11 @@
 		left: 0;
 		right: 0;
 		height: 0.1875rem;
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 	.n {
 		margin-top: 0.125rem;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.lab {
 		writing-mode: vertical-rl;
@@ -215,7 +215,7 @@
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.lamps {
 		flex: none;
@@ -223,18 +223,18 @@
 		gap: var(--space-05);
 		margin: 0;
 		padding: 0.125rem var(--space-05);
-		border-top: 1px solid var(--border-muted);
-		color: var(--text-muted);
+		border-top: 1px solid var(--tool-line);
+		color: var(--tool-muted);
 	}
 	.dot {
 		display: inline-block;
 		width: 0.5rem;
 		height: 0.5rem;
 		margin-right: 0.25rem;
-		border: 1px solid var(--ink);
+		border: 1px solid var(--tool-text);
 		border-radius: 50%;
 	}
 	.dot.on {
-		background: var(--ink);
+		background: var(--tool-pressed);
 	}
 </style>

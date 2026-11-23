@@ -234,8 +234,8 @@
 		padding: 0;
 	}
 	.group.open {
-		border-top: var(--border-width-regular) solid var(--ink);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--tool-text);
+		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.tree-add {
 		display: flex;

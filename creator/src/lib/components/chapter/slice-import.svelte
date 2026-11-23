@@ -357,13 +357,13 @@
 		gap: var(--space-05);
 		align-items: center;
 		padding: var(--space-025) 0;
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.rows img {
 		width: 2.125rem;
 		height: 3.375rem;
 		object-fit: cover;
-		background: var(--surface-panel);
+		background: var(--tool-ground);
 	}
 	.name {
 		overflow: hidden;

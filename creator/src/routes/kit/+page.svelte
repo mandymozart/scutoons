@@ -163,8 +163,8 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background: var(--editor-stage);
-		color: var(--editor-text);
+		background: var(--tool-ground);
+		color: var(--tool-text);
 		font-family: var(--editor-sans);
 	}
 	.bar {
@@ -172,8 +172,8 @@
 		align-items: center;
 		gap: 0.375rem;
 		padding: 0.5rem 1rem;
-		background: var(--editor-surface-head);
-		border-bottom: var(--editor-edge) solid var(--editor-line);
+		background: var(--tool-head);
+		border-bottom: var(--editor-edge) solid var(--tool-line);
 	}
 	.name {
 		margin-right: 0.75rem;
@@ -186,14 +186,14 @@
 		padding: 0 0.875rem;
 		border: 0;
 		border-radius: 1.2rem;
-		background: var(--editor-control);
-		color: var(--editor-muted);
+		background: var(--tool-control);
+		color: var(--tool-muted);
 		font: inherit;
 		cursor: pointer;
 	}
 	.pill.on {
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.room {
 		flex: 1;
@@ -205,10 +205,10 @@
 		display: grid;
 		place-items: center;
 		background:
-			linear-gradient(var(--editor-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
-			linear-gradient(90deg, var(--editor-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
-			radial-gradient(circle at 50% 45%, var(--editor-within), var(--editor-stage) 70%);
-		color: var(--editor-muted);
+			linear-gradient(var(--tool-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
+			linear-gradient(90deg, var(--tool-line) 1px, transparent 1px) 0 0 / 3rem 3rem,
+			radial-gradient(circle at 50% 45%, var(--tool-within), var(--tool-ground) 70%);
+		color: var(--tool-muted);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
 	}
@@ -228,7 +228,7 @@
 		min-height: var(--control-height);
 	}
 	.row > span:first-child {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.list {
@@ -244,20 +244,20 @@
 		white-space: pre;
 	}
 	.list li.sel {
-		background: var(--editor-selected);
+		background: var(--tool-selected);
 	}
 	.note {
 		margin: 0;
 		padding: var(--editor-pad);
 		font-family: inherit;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.note.warn {
-		color: var(--editor-warn);
+		color: var(--tool-warn);
 	}
 	.muted {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 	}
 	.tiles {
 		display: grid;
@@ -273,6 +273,6 @@
 	.art {
 		aspect-ratio: 1;
 		border-radius: var(--editor-radius);
-		background: linear-gradient(135deg, var(--editor-control), var(--editor-selected));
+		background: linear-gradient(135deg, var(--tool-control), var(--tool-selected));
 	}
 </style>

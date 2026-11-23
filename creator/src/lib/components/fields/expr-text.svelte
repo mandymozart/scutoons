@@ -486,7 +486,7 @@
 	.mirror {
 		/* the textarea's rows as the least height */
 		min-height: calc(var(--rows) * var(--type-body-line) * var(--type-body-size) + 2 * var(--space-05) + 2 * var(--border-width-hairline));
-		color: var(--ink);
+		color: var(--tool-text);
 		pointer-events: none;
 	}
 	textarea {
@@ -496,19 +496,19 @@
 		overflow: hidden;
 		background: transparent;
 		color: transparent;
-		caret-color: var(--ink);
-		border-color: var(--border-muted);
+		caret-color: var(--tool-text);
+		border-color: var(--tool-line);
 	}
 	textarea:focus {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	textarea::selection {
 		color: transparent;
-		background: color-mix(in srgb, var(--primary-cyan) 35%, transparent);
+		background: color-mix(in srgb, var(--tool-accent) 35%, transparent);
 	}
 	.backdrop {
 		z-index: 0;
-		background: var(--paper);
+		background: var(--tool-control);
 	}
 	textarea {
 		z-index: 1;
@@ -523,10 +523,10 @@
 	}
 	/* state = the frame's colour only, no side rule (H10) */
 	.missing textarea {
-		border-color: var(--state-error);
+		border-color: var(--tool-stop);
 	}
 	.long textarea {
-		border-color: var(--state-warning);
+		border-color: var(--tool-warn);
 	}
 	/* single line: one row at --control-height, like an input */
 	.single .mirror,
@@ -538,10 +538,10 @@
 	}
 	/* a chip: the code on a tint, rounded – drawn around the letters without moving them */
 	.chip {
-		background: var(--surface-tint-cyan);
+		background: var(--tool-within);
 		box-shadow:
-			0 0 0 var(--border-width-hairline) var(--primary-cyan),
-			0 0 0 0.125rem var(--surface-tint-cyan);
+			0 0 0 var(--border-width-hairline) var(--tool-accent),
+			0 0 0 0.125rem var(--tool-within);
 		box-decoration-break: clone;
 		-webkit-box-decoration-break: clone;
 	}
@@ -562,10 +562,10 @@
 		text-decoration-skip-ink: none;
 	}
 	.error {
-		text-decoration-color: var(--state-error);
+		text-decoration-color: var(--tool-stop);
 	}
 	.warning {
-		text-decoration-color: var(--state-warning);
+		text-decoration-color: var(--tool-warn);
 	}
 	/* the hit layer: transparent letters, only chips and problem ranges take the pointer */
 	.hits {
@@ -585,8 +585,8 @@
 		position: absolute;
 		z-index: 2;
 		padding: 0 var(--space-025);
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		white-space: nowrap;

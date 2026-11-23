@@ -29,10 +29,10 @@
 		min-height: 0;
 		margin: 0;
 		padding: var(--space-05) 0 0;
-		border: var(--border-width-regular) solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--tool-line);
 		border-radius: 0;
-		background: var(--paper);
-		color: var(--text-muted);
+		background: var(--tool-ground);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		line-height: 1;
 		overflow: hidden;
@@ -40,11 +40,11 @@
 		scroll-margin: 3.5rem 1rem 4rem;
 	}
 	.strip:hover {
-		border-color: var(--ink);
+		border-color: var(--tool-text);
 	}
 	.strip.current {
-		border-color: var(--ink);
-		outline: var(--border-width-regular) solid var(--ink);
+		border-color: var(--tool-text);
+		outline: var(--border-width-regular) solid var(--tool-text);
 		outline-offset: var(--border-width-regular);
 	}
 	.x {

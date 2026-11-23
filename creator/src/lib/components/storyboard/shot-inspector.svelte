@@ -109,6 +109,6 @@
 		margin: 0;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 </style>

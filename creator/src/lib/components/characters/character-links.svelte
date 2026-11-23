@@ -147,7 +147,7 @@
 	}
 	.membership + .membership {
 		padding-top: 0.75rem;
-		border-top: var(--editor-edge) dotted var(--editor-line);
+		border-top: var(--editor-edge) dotted var(--tool-line);
 	}
 	.head {
 		display: flex;
@@ -161,17 +161,17 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		color: var(--editor-text);
+		color: var(--tool-text);
 	}
 	.star {
 		padding: 0 0.4rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 999px;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 	}
 	.order {
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font-size: var(--editor-small);
 		font-variant-numeric: tabular-nums;
 	}
@@ -184,13 +184,13 @@
 		width: var(--control-height);
 		height: var(--control-height);
 		border-radius: 50%;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		cursor: pointer;
 	}
 	.ib:hover:not(:disabled),
 	.ib:focus-visible {
-		background: var(--editor-hover);
-		color: var(--editor-text);
+		background: var(--tool-hover);
+		color: var(--tool-text);
 	}
 	.ib:disabled {
 		opacity: 0.35;
@@ -204,18 +204,18 @@
 	.chip {
 		height: calc(var(--control-height) - 0.25rem);
 		padding: 0 0.6rem;
-		border: var(--editor-edge) solid var(--editor-line);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: var(--editor-radius);
 		background: none;
-		color: var(--editor-muted);
+		color: var(--tool-muted);
 		font: inherit;
 		font-size: var(--editor-small);
 		cursor: pointer;
 	}
 	.chip[aria-pressed='true'] {
 		border-color: transparent;
-		background: var(--editor-pressed);
-		color: var(--editor-pressed-text);
+		background: var(--tool-pressed);
+		color: var(--tool-pressed-text);
 	}
 	.chip:disabled {
 		cursor: default;
