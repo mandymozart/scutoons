@@ -51,7 +51,7 @@ export function views(): LaunchEntry[] {
 		.map((t) => ({ id: `view:${t.id}`, kind: 'view', label: t.name, hint: m['shell.launch_view'](), keywords: t.about, icon: t.icon }));
 }
 
-const ASSET_ICONS: Record<LibraryKind, string> = { image: 'image', video: 'film', audio: 'music', model: 'box', file: 'file' };
+const ASSET_ICONS: Record<LibraryKind, string> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 const MAX_ASSETS = 20;
 
 /** the Library's own search over every file (the core's view, read only), for what was typed */
