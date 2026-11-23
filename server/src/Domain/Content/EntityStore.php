@@ -59,6 +59,13 @@ final class EntityStore
         return $this->db->one('SELECT * FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', [$key]);
     }
 
+    /** the newest version's id alone (null: nothing stored) – the "is there a newer version" question */
+    public function newestId(string $key): ?int
+    {
+        $id = $this->db->value('SELECT id FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1', [$key]);
+        return is_numeric($id) ? (int) $id : null;
+    }
+
     /** @return array<string, mixed>|null */
     public function published(string $key): ?array
     {

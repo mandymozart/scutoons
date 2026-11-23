@@ -1,16 +1,36 @@
-// One editor page's autosave / publish / conflict state: every page that edits documents (the meta pages, the chapter
+// One editor page's autosave / publish / newer-version state: every page that edits documents (the meta pages, the chapter
 // editor, the toon page) shares it. Edits save on their own as draft versions (`useAutosave`), the bar's Publish saves
-// the page first and has it read again what went live, each save / publish posts its typed Log line and a conflict stays
-// as the page's bar (DocNotices) until it is answered.
+// the page first and has it read again what went live, each save / publish posts its typed Log line. A newer version on
+// the server – asked for on focus and every 30 s, or learnt from a refused save – is the Reload notice until it is answered.
 import { confirmDialog } from '@scutoons/ui';
+import { untrack } from 'svelte';
 import { beforeNavigate, goto } from '$app/navigation';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel } from '$lib/labels.ts';
+import { newestOf } from '$lib/api.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
 import type { LogKind } from '@scutoons/content';
 import { suggestNote } from '$lib/editor/version-note-words.ts';
 import { AUTOSAVE_MS, Autosaver } from '$lib/editor/autosaver.ts';
+import { shared } from '$lib/utils/shared.ts';
+
+/** how often an open page asks for a newer version while the window is visible (RULES H19; the deck asks as often) */
+export const NEWER_CHECK_MS = 30_000;
+
+/** a file of the page whose newest version on the server is not the one held */
+export interface NewerVersion {
+	doc: ContentDoc;
+	locale: string;
+	version: number;
+}
+
+/** what the Reload notice says: which file, and whether changes of this page would go with a reload */
+export interface ReloadNotice {
+	doc: ContentDoc;
+	locale: string;
+	unsaved: boolean;
+}
 
 export interface DocSessionOptions {
 	/** the page's files (validated, saved, published) */
@@ -27,6 +47,9 @@ export interface DocSessionOptions {
 
 export class DocSession {
 	conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
+	/** files whose newest version on the server is newer than the one held (`checkNewer`) */
+	newer = $state.raw<NewerVersion[]>([]);
+	private asking = false;
 	/** a save runs (the status bar's "saving…") */
 	saving = $state(false);
 	/** companions saved on this page (published together with the docs) */
@@ -143,18 +166,102 @@ export class DocSession {
 		return { prepare: () => this.preparePublish(), published: (r: { published: string[] }) => this.afterPublish(r.published), blocking: this.options.errorCount?.() ?? 0 };
 	}
 
-	/** the conflict bar's buttons: load the other version, or overwrite it with this one */
-	async resolveConflict(action: 'reload' | 'overwrite'): Promise<void> {
-		if (!this.conflict) return;
-		const { doc } = this.conflict;
-		if (action === 'reload') {
-			this.conflict = null;
-			await doc.load();
-		} else {
-			this.force = true;
-			await this.flush();
+	/**
+	 * Asks the server whether a file held here has a newer version (304 = the same; nothing while a save runs: its answer
+	 * is the new version held). A check that fails says nothing – offline, the refused save stays the backstop.
+	 */
+	async checkNewer(): Promise<void> {
+		if (this.asking || this.anySaving || this.saver.busy) return;
+		this.asking = true;
+		try {
+			const found: NewerVersion[] = [];
+			for (const doc of this.all) {
+				if (doc.loading) continue;
+				for (const locale of doc.stored) {
+					const held = doc.base[locale];
+					if (held === null || held === undefined) continue;
+					try {
+						const answer = await newestOf(doc.key(locale), held);
+						// a save of this page that landed while it asked is what it holds now, not newer
+						if (answer.state === 'newer' && answer.version !== doc.base[locale]) found.push({ doc, locale, version: answer.version });
+					} catch {
+						// signed out, gone, offline: no notice
+					}
+				}
+			}
+			this.newer = found;
+		} finally {
+			this.asking = false;
 		}
 	}
+
+	/** the Reload notice: a newer version found, or a save refused because of one */
+	get notice(): ReloadNotice | null {
+		const first = this.conflict ? { doc: this.conflict.doc, locale: this.conflict.error.locale } : this.newer[0];
+		if (!first) return null;
+		return { doc: first.doc, locale: first.locale, unsaved: !!this.conflict || this.anyDirty || this.pending };
+	}
+
+	/** the notice's Reload: the newer versions are loaded – changes of this page go only after a confirm */
+	async reload(): Promise<void> {
+		const notice = this.notice;
+		if (!notice) return;
+		if (notice.unsaved) {
+			const ok = await confirmDialog({
+				title: m['creator.newer_confirm_title'](),
+				message: m['creator.newer_confirm']({ file: docLabel(notice.doc) }),
+				confirmLabel: m['creator.reload']()
+			});
+			if (!ok) return;
+		}
+		const docs = new Set([...this.newer.map((n) => n.doc), ...(this.conflict ? [this.conflict.doc] : [])]);
+		this.saver.cancel();
+		this.conflict = null;
+		this.newer = [];
+		for (const doc of docs) {
+			await doc.load();
+			doc.clearAutosave();
+		}
+		// another file of the page with changes of its own still saves them
+		if (this.anyDirty) this.schedule();
+	}
+
+	/** the notice's Keep mine: this page's changes are saved over the newer version (that one stays in the History) */
+	async keepMine(): Promise<void> {
+		this.newer = [];
+		this.force = true;
+		await this.flush();
+	}
+}
+
+/** the open page's session, while it watches for newer versions (the Reload notice reads it) */
+class Watched {
+	session = $state.raw<DocSession | null>(null);
+}
+export const watched = shared('creator-watched-session', () => new Watched());
+
+/**
+ * Asks for newer versions of the session's files while the page is mounted (call during component init): when the window
+ * gets the focus and every NEWER_CHECK_MS while it is visible (RULES H19).
+ */
+export function useNewerWatch(session: DocSession) {
+	$effect(() => {
+		untrack(() => (watched.session = session));
+		const ask = () => {
+			if (document.visibilityState === 'visible') void session.checkNewer();
+		};
+		const timer = setInterval(ask, NEWER_CHECK_MS);
+		window.addEventListener('focus', ask);
+		document.addEventListener('visibilitychange', ask);
+		return () => {
+			clearInterval(timer);
+			window.removeEventListener('focus', ask);
+			document.removeEventListener('visibilitychange', ask);
+			untrack(() => {
+				if (watched.session === session) watched.session = null;
+			});
+		};
+	});
 }
 
 /** what a set of documents holds now ('' while one loads) – a change of it is an edit */
@@ -164,9 +271,10 @@ const signature = (docs: ContentDoc[]) => (docs.some((d) => d.loading) ? '' : do
  * The creator's one autosave (call during component init): every edit of the session's documents saves as a draft
  * version a moment (AUTOSAVE_MS) after the last change, one save at a time; leaving the page saves what waits (a conflict still
  * asks before leaving; closing the tab with something unsaved keeps the browser's question). What a load brings in
- * (a repaired value) is not an edit: it saves with the next one.
+ * (a repaired value) is not an edit: it saves with the next one. A page that saves on its own also watches for newer versions.
  */
 export function useAutosave(session: DocSession) {
+	useNewerWatch(session);
 	let seen: string | null = null;
 	$effect(() => {
 		const now = signature(session.all);

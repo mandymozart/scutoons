@@ -39,6 +39,7 @@
 	import Launcher from '$lib/components/shell/launcher.svelte';
 	import CraftsQuestion from '$lib/components/shell/crafts-question.svelte';
 	import ResumeOffer from '$lib/components/shell/resume-offer.svelte';
+	import ReloadNotice from '$lib/components/shell/reload-notice.svelte';
 	import { devices } from '$lib/shell/devices.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
@@ -314,6 +315,7 @@
 		<ShellBar {reader} />
 		<Workspace kind={workspace} toon={toonId} />
 		<StatusBar />
+		<ReloadNotice />
 		{#if shell.dashboard}<Dashboard />{/if}
 		{#if shell.launcher}<Launcher />{/if}
 		{#if crafts.ask}<CraftsQuestion />{:else if devices.offer}<ResumeOffer />{/if}

@@ -1,6 +1,6 @@
 // The creator's API wiring: @scutoons/api with this app's API base and session token. Content is read and written by
 // entity key (`/api/entities`, the creator's write path) and previewed through the library (`draft`); agents/DATA.md.
-import { createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, createScenesApi, getDeviceId, getSessionToken, type CatalogDoc } from '@scutoons/api';
+import { createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, createScenesApi, getDeviceId, getSessionToken, newestVersion, type CatalogDoc } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
 
 export {
@@ -19,6 +19,9 @@ export const authApi = createQrApi(api);
 
 export const contentApi = createContentApi(api);
 export const { getDraft, getPublished, getVersion, putDraft, unpublish, restoreVersion, revertChange, revertTo, listVersions, contentIndex, withContent, saveBatch, publishPartial, publishPlan } = contentApi;
+
+/** whether the version held of a key is still the newest (server/docs/API.md "Is there a newer version") */
+export const newestOf = (key: string, held: number) => newestVersion(api, key, held);
 
 /** Reader views of the content (drafts with `{ draft: true }`), e.g. the preview and the toons list */
 export const library = createLibraryApi({ publicClient: api, sessionClient: api });

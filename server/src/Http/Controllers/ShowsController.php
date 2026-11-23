@@ -14,6 +14,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
+use Scutoons\Http\NewestVersion;
 use stdClass;
 
 /**
@@ -22,7 +23,7 @@ use stdClass;
  *   GET  /api/shows/published[?toon=]    the published shows whose home (first of `toons`) it is (public, like the published scenes: a deck plays one on its
  *                                        own); never a draft
  *   GET  /api/shows/<id>[?draft=1]       published / newest (wrapped); ?v=<n>: the document at that version; ?draft=1&at=<id>:
- *                                        the stored version <id> (wrapped)
+ *                                        the stored version <id> (wrapped); ?only=version: the newest version's id, ETag / 304
  *   GET  /api/shows/<id>/versions?limit=
  *   PUT  /api/shows/<id> { content, base?, message? }  a new draft; the server stamps `version`
  *   POST /api/shows/<id>/publish { version? }   after the core's check of the whole tree
@@ -53,6 +54,7 @@ final class ShowsController
     public function get(Request $request, Response $response, array $args): Response
     {
         $this->live($request);
+        if (NewestVersion::asked($request)) return NewestVersion::answer($request, $response, $this->store, (string) EntityKey::parse('show:' . $args['id']));
         $query = $request->getQueryParams();
         if (isset($query['v'])) {
             $doc = $this->shows->atVersion($args['id'], (int) $query['v']);
