@@ -2,7 +2,8 @@
 //! (deck-events' patch.rs) on the tempo clock: its notes become real-time events and the `gate_cv` bridge writes them
 //! as seq's cv (pitch left, gate right, gliding – glide.rs), so an fm / osc voice with its `cv` linked plays them
 //! unchanged. Its control inputs are the patch's knobs, read once a window; a non-finite value (an `events` node's
-//! unset input) leaves the patch's own value. Two kinds use it:
+//! unset input) leaves the patch's own value. `open` scales the cv's gate each block (0: every gate shut – a trigger). Two
+//! kinds use it:
 //! - `walk` – a patch of one random walk, its inputs spread · rate · glide
 //! - `events` – the patch in the node's params (`generator`, `edge`, `out`, `knobs`, `listen`), its inputs a–d
 //! - `world` with `source = "generator"` (#430) – the patch in its `patch` table, no cv: its notes go down its event cables
@@ -138,6 +139,8 @@ pub(super) struct Host {
     frame: f64,
     /// the ring's side of the transport (the patch's own is in its `Core`)
     follow: Follow,
+    /// the node's `open`: the cv's gate times it (0 = a trigger holds every gate shut); none for a world node
+    open: Option<Param>,
     counters: Arc<Counters>,
     /// a generator world node (#430): its notes go down its event cables, not into the cv
     #[cfg(feature = "modules")]
@@ -197,14 +200,21 @@ impl Host {
             own,
             frame: 0.0,
             follow,
+            open: None,
             counters: ev.counters.clone(),
             #[cfg(feature = "modules")]
             sink: None,
         })
     }
 
+    /// the host with its gates scaled by `open`
+    fn opened_by(mut self, open: Param) -> Host {
+        self.open = Some(open);
+        self
+    }
+
     /// `walk`: a patch of one random walk (seed, base, octaves, length from the node), knobs spread · rate · glide
-    pub(super) fn walk(node: &Node, rate: f32, knobs: [Param; 3], beats: BeatReader, follow: Follow, ev: &mut Events) -> Result<Host> {
+    pub(super) fn walk(node: &Node, rate: f32, knobs: [Param; 3], open: Param, beats: BeatReader, follow: Follow, ev: &mut Events) -> Result<Host> {
         let [spread, steps, glide] = knobs;
         let mut g = toml::Table::new();
         for k in ["seed", "base", "octaves", "length"] {
@@ -222,13 +232,13 @@ impl Host {
             knobs: vec!["walk.spread".into(), "walk.rate".into(), "walk.glide".into()],
             listen: Vec::new(),
         };
-        Host::new(node, &patch, vec![spread, steps, glide], rate, beats, follow, ev)
+        Host::new(node, &patch, vec![spread, steps, glide], rate, beats, follow, ev).map(|h| h.opened_by(open))
     }
 
     /// `events`: the patch in the node's params, inputs a–d
-    pub(super) fn events(node: &Node, rate: f32, inputs: [Param; 4], beats: BeatReader, follow: Follow, ev: &mut Events) -> Result<Host> {
+    pub(super) fn events(node: &Node, rate: f32, inputs: [Param; 4], open: Param, beats: BeatReader, follow: Follow, ev: &mut Events) -> Result<Host> {
         let patch = Patch::from_table(&node.params).map_err(|e| anyhow!("node '{}': {e}", node.id))?;
-        Host::new(node, &patch, inputs.into_iter().collect(), rate, beats, follow, ev)
+        Host::new(node, &patch, inputs.into_iter().collect(), rate, beats, follow, ev).map(|h| h.opened_by(open))
     }
 }
 
@@ -321,6 +331,9 @@ impl Block for Host {
                 self.cv.render(&[], &mut l[k..n], &mut r[k..n]);
             }
             _ => self.cv.render(&self.rt, &mut l[..n], &mut r[..n]),
+        }
+        if let Some(open) = self.open.as_ref().map(|o| o.get().clamp(0.0, 1.0)).filter(|&o| o < 1.0) {
+            r[..n].iter_mut().for_each(|g| *g *= open);
         }
     }
 }

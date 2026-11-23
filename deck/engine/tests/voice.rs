@@ -113,6 +113,20 @@ fn a_closed_gate_is_silence() {
     assert!(render(&toml, 0, 48_000).iter().all(|&x| x == 0.0));
 }
 
+#[cfg(feature = "events")]
+/// #819: a walk whose `open` is 0 (the default character rig's trigger, shut) leaves the voice silent; open, it sings
+#[test]
+fn a_walk_shut_by_its_open_is_silence() {
+    let walk = |open: f32| {
+        format!(
+            "[[node]]\nid = \"w\"\nkind = \"walk\"\nseed = 491\nbase = 262.0\nspread = 0.4\nopen = {open}\n\
+             [[node]]\nid = \"v\"\nkind = \"voice\"\nbreath = 1.0\ngain = 1.0\n[[link]]\nfrom = \"w.cv\"\nto = \"v.cv\"\n{OUT}"
+        )
+    };
+    assert!(render(&walk(0.0), 0, 48_000).iter().all(|&x| x == 0.0), "shut");
+    assert!(render(&walk(1.0), 0, 48_000).iter().any(|&x| x.abs() > 1e-3), "open: it sings");
+}
+
 #[test]
 fn a_sustained_vowel_is_loud_but_not_clipped() {
     for v in 0..6 {

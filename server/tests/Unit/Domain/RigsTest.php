@@ -119,6 +119,20 @@ final class RigsTest extends TestCase
             'INSERT IGNORE by id: a second run only fills what is missing (production runs each file once – schema_migrations)');
     }
 
+    /** #819: the default character rig's voice opens on its trigger; a second run, or a row that has it, stays as it is */
+    public function testTheDefaultRigSingsOnlyWhenTriggered(): void
+    {
+        $routes = fn (): array => json_decode((string) $this->db->value("SELECT JSON_EXTRACT(data, '$.route') FROM catalog_rigs WHERE id = 'character.default'"), true);
+        $trigger = ['from' => 'trigger:sing', 'to' => 'voice:@open', 'scale' => 1.0, 'offset' => 0.0];
+        self::assertEquals([['from' => 'voice:ear.level', 'to' => 'being:mouth', 'scale' => 4.0, 'offset' => 0.0], $trigger], $routes(), 'the mouth route, then the trigger');
+        self::assertSame('migration:2026-11-23-rig-default-trigger', $this->db->value("SELECT updated_by FROM catalog_rigs WHERE id = 'character.default'"));
+        $before = $this->db->all('SELECT id, data FROM catalog_rigs ORDER BY id');
+        $sql = (string) file_get_contents(self::root() . '/migrations/mysql/2026-11-23-rig-default-trigger.mysql.sql');
+        $statement = rtrim(trim((string) preg_replace('/^--.*$/m', '', $sql)), ';');
+        $this->db->exec($statement);
+        self::assertSame($before, $this->db->all('SELECT id, data FROM catalog_rigs ORDER BY id'), 'idempotent: the trigger is there, nothing changes');
+    }
+
     public function testTheKindsHaveHistoryUndoAndUses(): void
     {
         $admin = $this->get(CatalogAdmin::class);

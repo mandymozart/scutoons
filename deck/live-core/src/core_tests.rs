@@ -236,7 +236,7 @@ const WALK: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nratio = 1.5\nindex 
 #[test]
 fn a_walk_plays_its_voice_and_its_knobs_are_inputs() {
     let mut a = Core::load(WALK, 48_000.0, 2).unwrap();
-    assert_eq!(table(&a)["nodes"][1]["ports"], serde_json::json!(["spread", "rate", "glide"]));
+    assert_eq!(table(&a)["nodes"][1]["ports"], serde_json::json!(["spread", "rate", "glide", "open"]));
     let one = play(&mut a, 750);
     assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
     assert_eq!(one, play(&mut Core::load(WALK, 48_000.0, 2).unwrap(), 750), "one seed, the same samples");
@@ -265,7 +265,7 @@ const EVENTS: &str = "[[node]]\nid = \"voice\"\nkind = \"fm\"\nratio = 2.0\ninde
 #[test]
 fn an_events_host_plays_its_patch_and_its_knobs_are_inputs() {
     let mut a = Core::load(EVENTS, 48_000.0, 2).unwrap();
-    assert_eq!(table(&a)["nodes"][1]["ports"], serde_json::json!(["a", "b", "c", "d"]));
+    assert_eq!(table(&a)["nodes"][1]["ports"], serde_json::json!(["a", "b", "c", "d", "open"]));
     let one = play(&mut a, 750);
     assert!(one.iter().any(|x| x.abs() > 0.01), "it sounds");
     assert_eq!(one, play(&mut Core::load(EVENTS, 48_000.0, 2).unwrap(), 750), "one seed, the same samples");

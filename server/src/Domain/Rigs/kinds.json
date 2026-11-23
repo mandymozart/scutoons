@@ -1202,6 +1202,12 @@
           "doc": "speed multiplier"
         },
         {
+          "name": "open",
+          "dir": "in",
+          "type": "control",
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"
+        },
+        {
           "name": "cv",
           "dir": "out",
           "type": "audio",
@@ -1219,6 +1225,15 @@
           "unit": "ratio",
           "port": true,
           "doc": "speed multiplier"
+        },
+        {
+          "name": "open",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut"
         }
       ]
     },
@@ -1249,6 +1264,12 @@
           "dir": "in",
           "type": "control",
           "doc": "glide into each step, rides along for the voice"
+        },
+        {
+          "name": "open",
+          "dir": "in",
+          "type": "control",
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"
         },
         {
           "name": "cv",
@@ -1286,6 +1307,15 @@
           "curve": "lin",
           "port": true,
           "doc": "glide into each step, rides along for the voice"
+        },
+        {
+          "name": "open",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut"
         }
       ]
     },
@@ -1322,6 +1352,12 @@
           "dir": "in",
           "type": "control",
           "doc": "knob d"
+        },
+        {
+          "name": "open",
+          "dir": "in",
+          "type": "control",
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut (a trigger: a rig's `<track>:@open`)"
         },
         {
           "name": "cv",
@@ -1367,6 +1403,15 @@
           "curve": "lin",
           "port": true,
           "doc": "raw value into the patch's knob d"
+        },
+        {
+          "name": "open",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "curve": "lin",
+          "port": true,
+          "doc": "1 = the notes' gates open as they come, 0 = every gate stays shut"
         }
       ]
     },

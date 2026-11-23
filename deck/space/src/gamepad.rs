@@ -7,6 +7,7 @@
 //!   is back inside `RELEASE` – a little lower, so a stick resting near the edge does not chatter.
 //! - The deflection is the stick's (−1..1 per axis) with **y up** – the standard mapping reports y down.
 //! - **A** (south, button 0) cycles the selection forward on its press edge, **Y** (north, button 3) back.
+//! - **X** (west, button 2) held sings: the picked one's trigger opens while it is down (space/sing.rs, #819).
 //! - A pad that goes away: the host hands in an empty state – every stick that was down goes up.
 //!
 //! Never allocates.
@@ -21,6 +22,8 @@ pub const AXES: [[usize; 2]; 2] = [[0, 1], [2, 3]];
 pub const NEXT: usize = 0;
 /// the button that cycles it back (north: Y / triangle)
 pub const BACK: usize = 3;
+/// the button that sings while held (west: X / square)
+pub const SING: usize = 2;
 
 /// What one poll asks of the host, in order.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,24 +36,28 @@ pub enum PadEvent {
     Up(usize),
     /// the selection moved on (`back`: to the previous one) – `Controls::pad` has already moved it
     Cycle { back: bool },
+    /// the sing button went down (true) or up: `Space::sing`
+    Sing(bool),
 }
 
 impl PadEvent {
-    /// as four numbers – `[kind, side, dx, dy]`, kind 0 down · 1 move · 2 up · 3 cycle (side 1 = back) – for the wasm API
+    /// as four numbers – `[kind, side, dx, dy]`, kind 0 down · 1 move · 2 up · 3 cycle (side 1 = back) · 4 sing (side 1 =
+    /// down) – for the wasm API
     pub fn code(&self) -> [f32; 4] {
         match *self {
             PadEvent::Down(s) => [0.0, s as f32, 0.0, 0.0],
             PadEvent::Move(s, x, y) => [1.0, s as f32, x, y],
             PadEvent::Up(s) => [2.0, s as f32, 0.0, 0.0],
             PadEvent::Cycle { back } => [3.0, if back { 1.0 } else { 0.0 }, 0.0, 0.0],
+            PadEvent::Sing(on) => [4.0, if on { 1.0 } else { 0.0 }, 0.0, 0.0],
         }
     }
 }
 
-/// One poll's events (at most: each stick down and moved, two buttons) – no allocation.
+/// One poll's events (at most: each stick down and moved, three buttons) – no allocation.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PadEvents {
-    list: [Option<PadEvent>; 6],
+    list: [Option<PadEvent>; 7],
     len: usize,
 }
 
@@ -76,6 +83,7 @@ impl PadEvents {
 pub struct Pad {
     down: [bool; 2],
     held: [bool; 2],
+    singing: bool,
 }
 
 impl Pad {
@@ -106,6 +114,11 @@ impl Pad {
                 out.push(PadEvent::Cycle { back });
             }
             self.held[i] = pressed;
+        }
+        let sing = buttons.get(SING).copied().unwrap_or(false);
+        if sing != self.singing {
+            out.push(PadEvent::Sing(sing));
+            self.singing = sing;
         }
         out
     }
@@ -151,5 +164,16 @@ mod tests {
         assert_eq!(poll(&mut p, &[], &[false, false, false, true]), [Cycle { back: true }]);
         assert_eq!(Cycle { back: true }.code(), [3.0, 1.0, 0.0, 0.0]);
         assert_eq!(Move(1, 0.5, -0.25).code(), [1.0, 1.0, 0.5, -0.25]);
+    }
+
+    #[test]
+    fn x_sings_while_held() {
+        let mut p = Pad::default();
+        assert_eq!(poll(&mut p, &[], &[false, false, true]), [Sing(true)]);
+        assert!(poll(&mut p, &[], &[false, false, true]).is_empty(), "held: nothing more");
+        assert_eq!(poll(&mut p, &[], &[]), [Sing(false)], "let go – or the pad gone");
+        assert_eq!(Sing(true).code(), [4.0, 1.0, 0.0, 0.0]);
+        let all = poll(&mut p, &[0.9, 0.0, 0.0, 0.9], &[true, false, true, true]);
+        assert_eq!(all.len(), 7, "both sticks down and moved, three buttons: {all:?}");
     }
 }

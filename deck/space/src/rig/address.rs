@@ -4,7 +4,7 @@
 //! ```text
 //! address := ["/"] { place "/" } leaf
 //! place   := <kind> ":" <id>              deck:left · scene:nave · character:catpope · item:incense (later toon:, chapter:, set: …)
-//! leaf    := <track>:<node>.<port> · <track>:@gain · <track>:@preset · being:<input> · policy:<port> · <node>.<port> · @<member>
+//! leaf    := <track>:<node>.<port> · <track>:@gain · <track>:@preset · <track>:@open · being:<input> · policy:<port> · <node>.<port> · @<member>
 //!            · spot:<name>
 //! ```
 //! `spot:<name>` is a point on a model (deck-catalog spot.rs): `character:catpope/spot:hand_l`, `item:lantern/spot:flame`,
@@ -32,8 +32,14 @@ pub const CLOCK: &str = "clock";
 /// the reserved scope of the scene camera's view of the rig's subject (`camera:<name>`): how sharp it is under the focus
 /// (`focus`, 0…1, scene_camera.rs `in_focus`) and how far from the eye (`distance`, m) – outlets, wired on like any control
 pub const CAMERA: &str = "camera";
+/// the reserved scope of what starts a subject from outside (`trigger:sing`, 0 shut … 1 open): the player's held button or
+/// key on the picked one, a story's text line of its character (space/sing.rs) – the stage sets it every frame
+pub const TRIGGER: &str = "trigger";
+/// a track's reserved member that opens its sequencers' gates (`voice:@open`): a route to it reaches the `open` input of
+/// every walk, seq and events node of the track; a track that takes another over takes its routes to it along
+pub const OPEN: &str = "open";
 /// what a rig can read from outside its tracks: scope, name, the compiled slot it reads
-pub const SOURCES: [(&str, &str, &str); 12] = [
+pub const SOURCES: [(&str, &str, &str); 13] = [
     (SOUND, "level", "fft.level"),
     (SOUND, "bass", "fft.bass"),
     (SOUND, "mid", "fft.mid"),
@@ -46,6 +52,7 @@ pub const SOURCES: [(&str, &str, &str); 12] = [
     (CLOCK, "bpm", "tempo.bpm"),
     (CAMERA, "focus", "camera_focus.out"),
     (CAMERA, "distance", "camera_distance.out"),
+    (TRIGGER, "sing", "trigger_sing.out"),
 ];
 
 /// the compiled slot of a source
@@ -324,7 +331,8 @@ pub enum Leaf {
     Member { track: String, member: String },
     /// `being:<input>` – an input of the being's look (hue, glow, light, pulse, bounce)
     Being(String),
-    /// `sound:<name>`, `clock:<name>`, `camera:<name>` – what a rig reads from outside its tracks (`SOURCES`), a source only
+    /// `sound:<name>`, `clock:<name>`, `camera:<name>`, `trigger:<name>` – what a rig reads from outside its tracks
+    /// (`SOURCES`), a source only
     Source(String, String),
     /// `policy:<port>` – a port or parameter of a code rig's policy node
     Policy(String),
@@ -454,7 +462,7 @@ fn leaf(s: &str) -> Result<Leaf, String> {
                 word(rest, "the being's input")?;
                 return Ok(Leaf::Being(rest.to_string()));
             }
-            if scope == SOUND || scope == CLOCK || scope == CAMERA {
+            if scope == SOUND || scope == CLOCK || scope == CAMERA || scope == TRIGGER {
                 word(rest, "the source's name")?;
                 if source_slot(scope, rest).is_none() {
                     let names: Vec<&str> = SOURCES.iter().filter(|(s, ..)| *s == scope).map(|(_, n, _)| *n).collect();

@@ -1466,6 +1466,10 @@ impl App {
                 MouseScrollDelta::LineDelta(_, y) => *y,
                 MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
             }),
+            // #819: the sing key held opens the picked one's trigger – the core's (sing.rs)
+            WindowEvent::KeyboardInput { event, .. } if !event.repeat && matches!(event.logical_key.as_ref(), Key::Character(c) if deck_space::space::sing::is_key(c)) => {
+                s.sing(event.state == ElementState::Pressed);
+            }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && !event.repeat => {
                 match event.logical_key.as_ref() {
                     Key::Character("r") => s.camera.reset(),
