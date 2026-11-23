@@ -331,6 +331,25 @@ In code (`src/Domain/Roles/Roles.php`): `has($user, 'creator')`, `of($userId)`, 
 `RequireRole` middleware. Granting: admin API `PUT|DELETE /api/admin/users/{id}/roles/{role}`, the legacy SPA "Users"
 view (`generate/users.php`, `generate/user-roles.php`), or `php bin/console roles grant|revoke|list <email> [role]`.
 
+## Crafts (2026-11-24, #826 – migrations `2026-11-24-crafts`, `2026-11-24-seed-crafts`)
+
+What a member does (show runner, illustrator, video editor, writer, translator, animator, sound designer, developer) and
+so which creator workspaces they start with – access stays with the roles. Not the catalog recipes' "crafting": in code
+`Domain\Crafts\Crafts`, tables `crafts (id, position, name locale map, icon, workspaces = creator workspace ids)`,
+`member_crafts (user_id, craft_id, source invite|admin|member)`, `member_invites`, `users.crafts_asked_at`.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/crafts` | `{ crafts: [{ id, name, icon, workspaces }] }` (signed in) |
+| GET | `/me/crafts` | `{ crafts, invited, workspaces, ask, can_edit }` – `workspaces` resolved by the server, in the crafts' order |
+| PUT | `/me/crafts` | `{ crafts: [id] }` – the member's own answer only while `ask` (first login), else admins only: `403 crafts_locked`; not with an AI connection |
+| PUT | `/admin/users/{id}/crafts` | `{ crafts }` → `{ crafts: [{ id, source }] }`; the member's question stays open if it was |
+| GET/POST | `/admin/member-invites` | list · `{ email, crafts }` → 201 `{ invite }` (one per address, a second replaces; `409 has_account`) |
+| DELETE | `/admin/member-invites/{id}` | only while open (`409 accepted`) |
+
+An open invite signs its address up without a code (LoginService); the account's first sign-in accepts it and gives the
+member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet: the admin tells the person.
+
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 
 The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
