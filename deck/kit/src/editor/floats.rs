@@ -819,6 +819,11 @@ impl Floats {
         self.index(id).is_some_and(|i| self.panels[i].place.closed)
     }
 
+    /// every panel's spec, in their order
+    pub fn all(&self) -> Vec<&Spec> {
+        self.panels.iter().map(|p| &p.spec).collect()
+    }
+
     /// the panels that close, in their order, and whether each is open
     pub fn closable(&self) -> Vec<(&Spec, bool)> {
         self.panels.iter().filter(|p| !p.spec.essential).map(|p| (&p.spec, !p.place.closed)).collect()
@@ -880,7 +885,7 @@ pub fn clip_hits_under<H>(above: &[Rect], hits: &mut Vec<(Rect, H)>, from: usize
     if above.is_empty() {
         return;
     }
-    let kept: Vec<(Rect, H)> = hits.drain(from..).filter_map(|(r, h)| above.iter().try_fold(r, |r, o| trim(r, o)).map(|r| (r, h))).collect();
+    let kept: Vec<(Rect, H)> = hits.drain(from..).filter_map(|(r, h)| above.iter().try_fold(r, trim).map(|r| (r, h))).collect();
     hits.extend(kept);
 }
 

@@ -138,7 +138,7 @@ pub fn badge(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), text: &str, on: b
 /// #478: chips that are each on or off (a filter's facts) – the kit's badge – side by side and on to the next line at
 /// `w`; their places and the height they took
 pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[&str], on: &[bool]) -> (Vec<Rect>, f32) {
-    let (h, gap) = (badge_height(t), 4.0);
+    let (h, gap) = (badge_height(t), t.size.pad * 0.5);
     let (mut cx, mut cy) = (x, y);
     let mut out = Vec::with_capacity(names.len());
     for (i, name) in names.iter().enumerate() {
