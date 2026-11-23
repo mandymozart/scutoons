@@ -10,7 +10,7 @@
 	 * One bar for the creator and the deck editor (research/redesign/lap/crafts-v2.html, view `bars`; deck/editor/src/bar.rs):
 	 * the open items' tabs at the left, the workspaces in the middle, icons only at the right end – ↶ ↷, Publish (only while
 	 * something in its scope is not live), the account (the user menu, as a swipe up from the bottom) and the menu, far right: it lays the dashboard over everything and
-	 * takes it away again. Every part is a kit Pill, half a gap apart; the icons at the right stand bare, without the pill's ground (owner 2026-11-24: room).
+	 * takes it away again. Every part is a kit Pill, half a gap apart, groups and toolbars bordered (owner 2026-11-24).
 	 */
 	const session = getCreatorSession();
 	const doc = $derived(shell.doc);
@@ -23,12 +23,12 @@
 	<TabStrip />
 	<span class="middle"><WorkspaceTabs /></span>
 	{#if doc?.undo}
-		<Pill bare label={m['history.undo']()}>
+		<Pill label={m['history.undo']()}>
 			<IconButton label={m['history.undo']()} title={m['history.undo_hint']()} icon="rotate-ccw" onclick={() => doc?.undo?.()} data-testid="bar-undo" />
 			<IconButton label={m['history.redo']()} title={m['history.redo_hint']()} icon="rotate-cw" onclick={() => doc?.redo?.()} data-testid="bar-redo" />
 		</Pill>
 	{/if}
-	<Pill bare>
+	<Pill>
 		{#if publishing}
 			<Menu label={m['shell.panel_publish']()} icon="upload-cloud" about={m['shell.publish_bar']()} testid="bar-publish" dot={!!doc?.unpublished} width="19rem">
 				{#snippet children()}
