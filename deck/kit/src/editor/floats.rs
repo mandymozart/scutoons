@@ -191,12 +191,14 @@ pub struct View {
     pub thumb: Rect,
     /// whether it resizes (open and not a toolbar)
     pub sizes: bool,
+    /// it lies on the stage: the stage's ground, not the floating panel's
+    pub staged: bool,
 }
 
 impl View {
     fn empty(whole: Rect, collapsed: bool) -> View {
         let none = Rect { w: 0.0, h: 0.0, ..whole };
-        View { whole, handle: none, fold: none, close: none, content: none, scroll: 0.0, over: 0.0, collapsed, track: none, thumb: none, sizes: false }
+        View { whole, handle: none, fold: none, close: none, content: none, scroll: 0.0, over: 0.0, collapsed, track: none, thumb: none, sizes: false, staged: false }
     }
 
     /// the edges whose grip is under the pointer
@@ -561,7 +563,7 @@ impl Floats {
             p.scroll = p.scroll.clamp(0.0, over);
             let track = if over > 0.0 { Rect { x: right(&whole) - m.pad, y: content.y, w: m.pad - EDGE_IN, h: content.h } } else { Rect { w: 0.0, h: 0.0, ..content } };
             let thumb = View::thumb_at(track, over, p.scroll, m.rem * 1.5);
-            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed, track, thumb, sizes: !collapsed };
+            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed, track, thumb, sizes: !collapsed, staged: false };
         }
         // the panels on the stage fill their cells: a head to drag them off, no fold, no close, no resize
         for k in 0..self.staged.len() {
@@ -578,7 +580,7 @@ impl Floats {
             let track = if over > 0.0 { Rect { x: right(&whole) - m.pad, y: content.y, w: m.pad - EDGE_IN, h: content.h } } else { Rect { w: 0.0, h: 0.0, ..content } };
             let thumb = View::thumb_at(track, over, p.scroll, m.rem * 1.5);
             p.at = (whole.x, whole.y);
-            p.view = View { whole, handle: head, fold: end, close: end, content, scroll: p.scroll, over, collapsed: false, track, thumb, sizes: false };
+            p.view = View { whole, handle: head, fold: end, close: end, content, scroll: p.scroll, over, collapsed: false, track, thumb, sizes: false, staged: true };
         }
     }
 
@@ -896,6 +898,8 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
     let s = t.color.surface;
     let ground = [s[0], s[1], s[2], s[3] * t.color.panel_opacity.clamp(0.0, 1.0)];
     let r = if v.collapsed || spec.inline { w.h * 0.5 } else { r };
+    // a view on the stage lies on the stage's own ground, a hairline around it
+    let ground = if v.staged { t.color.stage } else { ground };
     d.round_rect(w.x, w.y, w.w, w.h, r, ground);
     d.outline(w.x, w.y, w.w, w.h, (r, 1.0), t.color.line);
     d.halo(t.color.ring());

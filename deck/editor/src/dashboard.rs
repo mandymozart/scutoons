@@ -73,11 +73,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), top: f32, dash: &D
     let card_w = (w - 2.0 * t.size.rem(2.0)).min(t.size.rem(72.0)).max(t.size.rem(24.0));
     let card_h = (h - top - bottom_room - 2.0 * gap).max(row * 10.0);
     let card = Rect { x: (w - card_w) * 0.5, y: top + gap, w: card_w, h: card_h };
-    let s = t.color.surface;
+    // over a workspace it covers what lies there: the stage's own ground, a hairline around it
     let radius = t.size.radius * 2.0;
-    d.round_rect(card.x, card.y, card.w, card.h, radius, [s[0], s[1], s[2], s[3] * t.color.panel_opacity]);
+    d.round_rect(card.x, card.y, card.w, card.h, radius, t.color.stage);
     d.outline(card.x, card.y, card.w, card.h, (radius, 1.0), t.color.line);
-    d.halo(t.color.ring());
     let mut out = Vec::new();
     let inner = t.size.rem(1.5);
     let (x0, mut y) = (card.x + inner, card.y + inner);
@@ -234,7 +233,6 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), top: f32, dash: &D
     let lx = card.x + card.w - inner - lw;
     d.sans(lx, fy, small, &controls::fit_sans(d, small, dash.load, lw.max(small)), t.color.muted);
     out.push((Rect { x: lx, y: foot, w: lw, h: row }, Press::Load));
-    d.halo(None);
     // the whole card keeps the press from the stage
     out.push((card, Press::Card));
     out
