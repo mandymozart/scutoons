@@ -97,8 +97,16 @@ Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing 
 The Library lists things and files; a thing is stepped into; an assignment shows as a place and as "used in"; a picker is the Library opened from a slot.
 - **First (P0):** the Library's screens redrawn to it (C12, F1, the slot's pick, C1, C4, C5, C9, A4, and the panel wherever it shows).
 - **Creator:** the Library lists things with their type beside the files; stepping into a character; places for a season's cast listing its characters; "used in"; the cast edited in the toon's season.
-- **Deck:** the same Library panel.
-- **Waits for your word:** the consequences marked "to confirm" in LIBRARY.md, the types it lists, and how much of it is built in this lap – it is more than a new look.
+- **Deck:** the same Library, the same panel (decided). Deck: its Library already mixes things and files – one entry with a typed address, 13 kinds (Module, Instrument, Rig, Scene, Character, Item, Place, Image, Audio, Video, Model, Animation, File). What it needs:
+  - **One source for both apps** – the main cost. Today each deck workspace assembles its own list. A server endpoint gives the Library of a toon, things and files, typed; both apps read it. Without it the deck would rebuild the creator's grouping a second time. The endpoint is the creator's and the server's to define; the deck's reader with an offline cache is medium.
+  - **Stepping into a thing:** its entry is flat today; it needs levels and "used in". Personas and moods are known to the deck; "used in" for things has no endpoint yet. Medium.
+  - **New kinds:** Toon, Show, Generator, Kanon, Person – small each, but each needs a decision on what dropping it does and where it opens.
+  - **Item subtypes** (recipes, products, editions, albums, home scenes): small once the endpoint delivers them typed.
+  - **A video's frame** comes from P3's stills, not made per deck.
+  - **Order:** after P3 and after the endpoint exists. Medium to large for the deck.
+- **In lap 2** (decided). It is the largest package: the Library learns to list things of eleven kinds beside the files, in both apps.
+- **Types** (decided): Toon · Character · Scene · Show · Place · Item · Module · Instrument and rig · Generator, and for now Kanon texts and people.
+- **Decided with it:** one list, one picker (the five sheets go), the Catalog's and the Toon's trees without their top level, the Cast tab as "cast in", "By cast" listing characters.
 
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
@@ -109,9 +117,9 @@ The Library lists things and files; a thing is stepped into; an assignment shows
 1. **P0** – the pictures. Nothing else starts before them.
 2. **P1** – the kit, the deck first because the tokens come from it.
 3. **P2** and **P8** side by side. **P7** can run beside them: it is the deck's alone and needs the kit, not the shell.
-4. **P3** and **P4**.
+4. **P3** and **P4**. **P11** follows P3: its tiles come from the stills, and both apps wait for its endpoint.
 5. **P5**, then **P6**.
-6. **P9**, **P10** and **P11** once their open points are answered.
+6. **P9** and **P10** once their open points are answered.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -145,7 +153,7 @@ These block a package. Each is in DECISIONS.md under its area.
 | "Open in the deck" with no deck installed | P4 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
 | What a good writing experience holds | P10 |
-| The extended Library: its consequences, its types, its size in this lap (LIBRARY.md) | P11 |
+| The extended Library: what dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens (LIBRARY.md) | P11 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:
