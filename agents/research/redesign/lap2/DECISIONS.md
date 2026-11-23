@@ -66,7 +66,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **A scene in the creator has a preview** that covers the whole back of the page; "Edit in deck" goes from there. The page previews and links, it does not edit.
 - **The writing pages are redesigned** for a good writing experience: Kanon, Notifications, Credits, Edit, Guide.
 - **A list of characters or scenes beside the Library is redundant.**
-- **Thumbnails:** scenes and places get stills, made in the background and shared across systems (#842).
+- **Thumbnails:** scenes, places and videos get preview pictures, made in the background and shared across systems (#842).
 
 **Thought aloud**
 - Trees: one per workspace, named like it, borrowable by other workspaces (TREES.md).

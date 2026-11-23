@@ -39,9 +39,9 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 
 ### P3 · Thumbnails (#842, built and held)
 - The switcher's cards as full captures with the text over them.
-- Stills for scenes and places, made in the background, stored once and shared across systems.
+- Stills for scenes and places, and preview pictures for videos, made in the background, stored once and shared across systems.
 - **Deck:** takes a scene's still once it has settled and uploads it. It can already render a still without a window. The upload runs under the signed-in member, so a deck that is not signed in makes none. What "settled" means is set on the ticket.
-- **Done when:** the switcher and the Library show real pictures for workspaces, scenes and places, and a second machine gets them without making them again.
+- **Done when:** the switcher and the Library show real pictures for workspaces, scenes, places and videos, and a second machine gets them without making them again.
 
 ### P4 · The apps open each other
 - `scutoons-deck://` registered on Windows, macOS and Arch Linux; the last workspace and item kept per device on the server (#838 is built).
