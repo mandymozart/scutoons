@@ -55,6 +55,7 @@ Redraw the set of SCREENS.md in the approved kit with today's decisions: 32 scre
 - "Import images" removed from the Map, the Catalog and Characters.
 - The creator's Rig panel without Bones and Clips: the model's line and "Open in the deck".
 - Images, sound, video and 3D in the creator as previews with "Edit in deck".
+- **The scene page:** the scene's preview covers the whole back, "Edit in deck" on it, the facts and versions in a panel (C5). The preview is the scene's still from P3.
 - The creator's module editor: see P9.
 
 ### P7 · The Show: events at the row (deck)
@@ -78,6 +79,11 @@ Decided: modules are edited in the deck. Thought aloud: the creator's editor mig
   - A published module is made by the compile service from the creator. With the editor gone, Publish stays in the creator's one Publish.
 - **Not checked yet:** whether the deck already covers Nodes and Assignment in other views (asked of the deck orchestrator).
 
+### P10 · The writing pages
+Kanon, Notifications, Credits, Edit and Guide are redesigned for a good writing experience, not only moved to the kit.
+- **First (P0):** capture today's five pages, then one draft of the writing page for you to correct – nothing is built before that.
+- **Waits for your word:** what a good writing experience holds.
+
 ### P8 · Bugs and wording
 - The Map's stage at 0 px.
 - The 59 local style rules, the raw selects, the solid blue "Published" badges.
@@ -89,7 +95,7 @@ Decided: modules are edited in the deck. Thought aloud: the creator's editor mig
 3. **P2** and **P8** side by side.
 4. **P3** and **P4**.
 5. **P5**, then **P6** and **P7**.
-6. **P9** once its open points are answered.
+6. **P9** and **P10** once their open points are answered.
 
 ## The night run
 - Two sessions at a time across all projects, one worker after another, by `C:\Development\agents\ORCHESTRATION.md` and scutoons' own `agents/ORCHESTRATION.md`.
@@ -116,10 +122,10 @@ These block a package. Each is in DECISIONS.md under its area.
 | The switcher's foot; the deck's Needs review box; Help and Go to in the ☰ | P2 |
 | A disabled primary button; the see-through grounds as redrawn | P1 |
 | The module editor: is the creator's removed, and what happens to what only it has | P9 |
+| What a good writing experience holds | P10 |
 | P0 as part of the night run, or drawn and reviewed by you before it | everything |
 
 These do not block the run; their screens stay out of it:
-- What the scene page edits (C5).
 - Catalog and Library as one concept (F1).
 - Where the 2D-first / 3D-first preference sits (C4).
 - The trees' open questions; the word "instrument"; MODULES-DNA.md points 2–7.

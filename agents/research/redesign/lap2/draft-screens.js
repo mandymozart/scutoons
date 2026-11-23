@@ -218,10 +218,20 @@ const logPanel = (x, y, w, h) => fp(x, y, w, h, [['Log', 1]], `<div style="displ
   <div style="display:flex;gap:.3rem;margin-bottom:.5rem">${['branch','save','cloud','clock','zap','image','play','refresh','term'].map(i => `<span class="kc">${ic(i)}</span>`).join('')}</div><div class="muted">Nothing in this scope.</div>`);
 const SCENE_ITEMS = [['book','Sandbox'],['box','Scenes'],['book','Yellow Mouse'],['box','Scenes']];
 add('C', 'C5', 'Scenes: the scene page', "now/creator-6 (the owner's night shot; Settings closed) · now/creator-4",
-  ['Open in the deck: launches the deck on this machine with this scene (note 6, D8)', "what the page edits – the owner's words first (F3)", "the Published badges as the kit's chip (H13; circled by the owner in creator-6)"],
-  () => `${cbar({ chevron: true, wsOn: 'Scenes', items: SCENE_ITEMS, undo: false })}<div class="abs" style="left:0;top:50px;right:0;bottom:0">${sceneTree({ chip: true })}${scenePage({ chip: true, deck: true })}${logPanel(560, 340, 530, 228)}</div>${folded(1278, 780, 'Library')}${cstatus()}
-  ${mk(1, 1236, 50)}${mk(3, 1138, 50)}${mk(3, 290, 160)}
-  ${qcard(1100, 300, 'what a scene page edits (note 6)', ['"Scenes still have nothing to edit but publish. So perhaps we need a design for this page." – the owner says what it holds (F3)'], 'Drawn as today: read-only fields, Versions.', '22rem')}${mk(2, 1100, 276)}`);
+  ["the scene's preview covers the whole back – not just text (decided 2026-11-24); a still until the deck's canvas is in the creator (#842's stills)",
+   'Edit in deck sits on the preview: the deck comes up with this scene (D8)',
+   "the scene's facts and versions in a panel over the preview – read-only, as today",
+   "the Published badges as the kit's chip (H13)"],
+  () => `${cbar({ chevron: true, wsOn: 'Scenes', items: SCENE_ITEMS, undo: false })}<div class="abs" style="left:0;top:50px;right:0;bottom:0">
+    <div class="abs" style="inset:0;display:grid;place-items:center;background:repeating-linear-gradient(135deg,transparent 0 22px,color-mix(in srgb,var(--tool-text) 4%,transparent) 22px 23px)" title="the scene's still – none exists yet for scene:avatar-home, so no picture is invented here"><span class="label" style="letter-spacing:.2em">Preview · scene:avatar-home · still pending</span></div>
+    ${sceneTree({ chip: true })}
+    <span class="kb framed" style="position:absolute;left:640px;top:20px;z-index:21">${ic('radio')}Edit in deck</span>
+    ${fp(950, 6, 476, 470, [['Scene', 1]], `<div style="display:flex;align-items:center;gap:.6rem"><span style="font-size:var(--editor-title)">Avatar home</span><span style="flex:1"></span><span class="kc on">Published</span></div>
+      <div class="mono muted" style="margin:.1rem 0 .8rem">scene:avatar-home</div>
+      ${[['Location', '‹the avatar\'s home›'], ['Spot', 'spot_home'], ['Who', '‹the avatar› <span class="muted">character</span>'], ['Toons', '<span class="muted">none – a template</span>']].map(([k, v]) => `<div style="display:flex;gap:1rem;min-height:1.8rem"><span class="label" style="width:5rem">${k}</span><span>${v}</span></div>`).join('')}
+      <div class="label" style="margin:1rem 0 .4rem">Versions</div><div style="border-top:1px solid var(--tool-line);padding-top:.5rem">Nov 12, 2026, 10:29 AM <span class="label">Current · Published</span><div class="muted">by tilman@porschuetz.de</div></div>`)}
+  </div>${folded(1118, 780, 'Log')}${folded(1278, 780, 'Library')}${cstatus()}
+  ${mk(1, 520, 420)}${mk(2, 626, 62)}${mk(3, 936, 62)}${mk(4, 290, 270)}`);
 
 add('C', 'C6', 'Rigs: open in the deck', "the Rig tab of now/creator-1",
   ['Open in the deck: launches the deck on this machine with this rig (note 6 "Same goes for rigs")'],
@@ -281,10 +291,10 @@ add('C', 'C15', 'XR (creator-only)', "epic-drafts `?s=714` (scenes session, 6c8e
 
 /* ════════ D · the deck editor's workspaces (now/deck-*, main r4781, night) ════════ */
 const DKNOTE = "the panels as on main – the deck is the kit's source (H12), no kit change";
-add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-1-bar-stage · A3 (the same design)',
+add('D', 'D1', 'The switcher over a workspace (Home stays when nothing is open)', 'now/deck-3-stage-workspace · A3 (the same design)',
   ['the bar, the stage and the panels are blurred behind – the switcher has no bar (press S: on and off)', 'the switcher as in A3, no Views on cards',
    "one list: the creator's workspaces too, badged Creator – the same order in both apps"],
-  () => `${deckShot('deck-1-bar-stage.png', '')}
+  () => `${deckShot('deck-3-stage-workspace.png', '')}
   ${dashboard({ noSearch: true, cols: 6, focus: 0, review: false, cards: SW_DECK(),
     last: [['box','scene:avatar-home','Scene · now'],['user','catpope','Rigging · 20 min'],['list','new-show','Show · 1 h']] })}
   <div class="abs" style="left:0;top:0;width:1600px;height:50px;transform:scale(.9);transform-origin:0 0;z-index:50" data-theme="night">${deckBarNew({ tabs: [], mode: false, wsNames: ['Scene','Rigging','Show'], wsOn: 0 })}</div>

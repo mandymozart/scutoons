@@ -63,6 +63,8 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Modules are edited in the deck** (and by MCP and an external editor).
 - **Not twice:** the creator's Rig panel loses its Bones and Clips lists; it shows the model's line and "Open in the deck".
 - **"Import images" goes** from the Map, the Catalog and Characters. Bulk comes through MCP; the Library places things into slots.
+- **A scene in the creator has a preview** that covers the whole back of the page; "Edit in deck" goes from there. The page previews and links, it does not edit.
+- **The writing pages are redesigned** for a good writing experience: Kanon, Notifications, Credits, Edit, Guide.
 - **A list of characters or scenes beside the Library is redundant.**
 - **Thumbnails:** scenes and places get stills, made in the background and shared across systems (#842).
 
@@ -74,7 +76,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 
 **Open**
 - **The module editor was never designed** – in neither app. The creator's (Sound design) is an empty frame in the draft; the deck's is drawn only with nothing open. Before it is drawn: is the creator's editor removed, and what happens to what only it has (see PLAN.md, P9)?
-- What the scene page edits (C5).
+- What a good writing experience holds (C14) – your words, or a first draft from me to correct.
 - Catalog and Library as one concept (F1).
 - Trees: the Library's "Items to open" against the trees; a borrowed tree – jump or reference.
 - Where the 2D-first / 3D-first preference sits.

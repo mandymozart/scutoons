@@ -41,7 +41,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | C2 | Chapter | kit look | old |
 | C3 | Storyboard | kit look | old |
 | C4 | Characters | the Rig panel without Bones and Clips: the model's line and "Open in the deck"; no Import images; 2D-first or 3D-first is open | old |
-| C5 | Scenes: the scene page | open: what it edits; "Edit in deck" | words |
+| C5 | Scenes: the scene page | the scene's preview covers the whole back; "Edit in deck" on it; the facts and versions in a panel | shape |
 | C6 | Rigs | "Open in the deck" | old |
 | C7 | Flow | kit look | old |
 | C8 | Sound design: the module editor (Parameters · Nodes · Rust · Assignment, Problems, Console, the knobs) | never drawn – the draft is an empty frame. Thought aloud: it might have to be removed, because modules are edited in the deck; then a module in the creator is a preview with "Edit in deck" | words |
@@ -50,7 +50,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | C11 | Generate | the stub stays in this lap; the deck's canvas comes with #764 | old |
 | C12 | Library | stills for scenes and places; "Items to open" is open | old |
 | C13 | Settings | kit look; the colour-blind mode as a setting | old |
-| C14 | Kanon · Notifications · Credits · Edit · Guide | kit look | old |
+| C14 | Kanon · Notifications · Credits · Edit · Guide | to be redesigned for a good writing experience – not only the kit look; today's pages are not captured yet | words |
 | C15 | XR | a creator workspace, with the Place tab | old |
 
 ## D · The deck's workspaces
@@ -81,7 +81,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 |---|---|---|
 | F1 | Catalog and Library as one concept | words |
 | F2 | The one-look sheet | done as kit-d.html (approved) |
-| F3 | The scene page's contents | words (C5) |
+| F3 | The scene page's contents | answered: a preview and the link to the deck (C5) |
 
 ## Pages outside the set
 | Page | What it is | State |
@@ -93,4 +93,4 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`) with 
 | universe.html | the twelve kinds as one tree, production counts | for reading |
 | modules-dna.html | module · rig · slot · network | draft, six points open |
 
-**Count:** 10 + 7 + 15 + 9 + 6 + 3 = 50 screens. **Current: 3 · shape: 7 · old: 32 · words: 6 · done or dropped: 2.**
+**Count:** 10 + 7 + 15 + 9 + 6 + 3 = 50 screens. **Current: 3 · shape: 8 · old: 31 · words: 5 · done or dropped: 3.**
