@@ -28,6 +28,6 @@ const FORMATS: Record<OutputFormat, () => string> = {
 };
 export const formatName = (format: OutputFormat): string => FORMATS[format]();
 
-/** what a hook mark says: a gen-AI spore (an external tool runs it), the output (a run's result goes to a slot), a driver (what starts a run) */
+/** what a hook mark says: a hooked spore (an agent, an LLM or an external tool runs it), the output (a run's result goes to a slot), a driver (what starts a run) */
 export const hookNote = (where: 'spore' | 'output' | 'driver'): string =>
 	where === 'spore' ? m['shell.gen_hook_spore_note']() : where === 'output' ? m['shell.gen_hook_output_note']() : m['shell.gen_hook_driver_note']();
