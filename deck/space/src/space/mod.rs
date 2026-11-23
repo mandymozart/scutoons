@@ -103,6 +103,8 @@ const FRAME_MARGIN: f32 = 0.08;
 
 /// where the being floats when the set has no such spot (or there is no set)
 const FALLBACK_ANCHOR: Vec3 = Vec3::new(0.0, 1.4, 0.0);
+/// #816: knobs a node of the scene's own graph shows at most when the scene names none
+const SCENE_KNOBS: usize = 4;
 /// the glow's light in the room (#204): reach (m) and strength by default, and how many beings light it at most
 pub const GLOW_RANGE: f32 = 7.0;
 pub const GLOW_LIGHT: f32 = 1.0;
@@ -407,7 +409,19 @@ impl Space {
     /// buses, chains), with its hoses, points and knobs; the holders' beings are their rigs'. None of its own: bodiless.
     fn scene_part(graph: &Graph, look: &Look) -> Being {
         let owners = Cast::owners(graph);
-        Being::part(graph, look, graph.first(crate::graph::Kind::Space), &|k| owners[k].is_none())
+        // at most SCENE_KNOBS knobs a node unless the scene names its own (`[being] expose`): a synth's ninety parameters
+        // as knobs flooded the stage (the X1 at 14 fps, its main thread at 99 %)
+        let mut look = look.clone();
+        if look.expose.is_empty() {
+            look.expose = graph
+                .nodes
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| owners[*k].is_none())
+                .flat_map(|(_, n)| n.kind.inputs().iter().filter(|i| i.ty == crate::graph::PortType::Control).take(SCENE_KNOBS).map(move |i| format!("{}.{}", n.id, i.name)))
+                .collect();
+        }
+        Being::part(graph, &look, graph.first(crate::graph::Kind::Space), &|k| owners[k].is_none())
     }
 
     /// The space node `node` of `graph`: its being from the graph + `look`, its set's 3D loading on a thread of its own
@@ -1600,10 +1614,17 @@ impl Space {
         n
     }
 
-    /// every being drawn in 3D: this deck's own first (on a stage of several holders, the cast's instead – #492; only the
-    /// members standing as their look, #495: a card is no body, nor a look drawn by its model), then the decks'
+    /// the cast members drawn as their beings (not the scene's own graph, not the other decks')
+    pub fn cast_beings(&self) -> usize {
+        self.cast.iter().filter(|c| self.drawing(c) == Drawing::Being).count()
+    }
+
+    /// every being drawn in 3D: this deck's own first (on a stage of several holders the scene's own graph when it has
+    /// nodes no holder owns – #816 – then the cast's, #492; only the members standing as their look, #495: a card is no
+    /// body, nor a look drawn by its model), then the decks'
     pub fn beings(&self) -> impl Iterator<Item = &Being> {
-        let own = self.cast.is_empty().then_some(&self.being);
+        // #816: the scene's own graph is drawn beside the cast when it has nodes of its own
+        let own = (self.cast.is_empty() || !self.being.points.is_empty()).then_some(&self.being);
         let looks = self.cast.iter().filter(|c| self.drawing(c) == Drawing::Being).map(|c| &c.being);
         own.into_iter().chain(looks).chain(self.others.iter().map(|r| &r.being))
     }
@@ -2593,7 +2614,7 @@ to = "burner_look.pulse"
         let g = Graph::build(&scene).unwrap();
         let node = g.first(crate::graph::Kind::Space).unwrap();
         let mut space = Space::new(&g, node, &scene.being, Path::new("/nowhere"), Portraits::manual());
-        assert_eq!((space.cast.len(), space.cards(), space.beings().count()), (1, 1, 0));
+        assert_eq!((space.cast.len(), space.cards(), space.cast_beings()), (1, 1, 0));
         assert_eq!(space.cast[0].who, Who::Character("yellowmouse".into()));
         let mut ctl = Table::new(&g);
         run(&mut space, &mut ctl, 3, &mut |_| {});
@@ -2624,7 +2645,7 @@ to = "burner_look.pulse"
         assert_eq!(ids(&space.cast[1].being), ["right_look"]);
         assert_eq!((space.cast[0].being.look.character.as_str(), space.cast[1].being.look.character.as_str()), ("catpope", "mute"));
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Look, Form::Look, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
+        assert_eq!((space.cast_beings(), space.cards()), (2, 1), "the characters' beings, not the space's own; the item a card");
         let owners = Cast::owners(&g);
         assert!(space.being.points.iter().all(|p| owners[p.node].is_none()), "#816: the space's own being is the scene's own nodes, none of a holder's");
         assert!(ids(&space.being).iter().all(|id| !id.starts_with("left_") && !id.starts_with("right_")), "{:?}", ids(&space.being));
@@ -2646,7 +2667,7 @@ to = "burner_look.pulse"
         let generation = space.generation;
         space.set_arrived(Err(anyhow::anyhow!("gone")));
         assert!(!space.stage_3d() && space.generation > generation, "the renderer sizes its buffers anew");
-        assert_eq!((space.beings().count(), space.cards()), (0, 3));
+        assert_eq!((space.cast_beings(), space.cards()), (0, 3));
     }
 
     /// a holder's chosen form wins over the stage: a card on a 3D stage, a look on a stage without a set
@@ -2656,7 +2677,7 @@ to = "burner_look.pulse"
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
         let (_g, space, _ctl) = stage_chosen(false, ["", "form = \"look\""]);
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Look, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (1, 2));
+        assert_eq!((space.cast_beings(), space.cards()), (1, 2));
     }
 
     /// a character look's own form stands where its holder chose none; the holder's choice still wins
@@ -2689,7 +2710,7 @@ to = "burner_look.pulse"
         run(&mut space, &mut ctl, 1, &mut |_| {});
         assert!(space.generation > generation, "the renderer sizes its buffers anew");
         assert_eq!(drawings(&space), [Drawing::Model, Drawing::Being, Drawing::Card]);
-        assert_eq!((space.beings().count(), space.figures_drawn(), space.cards()), (1, 1, 1));
+        assert_eq!((space.cast_beings(), space.figures_drawn(), space.cards()), (1, 1, 1));
         let mut out = Vec::with_capacity(space.figures_drawn());
         space.write_figures(&mut out);
         let [d] = &out[..] else { panic!("one figure: {out:?}") };
@@ -2708,7 +2729,7 @@ to = "burner_look.pulse"
         let (_g, mut space, mut ctl) = stage(false);
         assert!(!space.stage_3d());
         assert_eq!(space.cast.iter().map(|c| c.form).collect::<Vec<_>>(), [Form::Card, Form::Card, Form::Card]);
-        assert_eq!((space.beings().count(), space.cards()), (0, 3), "no bodies: cards");
+        assert_eq!((space.cast_beings(), space.cards()), (0, 3), "no bodies: cards");
         // the pictures the stage asks for: a character's full view per mood, an item's one picture
         let asked = space.portraits.requests();
         let full = |id: &str| asked.iter().filter(|(_, p)| p.id == id && p.view == cast::CARD_VIEW).count();
@@ -2747,6 +2768,6 @@ to = "burner_look.pulse"
         let (s, t) = space.capacity();
         let (mut spheres, mut tubes) = (Vec::with_capacity(s), Vec::with_capacity(t));
         space.write(&mut spheres, &mut tubes);
-        assert!(spheres.is_empty(), "no bodies drawn");
+        assert_eq!(space.cast_beings(), 0, "no character bodies drawn – only the scene's own graph (#816)");
     }
 }
