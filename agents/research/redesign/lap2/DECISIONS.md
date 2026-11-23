@@ -15,7 +15,7 @@ One line per decision. **Open** lists what still needs the owner's word; **Thoug
 - **Grounds are see-through**, never an opaque grey: the text colour at a low strength (control 6 %, hover 10 %, selected 16 %). Menus stay opaque.
 - **Kit D is approved** (kit-d.html), all 14 points as drawn; the tab's hover border is the text colour.
 - **Red and green stay** for ok and error. **A colour-blind token set** comes beside them (blue, yellow, vermilion), each state with a mark (✓ ! ✕).
-- **Signals keep their colours** – the one exception. Ports and cables use the deck's signal table; kinds OSCT has and the table lacks are adopted.
+- **The hue is taken out of the UI's own parts, not out of what it shows.** What keeps its colours: signals (ports and cables, the deck's signal table; kinds OSCT has and the table lacks are adopted), the mixer (its strips and meters), and thumbnails and pictures.
 - **Tabs and panel titles:** no border at rest, the active one brighter, a rounded border only on hover and while dragged. (H4)
 - **Icon buttons:** a standalone one is round and may stand without a pill; groups of icons and toolbars stay in their pill. (H4)
 - **Badges** are small and delicate. Design pictures use the kit. (H13)
