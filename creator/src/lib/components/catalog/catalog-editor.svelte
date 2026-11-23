@@ -15,9 +15,6 @@
 		ProductForm,
 		RecipeForm,
 		catalogProblems,
-		importItemImages,
-		importRecipeImages,
-		type CatalogWrite,
 		restOf,
 		withRest,
 		type CatalogFormProps,
@@ -25,8 +22,7 @@
 	} from '@scutoons/catalog';
 	import { askDialog, confirmDialog, Badge, Icon, Tabs, region } from '@scutoons/ui';
 	import { neutralDoc } from '$lib/editor/languages.ts';
-	import { contentApi, putDraft } from '$lib/api.ts';
-	import { toast } from '$lib/toasts.ts';
+	import { contentApi } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDoc, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
 	import { shareUses } from '$lib/editor/library-hook.svelte.ts';
@@ -183,30 +179,6 @@
 		doc?.edit((file: Data) => void delete file.removed, 'remove');
 	}
 
-	// ── Import images … (moved from the admin): `<id>[_<variant>].<ext>` → the pictures, a draft per changed entry ──
-	let importInput = $state<HTMLInputElement>();
-	let importing = $state<string | null>(null);
-	const write: CatalogWrite = (k, id, next, note) => putDraft(catalogKey(k, id), next, undefined, note);
-	async function importImages(event: Event) {
-		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
-		if (importInput) importInput.value = '';
-		if (!files.length) return;
-		const step = (done: number, total: number) => (importing = m['creator.catalog_importing']({ done, total }));
-		try {
-			step(0, files.length);
-			const report = kind === 'recipes' ? await importRecipeImages(files, lists.recipes ?? [], lists.items ?? [], write, step) : await importItemImages(files, lists.items ?? [], write, step);
-			const unknown = report.problems.map((p) => p.file);
-			loadError = unknown.length ? m['creator.catalog_import_unknown']({ files: unknown.join(', ') }) : null;
-			toast(m['creator.catalog_import_done']({ uploaded: report.uploaded, replaced: report.replaced, unchanged: report.unchanged, drafts: report.updated.length }), { type: unknown.length ? 'info' : 'success' });
-			await reload();
-			if (doc && selected && report.updated.includes(selected)) await doc.load();
-		} catch (e) {
-			loadError = e instanceof Error ? e.message : String(e);
-		} finally {
-			importing = null;
-		}
-	}
-
 	async function create() {
 		const id = await askDialog({
 			title: m['creator.catalog_new']({ what: def.singular() }),
@@ -244,10 +216,6 @@
 <MetaPage toon="" title={CATALOG_LABELS[kind]()} docs={doc ? [doc] : []} {validate} wide help="catalog">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={create} data-testid="catalog-new"><Icon name="plus" /> {m['creator.catalog_new']({ what: def.singular() })}</button>
-		{#if kind === 'items' || kind === 'recipes'}
-			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} data-testid="catalog-import-input" />
-			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.catalog_import_hint']()} data-testid="catalog-import"><Icon name="upload" />{importing ?? m['creator.catalog_import']()}</button>
-		{/if}
 		{#if data && selected}
 			<!-- a score item: its pieces on the score (research/COLLAGE.md §4.4) -->
 			{#if kind === 'items' && data.category === 'score'}

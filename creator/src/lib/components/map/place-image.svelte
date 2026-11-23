@@ -9,9 +9,9 @@
 	/**
 	 * A place's illustration (agents/MAP.md §4.3): a slot with the asset picker (owner 2026-10-03; uploads go to the place
 	 * illustrations' folder `<toon>/map/places/`), its size on the map, the ground point (drag on the picture) and
-	 * previews at 50 / 100 / 200 %, with warnings for a missing, large or blurry file. `bust` reloads after an import.
+	 * previews at 50 / 100 / 200 %, with warnings for a missing, large or blurry file.
 	 */
-	let { doc, place, bust = 0 }: { doc: ContentDoc; place: MapPlace; bust?: number } = $props();
+	let { doc, place }: { doc: ContentDoc; place: MapPlace } = $props();
 
 	let natural = $state<{ w: number; h: number } | null>(null);
 	let imageState = $state<{ missing: boolean; kb: number | null }>({ missing: false, kb: null });
@@ -126,7 +126,7 @@
 			onpointerup={() => (anchorDrag = false)}
 			data-testid="place-anchor"
 		>
-			<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
+			<img src={asset(place.image.src)} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
 			{#if tiles}<svg class="tiles" viewBox="0 0 100 {tiles.h}" preserveAspectRatio="none" aria-hidden="true"><path d={tiles.d} /></svg>{/if}
 			<span class="cross" style:left="{anchor.x}%" style:top="{anchor.y}%"></span>
 		</div>
@@ -136,7 +136,7 @@
 				{@const h = size * z * ratio}
 				<!-- the picture at that zoom, its centre point on the place's point (the dot) -->
 				<div class="preview" style:height="{h + 12}px">
-					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:top="6px" />
+					<img src={asset(place.image.src)} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:top="6px" />
 					<span class="dot" style:top="{6 + h * (anchor.y / 100)}px"></span>
 					<span class="z">{zoomPercent(z)} %</span>
 				</div>

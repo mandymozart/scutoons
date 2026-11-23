@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
@@ -42,8 +41,7 @@
 		locale,
 		onset,
 		onrequest,
-		onaddmood,
-		bust = 0
+		onaddmood
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -56,8 +54,6 @@
 		onrequest: (mood: string, view: string, note: string) => void;
 		/** a mood for this look (added to the vocabulary when it is new) */
 		onaddmood: (mood: string, label: string) => void;
-		/** set after an import (a timestamp): previews and the CDN check load again */
-		bust?: number;
 	} = $props();
 
 	/** CDN check per path: true found, false missing, undefined pending */
@@ -145,11 +141,6 @@
 		status = {};
 		round++;
 	}
-	/** after an import the same paths may hold new bytes: the previews load them again */
-	const src = (path: string) => asset(path) + (bust ? `?v=${bust}` : '');
-	$effect(() => {
-		if (bust) untrack(recheck);
-	});
 
 	const stateOf = (c: ReturnType<typeof cell>) =>
 		c.path ? (status[c.path] === true ? 'found' : status[c.path] === false ? 'missing' : 'pending') : status[c.convention] === true ? 'available' : 'empty';
@@ -198,9 +189,9 @@
 					>
 						<span class="thumb">
 							{#if state === 'found'}
-								<img src={src(c.path)} alt="{mood} {view}" loading="lazy" />
+								<img src={asset(c.path)} alt="{mood} {view}" loading="lazy" />
 							{:else if state === 'available'}
-								<img class="faded" src={src(c.convention)} alt="" loading="lazy" />
+								<img class="faded" src={asset(c.convention)} alt="" loading="lazy" />
 							{:else if c.fallback && status[c.fallback] === true}
 								<img class="faded" src={asset(c.fallback)} alt="" loading="lazy" />
 							{/if}

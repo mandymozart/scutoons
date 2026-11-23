@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { PERSONA_BODIES, personaModelSource, type CharacterPersona, type PersonaBody, type RegistryCharacter } from '@scutoons/content';
 	import { FileSlot, ModelPreview } from '@scutoons/media';
+	import { Button } from '@scutoons/ui/editor';
+	import { VIEWER_URL } from '$lib/config.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editPersona } from '$lib/editor/characters.ts';
 	import type { CharacterModel } from '$lib/editor/character-model.svelte.ts';
@@ -10,7 +12,8 @@
 	/**
 	 * A persona's 3D model (owner 2026-10-13/14): the live preview of what the shown look uses – the look's model, the
 	 * persona's, or the mannequin of its body preset (dashed, "Placeholder") –, the persona's model slot (a .glb from the
-	 * asset manager), its idle (#817) and the body preset for the fallback: two legs / more legs / wings.
+	 * asset manager), "Open in the deck" (a plain link to the deck until it opens on this rig – TODO(#859)), its idle (#817)
+	 * and the body preset for the fallback: two legs / more legs / wings.
 	 */
 	let {
 		registry,
@@ -48,6 +51,7 @@
 	<ModelPreview path={source.path} fallback={source.fallback} testid="persona-model-preview" />
 	<div class="fields">
 		<FileSlot kind="model" value={persona.model} label={m['creator.characters_model']()} place="characters/{character.id}/" player={false} onchange={setModel} testid="persona-model" />
+		<span><Button icon="external-link" href="{VIEWER_URL}/live/deck" target="_blank" rel="noopener" data-testid="persona-open-deck">{m['character.open_in_deck']()}</Button></span>
 		{#if source.fallback}<span class="hint" data-testid="persona-model-mannequin">{m['creator.characters_model_mannequin']()}</span>{/if}
 		{#if model}<PersonaIdleField {registry} {character} {persona} {model} />{/if}
 		<fieldset>

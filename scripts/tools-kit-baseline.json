@@ -16,7 +16,7 @@
 	"creator/src/lib/components/library/library-menu.svelte": 3,
 	"creator/src/lib/components/library/library-openings.svelte": 3,
 	"creator/src/lib/components/library/library-panel.svelte": 3,
-	"creator/src/lib/components/map/map-builder.svelte": 4,
+	"creator/src/lib/components/map/map-builder.svelte": 3,
 	"creator/src/lib/components/map/route-props.svelte": 1,
 	"creator/src/lib/components/page/clip-menu.svelte": 3,
 	"creator/src/lib/components/script/script-outline.svelte": 1,

@@ -27,8 +27,7 @@
 		languages,
 		locked,
 		onselect,
-		view,
-		bust = 0
+		view
 	}: {
 		doc: ContentDoc;
 		map: WorldMap;
@@ -40,8 +39,6 @@
 		onselect: (selection: MapSelection) => void;
 		/** the builder's canvas view ("Use the current view", "Show") */
 		view: MapViewport;
-		/** set after an import: the image's preview loads again */
-		bust?: number;
 	} = $props();
 
 	const locale = $derived(getLocale());
@@ -189,7 +186,7 @@
 </div>
 
 <div class="group">
-<PlaceImage {doc} {place} {bust} />
+<PlaceImage {doc} {place} />
 </div>
 
 <div class="group">
