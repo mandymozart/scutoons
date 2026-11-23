@@ -57,7 +57,7 @@ impl AssetLoader for Assets {
                 let chans: Vec<&[f32]> = p.channels.iter().map(Vec::as_slice).collect();
                 AssetData::pcm(slot, &chans, p.rate)
             }
-            AssetKind::Bytes => AssetData::bytes(slot, &got.bytes),
+            AssetKind::Bytes | AssetKind::Model => AssetData::bytes(slot, &got.bytes),
             AssetKind::Image => return Err("a picture slot is not filled on the deck yet".into()),
         };
         self.decoded.lock().unwrap_or_else(|e| e.into_inner()).insert(key, data.clone());

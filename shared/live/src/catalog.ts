@@ -12,8 +12,8 @@ export type AssetDesc = {
 	name: string;
 };
 
-/** what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5) */
-export type AssetKind = "pcm" | "bytes" | "image";
+/** what an asset slot holds once the host has filled it: planar f32 PCM, raw bytes, or a small RGBA8 image (ABI-V2 §1.5); a `model` slot (a .glb) is never handed to the module – the space draws the module's instances of the shape the slot is named after with it (`puff`, `segment`) */
+export type AssetKind = "pcm" | "bytes" | "image" | "model";
 
 /** A rig carried at a spot of this rig's body. */
 export type Attached = {

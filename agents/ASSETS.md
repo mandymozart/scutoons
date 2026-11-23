@@ -395,7 +395,7 @@ persona without a model, by its body preset `body` – `MANNEQUINS`, code refere
 asset titles): two legs `scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three.js examples); more legs
 `scutoons/3d/mannequin-more-legs.glb` (Fox, Khronos glTF Sample Assets: model PixelMannen CC0, rigging & animation
 tomkranis CC BY 4.0, glTF @AsoboStudio & @scurest CC BY 4.0); wings `scutoons/3d/mannequin-wings.glb` (the storyboard's
-crow figure from figures.js, ours – posable nodes, no skin).
+crow figure from figures.js, ours – posable nodes, no skin). **Module models** (#805): a module's `model` slot names a .glb its drawn shapes take (deck/module/README.md "Drawing") – the cloud's puff `scutoons/3d/cloud-puff.glb` (a low-poly bubble, ours: `cargo run -p deck-space --bin cloud-puff`) in the cloud-storm rig; Replace in the library changes the puffs of every deck that loads the file anew (a deck's library cache keeps a downloaded file – #805 open point).
 
 ## Shared animations (#817, owner 2026-11-22/23 [assets])
 

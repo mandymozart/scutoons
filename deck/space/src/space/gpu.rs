@@ -655,6 +655,7 @@ impl SpaceGpu {
             self.card_inst = Vec::with_capacity(cards);
             self.size_figures(device, space.figures_drawn());
             self.drawn.size(device, space.drawn_capacity());
+            self.drawn.models(device, queue, space.drawn());
         }
     }
 

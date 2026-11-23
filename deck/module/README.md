@@ -83,7 +83,9 @@ vocabulary, `Descriptor::check`) and returns the `Shape` the layout comes from. 
   give `(Status, values)`; `Status` is `Unavailable · Asking · Denied · Live · Replay` (`status.live()` = Live or Replay). A
   platform feeds them with `Instance::set_sensor(sensor, status, values)`; the core's channel table, permission prompts and the
   web adapters are #312's, not built. The conformance suite replays a JSON-lines log (`{frame, channel, value}`).
-- **Assets** are read-only slots a descriptor declares (`#[asset]`, kind `pcm` planar f32 / `bytes` / `image` RGBA8). The host
+- **Assets** are read-only slots a descriptor declares (`#[asset]`, kind `pcm` planar f32 / `bytes` / `image` RGBA8 /
+  `model` – a .glb the module never sees: the space draws the module's instance table's shape of the slot's name with it,
+  "Drawing" below). The host
   binds them from `Setup::asset(AssetData::pcm(..) | ::bytes(..))` **before `dm_new`**, through `dm_asset_buf(slot, len)`; a slot
   is filled once per instance. `ctx.asset(Self::KICK)` is `None` until ready - play silence, never wait. Resampling is the module's.
   A scene's module node names its slots' media in `assets` – a CDN path or the content's `{ src, variants }`
@@ -127,8 +129,13 @@ is a control module's output like its control values and events – a port, decl
 `Layout::of`, with no second call, no second scheduler and no render-thread module runtime. A domain would split a module
 that both sounds and draws (a bamboo forest: hits → notes, stalks → instances) into two; the Object slot runs on the render
 thread per drawn frame, which would make a simulation depend on the frame rate. The slot can later take a table too.
-TODO(#780): a shape may name a model asset (the owner's low-poly models) instead of a placeholder; the browser deck draws
-tables once it runs modules (#290).
+A shape draws with a model instead of its placeholder when the module declares a `model` slot named after it
+(`#[asset(name = "puff", kind = "model", max_bytes = …)]`) and the node names a .glb there (`assets = { puff =
+"scutoons/3d/cloud-puff.glb" }`): the engine loads it through the platform's `AssetLoader` like any slot asset and hands it
+with the table (`Table::models`), the space reads its rest pose, fits it to the placeholder's metre (a puff centred, a
+segment on its foot) and draws it flat shaded in the instance's colour; without it (none named, not had, not readable, over
+20 000 triangles) the placeholder stands in. A model replaced in the library under the same path is drawn by a deck that has not cached the old one (the deck's library cache keeps a file it downloaded). The browser
+deck draws tables once it runs modules (#290).
 
 ## DSP units (`deck_module::dsp`)
 
