@@ -415,7 +415,7 @@ add('C', 'C12c', 'Library: the pick (a slot asks)', "today's pick mode (library-
       { x: 1092, y: 735, w: 170, tabs: [['Preview',1]], folded: true }])}<div class="abs" style="left:290px;top:70px;width:350px;bottom:60px">${pageNotShot()}</div>
     ${libraryPanel(660, 60, 400, 760, { cols: 4, pick: 'character · showMessage', type: 'Characters', place: 'Everything', gap: '.5rem .5rem',
       groups: [['Cat Pope · Season 1 · cast', [tl('catpope'), tl('boy'), tl('crows'), tl('toptoy')]], ['Everyone else', OTHERS]] })}
-    ${ring(1082, 154, 340, 36)}${mk(1, 1062, 160)}${mk(2, 640, 300)}${mk(3, 640, 450)}${capn(790, 446, 'picked from here: added to the cast')}${mk(4, 640, 96)}
+    ${ring(1082, 154, 340, 36)}${mk(1, 1062, 160)}${mk(2, 640, 256)}${mk(3, 640, 402)}${capn(790, 402, 'picked from here: added to the cast')}${mk(4, 640, 96)}
     `);
 
 add('C', 'C13', 'Settings', "the Settings panel in now/creator-6 (the owner's circles)",
