@@ -119,7 +119,7 @@ export const paramLabel = (name: string, spec?: { label?: string }): string => s
  * - `actions`: the rule verbs it answers on its node (`play`, `pause`, `stop`, `show`, `hide` – `SPEC_ACTIONS`): a rule's
  *   `play: <node>` reaches the component's `onAction("play")` beside the node's own clip;
  * - `events`: the scene events it emits (`ended`) – through its context's `emit`, on the bus by name;
- * - `uses`: what its code hears, emits, reads and sets of the bus and the variables, by name – the Logic view joins it to
+ * - `uses`: what its code listens to, emits, reads and sets of the bus and the variables, by name – the Logic view joins it to
  *   the rules (it reads the plugin's source only for a plugin that declares nothing).
  * The names are camelCase; an action is one of the node verbs, an event never a core event. An older app ignores the fields.
  */
@@ -129,9 +129,9 @@ export interface SpecLogic {
   uses?: SpecUses;
 }
 
-/** A spec's bus use: event names it hears and emits, variable names it reads and sets */
+/** A spec's bus use: event names it listens to and emits, variable names it reads and sets */
 export interface SpecUses {
-  hears?: readonly string[];
+  listens?: readonly string[];
   emits?: readonly string[];
   reads?: readonly string[];
   sets?: readonly string[];
@@ -141,7 +141,7 @@ export interface SpecUses {
 export const SPEC_ACTIONS = ["play", "pause", "stop", "show", "hide"] as const;
 export type SpecAction = (typeof SPEC_ACTIONS)[number];
 
-/** The engine's core events (`./behaviour.ts` `BEHAVIOUR_CORE_EVENTS`): a spec hears them, never emits them */
+/** The engine's core events (`./behaviour.ts` `BEHAVIOUR_CORE_EVENTS`): a spec listens to them, never emits them */
 const CORE_EVENT_NAMES = ["targetFound", "targetLost", "targetUnlocked", "targetTapped", "sceneChanged", "arState", "varChanged"];
 /** A node's own events (`./behaviour.ts` `BEHAVIOUR_NODE_EVENTS`): its rules', never a spec's to emit */
 const NODE_EVENT_NAMES = ["found", "lost", "tap", "unlocked"];
@@ -167,15 +167,15 @@ export const specLogicProblems = (type: string, spec: Record<string, unknown>): 
       if (problem) problems.push(`${at}: ${problem}`);
     }
   };
-  const notCore = (name: string) => (CORE_EVENT_NAMES.includes(name) ? `${name} is the engine's own event – a spec hears it, never emits it` : null);
+  const notCore = (name: string) => (CORE_EVENT_NAMES.includes(name) ? `${name} is the engine's own event – a spec listens to it, never emits it` : null);
   names(spec.actions, `${type}.actions`, name => ((SPEC_ACTIONS as readonly string[]).includes(name) ? null : `${name} is no rule verb a node answers (${SPEC_ACTIONS.join(", ")})`));
   names(spec.events, `${type}.events`, name => notCore(name) ?? (NODE_EVENT_NAMES.includes(name) ? `${name} is a node's own event – a spec emits scene events` : null));
   if (spec.uses !== undefined) {
-    if (!isObject(spec.uses)) problems.push(`${type}.uses: expected { hears?, emits?, reads?, sets? }`);
+    if (!isObject(spec.uses)) problems.push(`${type}.uses: expected { listens?, emits?, reads?, sets? }`);
     else {
       const uses = spec.uses;
-      Object.keys(uses).filter(key => !["hears", "emits", "reads", "sets"].includes(key)).forEach(key => problems.push(`${type}.uses.${key}: unknown field (hears, emits, reads, sets)`));
-      names(uses.hears, `${type}.uses.hears`);
+      Object.keys(uses).filter(key => !["listens", "emits", "reads", "sets"].includes(key)).forEach(key => problems.push(`${type}.uses.${key}: unknown field (listens, emits, reads, sets)`));
+      names(uses.listens, `${type}.uses.listens`);
       names(uses.emits, `${type}.uses.emits`, notCore);
       names(uses.reads, `${type}.uses.reads`);
       names(uses.sets, `${type}.uses.sets`);
@@ -185,9 +185,9 @@ export const specLogicProblems = (type: string, spec: Record<string, unknown>): 
 };
 
 /** A spec's declared logic as plain lists (missing ones empty) */
-export const specLogicOf = (spec: SpecLogic | undefined): { actions: string[]; events: string[]; hears: string[]; emits: string[]; reads: string[]; sets: string[] } => ({
+export const specLogicOf = (spec: SpecLogic | undefined): { actions: string[]; events: string[]; listens: string[]; emits: string[]; reads: string[]; sets: string[] } => ({
   actions: [...(spec?.actions ?? [])], events: [...(spec?.events ?? [])],
-  hears: [...(spec?.uses?.hears ?? [])], emits: [...(spec?.uses?.emits ?? [])], reads: [...(spec?.uses?.reads ?? [])], sets: [...(spec?.uses?.sets ?? [])],
+  listens: [...(spec?.uses?.listens ?? [])], emits: [...(spec?.uses?.emits ?? [])], reads: [...(spec?.uses?.reads ?? [])], sets: [...(spec?.uses?.sets ?? [])],
 });
 
 /** Does a spec declare any logic (actions, events or bus use)? */

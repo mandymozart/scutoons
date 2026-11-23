@@ -20,16 +20,16 @@ import type { Context, GraphNode, Home, NodeFamily, NodeOwner, Op, RulePlace, Ru
  * registry with what adding one does (or why it is not added by hand – a node comes from the tree, a plugin from the Code
  * tab); `addChoices` turns **every** addable type into concrete ops (`apply.ts`), grouped by family under a header
  * (Events, Conditions, Actions, then the types not added here as grey lines):
- * - an event: a new rule hearing it, on the selected node, else the scene or the experience;
+ * - an event: a new rule listening to it, on the selected node, else the scene or the experience;
  * - a condition or an action: added to the selected rule – or, with no rule selected, a **new rule** on the same place that
- *   hears its first event (`firstEvent`: a node's rule `found`, a scene's or the experience's `sceneChanged`) and carries it.
+ *   listens to its first event (`firstEvent`: a node's rule `found`, a scene's or the experience's `sceneChanged`) and carries it.
  * A typed `emit fooBar` / `set fooBar` / `when fooBar` / `rule on fooBar` that names nothing yet is offered as a new name.
  * Values are typed (B7): a set or a compared variable takes its declared default, else a placeholder of its type. An entry
  * names the thing chosen (`keyRattled`, `goto 3–4`, `when hasKey`); the words people type for it (`rule`, `on`) still find it.
  *
  * `wireChoices` (#334): a wire dragged from a port and let go on the empty canvas – what can be created **and wired** to
  * that port, by the same rules as the strict connect: a rule's `+` → an action, its `on` → an event, its `when` → a
- * condition; an event's outlet → a rule hearing it; a variable → a rule reading or setting it; a node's verb inlet → a rule
+ * condition; an event's outlet → a rule listening to it; a variable → a rule reading or setting it; a node's verb inlet → a rule
  * acting on it. A value inlet no rule action writes yet stays a grey line with the reason.
  */
 
@@ -46,7 +46,7 @@ export interface PaletteEntry {
 
 const ADDS: Record<string, string> = {
   rule: "A rule on the current node, the scene or the experience: an event, a condition, actions",
-  event: "A rule that hears an event",
+  event: "A rule that listens to an event",
   variable: "A term of the selected rule's condition on a variable – or a new rule with it",
   play: "The selected rule plays a clip – or a new rule does", pause: "The selected rule pauses a clip – or a new rule does",
   stop: "The selected rule stops a clip – or a new rule does",
@@ -145,7 +145,7 @@ const familyOf = (kind: string) => FAMILY_HEADS[kind] ?? (ACTION_KINDS.includes(
 const headOf = (kind: string, a: AddContext): string => {
   const family = familyOf(kind);
   if (family === "Not added here") return family;
-  if (family === "Events") return a.place?.doc === "entity" ? `Events – a new rule on ${whereWords(a.content, a.place)} hears it` : "Events – a new rule hears it";
+  if (family === "Events") return a.place?.doc === "entity" ? `Events – a new rule on ${whereWords(a.content, a.place)} listens to it` : "Events – a new rule listens to it";
   if (a.rule) return `${family} – ${ruleName(a.content, a.rule)}`;
   return a.place ? `${family} – a new rule on ${firstEvent(a.place)}` : family;
 };
@@ -332,14 +332,14 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
       };
     });
 
-  // A plugin's two pins (#334): a rule on each event it emits, a rule emitting each event it hears – its rows make nothing
+  // A plugin's two pins (#334): a rule on each event it emits, a rule emitting each event it listens to – its rows make nothing
   if (node.kind === "plugin") {
     const code = info("plugin", node.label, `The plugin ${node.label}'s code decides what it reads, sets and drives – change it in the Code tab`);
     if (dir === "out" && port === "emits" && node.bus?.emits.length) {
-      return node.bus.emits.flatMap(name => newRules("rule", `rule on ${name}`, `Rules – hearing ${node.label}'s event`, () => ({ on: name })));
+      return node.bus.emits.flatMap(name => newRules("rule", `rule on ${name}`, `Rules – listening to ${node.label}'s event`, () => ({ on: name })));
     }
-    if (dir === "in" && port === "hears" && node.bus?.hears.length) {
-      return node.bus.hears.flatMap(name => newRules("emit", `emit ${name}`, `Rules – emitting what ${node.label} hears`, () => ({ do: [{ action: "emit", event: name }] })));
+    if (dir === "in" && port === "listens" && node.bus?.listens.length) {
+      return node.bus.listens.flatMap(name => newRules("emit", `emit ${name}`, `Rules – emitting what ${node.label} listens to`, () => ({ do: [{ action: "emit", event: name }] })));
     }
     return [code];
   }
@@ -360,7 +360,7 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
     }
     if (dir === "in" && port === "on") {
       const current = ruleOf(a.content, ref);
-      const group = `Events – ${ruleName(a.content, ref)} hears it`;
+      const group = `Events – ${ruleName(a.content, ref)} listens to it`;
       const ons = ref.doc === "entity" ? [...BEHAVIOUR_NODE_EVENTS, ...events] : events;
       const out: AddChoice[] = ons.filter(on => on !== current?.on).map(on => ({
         key: `on:${on}`, kind: "event", label: on, detail: eventKind(on), group, terms: "rule on event", signal: "event", type: "event", op: { op: "setEvent", home: { ...ref, part: "on" }, on },
@@ -379,10 +379,10 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
     const own = node.pick?.kind === "node" && node.id !== `event:${name}` ? node.pick : null;
     if (dir === "out") {
       const places: RulePlace[] = own ? [{ doc: "entity", target: own.target, path: own.path }] : rulePlaces(a);
-      return newRules("rule", `rule on ${name}`, "Rules – hearing it", () => ({ on: name }), places);
+      return newRules("rule", `rule on ${name}`, "Rules – listening to it", () => ({ on: name }), places);
     }
-    if (own) return [info("own", name, `${name} is ${node.detail}'s own event – the engine raises it, a rule hears it`)];
-    if (CORE.includes(name)) return [info("core", name, `${name} is the engine's own event – a rule hears it, never emits it`)];
+    if (own) return [info("own", name, `${name} is ${node.detail}'s own event – the engine raises it, a rule listens to it`)];
+    if (CORE.includes(name)) return [info("core", name, `${name} is the engine's own event – a rule listens to it, never emits it`)];
     return newRules("emit", `emit ${name}`, "Rules – emitting it", () => ({ do: [{ action: "emit", event: name }] }));
   }
 
@@ -397,7 +397,7 @@ const wireAll = (a: AddContext, from: WireFrom, query: string): AddChoice[] => {
     const spec = node.ports.find(p => p.id === port && p.dir === dir);
     if (dir === "out" && spec?.kind === "event") {
       const places: RulePlace[] = [{ doc: "entity", target, path }, ...rulePlaces(a).filter(p => p.doc === "scene")];
-      return newRules("rule", `rule on ${spec.label}`, "Rules – hearing it", () => ({ on: spec.label }), places);
+      return newRules("rule", `rule on ${spec.label}`, "Rules – listening to it", () => ({ on: spec.label }), places);
     }
     if (dir === "in" && spec?.kind === "param") {
       return [info("param", spec.label, `${spec.label} takes ${typeWords(spec.type!)} – no rule action sets a component's parameter yet; set it in the Inspector`)];

@@ -29,7 +29,7 @@ import type { CanvasEdit, Context, GraphEdge, GraphNode, Home, Op, PortSpec, Por
  * any other `name == <its default or a typed placeholder>`, joined with `&&`); a rule's `do` → a node, a variable, an event
  * or a scene box adds the matching action (show / hide / play / pause / stop, set, emit, goto) – from an action's own
  * `do:<i>` it re-aims that action. A scene's rule names a node of its own scene's targets by address. `disconnect` removes
- * what a wire stands for – a cut `on` leaves the rule hearing nothing, a problem until an event is wired to it again
+ * what a wire stands for – a cut `on` leaves the rule listening to nothing, a problem until an event is wired to it again
  * (Tilman, 2026-11-20); a cut `when` takes the variable's terms out of a top-level `&&` / `||` chain (anything deeper is
  * the Inspector's); a wire that only joins by name (`home: null`) removes the name from the listening side here, and says
  * so. Ports and wires are named by the level's view (`project`), so `connect` and `disconnect` take the level (`context`).
@@ -38,7 +38,7 @@ import type { CanvasEdit, Context, GraphEdge, GraphNode, Home, Op, PortSpec, Por
  * **Ports from the specs** (L-T6, §5.9, B8): connecting is strictly typed (`typedRefusal`) – a value inlet takes only its
  * type (an integer where a number goes), a refusal says why ("volume takes a number 0–1, not a text (mood)"). A wire still
  * needs a field to land in (L1): a rule's do into a node's **action inlet** (`act:play`) writes that verb on the node; a
- * node's **event outlet** (`ev:ended`) into a rule's `on` makes the rule hear that event by name; a **parameter inlet** has
+ * node's **event outlet** (`ev:ended`) into a rule's `on` makes the rule listen to that event by name; a **parameter inlet** has
  * no rule action yet, and a **file inlet** waits for file nodes (L-T12) – both are refused with the reason. The canvas ops
  * change the level's canvas (the scene's `LogicCanvas`, or the experience's): `expose` and `hideUnused` its exposed ports,
  * and (L-T7, schema 5.2) `place` / `tidy` its pinned boxes, `fold` a box to its head, `group` / `renameGroup` /
@@ -71,7 +71,7 @@ const isName = (name: string) => CAMEL_CASE_NAME.test(name);
 const refuse = (reason: string): OpResult => ({ ok: false, reason });
 const READ_ONLY = "The group level is read-only – open a scene or a target to edit its rules.";
 const EXPERIENCE_ONLY = "Here only the experience's own rules are edited – open a scene or a target to edit its rules.";
-const CODE = (plugin: string) => `The plugin ${plugin}'s code decides what it hears, emits, reads and sets – change it in the Code tab.`;
+const CODE = (plugin: string) => `The plugin ${plugin}'s code decides what it listens to, emits, reads and sets – change it in the Code tab.`;
 const INSPECTOR = "edit the condition in the Inspector";
 
 /** The experience's problems (the deck's "compile"): what the Logic panel lists under the graph */
@@ -246,7 +246,7 @@ const actionProblem = (draft: Draft, ref: RuleRef, at: RuleAt, action: Behaviour
     }
     case "emit":
       if (!isName(action.event)) return `${action.event ? `"${action.event}"` : "An empty name"} is no event name – camelCase letters and digits.`;
-      return CORE.includes(action.event) ? `${action.event} is the engine's own event – a rule hears it, never emits it.` : null;
+      return CORE.includes(action.event) ? `${action.event} is the engine's own event – a rule listens to it, never emits it.` : null;
     case "goto": {
       const problem = addressProblem(action.address, ["scene"]);
       if (problem) return `goto: ${problem}.`;
@@ -281,11 +281,11 @@ const outside = (content: LogicContent, context: Context, ref: RuleRef | RulePla
   return found.scene.id === context.scene ? null : `The target ${ref.target} is in another scene – open it there to edit its rules.`;
 };
 
-/** The first event a scene's or the experience's new rule hears: when the scene opens */
+/** The first event a scene's or the experience's new rule listens to: when the scene opens */
 const LOGIC_FIRST_EVENT = "sceneChanged";
 
 /**
- * The event a new rule hears when nothing names one (#334): a node's rule its node's `found` (the target is seen), a
+ * The event a new rule listens to when nothing names one (#334): a node's rule its node's `found` (the target is seen), a
  * scene's or the experience's rule `sceneChanged` (the scene opens) – the add menu's action or condition chosen with no
  * rule selected makes a rule on this event
  */
@@ -300,7 +300,7 @@ const addRule = (draft: Draft, at: RulePlace, fresh: NewRule, options: ProjectOp
   let ref: RuleRef;
   if (at.doc !== "entity") {
     if (!isName(event)) return refuse(`"${event}" is no event – a scene event's name (camelCase) or a core event.`);
-    if (isBehaviourNodeEvent(event)) return refuse(`${event} is a node's own event – a ${at.doc}'s rule hears the bus: a scene event or a core event.`);
+    if (isBehaviourNodeEvent(event)) return refuse(`${event} is a node's own event – a ${at.doc}'s rule listens to the bus: a scene event or a core event.`);
     const rules = at.doc === "experience" ? draft.content.rules ?? [] : draft.content.scenes.find(s => s.id === at.scene)?.rules ?? (draft.content.scenes.some(s => s.id === at.scene) ? [] : undefined);
     if (!rules) return refuse(`There is no scene ${(at as { scene: string }).scene}.`);
     draft.setLogic(at, [...rules, { on: event, when: null, do: [] }]);
@@ -330,7 +330,7 @@ const addRule = (draft: Draft, at: RulePlace, fresh: NewRule, options: ProjectOp
   }
   draft.setRule(ref, { on: event, when, do: actions });
   const does = actions.length ? `, does ${actions.map(actionWords).join(", ")}` : ", nothing to do yet";
-  return draft.done(`Added ${name}: on ${event}${when ? ` when ${conditionWords(when)}` : ""}${does} – wire another event to its on to change what it hears.`, options);
+  return draft.done(`Added ${name}: on ${event}${when ? ` when ${conditionWords(when)}` : ""}${does} – wire another event to its on to change what it listens to.`, options);
 };
 
 /** The rule a rule box stands for: the box carries its home (an on may be empty, so no wire has to say it) */
@@ -417,19 +417,19 @@ export const typedRefusal = (from: WireEnd, to: WireEnd, typeOf: (name: string) 
 const isNodeVerb = (verb: string | undefined): verb is (typeof BEHAVIOUR_NODE_ACTIONS)[number] => !!verb && (BEHAVIOUR_NODE_ACTIONS as readonly string[]).includes(verb);
 
 /**
- * A wire at a plugin's pin (#334, Tilman 2026-11-21): its `emits` into a rule's on (the rule hears one of its events), a
- * rule's do into its `hears` (the rule emits one of the events it hears) – the event `asked` for, else its first. Anything
+ * A wire at a plugin's pin (#334, Tilman 2026-11-21): its `emits` into a rule's on (the rule listens to one of its events), a
+ * rule's do into its `listens` (the rule emits one of the events it listens to) – the event `asked` for, else its first. Anything
  * else at a plugin is its code's: null, so `connect` refuses with the Code tab.
  */
 const pluginEvent = (a: GraphNode, aPort: string, b: GraphNode, bPort: string, asked: string | undefined): { event: string } | { refused: string } | null => {
   const plugin = a.kind === "plugin" ? a : b.kind === "plugin" ? b : null;
   if (!plugin) return null;
   const emits = plugin === a && aPort === "emits" && b.kind === "rule" && bPort === "on";
-  const hears = plugin === b && bPort === "hears" && a.kind === "rule" && (aPort === "do" || aPort.startsWith("do:"));
-  if (!emits && !hears) return { refused: CODE(plugin.label) };
-  const names = (emits ? plugin.bus?.emits : plugin.bus?.hears) ?? [];
-  if (!names.length) return { refused: `${plugin.label}'s code ${emits ? "emits" : "hears"} no event a rule can ${emits ? "hear" : "emit"} – change it in the Code tab.` };
-  if (asked !== undefined && !names.includes(asked)) return { refused: `${plugin.label} ${emits ? "emits" : "hears"} ${names.join(", ")} – not ${asked}.` };
+  const listens = plugin === b && bPort === "listens" && a.kind === "rule" && (aPort === "do" || aPort.startsWith("do:"));
+  if (!emits && !listens) return { refused: CODE(plugin.label) };
+  const names = (emits ? plugin.bus?.emits : plugin.bus?.listens) ?? [];
+  if (!names.length) return { refused: `${plugin.label}'s code ${emits ? "emits" : "listens to"} no event a rule can ${emits ? "listen to" : "emit"} – change it in the Code tab.` };
+  if (asked !== undefined && !names.includes(asked)) return { refused: `${plugin.label} ${emits ? "emits" : "listens to"} ${names.join(", ")} – not ${asked}.` };
   return { event: asked ?? names[0] };
 };
 
@@ -450,7 +450,7 @@ const connect = (draft: Draft, view: View, context: Context, from: [string, stri
   if (typed) return refuse(typed);
   const declaredEvent = specPort({ node: a, port: aPort }, "out")?.kind === "event" ? a.ports.find(p => p.id === aPort)!.label : null;
 
-  // An event or a variable into a rule: what it hears, what its condition reads
+  // An event or a variable into a rule: what it listens to, what its condition reads
   if (b.kind === "rule") {
     const ref = ruleOfBox(view, b.id);
     const at = ref && ruleAt(draft.content, ref);
@@ -459,19 +459,19 @@ const connect = (draft: Draft, view: View, context: Context, from: [string, stri
     if (why) return refuse(why);
     const name = ruleName(draft.content, ref);
     if (bPort === "on") {
-      if (!declaredEvent && !busEvent && (a.kind !== "event" || aPort !== "out")) return refuse(`A rule's on hears an event – not ${kindWord(a)}.`);
+      if (!declaredEvent && !busEvent && (a.kind !== "event" || aPort !== "out")) return refuse(`A rule's on listens to an event – not ${kindWord(a)}.`);
       const event = declaredEvent ?? busEvent ?? sceneEvent(a);
       if (event === null) {
-        if (ref.doc !== "entity") return refuse(`${a.label} is ${a.detail}'s own event – a ${ref.doc}'s rule hears the bus: a scene event or a core event.`);
+        if (ref.doc !== "entity") return refuse(`${a.label} is ${a.detail}'s own event – a ${ref.doc}'s rule listens to the bus: a scene event or a core event.`);
         const own = a.pick?.kind === "node" ? a.pick : null;
         if (!own || own.target !== ref.target || own.path.join(".") !== ref.path.join(".")) {
-          return refuse(`${a.label} is ${a.detail}'s own event – a rule hears the ${a.label} of its own node.`);
+          return refuse(`${a.label} is ${a.detail}'s own event – a rule listens to the ${a.label} of its own node.`);
         }
       }
       const on = event ?? a.label;
-      if (at.rule.on === on) return refuse(`${name} hears ${on} already.`);
+      if (at.rule.on === on) return refuse(`${name} listens to ${on} already.`);
       draft.setRule(ref, { ...at.rule, on });
-      return draft.done(`${name} now hears ${on}${at.rule.on ? ` (was ${at.rule.on})` : ""}${event && !isBehaviourNodeEvent(event) ? " – by name, from whatever emits it" : ""}.`, options);
+      return draft.done(`${name} now listens to ${on}${at.rule.on ? ` (was ${at.rule.on})` : ""}${event && !isBehaviourNodeEvent(event) ? " – by name, from whatever emits it" : ""}.`, options);
     }
     if (bPort === "when") {
       if (a.kind !== "variable" || aPort !== "get") return refuse(`A rule's when reads a variable – not ${kindWord(a)}.`);
@@ -542,7 +542,7 @@ const connect = (draft: Draft, view: View, context: Context, from: [string, stri
     } else if (b.kind === "event" && bPort === "in") {
       const event = sceneEvent(b);
       if (event === null) return refuse(`${b.label} is ${b.detail}'s own event – a rule emits scene events.`);
-      if (CORE.includes(event)) return refuse(`${event} is the engine's own event – a rule hears it, never emits it.`);
+      if (CORE.includes(event)) return refuse(`${event} is the engine's own event – a rule listens to it, never emits it.`);
       if (old && old.action !== "emit") return refuse(`Action ${index! + 1} of ${name} is ${old.action} – it does not emit an event.`);
       action = { action: "emit", event };
     } else if (b.kind === "plugin" && busEvent) {
@@ -596,9 +596,9 @@ const disconnect = (draft: Draft, view: View, context: Context, id: string, opti
     if (!at) return refuse("That rule is not in the content any more.");
     const name = ruleName(draft.content, ref);
     if (home.part === "on") {
-      // Left empty, the rule hears nothing until an event is wired to its on – a problem the panel lists (Tilman, 2026-11-20)
+      // Left empty, the rule listens to nothing until an event is wired to its on – a problem the panel lists (Tilman, 2026-11-20)
       draft.setRule(ref, { ...at.rule, on: "" });
-      return draft.done(`${name} no longer hears ${at.rule.on} – it hears nothing until you wire an event to its on.`, options);
+      return draft.done(`${name} no longer listens to ${at.rule.on} – it listens to nothing until you wire an event to its on.`, options);
     }
     if (home.part === "when") {
       const variable = edge.from[0].replace(/^var:/, "");
@@ -644,17 +644,17 @@ const disconnect = (draft: Draft, view: View, context: Context, id: string, opti
   }
   if (edge.signal === "event") {
     const box = `event:${edge.label}`;
-    const hears = view.edges.filter(e => e.from[0] === box && e.home?.part === "on" && here(e));
-    if (!hears.length) return refuse(`Nothing at this level hears ${edge.label}.`);
+    const listens = view.edges.filter(e => e.from[0] === box && e.home?.part === "on" && here(e));
+    if (!listens.length) return refuse(`Nothing at this level listens to ${edge.label}.`);
     const names: string[] = [];
-    for (const hear of hears) {
-      const ref = refOf(hear.home!);
+    for (const listen of listens) {
+      const ref = refOf(listen.home!);
       const at = ruleAt(draft.content, ref);
       if (!at) continue;
       names.push(ruleName(draft.content, ref));
       draft.setRule(ref, { ...at.rule, on: "" });
     }
-    return draft.done(`${names.join(", ")} no longer hear${names.length === 1 ? "s" : ""} ${edge.label} – ${names.length === 1 ? "it hears" : "they hear"} nothing until you wire an event to ${names.length === 1 ? "its" : "their"} on. The wire joined by name: ${edge.label} is still ${where || "emitted where it was"}.`, options);
+    return draft.done(`${names.join(", ")} no longer listen${names.length === 1 ? "s" : ""} to ${edge.label} – ${names.length === 1 ? "it listens to" : "they listen to"} nothing until you wire an event to ${names.length === 1 ? "its" : "their"} on. The wire joined by name: ${edge.label} is still ${where || "emitted where it was"}.`, options);
   }
   return refuse("That wire is drawn from a name, not written in a rule – nothing to remove here.");
 };
@@ -838,7 +838,7 @@ const canvasEdit = (draft: Draft, context: Exclude<Context, { level: "group" }>,
 /**
  * The ports that take a wire dragged from `from` (`dir`: from an outlet or back from an inlet), by box id – each one the
  * strict `connect` would apply. A plugin has two pins (#334): its `emits` reaches a rule's on, a rule's do reaches its
- * `hears`; what it reads, sets and drives are display rows, no pins.
+ * `listens`; what it reads, sets and drives are display rows, no pins.
  */
 export const takesWire = (content: LogicContent, context: Context, from: [string, string], dir: "in" | "out", options: ProjectOptions = {}): Map<string, Set<string>> => {
   const takes = new Map<string, Set<string>>();
@@ -964,10 +964,10 @@ const applyOp = (op: Op, content: LogicContent, context: Context, options: Proje
         case "setEvent": {
           const on = op.on.trim();
           if (!isName(on)) return refuse(`"${on}" is no event – an event's name (camelCase).`);
-          if (ref.doc !== "entity" && isBehaviourNodeEvent(on)) return refuse(`${on} is a node's own event – a ${ref.doc}'s rule hears the bus: a scene event or a core event.`);
-          if (at.rule.on === on) return refuse(`${name} hears ${on} already.`);
+          if (ref.doc !== "entity" && isBehaviourNodeEvent(on)) return refuse(`${on} is a node's own event – a ${ref.doc}'s rule listens to the bus: a scene event or a core event.`);
+          if (at.rule.on === on) return refuse(`${name} listens to ${on} already.`);
           draft.setRule(ref, { ...at.rule, on });
-          return draft.done(`${name} now hears ${on}${at.rule.on ? ` (was ${at.rule.on})` : ""}.`, options);
+          return draft.done(`${name} now listens to ${on}${at.rule.on ? ` (was ${at.rule.on})` : ""}.`, options);
         }
         case "removeRule":
           draft.setRule(ref, undefined);

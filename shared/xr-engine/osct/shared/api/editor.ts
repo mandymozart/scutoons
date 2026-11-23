@@ -120,6 +120,85 @@ export interface PublishResult {
   export: { path: string; written: boolean; error?: string };
 }
 
+/**
+ * A publish as a job (#345, server/api/src/PublishJob.php): `POST …/publish` answers 200 with the outcome and `job` when it
+ * ended within the server's step, else 202 `{ job }` – then `GET …/publish/{job}` reports it (and writes the next part
+ * where nothing runs on after an answer); `GET …/publish` = the experience's newest job (`{ job: null }`: none kept).
+ */
+export interface PublishJob {
+  id: string;
+  experience: string;
+  env: string;
+  status: "running" | "done" | "failed";
+  /** version (the build's folder) → switch (versions.json, latest.json) → archive (the export archive) → done */
+  phase: "version" | "switch" | "archive" | "done";
+  build: string;
+  hash: string;
+  /** latest.json names the build – readers get it; the export archive may still be written */
+  live: boolean;
+  /** Files written or found on the store already, of `total` (the two of the switch included) */
+  done: number;
+  total: number;
+  /** Files the store held already (not written again) */
+  skipped: number;
+  /** The files of the version folder (`build`) and of the export archive (`archive`): total = build + 2 (the switch) + archive;
+   * absent on a job an older server started */
+  parts?: { build: number; archive: number };
+  startedAt: string;
+  updatedAt: string;
+  /** done: what the publish answers */
+  result?: PublishResult;
+  /** failed: why (`abandoned`: no one continued it and a newer publish took its place) */
+  error?: { code: string; message: string; status: number };
+}
+
+/** `POST …/publish` done in time: the outcome with its job; still running (202): the job alone */
+export type PublishStarted = (PublishResult & { job: PublishJob }) | { job: PublishJob };
+
+/** `POST /editor/experiences/{id}/versions/{build}/activate` (#348): the build that is live again, and the one it replaced */
+export interface VersionActivated {
+  env: string;
+  build: string;
+  hash: string;
+  activatedAt: string;
+  previous: string | null;
+  version: { publishedAt: string; note: string };
+}
+
+/** A change of `GET /editor/recent` (#348): across the instance's experiences, with the scene it is on (null: none) */
+export interface RecentChange {
+  experience: string;
+  experienceTitle: string;
+  kind: string;
+  ref: string;
+  scene: string | null;
+  sceneLabel: string | null;
+  /** The entry's title for an entry's or a target's change */
+  entry: string | null;
+  user: string | null;
+  token: string | null;
+  at: string;
+}
+
+/**
+ * The export file (#348, `GET /editor/experiences/{id}/export/file`): an import body as it is – `configuration`, `files`,
+ * `assetsBase` (a published build's folder) and the Code tab `sources` – with what it is of
+ */
+export interface ExportDownload {
+  format: "osct-export";
+  formatVersion: number;
+  experience: string;
+  title: string;
+  build: string;
+  appVersion: string;
+  exportedAt: string;
+  source: { kind: "draft" } | { kind: "published"; env: string; publishedAt: string; publishedBy: string | null };
+  configuration: Record<string, unknown>;
+  files: Record<string, unknown>;
+  assetsBase?: string;
+  sources: { id: string; source: string }[];
+}
+
 /** A row of the publish log (`GET /editor/experiences/{id}/versions`, newest first) */
 export interface PublishedVersion {
   id: string;
@@ -296,6 +375,8 @@ export interface ImportCounts {
   entries: number;
   targets: number;
   entities: number;
+  /** The Code tab sources an import's `sources` (an export file) carries – only when it carries any (#348) */
+  plugins?: number;
 }
 
 /** `details.comparison` of a 409 confirm-import, and a preview's `existing`: what comes in against the draft */
@@ -311,6 +392,11 @@ export interface ImportComparison {
     live: { env: string; build: string | null; current: boolean }[];
   };
   same: boolean;
+  /**
+   * What comes in against what the draft holds (#348; null in a preview without a configuration): scenes, entries,
+   * targets, shared entities and Code tab sources each side, and the draft's sources the import's `sources` replace
+   */
+  counts?: { incoming: Required<ImportCounts>; draft: Required<ImportCounts>; sourcesReplaced: string[] } | null;
 }
 
 /**

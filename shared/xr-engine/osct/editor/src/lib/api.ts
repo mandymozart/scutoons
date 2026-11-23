@@ -38,7 +38,9 @@ import type {
   ExperienceSummary,
   ExperienceList,
   ExperienceTree,
+  PublishJob,
   PublishResult,
+  PublishStarted,
   ImportComparison,
   ImportPreview,
   ExperienceSaved,
@@ -48,9 +50,13 @@ import type {
   ExperienceVariablesSaved,
   RemovalImpact,
   IncomingBuild,
+  PublishedVersion,
+  VersionActivated,
+  RecentChange,
+  ExportDownload,
   ImportResult,
 } from "@shared/api/editor";
-export type { EnvironmentUnreadable, ExperienceSummary, ExperienceList, ExperienceTree, PublishResult, ImportComparison, ImportPreview, ExperienceSaved, ExperiencePassesSaved, ExperienceAppearanceSaved, RemovalImpact } from "@shared/api/editor";
+export type { EnvironmentUnreadable, ExperienceSummary, ExperienceList, ExperienceTree, PublishJob, PublishResult, PublishStarted, ImportComparison, ImportPreview, ExperienceSaved, PublishedVersion, VersionActivated, RecentChange, ExportDownload, ExperiencePassesSaved, ExperienceAppearanceSaved, RemovalImpact } from "@shared/api/editor";
 import { apiErrorFields } from "@shared/api/errors";
 import { imageUseQuery, type ImageFit, type ImageUse } from "@shared/api/images";
 import type { PublishedPlugin } from "#lib/publish-plugins.js";
@@ -158,12 +164,12 @@ export const authFetch: typeof fetch = (input, init = {}) => {
 /** Called when the session ended under the page (a 401 while signed in) – the session store registers it */
 let sessionEnded: (() => void) | null = null;
 
-/** Who hears that the session ended (`session.svelte.ts`); null: nobody */
+/** Who listens for the end of the session (`session.svelte.ts`); null: nobody */
 export const onSessionEnd = (handler: (() => void) | null): void => {
   sessionEnded = handler;
 };
 
-/** The session ended under the page: forgotten here, and the session store hears it */
+/** The session ended under the page: forgotten here, and the session store listens to it */
 const endSession = (): void => {
   setSession(null);
   sessionEnded?.();
@@ -171,7 +177,7 @@ const endSession = (): void => {
 
 /**
  * A 401 to a call sent while signed in means the session is gone (expired, signed out elsewhere – the reader shares the
- * cookie –, the account's roles revoked): the session store hears it. Not when another sign-in happened meanwhile, nor
+ * cookie –, the account's roles revoked): the session store listens to it. Not when another sign-in happened meanwhile, nor
  * when the call was sent signed out – then a 401 is only "not signed in".
  */
 const checkSession = (response: Response, sent: SessionKey | null): void => {
@@ -426,18 +432,44 @@ export const getExperience = (experienceId: string, { fresh = false }: { fresh?:
 };
 
 /** What an import sends: a configuration, or the instance CDN's current version – `confirm` = the second step */
-export type ImportSource = { configuration: GameConfiguration; files?: unknown; assetsBase?: string } | { source: "cdn"; experience?: string };
-export type ImportBody = ImportSource & { confirm?: string };
+export type ImportSource =
+  | { configuration: GameConfiguration; files?: unknown; assetsBase?: string; sources?: { id: string; source: string }[] }
+  | { source: "cdn"; experience?: string };
+/**
+ * `rename` (#348): the configuration becomes the path experience's (another experience's export or published version);
+ * `title` replaces its title; `create`: a new experience only (the slug rule of `POST /editor/experiences`, 409 duplicate-id)
+ */
+export type ImportBody = ImportSource & { confirm?: string; rename?: boolean; title?: string; create?: boolean };
 
-/** What the import of this body would bring in and replace – read-only; 502 content-fetch-failed names the `url` */
-export const previewImport = (body: ImportSource) => api<ImportPreview>("POST", "/editor/import/preview", body);
+/**
+ * What the import of this body would bring in and replace – read-only; 502 content-fetch-failed names the `url`. `into`
+ * (#348): the experience it goes to with `rename` – the comparison is that one's
+ */
+export const previewImport = (body: ImportSource & { into?: string }) => api<ImportPreview>("POST", "/editor/import/preview", body);
 
 /**
  * Imports into the experience. Over an experience that exists the API answers 409 `confirm-import` (or `confirmation-void`) with
  * `details.comparison` (an `ImportComparison`) and `details.confirmation` – `confirmationStep(error, "import")` reads
  * them; the same call with `confirm` then imports.
  */
+/** A new, empty experience (#343, `POST /editor/experiences`): its id is its slug – its reader path `/<id>/` */
+export const createExperience = (body: { id: string; title: string }) => api<{ experience: ExperienceSummary }>("POST", "/editor/experiences", body);
+
 export const importExperience = (experienceId: string, body: ImportBody) => api<ImportResult>("POST", `/editor/experiences/${encodeURIComponent(experienceId)}/import`, body);
+
+/** The publish log, newest first */
+export const listVersions = (experienceId: string) => api<{ versions: PublishedVersion[] }>("GET", `/editor/experiences/${encodeURIComponent(experienceId)}/versions`);
+
+/** An older build of this instance's environment live again (#348) – readers get it on their next start, the draft stays */
+export const activateVersion = (experienceId: string, build: string) =>
+  api<VersionActivated>("POST", `/editor/experiences/${encodeURIComponent(experienceId)}/versions/${encodeURIComponent(build)}/activate`);
+
+/** The newest changes across the instance's experiences, each with its scene (#348: Last worked on) */
+export const recentChanges = (limit = 40) => api<{ changes: RecentChange[] }>("GET", `/editor/recent?limit=${limit}`);
+
+/** The export file's address (#348) – a plain link downloads it (the session's cookie goes with a GET) */
+export const exportFileUrl = (experienceId: string, build?: string): string =>
+  `${API_URL}/editor/experiences/${encodeURIComponent(experienceId)}/export/file${build ? `?build=${encodeURIComponent(build)}` : ""}`;
 
 /** This instance's environments (`GET /editor/environments`): the one it publishes to, each one's backend */
 export const listEnvironments = () => api<EnvironmentsInfo>("GET", "/editor/environments");
@@ -456,7 +488,15 @@ export const putTargetEntity = (experienceId: string, targetId: string, entity: 
  * (`publish-plugins.ts`, #78) – the API puts them into the version
  */
 export const publishExperience = (experienceId: string, env: string, options: { note?: string; plugins?: PublishedPlugin[] } = {}) =>
-  api<PublishResult>("POST", `/editor/experiences/${encodeURIComponent(experienceId)}/publish`, { env, ...options });
+  api<PublishStarted>("POST", `/editor/experiences/${encodeURIComponent(experienceId)}/publish`, { env, ...options });
+
+/** A publish job (#345): its progress, outcome or error – a poll may write its next part on the server */
+export const getPublishJob = (experienceId: string, jobId: string) =>
+  api<{ job: PublishJob }>("GET", `/editor/experiences/${encodeURIComponent(experienceId)}/publish/${encodeURIComponent(jobId)}`);
+
+/** The experience's newest publish job (null: none kept) – a running one runs on like a poll */
+export const latestPublishJob = (experienceId: string) =>
+  api<{ job: PublishJob | null }>("GET", `/editor/experiences/${encodeURIComponent(experienceId)}/publish`);
 
 /** The draft as a content version – the engine's `loadGameConfiguration({ baseUrl, fetch: authFetch })` reads it */
 export const draftBaseUrl = (experienceId: string): string => `${API_URL}/editor/experiences/${encodeURIComponent(experienceId)}/draft`;

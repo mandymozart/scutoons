@@ -108,7 +108,7 @@ export interface ComponentContext<P = Record<string, unknown>, E extends string 
   three: typeof THREE;
   /**
    * Emit one of the events its spec declares (`events`) on the bus, with the target's id (and the payload's fields) – a
-   * rule hears it by name. An event the spec does not declare is not sent (a warning)
+   * rule listens to it by name. An event the spec does not declare is not sent (a warning)
    */
   emit(event: E, payload?: Record<string, unknown>): void;
 }

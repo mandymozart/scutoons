@@ -15,9 +15,9 @@ export interface XrOsctSource {
 	scene?: string;
 	/** the published content version (build) */
 	build: string;
-	/** the content schema it was written in (`5.1`) */
+	/** the content schema it was written in (`6.0`) */
 	schema: string;
-	/** the OSCT app version that wrote it (`4.1.0`) */
+	/** the OSCT app version that wrote it (`6.3.2`) */
 	app: string;
 }
 
@@ -27,7 +27,7 @@ export interface XrOsctSource {
  */
 export interface XrGameConfiguration {
 	version: {
-		/** the content schema (`5.1`) */
+		/** the content schema (`6.0`) */
 		schema: string;
 		[key: string]: unknown;
 	};
@@ -41,7 +41,7 @@ export interface XrGameConfiguration {
 export interface XrPlugin {
 	/** `^[a-z][a-z0-9-]{0,39}$`, unique in the experience */
 	id: string;
-	/** the plugin API it was built for (`3.1`) */
+	/** the plugin API it was built for (`4.0`) */
 	api: string;
 	/** the module's source, at most 262144 bytes */
 	code: string;

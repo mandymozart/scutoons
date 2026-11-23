@@ -458,7 +458,7 @@ const playLook = (anchor: Object3D, entity: Object3D, moment: Moment, look: Appe
     blended.set(clone, original.transparent);
   });
 
-  // Lights (light nodes) and the code on the entity hear how much of it is there; all of it again at the end
+  // Lights (light nodes) and the code on the entity listen to how much of it is there; all of it again at the end
   const told = tell(entity, exclude);
 
   // Shape: the entity's object is transformed in the anchor's space around the centre of its footprint (the middle

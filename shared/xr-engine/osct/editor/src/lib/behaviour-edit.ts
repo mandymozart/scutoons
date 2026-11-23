@@ -179,8 +179,8 @@ export const experienceVariables = (trees: readonly EntityData[], live: readonly
   [...new Set([...behaviourVariables([...allRules(trees), ...rules]), ...live])].sort();
 
 /**
- * The events a rule may hear besides the node's own: the scene events the experience's behaviours and its scene and
- * experience rules (`rules`) hear and emit, the ones seen on the stage's timeline (a plugin's too), then the engine's core events
+ * The events a rule may listen to besides the node's own: the scene events the experience's behaviours and its scene and
+ * experience rules (`rules`) listen to and emit, the ones seen on the stage's timeline (a plugin's too), then the engine's core events
  */
 export const experienceEvents = (trees: readonly EntityData[], seen: readonly string[] = [], rules: readonly BehaviourRule[] = []): string[] => {
   const core = BEHAVIOUR_CORE_EVENTS as readonly string[];

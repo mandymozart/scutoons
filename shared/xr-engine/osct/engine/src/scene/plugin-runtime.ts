@@ -8,7 +8,7 @@ import { getScene } from "../content/game-config";
  *
  * - **Events** have two owners (the concept's rule): *core events* describe the experience and are emitted by the scene
  *   only (`CORE_EVENTS` – a plugin that emits one gets an error); *scene events* are the content's own, any other
- *   name, emitted and heard by plugins freely. One flat bus: every plugin on the stage hears every event.
+ *   name, emitted and listened to by plugins freely. One flat bus: every plugin on the stage listens to every event.
  * - **Variables** live in a scope: `scene` while the scene is the current one, `stage` while the scene exists,
  *   `session` per app start, `experience` persisted with the reader's progress (through the app's `ProgressReader`;
  *   in memory without one). A read without a scope looks outward – scene, stage, session, experience – and the innermost
@@ -76,7 +76,7 @@ export interface ProgressReader {
 
 /** `api.events` */
 export interface PluginEvents {
-  /** Hear a core event or a scene event; returns the unsubscribe (a plugin's listeners go when it is uninstalled) */
+  /** Listen to a core event or a scene event; returns the unsubscribe (a plugin's listeners go when it is uninstalled) */
   on<E extends keyof CoreEvents>(event: E, listener: EventListener<CoreEvents[E]>): () => void;
   on(event: string, listener: EventListener): () => void;
   /** Emit a scene event (any name that is not a core event) to every plugin on the stage */
@@ -89,7 +89,7 @@ export interface PluginVars {
   get(name: string, scope?: VarScope): VarValue | undefined;
   /** Set (or delete with `null`) a variable in a scope – `scene` by default */
   set(name: string, value: VarValue | null, scope?: VarScope): void;
-  /** Hear every change of a variable (in any scope) */
+  /** Listen to every change of a variable (in any scope) */
   on(name: string, listener: (value: VarValue | undefined, previous: VarValue | undefined, scope: VarScope) => void): () => void;
   /** Every variable of a scope */
   all(scope: VarScope): Record<string, VarValue>;
@@ -136,7 +136,7 @@ export const setVariableTypes = (types: ReadonlyMap<string, VariableInfo>): void
 export const variableInfo = (name: string): VariableInfo | undefined => variableTypes.get(name);
 
 const listeners = new Set<Listener>();
-/** The editor's log: hears every delivery without being a plugin */
+/** The editor's log: listens to every delivery without being a plugin */
 const observers = new Set<(event: string, payload: unknown) => void>();
 const scopes: Record<Exclude<VarScope, "experience">, Map<string, VarValue>> = { scene: new Map(), stage: new Map(), session: new Map() };
 /** The `experience` scope without an app that persists it */
@@ -305,13 +305,13 @@ export const allVars = (): Array<{ scope: VarScope; name: string; value: VarValu
 
 /**
  * A rule of a `behaviour` component fired (`behaviour.ts`): told to the observers only, as the pseudo-event `behaviour` –
- * the editor's log shows which rule ran and what it did; it is no event of the bus, plugins never hear it
+ * the editor's log shows which rule ran and what it did; it is no event of the bus, plugins never listen to it
  */
 export const noteBehaviour = (payload: BehaviourNote): void =>
   observers.forEach(observer => observer("behaviour", payload));
 
 /**
- * What the editor's log hears of a rule that fired: a node's rule names its target (and the node's name), a scene's or
+ * What the editor's log listens to of a rule that fired: a node's rule names its target (and the node's name), a scene's or
  * the experience's rule (schema 5.0) its `home` (and the scene)
  */
 export type BehaviourNote =
@@ -339,7 +339,7 @@ export const navigateTo = (address: string, from: string): void => {
   }
 };
 
-/** Hear every event of the stage without being a plugin (the editor's log); returns the unsubscribe */
+/** Listen to every event of the stage without being a plugin (the editor's log); returns the unsubscribe */
 export const observeEvents = (listener: (event: string, payload: unknown) => void): (() => void) => {
   observers.add(listener);
   return () => observers.delete(listener);

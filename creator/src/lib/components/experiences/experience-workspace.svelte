@@ -252,7 +252,7 @@
 	}
 
 	// the Spores tab (#763): the experience's logic as a weave from its top level (its scenes, groups, plugins and what
-	// joins them – OSCT's projection, `listens` where OSCT says hears), offered while the experience is open; read only
+	// joins them – OSCT's projection), offered while the experience is open; read only
 	// until the scope's ops exist. A scene's own level is entered from there (its weave is empty without rules of its own).
 	const sporesAddress = $derived(id ? `experience:${id}` : '');
 	$effect(() => {

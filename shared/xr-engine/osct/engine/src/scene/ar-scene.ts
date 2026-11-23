@@ -583,7 +583,7 @@ export class ArScene implements IArScene {
 
   /**
    * The rules of the scene that opened and of the experience (schema 5.0): the scene's are built for it, the experience's
-   * live on (their rules read again – the content may have changed); both then hear `sceneChanged`, now that the scene's
+   * live on (their rules read again – the content may have changed); both then listen to `sceneChanged`, now that the scene's
    * nodes exist
    */
   private openLogic(sceneId: string): void {
@@ -679,7 +679,7 @@ export class ArScene implements IArScene {
   };
 
   /**
-   * A tap on a found target's entity: its hooks hear `onTap`, the app `targetTapped` (with whether the entity used the
+   * A tap on a found target's entity: its hooks listen to `onTap`, the app `targetTapped` (with whether the entity used the
    * tap itself – a video paused or played, #290), the plugins the core event of the same name. The reader's tap reaches it through the hit test, an editor tool directly (`inspect().tap`).
    * False – nothing happens – while the scene does not run, or when the target is not found or has no entity.
    */

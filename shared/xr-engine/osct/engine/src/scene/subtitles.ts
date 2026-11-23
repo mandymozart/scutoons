@@ -4,7 +4,7 @@ import { getSubtitleTrack } from "../content/game-config";
 /**
  * The subtitle line of the scene: while a video of the scene plays, the cue of its subtitle file at the video's own
  * time – the video is the clock, so the line can not drift from the sound. The scene asks every frame (`update`) and
- * hears the line only when it changes (`report`: the text, or null for none). Which file a video has is the content's
+ * listens to the line only when it changes (`report`: the text, or null for none). Which file a video has is the content's
  * (`getSubtitleTrack`: the track of the app's language, with its fallbacks); a file is fetched once, when its video
  * first plays. The scene shows nothing itself: the app draws the line.
  */

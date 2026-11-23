@@ -15,7 +15,7 @@
  *         when: hasKey
  *         do: [{ set: { chapterDone: true }, scope: experience }, { goto: "scene:epilogue" }]
  *
- * `rules` hear the bus's events (scene events, core events – not a node's own found / lost / tap / unlocked) and name
+ * `rules` listen to the bus's events (scene events, core events – not a node's own found / lost / tap / unlocked) and name
  * nodes by address (`target:<targetId>/<node name>`, `./address.ts`). `canvas` is authoring data for the editor's Logic
  * view (`LogicCanvas`): stored with the experience (the database, the editor, the export) and never in a reader's game
  * configuration – the content build and a publish strip it (`withoutCanvas`), and the engine never reads it.

@@ -22,11 +22,11 @@
  * **Where rules live** (`RuleHome`): on a node (`entity` – the behaviour component; its actions name nodes of its subtree),
  * on a scene (`scene` – live while the scene is open) or on the experience (`experience` – live for the whole session,
  * across scene switches). Scene and experience rules name nodes by address (`target:<targetId>/<node name>`, `./address.ts`).
- * **Events**: a node's rules hear the node's own `found`, `lost`, `tap` and `unlocked` (the target's first find), or any
+ * **Events**: a node's rules listen to the node's own `found`, `lost`, `tap` and `unlocked` (the target's first find), or any
  * other name – an event of the engine's bus (a scene event a plugin or another rule emits, or a core event such as
- * `targetFound`). A scene's and the experience's rules hear the bus only: scene events and the core events
+ * `targetFound`). A scene's and the experience's rules listen to the bus only: scene events and the core events
  * (`BEHAVIOUR_CORE_EVENTS`) – never a node's own four, which belong to one node (`targetFound` with a target's id is the
- * scene-wide one). An empty `on` hears nothing and is a problem (the editor can leave it empty while an author rewires).
+ * scene-wide one). An empty `on` listens to nothing and is a problem (the editor can leave it empty while an author rewires).
  * **Conditions** (schema 5.0, #334): `when` is an expression of the experience's expression language
  * (`../text/expressions.ts`, SCUTOONS' / ink's: `hasKey && tries > 2`, `mood == "happy" || !door`); the rule runs when its
  * value is true the ink way (0, "", false and a variable that is not set are false). A variable is read like a plugin's
@@ -69,7 +69,7 @@ export const BEHAVIOUR_NODE_ACTIONS = ["play", "pause", "stop", "show", "hide"] 
 export const BEHAVIOUR_SCOPES = ["scene", "stage", "session", "experience"] as const;
 export type BehaviourScope = (typeof BEHAVIOUR_SCOPES)[number];
 
-/** The engine's core events: heard by a rule, never emitted (the runtime's `CORE_EVENTS` are these) */
+/** The engine's core events: listened to by a rule, never emitted (the runtime's `CORE_EVENTS` are these) */
 export const BEHAVIOUR_CORE_EVENTS = ["targetFound", "targetLost", "targetUnlocked", "targetTapped", "sceneChanged", "arState", "varChanged"] as const;
 
 /** A variable's or an event's name: camelCase letters and digits (the runtime's `EVENT_NAME_PATTERN` is this one) */
@@ -127,8 +127,8 @@ export const rulesProblems = (rules: unknown, at: string, home: RuleHome): strin
   return rules.flatMap((rule, i) => ruleProblems(rule, `${at}[${i}]`, home));
 };
 
-/** What a rule of this home hears, in words */
-const hears = (home: RuleHome) =>
+/** What a rule of this home listens to, in words */
+const listenedTo = (home: RuleHome) =>
   home === "entity"
     ? `${BEHAVIOUR_NODE_EVENTS.join(", ")} or an event's name (camelCase)`
     : `an event of the bus – a scene event's name (camelCase) or a core event (${BEHAVIOUR_CORE_EVENTS.join(", ")})`;
@@ -138,9 +138,9 @@ const ruleProblems = (rule: unknown, at: string, home: RuleHome): string[] => {
   const problems: string[] = [];
   Object.keys(rule).filter(key => !["on", "when", "do"].includes(key)).forEach(key => problems.push(`${at}.${key}: unknown field of a rule (on, when, do)`));
   if (typeof rule.on !== "string" || !BEHAVIOUR_NAME_PATTERN.test(rule.on)) {
-    problems.push(`${at}.on: expected ${hears(home)}, got ${show(rule.on)}`);
+    problems.push(`${at}.on: expected ${listenedTo(home)}, got ${show(rule.on)}`);
   } else if (home !== "entity" && isBehaviourNodeEvent(rule.on)) {
-    problems.push(`${at}.on: ${rule.on} is a node's own event – a ${home}'s rule hears ${hears(home)}`);
+    problems.push(`${at}.on: ${rule.on} is a node's own event – a ${home}'s rule listens to ${listenedTo(home)}`);
   }
   if (rule.when !== undefined) problems.push(...conditionProblems(rule.when, `${at}.when`));
   if (rule.do === undefined) problems.push(`${at}.do: a rule needs an action or a list of actions`);
@@ -207,7 +207,7 @@ const actionProblems = (action: unknown, at: string, home: RuleHome): string[] =
       break;
     case "emit":
       if (typeof value !== "string" || !BEHAVIOUR_NAME_PATTERN.test(value)) problems.push(`${at}.emit: expected an event's name (camelCase letters and digits), got ${show(value)}`);
-      else if (isBehaviourCoreEvent(value) || isBehaviourNodeEvent(value)) problems.push(`${at}.emit: ${value} is the engine's own event – a rule hears it, never emits it`);
+      else if (isBehaviourCoreEvent(value) || isBehaviourNodeEvent(value)) problems.push(`${at}.emit: ${value} is the engine's own event – a rule listens to it, never emits it`);
       break;
     case "goto": {
       const problem = addressProblem(value, GOTO_SCHEMES);
@@ -307,7 +307,7 @@ export const behaviourVariables = (rules: readonly BehaviourRule[]): string[] =>
     ...rule.do.flatMap(action => (action.action === "set" ? [action.name, ...(action.value ? expressionVariables(action.value) : [])] : [])),
   ]))].sort();
 
-/** The bus events a set of rules hears and emits, sorted (the node's own events and an empty `on` left out) */
+/** The bus events a set of rules listens to and emits, sorted (the node's own events and an empty `on` left out) */
 export const behaviourEvents = (rules: readonly BehaviourRule[]): string[] =>
   [...new Set(rules.flatMap(rule => [
     ...(!rule.on || isBehaviourNodeEvent(rule.on) ? [] : [rule.on]),

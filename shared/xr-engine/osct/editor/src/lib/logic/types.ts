@@ -113,7 +113,7 @@ export interface GraphNode {
   enter?: Context;
   /** What is wrong with it, if anything (an error drawn in the error colour, a warning dashed) */
   problem?: string;
-  /** How bad its problem is: an error (a broken name, a refused type) or a warning (nothing hears, sets or emits it) */
+  /** How bad its problem is: an error (a broken name, a refused type) or a warning (nothing listens to, sets or emits it) */
   problemSeverity?: Severity;
   /** It stands for something outside this level */
   far?: boolean;
@@ -128,8 +128,8 @@ export interface GraphNode {
    * as plain text under the pins, each row's names joined to their boxes by a dotted reference line (`View.refs`)
    */
   rows?: DisplayRow[];
-  /** A plugin box: the events its `emits` outlet gives and its `hears` inlet takes (its declared uses) – a wire picks one */
-  bus?: { emits: string[]; hears: string[] };
+  /** A plugin box: the events its `emits` outlet gives and its `listens` inlet takes (its declared uses) – a wire picks one */
+  bus?: { emits: string[]; listens: string[] };
 }
 
 /** A display row of a box: the verb (`reads`, `sets`, `drives`) and the names – the text `reads hasKey, scene` */
@@ -274,9 +274,9 @@ export type RulePlace = { doc: "entity"; target: string; path: number[] } | { do
 export type Op = (
   /** `when` / `do`: the new rule comes with a condition and actions (the add menu's action with no rule selected, #334) */
   | { op: "addRule"; at: RulePlace; on?: string; when?: string | null; do?: BehaviourAction[] }
-  /** What a rule hears (a wire dropped from its on on the empty canvas, #334) */
+  /** What a rule listens to (a wire dropped from its on on the empty canvas, #334) */
   | { op: "setEvent"; home: Home; on: string }
-  /** `event`: which of a plugin's events a wire to its `emits` or `hears` means (its first by default, #334) */
+  /** `event`: which of a plugin's events a wire to its `emits` or `listens` means (its first by default, #334) */
   | { op: "connect"; from: [string, string]; to: [string, string]; verb?: BehaviourAction["action"]; event?: string }
   | { op: "disconnect"; edge: string }
   /** `when`: the condition's expression (null: always) – type-checked before it is written (B8) */

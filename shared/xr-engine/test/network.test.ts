@@ -67,7 +67,7 @@ test('the experience level: its groups frame their scenes on the canvas, no spor
 	assert.equal(projectXr(doc, 'experience:demo').canvas, undefined);
 });
 
-test('SCUTOONS listens to events: no weave says hear (OSCT copy unchanged, translated at the edge)', () => {
+test('SCUTOONS listens to events: no weave says hear (OSCT 6.0 listens itself)', () => {
 	for (const context of ['experience:demo', 'experience:demo/scene:poster', 'experience:demo/scene:back']) {
 		const weave = projectXr(doc, context);
 		assert.doesNotMatch(JSON.stringify(weave), /\bhear/i, context);

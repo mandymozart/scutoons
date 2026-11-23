@@ -93,7 +93,7 @@ export type AssetType = (typeof ASSET_TYPES)[number];
  * **5.0** (#334, agents/research/2026-11-20-logic-nodes-shared-concept.md §5.4): logic beyond the nodes. A rule's `when`
  * is an expression of the experience's expression language (`hasKey && tries > 2`, `../text/expressions.ts`) – the
  * object form (`{ hasKey: true }`, `{ any: … }`, `{ not: … }`) is gone; a scene's and the experience's optional `logic`
- * (`{ rules, canvas? }`, `./logic.ts`) hold rules in the behaviour's grammar that hear the bus and name nodes by address
+ * (`{ rules, canvas? }`, `./logic.ts`) hold rules in the behaviour's grammar that listen to the bus and name nodes by address
  * (`target:<targetId>/<node name>`, `./address.ts`); every rule gains the action `goto` (`scene:<id>`). The canvas is
  * authoring data and never in a reader's configuration. A `set` value is an expression (`tries + 1`; a text is the
  * language's literal `"calm"`), and variables are typed – declared in the experience's optional `variables` or inferred
@@ -102,7 +102,7 @@ export type AssetType = (typeof ASSET_TYPES)[number];
  *
  * **5.1** (#334 L-T6, §5.9 – plugin API 3.1): ports from the specs. A spec a plugin registers (component, node type, pass,
  * material, texture, look) may declare `actions` (the rule verbs it answers), `events` (the scene events it emits) and
- * `uses` (what its code hears, emits, reads and sets – `SpecLogic`, `./components.ts`); the build records them in the
+ * `uses` (what its code listens to, emits, reads and sets – `SpecLogic`, `./components.ts`); the build records them in the
  * plugin's `registered`. A number parameter may carry `slider` (its soft range) and `integer`. A logic canvas may carry
  * `exposed` (the ports an author exposed per box, `./logic.ts`). The built-in node types have specs for the Logic view
  * (`BUILT_IN_NODE_SPECS`, `./node-types.ts`). An app of 5.0 ignores the new spec fields (it reads a recorded spec's
@@ -115,12 +115,18 @@ export type AssetType = (typeof ASSET_TYPES)[number];
  * **5.3** (#334): notes on the Logic canvas as the deck's – a canvas note may carry `box` (it stands beside that box, its
  * `x`, `y` an offset), `author` and `view` (the target's view of a scene's canvas it is drawn in, `./logic.ts`). Authoring
  * data only, like 5.2: an app of 5.2 is not touched.
+ *
+ * **6.0** (#341, plugin API 4.0 – Tilman, 2026-11-21: "you use the word hear for events. i think it is listen"): a
+ * recorded spec's bus use is `uses.listens` (was `uses.hears`, `./components.ts`). A rename, so a MAJOR: an app of 6.0
+ * reads 6.x only (`OLDEST_READABLE_SCHEMA_MAJOR` 6) and a 5.x app refuses 6.0 – a content source's plugin sources are
+ * rewritten (`osct plugins listen --dir`), the server's rows by `Migration6.php`, the stored plugin sources by
+ * `osct plugins listen`; every published experience is published again.
  * Every change in shared/ needs a bump: shared/content-schema.json locks the checksum of shared/ to this
  * version (scripts: `npm run schema:lock`, checked by a test).
  */
-export const CONTENT_SCHEMA_VERSION = "5.3";
-/** The oldest content schema MAJOR this contract reads – 5: no 4.x content is read (5.0 reshaped every rule's `when`) */
-export const OLDEST_READABLE_SCHEMA_MAJOR = 5;
+export const CONTENT_SCHEMA_VERSION = "6.0";
+/** The oldest content schema MAJOR this contract reads – 6: no 5.x content is read (6.0 renamed a spec's `uses.hears` to `uses.listens`) */
+export const OLDEST_READABLE_SCHEMA_MAJOR = 6;
 
 export interface ContentSchema {
   major: number;

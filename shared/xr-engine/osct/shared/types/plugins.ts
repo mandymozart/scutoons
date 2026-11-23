@@ -25,6 +25,8 @@
  * functions infer a handler's `params` from the spec; a spec's optional `actions`, `events` and `uses` (`SpecLogic`,
  * `./components.ts`) – a handler's `emit` for the declared events and an instance's `onAction` for the declared verbs; a
  * number parameter's `slider` (soft range) and `integer`.
+ * **4.0** (content schema 6.0, #341, no alias – Tilman: "i think it is listen"): a spec's bus use names what its code
+ * listens to `uses.listens` (was `uses.hears`) – a plugin built against 3.x is not loaded until it is built again.
  *
  * What a plugin registers is recorded by the content build (content schema 2.14, #90): it runs every plugin once with a
  * recording API and writes the specs into the plugin's `registered` – so the guard, the editor's API, the MCP server and
@@ -40,7 +42,7 @@ import { isBuiltInPassType, type PassSpec } from "./passes";
 import { materialSpecProblems, textureSpecProblems, type MaterialSpec, type TextureSpec } from "./materials";
 import { isObject } from "../guards/primitives";
 
-export const PLUGIN_API_VERSION = "3.1";
+export const PLUGIN_API_VERSION = "4.0";
 
 /**
  * What a plugin registered, as the content build recorded it (schema 2.14); a missing kind = none of it. Since schema 5.1
@@ -169,9 +171,9 @@ export const recordedRegistrations = (plugins: unknown): RecordedRegistrations =
   return recorded as RecordedRegistrations;
 };
 
-/** A plugin's bus use as its specs declare it: event names heard and emitted, variable names read and set */
+/** A plugin's bus use as its specs declare it: event names listened to and emitted, variable names read and set */
 export interface DeclaredUses {
-  hears: string[];
+  listens: string[];
   emits: string[];
   reads: string[];
   sets: string[];
@@ -187,7 +189,7 @@ export const declaredUses = (registered: PluginRegistrations | undefined): Decla
   if (!specs.some(declaresLogic)) return null;
   const all = (pick: (spec: SpecLogic) => readonly string[] | undefined) => [...new Set(specs.flatMap(spec => [...(pick(spec) ?? [])]))].sort();
   return {
-    hears: all(spec => spec.uses?.hears),
+    listens: all(spec => spec.uses?.listens),
     emits: all(spec => [...(spec.uses?.emits ?? []), ...(spec.events ?? [])]),
     reads: all(spec => spec.uses?.reads),
     sets: all(spec => spec.uses?.sets),

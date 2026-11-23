@@ -21,22 +21,22 @@ import type { Context, DisplayRow, GraphEdge, GraphNode, Home, LogicPick, Proble
  *   the rules of the scene's `behaviour` components and of the scene's own `logic` (schema 5.0), the variables they read
  *   (their conditions' and set values' expressions) and set, the nodes they act on (a scene rule names them by address,
  *   `target:<id>/<name>`) and the plugins on its nodes or touching its rules' events and variables. Stubs: a variable set in
- *   another scene (or by the experience's rules) and read here (or the reverse), an event emitted elsewhere and heard here
+ *   another scene (or by the experience's rules) and read here (or the reverse), an event emitted elsewhere and listened to here
  *   (or the reverse), a **goto** to another scene ("→ Epilogue · goto") and one from another scene into this one.
  * - **entity**: the same for one target's tree (`path`: its subtree); stubs also to the scene's other targets and its rules.
  * - **group**: its scenes and the derived edges between them (events and variables joined by name, gotos); stubs to scenes
  *   outside the group and to plugins.
  * - **experience**: the groups (frames), the scenes in order, the plugins, the **experience's rules** (boxes, editable – they
  *   act on the scenes: a goto into a scene box, a node action onto the scene that holds the target), the variables that cross
- *   scenes (set in a scope wider than `scene`, or by a plugin), the core events the rules hear, and the derived **goto**
+ *   scenes (set in a scope wider than `scene`, or by a plugin), the core events the rules listen to, and the derived **goto**
  *   edges between scenes. An event joins two places (scenes, plugins) by one derived edge per pair; a variable joins them
  *   through its own box (set in A → `hasKey` → read in B). Nothing crosses it.
  *
  * Cross-scene joins follow the bus and the variables' scopes: a variable set with scope `scene` never reaches another scene;
  * a plugin's scope is unknown, so it counts as crossing; a set without a scope takes the variable's declared scope, else
  * `scene`. Entry texts read variables (`{hasKey}`, `shared/text/expressions.ts`).
- * **Problems** look at the whole experience: a variable read that nothing sets, an event heard that nothing emits, an event
- * emitted that nothing hears, a node an action names that is not there, a goto to a scene that is not there, a rule that hears
+ * **Problems** look at the whole experience: a variable read that nothing sets, an event listened to that nothing emits, an event
+ * emitted that nothing listens to, a node an action names that is not there, a goto to a scene that is not there, a rule that listens to
  * nothing, and the rules' **type problems** (`ruleTypeProblems`, B7: a condition that is no true / false, a set of another
  * type than the variable's). While a plugin's code is unknown, the names a plugin may set or emit are not said.
  *
@@ -199,7 +199,7 @@ const typeProblemsOf = (lists: readonly LogicRuleList[], types: ReadonlyMap<stri
     message: `${list.where}, rule ${p.rule + 1}, ${p.message}`, severity: "error" as const, place: `${list.where}, rule ${p.rule + 1}`, short: p.message,
   })));
 
-// ── Places and their uses: who sets, reads, emits and hears what, across the experience ──────────────────────────────
+// ── Places and their uses: who sets, reads, emits and listens to what, across the experience ──────────────────────────────
 
 /**
  * Where something is used: a target's tree, a scene's entry texts (`target` null), a scene's rules (`logic` "scene"), the
@@ -213,7 +213,7 @@ interface Place {
   logic: "scene" | "experience" | null;
 }
 
-type UseKind = "sets" | "reads" | "emits" | "hears";
+type UseKind = "sets" | "reads" | "emits" | "listens";
 
 interface Use {
   place: Place;
@@ -223,7 +223,7 @@ interface Use {
   scope?: BehaviourScope | null;
 }
 
-/** A join by name: a variable set in one place and read in another, an event emitted in one place and heard in another */
+/** A join by name: a variable set in one place and read in another, an event emitted in one place and listened to in another */
 interface Join {
   kind: "variable" | "event";
   name: string;
@@ -261,7 +261,7 @@ const usesOf = (content: LogicContent): Use[] => {
   const uses: Use[] = [];
   const declared = (name: string) => content.variables?.[name]?.scope;
   const ruleUses = (place: Place, rule: BehaviourRule) => {
-    if (rule.on && !isBehaviourNodeEvent(rule.on)) uses.push({ place, kind: "hears", name: rule.on });
+    if (rule.on && !isBehaviourNodeEvent(rule.on)) uses.push({ place, kind: "listens", name: rule.on });
     for (const name of readsOf(rule)) uses.push({ place, kind: "reads", name });
     for (const action of rule.do) {
       if (action.action === "set") uses.push({ place, kind: "sets", name: action.name, scope: action.scope ?? declared(action.name) ?? "scene" });
@@ -283,7 +283,7 @@ const usesOf = (content: LogicContent): Use[] => {
   }
   for (const [plugin, code] of Object.entries(pluginUses(content))) {
     const place = pluginPlace(plugin);
-    code.hears.forEach(name => uses.push({ place, kind: "hears", name }));
+    code.listens.forEach(name => uses.push({ place, kind: "listens", name }));
     code.emits.forEach(name => uses.push({ place, kind: "emits", name }));
     code.reads.forEach(name => uses.push({ place, kind: "reads", name }));
     code.sets.forEach(name => uses.push({ place, kind: "sets", name, scope: null }));
@@ -328,9 +328,9 @@ const joinsOf = (uses: readonly Use[]): Join[] => {
     joins.push({ kind, name: from.name, from: from.place, to: to.place });
   };
   const reads = by("reads");
-  const hears = by("hears").filter(u => !CORE.includes(u.name));
+  const listens = by("listens").filter(u => !CORE.includes(u.name));
   by("sets").forEach(set => reads.forEach(read => pair("variable", set, read)));
-  by("emits").forEach(emit => hears.forEach(hear => pair("event", emit, hear)));
+  by("emits").forEach(emit => listens.forEach(listen => pair("event", emit, listen)));
   return joins;
 };
 
@@ -339,11 +339,11 @@ const ROW_ORDER: readonly DisplayRow["id"][] = ["reads", "sets", "goto", "drives
 
 /**
  * A plugin box's params: the events its pins stand for (`registry.ts` draws a pin only for a side it has), and the ones a
- * wire may pick – what it emits, and what it hears that a rule can emit (no core event)
+ * wire may pick – what it emits, and what it listens to that a rule can emit (no core event)
  */
 const pluginBus = (used: PluginUses | undefined) => ({
-  params: { emits: used?.emits ?? [], hears: used?.hears ?? [] },
-  bus: { emits: [...(used?.emits ?? [])], hears: (used?.hears ?? []).filter(name => !CORE.includes(name)) },
+  params: { emits: used?.emits ?? [], listens: used?.listens ?? [] },
+  bus: { emits: [...(used?.emits ?? [])], listens: (used?.listens ?? []).filter(name => !CORE.includes(name)) },
 });
 
 // ── The graph of a set of targets: the scene and the entity levels ────────────────────────────────────────────────
@@ -426,9 +426,9 @@ class Graph {
     onSet?: (name: string, scope: string) => void;
   }): void {
     if (!rule.on) {
-      // Its on was cut (or never set): the rule hears nothing until an event is wired to it
+      // Its on was cut (or never set): the rule listens to nothing until an event is wired to it
       const box = this.nodes.get(id);
-      if (box) this.flag(box, `${box.label} hears nothing – wire an event to its on.`, "warning", "hears nothing – wire an event to its on");
+      if (box) this.flag(box, `${box.label} listens to nothing – wire an event to its on.`, "warning", "listens to nothing – wire an event to its on");
     } else if (isBehaviourNodeEvent(rule.on) && opts.ownEvent) {
       this.link([opts.ownEvent(rule.on).id, "out"], [id, "on"], "event", "on", home("on"));
     } else {
@@ -491,7 +491,7 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
   const scopes = new Map<string, Set<string>>();
   const setIn = (name: string, scope: string) => scopes.set(name, (scopes.get(name) ?? new Set()).add(scope || content.variables?.[name]?.scope || "scene"));
 
-  // The rules of every node of every target, with what they hear, read, set, emit and act on
+  // The rules of every node of every target, with what they listen to, read, set, emit and act on
   const ruleVariables = new Set<string>();
   const ruleEvents = new Set<string>();
   const note = (rule: BehaviourRule) => {
@@ -532,7 +532,7 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
     }
   }
 
-  // The scene's own rules (schema 5.0): they hear the bus and name nodes by address
+  // The scene's own rules (schema 5.0): they listen to the bus and name nodes by address
   const sceneTargets = content.scenes.find(s => s.id === scene)?.targets ?? [];
   sceneRules.forEach((rule, r) => {
     note(rule);
@@ -590,10 +590,10 @@ const targetsGraph = (content: LogicContent, uses: readonly Use[], { scene, targ
   for (const plugin of plugins) {
     const used = code[plugin.id];
     if (!used) continue;
-    const touches = [...used.hears, ...used.emits].some(e => ruleEvents.has(e)) || [...used.reads, ...used.sets].some(v => ruleVariables.has(v));
+    const touches = [...used.listens, ...used.emits].some(e => ruleEvents.has(e)) || [...used.reads, ...used.sets].some(v => ruleVariables.has(v));
     if (!touches && !drawn.has(plugin.id)) continue;
     const id = pluginNode(plugin.id).id;
-    used.hears.forEach(e => g.link([g.eventNode(e).id, "out"], [id, "hears"], "event", "hears", null));
+    used.listens.forEach(e => g.link([g.eventNode(e).id, "out"], [id, "listens"], "event", "listens", null));
     used.emits.forEach(e => g.link([id, "emits"], [g.eventNode(e).id, "in"], "event", "emits", null));
     // What it reads and sets: display rows with a reference each – a wire could not change its code
     used.reads.forEach(v => g.refer(id, "reads", g.variableNode(v).id, v, "in"));
@@ -626,7 +626,7 @@ const flagNames = (g: Graph, content: LogicContent, uses: readonly Use[]): void 
   const ruleUse = (kind: UseKind) => new Set(uses.filter(u => u.kind === kind && (u.place.target !== null || u.place.plugin !== null || u.place.logic !== null)).map(u => u.name));
   const sets = ruleUse("sets");
   const emits = ruleUse("emits");
-  const hears = ruleUse("hears");
+  const listens = ruleUse("listens");
   const declared = new Set(Object.keys(content.variables ?? {}));
   for (const node of g.nodes.values()) {
     const read = g.edges.some(e => e.from[0] === node.id) || g.refs.some(r => r.to === node.id && r.from[1] === "reads");
@@ -634,8 +634,8 @@ const flagNames = (g: Graph, content: LogicContent, uses: readonly Use[]): void 
       g.flag(node, `${node.label} is read, but nothing in the experience sets it`, "warning", "read, nothing sets it");
     }
     if (node.kind === "event" && node.id === `event:${node.label}` && !CORE.includes(node.label)) {
-      if (g.edges.some(e => e.from[0] === node.id) && !emits.has(node.label)) g.flag(node, `${node.label} is heard, but nothing in the experience emits it – its rules never fire`, "warning", "heard, nothing emits it – never fires");
-      else if (g.edges.some(e => e.to[0] === node.id) && !hears.has(node.label)) g.flag(node, `${node.label} is emitted, but nothing in the experience hears it`, "warning", "emitted, nothing hears it");
+      if (g.edges.some(e => e.from[0] === node.id) && !emits.has(node.label)) g.flag(node, `${node.label} is listened to, but nothing in the experience emits it – its rules never fire`, "warning", "listened to, nothing emits it – never fires");
+      else if (g.edges.some(e => e.to[0] === node.id) && !listens.has(node.label)) g.flag(node, `${node.label} is emitted, but nothing in the experience listens to it`, "warning", "emitted, nothing listens to it");
     }
   }
 };
@@ -673,8 +673,8 @@ const farOf = (content: LogicContent, place: Place, near: { scene: string }): { 
   return { far: { level: "scene", scene }, words: place.target === null ? `the texts of ${label}` : label };
 };
 
-const JOIN_WORDS = { variable: { in: "set in", out: "read in" }, event: { in: "emitted in", out: "heard in" } } as const;
-const JOIN_PORTS = { variable: { from: "sets", to: "reads", near: { in: "set", out: "get" } }, event: { from: "emits", to: "hears", near: { in: "in", out: "out" } } } as const;
+const JOIN_WORDS = { variable: { in: "set in", out: "read in" }, event: { in: "emitted in", out: "listened to in" } } as const;
+const JOIN_PORTS = { variable: { from: "sets", to: "reads", near: { in: "set", out: "get" } }, event: { from: "emits", to: "listens", near: { in: "in", out: "out" } } } as const;
 
 /**
  * The stubs of a level whose boxes are events and variables (scene, entity): a join with one end here, one outside – drawn
@@ -917,9 +917,9 @@ const experienceView = (content: LogicContent, context: Context, uses: readonly 
       if (use.kind === "sets") count([box, "sets"], [`var:${use.name}`, "set"], "sets");
       else count([`var:${use.name}`, "get"], [box, "reads"], "reads");
     }
-    if (use.kind === "hears" && CORE.includes(use.name)) {
+    if (use.kind === "listens" && CORE.includes(use.name)) {
       g.eventNode(use.name);
-      count([`event:${use.name}`, "out"], [box, "hears"], "on");
+      count([`event:${use.name}`, "out"], [box, "listens"], "on");
     }
   }
   for (const { from, to, word, n } of counted.values()) {

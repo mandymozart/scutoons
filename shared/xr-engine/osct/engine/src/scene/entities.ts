@@ -121,7 +121,7 @@ const buildNode = (target: Target, node: EntityData, asset: EntityContext["asset
     Object.entries(child.timelines ?? {}).forEach(([key, timeline]) => (timelines[key === "" ? `${i}` : `${i}.${key}`] = timeline));
     Object.entries(child.actors ?? {}).forEach(([key, act]) => (actors[key === "" ? `${i}` : `${i}.${key}`] = act));
   });
-  // The node's behaviour (built-in): its rules act on the node's subtree – heard after the node's other parts
+  // The node's behaviour (built-in): its rules act on the node's subtree – listened to after the node's other parts
   const behaviour = applyBehaviour({ node, target, nodes, timelines, actors });
   if (behaviour) all.push(behaviour);
   return {
@@ -129,7 +129,7 @@ const buildNode = (target: Target, node: EntityData, asset: EntityContext["asset
     nodes,
     timelines,
     actors,
-    // Every part hears the tap; the node used it when one of them did
+    // Every part listens to the tap; the node used it when one of them did
     onTap: () => all.map(part => part.onTap?.() === true).includes(true),
     onFound: () => all.forEach(part => part.onFound?.()),
     onLost: () => all.forEach(part => part.onLost?.()),

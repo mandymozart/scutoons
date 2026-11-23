@@ -188,7 +188,7 @@ export const projectXr: typeof api.projectXr = (document, address) => {
 		});
 		return { thread: id, side: s.side, far, label: s.label };
 	});
-	return listening({
+	return {
 		scope: 'xr',
 		context: addressOf(root, context),
 		levels: levelsOf(content, context).map((l) => ({ address: addressOf(root, l), label: l.level === 'experience' ? str(obj(configuration.experience)?.title) || id : levelName(content, l) })),
@@ -197,37 +197,5 @@ export const projectXr: typeof api.projectXr = (document, address) => {
 		stubs,
 		problems: view.problems.map((p) => ({ at: p.node ?? '', severity: p.severity, text: p.short ?? p.message })),
 		...(groups.length ? { canvas: { groups } } : {})
-	});
+	};
 };
-
-// SCUTOONS listens to events, it never hears them (owner 2026-11-22, #763): OSCT's copy says `hears` and stays as OSCT
-// has it; the weave says `listens` – its port ids, threads' ids and ends, and the words of labels, details and problems.
-const LISTEN_WORDS: [RegExp, string][] = [
-	[/\bhears nothing\b/g, 'listens to nothing'],
-	[/\bhears(?= [^\s–-])/g, 'listens to'],
-	[/\bhears\b/g, 'listens'],
-	[/\bheard\b/g, 'listened to'],
-	[/\bhearing\b/g, 'listening to'],
-	[/\bhear\b/g, 'listen to']
-];
-const words = (text: string): string => LISTEN_WORDS.reduce((t, [pattern, word]) => t.replace(pattern, word), text);
-const portId = (id: string): string => id.replace(/(^|[:>])hears(?=$|[:>])/g, '$1listens');
-const listening = (weave: Spores.Weave): Spores.Weave => ({
-	...weave,
-	levels: weave.levels.map((l) => ({ ...l, label: words(l.label) })),
-	spores: weave.spores.map((n) => ({
-		...n,
-		label: words(n.label),
-		...(n.detail ? { detail: words(n.detail) } : {}),
-		ports: n.ports.map((p) => ({ ...p, id: portId(p.id), label: words(p.label) }))
-	})),
-	threads: weave.threads.map((t) => ({
-		...t,
-		id: portId(t.id),
-		from: { ...t.from, port: portId(t.from.port) },
-		to: { ...t.to, port: portId(t.to.port) },
-		...(t.label ? { label: words(t.label) } : {})
-	})),
-	stubs: weave.stubs.map((s) => ({ ...s, thread: portId(s.thread), label: words(s.label) })),
-	problems: weave.problems.map((p) => ({ ...p, text: words(p.text) }))
-});

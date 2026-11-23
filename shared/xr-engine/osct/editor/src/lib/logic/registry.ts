@@ -34,7 +34,7 @@ export const rulePorts = (rule: Pick<BehaviourRule, "do">): PortSpec[] => [
 
 /** The ports of a place that joins others by name: a scene at the experience level */
 const placePorts = (): PortSpec[] => [
-  port("hears", "hears", "event", "in", true), port("reads", "reads", "value", "in", true), port("arrives", "arrives", "scene", "in", true),
+  port("listens", "listens", "event", "in", true), port("reads", "reads", "value", "in", true), port("arrives", "arrives", "scene", "in", true),
   port("emits", "emits", "event", "out", true), port("sets", "sets", "value", "out", true), port("goto", "goto", "scene", "out", true),
 ];
 
@@ -47,10 +47,10 @@ export const CORE_TYPES: NodeType<never>[] = [
   type("variable", "variable", () => [port("set", "set", "value", "in", true), port("get", "get", "value", "out", true)]),
   // A node: what acts on it (`in`), then the ports its specs give (`spec-ports.ts`, handed in by the projection)
   type<{ ports?: PortSpec[] } | undefined>("node", "entity", params => [port("in", "", "node", "in", true), ...(params?.ports ?? [])]),
-  // A plugin's pins (#334, Tilman 2026-11-21): only what a wire can change – a rule hears what it emits, a rule emits what it
-  // hears; what it reads, sets and drives are display rows (`GraphNode.rows`), no pins
-  type<{ emits?: readonly string[]; hears?: readonly string[] } | undefined>("plugin", "plugin", p => [
-    ...(p?.hears?.length ? [port("hears", "hears", "event", "in", true)] : []),
+  // A plugin's pins (#334, Tilman 2026-11-21): only what a wire can change – a rule listens to what it emits, a rule emits what it
+  // listens to; what it reads, sets and drives are display rows (`GraphNode.rows`), no pins
+  type<{ emits?: readonly string[]; listens?: readonly string[] } | undefined>("plugin", "plugin", p => [
+    ...(p?.listens?.length ? [port("listens", "listens", "event", "in", true)] : []),
     ...(p?.emits?.length ? [port("emits", "emits", "event", "out", true)] : []),
   ]),
   // A scene box also takes the node actions of the experience's rules (on a node of one of its targets)

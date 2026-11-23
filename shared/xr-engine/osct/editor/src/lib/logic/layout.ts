@@ -1,6 +1,6 @@
 /**
  * Where the Logic panel draws a level's logic graph (#239, #334 – `project.ts`): a small **layered layout, left to right**
- * – no dependency. Cycles (a rule that emits what another hears, a rule that plays its own node) are broken by turning
+ * – no dependency. Cycles (a rule that emits what another listens to, a rule that plays its own node) are broken by turning
  * the edges back that a depth-first walk finds closing a loop; each node's column is its longest path from a source;
  * within a column the nodes are ordered by the mean place of their neighbours (a few sweeps both ways), then each
  * column is centred. A forward edge is a curve from the right side of its source to the left side of its target; a
