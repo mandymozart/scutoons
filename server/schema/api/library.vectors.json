@@ -1,5 +1,5 @@
 {
-	"description": "The extended Library's file cases (#864): a registry asset (its kind, slug, title, main path and current renditions) → its Library entry's kind, name and picture. The server writes the entries (UniverseIndex::file, PHPUnit ExtendedLibraryApiTest reads these cases); the deck's own reading of GET /api/assets (deck-catalog library.rs `asset`, library/family.rs `kind_of_asset`) gives the same and goes when the deck reads GET /api/library (#874). `recent_days`: the place Recently added (the shelf's RECENT_DAYS).",
+	"description": "The extended Library's file cases (#864): a registry asset (its kind, slug, title, main path and current renditions with their labels) → its Library entry's kind, name and picture. The server writes the entries (UniverseIndex::file, PHPUnit ExtendedLibraryApiTest reads these cases); the deck's own reading of GET /api/assets (deck-catalog library.rs `asset`, library/family.rs `kind_of_asset`) gives the same and goes when the deck reads GET /api/library (#874). `recent_days`: the place Recently added (the shelf's RECENT_DAYS).",
 	"cdn": "https://cdn.example",
 	"recent_days": 7,
 	"cases": [
@@ -26,6 +26,22 @@
 				{ "path": "cat/trailer.poster.webp", "mime": "image/webp", "width": 1920, "origin": "generated" }
 			],
 			"expect": { "kind": "video", "name": "cat/trailer", "picture": "https://cdn.example/cat/trailer.poster.webp", "origin": "imported" }
+		},
+		{
+			"what": "a video with its still (the `thumb` rendition, 264 × 168): the still, not the poster",
+			"asset": { "slug": "cat/teaser", "kind": "video", "title": "", "path": "cat/teaser.mp4" },
+			"renditions": [
+				{ "label": "source", "path": "cat/teaser.mp4", "mime": "video/mp4", "width": 1920, "origin": "imported" },
+				{ "label": "poster", "path": "cat/teaser.poster.webp", "mime": "image/webp", "width": 1920, "origin": "generated" },
+				{ "label": "thumb", "path": "cat/teaser.thumb.webp", "mime": "image/webp", "width": 264, "origin": "generated" }
+			],
+			"expect": { "kind": "video", "name": "cat/teaser", "picture": "https://cdn.example/cat/teaser.thumb.webp", "origin": "imported" }
+		},
+		{
+			"what": "a model with the still a renderer made: the still",
+			"asset": { "slug": "cat/head", "kind": "model", "title": "Head", "path": "cat/head.glb" },
+			"renditions": [{ "label": "source", "path": "cat/head.glb", "mime": "model/gltf-binary", "width": null, "origin": "uploaded" }, { "label": "thumb", "path": "cat/head.thumb.webp", "mime": "image/webp", "width": 264, "origin": "generated" }],
+			"expect": { "kind": "model", "name": "Head", "picture": "https://cdn.example/cat/head.thumb.webp", "origin": "uploaded" }
 		},
 		{
 			"what": "a video without a poster, a model, an audio file: no picture yet",

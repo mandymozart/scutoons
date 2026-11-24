@@ -536,9 +536,9 @@ final class AssetRegistry
         $marks = implode(',', array_fill(0, count($versionIds), '?'));
         $out = [];
         // each file's own usage count: the optimisation tool judges the file content references (a used WebP twin of an
-        // unused PNG master is fine – BACKLOG 10.64)
+        // unused PNG master is fine – BACKLOG 10.64); the still (`thumb`) is not a file of the list – GET /api/thumbs
         foreach ($this->db->all("SELECT r.*, (SELECT COUNT(*) FROM asset_usages u WHERE u.path = r.path) AS usages
-                FROM asset_renditions r WHERE r.version_id IN ($marks) ORDER BY r.path", $versionIds) as $r) {
+                FROM asset_renditions r WHERE r.version_id IN ($marks) AND r.label <> 'thumb' ORDER BY r.path", $versionIds) as $r) {
             $out[(int) $r['version_id']][] = $r;
         }
         return $out;

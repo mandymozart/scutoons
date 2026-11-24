@@ -70,6 +70,7 @@ use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
 use Scutoons\Http\Controllers\CraftsController;
 use Scutoons\Http\Controllers\LayoutsController;
+use Scutoons\Http\Controllers\ThumbsController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\CampaignGiftsController;
@@ -230,6 +231,9 @@ return static function (App $app): void {
     // the creator's resume state per device: own rows only (Domain\Layouts\DeviceSessions)
     $app->get('/api/me/session', [DeviceSessionController::class, 'mine']);
     $app->put('/api/me/session', [DeviceSessionController::class, 'save']);
+    // thumbnails: one still per address / asset / own workspace (Domain\Thumbnails)
+    $app->get('/api/thumbs', [ThumbsController::class, 'lookup']);
+    $app->put('/api/thumbs', [ThumbsController::class, 'put']);
     // the account's shipping address (#66 – physical newsletter gifts wait for it)
     $app->get('/api/me/shipping', [CampaignGiftsController::class, 'shipping']);
     $app->put('/api/me/shipping', [CampaignGiftsController::class, 'setShipping']);

@@ -31,6 +31,7 @@ export { default as MenuHead } from './menu-head.svelte';
 export { default as Field } from './field.svelte';
 export { default as ListRow } from './list-row.svelte';
 export { default as Tile } from './tile.svelte';
+export { default as Thumb } from './thumb.svelte';
 export { default as Card } from './card.svelte';
 export { default as Chip } from './chip.svelte';
 export { default as Select, type SelectOption } from './select.svelte';

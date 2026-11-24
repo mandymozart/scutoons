@@ -41,6 +41,7 @@
 	import ResumeOffer from '$lib/components/shell/resume-offer.svelte';
 	import ReloadNotice from '$lib/components/shell/reload-notice.svelte';
 	import { devices } from '$lib/shell/devices.svelte.ts';
+	import { snapshots } from '$lib/shell/snapshots.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
 	import type { DashboardState } from '$lib/shell/resume.ts';
@@ -181,6 +182,17 @@
 		untrack(() => void devices.start(String(id)));
 	});
 	onMount(() => () => devices.stop());
+	// each workspace's picture as it was left (lib/shell/snapshots.svelte.ts): taken once it holds still, sent on leaving
+	$effect(() => {
+		if (session.user?.id == null || !isCreator) return;
+		untrack(() => snapshots.start());
+		return () => snapshots.stop();
+	});
+	$effect.pre(() => {
+		const id = shell.workspace;
+		const away = !!shell.dashboard;
+		untrack(() => snapshots.front(id, away));
+	});
 	// the resumed tabs checked as the lists arrive: an item gone or no longer the member's leaves quietly, with a Log line
 	$effect(() => {
 		if (!isCreator || !shell.state.tabs.length) return;

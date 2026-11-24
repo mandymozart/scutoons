@@ -108,9 +108,9 @@ final class AssetPaths
             $quality = (int) $m[2] <= 96 ? 'low' : ((int) $m[2] <= 160 ? 'medium' : 'high');
         }
         if ($kind === 'image' && $marker === null) {
-            if (preg_match('/^(.+)\.poster$/', $stem, $m)) {
-                // a video's poster frame (AssetJobs "poster") belongs to the video
-                [$stem, $marker, $rank] = [$m[1], 'poster', 0];
+            if (preg_match('/^(.+)\.(poster|thumb)$/', $stem, $m)) {
+                // a video's poster frame (AssetJobs "poster") and any asset's still (Thumbnails) belong to that asset
+                [$stem, $marker, $rank] = [$m[1], $m[2], 0];
             } elseif (preg_match('/^(.+)@([123])x$/', $stem, $m)) {
                 [$stem, $marker, $rank] = [$m[1], $m[2] . 'x', (int) $m[2]];
                 $quality = self::DENSITY_QUALITY[$marker];

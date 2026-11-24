@@ -8,6 +8,7 @@ use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Storyboard\Generators\GeneratorRegistry;
+use Scutoons\Domain\Thumbnails\ThumbnailRows;
 use Scutoons\Generated\ContentTables;
 use Scutoons\Generated\LibraryTypes;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
@@ -40,7 +41,7 @@ final class UniverseIndex
 {
     private const CACHE_TTL = 86400;
     /** bump when the index's shape changes: old cache entries are never read again */
-    private const SHAPE = 1;
+    private const SHAPE = 2;
     /** who may read a thing (as reading it today): the team (content editors and the `live` role), the `live` role, content editors */
     public const TEAM = 'team';
     public const LIVE = 'live';
@@ -68,6 +69,7 @@ final class UniverseIndex
         private readonly AssetStorages $storages,
         private readonly GeneratorRegistry $generators,
         private readonly Cache $cache,
+        private readonly ThumbnailRows $thumbnails,
     ) {
     }
 
@@ -83,6 +85,7 @@ final class UniverseIndex
             $parts['assets'] = $this->db->one("SELECT (SELECT COUNT(*) FROM assets) AS n, (SELECT MAX(updated_at) FROM assets) AS at, (SELECT MAX(id) FROM asset_versions) AS versions,
                 (SELECT COUNT(*) FROM asset_renditions) AS files, (SELECT MAX(id) FROM asset_renditions) AS file, (SELECT COUNT(*) FROM asset_usages) AS uses, (SELECT MAX(id) FROM asset_usages) AS used");
         }
+        $parts['stills'] = $this->thumbnails->sharedMark();
         $parts['generators'] = array_map(fn(array $g) => [$g['id'], $g['label']], $this->generators->describe());
         $parts['cdn'] = $this->storages->primaryPublicBase();
         return substr(sha1((string) json_encode($parts)), 0, 24);
@@ -242,6 +245,11 @@ final class UniverseIndex
             $things["generator:{$g['id']}"] = ['type' => 'generator', 'id' => (string) $g['id'], 'labels' => (string) $g['label'], 'picture' => null, 'toons' => [], 'updated' => null, 'read' => self::EDITOR];
         }
 
+        // a thing without a picture of its own shows its still (a scene's, a place's … – server/docs/API.md "Thumbnails")
+        foreach ($this->thumbnails->addressPaths() as $address => $path) {
+            if (isset($things[$address]) && $things[$address]['picture'] === null) $things[$address]['picture'] = self::url($this->cdn, $path);
+        }
+
         // who uses what: only between known things and the documents that hold them; a person's toons are the credits'
         $uses = [];
         $usedBy = [];
@@ -301,7 +309,7 @@ final class UniverseIndex
     {
         if (!$this->registry->available()) return [];
         $renditions = [];
-        foreach ($this->db->all("SELECT r.version_id, r.path, r.mime, r.width, r.origin FROM asset_renditions r JOIN asset_versions v ON v.id = r.version_id AND v.status = 'current'") as $r) {
+        foreach ($this->db->all("SELECT r.version_id, r.label, r.path, r.mime, r.width, r.origin FROM asset_renditions r JOIN asset_versions v ON v.id = r.version_id AND v.status = 'current'") as $r) {
             $renditions[(int) $r['version_id']][] = $r;
         }
         $refs = [];
@@ -327,23 +335,27 @@ final class UniverseIndex
 
     /**
      * One registry asset as a Library file: its kind (archive, document, font, other are a `file`), its name (title, else
-     * slug), its picture (an image's or a video's smallest image rendition, an image's own file without one; null else),
-     * its origin (its main file's). The rule every reader holds to: server/schema/api/library.vectors.json.
+     * slug), its picture (its still – the `thumb` rendition, any kind – else an image's or a video's smallest image
+     * rendition, an image's own file without one; null else), its origin (its main file's). The rule every reader holds
+     * to: server/schema/api/library.vectors.json.
      * @param array<string, mixed> $asset slug, kind, title, updated_at, path
-     * @param list<array<string, mixed>> $renditions path, mime, width, origin
+     * @param list<array<string, mixed>> $renditions label, path, mime, width, origin
      * @return File
      */
     public static function file(array $asset, array $renditions, string $cdn): array
     {
         $kind = match ($asset['kind'] ?? null) { 'image' => 'image', 'audio' => 'audio', 'video' => 'video', 'model' => 'model', 'animation' => 'animation', default => 'file' };
         $smallest = null;
+        $still = null;
         foreach ($renditions as $r) {
             if (!str_starts_with((string) ($r['mime'] ?? ''), 'image/')) continue;
+            if (($r['label'] ?? null) === 'thumb') $still = (string) $r['path'];
             $width = is_numeric($r['width'] ?? null) ? (int) $r['width'] : PHP_INT_MAX;
             if ($smallest === null || $width < $smallest[0]) $smallest = [$width, (string) $r['path']];
         }
         $path = (string) $asset['path'];
         $picture = match (true) {
+            $still !== null => $still,
             in_array($kind, ['image', 'video'], true) && $smallest !== null => $smallest[1],
             $kind === 'image' => $path,
             default => null,

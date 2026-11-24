@@ -10,6 +10,7 @@ use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Thumbnails\Thumbnails;
 use Scutoons\Infrastructure\AssetStorage\AssetStorage;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\AssetStorage\StorageKey;
@@ -43,6 +44,7 @@ final class AssetService
         private readonly Settings $settings,
         private readonly CatalogStore $catalogStore,
         private readonly CatalogAdmin $catalogAdmin,
+        private readonly Thumbnails $thumbnails,
     ) {
     }
 
@@ -141,6 +143,9 @@ final class AssetService
             $this->registry->addRendition($id, $versionId, AssetPaths::label($parsed, true), $parsed['quality'], $stored, $probe, 'uploaded');
             return $id;
         });
+        $asset = $this->registry->asset($assetId);
+        $version = $this->registry->currentVersion($assetId);
+        if ($asset !== null && $version !== null && $version['path'] === $key) $this->thumbnails->assetChanged($assetId, (string) $asset['kind'], $key, $by);
         return $this->registry->detail($assetId) + ['uploaded' => $key];
     }
 
@@ -195,6 +200,7 @@ final class AssetService
                 }
             }
         });
+        if ($key === $version['path']) $this->thumbnails->assetChanged($assetId, (string) $asset['kind'], $key, $by);
         return $this->registry->detail($assetId) + ['replaced' => $key, 'archived_as' => $archive, 'purged' => $purged, 'stale_renditions' => $stale];
     }
 

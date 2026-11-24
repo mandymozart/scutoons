@@ -378,6 +378,31 @@ updated_at)`; the device id is random and kept in the browser. The server checks
 | GET | `/me/session?device=<id>` | `{ available, mine: { device, name, state, updated_at } \| null, other: … \| null }` – `other` is the newest other device; before the migration `available: false`; `400 bad_device` |
 | PUT | `/me/session` | `{ device, name, state }` → `{ session }`; `400 bad_device` / `bad_state`, `413 state_too_large`; not with an AI connection; `503 not_available` before the migration |
 
+## Thumbnails (2026-11-26, #842 – migration `2026-11-26-thumbnails`)
+
+One standard for thumbnails – the deck editor's still made shared (deck/editor/src/library.rs `STILL`): a **264 × 168 WebP**,
+centre-cut (`fitted`), taken once the thing has settled, keyed by what it shows. `Domain\Thumbnails\Thumbnails`, table
+`thumbnails (owner, thumb_key, path, stamp, stale, origin, size, taken_at, taken_by)`.
+
+| Key | What | File | Who uploads |
+|---|---|---|---|
+| `asset:<id>` | an asset | its `thumb` rendition `<slug>.thumb.webp` on the current version (replaced in place, purged) | images and video frames: the server (an `assets:jobs` `thumb` job, queued on every new version); 3D models and what only a renderer draws: the creator or the deck |
+| `<address>` | an item, scene, character, chapter, toon … (`item:camera`, `scene:<id>`, A14 addresses) | `.thumbs/shared/<random>.webp` (a new name per upload) | whoever renders it (creator, deck editor) |
+| `workspace:<id>` | a member's creator workspace as they left it | `.thumbs/members/<random>.webp` | the member; listed only to them |
+
+`stamp` = what the still was taken from: an asset's version number (set by the server when not given), an address's
+`updated_at` / hash as the uploader knows it. `stale: true` = the row was marked (a new asset version) or, for an asset, its
+stamp is not the current version – make it again. Files live in the primary asset storage (local in dev, bunny in production);
+`.thumbs/` is never registered as assets. The asset list (`GET /assets`) leaves the `thumb` rendition out (the detail keeps it), and Unused never offers a used
+asset's still. Stills of what was there before: `php bin/console assets:jobs --thumbs[=N]` queues the missing / stale ones, then
+`assets:jobs` makes them (ffmpeg). The extended Library answers the stills as `picture` (an asset's `thumb` rendition; an
+address's still for a thing without a picture of its own); the creator's switcher shows the member's `workspace:` stills.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/thumbs?keys=a,b,…` | signed in (a deck / editor token too) → `{ available, thumbs: { <key>: { url, stamp, stale, origin, taken_at } } }` – missing keys left out, workspace keys only the member's own; ≤ 100 keys (`400 too_many_keys`), `400 bad_key`; before the migration `available: false` |
+| PUT | `/thumbs?key=&stamp=` | raw body = the WebP → `{ thumb: { key, url, stamp, stale, origin, taken_at } }`; shared keys: content editors (the native editor's token too), workspace keys: any member, own; `400 bad_thumb` (not a WebP / not 264 × 168), `413 thumb_too_large` (> 256 KB), `404` unknown asset, `503 not_available` before the migration |
+
 ## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
 
 The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
@@ -1159,11 +1184,12 @@ keyed on that order, so a page never repeats or skips an entry when others are a
   `<kind>:<main path>` (CDN-root path, as the Library opens it: `image:characters/catpope/catpope_avatar-neutral.webp`);
   `archive`, `document`, `font`, `other` are a `file`.
 - `name` – a thing's label (`name` / `title` / a scene's stage name), else its id; a file's title, else its slug.
-- `picture` – a thumbnail URL on the CDN or `null`: a file's smallest image rendition (an image's, a video's poster; an
-  image without renditions: its own file; audio, models, files: null); a character's first persona's default look (its
-  neutral mood, else the first: avatar › portrait › full); a toon's tile (else avatar, thumbnail); a place's image; an
-  item's `icon` (`image`, `cover`…). A path a document names is answered with the picture of its file in the registry. A
-  scene, show, module, model has no still yet: `null` (the stills of P3 fill it later, same field).
+- `picture` – a thumbnail URL on the CDN or `null`: a file's still (its `thumb` rendition, any kind – "Thumbnails"),
+  else its smallest image rendition (an image's, a video's poster; an image without renditions: its own file; audio,
+  models, files: null); a character's first persona's default look (its neutral mood, else the first: avatar › portrait ›
+  full); a toon's tile (else avatar, thumbnail); a place's image; an item's `icon` (`image`, `cover`…). A path a
+  document names is answered with the picture of its file in the registry. A thing without a picture of its own (a
+  scene, a show, a place without an image …) answers its address's still (`PUT /thumbs?key=scene:<id>`); none yet: `null`.
 - `parent` – a rig's character or item (`rig:character.catpope` → `character:catpope`), a Kanon text's subject.
 - `toons` – the toons it belongs to; `[]` = shared. A character: the casts listing it + its `own_toon`; scene / show /
   place: their `toons`; an item: its catalog `toon`; a rig, a Kanon text: their parent's; a person: the toons whose credits
