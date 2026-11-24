@@ -1,13 +1,14 @@
 <script lang="ts">
-	// The Sound design workspace (#282, EDITOR.md): designer beside deck; a rig's Rust tab is its policy (#412), no rig = RigGate (#425).
+	// The Sound design workspace (#282, EDITOR.md) on the workspace host (RULES H5, lap 2 T10): every part of the module editor
+	// is a view – the code (the main view, on the stage), Parameters, Nodes, the rig's Assignment, the Monitor, Out, Knobs,
+	// Problems, Console – a panel's tab like any other workspace's (lib/shell/presets.ts). A rig's Rust view is its policy
+	// (#412), no rig = RigGate (#425). The views other than the code: sound-views.svelte.
 	import { onMount, untrack } from 'svelte';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Divider, askDialog, choiceDialog, panelWidth } from '@scutoons/ui';
-	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES, type GraphWiring } from '@scutoons/rig-designer';
+	import { askDialog, choiceDialog } from '@scutoons/ui';
+	import { createDesignerApi, RigDesigner, setupRigDesigner, STARTER_FILES } from '@scutoons/rig-designer';
 	import { getSessionToken } from '@scutoons/api';
-	import type { EngineHost } from '@scutoons/engine-host';
 	import { API_URL } from '$lib/config.ts';
 	import { api, putDraft } from '$lib/api.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -21,9 +22,9 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { isolateThisPage } from '$lib/isolation.svelte.ts';
-	import DeckHalf from '$lib/components/sound/deck-half.svelte';
-	import DesignerHalf from '$lib/components/sound/designer-half.svelte';
+	import ModuleView from '$lib/components/sound/module-view.svelte';
 	import RigGate from '$lib/components/sound/rig-gate.svelte';
+	import SoundViews from '$lib/components/sound/sound-views.svelte';
 
 	let { target }: { target: EditTarget } = $props();
 
@@ -94,21 +95,11 @@
 		fill: true,
 		extra: () => [{ href: editHref(target.key, { w: 'sound' }), label: `${m['creator.sound_title']()} · ${target.key}` }]
 	});
-
-	// ── the split: the deck on the right (remembered width, a Divider); below ~900 px they stack ──
-	const stacked = new MediaQuery('max-width: 56rem');
-	let splitEl = $state<HTMLElement>();
-	const deckSize = panelWidth('sc-panel-width:sound-deck', 26, () => splitEl?.getBoundingClientRect().right ?? window.innerWidth);
-	// the deck half's engine and the core's wiring of what it plays: the designer's Nodes tab draws them (#282)
-	let host = $state<EngineHost | null>(null);
-	let wiring = $state<GraphWiring>();
 </script>
 
-
-<div class="split" class:stacked={stacked.current} bind:this={splitEl} style:--deck-width={deckSize.css} data-testid="sound-workspace">
-	<section class="half designer-half" aria-label={m['creator.sound_designer']()}>
-		<RigGate subject={'subject' in target ? target.subject : null} character={'character' in target ? target.character : ''} {selected} modules={catalog.ids} factory={Object.keys(catalog.factory)} onopen={select} reload={loadModules}>
-		<DesignerHalf
+{#snippet rustTab()}
+	<RigGate subject={'subject' in target ? target.subject : null} character={'character' in target ? target.character : ''} {selected} modules={catalog.ids} factory={Object.keys(catalog.factory)} onopen={select} reload={loadModules}>
+		<ModuleView
 			{designer}
 			fixed={target.kind === 'module' ? target.id : null}
 			{session}
@@ -116,48 +107,11 @@
 			factory={Object.keys(catalog.factory)}
 			{selected}
 			{notice}
-			{host}
-			{wiring}
 			onselect={select}
 			onnew={() => create(false)}
 			onderive={() => create(true)}
 		/>
-		</RigGate>
-	</section>
-	<section class="half deck-half" id="sound-deck" aria-label={m['creator.sound_deck']()}>
-		{#key target.key}
-			<DeckHalf character={('character' in target && target.character) || 'catpope'} bind:host bind:wiring />
-		{/key}
-	</section>
-	{#if !stacked.current}
-		<Divider size={deckSize} edge="left" at="var(--deck-width, 26rem)" label={m['creator.resize_panel']()} controls="sound-deck" />
-	{/if}
-</div>
+	</RigGate>
+{/snippet}
 
-<style>
-	.split {
-		position: relative;
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) var(--deck-width, 26rem);
-		height: 100%;
-		min-height: 0;
-	}
-	.half {
-		min-width: 0;
-		min-height: 0;
-	}
-	.designer-half {
-		border-right: 1px solid var(--tool-line);
-	}
-	.split.stacked {
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
-	}
-	.stacked .deck-half {
-		overflow: auto;
-	}
-	.stacked .designer-half {
-		border-right: 0;
-		border-bottom: 1px solid var(--tool-line);
-	}
-</style>
+<SoundViews {designer} {session} character={('character' in target && target.character) || 'catpope'} rust={rustTab} />

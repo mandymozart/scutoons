@@ -3,7 +3,8 @@
 	// `w` the workspace (Sound design for rigs and modules), `sel` the selection. Creators and admins only (the creator app is
 	// gated). A key that is no known kind reads in the writing page's column (lap 2 C14).
 	import { page } from '$app/state';
-	import { parseEditKey, workspaceOf } from '$lib/editor/edit-key.ts';
+	import { goto } from '$app/navigation';
+	import { parseEditKey, rigHome, workspaceOf } from '$lib/editor/edit-key.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SoundWorkspace from '$lib/components/sound/sound-workspace.svelte';
 	import WritingPage from '$lib/components/writing/writing-page.svelte';
@@ -11,9 +12,16 @@
 	const key = $derived(page.params.key ?? '');
 	const target = $derived(parseEditKey(key));
 	const workspace = $derived(target ? workspaceOf(target, page.url.searchParams.get('w')) : null);
+	// a character's rig without a workspace asked for (a link, Search, the Library) lands on the character's Rig tab
+	const home = $derived(target && !page.url.searchParams.has('w') ? rigHome(target) : null);
+	$effect(() => {
+		if (home) void goto(home, { replaceState: true });
+	});
 </script>
 
-{#if target && workspace === 'sound'}
+{#if home}
+	<!-- on the way to the character's Rig tab -->
+{:else if target && workspace === 'sound'}
 	{#key target.key}
 		<SoundWorkspace {target} />
 	{/key}

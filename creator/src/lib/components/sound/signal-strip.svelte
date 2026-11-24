@@ -1,25 +1,22 @@
 <script lang="ts">
-	// The deck half's signal strip (#282, owner draft 2026-11-02): a fixed-height band under the stage – vertical bus meters on
-	// a dB scale (green / amber / red zones, the 0.0 dB mark drawn on every meter), one per audio input (named by its source)
-	// and per audio output (+ the limiter's gain reduction), a column per exposed knob, a lamp row for the MIDI / DMX / OSC
-	// that are wired (a detailed monitor is a ticket of its own; the performance numbers are the stage's overlay). DOM for now; the later canvas element (own issue) draws the same model
-	// (lib/editor/signal-strip.ts).
+	// Sound design's Out panel (#282, owner draft 2026-11-02): vertical bus meters on a dB scale (green / amber / red zones,
+	// the 0.0 dB mark drawn on every meter), one per audio input (named by its source) and per audio output (+ the limiter's
+	// gain reduction), a lamp row for the MIDI / DMX / OSC that are wired. The knobs are a panel of their own
+	// (knobs-strip.svelte). DOM for now; the later canvas element (own issue) draws the same model (lib/editor/signal-strip.ts).
 	import { METER_EDGES_DB, METER_MARKS, type DeviceRow } from '@scutoons/engine-host';
-	import type { InputMeter, KnobColumn, OutputMeter } from '$lib/editor/signal-strip.ts';
+	import type { InputMeter, OutputMeter } from '$lib/editor/signal-strip.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		inputs,
 		outputs,
 		reduction,
-		knobs,
 		signals
 	}: {
 		inputs: InputMeter[];
 		outputs: OutputMeter[];
 		/** the limiter's gain reduction as 0..1 */
 		reduction: number;
-		knobs: KnobColumn[];
 		signals: DeviceRow[];
 	} = $props();
 
@@ -49,7 +46,7 @@
 		{/if}
 
 		<section class="col" aria-label={m['creator.sound_out']()}>
-			<h3>{m['creator.sound_out']()}</h3>
+			{#if inputs.length}<h3>{m['creator.sound_out']()}</h3>{/if}
 			<div class="bars">
 				<div class="axis" aria-hidden="true"><span style:bottom={pct(METER_MARKS.zero)}>0</span><span style:bottom={pct(METER_MARKS.ok)}>{METER_EDGES_DB.ok}</span></div>
 				{@render bus(outputs, m['creator.sound_out']())}
@@ -57,20 +54,6 @@
 					<div class="bar" role="meter" aria-label={m['creator.sound_limiter']()} aria-valuemin="0" aria-valuemax="1" aria-valuenow={reduction}><i class="gr" style:height={pct(reduction)}></i></div>
 					<span class="n">gr</span>
 				</div>
-			</div>
-		</section>
-
-		<section class="col knobs" aria-label={m['creator.sound_knobs']()}>
-			<h3>{m['creator.sound_knobs']()}</h3>
-			<div class="bars">
-				{#each knobs as k (k.path)}
-					<div class="cell" title={`${k.label} · ${k.path}`}>
-						<div class="bar knob" role="meter" aria-label={k.label} aria-valuemin="0" aria-valuemax="1" aria-valuenow={k.position}>
-							<u style:height={pct(k.position)}></u><i class="tick" style:bottom="calc({pct(k.position)} - 0.1rem)"></i>
-						</div>
-						<span class="lab">{k.label}</span>
-					</div>
-				{/each}
 			</div>
 		</section>
 	</div>
@@ -88,11 +71,10 @@
 		--meter-ok: var(--tool-go);
 		--meter-hot: var(--tool-warn);
 		--meter-clip: var(--tool-stop);
-		flex: none;
-		height: 10rem;
+		flex: 1;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--tool-line);
 		font-size: 0.75rem;
 	}
 	.cols {
@@ -106,11 +88,9 @@
 		min-width: 0;
 		min-height: 0;
 		padding: var(--space-025) var(--space-05);
-		border-right: 1px solid var(--tool-line);
 	}
-	.col.knobs {
-		flex: 1;
-		border-right: 0;
+	.col + .col {
+		border-left: 1px solid var(--tool-line);
 	}
 	h3 {
 		margin: 0 0 var(--space-025);
@@ -126,10 +106,6 @@
 		display: flex;
 		gap: 0.25rem;
 		position: relative;
-	}
-	.knobs .bars {
-		gap: 0.375rem;
-		overflow-x: auto;
 	}
 	.cell {
 		display: flex;
@@ -183,25 +159,6 @@
 		right: 0;
 		transform: translateY(50%);
 		line-height: 1;
-	}
-	.bar.knob {
-		width: 1rem;
-		background: transparent;
-	}
-	.knob u {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: var(--tool-control);
-		text-decoration: none;
-	}
-	.knob .tick {
-		position: absolute;
-		left: 0;
-		right: 0;
-		height: 0.1875rem;
-		background: var(--tool-pressed);
 	}
 	.n {
 		margin-top: 0.125rem;

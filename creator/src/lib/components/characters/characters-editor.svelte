@@ -56,6 +56,8 @@
 	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import { mapPlaces } from '$lib/editor/map.ts';
+	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { PRESETS, type TabId } from '$lib/shell/presets.ts';
 
 	/**
 	 * A character's page: the registry (entity `characters`) with the open character as its workspace (CharacterEditor,
@@ -236,8 +238,12 @@
 	$effect(() => {
 		const params = page.url.searchParams;
 		const nextId = params.get('id');
+		// `?tab=rig` (a rig's link, lap 2 C4): the character opens on that tab
+		const tab = params.get('tab');
+		const known = !!tab && PRESETS.character.panels.some((p) => p.tabs.includes(tab as TabId));
 		untrack(() => {
 			if ((nextId ?? '') !== selected) selected = nextId ?? '';
+			if (known) shell.open(tab!);
 		});
 	});
 	const selectedCharacter = $derived(characters.find((c) => c.id === selected));

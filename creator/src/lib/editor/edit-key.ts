@@ -39,6 +39,17 @@ export function workspaceOf(target: EditTarget, w: string | null): Workspace {
 	return all.find((x) => x === w) ?? all[0];
 }
 
+/**
+ * Where a rig lands when no workspace is asked for (lap 2 C4, C6): a character's rig on the character's Rig tab (its
+ * persona's, when the key names one) – Sound design only by `?w=sound`; an item's rig has no page of its own: null.
+ */
+export function rigHome(target: EditTarget): string | null {
+	if (target.kind !== 'rig' || !target.character) return null;
+	const persona = target.subject.split('.')[2];
+	const q = new URLSearchParams({ id: target.character, ...(persona ? { persona } : {}), tab: 'rig' });
+	return `/characters?${q}`;
+}
+
 /** the module the Rust tab shows: a module target's own, or a rig's `?sel=module:<id>` (none: null) */
 export function selectedModule(target: EditTarget, sel: string | null): string | null {
 	if (target.kind === 'module') return target.id;

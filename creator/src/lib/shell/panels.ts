@@ -56,6 +56,15 @@ export function tabSpecs(kind?: WorkspaceKind | 'home' | string): TabSpec[] {
 		{ id: 'output', name: m['storyboard.panel_output'](), icon: 'download', about: m['storyboard.panel_output']() },
 		{ id: 'experience', name: m['shell.panel_experience'](), icon: 'aperture', about: m['shell.panel_experience_about']() },
 		{ id: 'scenes', name: m['shell.panel_scenes'](), icon: 'film', about: m['shell.panel_scenes_about']() },
+		{ id: 'rust', name: m['shell.panel_rust'](), icon: 'code', about: m['shell.panel_rust_about']() },
+		{ id: 'parameters', name: m['shell.panel_parameters'](), icon: 'sliders', about: m['shell.panel_parameters_about']() },
+		{ id: 'nodes', name: m['shell.panel_nodes'](), icon: 'share-2', about: m['shell.panel_nodes_about']() },
+		{ id: 'assignment', name: m['shell.panel_assignment'](), icon: 'list', about: m['shell.panel_assignment_about']() },
+		{ id: 'monitor', name: m['shell.panel_monitor'](), icon: 'activity', about: m['shell.panel_monitor_about']() },
+		{ id: 'meters', name: m['shell.panel_meters'](), icon: 'bar-chart-2', about: m['shell.panel_meters_about']() },
+		{ id: 'knobs', name: m['shell.panel_knobs'](), icon: 'sliders', about: m['shell.panel_knobs_about']() },
+		{ id: 'diagnostics', name: m['shell.panel_problems'](), icon: 'alert-triangle', about: m['shell.panel_problems_about']() },
+		{ id: 'console', name: m['shell.panel_console'](), icon: 'terminal', about: m['shell.panel_console_about']() },
 		{ id: 'library', name: m['shell.library'](), icon: 'grid', about: m['shell.library_about']() },
 		{ id: 'settings', name: m['shell.settings'](), icon: 'settings', about: m['shell.settings_about']() }
 	];
