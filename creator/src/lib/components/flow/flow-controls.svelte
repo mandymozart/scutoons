@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Panel, useNodesInitialized, useStore, useSvelteFlow, useViewport } from '@xyflow/svelte';
 	import { untrack } from 'svelte';
-	import { Icon } from '@scutoons/ui';
+	import { IconButton, Pill } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 
-	/** zoom / fit as the creator's round icon buttons (instead of Svelte Flow's small square controls) */
+	/** zoom / fit as the kit's IconButtons in a pill (instead of Svelte Flow's small square controls) */
 	let {
 		focus,
 		entry,
@@ -76,20 +76,10 @@
 </script>
 
 <Panel position="top-left">
-	<!-- a toolbar = grouped = square (owner 2026-10-07, DESIGN.md "Round vs square"): one segmented frame -->
-	<div class="controls sc-seg">
-		<button type="button" title={m['creator.flow_zoom_in']()} aria-label={m['creator.flow_zoom_in']()} onclick={() => flow.zoomIn()} data-testid="flow-zoom-in"><Icon name="zoom-in" /></button>
-		<button type="button" title={m['creator.flow_zoom_out']()} aria-label={m['creator.flow_zoom_out']()} onclick={() => flow.zoomOut()} data-testid="flow-zoom-out"><Icon name="zoom-out" /></button>
-		<button type="button" title={m['creator.flow_fit']()} aria-label={m['creator.flow_fit']()} onclick={fit} data-testid="flow-fit"><Icon name="maximize" /></button>
-	</div>
+	<!-- a group of icons keeps its pill (RULES H4) -->
+	<Pill>
+		<IconButton label={m['creator.flow_zoom_in']()} icon="zoom-in" onclick={() => flow.zoomIn()} data-testid="flow-zoom-in" />
+		<IconButton label={m['creator.flow_zoom_out']()} icon="zoom-out" onclick={() => flow.zoomOut()} data-testid="flow-zoom-out" />
+		<IconButton label={m['creator.flow_fit']()} icon="maximize" onclick={fit} data-testid="flow-fit" />
+	</Pill>
 </Panel>
-
-<style>
-	.controls > button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--control-height);
-		padding: 0;
-	}
-</style>

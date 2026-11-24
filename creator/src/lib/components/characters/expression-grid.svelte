@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Badge, Icon } from '@scutoons/ui';
+	import { Icon } from '@scutoons/ui';
+	import { Chip } from '@scutoons/ui/editor';
 	import {
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
@@ -142,7 +143,7 @@
 	<div class="bar">
 		<span class="summary" data-testid="expression-summary">
 			{m['creator.characters_moods_count']({ count: portraitMoods.length })} ·
-			<Badge tone={hasNeutral ? 'published' : 'warning'}>{DEFAULT_MOOD}</Badge>
+			<Chip label={DEFAULT_MOOD} tone={hasNeutral ? 'ok' : 'warning'} />
 			· <span class="hint">{m['creator.characters_standard_set']({ done: standardDone, total: standard.length })}</span>
 		</span>
 		<span class="actions">
@@ -189,10 +190,10 @@
 							{/if}
 						</span>
 						<span class="label">
-							{#if state === 'found'}<Badge tone="published">{m['creator.characters_found']()}</Badge>{:else if state === 'missing'}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{:else}{m['creator.characters_missing_add']()}{/if}
+							{#if state === 'found'}<Chip label={m['creator.characters_found']()} tone="ok" />{:else if state === 'missing'}<Chip label={m['creator.characters_missing_file']()} tone="error" />{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{:else}{m['creator.characters_missing_add']()}{/if}
 							{#if allViews}<span class="hint">{view}</span>{/if}
 							{#if avatar}
-								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}✓{/if}</span>
+								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Chip label={m['creator.characters_missing_file']()} tone="error" />{:else}✓{/if}</span>
 							{/if}
 							{#if request}<span class="sc-mark" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>

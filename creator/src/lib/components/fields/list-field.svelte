@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { movedAt } from '$lib/editor/move.ts';
-	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
+	import { SortGrip, sortable } from '@scutoons/ui';
+	import { IconButton } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** An editable list of names (authors, credits): one input per entry, remove, reorder, add. */
@@ -39,7 +40,7 @@
 		<li data-sort-row>
 			<SortGrip label={m['creator.sort_move']({ name: item || `${placeholder} ${i + 1}` })} title={m['creator.sort_hint']()} />
 			<input type="text" value={item} oninput={(e) => set(i, e.currentTarget.value)} aria-label="{placeholder} {i + 1}" />
-			<button type="button" class="ghost" onclick={() => remove(i)} title={m['creator.remove']()} aria-label={m['creator.remove']()}><CloseIcon /></button>
+			<IconButton label={m['creator.remove']()} icon="x" tone="muted" onclick={() => remove(i)} />
 		</li>
 	{/each}
 	<li class="add">
@@ -55,7 +56,7 @@
 			}}
 			data-testid="{testid}-new"
 		/>
-		<button type="button" class="secondary" onclick={add} disabled={!draft.trim()} data-testid="{testid}-add">+</button>
+		<IconButton label={m['creator.list_add']()} icon="plus" alone onclick={add} disabled={!draft.trim()} data-testid="{testid}-add" />
 	</li>
 </ul>
 
@@ -76,12 +77,5 @@
 	li input {
 		flex: 1;
 		min-width: 0;
-	}
-	li button {
-		padding: 0 0.4em;
-	}
-	/* remove / add: a square target (the "+" alone was 24px wide on a phone, BACKLOG 10.50 d) */
-	li button:not([data-sort-grip]) {
-		min-width: var(--control-height);
 	}
 </style>

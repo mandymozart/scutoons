@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { moveAt } from '$lib/editor/move.ts';
-	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
+	import { SortGrip, sortable } from '@scutoons/ui';
+	import { IconButton } from '@scutoons/ui/editor';
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -42,7 +43,7 @@
 				</div>
 			</div>
 			<div class="actions">
-				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><CloseIcon /></button>
+				<IconButton label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()} icon="x" tone="muted" onclick={() => remove(i)} />
 			</div>
 		</li>
 	{/each}
@@ -84,9 +85,6 @@
 		display: flex;
 		gap: 0.2rem;
 		flex: none;
-	}
-	.actions button {
-		padding: 0 0.4em;
 	}
 	button.secondary {
 		align-self: flex-start;
