@@ -20,7 +20,8 @@
 		type CatalogFormProps,
 		type Data
 	} from '@scutoons/catalog';
-	import { askDialog, confirmDialog, Badge, Icon, Tabs, region } from '@scutoons/ui';
+	import { askDialog, confirmDialog, Icon } from '@scutoons/ui';
+	import { Pill, PillTabs } from '@scutoons/ui/editor';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { contentApi } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -30,13 +31,13 @@
 	import { loadToons } from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 
 	/**
 	 * The catalog in the creator (agents/CATALOG-IN-CREATOR.md): one tab per kind (items, recipes, albums, products,
-	 * editions), the entries as a list, the open one in its form (@scutoons/catalog, the admin's forms). Every entry is
+	 * editions) and the open entry in its form (@scutoons/catalog, the admin's forms) – the entries are found in the
+	 * Library (lap2 C9), no list of them here; without one asked for, the kind's first opens. Every entry is
 	 * its own document (`item:<id>` …): Save stores a draft, History lists its versions, Publish is the one checklist –
 	 * the server writes the catalog then, and decides who may (review rules; physical changes: the `physical` rule).
 	 * Over 400 lines: one page of the list, the open form, the actions and the server's problems share one document session.
@@ -60,8 +61,6 @@
 
 	let docs = $state<Partial<Record<CatalogDocKind, CatalogDoc[]>>>({});
 	let loadError = $state<string | null>(null);
-	let query = $state('');
-	let toonFilter = $state('');
 	let selected = $state<string | null>(null);
 	let doc = $state<ContentDoc | null>(null);
 	/** the last save's / publish's problems from the server (422 invalid_catalog) – shown at their fields */
@@ -82,16 +81,6 @@
 	});
 
 	const entries = $derived(docs[kind] ?? []);
-	const toons = $derived([...new Set(entries.map((e) => (e.content as Data).toon).filter((t): t is string => typeof t === 'string'))].sort());
-	const visible = $derived(
-		entries.filter((e) => {
-			const data = e.content as Data;
-			if (e.removed && !e.draft) return false;
-			if (toonFilter === '__none' ? data.toon != null : toonFilter && data.toon !== toonFilter) return false;
-			const q = query.trim().toLowerCase();
-			return !q || e.id.toLowerCase().includes(q) || def.title(data, e.id).toLowerCase().includes(q);
-		})
-	);
 
 	// URL → the open entry (crumbs, back / forward; the leave guard asks before an edited entry is left)
 	$effect(() => {
@@ -201,15 +190,7 @@
 	}
 
 	const title = (e: CatalogDoc) => contentName((e.content as Data).name ?? (e.content as Data).title, e.id) || def.title(e.content, e.id);
-	const icon = (e: CatalogDoc): string | null => {
-		const d = e.content as Data;
-		return typeof d.icon === 'string' ? d.icon : typeof d.image === 'string' ? d.image : typeof d.cover === 'string' ? d.cover : null;
-	};
 
-	let tab = $state<string>(untrack(() => kind));
-	$effect(() => {
-		if (tab !== kind) void goto(`/catalog/${tab}`);
-	});
 	usePageNav({ extra: () => (entry ? [{ href: `/catalog/${kind}?id=${encodeURIComponent(entry.id)}`, label: title(entry) }] : []) });
 </script>
 
@@ -228,162 +209,41 @@
 			{/if}
 		{/if}
 	{/snippet}
-	<Tabs tabs={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k]() }))} bind:value={tab} label={m['creator.catalog']()}>
-		{#snippet children()}
-			{#if loadError}<p class="error" role="alert">{loadError}</p>{/if}
-			<div class="layout">
-				<aside class="list" data-testid="catalog-list">
-					<div class="filters">
-						<input type="search" bind:value={query} placeholder={m['creator.catalog_search']()} data-testid="catalog-search" />
-						{#if toons.length}
-							<select bind:value={toonFilter} aria-label={m['creator.catalog_filter_toon']()} data-testid="catalog-filter-toon">
-								<option value="">{m['creator.characters_all_toons']()}</option>
-								{#each toons as t (t)}<option value={t}>{t}</option>{/each}
-								<option value="__none">{m['creator.catalog_every_toon']()}</option>
-							</select>
-						{/if}
-					</div>
-					<!-- a selection region (DESIGN.md "Selection"): the open entry is sc-selected -->
-					<ul use:region={'catalog'}>
-						{#each visible as e (e.id)}
-							{@const src = icon(e)}
-							<li>
-								<button type="button" class="item" data-control-exempt="two-line list row with picture" class:sc-selected={e.id === selected} onclick={() => open(e.id)} data-testid="catalog-{e.id}">
-									<span class="thumb">{#if src}<img src={asset(src)} alt="" loading="lazy" />{/if}</span>
-									<span class="text">
-										<span>{title(e)}</span>
-										<span class="hint">{e.id}{(e.content as Data).toon ? ` · ${(e.content as Data).toon}` : ''}</span>
-									</span>
-									<span class="marks">
-										{#if e.removed}<span class="removed">{m['creator.catalog_state_removed']()}</span>{/if}
-										{#if e.physical}<span title={m['creator.catalog_physical_hint']()}><Badge tone="info">{m['creator.catalog_physical']()}</Badge></span>{/if}
-									</span>
-								</button>
-							</li>
-						{/each}
-					</ul>
-				</aside>
-				<div class="detail" data-testid="catalog-detail">
-					{#if doc && data}
-						{#if entry?.physical || (kind === 'items' && (data.kind === 'physical' || data.edition_id || data.product || data.max_world != null)) || kind === 'products' || kind === 'editions'}
-							<p class="note" data-testid="catalog-physical-note"><Icon name="lock" /> {m['creator.catalog_physical_note']()}</p>
-						{/if}
-						{#if data.removed}
-							<p class="note" data-testid="catalog-removed-note"><Icon name="trash-2" /> {m['creator.catalog_removed_note']()}</p>
-						{/if}
-						{#key selected}
-							<Form bind:data={formData.get, formData.set} creating={!entry?.live} id={selected ?? ''} {lists} problems={serverProblems} />
-							{#if advanced}
-								<details class="advanced">
-									<summary>{m['creator.catalog_advanced']()}</summary>
-									<JsonField
-										label={m['creator.catalog_advanced']()}
-										value={advanced}
-										onchange={(rest: Data) => formData.set(withRest(data, def.formKeys ?? [], rest))}
-									/>
-								</details>
-							{/if}
-						{/key}
-					{:else if doc?.loading}
-						<p class="hint">{m['creator.loading']()}</p>
-					{/if}
-				</div>
-			</div>
-		{/snippet}
-	</Tabs>
+	<!-- the open entry's group: its kind among the catalog's kinds -->
+	<Pill><PillTabs items={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k](), testid: `catalog-kind-${k}` }))} on={kind} onselect={(k) => k !== kind && void goto(`/catalog/${k}`)} label={m['creator.catalog']()} /></Pill>
+	{#if loadError}<p class="error" role="alert">{loadError}</p>{/if}
+	<div class="detail" data-testid="catalog-detail">
+		{#if doc && data}
+			{#if entry?.physical || (kind === 'items' && (data.kind === 'physical' || data.edition_id || data.product || data.max_world != null)) || kind === 'products' || kind === 'editions'}
+				<p class="note" data-testid="catalog-physical-note"><Icon name="lock" /> {m['creator.catalog_physical_note']()}</p>
+			{/if}
+			{#if data.removed}
+				<p class="note" data-testid="catalog-removed-note"><Icon name="trash-2" /> {m['creator.catalog_removed_note']()}</p>
+			{/if}
+			{#key selected}
+				<Form bind:data={formData.get, formData.set} creating={!entry?.live} id={selected ?? ''} {lists} problems={serverProblems} />
+				{#if advanced}
+					<details class="advanced">
+						<summary>{m['creator.catalog_advanced']()}</summary>
+						<JsonField
+							label={m['creator.catalog_advanced']()}
+							value={advanced}
+							onchange={(rest: Data) => formData.set(withRest(data, def.formKeys ?? [], rest))}
+						/>
+					</details>
+				{/if}
+			{/key}
+		{:else if doc?.loading}
+			<p class="hint">{m['creator.loading']()}</p>
+		{/if}
+	</div>
 </MetaPage>
 
 <style>
-	.layout {
-		display: grid;
-		grid-template-columns: 20rem minmax(0, 1fr);
-		gap: 1.25rem;
-		align-items: start;
-		padding-top: 0.75rem;
-	}
-	/* one column: the list in the flow (sticky it lay over the form) */
-	@media (max-width: 900px) {
-		.layout {
-			grid-template-columns: 1fr;
-		}
-		.list {
-			position: static;
-			max-height: none;
-		}
-	}
-	.list {
-		position: sticky;
-		top: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-height: calc(100vh - 10rem);
-		overflow: auto;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 0.3rem;
-	}
-	ul {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.item {
-		all: unset;
-		box-sizing: border-box;
-		width: 100%;
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-		padding: 0.3rem;
-		border: 1px solid var(--tool-line);
-		cursor: pointer;
-	}
-	.item:hover {
-		border-color: var(--tool-text);
-	}
-	.thumb {
-		width: 2.6rem;
-		height: 2.6rem;
-		flex: none;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.thumb img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-	}
-	.text {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-	.text .hint {
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.marks {
-		margin-left: auto;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 0.15rem;
-	}
-	.removed {
-		color: var(--tool-stop);
-		font-size: var(--type-caption-size);
-	}
 	.detail {
 		display: flex;
 		flex-direction: column;
+		padding-top: 0.75rem;
 		gap: 0.75rem;
 		min-width: 0;
 	}

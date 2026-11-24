@@ -17,7 +17,6 @@
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { useTabs } from '$lib/shell/shell.svelte.ts';
-	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
@@ -28,8 +27,8 @@
 	 * language), everything else once – authors, the media as slots (cover → the cover editor, the trailer with its
 	 * quality levels, the poster), related items, supporters. A chapter's status per language is edited in its meta
 	 * panel (chapter editor); the sidebar shows it.
-	 * The season's number is its identity (the URL, the entity key) – not a field. The chapters and their visibility are in
-	 * the sidebar only (owner 2026-10-03: no second list on the page).
+	 * The season's number is its identity (the URL, the entity key) – not a field. The chapters and their visibility are
+	 * in the Toon tree only (no second list on the page).
 	 */
 	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
@@ -83,27 +82,13 @@
 		writeTrailer({ loop: next.src, variants: next.variants, sources: undefined }, 'trailer-media');
 	}
 
-	// the season's chapters with their status per language are its Tree; its Flow a tab
-	useTabs(() => ({ tree: chapterNav, flow: flowTab }));
+	// the season's chapters are rows of the Toon tree (toon-panel.svelte); its Flow is a tab
+	useTabs(() => ({ flow: flowTab }));
 	const nav = getCreatorNav();
 </script>
 
 {#snippet flowTab()}
 	<FlowTab input={{ level: 'toon', toon, season: number }} />
-{/snippet}
-
-{#snippet chapterNav()}
-	<p class="nav-head">{m['creator.chapters']()}</p>
-	<ul class="nav-list" data-testid="season-chapters">
-		{#each numbers as n (n)}
-			<li>
-				<a href="/{toon}/chapter/{n}" data-nav-child data-testid="nav-chapter-{n}">
-					<span class="nav-title">{chapterTitle(n)}</span>
-					<span class="nav-status"><ChapterBadges {season} number={n} doc={chapters[n]} /></span>
-				</a>
-			</li>
-		{/each}
-	</ul>
 {/snippet}
 
 <MetaPage
@@ -265,50 +250,5 @@
 		flex-direction: column;
 		gap: var(--space-025);
 		max-width: 24rem;
-	}
-	.nav-head {
-		margin: 0;
-		padding: var(--editor-pad) calc(var(--editor-pad) + 0.5rem) 0.25rem;
-		font-size: var(--type-caption-size);
-		letter-spacing: var(--tracking-label);
-		text-transform: uppercase;
-		color: var(--tool-muted);
-	}
-	.nav-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-		list-style: none;
-		margin: 0;
-		padding: 0 var(--editor-pad) var(--editor-pad);
-	}
-	/* narrow sidebar: the badges drop to their own line instead of squeezing the title to "Är…" (owner 2026-10-03) */
-	.nav-list a {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.25rem 0.4rem;
-		/* the deck's tree row: inset in the panel, the hover ground with the radius */
-		padding: 0.35rem 0.5rem;
-		border-radius: var(--editor-radius);
-		color: var(--tool-text);
-		text-decoration: none;
-	}
-	.nav-list a:hover {
-		background: var(--tool-hover);
-	}
-	.nav-title {
-		flex: 1 1 auto;
-		min-width: min(8rem, 100%);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.nav-status {
-		display: inline-flex;
-		gap: 0.2rem;
-		flex: none;
-		margin-left: auto;
 	}
 </style>
