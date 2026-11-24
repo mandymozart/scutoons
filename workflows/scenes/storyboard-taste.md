@@ -64,6 +64,6 @@ shot. Rules the checker can enforce go into `scripts/storyboard/validate.mjs` to
   länger" (2026-10-10)
 
 ## Material
-- **Existing material first** (the Figma selection on the chapter page, shootings, Unreal), prompting only the gaps.
+- **Existing material first** (the Figma selection on the chapter page, shootings, the deck), prompting only the gaps.
   (2026-10-09)
 - **Shot ≠ shooting.** A shot is an image for the layout; a shooting is a photo session at a location. (2026-10-09)

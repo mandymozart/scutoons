@@ -21,8 +21,8 @@ export const POSES = ['stand', 'walk', 'run', 'jump', 'fall', 'slip', 'crouch', 
 export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', 'three-quarter-right'] as const;
 /** whose perspective a shot is (workflow "Personas, looks and perspective") */
 export const VIEWS = ['real', 'belief', 'narration', 'memory'] as const;
-/** source.type (where the image comes from now) and source.want (what it should come from) */
-export const SOURCES = ['schematic', 'photo', 'unreal', 'direct', 'generated', 'art'] as const;
+/** source.type (where the image comes from now) and source.want (what it should come from); `deck` = a scene in the deck */
+export const SOURCES = ['schematic', 'photo', 'deck', 'direct', 'generated', 'art'] as const;
 /** a shot's production status (STORYBOARD §7 "Parallel work") */
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'] as const;
 /** review.status: the owner's verdict */

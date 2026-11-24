@@ -78,6 +78,10 @@ test('outline: a review is listed, an empty document has no shots', () => {
 	d.scenes[0].groups[0].shots![0].review = { status: 'change', note: 'more air' };
 	assert.deepEqual(outline(d).outline[0].groups[0].shots![0].review, { status: 'change', note: 'more air' });
 	assert.equal(outline({ storyboard: 2, toon: 'x', chapter: 1, scenes: [] }).shots, 0);
+	d.scenes[0].groups[0].shots![0].asset = 'generator:luma';
+	d.scenes[0].groups[0].shots![0].made = { deck: 'scene:sb-x-1-1' };
+	const line = outline(d).outline[0].groups[0].shots![0];
+	assert.deepEqual([line.asset, line.made], ['generator:luma', { deck: 'scene:sb-x-1-1' }], 'the asset and what the shot was made into');
 });
 
 test('locateShot: the shot, its scene and the path save_draft ops use', () => {

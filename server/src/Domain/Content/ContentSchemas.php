@@ -30,8 +30,8 @@ final class ContentSchemas
         'season-script' => 'script',
         'chapter-script' => 'script',
         'kanon' => 'kanon',
-        // the storyboard's type lives in @scutoons/content storyboard/ (#119); no generated schema yet – not checked here
-        'storyboard' => null,
+        // generated from @scutoons/content's storyboard/ ChapterStoryboard: the shape, the vocabulary, a shot's asset address and made pointers
+        'storyboard' => 'storyboard',
         'characters' => 'characters',
         'moods' => 'moods',
         'asset-requests' => 'asset-requests',

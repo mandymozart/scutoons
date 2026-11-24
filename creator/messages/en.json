@@ -2237,7 +2237,20 @@
 		"slot_approved": "the approved generation",
 		"slot_clear": "Empty the slot",
 		"slot_uploading": "Uploading",
-		"slot_upload_failed": "Upload failed: {reason}"
+		"slot_upload_failed": "Upload failed: {reason}",
+		"slot_not_taken": "The slot takes a picture, a video or a generator",
+		"handover": "Onward",
+		"handover_hint": "Where the shot goes on: a slice of the chapter, a scene in the deck, an XR experience",
+		"handover_slice": "Open as slice",
+		"handover_slice_hint": "The slice cut from this shot in the Chapter workspace – made there on first use, with the shot's picture",
+		"handover_deck": "Open in the deck",
+		"handover_deck_hint": "The shot's scene in the deck",
+		"handover_deck_new_hint": "The deck makes this shot's scene from it on first use",
+		"handover_xr": "Open as XR scene",
+		"handover_xr_hint": "The XR experience made from this shot",
+		"handover_xr_none_hint": "No XR experience for this shot yet – the XR workspace opens; an experience comes in by import",
+		"handover_no_shot": "The storyboard has no shot {shot}",
+		"handover_no_group": "The chapter has no group for the slice yet"
 	},
 	"history": {
 		"undo": "Undo",

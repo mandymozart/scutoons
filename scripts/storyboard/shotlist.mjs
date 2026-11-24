@@ -1,4 +1,4 @@
-// The shot list of a chapter's storyboards, grouped by place and by what each shot wants (photo / unreal / direct /
+// The shot list of a chapter's storyboards, grouped by place and by what each shot wants (photo / deck / direct /
 // generated / art): the sheet for matching the Figma selection (S1C3 page), for planning a shooting, and – for the
 // gaps – for prompting. Markdown.
 //
@@ -35,10 +35,10 @@ for (const { sb } of list) {
 		});
 	}
 }
-const wants = ['photo', 'direct', 'unreal', 'generated', 'art', '?'];
+const wants = ['photo', 'direct', 'deck', 'generated', 'art', '?'];
 const md = [`# Shot list ${name} – ${rows.length} shots`, '',
 	'What each shot needs, by place. Match against the Figma selection on the chapter page; the shooting pages only for gaps.',
-	'`want`: photo = from a shooting · direct = to be photographed · unreal = render · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
+	'`want`: photo = from a shooting · direct = to be photographed · deck = a scene in the deck · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
 	'| want | shots |', '|---|---|', ...wants.map((w) => `| ${w} | ${rows.filter((r) => r.want === w).length} |`).filter((l) => !l.endsWith('| 0 |')), ''];
 const byPlace = [...new Set(rows.map((r) => r.place))];
 for (const place of byPlace) {

@@ -91,7 +91,7 @@ export function validate(sb, file = '') {
 			if (shot.location && !locRefs.has(shot.location)) err(id, `location "${shot.location}" not in locations`);
 			if (shot.source?.type && !SOURCES.includes(shot.source.type)) err(id, `source.type "${shot.source.type}"`);
 			if (shot.source?.want && !SOURCES.includes(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
-			if (!shot.source?.want) warn(id, 'source.want missing (photo / unreal / direct / generated / art)');
+			if (!shot.source?.want) warn(id, 'source.want missing (photo / deck / direct / generated / art)');
 			if (shot.status && !STATUS.includes(shot.status)) err(id, `status "${shot.status}"`);
 			if (shot.review && !['ok', 'change'].includes(shot.review.status)) err(id, 'review.status – ok | change');
 			if (shot.review?.status === 'change') warn(id, `owner asked for a change (${shot.review.date ?? ''}): ${shot.review.note ?? ''}`);
@@ -112,8 +112,8 @@ export function validate(sb, file = '') {
 			// safe formats (warnings: "beyond what we can generate today")
 			if (a && shot.format === 'vertical') {
 				const tall = a.h / a.w;
-				if (tall > SAFE.vertical.maxTall + 1e-6 && shot.source?.want !== 'unreal')
-					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want unreal / photo stitch`);
+				if (tall > SAFE.vertical.maxTall + 1e-6 && shot.source?.want !== 'deck')
+					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want deck / photo stitch`);
 				else if (tall > SAFE.vertical.plan + 1e-6 && shot.source?.want === 'generated') warn(id, `1:${tall.toFixed(1)} generated: above the planning size 1:${SAFE.vertical.plan} – the maximum is the exception`);
 			}
 			if (a && shot.format === 'loop360') {

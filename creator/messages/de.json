@@ -2237,7 +2237,20 @@
 		"slot_approved": "die freigegebene Generierung",
 		"slot_clear": "Den Platz leeren",
 		"slot_uploading": "Wird hochgeladen",
-		"slot_upload_failed": "Hochladen fehlgeschlagen: {reason}"
+		"slot_upload_failed": "Hochladen fehlgeschlagen: {reason}",
+		"slot_not_taken": "Der Platz nimmt ein Bild, ein Video oder einen Generator",
+		"handover": "Weiter",
+		"handover_hint": "Wohin der Shot weitergeht: ein Slice des Kapitels, eine Szene im Deck, ein XR-Erlebnis",
+		"handover_slice": "Als Slice öffnen",
+		"handover_slice_hint": "Der Slice aus diesem Shot im Kapitel-Arbeitsbereich – beim ersten Mal dort angelegt, mit dem Bild des Shots",
+		"handover_deck": "Im Deck öffnen",
+		"handover_deck_hint": "Die Szene des Shots im Deck",
+		"handover_deck_new_hint": "Das Deck legt die Szene dieses Shots beim ersten Mal daraus an",
+		"handover_xr": "Als XR-Szene öffnen",
+		"handover_xr_hint": "Das XR-Erlebnis aus diesem Shot",
+		"handover_xr_none_hint": "Noch kein XR-Erlebnis für diesen Shot – der XR-Arbeitsbereich öffnet sich; ein Erlebnis kommt per Import",
+		"handover_no_shot": "Das Storyboard hat keinen Shot {shot}",
+		"handover_no_group": "Das Kapitel hat noch keine Gruppe für den Slice"
 	},
 	"history": {
 		"undo": "Rückgängig",
