@@ -1,7 +1,7 @@
 // The installed creator (lib/shell/desktop.ts): its bridge and where a creator link leads.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { creatorLinkHref, desktopBridge } from '../src/lib/shell/desktop.ts';
+import { appWindow, creatorLinkHref, desktopBridge } from '../src/lib/shell/desktop.ts';
 
 const entries: Record<string, string> = { catalog: '/catalog/items', scene: '/scenes/avatar-home' };
 const entryOf = (kind: string) => entries[kind] ?? null;
@@ -30,4 +30,14 @@ test('only the installed creator has the bridge', () => {
 	assert.equal(desktopBridge({ scutoonsCreatorApp: { onLink: 1 } }), null);
 	const bridge = { hasDeckDownload: false, onLink: () => {}, deckMissing: () => true, openDeckDownload: () => {} };
 	assert.equal(desktopBridge({ scutoonsCreatorApp: bridge }), bridge);
+});
+
+test("the bar is the window's title bar only in the app's own window", () => {
+	const fns = { onMaximized: () => {}, minimize: () => {}, toggleMaximize: () => {}, close: () => {} };
+	assert.equal(appWindow({}), null);
+	assert.equal(appWindow({ scutoonsCreatorApp: { ...fns, frame: 'system' } }), null);
+	assert.equal(appWindow({ scutoonsCreatorApp: { frame: 'own' } }), null);
+	const own = { ...fns, frame: 'own' };
+	assert.equal(appWindow({ scutoonsCreatorApp: own }), own);
+	assert.equal(appWindow({ scutoonsCreatorApp: { ...fns, frame: 'inset' } })?.frame, 'inset');
 });

@@ -14,6 +14,27 @@ export interface DesktopBridge {
 	openDeckDownload(): void;
 }
 
+/** who draws the window buttons: `own` the creator's bar (Windows, Linux), `inset` macOS's traffic lights, `system` a framed window */
+export type AppFrame = 'own' | 'inset' | 'system';
+
+/** the installed creator's window, when the system draws no title bar over the page */
+export interface AppWindow {
+	frame: Exclude<AppFrame, 'system'>;
+	/** the maximized state now, then every change */
+	onMaximized(listener: (on: boolean) => void): void;
+	minimize(): void;
+	toggleMaximize(): void;
+	close(): void;
+}
+
+/** the window the bar is the title bar of: the app's main window on Windows, Linux (own buttons) and macOS (inset) */
+export function appWindow(scope: object = globalThis): AppWindow | null {
+	const bridge = (scope as { scutoonsCreatorApp?: Partial<AppWindow> & { frame?: unknown } }).scutoonsCreatorApp;
+	if (!bridge || (bridge.frame !== 'own' && bridge.frame !== 'inset')) return null;
+	const fns = [bridge.onMaximized, bridge.minimize, bridge.toggleMaximize, bridge.close];
+	return fns.every((fn) => typeof fn === 'function') ? (bridge as AppWindow) : null;
+}
+
 /** the installed creator's bridge; the web creator has none */
 export function desktopBridge(scope: object = globalThis): DesktopBridge | null {
 	const bridge = (scope as { scutoonsCreatorApp?: DesktopBridge }).scutoonsCreatorApp;

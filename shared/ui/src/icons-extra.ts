@@ -46,6 +46,10 @@ export const EXTRA_ICONS: Record<string, { contents: string }> = {
 	swap: { contents: '<polyline points="8 3 4 7 8 11"/><line x1="4" y1="7" x2="20" y2="7"/><polyline points="16 21 20 17 16 13"/><line x1="20" y1="17" x2="4" y2="17"/>' },
 	// prompts for a generator / an artist (owner 2026-10-20: "prompts some stary symbol"): a big and a small four-point star
 	sparkles: { contents: '<path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z"/><path d="M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"/>' },
+	// a window's own buttons (deck-kit editor/icons.rs): minimize · maximize · restore
+	'window-min': { contents: '<line x1="6" y1="12" x2="18" y2="12"/>' },
+	'window-max': { contents: '<rect x="6" y="6" width="12" height="12"/>' },
+	'window-restore': { contents: '<rect x="6" y="9" width="9" height="9"/><polyline points="9 9 9 6 18 6 18 15 15 15"/>' },
 	// the three views of a character picture (research/CHARACTER-PAGE.md E): a face · a bust · the whole figure
 	'view-avatar': { contents: '<circle cx="12" cy="12" r="9"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/><path d="M9 15.5c1.8 1.3 4.2 1.3 6 0"/>' },
 	'view-portrait': { contents: '<circle cx="12" cy="8" r="4.5"/><path d="M3 22c0-5.5 4-8.5 9-8.5s9 3 9 8.5"/>' },

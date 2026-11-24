@@ -18,13 +18,17 @@
 	import MainMenu from '$lib/components/shell/main-menu.svelte';
 	import UserMenu from '$lib/components/shell/user-menu.svelte';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
+	import WindowButtons from '$lib/components/shell/window-buttons.svelte';
+	import { appWindow } from '$lib/shell/desktop.ts';
 
 	/**
 	 * The bar (lap 2 A1; deck/editor/src/bar.rs): the open items' tabs at the left, the workspace row in the middle and
 	 * nothing else there, round icons in pills at the right end – ↶ ↷, Publish (RULES H18: the one way to send drafts to
 	 * readers – its dot while something is not live, its dialog on the overlay level), the account (the user menu) and ☰
-	 * (the menu), far right. A craft may add its own: the translator's bar carries the text language (A9).
+	 * (the menu), far right. A craft may add its own: the translator's bar carries the text language (A9). In the installed
+	 * creator the bar is the window's title bar: its drag region, and on Windows and Linux the window buttons after ☰.
 	 */
+	const win = appWindow();
 	let { reader = null }: { reader?: string | null } = $props();
 
 	const doc = $derived(shell.doc);
@@ -37,7 +41,7 @@
 	const translating = $derived(showsTextLanguage(crafts.mine) && languages.length > 1);
 </script>
 
-<header class="shell-bar" data-testid="creator-bar" data-control-exempt="the bar's pills: deck-kit bar.rs's inset height">
+<header class="shell-bar" class:title-bar={win} class:inset={win?.frame === 'inset'} data-testid="creator-bar" data-control-exempt="the bar's pills: deck-kit bar.rs's inset height">
 	<TabStrip />
 	<span class="middle"><WorkspaceTabs /></span>
 	{#if translating}
@@ -57,6 +61,7 @@
 		<UserMenu />
 		<MainMenu {reader} />
 	</Pill>
+	{#if win?.frame === 'own'}<WindowButtons {win} />{/if}
 </header>
 {#if publishFlow.open}<PublishDialog />{/if}
 
@@ -91,6 +96,24 @@
 	}
 	.middle > :global(*) {
 		pointer-events: auto;
+	}
+	/* the app's title bar: the empty run drags the window (a double click maximizes), every control on it is pressed */
+	.title-bar,
+	.title-bar .middle {
+		-webkit-app-region: drag;
+	}
+	.title-bar > :global(*:not(.middle)),
+	.title-bar .middle > :global(*) {
+		-webkit-app-region: no-drag;
+	}
+	/* macOS: the traffic lights sit at the left end */
+	.inset {
+		padding-left: 5rem;
+	}
+	/* what lies over the bar takes the pointer, not the window's drag */
+	:global([data-overlay]),
+	:global(dialog) {
+		-webkit-app-region: no-drag;
 	}
 	.globe {
 		display: inline-grid;
