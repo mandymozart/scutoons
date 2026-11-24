@@ -12,12 +12,14 @@
 		type ToonLanguages
 	} from '@scutoons/content';
 	import { CreditsView } from '@scutoons/reader';
-	import { Icon, Tabs } from '@scutoons/ui';
+	import { Button, PillTabs } from '@scutoons/ui/editor';
 	import { CDN_SERVER, VIEWER_URL } from '$lib/config.ts';
 	import { creditsDocs, creditsOf, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import WritingPage from '$lib/components/writing/writing-page.svelte';
+	import { useTabs } from '$lib/shell/shell.svelte.ts';
 	import { fileLabels } from '$lib/labels.ts';
 	import SectionsEditor from '$lib/components/credits/sections-editor.svelte';
 	import PeoplePanel from '$lib/components/credits/people-panel.svelte';
@@ -25,7 +27,8 @@
 
 	/**
 	 * Credits page of a toon: sections of its credits (entity `credits:<toon>`), the global people registry and role
-	 * vocabulary (entities `people`, `roles`) and a live preview per toon language (the viewer's CreditsView).
+	 * vocabulary (entities `people`, `roles`) and a live preview per toon language (the viewer's CreditsView, a panel). The
+	 * lists stand in the writing page's column (lap 2 C14).
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
@@ -73,86 +76,62 @@
 		selectedPerson = id;
 		tab = 'people';
 	}
+	const tabs = $derived([
+		{ id: 'sections', label: m['creator.credits_tab_sections'](), testid: 'credits-tab-sections' },
+		{ id: 'people', label: `${m['creator.credits_tab_people']()} (${peopleOf(people)?.people.filter((p) => !p.merged_into).length ?? 0})`, testid: 'credits-tab-people' },
+		{ id: 'roles', label: m['creator.credits_tab_roles'](), testid: 'credits-tab-roles' }
+	]);
+	useTabs(() => ({ preview: missing.length || !loaded ? null : previewTab }));
 </script>
 
-<MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide help="credits">
-	{#if missing.length}
-		<section class="missing" data-testid="credits-missing">
-			<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.entity)) })}</p>
-			<button type="button" onclick={createMissing} data-testid="create-credits"><Icon name="plus" /> {m['creator.credits_create']()}</button>
-		</section>
-	{:else}
-		<div class="layout">
-			<div class="editor">
-				<Tabs
-					tabs={[
-						{ id: 'sections', label: m['creator.credits_tab_sections']() },
-						{ id: 'people', label: `${m['creator.credits_tab_people']()} (${peopleOf(people)?.people.filter((p) => !p.merged_into).length ?? 0})` },
-						{ id: 'roles', label: m['creator.credits_tab_roles']() }
-					]}
-					bind:value={tab}
-					label={m['creator.credits']()}
-				>
-					{#snippet children(active)}
-						<div class="panel">
-							{#if active === 'sections'}
-								<SectionsEditor {credits} {people} {roles} languages={langs} onperson={openPerson} />
-							{:else if active === 'people'}
-								<PeoplePanel {people} {credits} languages={langs} bind:selected={selectedPerson} />
-							{:else}
-								<RolesPanel {credits} {roles} languages={langs} />
-							{/if}
-						</div>
-					{/snippet}
-				</Tabs>
-			</div>
-			<aside class="preview" data-testid="credits-preview">
-				<header>
-					<span>{m['creator.preview']()}</span>
-					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer" onclick={crossAppClick}>{m['creator.credits_live']()}</a>
-				</header>
-				<div class="frame" lang={previewLocale}>
-					{#if preview}<CreditsView credits={preview} imageUrl={(path) => cdnUrl(CDN_SERVER, path)} />{/if}
-				</div>
-			</aside>
+{#snippet previewTab()}
+	<div class="preview" data-testid="credits-preview">
+		<p class="live"><a href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer" onclick={crossAppClick}>{m['creator.credits_live']()}</a></p>
+		<div class="frame" lang={previewLocale}>
+			{#if preview}<CreditsView credits={preview} imageUrl={(path) => cdnUrl(CDN_SERVER, path)} />{/if}
 		</div>
-	{/if}
+	</div>
+{/snippet}
+
+<MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide help="credits">
+	<WritingPage title={m['creator.credits']()} sub={toon} lists testid="credits-page">
+		{#if missing.length}
+			<section class="missing" data-testid="credits-missing">
+				<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.entity)) })}</p>
+				<Button icon="plus" onclick={createMissing} data-testid="create-credits">{m['creator.credits_create']()}</Button>
+			</section>
+		{:else}
+			<PillTabs items={tabs} on={tab} onselect={(id) => (tab = id)} label={m['creator.credits']()} />
+			<div class="panel">
+				{#if tab === 'sections'}
+					<SectionsEditor {credits} {people} {roles} languages={langs} onperson={openPerson} />
+				{:else if tab === 'people'}
+					<PeoplePanel {people} {credits} languages={langs} bind:selected={selectedPerson} />
+				{:else}
+					<RolesPanel {credits} {roles} languages={langs} />
+				{/if}
+			</div>
+		{/if}
+	</WritingPage>
 </MetaPage>
 
 <style>
-	.layout {
-		display: grid;
-		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-		gap: 1rem;
-		align-items: start;
-	}
-	@media (max-width: 1100px) {
-		.layout {
-			grid-template-columns: 1fr;
-		}
-	}
 	.panel {
-		padding-top: 0.75rem;
+		padding-top: 1.25rem;
 	}
 	.preview {
-		position: sticky;
-		top: 0.5rem;
-		border: 2px solid var(--tool-text);
-		max-height: calc(100vh - 160px);
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 	}
-	.preview header {
-		display: flex;
-		gap: 0.4rem;
-		align-items: center;
-		padding: 0.3rem 0.5rem;
-		border-bottom: 2px solid var(--tool-text);
-	}
-	.preview header a {
-		margin-left: auto;
+	.live {
+		margin: 0;
+		padding: 0 var(--editor-pad) var(--editor-pad);
+		font-size: var(--editor-small);
 	}
 	.frame {
+		flex: 1 1 auto;
+		min-height: 0;
 		overflow: auto;
 	}
 	/* the reader's page at a smaller scale (it is sized in rem of the reader's fluid root) */
@@ -164,5 +143,9 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		align-items: flex-start;
+	}
+	.missing p {
+		margin: 0;
+		color: var(--tool-muted);
 	}
 </style>

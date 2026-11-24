@@ -2,12 +2,8 @@
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import {
-		kanonHeadings,
-		kanonRole,
-		kanonTemplate,
 		NEUTRAL_LOCALE,
 		parseEntityKey,
-		parseKanonSubject,
 		scriptOutline,
 		validateFile,
 		validateLocales,
@@ -29,8 +25,7 @@
 
 	/**
 	 * One big text of an entity (agents/DESIGN.md "Creator: script page"): a screenplay (`script:` / `season-script:` /
-	 * `chapter-script:`) or a Kanon text (`kanon:<subject>`, research/KANON.md §5 – wrapped prose, its outline = its
-	 * sections, no title page, "Start with the headings" while empty). A screenplay: one big monospace text
+	 * `chapter-script:`; a Kanon text is the writing page's, components/writing/kanon-editor.svelte). A screenplay: one big monospace text
 	 * per language, edited exactly as typed, versioned like every entity (bottom bar: save draft, publish, history with
 	 * restore). Big texts stay fast: the textarea is the working copy and is written into the doc only after a short
 	 * pause (and before every save / language switch / outline jump), so a keystroke never copies, stringifies or parses
@@ -39,7 +34,7 @@
 	 * sync with the doc and the layout stay here.
 	 */
 	let { entity, toon, languages, title }: {
-		/** the entity without locale (`season-script:catpope:1`, `kanon:character.catpope`) */
+		/** the entity without locale (`season-script:catpope:1`) */
 		entity: string;
 		/** the page's toon ('' for a platform-wide text: a character's, a place's) */
 		toon: string;
@@ -52,9 +47,6 @@
 	// svelte-ignore state_referenced_locally
 	const ref = parseEntityKey(entity);
 	const kind = ref?.kind ?? 'script';
-	const subject = kind === 'kanon' && ref?.id ? parseKanonSubject(ref.id) : null;
-	/** a Kanon text: prose that wraps, its sections as the outline (null: a screenplay) */
-	const role = subject ? kanonRole(subject) : null;
 	const SYNC_MS = 300;
 	const INDENT = '    ';
 
@@ -142,7 +134,7 @@
 	const script = $derived<ToonScript | null>(doc.data[locale] ?? null);
 	const text = $derived(typeof script?.text === 'string' ? script.text : '');
 	const outline = $derived<OutlineItem[]>(
-		role ? kanonHeadings(text, role).map((h) => ({ kind: 'section', line: h.line, heading: h.heading, known: h.id !== null })) : scriptOutline(text, { chapter: kind === 'chapter-script' })
+		scriptOutline(text, { chapter: kind === 'chapter-script' })
 	);
 	const lineCount = $derived(text ? (text.match(/\n/g)?.length ?? 0) + (text.endsWith('\n') ? 0 : 1) : 0);
 	/** the outline item the cursor is in */
@@ -219,9 +211,9 @@
 		if (editing || asking) return;
 		asking = true;
 		editing = await confirmDialog({
-			title: role ? m['creator.kanon_edit_title']() : m['creator.script_edit_title'](),
-			message: role ? m['creator.kanon_edit_confirm']() : m['creator.script_edit_confirm'](),
-			confirmLabel: role ? m['creator.kanon_edit']() : m['creator.script_edit']()
+			title: m['creator.script_edit_title'](),
+			message: m['creator.script_edit_confirm'](),
+			confirmLabel: m['creator.script_edit']()
 		});
 		asking = false;
 		if (editing) area?.focus({ preventScroll: true });
@@ -288,33 +280,9 @@
 		area.focus({ preventScroll: true });
 		area.setSelectionRange(offset, offset);
 		const padding = parseFloat(getComputedStyle(area).paddingTop) || 0;
-		// wrapped prose (a Kanon text): line n is not row n – measure where it starts
-		area.scrollTop = Math.max(0, (role ? wrappedTop(area, offset) : (line - 1) * lineHeight) + padding - lineHeight);
+		area.scrollTop = Math.max(0, (line - 1) * lineHeight + padding - lineHeight);
 		area.scrollLeft = 0;
 		updateCursor();
-	}
-
-	/** how far down the wrapped textarea a text offset starts: a hidden copy with the same width and type, measured */
-	function wrappedTop(el: HTMLTextAreaElement, offset: number): number {
-		const style = getComputedStyle(el);
-		const mirror = document.createElement('div');
-		for (const p of ['fontFamily', 'fontSize', 'lineHeight', 'letterSpacing', 'tabSize', 'paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth', 'boxSizing'] as const) mirror.style[p] = style[p];
-		Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${el.clientWidth}px`, paddingTop: '0', paddingBottom: '0' });
-		mirror.textContent = el.value.slice(0, offset) || ' ';
-		document.body.append(mirror);
-		const top = mirror.scrollHeight - lineHeight;
-		mirror.remove();
-		return Math.max(0, top);
-	}
-
-	/** an empty Kanon text gets its role's headings in the shown language (research/KANON.md §4) */
-	function startWithHeadings() {
-		if (!role || !area || area.value.trim()) return;
-		area.focus({ preventScroll: true });
-		area.setSelectionRange(0, area.value.length);
-		insertText(kanonTemplate(role, locale));
-		flush();
-		jump(1);
 	}
 
 	function switchLocale(next: string) {
@@ -371,13 +339,10 @@
 
 </script>
 
-<MetaPage {toon} {title} docs={[doc]} {validate} wide help={role ? 'kanon' : 'script'} beforeSave={flush}>
-	<!-- format rules + line / column in the file status line (owner 2026-10-03: no row of their own); a Kanon text's rules
-	     are in the Info panel -->
+<MetaPage {toon} {title} docs={[doc]} {validate} wide help="script" beforeSave={flush}>
+	<!-- format rules + line / column in the file status line (owner 2026-10-03: no row of their own) -->
 	{#snippet status()}
-		{#if !role}
-			<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
-		{/if}
+		<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
 		{#if script}
 			<span class="hint" data-testid="script-stats">
 				{m['creator.script_lines']({ lines: lineCount })} · {m['creator.script_position']({ line: cursor.line, column: cursor.column })}
@@ -388,7 +353,7 @@
 
 		{#if !script}
 			<section class="missing" data-testid="script-missing">
-				<p class="sc-empty">{(role ? m['creator.kanon_missing_locale'] : m['creator.script_missing_locale'])({ locale, source: doc.primary })}</p>
+				<p class="sc-empty">{m['creator.script_missing_locale']({ locale, source: doc.primary })}</p>
 				<p class="buttons">
 					<button type="button" onclick={() => startLocale(false)} data-testid="script-start-empty">{m['creator.script_start_empty']()}</button>
 					{#if doc.data[doc.primary]?.text}
@@ -402,22 +367,16 @@
 			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineCss} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side" id="script-outline">
 					{#if outlineFolded}
-						<Rail side="left" label={role ? m['creator.kanon_sections']() : m['creator.script_outline']()} unfoldLabel={role ? m['creator.kanon_sections_show']() : m['creator.script_outline_show']()} controls="script-outline" onunfold={() => outlineRegion.fold(false)} testid="script-outline-rail" />
+						<Rail side="left" label={m['creator.script_outline']()} unfoldLabel={m['creator.script_outline_show']()} controls="script-outline" onunfold={() => outlineRegion.fold(false)} testid="script-outline-rail" />
 					{:else}
-						<ScriptOutline {outline} {current} label={role ? m['creator.kanon_sections']() : undefined} foldLabel={role ? m['creator.kanon_sections_fold']() : undefined} bind:list={outlineList} onfold={() => outlineRegion.fold(true)} onjump={jump} />
+						<ScriptOutline {outline} {current} bind:list={outlineList} onfold={() => outlineRegion.fold(true)} onjump={jump} />
 					{/if}
 				</aside>
 				<Divider size={outlineRegion} edge="right" at="var(--outline-width)" label={m['creator.resize_panel']()} controls="script-outline" class="outline-resize" />
 
 				<div class="main">
 					<div class="head">
-					{#if role}
-						{#if editing && !text.trim()}
-							<button type="button" class="secondary" onclick={startWithHeadings} data-testid="kanon-start-headings">{m['creator.kanon_start_headings']()}</button>
-						{/if}
-					{:else}
-						<ScriptTitlePage meta={script.meta} {editing} onset={setMeta} onrequestedit={requestEdit} />
-					{/if}
+					<ScriptTitlePage meta={script.meta} {editing} onset={setMeta} onrequestedit={requestEdit} />
 					{#if locale !== doc.primary}
 						<button type="button" class="edit-script secondary" onclick={makeSource} disabled={switching || doc.dirty} title={doc.dirty ? m['creator.make_source_save_first']() : undefined} data-testid="script-make-source">
 							{m['creator.make_source']({ locale })}
@@ -425,21 +384,20 @@
 					{/if}
 					{#if !editing}
 						<button type="button" class="edit-script secondary" onclick={requestEdit} data-testid="script-edit">
-							<Icon name="lock" />{role ? m['creator.kanon_edit']() : m['creator.script_edit']()}
+							<Icon name="lock" />{m['creator.script_edit']()}
 						</button>
 					{/if}
 					</div>
 					<textarea
 						bind:this={area}
 						class="text"
-						class:prose={!!role}
 						readonly={!editing}
 						lang={locale}
-						wrap={role ? 'soft' : 'off'}
+						wrap="off"
 						spellcheck="false"
 						autocomplete="off"
 						autocapitalize="off"
-						aria-label={(role ? m['creator.kanon_editor_label'] : m['creator.script_editor_label'])({ locale })}
+						aria-label={m['creator.script_editor_label']({ locale })}
 						oninput={onInput}
 						onkeydown={onKeydown}
 						onkeyup={updateCursor}
@@ -534,12 +492,6 @@
 		background: transparent;
 		color: var(--tool-text);
 		resize: none;
-	}
-	/* a Kanon text is prose: it wraps (KANON.md §5) */
-	.text.prose {
-		white-space: pre-wrap;
-		overflow-wrap: break-word;
-		overflow-x: hidden;
 	}
 	.missing {
 		display: grid;
