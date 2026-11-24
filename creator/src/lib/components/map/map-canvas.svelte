@@ -979,7 +979,7 @@
 		border: 2px solid var(--tool-text);
 		background: var(--tool-text);
 		color: var(--tool-text);
-		font: 700 9px/1 var(--font-mono);
+		font: 700 0.64rem/1 var(--editor-sans);
 		pointer-events: auto;
 		cursor: move;
 	}

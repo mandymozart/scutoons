@@ -6,7 +6,7 @@
  * - Night first: `.sc-tool` points the shared tokens (--ink, --paper, --border-*, --surface-*, --text-muted, --radius-none,
  *   --control-height …) at the editor tokens, so every component built on them follows. `data-theme="day"` on <html>
  *   or on the tool root is the day variant (editor.css), never on an element inside it (the remap is read at the root).
- * - Type: 1rem = deck-kit's base (14px) on desktop, ABC Areal / Noto Sans for text, the mono face for values; labels
+ * - Type: 1rem = deck-kit's base (14px) on desktop, ABC Areal / Noto Sans for every word and value, the mono face only for code; labels
  *   are regular caps with the deck's letter spacing; the smallest text is caption (0.75rem). No px font sizes.
  * - Lines instead of filled grounds: 1px frames in the line colour, controls on the control ground, rounded corners
  *   (--editor-radius). Sizes in rem, one control height (--editor-row). Focus = a 2px outline in the text colour.
@@ -112,8 +112,9 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	/* a popover is see-through like a panel, so its text and icons take the panel's ink ring (deck-kit ink_ring) */
 	text-shadow: var(--tool-halo);
 }
-/* @scutoons/ui's Sheet keeps the reader's mono type; in the tools it writes in the kit's sans like every other box */
-.sc-tool dialog.sc-sheet {
+/* @scutoons/ui's Sheet, Button, palette and Info panel keep the reader's mono type; in the tools they write in the kit's
+   sans like every other box (`html` lifts the rule over the components' scoped rules) */
+html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	font-family: var(--editor-sans);
 }
 .sc-tool :is(input, select, textarea, button, .btn, .sc-icon-button, .sc-palette-trigger, .sc-control, .sc-chip-control) {
@@ -164,7 +165,7 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 }
 
 /* the reader's base.css sets body, headings and paragraphs in the mono face; the tools are the deck editor's sans
-   throughout (#750) – mono only for code, addresses and numbers a component marks so */
+   throughout – mono only for code */
 .sc-tool :where(h1, h2, h3, h4, h5, h6, p),
 .sc-tool .sc-tooltip {
 	font-family: var(--editor-sans);
@@ -1071,7 +1072,7 @@ body > :is([role='menu'], [role='listbox'], [role='dialog'], [popover], dialog, 
 	background: var(--kit-menu-rest-ground);
 	color: var(--tool-text);
 	text-shadow: var(--tool-halo);
-	font-family: var(--font-mono);
+	font-family: var(--editor-sans);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-regular);
