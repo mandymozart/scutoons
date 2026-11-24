@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { Chip } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { picturePixels, sampleAt, type Pixels } from '$lib/editor/picture-pick.ts';
@@ -51,8 +52,9 @@
 <svelte:window onkeydowncapture={onkeydown} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="picture-pick" {onpointermove} {onpointerdown} onpointerleave={() => (hover = null)} data-testid="picture-pick">
-	<span class="sc-chip hint" role="status">{pixels === null ? m['creator.pick_unreadable']() : m['creator.pick_hint']()}</span>
+<!-- how to pick is the surface's hover text (RULES H14); only the error shows -->
+<div class="picture-pick" title={m['creator.pick_hint']()} {onpointermove} {onpointerdown} onpointerleave={() => (hover = null)} data-testid="picture-pick">
+	{#if pixels === null}<span class="hint" role="status"><Chip tone="error" label={m['creator.pick_unreadable']()} /></span>{/if}
 	{#if hover}
 		<span class="readout" style:left="{hover.x}%" style:top="{hover.y}%" data-testid="picture-pick-chip">
 			<span class="swatch" style:background={hover.hex}></span>{hover.hex}

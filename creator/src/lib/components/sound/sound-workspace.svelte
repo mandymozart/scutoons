@@ -64,11 +64,11 @@
 	/** New module (a copy of a picked factory module, else the starter) or Derive (of the open one): a draft, then it opens */
 	async function create(derive: boolean): Promise<void> {
 		const choices = factoryChoices(catalog);
-		const pick = derive || choices.length === 0 ? null : await choiceDialog({ title: m['creator.sound_start_from'](), message: m['creator.sound_start_from_hint'](), choices });
+		const pick = derive || choices.length === 0 ? null : await choiceDialog({ title: m['creator.sound_start_from'](), hover: m['creator.sound_start_from_hint'](), choices });
 		if (!derive && choices.length > 0 && !pick) return;
 		const from = derive && designer.moduleId ? templateOf(designer.moduleId, designer.name, designer.files, designer.outcome) : pick ? { id: pick, module: catalog.factory[pick] } : null;
-		const message = from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint']();
-		const typed = await askDialog({ title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](), message, label: 'id', placeholder: `e.g. my_${from?.id ?? 'walk'}`, confirmLabel: m['creator.sound_new_module_create']() });
+		const hover = from ? m['creator.sound_derive_hint']({ origin: from.id }) : m['creator.sound_new_module_hint']();
+		const typed = await askDialog({ title: from ? m['creator.sound_derive']() : m['creator.sound_new_module'](), hover, label: 'id', placeholder: `e.g. my_${from?.id ?? 'walk'}`, confirmLabel: m['creator.sound_new_module_create']() });
 		const id = typed?.trim() ?? '';
 		if (!id) return;
 		await loadModules();

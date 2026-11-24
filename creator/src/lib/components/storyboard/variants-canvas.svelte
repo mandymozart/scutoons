@@ -217,7 +217,7 @@
 	<VariantsTools {sb} {lead} {rejected} selected={sel.filter(Boolean).length} oncompare={button} onzoom={(z) => zoomAt(scroller, z, board.zoom, setZoom)} onfiles={(files) => upload(sb.current, files)} />
 	<div class="split" bind:this={split}>
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div class="scroll" class:panning={board.panning} bind:this={scroller} data-board-scroll role="group" aria-label={m['storyboard.board_label']()} onkeydown={keys} ondragover={nowhere} ondrop={nowhere} use:panZoom={{ zoom: () => board.zoom, set: setZoom, panning: (on) => (board.panning = on) }}>
+		<div class="scroll" class:panning={board.panning} bind:this={scroller} data-board-scroll role="group" aria-label={m['storyboard.board_label']()} title={m['storyboard.board_keys']()} onkeydown={keys} ondragover={nowhere} ondrop={nowhere} use:panZoom={{ zoom: () => board.zoom, set: setZoom, panning: (on) => (board.panning = on) }}>
 			{#if !bands.length}
 				<p class="sc-empty">{m['storyboard.no_shot']()}</p>
 			{:else}

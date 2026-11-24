@@ -1808,7 +1808,6 @@
 		"editor_variants_hint": "Varianten – jede Generierung der gewählten Shots, ein Band je Shot (V)",
 		"board_label": "Jede Generierung der gewählten Shots – ein Band je Shot, in der Reihenfolge des Toons",
 		"board_keys": "Klick: die aktuelle Karte (ihr Shot wird aktuell) · Strg + Klick: auswählen (A–D) · C: Vergleichen (offen: ein Klick füllt eine leere Seite, sonst ersetzt er die letzte, A bleibt; Leertaste spielt die Videos auf einer Uhr) · Pfeile bewegen (Streifen und eingeklappte Bänder übersprungen) · Enter gewählt · R prüfen · X verwerfen – sie klappt zum Streifen (nochmal: zurück) · I darauf aufbauen – füllt Generieren (nichts wird gesendet) · Klick auf einen Streifen: ein Blick hinein (Esc schließt ihn) · Mausrad: durch die Bänder, Umschalt + Rad: seitwärts, Ziehen auf dem Hintergrund: verschieben · Strg + Rad / + / −: Zoom · 0: einpassen · Esc: Vergleichen schließt, dann die Auswahl · V: der Viewport",
-		"board_keys_short": "Klick aktuell · Strg + Klick auswählen · C vergleichen · Pfeile · Enter ✓ · R ? · X ✕ · I ⚡ · + − 0 Zoom",
 		"board_show_rejected": "Verworfene zeigen · {n}",
 		"board_show_rejected_hint": "Jede verworfene Karte in jedem Band aufklappen (aus: jede klappt an ihrem Platz zum Streifen)",
 		"board_zoom": "Zoom – einer für alle Bänder",
