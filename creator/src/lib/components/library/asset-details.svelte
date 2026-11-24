@@ -1,22 +1,23 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { AssetUsage } from '@scutoons/api';
-	import { bytes, formatDuration, previewPicture, type AssetFamily } from '@scutoons/media';
+	import { bytes, formatDuration, type AssetFamily } from '@scutoons/media';
 	import { CloseButton, Icon } from '@scutoons/ui';
 	import { Section } from '@scutoons/ui/editor';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
 	import { hrefOf } from '$lib/shell/address.ts';
-	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import AssetPreview from '$lib/components/library/asset-preview.svelte';
 	import VersionsTray from '$lib/components/library/versions-tray.svelte';
 	import OpenInDeck from '$lib/components/shell/open-in-deck.svelte';
 
 	/**
-	 * A family's details – the browser's drawer at the right, the panel's at its bottom (`drawer`): the preview, the
+	 * A family's details – the browser's drawer at the right, the panel's at its bottom (`drawer`): the preview (played
+	 * here, edited in the deck), the
 	 * name (F2 renames it: URL and uses stay), Use / Set as cover, where the open item uses it (each part a jump to it),
 	 * where else the registry knows it used, its versions (a tray to use one exactly, the table),
-	 * Open in the deck, Download, Copy path, Credits (#690), Delete.
+	 * Edit in deck, Download, Copy path, Replace (a new version), Delete.
 	 */
 	let { family, drawer = false, onreplace, onclose }: { family: AssetFamily; drawer?: boolean; onreplace: (file: File) => void; onclose?: () => void } = $props();
 
@@ -49,9 +50,6 @@
 		return [...byRef.values()];
 	});
 	const chapterOpen = $derived(!!library.address?.startsWith('chapter:') && family.kind === 'image');
-	const picture = $derived(previewPicture(family.preview));
-	const video = $derived(family.versions.find((v) => v.kind === 'video' && v.label === '480p') ?? family.versions.find((v) => v.kind === 'video'));
-	const audio = $derived(family.versions.find((v) => v.kind === 'audio'));
 	const dims = (w: number | null, h: number | null) => (w && h ? `${w} × ${h}` : '');
 
 	function jump(href: string) {
@@ -68,23 +66,14 @@
 
 <aside class="details" class:drawer data-testid="library-details">
 	{#if drawer && onclose}<span class="close"><CloseButton label={m['library.close']()} onclick={onclose} /></span>{/if}
-	<div class="preview">
-		{#if family.kind === 'video' && video}
-			<!-- svelte-ignore a11y_media_has_caption -->
-			<video src={asset(video.path)} poster={picture ? asset(picture) : undefined} controls preload="metadata"></video>
-		{:else if family.kind === 'audio' && audio}
-			<audio src={asset(audio.path)} controls preload="none"></audio>
-		{:else if picture}
-			<img src={asset(picture)} alt="" />
-		{/if}
-	</div>
+	<AssetPreview {family} small={drawer} />
 	<h2><button type="button" class="name" data-control-exempt="text link" title={m['library.rename']()} onclick={() => renameFamily(family)}>{family.title}</button></h2>
 	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
 
 	<!-- what can be done with it here (#750): the cover only in a chapter; the rest as icons -->
 	<div class="actions">
 		{#if chapterOpen}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
-		<OpenInDeck address="{family.kind}:{family.main}" testid="library-open-deck" />
+		<OpenInDeck address="{family.kind}:{family.main}" edit testid="library-open-deck" />
 		<span class="icons">
 			<button type="button" class="ghost icon" title={m['library.download']()} aria-label={m['library.download']()} onclick={() => downloadFamilies([family])}><Icon name="download" size="1rem" /></button>
 			<button type="button" class="ghost icon" title={m['library.copy_path']()} aria-label={m['library.copy_path']()} onclick={() => copyPath(family)}><Icon name="copy" size="1rem" /></button>
@@ -162,31 +151,6 @@
 		top: 0.3rem;
 		right: 0.3rem;
 		z-index: 1;
-	}
-	.preview {
-		position: relative;
-		display: grid;
-		place-items: center;
-		aspect-ratio: 16 / 10;
-		border-radius: var(--editor-radius);
-		background: var(--tool-ground);
-		overflow: hidden;
-	}
-	.drawer .preview {
-		aspect-ratio: auto;
-		height: 7rem;
-	}
-	/* out of the grid's flow: a % height there doesn't resolve and a tall picture showed only its top strip */
-	.preview img,
-	.preview video {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-	}
-	.preview audio {
-		width: 90%;
 	}
 	h2 {
 		margin: 0.6rem 0 0.1rem;

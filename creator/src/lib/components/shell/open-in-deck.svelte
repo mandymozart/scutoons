@@ -8,9 +8,10 @@
 	/**
 	 * "Open in the deck" (lap2 P4, DECK-LINK.md) – the one control on an asset, a scene, a rig and a module: the link that
 	 * opens the deck on the item, in the workspace the core names for it (deck-catalog `library::open`, editor deck). What
-	 * the deck has no workspace for yet is off, the core's sentence why as its hover.
+	 * the deck has no workspace for yet is off, the core's sentence why as its hover. `edit`: the creator only previews
+	 * the item (a scene, a file), so the link says "Edit in deck"; `framed` where it sits on a picture.
 	 */
-	let { address, testid = 'open-in-deck' }: { address: string; testid?: string } = $props();
+	let { address, testid = 'open-in-deck', edit = false, variant = 'quiet' }: { address: string; testid?: string; edit?: boolean; variant?: 'quiet' | 'framed' } = $props();
 
 	let href = $state<string | null>(null);
 	let why = $state<string | null>(null);
@@ -30,4 +31,4 @@
 	});
 </script>
 
-<Button variant="quiet" icon="external-link" href={href ?? undefined} disabled={!href} title={why ?? m['shell.open_in_deck_title']()} onclick={onDeckLink} data-testid={testid}>{m['shell.open_in_deck']()}</Button>
+<Button {variant} icon="external-link" href={href ?? undefined} disabled={!href} title={why ?? (edit ? m['shell.edit_in_deck_title']() : m['shell.open_in_deck_title']())} onclick={onDeckLink} data-testid={testid}>{edit ? m['shell.edit_in_deck']() : m['shell.open_in_deck']()}</Button>
