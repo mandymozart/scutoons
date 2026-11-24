@@ -1527,8 +1527,8 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   placed item, the top row in front – grip ⋮⋮ (the shared Sortable: drag, or Alt+↑ / ↓), the item's icon (a text box: a
   "T" tile), its name (a text box: the start of its text, else its id; the id as tooltip), a Feather `download` for a
   pickup ("Pick up"); a click selects it on the canvas. "+ Add text box" and "Place an item …" sit under the list; the
-  text / item tool both open the tab. "Place an item …" / "Choose the item …" open the item drawer
-  (`ItemPickerSheet`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
+  text / item tool both open the tab. "Place an item …" / "Choose the item …" open the Library on
+  plain items (the one picker, `library-picker.svelte`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
   event editor, whose "show text box" events pick or create the text box they reveal). On the canvas: move, a round rotate
   handle above the box and a round scale handle off the bottom-right corner (width around the centre); the Snap toggle
   (grid 0.5 / 1 / 2.5 / 5 %, remembered per device) snaps moving, resizing, scaling and rotating (15°, Shift switches).
