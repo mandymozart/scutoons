@@ -17,6 +17,7 @@ import { GenerateState } from '$lib/editor/storyboard-generate.svelte.ts';
 import { BoardState } from '$lib/editor/storyboard-board.svelte.ts';
 import { HandheldState } from '$lib/editor/storyboard-handheld.svelte.ts';
 import { TimelineState } from '$lib/editor/storyboard-timeline.svelte.ts';
+import { readSlots, writeSlot, type SlotPick } from '$lib/editor/storyboard-slot.ts';
 
 const storage = browserStorage();
 
@@ -55,6 +56,8 @@ export class StoryboardPage {
 	readonly hh: HandheldState = new HandheldState(this);
 	/** the timeline along the bottom: the picked shots' clips, the playhead, the trim (#126) */
 	readonly tl: TimelineState = new TimelineState(this);
+	/** what the members put into the shots' asset slots (lap 2 C3c; storyboard-slot.ts: kept in this browser for now) */
+	slots = $state<Record<string, SlotPick>>({});
 
 	constructor(
 		readonly toon: string,
@@ -64,6 +67,7 @@ export class StoryboardPage {
 		private readonly season: () => number | null | undefined = () => null
 	) {
 		this.doc = neutralDoc(storyboardKey(toon, chapter));
+		this.slots = readSlots(storage, this.doc.entity);
 	}
 
 	/** the document as the model's type (null while missing) */
@@ -135,6 +139,11 @@ export class StoryboardPage {
 			const shot = path.reduce((o: any, k) => o?.[k], file) as Shot | undefined;
 			if (shot) change(shot);
 		});
+	}
+
+	/** a shot's asset slot filled with a Library file or a generator – or emptied (null) */
+	setSlot(shot: string, pick: SlotPick | null): void {
+		this.slots = writeSlot(storage, this.doc.entity, this.slots, shot, pick);
 	}
 
 	// ── Steps ──────────────────────────────────────────────────────────────────────────────────────────────

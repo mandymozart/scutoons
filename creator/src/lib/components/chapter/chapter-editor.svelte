@@ -57,6 +57,9 @@
 	import { api, saveBatch } from '$lib/api.ts';
 	import type { ClipResult } from '$lib/editor/clipboard.svelte.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
+	import Filmstrip from '$lib/components/filmstrip/filmstrip.svelte';
+	import { sliceAt, sliceId, sliceStrip } from '$lib/editor/filmstrip.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import { pickItem } from '$lib/editor/library-pick.svelte.ts';
@@ -360,7 +363,7 @@
 		log.selection = item && group >= 0 ? `${item}/groups/${group}${view.section === 'slice' && view.sliceIndex >= 0 ? `/slices/${view.sliceIndex}` : ''}` : null;
 		return () => (log.selection = null);
 	});
-	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
+	useTabs(() => ({ tree, filmstrip: groups.length ? slicesTab : null, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
 	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
@@ -968,6 +971,21 @@
 {/snippet}
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
+{/snippet}
+
+{#snippet slicesTab()}
+	<Filmstrip
+		groups={sliceStrip(groups, (gi) => groupName(groups[gi], gi), (path) => toonUrl(toon, path))}
+		current={view.section === 'slice' && view.sliceIndex >= 0 ? sliceId(view.groupIndex, view.sliceIndex) : null}
+		onpick={(id) => {
+			const at = sliceAt(id);
+			if (!at) return;
+			if (at.group !== view.groupIndex) view.selectGroup(at.group);
+			view.selectSlice(at.slice);
+		}}
+		label={m['shell.filmstrip_slices']()}
+		testid="slice-strip"
+	/>
 {/snippet}
 
 {#snippet tree()}

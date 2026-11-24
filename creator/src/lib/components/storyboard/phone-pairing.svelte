@@ -1,12 +1,13 @@
 <script lang="ts">
-	// The phone of the handheld camera (#126, #469; the studio's PhonePairing – workflows/storyboard-studio README "Handheld
-	// camera", STUDIO-IN-CREATOR §2.6): "Connect a phone" → a one-time code as a QR code to the creator's barebone phone
-	// page (/h/<code>, no sign-in, 10 minutes), the link's state (WebXR 6DoF or rotation only) and the relay rung the PC
-	// is on (QUIC · WebSocket), Recenter (the phone's pose
-	// now = the shot camera), the live smoothing (0 = the raw handheld look), the scale (scene metres per phone metre)
-	// and Record / Stop – the phone has the same buttons. Compact-inspector rows (PropRow + ScrubNumber).
-	import { PropRow, QrCode, ScrubNumber } from '@scutoons/ui';
+	// The phone of the handheld camera (#126, #469; lap 2 C3b): "Connect a phone" → a one-time code as a QR code to the
+	// creator's barebone phone page (/h/<code>, no sign-in, 10 minutes) – the conditions (Chrome, the same Wi-Fi) are the
+	// code's hover text –, the phone's link to copy, the link's state with the relay rung the PC is on (the core's word:
+	// QUIC · WebSocket), the live smoothing and the scale, then Disconnect · Recenter · Record (the one primary action; the
+	// phone has the same buttons).
+	import { QrCode } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
+	import { toast } from '$lib/toasts.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import { openFollow, openHand } from '$lib/handheld/hand-link.ts';
 
@@ -14,7 +15,6 @@
 	const hh = $derived(sb.hh);
 
 	const mode = $derived(hh.phone?.mode === 'xr' ? m['storyboard.hh_mode_xr']() : hh.phone?.mode === 'orientation' ? m['storyboard.hh_mode_orientation']() : m['storyboard.hh_mode_none']());
-	// the rung is the core's word (QUIC · WebSocket), shown as it says it
 	const rung = $derived(hh.rung || m['storyboard.hh_joining']());
 	const state = $derived.by(() => {
 		switch (hh.status) {
@@ -29,31 +29,47 @@
 		}
 		return '';
 	});
+
+	async function copyLink() {
+		if (!hh.url) return;
+		try {
+			await navigator.clipboard.writeText(hh.url);
+			toast(m['storyboard.hh_link_copied']());
+		} catch {
+			window.open(hh.url, '_blank', 'noreferrer');
+		}
+	}
 </script>
 
 {#if hh.status === 'idle'}
-	<button type="button" class="secondary" onclick={() => hh.pair(openHand, openFollow)} title={m['storyboard.hh_connect_hint']()} data-testid="hh-connect">{m['storyboard.hh_connect']()}</button>
+	<Button icon="smartphone" title={m['storyboard.hh_connect_hint']()} onclick={() => hh.pair(openHand, openFollow)} data-testid="hh-connect">{m['storyboard.hh_connect']()}</Button>
 {:else}
-	{#if hh.status === 'waiting' && hh.url}
-		<div class="pair">
-			<QrCode text={hh.url} label={m['storyboard.hh_qr']({ url: hh.url })} testid="hh-qr" />
-			<p class="sc-caption">{m['storyboard.hh_scan']()} <a href={hh.url} target="_blank" rel="noreferrer" data-testid="hh-link">{m['storyboard.hh_link']()}</a></p>
-		</div>
-	{/if}
-	<p class="state" role="status" data-testid="hh-state">{state}</p>
-	<PropRow label={m['storyboard.hh_smooth']()} hint={m['storyboard.hh_smooth_live_hint']()}>
-		<ScrubNumber label={m['storyboard.hh_smooth_live']()} icon="wind" min={0} max={1} step={0.05} required value={hh.smooth} onchange={(v) => hh.setSmooth(v ?? 0)} />
-	</PropRow>
-	<PropRow label={m['storyboard.hh_scale']()} hint={m['storyboard.hh_scale_hint']()}>
-		<ScrubNumber label={m['storyboard.hh_scale_label']()} icon="maximize-2" min={0.1} max={5} step={0.05} required value={hh.scale} onchange={(v) => hh.setScale(v ?? 1)} />
-	</PropRow>
+	<div class="pair">
+		{#if hh.status === 'waiting' && hh.url}
+			<span class="code" title={m['storyboard.hh_scan']()}><QrCode text={hh.url} label={m['storyboard.hh_qr']({ url: hh.url })} testid="hh-qr" /></span>
+		{/if}
+		<span class="words">
+			{#if hh.status === 'waiting' && hh.url}
+				<span>{m['storyboard.hh_scan_short']()}</span>
+				<Button variant="quiet" icon="copy" title={m['storyboard.hh_link_hint']()} onclick={copyLink} data-testid="hh-link">{m['storyboard.hh_link']()}</Button>
+			{/if}
+			<span class="state" class:on={hh.status === 'connected'} class:off={hh.status === 'failed'} role="status" data-testid="hh-state"><span class="dot"></span>{state}</span>
+		</span>
+	</div>
+	<div class="ranges">
+		<label class="sc-label" for="hh-smooth" title={m['storyboard.hh_smooth_live_hint']()}>{m['storyboard.hh_smooth']()}</label>
+		<input id="hh-smooth" type="range" min="0" max="1" step="0.05" value={hh.smooth} aria-label={m['storyboard.hh_smooth_live']()} title="{m['storyboard.hh_smooth_live']()}: {hh.smooth.toFixed(2)}" oninput={(e) => hh.setSmooth(Number(e.currentTarget.value))} data-testid="hh-smooth" />
+		<label class="sc-label" for="hh-scale" title={m['storyboard.hh_scale_hint']()}>{m['storyboard.hh_scale']()}</label>
+		<input id="hh-scale" type="range" min="0.1" max="5" step="0.05" value={hh.scale} aria-label={m['storyboard.hh_scale_label']()} title="{m['storyboard.hh_scale_label']()}: {hh.scale.toFixed(2)}" oninput={(e) => hh.setScale(Number(e.currentTarget.value))} data-testid="hh-scale" />
+	</div>
 	<div class="buttons">
-		<button type="button" class="secondary" onclick={() => hh.unpair()} data-testid="hh-disconnect">{m['storyboard.hh_disconnect']()}</button>
-		<button type="button" class="secondary" onclick={() => hh.recenter()} disabled={hh.status !== 'connected'} title={m['storyboard.hh_recenter_hint']()} data-testid="hh-recenter">{m['storyboard.hh_recenter']()}</button>
+		<Button onclick={() => hh.unpair()} data-testid="hh-disconnect">{m['storyboard.hh_disconnect']()}</Button>
+		<Button onclick={() => hh.recenter()} disabled={hh.status !== 'connected'} title={m['storyboard.hh_recenter_hint']()} data-testid="hh-recenter">{m['storyboard.hh_recenter']()}</Button>
+		<span class="grow"></span>
 		{#if hh.recording}
-			<button type="button" class="rec" onclick={() => hh.stopRec()} data-testid="hh-stop">{m['storyboard.hh_stop']({ s: hh.recSeconds.toFixed(1) })}</button>
+			<Button variant="primary" destroy onclick={() => hh.stopRec()} data-testid="hh-stop">{m['storyboard.hh_stop']({ s: hh.recSeconds.toFixed(1) })}</Button>
 		{:else}
-			<button type="button" onclick={() => hh.startRec()} disabled={hh.status !== 'connected' || !hh.live} title={m['storyboard.hh_record_hint']()} data-testid="hh-record">{m['storyboard.hh_record']()}</button>
+			<Button variant="primary" onclick={() => hh.startRec()} disabled={hh.status !== 'connected' || !hh.live} title={m['storyboard.hh_record_hint']()} data-testid="hh-record">{m['storyboard.hh_record']()}</Button>
 		{/if}
 	</div>
 {/if}
@@ -62,25 +78,68 @@
 	.pair {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--space-1);
+		gap: 0.8rem;
 	}
-	.pair p {
-		flex: 1;
+	.code {
+		flex: none;
+		width: 7rem;
+	}
+	.code :global(.qr) {
+		width: 100%;
+		border-radius: 0.3rem;
+		overflow: hidden;
+	}
+	.words {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.45rem;
 		min-width: 0;
 	}
-	.pair p,
 	.state {
-		margin: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--tool-muted);
+		font-size: var(--editor-small);
 		overflow-wrap: anywhere;
+	}
+	.dot {
+		flex: none;
+		width: 0.45rem;
+		height: 0.45rem;
+		border: var(--editor-edge) solid currentColor;
+		border-radius: 50%;
+		box-sizing: border-box;
+	}
+	.state.on {
+		color: var(--tool-text);
+	}
+	.state.on .dot {
+		background: var(--tool-go);
+		border-color: var(--tool-go);
+	}
+	.state.off .dot {
+		background: var(--tool-stop);
+		border-color: var(--tool-stop);
+	}
+	.ranges {
+		display: grid;
+		grid-template-columns: 4.5rem 1fr;
+		gap: 0.45rem 0.6rem;
+		align-items: center;
+		margin-top: 0.7rem;
+	}
+	.ranges input {
+		width: 100%;
 	}
 	.buttons {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.7rem;
 	}
-	.rec {
-		background: var(--tool-stop);
-		border-color: var(--tool-stop);
-		color: var(--tool-pressed-text);
+	.grow {
+		flex: 1;
 	}
 </style>

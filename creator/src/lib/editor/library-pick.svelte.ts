@@ -31,9 +31,10 @@ class PickFirst {
 
 export const pickFirst = shared('creator-library-pick-first', () => new PickFirst());
 
-/** whether the slot takes this thing as it is (its type, not taken, accepted) */
+/** whether the slot takes this thing as it is (its type, not taken, accepted; a file slot: a thing of its `things` types) */
 export function takesThing(entry: LibraryEntry): boolean {
 	const request = library.pick;
+	if (request && !isThingPick(request)) return !!entry.type && !!request.things?.types.includes(entry.type);
 	if (!isThingPick(request) || !entry.type || !request.types.includes(entry.type)) return false;
 	return !request.taken?.includes(entry.address) && (!request.accept || request.accept(entry));
 }
@@ -47,7 +48,7 @@ export function pressEntry(entry: LibraryEntry, deeper = false): string {
 		const answer = library.pickFile(path);
 		return answer.ok ? '' : misfitWords(answer);
 	}
-	if (takesThing(entry) && isThingPick(request) && !request.depth) {
+	if (takesThing(entry) && !(isThingPick(request) && request.depth)) {
 		library.pickThing({ address: entry.address, entry });
 		return '';
 	}

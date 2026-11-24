@@ -1,10 +1,10 @@
 <script lang="ts">
-	// The handheld camera of the current shot (#126; owner 2026-10-19: "In the storyboard module I'd enable it per shot … on
-	// the PC the camera of that shot … moves along with the phone and records the camera movement. Afterwards I only need
-	// to trim"; the studio's HandheldPanel): the switch per shot, the phone (phone-pairing), the takes (inline in the shot,
-	// one active – the radio –, the bin), the active take's smoothing and scale, its trim (the timeline in Take mode) and
-	// Render (the Sin City look as a WebM into the workspace folder + its record). Every change is one undo step.
-	import { confirmDialog, Icon, IconButton, PropRow, ScrubNumber, Segmented } from '@scutoons/ui';
+	// The handheld camera of the current shot (#126; lap 2 C3b): the switch per shot, the phone (phone-pairing), the takes
+	// (inline in the shot, one active – the radio –, the bin), the active take's trim (the timeline in Take mode; the
+	// explaining sentence is hover text), its smoothing and Render (the studio look as a WebM into the workspace folder +
+	// its record). Every change is one undo step.
+	import { confirmDialog, Segmented } from '@scutoons/ui';
+	import { Button, IconButton } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { activeTake, removeTake, setActive, setOn, setTakeField, takeEnd, takesOf } from '$lib/editor/storyboard-takes.ts';
@@ -49,60 +49,64 @@
 
 <div class="panel" data-testid="handheld-panel">
 	{#if entry}
-		<PropRow label={m['storyboard.hh_switch']()} hint={m['storyboard.hh_switch_hint']()}>
-			<Segmented
-				label={m['storyboard.hh_switch_label']({ id: entry.id })}
-				stretch
-				options={[
-					{ value: 'off', label: m['storyboard.hh_off']() },
-					{ value: 'on', label: m['storyboard.hh_on']({ id: entry.id }) }
-				]}
-				value={doc.on ? 'on' : 'off'}
-				onchange={(v) => {
-					if (v === 'off') sb.hh.stopLive();
-					change(setOn(v === 'on'));
-				}}
-				testid="hh-switch"
-			/>
-		</PropRow>
+		<Segmented
+			label={m['storyboard.hh_switch_label']({ id: entry.id })}
+			stretch
+			options={[
+				{ value: 'off', label: m['storyboard.hh_off'](), title: m['storyboard.hh_switch_hint']() },
+				{ value: 'on', label: m['storyboard.hh_on']({ id: entry.id }), title: m['storyboard.hh_switch_hint']() }
+			]}
+			value={doc.on ? 'on' : 'off'}
+			onchange={(v) => {
+				if (v === 'off') sb.hh.stopLive();
+				change(setOn(v === 'on'));
+			}}
+			testid="hh-switch"
+		/>
 		{#if doc.on}
-			<fieldset>
-				<legend>{m['storyboard.hh_phone']()}</legend>
-				<div class="rows"><PhonePairing {sb} /></div>
-			</fieldset>
+			<span class="sc-label">{m['storyboard.hh_phone']()}</span>
+			<div><PhonePairing {sb} /></div>
 			{#if doc.takes.length}
-				<fieldset>
-					<legend>{m['storyboard.hh_takes']()}</legend>
-					<div class="rows">
-						<div class="takes" role="radiogroup" aria-label={m['storyboard.hh_active_take']()}>
-							{#each doc.takes as t (t.id)}
-								<div class="take">
-									<button type="button" class="secondary" class:sc-selected={doc.active === t.id} role="radio" aria-checked={doc.active === t.id} onclick={() => change(setActive(t.id))} data-testid="hh-take-{t.id}">
-										<span class="cut">{m['storyboard.hh_take_row']({ take: t.id, kept: (t.out - t.in).toFixed(1), all: takeEnd(t).toFixed(1), at: when(t.created) })}</span>
-									</button>
-									<IconButton label={m['storyboard.hh_delete_take']({ take: t.id })} class="sc-round" onclick={() => remove(t.id, t.out - t.in, t.samples.length)}><Icon name="trash-2" /></IconButton>
-								</div>
-							{/each}
+				<span class="sc-label">{m['storyboard.hh_takes']()}</span>
+				<div class="takes" role="radiogroup" aria-label={m['storyboard.hh_active_take']()}>
+					{#each doc.takes as t (t.id)}
+						<div class="take" class:active={doc.active === t.id}>
+							<button type="button" class="pick" role="radio" aria-checked={doc.active === t.id} data-control-exempt="a take's row" onclick={() => change(setActive(t.id))} data-testid="hh-take-{t.id}">
+								<span class="id">{t.id}</span>
+								<span class="kept">{m['storyboard.hh_take_kept']({ kept: (t.out - t.in).toFixed(1), all: takeEnd(t).toFixed(1) })}</span>
+								<span class="at">{when(t.created)}</span>
+							</button>
+							<IconButton label={m['storyboard.hh_delete_take']({ take: t.id })} icon="trash-2" tone="muted" onclick={() => remove(t.id, t.out - t.in, t.samples.length)} />
 						</div>
-						{#if take}
-							<PropRow label={m['storyboard.hh_trim']()} hint={m['storyboard.hh_trim_hint']()}>
-								{#if trimHere}
-									<p class="sc-caption">{m['storyboard.hh_trim_here']({ take: take.id })}</p>
-								{:else}
-									<button type="button" class="secondary" onclick={toTrim} data-testid="hh-to-trim">{m['storyboard.hh_open_timeline']()}</button>
-								{/if}
-							</PropRow>
-							<PropRow label={m['storyboard.hh_smooth']()} hint={m['storyboard.hh_smooth_hint']()}>
-								<ScrubNumber label={m['storyboard.hh_smooth_take']({ take: take.id })} icon="wind" min={0} max={1} step={0.05} required value={take.smooth ?? 0} onchange={(v) => change(setTakeField(take.id, 'smooth', v ?? 0), `${entry.id}:${take.id}:smooth`)} />
-							</PropRow>
-							<PropRow label={m['storyboard.hh_render']()} hint={m['storyboard.hh_render_hint']()}>
-								<button type="button" onclick={render} disabled={!!sb.hh.rendering || sb.workspaceState !== 'ready'} title={sb.workspaceState === 'ready' ? m['storyboard.hh_render_hint']() : m['storyboard.hh_render_folder']()} data-testid="hh-render">
-									{sb.hh.rendering ?? m['storyboard.hh_render_take']({ take: take.id })}
-								</button>
-							</PropRow>
-						{/if}
+					{/each}
+				</div>
+				{#if take}
+					<span class="sc-label" title={m['storyboard.hh_trim_hint']()}>{m['storyboard.hh_trim']()}</span>
+					{#if trimHere}
+						<span class="sc-caption" title={m['storyboard.hh_trim_here']({ take: take.id })} data-testid="hh-trim-here">{m['storyboard.hh_trim_clip']()}</span>
+					{:else}
+						<div><Button onclick={toTrim} title={m['storyboard.hh_trim_here']({ take: take.id })} data-testid="hh-to-trim">{m['storyboard.hh_open_timeline']()}</Button></div>
+					{/if}
+					<label class="sc-label" for="hh-take-smooth" title={m['storyboard.hh_smooth_hint']()}>{m['storyboard.hh_smooth']()}</label>
+					<input
+						id="hh-take-smooth"
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={take.smooth ?? 0}
+						aria-label={m['storyboard.hh_smooth_take']({ take: take.id })}
+						title="{m['storyboard.hh_smooth_take']({ take: take.id })}: {(take.smooth ?? 0).toFixed(2)}"
+						oninput={(e) => change(setTakeField(take.id, 'smooth', Number(e.currentTarget.value)), `${entry.id}:${take.id}:smooth`)}
+						data-testid="hh-take-smooth"
+					/>
+					<span class="sc-label" title={m['storyboard.hh_render_hint']()}>{m['storyboard.hh_render']()}</span>
+					<div>
+						<Button onclick={render} disabled={!!sb.hh.rendering || sb.workspaceState !== 'ready'} title={sb.workspaceState === 'ready' ? m['storyboard.hh_render_hint']() : m['storyboard.hh_render_folder']()} data-testid="hh-render">
+							{sb.hh.rendering ?? m['storyboard.hh_render_take']({ take: take.id })}
+						</Button>
 					</div>
-				</fieldset>
+				{/if}
 			{/if}
 		{/if}
 	{/if}
@@ -110,34 +114,78 @@
 
 <style>
 	.panel {
-		display: grid;
-		gap: var(--space-1);
-		padding: var(--space-1);
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		padding: var(--editor-pad);
 	}
-	.rows {
-		display: grid;
-		gap: var(--space-05);
+	.sc-label {
+		margin-top: 0.7rem;
+	}
+	.sc-label:first-child {
+		margin-top: 0;
 	}
 	.takes {
-		display: grid;
-		gap: var(--space-025);
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
 	}
 	.take {
 		display: flex;
 		align-items: center;
-		gap: var(--space-05);
+		gap: 0.25rem;
+		border-radius: var(--editor-radius);
 	}
-	.take button.secondary {
+	.take.active {
+		background: var(--kit-list-row-selected-ground);
+		color: var(--kit-list-row-selected-text);
+	}
+	.pick {
 		flex: 1;
 		min-width: 0;
-		justify-content: flex-start;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: var(--editor-row);
+		margin: 0;
+		padding: 0 calc(var(--editor-pad) / 2);
+		border: 0;
+		border-radius: var(--editor-radius);
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 	}
-	.cut {
+	@media (hover: hover) {
+		.take:not(.active):hover {
+			background: var(--kit-list-row-hover-ground);
+		}
+	}
+	.pick:focus-visible {
+		outline: 2px solid var(--kit-focus-rest-ring);
+		outline-offset: -2px;
+	}
+	.id {
+		font-family: var(--font-mono);
+	}
+	.kept {
+		flex: 1;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	p {
-		margin: 0;
+	.kept,
+	.at {
+		font-size: var(--editor-small);
+		color: var(--tool-muted);
+	}
+	.take.active .kept,
+	.take.active .at {
+		color: inherit;
+	}
+	input[type='range'] {
+		width: 100%;
 	}
 </style>

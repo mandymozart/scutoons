@@ -31,6 +31,8 @@ export interface FilePick extends PickBase, SlotFit {
 	/** where Upload puts a new file for this slot (the slot's convention path) – else the open item's folder */
 	path?: string;
 	onpick: (path: string) => void;
+	/** things it takes beside the files (a shot's slot: a generator) – their types, and what picking one does */
+	things?: { types: readonly ThingType[]; onthing: (picked: PickedThing) => void };
 }
 
 /** a thing picked, as deep as its slot asked: a character's persona (the level's own id) */
@@ -256,9 +258,10 @@ class Library {
 	/** the thing pick's answer: its slot is filled, the picker closes */
 	pickThing(picked: PickedThing) {
 		const request = this.pick;
-		if (!isThingPick(request)) return;
+		const onthing = isThingPick(request) ? request.onthing : request?.things?.onthing;
+		if (!onthing) return;
 		this.pick = null;
-		request.onthing(picked);
+		onthing(picked);
 	}
 
 	/** where a new file goes: the slot's own path, else the open item's folder */

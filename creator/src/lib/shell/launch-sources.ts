@@ -50,7 +50,7 @@ export function workspaces(): LaunchEntry[] {
 
 /** the front workspace's views (Settings is a command) */
 export function views(): LaunchEntry[] {
-	return tabSpecs()
+	return tabSpecs(shell.kind)
 		.filter((t) => t.id !== 'settings' && shell.available.has(t.id))
 		.map((t) => ({ id: `view:${t.id}`, kind: 'view', label: t.name, hint: m['shell.launch_view'](), keywords: t.about, icon: t.icon }));
 }

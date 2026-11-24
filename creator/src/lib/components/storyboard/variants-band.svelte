@@ -117,7 +117,6 @@
 <style>
 	.band {
 		position: relative;
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.band.over::after {
 		content: '';

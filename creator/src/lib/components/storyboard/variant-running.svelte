@@ -51,7 +51,7 @@
 		bottom: var(--space-025);
 		height: 0.75rem;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 		background: var(--tool-head);
 	}
 	.bar > span {
