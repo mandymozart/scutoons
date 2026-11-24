@@ -81,10 +81,8 @@
 					{/each}
 				</div>
 				{#if take}
-					<span class="sc-label" title={m['storyboard.hh_trim_hint']()}>{m['storyboard.hh_trim']()}</span>
-					{#if trimHere}
-						<span class="sc-caption" title={m['storyboard.hh_trim_here']({ take: take.id })} data-testid="hh-trim-here">{m['storyboard.hh_trim_clip']()}</span>
-					{:else}
+					{#if !trimHere}
+						<span class="sc-label" title={m['storyboard.hh_trim_hint']()}>{m['storyboard.hh_trim']()}</span>
 						<div><Button onclick={toTrim} title={m['storyboard.hh_trim_here']({ take: take.id })} data-testid="hh-to-trim">{m['storyboard.hh_open_timeline']()}</Button></div>
 					{/if}
 					<label class="sc-label" for="hh-take-smooth" title={m['storyboard.hh_smooth_hint']()}>{m['storyboard.hh_smooth']()}</label>

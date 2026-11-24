@@ -267,16 +267,16 @@
 		top: 0;
 		z-index: 2;
 		background: var(--paper);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--border-muted);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		font-variant-numeric: tabular-nums;
 	}
-	.corner { left: 0; z-index: 5; display: flex; align-items: center; padding: 0 var(--space-05); border-right: var(--border-width-regular) solid var(--ink); }
+	.corner { left: 0; z-index: 5; display: flex; align-items: center; padding: 0 var(--space-05); border-right: var(--border-width-hairline) solid var(--border-muted); }
 	.ruler { overflow: hidden; cursor: ew-resize; touch-action: none; user-select: none; }
 	/* markers (scenes) on the upper half with a 2px line, ticks on the lower half with a hairline */
 	.tick, .marker { position: absolute; padding-left: var(--space-025); white-space: nowrap; }
-	.tick { bottom: 0; color: var(--text-muted); border-left: var(--border-width-hairline) solid var(--ink); }
+	.tick { bottom: 0; color: var(--text-muted); border-left: var(--border-width-hairline) solid var(--border-muted); }
 	.marker { top: 0; border-left: var(--border-width-regular) solid var(--ink); }
 	/* the playhead's layer over the ruler and the lanes, under the sticky labels; clipped: a playhead at the end sticks out */
 	.strip { position: absolute; inset: 0 0 0 var(--timeline-label); z-index: 3; pointer-events: none; overflow: clip; }
