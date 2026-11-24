@@ -15,6 +15,7 @@ import {
 	isHidden,
 	markerX,
 	moveTab,
+	notOffered,
 	panelOf,
 	readArrangement,
 	showTab,
@@ -252,5 +253,20 @@ describe('panel tabs: a hidden tab (the Views eye)', () => {
 		const read = readArrangement(JSON.parse(JSON.stringify({ ...a, hidden: ['problems', 'gone'] })), PANELS, TABS);
 		expect(read.hidden).toEqual(['problems']);
 		expect(tabsOf(read, 'inspector')).toEqual(['inspector']);
+	});
+});
+
+describe('panel tabs: a tab whose content is gone', () => {
+	it('a kept layout names it, but no panel offers it now: it is listed as not offered, its place kept', () => {
+		const kept = activate(start(), 'library', 'wanted');
+		const now = PANELS.map((p) => (p.id === 'library' ? { ...p, tabs: ['library', 'info'] } : p));
+		expect(notOffered(kept, now)).toEqual(['wanted']);
+		expect(notOffered(kept, PANELS)).toEqual([]);
+		expect(kept.panels.library).toEqual(['library', 'wanted', 'info']);
+		expect(activeOf({ ...kept, hidden: notOffered(kept, now) }, 'library')).toBe('library');
+	});
+
+	it('panels that list no tabs offer nothing to compare: none is left out', () => {
+		expect(notOffered(start(), [PANELS[3]])).toEqual([]);
 	});
 });
