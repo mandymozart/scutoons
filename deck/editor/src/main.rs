@@ -3371,7 +3371,8 @@ impl App {
                 let dot = (gap * 0.4).clamp(2.0, 6.0);
                 let near = self.marks[k].distance(self.cursor) < 110.0;
                 let hover = under == Some(index);
-                let c = if q.input { t.color.bright } else { t.color.bright };
+                let b = t.color.bright;
+                let c = if q.input { b } else { [b[0], b[1], b[2], 0.7] };
                 let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
                 // what the typeahead still shows, else what the cable in the hand may reach
                 let open = match &self.menu {
