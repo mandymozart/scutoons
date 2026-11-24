@@ -96,6 +96,9 @@ pub struct Ui {
     free: Vec<TextureId>,
     /// the icons and the logo, before any preview joined them
     base: Pictures,
+    /// the overlay level's still (deck-kit `still`): its texture, and whether it is drawn this frame in the stage's place
+    backdrop: Option<(wgpu::Texture, TextureId)>,
+    backdrop_on: bool,
 }
 
 impl Ui {
@@ -121,7 +124,38 @@ impl Ui {
             jobs: Vec::new(),
             free: Vec::new(),
             base,
+            backdrop: None,
+            backdrop_on: false,
         })
+    }
+
+    /// the overlay's still, from now on until it is let go
+    pub fn set_backdrop(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, still: &deck_kit::base::still::Still) {
+        self.drop_backdrop();
+        if still.w == 0 {
+            return;
+        }
+        let size = wgpu::Extent3d { width: still.w, height: still.h, depth_or_array_layers: 1 };
+        let tex = device.create_texture(&wgpu::TextureDescriptor { label: Some("overlay still"), size, mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2, format: wgpu::TextureFormat::Rgba8UnormSrgb, usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST, view_formats: &[] });
+        queue.write_texture(tex.as_image_copy(), &still.rgba, wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4 * still.w), rows_per_image: Some(still.h) }, size);
+        let id = self.renderer.register_native_texture(device, &tex.create_view(&Default::default()), wgpu::FilterMode::Linear);
+        self.backdrop = Some((tex, id));
+    }
+
+    pub fn has_backdrop(&self) -> bool {
+        self.backdrop.is_some()
+    }
+
+    /// the still let go (the overlay closed)
+    pub fn drop_backdrop(&mut self) {
+        if let Some((_, id)) = self.backdrop.take() {
+            self.renderer.free_texture(&id);
+        }
+    }
+
+    /// this frame shows the still over the whole window instead of the stage and the cards
+    pub fn backdrop(&mut self) {
+        self.backdrop_on = self.backdrop.is_some();
     }
 
     /// the previews' pictures, from the next frame on
@@ -169,6 +203,7 @@ impl Ui {
         self.list.clear();
         self.stage_rect = None;
         self.card_rects.clear();
+        self.backdrop_on = false;
     }
 
     /// the stage into this rectangle
@@ -214,7 +249,16 @@ impl Ui {
             mesh.add_rect_with_uv(Rect::from_min_size(pos2(x * scale, y * scale), deck_kit::egui::vec2(w * scale, h * scale)), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             ClippedPrimitive { clip_rect: full, primitive: Primitive::Mesh(mesh) }
         });
-        let jobs: Vec<ClippedPrimitive> = stage.into_iter().chain(cards).chain(self.jobs.iter().cloned()).collect();
+        let backdrop = self.backdrop.as_ref().filter(|_| self.backdrop_on).map(|(_, id)| {
+            let mut mesh = Mesh::with_texture(*id);
+            mesh.add_rect_with_uv(full, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            ClippedPrimitive { clip_rect: full, primitive: Primitive::Mesh(mesh) }
+        });
+        let under: Vec<ClippedPrimitive> = match backdrop {
+            Some(b) => vec![b],
+            None => stage.into_iter().chain(cards).collect(),
+        };
+        let jobs: Vec<ClippedPrimitive> = under.into_iter().chain(self.jobs.iter().cloned()).collect();
         let desc = ScreenDescriptor { size_in_pixels: [size.width, size.height], pixels_per_point: 1.0 };
         // no paint callbacks: nothing comes back to submit
         let _ = self.renderer.update_buffers(device, queue, enc, &jobs, &desc);

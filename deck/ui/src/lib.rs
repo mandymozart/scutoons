@@ -38,6 +38,15 @@ pub mod filter;
 /// #609: F9 between the deck and the editor – why it stayed put
 pub mod handoff;
 
+/// the deck editor's workspaces Scene · Rigging · Show (XR is the creator's), their row and what a click on one does
+pub mod workspaces;
+
+/// a view taking the stage – the four layouts, the four view states, the drop zones
+pub mod stage;
+
+/// reopening resumes like a hibernated computer; the very first open
+pub mod resume;
+
 /// text lines the HUD has room for (above the frame-time graph; #208: two audio lines + the glitch warning)
 pub const LINES: usize = 13;
 /// characters a line has room for (8 px each, a 4 px margin)

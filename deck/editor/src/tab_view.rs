@@ -84,7 +84,7 @@ impl crate::App {
     }
 
     /// whether what is in front has changes the server has not got
-    fn live_dirty(&self) -> bool {
+    pub(crate) fn live_dirty(&self) -> bool {
         let dirty = |pending: bool, state: &crate::autosave::State| pending || *state != crate::autosave::State::Clean;
         match self.workspace {
             Workspace::Home | Workspace::Media => false,
@@ -665,19 +665,13 @@ impl crate::App {
         (recent, library, vec![account, audio, relay])
     }
 
-    /// a press on Home
+    /// New …, a line of Last opened, Docs
     pub(crate) fn home_press(&mut self, p: home::Press) {
         let (x, y) = self.cursor;
-        let (recent, library, _) = self.home_lines();
         match p {
             home::Press::Recent(i) => {
-                if let Some(l) = recent.get(i) {
-                    self.open_item(&l.key, &l.name);
-                }
-            }
-            home::Press::Library(i) => {
-                if let Some(l) = library.get(i) {
-                    self.open_item(&l.key, &l.name);
+                if let Some((key, name)) = self.tabs.recent.get(i).cloned() {
+                    self.open_item(&key, &name);
                 }
             }
             // the system's browser on a desktop (a check run opens none); its link copied where none opens

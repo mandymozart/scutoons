@@ -1,9 +1,13 @@
 //! The editor's floating panels (deck-kit `floats`): each workspace's set over the full-window stage, the size each
 //! content asks for this frame (its own when it knows it, else what it drew the frame before), and where the viewer left
-//! them – a per-viewer convenience in the editor's cache, one map per workspace.
+//! them – a per-viewer convenience in the editor's cache, one map per workspace. A panel is a view: hidden, a panel, on
+//! the stage (deck-ui `stage`: one of the four layouts' cells) or full screen; the panels are painted in their order,
+//! the last touched on top.
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::floats::{self, Chrome, Corner, Floats, Metrics, Place, Shown, Spec, View};
+use deck_ui::stage::{StageState, ViewState};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
@@ -122,6 +126,8 @@ pub struct Open {
     /// where to draw: the visible width, the content's own height, moved up by the scroll
     pub area: Rect,
     view: View,
+    /// where its ground began, and its content
+    start: usize,
     prims: usize,
     hits: usize,
 }
@@ -143,6 +149,11 @@ pub struct Panels {
     playing: Option<(String, BTreeMap<String, Place>)>,
     /// Play's places per tab kind as the viewer left them
     plays: BTreeMap<String, BTreeMap<String, Place>>,
+    /// the views on the stage and the one full screen (the editor's session holds them per workspace)
+    pub stage: StageState,
+    pub full: Option<String>,
+    /// this frame's panels as drawn: each one's range of the draw list
+    drawn: RefCell<Vec<(&'static str, usize, usize)>>,
 }
 
 /// the settings have a main menu line of their own, so the menu's panel list leaves them out
@@ -150,7 +161,7 @@ pub const SETTINGS: &str = "settings";
 
 impl Panels {
     pub fn new(specs: &[Spec]) -> Panels {
-        Panels { floats: Floats::new(specs), measured: HashMap::from([(crate::library::PANEL, LIBRARY_START)]), known: Vec::new(), grew: false, settings: None, tools: None, play: &[], playing: None, plays: BTreeMap::new() }
+        Panels { floats: Floats::new(specs), measured: HashMap::from([(crate::library::PANEL, LIBRARY_START)]), known: Vec::new(), grew: false, settings: None, tools: None, play: &[], playing: None, plays: BTreeMap::new(), stage: StageState::default(), full: None, drawn: RefCell::new(Vec::new()) }
     }
 
     /// a workspace that plays: Play shows its tab kind's own preset, remembered per tab kind
@@ -206,12 +217,14 @@ impl Panels {
         self.plays = all.iter().filter_map(|(k, p)| Some((k.strip_prefix(prefix.as_str())?.to_string(), p.clone()))).collect();
     }
 
-    /// the main menu's panel list: the panels that close, and whether each is open
+    /// the panels that close, and whether each is open
+    #[cfg(test)]
     pub fn listed(&self) -> Vec<(&'static str, &'static str, bool)> {
         self.floats.closable().into_iter().filter(|(s, _)| s.id != SETTINGS).map(|(s, open)| (s.id, s.name, open)).collect()
     }
 
-    /// a line of the panel list pressed: an open panel closes, a closed one comes back open
+    /// an open panel closes, a closed one comes back open
+    #[cfg(test)]
     pub fn flip(&mut self, id: &str) {
         if self.floats.closed(id) {
             self.floats.reopen(id);
@@ -225,6 +238,85 @@ impl Panels {
         Rect { x: gap, y: top + gap, w: (size.0 - 2.0 * gap).max(1.0), h: (size.1 - top - 2.0 * gap).max(1.0) }
     }
 
+    /// a panel's state as a view
+    pub fn view_state(&self, id: &str) -> ViewState {
+        if self.full.as_deref() == Some(id) {
+            ViewState::Full
+        } else if self.stage.has(id) {
+            ViewState::Stage
+        } else if self.floats.closed(id) {
+            ViewState::Hidden
+        } else {
+            ViewState::Panel
+        }
+    }
+
+    /// a panel put in a state: hidden closes it (an essential one only folds), the others open it; on the stage it takes
+    /// a free cell (or the layout grows), full screen it takes the whole
+    pub fn set_view(&mut self, id: &str, state: ViewState) {
+        if state == ViewState::Hidden {
+            if !self.floats.close(id) {
+                self.floats.set_collapsed(id, true);
+            }
+        } else {
+            self.floats.reopen(id);
+        }
+        self.stage = if state == ViewState::Stage { self.stage.add(id) } else { self.stage.without(id) };
+        if state == ViewState::Full {
+            self.full = Some(id.to_string());
+        } else if self.full.as_deref() == Some(id) {
+            self.full = None;
+        }
+    }
+
+    /// every panel as a view: its id, name, icon and state (the ☰ Views)
+    pub fn views(&self) -> Vec<(&'static str, &'static str, &'static str, ViewState)> {
+        self.floats.all().into_iter().filter(|s| s.id != SETTINGS && !s.inline).map(|s| (s.id, s.name, s.icon, self.view_state(s.id))).collect()
+    }
+
+    /// the panel dragged off the stage this frame, if one was: the stage forgets it
+    pub fn take_left_stage(&mut self) -> Option<&'static str> {
+        let id = self.floats.left_stage()?;
+        self.stage = self.stage.without(id);
+        if self.full.as_deref() == Some(id) {
+            self.full = None;
+        }
+        Some(id)
+    }
+
+    /// the panels as their order paints them, the last touched on top (after every panel of the frame is drawn)
+    pub fn restack(&self, d: &mut DrawList) {
+        let mut drawn = self.drawn.borrow_mut();
+        let order = self.floats.paint_order();
+        let mut parts: Vec<(&'static str, usize, usize)> = order.iter().filter_map(|id| drawn.iter().find(|(d, ..)| d == id).copied()).collect();
+        parts.retain(|(_, a, b)| b > a);
+        let ranges: Vec<(usize, usize)> = parts.iter().map(|p| (p.1, p.2)).collect();
+        let before = d.prims().len();
+        d.restack(&ranges);
+        let mut sorted = ranges.clone();
+        sorted.sort_unstable();
+        // restack moved the parts in paint order to the start of their span (unless they already lay so): their places now
+        if sorted != ranges && !sorted.windows(2).any(|w| w[0].1 > w[1].0) && d.prims().len() == before {
+            let mut at = sorted.first().map_or(0, |r| r.0);
+            for (id, a, b) in parts {
+                if let Some(e) = drawn.iter_mut().find(|e| e.0 == id) {
+                    *e = (id, at, at + (b - a));
+                }
+                at += b - a;
+            }
+        }
+    }
+
+    /// where panel `id` lies in the draw list this frame (after `restack`)
+    pub fn drawn_range(&self, id: &str) -> Option<(usize, usize)> {
+        self.drawn.borrow().iter().find(|e| e.0 == id).map(|e| (e.1, e.2))
+    }
+
+    /// the box a panel taken full fills: the window less the kit's margin, the bar's place too (RULES H15)
+    pub fn full_box(size: (f32, f32), margin: f32) -> Rect {
+        Rect { x: margin, y: margin, w: (size.0 - 2.0 * margin).max(1.0), h: (size.1 - 2.0 * margin).max(1.0) }
+    }
+
     /// this frame's layout: the panels shown, each with its content's width and – when it knows it – height (else the
     /// height it drew last frame); places nothing may cover
     pub fn layout(&mut self, d: &DrawList, t: &Tokens, (size, top): ((f32, f32), f32), fixed: &[Rect], shown: &[(&'static str, f32, Option<f32>)]) {
@@ -234,9 +326,27 @@ impl Panels {
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
+        let whole = size;
         // the status bar keeps the bottom edge
         let size = (size.0, size.1 - deck_kit::editor::status::reserve(t));
-        self.floats.layout(Self::room(size, top, m.gap), fixed, &shown, m);
+        let mut room = Self::room(size, top, m.gap);
+        self.drawn.borrow_mut().clear();
+        // a view taken full is a box on the overlay level, alone; the views on the stage fill their cells, a gap apart
+        let full = self.full.as_deref().and_then(|f| shown.iter().find(|s| s.id == f)).map(|s| s.id);
+        let (cells, shown): (Vec<(&str, Rect)>, Vec<Shown>) = match full {
+            Some(f) => {
+                room = Self::full_box(whole, m.gap);
+                (vec![(f, room)], shown.into_iter().filter(|s| s.id == f).collect())
+            }
+            None => {
+                let half = m.gap * 0.5;
+                let cells = self.stage.slot_rects(room).into_iter().filter_map(|(_, v, r)| Some((shown.iter().find(|s| Some(s.id) == v)?.id, Rect { x: r.x + half, y: r.y + half, w: r.w - m.gap, h: r.h - m.gap }))).collect();
+                (cells, shown)
+            }
+        };
+        let cells: Vec<(&str, Rect)> = cells.into_iter().map(|(id, r)| (id, Rect { x: r.x.max(room.x), y: r.y.max(room.y), w: r.w.min(room.w), h: r.h.min(room.h) })).collect();
+        self.floats.set_stage(&cells);
+        self.floats.layout(room, fixed, &shown, m);
     }
 
     /// a panel's ground and chrome; open, the content's place (`hits` = how many places were pressed before it): a
@@ -244,15 +354,19 @@ impl Panels {
     pub fn open(&self, d: &mut DrawList, t: &Tokens, id: &'static str, pointer: (f32, f32), hits: usize) -> Option<Open> {
         let view = self.floats.view(id)?;
         let spec = self.floats.spec(id)?;
+        let start = d.prims().len();
+        // a panel under another shows no pointer on its chrome
+        let pointer = if self.floats.covered(id, pointer.0, pointer.1) { (f32::NAN, f32::NAN) } else { pointer };
         floats::begin(d, t, spec, &view, pointer);
         if view.collapsed {
+            self.drawn.borrow_mut().push((id, start, d.prims().len()));
             return None;
         }
         let mut area = self.floats.content(id)?;
         if !self.known.contains(&id) {
             area.h = UNMEASURED;
         }
-        Some(Open { id, area, view, prims: d.prims().len(), hits })
+        Some(Open { id, area, view, start, prims: d.prims().len(), hits })
     }
 
     /// whether a measured content came out taller than its panel was laid out for (once asked, false again): what
@@ -271,7 +385,9 @@ impl Panels {
             self.measured.insert(o.id, h);
         }
         floats::clip_hits(&o.view, hits, o.hits);
+        floats::clip_hits_under(&self.floats.above(o.id), hits, o.hits);
         floats::end(d, &o.view);
+        self.drawn.borrow_mut().push((o.id, o.start, d.prims().len()));
     }
 
     /// the panels' chrome (handles, chevrons) and grounds, so the stage under them takes no press
@@ -345,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn each_workspace_lays_out_apart_on_every_window_size() {
+    fn each_workspace_lays_out_its_own_panels_apart_on_every_window_size_and_the_log_on_top() {
         let (t, d) = (Tokens::default(), DrawList::new(0.6));
         for (name, specs) in workspaces() {
             for size in [(1920.0, 1080.0), (1600.0, 900.0), (1280.0, 720.0), (1024.0, 640.0)] {
@@ -362,7 +478,13 @@ mod tests {
                 let rects: Vec<Rect> = shown.iter().map(|(id, ..)| p.floats.view(id).unwrap().whole).collect();
                 for (i, a) in rects.iter().enumerate() {
                     assert!(a.x >= room.x - 0.01 && a.y >= room.y - 0.01 && a.x + a.w <= room.x + room.w + 0.01 && a.y + a.h <= room.y + room.h + 0.01, "{name} {size:?}: {} inside", shown[i].0);
-                    for (j, b) in rects.iter().enumerate().skip(i + 1) {
+                    // the Log and a show's optional panels open where they were put, and a window narrower than the defaults were made for lays them over
+                    // each other: inside the walls is all
+                    let later = |id: &str| id == crate::log::PANEL || OPTIONAL.contains(&id);
+                    if later(shown[i].0) || size.0 < 1280.0 {
+                        continue;
+                    }
+                    for (j, b) in rects.iter().enumerate().skip(i + 1).filter(|(j, _)| !later(shown[*j].0)) {
                         let g = t.size.gap - 0.01;
                         let apart = a.x + a.w + g <= b.x || b.x + b.w + g <= a.x || a.y + a.h + g <= b.y || b.y + b.h + g <= a.y;
                         assert!(apart, "{name} {size:?}: {} {a:?} and {} {b:?}", shown[i].0, shown[j].0);

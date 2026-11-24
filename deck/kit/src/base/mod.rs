@@ -11,6 +11,7 @@ pub mod canvas;
 pub mod graph;
 pub mod screen;
 pub mod signal;
+pub mod still;
 pub mod text;
 pub mod tokens;
 pub mod wire;

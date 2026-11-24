@@ -2,11 +2,14 @@
 //! drawing. A panel opens at the size of its content, grows while there is room – a gap to every other panel and to the
 //! walls – and scrolls inside only when it cannot grow further. It has no header: a drag handle (grip and icon) moves it,
 //! a chevron folds it to a pill (the icon and its name), which is dragged by the same rules; a panel that is not essential
-//! to its workspace also has a close, and comes back from a list of the closable ones. A dragged panel stops at a wall or
-//! another panel, the gap away; nothing overlaps, also after the window changes size. The place is kept per corner (the
-//! nearest one), so it can be remembered and comes back where it was. An open panel resizes from every edge and corner
-//! by the same rules; the size is kept with the place and replaces the content's size (a smaller one scrolls). The
-//! scrollbar takes the pointer: a press on its track jumps the thumb there, the thumb drags.
+//! to its workspace also has a close, and comes back from a list of the closable ones. Panels float on top and never push
+//! or snap (the creator's floats.ts, the same rules): a dragged panel follows the pointer and stays where it is let go,
+//! only held inside the walls; it may lie over another, the last touched on top. A panel growing to its content stops the
+//! gap before a panel clear of it. The place is kept per corner (the nearest one), so it can be remembered and comes back
+//! where it was. An open panel resizes from every edge and corner, held only by the walls, and never moves another; the
+//! size is kept with the place and replaces the content's size (a smaller one scrolls). The scrollbar takes the pointer:
+//! a press on its track jumps the thumb there, the thumb drags. A panel can also lie on the stage (a cell the caller
+//! gives, `set_stage`): it fills it, under every floating panel, and its handle drags it off again.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::tokens::Tokens;
 use serde::{Deserialize, Serialize};
@@ -188,12 +191,14 @@ pub struct View {
     pub thumb: Rect,
     /// whether it resizes (open and not a toolbar)
     pub sizes: bool,
+    /// it lies on the stage: the stage's ground, not the floating panel's
+    pub staged: bool,
 }
 
 impl View {
     fn empty(whole: Rect, collapsed: bool) -> View {
         let none = Rect { w: 0.0, h: 0.0, ..whole };
-        View { whole, handle: none, fold: none, close: none, content: none, scroll: 0.0, over: 0.0, collapsed, track: none, thumb: none, sizes: false }
+        View { whole, handle: none, fold: none, close: none, content: none, scroll: 0.0, over: 0.0, collapsed, track: none, thumb: none, sizes: false, staged: false }
     }
 
     /// the edges whose grip is under the pointer
@@ -283,6 +288,12 @@ pub struct Floats {
     fixed: Vec<Rect>,
     m: Metrics,
     hold: Option<Hold>,
+    /// the floating panels' paint order, the last on top
+    z: Vec<usize>,
+    /// the panels lying on the stage and their cells
+    staged: Vec<(usize, Rect)>,
+    /// a panel dragged off the stage by its handle, until the caller asks (`left_stage`)
+    unstaged: Option<&'static str>,
     /// where the press began and whether the pointer has left it since (a press that stays is a click)
     pressed: (f32, f32),
     travelled: bool,
@@ -304,6 +315,7 @@ fn crowd(a: &Rect, b: &Rect, gap: f32) -> bool {
     a.x < right(b) + gap - EPS && b.x < right(a) + gap - EPS && a.y < bottom(b) + gap - EPS && b.y < bottom(a) + gap - EPS
 }
 
+#[cfg(test)]
 fn inside(r: &Rect, area: &Rect) -> bool {
     r.x >= area.x - EPS && r.y >= area.y - EPS && right(r) <= right(area) + EPS && bottom(r) <= bottom(area) + EPS
 }
@@ -313,30 +325,6 @@ fn clamp_into(r: Rect, area: &Rect) -> Rect {
     let x = r.x.min(right(area) - r.w).max(area.x);
     let y = r.y.min(bottom(area) - r.h).max(area.y);
     Rect { x, y, ..r }
-}
-
-/// the free place for `r` nearest to it: beside a wall or the gap away from an obstacle (none: no place is free)
-fn nearest_free(r: Rect, taken: &[Rect], area: &Rect, gap: f32) -> Option<Rect> {
-    let mut xs = vec![r.x, area.x, right(area) - r.w];
-    let mut ys = vec![r.y, area.y, bottom(area) - r.h];
-    for o in taken {
-        xs.extend([right(o) + gap, o.x - gap - r.w, o.x]);
-        ys.extend([bottom(o) + gap, o.y - gap - r.h, o.y]);
-    }
-    let mut best: Option<(f32, Rect)> = None;
-    for &x in &xs {
-        for &y in &ys {
-            let c = Rect { x, y, ..r };
-            if !inside(&c, area) || taken.iter().any(|o| crowd(&c, o, gap)) {
-                continue;
-            }
-            let d = (x - r.x).abs() + (y - r.y).abs();
-            if best.is_none_or(|(b, _)| d < b) {
-                best = Some((d, c));
-            }
-        }
-    }
-    best.map(|(_, c)| c)
 }
 
 /// how far a panel may reach along an axis from its anchored `edge` (away from it: up or left when `back`), inside the
@@ -368,20 +356,6 @@ fn intersect(a: &Rect, b: &Rect) -> Rect {
     Rect { x: x0, y: y0, w: (right(a).min(right(b)) - x0).max(0.0), h: (bottom(a).min(bottom(b)) - y0).max(0.0) }
 }
 
-/// how far `r` may move by `d` along an axis before it meets a wall or an obstacle the gap away
-fn sweep(r: &Rect, d: f32, obstacles: &[Rect], area: &Rect, gap: f32, horizontal: bool) -> f32 {
-    let (pos, len, lo, hi) = if horizontal { (r.x, r.w, area.x, right(area)) } else { (r.y, r.h, area.y, bottom(area)) };
-    let across = |o: &Rect| if horizontal { o.y < bottom(r) + gap - EPS && bottom(o) + gap > r.y + EPS } else { o.x < right(r) + gap - EPS && right(o) + gap > r.x + EPS };
-    let span = |o: &Rect| if horizontal { (o.x, o.w) } else { (o.y, o.h) };
-    if d > 0.0 {
-        let limit = obstacles.iter().filter(|o| across(o) && span(o).0 >= pos + len - EPS).fold(hi - (pos + len), |l, o| l.min(span(o).0 - gap - (pos + len)));
-        d.min(limit.max(0.0))
-    } else {
-        let limit = obstacles.iter().filter(|o| across(o) && span(o).0 + span(o).1 <= pos + EPS).fold(lo - pos, |l, o| l.max(span(o).0 + span(o).1 + gap - pos));
-        d.max(limit.min(0.0))
-    }
-}
-
 /// an inline panel's chrome: folded the whole icon is its handle; open the grip and icon lead its one row, the chevron
 /// and the close end it
 fn inline_view(whole: Rect, collapsed: bool, closes: bool, m: &Metrics) -> View {
@@ -402,7 +376,76 @@ impl Floats {
     pub fn new(specs: &[Spec]) -> Floats {
         let empty = View::empty(Rect::default(), false);
         let panels = specs.iter().map(|s| Panel { spec: *s, name_w: None, place: s.place, scroll: 0.0, own: false, shown: false, content: (0.0, 0.0), want: (0.0, 0.0), min: (0.0, 0.0), corner: s.place.corner, anchor: (0.0, 0.0), at: (0.0, 0.0), view: empty }).collect();
-        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, hold: None, pressed: (0.0, 0.0), travelled: false }
+        let z = (0..specs.len()).collect();
+        Floats { panels, area: Rect::default(), fixed: Vec::new(), m: Metrics { gap: 16.0, pad: 8.0, head: 28.0, pill: 32.0, char_w: 7.0, rem: 14.0, min: (160.0, 48.0) }, hold: None, pressed: (0.0, 0.0), travelled: false, z, staged: Vec::new(), unstaged: None }
+    }
+
+    /// `i` on top of the floating panels
+    fn raise(&mut self, i: usize) {
+        self.z.retain(|&j| j != i);
+        self.z.push(i);
+    }
+
+    /// the panel under the pointer comes on top (a press on its ground); its id
+    pub fn raise_at(&mut self, x: f32, y: f32) -> Option<&'static str> {
+        let i = self.top_index(x, y)?;
+        if !self.is_staged(i) {
+            self.raise(i);
+        }
+        Some(self.panels[i].spec.id)
+    }
+
+    fn is_staged(&self, i: usize) -> bool {
+        self.staged.iter().any(|(j, _)| *j == i)
+    }
+
+    /// the shown panels from the top down: the floating ones last touched first, then those on the stage
+    fn top_down(&self) -> Vec<usize> {
+        let floating = self.z.iter().rev().copied().filter(|&i| self.panels[i].shown && !self.is_staged(i));
+        floating.chain(self.staged.iter().map(|(i, _)| *i).filter(|&i| self.panels[i].shown)).collect()
+    }
+
+    /// the panel whose ground or grip is uppermost at the pointer
+    fn top_index(&self, x: f32, y: f32) -> Option<usize> {
+        self.top_down().into_iter().find(|&i| self.panels[i].view.whole.has(x, y) || self.panels[i].view.edge_at(x, y).is_some())
+    }
+
+    /// the shown panels in the order they are painted: the ones on the stage, then the floating ones, the top last
+    pub fn paint_order(&self) -> Vec<&'static str> {
+        let mut out = self.top_down();
+        out.reverse();
+        out.into_iter().map(|i| self.panels[i].spec.id).collect()
+    }
+
+    /// the grounds of the shown panels painted over `id`
+    pub fn above(&self, id: &str) -> Vec<Rect> {
+        let order = self.top_down();
+        let Some(at) = self.index(id).and_then(|i| order.iter().position(|&j| j == i)) else { return Vec::new() };
+        order[..at].iter().map(|&i| self.panels[i].view.whole).collect()
+    }
+
+    /// The panels lying on the stage this frame and their cells (none: every panel floats); the one in the hand floats
+    pub fn set_stage(&mut self, cells: &[(&str, Rect)]) {
+        let held = self.hold.map(Hold::panel);
+        self.staged = cells.iter().filter_map(|(id, r)| self.index(id).filter(|i| Some(*i) != held).map(|i| (i, *r))).collect();
+    }
+
+    /// whether a panel lies on the stage
+    pub fn staged(&self, id: &str) -> bool {
+        self.index(id).is_some_and(|i| self.is_staged(i))
+    }
+
+    /// a panel dragged off the stage by its handle since the last ask
+    pub fn left_stage(&mut self) -> Option<&'static str> {
+        self.unstaged.take()
+    }
+
+    /// the panel in the hand (moved by its handle)
+    pub fn moving(&self) -> Option<&'static str> {
+        match self.hold {
+            Some(Hold::Move(i, ..)) => Some(self.panels[i].spec.id),
+            _ => None,
+        }
     }
 
     /// the smallest size an open panel resizes to: its chrome's row, a little of its content
@@ -451,7 +494,7 @@ impl Floats {
                 self.panels[i].content = (s.content.0.max(0.0), s.content.1.max(0.0));
             }
         }
-        let order: Vec<usize> = (0..self.panels.len()).filter(|&i| self.panels[i].shown).collect();
+        let order: Vec<usize> = (0..self.panels.len()).filter(|&i| self.panels[i].shown && !self.is_staged(i)).collect();
         for &i in &order {
             let p = &mut self.panels[i];
             let pill = m.pill_size(p.spec.name, p.name_w, !p.spec.essential);
@@ -478,32 +521,24 @@ impl Floats {
                 p.anchor = (if corner.right() { right(&area) - dx } else { area.x + dx }, if corner.bottom() { bottom(&area) - dy } else { area.y + dy });
             }
         }
-        // the smallest rectangles first: each inside the walls, none crowding another; one that must move goes where it
-        // is in no other panel's way, if there is such a place
-        let asked: Vec<Rect> = order.iter().map(|&i| intersect(&from_corner(self.panels[i].anchor, self.panels[i].corner, self.panels[i].want), &area)).collect();
+        // the smallest rectangles first, each only held inside the walls: nothing is pushed aside
         let mut mins: Vec<Rect> = Vec::with_capacity(order.len());
-        for (k, &i) in order.iter().enumerate() {
+        for &i in &order {
             let p = &self.panels[i];
             let r = clamp_into(from_corner(p.anchor, p.corner, p.min), &area);
-            let taken: Vec<Rect> = self.fixed.iter().chain(&mins).copied().collect();
-            let r = if taken.iter().any(|o| crowd(&r, o, gap)) {
-                let clear: Vec<Rect> = taken.iter().chain(asked.iter().enumerate().filter(|(j, _)| *j != k).map(|(_, a)| a)).copied().collect();
-                nearest_free(r, &clear, &area, gap).or_else(|| nearest_free(r, &taken, &area, gap)).unwrap_or(r)
-            } else {
-                r
-            };
             let p = &mut self.panels[i];
             p.anchor = corner_of(&r, p.corner);
             mins.push(r);
         }
-        // then each grows from its corner to its content while there is room: the ones before it as they grew, the
-        // later ones as large as they want to be (they take what is left)
+        // then each grows from its corner to its content while there is room: a size the viewer gave is taken as it is;
+        // a content stops the gap before a panel clear of it (the ones before it as they grew, the later ones as large as
+        // they want to be); one it already lies over is no wall
         let wants: Vec<Rect> = order.iter().map(|&i| intersect(&from_corner(self.panels[i].anchor, self.panels[i].corner, self.panels[i].want), &area)).collect();
         let mut grown: Vec<Rect> = Vec::with_capacity(order.len());
         for (k, &i) in order.iter().enumerate() {
-            let obstacles: Vec<Rect> = self.fixed.iter().chain(&grown).chain(&wants[k + 1..]).copied().collect();
             let p = &self.panels[i];
             let (c, m0) = (p.corner, mins[k]);
+            let obstacles: Vec<Rect> = if p.place.size.is_some() { Vec::new() } else { self.fixed.iter().chain(&grown).chain(&wants[k + 1..]).filter(|o| !crowd(o, &m0, gap)).copied().collect() };
             let w = p.want.0.min(reach(p.anchor.0, c.right(), (m0.y, bottom(&m0)), &obstacles, &area, gap, true)).max(p.min.0);
             let band = from_corner(p.anchor, c, (w, p.min.1));
             let h = p.want.1.min(reach(p.anchor.1, c.bottom(), (band.x, right(&band)), &obstacles, &area, gap, false)).max(p.min.1);
@@ -528,7 +563,24 @@ impl Floats {
             p.scroll = p.scroll.clamp(0.0, over);
             let track = if over > 0.0 { Rect { x: right(&whole) - m.pad, y: content.y, w: m.pad - EDGE_IN, h: content.h } } else { Rect { w: 0.0, h: 0.0, ..content } };
             let thumb = View::thumb_at(track, over, p.scroll, m.rem * 1.5);
-            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed, track, thumb, sizes: !collapsed };
+            p.view = View { whole, handle, fold, close, content, scroll: p.scroll, over, collapsed, track, thumb, sizes: !collapsed, staged: false };
+        }
+        // the panels on the stage fill their cells: a head to drag them off, no fold, no close, no resize
+        for k in 0..self.staged.len() {
+            let (i, whole) = self.staged[k];
+            let p = &mut self.panels[i];
+            if !p.shown {
+                continue;
+            }
+            let head = Rect { h: m.head.min(whole.h), ..whole };
+            let end = Rect { x: right(&whole), w: 0.0, ..head };
+            let content = Rect { x: whole.x + m.pad, y: whole.y + m.head, w: (whole.w - 2.0 * m.pad).max(0.0), h: (whole.h - m.head - m.pad).max(0.0) };
+            let over = if p.own { 0.0 } else { Some(p.content.1 - content.h).filter(|o| *o > EPS).unwrap_or(0.0) };
+            p.scroll = p.scroll.clamp(0.0, over);
+            let track = if over > 0.0 { Rect { x: right(&whole) - m.pad, y: content.y, w: m.pad - EDGE_IN, h: content.h } } else { Rect { w: 0.0, h: 0.0, ..content } };
+            let thumb = View::thumb_at(track, over, p.scroll, m.rem * 1.5);
+            p.at = (whole.x, whole.y);
+            p.view = View { whole, handle: head, fold: end, close: end, content, scroll: p.scroll, over, collapsed: false, track, thumb, sizes: false, staged: true };
         }
     }
 
@@ -547,7 +599,8 @@ impl Floats {
 
     /// the chrome under the pointer
     pub fn chrome_at(&self, x: f32, y: f32) -> Option<(&Spec, Chrome)> {
-        self.shown().find_map(|(_, p)| {
+        let p = &self.panels[self.top_index(x, y)?];
+        {
             if let Some(e) = p.view.edge_at(x, y) {
                 Some((&p.spec, Chrome::Edge(e)))
             } else if p.view.track.has(x, y) {
@@ -561,7 +614,7 @@ impl Floats {
             } else {
                 None
             }
-        })
+        }
     }
 
     /// is a shown panel under the pointer (its ground keeps the press from the stage)
@@ -570,9 +623,9 @@ impl Floats {
         self.shown().any(|(_, p)| p.view.whole.has(x, y) || p.view.edge_at(x, y).is_some())
     }
 
-    /// is a shown panel other than `id` under the pointer
+    /// is a shown panel painted over `id` under the pointer
     pub fn covered(&self, id: &str, x: f32, y: f32) -> bool {
-        self.shown().any(|(_, p)| p.spec.id != id && p.view.whole.has(x, y))
+        self.above(id).iter().any(|r| r.has(x, y))
     }
 
     /// a press on a handle takes the panel in the hand, on an edge resizes it, on the scrollbar scrolls it (the track
@@ -583,10 +636,27 @@ impl Floats {
         let Some(i) = self.index(id) else { return false };
         self.pressed = (x, y);
         self.travelled = false;
+        if !self.is_staged(i) {
+            self.raise(i);
+        }
         match chrome {
             Chrome::Fold => self.toggle(id),
             Chrome::Close => {
                 self.close(id);
+            }
+            Chrome::Handle if self.is_staged(i) => {
+                // off the stage: it floats again at its own size, held where the pointer took its head
+                self.staged.retain(|(j, _)| *j != i);
+                self.unstaged = Some(self.panels[i].spec.id);
+                self.raise(i);
+                let at = self.panels[i].view.whole;
+                let w = self.panels[i].want.0.min(at.w);
+                let ox = (x - at.x).min(w * 0.5);
+                self.panels[i].view.whole.w = w;
+                self.panels[i].view.whole.h = self.panels[i].want.1.min(at.h);
+                self.panels[i].view.whole.x = x - ox;
+                self.panels[i].at = (x - ox, at.y);
+                self.hold = Some(Hold::Move(i, ox, y - at.y));
             }
             Chrome::Handle => {
                 let at = self.panels[i].view.whole;
@@ -616,28 +686,24 @@ impl Floats {
         }
     }
 
-    /// the panel in the hand follows the pointer until a wall or another panel stops it; a resized one's edges do the
-    /// same; a held thumb scrolls
+    /// the panel in the hand follows the pointer, held inside the walls (it may pass over another); a resized one's edges
+    /// stop only at the walls; a held thumb scrolls
     pub fn drag_to(&mut self, x: f32, y: f32) -> bool {
         let Some(hold) = self.hold else { return false };
         if (x - self.pressed.0).abs() + (y - self.pressed.1).abs() > CLICK {
             self.travelled = true;
         }
         let i = hold.panel();
-        let gap = self.m.gap;
-        let obstacles: Vec<Rect> = self.fixed.iter().copied().chain(self.shown().filter(|(j, _)| *j != i).map(|(_, p)| p.view.whole)).collect();
         match hold {
             Hold::Move(_, ox, oy) => {
-                let mut r = self.panels[i].view.whole;
-                r.x += sweep(&r, x - ox - r.x, &obstacles, &self.area, gap, true);
-                r.y += sweep(&r, y - oy - r.y, &obstacles, &self.area, gap, false);
+                let r = clamp_into(Rect { x: x - ox, y: y - oy, ..self.panels[i].view.whole }, &self.area);
                 let p = &mut self.panels[i];
                 p.at = (r.x, r.y);
                 p.view.whole.x = r.x;
                 p.view.whole.y = r.y;
             }
             Hold::Size(_, e, start, (px, py)) => {
-                let r = self.resized(i, e, start, (x - px, y - py), &obstacles);
+                let r = self.resized(i, e, start, (x - px, y - py), &[]);
                 let p = &mut self.panels[i];
                 p.at = (r.x, r.y);
                 p.place.size = Some((r.w, r.h));
@@ -755,6 +821,11 @@ impl Floats {
         self.index(id).is_some_and(|i| self.panels[i].place.closed)
     }
 
+    /// every panel's spec, in their order
+    pub fn all(&self) -> Vec<&Spec> {
+        self.panels.iter().map(|p| &p.spec).collect()
+    }
+
     /// the panels that close, in their order, and whether each is open
     pub fn closable(&self) -> Vec<(&Spec, bool)> {
         self.panels.iter().filter(|p| !p.spec.essential).map(|p| (&p.spec, !p.place.closed)).collect()
@@ -797,13 +868,38 @@ pub fn clip_hits<H>(view: &View, hits: &mut Vec<(Rect, H)>, from: usize) {
     hits.extend(kept);
 }
 
+/// `r` less the part `o` covers: the largest side left (none: all covered)
+fn trim(r: Rect, o: &Rect) -> Option<Rect> {
+    if !crowd(&r, o, 0.0) {
+        return Some(r);
+    }
+    let sides = [
+        Rect { w: o.x - r.x, ..r },
+        Rect { x: right(o), w: right(&r) - right(o), ..r },
+        Rect { h: o.y - r.y, ..r },
+        Rect { y: bottom(o), h: bottom(&r) - bottom(o), ..r },
+    ];
+    sides.into_iter().filter(|s| s.w > EPS && s.h > EPS).max_by(|a, b| (a.w * a.h).total_cmp(&(b.w * b.h)))
+}
+
+/// the places a panel's content pressed this frame, from `from` on, less what the panels painted over it cover
+pub fn clip_hits_under<H>(above: &[Rect], hits: &mut Vec<(Rect, H)>, from: usize) {
+    if above.is_empty() {
+        return;
+    }
+    let kept: Vec<(Rect, H)> = hits.drain(from..).filter_map(|(r, h)| above.iter().try_fold(r, trim).map(|r| (r, h))).collect();
+    hits.extend(kept);
+}
+
 /// a panel's ground and chrome; open, the content is clipped to its place until `end`
 pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32, f32)) {
     let w = v.whole;
     let r = t.size.radius * 2.0;
     let s = t.kit("panel", "rest");
     let r = if v.collapsed || spec.inline { w.h * 0.5 } else { r };
-    d.round_rect(w.x, w.y, w.w, w.h, r, s.ground.unwrap_or(t.color.panel()));
+    // a view on the stage lies on the stage's own ground, a hairline around it
+    let ground = if v.staged { t.color.stage } else { s.ground.unwrap_or(t.color.panel()) };
+    d.round_rect(w.x, w.y, w.w, w.h, r, ground);
     d.outline(w.x, w.y, w.w, w.h, (r, 1.0), s.border.unwrap_or(t.color.line));
     d.halo(t.color.ring());
     let hot = v.handle.has(pointer.0, pointer.1);
@@ -953,13 +1049,21 @@ mod tests {
         f.panels.iter().filter(|p| p.shown).map(|p| p.view.whole).collect()
     }
 
+    /// inside the walls and, laid out from their places, apart
     fn assert_valid(f: &Floats, a: &Rect) {
         let r = rects(f);
+        assert_inside(f, a);
         for (i, x) in r.iter().enumerate() {
-            assert!(inside(x, a), "panel {i} {x:?} inside {a:?}");
             for (j, y) in r.iter().enumerate().skip(i + 1) {
                 assert!(!crowd(x, y, 16.0), "panels {i} {x:?} and {j} {y:?} keep the gap");
             }
+        }
+    }
+
+    /// every panel inside the walls (they may lie over each other)
+    fn assert_inside(f: &Floats, a: &Rect) {
+        for (i, x) in rects(f).iter().enumerate() {
+            assert!(inside(x, a), "panel {i} {x:?} inside {a:?}");
         }
     }
 
@@ -1030,32 +1134,65 @@ mod tests {
     }
 
     #[test]
-    fn a_dragged_panel_stops_the_gap_before_another() {
+    fn a_dragged_panel_passes_over_another_stays_where_let_go_and_lies_on_top() {
         let mut f = four();
         let a = area(1920.0, 1080.0);
         f.layout(a, &[], &shown(SIZES), M);
         let v = f.view("tree").unwrap();
         let other = f.view("inspector").unwrap().whole;
         f.press(v.handle.x + 4.0, v.handle.y + 4.0);
-        f.drag_to(v.handle.x + 5000.0, v.handle.y);
+        f.drag_to(other.x + 4.0, v.handle.y + 4.0);
         let w = f.view("tree").unwrap().whole;
-        assert_eq!(right(&w), other.x - 16.0, "stopped 1rem before the inspector");
+        assert_eq!(w.x, other.x, "no stop before the inspector, no snap");
         f.release();
         f.layout(a, &[], &shown(SIZES), M);
-        assert_eq!(right(&f.view("tree").unwrap().whole), other.x - 16.0, "and stays there");
-        assert_valid(&f, &a);
+        let w = f.view("tree").unwrap().whole;
+        assert_eq!((w.x, w.y), (other.x, v.whole.y), "it stays where it was let go, over the inspector");
+        assert_eq!(f.view("inspector").unwrap().whole, other, "the inspector is not pushed");
+        assert_eq!(f.paint_order().last(), Some(&"tree"), "the last touched on top");
+        assert!(f.covered("inspector", w.x + 10.0, w.y + 10.0) && !f.covered("tree", w.x + 10.0, w.y + 10.0));
+        assert_eq!(f.chrome_at(w.x + 4.0, w.y + 4.0).map(|(s, c)| (s.id, c)), Some(("tree", Chrome::Handle)), "the one on top takes the press");
+        let i = f.view("inspector").unwrap();
+        assert_eq!(f.raise_at(right(&i.whole) - 4.0, bottom(&i.whole) - 4.0), Some("inspector"), "a press on its ground raises the other");
+        assert_eq!(f.paint_order().last(), Some(&"inspector"));
+        assert_inside(&f, &a);
     }
 
     #[test]
-    fn a_fixed_place_stops_a_panel_too() {
+    fn the_hits_of_a_panel_under_another_end_where_the_other_begins() {
+        let over = [Rect { x: 50.0, y: 0.0, w: 100.0, h: 100.0 }];
+        let mut hits = vec![(Rect { x: 0.0, y: 10.0, w: 80.0, h: 10.0 }, 0), (Rect { x: 60.0, y: 10.0, w: 20.0, h: 10.0 }, 1), (Rect { x: 200.0, y: 0.0, w: 5.0, h: 5.0 }, 2)];
+        clip_hits_under(&over, &mut hits, 0);
+        assert_eq!(hits.iter().map(|(_, h)| *h).collect::<Vec<_>>(), [0, 2], "one all under it is gone");
+        assert_eq!(hits[0].0, Rect { x: 0.0, y: 10.0, w: 50.0, h: 10.0 });
+    }
+
+    #[test]
+    fn a_panel_on_the_stage_fills_its_cell_under_the_floating_ones_and_drags_off() {
         let mut f = four();
         let a = area(1920.0, 1080.0);
-        let gizmo = Rect { x: 900.0, y: 64.0, w: 72.0, h: 72.0 };
-        f.layout(a, &[gizmo], &shown(SIZES), M);
-        let v = f.view("tree").unwrap();
-        f.press(v.handle.x + 4.0, v.handle.y + 4.0);
-        f.drag_to(v.handle.x + 5000.0, v.handle.y);
-        assert_eq!(right(&f.view("tree").unwrap().whole), gizmo.x - 16.0);
+        let cell = Rect { x: 0.0, y: 50.0, w: 960.0, h: 1030.0 };
+        f.set_stage(&[("mixer", cell)]);
+        f.layout(a, &[], &shown(SIZES), M);
+        let v = f.view("mixer").unwrap();
+        assert_eq!(v.whole, cell);
+        assert!(!v.sizes && v.close.w == 0.0 && v.fold.w == 0.0, "no resize, fold or close on the stage");
+        assert!(f.staged("mixer"));
+        assert_eq!(f.paint_order().first(), Some(&"mixer"), "under every floating panel");
+        let tree = f.view("tree").unwrap().whole;
+        assert!(f.covered("mixer", tree.x + 2.0, tree.y + 2.0));
+        // its handle takes it off the stage, floating at its own size
+        assert!(f.press(cell.x + 500.0, cell.y + 4.0));
+        assert_eq!(f.left_stage(), Some("mixer"));
+        assert_eq!(f.left_stage(), None, "said once");
+        assert_eq!(f.moving(), Some("mixer"));
+        f.drag_to(cell.x + 600.0, cell.y + 300.0);
+        f.release();
+        f.set_stage(&[]);
+        f.layout(a, &[], &shown(SIZES), M);
+        let w = f.view("mixer").unwrap().whole;
+        assert_eq!((w.w, w.h), M.frame(SIZES[2]), "its own size again");
+        assert!(!f.staged("mixer"));
     }
 
     #[test]
@@ -1087,17 +1224,18 @@ mod tests {
         let other = f.view("inspector").unwrap().whole;
         assert!(f.press(p.handle.x + 4.0, p.handle.y + 4.0));
         f.drag_to(p.handle.x + 5000.0, p.handle.y + 4.0);
-        assert_eq!(right(&f.view("tree").unwrap().whole), other.x - 16.0);
+        let w = f.view("tree").unwrap().whole;
+        assert!(right(&w) > other.x && (right(&w) - right(&a)).abs() < EPS, "over the inspector to the wall: {w:?}");
     }
 
     #[test]
-    fn nothing_overlaps_after_the_window_shrinks() {
+    fn every_panel_stays_inside_the_walls_when_the_window_changes() {
         let mut f = four();
         f.layout(area(1920.0, 1080.0), &[], &shown(SIZES), M);
         for (w, h) in [(1280.0, 720.0), (900.0, 600.0), (640.0, 480.0), (2560.0, 1440.0)] {
             let a = area(w, h);
             f.layout(a, &[], &shown(SIZES), M);
-            assert_valid(&f, &a);
+            assert_inside(&f, &a);
         }
     }
 
@@ -1113,14 +1251,19 @@ mod tests {
     }
 
     #[test]
-    fn a_panel_put_on_another_finds_the_nearest_free_place() {
+    fn a_panel_put_on_another_stays_there_and_pushes_nothing() {
         let mut f = four();
         let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let tree = f.view("tree").unwrap().whole;
         let mut places = f.places();
         places.insert("mixer".into(), Place::at(Corner::TopLeft, 10.0, 10.0));
         f.restore(&places);
         f.layout(a, &[], &shown(SIZES), M);
-        assert_valid(&f, &a);
+        let m = f.view("mixer").unwrap().whole;
+        assert_eq!((m.x, m.y), (a.x + 10.0, a.y + 10.0), "no snap to a free place");
+        assert_eq!(f.view("tree").unwrap().whole, tree, "the one under it stays");
+        assert_inside(&f, &a);
     }
 
     #[test]
@@ -1153,7 +1296,7 @@ mod tests {
     }
 
     #[test]
-    fn any_mix_of_places_and_sizes_keeps_every_panel_apart() {
+    fn any_mix_of_places_and_sizes_keeps_every_panel_inside() {
         // a fixed sequence of pseudo-random places, contents and windows
         let mut seed = 7u32;
         let mut next = |n: f32| {
@@ -1173,7 +1316,7 @@ mod tests {
             let sizes = [(next(500.0), next(900.0)), (next(500.0), next(900.0)), (next(900.0), next(300.0)), (next(300.0), next(200.0))];
             let a = area(900.0 + next(1500.0), 640.0 + next(800.0));
             f.layout(a, &[], &shown(sizes), M);
-            assert_valid(&f, &a);
+            assert_inside(&f, &a);
         }
     }
 
@@ -1214,9 +1357,11 @@ mod tests {
     }
 
     #[test]
-    fn a_reopened_panel_takes_a_free_place_when_its_own_is_taken() {
+    fn a_reopened_panel_comes_back_at_its_own_place_even_when_another_lies_there() {
         let mut f = four();
         let a = area(1920.0, 1080.0);
+        f.layout(a, &[], &shown(SIZES), M);
+        let tree = f.view("tree").unwrap().whole;
         f.close("tree");
         f.layout(a, &[], &shown(SIZES), M);
         let i = f.view("inspector").unwrap();
@@ -1225,8 +1370,8 @@ mod tests {
         f.release();
         f.reopen("tree");
         f.layout(a, &[], &shown(SIZES), M);
-        assert!(f.view("tree").is_some());
-        assert_valid(&f, &a);
+        assert_eq!((f.view("tree").unwrap().whole.x, f.view("tree").unwrap().whole.y), (tree.x, tree.y));
+        assert_inside(&f, &a);
     }
 
     #[test]
@@ -1297,13 +1442,13 @@ mod tests {
                 assert_eq!((w.w, w.h), (v.whole.w + grew(ex, 40.0), v.whole.h + grew(ey, 30.0)), "{e:?} grows outwards");
                 assert_eq!(w.x, if ex < 0 { v.whole.x - 40.0 } else { v.whole.x }, "{e:?}: the left edge moves only from the left");
                 assert_eq!(w.y, if ey < 0 { v.whole.y - 30.0 } else { v.whole.y }, "{e:?}: the top moves only from the top");
-                assert_valid(&f, &a);
+                assert_inside(&f, &a);
             }
         }
     }
 
     #[test]
-    fn a_resized_panel_stops_at_walls_and_panels_and_keeps_a_least_size() {
+    fn a_resized_panel_stops_only_at_the_walls_moves_no_other_and_keeps_a_least_size() {
         let mut f = four();
         let a = area(1920.0, 1080.0);
         f.layout(a, &[], &shown(SIZES), M);
@@ -1311,7 +1456,8 @@ mod tests {
         let other = f.view("inspector").unwrap().whole;
         resize(&mut f, &v, Edge { x: 1, y: 0 }, (5000.0, 0.0));
         f.layout(a, &[], &shown(SIZES), M);
-        assert_eq!(right(&f.view("tree").unwrap().whole), other.x - 16.0, "1rem before the inspector");
+        assert_eq!(right(&f.view("tree").unwrap().whole), right(&a), "to the wall, over the inspector");
+        assert_eq!(f.view("inspector").unwrap().whole, other, "the inspector neither moves nor shrinks");
         let v = f.view("tree").unwrap();
         resize(&mut f, &v, Edge { x: -1, y: -1 }, (-5000.0, -5000.0));
         f.layout(a, &[], &shown(SIZES), M);
@@ -1322,7 +1468,7 @@ mod tests {
         f.layout(a, &[], &shown(SIZES), M);
         let w = f.view("tree").unwrap().whole;
         assert_eq!((w.w, w.h), f.least(&f.panels[0]), "no smaller than its chrome and a little content");
-        assert_valid(&f, &a);
+        assert_inside(&f, &a);
     }
 
     #[test]
@@ -1344,10 +1490,10 @@ mod tests {
         assert_eq!(g.view("tree").unwrap().whole, sized.whole, "the size comes back with the place");
         let old: Place = toml::from_str("corner = \"TopLeft\"\ndx = 0.0\ndy = 0.0").unwrap();
         assert_eq!(old.size, None, "a place kept before sizes existed sizes to its content");
-        // a smaller window still keeps every panel inside and apart
+        // a smaller window still keeps every panel inside
         for (w, h) in [(1280.0, 720.0), (800.0, 500.0)] {
             g.layout(area(w, h), &[], &shown(SIZES), M);
-            assert_valid(&g, &area(w, h));
+            assert_inside(&g, &area(w, h));
         }
     }
 
@@ -1392,7 +1538,7 @@ mod tests {
     }
 
     #[test]
-    fn any_mix_of_resizes_keeps_every_panel_apart() {
+    fn any_mix_of_resizes_keeps_every_panel_inside() {
         let mut seed = 11u32;
         let mut next = |n: f32| {
             seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
@@ -1415,7 +1561,7 @@ mod tests {
                 f.release();
             }
             f.layout(a, &[], &shown(SIZES), M);
-            assert_valid(&f, &a);
+            assert_inside(&f, &a);
         }
     }
 

@@ -194,7 +194,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, a: Rect, log: &Log, typing: Option<&st
     let on = Levels::ALL.map(|f| f == log.filter.level);
     let bw = |d: &DrawList, s: &str| d.sans_width(small, s) + pad;
     let (copy_w, save_w) = (bw(d, "Copy all"), bw(d, "Save"));
-    let filters_w = names.iter().map(|n| bw(d, n) + 4.0).sum::<f32>();
+    let filters_w = names.iter().map(|n| controls::badge_width(d, t, n) + pad * 0.5).sum::<f32>();
     let (rects, head) = controls::chips(d, t, (a.x, a.y, filters_w), &names, &on);
     out.extend(rects.into_iter().zip(Levels::ALL).map(|(r, f)| (r, Press::Filter(f))));
     let h = t.size.tree_row - 4.0;

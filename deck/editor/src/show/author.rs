@@ -15,34 +15,19 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-/// the sheets a Show tab offers over its stage (the flash list opens from Flash, not from a pill)
-pub const SHEETS: [(&str, Sheet); 6] = [("Cues", Sheet::Cues), ("Problems", Sheet::Problems), ("Who", Sheet::Who), ("Session", Sheet::Session), ("Vote", Sheet::Vote), ("Demos", Sheet::Demos)];
+/// the Show's views of its own (RULES H16): each a sheet in the sheet panel, listed in the ☰ Views – id, name, icon (the
+/// flash list opens from Flash)
+pub const SHEETS: [(&str, &str, &str, Sheet); 6] = [
+    ("cues", "Cues", "list", Sheet::Cues),
+    ("problems", "Problems", "alert", Sheet::Problems),
+    ("who", "Who", "users", Sheet::Who),
+    ("session", "Session", "link", Sheet::Session),
+    ("vote", "Vote", "activity", Sheet::Vote),
+    ("demos", "Demos", "play", Sheet::Demos),
+];
 
-fn view_names(sheets: &[(&'static str, Sheet)]) -> Vec<&'static str> {
-    sheets.iter().map(|(n, _)| *n).collect()
-}
-
-/// the toolbar's room for the view switch
-pub fn view_width(d: &DrawList, t: &Tokens) -> f32 {
-    view_names(&SHEETS).iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0
-}
-
-/// a pill per sheet the workspace offers (`sheets`), in the toolbar's slot (a test frame without a toolbar: left of the
-/// top right corner); 3D / 2D are the tools pill's
-pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets: &[(&'static str, Sheet)]) {
-    let names = view_names(sheets);
-    let width: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0;
-    let slot = if host.view_slot.w > 0.0 { host.view_slot } else { Rect { x: w - width - 360.0, y: 8.0, w: width, h: t.size.top } };
-    d.round_rect(slot.x, slot.y, slot.w, slot.h, slot.h * 0.5, t.color.panel());
-    d.outline(slot.x, slot.y, slot.w, slot.h, (slot.h * 0.5, 1.0), t.color.line);
-    let (x, y, h) = (slot.x + 4.0, slot.y + 4.0, slot.h - 8.0);
-    let on = host.sheet.and_then(|s| sheets.iter().position(|(_, x)| *x == s)).unwrap_or(usize::MAX);
-    let r = controls::pills(d, t, x, y, h, &names, on);
-    let hits = sheets.iter().map(|(_, s)| Hit::Sheet(*s));
-    for (r, hit) in r.into_iter().zip(hits) {
-        host.hits.push((r, hit));
-    }
-}
+/// the panel every sheet shows in
+pub const SHEET_PANEL: &str = "sheet";
 
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, h: f32, pointer: (f32, f32)) {
     let (prims, hits) = (d.prims().len(), host.hits.len());
@@ -69,7 +54,6 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     // #478: the roles this conductor gives out, with how many are in each (the running top only: a sub conductor's
     // document shown here runs elsewhere)
     let roles = deck_show::roles::roles(&show, host.path.is_empty().then_some(&host.sub));
-    view_switch(d, t, host, w, &SHEETS);
     let sheet = host.sheet;
 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
@@ -77,7 +61,7 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
     // the slot's Find hangs under its slot, not in a sheet
     if sheet.is_some_and(|s| s != Sheet::Event) {
-        shown.push(("sheet", 640.0, Some(440.0)));
+        shown.push((SHEET_PANEL, 640.0, Some(440.0)));
     } else if host.two_d {
         shown.push(("nodes", 960.0, Some(560.0)));
     }

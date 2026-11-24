@@ -140,8 +140,7 @@ impl ScenePrompt {
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, room: (f32, f32)) {
         let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
         self.hits.clear();
-        // the overlay level without its blur (the deck has none yet): the reduced ground
-        d.rect(0.0, 0.0, room.0, room.1, t.kit("overlay", "reduced").ground.unwrap_or(t.color.panel()));
+        // on the overlay level: its ground is the editor's (main.rs, the still or the reduced ground)
         let w = (font * 32.0).min(room.0 - 2.0 * pad);
         let h = small * 1.8 + row * 2.0 + row + pad * 3.0 + (t.size.row - 4.0);
         let (x, y) = ((room.0 - w) * 0.5, ((room.1 - h) * 0.4).max(pad));
