@@ -32,8 +32,10 @@ thumbnails.
   as a number, and `blur` in rem (the overlay's alone: the generator refuses it elsewhere), e.g. `[component.tab.hover] text = "text"` · `border = "line"`. A ground never names `line`, `muted`,
   `text` or `bright` at full strength (the generator refuses an opaque grey). Written so far: `focus` · `tab` · `pill` ·
   `icon_button` · `button_primary` · `button_plain` · `button_quiet` · `segments` · `chip` (with `ok` `warning` `error`)
-  · `toggle` · `field` · `select_quiet` · `menu` · `menu_item` · `list_row` · `tile` · `thumb` · `workspace_card` ·
-  `panel` · `overlay` · `section` · `drop` · `link` · `status`.
+  · `toggle` · `slider` · `field` · `select_quiet` · `menu` · `menu_item` (with `head`) · `list_row` · `tile` · `thumb` ·
+  `workspace_card` · `panel` · `overlay` · `section` · `drop` · `link` · `status`. Every state written is read by an app –
+  the web's `kit.css` or the deck's `Tokens::kit` (`section.disabled` is the deck's alone; `slider`, `thumb` and
+  `menu_item.head` the web's); one neither reads leaves the file.
 
 ## How each app builds from it
 

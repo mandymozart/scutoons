@@ -19,3 +19,5 @@ trail). How things are now: the topic docs in agents/; how agents work: agents/R
 | DOCS-REFACTOR.md | the 2026-10-12 analysis + proposal behind the current docs structure (done) |
 | DECISIONS-superseded.md | decisions a later owner decision fully replaced (2026-11-03, #380); quotes kept |
 | HANDOVER-2026-11-03.md | the HANDOVER before the law-book refactor (feature notes of 2026-10-12 … 11-01) |
+| DESIGN-brutalist-tools.md | DESIGN.md's "Brutalist tools" (2026-10-01 … 11-24): the tools' reader-type, 2px-ink, square, cyan-live, filled-badge look; replaced by the kit (RULES H9–H19, kit/README.md) |
+| DESIGN-creator-navigation.md | DESIGN.md's "Creator navigation" (2026-09-30 … 11-21): the top bar's path, the area menu, page lists, AppShell docks; replaced by the workspace host (#751, RULES H5) |
