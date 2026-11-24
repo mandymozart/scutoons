@@ -61,6 +61,9 @@
 		display: inline-flex;
 		flex: none;
 		align-items: center;
+		justify-content: flex-start;
+		width: fit-content;
+		max-width: 100%;
 		gap: 0.375rem;
 		height: var(--control-height);
 		min-width: var(--control-height);
