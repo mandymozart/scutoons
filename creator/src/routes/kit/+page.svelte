@@ -13,7 +13,7 @@
 		{ id: 'outline', name: 'Outline', icon: 'list', about: 'The open item’s structure' },
 		{ id: 'history', name: 'History', icon: 'clock', about: 'Saved versions' },
 		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: 'Whatever is selected', essential: true },
-		{ id: 'problems', name: 'Problems', icon: 'alert-triangle', about: 'Errors and warnings' },
+		{ id: 'log', name: 'Log', icon: 'alert-triangle', about: 'Errors, warnings and what happened' },
 		{ id: 'library', name: 'Library', icon: 'grid', about: 'Every asset of the scope', size: { w: 26, h: 18 } },
 		{ id: 'info', name: 'Info', icon: 'info', about: 'The control under the pointer' }
 	];
@@ -30,7 +30,7 @@
 			essential: true
 		},
 		{ id: 'outline', name: 'Outline', icon: 'list', about: '', place: at('top-left', 0, 0), size: { w: 20, h: 'fill' }, min: { w: 12, h: 8 }, tabs: ['outline', 'history'] },
-		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'problems'] },
+		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'log'] },
 		{ id: 'library', name: 'Library', icon: 'grid', about: '', place: at('bottom-left', 21, 0), size: { w: 'fill', h: 16 }, min: { w: 20, h: 8 }, tabs: ['library', 'info'] }
 	];
 	const WORKSPACES = [
@@ -146,7 +146,7 @@
 								</Section>
 							</Section>
 						</div>
-					{:else if id === 'problems'}
+					{:else if id === 'log'}
 						<p class="note warn">1 warning · Slice 3 has no lettering</p>
 					{:else if id === 'library'}
 						<div class="tiles">

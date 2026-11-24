@@ -58,7 +58,9 @@
 		}
 	};
 
+	// the sample keeps nothing: the real tabs, workspaces, layouts and settings come back as they were when it ends
 	$effect(() => {
+		const end = untrack(() => shell.sample());
 		untrack(() => {
 			shell.visit('character:crow-fox', '/characters?id=crow-fox', 'crow-fox');
 			shell.visit('character:mellowmantis', '/characters?id=mellowmantis', 'mellowmantis');
@@ -82,6 +84,7 @@
 			floats.full = null;
 			crafts.mine = null;
 			textLanguage.page = { languages: [], source: 'de' };
+			end();
 		};
 	});
 	$effect(() => {

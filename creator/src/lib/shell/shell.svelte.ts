@@ -13,24 +13,13 @@ import { readPicks, remember, type LaunchEntry, type LaunchPick } from './launch
 import { shownWorkspace } from './layouts.ts';
 import { layouts } from './layouts.svelte.ts';
 
+import { holdWrites, readJson, writeJson } from './kept.ts';
+
+export { readJson, writeJson };
+
 export const TABS_KEY = 'sc-creator-tabs';
 const USE_KEY = 'sc-creator-workspaces';
 const PICKS_KEY = 'sc-creator-launcher';
-
-export function readJson(key: string): unknown {
-	try {
-		return JSON.parse(localStorage.getItem(key) ?? 'null');
-	} catch {
-		return null;
-	}
-}
-export function writeJson(key: string, value: unknown): void {
-	try {
-		localStorage.setItem(key, JSON.stringify(value));
-	} catch {
-		// storage blocked or full: it holds for this visit
-	}
-}
 
 /**
  * What the open item's page hands the shell: whether an autosave runs (the status bar's "saving…") and ↶ ↷ for the bar,
@@ -225,6 +214,22 @@ class Shell {
 	remember(entry: LaunchEntry) {
 		this.picks = remember(this.picks, entry);
 		writeJson(PICKS_KEY, this.picks);
+	}
+
+	/** a sample works on the shell (the /kit page's Shell): nothing is kept while it runs, and what it changed goes back when it ends */
+	sample(): () => void {
+		const was = { state: this.state, use: this.use, settings: this.settings, picks: this.picks, chosen: layouts.chosen, layouts: layouts.state, kind: this.kind };
+		const release = holdWrites();
+		return () => {
+			this.state = was.state;
+			this.use = was.use;
+			this.settings = was.settings;
+			this.picks = was.picks;
+			this.kind = was.kind;
+			layouts.chosen = was.chosen;
+			layouts.state = was.layouts;
+			release();
+		};
 	}
 
 	/** the ☰ menu with Views open beside it (Alt V, the launcher's Views) */
