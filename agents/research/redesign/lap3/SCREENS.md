@@ -35,6 +35,16 @@ One thing differs from lap 2's draft on every screen: a menu's ground is drawn a
 | **C · The Catalog** | | | |
 | C1 | An item without the Catalog: found in the Library, opened as its own tab, made of slots; one line of text | 1, 27 | the Catalog's six other kinds |
 
+## Round 2 – after the owner's answers to six cards (NOTES.md notes 29–33)
+| Id | Screen | From | Asks |
+|---|---|---|---|
+| P1b | Following a connection across levels: edge ports that name the far end, the Inspector's list of connections, a Levels map, the same cable one and two levels out | 31 | is that enough – or never step in, unfold in place |
+| P2b | Scope across the apps: today's seven shapes (and the deck's none), a switch like the text language against the path as the scope (the tree's head; lists take its levels), compared | 29 | which way – it settles T3 and P2 |
+| C1b | An item that is sold: Sold as a part of the item (the product's fields), a Sold filter in the Library | 33 | products and editions as the item's Sold part; where the filter sits |
+
+Changed on round 1's screens: **V3** – decided for A, the chip that is on: the selected ground and the brighter word, no line – every screen draws chips so; its card now asks only whether the tile's ring, the Views state and the open select follow. **C1** – its card is answered (nothing sold is kept apart); Kamera's Sold part is off. **P3** – the second card asked again in plain words.
+Still open from round 1: M1, M2, M3, T1, T2, L1, L2, L3, V1, V2 (three numbers), S1 (two), S2, S3, S4, P1 (Spores and Flow), P3 (two). T3 and P2 wait for P2b.
+
 ## Not drawn in round 1
 - **Note 1** beyond C1's one line: the other places with a line per language (the cast's role, an experience's title, the Storyboard's fixed languages) – a fix by the rule, no picture needed unless you want one.
 - **Note 5** (the switcher's Publish button) – built today (#902).

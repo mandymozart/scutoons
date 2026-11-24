@@ -12,8 +12,9 @@ Object.assign(SECTIONS, {
   C: 'C · The Catalog inside the Library (notes 1, 27)'
 });
 
+/* a chip that is on: the selected ground and the brighter word, no line (owner 2026-11-24, note 30) */
 /* lap 3 draws a menu's ground at 94 % (lap 2: 85 %) – note 12 "too translucent"; V2 asks for the number */
-document.head.insertAdjacentHTML('beforeend', '<style>:root,[data-theme]{--tool-popover:color-mix(in srgb,var(--tool-ground) 94%,transparent)}</style>');
+document.head.insertAdjacentHTML('beforeend', '<style>:root,[data-theme]{--tool-popover:color-mix(in srgb,var(--tool-ground) 94%,transparent)}.kc.on{border-color:transparent;background:var(--tool-selected);color:var(--tool-text)}</style>');
 
 /* ── small parts ── */
 const REV = (id) => `review/creator/${id}-${WS_TH}.png`;
