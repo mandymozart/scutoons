@@ -8,24 +8,27 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 // per app: the expected app code before the first draw (uncompressed, only the line's scale – measured 2026-10-16) and
-// the skeleton (the reader's page shapes; creator / admin: the logo and the line alone)
+// the skeleton (the reader's page shapes; creator / admin: the logo and the line alone); `theme`: a tool whose boot
+// screen follows its stored theme (the localStorage key of its settings, shared/boot/theme.js) in the kit's sans
 const APPS = {
 	viewer: { expect: 900000, skeleton: 'reader' },
-	creator: { expect: 1300000 },
+	creator: { expect: 1300000, theme: 'sc-creator-settings' },
 	admin: { expect: 1300000 }
 };
 
 const css = readFileSync(resolve(root, 'shared/boot/boot.css'), 'utf8').trim();
 const js = readFileSync(resolve(root, 'shared/boot/boot.js'), 'utf8').trim();
+const themeJs = readFileSync(resolve(root, 'shared/boot/theme.js'), 'utf8').trim();
 const indent = (text, tabs) => text.split('\n').map((l) => (l ? '\t'.repeat(tabs) + l : l)).join('\n');
 const NOTE = 'generated from shared/boot by `npm run boot:sync` – edit there';
 
 function block(app) {
-	const { expect, skeleton } = APPS[app];
-	const style = `<!-- sc-boot:style (${NOTE}) -->\n\t\t<style>\n${indent(css, 3)}\n\t\t</style>\n\t\t<!-- /sc-boot:style -->`;
+	const { expect, skeleton, theme } = APPS[app];
+	const themeScript = theme ? `\n\t\t<script data-key="${theme}">\n${indent(themeJs, 3)}\n\t\t</script>` : '';
+	const style = `<!-- sc-boot:style (${NOTE}) -->\n\t\t<style>\n${indent(css, 3)}\n\t\t</style>${themeScript}\n\t\t<!-- /sc-boot:style -->`;
 	const body = [
 		`<!-- sc-boot:body (${NOTE}) -->`,
-		`<div id="sc-boot" data-expect="${expect}"${skeleton ? ` data-skeleton="${skeleton}"` : ''}>`,
+		`<div id="sc-boot" data-expect="${expect}"${skeleton ? ` data-skeleton="${skeleton}"` : ''}${theme ? ' data-tool' : ''}>`,
 		'\t<div class="mid">',
 		'\t\t<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />',
 		'\t\t<span class="say"></span>',

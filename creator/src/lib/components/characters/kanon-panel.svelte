@@ -78,7 +78,7 @@
 		width: 100%;
 		box-sizing: border-box;
 		resize: none;
-		font-family: var(--font-mono);
+		font-family: var(--editor-sans);
 		line-height: var(--type-body-line);
 		white-space: pre-wrap;
 		overflow-wrap: break-word;

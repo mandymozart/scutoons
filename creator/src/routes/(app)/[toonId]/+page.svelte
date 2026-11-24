@@ -311,7 +311,7 @@
 				<!-- owner 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
 				     translations with × (owner 2026-10-14: the source is changed on the script page – the ultimate source), an "add" select at the end -->
 				<section class="languages" data-testid="languages">
-					<span class="sc-label">{m['creator.languages']()}</span>
+					<span class="sc-label" title={m['creator.languages_hint']()}>{m['creator.languages']()}</span>
 					<ul class="chips">
 						<li class="sc-chip-control is-filled source" title={m['creator.source_language']()} data-testid="source-language">{languageLabel(edited.source)}<SourceMark /></li>
 						{#each targets as l (l)}

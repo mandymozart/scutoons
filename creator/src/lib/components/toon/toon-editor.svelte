@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
 	import { Select } from '@scutoons/ui/editor';
-	import { entities, mediaRequests, resolveText, type Status, type ToonLanguages } from '@scutoons/content';
+	import { entities, resolveText, type Status, type ToonLanguages } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
-	import { requestsDoc, requestsOf } from '$lib/editor/characters.ts';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
@@ -22,17 +20,14 @@
 	 * description and release (the header's text language, like a chapter's), the status (the toon page of a language
 	 * that isn't published is closed in it); the same in every language (`TOON_NEUTRAL_FIELDS`): authors, chapter count,
 	 * thumbnail, the avatar + the landing tile, announce, the map's start view. An entry without texts yet gets them from the old
-	 * per-language toon settings on load (a notice; saving stores them in the entry). Plus the toon's open media requests
-	 * (wanted images). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
+	 * per-language toon settings on load (a notice; saving stores them in the entry). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
 	// svelte-ignore state_referenced_locally
 	const entry = toonIndexDoc(toon, languages);
-	const requests = requestsDoc();
 	const nav = getCreatorNav();
 
-	const wanted = $derived(mediaRequests(requestsOf(requests), { toon }));
 	const data = $derived(entry.get(entry.primary, []));
 	/** the status per language follows the header's text language like the texts (source, one language, or all) */
 	const statusLocales = $derived(textLanguage.visible(entry.textLanguages, entry.textSource));
@@ -41,7 +36,7 @@
 	const ownStatus = (locale: string) => entry.text(['languageStatus'], locale) !== undefined;
 
 	onMount(async () => {
-		await Promise.all([entry.load(), requests.load().catch(() => {})]);
+		await entry.load();
 	});
 </script>
 
@@ -85,17 +80,6 @@
 			<div class="media">
 				<MediaSlot {toon} label={m['creator.field_thumbnail']()} value={data?.thumbnail || undefined} onchange={(v) => entry.set(['thumbnail'], v || undefined)} testid="toon-thumbnail" />
 			</div>
-
-			{#if wanted.length}
-				<div class="sub" data-testid="toon-media-requests">
-					<h3>{m['creator.cover_requests']()}</h3>
-					<ul class="wanted">
-						{#each wanted as r (r.id)}
-							<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="sc-mark"><Icon name="mail" /> {r.note}</span>{/if}</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
 
 			<div class="sub" data-testid="toon-landing">
 				<h3 title={m['creator.landing_hint']()}>{m['creator.landing']()}</h3>
@@ -143,14 +127,6 @@
 	h3 {
 		margin: 0;
 	}
-	.wanted {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-	}
 	/* the field grids (tools.css .sc-fields): two columns below 900px */
 	@media (max-width: 900px) {
 		.sc-fields[data-cols] {
@@ -184,9 +160,6 @@
 	}
 	.warn {
 		color: var(--tool-warn);
-	}
-	.hint {
-		margin: 0;
 	}
 	.check {
 		display: flex;

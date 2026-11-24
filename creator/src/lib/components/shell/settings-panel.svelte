@@ -95,7 +95,7 @@
 	</Section>
 	<Section id="shell-folder" label={m['shell.local_folder']()} summary={m['shell.this_machine']()}>
 		<div class="row">
-			<span class="mono">{folderName ?? m['shell.none']()}</span>
+			<span>{folderName ?? m['shell.none']()}</span>
 			{#if folder.supported}<Button onclick={chooseFolder}>{m['shell.change']()}</Button>{/if}
 		</div>
 		<p class="note">{m['shell.local_folder_note']()}</p>
@@ -146,10 +146,6 @@
 	.value {
 		min-width: 4rem;
 		text-align: center;
-		font-family: var(--font-mono);
-	}
-	.mono {
-		font-family: var(--font-mono);
 	}
 	.note {
 		margin: 0;

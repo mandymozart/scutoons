@@ -24,7 +24,7 @@
 		{#each family.versions as v (v.path)}
 			<button type="button" class="v" data-control-exempt="version tile" title={v.path} onclick={() => onuse(v)}>
 				{#if v.kind === 'image'}<img src={asset(v.path)} alt="" loading="lazy" />{:else}<span class="glyph"><Icon name={ICONS[v.kind]} size="1.2rem" /></span>{/if}
-				<span class="label mono">{v.label} {v.ext}</span>
+				<span class="label">{v.label} {v.ext}</span>
 			</button>
 		{/each}
 	</div>
@@ -90,8 +90,5 @@
 		background: var(--tool-head);
 		color: var(--tool-text);
 		font-size: var(--editor-label);
-	}
-	.mono {
-		font-family: var(--editor-mono, ui-monospace, monospace);
 	}
 </style>
