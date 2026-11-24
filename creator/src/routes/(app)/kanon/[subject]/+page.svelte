@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { entities, parseKanonSubject, type ToonLanguages } from '@scutoons/content';
 	import KanonEditor from '$lib/components/writing/kanon-editor.svelte';
+	import NotFound from '$lib/components/page/not-found.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -28,7 +29,7 @@
 </script>
 
 {#if !parsed}
-	<p class="pad error">{m['creator.kanon_unknown_subject']({ subject })}</p>
+	<NotFound what={m['creator.kanon_unknown_subject']()} />
 {:else}
 	{#await languages}
 		<p class="pad">{m['creator.loading']()}</p>

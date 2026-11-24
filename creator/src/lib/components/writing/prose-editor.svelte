@@ -53,8 +53,11 @@
 		flush();
 		handle?.jump(line);
 	}
+	/** the caret into the text – once it is there, when asked while it still loads */
+	let wantsFocus = false;
 	export function focus() {
-		handle?.focus();
+		if (handle) handle.focus();
+		else wantsFocus = true;
 	}
 
 	onMount(() => {
@@ -80,6 +83,7 @@
 				onLockedKey: (event) => onlockedkey?.(event) ?? false,
 				onBlur: flush
 			});
+			if (wantsFocus) handle.focus();
 		});
 		return () => {
 			gone = true;

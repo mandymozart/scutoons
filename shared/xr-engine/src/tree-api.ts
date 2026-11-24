@@ -21,6 +21,8 @@ export type XrAssetType = 'glb' | 'gltf' | 'video' | 'image' | 'audio';
 /** where a new node goes: next to the selected one (the same parent) or inside it (its last child) */
 export type XrAddPlace = 'next' | 'inside';
 export declare const XR_ADD_PLACES: readonly XrAddPlace[];
+/** the content schema a configuration written now carries (`version.schema`) */
+export declare const XR_CONTENT_SCHEMA: string;
 
 /** a changed tree and the path of the node that was placed */
 export interface XrTreeEdit {

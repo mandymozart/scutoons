@@ -4,10 +4,9 @@
 	import { Button, Chip, Overlay } from '@scutoons/ui/editor';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { isThingPick, library } from '$lib/editor/library.svelte.ts';
-	import { pickShelf as shelf, provideShelf } from '$lib/editor/library-shelf.svelte.ts';
+	import { namesLocale, pickShelf as shelf, provideShelf } from '$lib/editor/library-shelf.svelte.ts';
 	import { pickFirst, pickStepped, pressEntry, takesThing } from '$lib/editor/library-pick.svelte.ts';
 	import { PICK_PLACES, findIn, firstPlace, pickChoices, pickGroups, placeAvailable, placeQuery, seasonToon, sortEntries, type PickFit, type PlaceContext, type ShelfPlace } from '$lib/editor/library-list.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import LibraryFind from '$lib/components/library/library-find.svelte';
 	import LibraryGrid from '$lib/components/library/library-grid.svelte';
@@ -41,9 +40,9 @@
 	const ctx = $derived<PlaceContext>({ toon, open: library.address, season: shelf.seasonFor(toon, library.address) });
 	const place = $derived(shelf.place(ctx));
 	const from = $derived(things ? null : shelf.from);
-	const query = $derived(placeQuery(place, ctx, shelf.choice, from, fit, getLocale()));
+	const query = $derived(placeQuery(place, ctx, shelf.choice, from, fit, namesLocale()));
 	const first = $derived(place === 'all' ? firstPlace(request.first, ctx) : null);
-	const firstQuery = $derived(first ? placeQuery(first, ctx, shelf.choice, from, fit, getLocale()) : null);
+	const firstQuery = $derived(first ? placeQuery(first, ctx, shelf.choice, from, fit, namesLocale()) : null);
 	// a cast lists characters and their files; Unused lists files
 	const chips = $derived(
 		PICK_PLACES.filter((p) => placeAvailable(p, ctx) && (p !== 'unused' || !things) && (p !== 'cast' || !isThingPick(request) || request.types.includes('character')))
@@ -61,6 +60,8 @@
 	const firstLabel = $derived(first === 'cast' ? castLabel : first === 'toon' && toon ? m['library.place_toon_named']({ toon: nav.toonName(toon) }) : first ? placeLabel(first) : '');
 	const crumbPlace = $derived(place === 'cast' ? castLabel : placeLabel(place));
 	const create = $derived(isThingPick(request) && request.create && shelf.query.trim() ? request.create : null);
+	/** a file slot that also takes a new thing (a shot's new generator): beside Upload */
+	const fileCreate = $derived(isThingPick(request) ? null : (request?.things?.create ?? null));
 	/** what the slot holds, as the list names it (a file: its family's address, once the registry is read) */
 	const chosen = $derived((isThingPick(request) ? request.value : request.value && library.addressOf(request.value)) ?? null);
 	const stepPickable = $derived(!!shelf.step && takesThing(shelf.step.at));
@@ -114,7 +115,7 @@
 
 	function made() {
 		const name = shelf.query.trim();
-		const make = create;
+		const make = create ?? fileCreate;
 		library.cancelPick();
 		make?.run(name);
 	}
@@ -147,6 +148,7 @@
 		</div>
 		<div class="row">
 			<LibraryFind bind:value={shelf.query} bind:input={search} autofocus testid="library-pick-search" />
+			{#if fileCreate}<Button icon="zap" onclick={made} data-testid="library-pick-new">{fileCreate.label(shelf.query.trim())}</Button>{/if}
 			{#if !things}
 				<Button variant="primary" icon="upload" title={m['library.upload_title']()} onclick={() => fileInput?.click()}>{m['library.upload']()}</Button>
 				<input bind:this={fileInput} type="file" multiple hidden onchange={(e) => (upload([...(e.currentTarget.files ?? [])]), (e.currentTarget.value = ''))} />

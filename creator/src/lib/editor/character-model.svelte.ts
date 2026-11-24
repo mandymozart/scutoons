@@ -2,6 +2,7 @@
 // (bones, clips, spots, what it lacks – core-model.ts), and the clip the place plays. The facts are the core's; this
 // holds and loads.
 import { asset } from '$lib/utils/cdn.ts';
+import { m } from '$lib/paraglide/messages.js';
 import { modelFacts, type ModelFacts } from './core-model.ts';
 
 export class CharacterModel {
@@ -9,7 +10,7 @@ export class CharacterModel {
 	path = $state('');
 	bytes = $state.raw<ArrayBuffer | null>(null);
 	facts = $state.raw<ModelFacts | null>(null);
-	/** why it could not be read (the fetch, or the core's answer) */
+	/** why it could not be read, in words (the file, or the core's answer) */
 	why = $state('');
 	loading = $state(false);
 	/** the clip playing (an index into `facts.clips`), null = the rest pose */
@@ -35,7 +36,10 @@ export class CharacterModel {
 		this.loading = true;
 		try {
 			const response = await fetch(/^https?:/.test(path) ? path : asset(path));
-			if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+			if (!response.ok) {
+				if (path === this.#asked) this.why = response.status === 404 ? m['character.rig_not_found']() : m['character.rig_load_failed']();
+				return;
+			}
 			const bytes = await response.arrayBuffer();
 			if (path !== this.#asked) return;
 			const answer = await modelFacts(new Uint8Array(bytes));
@@ -44,8 +48,8 @@ export class CharacterModel {
 				this.facts = answer;
 				this.bytes = bytes;
 			} else this.why = answer.why;
-		} catch (e) {
-			if (path === this.#asked) this.why = e instanceof Error ? e.message : String(e);
+		} catch {
+			if (path === this.#asked) this.why = m['character.rig_load_failed']();
 		} finally {
 			if (path === this.#asked) this.loading = false;
 		}

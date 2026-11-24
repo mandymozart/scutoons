@@ -201,3 +201,45 @@ export const experienceHref = (id: string) => `/experiences/${encodeURIComponent
 
 /** the reader's preview of the newest draft */
 export const readerHref = (viewer: string, id: string) => `${viewer}/xr/${encodeURIComponent(id)}?draft=1`;
+
+/** an experience id (`^[a-z][a-z0-9-]{1,63}$`) from a title, not one of `taken`: `poster-<words>`, numbered when taken */
+export function experienceId(title: string, taken: ReadonlySet<string> = new Set()): string {
+	const words = title
+		.normalize('NFKD')
+		.replace(/[̀-ͯ]/g, '')
+		.toLowerCase()
+		.replace(/ß/g, 'ss')
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	const base = `poster-${words || 'new'}`.slice(0, 56).replace(/-+$/, '');
+	let id = base;
+	for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+	return id;
+}
+
+/** A1 upright: the poster a new experience starts with (research/XR.md §4.2) */
+export const POSTER_MM = { width: 594, height: 841 } as const;
+
+/**
+ * A new poster (research/XR.md §4.2 "Poster"): one scene with one surface in the poster's size, lying flat, nothing on it
+ * yet; its files go below `xr/<id>`. `schema` is the engine's content schema, `now` the configuration's timestamp.
+ */
+export function newPoster(o: { id: string; title: string; locale: string; toon: string | null; label: string; schema: string; now: string }) {
+	const surface = { id: 'poster', label: o.label, widthMm: POSTER_MM.width, heightMm: POSTER_MM.height, place: { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 } };
+	return {
+		id: o.id,
+		type: 'poster',
+		title: { [o.locale]: o.title },
+		toons: o.toon ? [o.toon] : [],
+		assets: `xr/${o.id}`,
+		configuration: {
+			version: { version: '0.0.0', timestamp: o.now, schema: o.schema },
+			experience: { id: o.id, title: o.title },
+			initialScene: 'poster',
+			scenes: [{ id: 'poster', label: o.label, surfaces: [surface] }],
+			entries: [],
+			entities: {}
+		},
+		plugins: []
+	};
+}
