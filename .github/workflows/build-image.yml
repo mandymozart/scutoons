@@ -30,6 +30,8 @@ on:
       # the rig / scene check it answers POST /validate with (rig/validate.rs, #803)
       - deck/space/**
       - deck/Cargo.lock
+      # the link table deck-ui builds in (ui/src/link.rs)
+      - server/schema/tables/deck-link.json
       - .github/workflows/build-image.yml
   workflow_dispatch:
     inputs:
@@ -113,7 +115,9 @@ jobs:
         with:
           context: deck
           # deck-kit builds the repo's kit/tokens.toml in (deck/kit/build.rs)
-          build-contexts: kit=kit
+          build-contexts: |
+            kit=kit
+            tables=server/schema/tables
           file: deck/build/Dockerfile
           push: true
           tags: |
