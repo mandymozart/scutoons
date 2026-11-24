@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import {
-	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, VIEWS, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SLICE_ASPECTS, SOURCES, STATUS, readSource, UNIT, W, parseAspect, readSeconds, shotHeight, slicesOf, words
+	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, VIEWS, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SLICE_ASPECTS, SOURCES, STATUS, UNIT, W, parseAspect, readSeconds, shotHeight, slicesOf, words
 } from './lib.mjs';
 
 /** a file or a folder of scene-*.json → [{ file, sb }] in scene order */
@@ -89,8 +89,8 @@ export function validate(sb, file = '') {
 			if (shot.shot?.angle && !ANGLES.includes(shot.shot.angle)) err(id, `shot.angle "${shot.shot.angle}"`);
 			if (!shot.action?.de) err(id, 'action.de missing – what the image shows');
 			if (shot.location && !locRefs.has(shot.location)) err(id, `location "${shot.location}" not in locations`);
-			if (shot.source?.type && !readSource(shot.source.type)) err(id, `source.type "${shot.source.type}"`);
-			if (shot.source?.want && !readSource(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
+			if (shot.source?.type && !SOURCES.includes(shot.source.type)) err(id, `source.type "${shot.source.type}"`);
+			if (shot.source?.want && !SOURCES.includes(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
 			if (!shot.source?.want) warn(id, 'source.want missing (photo / deck / direct / generated / art)');
 			if (shot.status && !STATUS.includes(shot.status)) err(id, `status "${shot.status}"`);
 			if (shot.review && !['ok', 'change'].includes(shot.review.status)) err(id, 'review.status – ok | change');
@@ -112,7 +112,7 @@ export function validate(sb, file = '') {
 			// safe formats (warnings: "beyond what we can generate today")
 			if (a && shot.format === 'vertical') {
 				const tall = a.h / a.w;
-				if (tall > SAFE.vertical.maxTall + 1e-6 && readSource(shot.source?.want) !== 'deck')
+				if (tall > SAFE.vertical.maxTall + 1e-6 && shot.source?.want !== 'deck')
 					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want deck / photo stitch`);
 				else if (tall > SAFE.vertical.plan + 1e-6 && shot.source?.want === 'generated') warn(id, `1:${tall.toFixed(1)} generated: above the planning size 1:${SAFE.vertical.plan} – the maximum is the exception`);
 			}

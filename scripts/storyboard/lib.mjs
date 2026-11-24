@@ -65,8 +65,6 @@ export const POSES = ['stand', 'walk', 'run', 'jump', 'fall', 'slip', 'crouch', 
 export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', 'three-quarter-right'];
 export const VIEWS = ['real', 'belief', 'narration', 'memory'];
 export const SOURCES = ['schematic', 'photo', 'deck', 'direct', 'generated', 'art'];
-/** older source words and the word they read as: the deck took Unreal's place */
-export const readSource = (v) => (SOURCES.includes(v) ? v : v === 'unreal' ? 'deck' : undefined);
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'];
 
 /** height in px of a shot of this aspect on the 390-wide canvas (loop360: the height of one slide row) */

@@ -1,10 +1,10 @@
 // A shot hands over (src/storyboard/handover.ts): its asset address, what it was made into, the deck's shot address, the
-// sources' deck in Unreal's place, the slice placement – and the generated schema holds the same patterns.
+// deck as a source, the slice placement – and the generated schema holds the same patterns.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-	SHOT_ASSET, SHOT_MADE, fileShotAsset, readShotAddress, readShotAsset, readSource, shotAddress, shotRows, sliceOfShot,
+	SHOT_ASSET, SHOT_MADE, fileShotAsset, readShotAddress, readShotAsset, shotAddress, shotRows, sliceOfShot,
 	sliceSpotFor, validate, type Shot, type StoryboardDoc
 } from '../src/storyboard/index.ts';
 
@@ -33,16 +33,13 @@ test('validate: the asset and the made pointers, old storyboards unchanged', () 
 	assert.deepEqual(errors(shot({ made: { slice: 'x' } as never })), ['scene-1 sb-1-1: made.slice – deck | xr']);
 });
 
-test('sources: the deck in Unreal\'s place; an old "unreal" reads as deck', () => {
-	assert.equal(readSource('deck'), 'deck');
-	assert.equal(readSource('unreal'), 'deck');
-	assert.equal(readSource('toString'), undefined);
-	assert.deepEqual(errors(shot({ source: { want: 'unreal' } })), []);
+test('sources: the deck is one; any other word is an error', () => {
+	assert.deepEqual(errors(shot({ source: { want: 'deck' } })), []);
+	assert.deepEqual(errors(shot({ source: { want: 'render' as never } })), ['scene-1 sb-1-1: source.want "render"']);
 	const tall = (want: string) => validate(scene([shot({ format: 'vertical', aspect: '1:8', source: { want: want as never } })]), 'scene-1').warnings.filter((w) => w.includes('beyond what we can generate'));
-	assert.equal(tall('unreal').length, 0);
 	assert.equal(tall('deck').length, 0);
 	assert.match(tall('photo')[0], /source\.want deck \/ photo stitch/);
-	assert.equal(shotRows([scene([shot({ source: { want: 'unreal' } })])])[0].want, 'deck');
+	assert.equal(shotRows([scene([shot({ source: { want: 'deck' } })])])[0].want, 'deck');
 });
 
 test('the shot\'s own address for the deck', () => {

@@ -23,9 +23,6 @@ export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', '
 export const VIEWS = ['real', 'belief', 'narration', 'memory'] as const;
 /** source.type (where the image comes from now) and source.want (what it should come from); `deck` = a scene in the deck */
 export const SOURCES = ['schematic', 'photo', 'deck', 'direct', 'generated', 'art'] as const;
-/** older source words and the word they read as: the deck took Unreal's place */
-export const OLD_SOURCES = { unreal: 'deck' } as const;
-export type OldSourceKind = keyof typeof OLD_SOURCES;
 /** a shot's production status (STORYBOARD §7 "Parallel work") */
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'] as const;
 /** review.status: the owner's verdict */
@@ -53,12 +50,6 @@ export type ReviewStatus = (typeof REVIEWS)[number];
 /** true when v is one of the list's words (a type guard for the literal unions) */
 export function isIn<T extends string>(list: readonly T[], v: unknown): v is T {
 	return (list as readonly unknown[]).includes(v);
-}
-
-/** a source word as it reads now (`unreal` → `deck`); not a source word: undefined */
-export function readSource(v: unknown): SourceKind | undefined {
-	if (isIn(SOURCES, v)) return v;
-	return typeof v === 'string' && Object.hasOwn(OLD_SOURCES, v) ? OLD_SOURCES[v as OldSourceKind] : undefined;
 }
 
 /**

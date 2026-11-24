@@ -7,7 +7,7 @@
 import type { DialogTail } from '../content.ts';
 import type {
 	Facing, LightHeight, LightKey, LightShadow, LightSource, Move, Pose, Projection, ReviewStatus, ShotAngle, ShotFormat,
-	OldSourceKind, ShotSize, ShotStatus, SourceKind, View
+	ShotSize, ShotStatus, SourceKind, View
 } from './vocab.ts';
 
 /** a text in locales: `{ de: '…' }` (German first; other locales come with the translation step) */
@@ -107,10 +107,10 @@ export interface SbDialog {
 }
 
 export interface ShotSource {
-	/** where the image comes from now (schematic until matched); an older word reads as its new one (vocab OLD_SOURCES) */
-	type?: SourceKind | OldSourceKind;
+	/** where the image comes from now (schematic until matched) */
+	type?: SourceKind;
 	/** what it should come from */
-	want?: SourceKind | OldSourceKind;
+	want?: SourceKind;
 	/** the Figma node id once matched */
 	figma?: string;
 }

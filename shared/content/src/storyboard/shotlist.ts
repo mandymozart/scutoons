@@ -4,7 +4,7 @@
 
 import { measureShot, shotsOf } from './measure.ts';
 import type { StoryboardDoc } from './types.ts';
-import { readSource, textOf } from './vocab.ts';
+import { textOf } from './vocab.ts';
 
 export interface ShotRow {
 	scene: number | undefined;
@@ -35,7 +35,7 @@ export function shotRows(scenes: StoryboardDoc[]): ShotRow[] {
 			const m = measureShot(shot);
 			rows.push({
 				scene: sb.source?.scene, id: shot.id, place: loc?.place ?? loc?.new ?? loc?.ref ?? '–', time: loc?.time ?? '',
-				want: readSource(shot.source?.want) ?? shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
+				want: shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
 				framing: [shot.shot?.size, shot.shot?.angle, shot.projection !== 'perspective' ? shot.projection : ''].filter(Boolean).join(' '),
 				who: (shot.figures ?? []).map((f) => `${cast[f.cast]?.new ?? f.cast}${f.mood ? ` (${f.mood})` : ''}`).join(', '),
 				action: textOf(shot.action)

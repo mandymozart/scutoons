@@ -9,7 +9,7 @@ import { SHOT_ASSET_KINDS, SHOT_MADE, fitsMade, readShotAsset, type ShotMadeAt }
 import type { ChapterStoryboard, Light, StoryboardDoc } from './types.ts';
 import {
 	ANGLES, DIALOG_FONTS_SB, DIALOG_VARIANTS_SB, FACING, FORMATS, LIGHT, MOVES, POSES, PROJECTIONS, REVIEWS, RHYTHM, SAFE,
-	SIZES, SOURCES, STATUS, VIEWS, isIn, readSource, words
+	SIZES, SOURCES, STATUS, VIEWS, isIn, words
 } from './vocab.ts';
 
 export interface StoryboardProblems {
@@ -61,10 +61,10 @@ export function validate(sb: StoryboardDoc, file = ''): StoryboardProblems {
 			if (shot.shot?.angle && !isIn(ANGLES, shot.shot.angle)) err(id, `shot.angle "${shot.shot.angle}"`);
 			if (!shot.action?.de) err(id, 'action.de missing – what the image shows');
 			if (shot.location && !locRefs.has(shot.location)) err(id, `location "${shot.location}" not in locations`);
-			if (shot.source?.type && !readSource(shot.source.type)) err(id, `source.type "${shot.source.type}"`);
-			if (shot.source?.want && !readSource(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
+			if (shot.source?.type && !isIn(SOURCES, shot.source.type)) err(id, `source.type "${shot.source.type}"`);
+			if (shot.source?.want && !isIn(SOURCES, shot.source.want)) err(id, `source.want "${shot.source.want}"`);
 			if (!shot.source?.want) warn(id, `source.want missing (${SOURCES.filter((s) => s !== 'schematic').join(' / ')})`);
-			const want = readSource(shot.source?.want);
+			const want = shot.source?.want;
 			if (shot.asset != null && !readShotAsset(shot.asset)) err(id, `asset "${shot.asset}" – a Library address: ${SHOT_ASSET_KINDS.map((k) => `${k}:<path>`).join(', ')} or generator:<id>`);
 			for (const [at, address] of Object.entries(shot.made ?? {})) {
 				if (!(at in SHOT_MADE)) err(id, `made.${at} – ${Object.keys(SHOT_MADE).join(' | ')}`);

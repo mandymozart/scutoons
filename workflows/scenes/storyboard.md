@@ -25,7 +25,7 @@ one location (the Figma library is sorted by shooting). Never mix the two.
 1. Scene → storyboard (this file). 2. Match each shot against the owner's **Figma selection** on the chapter's page
 (`S1C3`), the shooting pages only for gaps. 3. The first throw = the storyboard with the matched images, placed as a
 **draft frame** in Figma (390 wide, a locked `storyboard` group, guides, `text`, `layout` on top). 4. Back into the
-creator as the chapter's draft. 5. **Prompt only the gaps** (manual, Luma) or plan an Unreal camera / a direct shot.
+creator as the chapter's draft. 5. **Prompt only the gaps** (manual, Luma) or plan a deck scene / a direct shot.
 So every shot says **what it needs to show**, clearly enough to pick a photo for it or to prompt it.
 
 ## The visual language of catpope (chapters 1 + 2, looked at 2026-10-09)
@@ -63,7 +63,7 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
   panorama's width:height for loop360.
 - **Safe formats (owner: the restriction for what we suggest and prompt):** vertical up to **1:7**, plan ≤ **1:4**;
   loop360 up to **13 screens** wide (Luma's proven maximum), plan ≤ **8**. Taller / wider: split into several shots,
-  or take a source without the limit (Unreal render, a photo stitch) and say so in `source.want`.
+  or take a source without the limit (a deck scene, a photo stitch) and say so in `source.want`.
 - `projection`: perspective · top-down · isometric · polar. `move`: hold · tilt-down · tilt-up · fall · climb ·
   travel · descend · reveal · look-around · pass. `shot.size`: ecu cu mcu medium full wide ews; `shot.angle`: eye high
   low bird worm dutch.
@@ -100,7 +100,7 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
   prose becomes narration – **shortened**: a box ≤ 25 words, a screen ≤ 35 words (the rhythm rule). Speech in the
   script (`PLF`, `{ROARRR}`) becomes bubbles / SFX.
 - `source`: `type` = where the image comes from now (`schematic` until matched); `want` = what it should come from:
-  `photo` (a shooting exists or is likely), `unreal`, `direct` (to be photographed), `generated` (prompt it),
+  `photo` (a shooting exists or is likely), `deck` (a scene in the deck), `direct` (to be photographed), `generated` (prompt it),
   `art` (drawn / graphic). Later the match adds `figma` (the node id).
 - `prompt`: `{ "en": "…" }` – only for shots that want `generated`: the image in English, concrete (what, where, who,
   light), without text or lettering; `prompts.mjs` builds the full prompt around it (format, framing, figures, air,

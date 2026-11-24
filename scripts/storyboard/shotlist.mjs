@@ -6,7 +6,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { ROOT, readSource, textOf } from './lib.mjs';
+import { ROOT, textOf } from './lib.mjs';
 import { loadStoryboards, measureShot, shotsOf } from './storyboard.mjs';
 
 const args = process.argv.slice(2);
@@ -28,7 +28,7 @@ for (const { sb } of list) {
 		const m = measureShot(shot);
 		rows.push({
 			scene: sb.source?.scene, id: shot.id, place: loc?.place ?? loc?.new ?? loc?.ref ?? '–', time: loc?.time ?? '',
-			want: readSource(shot.source?.want) ?? shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
+			want: shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
 			framing: [shot.shot?.size, shot.shot?.angle, shot.projection !== 'perspective' ? shot.projection : ''].filter(Boolean).join(' '),
 			who: (shot.figures ?? []).map((f) => `${cast[f.cast]?.new ?? f.cast}${f.mood ? ` (${f.mood})` : ''}`).join(', '),
 			action: textOf(shot.action)

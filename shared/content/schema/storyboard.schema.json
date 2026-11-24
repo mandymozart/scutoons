@@ -726,25 +726,11 @@
 			"type": "object",
 			"properties": {
 				"type": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/SourceKind"
-						},
-						{
-							"$ref": "#/definitions/OldSourceKind"
-						}
-					],
-					"description": "where the image comes from now (schematic until matched); an older word reads as its new one (vocab OLD_SOURCES)"
+					"$ref": "#/definitions/SourceKind",
+					"description": "where the image comes from now (schematic until matched)"
 				},
 				"want": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/SourceKind"
-						},
-						{
-							"$ref": "#/definitions/OldSourceKind"
-						}
-					],
+					"$ref": "#/definitions/SourceKind",
 					"description": "what it should come from"
 				},
 				"figma": {
@@ -763,10 +749,6 @@
 				"generated",
 				"art"
 			]
-		},
-		"OldSourceKind": {
-			"type": "string",
-			"const": "unreal"
 		},
 		"ShotMade": {
 			"type": "object",
