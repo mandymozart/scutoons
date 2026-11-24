@@ -4,7 +4,7 @@
 //! empty one is a stop slot. A row's head holds its ▶, its number, its name and – auto or suggest – its fire tag, which
 //! says only what the name does not; a column's head its group, its name, who takes it and its small stop. The edges
 //! between columns and rows show only under the pointer, as a handle to drag; a double click fits (sizing.rs). What plays
-//! is lime with the bar's progress, what waits for its moment is ringed, a cell started off its row has a corner mark.
+//! is the text colour with the bar's progress, what waits for its moment is ringed, a cell started off its row has a corner mark.
 //! The selection shows: the row as a soft band (no bar on its side, RULES H10), a column as a band from its head to its last row,
 //! a group's head, a cell outlined; names are typed in place in their heads. Every word and state is deck-show's view.rs
 //! (`matrix_at`) and every size limit its sizes.rs; this file lays them out and names the places.
@@ -34,14 +34,14 @@ pub fn table(t: &Tokens, m: &Matrix, adds: bool, sizes: &Sizes) -> Table {
     Table { head: (s.rem(sizes.heads()), groups + s.rem(3.2)), widths, heights, foot: s.rem(1.6) }
 }
 
-/// a ▶ in a circle of radius `r` around `c`: filled lime while it plays, ringed while it waits, quiet else
+/// a ▶ in a circle of radius `r` around `c`: filled in the text colour while it plays, ringed while it waits, quiet else
 fn launcher(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, hot: bool) {
     match state {
-        State::Playing => d.disc(c.0, c.1, r, t.color.primary),
+        State::Playing => d.disc(c.0, c.1, r, t.color.text),
         State::Queued => {
             d.disc(c.0, c.1, r, t.color.control);
-            d.ring(c.0, c.1, r, t.color.primary_line);
-            d.ring(c.0, c.1, r - 1.5, t.color.primary_line);
+            d.ring(c.0, c.1, r, t.color.text);
+            d.ring(c.0, c.1, r - 1.5, t.color.text);
         }
         State::Idle => {
             d.disc(c.0, c.1, r, if hot { t.color.hover } else { t.color.control });
@@ -49,7 +49,7 @@ fn launcher(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, h
         }
     }
     let s = r * 0.9;
-    let ink = if state == State::Playing { t.color.primary_ink } else { t.color.text };
+    let ink = if state == State::Playing { t.color.pressed_text } else { t.color.text };
     d.icon(c.0 - s * 0.42, c.1 - s * 0.5, s, "play-fill", ink);
 }
 
@@ -61,7 +61,7 @@ fn stop_slot(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, 
         d.round_rect(x, y, s, s, 2.0, t.color.hover);
     }
     let color = match state {
-        State::Queued => t.color.primary_line,
+        State::Queued => t.color.text,
         _ => t.color.muted,
     };
     d.outline(x, y, s, s, (2.0, 1.0), color);
@@ -136,7 +136,7 @@ pub fn note(t: &Tokens, host: &Host, (r, c): (&RowView, usize), m: &Matrix, cell
     let show = host.shown();
     let newer = cell.state == State::Playing && host.book.as_ref().zip(m.columns.get(c)).is_some_and(|(b, col)| deck_show::rows::newer_draft(show, &r.id, &col.id, b));
     match (&cell.state, &cell.problem, &cell.ask) {
-        (State::Queued, ..) => Some((r.moment.clone(), t.color.primary_line)),
+        (State::Queued, ..) => Some((r.moment.clone(), t.color.text)),
         (_, Some(p), _) => Some((p.clone(), t.color.warn)),
         (_, _, Some(a)) => Some((a.filter.clone(), t.color.muted)),
         _ if newer => Some((deck_show::rows::NEWER_DRAFT.to_string(), t.color.warn)),
@@ -205,12 +205,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 boxes[c] = Some(whole);
                 d.round_rect(whole.x, whole.y, whole.w, whole.h, t.size.radius, if over { t.color.hover } else { t.color.control });
                 match cell.state {
-                    State::Playing => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 2.0), t.color.primary_line),
-                    State::Queued => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.0), t.color.primary_line),
+                    State::Playing => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 2.0), t.color.text),
+                    State::Queued => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.0), t.color.text),
                     State::Idle => d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.0), t.color.line),
                 }
                 if cell.ask.is_some() {
-                    d.rect(whole.x, whole.y + t.size.radius, 2.0, whole.h - 2.0 * t.size.radius, t.color.accent);
+                    d.rect(whole.x, whole.y + t.size.radius, 2.0, whole.h - 2.0 * t.size.radius, t.color.text);
                 }
                 launcher(d, t, c0, rad, cell.state, on_launcher);
                 let tx = c0.0 + rad + pad * 0.75;
@@ -228,20 +228,20 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                     let (bx, bw) = (whole.x + pad, whole.w - 2.0 * pad);
                     let by = whole.y + whole.h - 4.0;
                     d.rect(bx, by, bw, 2.0, t.color.line);
-                    d.rect(bx, by, bw * p.clamp(0.0, 1.0), 2.0, t.color.primary_line);
+                    d.rect(bx, by, bw * p.clamp(0.0, 1.0), 2.0, t.color.text);
                 }
                 if runs {
                     push(host, Rect { x: c0.0 - rad - 2.0, y: c0.1 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if cell.keep {
                 // a kept cell: what an earlier row started carries on, lit while it plays on through this row
-                let color = if cell.state == State::Playing { t.color.primary_line } else { cards::faint(t) };
+                let color = if cell.state == State::Playing { t.color.text } else { cards::faint(t) };
                 let tw = d.advance(small) * cell.text.chars().count() as f32;
                 let text = fit(d, &cell.text, small, box_.w - 2.0 * pad);
                 d.text(box_.x + ((box_.w - tw) * 0.5).max(pad), box_.y + (h0 - small * 1.25) * 0.5, small, &text, color);
             }
             if selected {
-                d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.accent);
+                d.outline(whole.x, whole.y, whole.w, whole.h, (t.size.radius, 1.5), t.color.text);
             }
             // a library card being dragged: the cell under the pointer is where it lands
             if host.carrying() && at.has(pointer.0, pointer.1) {
@@ -295,7 +295,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 controls::label(d, t, r.x + pad, r.y + 4.0, &fit(d, &g.name, t.size.label * 1.2, r.w - 2.0 * pad), t.color.muted);
             }
         }
-        d.rect(r.x + pad, r.y + gh - 6.0, r.w - 2.0 * pad, if on { 2.0 } else { 1.0 }, if on { t.color.accent } else { t.color.line });
+        d.rect(r.x + pad, r.y + gh - 6.0, r.w - 2.0 * pad, if on { 2.0 } else { 1.0 }, if on { t.color.text } else { t.color.line });
         push(host, Rect { x: r.x, y: r.y, w: r.w, h: gh - 4.0 }, &l.heads_top, Hit::Group(gi));
     }
     for (c, col) in m.columns.iter().enumerate() {
@@ -306,7 +306,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         if on {
             // the column's band, the same x and width as its cells below
             d.rect(r.x + 1.0, y, r.w - 2.0, r.h - gh, soft(t.color.selected, 0.45));
-            d.rect(r.x + pad, r.y + r.h - 3.0, r.w - 2.0 * pad, 2.0, t.color.accent);
+            d.rect(r.x + pad, r.y + r.h - 3.0, r.w - 2.0 * pad, 2.0, t.color.text);
         }
         let stop = t.size.rem(0.85);
         let here = role.map(|k| deck_show::roles::here_text(roles[k].here)).unwrap_or_default();
@@ -386,7 +386,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
                 let y = h.y + h0 * 0.5 + 3.0;
                 let w = fire_tag(d, t, (tx, y, whole.x + whole.w - tx - pad), chip);
                 if waits {
-                    d.text(whole.x + whole.w - ww + pad * 0.5, top + (font - wpx) * 0.5, wpx, deck_show::view::WAITS, t.color.primary_line);
+                    d.text(whole.x + whole.w - ww + pad * 0.5, top + (font - wpx) * 0.5, wpx, deck_show::view::WAITS, t.color.text);
                 }
                 Rect { x: tx, y, w, h: cards::tag_height(t) }
             }

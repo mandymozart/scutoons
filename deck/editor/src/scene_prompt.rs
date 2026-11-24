@@ -140,11 +140,12 @@ impl ScenePrompt {
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, room: (f32, f32)) {
         let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
         self.hits.clear();
-        d.rect(0.0, 0.0, room.0, room.1, [0.0, 0.0, 0.0, 0.5]);
+        // the overlay level without its blur (the deck has none yet): the reduced ground
+        d.rect(0.0, 0.0, room.0, room.1, t.kit("overlay", "reduced").ground.unwrap_or(t.color.panel()));
         let w = (font * 32.0).min(room.0 - 2.0 * pad);
         let h = small * 1.8 + row * 2.0 + row + pad * 3.0 + (t.size.row - 4.0);
         let (x, y) = ((room.0 - w) * 0.5, ((room.1 - h) * 0.4).max(pad));
-        d.round_rect(x, y, w, h, t.size.radius, t.color.surface);
+        d.round_rect(x, y, w, h, t.size.radius, t.color.panel());
         d.outline(x, y, w, h, (t.size.radius, 1.0), t.color.line);
         let (x, w) = (x + pad, w - 2.0 * pad);
         let mut y = y + pad;
@@ -155,7 +156,7 @@ impl ScenePrompt {
             let r = Rect { x: x + w * 0.2, y: y + 2.0, w: w * 0.8, h: row - 4.0 };
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
             if on {
-                d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+                d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.text);
             }
             let shown = if on { format!("{}|", f.text) } else { f.text.clone() };
             let shown = if shown.is_empty() && !on && part == Part::Id { "suggested from the name".to_string() } else { shown };
@@ -177,7 +178,7 @@ impl ScenePrompt {
         let create = Rect { x: x + w - bw, y, w: bw, h: bh };
         let cancel = Rect { x: create.x - bw - pad * 0.5, y, w: bw, h: bh };
         crate::show::live::button(d, t, cancel, "Cancel", t.color.control, t.color.text);
-        crate::show::live::button(d, t, create, "Create", if ok { t.color.primary } else { t.color.control }, if ok { t.color.primary_ink } else { t.color.muted });
+        crate::show::live::button(d, t, create, "Create", if ok { t.color.pressed } else { t.color.control }, if ok { t.color.pressed_text } else { t.color.muted });
         self.hits.push((cancel, Part::Cancel));
         self.hits.push((create, Part::Create));
     }

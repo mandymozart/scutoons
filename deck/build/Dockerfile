@@ -3,7 +3,7 @@
 # limits - so one compile at a time, 2 cargo jobs, none while the relay reports a live show). Build with the deck/ WORKSPACE
 # as the context, like the relay's (deck/.dockerignore keeps target folders, deck/lab and the ISOs out):
 #
-#   docker build -f deck/build/Dockerfile -t scutoons-build deck
+#   docker build --build-context kit=kit -f deck/build/Dockerfile -t scutoons-build deck
 #   docker run --rm -p 7710:7710 -e MODULE_BUILD_TOKEN=… -e RELAY_STATUS_URL=off scutoons-build
 #   curl http://127.0.0.1:7710/health            → {"ok":true,"waiting":0,"busy":false}
 #
@@ -27,6 +27,8 @@ ARG RUST_VERSION=1.99.1
 FROM rust:${RUST_VERSION}-slim-bookworm AS service
 WORKDIR /src
 COPY . .
+# the kit's tokens deck-kit builds in (deck/kit/build.rs: the repo's kit/ beside deck/), the named context `kit`
+COPY --from=kit tokens.toml /kit/tokens.toml
 # only the service and what it links (deck-module-host with wasmtime for the strict run, deck-catalog, deck-core); the
 # workspace's other members are read for the lock file, not built
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

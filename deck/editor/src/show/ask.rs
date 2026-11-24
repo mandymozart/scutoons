@@ -612,7 +612,7 @@ mod tests {
         shift(&mut host, 0, middle);
         shift(&mut host, 0, left);
         assert_eq!(host.selection().1, ["middle", "right"], "shift on a selected cell takes it out");
-        // visible: an outline per selected cell (the accent at 1.5 px)
+        // visible: an outline per selected cell (the text colour at 1.5 px)
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         author::draw(&mut d, &t, &mut host, W, H, (0.0, 0.0));
         let outlined = d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Outline { thick, .. } if *thick == 1.5)).count();

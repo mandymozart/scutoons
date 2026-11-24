@@ -99,9 +99,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), top: f32, home: &H
     let card_w = (w - 2.0 * t.size.rem(2.0)).min(t.size.rem(64.0)).max(t.size.rem(20.0));
     let card_h = (h - top - bottom_room - t.size.rem(3.0)).min(t.size.rem(34.0)).max(row * 8.0);
     let card = Rect { x: (w - card_w) * 0.5, y: top + t.size.rem(3.0), w: card_w, h: card_h };
-    let s = t.color.surface;
-    d.round_rect(card.x, card.y, card.w, card.h, t.size.radius * 2.0, [s[0], s[1], s[2], s[3] * t.color.panel_opacity]);
-    d.outline(card.x, card.y, card.w, card.h, (t.size.radius * 2.0, 1.0), t.color.line);
+    let s = t.kit("panel", "rest");
+    d.round_rect(card.x, card.y, card.w, card.h, t.size.radius * 2.0, s.ground.unwrap_or(t.color.panel()));
+    d.outline(card.x, card.y, card.w, card.h, (t.size.radius * 2.0, 1.0), s.border.unwrap_or(t.color.line));
+    d.halo(t.color.ring());
     let mut out = Vec::new();
     let inner = t.size.rem(1.5);
     let (x0, mut y) = (card.x + inner, card.y + inner);
@@ -161,8 +162,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), top: f32, home: &H
     if hr.has(pointer.0, pointer.1) {
         d.round_rect(hr.x, hr.y, hr.w, hr.h, t.size.radius, t.color.hover);
     }
-    d.sans(x0, foot + (row - px * 1.25) * 0.5, px, &help, t.color.accent);
+    d.sans(x0, foot + (row - px * 1.25) * 0.5, px, &help, t.color.text);
     out.push((hr, Press::Docs));
+    d.halo(None);
     out
 }
 

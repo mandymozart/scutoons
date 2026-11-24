@@ -135,4 +135,6 @@ jobs:
           workspaces: deck
       - run: cargo install cross --git https://github.com/cross-rs/cross --locked
       - run: cross build --release --target aarch64-unknown-linux-gnu
+        env:
+          DECK_KIT: ${{ github.workspace }}/kit
       - run: ls -l target/aarch64-unknown-linux-gnu/release/relay target/aarch64-unknown-linux-gnu/release/bridge

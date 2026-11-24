@@ -102,13 +102,13 @@ pub fn status(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), text: &s
     lh
 }
 
-/// The handle of an edge between cards along `a`–`b`: the accent line, shown while the pointer is on it or drags it.
+/// The handle of an edge between cards along `a`–`b`: a line in the text colour, shown while the pointer is on it or drags it.
 pub fn handle(d: &mut DrawList, t: &Tokens, (a, b): ((f32, f32), (f32, f32)), dragging: bool) {
     let thick = if dragging { 2.0 } else { 1.5 };
     if a.0 == b.0 {
-        d.rect(a.0 - thick * 0.5, a.1, thick, b.1 - a.1, t.color.accent);
+        d.rect(a.0 - thick * 0.5, a.1, thick, b.1 - a.1, t.color.text);
     } else {
-        d.rect(a.0, a.1 - thick * 0.5, b.0 - a.0, thick, t.color.accent);
+        d.rect(a.0, a.1 - thick * 0.5, b.0 - a.0, thick, t.color.text);
     }
 }
 
@@ -118,8 +118,8 @@ pub fn badge(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), text: &str) -> Re
     let h = px * 1.7;
     let w = d.advance(px) * text.chars().count() as f32 + px * 1.2;
     let r = Rect { x: x - w * 0.5, y, w, h };
-    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 0.6, t.color.accent);
-    d.text(r.x + px * 0.6, r.y + (h - px * 1.25) * 0.5, px, text, t.color.surface);
+    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 0.6, t.color.pressed);
+    d.text(r.x + px * 0.6, r.y + (h - px * 1.25) * 0.5, px, text, t.color.pressed_text);
     r
 }
 
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn a_tag_cuts_its_words_to_its_width_and_keeps_its_trail() {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
-        let long = Tag { icon: "bolt", tint: t.color.primary, text: "ch3 · yellowmouse-enters-the-nave", dashed: false, trail: 12.0 };
+        let long = Tag { icon: "bolt", tint: t.color.muted, text: "ch3 · yellowmouse-enters-the-nave", dashed: false, trail: 12.0 };
         let (r, trail) = tag(&mut d, &t, (0.0, 0.0, 120.0), &long);
         assert!(r.w <= 120.0 + 0.01, "{r:?}");
         assert!(d.texts().iter().any(|s| s.ends_with('…')), "{:?}", d.texts());

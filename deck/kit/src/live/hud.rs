@@ -7,6 +7,7 @@
 use crate::base::draw::{DrawList, Rect};
 use crate::base::screen::{Face, Layer};
 use crate::base::tokens::Tokens;
+use crate::live::tokens::HUD_ACCENT;
 
 /// the pixel face's size, and the small one (a value under its label on a finger's row)
 pub const GLYPH: f32 = 8.0;
@@ -55,8 +56,8 @@ pub fn centred(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), px: f32
 }
 
 /// A code to type (a pairing code): twice the glyph, in the accent, from (x, y). Its height.
-pub fn code(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), text: &str) -> f32 {
-    d.text(x, y, 2.0 * GLYPH, &text.to_uppercase(), t.color.accent);
+pub fn code(d: &mut DrawList, _t: &Tokens, (x, y): (f32, f32), text: &str) -> f32 {
+    d.text(x, y, 2.0 * GLYPH, &text.to_uppercase(), HUD_ACCENT);
     2.0 * ROW + 2.0
 }
 

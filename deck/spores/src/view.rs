@@ -156,8 +156,9 @@ pub fn paint(d: &mut DrawList, t: &Tokens, s: &mut State, (g, laid, doc): (&Grap
     let mut hits = vec![(canvas, Hit::Canvas)];
     d.rect(canvas.x, canvas.y, canvas.w, 1.0, t.color.line);
     d.clip(Some(canvas));
+    paint::field(d, t, cam, canvas);
     for f in frames {
-        paint::ground(d, t, f, cam, canvas);
+        paint::ground(d, t, f, cam, canvas, s.hover.as_deref().and_then(|h| h.strip_prefix("group:")) == Some(f.id.as_str()));
     }
     for r in &s.reveals {
         paint::reveal(d, r, (&*s, cam, canvas), (frames, wires, g, placed));

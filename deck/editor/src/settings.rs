@@ -87,6 +87,7 @@ pub fn save(file: &Path, s: &Settings) {
 /// a switch of the panel
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Switch {
+    Colorblind,
     SignalFlow,
     HoverReveal,
     FocusFlash,
@@ -106,11 +107,13 @@ const MOTION: [(Switch, &str); 6] = [
     (Switch::LivePreviews, "Live previews in nodes"),
     (Switch::ReduceMotion, "Reduce motion (all off)"),
 ];
+const LOOK: [(Switch, &str); 1] = [(Switch::Colorblind, "Colour-blind colours")];
 const SOUND: [(Switch, &str); 3] = [(Switch::UiSounds, "UI sounds"), (Switch::FocusTone, "Focus tone per signal"), (Switch::SignalTicks, "Signal ticks")];
 
 impl Settings {
     fn flag(&mut self, s: Switch) -> &mut bool {
         match s {
+            Switch::Colorblind => &mut self.look.colorblind,
             Switch::SignalFlow => &mut self.motion.signal_flow,
             Switch::HoverReveal => &mut self.motion.hover_reveal,
             Switch::FocusFlash => &mut self.motion.focus_flash,
@@ -155,7 +158,7 @@ pub enum Press {
 /// how tall the panel's content is
 pub fn height(t: &Tokens) -> f32 {
     let row = t.size.tree_row;
-    t.size.row * 4.0 + row * (MOTION.len() + SOUND.len() + 1) as f32 + 2.0 * t.size.row
+    t.size.row * 4.0 + row * (LOOK.len() + MOTION.len() + SOUND.len() + 1) as f32 + 2.0 * t.size.row
 }
 
 /// the panel's content in `area`; its places, and where the volume's track is (a press there sets it)
@@ -186,6 +189,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings) -> Vec<(Rect
             *y += row;
         }
     };
+    switches(d, &mut y, &LOOK, &mut out);
     y += controls::section(d, t, area.x, y, area.w, "Motion & feedback", false);
     switches(d, &mut y, &MOTION, &mut out);
     y += controls::section(d, t, area.x, y, area.w, "Sound", false);
@@ -236,7 +240,7 @@ mod tests {
     #[test]
     fn every_switch_toggles_and_comes_back_from_the_file() {
         let mut s = Settings::default();
-        for sw in MOTION.iter().chain(&SOUND).map(|(sw, _)| *sw) {
+        for sw in LOOK.iter().chain(&MOTION).chain(&SOUND).map(|(sw, _)| *sw) {
             let was = s.is_on(sw);
             s.press(Press::Switch(sw));
             assert_ne!(s.is_on(sw), was, "{sw:?}");
@@ -268,7 +272,7 @@ mod tests {
         let mut d = DrawList::new(0.6);
         let s = Settings::default();
         let places = draw(&mut d, &t, Rect { x: 0.0, y: 0.0, w: 320.0, h: 600.0 }, &s);
-        assert_eq!(places.len(), 2 + MOTION.len() + SOUND.len() + 1 + 3);
+        assert_eq!(places.len(), 2 + LOOK.len() + MOTION.len() + SOUND.len() + 1 + 3);
         let (_, day) = places[0];
         let mut pressed = s;
         pressed.press(day);

@@ -396,7 +396,7 @@ impl Browser {
         let field = Rect { x: a.x, y: y + 2.0, w: (mode.x - 4.0 - a.x).max(40.0), h: side };
         d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
         if self.typing.is_some() {
-            d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.accent);
+            d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.kit("field", "on").border.unwrap_or(t.color.text));
         }
         d.icon(field.x + 6.0, field.y + (field.h - 13.0) * 0.5, 13.0, "search", t.color.muted);
         let (text, ink) = match &self.typing {
@@ -699,7 +699,7 @@ fn frame(d: &mut DrawList, t: &Tokens, slots: Vec<Rect>, pad: f32) {
         }
     }
     for r in rows {
-        d.outline(r.x - pad, r.y - pad, r.w + 2.0 * pad, r.h + 2.0 * pad, (t.size.radius + pad, 1.0), t.color.accent);
+        d.outline(r.x - pad, r.y - pad, r.w + 2.0 * pad, r.h + 2.0 * pad, (t.size.radius + pad, 1.0), t.color.text);
     }
 }
 
@@ -748,7 +748,7 @@ pub fn preview(d: &mut DrawList, t: &Tokens, r: Rect, e: &Entry, picture: &dyn F
             let rad = (r.h * 0.06).clamp(1.5, 4.0);
             for (i, dot) in dots.iter().enumerate() {
                 if let Some(p) = at(i) {
-                    d.disc(p.0, p.1, rad, if dot.audio { t.color.accent } else { t.color.text });
+                    d.disc(p.0, p.1, rad, if dot.audio { t.color.signals.audio } else { t.color.text });
                 }
             }
         }
@@ -780,7 +780,7 @@ pub fn preview(d: &mut DrawList, t: &Tokens, r: Rect, e: &Entry, picture: &dyn F
 fn ports(d: &mut DrawList, t: &Tokens, r: Rect, n: usize, x: f32) {
     let n = n.min(8);
     for i in 0..n {
-        d.disc(x, r.y + (i as f32 + 0.5) / n as f32 * r.h, 2.0, t.color.accent);
+        d.disc(x, r.y + (i as f32 + 0.5) / n as f32 * r.h, 2.0, t.color.muted);
     }
 }
 

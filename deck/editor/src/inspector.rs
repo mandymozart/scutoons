@@ -265,7 +265,7 @@ fn knobs(d: &mut DrawList, t: &Tokens, stage: &Stage, (area, y): (Rect, &mut f32
         };
         let bar = controls::scrub(d, t, r, &k.label, &text, f, hot == Some(Field::Knob(i)));
         if let Some(h) = hand {
-            d.rect(r.x + (r.w - 2.0) * h.clamp(0.0, 1.0), r.y + 2.0, 2.0, r.h - 4.0, t.color.accent);
+            d.rect(r.x + (r.w - 2.0) * h.clamp(0.0, 1.0), r.y + 2.0, 2.0, r.h - 4.0, t.color.text);
         }
         out.push((bar, Field::Knob(i)));
         *y += t.size.row;
@@ -273,7 +273,7 @@ fn knobs(d: &mut DrawList, t: &Tokens, stage: &Stage, (area, y): (Rect, &mut f32
 }
 
 fn port_line(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, p: &Port) {
-    let c = if p.input { t.color.text } else { t.color.accent };
+    let c = if p.input { t.color.text } else { t.color.muted };
     d.disc(area.x + 5.0, *y + t.size.tree_row * 0.5, 4.0, c);
     d.text(area.x + 16.0, *y + 5.0, t.size.font, &p.name, t.color.text);
     let other = p.cables.last().map_or(p.ty.to_string(), |c| format!("< {}", c.from));

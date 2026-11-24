@@ -76,7 +76,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, a
             let (x, y) = logical(x, y);
             let r = Rect { x, y, w: w / scale, h: h / scale };
             let hot = carry.is_some_and(|(px, py)| r.has(px, py));
-            let line = if sel || hot { t.color.accent } else { alpha(t.color.bright, 0.6) };
+            let line = if sel || hot { t.color.bright } else { alpha(t.color.bright, 0.6) };
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, alpha(if hot { t.color.selection } else { t.color.surface }, 0.35));
             controls::dashed(d, r, DASH, if sel || hot { 2.0 } else { 1.25 }, line);
             let icon = (r.w * 0.5).min(t.size.row);
@@ -87,7 +87,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, a
         } else {
             let Some(feet) = space.cast.iter().find(|c| c.holder == m.id).map(|c| c.feet) else { continue };
             let Some((x, y)) = space.to_pixel(feet).map(|(x, y)| logical(x, y)) else { continue };
-            let color = if sel { t.color.accent } else { alpha(t.color.bright, 0.7) };
+            let color = if sel { t.color.bright } else { alpha(t.color.bright, 0.7) };
             let tall = t.size.label * 1.6 + t.size.small * 1.3 + t.size.pad * 2.0;
             let c = caption(d, t, (x, (y + 6.0).min(area.y + area.h - tall)), &m.id, &m.words, color);
             let r = Rect { x: c.x - 6.0, y: c.y - 4.0, w: c.w + 12.0, h: c.h + 6.0 };
@@ -107,7 +107,7 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
     let px = |p: glam::Vec3| space.to_pixel(p).map(|(x, y)| (area.x + x / scale, area.y + y / scale)).filter(|(x, y)| area.has(*x, *y));
     if let Some(track) = cam.track.as_ref() {
         if let Some(path) = deck_space::space::dop::track::Path::of(track) {
-            let line = alpha(t.color.accent, 0.8);
+            let line = alpha(t.color.bright, 0.8);
             let n = 96;
             let mut last = px(path.at(0.0));
             for k in 1..=n {
@@ -131,7 +131,7 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
                     }
                 }
                 let r = if i == 0 || i + 1 == track.points.len() { 7.0 } else { 5.0 };
-                d.disc(x, y, r, if sel { t.color.bright } else { t.color.accent });
+                d.disc(x, y, r, if sel { t.color.bright } else { alpha(t.color.bright, 0.7) });
                 let word = if i == 0 {
                     "start"
                 } else if i + 1 == track.points.len() {
@@ -151,7 +151,7 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
     for (id, f, active) in space.camera_frusta() {
         let sel = id.as_deref().is_some_and(|id| view.dop.shot.and_then(|i| cam.shots.get(i)).is_some_and(|s| s.id == id));
         let lit = active || sel;
-        let color = if lit { t.color.accent } else { alpha(t.color.bright, 0.35) };
+        let color = if lit { t.color.bright } else { alpha(t.color.bright, 0.35) };
         for (a, b) in f.lines() {
             if let Some((a, b)) = space.segment_to_pixels(a, b).and_then(|(a, b)| clip(area, to_area(a), to_area(b))) {
                 d.segment(a, b, if lit { 1.5 } else { 1.0 }, color);
@@ -203,7 +203,7 @@ fn camera(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
         let v = space.shot_view(&s.id).unwrap_or_else(|| deck_space::space::dop::View::of_shot(s));
         let Some((x, y)) = px(v.eye()) else { continue };
         let sel = view.dop.shot == Some(i);
-        let color = if sel { t.color.accent } else { alpha(t.color.bright, 0.75) };
+        let color = if sel { t.color.bright } else { alpha(t.color.bright, 0.75) };
         let size = t.size.row * 0.8;
         d.round_rect(x - size * 0.6, y - size * 0.6, size * 1.2, size * 1.2, t.size.radius, alpha(t.color.surface, 0.8));
         d.icon(x - size * 0.5, y - size * 0.5, size, "camera", color);
@@ -251,7 +251,7 @@ fn layers(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
         let sel = view.sel == Part::Layer(p.layer);
         let px = |v| space.to_pixel(v).map(|(x, y)| (area.x + x / scale, area.y + y / scale));
         let Some(c) = p.corners().map(px).into_iter().collect::<Option<Vec<_>>>() else { continue };
-        let line = if sel { t.color.accent } else { alpha(t.color.bright, if layer.image.is_none() { 0.55 } else { 0.25 }) };
+        let line = if sel { t.color.bright } else { alpha(t.color.bright, if layer.image.is_none() { 0.55 } else { 0.25 }) };
         for i in 0..4 {
             d.segment(c[i], c[(i + 1) % 4], if sel { 2.0 } else { 1.0 }, line);
         }
@@ -263,8 +263,8 @@ fn layers(d: &mut DrawList, t: &Tokens, view: &mut SceneView, space: &Space, are
         let r = Rect { x, y, w, h: row - 4.0 };
         let hot = carry.is_some_and(|(cx, cy)| r.has(cx, cy));
         d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, alpha(if hot { t.color.selection } else { t.color.surface }, 0.85));
-        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), if sel || hot { t.color.accent } else { line });
-        d.icon(r.x + t.size.pad * 0.5, r.y + (r.h - row * 0.5) * 0.5, row * 0.5, "layers", if sel { t.color.accent } else { t.color.muted });
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), if sel || hot { t.color.bright } else { line });
+        d.icon(r.x + t.size.pad * 0.5, r.y + (r.h - row * 0.5) * 0.5, row * 0.5, "layers", if sel { t.color.bright } else { t.color.muted });
         d.sans(r.x + t.size.pad + row * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, &name, t.color.text);
         view.marks.push((r, Mark::Layer(p.layer)));
     }
@@ -286,7 +286,7 @@ fn videos(d: &mut DrawList, t: &Tokens, view: &mut SceneView, area: Rect) {
         let node = &view.edit.doc.nodes[v];
         let sel = view.sel == Part::Video(v);
         let plays = view.edit.plays_at(v);
-        let line = if sel { t.color.accent } else { alpha(t.color.bright, 0.6) };
+        let line = if sel { t.color.bright } else { alpha(t.color.bright, 0.6) };
         let r = Rect { x, y, w, h };
         let pad = t.size.pad;
         // a `video` node's live frame (posters.rs) under its lines, a quiet band behind them; else the placeholder says why
@@ -325,7 +325,7 @@ fn videos(d: &mut DrawList, t: &Tokens, view: &mut SceneView, area: Rect) {
             d.sans(r.x + pad, ly, t.size.small, &controls::fit_sans(d, t.size.small, l, room), if i == 0 { t.color.text } else { t.color.muted });
         }
         if sel && plays.as_deref().is_some_and(|p| p.starts_with(SCREEN)) {
-            controls::dashed(d, Rect { x: area.x + 4.0, y: area.y + 4.0, w: area.w - 8.0, h: area.h - 8.0 }, DASH * 2.0, 1.0, alpha(t.color.accent, 0.6));
+            controls::dashed(d, Rect { x: area.x + 4.0, y: area.y + 4.0, w: area.w - 8.0, h: area.h - 8.0 }, DASH * 2.0, 1.0, alpha(t.color.bright, 0.6));
         }
         view.marks.push((r, Mark::Video(v)));
         x += w + gap;
@@ -482,7 +482,7 @@ mod tests {
         let (cx, cy) = (card.x + card.w * 0.5, card.y + card.h * 0.3);
         assert_eq!(under(&view.marks, cx, cy), Some(Mark::Slot(empty)));
         assert_eq!(under(&view.marks, screen.x + 2.0, screen.y + 2.0).and_then(Mark::part), Some(Part::Video(v)));
-        let accent = |d: &DrawList| d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Segment { color, .. } if *color == t.color.accent)).count();
+        let accent = |d: &DrawList| d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Segment { color, .. } if *color == t.color.bright)).count();
         let quiet = accent(&d);
         let mut lit = DrawList::new(0.6);
         draw(&mut lit, &t, &mut view, &space, area, 1.0, Some((cx, cy)));

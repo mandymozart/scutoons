@@ -272,7 +272,7 @@ impl Tools {
                         let [r, gr, bl, a] = t.color.muted;
                         [r, gr, bl, a * 0.45]
                     }
-                    (true, _, Group::Grid) => t.color.accent,
+                    (true, _, Group::Grid) => t.color.text,
                     (true, _, _) => t.color.pressed_text,
                     _ => t.color.text,
                 };
@@ -309,7 +309,7 @@ impl Tools {
         let x = m.at.x.min(room.0 - w).max(0.0);
         let rects = controls::actions(d, t, (x, y), w, &lines, pointer);
         if let Some(r) = rects.get(m.focus) {
-            d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.5), t.color.accent);
+            d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.5), t.color.text);
         }
         self.lines = rects.into_iter().zip(opts.iter().map(|o| o.press)).collect();
     }

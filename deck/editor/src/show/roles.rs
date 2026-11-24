@@ -234,7 +234,7 @@ pub fn inspector(d: &mut DrawList, t: &Tokens, host: &mut Host, insp: &Inspector
     let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, Typing::Label(_)));
     let text = typing.map_or_else(|| insp.name.1.clone(), |(_, f)| format!("{}|", f.text));
     if typing.is_some() {
-        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.accent);
+        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.text);
     }
     d.text(field.x + 6.0, field.y + (field.h - font * 1.25) * 0.5, font, &fit(d, &text, font, field.w - 12.0), t.color.text);
     host.hits.push((field, Hit::RoleName));
@@ -328,11 +328,11 @@ impl Host {
     }
 }
 
-/// a word you press, in the accent (muted when it does nothing); its place
+/// a word you press, in the text colour (muted when it does nothing); its place
 fn link(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), word: &str, on: bool) -> Rect {
     let px = t.size.small;
     let w = d.advance(px) * word.chars().count() as f32;
-    d.text(x, y + (h - px * 1.25) * 0.5, px, word, if on { t.color.accent } else { t.color.muted });
+    d.text(x, y + (h - px * 1.25) * 0.5, px, word, if on { t.color.text } else { t.color.muted });
     Rect { x: x - 2.0, y, w: w + 4.0, h }
 }
 
@@ -363,7 +363,7 @@ pub fn who(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32
             Some((_, f)) => {
                 let field = Rect { x: cols[0] - 4.0, y: y + 2.0, w: cols[1] - cols[0] - pad, h: row - 4.0 };
                 d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
-                d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.accent);
+                d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.text);
                 d.text(cols[0], ty, font, &fit(d, &format!("{}|", f.text), font, field.w - 8.0), t.color.text);
             }
             None => {

@@ -286,7 +286,7 @@ pub(super) fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), la
     let r = Rect { x: x + w * 0.38, y: y + 2.0, w: w * 0.62, h: row - 4.0 };
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
     if typing.is_some() {
-        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.text);
     }
     let text = typing.map_or_else(|| value.to_string(), |s| format!("{s}|"));
     d.text(r.x + 6.0, r.y + (r.h - font * 1.25) * 0.5, font, &fit(d, &text, font, r.w - 12.0), t.color.text);
@@ -296,7 +296,7 @@ pub(super) fn field(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), la
 /// A name typed in place over `r` (a row's, a column's or a group's head): the field and its caret.
 pub(super) fn in_place(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, px: f32) {
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
-    d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.text);
     d.text(r.x + 4.0, r.y + (r.h - px * 1.25) * 0.5, px, &fit(d, &format!("{text}|"), px, r.w - 8.0), t.color.text);
 }
 

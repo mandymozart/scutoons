@@ -42,8 +42,10 @@ thumbnails.
   `shared/tokens/tool-colours.css` names the colours for the tools (`--tool-*`, `data-colorblind`). The components of
   `shared/ui/src/editor` draw their states from `kit.css`. `npm run check:tools-css` and `npm run check -w
   @scutoons/tokens` fail when either file is stale or edited by hand.
-- **Deck:** deck-kit reads this file as its base (its `tokens.toml` parser, `deck/kit/src/base/tokens.rs`). Until it
-  does (TODO(#869)), `tokens.rs` and this file are two sources: change both.
+- **Deck:** deck-kit builds this file in as its base (`deck/kit/build.rs`, its parser `deck/kit/src/base/tokens.rs`,
+  the states through `Tokens::kit(name, state)`); a test fails on a missing key and on a key the deck does not read. A
+  `tokens.toml` beside the editor overrides it live. A build with only `deck/` in its context hands this folder in as
+  `DECK_KIT` (Cross.toml, the Dockerfiles). The deck's kit page: `deck-editor --kit`.
 
 ## Components and their states
 

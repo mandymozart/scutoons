@@ -3,7 +3,7 @@
 # deck/ WORKSPACE as the context (the relay needs deck/protocol and the workspace's Cargo.lock; deck/.dockerignore keeps
 # the target folders, deck/lab and the ISOs out):
 #
-#   docker build -f deck/relay/Dockerfile -t scutoons-live deck
+#   docker build --build-context kit=kit -f deck/relay/Dockerfile -t scutoons-live deck
 #   docker run --rm -p 7700:7700 -e LIVE_TOKEN_SECRET=… scutoons-live
 #   curl http://127.0.0.1:7700/status            → {"sessions":0,"live":0}
 #
@@ -16,6 +16,8 @@ FROM rust:1-alpine AS build
 RUN apk add --no-cache musl-dev
 WORKDIR /src
 COPY . .
+# the kit's tokens deck-kit builds in (deck/kit/build.rs: the repo's kit/ beside deck/), the named context `kit`
+COPY --from=kit tokens.toml /kit/tokens.toml
 # only the relay (the workspace's other members are read for the lock file, not built); the release profile is the
 # workspace's (LTO, one codegen unit, stripped)
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

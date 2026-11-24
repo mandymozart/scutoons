@@ -131,7 +131,7 @@ impl GridSnap {
         let [r, g, b, _] = t.color.bright;
         for l in space.grid_pixels(&s, REACH) {
             if let Some((a, z)) = to_area(&l) {
-                ui.segment(a, z, 1.0, if l.2 { t.color.accent } else { [r, g, b, 0.2] });
+                ui.segment(a, z, 1.0, if l.2 { [r, g, b, 0.5] } else { [r, g, b, 0.2] });
             }
         }
         if let Some(h) = &self.held {

@@ -11,6 +11,7 @@
 use crate::base::draw::{DrawList, Rect};
 use crate::base::screen::{Face, Layer};
 use crate::base::tokens::Tokens;
+use crate::live::tokens::PANEL_ACCENT;
 
 /// How many device pixels one logical pixel of the deck's UI is on a `w × h` screen: whole steps by the shorter side, so
 /// a phone held upright (780 wide at two pixels per point) and a 1080p stage screen both read like the reader does – 2
@@ -133,10 +134,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
     // the glow above the edge, then the edge, then the ground
     for i in 0..8 {
         let a = 0.22 * (1.0 - i as f32 / 8.0).powi(2);
-        d.rect(0.0, top - 2.0 * (i + 1) as f32, screen.0, 2.0, [t.color.accent[0], t.color.accent[1], t.color.accent[2], a]);
+        d.rect(0.0, top - 2.0 * (i + 1) as f32, screen.0, 2.0, [PANEL_ACCENT[0], PANEL_ACCENT[1], PANEL_ACCENT[2], a]);
     }
     d.rect(0.0, top, screen.0, h, t.color.surface);
-    d.rect(0.0, top, screen.0, t.size.edge, t.color.accent);
+    d.rect(0.0, top, screen.0, t.size.edge, PANEL_ACCENT);
     if grip {
         d.rect(screen.0 * 0.5 - 20.0, top + t.size.edge + 4.0, 40.0, 4.0, t.color.line);
     }
@@ -188,10 +189,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                 row(d, t, at, label, on, i == 0 || !is_row(&parts[i - 1]));
                 mark(d, t, at, note, on);
                 if let Some(share) = share {
-                    d.rect(at.x, at.y + at.h - 1.0 - t.size.edge, at.w * share.clamp(0.0, 1.0), t.size.edge, t.color.accent);
+                    d.rect(at.x, at.y + at.h - 1.0 - t.size.edge, at.w * share.clamp(0.0, 1.0), t.size.edge, PANEL_ACCENT);
                 }
                 if focus {
-                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), t.color.accent);
+                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), PANEL_ACCENT);
                 }
                 places.push(at);
             }
@@ -199,7 +200,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
                 row(d, t, at, label, false, i == 0 || !is_row(&parts[i - 1]));
                 if focus {
-                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), t.color.accent);
+                    d.outline(at.x - 4.0, at.y, at.w + 8.0, at.h, (0.0, 3.0), PANEL_ACCENT);
                 }
                 let s = Rect { x: at.x + at.w - 36.0, y: y + (ph - 18.0) * 0.5, w: 34.0, h: 18.0 };
                 if on {
@@ -213,7 +214,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
             }
             Part::Field(text, hint, cursor) => {
                 let at = Rect { x: area.x, y, w: area.w, h: ph };
-                d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), if cursor.is_some() { t.color.accent } else { t.color.line });
+                d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), if cursor.is_some() { PANEL_ACCENT } else { t.color.line });
                 let px = t.size.font;
                 let ty = y + (ph - px * LINE) * 0.5;
                 // as many characters as fit; a longer text shows the part with the cursor
@@ -226,7 +227,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, screen: (f32, f32), parts: &[Part], gr
                     d.text(at.x + 10.0, ty, px, &shown, t.color.text);
                 }
                 if let Some(c) = cursor {
-                    d.rect(at.x + 10.0 + (c - from) as f32 * d.advance(px), ty + 1.0, t.size.edge, px * LINE - 2.0, t.color.accent);
+                    d.rect(at.x + 10.0 + (c - from) as f32 * d.advance(px), ty + 1.0, t.size.edge, px * LINE - 2.0, PANEL_ACCENT);
                 }
                 places.push(at);
             }
@@ -244,7 +245,7 @@ fn button(d: &mut DrawList, t: &Tokens, at: Rect, label: &str, primary: bool, fo
         d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), t.color.line);
     }
     if focus {
-        d.outline(at.x - 4.0, at.y - 4.0, at.w + 8.0, at.h + 8.0, (0.0, 3.0), t.color.accent);
+        d.outline(at.x - 4.0, at.y - 4.0, at.w + 8.0, at.h + 8.0, (0.0, 3.0), PANEL_ACCENT);
     }
     let px = t.size.font;
     let w = d.advance(px) * label.chars().count() as f32;
@@ -291,7 +292,7 @@ pub fn toast(d: &mut DrawList, t: &Tokens, screen: (f32, f32), text: &str, tone:
     d.rect(at.x, at.y, at.w, at.h, t.color.surface);
     d.outline(at.x, at.y, at.w, at.h, (0.0, t.size.edge), t.color.text);
     d.rect(at.x, at.y, bar, at.h, match tone {
-        Tone::Good => t.color.accent,
+        Tone::Good => PANEL_ACCENT,
         Tone::Warn => t.color.warn,
         Tone::Bad => t.color.danger,
     });
@@ -387,7 +388,7 @@ mod tests {
         let at = toast(&mut d, &t, (300.0, 560.0), "Geflasht von ana: top · Version 3", Tone::Good);
         assert!((at.y + at.h - 544.0).abs() < 0.01 && at.x == 16.0 && at.w < 268.01, "{at:?}");
         assert_eq!(texts(&d), ["Geflasht von ana: top ·", "Version 3"]);
-        assert!(d.prims().contains(&Prim::Rect { x: 16.0, y: at.y, w: 7.0, h: at.h, r: 0.0, color: t.color.accent }), "the tone's bar");
+        assert!(d.prims().contains(&Prim::Rect { x: 16.0, y: at.y, w: 7.0, h: at.h, r: 0.0, color: PANEL_ACCENT }), "the tone's bar");
         d.clear();
         let wide = toast(&mut d, &t, (1280.0, 720.0), "Geflasht von ana: top · Version 3", Tone::Bad);
         assert!(wide.w < 384.01 && texts(&d).len() == 1, "{wide:?}");
@@ -401,9 +402,9 @@ mod tests {
         assert_eq!(places.len(), 2, "the two choices");
         assert_eq!(places[1].y, places[0].y + places[0].h, "rows share their line");
         let (a, b) = (places[0], places[1]);
-        assert!(d.prims().contains(&Prim::Rect { x: a.x, y: a.y + a.h - 1.0 - t.size.edge, w: a.w * 0.67, h: t.size.edge, r: 0.0, color: t.color.accent }), "the share's line");
+        assert!(d.prims().contains(&Prim::Rect { x: a.x, y: a.y + a.h - 1.0 - t.size.edge, w: a.w * 0.67, h: t.size.edge, r: 0.0, color: PANEL_ACCENT }), "the share's line");
         assert!(d.prims().contains(&Prim::Rect { x: a.x + 2.0, y: a.y + (a.h - 14.0) * 0.5, w: 14.0, h: 14.0, r: 0.0, color: t.color.text }), "the chosen one's mark is filled");
-        assert!(d.prims().iter().any(|p| matches!(*p, Prim::Outline { x, y, color, .. } if x == b.x - 4.0 && y == b.y && color == t.color.accent)), "the keys are on the second");
+        assert!(d.prims().iter().any(|p| matches!(*p, Prim::Outline { x, y, color, .. } if x == b.x - 4.0 && y == b.y && color == PANEL_ACCENT)), "the keys are on the second");
         assert!(texts(&d).contains(&"67%".to_string()) && texts(&d).contains(&"No".to_string()));
     }
 
@@ -412,7 +413,7 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), tokens());
         let places = draw(&mut d, &t, (300.0, 400.0), &[Part::Field("Probe", "warum", Some(2))], false);
         let (f, adv) = (places[0], d.advance(t.size.font));
-        let cursor = |d: &DrawList| d.prims().iter().find_map(|p| if let Prim::Rect { x, w, color, .. } = *p { (w == t.size.edge && color == t.color.accent && x > f.x).then_some(x) } else { None });
+        let cursor = |d: &DrawList| d.prims().iter().find_map(|p| if let Prim::Rect { x, w, color, .. } = *p { (w == t.size.edge && color == PANEL_ACCENT && x > f.x).then_some(x) } else { None });
         assert!((cursor(&d).expect("a cursor") - (f.x + 10.0 + 2.0 * adv)).abs() < 0.01);
         // 268 wide inside the padding: 29 characters fit
         d.clear();

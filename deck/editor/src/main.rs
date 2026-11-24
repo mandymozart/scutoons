@@ -34,6 +34,8 @@ mod media_tab;
 mod mixer;
 mod module;
 mod inspector;
+mod kit_page;
+mod kit_spores;
 mod latency;
 mod panels;
 mod play;
@@ -232,10 +234,12 @@ struct Args {
     /// a check run's node view: its direction, a zoom once it is framed
     nodes: Option<deck_kit::base::graph::Direction>,
     node_zoom: Option<f32>,
+    /// the kit page over everything (kit_page.rs): every component in its states
+    kit: bool,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -364,6 +368,7 @@ fn args() -> Result<Args> {
             "--theme" => a.theme = Some(if val()? == "night" { tokens::Theme::Night } else { tokens::Theme::Day }),
             "--ui-size" => a.ui_size = Some(val()?.parse()?),
             "--settings" => a.settings = true,
+            "--kit" => a.kit = true,
             "--pan" => {
                 let v = val()?;
                 let (x, y) = v.split_once(',').context("--pan DX,DY")?;
@@ -3330,7 +3335,7 @@ impl App {
                 if let Some(a) = self.play.lit(&q.address).filter(|_| q.input).or_else(|| self.play.lit(&q.node).filter(|_| !lit_nodes.contains(&q.node))) {
                     lit_nodes.push(q.node.clone());
                     let fade = 1.0 - a.at.elapsed().as_secs_f32() / play::LIT.as_secs_f32();
-                    let c = t.color.accent;
+                    let c = t.color.bright;
                     ui.ring(mx, my, 9.0 + 4.0 * (1.0 - fade), [c[0], c[1], c[2], c[3] * fade.max(0.2)]);
                     controls::chip(ui, t, (mx + 12.0, my - 26.0), wf, &a.words, false);
                 }
@@ -3366,7 +3371,8 @@ impl App {
                 let dot = (gap * 0.4).clamp(2.0, 6.0);
                 let near = self.marks[k].distance(self.cursor) < 110.0;
                 let hover = under == Some(index);
-                let c = if q.input { t.color.bright } else { t.color.accent };
+                let b = t.color.bright;
+                let c = if q.input { b } else { [b[0], b[1], b[2], 0.7] };
                 let dragging = self.menu.is_some() || self.armed.is_some() || matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_)));
                 // what the typeahead still shows, else what the cable in the hand may reach
                 let open = match &self.menu {
@@ -3379,10 +3385,10 @@ impl App {
                 }
                 let c = if dragging && !open { [c[0], c[1], c[2], 0.22] } else { c };
                 if dragging && open {
-                    ui.ring(mx, my, 10.0, t.color.accent);
+                    ui.ring(mx, my, 10.0, t.color.bright);
                 }
                 if hover {
-                    ui.ring(mx, my, 11.0, t.color.accent);
+                    ui.ring(mx, my, 11.0, t.color.bright);
                 }
                 if q.input && q.cables.is_empty() {
                     ui.ring(mx, my, dot, c);
@@ -3419,7 +3425,7 @@ impl App {
                     Some(l) => (l.words(), matches!(l.holder, deck_show::far::Holder::Outlet(_) | deck_show::far::Holder::Here)),
                     None => (format!("{id} ← off stage · {address}"), false),
                 };
-                let c = if held { t.color.accent } else { t.color.muted };
+                let c = if held { t.color.bright } else { t.color.muted };
                 let flow = self.settings.motion.allows(self.settings.motion.signal_flow).then(|| self.started.elapsed().as_secs_f32());
                 show::band::wire(ui, t, (from, to), (t.size.rem(1.0), flow), c);
                 let w = ui.advance(font * 0.85) * words.chars().count() as f32 + 12.0;
@@ -3486,7 +3492,7 @@ impl App {
             if let Some(label) = label {
                 let small = font * 0.75;
                 let w = ui.advance(small) * label.chars().count() as f32;
-                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, &label, t.color.accent);
+                ui.text(gx - w * 0.5, gy + R + 12.0 + small * 0.4, small, &label, t.color.bright);
             }
         }
         // the rig's tree: the rig, its tracks, the nodes of the one entered
@@ -3553,7 +3559,7 @@ impl App {
                 let pills = [show::build::TO_CELL, show::build::BACK];
                 let pw: f32 = pills.iter().map(|p| ui.advance(small) * p.chars().count() as f32 + 2.0 * pad + pad).sum();
                 let fitted = controls::fit(&line, ((a.w - pad - pw) / ui.advance(small)).max(4.0) as usize);
-                ui.text(a.x, y + (row - 4.0 - small * 1.25) * 0.5, small, &fitted, t.color.accent);
+                ui.text(a.x, y + (row - 4.0 - small * 1.25) * 0.5, small, &fitted, t.color.text);
                 for (r, h) in controls::pills(ui, t, a.x + a.w - pw + pad, y, row - 4.0, &pills, usize::MAX).into_iter().zip([Hit::ToCell, Hit::BackToShow]) {
                     self.panel.hits.push((r, h));
                 }
@@ -3622,7 +3628,7 @@ impl App {
                     let focused = self.panel.field.focused;
                     ui.rect(fx, y, fw, row, t.color.control);
                     if focused {
-                        ui.rect(fx, y + row - 2.0, fw, 2.0, t.color.accent);
+                        ui.rect(fx, y + row - 2.0, fw, 2.0, t.color.text);
                     }
                     let adv = ui.advance(font);
                     self.panel.advance = adv;
@@ -3635,7 +3641,7 @@ impl App {
                     ui.text(fx + 6.0, y + 6.0, font, &shown, t.color.text);
                     if let Some((p, _)) = &self.panel.field.preedit {
                         let c0 = self.panel.field.chars_before(self.panel.field.cursor) as f32;
-                        ui.rect(fx + 6.0 + c0 * adv, y + row - 5.0, p.chars().count() as f32 * adv, 1.5, t.color.accent);
+                        ui.rect(fx + 6.0 + c0 * adv, y + row - 5.0, p.chars().count() as f32 * adv, 1.5, t.color.text);
                     }
                     if focused && (self.started.elapsed().as_millis() / 500) % 2 == 0 {
                         ui.rect(fx + 6.0 + cursor_col as f32 * adv, y + 5.0, 1.5, row - 10.0, t.color.text);
@@ -3711,14 +3717,14 @@ impl App {
         if self.wire {
             if let Some(Drag::Cable(a)) = self.panel.drag {
                 if let Some(m) = self.marks.iter().find(|m| m.port == a) {
-                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
+                    ui.cable((m.x, m.y), self.cursor, t.color.bright);
                 }
             }
             if let Some(Drag::Grab(a)) = self.panel.drag {
                 let from = self.stage.ports.get(a).and_then(|p| p.cables.last()).map(|c| c.from.clone());
                 let source = from.and_then(|f| self.stage.ports.iter().position(|p| p.address == f));
                 if let Some(m) = source.and_then(|s| self.marks.iter().find(|m| m.port == s)) {
-                    ui.cable((m.x, m.y), self.cursor, t.color.accent);
+                    ui.cable((m.x, m.y), self.cursor, t.color.bright);
                 }
             }
             if matches!(self.panel.drag, Some(Drag::Cable(_) | Drag::Grab(_))) {
@@ -3843,6 +3849,9 @@ impl App {
         // the toolbar's BPM is typed on in every workspace; the build stage draws the typing in its own pass
         if let (false, Some(e)) = (build, self.edit.as_ref().filter(|e| e.what == Editing::Tempo)) {
             draw_edit(ui, t, e, font);
+        }
+        if self.args.kit {
+            kit_page::draw(ui, t, (wf, hf));
         }
         window.set_cursor(grab);
         // the pass: logical pixels → the surface's, through the screen uniform
@@ -4141,7 +4150,7 @@ fn draw_edit(ui: &mut ui::Ui, t: &deck_kit::base::tokens::Tokens, e: &ValueEdit,
     let adv = ui.advance(px);
     let tx = e.at.x + 6.0;
     ui.round_rect(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, t.size.radius, t.color.control);
-    ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.accent);
+    ui.outline(e.at.x, e.at.y, e.at.w.max(52.0), e.at.h, (t.size.radius, 1.0), t.color.text);
     if let Some((a, b)) = e.field.selection() {
         let (ca, cb) = (e.field.chars_before(a) as f32, e.field.chars_before(b) as f32);
         ui.rect(tx + ca * adv, e.at.y + 2.0, (cb - ca) * adv, e.at.h - 4.0, t.color.selection);

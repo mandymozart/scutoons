@@ -1,3 +1,4 @@
-# Design tokens of the editor. Set a name here to override the kit's: [color] for both looks, [day.color] or
-# [night.color] for one (0–1 RGBA), [size] in rem (multiples of the UI size, which the main menu sets).
+# Design tokens of the editor. Set a name here to override the kit's (kit/tokens.toml, built in): [color] for both looks,
+# [day.color] or [night.color] for one ("#rrggbb(aa)" or 0–1 RGBA), [day|night.signals] / .outlets, [groups],
+# [component.<name>.<state>], [size] in rem (multiples of the UI size, which the main menu sets).
 # The editor watches this file and applies a change in the next frame.

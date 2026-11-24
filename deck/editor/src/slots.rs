@@ -37,7 +37,7 @@ pub fn section(d: &mut DrawList, t: &Tokens, area: Rect, y: &mut f32, rows: &[Sl
             }
             (None, true) => {
                 let hot = carry.is_some_and(|(px, py)| r.has(px, py));
-                let line = if hot { t.color.accent } else { t.color.muted };
+                let line = if hot { t.color.text } else { t.color.muted };
                 if hot {
                     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selection);
                 }

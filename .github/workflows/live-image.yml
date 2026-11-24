@@ -103,6 +103,8 @@ jobs:
         if: steps.gate.outputs.build == 'true'
         with:
           context: deck
+          # deck-kit builds the repo's kit/tokens.toml in (deck/kit/build.rs)
+          build-contexts: kit=kit
           file: deck/relay/Dockerfile
           push: true
           tags: |

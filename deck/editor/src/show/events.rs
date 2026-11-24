@@ -175,7 +175,7 @@ pub fn find(d: &mut DrawList, t: &Tokens, host: &mut Host, room: (f32, f32), poi
     // its own ground: the stage under the panel's, so the band under it does not show through
     let round = t.size.radius * 2.0;
     d.round_rect(x, y0, w, h, round, t.color.stage);
-    d.round_rect(x, y0, w, h, round, t.color.surface);
+    d.round_rect(x, y0, w, h, round, t.color.panel());
     d.outline(x, y0, w, h, (round, 1.0), t.color.line);
     host.hits.push((whole, Hit::EventGround));
     let (ix, iw) = (x + pad, w - 2.0 * pad);
