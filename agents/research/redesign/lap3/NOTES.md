@@ -63,19 +63,22 @@ Lap 2 is epic #626, its review round #885; everything said after lap 2's run lan
 
 28. **Draw it, the lap 2 way.** *"For all of the work here now: make HTML drafts and designs like you did for lap 2. That process worked really well."* → the designs start: one draft page with a screen per point, each from today's base with its change marked, a question card where a note leaves something open (SCREENS.md, draft.html, shots/). Still no tickets and no code.
 
-### Concepts and drafts asked for in the burst (none started except the first)
-| # | What | From note | State |
+### Concepts and drafts asked for in the burst – drawn as round 1 (SCREENS.md, draft.html, shots/)
+| # | What | From note | Drawn |
 |---|---|---|---|
-| a | From the storyboard to the finished thing | 8, 11 | round 1 written: STORY-TO-FINISHED.md |
-| b | Context menus as one system (with hover and the transition) | 3, 4, 6 | the inventory is below |
-| c | A blocking editor – a rough picture | 10 | – |
-| d | One tree, one toolbar (kit components each workspace fills) | 14, 15, 16 | – |
-| e | Stepping into a spore, the panels following; Spores and Flow | 18 | a sketch asked |
-| f | What a workspace is scoped to | 19 | a review asked |
-| g | Assignment in layers, to MIDI and DMX | 20 | a draft asked |
-| h | Spores · clips · timelines compared; one timeline | 26 | – |
-| i | The Catalog inside the Library | 27 | – |
-| j | Labels of views on the stage; where details show; how a context is marked | 7, 23, 25 | – |
+| a | From the storyboard to the finished thing | 8, 11 | STORY-TO-FINISHED.md · S1 |
+| b | Context menus as one system (with hover and the transition) | 3, 4, 6 | M1, M2, M3 |
+| c | A blocking editor – a rough picture | 10 | S2 |
+| d | One tree, one toolbar (kit components each workspace fills) | 14, 15, 16 | T1, T2, T3 |
+| e | Stepping into a spore, the panels following; Spores and Flow | 18 | P1 |
+| f | What a workspace is scoped to | 19 | P2 |
+| g | Assignment in layers, to MIDI and DMX | 20 | P3 (a sketch; the deck's side not read) |
+| h | Spores · clips · timelines compared; one timeline | 26 | S3, S4 |
+| i | The Catalog inside the Library | 27 | C1 |
+| j | Labels of views on the stage; where details show; how a context is marked | 7, 23, 25 | V1, L2, V3 |
+| – | The Library's head, Upload, rows; a slot; how see-through | 12, 13, 21, 22, 24 | L1, L3, V2 |
+
+Each screen's yellow card is an open point for the owner; the list of them is SCREENS.md's last column. Nothing on a screen is decided.
 
 ## Open questions for the planning session
 - Note 9: does the Storyboard move to the deck, and when – before or after its concept (a)?

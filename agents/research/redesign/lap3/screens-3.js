@@ -1,13 +1,13 @@
 /* lap 3 draft – S · from the storyboard to the finished thing (STORY-TO-FINISHED.md). Loaded after screens.js and screens-2.js.
    Real: scene 25 of Cat Pope · chapter 3 (its seven shots, formats, sources and lengths as on review/creator C3), sb-25-1's schematic frame
    (a crop of that capture) and its action text. Not real: which state each section is in – set for the picture. */
-const SB_REV = () => REV('C3');
+const SB_REV = () => 'review/creator/C3-night.png';   /* the night capture in both themes: by day the shot's view is shot dark */
 /* sb-25-1's schematic as shot (586..756 × 178..685 of the capture): a window (oy = where in the frame) scaled to w */
 const schem = (w, h, oy = 0) => `<img src="${SB_REV()}" style="position:absolute;max-width:none;width:${1440 * (w / 170)}px;left:${-586 * (w / 170)}px;top:${-178 * (w / 170) - oy}px">`;
 const ST = { written: 'Written', blocked: 'Blocked', sketched: 'Sketched', made: 'Made', placed: 'Placed' };
 const S25 = [['sb-25-1', '1:3', 100, 'blocked', '19.9 s'], ['sb-25-2', '9:16', 169, 'sketched', '11.5 s'], ['sb-25-3', '1:4', 75, 'written', '25.3 s'], ['sb-25-4', '9:16', 169, 'made', '14.3 s'], ['sb-25-5', '9:16', 169, 'blocked', '13.2 s'], ['sb-25-6', '1:5', 60, 'written', '31.7 s'], ['sb-25-7', '9:16', 169, 'placed', '13.7 s']];
 const secFace = (state, w, h, k) => state === 'written' ? `<div style="position:absolute;inset:0;padding:.5rem .45rem;font-size:.72rem;line-height:1.4;color:var(--tool-muted);overflow:hidden">${k === 2 ? 'PLF geht durch das Dorf. Niemand. Nur Rauch aus einem Kamin.' : 'Der Weg hinauf zum Kloster, Schnee bis zu den Knien.'}</div>`
-  : state === 'blocked' ? schem(w, h, k === 0 ? 0 : 150)
+  : state === 'blocked' ? schem(w, h, k === 0 ? 0 : Math.max(0, Math.min(150, Math.round(w / 170 * 507 - h))))
   : state === 'sketched' ? `<div style="position:absolute;inset:0;display:grid;place-items:center;background:repeating-linear-gradient(135deg,transparent 0 7px,color-mix(in srgb,var(--tool-text) 7%,transparent) 7px 8px)"><span class="label">take t1</span></div>`
   : `<div style="position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(160deg,color-mix(in srgb,var(--sig-picture) 34%,var(--tool-ground)),color-mix(in srgb,var(--sig-scene) 22%,var(--tool-ground)))"><span class="label" style="color:var(--tool-text)">${state === 'placed' ? 'slice 7' : 'art'}</span></div>`;
 const secTile = ([id, asp, w, state, len], k, o = {}) => { const st = o.lens || state, h = o.h || 300, ww = Math.round(w * h / 300); return `<div style="flex:none;width:${ww}px"><div style="position:relative;height:${h}px;border:1px solid var(--tool-line);border-radius:var(--editor-radius);overflow:hidden;background:${st === 'blocked' ? '#fff' : 'var(--tool-ground)'};${k === 0 && !o.noPick ? 'outline:2px solid var(--tool-text);outline-offset:1px;' : ''}">${secFace(st, ww, h, k)}</div><div class="small" style="margin-top:.35rem;white-space:nowrap;overflow:hidden">${id.replace('sb-', '')}</div><div class="muted" style="font-size:var(--editor-label);white-space:nowrap">${ST[state]}</div></div>`; };
