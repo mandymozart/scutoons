@@ -5,12 +5,13 @@
 	// ScrubNumber, small choices = Segmented, the rest PropSelect. Every change is an edit of the chapter's storyboard
 	// (undo, autosave, Save in the status bar); the words are @scutoons/content/storyboard's vocabulary.
 	import { PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
-	import { ANGLES, FORMATS, LIGHT, MOVES, PROJECTIONS, SIZES, SOURCES, VIEWS } from '@scutoons/content/storyboard';
+	import { ANGLES, FORMATS, LIGHT, MOVES, PROJECTIONS, SIZES, SOURCES, VIEWS, readSource } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ACCENTS, aspectOptions, optionsOf } from '$lib/editor/storyboard-shots.ts';
 	import type { ShotTab } from '$lib/editor/storyboard-steps.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import FiguresInspector from '$lib/components/storyboard/figures-inspector.svelte';
+	import ShotHandover from '$lib/components/storyboard/shot-handover.svelte';
 
 	let { sb, tab }: { sb: StoryboardPage; tab: ShotTab } = $props();
 
@@ -34,7 +35,10 @@
 				<Segmented label={m['storyboard.view']()} stretch options={VIEWS.map((v) => ({ value: v, label: v }))} value={s.view ?? null} onchange={(v) => set(['view'], v)} onclear={() => set(['view'], null)} />
 			</PropRow>
 			<PropRow label={m['storyboard.source']()} hint={m['storyboard.source_hint']()}>
-				<PropSelect label={m['storyboard.source']()} options={optionsOf(SOURCES, s.source?.want)} value={s.source?.want} onchange={(v) => set(['source', 'want'], v)} />
+				<PropSelect label={m['storyboard.source']()} options={optionsOf(SOURCES, readSource(s.source?.want))} value={readSource(s.source?.want) ?? s.source?.want} onchange={(v) => set(['source', 'want'], v)} />
+			</PropRow>
+			<PropRow label={m['storyboard.handover']()} hint={m['storyboard.handover_hint']()}>
+				<ShotHandover {sb} />
 			</PropRow>
 			<PropRow label={m['storyboard.note']()}>
 				<textarea aria-label={m['storyboard.note']()} rows="2" value={s.note ?? ''} oninput={(e) => set(['note'], text(e))}></textarea>

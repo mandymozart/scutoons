@@ -2,7 +2,8 @@
 	// The shot's asset slot (lap 2 C3c; AI-HOOKS.md §0): a picture or a video – picked in the Library through the one
 	// picker (files and generators that fit; Upload there), a file dropped on the slot (an upload, or a Library tile), or a
 	// generator added from the Library, which stands in until a take is assigned – "Open" goes to the Generate workspace.
-	// Empty, it shows the shot's approved generation when there is one. What fits is the core's (library.takes).
+	// The pick is stored in the shot as a Library address; empty, the slot shows the shot's approved generation.
+	// What fits is the core's (library.takes).
 	import { goto } from '$app/navigation';
 	import { Icon } from '@scutoons/ui';
 	import { Button, IconButton } from '@scutoons/ui/editor';
@@ -11,8 +12,9 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { dropAsset, isAssetDrag } from '$lib/editor/library-drop.ts';
+	import { readShotAsset } from '@scutoons/content/storyboard';
 	import { shotGenerations } from '$lib/editor/storyboard-generations.ts';
-	import { slotContent } from '$lib/editor/storyboard-slot.ts';
+	import { pickedFile, slotContent } from '$lib/editor/storyboard-slot.ts';
 	import { AREAS, hrefOf } from '$lib/shell/address.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import GenerationSlot from '$lib/components/storyboard/generation-slot.svelte';
@@ -22,7 +24,7 @@
 	const FIT = { kinds: ['image', 'video'] as const };
 	const entry = $derived(sb.sel);
 	const approved = $derived(entry ? shotGenerations(sb.generations, entry.id).find((g) => g.approved && g.file) : undefined);
-	const content = $derived(entry ? slotContent(sb.slots[entry.id], approved) : ({ at: 'empty' } as const));
+	const content = $derived(entry ? slotContent(entry.shot.asset, approved) : ({ at: 'empty' } as const));
 	const aspect = $derived(entry?.shot.aspect ?? '');
 	let over = $state(false);
 	let busy = $state(false);
@@ -35,9 +37,15 @@
 			kinds: FIT.kinds,
 			first: 'toon',
 			value: content.at === 'file' ? content.path : undefined,
-			onpick: (path) => sb.setSlot(id, { file: path }),
-			things: { types: ['generator'], onthing: (t) => sb.setSlot(id, { generator: t.address, name: t.entry?.name }) }
+			onpick: (path) => store(id, pickedFile(path, library.familyOf(path))),
+			things: { types: ['generator'], onthing: (t) => store(id, t.address) }
 		});
+	}
+
+	/** the shot's asset: a Library address (null or one the core doesn't read: not taken, the slot stays) */
+	function store(id: string, address: string | null) {
+		if (!address || !readShotAsset(address)) return void toast(m['storyboard.slot_not_taken'](), { type: 'error' });
+		sb.setShotOf(id, ['asset'], address);
 	}
 
 	async function upload(file: File) {
@@ -47,7 +55,7 @@
 		try {
 			await library.load();
 			const { path } = await library.upload(file);
-			sb.setSlot(id, { file: path });
+			store(id, pickedFile(path, library.familyOf(path)));
 		} catch (e) {
 			toast(m['storyboard.slot_upload_failed']({ reason: e instanceof Error ? e.message : String(e) }), { type: 'error' });
 		} finally {
@@ -60,7 +68,7 @@
 		if (!entry) return;
 		const id = entry.id;
 		if (isAssetDrag(e)) {
-			dropAsset(e, { kinds: [...FIT.kinds] }, (path) => sb.setSlot(id, { file: path }));
+			dropAsset(e, { kinds: [...FIT.kinds] }, (path) => store(id, pickedFile(path, library.familyOf(path))));
 			return;
 		}
 		const file = e.dataTransfer?.files?.[0];
@@ -124,8 +132,8 @@
 			<Button title={m['storyboard.slot_open_hint']()} onclick={openGenerator} data-testid="slot-open">{m['storyboard.slot_open']()}</Button>
 		{/if}
 		<Button variant={content.at === 'empty' ? 'primary' : 'framed'} icon="grid" title={m['storyboard.slot_pick_hint']()} onclick={pick} data-testid="slot-pick">{m['storyboard.slot_pick']()}</Button>
-		{#if sb.slots[entry.id]}
-			<IconButton label={m['storyboard.slot_clear']()} icon="x" tone="muted" onclick={() => sb.setSlot(entry.id, null)} data-testid="slot-clear" />
+		{#if entry.shot.asset}
+			<IconButton label={m['storyboard.slot_clear']()} icon="x" tone="muted" onclick={() => sb.setShotOf(entry.id, ['asset'], null)} data-testid="slot-clear" />
 		{/if}
 	</div>
 {/if}
