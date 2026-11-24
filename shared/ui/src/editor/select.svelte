@@ -1,5 +1,6 @@
 <script lang="ts" module>
-	export type SelectOption = { value: string; label: string; disabled?: boolean };
+	/** `group`: options in a row with the same group are listed under its head (an `<optgroup>`) */
+	export type SelectOption = { value: string; label: string; disabled?: boolean; group?: string };
 </script>
 
 <script lang="ts">
@@ -23,6 +24,15 @@
 
 	let { value = $bindable(''), options, label, quiet = false, disabled = false, onchange, 'data-kit-state': kitState, ...rest }: Props = $props();
 	let open = $state(false);
+	/** the options in runs of one group (no group: a run of its own, without a head) */
+	const runs = $derived(
+		options.reduce<{ group?: string; options: SelectOption[] }[]>((out, o) => {
+			const last = out.at(-1);
+			if (last && o.group && last.group === o.group) last.options.push(o);
+			else out.push({ group: o.group, options: [o] });
+			return out;
+		}, [])
+	);
 </script>
 
 <span class="kit-select" class:quiet class:open class:disabled data-kit-state={kitState}>
@@ -42,7 +52,13 @@
 			if (e.key === 'Escape' || e.key === 'Enter' || e.key === 'Tab') open = false;
 		}}
 	>
-		{#each options as o (o.value)}<option value={o.value} disabled={o.disabled}>{o.label}</option>{/each}
+		{#each runs as run, i (i)}
+			{#if run.group}
+				<optgroup label={run.group}>{#each run.options as o (o.value)}<option value={o.value} disabled={o.disabled}>{o.label}</option>{/each}</optgroup>
+			{:else}
+				{#each run.options as o (o.value)}<option value={o.value} disabled={o.disabled}>{o.label}</option>{/each}
+			{/if}
+		{/each}
 	</select>
 </span>
 
@@ -92,9 +108,23 @@
 	select:focus {
 		outline: none;
 	}
-	select option {
+	select option,
+	select optgroup {
 		background: var(--tool-ground);
 		color: var(--tool-text);
+	}
+	select optgroup {
+		color: var(--tool-muted);
+		font-size: var(--editor-label);
+		font-style: normal;
+		letter-spacing: var(--editor-label-spacing, 0.08em);
+		text-transform: uppercase;
+	}
+	select optgroup option {
+		color: var(--tool-text);
+		font-size: var(--editor-small, 0.875rem);
+		letter-spacing: normal;
+		text-transform: none;
 	}
 	.kit-select[data-kit-state~='hover'] {
 		border-color: var(--kit-field-hover-border);
@@ -136,6 +166,7 @@
 		border-color: var(--kit-select-quiet-rest-mark);
 	}
 	.quiet select {
+		field-sizing: content;
 		padding-left: calc(var(--editor-pad) * 1.25);
 	}
 	.quiet[data-kit-state~='hover'] {

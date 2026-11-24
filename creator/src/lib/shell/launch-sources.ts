@@ -4,7 +4,8 @@
 import { goto } from '$app/navigation';
 import { languageCommand } from '@scutoons/ui';
 import type { AssetFamily, LibraryKind } from '@scutoons/media';
-import { library } from '$lib/editor/library.svelte.ts';
+import { fileAddress, library } from '$lib/editor/library.svelte.ts';
+import { shelf } from '$lib/editor/library-shelf.svelte.ts';
 import { kindWord } from '$lib/labels.ts';
 import type { CreatorNav } from '$lib/nav.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -33,7 +34,7 @@ const item = (p: Place): LaunchEntry => ({ id: `item:${p.address}`, kind: 'item'
 
 /** every item: the toons with their seasons and chapters (the front toon first), the areas, every kind the core opens */
 export function items(nav: CreatorNav, toon: string | null): LaunchEntry[] {
-	return [...places.toons(nav.toons, (id) => nav.toonName(id), toon), ...places.areas(), ...Object.values(openings.rows).flat()].map(item);
+	return [...places.toons(nav.toons, (id) => nav.toonName(id), toon), ...places.areas(), ...places.experiences(), ...Object.values(openings.rows).flat()].map(item);
 }
 
 /** an address typed by hand that leads to a page, though no list has it (yet) */
@@ -133,10 +134,10 @@ export function launch(entry: LaunchEntry, logout: () => unknown) {
 		}
 		case 'asset': {
 			shell.open('library');
-			library.setScope('all');
-			library.query = entry.label;
-			library.click(id);
-			library.details = true;
+			shelf.setPlace('all', library.address);
+			shelf.query = entry.label;
+			const family = library.core?.families(false).find((f) => `asset:${f.key}` === id);
+			if (family) library.click(fileAddress(family));
 			return;
 		}
 		case 'command':

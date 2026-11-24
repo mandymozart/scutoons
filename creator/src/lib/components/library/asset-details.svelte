@@ -55,7 +55,6 @@
 	const dims = (w: number | null, h: number | null) => (w && h ? `${w} × ${h}` : '');
 
 	function jump(href: string) {
-		library.browser = false;
 		goto(href);
 	}
 	const at = (item: string, anchor: string) => {

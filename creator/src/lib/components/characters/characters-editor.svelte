@@ -51,7 +51,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { library } from '$lib/editor/library.svelte.ts';
+	import { shelf } from '$lib/editor/library-shelf.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import CharacterEditor from '$lib/components/characters/character-editor.svelte';
 	import { KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
@@ -103,12 +103,6 @@
 		);
 		castDocs = loaded;
 		closeArrivedRequests();
-	});
-	// the Library's cast facet: every toon season's characters
-	$effect(() => {
-		const list = Object.entries(casts).flatMap(([toon, cast]) => castSeasons(cast).map((s) => ({ address: entities.season(toon, s), characters: (cast?.seasons[String(s)] ?? []).map((e) => e.character) })));
-		untrack(() => library.setCasts(list));
-		return () => untrack(() => library.setCasts([]));
 	});
 	/** a cast edited in Links keeps its toon's star in every season */
 	function beforeSave() {
@@ -190,9 +184,9 @@
 		select(addCharacter(registry, name, languages, own ? { own_toon: own.id } : {}));
 	}
 
-	/** Home, the Library on the characters to open */
+	/** Home, the Library on the characters */
 	function showCharacters() {
-		library.showOpenings('character');
+		shelf.choice = 'character';
 		void goto('/', { replaceState: true });
 	}
 

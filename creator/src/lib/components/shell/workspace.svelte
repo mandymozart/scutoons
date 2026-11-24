@@ -8,7 +8,6 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import SettingsPanel from '$lib/components/shell/settings-panel.svelte';
 	import LibraryPanel from '$lib/components/library/library-panel.svelte';
-	import LibraryBrowser from '$lib/components/library/library-browser.svelte';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
@@ -119,7 +118,7 @@
 	}
 	/** Ctrl Space: the view under the pointer taken full, and back (Esc: the overlay's) */
 	function onkeydown(e: KeyboardEvent) {
-		if (e.defaultPrevented || floats.heldTab || library.browser) return;
+		if (e.defaultPrevented || floats.heldTab) return;
 		if (e.key === ' ' && e.ctrlKey && !e.metaKey && !e.altKey) {
 			e.preventDefault();
 			floats.toggleFull(full ?? viewAt(pointer[0], pointer[1]));
@@ -173,7 +172,6 @@
 <div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
 {#if full}<FullView {floats} {full} {name} {content} has={(t) => available.has(t)} />{/if}
-{#if library.browser}<LibraryBrowser />{/if}
 
 <style>
 	/* the stage without the item's main view: one quiet line and the way back, in the middle of the window */
