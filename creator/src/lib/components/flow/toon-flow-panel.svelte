@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { stepBack } from '$lib/shell/shell.svelte.ts';
-	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
+	import { toonFlow, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { loadToonFlow, type ToonFlowData } from '$lib/editor/toon-flow.ts';
-	import FlowDead from '$lib/components/flow/flow-dead.svelte';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
 	import { FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
@@ -47,7 +46,6 @@
 		if (t.type === 'season') return goto(`/${toon}/season/${t.value}`);
 		if (t.type === 'toon') return goto(`/${t.value}`);
 	}
-	const openDead = (at: DeadPlace) => (stepBack('flow'), goto(`/${toon}/chapter/${at.chapter}`));
 </script>
 
 <section class="flow" data-testid="toon-flow" data-level={season !== undefined ? 'season' : 'toon'}>
@@ -67,7 +65,6 @@
 			{/await}
 		{/if}
 	</div>
-	<FlowDead dead={data?.dead} onopen={openDead} />
 </section>
 
 <style>

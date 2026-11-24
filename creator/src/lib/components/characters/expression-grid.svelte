@@ -27,7 +27,7 @@
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
-	 * a red "not on the CDN" badge, and a dashed "missing – add image" cell; a cell opens the Library on pictures (an upload
+	 * a red "not on the CDN" badge, and a dashed empty cell; a cell opens the Library on pictures (an upload
 	 * goes to the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp`).
 	 * The avatar is derived from the portrait (a small indicator); full is unused (only with "all views"). Empty cells show faded what the reader shows instead (`resolveExpression`).
 	 */
@@ -190,7 +190,7 @@
 							{/if}
 						</span>
 						<span class="label">
-							{#if state === 'found'}<Chip label={m['creator.characters_found']()} tone="ok" />{:else if state === 'missing'}<Chip label={m['creator.characters_missing_file']()} tone="error" />{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{:else}{m['creator.characters_missing_add']()}{/if}
+							{#if state === 'found'}<Chip label={m['creator.characters_found']()} tone="ok" />{:else if state === 'missing'}<Chip label={m['creator.characters_missing_file']()} tone="error" />{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{/if}
 							{#if allViews}<span class="hint">{view}</span>{/if}
 							{#if avatar}
 								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Chip label={m['creator.characters_missing_file']()} tone="error" />{:else}✓{/if}</span>

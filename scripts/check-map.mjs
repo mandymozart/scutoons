@@ -43,7 +43,7 @@
 //  14. the place's unlock events (the builder reads `/creator/flow-index` placeUnlocks): the new place made hidden gets the
 //      warning "… is hidden and no unlockLocation event unlocks it" in the problems table; none of the places the
 //      events unlock has it;
-//  15. Set start view → the toon entry's map { center, zoom }; 16. Wanted images → every place without an image;
+//  15. Set start view → the toon entry's map { center, zoom };
 //  17. every hidden place of the published map is unlocked by some event (flow-index), and every intersect unlock event
 //      in the chapters names a place of the map (an unknown one fizzles in the reader).
 //
@@ -681,17 +681,7 @@ async function builder() {
 	const wrong = Object.entries(seas).filter(([t, bg]) => colorOf(t) && bg !== (colorOf(t).startsWith('#') ? rgb(colorOf(t)) : bg)).map(([t, bg]) => `${t}: ${bg} ≠ ${colorOf(t)}`);
 	report(`reader view: the sea is the filtered toon's colour (${Object.keys(seas).map((t) => `${t} ${colorOf(t)}`).join(', ')}), neon green #00ff00 without a filter`, !wrong.length && neutral === rgb('#00ff00') ? [] : [...wrong, `neutral ${neutral}`]);
 
-	// 16. Wanted images → Map places: every place without an image, derived from the map (owner 2026-10-01)
 	await restoreMap();
-	const current = (await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json()).content;
-	const lacking = current.locations.filter((p) => !p.image?.src).map((p) => p.id);
-	await open(`${creator}/characters?tab=wanted`);
-	const wantedPlaces = await waitFor(`(() => { const l = [...document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"]')].map((li) => li.dataset.testid.slice(11)); return l.length ? l : null; })()`, 10000);
-	const paths = await evaluate(`[...document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"] code')].map((c) => c.textContent)`);
-	const briefs = await evaluate(`document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"] details pre').length`);
-	report(`Wanted images (toon media) lists every map place without an image (${lacking.length} of ${current.locations.length}, the airport too) with its path <toon>/map/places/<id>.webp and the brief`,
-		briefs === lacking.length && lacking.includes('airport') && JSON.stringify(wantedPlaces) === JSON.stringify(lacking) && paths.every((p, i) => p === `catpope/map/places/${lacking[i]}.webp`) ? [] : [JSON.stringify({ shown: wantedPlaces?.length, want: lacking.length, first: paths?.[0] })]);
-	await shot('builder-8-wanted-map');
 	await open(`${creator}/map`);
 	await waitFor(`document.querySelector('[data-testid="map-canvas"]') ? true : null`, 10000);
 

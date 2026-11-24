@@ -130,8 +130,6 @@
 		<h3>{m['creator.characters_links']()}</h3>
 		<p>{m['creator.cast_hint']()}</p>
 		<p>{m['creator.cast_star_hint']()}</p>
-		<h3>{m['creator.characters_wanted']()}</h3>
-		<p>{m['creator.characters_wanted_hint']()}</p>
 		<h3>{m['creator.help_transitions_title']()}</h3>
 		<p>{m['creator.characters_transition_hint']()}</p>
 		<p>{m['creator.characters_apose_hint']()}</p>
