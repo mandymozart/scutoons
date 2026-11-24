@@ -74,7 +74,7 @@
 			{#if !waiting && !notPublished.list.length}<p class="quiet">{m['shell.nothing_waiting']()}</p>{/if}
 		</div>
 		{#if notPublished.list.length > shown}
-			<span class="actions"><span class="quiet">{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span></span>
+			<span class="actions"><span class="quiet" title={m['creator.dash_more_title']()}>{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span></span>
 		{/if}
 	</Card>
 </div>

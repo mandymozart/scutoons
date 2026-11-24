@@ -16,6 +16,8 @@
 		designer.notice = text;
 	}
 	const reason = $derived(designer.compileReason);
+	// a built factory module is read-only: Compile's hover says so, the line stays empty (RULES H14)
+	const line = $derived(reason === m['designer.reason_factory']() ? '' : reason);
 </script>
 
 <div class="rust" data-testid="designer-rust">
@@ -23,7 +25,7 @@
 		<FileStrip {designer} onnotice={notice} />
 		<div class="actions">
 			<span class="state" data-testid="designer-state">
-				{#if reason && !designer.compiling}<span title={reason}>{reason}</span>{:else if designer.factoryNote}<span title={designer.factoryNote}>{designer.factoryNote}</span>{:else if designer.dirty}{m['designer.unsaved']()}{/if}
+				{#if line && !designer.compiling}<span title={line}>{line}</span>{:else if designer.factoryNote}<span title={designer.factoryNote}>{designer.factoryNote}</span>{:else if designer.dirty}{m['designer.unsaved']()}{/if}
 			</span>
 			<IconButton alone icon="save" label={m['designer.save']()} title={m['designer.save_title']()} disabled={!designer.canSave} onclick={() => designer.save()} data-testid="designer-save" />
 			<Button variant="primary" icon="cpu" disabled={!designer.canCompile} title={reason || m['designer.compile_title']()} aria-busy={designer.compiling} onclick={() => designer.compile()} data-testid="designer-compile">{m['designer.compile']()}</Button>
