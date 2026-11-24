@@ -1,11 +1,11 @@
 <script lang="ts">
-	import type { LibraryEntry, LibraryLink } from '@scutoons/api';
+	import type { LevelKind, LibraryEntry, LibraryLevel, LibraryLink } from '@scutoons/api';
 	import { parseEntityKey } from '@scutoons/content';
 	import { Icon } from '@scutoons/ui';
 	import { Button, Chip, IconButton, ListRow } from '@scutoons/ui/editor';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { library } from '$lib/editor/library.svelte.ts';
-	import { shelf } from '$lib/editor/library-shelf.svelte.ts';
+	import { useShelf } from '$lib/editor/library-shelf.svelte.ts';
 	import { levelColumns, levelKey } from '$lib/editor/library-list.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LibraryGrid from '$lib/components/library/library-grid.svelte';
@@ -14,9 +14,23 @@
 	 * A thing stepped into (lap2 C12b): the crumb at the top – the place, then every thing stepped into, back by a press –
 	 * its levels as columns (a character's personas → looks → moods, a toon's seasons → chapters; each keeps its address),
 	 * beside them the things and files it uses, and "used in": who uses it, each a link that opens it. Open takes the
-	 * thing to its workspace.
+	 * thing to its workspace. In a pick (`pick`): Pick takes the thing as deep as chosen, a row of the slot's level picks
+	 * it, a file beside picks the file (a slot that takes things shows none); nothing opens elsewhere.
 	 */
-	let { place, tile, onopen, onmenu }: { place: string; tile: number; onopen: (address: string) => void; onmenu: (x: number, y: number) => void } = $props();
+	let {
+		place,
+		tile,
+		onopen,
+		onmenu,
+		pick
+	}: {
+		place: string;
+		tile: number;
+		onopen: (address: string) => void;
+		onmenu?: (x: number, y: number) => void;
+		pick?: { depth?: LevelKind; thing?: (levels: LibraryLevel[]) => void; entry: (entry: LibraryEntry) => void; files: boolean };
+	} = $props();
+	const shelf = useShelf();
 
 	const nav = getCreatorNav();
 	const step = $derived(shelf.step);
@@ -48,7 +62,14 @@
 		return toon ? `${nav.toonName(toon)} · ${link.name}` : link.name;
 	}
 
+	/** a level chosen; in a pick, the slot's level picks the thing at once */
+	function choose(i: number, level: LibraryLevel) {
+		shelf.choose(i, levelKey(level));
+		if (pick?.thing && pick.depth === level.level) pick.thing([...chosenLevels.slice(0, i), level]);
+	}
+
 	function open(entry: LibraryEntry) {
+		if (pick) return pick.entry(entry);
 		if (entry.type) return shelf.stepInto(entry.address, true);
 		const family = library.byAddress.get(entry.address);
 		if (family) library.use(family);
@@ -74,7 +95,11 @@
 			<button type="button" class="part" data-control-exempt="crumb" title={l.address} onclick={() => (shelf.chosen = shelf.chosen.slice(0, i + 1))}>{l.name}</button>
 		{/each}
 		<span class="sp"></span>
-		{#if at?.at.type}<Button icon="external-link" onclick={() => onopen(at.at.address)} data-testid="library-step-open">{m['library.open']()}</Button>{/if}
+		{#if pick?.thing}
+			<Button variant="primary" icon="check" onclick={() => pick.thing?.(chosenLevels)} data-testid="library-step-pick">{m['library.pick']()}</Button>
+		{:else if at?.at.type && !pick}
+			<Button icon="external-link" onclick={() => onopen(at.at.address)} data-testid="library-step-open">{m['library.open']()}</Button>
+		{/if}
 	</nav>
 
 	{#if shelf.stepStatus === 'error'}
@@ -86,20 +111,20 @@
 					<h3 class="label">{LEVEL_WORDS[column.level]()}</h3>
 					<div class="rows">
 						{#each column.rows as l (levelKey(l))}
-							<ListRow dense label={l.name} title={l.mood ? `${l.address} · ${l.mood}` : l.address} selected={shelf.chosen[i] === levelKey(l)} onclick={() => shelf.choose(i, levelKey(l))} />
+							<ListRow dense label={l.name} title={l.mood ? `${l.address} · ${l.mood}` : l.address} selected={shelf.chosen[i] === levelKey(l)} onclick={() => choose(i, l)} />
 						{/each}
 					</div>
 				</div>
 			{/each}
 			<div class="beside">
-				{#if beside.length}
+				{#if beside.length && (!pick || pick.files)}
 					<h3 class="label">{m['library.files']()}</h3>
 					<div class="files">
-						<LibraryGrid entries={all ? beside : beside.slice(0, FEW)} {tile} label={m['library.files']()} onopen={open} {onmenu} />
+						<LibraryGrid entries={all ? beside : beside.slice(0, FEW)} {tile} label={m['library.files']()} onopen={open} {onmenu} onpress={pick?.entry} />
 						{#if !all && beside.length > FEW}<Button variant="quiet" onclick={() => (all = true)} data-testid="library-all-files">{m['library.all_files']({ count: beside.length })}</Button>{/if}
 					</div>
 				{/if}
-				{#if at.usedIn.length}
+				{#if at.usedIn.length && !pick}
 					<h3 class="label">{m['library.used_in']()}</h3>
 					<ul class="used" data-testid="library-used-in">
 						{#each at.usedIn as link (link.address + link.as)}

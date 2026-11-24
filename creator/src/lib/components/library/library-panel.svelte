@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { FILE_ORIGINS, type LibraryEntry } from '@scutoons/api';
-	import { CloseButton, Icon } from '@scutoons/ui';
+	import { CloseButton } from '@scutoons/ui';
 	import { Button, Chip } from '@scutoons/ui/editor';
 	import type { AssetFamily } from '@scutoons/media';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
@@ -13,6 +13,7 @@
 	import { hrefOf } from '$lib/shell/address.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetDetails from '$lib/components/library/asset-details.svelte';
+	import LibraryFind from '$lib/components/library/library-find.svelte';
 	import LibraryGrid from '$lib/components/library/library-grid.svelte';
 	import LibraryMenu from '$lib/components/library/library-menu.svelte';
 	import LibraryPlaces from '$lib/components/library/library-places.svelte';
@@ -24,7 +25,7 @@
 	 * their kind, one list. The places as chips, Find (Ctrl L), Upload or files dropped anywhere on it, the type, Grouping
 	 * and Sort; a click selects (Ctrl / Shift several), a double click steps into a thing or uses a file; F2 renames,
 	 * Delete deletes a file, right-click or ⋯ has every action. Taken full (⤢) the places stand at the left as rows. A
-	 * blank slot's pick shows only the files that fit.
+	 * slot's pick is the same Library on the overlay level (library-picker.svelte).
 	 */
 	const nav = getCreatorNav();
 
@@ -41,7 +42,7 @@
 	const toon = $derived(library.toon ?? shelf.toonOf(library.address));
 	const ctx = $derived<PlaceContext>({ toon, open: library.address, season: shelf.seasonFor(toon, library.address) });
 	const place = $derived(shelf.place(ctx));
-	const query = $derived(shelf.queryFor(ctx, library.pick?.kinds ?? null));
+	const query = $derived(shelf.queryFor(ctx));
 	const shown = $derived(sortEntries(findIn(shelf.entries, shelf.query), shelf.sort));
 	const chips = $derived((['item', 'cast', 'toon', 'all', 'unused', 'recent'] as const).filter((p) => placeAvailable(p, ctx)));
 	const placeLabel = (p: ShelfPlace) => m[`library.place_${p}`]();
@@ -69,12 +70,12 @@
 	const typing = (e: KeyboardEvent) => e.target instanceof HTMLElement && !!e.target.closest('input, textarea, select, [contenteditable]');
 
 	function keys(event: KeyboardEvent) {
+		if (library.pick) return;
 		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
 			event.preventDefault();
 			search?.focus();
 			search?.select();
-		} else if (event.key === 'Escape' && !event.defaultPrevented && library.pick) library.cancelPick();
-		else if (!root?.contains(document.activeElement) || typing(event)) return;
+		} else if (!root?.contains(document.activeElement) || typing(event)) return;
 		else if (event.key === 'F2' && library.selectedFamily) (event.preventDefault(), renameFamily(library.selectedFamily));
 		else if (event.key === 'Delete' && library.chosenFamilies.length) (event.preventDefault(), deleteFamilies(library.chosenFamilies));
 	}
@@ -111,7 +112,7 @@
 		else note = m['library.no_page']({ address: answer.address });
 	}
 
-	/** a double click: a thing is stepped into, a file used (a pick: its slot filled) */
+	/** a double click: a thing is stepped into, a file used */
 	function open(entry: LibraryEntry) {
 		if (entry.type) return shelf.stepInto(entry.address);
 		const family = library.byAddress.get(entry.address);
@@ -148,12 +149,6 @@
 	<div class="side"><LibraryPlaces {ctx} {place} /></div>
 	<div class="main">
 		<div class="head">
-			{#if library.pick}
-				<div class="pick" data-testid="library-pick">
-					<span>{m['library.pick_for']()} <span class="slot">{library.pick.label}</span></span>
-					<button type="button" class="link" data-control-exempt="text link" onclick={() => library.cancelPick()}>{m['library.cancel_esc']()}</button>
-				</div>
-			{/if}
 			<div class="chips" role="group" aria-label={m['library.places']()}>
 				{#each chips as p (p)}
 					<Chip label={placeLabel(p)} on={place === p} onclick={() => shelf.setPlace(p, library.address)} testid="place-chip-{p}" />
@@ -165,10 +160,7 @@
 				</span>
 			</div>
 			<div class="row">
-				<span class="find">
-					<Icon name="search" size="0.9rem" />
-					<input bind:this={search} type="search" bind:value={shelf.query} placeholder={m['library.find']()} aria-label={m['library.find']()} title={m['library.find_title']()} data-testid="library-search" />
-				</span>
+				<LibraryFind bind:value={shelf.query} bind:input={search} testid="library-search" />
 				<Button variant="primary" icon="upload" title={m['library.upload_title']()} onclick={() => fileInput?.click()} data-testid="library-upload">{m['library.upload']()}</Button>
 				<input bind:this={fileInput} type="file" multiple hidden onchange={(e) => (upload([...(e.currentTarget.files ?? [])]), (e.currentTarget.value = ''))} />
 				<input bind:this={replaceInput} type="file" hidden onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) replace(f); e.currentTarget.value = ''; }} />
@@ -253,7 +245,6 @@
 		gap: 0.6rem;
 		padding-bottom: var(--editor-pad);
 	}
-	.pick,
 	.selection {
 		display: flex;
 		align-items: center;
@@ -263,23 +254,12 @@
 		border-radius: var(--editor-radius);
 		font-size: var(--editor-small);
 	}
-	.pick > span,
 	.selection > span {
 		flex: 1 1 auto;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-	.slot {
-		color: var(--tool-text);
-	}
-	.link {
-		border: 0;
-		background: none;
-		color: var(--tool-text);
-		cursor: pointer;
-		font: inherit;
 	}
 	.chips,
 	.from {
@@ -296,33 +276,6 @@
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-	}
-	.find {
-		flex: 1 1 auto;
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		min-width: 0;
-		height: var(--control-height);
-		padding: 0 var(--editor-pad);
-		border: var(--editor-edge) solid var(--kit-field-rest-border);
-		border-radius: var(--editor-radius);
-		background: var(--kit-field-rest-ground);
-		color: var(--tool-muted);
-	}
-	.find:focus-within {
-		border-color: var(--kit-field-on-border);
-	}
-	.find input {
-		flex: 1 1 auto;
-		min-width: 0;
-		height: 100%; /* control-ok: fills the Find field, which is a control high */
-		padding: 0;
-		border: 0;
-		background: none;
-		color: var(--tool-text);
-		font: inherit;
-		outline: none;
 	}
 	.note {
 		margin: 0;

@@ -7,6 +7,8 @@ import { wordsIn } from '../shell/launcher.ts';
 /** the places (LIBRARY.md "places"): This item · This season's cast · This toon · Everything · Unused · Recently added */
 export type ShelfPlace = 'item' | 'cast' | 'toon' | 'all' | 'unused' | 'recent';
 export const SHELF_PLACES: readonly ShelfPlace[] = ['item', 'cast', 'toon', 'all', 'unused', 'recent'];
+/** a pick's places (lap2 C12c): the same without Recently added */
+export const PICK_PLACES: readonly ShelfPlace[] = ['item', 'cast', 'toon', 'all', 'unused'];
 export type ShelfSort = 'name' | 'recent' | 'uses';
 export const SHELF_SORTS: readonly ShelfSort[] = ['name', 'recent', 'uses'];
 export type ShelfGrouping = 'none' | 'type';
@@ -57,22 +59,58 @@ export function seasonNumber(season: string | null): number | null {
 /** the toon a season belongs to: `season:catpope:1` → catpope */
 export const seasonToon = (season: string): string => season.split(':')[1] ?? '';
 
-/** the server's query for a place, the type choice, From and a pick's kinds */
-export function placeQuery(place: ShelfPlace, ctx: PlaceContext, choice: string, from: FileOrigin | null, pickKinds: readonly FileKind[] | null, locale: string): LibraryQuery {
+/** what a slot takes: things of these types, files of these kinds */
+export interface PickFit {
+	types?: readonly ThingType[];
+	kinds?: readonly FileKind[];
+}
+
+/** the server's query for a place, the type choice, From and what a pick's slot takes ("All types": all it takes) */
+export function placeQuery(place: ShelfPlace, ctx: PlaceContext, choice: string, from: FileOrigin | null, fit: PickFit | null, locale: string): LibraryQuery {
 	const q: LibraryQuery = { locale, limit: 5000 };
 	if (place === 'item' && ctx.open) Object.assign(q, { toon: ctx.toon, place: `item:${ctx.open}` });
 	else if (place === 'cast' && ctx.season) Object.assign(q, { toon: seasonToon(ctx.season), place: `cast:${seasonNumber(ctx.season)}` });
 	else if (place === 'toon') Object.assign(q, { toon: ctx.toon, place: 'toon' });
 	else if (place === 'all') q.place = 'all';
 	else Object.assign(q, { toon: ctx.toon, place });
-	if (pickKinds?.length) q.kind = pickKinds;
-	else {
-		const c = TYPE_CHOICES.find((t) => t.value === choice);
-		if (c?.types) q.type = c.types;
-		if (c?.kinds) q.kind = c.kinds;
-	}
+	const c = TYPE_CHOICES.find((t) => t.value === choice);
+	const narrow = c?.types || c?.kinds ? c : fit;
+	if (narrow?.types?.length) q.type = narrow.types;
+	if (narrow?.kinds?.length) q.kind = narrow.kinds;
 	if (from) q.from = from;
 	return q;
+}
+
+/** the type select's choices for a slot: "All types" (all it takes), then each type or kind it takes */
+export const pickChoices = (fit: PickFit): string[] => [
+	'all',
+	...TYPE_CHOICES.filter((c) => (c.types?.some((t) => fit.types?.includes(t)) ?? false) || (c.kinds?.some((k) => fit.kinds?.includes(k)) ?? false)).map((c) => c.value)
+];
+
+/** the place a pick shows first: the one its slot names where it can be asked, else This item, else This toon */
+export function firstPlace(asked: 'item' | 'cast' | 'toon' | undefined, ctx: PlaceContext): 'item' | 'cast' | 'toon' | null {
+	for (const p of [asked, 'item', 'toon'] as const) if (p && placeAvailable(p, ctx)) return p;
+	return null;
+}
+
+/** a pick's list: what the slot holds already left out, only what it accepts – the first place's, then everyone else */
+export function pickGroups(first: readonly LibraryEntry[], all: readonly LibraryEntry[], keep: (e: LibraryEntry) => boolean): { first: LibraryEntry[]; rest: LibraryEntry[] } {
+	const head = first.filter(keep);
+	const seen = new Set(head.map((e) => e.address));
+	return { first: head, rest: all.filter((e) => keep(e) && !seen.has(e.address)) };
+}
+
+/** a thing's id: `item:camera` → camera, `person:p12` → p12 */
+export const thingId = (address: string): string => address.slice(address.indexOf(':') + 1);
+
+/** the ids of the levels chosen inside a character, each its address past its parent's: persona › look, and the mood */
+export function levelIds(levels: readonly LibraryLevel[]): { persona?: string; look?: string; mood?: string } {
+	const ids: { persona?: string; look?: string; mood?: string } = {};
+	for (const l of levels) {
+		if (l.level === 'mood') ids.mood = l.mood;
+		else if ((l.level === 'persona' || l.level === 'look') && l.address.startsWith(`${l.parent}.`)) ids[l.level] = l.address.slice(l.parent.length + 1);
+	}
+	return ids;
 }
 
 /** a file entry's path (`image:characters/a.webp` → `characters/a.webp`); a thing: null */

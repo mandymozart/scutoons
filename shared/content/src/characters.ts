@@ -1026,29 +1026,6 @@ export function setLookImage(look: CharacterLook, mood: string, view: string, pa
 	if (!Object.keys(slots).length && mood !== DEFAULT_MOOD) delete look.images[mood];
 }
 
-/** Characters matching a query (id, names in any language, persona ids + labels, tags), best first. */
-export function searchCharacters(characters: RegistryCharacter[], query: string, limit = 50): RegistryCharacter[] {
-	const q = query.trim().toLowerCase();
-	const all = characters.filter((c) => !!c?.id);
-	if (!q) return all.slice(0, limit);
-	const score = (c: RegistryCharacter) => {
-		const names = [c.id, ...Object.values(c.name ?? {}), ...(c.personas ?? []).flatMap((p) => [p?.id, ...Object.values(p?.label ?? {})]), ...(c.tags ?? [])]
-			.filter((n): n is string => typeof n === 'string')
-			.map((n) => n.toLowerCase());
-		if (names.some((n) => n === q)) return 0;
-		if (names.some((n) => n.startsWith(q))) return 1;
-		if (names.some((n) => n.split(/[\s-]+/).some((w) => w.startsWith(q)))) return 2;
-		if (names.some((n) => n.includes(q))) return 3;
-		return 9;
-	};
-	return all
-		.map((c) => [c, score(c)] as const)
-		.filter(([, s]) => s < 9)
-		.sort((a, b) => a[1] - b[1] || a[0].id.localeCompare(b[0].id))
-		.slice(0, limit)
-		.map(([c]) => c);
-}
-
 /** A look as an avatar body, in unlock lists (`/me/ avatar.unlocked[].looks`): `<persona>/<look>` (`regular/default`). */
 export const bodyLookKey = (persona: string, look: string) => `${persona}/${look}`;
 

@@ -12,6 +12,7 @@
 	import ToonPanel from '$lib/components/shell/toon-panel.svelte';
 	import Stage from '$lib/components/shell/stage.svelte';
 	import FullView from '$lib/components/shell/full-view.svelte';
+	import LibraryPicker from '$lib/components/library/library-picker.svelte';
 	import LogPanel from '$lib/components/shell/log-panel.svelte';
 	import SporesPanel from '$lib/components/shell/spores-panel.svelte';
 	import InfoPanel from '$lib/components/shell/info-panel.svelte';
@@ -69,10 +70,6 @@
 	$effect(() => {
 		void log.load();
 		return log.listen();
-	});
-	// a blank slot's pick opens the Library panel
-	$effect(() => {
-		if (library.pick) shell.open('library');
 	});
 
 	// a panel asked for by its id, or a panel tab by its tab's id (the panel holding it opens on it, a hidden tab shows again)
@@ -172,6 +169,7 @@
 <div class="zones-layer"><StageZones {floats} label={lands} /></div>
 
 {#if full}<FullView {floats} {full} {name} {content} has={(t) => available.has(t)} />{/if}
+{#if library.pick}<LibraryPicker />{/if}
 
 <style>
 	/* the stage without the item's main view: one quiet line and the way back, in the middle of the window */

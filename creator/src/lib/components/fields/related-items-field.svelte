@@ -7,12 +7,12 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
+	import { pickItem } from '$lib/editor/library-pick.svelte.ts';
 
 	/**
 	 * A season's `related_items` (agents/ITEMS.md "Players, albums, related items"): catalog item ids in order,
 	 * language-neutral – one list written to every locale (like the season's download / trailer). Chips with the item's
-	 * icon and name, reorder, remove; "Add an item …" opens the item selector.
+	 * icon and name, reorder, remove; "Add an item …" opens the Library on the items not listed yet.
 	 */
 	let {
 		doc,
@@ -22,7 +22,6 @@
 	}: { doc: ContentDoc; hint: string; testid?: string; /** false under a section heading that already names it */ legend?: boolean } = $props();
 
 	let catalog = $state<Catalog | null>(null);
-	let choosing = $state(false);
 	let loading = $state(true);
 	onMount(() => {
 		loadCatalog().then((c) => {
@@ -67,11 +66,15 @@
 			</li>
 		{/each}
 	</ul>
-	<!-- the item selector as a drawer like the asset manager / character selector (owner 2026-10-03) -->
-	<button type="button" class="secondary add" disabled={loading || !catalog} onclick={() => (choosing = true)} data-testid="{testid}-add">
+	<button
+		type="button"
+		class="secondary add"
+		disabled={loading || !catalog}
+		onclick={() => pickItem({ label: m['creator.related_items'](), taken: list.map((id) => `item:${id}`) }, add)}
+		data-testid="{testid}-add"
+	>
 		{loading ? m['creator.related_items_loading']() : m['creator.related_items_add']()}
 	</button>
-	<ItemPickerSheet bind:open={choosing} title={m['creator.related_items_add']()} exclude={list} onpick={(item) => add(item.id)} />
 </fieldset>
 
 <style>

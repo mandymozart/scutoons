@@ -73,7 +73,7 @@ export class ChapterView {
 	shownZoom = $state(1);
 	/** the item tool's click on the canvas: where the picked item goes */
 	itemSpot = $state<{ x: number; y: number } | null>(null);
-	/** the item picker sheet is open */
+	/** the item tool asks the Library for an item */
 	pickingItem = $state(false);
 	/** the piece tool's click / drag (or "+ piece"): where the picked piece goes (canvas-pieces.ts) */
 	pieceSpot = $state<PiecePlace | null>(null);
