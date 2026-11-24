@@ -21,7 +21,7 @@
 		type Data
 	} from '@scutoons/catalog';
 	import { askDialog, confirmDialog, Icon } from '@scutoons/ui';
-	import { Pill, PillTabs } from '@scutoons/ui/editor';
+	import { IconButton, Pill, PillTabs } from '@scutoons/ui/editor';
 	import { neutralDoc } from '$lib/editor/languages.ts';
 	import { contentApi } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -195,22 +195,24 @@
 </script>
 
 <MetaPage toon="" title={CATALOG_LABELS[kind]()} docs={doc ? [doc] : []} {validate} wide help="catalog">
-	{#snippet actions()}
-		<button type="button" class="secondary" onclick={create} data-testid="catalog-new"><Icon name="plus" /> {m['creator.catalog_new']({ what: def.singular() })}</button>
-		{#if data && selected}
-			<!-- a score item: its pieces on the score (research/COLLAGE.md §4.4) -->
-			{#if kind === 'items' && data.category === 'score'}
-				<button type="button" class="secondary" onclick={() => goto(`/catalog/items/${encodeURIComponent(selected!)}/collage`)} title={m['creator.catalog_collage_hint']()} data-testid="catalog-collage">{m['creator.catalog_collage']()}</button>
-			{/if}
-			{#if data.removed}
-				<button type="button" class="secondary" onclick={restoreEntry} data-testid="catalog-restore">{m['creator.catalog_restore']()}</button>
-			{:else}
-				<button type="button" class="secondary" onclick={removeEntry} data-testid="catalog-remove">{m['creator.catalog_remove']()}</button>
-			{/if}
-		{/if}
-	{/snippet}
 	<!-- the open entry's group: its kind among the catalog's kinds -->
-	<Pill><PillTabs items={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k](), testid: `catalog-kind-${k}` }))} on={kind} onselect={(k) => k !== kind && void goto(`/catalog/${k}`)} label={m['creator.catalog']()} /></Pill>
+	<!-- the page's toolbar: the open entry's kind among the catalog's kinds, and the page's actions (RULES H4) -->
+	<div class="toolbar">
+		<Pill><PillTabs items={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k](), testid: `catalog-kind-${k}` }))} on={kind} onselect={(k) => k !== kind && void goto(`/catalog/${k}`)} label={m['creator.catalog']()} /></Pill>
+		<Pill label={CATALOG_LABELS[kind]()} data-testid="page-actions">
+			<IconButton label={m['creator.catalog_new']({ what: def.singular() })} icon="plus" onclick={create} data-testid="catalog-new" />
+			{#if data && selected}
+				{#if kind === 'items' && data.category === 'score'}
+					<IconButton label={m['creator.catalog_collage']()} title={m['creator.catalog_collage_hint']()} icon="grid" onclick={() => goto(`/catalog/items/${encodeURIComponent(selected!)}/collage`)} data-testid="catalog-collage" />
+				{/if}
+				{#if data.removed}
+					<IconButton label={m['creator.catalog_restore']()} icon="rotate-ccw" onclick={restoreEntry} data-testid="catalog-restore" />
+				{:else}
+					<IconButton label={m['creator.catalog_remove']()} icon="trash-2" onclick={removeEntry} data-testid="catalog-remove" />
+				{/if}
+			{/if}
+		</Pill>
+	</div>
 	{#if loadError}<p class="error" role="alert">{loadError}</p>{/if}
 	<div class="detail" data-testid="catalog-detail">
 		{#if doc && data}
@@ -240,6 +242,12 @@
 </MetaPage>
 
 <style>
+	.toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05);
+	}
 	.detail {
 		display: flex;
 		flex-direction: column;

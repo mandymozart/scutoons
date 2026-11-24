@@ -163,16 +163,16 @@
 
 {#snippet stepper()}
 	{#if sb.order.length}
-		<span class="stepper">
-			<IconButton alone label={m['storyboard.prev_shot']()} icon="chevron-left" disabled={position <= 1} onclick={() => sb.move(-1)} />
+		<Pill data-testid="storyboard-stepper">
+			<IconButton label={m['storyboard.prev_shot']()} icon="chevron-left" disabled={position <= 1} onclick={() => sb.move(-1)} />
 			<span class="count">{m['storyboard.position']({ n: position, total: sb.order.length })}</span>
-			<IconButton alone label={m['storyboard.next_shot']()} icon="chevron-right" disabled={position >= sb.order.length} onclick={() => sb.move(1)} />
-		</span>
+			<IconButton label={m['storyboard.next_shot']()} icon="chevron-right" disabled={position >= sb.order.length} onclick={() => sb.move(1)} />
+		</Pill>
 	{/if}
 {/snippet}
 
 <div class="clear" bind:this={root} style:padding-left="{inset.left}rem" style:padding-right="{inset.right}rem" style:padding-bottom="{inset.bottom}rem">
-<MetaPage {toon} title={m['storyboard.title']()} docs={[sb.doc]} {validate} ongoto={gotoProblem} fill wide help="storyboard" actions={stepper}>
+<MetaPage {toon} title={m['storyboard.title']()} docs={[sb.doc]} {validate} ongoto={gotoProblem} fill wide help="storyboard">
 	{#if !sb.data}
 		<div class="missing">
 			<p class="sc-empty">{m['storyboard.missing']()}</p>
@@ -193,6 +193,7 @@
 						<IconButton label={PANEL_WORD[p.kind]()} icon={p.icon} pressed={sb.isOpen(p.kind)} onclick={() => sb.setOpen(p.kind, !sb.isOpen(p.kind))} data-testid="toggle-{p.kind}" />
 					{/each}
 				</Pill>
+				{@render stepper()}
 				<span class="grow"></span>
 				<WorkspaceField {sb} />
 			</div>
@@ -242,11 +243,6 @@
 		justify-items: start;
 		gap: var(--space-1);
 		padding: var(--space-1);
-	}
-	.stepper {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-025);
 	}
 	.count {
 		min-width: 3.5rem;

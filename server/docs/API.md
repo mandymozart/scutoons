@@ -1158,7 +1158,9 @@ deck is one more line in server/schema/generate.ts, #874). The file cases every 
 - `place` – default `toon` with a toon, else `all`:
   `toon` This toon (entries whose `toons` hold it; needs `toon`) · `all` Everything · `recent` Recently added (changed in the
   last 7 days – the shelf's RECENT_DAYS; within the toon when one is given) · `unused` files no document uses (within the toon) ·
-  `item:<address>` This item – the things and files a thing uses (`404` when the member cannot read it) · `cast:<season>` a
+  `item:<address>` This item – the things and files a thing uses (`404` when the member cannot read it); a chapter or a
+  season (`item:chapter:<toon>:<n>`, `item:season:<toon>:<n>`) is no entry, but answers what its document uses (a
+  season: its cast's characters and the files it names; `404` when there is no such document) · `cast:<season>` a
   season's cast – its characters and their files (needs `toon`; `404` when the cast has no such season).
   There is no "To do", "Wanted" or "Missing" place (RULES H17): a picture that does not exist is `null`, never a flag.
 - `from=uploaded|imported|generated` – From: files only, by their main file's origin (things drop out).

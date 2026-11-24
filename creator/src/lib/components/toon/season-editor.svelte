@@ -2,6 +2,7 @@
 	import { coverLetteringOn, coverLines, entities, previewText, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
 	import { Icon } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
@@ -149,11 +150,13 @@
 			{#if trailer?.loop || trailer?.poster}
 				<label class="trailer-chapter" title={m['creator.trailer_chapter_hint']()}>
 					<span class="sc-label">{m['creator.trailer_chapter']()}</span>
-					<select value={String(trailer?.chapter ?? 0)} onchange={(e) => writeTrailer({ chapter: Number(e.currentTarget.value) }, 'trailer-chapter')} data-testid="trailer-chapter">
-						{#each numbers.includes(trailer?.chapter ?? 0) ? numbers : [trailer?.chapter ?? 0, ...numbers] as n (n)}
-							<option value={String(n)}>{n} · {chapterTitle(n)}</option>
-						{/each}
-					</select>
+					<Select
+						value={String(trailer?.chapter ?? 0)}
+						options={(numbers.includes(trailer?.chapter ?? 0) ? numbers : [trailer?.chapter ?? 0, ...numbers]).map((n) => ({ value: String(n), label: `${n} · ${chapterTitle(n)}` }))}
+						label={m['creator.trailer_chapter']()}
+						onchange={(v) => writeTrailer({ chapter: Number(v) }, 'trailer-chapter')}
+						data-testid="trailer-chapter"
+					/>
 				</label>
 			{/if}
 		</section>

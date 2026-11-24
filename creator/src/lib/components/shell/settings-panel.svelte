@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button, Chip, IconButton, PillTabs, Section, Toggle } from '@scutoons/ui/editor';
+	import { Button, Chip, IconButton, PillTabs, Section, Select, Toggle } from '@scutoons/ui/editor';
 	import { craftName } from '@scutoons/api';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { toaster } from '$lib/toasts.ts';
@@ -90,9 +90,7 @@
 	<Section id="shell-language" label={m['shell.language']()} summary={getLocale().toUpperCase()}>
 		<div class="row">
 			<span>{m['shell.interface']()}</span>
-			<select value={getLocale()} onchange={(e) => setLocale(e.currentTarget.value as (typeof locales)[number])} aria-label={m['shell.interface']()}>
-				{#each locales as l (l)}<option value={l}>{l.toUpperCase()}</option>{/each}
-			</select>
+			<Select value={getLocale()} options={locales.map((l) => ({ value: l, label: l.toUpperCase() }))} label={m['shell.interface']()} onchange={(v) => setLocale(v as (typeof locales)[number])} />
 		</div>
 	</Section>
 	<Section id="shell-folder" label={m['shell.local_folder']()} summary={m['shell.this_machine']()}>
@@ -139,9 +137,6 @@
 	}
 	.row.actions {
 		justify-content: flex-start;
-	}
-	.row select {
-		width: auto;
 	}
 	.pair {
 		display: inline-flex;

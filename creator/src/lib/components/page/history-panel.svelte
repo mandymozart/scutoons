@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { confirmDialog } from '@scutoons/ui';
+	import { Chip } from '@scutoons/ui/editor';
 	import { ApiError, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { applyBackTo, applyRevert, baseOf, contentOf, describeStep, historyCore, historyFiles, loadFile, planRevert, saved, type Description, type FileHistory, type HistoryFile, type Step } from '$lib/editor/history.svelte.ts';
@@ -149,7 +150,7 @@
 					{#if wide}<span class="tag">{label(r.h.file)}</span>{/if}
 					{#if r.step.count > 1}<span class="tag">{m['history.saves']({ count: r.step.count })}</span>{/if}
 					{#if r.step.last === base}<span class="tag">{m['creator.history_current']()}</span>{/if}
-					{#if live}<span class="tag">{m['creator.state_published']()}</span>{/if}
+					{#if live}<Chip label={m['creator.state_published']()} tone="ok" />{/if}
 					{#if inReview.has(r.step.last)}<span class="tag">{m['creator.review_state_pending']()}</span>{/if}
 				</div>
 				{#each r.versions.filter((v) => v.message) as v (v.id)}<i class="note">{v.message}</i>{/each}

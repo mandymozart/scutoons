@@ -163,7 +163,7 @@ final class ExtendedLibrary
         $files = $this->editor ? array_map('strval', array_keys($index['files'])) : [];
         if (str_starts_with($place, 'item:')) {
             $at = substr($place, 5);
-            if (!$this->readsThing($at)) throw new ApiError(404, 'not_found', "Nothing at $at.");
+            if (!$this->readsThing($at) && !$this->readsDocument($at)) throw new ApiError(404, 'not_found', "Nothing at $at.");
             return [$this->usedThings($at), $this->usedFiles([$at])];
         }
         if (str_starts_with($place, 'cast:')) {
@@ -284,6 +284,12 @@ final class ExtendedLibrary
             UniverseIndex::EDITOR => $this->editor,
             default => $this->editor || $this->live,
         };
+    }
+
+    /** whether the member reads a chapter or a season of a toon – no entry of its own, but a place (This item) */
+    private function readsDocument(string $address): bool
+    {
+        return ($this->editor || $this->live) && preg_match('/^(chapter|season):/', $address) === 1 && isset($this->idx()['docs'][$address]);
     }
 
     /** whether a user of something counts for the member: a thing they read, or a document of a toon (a season, a chapter, a cast …) */

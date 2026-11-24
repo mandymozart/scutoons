@@ -2,6 +2,7 @@
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { regionBrush } from '$lib/editor/region-brush.svelte.ts';
 	import { Icon } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import { BRUSH_MAX, BRUSH_MIN, MAP_SOURCE_LANGUAGE, mapName, runsSize, slugId, type LocaleText, type MapRegion } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -103,11 +104,17 @@
 	<LocaleMapField value={region.greeting ?? {}} {languages} label={m['creator.region_greeting']()} multiline testid="region-greeting" onchange={(v) => set('greeting', v)} />
 	<label class="field">
 		<span>{m['creator.region_representative']()}</span>
-		<select value={region.representative ?? ''} onchange={(e) => set('representative', e.currentTarget.value || undefined)} data-testid="region-representative">
-			<option value="">{m['creator.region_narrator']()}</option>
-			{#each characters as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
-			{#if region.representative && !characters.some((c) => c.id === region.representative)}<option value={region.representative}>{region.representative} (?)</option>{/if}
-		</select>
+		<Select
+			value={region.representative ?? ''}
+			options={[
+				{ value: '', label: m['creator.region_narrator']() },
+				...characters.map((c) => ({ value: c.id, label: c.name })),
+				...(region.representative && !characters.some((c) => c.id === region.representative) ? [{ value: region.representative, label: `${region.representative} (?)` }] : [])
+			]}
+			label={m['creator.region_representative']()}
+			onchange={(v) => set('representative', v || undefined)}
+			data-testid="region-representative"
+		/>
 	</label>
 	<p class="hint">{m['creator.region_representative_hint']()}</p>
 	<LocaleMapField value={region.description ?? {}} {languages} label={m['creator.region_description']()} multiline testid="region-description" onchange={(v) => set('description', v)} />

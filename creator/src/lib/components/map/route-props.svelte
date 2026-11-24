@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { CloseIcon, SortGrip, sortable } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import { MAP_NETWORKS, MAP_SOURCE_LANGUAGE, isPlaceWaypoint, mapName, slugId, type LocaleText, type MapNetwork, type MapPath, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -65,10 +66,13 @@
 <!-- a ride line (research/CAVE.md D8): its places are the stops; readers ride it for cucumbers, never walk it -->
 <label class="field">
 	{m['creator.map_network']()}
-	<select value={route.network ?? ''} onchange={(e) => editRoute(doc, route.id, (r) => { const v = e.currentTarget.value as MapNetwork | ''; if (v) r.network = v; else delete r.network; })} data-testid="route-network">
-		<option value="">{m['creator.map_network_none']()}</option>
-		{#each MAP_NETWORKS as n (n)}<option value={n}>{m[`creator.map_network_${n}`]()}</option>{/each}
-	</select>
+	<Select
+		value={route.network ?? ''}
+		options={[{ value: '', label: m['creator.map_network_none']() }, ...MAP_NETWORKS.map((n) => ({ value: n, label: m[`creator.map_network_${n}`]() }))]}
+		label={m['creator.map_network']()}
+		onchange={(v) => editRoute(doc, route.id, (r) => { if (v) r.network = v as MapNetwork; else delete r.network; })}
+		data-testid="route-network"
+	/>
 </label>
 <label class="check"><input type="checkbox" checked={!!route.hidden} onchange={(e) => editRoute(doc, route.id, (r) => { if (e.currentTarget.checked) r.hidden = true; else delete r.hidden; })} /> {m['creator.map_hidden']()}</label>
 <fieldset>
