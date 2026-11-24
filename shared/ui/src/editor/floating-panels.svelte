@@ -131,9 +131,10 @@
 		position: absolute;
 		z-index: 1001;
 		padding: 0.25rem 0.75rem;
+		border: var(--editor-edge) solid var(--kit-tab-dragged-border);
 		border-radius: 1rem;
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-tab-dragged-ground);
+		color: var(--kit-tab-dragged-text);
 		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 		white-space: nowrap;

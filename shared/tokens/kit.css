@@ -134,7 +134,6 @@
 	--kit-thumb-rest-border: var(--tool-line);
 	--kit-thumb-hover-border: var(--tool-muted);
 	--kit-thumb-on-ring: var(--tool-text);
-	--kit-thumb-on-mark: var(--tool-text);
 	--kit-thumb-disabled-opacity: 0.4;
 	--kit-thumb-dragged-opacity: 0.75;
 	--kit-workspace-card-rest-border: var(--tool-line);

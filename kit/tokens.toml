@@ -391,7 +391,6 @@ border = "line"
 border = "muted"
 [component.thumb.on]
 ring = "text"
-mark = "text"
 [component.thumb.disabled]
 opacity = 0.4
 [component.thumb.dragged]

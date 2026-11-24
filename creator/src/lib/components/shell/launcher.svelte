@@ -134,10 +134,14 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		padding: 0 0.3rem 0 0.9rem;
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-field-rest-border);
 		border-radius: 1.2rem;
-		background: var(--tool-control);
-		color: var(--tool-muted);
+		background: var(--kit-field-rest-ground);
+		color: var(--kit-field-rest-mark);
+	}
+	.find:focus-within {
+		border-color: var(--kit-field-on-border);
+		color: var(--kit-field-on-mark);
 	}
 	.find input {
 		flex: 1;
@@ -145,7 +149,7 @@
 		min-height: calc(var(--control-height) - 0.2rem);
 		border: 0;
 		background: transparent;
-		color: var(--tool-text);
+		color: var(--kit-field-rest-text);
 		outline: none;
 	}
 	/* no browser cross in the field: Esc clears nothing, it closes Search */
