@@ -870,6 +870,7 @@
 		"dash_not_live": "Not live yet",
 		"dash_more": "{count} more",
 		"dash_more_title": "Publish lists them all",
+		"dash_publish": "Publish {count}",
 		"dash_new": "never published",
 		"dash_newer": "newer changes",
 		"dash_waiting": "Waiting for you",
