@@ -50,10 +50,6 @@
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;
 	}
-	.cast-in > :global(.kit-list-row) {
-		border-bottom: var(--editor-edge) solid var(--tool-line);
-		border-radius: 0;
-	}
 	.cast-in > :global(.kit-list-row .name) {
 		text-decoration: underline;
 		text-underline-offset: 0.2em;

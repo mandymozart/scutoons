@@ -265,6 +265,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32)) {
             disabled(d, t, from, "tab");
         }
     });
+    // the two see-through grounds over a busy stage: a panel's, a menu's (stronger), and a menu over a panel (RULES H15)
+    let (po, mo) = (t.color.panel_opacity * 100.0, t.color.popover_opacity * 100.0);
+    row(d, &mut g, "Panel · popover", &format!("{po:.0} % · {mo:.0} %, see-through"), rh * 2.5, &mut |d, i, x, y| {
+        if i < 3 {
+            grounds(d, t, Rect { x, y: y - (rh * 2.5 - ch) * 0.5 + 4.0, w: t.size.rem(11.0), h: rh * 2.5 - 8.0 }, i);
+        }
+    });
     row(d, &mut g, "Section fold", "open: the head's ground", rh * 1.1, &mut |d, i, x, y| {
         if i >= 5 {
             return;
@@ -308,6 +315,36 @@ pub fn ground(d: &mut DrawList, t: &Tokens, name: &str, r: Rect, radius: f32) {
     }
     if let Some(b) = s.border {
         d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), b);
+    }
+}
+
+/// Over a striped stand-in for the stage (the groups' colours) in `r`: 0 a panel's ground, 1 a menu's, 2 a menu lying
+/// over a panel – the panel's words under the menu do not mix with its own, the stripes still show through both.
+fn grounds(d: &mut DrawList, t: &Tokens, r: Rect, i: usize) {
+    let n = t.color.groups.len();
+    let sw = r.w / n as f32;
+    for (k, c) in t.color.groups.iter().enumerate() {
+        d.rect(r.x + k as f32 * sw, r.y, sw, r.h, *c);
+    }
+    let inset = t.size.rem(0.4);
+    let (px, lh) = (t.size.small, t.size.small * 1.4);
+    let words = |d: &mut DrawList, x: f32, y: f32, lines: &[&str]| {
+        for (k, l) in lines.iter().enumerate() {
+            d.sans(x, y + k as f32 * lh, px, l, t.color.text);
+        }
+    };
+    let panel = Rect { x: r.x + inset, y: r.y + inset, w: r.w - 2.0 * inset, h: r.h - 2.0 * inset };
+    if i != 1 {
+        ground(d, t, "panel", panel, t.size.radius * 2.0);
+        let before = d.halo_state();
+        d.halo(t.color.ring());
+        words(d, panel.x + t.size.pad, panel.y + t.size.pad * 0.6, &["Panel", "voice crow-fox", "lens 70 mm", "nave · rig"]);
+        d.restore_halo(before);
+    }
+    if i >= 1 {
+        let at = if i == 1 { (panel.x, panel.y) } else { (panel.x + panel.w * 0.4, panel.y + t.size.pad * 1.6) };
+        let mw = if i == 1 { panel.w } else { panel.w * 0.6 };
+        controls::menu(d, t, at, mw, &["Night", "Day"], &[true, false], AWAY);
     }
 }
 
@@ -390,7 +427,7 @@ mod tests {
                 }
             }
             let texts = d.texts();
-            for name in ["PillTab", "Button primary", "Toggle", "MenuItem", "Panel head", "Signals", "Spore", "Cable"] {
+            for name in ["PillTab", "Button primary", "Toggle", "MenuItem", "Panel head", "Panel · popover", "Signals", "Spore", "Cable"] {
                 assert!(texts.contains(&name), "{theme:?}: the row {name}");
             }
         }

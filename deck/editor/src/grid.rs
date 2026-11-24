@@ -168,8 +168,7 @@ impl GridSnap {
         let below = pill.y + pill.h + pad * 0.5;
         let whole = rows * row + 2.0 * pad;
         let top = if below + whole <= room.1 { below } else { (pill.y - pad * 0.5 - whole).max(pad) };
-        ui.round_rect(x, top, w, rows * row + 2.0 * pad, t.size.radius, t.color.surface_head);
-        ui.outline(x, top, w, rows * row + 2.0 * pad, (t.size.radius, 1.0), t.color.line);
+        let halo = controls::popover(ui, t, Rect { x, y: top, w, h: whole }, t.size.radius);
         let (ix, iw) = (x + pad, w - 2.0 * pad);
         let mut y = top + pad;
         let label = |ui: &mut DrawList, y: f32, text: &str| ui.text(ix, y + (row - t.size.font * 1.25) * 0.5, t.size.font, text, t.color.muted);
@@ -215,6 +214,7 @@ impl GridSnap {
         self.fields.push(number(ui, y, "Rotate", Field::Rotate, s.rotate, "°"));
         y += row;
         ui.text(ix, y + (row - t.size.small * 1.25) * 0.5, t.size.small, "Shift / Ctrl: snap the other way", t.color.muted);
+        ui.restore_halo(halo);
     }
 
     /// A press at (`x`, `y`) while the popover is open: a field of it is set or starts a scrub; a press elsewhere closes

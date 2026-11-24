@@ -5,13 +5,15 @@
 	 * The editor's on/off switch: a track with a knob that slides right and fills the track while on – a
 	 * `<button role="switch">`, Space and Enter flip it once per press. Every boolean of a panel is this switch, never a
 	 * checkbox or an on/off segmented control. The row's word is its visible label; `label` names it for assistive
-	 * technology; `words` adds a quiet value after the track where the value has words of its own.
+	 * technology; `words` adds a quiet value after the track where the value has words of its own; `shown` writes the label
+	 * after the track, inside the switch, where no row word stands beside it (a form's ticked line).
 	 */
 	let {
 		on,
 		label,
 		title,
 		words,
+		shown = false,
 		disabled = false,
 		onchange,
 		...rest
@@ -20,9 +22,12 @@
 		label: string;
 		title?: string;
 		words?: readonly [off: string, on: string];
+		shown?: boolean;
 		disabled?: boolean;
 		onchange: (on: boolean) => void;
+		id?: string;
 		'data-kit-state'?: string;
+		'data-testid'?: string;
 	} = $props();
 
 	const keydown = (e: KeyboardEvent) => {
@@ -48,7 +53,7 @@
 	onclick={() => onchange(!on)}
 	onkeydown={keydown}
 	onkeyup={keyup}
-	><span class="track" aria-hidden="true"></span>{#if words}<span class="value" aria-hidden="true">{on ? words[1] : words[0]}</span>{/if}</button
+	><span class="track" aria-hidden="true"></span>{#if shown}<span class="shown" aria-hidden="true">{label}</span>{/if}{#if words}<span class="value" aria-hidden="true">{on ? words[1] : words[0]}</span>{/if}</button
 >
 
 <style>
@@ -56,6 +61,9 @@
 		display: inline-flex;
 		flex: none;
 		align-items: center;
+		justify-content: flex-start;
+		width: fit-content;
+		max-width: 100%;
 		gap: 0.375rem;
 		height: var(--control-height);
 		min-width: var(--control-height);
@@ -122,6 +130,13 @@
 	.switch:disabled {
 		opacity: var(--kit-toggle-disabled-opacity);
 		cursor: not-allowed;
+	}
+	.shown {
+		min-width: 0;
+		overflow: hidden;
+		text-align: start;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.value {
 		color: var(--tool-muted);

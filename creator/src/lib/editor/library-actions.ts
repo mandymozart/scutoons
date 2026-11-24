@@ -9,12 +9,7 @@ import { asset } from '$lib/utils/cdn.ts';
 import { toast } from '$lib/toasts.ts';
 import { m } from '$lib/paraglide/messages.js';
 
-/** why a control is off until the API carries it (the ticket) */
-export const NEEDS = {
-	server: () => m['library.needs_api']({ issue: '#700' })
-};
-
-const reason = (e: unknown) => (e instanceof ApiError && e.status === 403 ? m['library.admin_only']({ issue: '#700' }) : e instanceof Error ? e.message : String(e));
+const reason = (e: unknown) => (e instanceof ApiError && e.status === 403 ? m['library.admin_only']() : e instanceof Error ? e.message : String(e));
 
 /** F2: a new name; every URL and every use stay */
 export async function renameFamily(family: AssetFamily) {
@@ -38,7 +33,7 @@ export async function deleteFamilies(families: AssetFamily[]) {
 			return;
 		}
 		if (check.blocking > 0) {
-			toast(m['library.delete_refused']({ what, count: check.blocking + check.drafts, issue: '#700' }), { type: 'error', kind: 'library' });
+			toast(m['library.delete_refused']({ what, count: check.blocking + check.drafts }), { type: 'error', kind: 'library' });
 			return;
 		}
 		const anyway = await confirmDialog({ title: m['library.delete_used_title'](), message: m['library.delete_used']({ what, count: check.drafts }), confirmLabel: m['library.delete_anyway']() });

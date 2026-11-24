@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		kanonHeadings,
@@ -33,7 +33,7 @@
 	/**
 	 * A Kanon text on the writing page (lap 2 C14; research/KANON.md §5): prose in the reading column, its `## ` sections the
 	 * Outline (a panel, folded at rest), the Facts beside it with Versions; Compare (C14b) sets the source beside the edit
-	 * language. Read-only until the member says they mean to edit, per visit.
+	 * language. Read-only until the member says they mean to edit, per visit; an empty text opens ready to type.
 	 */
 	let { entity, subject, toon, languages, title }: { entity: string; subject: KanonSubject; toon: string; languages: ToonLanguages; title: string } = $props();
 
@@ -79,13 +79,28 @@
 	const current = $derived(outline.filter((h) => h.line <= caret).at(-1) ?? null);
 	const words = $derived(wordCount(text));
 	const translating = $derived(locale !== doc.primary);
-	const showCompare = $derived(comparing && translating && !!script);
+	const showCompare = $derived(comparing && translating);
 
 	function write(next: string) {
-		if (doc.data[locale] && doc.data[locale].text !== next) doc.setLocal(locale, ['text'], next, `script-text:${locale}`);
+		// a translation written beside the source for the first time: its document starts with the first word
+		if (!doc.data[locale]) {
+			if (!next) return;
+			doc.createLocale(locale, () => ({ text: '' }));
+		}
+		if (doc.data[locale].text !== next) doc.setLocal(locale, ['text'], next, `script-text:${locale}`);
 	}
 
 	let editing = $state(false);
+	// an empty text has nothing to guard: it opens ready to type, the caret in the column
+	let focused = false;
+	$effect(() => {
+		if (doc.loading || editing || text.trim() || (!script && !showCompare)) return;
+		untrack(() => {
+			editing = true;
+			if (!focused) void tick().then(() => editor?.focus());
+			focused = true;
+		});
+	});
 	let asking = false;
 	async function requestEdit() {
 		if (editing || asking) return;
@@ -194,7 +209,7 @@
 {/snippet}
 
 <MetaPage {toon} {title} docs={[doc]} {validate} wide help="kanon" beforeSave={flush}>
-	{#if !script}
+	{#if !script && !showCompare}
 		<WritingPage title={title} {sub}>
 			<p class="muted" data-testid="script-missing">{m['creator.kanon_missing_locale']({ locale, source: doc.primary })}</p>
 			<p class="row">
@@ -218,7 +233,7 @@
 				<p class="row"><Button variant="quiet" onclick={startWithHeadings} data-testid="kanon-start-headings">{m['creator.kanon_start_headings']()}</Button></p>
 			{/if}
 			{#key locale}
-				<ProseEditor bind:this={editor} {text} readonly={!editing} label={m['creator.kanon_editor_label']({ locale })} lang={locale} onchange={write} onlockedkey={lockedKey} oncaret={(l) => (caret = l)} />
+				<ProseEditor bind:this={editor} {text} readonly={!editing} label={m['creator.kanon_editor_label']({ locale })} lang={locale} placeholder={m['creator.kanon_placeholder']()} onchange={write} onlockedkey={lockedKey} oncaret={(l) => (caret = l)} />
 			{/key}
 		</WritingPage>
 	{/if}

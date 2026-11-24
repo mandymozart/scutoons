@@ -17,7 +17,8 @@ pub type Rgba = [f32; 4];
 pub struct Colors {
     /// behind the stage
     pub stage: Rgba,
-    /// the stage colour, opaque: at `panel_opacity` the ground of a panel, the bar, a menu, a popover; opaque the ink ring
+    /// the stage colour, opaque: at `panel_opacity` the ground of a panel and the bar, at `popover_opacity` of a menu, a
+    /// popover, a dialog's box; opaque the ink ring
     pub surface: Rgba,
     pub surface_head: Rgba,
     pub line: Rgba,
@@ -53,6 +54,8 @@ pub struct Colors {
     pub colorblind: Status,
     /// how much a surface's ground covers the stage behind it (0..1)
     pub panel_opacity: f32,
+    /// the same for what lies over a panel – a menu, a picker, a dialog's box: stronger, still see-through (0..1)
+    pub popover_opacity: f32,
     /// a surface's text and icons get the surface's colour, opaque, as an outline (`DrawList::halo`), so they read over any
     /// stage (no blur: it is heavy on the GPU); without it the see-through ground alone has to hold them
     pub ink_ring: bool,
@@ -131,9 +134,14 @@ impl Colors {
         self.ink_ring.then_some(self.surface)
     }
 
-    /// the see-through ground of every surface: a panel, the bar, a card, a menu, a popover
+    /// the see-through ground of a surface: a panel, the bar, a card, the status pill
     pub fn panel(&self) -> Rgba {
         alpha(self.surface, self.panel_opacity.clamp(0.0, 1.0))
+    }
+
+    /// the see-through ground of what lies over a panel: a menu, a popover, a picker, the typeahead, a dialog's box
+    pub fn popover(&self) -> Rgba {
+        alpha(self.surface, self.popover_opacity.clamp(0.0, 1.0))
     }
 
     /// the colour of the group at `i`, round the six
@@ -433,7 +441,8 @@ fn paint(c: &Colors, v: &str) -> Result<Option<Rgba>, String> {
     };
     let base = match name {
         "none" => return Ok(None),
-        "panel" | "popover" => c.panel(),
+        "panel" => c.panel(),
+        "popover" => c.popover(),
         "surface" => c.surface,
         "surface_head" => c.surface_head,
         "line" => c.line,
@@ -647,7 +656,9 @@ mod tests {
             assert_eq!(t.kit("tab", "hover").border, Some(c.line));
             assert_eq!(t.kit("button_primary", "rest").ground, Some(c.pressed), "the primary is the pressed fill");
             assert_eq!(t.kit("toggle", "on").ground, Some(c.pressed), "no green switch");
-            assert_eq!(t.kit("menu", "rest").ground, Some(c.panel()));
+            assert_eq!(t.kit("menu", "rest").ground, Some(c.popover()), "a menu on the popover ground");
+            assert_eq!(t.kit("overlay", "box").ground, Some(c.popover()), "a dialog's box too");
+            assert_eq!(t.kit("panel", "rest").ground, Some(c.panel()));
             assert_eq!(t.kit("tab", "disabled").text, Some(c.muted), "a state is over its rest");
             assert_eq!(t.kit("chip", "ok").border, Some(c.go));
             assert_eq!(t.color.signals.job, c.warn);
@@ -662,6 +673,8 @@ mod tests {
             let c = Colors::of(theme);
             assert_eq!(c.surface[3], 1.0);
             assert!(c.panel()[3] < 1.0, "{theme:?}: the stage shows through");
+            // a menu over a panel: stronger, so the panel's words under it do not mix in, and still see-through (H15)
+            assert!(c.panel()[3] < c.popover()[3] && c.popover()[3] < 1.0, "{theme:?}: {} < {} < 1", c.panel()[3], c.popover()[3]);
             for g in [c.control, c.hover, c.selected, c.within, c.surface_head] {
                 assert!(g[3] < 0.5 && g[..3] == c.text[..3], "{theme:?}: {g:?}");
             }

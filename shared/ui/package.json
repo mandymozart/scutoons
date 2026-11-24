@@ -35,7 +35,7 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/timeline.test.ts test/floats.test.ts test/panel-tabs.test.ts test/stage.test.ts test/gestures.test.ts test/tool-groups.test.ts test/core-units.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/timeline.test.ts test/floats.test.ts test/panel-tabs.test.ts test/stage.test.ts test/gestures.test.ts test/tool-groups.test.ts test/core-units.test.ts test/date-text.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/tokens": "*",

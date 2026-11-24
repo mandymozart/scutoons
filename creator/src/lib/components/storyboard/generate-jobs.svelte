@@ -79,7 +79,7 @@
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
-	/* the house bar (@scutoons/ui BulkProgress: ink on paper in an ink frame); nothing reported yet = the empty frame */
+	/* the kit's bar: the pressed fill in a rounded line frame; nothing reported yet = the empty frame */
 	progress {
 		display: block;
 		box-sizing: border-box;
@@ -87,7 +87,8 @@
 		height: 1rem;
 		appearance: none;
 		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: 0;
+		border-radius: var(--editor-radius);
+		overflow: hidden;
 		background: var(--tool-head);
 		color: var(--tool-text);
 	}

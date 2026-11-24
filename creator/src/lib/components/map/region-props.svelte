@@ -2,7 +2,7 @@
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { regionBrush } from '$lib/editor/region-brush.svelte.ts';
 	import { Icon } from '@scutoons/ui';
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Slider } from '@scutoons/ui/editor';
 	import { BRUSH_MAX, BRUSH_MIN, MAP_SOURCE_LANGUAGE, mapName, runsSize, slugId, type LocaleText, type MapRegion } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -87,7 +87,7 @@
 		</div>
 		{#if painting}
 			<label class="field"><span>{m['creator.map_brush_size']()} · {regionBrush.size}</span>
-				<input type="range" min={BRUSH_MIN} max={BRUSH_MAX} step="1" bind:value={regionBrush.size} data-testid="region-brush-size" />
+				<Slider min={BRUSH_MIN} max={BRUSH_MAX} step={1} label={m['creator.map_brush_size']()} bind:value={regionBrush.size} data-testid="region-brush-size" />
 			</label>
 		{/if}
 	</fieldset>

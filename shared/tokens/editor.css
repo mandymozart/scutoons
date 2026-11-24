@@ -26,6 +26,9 @@
 	--editor-panel-opacity: 0.85;
 	/* a floating panel's see-through ground (the surface's colour at the panel opacity, no blur) */
 	--editor-panel-ground: rgb(0 0 0 / 0.85);
+	/* a menu's, a popover's, a dialog box's see-through ground: over a panel, stronger than it */
+	--editor-popover-opacity: 0.95;
+	--editor-popover-ground: rgb(0 0 0 / 0.95);
 	/* the ink ring: text and icons on a panel take its ground's colour as an outline (deck-kit DrawList::halo) */
 	--editor-halo: 0 0 2px #000000, 0 0 2px #000000, 0 0 3px #000000;
 	/* what a port, a pin and a cable carries */
@@ -71,6 +74,9 @@
 	--editor-panel-opacity: 0.85;
 	/* a floating panel's see-through ground (the surface's colour at the panel opacity, no blur) */
 	--editor-panel-ground: rgb(255 255 255 / 0.85);
+	/* a menu's, a popover's, a dialog box's see-through ground: over a panel, stronger than it */
+	--editor-popover-opacity: 0.95;
+	--editor-popover-ground: rgb(255 255 255 / 0.95);
 	/* the ink ring: text and icons on a panel take its ground's colour as an outline (deck-kit DrawList::halo) */
 	--editor-halo: none;
 	/* what a port, a pin and a cable carries */

@@ -66,8 +66,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), top: f32, s: &Swit
         let inner = t.size.rem(0.8);
         let bh = inner * 2.0 + t.size.label * 1.8 + n as f32 * row;
         let b = Rect { x: x0, y, w: bw, h: bh };
-        let s_box = t.kit("panel", "rest");
-        d.round_rect(b.x, b.y, b.w, b.h, t.size.radius * 2.0, s_box.ground.unwrap_or(t.color.panel()));
+        let s_box = t.kit("overlay", "box");
+        d.round_rect(b.x, b.y, b.w, b.h, t.size.radius * 2.0, s_box.ground.unwrap_or(t.color.popover()));
         d.outline(b.x, b.y, b.w, b.h, (t.size.radius * 2.0, t.size.edge), s_box.border.unwrap_or(t.color.line));
         controls::label(d, t, b.x + inner, b.y + inner, "Last opened", t.color.muted);
         let mut ly = b.y + inner + t.size.label * 1.8;

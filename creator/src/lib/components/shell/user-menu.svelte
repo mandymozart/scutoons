@@ -10,7 +10,8 @@
 	 */
 	const session = getCreatorSession();
 	const who = $derived(session?.user?.email ?? '');
-	const roles = $derived(session?.roles ?? []);
+	// every account is a member: the head names what the account is beyond that (drawn A5: "ADMIN · CREATOR")
+	const roles = $derived((session?.roles ?? []).filter((r, _, all) => r !== 'member' || all.length === 1));
 	const signOut = () => void session?.logout();
 </script>
 

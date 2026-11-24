@@ -74,8 +74,8 @@
 	<fieldset>
 		<legend>{m['storyboard.gen_attach']()}</legend>
 		<ul>
-			{#if still}<li><button type="button" class="link" onclick={() => download(still).catch(fail)}>{still.file?.split('/').pop() ?? `#${still.id}`}</button> – {m['storyboard.gen_still']()}</li>{/if}
-			{#each gen.characters as c (c.key)}<li><a href={c.url} target="_blank" rel="noreferrer" download>{c.label}</a> – {m['storyboard.gen_characters']()}</li>{/each}
+			{#if still}<li><button type="button" class="link" onclick={() => download(still).catch(fail)}>{still.file?.split('/').pop() ?? `#${still.id}`}</button><span class="kind">{m['storyboard.gen_still']()}</span></li>{/if}
+			{#each gen.characters as c (c.key)}<li><a href={c.url} target="_blank" rel="noreferrer" download>{c.label}</a><span class="kind">{m['storyboard.gen_characters']()}</span></li>{/each}
 		</ul>
 	</fieldset>
 {/if}
@@ -93,11 +93,22 @@
 		margin: 0;
 	}
 	ul {
+		display: grid;
+		gap: var(--space-025);
 		margin: 0;
-		padding-left: var(--space-1);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
+		padding: 0;
+		list-style: none;
 		overflow-wrap: anywhere;
+	}
+	li {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-05);
+		min-width: 0;
+	}
+	.kind {
+		flex: none;
+		color: var(--tool-muted);
 	}
 	.link {
 		all: unset;
@@ -118,6 +129,7 @@
 		padding: var(--space-05);
 		color: var(--tool-muted);
 		border: var(--border-width-regular) dashed var(--tool-line);
+		border-radius: var(--kit-radius-box);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		text-align: center;

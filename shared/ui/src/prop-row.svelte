@@ -4,9 +4,9 @@
 	/**
 	 * One row of a compact inspector (agents/research/EDITOR-INPUTS.md): the tool label (caption, uppercase) in a left
 	 * column, the controls sharing the rest in equal parts (a child with `data-prop-grow="2"` takes two parts; one with
-	 * `data-prop-line` starts its own line under the others, the label stays with the first). Below a
-	 * 22rem wide row the label goes above the controls. The controls are a group named by the label; each control keeps
-	 * its own accessible name (X, Y …).
+	 * `data-prop-line` starts its own line under the others, the label stays with the first). Below a 22rem wide row, or
+	 * inside an element with `data-prop-stack`, the label goes above the controls. The controls are a group named by the
+	 * label; each control keeps its own accessible name (X, Y …).
 	 */
 	let {
 		label,
@@ -80,6 +80,13 @@
 	/* a segmented control that isn't stretched (units, 400 / 700) keeps its own width */
 	.controls > :global(:is([data-prop-fit], .sc-seg:not(.is-stretch))) {
 		flex: none;
+	}
+	/* a panel that stacks its rows (data-prop-stack on it): the label above the controls at any width */
+	:global([data-prop-stack]) .inner {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	:global([data-prop-stack]) .label {
+		min-height: 0;
 	}
 	/* narrower than 22rem (the default 16rem dock panel): the label above, the controls the whole width – a number with
 	   its unit dropdown needs the room (owner 2026-10-18, units per field) */

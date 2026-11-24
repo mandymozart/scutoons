@@ -351,6 +351,32 @@ for (const [file, n] of Object.entries(kitCounts)) {
 	else if (n > (kitBaseline[file] ?? 0)) kitLocal.push(`${file}: ${n} local button / pill / tab rules, the baseline allows ${kitBaseline[file] ?? 0}:\n    ${kitLines[file].join('\n    ')}`);
 }
 const kitShrunk = Object.entries(kitBaseline).filter(([f, n]) => (kitCounts[f] ?? 0) < n).map(([f]) => f);
+// no raw controls in the tools (#890, RULES H12): a switch is the kit's Toggle, a range its Slider, a date its Field
+// (type="date"), a select its Select – no native checkbox, range, date / time input or <select> in the creator's or
+// the shared tools' markup. The baseline is empty; RAW_CONTROL_HOME names the kit's own components (the native element
+// under the kit's look) and what may stay, each with its reason.
+const RAW_CONTROL_DIRS = ['creator/src', 'shared/ui/src', 'shared/media/src'];
+const RAW_CONTROL_HOME = {
+	'shared/ui/src/editor/slider.svelte': 'the kit Slider: a native range under the kit look',
+	'shared/ui/src/editor/select.svelte': 'the kit Select: a native select under the kit look',
+	'shared/ui/src/prop-select.svelte': 'the inspector row select (PropRow), its own look',
+	'shared/ui/src/scrub-number.svelte': "the number field's unit select",
+	'shared/ui/src/data-table.svelte': "the admin's table selection (tri-state: all, some, none), the admin is not on the kit yet (RULES H9)"
+};
+const RAW_CONTROL = /<select\b|\btype=["']?(checkbox|range|date|datetime-local|time|month|week)\b/g;
+const rawControls = [];
+for (const file of RAW_CONTROL_DIRS.flatMap(walk).filter((f) => f.endsWith('.svelte'))) {
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	if (RAW_CONTROL_HOME[name]) continue;
+	// markup only: the script and style blocks blanked (a querySelector or a CSS selector is not a control), lines kept
+	const markup = readFileSync(file, 'utf8').replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, (m) => m.replace(/[^\n]/g, ' '));
+	for (const hit of markup.matchAll(RAW_CONTROL)) {
+		// a type attribute counts on an <input> only (a component's own `type` prop – LocaleText type="date" – is its business)
+		if (hit[1] && !/<input\b[^<]*$/.test(markup.slice(Math.max(0, hit.index - 600), hit.index))) continue;
+		const lineNo = markup.slice(0, hit.index).split('\n').length;
+		rawControls.push(`${name}:${lineNo}: ${hit[1] ? `input type="${hit[1]}"` : '<select>'}`);
+	}
+}
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
 const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
@@ -383,7 +409,8 @@ if (sideBars.length) console.error(`side bars: ${sideBars.length} thick left / s
 if (colours.length) console.error(`colours: ${colours.length} outside the deck editor's scheme (owner 2026-11-24, RULES H11: every colour through the --tool-* tokens of shared/tokens/tool-colours.css; no literal colours, no grey ground behind content on the stage; an exception goes into COLOUR_ALLOW with its reason):\n  ${colours.join('\n  ')}`);
 if (kitLocal.length) console.error(`ui kit: ${kitLocal.length} local button / pill / tab styling outside @scutoons/ui (owner 2026-11-24, RULES H12: one UI kit, the deck editor its source of truth – use the kit's Button / IconButton / Pill / PillTab / Menu / MenuItem / ListRow / Tile; the shell and the kit page are clean, the other files may not grow past scripts/tools-kit-baseline.json; \`kit-ok\` + the reason exempts a line):\n  ${kitLocal.join('\n  ')}`);
 if (kitShrunk.length && !flag('--kit-baseline')) console.log(`ui kit: ${kitShrunk.length} files got cleaner than the baseline – shrink it: node scripts/check-tools-ui.mjs --static --kit-baseline`);
-if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || blurs.length || colours.length || kitLocal.length) && !flag('--browser-only')) process.exit(1);
+if (rawControls.length) console.error(`raw controls: ${rawControls.length} native checkbox / range / date / select in the tools (#890, RULES H12: the kit's Toggle, Slider, Field type="date", Select from @scutoons/ui/editor; the kit's own components are named in RAW_CONTROL_HOME):\n  ${rawControls.join('\n  ')}`);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length || sideBars.length || blurs.length || colours.length || kitLocal.length || rawControls.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
@@ -391,6 +418,7 @@ console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local fi
 console.log('side bars: no thick left / start rules – ok');
 console.log('blur: on the overlay level only – ok');
 console.log('colours: the --tool-* tokens only, no literals, no grey grounds – ok');
+console.log('raw controls: no native checkbox, range, date or select in the tools – ok');
 console.log(`ui kit: the shell on the kit, ${Object.values(kitCounts).reduce((a, b) => a + b, 0)} local button / pill / tab rules left in ${Object.keys(kitCounts).length} area files (the baseline) – ok`);
 // the kit's tokens (kit/tokens.toml → shared/tokens/editor.css): a stale or hand-edited editor.css fails here too, so
 // check:tools-css covers it without a second script in package.json

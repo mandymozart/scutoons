@@ -13,6 +13,7 @@ test('reads both looks with the same roles, the tables and the sizes from kit/to
 	assert.equal(t.day.colors.selected, '#17191629', 'a selected item: text at 16 %');
 	assert.equal(t.night.panelOpacity, 0.85);
 	assert.equal(t.day.panelOpacity, 0.85, 'one strength for both looks');
+	for (const l of [t.day, t.night]) assert.ok(l.popoverOpacity > l.panelOpacity && l.popoverOpacity < 1, 'a popover covers more than a panel, still see-through');
 	assert.equal(t.night.inkRing, true);
 	assert.equal(t.day.inkRing, false);
 	assert.deepEqual(Object.keys(t.night.signals), ['event', 'control', 'clock', 'audio', 'picture', 'address', 'vote', 'scene', 'far']);
@@ -36,6 +37,7 @@ test('night is the default, day the variant; sizes in rem, base and edge in px',
 	const night = css.slice(css.indexOf(":root,\n[data-theme='night']"), css.indexOf("[data-theme='day']"));
 	assert.match(night, /--editor-surface: #000000;/);
 	assert.match(night, /--editor-panel-ground: rgb\(0 0 0 \/ 0\.85\);/);
+	assert.match(night, /--editor-popover-ground: rgb\(0 0 0 \/ 0\.95\);/);
 	assert.match(night, /--editor-halo: 0 0 2px #000000,/);
 	assert.match(night, /--signal-audio: #19b8d8;/);
 	assert.match(night, /--outlet-device: #f2df6f;/);
@@ -58,6 +60,7 @@ test('the reader refuses what the kit file must not hold', () => {
 	assert.throws(() => parse(toml.replace('go = "#56b4e9"', 'go = "blue"')), /not #rrggbb/);
 	assert.throws(() => parse(toml.replace('surface = "#000000"', 'surface = "#000000d9"')), /surface is opaque/);
 	assert.throws(() => parse(toml.replace('hover = "#1719161a"', 'hover = "#e4e8dcff"')), /hover is an opaque ground/);
+	assert.throws(() => parse(toml.replace('popover_opacity = 0.95', 'popover_opacity = 1')), /popover_opacity 1: the stage shows through/);
 	assert.throws(() => parse(toml.replace('[day.signals]\nevent = "#22271e"\n', '[day.signals]\n')), /day and night differ in their signals/);
 	assert.throws(() => parseToml('[a]\nx = 1\nx = 2\n'), /x twice/);
 	assert.deepEqual(parseToml('[a.b] # c\nx = ["#000000", # one\n  "#ffffff"]\n')['a.b'], { x: ['#000000', '#ffffff'] });

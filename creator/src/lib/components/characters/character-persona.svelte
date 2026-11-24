@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
+	import { Slider } from '@scutoons/ui/editor';
 	import type { CharacterPersona, RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editPersona } from '$lib/editor/characters.ts';
@@ -41,7 +42,7 @@
 <label class="persona-color">
 	{m['creator.characters_persona_testo']()} {persona.testo ?? character.testo ?? '–'}
 	<span class="inline">
-		<input type="range" min="0" max="100" step="1" value={persona.testo ?? character.testo ?? 50} oninput={(e) => { const v = Number(e.currentTarget.value); change((p) => { p.testo = v; }, 'testo'); }} data-testid="persona-testo" />
+		<Slider min={0} max={100} step={1} label={m['creator.characters_persona_testo']()} value={persona.testo ?? character.testo ?? 50} oninput={(v) => change((p) => { p.testo = v; }, 'testo')} data-testid="persona-testo" />
 		<button type="button" class="ghost" disabled={persona.testo === undefined} onclick={() => change((p) => { delete p.testo; }, 'testo')} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
 	</span>
 </label>

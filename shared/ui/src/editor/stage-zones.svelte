@@ -84,9 +84,6 @@
 			width var(--motion-base) var(--motion-ease),
 			height var(--motion-base) var(--motion-ease);
 	}
-	.lands.full {
-		border-radius: 0;
-	}
 	.label {
 		padding: 0.3rem 0.8rem;
 		border: var(--editor-edge) solid var(--kit-drop-on-border);

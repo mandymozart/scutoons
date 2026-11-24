@@ -2,6 +2,7 @@
 	import { HEX, brandPalette, hexToHsv, hsvToHex, longHex, recentColours, type Hsv } from './colour.ts';
 	import { uiLabels } from './ui-labels.ts';
 	import Icon from './icon.svelte';
+	import Slider from './editor/slider.svelte';
 	import { untrack } from 'svelte';
 
 	/**
@@ -139,7 +140,7 @@
 	>
 		<span class="dot" style:left="{hsv.s * 100}%" style:top="{(1 - hsv.v) * 100}%"></span>
 	</div>
-	<input class="hue" type="range" min="0" max="359" step="1" aria-label={t('hue')} value={Math.round(hsv.h)} oninput={(e) => set({ h: Number(e.currentTarget.value) })} />
+	<span class="hue"><Slider min={0} max={359} step={1} fill={false} label={t('hue')} value={Math.round(hsv.h)} oninput={(h) => set({ h })} /></span>
 	<div class="hex-row">
 		{#if oneyedropper}
 			<button type="button" class="eyedropper" aria-label={eyedropperLabel ?? t('eyedropper')} title={eyedropperLabel ?? t('eyedropper')} onclick={oneyedropper} data-testid="colour-eyedropper">
@@ -203,29 +204,12 @@
 		outline: var(--border-width-hairline) solid var(--ink);
 		pointer-events: none;
 	}
+	/* the kit's Slider on the hue's own track */
 	.hue {
-		appearance: none;
-		width: 100%;
-		height: 1rem;
-		margin: 0;
-		border: var(--border-width-regular) solid var(--ink);
-		background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
-		cursor: pointer;
-	}
-	.hue::-webkit-slider-thumb {
-		appearance: none;
-		width: 0.5rem;
-		height: 1.25rem;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-	}
-	.hue::-moz-range-thumb {
-		box-sizing: border-box;
-		width: 0.5rem;
-		height: 1.25rem;
-		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
-		background: var(--paper);
+		display: flex;
+		--slider-length: 100%;
+		--slider-thickness: 0.5rem;
+		--slider-ground: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 	}
 	.hex-row {
 		display: flex;

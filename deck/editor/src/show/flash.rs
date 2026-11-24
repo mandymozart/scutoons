@@ -285,7 +285,7 @@ pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect,
     let lh = font * 1.5;
     let h = pad * 3.0 + font * 1.8 + p.lines.len() as f32 * lh + row + pad;
     let (x, y) = (a.x + (a.w - w) * 0.5, a.y + ((a.h - h) * 0.4).max(pad));
-    d.round_rect(x, y, w, h, t.size.radius, t.color.panel());
+    d.round_rect(x, y, w, h, t.size.radius, t.color.popover());
     d.outline(x, y, w, h, (t.size.radius, 1.0), if p.warn { t.color.warn } else { t.color.line });
     d.text(x + pad, y + pad, font * 1.15, &controls::fit(&p.title, ((w - 2.0 * pad) / d.advance(font * 1.15)).max(0.0) as usize), t.color.text);
     let mut ly = y + pad + font * 1.8 + pad * 0.5;

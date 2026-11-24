@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Field } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import { LENGTH_WARNING_RATIO, textOf } from '@scutoons/content';
@@ -92,7 +93,7 @@
 						testid="text-{locale}"
 					/>
 				{:else if type === 'date'}
-					<input type="date" value={display(value)} oninput={(e) => update(locale, e.currentTarget.value)} data-testid="{path.join('-')}-{locale}" />
+					<Field bare type="date" {label} value={display(value)} ondate={(day) => update(locale, day)} data-testid="{path.join('-')}-{locale}" />
 				{:else if multiline}
 					<textarea
 						{rows}
