@@ -2385,6 +2385,8 @@
 		"tab_list": "Alle Tabs",
 		"text_language": "Textsprache",
 		"theme": "Farbschema",
+		"colorblind": "Farben bei Farbfehlsicht",
+		"colorblind_hint": "Ok, Warnung und Fehler in Farben, die auch bei Rot-Grün-Schwäche unterscheidbar bleiben: Blau, Gelb, Zinnoberrot",
 		"this_item": "dieses Element",
 		"this_machine": "dieses Gerät",
 		"ui_size": "UI-Größe (1rem)",

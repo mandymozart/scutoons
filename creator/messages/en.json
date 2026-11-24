@@ -2385,6 +2385,8 @@
 		"tab_list": "All tabs",
 		"text_language": "Text language",
 		"theme": "Theme",
+		"colorblind": "Colour-blind colours",
+		"colorblind_hint": "Ok, warning and error in colours that stay apart with red–green colour blindness: blue, yellow, vermillion",
 		"this_item": "this item",
 		"this_machine": "this machine",
 		"ui_size": "UI size (1rem)",
