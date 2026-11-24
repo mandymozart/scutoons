@@ -1,30 +1,40 @@
-//! The library (owner 2026-11-16 [design]): one list of what can be found, dragged and opened – modules, instruments,
-//! the catalog's characters, items and places, scenes, the toon's assets – each with the preview its content asks for,
-//! and the one rule of what a query, a kind and "related" leave. The editor's browser (deck-kit `library`) only draws it.
+//! The library (owner 2026-11-16 [design]): one list of what can be found, dragged and opened – things and files, each
+//! with the preview its content asks for, and the one rule of what a query, a kind and "related" leave. The editor's
+//! browser (deck-kit `library`) only draws it.
 //!
-//! The toon's assets (#698, one Library for the creator and the deck editor): `family` – the files of one asset as one
-//! family with its versions and frames –, `shelf` – the scope by what the open item uses, the groups, the sort, the
-//! places, what a slot takes, the selection – and its JSON for the wasm bridge.
+//! What the list holds is the server's answer (`served`: GET /api/library, its kinds, names and pictures – one Library for
+//! the creator and the deck). The toon's files: `family` – the files of one asset as one family with its versions and
+//! frames –, `shelf` – what a slot takes, the selection, where an upload lands, and the creator's view – and its JSON for
+//! the wasm bridge.
 use crate::{Descriptor, Dir, Domain, PortType};
 use serde::Serialize;
 use serde_json::Value;
 
 pub mod family;
 pub mod open;
+pub mod served;
 pub mod shelf;
 #[cfg(test)]
 mod asset_tests;
 
-/// what an entry is
+/// what an entry is: a thing (the server's ThingType) or a file (its FileKind), in the Library's order
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Kind {
+    Toon,
+    Character,
+    Scene,
+    Show,
+    Place,
+    Item,
     Module,
     Instrument,
     Rig,
-    Scene,
-    Character,
-    Item,
-    Place,
+    /// the storyboard's providers
+    Generator,
+    /// a Kanon text (one per text and language)
+    Kanon,
+    /// a person named in credits
+    Person,
     Image,
     Audio,
     Video,
@@ -35,18 +45,42 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub const ALL: [Kind; 13] = [Kind::Module, Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Character, Kind::Item, Kind::Place, Kind::Image, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation, Kind::File];
+    pub const ALL: [Kind; 18] = [
+        Kind::Toon,
+        Kind::Character,
+        Kind::Scene,
+        Kind::Show,
+        Kind::Place,
+        Kind::Item,
+        Kind::Module,
+        Kind::Instrument,
+        Kind::Rig,
+        Kind::Generator,
+        Kind::Kanon,
+        Kind::Person,
+        Kind::Image,
+        Kind::Audio,
+        Kind::Video,
+        Kind::Model,
+        Kind::Animation,
+        Kind::File,
+    ];
 
     /// its facet's word
     pub fn word(self) -> &'static str {
         match self {
+            Kind::Toon => "toons",
+            Kind::Character => "characters",
+            Kind::Scene => "scenes",
+            Kind::Show => "shows",
+            Kind::Place => "places",
+            Kind::Item => "items",
             Kind::Module => "modules",
             Kind::Instrument => "instruments",
             Kind::Rig => "rigs",
-            Kind::Scene => "scenes",
-            Kind::Character => "characters",
-            Kind::Item => "items",
-            Kind::Place => "places",
+            Kind::Generator => "generators",
+            Kind::Kanon => "Kanon texts",
+            Kind::Person => "people",
             Kind::Image => "images",
             Kind::Audio => "audio",
             Kind::Video => "video",
@@ -56,16 +90,21 @@ impl Kind {
         }
     }
 
-    /// its id on the wire (the web Library's)
+    /// its id on the wire (the server's ThingType or FileKind)
     pub fn id(self) -> &'static str {
         match self {
+            Kind::Toon => "toon",
+            Kind::Character => "character",
+            Kind::Scene => "scene",
+            Kind::Show => "show",
+            Kind::Place => "place",
+            Kind::Item => "item",
             Kind::Module => "module",
             Kind::Instrument => "instrument",
             Kind::Rig => "rig",
-            Kind::Scene => "scene",
-            Kind::Character => "character",
-            Kind::Item => "item",
-            Kind::Place => "place",
+            Kind::Generator => "generator",
+            Kind::Kanon => "kanon",
+            Kind::Person => "person",
             Kind::Image => "image",
             Kind::Audio => "audio",
             Kind::Video => "video",
@@ -75,7 +114,7 @@ impl Kind {
         }
     }
 
-    /// a toon's file (what the shelf's families hold), not a catalog thing
+    /// a toon's file (what the shelf's families hold), not a thing
     pub fn is_file(self) -> bool {
         matches!(self, Kind::Image | Kind::Audio | Kind::Video | Kind::Model | Kind::Animation | Kind::File)
     }
@@ -87,13 +126,18 @@ impl Kind {
     /// the kit's icon for it
     pub fn icon(self) -> &'static str {
         match self {
+            Kind::Toon => "book",
+            Kind::Character => "users",
+            Kind::Scene => "layers",
+            Kind::Show => "play",
+            Kind::Place => "globe",
+            Kind::Item => "package",
             Kind::Module => "code",
             Kind::Instrument => "sliders",
             Kind::Rig => "tree",
-            Kind::Scene => "layers",
-            Kind::Character => "users",
-            Kind::Item => "package",
-            Kind::Place => "globe",
+            Kind::Generator => "bolt",
+            Kind::Kanon => "type",
+            Kind::Person => "user",
             Kind::Image => "image",
             Kind::Audio => "activity",
             Kind::Video => "video",
@@ -217,6 +261,14 @@ impl Purpose {
 }
 
 impl Entry {
+    /// a file's path (`image:cat/a.webp` → `cat/a.webp`); a thing: its address
+    pub fn path(&self) -> &str {
+        match self.address.split_once(':') {
+            Some((kind, path)) if self.kind.is_file() && kind == self.kind.id() => path,
+            _ => &self.address,
+        }
+    }
+
     /// made for `character` (`catpope`, a persona `catpope.biker`; a reference `character:catpope` too) by the
     /// descriptor's rule
     pub fn related_to(&self, character: &str) -> bool {
@@ -329,43 +381,6 @@ pub fn module(e: &Value) -> Option<Entry> {
     Some(Entry { address: format!("module:{id}"), label: id.to_string(), detail, kind: Kind::Module, preview, made_for })
 }
 
-/// `GET /api/assets`'s answer (`items`, `cdn`): each asset by its kind, an image's preview its smallest picture
-pub fn assets(text: &str) -> Result<Vec<Entry>, String> {
-    let v: Value = serde_json::from_str(text).map_err(|e| format!("the assets' answer: {e}"))?;
-    let cdn = v["cdn"].as_str().unwrap_or("").trim_end_matches('/').to_string();
-    let list = v["items"].as_array().ok_or("the assets' answer has no items")?;
-    Ok(list.iter().filter_map(|a| asset(a, &cdn)).collect())
-}
-
-fn asset(a: &Value, cdn: &str) -> Option<Entry> {
-    let path = a["path"].as_str()?;
-    let kind = match a["kind"].as_str()? {
-        "image" => Kind::Image,
-        "audio" => Kind::Audio,
-        "video" => Kind::Video,
-        "model" => Kind::Model,
-        "animation" => Kind::Animation,
-        _ => Kind::File,
-    };
-    let url = |p: &str| if cdn.is_empty() { p.to_string() } else { format!("{cdn}/{}", p.trim_start_matches('/')) };
-    let smallest = a["renditions"].as_array().and_then(|r| {
-        r.iter().filter(|x| x["mime"].as_str().is_some_and(|m| m.starts_with("image/"))).min_by_key(|x| x["width"].as_u64().unwrap_or(u64::MAX)).and_then(|x| x["path"].as_str())
-    });
-    let preview = match (kind, smallest) {
-        (Kind::Image | Kind::Video, Some(p)) => Preview::Picture { url: url(p) },
-        (Kind::Image, None) => Preview::Picture { url: url(path) },
-        (Kind::Model, _) => Preview::Still { key: format!("asset:{path}") },
-        _ => Preview::Kind,
-    };
-    let detail = match (a["width"].as_u64(), a["height"].as_u64(), a["duration"].as_f64()) {
-        (_, _, Some(s)) => format!("{s:.1} s"),
-        (Some(w), Some(h), _) => format!("{w} × {h}"),
-        _ => a["folder"].as_str().unwrap_or("").to_string(),
-    };
-    let label = a["title"].as_str().filter(|t| !t.is_empty()).or_else(|| a["slug"].as_str()).unwrap_or(path).to_string();
-    Some(Entry { address: path.to_string(), label, detail, kind, preview, made_for: Vec::new() })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,7 +424,7 @@ mod tests {
         assert_eq!(find(&list, &Filter { related: Some("catpope.biker".into()), ..Filter::default() }), [0], "a persona of a character it names");
         assert_eq!(find(&list, &Filter { related: Some("yellow_mouse.kid".into()), ..Filter::default() }), [1], "the persona it names");
         assert_eq!(find(&list, &Filter { related: Some("yellow_mouse".into()), ..Filter::default() }), Vec::<usize>::new(), "not the whole character");
-        assert_eq!(facets(&list), [(Kind::Module, 3), (Kind::Scene, 1)]);
+        assert_eq!(facets(&list), [(Kind::Scene, 1), (Kind::Module, 3)], "the Library's order: things by type");
     }
 
     #[test]
@@ -429,7 +444,7 @@ mod tests {
     }
 
     #[test]
-    fn the_catalogs_modules_and_the_assets_become_entries() {
+    fn the_catalogs_modules_become_entries() {
         let modules_answer = json!({ "entries": [
             { "id": "walk", "factory": true, "content": { "descriptor": { "name": "walk", "ports": [{ "name": "out", "dir": "out", "type": "audio" }] } } },
             { "id": "gone", "removed": true, "content": {} },
@@ -438,15 +453,5 @@ mod tests {
         let m = modules(&modules_answer.to_string()).unwrap();
         assert_eq!(m.iter().map(|e| (e.address.as_str(), e.detail.as_str())).collect::<Vec<_>>(), [("module:walk", "factory · sound"), ("module:torso", "draft · draws")]);
         assert!(m[1].related_to("catpope"));
-        let assets_answer = json!({ "cdn": "https://cdn.example/", "items": [
-            { "path": "a/cat.webp", "kind": "image", "title": "Cat", "width": 2340, "height": 3744, "renditions": [{ "path": "a/cat.webp", "mime": "image/webp", "width": 2340 }, { "path": "a/cat.small.webp", "mime": "image/webp", "width": 390 }] },
-            { "path": "a/bell.ogg", "kind": "audio", "slug": "bell", "duration": 2.25 },
-            { "path": "a/torso.glb", "kind": "model", "slug": "torso" },
-        ] });
-        let a = assets(&assets_answer.to_string()).unwrap();
-        assert_eq!(a[0].preview, Preview::Picture { url: "https://cdn.example/a/cat.small.webp".into() }, "the smallest picture");
-        assert_eq!((a[0].label.as_str(), a[0].detail.as_str()), ("Cat", "2340 × 3744"));
-        assert_eq!((a[1].kind, a[1].label.as_str(), a[1].detail.as_str(), &a[1].preview), (Kind::Audio, "bell", "2.2 s", &Preview::Kind));
-        assert_eq!(a[2].preview, Preview::Still { key: "asset:a/torso.glb".into() });
     }
 }

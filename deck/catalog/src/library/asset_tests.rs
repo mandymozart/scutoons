@@ -61,7 +61,7 @@ fn chapter_one() -> Shelf {
 }
 
 fn q(scope: Scope) -> Query {
-    Query { scope, now_ms: epoch_ms(NOW).unwrap(), ..Query::default() }
+    Query { scope, ..Query::default() }
 }
 
 #[test]
@@ -114,13 +114,10 @@ fn the_expected_versions_follow_the_kind_and_place() {
 }
 
 #[test]
-fn previews_take_the_decks_rule_and_a_family_is_a_deck_entry() {
+fn previews_and_who_a_family_is_made_for() {
     let list = families(&[asset("characters/catpope/catpope-regular", "model", vec![file("characters/catpope/catpope-regular.glb", json!({}))], json!({}))]);
     assert_eq!(list[0].preview, Preview::Still { key: "asset:characters/catpope/catpope-regular.glb".into() });
-    assert_eq!(list[0].made_for, ["catpope"]);
-    let e = list[0].entry();
-    assert_eq!((e.address.as_str(), e.kind), ("characters/catpope/catpope-regular.glb", Kind::Model));
-    assert!(e.related_to("catpope.biker"), "the deck's related rule");
+    assert_eq!((list[0].made_for.as_slice(), list[0].kind), (["catpope".to_string()].as_slice(), Kind::Model));
     let f = fam();
     assert_eq!(by_name(&f, "s1c1-slice-10").preview, Preview::Picture { url: "catpope/s1/c1/s1c1-slice-10.webp".into() });
     assert_eq!(by_name(&f, "s1c1-bells").preview, Preview::Kind);
@@ -247,16 +244,13 @@ fn the_sorts_natural_newest_biggest_most_used() {
 }
 
 #[test]
-fn the_places_recent_credits_and_items() {
+fn the_places_credits_and_items() {
     let s = chapter_one();
     let v = s.view(&q(Scope::All));
-    assert_eq!(v.specials.recent, 1, "camera, two days old");
     assert_eq!(v.specials.credits, Some(1));
     assert_eq!(v.specials.missing, 4, "slice 1 of chapter 2, slice 10, the bells, the trailer");
     assert_eq!(s.view(&Query { special: Some(Special::Missing), ..q(Scope::All) }).total, 4);
     assert!(v.specials.items.contains(&("chapter:catpope:1".to_string(), 3)), "{:?}", v.specials.items);
-    let recent = s.view(&Query { special: Some(Special::Recent), ..q(Scope::All) });
-    assert_eq!(recent.order, ["scutoons/items/camera"]);
     let item = s.view(&Query { special: Some(Special::Item("character:catpope".into())), ..q(Scope::All) });
     assert_eq!(item.total, 2);
     assert_eq!(s.view(&Query { origin: Some(Origin::Generated), ..q(Scope::All) }).order, ["scutoons/items/camera"]);
@@ -341,15 +335,23 @@ fn the_wire_takes_and_gives_json() {
     assert_eq!(family::kind_of_asset("archive"), Kind::File);
 }
 
+/// the shelf's kind of a registry asset is the server's (server/schema/api/library.vectors.json, the file cases every
+/// reader holds to)
 #[test]
-fn a_family_entry_is_served_from_the_cdn_and_found_by_any_version() {
+fn the_registry_kind_is_the_servers_file_kind() {
+    let file: Value = serde_json::from_str(include_str!("../../../../server/schema/api/library.vectors.json")).unwrap();
+    for case in file["cases"].as_array().unwrap() {
+        let kind = family::kind_of_asset(case["asset"]["kind"].as_str().unwrap());
+        assert_eq!(kind.id(), case["expect"]["kind"].as_str().unwrap(), "{}", case["what"]);
+    }
+}
+
+#[test]
+fn a_family_is_found_by_any_version() {
     let shelf = Shelf::new(fam());
     let f = shelf.family_of("catpope/s1/c1/s1c1-slice-2.3x.webp").expect("by a version's path");
     assert_eq!((f.name.as_str(), f.versions.len()), ("s1c1-slice-2", 3));
     assert_eq!(shelf.family_of("catpope/s1/c1/s1c1-slice-2").map(|f| f.versions.len()), Some(3), "by its key");
-    let e = f.entry_on("https://cdn.example/");
-    assert_eq!(e.preview, Preview::Picture { url: "https://cdn.example/catpope/s1/c1/s1c1-slice-2.webp".into() });
-    assert_eq!(f.entry().preview, Preview::Picture { url: "catpope/s1/c1/s1c1-slice-2.webp".into() }, "no cdn: the path");
     assert!(Kind::Image.is_file() && !Kind::Module.is_file());
 }
 
