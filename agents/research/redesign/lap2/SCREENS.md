@@ -68,7 +68,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | D3 | Show | no pill of its own in the bar: Cues, Problems, Who, Session, Vote and Demos are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html `?v=0`, spores-view.html (the draft shows show.html, the Library drawn over it as C12) |
 | D3b | Show · Flash: the same dialog as Publish | opened from the bar beside Publish; on the overlay level: the devices ticked, All · None, "Flash 2", then the confirm, then the report; the words as today | current |
 | D3c | Show · Scene: a dialog | on the overlay level: a new deck scene or a recast – id, stage, the cast from the toon's rigs; saves itself as a draft; the words as today | current |
-| D4 | Module, nothing open | the shared bar, kit look | current |
+| D4 | Module, nothing open | the shared bar, kit look | current; built: the Module workspace is in neither the row nor the switcher – reached only by `--module` (#909) |
 | D4b | **Module, a module open** (new) | never drawn: its Parameters, Problems, the module heard alone on the stage, Derive for a factory module; the code opens in the external editor | words – no capture: a frame and the open point |
 | D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here; the Library as C12 | current |
 | D6 | Rigging | #830 | moved – crafts-v2 `rig` |

@@ -7,7 +7,8 @@
 - Every ground – a control's, a panel's, a menu's, a popover's, a dialog's, a box's, a card's – is see-through, the stage
   showing through; an opaque grey fill does not exist; a grey ground in a draft or a capture is not the reference
   (owner 2026-11-24). The generator refuses an opaque ground.
-- The stage is black by night, white by day.
+- The stage is black by night, white by day – in the creator (`tool-colours.css`); the deck's stage is still black in
+  both looks (`[color] stage`; its white day stage is #906).
 - A panel is the stage colour (`surface`) at one strength (`panel_opacity`); a menu, a popover and a dialog's box lie
   over panels and take a stronger one (`popover_opacity`), with the ink ring – still see-through.
 - A control is the text colour at 6 %, hover 10 %, selected 16 %.
@@ -25,7 +26,8 @@ thumbnails.
 
 - `tokens.toml` – every token of both looks: `[color]` and `[size]` for both, `[day.color]` / `[night.color]` for one
   (deck-kit's field names; colours `"#rrggbb"` or `"#rrggbbaa"`; sizes in rem, `base` and `edge` in px, `spacing` in em),
-  `[day|night.signals]` (the nine signals), `[day|night.outlets]` (page · stage · target · device), `[groups] colors`
+  `[day|night.signals]` (the nine signals a person wires; the deck's job and asset take `warn` and `muted`, set in
+  `tokens.rs`), `[day|night.outlets]` (page · stage · target · device), `[groups] colors`
   (a group's six), `[day|night.colorblind]` (ok / warning / error of the colour-blind mode, replacing `go` `warn` `stop`).
 - Component states: one table per component and state, `[component.<name>.<state>]`, its parts (`text` `ground`
   `border` `ring` `knob` `mark`) naming a token – `"text"`, or `"text 12%"` for the token see-through – `opacity`
@@ -46,7 +48,8 @@ thumbnails.
   `shared/ui/src/editor` draw their states from `kit.css`. `npm run check:tools-css` and `npm run check -w
   @scutoons/tokens` fail when either file is stale or edited by hand.
 - **Deck:** deck-kit builds this file in as its base (`deck/kit/build.rs`, its parser `deck/kit/src/base/tokens.rs`,
-  the states through `Tokens::kit(name, state)`); a test fails on a missing key and on a key the deck does not read. A
+  the states through `Tokens::kit(name, state)`); its tests fail on a missing colour, size, signal, outlet or group key
+  and on a state naming no token – the component tables are free: a state the deck never asks for passes. A
   `tokens.toml` beside the editor overrides it live. A build with only `deck/` in its context hands this folder in as
   `DECK_KIT` (Cross.toml, the Dockerfiles). The deck's kit page: `deck-editor --kit`.
 
