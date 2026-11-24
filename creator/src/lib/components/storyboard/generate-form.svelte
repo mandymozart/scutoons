@@ -7,7 +7,7 @@
 	// start – once, never retried. The gate's 402 is one notice. Luma – by hand: generate-manual.svelte.
 	import { untrack } from 'svelte';
 	import { PropRow, PropSelect, ScrubNumber, confirmDialog } from '@scutoons/ui';
-	import { Button } from '@scutoons/ui/editor';
+	import { Button, Toggle } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { generatorState, inputsOf } from '$lib/editor/storyboard-generate.ts';
@@ -128,10 +128,10 @@
 			<fieldset>
 				<legend title={m['storyboard.gen_characters_hint']()}>{m['storyboard.gen_characters']()}</legend>
 				{#each gen.characters as c (c.key)}
-					<label class="check" title={c.usable ? c.url : m['storyboard.gen_character_http']()}>
-						<input type="checkbox" disabled={!c.usable} checked={gen.form.characters.includes(c.key)} onchange={(e) => gen.toggleCharacter(c.key, e.currentTarget.checked)} />
+					<span class="check" title={c.usable ? c.url : m['storyboard.gen_character_http']()}>
+						<Toggle on={gen.form.characters.includes(c.key)} label={c.label} title={c.usable ? c.label : m['storyboard.gen_character_http']()} disabled={!c.usable} onchange={(on) => gen.toggleCharacter(c.key, on)} />
 						<a href={c.url} target="_blank" rel="noreferrer">{c.label}</a>
-					</label>
+					</span>
 				{/each}
 			</fieldset>
 		{/if}

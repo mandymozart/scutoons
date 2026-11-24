@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ScrubNumber, Section } from '@scutoons/ui/editor';
+	import { ScrubNumber, Section, Toggle } from '@scutoons/ui/editor';
 	import { inspection, type Field, type NodeRef } from '$lib/editor/xr-nodes.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -32,7 +32,7 @@
 						{:else if f.kind === 'color'}
 							<input {id} type="color" value={f.value} oninput={(e) => onedit(f.at, e.currentTarget.value)} data-testid="xr-field-{f.at.join('.')}" />
 						{:else if f.kind === 'bool'}
-							<input {id} type="checkbox" checked={f.value as boolean} onchange={(e) => onedit(f.at, e.currentTarget.checked)} data-testid="xr-field-{f.at.join('.')}" />
+							<span class="bool"><Toggle {id} on={f.value as boolean} label={f.label} onchange={(on) => onedit(f.at, on)} data-testid="xr-field-{f.at.join('.')}" /></span>
 						{:else}
 							<span {id} class="value">{f.value}</span>
 						{/if}
@@ -80,9 +80,8 @@
 		min-width: 0;
 		margin: 0;
 	}
-	input[type='checkbox'] {
-		justify-self: start;
-		margin: 0;
+	.bool {
+		display: flex;
 	}
 	input[type='color'] {
 		justify-self: start;

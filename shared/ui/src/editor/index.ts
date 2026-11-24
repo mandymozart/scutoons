@@ -11,6 +11,7 @@ export { type Arrangement, type DropTarget, type TabSpec } from './panel-tabs.ts
 export { default as Section } from './section.svelte';
 export { sections } from './sections.svelte.ts';
 export { default as Toggle } from './toggle.svelte';
+export { default as Slider } from './slider.svelte';
 export { default as ToolGroup, type ToolGroupOption } from './tool-group.svelte';
 export { default as ToolMenu } from './tool-menu.svelte';
 export { type ToolOption } from './tool-groups.ts';

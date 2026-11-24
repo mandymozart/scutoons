@@ -109,11 +109,6 @@
 		font-size: var(--type-caption-size);
 		font-weight: var(--font-weight-regular);
 	}
-	.props :global(.check) {
-		display: flex;
-		gap: 0.35rem;
-		align-items: center;
-	}
 	.props :global(.hint) {
 		font-size: var(--type-caption-size);
 		color: var(--tool-muted);

@@ -122,7 +122,7 @@
 		const target =
 			((type === 'showMessage' || type === 'askText') && first('textarea')) ||
 			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="cast-character-input"]')) ||
-			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]')].find(
+			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]:not([role="switch"])')].find(
 				(el) => !el.closest('.type-field') && !el.closest('header')
 			);
 		target?.focus();

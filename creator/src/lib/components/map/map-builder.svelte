@@ -33,7 +33,7 @@
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
 	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, choiceDialog } from '@scutoons/ui';
-	import { IconButton, MenuItem, MenuPanel, Pill } from '@scutoons/ui/editor';
+	import { IconButton, MenuItem, MenuPanel, Pill, Toggle } from '@scutoons/ui/editor';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -639,7 +639,7 @@
 		</ul>
 		<!-- a setting of the whole map, with its layers (owner 2026-10-12): the reader's camera stays on the terrain -->
 		{#if doc && map}
-			<label class="check bounded" title={m['creator.map_bounded_hint']()}><input type="checkbox" checked={!!map.bounded} onchange={(e) => { const on = e.currentTarget.checked; editMap(doc!, (w) => { if (on) w.bounded = true; else delete w.bounded; }); }} data-testid="map-bounded" /> {m['creator.map_bounded']()}</label>
+			<span class="bounded"><Toggle shown on={!!map.bounded} label={m['creator.map_bounded']()} title={m['creator.map_bounded_hint']()} onchange={(on) => editMap(doc!, (w) => { if (on) w.bounded = true; else delete w.bounded; })} data-testid="map-bounded" /></span>
 		{/if}
 		</details>
 		<details class="fold" open={!!navOpen.places} ontoggle={(e) => toggleNav('places', e.currentTarget.open)} data-testid="map-nav-places-fold">
@@ -975,8 +975,6 @@
 	}
 	.map-nav .bounded {
 		display: flex;
-		gap: 0.5rem;
-		align-items: center;
 		padding: 0.25rem 1rem 0.5rem;
 		font-size: var(--type-caption-size);
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Toggle } from '@scutoons/ui/editor';
 	import { Icon, Segmented, SortGrip, sortable } from '@scutoons/ui';
 	import { COVER_ALIGNS, COVER_COLORS, COVER_COLOR_VALUES, COVER_LIMITS, COVER_TEXT_SOURCES, type CoverLine } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -95,10 +95,7 @@
 			{:else}
 				<p class="hint">{m['creator.cover_text_hint']()}</p>
 			{/if}
-			<label class="check">
-				<input type="checkbox" checked={line.quotes === true} onchange={(e) => onedit(i, { quotes: e.currentTarget.checked || undefined }, 'cover-quotes')} />
-				<span>{m['creator.cover_quotes']()}</span>
-			</label>
+			<Toggle shown on={line.quotes === true} label={m['creator.cover_quotes']()} onchange={(on) => onedit(i, { quotes: on || undefined }, 'cover-quotes')} />
 			<div class="sc-fields" data-cols="2" data-density="panel">
 				{#each [['x', m['creator.cover_x']()], ['y', m['creator.cover_y']()], ['size', m['creator.cover_size']()], ['maxWidth', m['creator.cover_width']()], ['rotate', m['creator.cover_rotate']()], ['skew', m['creator.cover_skew']()]] as [key, label] (key)}
 					{@const k = key as keyof typeof COVER_LIMITS}
@@ -201,11 +198,6 @@
 	.custom {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-05);
-	}
-	.check {
-		display: flex !important;
-		align-items: center;
 		gap: var(--space-05);
 	}
 	.color {

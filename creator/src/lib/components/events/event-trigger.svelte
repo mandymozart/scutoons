@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Toggle } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, type Path, type Repeat } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -46,10 +47,7 @@
 <div class="sc-fields trigger" data-cols="3" data-density="dense" data-align="end">
 	<PropField {doc} path={[...path, 'trigger', 'type']} label={m['creator.trigger']()} type="select" options={triggerOptions()} required />
 	<RepeatsField id="repeat-{path.join('-')}" testid="event-repeat-{index}" value={event.trigger?.repeat} onchange={setRepeat} />
-	<label class="whole" title={m['creator.event_whole_slice_hint']()}>
-		<input type="checkbox" checked={!event.trigger?.rect} onchange={(e) => setWholeSlice(e.currentTarget.checked)} data-testid="event-whole-{index}" />
-		{m['creator.event_whole_slice']()}
-	</label>
+	<span class="whole"><Toggle shown on={!event.trigger?.rect} label={m['creator.event_whole_slice']()} title={m['creator.event_whole_slice_hint']()} onchange={setWholeSlice} data-testid="event-whole-{index}" /></span>
 </div>
 
 <style>
@@ -59,9 +57,6 @@
 	}
 	.whole {
 		display: flex;
-		align-items: center;
-		gap: 0.3rem;
 		align-self: end;
-		min-height: var(--control-height);
 	}
 </style>

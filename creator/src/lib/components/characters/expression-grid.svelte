@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { Chip } from '@scutoons/ui/editor';
+	import { Chip, Toggle } from '@scutoons/ui/editor';
 	import {
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
@@ -147,8 +147,8 @@
 			· <span class="hint">{m['creator.characters_standard_set']({ done: standardDone, total: standard.length })}</span>
 		</span>
 		<span class="actions">
-			<label class="check"><input type="checkbox" bind:checked={showStandard} data-testid="show-standard" /> {m['creator.characters_show_standard']()}</label>
-			<label class="check"><input type="checkbox" bind:checked={allViews} data-testid="all-views" /> {m['creator.characters_all_views']()}</label>
+			<Toggle shown on={showStandard} label={m['creator.characters_show_standard']()} onchange={(on) => (showStandard = on)} data-testid="show-standard" />
+			<Toggle shown on={allViews} label={m['creator.characters_all_views']()} onchange={(on) => (allViews = on)} data-testid="all-views" />
 			<button type="button" class="ghost" onclick={recheck}>{m['creator.characters_recheck']()}</button>
 		</span>
 	</div>
@@ -229,12 +229,6 @@
 		align-items: center;
 		margin-left: auto;
 		flex-wrap: wrap;
-	}
-	.check {
-		font-size: var(--type-caption-size);
-		display: flex;
-		gap: 0.25rem;
-		align-items: center;
 	}
 	.grid { /* grid-ok: the expression thumbnails, not fields */
 		display: grid;

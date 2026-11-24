@@ -3,6 +3,7 @@
 	import { dialogState } from './dialogs.svelte.ts';
 	import Overlay from './editor/overlay.svelte';
 	import ListRow from './editor/list-row.svelte';
+	import Toggle from './editor/toggle.svelte';
 	import { onOverlayLevel } from './editor/overlay-level.ts';
 
 	/** Shows the in-page dialogs of `confirmDialog` / `askDialog` (dialogs.svelte.ts); once in the app's root layout. */
@@ -55,7 +56,7 @@
 						{#if group.label}<p class="group">{group.label}</p>{/if}
 						{#each group.items as item (item.id)}
 							<label class="line">
-								<input type="checkbox" checked={picked.has(item.id)} onchange={(e) => toggle(item.id, e.currentTarget.checked)} />
+								<Toggle on={picked.has(item.id)} label={item.label} onchange={(on) => toggle(item.id, on)} />
 								<span class="text"><span>{item.label}</span>{#if item.detail}<small>{item.detail}</small>{/if}</span>
 							</label>
 						{/each}
@@ -133,9 +134,6 @@
 	#sc-dialog-input {
 		box-sizing: border-box;
 		width: 100%;
-	}
-	.line input {
-		flex: none;
 	}
 	/* a choice list (choiceDialog): one line per option, a tap picks it */
 	.choices {

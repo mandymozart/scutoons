@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Toggle } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -54,7 +55,7 @@
 	<fieldset class="any-of">
 		<legend title={m['creator.vn_random_hint']()}>{m['creator.vn_random']()}</legend>
 		{#each labels as gl (gl)}
-			<label><input type="checkbox" checked={target?.anyOf?.includes(gl) ?? false} onchange={(e) => toggleAnyOf(gl, e.currentTarget.checked)} /> {gl}</label>
+			<Toggle shown on={target?.anyOf?.includes(gl) ?? false} label={gl} onchange={(on) => toggleAnyOf(gl, on)} />
 		{/each}
 	</fieldset>
 {/if}
@@ -71,10 +72,5 @@
 		flex-wrap: wrap;
 		gap: 0.25rem 0.75rem;
 		margin: 0;
-	}
-	.any-of label {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
 	}
 </style>

@@ -1,20 +1,63 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
+	import { dateText } from './date-text.ts';
 
 	/**
 	 * A labelled row with its field (deck-kit controls.rs `scrub` / `row`): the label muted at the left (42 % of the row, at
 	 * most 6.86rem), the field in the rest – the control ground, its line, a control's corner, a control high. A control of
-	 * its own goes in as `children`; else a text input bound to `value`.
+	 * its own goes in as `children`; else a text input bound to `value`. `bare`: the field alone, named by `label`, where
+	 * the words stand elsewhere. `type="date"`: the day typed (`2026-11-15`, `15.11.2026`), never the browser's picker; a
+	 * day that exists goes out through `ondate` as ISO (empty = unset), anything else shows the error line.
 	 */
-	type Props = { label: string; value?: string; children?: Snippet; 'data-kit-state'?: string } & Omit<HTMLInputAttributes, 'value' | 'children'>;
-	let { label, value = $bindable(''), type = 'text', children, 'data-kit-state': kitState, ...rest }: Props = $props();
+	type Props = {
+		label: string;
+		value?: string;
+		bare?: boolean;
+		ondate?: (day: string) => void;
+		children?: Snippet;
+		'data-kit-state'?: string;
+	} & Omit<HTMLInputAttributes, 'value' | 'children'>;
+	let { label, value = $bindable(''), type = 'text', bare = false, ondate, children, 'data-kit-state': kitState, ...rest }: Props = $props();
+
+	let wrong = $state(false);
+	const typed = (text: string) => {
+		const day = dateText(text);
+		wrong = day === null;
+		if (day === null) return;
+		value = day;
+		ondate?.(day);
+	};
 </script>
 
-<label class="kit-field" data-kit-state={kitState}>
-	<span class="name">{label}</span>
-	{#if children}{@render children()}{:else}<input {type} bind:value {...rest} />{/if}
-</label>
+{#snippet field()}
+	{#if type === 'date'}
+		<input
+			{...rest}
+			type="text"
+			inputmode="numeric"
+			autocomplete="off"
+			spellcheck="false"
+			placeholder={rest.placeholder ?? 'YYYY-MM-DD'}
+			{value}
+			aria-label={bare ? label : undefined}
+			aria-invalid={wrong || undefined}
+			oninput={() => (wrong = false)}
+			onchange={(e) => typed(e.currentTarget.value)}
+		/>
+	{:else}
+		<input {type} bind:value aria-label={bare ? label : undefined} {...rest} />
+	{/if}
+{/snippet}
+
+{#if bare}
+	{@render field()}
+{:else}
+	<label class="kit-field" data-kit-state={kitState}>
+		<span class="name">{label}</span>
+		{#if children}{@render children()}{:else}{@render field()}{/if}
+	</label>
+{/if}
 
 <style>
 	.kit-field {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { at, Button, Floats, FloatingPanels, Thumb, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
+	import { at, Button, Floats, FloatingPanels, Slider, Thumb, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { setCreatorNav } from '$lib/nav.svelte.ts';
 	import type { WorkspaceCard } from '$lib/shell/dashboard.ts';
@@ -191,11 +191,11 @@
 	<span class="card"><Card card={deckCard} onopen={noop} onclose={noop} onfocus={noop} /></span>
 
 	{@render name(m['kit.slider'](), m['kit.slider_hint']())}
-	<span><input type="range" min="0" max="100" value="40" aria-label={m['kit.slider']()} /></span>
+	<span><Slider value={40} label={m['kit.slider']()} /></span>
 	<span class="muted">{m['kit.live']()}</span>
 	<span></span>
 	<span></span>
-	<span><input type="range" min="0" max="100" value="40" disabled aria-label={m['kit.slider']()} /></span>
+	<span><Slider value={40} disabled label={m['kit.slider']()} /></span>
 	<span></span><span></span>
 
 	{@render name(m['kit.signals'](), m['kit.signals_hint']())}

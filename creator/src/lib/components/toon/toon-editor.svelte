@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Toggle } from '@scutoons/ui/editor';
 	import { entities, resolveText, type Status, type ToonLanguages } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { onMount } from 'svelte';
@@ -83,15 +83,7 @@
 
 			<div class="sub" data-testid="toon-landing">
 				<h3 title={m['creator.landing_hint']()}>{m['creator.landing']()}</h3>
-				<label class="check" title={m['creator.announce_hint']()}>
-					<input
-						type="checkbox"
-						checked={data?.announce === true}
-						onchange={(e) => entry.set(['announce'], e.currentTarget.checked ? true : undefined, 'announce')}
-						data-testid="toon-announce"
-					/>
-					<span>{m['creator.announce']()}</span>
-				</label>
+				<Toggle shown on={data?.announce === true} label={m['creator.announce']()} title={m['creator.announce_hint']()} onchange={(on) => entry.set(['announce'], on ? true : undefined, 'announce')} data-testid="toon-announce" />
 				<div class="media">
 					<MediaSlot {toon} label={m['creator.field_avatar']()} value={data?.avatar || undefined} onchange={(v) => entry.set(['avatar'], v || 'avatar.webp')} testid="toon-avatar" />
 					<MediaSlot {toon} label={m['creator.field_tile_image']()} value={data?.tile?.image || undefined} onchange={(v) => entry.set(['tile', 'image'], v || undefined)} testid="toon-tile-image" />
@@ -160,10 +152,5 @@
 	}
 	.warn {
 		color: var(--tool-warn);
-	}
-	.check {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
 	}
 </style>

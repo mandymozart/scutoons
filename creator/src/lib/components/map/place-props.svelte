@@ -3,6 +3,7 @@
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
 	import { Icon } from '@scutoons/ui';
+	import { Slider, Toggle } from '@scutoons/ui/editor';
 	import { BRUSH_MAX, BRUSH_MIN, MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, zoomPercent, zoomFromPercent, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -124,7 +125,7 @@
 <MapToonsChips {toons} value={place.toons} onchange={(next) => editPlace(doc, place.id, (p) => (p.toons = next))} />
 <!-- its size on the map (owner 2026-10-11, "wie in SimCity"): the diorama's width in world units – how many hex cells it takes -->
 <label class="field"><span>{m['creator.map_footprint']()} · {placeSize(place)}</span>
-	<input type="range" min={PLACE_SIZE_MIN} max={PLACE_SIZE_MAX} step={PLACE_SIZE_STEP} value={placeSize(place)} oninput={(e) => editPlace(doc, place.id, (p) => (p.size = Number(e.currentTarget.value)), `size:${place.id}`)} data-testid="place-size" />
+	<Slider min={PLACE_SIZE_MIN} max={PLACE_SIZE_MAX} step={PLACE_SIZE_STEP} label={m['creator.map_footprint']()} value={placeSize(place)} oninput={(v) => editPlace(doc, place.id, (p) => (p.size = v), `size:${place.id}`)} data-testid="place-size" />
 </label>
 <!-- the ground: painted cells (owner 2026-10-12: "a brush that adds or removes hexagons to the place's base") – the brush on the
      map, add / remove, its size; refused where another place stands; "computed" goes back to the size above -->
@@ -141,7 +142,7 @@
 	</div>
 	{#if placeBrush.place === place.id}
 		<label class="field"><span>{m['creator.map_brush_size']()} · {placeBrush.size}</span>
-			<input type="range" min={BRUSH_MIN} max={BRUSH_MAX} step="1" bind:value={placeBrush.size} data-testid="place-brush-size" />
+			<Slider min={BRUSH_MIN} max={BRUSH_MAX} step={1} label={m['creator.map_brush_size']()} bind:value={placeBrush.size} data-testid="place-brush-size" />
 		</label>
 	{/if}
 	{#if place.cells?.length}
@@ -151,7 +152,7 @@
 </div>
 
 <div class="group">
-<label class="check"><input type="checkbox" checked={!!place.hidden} onchange={(e) => editPlace(doc, place.id, (p) => { if (e.currentTarget.checked) p.hidden = true; else delete p.hidden; })} data-testid="place-hidden" /> {m['creator.map_hidden']()}</label>
+<Toggle shown on={!!place.hidden} label={m['creator.map_hidden']()} onchange={(on) => editPlace(doc, place.id, (p) => { if (on) p.hidden = true; else delete p.hidden; })} data-testid="place-hidden" />
 {#if place.hidden}<p class="hint">{m['creator.map_hidden_by_event']()}</p>{/if}
 </div>
 
