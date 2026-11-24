@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -321,10 +322,14 @@
 						{/each}
 						{#if addable.length}
 							<li>
-								<select value="" onchange={(e) => { addLanguage = e.currentTarget.value; addTarget(); e.currentTarget.value = ''; }} aria-label={m['creator.add_language_label']()} data-testid="add-language-select">
-									<option value="">+ {m['creator.add_language']()}</option>
-									{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
-								</select>
+								<Select
+									quiet
+									bind:value={addLanguage}
+									label={m['creator.add_language_label']()}
+									options={[{ value: '', label: `+ ${m['creator.add_language']()}` }, ...addable.map((l) => ({ value: l, label: languageLabel(l) }))]}
+									onchange={addTarget}
+									data-testid="add-language-select"
+								/>
 							</li>
 						{/if}
 					</ul>
@@ -423,9 +428,6 @@
 		gap: var(--space-05) var(--space-1);
 		margin-top: 1.5rem;
 	}
-	.languages select {
-		width: auto;
-	}
 	/* the filled chip starts with text, not a button: the same inset on both sides as the other chips' text */
 	.source {
 		gap: var(--space-025);
@@ -437,7 +439,7 @@
 		flex-wrap: wrap;
 		gap: 0.4rem;
 		margin: 0;
-		padding: 0;
+		padding: 0; /* kit-ok: the list's own reset, not a chip's inset */
 		list-style: none;
 	}
 </style>

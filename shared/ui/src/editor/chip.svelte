@@ -24,10 +24,10 @@
 
 {#snippet inside()}{#if icon}<Icon name={icon} size="0.72rem" strokeWidth={2} />{/if}{label}{/snippet}
 
-{#if onclick || !tone}
+{#if onclick}
 	<button type="button" {...rest} class="kit-chip {tone ?? ''} {rest.class ?? ''}" class:on aria-pressed={tone ? undefined : on} {title} {disabled} {onclick} data-testid={testid}>{@render inside()}</button>
 {:else}
-	<span {...rest as Record<string, unknown>} class="kit-chip mark {tone} {rest.class ?? ''}" {title} data-testid={testid}>{@render inside()}</span>
+	<span {...rest as Record<string, unknown>} class="kit-chip mark {tone ?? ''} {rest.class ?? ''}" class:on {title} data-testid={testid}>{@render inside()}</span>
 {/if}
 
 <style>

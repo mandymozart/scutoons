@@ -75,7 +75,7 @@
 		position: absolute;
 		z-index: 5;
 		left: 0;
-		top: calc(100% + 0.25rem);
+		bottom: calc(100% + 0.25rem);
 		margin: 0;
 		padding: 0.375rem;
 		list-style: none;

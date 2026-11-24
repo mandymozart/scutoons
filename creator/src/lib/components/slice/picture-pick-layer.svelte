@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { Chip } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { picturePick } from '$lib/editor/picture-pick.svelte.ts';
 	import { picturePixels, sampleAt, type Pixels } from '$lib/editor/picture-pick.ts';
@@ -51,10 +52,11 @@
 <svelte:window onkeydowncapture={onkeydown} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="picture-pick" {onpointermove} {onpointerdown} onpointerleave={() => (hover = null)} data-testid="picture-pick">
-	<span class="sc-chip hint" role="status">{pixels === null ? m['creator.pick_unreadable']() : m['creator.pick_hint']()}</span>
+<!-- how to pick is the surface's hover text (RULES H14); only the error shows -->
+<div class="picture-pick" title={m['creator.pick_hint']()} {onpointermove} {onpointerdown} onpointerleave={() => (hover = null)} data-testid="picture-pick">
+	{#if pixels === null}<span class="hint" role="status"><Chip tone="error" label={m['creator.pick_unreadable']()} /></span>{/if}
 	{#if hover}
-		<span class="chip" style:left="{hover.x}%" style:top="{hover.y}%" data-testid="picture-pick-chip">
+		<span class="readout" style:left="{hover.x}%" style:top="{hover.y}%" data-testid="picture-pick-chip">
 			<span class="swatch" style:background={hover.hex}></span>{hover.hex}
 		</span>
 	{/if}
@@ -77,16 +79,18 @@
 		white-space: nowrap;
 		pointer-events: none;
 	}
-	/* the colour under the pointer: a paper chip with an ink frame, beside the pointer */
-	.chip {
+	/* the colour under the pointer: a readout beside the pointer, on the popover ground (RULES H15) */
+	.readout {
 		position: absolute;
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-025);
 		padding: var(--space-025) var(--space-05);
 		transform: translate(var(--space-05), var(--space-05));
-		border: var(--border-width-regular) solid var(--tool-text);
-		background: var(--tool-control);
+		border: var(--editor-edge) solid var(--tool-line);
+		border-radius: var(--editor-radius);
+		background: var(--tool-popover);
+		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);

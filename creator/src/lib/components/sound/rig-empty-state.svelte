@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	// The rig page of a character without a rig (#425, owner 2026-11-08: "eine figur ohne rig, sollte nicht klingen" · "das
 	// ziel soll sein, sich dann dort aus bestehenden modulen ein rig zu bauen, oder neue module specifisch fuer den character
 	// zu bauen"): exactly two ways in – start from existing modules (the factory modules and the creator's own, #350: one
@@ -29,10 +30,7 @@
 		<h3 id="rig-empty-existing">{m['creator.sound_empty_existing']()}</h3>
 		<p class="hint">{m['creator.sound_empty_existing_hint']()}</p>
 		<div class="row">
-			<select bind:value={picked} aria-label={m['creator.sound_module']()} data-testid="rig-empty-module">
-				<option value="">…</option>
-				{#each modules as id (id)}<option value={id}>module:{id}{factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}</option>{/each}
-			</select>
+			<Select label={m['creator.sound_module']()} bind:value={picked} options={[{ value: '', label: '–' }, ...modules.map((id) => ({ value: id, label: `module:${id}${factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}` }))]} data-testid="rig-empty-module" />
 			<button type="button" disabled={!picked || busy} onclick={() => onstart(picked)} data-testid="rig-empty-add">{m['creator.sound_empty_add']()}</button>
 		</div>
 	</section>
@@ -78,7 +76,7 @@
 		align-items: center;
 		gap: var(--space-05);
 	}
-	.row select {
+	.row :global(select) {
 		flex: 1;
 		min-width: 0;
 	}

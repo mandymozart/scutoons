@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Icon } from '@scutoons/ui';
+	import { Button, IconButton, Pill, PillTab } from '@scutoons/ui/editor';
 	import type { CharacterModel } from '$lib/editor/character-model.svelte.ts';
 	import { mountModelPlace, type ModelPlace } from '$lib/editor/model-place.ts';
 	import { dropAsset, isAssetDrag, libraryHost, misfitWords, overAsset } from '$lib/editor/library-drop.ts';
@@ -125,20 +126,22 @@
 			<Icon name="box" size="2.4rem" strokeWidth={1.5} />
 			<span class="big">{over && !over.ok ? over.why : m['character.place_drop']()}</span>
 			<span class="row">
-				<button type="button" disabled={busy} onclick={() => input?.click()} data-testid="character-3d-upload">{m['character.place_upload']()}</button>
-				<button type="button" onclick={pick} data-testid="character-3d-pick">{m['character.place_pick']()}</button>
+				<Button disabled={busy} onclick={() => input?.click()} data-testid="character-3d-upload">{m['character.place_upload']()}</Button>
+				<Button onclick={pick} data-testid="character-3d-pick">{m['character.place_pick']()}</Button>
 			</span>
 		</div>
 	{:else}
 		<canvas bind:this={canvas} data-testid="character-3d-canvas"></canvas>
 		<span class="tag" data-testid="character-3d-tag">{file}{#if facts} · {m['character.place_counts']({ tris: count(facts.triangles), bones: facts.bones.length })}{/if}</span>
-		<div class="attach pill">
-			<span class="lab">{m['character.place_attached']()}</span>
-			<span class="on">{where}{#if attached === 'persona'} · {m['character.place_from_persona']()}{/if}</span>
-			<span class="sep" aria-hidden="true"></span>
-			<button type="button" disabled={busy} onclick={() => input?.click()} data-testid="character-3d-replace">{m['character.place_replace']()}</button>
-			<button type="button" onclick={pick}>{m['character.place_pick_short']()}</button>
-			<button type="button" class:on={model.skeleton} aria-pressed={model.skeleton} onclick={() => (model.skeleton = !model.skeleton)} title={m['character.place_skeleton_keys']()} data-testid="character-3d-skeleton">{m['character.place_skeleton']()}</button>
+		<div class="attach">
+			<Pill>
+				<span class="lab">{m['character.place_attached']()}</span>
+				<span class="where">{where}{#if attached === 'persona'} · {m['character.place_from_persona']()}{/if}</span>
+				<span class="sep" aria-hidden="true"></span>
+				<Button variant="quiet" disabled={busy} onclick={() => input?.click()} data-testid="character-3d-replace">{m['character.place_replace']()}</Button>
+				<Button variant="quiet" onclick={pick}>{m['character.place_pick_short']()}</Button>
+				<Button variant="quiet" pressed={model.skeleton} onclick={() => (model.skeleton = !model.skeleton)} title={m['character.place_skeleton_keys']()} data-testid="character-3d-skeleton">{m['character.place_skeleton']()}</Button>
+			</Pill>
 		</div>
 		{#if model.loading}
 			<p class="quiet">{m['character.place_reading']()}</p>
@@ -148,18 +151,18 @@
 			<p class="quiet" data-testid="character-3d-missing">{#each facts.missing as line, i (i)}{#if i}<br />{/if}{line}{/each}</p>
 		{/if}
 		{#if facts?.clips.length}
-			<div class="clips pill" data-testid="character-3d-clips">
-				<button type="button" class="round" onclick={() => (model.clip === null ? model.play(0) : (model.playing = !model.playing))} aria-label={model.playing ? m['character.place_pause']() : m['character.place_play']()} title={model.playing ? m['character.place_pause']() : m['character.place_play']()}>
-					<Icon name={model.playing ? 'pause' : 'play'} size="0.9rem" />
-				</button>
-				{#each facts.clips as c, i (i)}
-					<button type="button" class:on={model.clip === i} onclick={() => model.play(i)} data-testid="character-3d-clip">{c.name || i + 1} · {c.seconds.toFixed(1)} s</button>
-				{/each}
-				{#if clip}
-					<span class="bar" aria-hidden="true"><i style:width="{Math.min(100, ((model.time % (clip.seconds || 1)) / (clip.seconds || 1)) * 100)}%"></i></span>
-					<span class="lab">{(model.time % (clip.seconds || 1)).toFixed(1)} s</span>
-					<button type="button" class="quiet-button" onclick={() => model.rest()}>{m['character.place_rest']()}</button>
-				{/if}
+			<div class="clips" data-testid="character-3d-clips">
+				<Pill>
+					<IconButton icon={model.playing ? 'pause' : 'play'} label={model.playing ? m['character.place_pause']() : m['character.place_play']()} onclick={() => (model.clip === null ? model.play(0) : (model.playing = !model.playing))} />
+					{#each facts.clips as c, i (i)}
+						<PillTab label="{c.name || i + 1} · {c.seconds.toFixed(1)} s" on={model.clip === i} onclick={() => model.play(i)} data-testid="character-3d-clip" />
+					{/each}
+					{#if clip}
+						<span class="bar" aria-hidden="true"><i style:width="{Math.min(100, ((model.time % (clip.seconds || 1)) / (clip.seconds || 1)) * 100)}%"></i></span>
+						<span class="lab">{(model.time % (clip.seconds || 1)).toFixed(1)} s</span>
+						<Button variant="quiet" onclick={() => model.rest()}>{m['character.place_rest']()}</Button>
+					{/if}
+				</Pill>
 			</div>
 		{/if}
 	{/if}
@@ -192,8 +195,12 @@
 	}
 	.tag,
 	.quiet,
-	.pill {
+	.attach,
+	.clips {
 		position: absolute;
+	}
+	.tag,
+	.quiet {
 		background: var(--tool-panel);
 		text-shadow: var(--tool-halo);
 		box-shadow: 0 0 0 var(--editor-edge) var(--tool-line);
@@ -213,42 +220,9 @@
 		text-overflow: ellipsis;
 		box-sizing: border-box;
 	}
-	.pill {
-		display: flex;
-		align-items: center;
-		gap: 0.2rem;
-		min-height: var(--control-height);
-		padding: 0 0.25rem;
-		border-radius: 1.2rem;
+	.where {
+		margin: 0 0.4rem;
 		white-space: nowrap;
-		font-size: var(--editor-small);
-	}
-	.pill button {
-		min-height: calc(var(--control-height) - 0.4rem);
-		padding: 0 0.65rem;
-		border: 0;
-		border-radius: 1rem;
-		background: transparent;
-		color: inherit;
-	}
-	.pill button:hover {
-		background: var(--tool-hover);
-	}
-	.pill .on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		text-shadow: none;
-	}
-	.pill span.on {
-		padding: 0.2rem 0.65rem;
-		border-radius: 1rem;
-	}
-	.pill .round {
-		width: calc(var(--control-height) - 0.4rem);
-		padding: 0;
-		display: inline-grid;
-		place-items: center;
-		border-radius: 50%;
 	}
 	.lab {
 		padding: 0 0.4rem;
@@ -267,11 +241,7 @@
 		top: calc(var(--shell-top) + 2.4rem);
 		left: calc((var(--in-l) + 100% - var(--in-r)) / 2);
 		transform: translateX(-50%);
-		flex-wrap: wrap;
-		justify-content: center;
-		width: max-content;
 		max-width: calc(100% - var(--in-l) - var(--in-r));
-		box-sizing: border-box;
 	}
 	.quiet {
 		left: calc(var(--in-l) + 0.25rem);
@@ -311,9 +281,6 @@
 		bottom: 0;
 		border-radius: 0.15rem;
 		background: var(--tool-pressed);
-	}
-	.pill .quiet-button {
-		color: var(--tool-muted);
 	}
 	.way-in {
 		position: absolute;

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ApiError, rootPath, toonRelativePath } from '@scutoons/api';
 	import { DEFAULT_SLICE, getAt, type Path, type QualityVariants } from '@scutoons/content';
-	import { confirmDialog, Icon, Sheet } from '@scutoons/ui';
+	import { confirmDialog, Sheet } from '@scutoons/ui';
+	import { Button, Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
 	import { densityLevel, densityPath, mediaAssets, splitMediaName, standardDensities, uploadOrReplace, type Density } from '@scutoons/media';
@@ -264,10 +265,9 @@
 </script>
 
 <div class="slice-import">
-	<button type="button" class="secondary" disabled={!!progress} onclick={() => input?.click()} title={m['creator.import_slices_hint']()} data-testid="slice-import">
-		<Icon name="upload" />
+	<Button variant="quiet" icon="upload" fill disabled={!!progress} onclick={() => input?.click()} title={m['creator.import_slices_hint']()} data-testid="slice-import">
 		{progress ? m['creator.import_slices_progress']({ done: progress.done, total: progress.total }) : m['creator.import_slices']()}
-	</button>
+	</Button>
 	<input
 		bind:this={input}
 		type="file"
@@ -292,37 +292,44 @@
 			<li>
 				<img src={row.preview} alt="" />
 				<span class="name" title={row.label}>{row.label}</span>
-				<select bind:value={rows[i].target} aria-label={m['creator.import_slices_target']({ name: row.label })} data-testid="slice-import-target-{i}">
-					<option value="new">{m['creator.import_slices_new']()}</option>
-					{#each slices as _, index}
-						<option value={index}>{m['creator.import_slices_replace']({ number: index + 1, name: sliceName(index) })}</option>
-					{/each}
-				</select>
+				<Select
+					label={m['creator.import_slices_target']({ name: row.label })}
+					value={String(rows[i].target)}
+					options={[{ value: 'new', label: m['creator.import_slices_new']() }, ...slices.map((_, index) => ({ value: String(index), label: m['creator.import_slices_replace']({ number: index + 1, name: sliceName(index) }) }))]}
+					onchange={(v) => (rows[i].target = v === 'new' ? 'new' : Number(v))}
+					data-testid="slice-import-target-{i}"
+				/>
 			</li>
 		{/each}
 	</ol>
 	{#if adding}
 		<label class="where">
 			{m['creator.import_slices_where']()}
-			<select bind:value={placement} data-testid="slice-import-where">
-				{#if selected >= 0 && selected < slices.length}
-					<option value="after:{selected}">{m['creator.import_slices_after']({ number: selected + 1 })}</option>
-					<option value="before:{selected}">{m['creator.import_slices_before']({ number: selected + 1 })}</option>
-				{/if}
-				{#if placement !== 'end' && placement !== `after:${selected}` && placement !== `before:${selected}`}
-					<!-- a drop of several images: after the slice they were dropped on -->
-					<option value={placement}>{m['creator.import_slices_after']({ number: Number(placement.split(':')[1]) + 1 })}</option>
-				{/if}
-				<option value="end">{m['creator.import_slices_end']()}</option>
-			</select>
+			<!-- a drop of several images: after the slice they were dropped on -->
+			<Select
+				label={m['creator.import_slices_where']()}
+				value={placement}
+				onchange={(v) => (placement = v as Placement)}
+				options={[
+					...(selected >= 0 && selected < slices.length
+						? [
+								{ value: `after:${selected}`, label: m['creator.import_slices_after']({ number: selected + 1 }) },
+								{ value: `before:${selected}`, label: m['creator.import_slices_before']({ number: selected + 1 }) }
+							]
+						: []),
+					...(placement !== 'end' && placement !== `after:${selected}` && placement !== `before:${selected}` ? [{ value: placement, label: m['creator.import_slices_after']({ number: Number(placement.split(':')[1]) + 1 }) }] : []),
+					{ value: 'end', label: m['creator.import_slices_end']() }
+				]}
+				data-testid="slice-import-where"
+			/>
 		</label>
 	{/if}
 	{#if twice !== null}<p class="error" role="alert">{m['creator.import_slices_twice']({ number: twice + 1 })}</p>{/if}
 	{#snippet footer()}
-		<button type="button" class="ghost" onclick={() => (open = false)}>{m['creator.cancel']()}</button>
-		<button type="button" class="primary" onclick={start} disabled={twice !== null || !rows.length} data-testid="slice-import-start">
+		<Button variant="quiet" onclick={() => (open = false)}>{m['creator.cancel']()}</Button>
+		<Button variant="primary" onclick={start} disabled={twice !== null || !rows.length} data-testid="slice-import-start">
 			{m['creator.import_slices_start']({ replace: replacing, add: adding })}
-		</button>
+		</Button>
 	{/snippet}
 </Sheet>
 
@@ -333,16 +340,6 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding: var(--space-1);
-	}
-	/* one line in the narrow sidebar, the full text in the tooltip */
-	.slice-import > button {
-		display: block;
-		min-width: 0;
-		padding-inline: var(--space-05);
-		text-align: left;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 	.rows {
 		list-style: none;
@@ -378,7 +375,7 @@
 		gap: var(--space-05);
 		margin-top: var(--space-1);
 	}
-	.where select {
+	.where :global(select) {
 		width: auto;
 	}
 </style>

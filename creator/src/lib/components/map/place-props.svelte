@@ -128,9 +128,8 @@
 </label>
 <!-- the ground: painted cells (owner 2026-10-12: "a brush that adds or removes hexagons to the place's base") – the brush on the
      map, add / remove, its size; refused where another place stands; "computed" goes back to the size above -->
-<fieldset class="ground" data-testid="place-ground">
+<fieldset class="ground" title={place.cells?.length ? m['creator.map_cells_painted']({ count: place.cells.length }) : m['creator.map_cells_computed']()} data-testid="place-ground">
 	<legend>{m['creator.map_cells']()}</legend>
-	<p class="hint">{place.cells?.length ? m['creator.map_cells_painted']({ count: place.cells.length }) : m['creator.map_cells_computed']()}</p>
 	<div class="row">
 		<button type="button" class:secondary={placeBrush.place !== place.id} aria-pressed={placeBrush.place === place.id} onclick={() => placeBrush.toggle(place.id)} data-testid="place-cells-paint"><Icon name="hexagon" /> {m['creator.map_cells_paint']()}</button>
 		{#if placeBrush.place === place.id}

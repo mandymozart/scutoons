@@ -53,5 +53,7 @@ export default defineConfig(({ command }) => ({
 	preview: {
 		port: ports.creator,
 		strictPort: true
-	}
+	},
+	// the workspace packages are sources (.css, .ts): the dev server would hand them to Node when it renders /docs on the server
+	ssr: command === 'serve' ? { noExternal: [/^@scutoons\//] } : undefined
 }));

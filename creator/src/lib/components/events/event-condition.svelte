@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, isExprCondition, VN_CONDITION_OPS, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -59,10 +60,7 @@
 		<div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 			<div class="field">
 				<label for="if-kind-{path.join('-')}">{m['creator.vn_condition_kind']()}</label>
-				<select id="if-kind-{path.join('-')}" value={expression ? 'expr' : 'simple'} onchange={(e) => setKind(e.currentTarget.value)} data-testid="condition-kind-{index}">
-					<option value="simple">{m['creator.vn_condition_simple']()}</option>
-					<option value="expr">{m['creator.vn_condition_expression']()}</option>
-				</select>
+				<Select id="if-kind-{path.join('-')}" label={m['creator.vn_condition_kind']()} value={expression ? 'expr' : 'simple'} options={[{ value: 'simple', label: m['creator.vn_condition_simple']() }, { value: 'expr', label: m['creator.vn_condition_expression']() }]} onchange={(v) => setKind(v)} data-testid="condition-kind-{index}" />
 			</div>
 			{#if !expression}
 				<AddressField {doc} path={[...path, 'if']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="condition-variable-{index}" />

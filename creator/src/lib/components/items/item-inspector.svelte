@@ -124,6 +124,7 @@
 			{doc}
 			path={p('action')}
 			label={m['creator.slice_item_action']()}
+			title={action === 'pickup' ? m['creator.slice_item_hint_pickup']() : action === 'events' ? m['creator.slice_item_hint_events']() : undefined}
 			type="select"
 			options={[
 				{ value: 'pickup', label: m['creator.slice_item_action_pickup']() },
@@ -157,7 +158,6 @@
 				<p class="hint">{m['creator.respawn_item_range']({ min: range && range.min === 0 ? intervalLabel('visit') : intervalLabel({ minutes: Math.max(1, range?.min ?? 1) }), max: intervalLabel({ minutes: range?.max ?? 1 }) })}</p>
 				{#if problem}<p class="warn" data-testid="item-respawn-problem">{problem}</p>{/if}
 			{/if}
-			<p class="hint">{m['creator.slice_item_hint_pickup']()}</p>
 			{#if def && !def.grantable?.includes('story')}
 				<p class="warn" data-testid="item-not-grantable">{m['creator.slice_item_not_grantable']()}</p>
 			{/if}
@@ -165,7 +165,6 @@
 			<div class="sc-fields" data-cols="2" data-density="panel">
 				<RepeatsField id="repeat-{path.join('-')}" testid="item-repeat" value={placed.repeat} onchange={(next) => doc.set(p('repeat'), next)} />
 			</div>
-			<p class="hint">{m['creator.slice_item_hint_events']()}</p>
 			<!-- part of the slice canvas region (one selection) -->
 			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {dialogs} {oncreatebox} region={null} />
 		{/if}

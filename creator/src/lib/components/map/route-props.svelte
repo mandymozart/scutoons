@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
-	import { CloseIcon, SortGrip, sortable } from '@scutoons/ui';
-	import { Select } from '@scutoons/ui/editor';
+	import { SortGrip, sortable } from '@scutoons/ui';
+	import { Button, IconButton, Select } from '@scutoons/ui/editor';
 	import { MAP_NETWORKS, MAP_SOURCE_LANGUAGE, isPlaceWaypoint, mapName, slugId, type LocaleText, type MapNetwork, type MapPath, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -92,14 +92,14 @@
 					</span>
 				{/if}
 				<span class="tools">
-					<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><CloseIcon /></button>
+					<IconButton icon="x" tone="muted" label={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)} />
 				</span>
 			</li>
 		{/each}
 	</ol>
-	<button type="button" class="ghost" onclick={() => editRoute(doc, route.id, (r) => r.waypoints.reverse())}>{m['creator.map_reverse']()}</button>
+	<Button variant="quiet" onclick={() => editRoute(doc, route.id, (r) => r.waypoints.reverse())}>{m['creator.map_reverse']()}</Button>
 </fieldset>
-<button type="button" class="danger" onclick={remove} data-testid="route-delete">{m['creator.map_delete_route']()}</button>
+<Button variant="quiet" destroy onclick={remove} data-testid="route-delete">{m['creator.map_delete_route']()}</Button>
 
 <style>
 	.waypoints {
@@ -118,9 +118,6 @@
 		display: flex;
 		flex: none;
 		margin-left: auto;
-	}
-	.waypoints .tools :global(button) {
-		padding: 0 0.3rem;
 	}
 	.free {
 		display: flex;

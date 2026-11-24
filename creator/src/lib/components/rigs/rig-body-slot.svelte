@@ -19,9 +19,8 @@
 {#if session.rig}
 	<div class="body" data-testid="rig-body">
 		{#if model}<ModelPreview path={model} testid="rig-body-preview" />{/if}
-		<div class="fields">
+		<div class="fields" title={m['creator.sound_body_hint']()}>
 			<FileSlot kind="model" value={model} label={m['creator.sound_body']()} {place} player={false} onchange={change} testid="rig-body-model" />
-			<span class="hint">{m['creator.sound_body_hint']()}</span>
 		</div>
 	</div>
 {/if}
@@ -41,10 +40,5 @@
 		gap: var(--space-05);
 		min-width: 0;
 		max-width: 24rem;
-	}
-	.hint {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--tool-muted);
 	}
 </style>

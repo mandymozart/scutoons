@@ -15,6 +15,7 @@
 </script>
 
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { RECURRENCE_UNITS, intervalParts, repeatOf, repeatProblem, type Repeat, type TimedInterval } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -81,19 +82,20 @@
 
 <div class="field" data-testid={testid}>
 	<label for={id}>{pickup ? m['creator.slice_item_pickup_mode']() : m['creator.repeat']()}</label>
-	<select {id} value={kind} onchange={(e) => choose(e.currentTarget.value)} data-testid="{testid}-mode">
-		{#if pickup}
-			<option value="default">{pickup.defaultLabel}</option>
-		{:else}
-			<option value="every">{m['creator.repeat_every']()}</option>
-		{/if}
-		{#if !pickup || pickup.view}<option value="view">{m['creator.repeat_view']()}</option>{/if}
-		<option value="once">{m['creator.repeat_once']()}</option>
-		{#each units as u (u)}<option value={u}>{unitWord(u)}</option>{/each}
-		{#if (kind !== 'default' && kind !== 'every' && kind !== 'view' && kind !== 'once' && !units.includes(kind)) || broken}
-			<option value={kind}>{JSON.stringify(value)} (?)</option>
-		{/if}
-	</select>
+	<Select
+		{id}
+		label={pickup ? m['creator.slice_item_pickup_mode']() : m['creator.repeat']()}
+		value={kind}
+		options={[
+			pickup ? { value: 'default', label: pickup.defaultLabel } : { value: 'every', label: m['creator.repeat_every']() },
+			...(!pickup || pickup.view ? [{ value: 'view', label: m['creator.repeat_view']() }] : []),
+			{ value: 'once', label: m['creator.repeat_once']() },
+			...units.map((u) => ({ value: u, label: unitWord(u) })),
+			...((kind !== 'default' && kind !== 'every' && kind !== 'view' && kind !== 'once' && !units.includes(kind)) || broken ? [{ value: kind, label: `${JSON.stringify(value)} (?)` }] : [])
+		]}
+		onchange={(v) => choose(v)}
+		data-testid="{testid}-mode"
+	/>
 </div>
 {#if kind !== 'default' && kind !== 'every' && kind !== 'view' && kind !== 'once'}
 	{@const b = bounds(kind)}

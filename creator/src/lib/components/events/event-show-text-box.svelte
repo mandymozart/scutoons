@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Segmented } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { FX_SOUNDS, getAt, TextBoxEffect, TriggerMode, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -34,11 +35,22 @@
 	const NEW = '+new';
 	const fieldId = $derived(`f-${path.join('-')}-dialog`);
 
-	function pick(select: HTMLSelectElement) {
-		const value = select.value;
+	/** what the select shows: the event's box, back to it after "+ New text box" */
+	let shown = $state('');
+	$effect.pre(() => {
+		shown = box ?? '';
+	});
+	const boxOptions = $derived([
+		...(box ? [] : [{ value: '', label: m['creator.reveal_choose_box']() }]),
+		...dialogs.map((d) => ({ value: d.id, label: d.label })),
+		...(box && !dialogs.some((d) => d.id === box) ? [{ value: box, label: m['creator.reveal_box_missing']() }] : []),
+		...(oncreatebox ? [{ value: NEW, label: m['creator.reveal_new_box']() }] : [])
+	]);
+
+	function pick(value: string) {
 		if (value === NEW) {
 			// back to the current box until the new one is there (it is selected on the canvas, the text box tab opens)
-			select.value = box ?? '';
+			shown = box ?? '';
 			oncreatebox?.(index);
 			return;
 		}
@@ -72,12 +84,7 @@
 <div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 	<div class="field">
 		<label class="sc-label" for={fieldId}>{m['creator.text_box']()}</label>
-		<select id={fieldId} value={box ?? ''} onchange={(e) => pick(e.currentTarget)} data-testid="reveal-box">
-			{#if !box}<option value="">{m['creator.reveal_choose_box']()}</option>{/if}
-			{#each dialogs as d (d.id)}<option value={d.id}>{d.label}</option>{/each}
-			{#if box && !dialogs.some((d) => d.id === box)}<option value={box}>{m['creator.reveal_box_missing']()}</option>{/if}
-			{#if oncreatebox}<option value={NEW} data-testid="reveal-new-box">{m['creator.reveal_new_box']()}</option>{/if}
-		</select>
+		<Select id={fieldId} label={m['creator.text_box']()} bind:value={shown} options={boxOptions} onchange={pick} data-testid="reveal-box" />
 	</div>
 </div>
 <Segmented

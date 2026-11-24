@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon, Icon, SortGrip, region, sortable } from '@scutoons/ui';
+	import { Icon, SortGrip, region, sortable } from '@scutoons/ui';
+	import { Button, IconButton } from '@scutoons/ui/editor';
 	import { untrack } from 'svelte';
 	import { linksToNext, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -156,7 +157,7 @@
 					<span class="group-marks"><Marks marks={groupMarks(g)} testid="group-marks-{gi}" /></span>
 				</button>
 				<span class="tools">
-					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
+					<IconButton icon="x" tone="muted" label={m['creator.remove']()} onclick={() => removeGroup(gi)} />
 				</span>
 			</div>
 			{#if open}
@@ -172,7 +173,7 @@
 	{/each}
 	</div>
 	<div class="tree-add">
-		<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><Icon name="plus" /> <span class="one-line">{m['creator.add_group']()}</span></button>
+		<Button variant="quiet" icon="plus" fill title={m['creator.add_group']()} onclick={addGroup}>{m['creator.add_group']()}</Button>
 	</div>
 </div>
 
@@ -229,10 +230,6 @@
 	.group.open .tools {
 		display: flex;
 	}
-	.tools button {
-		min-width: var(--control-height);
-		padding: 0;
-	}
 	.group.open {
 		border-top: var(--border-width-regular) solid var(--tool-text);
 		border-bottom: var(--border-width-regular) solid var(--tool-text);
@@ -242,18 +239,6 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding: var(--space-1);
-	}
-	/* one control height (owner 2026-10-02): the narrow sidebar keeps the labels on one line, the full text in the tooltip */
-	.tree-add button {
-		justify-content: flex-start;
-		min-width: 0;
-		padding-inline: var(--space-05);
-	}
-	.one-line {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.pad {
 		padding: 1rem;

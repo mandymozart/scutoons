@@ -1,7 +1,6 @@
 <script lang="ts">
 	// The variants board's tool row (#125; VARIANTS-CANVAS §3.2, §3.5): the editor switch (V – `lead`), "Compare · n" – a
-	// square toggle (C; shown once a card is selected or Compare is open), the keys as one line (the whole list in its
-	// tooltip), "Show rejected · n" (hidden at 0, not remembered), the zoom − · % · + (the % back to 100 %; 0 fits) and +
+	// square toggle (C; shown once a card is selected or Compare is open), "Show rejected · n" (hidden at 0, not remembered), the zoom − · % · + (the % back to 100 %; 0 fits) and +
 	// (round): images or videos for the current shot – the keys' way to what a drop on a band does.
 	import type { Snippet } from 'svelte';
 	import { Icon, IconButton } from '@scutoons/ui';
@@ -22,7 +21,7 @@
 			<button type="button" aria-pressed={board.compare} title={board.compare ? m['storyboard.compare_close']() : m['storyboard.compare_open_hint']({ n: selected })} onclick={oncompare} data-testid="compare-toggle"><Icon name="columns" />{m['storyboard.compare_n']({ n: selected })}</button>
 		</div>
 	{/if}
-	<span class="hint" title={m['storyboard.board_keys']()}><span>{m['storyboard.board_keys_short']()}</span></span>
+	<span class="spacer" aria-hidden="true"></span>
 	{#if rejected}
 		<div class="sc-seg">
 			<button type="button" aria-pressed={board.showRejected} title={m['storyboard.board_show_rejected_hint']()} onclick={() => (board.showRejected = !board.showRejected)} data-testid="show-rejected">{m['storyboard.board_show_rejected']({ n: rejected })}</button>
@@ -47,19 +46,8 @@
 		padding: var(--space-025) var(--space-1);
 		container-type: inline-size;
 	}
-	.hint {
+	.spacer {
 		flex: 1 1 0;
-		min-width: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-size: var(--type-caption-size);
-		color: var(--tool-muted);
-	}
-	@container (max-width: 40rem) {
-		.hint > span {
-			display: none;
-		}
 	}
 	.sc-seg > button {
 		white-space: nowrap;

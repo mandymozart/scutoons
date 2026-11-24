@@ -22,5 +22,4 @@ export { default as NodesTab } from './components/nodes-tab.svelte';
 export { layoutGraph, cableText, cableTexts, NODE, type GraphIn, type GraphWiring, type GraphNode, type GraphLink, type GraphPort, type GraphLayout } from './nodes.ts';
 export { default as DesignerTabs, type DesignerTabId } from './components/designer-tabs.svelte';
 export { default as AssignmentTab } from './components/assignment-tab.svelte';
-export { default as RigCoverageList } from './components/rig-coverage-list.svelte';
 export * from './assignment.ts';

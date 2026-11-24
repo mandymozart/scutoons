@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { CloseIcon } from '@scutoons/ui';
 	import type { RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -68,26 +69,35 @@
 		</label>
 		<label>
 			{m['creator.characters_own_toon']()}
-			<select value={character.own_toon ?? ''} onchange={(e) => setField('own_toon', e.currentTarget.value)} data-testid="character-own-toon">
-				<option value="">–</option>
-				{#each toons as t (t.id)}<option value={t.id}>{t.name} · {t.id}</option>{/each}
-			</select>
+			<Select label={m['creator.characters_own_toon']()} value={character.own_toon ?? ''} options={[{ value: '', label: '–' }, ...toons.map((t) => ({ value: t.id, label: `${t.name} · ${t.id}` }))]} onchange={(v) => setField('own_toon', v)} data-testid="character-own-toon" />
 		</label>
 		<label>
 			{m['creator.characters_home']()}
-			<select value={character.home ?? ''} onchange={(e) => setField('home', e.currentTarget.value)} data-testid="character-home">
-				<option value="">–</option>
-				{#each places as p (p.id)}<option value={p.id}>{regionName(p)}</option>{/each}
-				{#if character.home && !places.some((p) => p.id === character.home)}<option value={character.home}>{character.home} (?)</option>{/if}
-			</select>
+			<Select
+				label={m['creator.characters_home']()}
+				value={character.home ?? ''}
+				options={[
+					{ value: '', label: '–' },
+					...places.map((p) => ({ value: p.id, label: regionName(p) })),
+					...(character.home && !places.some((p) => p.id === character.home) ? [{ value: character.home, label: `${character.home} (?)` }] : [])
+				]}
+				onchange={(v) => setField('home', v)}
+				data-testid="character-home"
+			/>
 		</label>
 		<label>
 			{m['creator.characters_home_scene']()}
-			<select value={character.home_scene ?? ''} onchange={(e) => setField('home_scene', e.currentTarget.value)} data-testid="character-home-scene">
-				<option value="">{m['creator.characters_home_scene_default']()}</option>
-				{#each scenes as s (s.id)}<option value={s.id}>{regionName(s)}</option>{/each}
-				{#if character.home_scene && !scenes.some((s) => s.id === character.home_scene)}<option value={character.home_scene}>{character.home_scene} (?)</option>{/if}
-			</select>
+			<Select
+				label={m['creator.characters_home_scene']()}
+				value={character.home_scene ?? ''}
+				options={[
+					{ value: '', label: m['creator.characters_home_scene_default']() },
+					...scenes.map((s) => ({ value: s.id, label: regionName(s) })),
+					...(character.home_scene && !scenes.some((s) => s.id === character.home_scene) ? [{ value: character.home_scene, label: `${character.home_scene} (?)` }] : [])
+				]}
+				onchange={(v) => setField('home_scene', v)}
+				data-testid="character-home-scene"
+			/>
 		</label>
 		<label>
 			{m['creator.characters_tags']()}

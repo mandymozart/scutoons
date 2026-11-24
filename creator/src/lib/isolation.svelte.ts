@@ -4,7 +4,7 @@
 // yet) the page stays as it is – the engine falls back to its slower transport and says so.
 import { onMount } from 'svelte';
 import { beforeNavigate } from '$app/navigation';
-import { mustLeave, shouldReload } from './isolation.ts';
+import { isIsolationReload, mustLeave, shouldReload } from './isolation.ts';
 
 const KEY = 'scutoons.isolation.reload';
 
@@ -29,4 +29,13 @@ export function isolateThisPage(): void {
 			location.assign(to.url.href);
 		}
 	});
+}
+
+/** Whether this document is the isolation's one reload of a client-side move (read before the page's own mount clears it) */
+export function arrivedByIsolationReload(): boolean {
+	try {
+		return isIsolationReload(sessionStorage.getItem(KEY), location.pathname);
+	} catch {
+		return false;
+	}
 }

@@ -16,3 +16,7 @@ export const shouldReload = (isolated: boolean, tried: boolean): boolean => !iso
 /** An isolated document moving on to `to`: a page that must not be isolated (the Reader panel's iframe is blocked in one) is
  *  a full load. */
 export const mustLeave = (isolated: boolean, to: string): boolean => isolated && !needsIsolation(to);
+
+/** This load is that one reload (`kept`: the path the reload was made for): it carries on the move that came here, so the
+ *  start is the page itself – no switcher a moment before kept. */
+export const isIsolationReload = (kept: string | null, path: string): boolean => kept !== null && kept === path;
