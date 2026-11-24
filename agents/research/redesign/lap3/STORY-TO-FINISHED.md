@@ -1,4 +1,4 @@
-<!-- status: concept, first draft for the owner (2026-11-24, lap 3, epic #903) – from a section of the story to the finished webtoon, video, show or experience, thought without the border between creator and deck. Nothing decided, nothing drawn, no tickets. "Today" is read from shared/content/src/storyboard/types.ts and lap2/STORYBOARD.md; everything under "The concept" is a proposal. -->
+<!-- status: concept, first draft for the owner (2026-11-24, lap 3, epic #903) – from a section of the story to the finished webtoon, video, show or experience, thought without the border between creator and deck. Decided 2026-11-24 (lap3/DECISIONS.md): the section, one workspace for Chapter and Storyboard, the blocking view as the engine's through wasm, one timeline, one thing that plays with three ways to say when; drawn as S1–S4. The other open points stand. No tickets. "Today" is read from shared/content/src/storyboard/types.ts and lap2/STORYBOARD.md; everything under "The concept" is a proposal. -->
 # From the storyboard to the finished thing – concept, round 1
 
 ## The owner's words (2026-11-24)
@@ -49,11 +49,11 @@
 - The browser's two 3D views.
 
 ## Open
-1. **The word.** Section, beat, shot – what is the unit called, and is a scene a section too (sections inside sections) or only a run of them? "Shot" already means two things (a storyboard's shot, a scene's camera shot in a show).
+1. **Decided 2026-11-24: the unit is a section** (S1). Still open in it: is a scene a section too. ~~The word.~~ Section, beat, shot – what is the unit called, and is a scene a section too (sections inside sections) or only a run of them? "Shot" already means two things (a storyboard's shot, a scene's camera shot in a show).
 2. **One section in several media**, as drawn above – or one per medium that remembers where it came from? (A slice and a clip of the same moment are cut differently.)
 3. **Does a show's row hold a section, or point at one?** A row today fires a scene; a scene is not a moment of a story.
 4. **Review and approval:** the shot has a review (approved · change) today. Per section, per state, or gone?
-5. **Where the one view lives:** in the Chapter workspace, in the Storyboard, or one workspace that replaces both – and what the toon's seasons and chapters are in it (sections of sections?).
+5. **Decided 2026-11-24: Chapter and Storyboard become one workspace** (S1); its name is open. ~~Where the one view lives:~~ in the Chapter workspace, in the Storyboard, or one workspace that replaces both – and what the toon's seasons and chapters are in it (sections of sections?).
 6. **Sound from the start:** is sound a state of a section (it "has" its music) or a lane beside the sections?
 7. **The lens and the Library:** a section's slot takes a file, a generator, a take – as decided for the slot in lap 2. Does the Library list sections?
 8. **How far in lap 3:** this is a model change (documents, addresses), and lap 2 was a design and UX round. Draw it in lap 3 and build it later, or build a first step (the strip with states, on today's documents)?
