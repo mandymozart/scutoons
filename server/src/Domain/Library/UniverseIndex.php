@@ -76,9 +76,9 @@ final class UniverseIndex
     {
         $parts = ['shape' => self::SHAPE, 'format' => LibraryTypes::FORMAT];
         $parts['entities'] = $this->db->one("SELECT MAX(id) AS top, COUNT(*) AS n, COALESCE(SUM(CASE WHEN status = 'published' THEN id ELSE 0 END), 0) AS live FROM entity_versions");
-        foreach ([...array_keys(self::ITEMS), ...array_keys(self::SOUND)] as $kind) {
-            $parts[$kind] = $this->db->one('SELECT COUNT(*) AS n, MAX(updated_at) AS at FROM ' . CatalogStore::table($kind));
-        }
+        // every catalog table the index lists, in one query
+        $parts['catalog'] = $this->db->all(implode(' UNION ALL ', array_map(fn(string $kind) => "SELECT '$kind' AS kind, COUNT(*) AS n, MAX(updated_at) AS at FROM " . CatalogStore::table($kind),
+            [...array_keys(self::ITEMS), ...array_keys(self::SOUND)])));
         if ($this->registry->available()) {
             $parts['assets'] = $this->db->one("SELECT (SELECT COUNT(*) FROM assets) AS n, (SELECT MAX(updated_at) FROM assets) AS at, (SELECT MAX(id) FROM asset_versions) AS versions,
                 (SELECT COUNT(*) FROM asset_renditions) AS files, (SELECT MAX(id) FROM asset_renditions) AS file, (SELECT COUNT(*) FROM asset_usages) AS uses, (SELECT MAX(id) FROM asset_usages) AS used");
