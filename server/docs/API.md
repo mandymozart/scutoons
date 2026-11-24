@@ -53,6 +53,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/PUT | `/avatar/` | Bearer | GET → `{ status, avatar: { slots, body, unlocked } }`; PUT `{ slots?:{ <slot instance id>: entryId\|null }, body?: { character, look }\|null }` (at least one) – `body` must be unlocked and have an A-pose image (`422 locked\|no_apose`, `400 invalid_body`); the removed `naked` look (and any look still marked `sensitive: true` in the registry) is ignored – a body stored with it reads as the character's default look; every slot may be empty; `slots` are keyed by the **slot instances** of the current body (the A-pose look's `slots` in the registry, e.g. `torso-left`/`torso-right` on a duo; a body without slots = one per catalog type, id = type) and GET lists every instance (`null` = empty); `422 invalid_slot` (not an instance of this body, + `slots`) / `wrong_slot` (item type ≠ instance type, + `slot_type`); on a body switch worn items keep the same instance id, else move to the first free instance of their type, else come off; `unlocked` = `[{ character, looks, source }]` (defaults from `AVATAR_DEFAULT_UNLOCKS` first); `body: null` = the first unlocked default |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
 | GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
+| GET | `/library[?toon=&place=&type=&kind=…]`, `/library?at=<address>` | creator, admin, live; a deck token | things and files in one list, a thing stepped into, ETag / 304 – see "The extended Library" |
 | GET | `/entities?toon=`, `/entities/<key>[?draft=1\|?version=<id>][&wrap=1]`, `/entities/<key>/versions` | creator | the content store by entity key – see "Entities" |
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
@@ -1079,6 +1080,100 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
   version of the toon and of the platform-wide entities – a publish changes the key, so nothing is ever invalidated; drafts are never
   cached. APCu when enabled, else files in `storage/cache/library/` (pruned by age).
 - Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
+
+## The extended Library (2026-11-24, #864 – agents/research/redesign/lap2/LIBRARY.md; no migration)
+
+One server answer for the creator's Library (#865–#867) and the deck's (#874): **things and files in one list**, a thing
+**stepped into**, **places** as filters of the same route. The server resolves everything – type, kind, name, picture,
+toons, used in – the apps only read and draw (no grouping, kind map or picture rule of their own). Implementation:
+`Domain\Library\UniverseIndex` (what exists, cached per fingerprint) + `ExtendedLibrary` (places, rights, pages, ETag),
+`Http\Controllers\ExtendedLibraryController`. The shapes: `server/schema/api/library.schema.json` → generated
+`shared/api/src/library-types.ts` and `server/src/Generated/LibraryTypes.php` (`npm run generate`; a Rust output for the
+deck is one more line in server/schema/generate.ts, #874). The file cases every reader holds to:
+`server/schema/api/library.vectors.json`. Tests: `ExtendedLibraryApiTest`. Reader: `@scutoons/api` `library(client, query, held?)`,
+`libraryEntries(client, query)` (every page); MCP `read_library`.
+
+| GET | Answer |
+|---|---|
+| `/library[?toon=&place=&type=&subtype=&kind=&from=&locale=&cursor=&limit=]` | `LibraryList` – a page of one place: `{ library: 1, version, toon, place, locale, entries: LibraryEntry[], total, next, counts }` |
+| `/library?at=<address>[&locale=]` | `LibraryStep` – the thing (or file) stepped into: `{ library: 1, version, locale, at: LibraryEntry, levels, files, uses, usedIn }` |
+
+**Query** (each optional; a wrong word → `400`):
+- `toon` – a toon id (`404 unknown_toon` when there is none); absent = the universe (every toon the member reads – today every toon).
+- `place` – default `toon` with a toon, else `all`:
+  `toon` This toon (entries whose `toons` hold it; needs `toon`) · `all` Everything · `recent` Recently added (changed in the
+  last 7 days – the shelf's RECENT_DAYS; within the toon when one is given) · `unused` files no document uses (within the toon) ·
+  `item:<address>` This item – the things and files a thing uses (`404` when the member cannot read it) · `cast:<season>` a
+  season's cast – its characters and their files (needs `toon`; `404` when the cast has no such season).
+  There is no "To do", "Wanted" or "Missing" place (RULES H17): a picture that does not exist is `null`, never a flag.
+- `from=uploaded|imported|generated` – From: files only, by their main file's origin (things drop out).
+- `type=<ThingType>[,…]`, `subtype=recipe|product|edition|album|home-scene` (items only), `kind=<FileKind>[,…]` – the type
+  filter: types only → those things, kinds only → those files, both → both. `counts` stays the place's (before this filter).
+- `locale` – two letters, default `en`: the names in the one locale order (asked › the toon's source › en › any).
+- `limit` 1–5000, default 1000 · `cursor` = the last page's `next` (opaque; `400 invalid_cursor` otherwise).
+
+**Order:** things first, in ThingType's order (toon, character, scene, show, place, item, module, instrument, rig, generator,
+kanon, person), then files in FileKind's order (image, audio, video, model, animation, file), each by address. The cursor is
+keyed on that order, so a page never repeats or skips an entry when others are added before it.
+
+**`LibraryEntry`** – `{ address, type | kind, subtype?, name, picture, parent?, toons, usedIn, updated, origin? }`:
+- a **thing** has `type` (ThingType): `toon` · `character` · `scene` (a deck scene) · `show` · `place` · `item` (+ `subtype`
+  for a recipe, product, edition, album or home scene) · `module` · `instrument` · `rig` · `generator` (the storyboard's
+  providers) · for now `kanon` (one per text and language) · `person` (for credits). Its `address` is its entity key:
+  `toon:catpope`, `character:catpope`, `scene:nave`, `show:duet`, `place:dom`, `item:camera`, `recipe:x`, `product:x`,
+  `edition:x`, `album:x`, `home-scene:x`, `module:walk`, `instrument:cathedral_voice`, `rig:character.catpope`,
+  `kanon:character.catpope:de`; `generator:<id>`, `person:<id>`. The deck's 13 kinds are covered (Module, Instrument, Rig,
+  Scene, Character, Item, Place = types; Image, Audio, Video, Model, Animation, File = kinds); new for the deck: toon, show,
+  generator, kanon, person and the item subtypes.
+- a **file** has `kind` (FileKind) and `origin`: the registry's asset (current version; map tiles left out), `address` =
+  `<kind>:<main path>` (CDN-root path, as the Library opens it: `image:characters/catpope/catpope_avatar-neutral.webp`);
+  `archive`, `document`, `font`, `other` are a `file`.
+- `name` – a thing's label (`name` / `title` / a scene's stage name), else its id; a file's title, else its slug.
+- `picture` – a thumbnail URL on the CDN or `null`: a file's smallest image rendition (an image's, a video's poster; an
+  image without renditions: its own file; audio, models, files: null); a character's first persona's default look (its
+  neutral mood, else the first: avatar › portrait › full); a toon's tile (else avatar, thumbnail); a place's image; an
+  item's `icon` (`image`, `cover`…). A path a document names is answered with the picture of its file in the registry. A
+  scene, show, module, model has no still yet: `null` (the stills of P3 fill it later, same field).
+- `parent` – a rig's character or item (`rig:character.catpope` → `character:catpope`), a Kanon text's subject.
+- `toons` – the toons it belongs to; `[]` = shared. A character: the casts listing it + its `own_toon`; scene / show /
+  place: their `toons`; an item: its catalog `toon`; a rig, a Kanon text: their parent's; a person: the toons whose credits
+  name them; a file: the toons of what uses it + its folder's toon.
+- `usedIn` – how many things / documents use it (counted as the member may read them). `updated` – ISO 8601 UTC.
+
+**Stepping in** (`at`): `levels` (parents first; each `{ address, level, name, picture, parent, mood? }`) – a character's
+`persona` › `look` › `mood` (`character:catpope.human` › `character:catpope.human.helmet`; a mood keeps its look's address
+and names itself in `mood` – the address grammar ends at the look, space rig/address.rs), a toon's `season` › `chapter`
+(`season:catpope:1` › `chapter:catpope:3`; a chapter no season lists hangs under the toon); other things: none. `files` – the
+files it uses (asset usages of its document) · `uses` – the things it uses · `usedIn` – `LibraryLink { address, type?, name,
+as }`: who uses it and how – `cast` (a season's cast lists the character: `season:<toon>:<n>`), `credits` (a toon's credits
+name the person), `rig` (a character or item plays the rig; a rig plays the instrument / module), `reference` (a scene or
+show names its address, a chapter's events name the character or item, a recipe / product names the item, a document uses
+the file). Documents that are no entry (a season, a chapter) are linked too, without `type`. A file's `at` answers its
+entry and the documents that use it.
+
+**Caching:** `ETag: "<version>"` on every answer (`version` in the body is the same without quotes), `Cache-Control:
+private, no-cache`, `Access-Control-Expose-Headers: ETag`. `If-None-Match: "<version>"` (a list and `W/"…"` too) → `304`, no
+body – answered without building the list. The version covers the index's fingerprint (entity versions saved and
+published, the catalog tables, the asset registry and its usage index, the generators), the member's rights, the query
+and the locale (`recent`: also the hour). The index is built once per fingerprint and cached (`CACHE_DRIVER`), each answer
+once per version – nothing to invalidate. A reader polls with its held version as #858's `?only=version` does.
+
+**Rights** – the same as reading each thing today, never wider: a signed-in member's session (cookie or Bearer; an AI
+connection with its member's roles) or a deck's token `Bearer scd_…` (with its paired member's roles). `401 unauthorized`
+signed out; `403 forbidden` without a content editor's role (`creator`, `admin`) or `live`. Content editors read every
+thing but shows, every file, Kanon texts, people and generators; `live` reads shows; both read toons, characters, scenes,
+places, items, modules, instruments and rigs. What the member cannot read is left out everywhere – as an entry, in `uses`,
+`usedIn` and its counts – and `at` on it is `404 not_found`. There are no per-toon rights today: every toon is readable to
+these roles.
+
+**Sizes** (today's production seed, 2026-11-24, one `php -S` worker): Cat Pope's place `toon` 2 378 entries (2 258 images),
+630 KB in one page of 5 000 (a page of 1 000 ≈ 256 KB); the universe 2 758 entries, 727 KB; `at=character:catpope` 104
+levels, 239 files, 26 used in, 107 KB. First answer after a change ≈ 220 ms (the index built), then ≈ 50–80 ms, a 304
+≈ 40–60 ms (mostly the request's start-up). The seed's registry holds 3 582 assets (1 012 map tiles); production's ~11 400
+come in pages.
+
+Errors: `400 invalid_toon|invalid_address|invalid_place|invalid_type|invalid_subtype|invalid_kind|invalid_from|invalid_locale|invalid_cursor|invalid_limit`,
+`401 unauthorized`, `403 forbidden`, `404 unknown_toon|not_found`.
 
 ## Ownership, claims, gifting (2026-10-02)
 
