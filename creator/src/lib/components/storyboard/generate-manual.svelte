@@ -81,9 +81,8 @@
 {/if}
 <fieldset>
 	<legend>{m['storyboard.gen_result']()}</legend>
-	{#if !folder}<p class="hint">{m['storyboard.gen_needs_folder']()}</p>{/if}
 	<!-- the media slot (RULES "Media fields are slots": empty = a dashed slot): a click picks the file, a drop adds it -->
-	<label class="slot" class:over class:off={!folder || gen.adding} title={m['storyboard.gen_result_slot_hint']()} ondragover={dragover} ondragleave={() => (over = false)} ondrop={drop} data-testid="manual-slot" data-control-exempt="a drop slot">
+	<label class="slot" class:over class:off={!folder || gen.adding} title={folder ? m['storyboard.gen_result_slot_hint']() : m['storyboard.gen_needs_folder']()} ondragover={dragover} ondragleave={() => (over = false)} ondrop={drop} data-testid="manual-slot" data-control-exempt="a drop slot">
 		{gen.adding ? m['storyboard.gen_result_adding']() : m['storyboard.gen_result_slot']()}
 		<input type="file" accept={ACCEPT} hidden disabled={!folder || gen.adding} onchange={(e) => { void add(e.currentTarget.files); e.currentTarget.value = ''; }} data-testid="manual-file" />
 	</label>
@@ -104,12 +103,6 @@
 		all: unset;
 		cursor: pointer;
 		text-decoration: underline;
-	}
-	.hint {
-		margin: 0 0 var(--space-05);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--tool-muted);
 	}
 	.buttons {
 		display: flex;

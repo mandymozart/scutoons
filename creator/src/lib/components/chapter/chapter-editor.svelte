@@ -32,7 +32,7 @@
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
-	import { knownImages } from '$lib/editor/images.ts';
+	import { fillSliceSize, knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateNeutral, chapterReach, toonFacts, factNames, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
 	import { loadIncoming, loadOtherChapters, loadToonDocs } from '$lib/editor/toon-facts.ts';
@@ -54,9 +54,12 @@
 	import { setClipContext } from '$lib/editor/clip-context.ts';
 	import { countPlacements } from '$lib/editor/clip.ts';
 	import { itemName } from '$lib/editor/catalog.svelte.ts';
-	import { api, saveBatch } from '$lib/api.ts';
+	import { api, getDraft, saveBatch } from '$lib/api.ts';
 	import type { ClipResult } from '$lib/editor/clipboard.svelte.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
+	import Filmstrip from '$lib/components/filmstrip/filmstrip.svelte';
+	import { sliceAt, sliceId, sliceStrip } from '$lib/editor/filmstrip.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import { pickItem } from '$lib/editor/library-pick.svelte.ts';
@@ -75,6 +78,9 @@
 	import PreviewTab from '$lib/components/reader/preview-tab.svelte';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
+	import { storyboardKey, type ChapterStoryboard } from '@scutoons/content/storyboard';
+	import { shotSlice } from '$lib/editor/chapter-shot.ts';
+	import { SHOT_PARAM } from '$lib/editor/storyboard-handover.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
 	import { chapterFlow } from '@scutoons/content';
@@ -360,7 +366,7 @@
 		log.selection = item && group >= 0 ? `${item}/groups/${group}${view.section === 'slice' && view.sliceIndex >= 0 ? `/slices/${view.sliceIndex}` : ''}` : null;
 		return () => (log.selection = null);
 	});
-	useTabs(() => ({ tree, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
+	useTabs(() => ({ tree, filmstrip: groups.length ? slicesTab : null, flow: flowTab, preview: previewTab, inspector: view.section === 'slice' && activeDoc && activeSlice ? inspectorTab : null }));
 	let canvas = $state<StripCanvas | null>(null);
 	/**
 	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
@@ -520,6 +526,8 @@
 	});
 	/** the URL has been applied once (after loading): only then does the selection write the URL */
 	let urlApplied = $state(false);
+	/** the storyboard shot (`?shot=`) last taken */
+	let shotTaken: string | null = null;
 	$effect(() => {
 		// URL → selection (deep links, crumbs, back / forward)
 		const params = page.url.searchParams;
@@ -527,7 +535,14 @@
 		const wantSection = params.get('section');
 		const wantGroup = params.get('group');
 		const wantSlice = Number(params.get('slice'));
+		const wantShot = params.get(SHOT_PARAM);
 		untrack(() => {
+			// the router's URL keeps `?shot=` after the selection replaced it: a shot is taken once
+			if (wantShot) {
+				if (wantShot !== shotTaken) void openShot((shotTaken = wantShot));
+				return;
+			}
+			shotTaken = null;
 			if (wantGroup !== null) {
 				let gi = groups.findIndex((g, i) => groupKey(g, i) === wantGroup);
 				if (gi < 0 && /^\d+$/.test(wantGroup)) gi = Number(wantGroup) - 1;
@@ -547,6 +562,19 @@
 			urlApplied = true;
 		});
 	});
+	/** a storyboard shot handed over (`?shot=`): its slice, cut on first use (chapter-shot.ts) */
+	async function openShot(shot: string) {
+		const storyboard = () => getDraft<ChapterStoryboard>(storyboardKey(toon, chapterNumber)).then((r) => r.content ?? null, () => null);
+		const answer = await shotSlice({ data: () => chapterData ?? null, edit: (change) => chapter.edit(change) }, { toon, chapter: chapterNumber, shot }, storyboard);
+		if (answer.ok) {
+			view.selectGroup(answer.spot.group);
+			view.selectSlice(answer.spot.slice);
+			if (answer.made) void fillSliceSize(chapter, ['groups', answer.spot.group, 'slices', answer.spot.slice], (path) => toonUrl(toon, path));
+		} else {
+			toast(answer.why === 'no-shot' ? m['storyboard.handover_no_shot']({ shot }) : m['storyboard.handover_no_group'](), { type: 'error' });
+		}
+		urlApplied = true;
+	}
 	$effect(() => {
 		// selection → URL (shareable; a crumb goes back to the same place)
 		const href = hrefFor({ section: view.section, group: view.groupIndex, slice: view.sliceIndex });
@@ -968,6 +996,21 @@
 {/snippet}
 {#snippet previewTab()}
 	<PreviewTab {...readerProps()} />
+{/snippet}
+
+{#snippet slicesTab()}
+	<Filmstrip
+		groups={sliceStrip(groups, (gi) => groupName(groups[gi], gi), (path) => toonUrl(toon, path))}
+		current={view.section === 'slice' && view.sliceIndex >= 0 ? sliceId(view.groupIndex, view.sliceIndex) : null}
+		onpick={(id) => {
+			const at = sliceAt(id);
+			if (!at) return;
+			if (at.group !== view.groupIndex) view.selectGroup(at.group);
+			view.selectSlice(at.slice);
+		}}
+		label={m['shell.filmstrip_slices']()}
+		testid="slice-strip"
+	/>
 {/snippet}
 
 {#snippet tree()}

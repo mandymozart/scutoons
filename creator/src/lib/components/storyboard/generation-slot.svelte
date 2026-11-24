@@ -53,7 +53,7 @@
 		place-items: center;
 		min-height: 6rem;
 		background: var(--tool-ground);
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 		box-sizing: border-box;
 		overflow: hidden;
 	}

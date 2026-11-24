@@ -10,6 +10,8 @@ export type Theme = 'night' | 'day';
 
 export interface MachineSettings {
 	theme: Theme;
+	/** ok, warning and error in the colour-blind set (`data-colorblind`, kit/tokens.toml [day|night.colorblind]) */
+	colorblind: boolean;
 	/** the UI size: 1rem as a share of the default (0.8 … 1.5) */
 	scale: number;
 	panelTransitions: boolean;
@@ -29,7 +31,7 @@ export interface ViewSettings {
 	clear?: boolean;
 }
 
-export const DEFAULTS: MachineSettings = { theme: 'day', scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true, gizmoAlways: false, views: {} };
+export const DEFAULTS: MachineSettings = { theme: 'day', colorblind: false, scale: 1, panelTransitions: true, reduceMotion: false, reopenTabs: true, gizmoAlways: false, views: {} };
 
 /** a workspace's view settings, every field checked */
 export function readViews(raw: unknown): Record<string, ViewSettings> {
@@ -62,6 +64,7 @@ export function readSettings(raw: unknown): MachineSettings {
 	const bool = (key: keyof MachineSettings) => (typeof v[key] === 'boolean' ? (v[key] as boolean) : (DEFAULTS[key] as boolean));
 	return {
 		theme: v.theme === 'night' ? 'night' : 'day',
+		colorblind: bool('colorblind'),
 		scale: typeof v.scale === 'number' ? clampScale(v.scale) : DEFAULTS.scale,
 		panelTransitions: bool('panelTransitions'),
 		reduceMotion: bool('reduceMotion'),

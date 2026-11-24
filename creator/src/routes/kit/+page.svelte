@@ -4,16 +4,17 @@
 	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
 	import KitStates from '$lib/components/page/kit-states.svelte';
 	import KitShell from '$lib/components/page/kit-shell.svelte';
+	import KitParts from '$lib/components/page/kit-parts.svelte';
 	import { at, Button, Floats, FloatingPanels, ListRow, Pill, PillTabs, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
 	// Dev only: the editor kit over a stage – drag a panel by its grip, a tab into another panel or out onto the stage,
 	// resize an edge (the neighbours make room), fold by a double-click on the head; reload and the layout is back.
-	// States: every component of the kit in its states (kit-states.svelte). Shell: the creator's bar and menus (kit-shell.svelte).
+	// States: every component of the kit in its states (kit-states.svelte, then kit-parts.svelte). Shell: the creator's bar and menus (kit-shell.svelte).
 	const TABS: TabSpec[] = [
 		{ id: 'outline', name: 'Outline', icon: 'list', about: 'The open item’s structure' },
 		{ id: 'history', name: 'History', icon: 'clock', about: 'Saved versions' },
 		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: 'Whatever is selected', essential: true },
-		{ id: 'problems', name: 'Problems', icon: 'alert-triangle', about: 'Errors and warnings' },
+		{ id: 'log', name: 'Log', icon: 'alert-triangle', about: 'Errors, warnings and what happened' },
 		{ id: 'library', name: 'Library', icon: 'grid', about: 'Every asset of the scope', size: { w: 26, h: 18 } },
 		{ id: 'info', name: 'Info', icon: 'info', about: 'The control under the pointer' }
 	];
@@ -30,7 +31,7 @@
 			essential: true
 		},
 		{ id: 'outline', name: 'Outline', icon: 'list', about: '', place: at('top-left', 0, 0), size: { w: 20, h: 'fill' }, min: { w: 12, h: 8 }, tabs: ['outline', 'history'] },
-		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'problems'] },
+		{ id: 'inspector', name: 'Inspector', icon: 'sliders', about: '', place: at('top-right', 0, 0), size: { w: 24, h: 'fill' }, min: { w: 16, h: 10 }, tabs: ['inspector', 'log'] },
 		{ id: 'library', name: 'Library', icon: 'grid', about: '', place: at('bottom-left', 21, 0), size: { w: 'fill', h: 16 }, min: { w: 20, h: 8 }, tabs: ['library', 'info'] }
 	];
 	const WORKSPACES = [
@@ -42,11 +43,14 @@
 
 	let workspace = $state('scene');
 	const floats = $derived(new Floats(`kit-${workspace === 'states' ? 'scene' : workspace}`, PANELS, TABS));
-	// Day / Night only in the creator's Settings (Look): the demo follows what they keep in this browser
+	// Day / Night and the colour-blind colours only in the creator's Settings (Look): the demo follows what they keep in this browser
 	let day = $state(false);
+	let colorblind = $state(false);
 	$effect(() => {
 		try {
-			day = readSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null')).theme === 'day';
+			const kept = readSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null'));
+			day = kept.theme === 'day';
+			colorblind = kept.colorblind;
 		} catch {
 			day = false;
 		}
@@ -69,7 +73,7 @@
 
 <svelte:head><title>Editor kit</title></svelte:head>
 
-<div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'}>
+<div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'} data-colorblind={colorblind ? '' : undefined}>
 	<header class="bar">
 		<span class="name">Editor kit</span>
 		<Pill as="nav" label="Workspaces"><PillTabs items={WORKSPACES} on={workspace} onselect={(id) => (workspace = id)} /></Pill>
@@ -79,6 +83,7 @@
 	<main class="room" class:scroll={workspace === 'states'}>
 		{#if workspace === 'states'}
 			<KitStates />
+			<KitParts {day} {colorblind} />
 		{:else if workspace === 'shell'}
 			<KitShell onleave={() => (workspace = 'scene')} />
 		{:else}
@@ -146,7 +151,7 @@
 								</Section>
 							</Section>
 						</div>
-					{:else if id === 'problems'}
+					{:else if id === 'log'}
 						<p class="note warn">1 warning · Slice 3 has no lettering</p>
 					{:else if id === 'library'}
 						<div class="tiles">

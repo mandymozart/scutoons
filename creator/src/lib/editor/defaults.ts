@@ -109,6 +109,12 @@ export function newSlice(chapter: number, index: number, season = 1): Slice {
 	return { image: sliceImagePath(chapter, index, season), width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height };
 }
 
+/** The picture of a new slice at `at`: the previous slice's name pattern with the next number, else the chapter's default */
+export function nextSliceImage(slices: readonly { image?: string }[], at: number, chapter: number): string {
+	const next = slices[at - 1]?.image?.match(/^(.*?)(\d+)(\.\w+)$/);
+	return next ? `${next[1]}${Number(next[2]) + 1}${next[3]}` : newSlice(chapter, at).image;
+}
+
 /** A new text box: a caption by default (owner 2026-10-03); its text per language starts empty */
 export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'caption'): DialogDoc {
 	return { id, rect, text: {}, variant, size: 4 };

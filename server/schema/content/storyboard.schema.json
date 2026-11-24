@@ -1,0 +1,934 @@
+{
+	"$id": "https://scutoons.com/schema/storyboard.schema.json",
+	"title": "ChapterStoryboard",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ChapterStoryboard",
+	"definitions": {
+		"ChapterStoryboard": {
+			"type": "object",
+			"properties": {
+				"storyboard": {
+					"type": "number",
+					"const": 2
+				},
+				"toon": {
+					"type": "string"
+				},
+				"chapter": {
+					"type": "number"
+				},
+				"scenes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/StoryboardDoc"
+					}
+				}
+			},
+			"required": [
+				"storyboard",
+				"toon",
+				"chapter",
+				"scenes"
+			],
+			"description": "the per-chapter document `storyboard:<toon>:<chapter>`: the chapter's scenes inline, in scene order"
+		},
+		"StoryboardDoc": {
+			"type": "object",
+			"properties": {
+				"storyboard": {
+					"type": "number",
+					"const": 2
+				},
+				"toon": {
+					"type": "string"
+				},
+				"chapter": {
+					"type": "number"
+				},
+				"source": {
+					"type": "object",
+					"properties": {
+						"script": {
+							"type": "string"
+						},
+						"scene": {
+							"type": "number"
+						},
+						"heading": {
+							"type": "string"
+						},
+						"lines": {
+							"type": "array",
+							"items": {
+								"type": "number"
+							}
+						}
+					},
+					"required": [
+						"scene"
+					]
+				},
+				"cast": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CastEntry"
+					}
+				},
+				"locations": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/LocationEntry"
+					}
+				},
+				"light": {
+					"$ref": "#/definitions/Light",
+					"description": "the scene's default light"
+				},
+				"groups": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/StoryboardGroup"
+					}
+				},
+				"notes": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "decisions / questions for the owner"
+				}
+			},
+			"required": [
+				"storyboard",
+				"toon",
+				"source",
+				"groups"
+			],
+			"description": "one script scene's storyboard (the scene file, format version 2)"
+		},
+		"CastEntry": {
+			"type": "object",
+			"properties": {
+				"ref": {
+					"type": "string"
+				},
+				"character": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "registry character id; null = not in the registry yet (`new` says who – it goes to the Wanted list)"
+				},
+				"persona": {
+					"type": "string"
+				},
+				"look": {
+					"type": "string"
+				},
+				"new": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"ref",
+				"character"
+			],
+			"description": "a cast entry: one persona of a registry character (`cast:<toon>`), or a figure the registry lacks (`new`)"
+		},
+		"LocationEntry": {
+			"type": "object",
+			"properties": {
+				"ref": {
+					"type": "string"
+				},
+				"place": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"time": {
+					"type": "string"
+				},
+				"new": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"ref"
+			],
+			"description": "a place of the scene: MAP.md's place id (or null + `new`) and the time / weather"
+		},
+		"Light": {
+			"type": "object",
+			"properties": {
+				"key": {
+					"$ref": "#/definitions/LightKey"
+				},
+				"height": {
+					"$ref": "#/definitions/LightHeight"
+				},
+				"source": {
+					"$ref": "#/definitions/LightSource"
+				},
+				"shadow": {
+					"$ref": "#/definitions/LightShadow"
+				},
+				"rim": {
+					"type": "boolean"
+				},
+				"soft": {
+					"type": "number",
+					"description": "0 (pure Sin City) … 1 (soft), default 0.5"
+				},
+				"quality": {
+					"type": "string",
+					"const": "hard",
+					"description": "only 'hard' is valid (validate errors on any other)"
+				},
+				"azimuth": {
+					"type": "number",
+					"description": "the 3D view's free key direction (lumaPrompt): degrees around the subject / up"
+				},
+				"elevation": {
+					"type": "number"
+				},
+				"accent": {
+					"$ref": "#/definitions/LightAccent"
+				},
+				"note": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"description": "the light (workflow \"light\"): one extremely hard key; a scene default at the top, a shot lists what differs"
+		},
+		"LightKey": {
+			"type": "string",
+			"enum": [
+				"left",
+				"right",
+				"top",
+				"bottom",
+				"front",
+				"back",
+				"top-left",
+				"top-right",
+				"bottom-left",
+				"bottom-right"
+			]
+		},
+		"LightHeight": {
+			"type": "string",
+			"enum": [
+				"below",
+				"low",
+				"eye",
+				"high",
+				"overhead"
+			]
+		},
+		"LightSource": {
+			"type": "string",
+			"enum": [
+				"sun",
+				"moon",
+				"snow",
+				"window",
+				"door",
+				"candle",
+				"screen",
+				"neon",
+				"fire",
+				"lightning",
+				"flash",
+				"energy",
+				"none"
+			]
+		},
+		"LightShadow": {
+			"type": "string",
+			"enum": [
+				"long",
+				"short",
+				"none"
+			]
+		},
+		"LightAccent": {
+			"type": "object",
+			"properties": {
+				"color": {
+					"type": "string"
+				},
+				"on": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"color"
+			],
+			"description": "the one accent colour allowed in the frame, and on what"
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "a text in locales: `{ de: '…' }` (German first; other locales come with the translation step)"
+		},
+		"StoryboardGroup": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"type": "string"
+				},
+				"renderer": {
+					"type": "object",
+					"properties": {
+						"type": {
+							"type": "string"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"endless": {
+									"type": "boolean"
+								}
+							},
+							"additionalProperties": {}
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				"continues": {
+					"type": "boolean"
+				},
+				"shots": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Shot"
+					}
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SbEvent"
+					}
+				}
+			},
+			"required": [
+				"label"
+			],
+			"description": "a group of shots: one vertical group per scene by default; horizontal + endless for a loop360"
+		},
+		"Shot": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "sb-<scene>-<n>, never reused"
+				},
+				"format": {
+					"$ref": "#/definitions/ShotFormat"
+				},
+				"aspect": {
+					"type": "string",
+					"description": "w:h (\"9:16\", \"1:4\"; the panorama's w:h for loop360)"
+				},
+				"projection": {
+					"$ref": "#/definitions/Projection"
+				},
+				"move": {
+					"$ref": "#/definitions/Move"
+				},
+				"shot": {
+					"type": "object",
+					"properties": {
+						"size": {
+							"$ref": "#/definitions/ShotSize"
+						},
+						"angle": {
+							"$ref": "#/definitions/ShotAngle"
+						}
+					}
+				},
+				"location": {
+					"type": "string"
+				},
+				"view": {
+					"$ref": "#/definitions/View"
+				},
+				"light": {
+					"$ref": "#/definitions/Light"
+				},
+				"camera": {
+					"$ref": "#/definitions/Camera"
+				},
+				"action": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"air": {
+					"type": "array",
+					"items": {
+						"type": "array",
+						"items": {
+							"type": "number"
+						},
+						"minItems": 2,
+						"maxItems": 2
+					},
+					"description": "[[from %, to %]] along the shot: zones with nothing to read"
+				},
+				"figures": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Figure"
+					}
+				},
+				"dialog": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SbDialog"
+					}
+				},
+				"source": {
+					"$ref": "#/definitions/ShotSource"
+				},
+				"asset": {
+					"type": "string",
+					"description": "the shot's picture or clip: a Library address – a file's `image:<path>` / `video:<path>` (the CDN-root path of its main file) or a generator's `generator:<id>`, which stands in until a take is there (handover.ts)",
+					"pattern": "^((image|video):[^\\s]+|generator:[a-z0-9][a-z0-9._-]*)$"
+				},
+				"made": {
+					"$ref": "#/definitions/ShotMade",
+					"description": "what the shot was made into: the deck scene, the XR experience"
+				},
+				"prompt": {
+					"type": "object",
+					"properties": {
+						"en": {
+							"type": "string"
+						}
+					},
+					"description": "only for shots that want `generated`: the image in English"
+				},
+				"review": {
+					"$ref": "#/definitions/Review"
+				},
+				"status": {
+					"$ref": "#/definitions/ShotStatus"
+				},
+				"note": {
+					"type": "string"
+				},
+				"title": {
+					"type": "boolean",
+					"description": "a scene-heading shot"
+				},
+				"takes": {
+					"$ref": "#/definitions/ShotTakes",
+					"description": "the handheld camera's takes (the online document holds them inline, §2.2)"
+				},
+				"items": {
+					"type": "array",
+					"items": {},
+					"description": "the chapter's own types where the script asks (SliceItem, VNEvent, audio) – kept as they are"
+				},
+				"events": {
+					"type": "array",
+					"items": {}
+				},
+				"audio": {}
+			},
+			"required": [
+				"id",
+				"format",
+				"aspect",
+				"action"
+			],
+			"description": "one shot: one image used for layouting the toon (owner 2026-10-09)"
+		},
+		"ShotFormat": {
+			"type": "string",
+			"enum": [
+				"viewport",
+				"vertical",
+				"loop360",
+				"strip"
+			]
+		},
+		"Projection": {
+			"type": "string",
+			"enum": [
+				"perspective",
+				"top-down",
+				"isometric",
+				"polar"
+			]
+		},
+		"Move": {
+			"type": "string",
+			"enum": [
+				"hold",
+				"tilt-down",
+				"tilt-up",
+				"fall",
+				"climb",
+				"travel",
+				"descend",
+				"reveal",
+				"look-around",
+				"pass"
+			]
+		},
+		"ShotSize": {
+			"type": "string",
+			"enum": [
+				"ecu",
+				"cu",
+				"mcu",
+				"medium",
+				"full",
+				"wide",
+				"ews"
+			]
+		},
+		"ShotAngle": {
+			"type": "string",
+			"enum": [
+				"eye",
+				"high",
+				"low",
+				"bird",
+				"worm",
+				"dutch"
+			]
+		},
+		"View": {
+			"type": "string",
+			"enum": [
+				"real",
+				"belief",
+				"narration",
+				"memory"
+			]
+		},
+		"Camera": {
+			"type": "object",
+			"properties": {
+				"pos": {
+					"type": "array",
+					"items": {
+						"type": "number"
+					},
+					"minItems": 3,
+					"maxItems": 3
+				},
+				"target": {
+					"type": "array",
+					"items": {
+						"type": "number"
+					},
+					"minItems": 3,
+					"maxItems": 3
+				},
+				"fov": {
+					"type": "number"
+				},
+				"roll": {
+					"type": "number"
+				},
+				"dist": {
+					"type": "number"
+				},
+				"height": {
+					"type": "number"
+				},
+				"pitch": {
+					"type": "number"
+				},
+				"yaw": {
+					"type": "number"
+				}
+			},
+			"description": "The shot's camera from the 3D view (tools/storyboard-render core.js): a free camera `{ pos, target, fov, roll }` (metres, Y up) or adjustments of the preset camera `{ dist, height, pitch, yaw, roll, fov }`."
+		},
+		"Figure": {
+			"type": "object",
+			"properties": {
+				"cast": {
+					"type": "string"
+				},
+				"framing": {
+					"$ref": "#/definitions/ShotSize"
+				},
+				"mood": {
+					"type": "string"
+				},
+				"pose": {
+					"$ref": "#/definitions/Pose"
+				},
+				"facing": {
+					"$ref": "#/definitions/Facing"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"h": {
+					"type": "number"
+				},
+				"persona": {
+					"type": "string",
+					"description": "overrides of the cast entry's persona / look"
+				},
+				"look": {
+					"type": "string"
+				},
+				"turn": {
+					"type": "number",
+					"description": "extra turn in degrees (the 3D view)"
+				},
+				"z": {
+					"type": "number",
+					"description": "the figure's depth in the 3D view"
+				},
+				"scale": {
+					"type": "number"
+				},
+				"ground": {
+					"type": "boolean",
+					"description": "false keeps it in the air where drawn (a hand camera would otherwise put it on the ground)"
+				},
+				"note": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"cast"
+			],
+			"description": "a figure in a shot: a cast ref, where (x across, y along the shot, 0…1) and how big (h = fraction of a screen)"
+		},
+		"Pose": {
+			"type": "string",
+			"enum": [
+				"stand",
+				"walk",
+				"run",
+				"jump",
+				"fall",
+				"slip",
+				"crouch",
+				"kneel",
+				"crawl",
+				"sit",
+				"lie",
+				"reach",
+				"point",
+				"throw",
+				"cast",
+				"arms-up",
+				"hug-self",
+				"stamp",
+				"push",
+				"look-back",
+				"pray"
+			]
+		},
+		"Facing": {
+			"type": "string",
+			"enum": [
+				"front",
+				"away",
+				"left",
+				"right",
+				"three-quarter-left",
+				"three-quarter-right"
+			]
+		},
+		"SbDialog": {
+			"type": "object",
+			"properties": {
+				"variant": {
+					"type": "string",
+					"enum": [
+						"narration",
+						"bubble",
+						"caption",
+						"lyrics"
+					]
+				},
+				"font": {
+					"type": "string",
+					"enum": [
+						"mono",
+						"lettering"
+					]
+				},
+				"tail": {
+					"$ref": "#/definitions/DialogTail"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					]
+				},
+				"text": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"title": {
+					"type": "boolean",
+					"description": "a scene-heading box"
+				},
+				"size": {
+					"type": "number",
+					"description": "font size in % of the width"
+				}
+			},
+			"required": [
+				"rect",
+				"text"
+			],
+			"description": "a text box of a shot: content.ts Dialog's look fields, text as a locale map, rect in % of the shot"
+		},
+		"DialogTail": {
+			"type": "string",
+			"enum": [
+				"bottom-left",
+				"bottom",
+				"bottom-right",
+				"top-left",
+				"top",
+				"top-right",
+				"none"
+			]
+		},
+		"ShotSource": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/SourceKind",
+					"description": "where the image comes from now (schematic until matched)"
+				},
+				"want": {
+					"$ref": "#/definitions/SourceKind",
+					"description": "what it should come from"
+				},
+				"figma": {
+					"type": "string",
+					"description": "the Figma node id once matched"
+				}
+			}
+		},
+		"SourceKind": {
+			"type": "string",
+			"enum": [
+				"schematic",
+				"photo",
+				"deck",
+				"direct",
+				"generated",
+				"art"
+			]
+		},
+		"ShotMade": {
+			"type": "object",
+			"properties": {
+				"deck": {
+					"type": "string",
+					"description": "the deck scene, `scene:<id>`",
+					"pattern": "^scene:[^\\s]+$"
+				},
+				"xr": {
+					"type": "string",
+					"description": "the XR experience, `experience:<id>`",
+					"pattern": "^experience:[a-z][a-z0-9-]{1,63}$"
+				}
+			},
+			"description": "What a shot was made into elsewhere, each the made thing's address (handover.ts). The shot points at it, never one shared address; a slice points at its shot itself (`Slice.shot`), so the shot keeps no pointer to it."
+		},
+		"Review": {
+			"type": "object",
+			"properties": {
+				"status": {
+					"$ref": "#/definitions/ReviewStatus"
+				},
+				"note": {
+					"type": "string"
+				},
+				"date": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"status"
+			],
+			"description": "the owner's verdict (approve.mjs); an open `change` is a warning until it is done"
+		},
+		"ReviewStatus": {
+			"type": "string",
+			"enum": [
+				"ok",
+				"change"
+			]
+		},
+		"ShotStatus": {
+			"type": "string",
+			"enum": [
+				"draft",
+				"layout-ok",
+				"refs-locked",
+				"generating",
+				"still-ok",
+				"in-chapter"
+			]
+		},
+		"ShotTakes": {
+			"type": "object",
+			"properties": {
+				"on": {
+					"type": "boolean"
+				},
+				"active": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"takes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Take"
+					}
+				}
+			},
+			"required": [
+				"on",
+				"active",
+				"takes"
+			],
+			"description": "a shot's takes (the studio's takes/<shot>.json): the handheld camera on, the active take"
+		},
+		"Take": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "t1, t2 …"
+				},
+				"created": {
+					"type": "string"
+				},
+				"smooth": {
+					"type": "number"
+				},
+				"scale": {
+					"type": "number"
+				},
+				"in": {
+					"type": "number"
+				},
+				"out": {
+					"type": "number"
+				},
+				"samples": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/TakeSample"
+					}
+				}
+			},
+			"required": [
+				"id",
+				"created",
+				"smooth",
+				"scale",
+				"in",
+				"out",
+				"samples"
+			],
+			"description": "a recorded handheld camera take (research/HANDHELD-CAMERA.md)"
+		},
+		"TakeSample": {
+			"type": "object",
+			"properties": {
+				"t": {
+					"type": "number"
+				},
+				"position": {
+					"type": "array",
+					"items": {
+						"type": "number"
+					},
+					"minItems": 3,
+					"maxItems": 3
+				},
+				"quaternion": {
+					"type": "array",
+					"items": {
+						"type": "number"
+					},
+					"minItems": 4,
+					"maxItems": 4
+				},
+				"fov": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"t",
+				"position",
+				"quaternion"
+			],
+			"description": "one handheld sample: t (s), position (m, Y up), quaternion [x, y, z, w], fov (°)"
+		},
+		"SbEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"text": {
+							"anyOf": [
+								{
+									"$ref": "#/definitions/LocaleText"
+								},
+								{
+									"type": "string"
+								}
+							]
+						}
+					},
+					"additionalProperties": {}
+				}
+			},
+			"required": [
+				"type"
+			],
+			"additionalProperties": {},
+			"description": "a VN event of a storyboard group (measureVn reads showMessage / showChoices / joinScene / leaveScene)"
+		}
+	}
+}

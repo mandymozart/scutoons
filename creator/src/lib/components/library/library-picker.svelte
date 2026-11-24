@@ -32,7 +32,7 @@
 	let last = library.pick!;
 	const request = $derived((last = library.pick ?? last));
 	const things = $derived(isThingPick(request));
-	const fit = $derived<PickFit>(isThingPick(request) ? { types: request.types } : { kinds: request.kinds });
+	const fit = $derived<PickFit>(isThingPick(request) ? { types: request.types } : { kinds: request.kinds, types: request.things?.types });
 	const only = $derived.by(() => {
 		const c = pickChoices(fit);
 		return c.length === 2 ? [c[1]] : c;

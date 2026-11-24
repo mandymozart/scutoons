@@ -9,8 +9,11 @@
 	import ShotCanvas from '$lib/components/storyboard/shot-canvas.svelte';
 	import VariantsCanvas from '$lib/components/storyboard/variants-canvas.svelte';
 	import EditorSwitch from '$lib/components/storyboard/editor-switch.svelte';
+	import PickedShots from '$lib/components/storyboard/picked-shots.svelte';
 
 	let { sb }: { sb: StoryboardPage } = $props();
+	/** several shots picked: the stage shows them side by side (the Viewport stays mounted under them) */
+	const side = $derived(sb.picked.length > 1);
 	onDestroy(() => sb.board.dispose());
 
 	const typing = (el: Element | null) => !!el?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="spinbutton"]');
@@ -27,9 +30,12 @@
 {#snippet lead()}<EditorSwitch {sb} />{/snippet}
 
 <div class="main" data-testid="main-view">
-	<div class="viewport" inert={sb.board.open}>
+	<div class="viewport" inert={sb.board.open || side} class:hidden={side && !sb.board.open}>
 		<ShotCanvas {sb} {lead} />
 	</div>
+	{#if side && !sb.board.open}
+		<PickedShots {sb} {lead} />
+	{/if}
 	{#if sb.board.open}
 		<VariantsCanvas {sb} {lead} />
 	{/if}
@@ -44,5 +50,8 @@
 	.viewport {
 		height: 100%;
 		min-height: 0;
+	}
+	.viewport.hidden {
+		visibility: hidden;
 	}
 </style>

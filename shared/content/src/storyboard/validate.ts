@@ -5,6 +5,7 @@
 import { DIALOG_TAILS } from '../content.ts';
 import { S, SLICE_ASPECTS, UNIT, W, parseAspect, slicesOf } from './grid.ts';
 import { measureShot, measureVn } from './measure.ts';
+import { SHOT_ASSET_KINDS, SHOT_MADE, fitsMade, readShotAsset, type ShotMadeAt } from './handover.ts';
 import type { ChapterStoryboard, Light, StoryboardDoc } from './types.ts';
 import {
 	ANGLES, DIALOG_FONTS_SB, DIALOG_VARIANTS_SB, FACING, FORMATS, LIGHT, MOVES, POSES, PROJECTIONS, REVIEWS, RHYTHM, SAFE,
@@ -62,7 +63,13 @@ export function validate(sb: StoryboardDoc, file = ''): StoryboardProblems {
 			if (shot.location && !locRefs.has(shot.location)) err(id, `location "${shot.location}" not in locations`);
 			if (shot.source?.type && !isIn(SOURCES, shot.source.type)) err(id, `source.type "${shot.source.type}"`);
 			if (shot.source?.want && !isIn(SOURCES, shot.source.want)) err(id, `source.want "${shot.source.want}"`);
-			if (!shot.source?.want) warn(id, 'source.want missing (photo / unreal / direct / generated / art)');
+			if (!shot.source?.want) warn(id, `source.want missing (${SOURCES.filter((s) => s !== 'schematic').join(' / ')})`);
+			const want = shot.source?.want;
+			if (shot.asset != null && !readShotAsset(shot.asset)) err(id, `asset "${shot.asset}" – a Library address: ${SHOT_ASSET_KINDS.map((k) => `${k}:<path>`).join(', ')} or generator:<id>`);
+			for (const [at, address] of Object.entries(shot.made ?? {})) {
+				if (!(at in SHOT_MADE)) err(id, `made.${at} – ${Object.keys(SHOT_MADE).join(' | ')}`);
+				else if (!fitsMade(at as ShotMadeAt, address)) err(id, `made.${at} "${address}" – ${at === 'deck' ? 'scene:<id>' : 'experience:<id>'}`);
+			}
 			if (shot.status && !isIn(STATUS, shot.status)) err(id, `status "${shot.status}"`);
 			if (shot.review && !isIn(REVIEWS, shot.review.status)) err(id, 'review.status – ok | change');
 			if (shot.review?.status === 'change') warn(id, `owner asked for a change (${shot.review.date ?? ''}): ${shot.review.note ?? ''}`);
@@ -86,9 +93,9 @@ export function validate(sb: StoryboardDoc, file = ''): StoryboardProblems {
 			// safe formats (warnings: "beyond what we can generate today")
 			if (a && shot.format === 'vertical') {
 				const tall = a.h / a.w;
-				if (tall > SAFE.vertical.maxTall + 1e-6 && shot.source?.want !== 'unreal')
-					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want unreal / photo stitch`);
-				else if (tall > SAFE.vertical.plan + 1e-6 && shot.source?.want === 'generated') warn(id, `1:${tall.toFixed(1)} generated: above the planning size 1:${SAFE.vertical.plan} – the maximum is the exception`);
+				if (tall > SAFE.vertical.maxTall + 1e-6 && want !== 'deck')
+					warn(id, `1:${tall.toFixed(1)} is beyond what we can generate today (max 1:${SAFE.vertical.maxTall}) – split, or source.want deck / photo stitch`);
+				else if (tall > SAFE.vertical.plan + 1e-6 && want === 'generated') warn(id, `1:${tall.toFixed(1)} generated: above the planning size 1:${SAFE.vertical.plan} – the maximum is the exception`);
 			}
 			if (a && shot.format === 'loop360') {
 				const widthScreens = (a.w / a.h) * (S / W);

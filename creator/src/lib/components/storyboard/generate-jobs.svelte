@@ -86,7 +86,7 @@
 		width: 100%;
 		height: 1rem;
 		appearance: none;
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 		border-radius: 0;
 		background: var(--tool-head);
 		color: var(--tool-text);

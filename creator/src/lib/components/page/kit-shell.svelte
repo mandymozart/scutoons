@@ -7,9 +7,8 @@
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { setCreatorNav } from '$lib/nav.svelte.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import { publishFlow, serverSource, type PublishSource } from '$lib/editor/publish-flow.svelte.ts';
-	import type { PublishLine } from '$lib/editor/publish-tree.ts';
+	import { publishFlow, serverSource } from '$lib/editor/publish-flow.svelte.ts';
+	import { publishSamples as samples } from '$lib/components/page/kit-samples.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
@@ -32,33 +31,8 @@
 	const floats = new Floats('kit-shell-character', panelSpecs('character', available, specs), specs, presetStart('character'));
 	let translator = $state(false);
 
-	// the Publish dialog's samples (lap 2 A10): the bar's icon lists them, its primary answers with a sample report
-	const line = (id: string, label: string, chip: string, type: string): PublishLine => ({ id, label, chip, type, hint: 'v12 · agent@scutoons.test', review: false });
-	const changed = m['creator.publish_part_changed']();
-	const added = m['creator.publish_part_added']();
-	const SAMPLES: PublishLine[] = [
-		line('character:sandgirl', 'Sandgirl', changed, 'Character'),
-		line('character:giantpopstar', 'Giant Popstar', changed, 'Character'),
-		line('character:mellowmantis', 'Mellowmantis', changed, 'Character'),
-		line('chapter:catpope:3:de', 'Chapter 3 (de)', changed, 'Chapter · Catpope'),
-		line('season:catpope:1', 'Season 1', changed, 'Season · Catpope'),
-		line('place:foyer', 'Foyer', added, 'Place'),
-		line('module:walk', 'walk', added, 'Module'),
-		line('show:top-toy', 'top-toy', changed, 'Show')
-	];
-	const samples: PublishSource = {
-		load: async () => ({ files: [], lines: SAMPLES }),
-		send: async (list, chosen) => {
-			const out = list.lines.filter((l) => chosen.has(l.id) && l.id !== 'show:top-toy').map((l) => l.label);
-			const notices = [
-				{ type: 'success' as const, text: m['creator.publish_tree_done_named']({ count: out.length, names: out.join(', ') }) },
-				...(chosen.has('show:top-toy') ? [{ type: 'error' as const, text: m['creator.publish_tree_refused']({ name: 'top-toy', reason: 'needs module:walk-2, which is not published' }) }] : [])
-			];
-			return { message: notices[0].text, published: [], refused: [], notices };
-		}
-	};
-
 	$effect(() => {
+		const end = untrack(() => shell.sample());
 		untrack(() => {
 			shell.visit('character:crow-fox', '/characters?id=crow-fox', 'crow-fox');
 			shell.visit('character:mellowmantis', '/characters?id=mellowmantis', 'mellowmantis');
@@ -82,6 +56,7 @@
 			floats.full = null;
 			crafts.mine = null;
 			textLanguage.page = { languages: [], source: 'de' };
+			end();
 		};
 	});
 	$effect(() => {

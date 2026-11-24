@@ -103,7 +103,7 @@
 		position: relative;
 		display: block;
 		box-sizing: border-box;
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 		background: var(--tool-pressed);
 		overflow: hidden;
 	}

@@ -137,6 +137,16 @@ export class StoryboardPage {
 		});
 	}
 
+	/** a field of the shot `id` (not only the current one): the asset slot filled or emptied (null), a made pointer */
+	setShotOf(id: string, keys: string[], value: unknown): void {
+		const path = this.entries.find((e) => e.id === id)?.path;
+		if (!path) return;
+		this.doc.edit((file) => {
+			const shot = path.reduce((o: any, k) => o?.[k], file) as Record<string, any> | undefined;
+			if (shot) setField(shot, keys, value);
+		});
+	}
+
 	// ── Steps ──────────────────────────────────────────────────────────────────────────────────────────────
 
 	setStep(id: string): void {

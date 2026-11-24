@@ -1,5 +1,5 @@
 // The shot list of a chapter's storyboards (from scripts/storyboard/shotlist.mjs, #119), grouped by place and by what
-// each shot wants (photo / unreal / direct / generated / art): the sheet for matching the Figma selection, for planning
+// each shot wants (photo / deck / direct / generated / art): the sheet for matching the Figma selection, for planning
 // a shooting and – for the gaps – for prompting.
 
 import { measureShot, shotsOf } from './measure.ts';
@@ -22,7 +22,7 @@ export interface ShotRow {
 }
 
 /** the order of the want table */
-export const WANTS = ['photo', 'direct', 'unreal', 'generated', 'art', '?'] as const;
+export const WANTS = ['photo', 'direct', 'deck', 'generated', 'art', '?'] as const;
 
 /** one row per shot, in scene order */
 export function shotRows(scenes: StoryboardDoc[]): ShotRow[] {
@@ -53,7 +53,7 @@ export const wantCounts = (rows: ShotRow[]): [string, number][] =>
 export function shotlistMarkdown(name: string, rows: ShotRow[]): string {
 	const md = [`# Shot list ${name} – ${rows.length} shots`, '',
 		'What each shot needs, by place. Match against the Figma selection on the chapter page; the shooting pages only for gaps.',
-		'`want`: photo = from a shooting · direct = to be photographed · unreal = render · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
+		'`want`: photo = from a shooting · direct = to be photographed · deck = a scene in the deck · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
 		'| want | shots |', '|---|---|', ...WANTS.map((w) => `| ${w} | ${rows.filter((r) => r.want === w).length} |`).filter((l) => !l.endsWith('| 0 |')), ''];
 	for (const place of [...new Set(rows.map((r) => r.place))]) {
 		const rs = rows.filter((r) => r.place === place);

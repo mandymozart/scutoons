@@ -11,6 +11,7 @@
 	import type { ShotTab } from '$lib/editor/storyboard-steps.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import FiguresInspector from '$lib/components/storyboard/figures-inspector.svelte';
+	import ShotHandover from '$lib/components/storyboard/shot-handover.svelte';
 
 	let { sb, tab }: { sb: StoryboardPage; tab: ShotTab } = $props();
 
@@ -35,6 +36,9 @@
 			</PropRow>
 			<PropRow label={m['storyboard.source']()} hint={m['storyboard.source_hint']()}>
 				<PropSelect label={m['storyboard.source']()} options={optionsOf(SOURCES, s.source?.want)} value={s.source?.want} onchange={(v) => set(['source', 'want'], v)} />
+			</PropRow>
+			<PropRow label={m['storyboard.handover']()} hint={m['storyboard.handover_hint']()}>
+				<ShotHandover {sb} />
 			</PropRow>
 			<PropRow label={m['storyboard.note']()}>
 				<textarea aria-label={m['storyboard.note']()} rows="2" value={s.note ?? ''} oninput={(e) => set(['note'], text(e))}></textarea>

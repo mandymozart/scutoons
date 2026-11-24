@@ -130,6 +130,23 @@ export interface TakeSample {
 	fov?: number;
 }
 
+/**
+ * What a shot was made into elsewhere, each the made thing's address (handover.ts). The shot points at it, never one shared
+ * address; a slice points at its shot itself (`Slice.shot`), so the shot keeps no pointer to it.
+ */
+export interface ShotMade {
+	/**
+	 * the deck scene, `scene:<id>`
+	 * @pattern ^scene:[^\s]+$
+	 */
+	deck?: string;
+	/**
+	 * the XR experience, `experience:<id>`
+	 * @pattern ^experience:[a-z][a-z0-9-]{1,63}$
+	 */
+	xr?: string;
+}
+
 /** a recorded handheld camera take (research/HANDHELD-CAMERA.md) */
 export interface Take {
 	/** t1, t2 … */
@@ -169,6 +186,14 @@ export interface Shot {
 	figures?: Figure[];
 	dialog?: SbDialog[];
 	source?: ShotSource;
+	/**
+	 * the shot's picture or clip: a Library address – a file's `image:<path>` / `video:<path>` (the CDN-root path of its
+	 * main file) or a generator's `generator:<id>`, which stands in until a take is there (handover.ts)
+	 * @pattern ^((image|video):[^\s]+|generator:[a-z0-9][a-z0-9._-]*)$
+	 */
+	asset?: string;
+	/** what the shot was made into: the deck scene, the XR experience */
+	made?: ShotMade;
 	/** only for shots that want `generated`: the image in English */
 	prompt?: { en?: string };
 	review?: Review;

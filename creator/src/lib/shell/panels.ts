@@ -2,11 +2,28 @@
 // panels, their tabs, places, which tab is main) are presets.ts.
 import type { TabSpec } from '@scutoons/ui/editor';
 import { m } from '$lib/paraglide/messages.js';
+import type { WorkspaceKind } from './address.ts';
 
 export * from './presets.ts';
 
-export function tabSpecs(): TabSpec[] {
+/** the Filmstrip's name where it shows one kind of part (lap 2 C3: one panel for shots, slices and XR scenes) */
+const FILMSTRIP_NAMES: Partial<Record<string, () => string>> = {
+	storyboard: () => m['shell.filmstrip_shots'](),
+	chapter: () => m['shell.filmstrip_slices'](),
+	experience: () => m['shell.filmstrip_scenes']()
+};
+
+/** the tabs, named for the workspace `kind` where a tab's name depends on it (the Filmstrip) */
+export function tabSpecs(kind?: WorkspaceKind | 'home' | string): TabSpec[] {
 	return [
+		{
+			id: 'filmstrip',
+			name: (kind ? FILMSTRIP_NAMES[kind]?.() : undefined) ?? m['shell.panel_filmstrip'](),
+			icon: 'film',
+			about: m['shell.panel_filmstrip_about'](),
+			// the Storyboard's shots were its Tree: a layout kept from then shows them here
+			aliases: kind === 'storyboard' ? ['tree'] : undefined
+		},
 		{ id: 'toon', name: m['shell.panel_toon'](), icon: 'book', about: m['shell.panel_toon_about']() },
 		{ id: 'tree', name: m['shell.panel_tree'](), icon: 'list', about: m['shell.panel_tree_about']() },
 		{ id: 'inspector', name: m['creator.inspector'](), icon: 'sliders', about: m['shell.panel_inspector_about']() },

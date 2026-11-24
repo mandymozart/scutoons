@@ -30,6 +30,8 @@ export function shotLine(shot: Shot, path: JsonPath) {
 		figures: (shot.figures ?? []).map((f) => f.cast),
 		dialog: shot.dialog?.length || undefined,
 		source: shot.source?.type || shot.source?.want ? compact({ type: shot.source?.type, want: shot.source?.want }) : undefined,
+		asset: shot.asset,
+		made: shot.made && Object.keys(shot.made).length ? shot.made : undefined,
 		title: shot.title || undefined,
 		seconds: round(m.seconds)
 	});

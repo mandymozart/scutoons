@@ -17,14 +17,23 @@
 	 * A workspace in the switcher (lap2 B7): its last capture fills the card, its name and what is open in it over the
 	 * picture; without a capture yet the item's toon and its kind's icon. ✕ closes that item. Views are in the ☰ menu only.
 	 * A deck card (A3) carries the quiet chip "Deck" and is the link that opens the deck there (A3b: the browser asks once).
+	 * `data-kit-state` shows hover, focus or dragged on the kit page.
 	 */
 	let {
 		card,
 		ring = false,
 		onopen,
 		onclose,
-		onfocus
-	}: { card: WorkspaceCard | DeckCard; ring?: boolean; onopen: (card: WorkspaceCard) => void; onclose: (address: string) => void; onfocus: () => void } = $props();
+		onfocus,
+		'data-kit-state': kitState
+	}: {
+		card: WorkspaceCard | DeckCard;
+		ring?: boolean;
+		onopen: (card: WorkspaceCard) => void;
+		onclose: (address: string) => void;
+		onfocus: () => void;
+		'data-kit-state'?: string;
+	} = $props();
 
 	const nav = getCreatorNav();
 	const deck = $derived('workspace' in card ? card : null);
@@ -48,7 +57,7 @@
 	}
 </script>
 
-<div class="ws-card" class:front={own?.front} class:empty={!address} class:captured={!!still} data-testid="dash-card" data-kind={own?.kind ?? 'deck'} data-workspace={card.id}>
+<div class="ws-card" class:front={own?.front} class:empty={!address} class:captured={!!still} data-testid="dash-card" data-kind={own?.kind ?? 'deck'} data-workspace={card.id} data-kit-state={kitState}>
 	{#snippet inside()}
 		<Thumb src={still} fill empty={m['shell.no_still']()}>
 			<span class="placeholder">
@@ -95,6 +104,16 @@
 	}
 	.ws-card.empty {
 		border-style: dashed;
+	}
+	/* the front workspace: a frame in the text colour */
+	.ws-card.front {
+		border-color: var(--kit-workspace-card-on-border);
+	}
+	.ws-card[data-kit-state~='dragged'] {
+		opacity: var(--kit-workspace-card-dragged-opacity);
+	}
+	.ws-card[data-kit-state~='hover'] .open::after {
+		background: var(--kit-workspace-card-hover-ground);
 	}
 	.open {
 		position: relative;
@@ -144,7 +163,8 @@
 		outline: none;
 	}
 	.ws-card:has(.open:focus-visible),
-	.ws-card:has(.open[data-ring]:focus) {
+	.ws-card:has(.open[data-ring]:focus),
+	.ws-card[data-kit-state~='focus'] {
 		outline: 2px solid var(--tool-text);
 		outline-offset: 1px;
 	}

@@ -65,7 +65,6 @@
 		display: flex;
 		align-items: center;
 		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.canvas.led {
 		height: calc(100% - var(--control-height) - 2 * var(--space-025) - var(--border-width-regular));
@@ -76,7 +75,7 @@
 		box-sizing: border-box;
 		width: min(100%, 24rem);
 		height: auto;
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 		background: var(--tool-ground);
 	}
 </style>
