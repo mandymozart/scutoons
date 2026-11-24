@@ -1,0 +1,121 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://scutoons.com/schema/api/library.v1.json",
+	"title": "LibraryList",
+	"description": "The extended Library (#864, agents/research/redesign/lap2/LIBRARY.md): things and files in one list, one server answer for the creator and the deck (GET /api/library, server/docs/API.md \"The extended Library\"). The server resolves – types, kinds, names, pictures, places, used in – the apps only read. Edit this file, run `npm run generate` (server/schema/generate.ts writes the TS and PHP types), commit the outputs; library.vectors.json holds the file cases every reader holds to.",
+	"definitions": {
+		"ThingType": {
+			"description": "What a thing is (owner 2026-11-24, LIBRARY.md \"Answered\" 1): a toon, a character, a deck scene, a live show, a place of the world map, a catalog item (with its subtype), a rig module, an instrument, a rig, a generator (the storyboard's providers), and for now a Kanon text and a person (for credits). Its address is its entity key (`toon:catpope`, `character:catpope`, `scene:nave`, `show:duet`, `place:dom`, `item:camera`, `recipe:x`, `product:x`, `edition:x`, `album:x`, `home-scene:x`, `module:walk`, `instrument:organ`, `rig:character.catpope`, `kanon:character.catpope:de`), a generator's `generator:<id>`, a person's `person:<id>`.",
+			"type": "string",
+			"enum": ["toon", "character", "scene", "show", "place", "item", "module", "instrument", "rig", "generator", "kanon", "person"]
+		},
+		"ItemSubtype": {
+			"description": "An item's subtype: a catalog entry of its own table listed as an item – absent on a plain item (`item:<id>`).",
+			"type": "string",
+			"enum": ["recipe", "product", "edition", "album", "home-scene"]
+		},
+		"FileKind": {
+			"description": "What a file is: the registry's kind, where `archive`, `document`, `font` and `other` are a `file`. Its address is `<kind>:<path>` – the kind and the current version's main file (CDN-root path), as the Library opens it.",
+			"type": "string",
+			"enum": ["image", "audio", "video", "model", "animation", "file"]
+		},
+		"FileOrigin": {
+			"description": "Where a file came from (the From place): its main file's origin in the registry.",
+			"type": "string",
+			"enum": ["uploaded", "imported", "generated"]
+		},
+		"LinkRole": {
+			"description": "How a thing uses another: `cast` (a season's cast lists the character), `credits` (a toon's credits name the person), `rig` (a character or item plays this rig; a rig plays this instrument or module), `reference` (the document names it: an address in a scene or show, a character or item in a chapter's events, an item in a recipe or product, a file in a document).",
+			"type": "string",
+			"enum": ["cast", "credits", "rig", "reference"]
+		},
+		"LevelKind": {
+			"description": "A level inside a thing: a character's persona › look › mood, a toon's season › chapter.",
+			"type": "string",
+			"enum": ["persona", "look", "mood", "season", "chapter"]
+		},
+		"LibraryEntry": {
+			"description": "One entry: a thing (with `type`) or a file (with `kind`), never both.",
+			"type": "object",
+			"properties": {
+				"address": { "type": "string", "description": "the identity: a thing's address (ThingType) or a file's `<kind>:<path>`" },
+				"type": { "$ref": "#/definitions/ThingType" },
+				"subtype": { "$ref": "#/definitions/ItemSubtype" },
+				"kind": { "$ref": "#/definitions/FileKind" },
+				"name": { "type": "string", "description": "what a person reads: the label in the asked locale (the one locale order), else the id; a file's title, else its slug" },
+				"picture": { "type": ["string", "null"], "description": "a thumbnail's URL (the CDN's): a file's smallest picture (an image's, a video's poster), a thing's picture (a character's default look, a toon's tile, an item's icon, a place's image) – null where there is no still yet (a model, a scene, a module)" },
+				"parent": { "type": "string", "description": "the thing it belongs to: a rig's character or item, a Kanon text's subject" },
+				"toons": { "type": "array", "items": { "type": "string" }, "description": "the toons it belongs to (the place This toon); empty = shared by every toon (an instrument, a template scene, a file no toon uses)" },
+				"usedIn": { "type": "integer", "description": "how many things use it (a file: how many documents; a character: its casts, scenes, shows, chapters …)" },
+				"updated": { "type": ["string", "null"], "description": "when it last changed (ISO 8601, UTC): a thing's newest version, a file's registry entry – the place Recently added" },
+				"origin": { "$ref": "#/definitions/FileOrigin" }
+			},
+			"required": ["address", "name", "picture", "toons", "usedIn", "updated"],
+			"additionalProperties": false
+		},
+		"LibraryCounts": {
+			"description": "How many entries of each type and kind the place holds before the type / kind filter (the type select's numbers): `character`, `image`, …",
+			"type": "object",
+			"additionalProperties": { "type": "integer" }
+		},
+		"LibraryList": {
+			"description": "GET /api/library[?toon=&place=&type=&subtype=&kind=&from=&locale=&cursor=&limit=]: a page of one place's entries – things first (in ThingType's order), then files (in FileKind's order), each by address.",
+			"type": "object",
+			"properties": {
+				"library": { "const": 1, "description": "the format's version" },
+				"version": { "type": "string", "description": "the answer's version (the ETag without quotes)" },
+				"toon": { "type": ["string", "null"], "description": "the toon asked for; null = the universe" },
+				"place": { "type": "string", "description": "the place: `toon`, `all`, `recent`, `unused`, `item:<address>`, `cast:<season>`" },
+				"locale": { "type": "string" },
+				"entries": { "type": "array", "items": { "$ref": "#/definitions/LibraryEntry" } },
+				"total": { "type": "integer", "description": "the entries the place and the filters hold, every page together" },
+				"next": { "type": ["string", "null"], "description": "the cursor of the next page; null = the last page" },
+				"counts": { "$ref": "#/definitions/LibraryCounts" }
+			},
+			"required": ["library", "version", "toon", "place", "locale", "entries", "total", "next", "counts"],
+			"additionalProperties": false
+		},
+		"LibraryLevel": {
+			"description": "One level inside a thing, parents before children. A mood has no address of its own (the address grammar ends at the look, space rig/address.rs): its `address` is its look's, `mood` names it.",
+			"type": "object",
+			"properties": {
+				"address": { "type": "string" },
+				"level": { "$ref": "#/definitions/LevelKind" },
+				"name": { "type": "string" },
+				"picture": { "type": ["string", "null"] },
+				"parent": { "type": "string", "description": "the level (or the thing) one up" },
+				"mood": { "type": "string", "description": "a mood only: its id" }
+			},
+			"required": ["address", "level", "name", "picture", "parent"],
+			"additionalProperties": false
+		},
+		"LibraryLink": {
+			"description": "A thing that uses the stepped-into one (\"used in\"): a link to open.",
+			"type": "object",
+			"properties": {
+				"address": { "type": "string", "description": "its address (a season's cast: `season:<toon>:<n>`, a chapter: `chapter:<toon>:<n>` – documents that are no entry of the list are linked too)" },
+				"type": { "$ref": "#/definitions/ThingType" },
+				"name": { "type": "string" },
+				"as": { "$ref": "#/definitions/LinkRole" }
+			},
+			"required": ["address", "name", "as"],
+			"additionalProperties": false
+		},
+		"LibraryStep": {
+			"description": "GET /api/library?at=<address>[&locale=]: a thing stepped into – its levels, the files it uses, the things it uses, the things that use it; a file's `at` answers its entry and what uses it.",
+			"type": "object",
+			"properties": {
+				"library": { "const": 1 },
+				"version": { "type": "string" },
+				"locale": { "type": "string" },
+				"at": { "$ref": "#/definitions/LibraryEntry" },
+				"levels": { "type": "array", "items": { "$ref": "#/definitions/LibraryLevel" } },
+				"files": { "type": "array", "items": { "$ref": "#/definitions/LibraryEntry" }, "description": "the files it uses (the place This item's files)" },
+				"uses": { "type": "array", "items": { "$ref": "#/definitions/LibraryEntry" }, "description": "the things it uses" },
+				"usedIn": { "type": "array", "items": { "$ref": "#/definitions/LibraryLink" } }
+			},
+			"required": ["library", "version", "locale", "at", "levels", "files", "uses", "usedIn"],
+			"additionalProperties": false
+		}
+	}
+}

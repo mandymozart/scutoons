@@ -60,7 +60,10 @@ export const paths = {
 	storyPhp: join(repo, 'server', 'src', 'Generated', 'StoryEventTypes.php'),
 	viewSchema: join(here, 'api', 'spore-network.schema.json'),
 	viewRs: join(repo, 'deck', 'protocol', 'src', 'spore_network.rs'),
-	viewTs: join(repo, 'shared', 'api', 'src', 'spore-network.ts')
+	viewTs: join(repo, 'shared', 'api', 'src', 'spore-network.ts'),
+	librarySchema: join(here, 'api', 'library.schema.json'),
+	libraryTs: join(repo, 'shared', 'api', 'src', 'library-types.ts'),
+	libraryPhp: join(repo, 'server', 'src', 'Generated', 'LibraryTypes.php')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -402,6 +405,48 @@ export function scenePhp(schema: Draft07): string {
 	].join('');
 }
 
+// ---------------------------------------------------------------------------------------------------------- the extended Library
+
+/** #864: the definitions in the schema's order and the format's number (`LibraryList.library`) */
+function libraryParts(schema: Draft07): { format: number; defs: [string, Draft07][] } {
+	const defs = Object.entries(schema.definitions ?? {});
+	const format = schema.definitions?.LibraryList?.properties?.library?.const;
+	if (typeof format !== 'number') throw new Error('library.schema.json: LibraryList.library is a numeric const');
+	return { format, defs };
+}
+
+export function libraryTs(schema: Draft07): string {
+	const { format, defs } = libraryParts(schema);
+	return [
+		`// ${header(rel(paths.librarySchema))}\n`,
+		`// ${oneLine(schema.description ?? '')}\n\n`,
+		`/** the format the API answers (\`library\`) */\nexport const LIBRARY_FORMAT = ${format} as const;\n\n`,
+		defs.map(([name, def]) => `${tsComment(def.description)}export type ${name} = ${typeOf(def, TS, name)};\n`).join('\n'),
+		...defs
+			.filter(([, def]) => def.enum)
+			.map(([name, def]) => `\n/** every ${name}, in the schema's order */\nexport const ${screaming(name)}S: readonly ${name}[] = [${def.enum!.map((v) => `'${v}'`).join(', ')}];\n`)
+	].join('');
+}
+
+/** PHPStan shapes (`@phpstan-import-type … from LibraryTypes`), the format and each enum's values */
+export function libraryPhp(schema: Draft07): string {
+	const { format, defs } = libraryParts(schema);
+	const types = defs.map(([name, def]) => ` * @phpstan-type ${name} ${typeOf(def, PHP, name)}`);
+	const enums = defs
+		.filter(([, def]) => def.enum)
+		.map(([name, def]) => `    /** @var list<${name}> */\n    public const ${screaming(name)} = ${phpList(def.enum!.map(String))};\n`);
+	return [
+		'<?php\n',
+		`// ${header(rel(paths.librarySchema))}\n`,
+		'declare(strict_types=1);\n\nnamespace Scutoons\\Generated;\n\n',
+		`/**\n * ${oneLine(schema.description ?? '')}\n *\n${types.join('\n')}\n */\n`,
+		'final class LibraryTypes\n{\n',
+		`    /** the format's version (\`library\`) */\n    public const FORMAT = ${format};\n`,
+		...enums,
+		'}\n'
+	].join('');
+}
+
 // ---------------------------------------------------------------------------------------------------------- the story events
 
 /** #517: the type of every VNEvent the chapter schema takes (its `anyOf`, each with a `type` const), in the schema's order */
@@ -448,7 +493,10 @@ export function generate(): Record<string, string> {
 	const scene = read<Draft07>(paths.sceneSchema);
 	const chapter = read<Draft07>(paths.chapterSchema);
 	const view = read<ContractRoot>(paths.viewSchema);
+	const library = read<Draft07>(paths.librarySchema);
 	return {
+		[paths.libraryTs]: libraryTs(library),
+		[paths.libraryPhp]: libraryPhp(library),
 		[paths.viewRs]: sporeNetworkRs(view),
 		[paths.viewTs]: sporeNetworkTs(view),
 		[paths.storyRs]: storyEventsRs(chapter),

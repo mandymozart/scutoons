@@ -65,6 +65,7 @@ use Scutoons\Http\Controllers\McpController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\InvitesController;
 use Scutoons\Http\Controllers\KeysController;
+use Scutoons\Http\Controllers\ExtendedLibraryController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
 use Scutoons\Http\Controllers\CraftsController;
@@ -381,8 +382,10 @@ return static function (App $app): void {
     $app->post('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}/claim', [StoryboardPairingsController::class, 'claim'])->add($pairingLimit);
     $app->delete('/api/storyboard/pairings/{code:[A-Za-z0-9_-]{22}}', [StoryboardPairingsController::class, 'delete']);
 
+    // the extended Library (#864, docs/API.md "The extended Library"): things and files in one list, for the creator and the deck
+    $app->get('/api/library', [ExtendedLibraryController::class, 'get']);
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
-    $app->get('/api/library/toons', [LibraryController::class, 'toons']);
+    $app->get('/api/library/toons',[LibraryController::class, 'toons']);
     $app->get('/api/library/toons/{toon}', [LibraryController::class, 'toon']);
     $app->get('/api/library/toons/{toon}/seasons/{number:[0-9]{1,6}}', [LibraryController::class, 'season']);
     $app->get('/api/library/toons/{toon}/chapters/{number:[0-9]{1,6}}', [LibraryController::class, 'chapter']);

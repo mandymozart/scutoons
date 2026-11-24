@@ -231,6 +231,29 @@ export {
 export type * as Spores from './spore-network.ts';
 // the address book's shape (#477), generated from server/schema/api/address-book.schema.json
 export type { AddressBook, AddressEntry, AddressKind, LocaleText as AddressLabels, Origin as AddressOrigin, OriginState as AddressOriginState } from './address-book.ts';
+// the extended Library (#864, GET /api/library): things and files in one list, generated from server/schema/api/library.schema.json
+export { library, libraryEntries, libraryPath, type LibraryPlace, type LibraryQuery } from './extended-library.ts';
+export {
+	LIBRARY_FORMAT,
+	THING_TYPES,
+	ITEM_SUBTYPES,
+	FILE_KINDS,
+	FILE_ORIGINS,
+	LINK_ROLES,
+	LEVEL_KINDS,
+	type ThingType,
+	type ItemSubtype,
+	type FileKind,
+	type FileOrigin,
+	type LinkRole,
+	type LevelKind,
+	type LibraryEntry,
+	type LibraryCounts,
+	type LibraryList,
+	type LibraryLevel,
+	type LibraryLink,
+	type LibraryStep
+} from './library-types.ts';
 // the stored scene document `scene:<id>` (#243), generated from server/schema/content/scene.schema.json (itself from deck-space's Rust)
 export { SCENE_FORMAT, type SceneDocument, type SceneUse } from './scene.ts';
 // the scenes' own route (`/api/scenes`, #490): list, drafts, versions, save, publish, restore

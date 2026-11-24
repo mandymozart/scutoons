@@ -40,7 +40,7 @@ const CREATOR = [
 	'',
 	'Questions about the story as a whole: read_flow (chapters, jumps, choices, reach), story_variables (who sets / reads',
 	'a variable, across toons), dead_things / stuck_points (what nothing reaches, choices a reader can get stuck at),',
-	'item_placements, asset_usages, compare_versions.',
+	'item_placements, asset_usages, compare_versions; read_library (the things and files of a toon, a thing stepped into, what uses it).',
 	'',
 	'Content goes into every language of the toon (the source language first).',
 	'',

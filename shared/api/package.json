@@ -16,7 +16,7 @@
 	],
 	"scripts": {
 		"check": "tsc --noEmit -p tsconfig.json",
-		"test": "node --experimental-transform-types --no-warnings --test test/spore-network.test.ts test/newest-version.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/spore-network.test.ts test/newest-version.test.ts test/extended-library.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/content": "*"
