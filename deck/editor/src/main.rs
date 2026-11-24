@@ -15,6 +15,7 @@ mod autosave;
 mod bar;
 mod book;
 mod colour;
+mod dashboard;
 mod dop;
 mod empty;
 mod frame;
@@ -41,6 +42,7 @@ mod panels;
 mod play;
 mod posters;
 mod published;
+mod resume;
 mod routing;
 mod stage;
 mod tokens;
@@ -209,7 +211,12 @@ struct Args {
     /// the History panel open in Build and Show; a check run's ask on its step (`revert:N` | `back:N`, `:confirm` stores it)
     history: bool,
     history_ask: Option<history_panel::ScriptAsk>,
+    /// the dashboard open at the start (`--main-menu`, `--dashboard`)
     main_menu: bool,
+    /// a check run's views on the stage (`--stage mixer:left,info:top-right`), the view full screen, a workspace opened empty
+    stage_views: Vec<(String, deck_ui::stage::Cell)>,
+    full_view: Option<String>,
+    empty_ws: Option<deck_ui::workspaces::Workspace>,
     /// a check run's colour picker on the shown background: open | pick | drop:X,Y | take:X,Y (colour.rs `script_colour`)
     colour: Option<String>,
     /// a check run's library: a card of this address dragged to X,Y and let go there (`hold`: kept in the hand)
@@ -239,7 +246,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -388,7 +395,10 @@ fn args() -> Result<Args> {
             }
             "--log-info" => {}
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
-            "--main-menu" => a.main_menu = true,
+            "--main-menu" | "--dashboard" => a.main_menu = true,
+            "--stage" => a.stage_views = resume::parse_stage(&val()?),
+            "--full" => a.full_view = Some(val()?),
+            "--empty" => a.empty_ws = Some(resume::parse_ws(&val()?).context("--empty scene | rigging | show")?),
             "--open-build" => a.script.open_build = true,
             "--to-cell" => a.script.to_cell = true,
             "--new-scene" => a.script.new_scene = Some(show::NewScene::parse(&val()?).context("--new-scene ID,NAME,FILLER+FILLER[,play|build]")?),
@@ -511,8 +521,15 @@ enum Hit {
     Stage,
     /// a panel's ground: it keeps the press from the stage
     Ground,
-    /// the main menu's hamburger (its lines: `menu_lines`)
+    /// the menu far right: the dashboard (its places: `dash_hits`)
     Menu,
+    /// the tab strip's +: the dashboard, to open anything
+    Plus,
+    Undo,
+    Redo,
+    Publish,
+    /// a workspace of the row
+    Workspace(deck_ui::workspaces::Workspace),
     /// the toolbar's panic pill
     Panic,
     /// the toolbar's tempo pill, its account icon, its meters
@@ -523,7 +540,6 @@ enum Hit {
     /// the metronome's button in the tempo pill
     TempoClick,
     Account,
-    Meters,
     Tab(Tab),
     Knob(usize),
     Field(f32),
@@ -562,12 +578,10 @@ enum Hit {
     Axis(Option<usize>),
     /// a Show tab's live switch: Go live, End, Lock (live_tabs.rs)
     Live(live_tabs::Press),
-    /// the toolbar's Home, a tab (its close), the tab list; a press on Home's page
-    Home,
+    /// a tab (its close), the tab list
     TabFront(usize),
     TabClose(usize),
     TabList,
-    HomePress(home::Press),
     /// Build's rig row: the rig picker
     RigPick,
     /// Build's Add, the inspector's Remove
@@ -776,9 +790,16 @@ struct App {
     build: panels::Panels,
     panels_file: Option<PathBuf>,
     panels_moved: bool,
-    /// the main menu is open; its lines this frame
-    main_menu: bool,
-    menu_lines: Vec<(Rect, bar::Line)>,
+    /// the dashboard is open (the menu far right); its welcome (nothing ever done); its places this frame
+    dashboard: bool,
+    welcome: bool,
+    dash_hits: Vec<(Rect, dashboard::Press)>,
+    /// what reopening resumes (resume.rs), where it is kept (none in a check run); a workspace opened empty; the
+    /// workspace and item last counted in front
+    session: deck_ui::resume::Session,
+    session_file: Option<PathBuf>,
+    empty_ws: Option<deck_ui::workspaces::Workspace>,
+    ws_seen: (Option<deck_ui::workspaces::Workspace>, Option<String>),
     /// the items open (tabs.rs, tab_view.rs), where a later start finds them, the tab list open and its lines
     tabs: tabs::Tabs<tab_view::Kept>,
     tabs_file: Option<PathBuf>,
@@ -978,7 +999,8 @@ fn run() -> Result<i32> {
             p.floats.close(id);
         }
     }
-    let main_menu = args.main_menu;
+    let session_file = args.tabs_file.as_ref().map(|t| t.with_extension("session.json")).or_else(|| args.frames.is_none().then(|| resume::file(&cache)));
+    let session = resume::load(session_file.as_deref());
     let app_tabs = tabs::Tabs::new(args.tab_cap.unwrap_or_else(|| tabs::cap_for(tabs::memory_mib(), std::env::var("DECK_EDITOR_TABS").ok().as_deref())));
     let tabs_file = args.tabs_file.clone().or_else(|| args.frames.is_none().then(|| tabs::file(&cache)));
     let tab_list = args.tab_list;
@@ -1047,8 +1069,13 @@ fn run() -> Result<i32> {
         build,
         panels_file,
         panels_moved: false,
-        main_menu,
-        menu_lines: Vec::new(),
+        dashboard: false,
+        welcome: false,
+        dash_hits: Vec::new(),
+        session,
+        session_file,
+        empty_ws: None,
+        ws_seen: (None, None),
         tabs: app_tabs,
         tabs_file,
         tab_list,
@@ -1087,6 +1114,7 @@ fn run() -> Result<i32> {
     };
     event_loop.run_app(&mut app).context("the event loop")?;
     app.flush_all();
+    app.keep_session();
     let summary = app.summary();
     tracing::info!("{summary}");
     println!("{summary}");
@@ -1248,7 +1276,6 @@ impl App {
     /// a main menu line pressed
     fn menu_act(&mut self, a: bar::Action) {
         use bar::Action as A;
-        self.main_menu = false;
         if self.menu_why_not(a).is_some() {
             return;
         }
@@ -1257,8 +1284,8 @@ impl App {
             (A::Open, show::Workspace::Stage | show::Workspace::Home) => self.open_rigs(x, y),
             (A::Open, _) => self.show.press(show::Hit::Load),
             (A::New, show::Workspace::Show) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
-            // New is Home's: a scene, a module, a show
-            (A::New, _) => self.home(),
+            // New is the dashboard's: a scene, a module, a show
+            (A::New, _) => self.dashboard = true,
             (A::Audio, _) => {
                 if self.workspace != show::Workspace::Stage {
                     if let Some(i) = self.tabs.list.iter().position(|t| matches!(t.kind, tabs::Kind::Scene | tabs::Kind::Character)) {
@@ -1328,23 +1355,17 @@ impl App {
         self.panels_moved = true;
     }
 
-    /// a line of the main menu's panel list: the panel closes, or comes back open
-    fn menu_panel(&mut self, id: &str) {
-        self.main_menu = false;
-        self.panels_mut().flip(id);
-        self.panels_moved = true;
-    }
-
     /// what the Info view says about what is under the pointer: the name and what it does
     fn help_now(&self) -> Option<Help> {
         let (x, y) = self.cursor;
         if let Some((spec, chrome)) = self.panels().floats.chrome_at(x, y) {
             let how = match chrome {
                 deck_kit::editor::floats::Chrome::Handle if spec.inline && self.panels().floats.collapsed(spec.id) => "Click to open it; drag to move it.",
-                deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stops 1rem before a wall or another panel.",
+                deck_kit::editor::floats::Chrome::Handle if self.panels().floats.staged(spec.id) => "On the stage: drag the handle to float it again.",
+                deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stays where you let it go, on top. Let go on a screen edge or corner: it takes the stage there.",
                 deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
-                deck_kit::editor::floats::Chrome::Close => "Click to close it; the main menu's Panels bring it back.",
-                deck_kit::editor::floats::Chrome::Edge(_) => "Drag to resize it; it stops 1rem before a wall or another panel, and keeps its size.",
+                deck_kit::editor::floats::Chrome::Close => "Click to close it; the dashboard's Views bring it back.",
+                deck_kit::editor::floats::Chrome::Edge(_) => "Drag to resize it; only the walls stop it, and it keeps its size.",
                 deck_kit::editor::floats::Chrome::Scroll => "Click the track to jump there; drag the thumb to scroll.",
             };
             return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
@@ -1352,22 +1373,26 @@ impl App {
         if let Some((name, text)) = self.tools.help_at(x, y) {
             return Some(Help::new(name, text));
         }
-        if self.main_menu {
-            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
-                Some(bar::Line::Do(a)) => {
+        if self.dashboard_shows() && y > bar::bottom(&self.tokens.tokens) {
+            if let Some(p) = self.dash_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
+                if let dashboard::Press::Menu(a) = p {
                     let label = bar::MENU.iter().find(|(m, ..)| *m == a).map_or("", |(_, l, _)| *l);
                     return Some(Help::new(label, self.menu_why_not(a).unwrap_or("Click to do it.")));
                 }
-                Some(bar::Line::Panel(id)) => {
-                    let spec = self.panels().floats.spec(id)?;
-                    let how = if self.panels().floats.closed(id) { "Closed: click to bring it back." } else { "Open: click to close it." };
-                    return Some(Help::new(spec.name, format!("{} {how}", spec.about)));
+                if p == dashboard::Press::Load {
+                    return Some(Help::new("Load", bar::meters_words(self.cpu.as_ref().and_then(|c| c.reading()), self.gpu_time.as_ref().map(|_| self.gpu_load.reading().unwrap_or_default()), self.stage.khz().map(|k| k as f32), self.fps())));
                 }
-                None => {}
+                let (name, text) = resume::help_of(p);
+                return Some(Help::new(name, text));
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "Open, publish, day or night, the settings, the audio and the account; this view's panels; back to the deck's stage."),
+            Hit::Menu => Help::new("Menu", "The dashboard: the workspaces, anything to open, the menu (settings, audio, account, back to the deck's stage), the views of the workspace in front, the build and the load."),
+            Hit::Plus => Help::new("Open anything", "The dashboard: New, Recent, the library."),
+            Hit::Undo => Help::new("Undo", "Takes back the newest change (ctrl+z)."),
+            Hit::Redo => Help::new("Redo", "Brings the step taken back again (ctrl+shift+z)."),
+            Hit::Publish => Help::new("Publish", self.menu_why_not(bar::Action::Publish).unwrap_or("Publishes what changed.")),
+            Hit::Workspace(w) => Help::new(w.word(), format!("{} Click to go there: the item in front stays when it fits, else its last item comes forward, else it opens empty.", w.about())),
             Hit::TempoClick => Help::new(
                 if self.stage.pill.is_some_and(|p| p.click) { "Click on" } else { "Click off" },
                 "The metronome: a tick on every beat, higher on the bar's first, on its own bus (the click outlet group, on the main out until the Audio tab routes it). Click to turn it on or off.",
@@ -1390,24 +1415,19 @@ impl App {
                     (sign_in::Signed::Out, _) => Help::new("Not signed in", format!("{line}. Click to see it again.")),
                 }
             }
-            Hit::Meters => Help::new("Load", bar::meters_words(self.cpu.as_ref().and_then(|c| c.reading()), self.gpu_time.as_ref().map(|_| self.gpu_load.reading().unwrap_or_default()), self.stage.khz().map(|k| k as f32), self.fps())),
             Hit::Panic if self.show.sub.panicked() => Help::new("Resume", "The panic holds. Press to bring every deck back to the cells the show holds now."),
             Hit::Panic => Help::new("Panic", "Black and silence on every deck below this conductor and on this stage, until you resume here. Shift+Esc too."),
             Hit::Ground => return None,
             Hit::Live(live_tabs::Press::Go) => Help::new("Go live", "This show joins the relay: its decks, the readers and the vote. Only one show is live; another live show is asked to end first."),
             Hit::Live(live_tabs::Press::End) => Help::new("End", "The show leaves the relay, its decks and readers with it. The tab stays open; the lock comes off."),
             Hit::Live(live_tabs::Press::Lock) => Help::new(if self.show.locked { "Unlock" } else { "Lock" }, "Against edits during a live night: launching, GO, the session and the vote stay; every edit of the show is refused until unlocked."),
-            Hit::Home => Help::new("Home", "Recent, the library, New and the deck's state. The tabs stay open behind it."),
             Hit::TabFront(i) if self.tabs.front == Some(i) => Help::new(self.tabs.list.get(i)?.name.clone(), "In front: it runs on the stage. Click to go back to its top."),
             Hit::TabFront(i) => {
                 let tab = self.tabs.list.get(i)?;
                 Help::new(tab.name.clone(), format!("A {} in a {} tab, kept as you left it. Click to bring it to the front.", tab.kind.word(), tab.kind.view().word()))
             }
-            Hit::TabClose(i) => Help::new(format!("Close {}", self.tabs.list.get(i)?.name), "What it changed is saved; it goes to Home's Recent."),
-            Hit::TabList => Help::new("Tabs", "Every tab open, and Close others, Close all (all closed: Home)."),
-            Hit::HomePress(home::Press::Docs) => Help::new("Help", "Copies the link to the creator's docs."),
-            Hit::HomePress(home::Press::New(_)) => Help::new("New", "A new scene (in a show's composer), a module (from one of the catalog's) or a show, in a tab of its own."),
-            Hit::HomePress(_) => Help::new("Open", "Opens it in a tab, or brings its tab to the front."),
+            Hit::TabClose(i) => Help::new(format!("Close {}", self.tabs.list.get(i)?.name), "What it changed is saved; it goes to the dashboard's Recent."),
+            Hit::TabList => Help::new("Tabs", "Every tab open, and Close others, Close all (all closed: the dashboard)."),
             Hit::Port(i) => {
                 let p = self.stage.ports.get(i)?;
                 let what = format!("{} {}.", if p.input { "An input," } else { "An output," }, p.ty);
@@ -1599,7 +1619,7 @@ impl App {
     /// the window's own frame takes a press on its edge, a window button or the toolbar's empty run; an open menu,
     /// a typed field or the colour taker has the press first
     fn frame_press(&mut self) -> bool {
-        if self.scene_prompt.is_some() || self.edit.is_some() || self.menu.is_some() || self.main_menu || self.colour.taking() {
+        if self.scene_prompt.is_some() || self.edit.is_some() || self.menu.is_some() || self.colour.taking() {
             return false;
         }
         let Some(w) = self.window.clone() else { return false };
@@ -1641,15 +1661,16 @@ impl App {
             }
             return;
         }
-        // the main menu takes the press while it is open: a line does what it says, anywhere else closes it
-        if self.main_menu {
-            match self.menu_lines.iter().find(|(r, _)| r.has(x, y)).map(|(_, l)| *l) {
-                Some(bar::Line::Do(a)) if self.menu_why_not(a).is_some() => {}
-                Some(bar::Line::Do(a)) => self.menu_act(a),
-                Some(bar::Line::Panel(id)) => self.menu_panel(id),
-                None => self.main_menu = false,
+        // the dashboard takes a press under the toolbar while it shows: a place does what it says; open over a workspace,
+        // anywhere else closes it
+        if self.dashboard_shows() && y > bar::bottom(&self.tokens.tokens) {
+            if let Some(p) = self.dash_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
+                return self.dashboard_press(p);
             }
-            return;
+            if self.dashboard {
+                self.dashboard = false;
+                return;
+            }
         }
         if self.press_history(x, y) || self.press_status(x, y) {
             return;
@@ -1659,6 +1680,8 @@ impl App {
             self.panels_moved = true;
             return;
         }
+        // a press on a panel's ground brings it on top
+        self.panels_mut().floats.raise_at(x, y);
         if self.press_log(x, y) {
             return;
         }
@@ -1718,13 +1741,20 @@ impl App {
         }
         match self.hit(x, y) {
             Hit::Live(p) => self.live_press(p),
-            Hit::Home => self.home(),
+            Hit::Plus => self.dashboard = true,
+            Hit::Undo => self.history_key(false),
+            Hit::Redo => self.history_key(true),
+            Hit::Publish => {
+                if let Some(why) = self.menu_why_not(bar::Action::Publish) {
+                    self.refuse(why.to_string(), x, y);
+                }
+            }
+            Hit::Workspace(w) => self.workspace_click(w),
             Hit::TabFront(i) if self.tabs.front == Some(i) => self.tab_top(),
             Hit::TabFront(i) => self.activate(i),
             Hit::TabClose(i) => self.close_tab(i),
             Hit::TabList => self.tab_list = true,
-            Hit::HomePress(p) => self.home_press(p),
-            Hit::Menu => self.main_menu = true,
+            Hit::Menu => self.dashboard = !self.dashboard,
             Hit::Panic => self.panic_pill(),
             Hit::Account => {
                 let line = self.auth.line(&deck_link::pairing::app_url());
@@ -1739,7 +1769,7 @@ impl App {
                     self.note(said);
                 }
             }
-            Hit::Tempo | Hit::Meters => {}
+            Hit::Tempo => {}
             Hit::TempoBpm => self.tempo_edit(x, y),
             Hit::TempoSource => self.tempo_pick(x, y),
             Hit::TempoClick => self.tempo_click(),
@@ -2567,7 +2597,12 @@ impl App {
             let d = self.colour.release();
             return self.colour_do(d);
         }
+        // a panel let go on a screen edge or corner takes the stage there
+        let dropped = self.panels().floats.moving().zip(self.zone_now());
         if self.panels_mut().floats.release() {
+            if let Some((id, cell)) = dropped {
+                self.drop_on_stage(id, cell);
+            }
             self.panels_moved = true;
             return;
         }
@@ -2910,6 +2945,7 @@ impl App {
         self.latency.frame();
         if self.frames == 0 {
             self.start_tabs();
+            self.start_session();
         }
         let dir = self.show.nodes.direction;
         if dir != self.settings.node_flow {
@@ -2932,6 +2968,7 @@ impl App {
         self.follow_cell();
         self.follow_scene();
         self.follow_tabs();
+        self.follow_session();
         self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
             self.book = book::Loader::new(&self.args.api, &[], Some(&f), None, &cache_dir());
@@ -2977,7 +3014,6 @@ impl App {
         let help = self.help_now();
         let preset_line = self.preset_line();
         self.show.help.clone_from(&help);
-        let enabled: Vec<(bar::Action, bool)> = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
         let band = (self.workspace == show::Workspace::Show).then(|| self.show.band_cursor(self.cursor.0, self.cursor.1)).flatten();
         let grab = frame::cursor(&self.frame.frame, self.cursor).or(band).unwrap_or_else(|| panels::cursor(&self.panels().floats, self.cursor));
         self.take_messages();
@@ -2985,12 +3021,13 @@ impl App {
         let account = self.auth.state();
         let (path, crumb_base) = self.tab_path();
         let pills = self.tab_pills();
-        let home_page = (self.workspace == show::Workspace::Home).then(|| {
-            let (recent, library, deck) = self.home_lines();
-            let why = library.is_empty().then(|| self.book_why().unwrap_or_else(|| "the library comes with a toon: sign in, or open a character of one".into()));
-            (recent, library, deck, why)
-        });
-        let fps = self.fps();
+        let empty_words = self.empty_words();
+        let ws_row = self.session.uses.row();
+        let deck_ws = self.deck_ws();
+        let can_undo = (self.history_doc().is_some() || !self.undo.is_empty(), self.history_doc().is_some());
+        let publish = self.tabs.list.iter().any(|t| t.dirty) || (self.tabs.front.is_some() && self.live_dirty());
+        let dash = self.dash_data();
+        let zone = self.zone_now();
         let look = self.looking();
         self.follow_nodes();
         let (Some(window), Some(gpu), Some(ui)) = (self.window.clone(), self.gpu.as_mut(), self.ui.as_mut()) else { return };
@@ -3140,10 +3177,14 @@ impl App {
         let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
+        // the play pill only where something plays: a Scene, Asset, module or medium tab, or a Show
+        let plays = (edits || shows) && self.tabs.front.is_some();
         let spec = bar::Bar {
             tabs: &tab_pills,
             front: self.tabs.front,
             path: &path,
+            workspaces: &ws_row,
+            workspace: deck_ws,
             modes: if edits { Some(bar::Modes::Switch { playing, keep: keeps }) } else { shows.then_some(bar::Modes::Pills(live_words, live_on)) },
             play: None,
             beat: self.stage.beat,
@@ -3153,15 +3194,16 @@ impl App {
                 Some(p) if p.external => bar::Clock::Ext { locked: p.locked },
                 _ => bar::Clock::Int,
             },
+            plays,
+            panic: shows || playing || self.show.sub.panicked() || self.show.live(),
+            undo: can_undo,
+            publish,
             account,
             pulse,
             pointer: self.cursor,
-            cpu: self.cpu.as_ref().and_then(|c| c.reading()),
-            gpu: self.gpu_load.reading(),
-            khz: self.stage.khz().map(|k| k as f32),
-            fps,
             slot,
             panicked: self.show.sub.panicked(),
+            dashboard: self.dashboard,
             window: self.own_frame.map(|s| (s, window.is_maximized())),
         };
         let placed = bar::draw(ui, t, wf, &spec);
@@ -3169,21 +3211,34 @@ impl App {
             self.frame.frame = deck_kit::editor::window::Frame { size: (wf, hf), maximised: window.is_maximized(), band: bar_bottom, buttons: placed.window.clone(), solid: placed.solid.clone() };
         }
         self.panel.hits.push((placed.menu, Hit::Menu));
-        self.panel.hits.push((placed.panic, Hit::Panic));
         self.panel.hits.push((placed.account, Hit::Account));
-        self.panel.hits.push((placed.tempo, Hit::Tempo));
-        self.panel.hits.push((placed.bpm, Hit::TempoBpm));
-        self.panel.hits.push((placed.source, Hit::TempoSource));
+        self.panel.hits.push((placed.undo, Hit::Undo));
+        self.panel.hits.push((placed.redo, Hit::Redo));
+        if let Some(r) = placed.publish {
+            self.panel.hits.push((r, Hit::Publish));
+        }
+        if let Some(r) = placed.plus {
+            self.panel.hits.push((r, Hit::Plus));
+        }
+        for (w, r) in &placed.workspaces {
+            self.panel.hits.push((*r, Hit::Workspace(*w)));
+        }
+        if placed.panic.w > 0.0 {
+            self.panel.hits.push((placed.panic, Hit::Panic));
+        }
         if placed.click.w > 0.0 {
             self.panel.hits.push((placed.click, Hit::TempoClick));
         }
-        if let Some(r) = placed.meters {
-            self.panel.hits.push((r, Hit::Meters));
+        if placed.tempo.w > 0.0 {
+            self.panel.hits.push((placed.bpm, Hit::TempoBpm));
+            self.panel.hits.push((placed.source, Hit::TempoSource));
         }
-        self.panel.hits.push((placed.home, Hit::Home));
         let mode_hits: Vec<Hit> = if edits { [Hit::Switch, Hit::Keep].into_iter().take(1 + usize::from(keeps)).collect() } else { live_presses.iter().map(|p| Hit::Live(*p)).collect() };
         for (r, h) in placed.modes.iter().zip(mode_hits) {
             self.panel.hits.push((*r, h));
+        }
+        if placed.tempo.w > 0.0 {
+            self.panel.hits.push((placed.tempo, Hit::Tempo));
         }
         // a step of the path goes back to it (Show's last one is the row: it goes nowhere)
         for (i, r) in placed.path.iter().enumerate() {
@@ -3209,11 +3264,12 @@ impl App {
                 show::Workspace::Module => module::draw::draw(ui, t, &mut self.module, (&self.stage, &self.settings.units), (wf, hf), self.cursor, help.as_ref()),
                 show::Workspace::Home => {
                     self.home_panels.layout(ui, t, ((wf, hf), bar_bottom), &[], &[]);
-                    if let Some((recent, library, deck, why)) = &home_page {
-                        let page = home::Home { recent, library, deck, library_why: why.as_deref() };
-                        for (r, p) in home::draw(ui, t, (wf, hf), bar_bottom, &page, self.cursor) {
-                            self.panel.hits.push((r, Hit::HomePress(p)));
-                        }
+                    // a workspace opened empty says so on its stage
+                    if let Some(words) = &empty_words {
+                        let (px, w) = (t.size.font, ui.sans_width(t.size.font, words));
+                        ui.halo(t.color.ring());
+                        ui.sans((wf - w) * 0.5, hf * 0.5 - px, px, words, t.color.muted);
+                        ui.halo(None);
                     }
                 }
                 show::Workspace::Media => {
@@ -3825,21 +3881,29 @@ impl App {
             };
             self.history_hits = history_panel::draw_all(ui, t, (wf, hf), ws, &self.history, self.cursor);
         }
+        // the panels painted in their order, the last touched on top
+        match self.workspace {
+            show::Workspace::Stage => &self.build,
+            show::Workspace::Module => &self.module.panels,
+            show::Workspace::Show => &self.show.show_panels,
+            show::Workspace::Home | show::Workspace::Media => &self.home_panels,
+        }
+        .restack(ui);
+        // while a panel is in the hand: the drop zone under the pointer, and the cell it would take
+        if let Some(cell) = zone {
+            let on = t.kit("drop", "on");
+            for r in deck_ui::stage::zone_rects(cell, (wf, hf), resume::zones(t)) {
+                ui.rect(r.x, r.y, r.w, r.h, on.ground.unwrap_or(t.color.hover));
+            }
+            let room = panels::Panels::room((wf, hf - deck_kit::editor::status::reserve(t)), bar_bottom, t.size.gap);
+            let c = cell.rect(room);
+            ui.outline(c.x, c.y, c.w, c.h, (t.size.radius * 2.0, 1.0), on.border.unwrap_or(t.color.text));
+        }
         if let Some(p) = self.scene_prompt.as_mut() {
             p.draw(ui, t, (wf, hf));
         }
-        // the main menu over everything, the workspace's panels under its lines
-        self.menu_lines.clear();
-        if self.main_menu {
-            let listed = match self.workspace {
-                show::Workspace::Stage => &self.build,
-                show::Workspace::Module => &self.module.panels,
-                show::Workspace::Show => &self.show.show_panels,
-                show::Workspace::Home | show::Workspace::Media => &self.home_panels,
-            }
-            .listed();
-            self.menu_lines = bar::menu(ui, t, placed.menu, &|a| enabled.iter().any(|(b, on)| *b == a && *on), &listed, self.cursor);
-        }
+        // the dashboard over everything but the toolbar
+        self.dash_hits = dash.map(|d| d.draw(ui, t, (wf, hf), self.cursor)).unwrap_or_default();
         self.tab_lines.clear();
         if self.tab_list {
             if let Some(at) = placed.list {
@@ -4059,6 +4123,10 @@ impl ApplicationHandler for App {
                 if !self.show.sub.panicked() {
                     self.panic_pill();
                 }
+            }
+            // Esc closes the dashboard open over a workspace
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.dashboard && (self.tabs.front.is_some() || self.empty_ws.is_some()) => {
+                self.dashboard = false;
             }
             WindowEvent::KeyboardInput { event, .. } if self.history.asking.is_some() => self.history_prompt_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.scene_prompt.is_some() => self.scene_prompt_key(&event),

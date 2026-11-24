@@ -171,9 +171,12 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings) -> Vec<(Rect
     for (i, (label, theme)) in [("Day", Theme::Day), ("Night", Theme::Night)].into_iter().enumerate() {
         let r = Rect { x: area.x + i as f32 * (half + pad), y, w: half, h: t.size.row - 4.0 };
         let on = s.look.theme == theme;
-        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if on { t.color.pressed } else { t.color.within });
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.within);
+        if on {
+            controls::active_tab(d, t, r, t.size.radius);
+        }
         let tw = d.advance(t.size.small) * label.chars().count() as f32;
-        d.text(r.x + (r.w - tw) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.pressed_text } else { t.color.text });
+        d.text(r.x + (r.w - tw) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.text } else { t.color.muted });
         out.push((r, Press::Theme(theme)));
     }
     y += t.size.row;

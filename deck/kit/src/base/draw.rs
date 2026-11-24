@@ -128,6 +128,26 @@ impl DrawList {
         self.prims.truncate(n);
     }
 
+    /// Paint the parts `parts` (disjoint ranges of the list, each drawn whole: floating panels) in the given order, the
+    /// last on top: they move to the end of their span in that order, what was drawn between them goes after them
+    pub fn restack(&mut self, parts: &[(usize, usize)]) {
+        let Some(lo) = parts.iter().map(|p| p.0).min() else { return };
+        let hi = parts.iter().map(|p| p.1).max().unwrap_or(lo).min(self.prims.len());
+        let mut sorted: Vec<(usize, usize)> = parts.to_vec();
+        sorted.sort_unstable();
+        if sorted == parts || sorted.windows(2).any(|w| w[0].1 > w[1].0) {
+            return;
+        }
+        let span = &self.prims[lo..hi];
+        let inside = |i: usize| parts.iter().any(|&(a, b)| i >= a && i < b);
+        let mut out: Vec<Prim> = Vec::with_capacity(span.len());
+        for &(a, b) in parts {
+            out.extend_from_slice(&self.prims[a.min(hi)..b.min(hi)]);
+        }
+        out.extend((lo..hi).filter(|&i| !inside(i)).map(|i| self.prims[i]));
+        self.prims.splice(lo..hi, out);
+    }
+
     pub fn prims(&self) -> &[Prim] {
         &self.prims
     }
@@ -363,6 +383,21 @@ pub fn qr(d: &mut DrawList, (x, y): (f32, f32), module: f32, n: usize, dark: &dy
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn restack_paints_the_parts_in_the_order_given_the_rest_after_them() {
+        let mut d = DrawList::new(0.6);
+        d.rect(0.0, 0.0, 1.0, 1.0, [0.0; 4]); // before: stays first
+        d.rect(1.0, 0.0, 1.0, 1.0, [0.0; 4]); // part a
+        d.rect(2.0, 0.0, 1.0, 1.0, [0.0; 4]); // between
+        d.rect(3.0, 0.0, 1.0, 1.0, [0.0; 4]); // part b
+        d.rect(4.0, 0.0, 1.0, 1.0, [0.0; 4]); // after
+        let xs = |d: &DrawList| d.prims().iter().map(|p| if let Prim::Rect { x, .. } = *p { x as i32 } else { -1 }).collect::<Vec<_>>();
+        d.restack(&[(1, 2), (3, 4)]);
+        assert_eq!(xs(&d), [0, 1, 2, 3, 4], "already in order: nothing moves");
+        d.restack(&[(3, 4), (1, 2)]);
+        assert_eq!(xs(&d), [0, 3, 1, 2, 4], "b under a, what was between after them");
+    }
 
     #[test]
     fn a_pin_takes_its_signals_shape_and_an_event_points_along_the_flow() {

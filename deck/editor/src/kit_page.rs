@@ -258,7 +258,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32)) {
         let whole = Rect { x, y, w: t.size.rem(11.0), h: rh * 1.7 - 8.0 };
         let fold = Rect { x: whole.x + whole.w - head_h, y, w: head_h, h: head_h };
         let none = Rect { w: 0.0, h: 0.0, ..whole };
-        let v = View { whole, handle: Rect { w: whole.w - head_h, h: head_h, ..whole }, fold, close: none, content: Rect { y: y + head_h, h: whole.h - head_h, ..whole }, scroll: 0.0, over: 0.0, collapsed: false, track: none, thumb: none, sizes: false };
+        let v = View { whole, handle: Rect { w: whole.w - head_h, h: head_h, ..whole }, fold, close: none, content: Rect { y: y + head_h, h: whole.h - head_h, ..whole }, scroll: 0.0, over: 0.0, collapsed: false, track: none, thumb: none, sizes: false, staged: false };
         let spec = Spec { id: "kit", name: "Rig", icon: "sliders", about: "", place: Place::default(), essential: true, inline: false };
         floats::begin(d, t, &spec, &v, if i == 1 || i == 5 { (x + t.size.pad, y + head_h * 0.5) } else { AWAY });
         controls::row(d, t, Rect { x: v.content.x + t.size.pad, w: v.content.w - 2.0 * t.size.pad, ..v.content }, &mut (v.content.y + 2.0), "voice", "crow");

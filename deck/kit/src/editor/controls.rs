@@ -93,7 +93,13 @@ pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str
     pills_rounded(d, t, (x, y, h), names, on, t.size.radius)
 }
 
-/// the same, the one on rounded by `radius` (inside a pill: the pill's radius less the inset, so their corners share a centre)
+/// the active tab's look: a thin outline in the text's ink, no fill, rounded by `radius`
+pub fn active_tab(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32) {
+    d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), t.color.text);
+}
+
+/// the same, the one on rounded by `radius` (inside a pill: the pill's radius less the inset, so their corners share a
+/// centre); the one on is the active tab: a thin outline, the others muted
 pub fn pills_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, radius: f32) -> Vec<Rect> {
     let px = t.size.small;
     let mut cx = x;
@@ -101,36 +107,44 @@ pub fn pills_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), n
     for (i, name) in names.iter().enumerate() {
         let w = d.sans_width(px, name) + 2.0 * t.size.pad;
         if i == on {
-            d.round_rect(cx, y, w, h, radius, t.color.pressed);
+            active_tab(d, t, Rect { x: cx, y, w, h }, radius);
         }
-        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.pressed_text } else { t.color.text });
+        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.text } else { t.color.muted });
         out.push(Rect { x: cx, y, w, h });
         cx += w + 2.0;
     }
     out
 }
 
-/// #478: chips that are each on or off (a filter's facts), side by side and on to the next line at `w`, a tree row high
-/// at most; their places and the height they took
+/// the kit's badge height: a tree row less 8 edges
+pub fn badge_height(t: &Tokens) -> f32 {
+    t.size.tree_row - 8.0 * t.size.edge
+}
+
+/// how wide the kit's badge draws `text`
+pub fn badge_width(d: &DrawList, t: &Tokens, text: &str) -> f32 {
+    d.sans_width(t.size.label, text) + 2.5 * t.size.pad
+}
+
+/// The kit's badge at `(x, y)`: the kit's `chip`, on or at rest; its place
+pub fn badge(d: &mut DrawList, t: &Tokens, at: (f32, f32), text: &str, on: bool) -> Rect {
+    chip_in(d, t, at, text, if on { "on" } else { "rest" })
+}
+
+/// #478: chips that are each on or off (a filter's facts) – the kit's badge – side by side and on to the next line at
+/// `w`; their places and the height they took
 pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[&str], on: &[bool]) -> (Vec<Rect>, f32) {
-    let (px, h, gap) = (t.size.small, t.size.tree_row - 4.0, 4.0);
+    let (h, gap) = (badge_height(t), t.size.pad * 0.5);
     let (mut cx, mut cy) = (x, y);
     let mut out = Vec::with_capacity(names.len());
     for (i, name) in names.iter().enumerate() {
-        let cw = d.sans_width(px, name) + t.size.pad;
+        let cw = badge_width(d, t, name);
         if cx > x && cx + cw > x + w {
             cx = x;
             cy += h + gap;
         }
         let lit = on.get(i).copied().unwrap_or(false);
-        let s = t.kit("chip", if lit { "on" } else { "rest" });
-        if let Some(g) = s.ground {
-            d.round_rect(cx, cy, cw, h, h * 0.5, g);
-        }
-        if let Some(b) = s.border {
-            d.outline(cx, cy, cw, h, (h * 0.5, t.size.edge), b);
-        }
-        d.sans(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, s.text.unwrap_or(t.color.muted));
+        badge(d, t, (cx, cy), name, lit);
         out.push(Rect { x: cx, y: cy, w: cw, h });
         cx += cw + gap;
     }

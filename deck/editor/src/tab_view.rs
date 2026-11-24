@@ -84,7 +84,7 @@ impl crate::App {
     }
 
     /// whether what is in front has changes the server has not got
-    fn live_dirty(&self) -> bool {
+    pub(crate) fn live_dirty(&self) -> bool {
         let dirty = |pending: bool, state: &crate::autosave::State| pending || *state != crate::autosave::State::Clean;
         match self.workspace {
             Workspace::Home | Workspace::Media => false,
