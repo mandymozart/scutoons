@@ -26,6 +26,7 @@ import {
 	isEssential,
 	isHidden,
 	moveTab,
+	notOffered,
 	panelOf,
 	readArrangement,
 	showTab,
@@ -199,10 +200,13 @@ export class Floats {
 		FULL.set(this.workspace, tab);
 	}
 
-	/** What the panels show: the arrangement less the views on the stage or over everything (they keep their place in it) */
+	/**
+	 * What the panels show: the arrangement less the views on the stage or over everything, and less the tabs no panel
+	 * offers now (a kept layout names a tab whose content is gone) – they keep their place in it
+	 */
 	readonly shownArrangement: Arrangement = $derived.by(() => {
 		const a = this.arrangement;
-		const away = [...viewsOn(this.stage), ...(this.#full ? [this.#full] : [])].filter((t) => !isHidden(a, t));
+		const away = [...viewsOn(this.stage), ...(this.#full ? [this.#full] : []), ...notOffered(a, this.panels)].filter((t) => !isHidden(a, t));
 		return away.length ? { ...a, hidden: [...(a.hidden ?? []), ...away] } : a;
 	});
 

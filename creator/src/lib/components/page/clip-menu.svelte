@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Icon, liveRegion } from '@scutoons/ui';
+	import { liveRegion } from '@scutoons/ui';
+	import { MenuItem, MenuPanel } from '@scutoons/ui/editor';
 	import { clipboard } from '$lib/editor/clipboard.svelte.ts';
 	import { isField } from '$lib/editor/editor-keys.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -71,11 +72,13 @@
 <svelte:window oncontextmenu={onContextMenu} onkeydown={onKeydown} onpointerdown={onPointerDown} onscroll={close} onresize={close} />
 
 {#if at}
-	<div class="clip-menu" role="menu" aria-label={m['creator.clip_menu']()} bind:this={menu} style:left="{at.x / rem()}rem" style:top="{at.y / rem()}rem" data-testid="clip-menu">
-		<button type="button" onclick={() => run('copy')} data-testid="clip-copy"><Icon name="copy" /> {m['creator.clip_copy']()}</button>
-		<button type="button" onclick={() => run('cut')} data-testid="clip-cut"><Icon name="scissors" /> {m['creator.clip_cut_action']()}</button>
-		<button type="button" onclick={() => run('paste')} data-testid="clip-paste"><Icon name="clipboard" /> {m['creator.clip_paste']()}</button>
-		<button type="button" onclick={() => run('settings')} data-testid="clip-paste-settings">{m['creator.clip_paste_settings']()}</button>
+	<div class="clip-menu" bind:this={menu} style:left="{at.x / rem()}rem" style:top="{at.y / rem()}rem">
+		<MenuPanel width="12rem" aria-label={m['creator.clip_menu']()} data-testid="clip-menu">
+			<MenuItem icon="copy" label={m['creator.clip_copy']()} onclick={() => run('copy')} data-testid="clip-copy" />
+			<MenuItem icon="scissors" label={m['creator.clip_cut_action']()} onclick={() => run('cut')} data-testid="clip-cut" />
+			<MenuItem icon="clipboard" label={m['creator.clip_paste']()} onclick={() => run('paste')} data-testid="clip-paste" />
+			<MenuItem label={m['creator.clip_paste_settings']()} onclick={() => run('settings')} data-testid="clip-paste-settings" />
+		</MenuPanel>
 	</div>
 {/if}
 
@@ -83,35 +86,5 @@
 	.clip-menu {
 		position: fixed;
 		z-index: 200;
-		display: flex;
-		flex-direction: column;
-		min-width: 12rem;
-		background: var(--tool-popover);
-		text-shadow: var(--tool-halo);
-		border: var(--border-width-regular) solid var(--tool-text);
-	}
-	.clip-menu button {
-		display: flex;
-		align-items: center;
-		/* a menu reads from the left (tools.css centres a button's content) */
-		justify-content: flex-start;
-		gap: var(--space-05);
-		min-height: var(--control-height);
-		padding: 0 var(--space-1);
-		border: 0;
-		border-radius: var(--radius-none);
-		background: var(--tool-control);
-		color: var(--tool-text);
-		font: inherit;
-		text-align: left;
-		cursor: pointer;
-	}
-	.clip-menu button:hover {
-		outline: var(--border-width-regular) solid var(--tool-text);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	.clip-menu button:focus-visible {
-		outline: var(--border-width-focus) solid var(--tool-text);
-		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 </style>

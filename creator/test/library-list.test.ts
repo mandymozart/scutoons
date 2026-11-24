@@ -7,6 +7,7 @@ import {
 	filePath,
 	findIn,
 	firstPlace,
+	freshItem,
 	levelColumns,
 	levelIds,
 	levelKey,
@@ -111,4 +112,11 @@ test('a character stepped into: personas, the chosen persona\'s looks, the chose
 	// a toon: seasons, then the chosen season's chapters
 	const toon = [level('season:catpope:1', 'season', 'toon:catpope'), level('chapter:catpope:1', 'chapter', 'season:catpope:1')];
 	assert.deepEqual(levelColumns(toon, 'toon:catpope', ['season:catpope:1']).map((c) => c.level), ['season', 'chapter']);
+});
+
+test("a fresh draft's This item: the server knows nothing there yet (404) – an empty list, not a failure", () => {
+	assert.equal(freshItem({ locale: 'en', place: 'item:module:new_one' }, 404), true);
+	assert.equal(freshItem({ locale: 'en', place: 'item:module:new_one' }, 500), false);
+	assert.equal(freshItem({ locale: 'en', place: 'toon' }, 404), false);
+	assert.equal(freshItem({ locale: 'en', place: 'item:module:new_one' }, undefined), false);
 });

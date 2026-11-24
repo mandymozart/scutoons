@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { confirmDialog } from '@scutoons/ui';
 	import { CloseIcon, Icon, region } from '@scutoons/ui';
 	import { personUsage, replacePerson, type CreditPerson, type PeopleRegistry, type ToonCredits } from '@scutoons/content';
@@ -141,10 +142,7 @@
 					}, 'bio')}
 			/>
 			<div class="merge">
-				<select bind:value={mergeTarget} aria-label={m['creator.credits_merge_into']()} data-testid="merge-target">
-					<option value="">{m['creator.credits_merge_into']()} …</option>
-					{#each all.filter((p) => p.id !== person.id && !p.merged_into) as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
-				</select>
+				<Select label={m['creator.credits_merge_into']()} bind:value={mergeTarget} options={[{ value: '', label: m['creator.credits_merge_into']() }, ...all.filter((p) => p.id !== person.id && !p.merged_into).map((p) => ({ value: p.id, label: p.name }))]} data-testid="merge-target" />
 				<button type="button" class="secondary" disabled={!mergeTarget} onclick={merge} data-testid="merge">{m['creator.credits_merge']()}</button>
 			</div>
 		</div>

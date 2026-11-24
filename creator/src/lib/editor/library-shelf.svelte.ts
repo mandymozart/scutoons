@@ -3,10 +3,10 @@
 // thing stepped into (`?at=`). The server resolves what is listed; this holds the choices and what came back.
 import { getContext, setContext } from 'svelte';
 import { library as libraryAnswer, libraryPath, type FileOrigin, type LibraryEntry, type LibraryLevel, type LibraryQuery, type LibraryStep } from '@scutoons/api';
-import { api } from '$lib/api.ts';
+import { api, ApiError } from '$lib/api.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { contextKey, shared } from '$lib/utils/shared.ts';
-import { placeAvailable, placeQuery, startPlace, type PickFit, type PlaceContext, type ShelfGrouping, type ShelfPlace, type ShelfSort } from './library-list.ts';
+import { freshItem, placeAvailable, placeQuery, startPlace, type PickFit, type PlaceContext, type ShelfGrouping, type ShelfPlace, type ShelfSort } from './library-list.ts';
 
 const VIEW_KEY = 'sc-creator-library-shelf';
 
@@ -129,6 +129,11 @@ export class Shelf {
 			this.status = 'ready';
 		} catch (e) {
 			if (this.shown !== key) return;
+			if (freshItem(q, e instanceof ApiError ? e.status : undefined)) {
+				this.entries = [];
+				this.status = 'ready';
+				return;
+			}
 			this.error = e instanceof Error ? e.message : String(e);
 			this.status = 'error';
 		} finally {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
@@ -206,9 +207,7 @@
 					<PropField {doc} path={[...samplesPath, i, 'delay']} label={m['creator.field_delay']()} type="number" unit={{ kind: 'duration', dimension: 'time', stored: 'ms' }} step={100} placeholder="0" />
 					<div class="field">
 						<label for="tt-{i}">{m['creator.trigger']()}</label>
-						<select id="tt-{i}" value={sample.trigger?.type ?? ''} onchange={(e) => setTriggerType(i, e.currentTarget.value)}>
-							{#each triggerOptions() as t}<option value={t.value}>{t.label}</option>{/each}
-						</select>
+						<Select id="tt-{i}" label={m['creator.trigger']()} value={sample.trigger?.type ?? ''} options={triggerOptions().map((t) => ({ value: t.value, label: t.label }))} onchange={(v) => setTriggerType(i, v)} />
 					</div>
 					<PropField {doc} path={[...samplesPath, i, 'trigger', 'mode']} label={m['creator.field_mode']()} type="select" options={Object.values(TriggerMode)} placeholder="mono" />
 					<PropField {doc} path={[...samplesPath, i, 'loop']} label={m['creator.field_loop']()} type="bool" placeholder="false" />

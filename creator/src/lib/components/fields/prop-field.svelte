@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import ListField from '$lib/components/fields/list-field.svelte';
@@ -69,7 +70,7 @@
 			return;
 		}
 		if (raw === '' && !required) return write(undefined);
-		// the <select> yields "true"/"false" – the schema wants a boolean
+		// the select yields "true"/"false" – the schema wants a boolean
 		if (type === 'bool') return write(raw === 'true');
 		if (type === 'select') {
 			const option = opts.find((o) => String(o.value) === raw);
@@ -92,19 +93,19 @@
 	{#if type === 'list'}
 		<ListField {value} onchange={(list) => write(list.length || required ? list : undefined)} testid={testid ? `${testid}-list` : id} />
 	{:else if type === 'bool'}
-		<select {id} value={value === undefined ? '' : String(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{defaultOption}</option>{/if}
-			<option value="true">{m['creator.yes']()}</option>
-			<option value="false">{m['creator.no']()}</option>
-		</select>
+		<Select {id} {label} value={value === undefined ? '' : String(value)} options={[...(required ? [] : [{ value: '', label: defaultOption }]), { value: 'true', label: m['creator.yes']() }, { value: 'false', label: m['creator.no']() }]} onchange={(v) => onInput(v)} />
 	{:else if type === 'select'}
-		<select {id} value={display(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{defaultOption}</option>{/if}
-			{#each opts as o}<option value={String(o.value)}>{o.label}</option>{/each}
-			{#if value !== undefined && !opts.some((o) => String(o.value) === String(value))}
-				<option value={display(value)}>{display(value)} (?)</option>
-			{/if}
-		</select>
+		<Select
+			{id}
+			{label}
+			value={display(value)}
+			options={[
+				...(required ? [] : [{ value: '', label: defaultOption }]),
+				...opts.map((o) => ({ value: String(o.value), label: o.label })),
+				...(value !== undefined && !opts.some((o) => String(o.value) === String(value)) ? [{ value: display(value), label: `${display(value)} (?)` }] : [])
+			]}
+			onchange={(v) => onInput(v)}
+		/>
 	{:else if type === 'number' && unit}
 		<UnitNumber {id} {label} {...unit} {value} {min} {max} {placeholder} {required} onchange={(v) => write(v === undefined ? (required ? 0 : undefined) : v)} testid={testid ? `${testid}-input` : undefined} />
 	{:else if type === 'color'}

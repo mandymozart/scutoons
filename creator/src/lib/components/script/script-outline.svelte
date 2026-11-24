@@ -13,6 +13,7 @@
 
 <script lang="ts">
 	import { FoldButton } from '@scutoons/ui';
+	import { ListRow } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -56,10 +57,9 @@
 		<ol bind:this={list} class="outline-list">
 			{#each outline as item (item.line)}
 				<li class={item.kind} class:unknown={item.kind === 'section' && !item.known}>
-					<button type="button" class:current={item === current} onclick={() => onjump(item.line)} title={item.kind === 'section' && !item.known ? `${itemLabel(item)} – ${m['creator.kanon_not_a_section']()} (${item.line})` : `${itemLabel(item)} (${item.line})`} data-line={item.line} data-testid="script-outline-item">
-						{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}
-						<span class="label">{itemLabel(item)}</span>
-					</button>
+					<ListRow dense label={itemLabel(item)} selected={item === current} onclick={() => onjump(item.line)} title={item.kind === 'section' && !item.known ? `${itemLabel(item)} – ${m['creator.kanon_not_a_section']()} (${item.line})` : `${itemLabel(item)} (${item.line})`} data-line={item.line} data-testid="script-outline-item">
+						{#snippet lead()}{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}{/snippet}
+					</ListRow>
 				</li>
 			{/each}
 		</ol>
@@ -99,50 +99,21 @@
 		margin: 0;
 		padding: 0;
 	}
-	li button {
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 0.4rem;
-		width: 100%;
-		text-align: left;
-		background: none;
-		border: 0;
-		/* every entry's text on the same 1rem line; the highlight runs edge to edge (owner 2026-10-03) */
-		padding: 0 0.5rem 0 1rem;
-		font-size: var(--type-caption-size);
-		color: var(--tool-text);
-		cursor: pointer;
-	}
-	li button:hover {
-		outline: var(--border-width-regular) solid var(--tool-text);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	li button.current {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-	}
-	li.chapter button {
+	li.chapter :global(.kit-list-row) {
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		margin-top: 0.35rem;
 	}
-	li.song button {
+	li.song :global(.kit-list-row) {
 		font-style: italic;
 		margin-top: 0.35rem;
 	}
-	li.unknown button:not(.current) {
+	li.unknown :global(.kit-list-row:not(.selected)) {
 		color: var(--tool-muted);
 	}
 	.num {
 		min-width: 1.75rem;
 		color: var(--tool-muted);
-	}
-	.label {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 </style>

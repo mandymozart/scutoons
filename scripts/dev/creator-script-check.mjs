@@ -234,7 +234,7 @@ try {
 	const jumped = await js(`(() => { const el = ${area}; const line = el.value.slice(0, el.selectionStart).split('\\n').length; const lh = parseFloat(getComputedStyle(el).lineHeight); const first = Math.floor(el.scrollTop / lh) + 1; const rows = Math.floor(el.clientHeight / lh); return { line, first, rows, focused: document.activeElement === el, at: el.value.split('\\n')[line - 1] }; })()`);
 	check(jumped.line === target[1] && jumped.focused && jumped.first <= target[1] && target[1] < jumped.first + jumped.rows && /KATHEDRALE/.test(jumped.at),
 		`outline jumps: "${target[2]}" → line ${target[1]}, visible from row ${jumped.first}`, JSON.stringify(jumped));
-	const currentItem = await js(`document.querySelector('[data-testid="script-outline-item"].current')?.dataset.line`);
+	const currentItem = await js(`document.querySelector('[data-testid="script-outline-item"][aria-pressed="true"]')?.dataset.line`);
 	check(Number(currentItem) === target[1], 'the outline marks the scene the cursor is in');
 
 	// read-only until confirmed (owner 2026-10-03): typing asks first, "Edit script" + the dialog's confirm unlocks

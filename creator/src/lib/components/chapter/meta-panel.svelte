@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { HIGHLIGHTERS } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { statusWord } from '$lib/editor/status-word.ts';
@@ -66,9 +67,7 @@
 						{:else if status === null}
 							<span class="error">{m['creator.status_not_in_season']()}</span>
 						{:else}
-							<select value={status} onchange={(e) => setSeasonStatus(season, l, number, e.currentTarget.value as (typeof STATUSES)[number])} data-testid="status-{l}">
-								{#each STATUSES as s}<option value={s}>{statusWord(s)}</option>{/each}
-							</select>
+							<Select label="{m['creator.status']()} · {l}" value={status} options={STATUSES.map((s) => ({ value: s, label: statusWord(s) }))} onchange={(v) => setSeasonStatus(season, l, number, v as (typeof STATUSES)[number])} data-testid="status-{l}" />
 						{/if}
 					</label>
 				{/each}

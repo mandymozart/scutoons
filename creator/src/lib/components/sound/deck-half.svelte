@@ -62,10 +62,10 @@
 <div class="deck" data-testid="sound-deck">
 	<div class="stage" data-theme="night">
 		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
-		<div class="chips">
+		<div class="foot">
 			<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
+			<span class="perf" data-testid="sound-status" title="{m['creator.sound_perf']()}: {stats.state} · {stats.perf}">{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></span>
 		</div>
-		<p class="perf" data-testid="sound-status" title={m['creator.sound_perf']()}>{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
 	</div>
 	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} />
 </div>
@@ -84,24 +84,26 @@
 		position: relative;
 		background: var(--tool-ground);
 	}
-	.chips {
+	/* the mood chip and the performance at the picture's foot (the engine's build label is at the top); the performance gives way */
+	.foot {
 		position: absolute;
-		left: var(--space-05);
-		top: var(--space-05);
+		inset: auto var(--space-05) var(--space-05);
 		display: flex;
-		gap: 0.25rem;
-		z-index: 2;
-	}
-	/* the performance, tiny, over the picture: it is the visual and the audio together that it measures */
-	.perf {
-		position: absolute;
-		right: var(--space-05);
-		top: var(--space-05);
-		margin: 0;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: var(--space-05);
 		z-index: 2;
 		pointer-events: none;
+	}
+	.foot > :global(:first-child) {
+		pointer-events: auto;
+	}
+	.perf {
+		min-width: 0;
+		overflow: hidden;
 		font-size: var(--type-nav-micro-size);
 		color: var(--tool-muted);
 		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
 </style>

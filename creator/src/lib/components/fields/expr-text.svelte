@@ -546,12 +546,12 @@
 		-webkit-box-decoration-break: clone;
 	}
 	.chip.first {
-		border-top-left-radius: var(--radius-sm);
-		border-bottom-left-radius: var(--radius-sm);
+		border-top-left-radius: var(--radius-sm); /* kit-ok: a code highlight in the text mirror, not a control */
+		border-bottom-left-radius: var(--radius-sm); /* kit-ok: a code highlight */
 	}
 	.chip.last {
-		border-top-right-radius: var(--radius-sm);
-		border-bottom-right-radius: var(--radius-sm);
+		border-top-right-radius: var(--radius-sm); /* kit-ok: a code highlight */
+		border-bottom-right-radius: var(--radius-sm); /* kit-ok: a code highlight */
 	}
 	.error,
 	.warning {

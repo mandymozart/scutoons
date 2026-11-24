@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { MenuItem, MenuPanel } from '@scutoons/ui/editor';
 	import type { AssetFamily } from '@scutoons/media';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { copyPath, deleteFamilies, downloadFamilies, renameFamily } from '$lib/editor/library-actions.ts';
@@ -41,68 +41,26 @@
 
 <svelte:window onpointerdown={(e) => !el?.contains(e.target as Node) && onclose()} onblur={onclose} />
 
-<div bind:this={el} class="menu" role="menu" tabindex="-1" style:left="{at.left}rem" style:top="{at.top}rem" onkeydown={keys} data-testid="library-menu">
-	{#if one}
-		<button type="button" role="menuitem" onclick={() => run(() => (library.details = true))}><Icon name="info" size="0.9rem" />{m['library.details']()}</button>
-		<button type="button" role="menuitem" onclick={() => run(() => renameFamily(one))}><Icon name="edit-2" size="0.9rem" />{m['library.rename']()}<kbd>F2</kbd></button>
-		<button type="button" role="menuitem" onclick={() => run(() => onreplace(one))}><Icon name="repeat" size="0.9rem" />{m['library.replace']()}</button>
-		<button type="button" role="menuitem" onclick={() => run(() => copyPath(one))}><Icon name="copy" size="0.9rem" />{m['library.copy_path']()}</button>
-	{/if}
-	<button type="button" role="menuitem" onclick={() => run(() => downloadFamilies(families))}><Icon name="download" size="0.9rem" />{families.length > 1 ? m['library.download_n']({ count: families.length }) : m['library.download']()}</button>
-	<hr />
-	<button type="button" role="menuitem" class="danger" onclick={() => run(() => deleteFamilies(families))}><Icon name="trash-2" size="0.9rem" />{families.length > 1 ? m['library.delete_n']({ count: families.length }) : m['library.delete']()}<kbd>Del</kbd></button>
+<div bind:this={el} class="menu" style:left="{at.left}rem" style:top="{at.top}rem">
+	<MenuPanel width="13rem" tabindex={-1} onkeydown={keys} data-testid="library-menu">
+		{#if one}
+			<MenuItem icon="info" label={m['library.details']()} onclick={() => run(() => (library.details = true))} />
+			<MenuItem icon="edit-2" label={m['library.rename']()} kbd="F2" onclick={() => run(() => renameFamily(one))} />
+			<MenuItem icon="repeat" label={m['library.replace']()} onclick={() => run(() => onreplace(one))} />
+			<MenuItem icon="copy" label={m['library.copy_path']()} onclick={() => run(() => copyPath(one))} />
+		{/if}
+		<MenuItem icon="download" label={families.length > 1 ? m['library.download_n']({ count: families.length }) : m['library.download']()} onclick={() => run(() => downloadFamilies(families))} />
+		<hr />
+		<MenuItem class="danger" icon="trash-2" label={families.length > 1 ? m['library.delete_n']({ count: families.length }) : m['library.delete']()} kbd="Del" onclick={() => run(() => deleteFamilies(families))} />
+	</MenuPanel>
 </div>
 
 <style>
 	.menu {
 		position: fixed;
 		z-index: 80;
-		display: flex;
-		flex-direction: column;
-		min-width: 13rem;
-		padding: 0.25rem;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
-		text-shadow: var(--tool-halo);
-		box-shadow: none;
 	}
-	button {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-height: var(--control-height);
-		padding: 0 0.5rem;
-		border: 0;
-		border-radius: var(--editor-radius);
-		background: none;
-		color: var(--tool-text);
-		font: inherit;
-		text-align: start;
-		cursor: pointer;
-	}
-	button:hover:not(:disabled),
-	button:focus-visible {
-		background: var(--tool-hover);
-		outline: none;
-	}
-	button:disabled {
-		color: var(--tool-muted);
-		cursor: default;
-	}
-	.danger {
+	.menu :global(.danger) {
 		color: var(--tool-danger);
-	}
-	kbd {
-		margin-inline-start: auto;
-		color: var(--tool-muted);
-		font-family: var(--editor-mono, ui-monospace, monospace);
-		font-size: var(--editor-label);
-	}
-	hr {
-		width: 100%;
-		margin: 0.2rem 0;
-		border: 0;
-		border-top: var(--editor-edge) solid var(--tool-line);
 	}
 </style>

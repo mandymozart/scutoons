@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import type { CharacterPersona, RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { CharacterModel } from '$lib/editor/character-model.svelte.ts';
@@ -67,12 +68,18 @@
 <label class="idle">
 	<span>{m['creator.characters_idle']()}</span>
 	{#if model.facts}
-		<select {value} onchange={(e) => pick(e.currentTarget.value)} data-testid="persona-idle">
-			<option value="">{m['creator.characters_idle_own']()}</option>
-			{#if value && ![...clips, ...library].some((c) => `${c.kind}:${c.value}` === value)}<option {value}>{value.replace(/^\w+:/, '')}</option>{/if}
-			{#if clips.length}<optgroup label={m['creator.characters_idle_clips']()}>{#each clips as c (c.value)}<option value="clip:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
-			{#if library.length}<optgroup label={m['creator.characters_idle_library']()}>{#each library as c (c.value)}<option value="animation:{c.value}">{c.label}</option>{/each}</optgroup>{/if}
-		</select>
+		<Select
+			label={m['creator.characters_idle']()}
+			{value}
+			options={[
+				{ value: '', label: m['creator.characters_idle_own']() },
+				...(value && ![...clips, ...library].some((c) => `${c.kind}:${c.value}` === value) ? [{ value, label: value.replace(/^\w+:/, '') }] : []),
+				...clips.map((c) => ({ value: `clip:${c.value}`, label: c.label, group: m['creator.characters_idle_clips']() })),
+				...library.map((c) => ({ value: `animation:${c.value}`, label: c.label, group: m['creator.characters_idle_library']() }))
+			]}
+			onchange={(v) => pick(v)}
+			data-testid="persona-idle"
+		/>
 		{#if !library.length}<span class="sc-caption">{m['creator.characters_idle_none_fit']()}</span>{/if}
 	{:else}
 		<span class="sc-caption">{m['creator.characters_idle_no_model']()}</span>

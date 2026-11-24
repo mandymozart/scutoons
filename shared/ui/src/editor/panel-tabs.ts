@@ -90,6 +90,12 @@ export const activeOf = (a: Arrangement, panel: string): string | undefined => {
 	return active && tabs.includes(active) ? active : tabs[0];
 };
 
+/** The tabs of an arrangement that no panel offers now – a kept layout naming a tab whose content is gone (no panel lists tabs: none) */
+export const notOffered = (a: Arrangement, panels: readonly PanelSpec[]): string[] => {
+	const offered = new Set(panels.flatMap((p) => p.tabs ?? []));
+	return offered.size ? Object.values(a.panels).flat().filter((t) => !offered.has(t)) : [];
+};
+
 /** The panel that holds a tab by default */
 export const homeOf = (panels: readonly PanelSpec[], tab: string): string | undefined => panels.find((p) => p.tabs?.includes(tab))?.id;
 

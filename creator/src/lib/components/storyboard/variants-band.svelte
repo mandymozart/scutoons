@@ -155,17 +155,10 @@
 	.facts {
 		color: var(--tool-muted);
 	}
+	/* the current band's head: the kit's open section head (see-through), the text colour */
 	.band.current .head {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-	}
-	.band.current .facts {
-		color: var(--tool-pressed-text);
-	}
-	.band.current .fold {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		border-color: var(--tool-ground);
+		background: var(--kit-section-on-ground);
+		color: var(--tool-text);
 	}
 	.dot {
 		display: inline-block;

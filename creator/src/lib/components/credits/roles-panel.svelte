@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { Icon } from '@scutoons/ui';
 	import { forEachEntryList, ROLE_CATEGORIES, RoleCategory, type CreditRole, type RoleVocabulary, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -37,12 +38,12 @@
 					<tr data-testid="{scope}-role" data-role={role.id}>
 						<td><code>{role.id}</code>{#if miss.length}<br /><span class="warn">{m['creator.missing']()}: {miss.join(', ')}</span>{/if}</td>
 						<td>
-							<select
+							<Select
+								label={m['creator.credits_category']()}
 								value={role.category}
-								onchange={(e) => (scope === 'custom' ? editCustom : editGlobal)(i, (r) => (r.category = e.currentTarget.value as RoleCategory))}
-							>
-								{#each ROLE_CATEGORIES as c (c)}<option value={c}>{c}</option>{/each}
-							</select>
+								options={ROLE_CATEGORIES.map((c) => ({ value: c, label: c }))}
+								onchange={(v) => (scope === 'custom' ? editCustom : editGlobal)(i, (r) => (r.category = v as RoleCategory))}
+							/>
 						</td>
 						<td>
 							<LocaleMapField value={role.label} {languages} label="" required onchange={(v) => (scope === 'custom' ? editCustom : editGlobal)(i, (r) => (r.label = v), `label:${role.id}`)} />

@@ -69,7 +69,7 @@
 		border: var(--border-width-hairline) solid var(--tool-text);
 	}
 	.round {
-		border-radius: 50%;
+		border-radius: 50%; /* kit-ok: a round picture (an avatar), not a control */
 	}
 	/* nothing to show: the dashed empty slot (DESIGN.md: an empty media slot is dashed) */
 	.empty {
