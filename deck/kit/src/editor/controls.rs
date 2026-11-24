@@ -642,20 +642,27 @@ pub struct TreeRow {
     pub selected: bool,
 }
 
+/// a list row's ground in a state of the kit's `list_row` (rest · hover · selected · dragged · disabled), see-through or
+/// the pressed fill, rounded by the kit's radius; the ink its words take
+pub fn list_row(d: &mut DrawList, t: &Tokens, r: Rect, state: &str) -> [f32; 4] {
+    let s = t.kit("list_row", state);
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, t.size.edge), s.faded(b));
+    }
+    s.faded(s.text.unwrap_or(t.color.text))
+}
+
 /// an outliner; the rows' places
 pub fn tree(d: &mut DrawList, t: &Tokens, x: f32, y: f32, w: f32, rows: &[TreeRow], pointer: (f32, f32)) -> Vec<Rect> {
     let (h, px) = (t.size.tree_row, t.size.font);
     let mut out = Vec::with_capacity(rows.len());
     for (i, row) in rows.iter().enumerate() {
         let r = Rect { x, y: y + i as f32 * h, w, h };
-        if row.selected {
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.pressed);
-        } else if r.has(pointer.0, pointer.1) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.hover);
-        } else if i % 2 == 1 {
-            d.rect(r.x, r.y, r.w, r.h, t.color.surface_head);
-        }
-        let (ink, quiet) = if row.selected { (t.color.pressed_text, t.color.pressed_text) } else { (t.color.text, t.color.muted) };
+        let ink = list_row(d, t, r, if row.selected { "selected" } else if r.has(pointer.0, pointer.1) { "hover" } else { "rest" });
+        let quiet = if row.selected { ink } else { t.color.muted };
         let cx = x + 4.0 + row.depth as f32 * 14.0;
         if let Some(open) = row.open {
             d.icon(cx, r.y + (h - 12.0) * 0.5, 12.0, if open { "down" } else { "next" }, quiet);

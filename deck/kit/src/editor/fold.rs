@@ -22,8 +22,16 @@ pub fn head_height(t: &Tokens) -> f32 {
 
 /// A section's head across `r`: its icon, its name, what it is set to now, and whether it is open; its place.
 pub fn head(d: &mut DrawList, t: &Tokens, r: Rect, icon: &'static str, name: &str, summary: &str, open: bool) -> Rect {
-    if open {
-        d.rect(r.x, r.y, r.w, r.h, t.color.surface_head);
+    head_in(d, t, r, (icon, name, summary), if open { "on" } else { "rest" })
+}
+
+/// The same in a state of the kit's `section` (rest · hover · on, the open one · disabled): its ground see-through and
+/// rounded by the kit's radius, its chevron the state's mark.
+pub fn head_in(d: &mut DrawList, t: &Tokens, r: Rect, (icon, name, summary): (&'static str, &str, &str), state: &str) -> Rect {
+    let s = t.kit("section", state);
+    let open = state == "on";
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y + t.size.edge, r.w, r.h - 2.0 * t.size.edge, t.size.radius, g);
     }
     d.rect(r.x, r.y + r.h - t.size.edge, r.w, t.size.edge, t.color.line);
     let pad = t.size.pad;
@@ -36,7 +44,7 @@ pub fn head(d: &mut DrawList, t: &Tokens, r: Rect, icon: &'static str, name: &st
     let room = r.x + r.w - pad * 2.0 - chev - sum_x;
     let px = t.size.small;
     d.sans(sum_x, mid - px * 0.62, px, &controls::fit_sans(d, px, summary, room), t.color.muted);
-    d.icon(r.x + r.w - pad - chev, mid - chev * 0.5, chev, if open { "down" } else { "next" }, if open { t.color.text } else { t.color.muted });
+    d.icon(r.x + r.w - pad - chev, mid - chev * 0.5, chev, if open { "down" } else { "next" }, s.mark.unwrap_or(t.color.muted));
     r
 }
 

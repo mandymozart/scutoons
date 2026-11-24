@@ -15,7 +15,7 @@ use deck_kit::base::draw::DrawList;
 use deck_kit::base::signal::Signal;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::base::wire::Wire;
-use deck_kit::editor::cards::{self, fade as soft, fit, Tag};
+use deck_kit::editor::cards::{self, fit, Tag};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::editor::table::{Edge, Laid, Scroll, Table};
 use deck_show::sizes::{Sizes, CELL};
@@ -53,21 +53,21 @@ fn launcher(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, h
     d.icon(c.0 - s * 0.42, c.1 - s * 0.5, s, "play-fill", ink);
 }
 
-/// the stop slot of an empty cell: a small square around `c`, ringed while it waits for its moment
-fn stop_slot(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, hot: bool) {
-    let s = r * 1.3;
-    let (x, y) = (c.0 - s * 0.5, c.1 - s * 0.5);
-    if hot {
-        d.round_rect(x, y, s, s, 2.0, t.color.hover);
-    }
-    let color = match state {
-        State::Queued => t.color.text,
-        _ => t.color.muted,
-    };
-    d.outline(x, y, s, s, (2.0, 1.0), color);
+/// the stop slot of an empty cell: the kit's toggle, off, from the launcher's left edge at `c`; ringed while it waits for
+/// its moment; its place
+fn stop_slot(d: &mut DrawList, t: &Tokens, c: (f32, f32), r: f32, state: State, pointer: (f32, f32)) -> Rect {
+    let h = r * 1.2;
+    let s = Rect { x: c.0 - r, y: c.1 - h * 0.5, w: 2.0 * h, h };
+    controls::switch_in(d, t, s, false, if s.has(pointer.0, pointer.1) { "hover" } else { "off" });
     if state == State::Queued {
-        d.outline(x - 3.0, y - 3.0, s + 6.0, s + 6.0, (4.0, 1.0), color);
+        d.outline(s.x - 3.0, s.y - 3.0, s.w + 6.0, s.h + 6.0, (h * 0.5 + 3.0, 1.0), t.color.text);
     }
+    s
+}
+
+/// a column head's stop toggle's width (its height half of it)
+pub(super) fn stop_width(t: &Tokens) -> f32 {
+    t.size.rem(1.7)
 }
 
 /// the moment's ticks' width: now one, the next bar four, the next phrase four
@@ -92,9 +92,11 @@ fn ticks(d: &mut DrawList, (x, y, h): (f32, f32, f32), moment: Moment, color: [f
     }
 }
 
-/// the tag of a row's fire chip: a filled bolt for auto, an outlined one and a dashed border for suggest
+/// the tag of a row's fire chip, a quiet chip of the kit: a filled bolt in the text colour for auto, an outlined muted one
+/// for suggest
 pub fn fire_tag_of<'a>(t: &Tokens, chip: &'a FireChip) -> Tag<'a> {
-    Tag { icon: if chip.auto { "bolt-fill" } else { "bolt" }, tint: t.color.warn, text: &chip.tag, dashed: !chip.auto, trail: ticks_width(chip.moment) }
+    let (icon, tint) = if chip.auto { ("bolt-fill", t.color.text) } else { ("bolt", t.kit("chip", "rest").text.unwrap_or(t.color.muted)) };
+    Tag { icon, tint, text: &chip.tag, trail: ticks_width(chip.moment) }
 }
 
 /// A row's fire tag at `(x, y)`, no wider than `w`: the bolt, what the row's name does not say, the moment's ticks; its width.
@@ -166,16 +168,23 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
     let rad = (h0 * 0.19).min(t.size.rem(0.8));
     let fits = super::sizing::measure(d, t, host, m, rad);
 
-    // the cells, under both heads; first the selection's bands
-    d.clip(Some(l.body));
-    if let Some(i) = sel.filter(|i| *i < n && cols > 0) {
-        let a = l.span(i, 0, cols);
-        d.rect(a.x, a.y + 1.0, a.w, a.h - 2.0, soft(t.color.selected, 0.45));
+    // the selection's bands first, see-through and rounded (the kit's `selected`): the row's one band from its head across
+    // its cells, a column's from its first row to its last
+    let body_right = l.body.x + l.body.w;
+    d.clip(Some(Rect { x: l.heads_left.x, w: body_right - l.heads_left.x, ..l.body }));
+    if let Some(i) = sel.filter(|i| *i < n) {
+        let h = l.row_head(i);
+        let end = if cols > 0 { l.span(i, 0, cols).x + l.span(i, 0, cols).w } else { h.x + h.w };
+        d.round_rect(h.x, h.y + 1.0, end.min(body_right) - h.x, h.h - 2.0, t.size.radius, t.color.selected);
     }
+    // the cells, under both heads
+    d.clip(Some(l.body));
     for (c, col) in m.columns.iter().enumerate() {
         if columns_on(&col.id) && n > 0 {
             let a = l.down(0, c, n);
-            d.rect(a.x + 1.0, a.y, a.w - 2.0, a.h, soft(t.color.selected, 0.45));
+            // reaching up under the heads' clip, so it joins its head's band without a notch
+            let reach = t.size.radius;
+            d.round_rect(a.x + 1.0, a.y - reach, a.w - 2.0, a.h + reach, t.size.radius, t.color.selected);
         }
     }
     for (i, r) in m.rows.iter().enumerate().take(l.visible_rows().end.min(n)).skip(l.visible_rows().start) {
@@ -196,9 +205,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
             let on_launcher = Rect { x: c0.0 - rad, y: c0.1 - rad, w: 2.0 * rad, h: 2.0 * rad }.has(pointer.0, pointer.1);
             if cell.empty {
                 // an empty cell: Ableton's stop slot
-                stop_slot(d, t, c0, rad, cell.state, on_launcher);
+                let s = stop_slot(d, t, c0, rad, cell.state, pointer);
                 if runs {
-                    push(host, Rect { x: c0.0 - rad - 2.0, y: c0.1 - rad - 2.0, w: 2.0 * rad + 4.0, h: 2.0 * rad + 4.0 }, &l.body, Hit::Launch(i, c));
+                    push(host, Rect { x: s.x - 2.0, y: s.y - 2.0, w: s.w + 4.0, h: s.h + 4.0 }, &l.body, Hit::Launch(i, c));
                 }
             } else if let Some(words) = words.filter(|_| !cell.keep) {
                 let over = whole.has(pointer.0, pointer.1);
@@ -245,7 +254,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
             }
             // a library card being dragged: the cell under the pointer is where it lands
             if host.carrying() && at.has(pointer.0, pointer.1) {
-                d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.color.go);
+                d.outline(at.x, at.y, at.w, at.h, (t.size.radius, 2.0), t.kit("drop", "on").border.unwrap_or(t.color.text));
             }
         }
         // the cells of this row whose far nodes listen to each other, and the parts of one question, hang on wires from
@@ -287,7 +296,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let r = l.col_head(g.first, g.span);
         let on = host.group.as_ref() == Some(&g.name);
         if on {
-            d.rect(r.x + 1.0, r.y, r.w - 2.0, gh - 4.0, soft(t.color.selected, 0.45));
+            d.round_rect(r.x + 1.0, r.y, r.w - 2.0, gh - 4.0, t.size.radius, t.color.selected);
         }
         match typed(host, |w| *w == Typing::GroupName(g.name.clone())) {
             Some(text) => super::rows::in_place(d, t, Rect { x: r.x + pad * 0.5, y: r.y + 1.0, w: r.w - pad, h: gh - 6.0 }, &text, t.size.label * 1.2),
@@ -304,11 +313,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let role = roles.iter().position(|x| x.id == col.id);
         let on = columns_on(&col.id) || (role.is_some() && host.role.as_ref() == Some(&col.id));
         if on {
-            // the column's band, the same x and width as its cells below
-            d.rect(r.x + 1.0, y, r.w - 2.0, r.h - gh, soft(t.color.selected, 0.45));
+            // the column's band, the same x and width as its cells below, reaching down under the body's clip
+            d.round_rect(r.x + 1.0, y, r.w - 2.0, r.h - gh + t.size.radius, t.size.radius, t.color.selected);
             d.rect(r.x + pad, r.y + r.h - 3.0, r.w - 2.0 * pad, 2.0, t.color.text);
         }
-        let stop = t.size.rem(0.85);
+        let stop = stop_width(t);
         let here = role.map(|k| deck_show::roles::here_text(roles[k].here)).unwrap_or_default();
         let hw = d.advance(small) * here.chars().count() as f32;
         match typed(host, |w| matches!(w, Typing::ColumnName(id) | Typing::Label(id) if *id == col.id)) {
@@ -321,17 +330,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
         let kind = col.filter.as_ref().map_or_else(|| col.detail.clone(), |f| format!("{} · {f}", col.detail));
         controls::label(d, t, r.x + pad, y + 6.0 + font * 1.3, &fit(d, &kind, t.size.label * 1.2, r.w - 2.0 * pad), t.color.muted);
         push(host, Rect { x: r.x, y, w: r.w, h: r.h - gh }, &l.heads_top, Hit::Column(c));
-        // the column's stop: a small square, filled only while something plays there
-        let s = Rect { x: r.x + r.w - pad - stop, y: y + 4.0 + (font * 1.25 - stop) * 0.5, w: stop, h: stop };
+        // the column's stop: the kit's toggle, on only while something plays there
+        let s = Rect { x: r.x + r.w - pad - stop, y: y + 4.0 + (font * 1.25 - stop * 0.5) * 0.5, w: stop, h: stop * 0.5 };
         let live = runs && col.stops;
-        if runs && s.has(pointer.0, pointer.1) {
-            d.round_rect(s.x - 2.0, s.y - 2.0, s.w + 4.0, s.h + 4.0, 3.0, t.color.hover);
-        }
-        if live {
-            d.round_rect(s.x, s.y, s.w, s.h, 2.0, t.color.text);
-        } else {
-            d.outline(s.x, s.y, s.w, s.h, (2.0, 1.0), t.color.muted);
-        }
+        controls::switch_in(d, t, s, live, if live { "on" } else if runs && s.has(pointer.0, pointer.1) { "hover" } else { "off" });
         if runs {
             push(host, Rect { x: s.x - 3.0, y: s.y - 3.0, w: s.w + 6.0, h: s.h + 6.0 }, &l.heads_top, Hit::Stop(c));
         }
@@ -342,9 +344,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, (m, runs)
     for (i, r) in m.rows.iter().enumerate().take(l.visible_rows().end.min(n)).skip(l.visible_rows().start) {
         let h = l.row_head(i);
         let whole = Rect { x: h.x, y: h.y + 3.0, w: h.w - pad, h: h.h - 6.0 };
-        if sel == Some(i) {
-            d.rect(whole.x, h.y + 1.0, h.w, h.h - 2.0, soft(t.color.selected, 0.45));
-        } else if whole.has(pointer.0, pointer.1) {
+        if sel != Some(i) && whole.has(pointer.0, pointer.1) {
             d.round_rect(whole.x, whole.y, whole.w, whole.h, t.size.radius, t.color.hover);
         }
         if r.suggested {
@@ -624,10 +624,10 @@ mod tests {
     fn selection_shows_as_bands_and_names_are_typed_in_place_with_ctrl_r() {
         let mut host = host_with(DOC);
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
-        let soft = super::soft(t.color.selected, 0.45);
-        let bands = |d: &DrawList| d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Rect { color, .. } if *color == soft)).count();
+        let band = t.color.selected;
+        let bands = |d: &DrawList| d.prims().iter().filter(|p| matches!(p, deck_kit::base::draw::Prim::Rect { color, r, .. } if *color == band && *r > 0.0)).count();
         author::draw(&mut d, &t, &mut host, super::super::rows::tests::W, super::super::rows::tests::H, (0.0, 0.0));
-        assert_eq!(bands(&d), 2, "row 1 selected: its band over the cells and its head");
+        assert_eq!(bands(&d), 1, "row 1 selected: one rounded band from its head across its cells");
         // a column head: its band from the head down to the last row, lined up with the cells
         press(&mut host, |h| *h == Hit::Column(1));
         let head = place(&host, Hit::Column(1)).unwrap();

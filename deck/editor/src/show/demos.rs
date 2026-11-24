@@ -105,7 +105,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         }
         let whole = Rect { x: a.x, y, w: a.w, h: lh };
         if whole.has(pointer.0, pointer.1) {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
+            controls::list_row(d, t, whole, "hover");
         }
         d.text(a.x + pad, y + 4.0, font, &fit(d, &demo.name, font), t.color.text);
         d.text(a.x + pad, y + 4.0 + font * 1.5, small, &fit(d, &demo.hint, small), t.color.muted);

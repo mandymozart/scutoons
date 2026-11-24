@@ -392,7 +392,7 @@ impl Browser {
         let h = small * 1.4 + 6.0;
         let r = Rect { x: a.x, y, w: a.w, h };
         if r.has(pointer.0, pointer.1) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+            controls::list_row(d, t, r, "hover");
         }
         let sw = d.sans_width(small, side);
         let x = r.x + 4.0 + INDENT * depth as f32;
@@ -487,7 +487,7 @@ impl Browser {
                 if lit {
                     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
                 } else if hover {
-                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                    controls::list_row(d, t, r, "hover");
                 }
                 let p = Rect { x: r.x + 3.0, y: r.y + 3.0, w: ROW_PREVIEW.0, h: ROW_PREVIEW.1 };
                 sheets(d, t, Rect { w: p.w - SHEET_STEP * SHEETS as f32, ..p }, stack);

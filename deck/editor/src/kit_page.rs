@@ -271,13 +271,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32)) {
         }
         let r = Rect { x, y: y + (ch - fold::head_height(t)) * 0.5, w: t.size.rem(13.0), h: fold::head_height(t) };
         let from = d.prims().len();
-        if i == 1 {
-            if let Some(g) = t.kit("section", "hover").ground {
-                d.rect(r.x, r.y, r.w, r.h, g);
-            }
-        }
-        fold::head(d, t, r, "sliders", "Lens", "70 mm", i == 2);
-        focus(d, t, i, r, 0.0);
+        fold::head_in(d, t, r, ("sliders", "Lens", "70 mm"), ["rest", "hover", "on", "rest", "disabled"][i]);
+        focus(d, t, i, r, t.size.radius);
         if i == 4 {
             disabled(d, t, from, "section");
         }
