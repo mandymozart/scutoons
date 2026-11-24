@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { LocaleText } from '@scutoons/content';
+	import { Chip } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TextOriginal from '$lib/components/fields/text-original.svelte';
@@ -48,7 +49,7 @@
 	{#each shown as l (l)}
 		{@const missing = !value?.[l]?.trim() && (required || anyText)}
 		<label class:missing>
-			<span class="lang">{l}{#if l === sourceLanguage}<SourceMark />{/if}{#if missing}<span class="pill">{m['creator.missing']()}</span>{/if}</span>
+			<span class="lang">{l}{#if l === sourceLanguage}<SourceMark />{/if}{#if missing}<Chip tone="warning" label={m['creator.missing']()} />{/if}</span>
 			{#if multiline}
 				<textarea rows="3" value={value?.[l] ?? ''} oninput={(e) => set(l, e.currentTarget.value)}></textarea>
 			{:else}
@@ -96,12 +97,6 @@
 	.missing input,
 	.missing textarea {
 		border-color: var(--tool-warn);
-	}
-	.pill {
-		font-size: var(--type-caption-size);
-		padding: 0 0.3em;
-		background: var(--tool-warn);
-		color: var(--tool-text);
 	}
 	input,
 	textarea {

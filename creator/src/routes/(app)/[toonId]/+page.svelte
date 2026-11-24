@@ -437,7 +437,7 @@
 		flex-wrap: wrap;
 		gap: 0.4rem;
 		margin: 0;
-		padding: 0;
+		padding: 0; /* kit-ok: the list's own reset, not a chip's inset */
 		list-style: none;
 	}
 </style>

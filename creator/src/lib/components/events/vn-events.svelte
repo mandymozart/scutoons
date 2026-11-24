@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { CloseIcon, Icon, SortGrip, confirmDialog, region as selectionRegion, sortable } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -367,7 +368,7 @@
 
 	<div class="add">
 		{#each FORM_TYPES as t}
-			<button type="button" class="secondary" onclick={() => add(t)}>+ {t}</button>
+			<Button icon="plus" onclick={() => add(t)}>{t}</Button>
 		{/each}
 	</div>
 </section>
@@ -489,8 +490,5 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.3rem;
-	}
-	.add button {
-		padding: 0 var(--space-075);
 	}
 </style>

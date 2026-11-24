@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ApiError, rootPath, toonRelativePath } from '@scutoons/api';
 	import { DEFAULT_SLICE, getAt, type Path, type QualityVariants } from '@scutoons/content';
-	import { confirmDialog, Icon, Sheet } from '@scutoons/ui';
+	import { confirmDialog, Sheet } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
 	import { densityLevel, densityPath, mediaAssets, splitMediaName, standardDensities, uploadOrReplace, type Density } from '@scutoons/media';
@@ -264,10 +265,9 @@
 </script>
 
 <div class="slice-import">
-	<button type="button" class="secondary" disabled={!!progress} onclick={() => input?.click()} title={m['creator.import_slices_hint']()} data-testid="slice-import">
-		<Icon name="upload" />
+	<Button variant="quiet" icon="upload" fill disabled={!!progress} onclick={() => input?.click()} title={m['creator.import_slices_hint']()} data-testid="slice-import">
 		{progress ? m['creator.import_slices_progress']({ done: progress.done, total: progress.total }) : m['creator.import_slices']()}
-	</button>
+	</Button>
 	<input
 		bind:this={input}
 		type="file"
@@ -319,10 +319,10 @@
 	{/if}
 	{#if twice !== null}<p class="error" role="alert">{m['creator.import_slices_twice']({ number: twice + 1 })}</p>{/if}
 	{#snippet footer()}
-		<button type="button" class="ghost" onclick={() => (open = false)}>{m['creator.cancel']()}</button>
-		<button type="button" class="primary" onclick={start} disabled={twice !== null || !rows.length} data-testid="slice-import-start">
+		<Button variant="quiet" onclick={() => (open = false)}>{m['creator.cancel']()}</Button>
+		<Button variant="primary" onclick={start} disabled={twice !== null || !rows.length} data-testid="slice-import-start">
 			{m['creator.import_slices_start']({ replace: replacing, add: adding })}
-		</button>
+		</Button>
 	{/snippet}
 </Sheet>
 
@@ -333,16 +333,6 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding: var(--space-1);
-	}
-	/* one line in the narrow sidebar, the full text in the tooltip */
-	.slice-import > button {
-		display: block;
-		min-width: 0;
-		padding-inline: var(--space-05);
-		text-align: left;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 	.rows {
 		list-style: none;

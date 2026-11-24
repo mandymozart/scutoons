@@ -33,7 +33,7 @@
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
 	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, choiceDialog } from '@scutoons/ui';
-	import { IconButton, Pill } from '@scutoons/ui/editor';
+	import { IconButton, MenuItem, MenuPanel, Pill } from '@scutoons/ui/editor';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -702,15 +702,15 @@
 			{@render avatar(toonFilter)}<Icon name="chevron-down" size="1rem" />
 		</button>
 		{#if toonMenu}
-			<ul class="toon-menu" role="listbox" aria-label={m['creator.map_toon_filter']()}>
-				{#each [{ id: '', name: m['creator.map_all_toons']() }, ...toons] as t (t.id)}
-					<li>
-						<button type="button" role="option" aria-selected={toonFilter === t.id} class:on={toonFilter === t.id} onclick={() => ((toonFilter = t.id), (toonMenu = false))} data-testid="toon-{t.id || 'all'}">
+			<div class="toon-menu">
+				<MenuPanel width="12rem" role="listbox" aria-label={m['creator.map_toon_filter']()}>
+					{#each [{ id: '', name: m['creator.map_all_toons']() }, ...toons] as t (t.id)}
+						<MenuItem role="option" aria-selected={toonFilter === t.id} on={toonFilter === t.id} onclick={() => ((toonFilter = t.id), (toonMenu = false))} data-testid="toon-{t.id || 'all'}">
 							{@render avatar(t.id)}<span>{t.name}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
+						</MenuItem>
+					{/each}
+				</MenuPanel>
+			</div>
 		{/if}
 	</span>
 {/snippet}
@@ -940,28 +940,6 @@
 		z-index: 50;
 		top: calc(100% + 0.3rem);
 		right: 0;
-		min-width: 12rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		background: var(--tool-popover);
-		text-shadow: var(--tool-halo);
-		border: var(--border-width-regular) solid var(--tool-text);
-	}
-	.toon-menu button {
-		all: unset;
-		box-sizing: border-box;
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		width: 100%;
-		min-height: var(--control-height);
-		padding: 0 0.75rem;
-		cursor: pointer;
-	}
-	.toon-menu button.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
 	}
 
 	/* the sidebar (rendered into the shell's left column) */

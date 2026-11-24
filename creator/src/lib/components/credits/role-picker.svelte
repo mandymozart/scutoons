@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { ROLE_CATEGORIES, RoleCategory, pickText, type CreditRole, type LocaleText } from '@scutoons/content';
+	import { Chip } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
@@ -91,9 +92,7 @@
 					<div class="group">
 						<span class="cat">{group.category}</span>
 						{#each group.roles as role (role.id)}
-							<button type="button" class="chip" class:has={has.has(role.id)} class:custom={role.custom} onclick={() => pick(role.id)} data-testid="{testid}-role" data-role={role.id}>
-								{pickText(role.label, lang) || role.id}{#if role.custom}<span class="tag">{m['creator.credits_custom']()}</span>{/if}
-							</button>
+							<Chip label="{pickText(role.label, lang) || role.id}{role.custom ? ` · ${m['creator.credits_custom']()}` : ''}" on={has.has(role.id)} onclick={() => pick(role.id)} testid="{testid}-role" data-role={role.id} />
 						{/each}
 					</div>
 				{/each}
@@ -157,23 +156,6 @@
 		text-transform: uppercase;
 		color: var(--tool-muted);
 		min-width: 6.5rem;
-	}
-	.chip {
-		padding: 0 0.4rem;
-		background: var(--tool-control);
-		color: var(--tool-text);
-		border: var(--border-width-regular) solid var(--tool-line);
-	}
-	.chip:hover {
-		border-color: var(--tool-text);
-	}
-	.chip.has {
-		background: var(--tool-hover);
-	}
-	.tag {
-		font-size: var(--type-caption-size);
-		margin-left: 0.3em;
-		color: var(--tool-muted);
 	}
 	.create {
 		display: flex;
