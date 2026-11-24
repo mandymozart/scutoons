@@ -171,7 +171,7 @@ mod tests {
         let places = draw(&mut d, &t, (1600.0, 900.0), 8.0, &Switch { recent: &recent, cards: &c, creator: &creator }, (0.0, 0.0));
         let texts = d.texts();
         for want in ["LAST OPENED", "catpope", "Rigging", "WORKSPACES", "Scene", "Show", "FRONT", "scene:avatar-home", "Character", "Toon", "Nothing open yet"] {
-            assert!(texts.iter().any(|s| *s == want), "{want}: {texts:?}");
+            assert!(texts.contains(&want), "{want}: {texts:?}");
         }
         assert_eq!(texts.iter().filter(|s| **s == "Creator").count(), 2, "a chip on each creator's card");
         let kinds: Vec<Press> = places.iter().map(|(_, p)| *p).collect();
