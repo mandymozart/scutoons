@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mustLeave, needsIsolation, shouldReload } from '../src/lib/isolation.ts';
+import { isIsolationReload, mustLeave, needsIsolation, shouldReload } from '../src/lib/isolation.ts';
 
 test('the engine routes are isolated, the rest of the creator is not', () => {
 	for (const p of ['/edit', '/edit/', '/edit/rig:character.catpope', '/edit/module:walk']) assert.ok(needsIsolation(p), p);
@@ -17,4 +17,10 @@ test('an isolated document leaves for a page that must not be isolated by a full
 	assert.ok(mustLeave(true, '/toptoy/chapter/1'));
 	assert.ok(!mustLeave(true, '/edit/rig:character.catpope'));
 	assert.ok(!mustLeave(false, '/toptoy/chapter/1'));
+});
+
+test('the one reload for the headers carries on the move that came here: known by the path it was made for', () => {
+	assert.ok(isIsolationReload('/edit/module:arp', '/edit/module:arp'));
+	assert.ok(!isIsolationReload('/edit/module:arp', '/edit/module:delay'));
+	assert.ok(!isIsolationReload(null, '/edit/module:arp'));
 });

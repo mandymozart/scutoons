@@ -45,6 +45,7 @@
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
 	import type { DashboardState } from '$lib/shell/resume.ts';
+	import { arrivedByIsolationReload } from '$lib/isolation.svelte.ts';
 	import { openings } from '$lib/shell/openings.svelte.ts';
 	import { startDesktop } from '$lib/shell/desktop.svelte.ts';
 	import { log } from '$lib/log/log.svelte.ts';
@@ -141,8 +142,8 @@
 	// reopening resumes like a hibernated computer (lib/shell/resume.ts): the kept tabs with the URL opened, the dashboard
 	// as it was, each workspace's full screen, the scroll positions; a link opened is the front tab
 	const start = resume.start({ address: addressOf(page.url.pathname, page.url.search), href: page.url.pathname + page.url.search });
-	/** the dashboard as it was, once the start's page is there */
-	let startDashboard: DashboardState | null = start.dashboard;
+	/** the dashboard as it was, once the start's page is there; the engine page's reload for its headers carries on a move: none */
+	let startDashboard: DashboardState | null = arrivedByIsolationReload() ? false : start.dashboard;
 	let lastPath = '';
 	function sync(navigated: boolean) {
 		const { pathname, search } = location;
