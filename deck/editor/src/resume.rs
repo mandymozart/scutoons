@@ -1,9 +1,9 @@
 //! The editor's workspaces Scene · Rigging · Show (XR is the creator's only) on the creator's model (deck-ui `workspaces`, `stage`, `resume`):
 //! which one is in front (the front tab's, else one opened empty), the row's use, each workspace's stage and its view
-//! full screen, the dashboard – kept in the editor's cache, so reopening resumes like a hibernated computer; the very
-//! first open lands on the dashboard, nothing open yet.
-use crate::dashboard::{self, Card, Press};
-use crate::{bar, home, show, App};
+//! full screen, whether the switcher was open – kept in the editor's cache, so reopening resumes like a hibernated
+//! computer; the very first open lands on Home, nothing open yet.
+use crate::switcher::{self, Card, Press};
+use crate::{bar, main_menu, show, App};
 use deck_ui::resume::{self, Session};
 use deck_ui::stage::{self, Cell, ViewState, ZoneSize};
 use deck_ui::workspaces::{self, Click, Workspace};
@@ -38,18 +38,20 @@ impl App {
         self.tabs.front().and_then(|t| Workspace::of(&t.key)).or(self.empty_ws)
     }
 
-    /// the first frame, after the tabs: how the editor starts (the dashboard, a workspace opened empty, resumed)
+    /// the first frame, after the tabs: how the editor starts (Home, a workspace opened empty, resumed)
     pub(crate) fn start_session(&mut self) {
         let front = self.tabs.front().map(|t| t.key.clone());
         let st = resume::start(&self.session, front.as_deref());
-        self.dashboard = st.dashboard || self.args.main_menu;
-        self.welcome = st.welcome;
+        self.switcher = (st.dashboard && front.is_some()) || self.args.switcher;
         if front.is_none() {
             self.empty_ws = st.workspace;
         }
         if let Some(w) = self.args.empty_ws {
             self.empty_ws = Some(w);
-            self.dashboard = self.args.main_menu;
+            self.switcher = self.args.switcher;
+        }
+        if self.args.main_menu {
+            self.main_menu = Some(if self.args.views_open { main_menu::Side::Views } else { main_menu::Side::None });
         }
         if st.resumed && self.session_file.is_some() {
             self.note(resume::resumed_words(&self.session, now_secs()));
@@ -96,8 +98,8 @@ impl App {
             }
             changed = true;
         }
-        if self.session.dashboard != self.dashboard {
-            self.session.dashboard = self.dashboard;
+        if self.session.dashboard != self.switcher {
+            self.session.dashboard = self.switcher;
             changed = true;
         }
         if changed {
@@ -117,9 +119,9 @@ impl App {
         }
     }
 
-    /// a workspace of the row or the dashboard pressed
+    /// a workspace of the row or the switcher pressed
     pub(crate) fn workspace_click(&mut self, w: Workspace) {
-        self.dashboard = false;
+        self.switcher = false;
         let front = self.tabs.front().map(|t| t.key.clone());
         let open: Vec<String> = self.tabs.list.iter().map(|t| t.key.clone()).collect();
         let open: Vec<&str> = open.iter().map(String::as_str).collect();
@@ -137,9 +139,21 @@ impl App {
         }
     }
 
-    /// a panel put in one of its four states, from the dashboard's Views
+    /// a view put in one of its four states, from the ☰ Views: a Show's sheet shows in the sheet panel
     pub(crate) fn view_to(&mut self, id: &str, state: ViewState) {
         let Some(w) = self.deck_ws() else { return };
+        if let Some(&(_, _, _, sheet)) = show::author::SHEETS.iter().find(|s| s.0 == id).filter(|_| self.workspace == show::Workspace::Show) {
+            let shown = self.show.sheet == Some(sheet);
+            if state == ViewState::Hidden && !shown {
+                return;
+            }
+            if state == ViewState::Hidden {
+                self.show.sheet = None;
+            } else if !shown {
+                self.show.press(show::Hit::Sheet(sheet));
+            }
+            return self.view_to(show::author::SHEET_PANEL, state);
+        }
         let p = self.panels_mut();
         p.set_view(id, state);
         let (s, f) = (p.stage.clone(), p.full.clone());
@@ -167,104 +181,157 @@ impl App {
         stage::zone_at(self.cursor.0, self.cursor.1, self.window_size(), zones(&self.tokens.tokens))
     }
 
-    /// the dashboard's cards: the front workspace first, then the row's order
-    pub(crate) fn dash_cards(&self) -> Vec<Card> {
+    /// the switcher's deck cards: the row's order, the one in front framed, each with the item it shows
+    pub(crate) fn switch_cards(&self) -> Vec<Card> {
         let front = self.deck_ws();
-        let mut row = self.session.uses.row();
-        if let Some(f) = front {
-            row.retain(|w| *w != f);
-            row.insert(0, f);
-        }
-        row.into_iter()
+        self.session
+            .uses
+            .row()
+            .into_iter()
             .map(|w| {
-                let mut open: Vec<String> = self.tabs.list.iter().filter(|t| Workspace::of(&t.key) == Some(w) && !t.key.ends_with(':')).map(|t| t.name.clone()).collect();
-                if let Some(i) = self.tabs.front.filter(|_| front == Some(w)) {
-                    let name = self.tabs.list[i].name.clone();
-                    open.retain(|n| *n != name);
-                    open.insert(0, name);
-                }
-                Card { workspace: w, front: front == Some(w), open }
+                let shown = self.tabs.front().map(|t| t.key.clone()).filter(|_| front == Some(w));
+                let open = |k: &String| self.tabs.list.iter().any(|t| t.key == *k);
+                let item = shown.or_else(|| self.session.uses.last.get(&w).filter(|k| open(k)).cloned()).or_else(|| self.tabs.list.iter().find(|t| Workspace::of(&t.key) == Some(w) && !t.key.ends_with(':')).map(|t| t.key.clone()));
+                Card { workspace: w, front: front == Some(w), item }
             })
             .collect()
     }
 
-    /// a press on the dashboard (it closes, unless the press changed a view)
-    pub(crate) fn dashboard_press(&mut self, p: Press) {
+    /// a press on the switcher (or Home): it closes
+    pub(crate) fn switcher_press(&mut self, p: Press) {
+        self.switcher = false;
         match p {
             Press::Workspace(w) => self.workspace_click(w),
-            Press::Home(h) => {
-                self.dashboard = false;
-                self.home_press(h);
+            Press::Recent(i) => self.home_press(crate::home::Press::Recent(i)),
+            Press::Creator(i) => {
+                if let Some(c) = self.creator.cards.get(i).cloned() {
+                    let url = format!("{}{}", crate::creator_cards::CREATOR, c.href);
+                    match crate::home::open_in_browser(&url) {
+                        Ok(()) if self.autosaves => self.note(format!("{} opens in the creator", c.item)),
+                        _ => self.note(format!("{} is in the creator: {url}", c.item)),
+                    }
+                }
             }
-            Press::Menu(a) if self.menu_why_not(a).is_some() => {}
-            Press::Menu(a) => {
-                self.dashboard = false;
-                self.menu_act(a);
-            }
-            Press::View(id, s) => self.view_to(id, s),
-            Press::Load | Press::Card => {}
         }
     }
 
-    /// what the dashboard shows this frame (the views are the panels of the workspace in front)
-    pub(crate) fn dash_words(&self) -> (String, String) {
-        let (_, _, deck) = self.home_lines();
-        let account = deck.first().cloned().unwrap_or_default();
+    /// the switcher opened or closed (the row's ⌄, the strip's +); opened, the creator's cards are asked again
+    pub(crate) fn open_switcher(&mut self) {
+        self.main_menu = None;
+        let over = self.tabs.front.is_some() || self.empty_ws.is_some();
+        self.switcher = over && !self.switcher;
+        if self.switcher || !over {
+            self.creator.ask(&self.args.api, self.auth.token());
+        }
+    }
+
+    /// a press while the ☰ menu is open (none: outside it – it closes); a view's state keeps it open
+    pub(crate) fn main_menu_press(&mut self, p: Option<main_menu::Press>) {
+        use main_menu::{Line, Press, Side};
+        let side = self.main_menu.unwrap_or_default();
+        let toggle = |s: Side| Some(if side == s { Side::None } else { s });
+        match p {
+            None => self.main_menu = None,
+            Some(Press::Ground) => {}
+            Some(Press::Line(Line::Views)) if self.deck_ws().is_some() => self.main_menu = toggle(Side::Views),
+            Some(Press::Line(Line::Views)) => {}
+            Some(Press::Line(Line::Do(bar::Action::New))) => self.main_menu = toggle(Side::New),
+            Some(Press::View(id, s)) => self.view_to(id, s),
+            Some(Press::New(n)) => {
+                self.main_menu = None;
+                self.home_press(crate::home::Press::New(n));
+            }
+            Some(Press::Line(Line::Do(a))) if self.menu_why_not(a).is_some() => {}
+            Some(Press::Line(l)) => {
+                self.main_menu = None;
+                match l {
+                    Line::SaveWorkspace => {
+                        self.remember_panels();
+                        self.keep_session();
+                        self.note("the workspace is kept as it is now".to_string());
+                    }
+                    Line::Search => self.search(),
+                    Line::Docs => self.home_press(crate::home::Press::Docs),
+                    Line::Do(a) => self.menu_act(a),
+                    Line::Views => {}
+                }
+            }
+        }
+    }
+
+    /// Search: the Library's Find, its panel open, typing
+    pub(crate) fn search(&mut self) {
+        self.panels_mut().floats.reopen(crate::library::PANEL);
+        self.panels_moved = true;
+        let q = self.library.browser.filter.query.clone();
+        self.library.browser.typing = Some(deck_kit::base::text::Field::with(&q));
+    }
+
+    /// what the switcher shows this frame, when it shows (nothing open: Home; else over the workspace)
+    pub(crate) fn switch_data(&self) -> Option<SwitchData> {
+        if !self.switcher_shows() {
+            return None;
+        }
+        let (recent, _, _) = self.home_lines();
+        let recent = recent.into_iter().map(|l| switcher::Recent { workspace: Workspace::of(&l.key), key: l.key, name: l.name }).collect();
+        let creator = self.creator.cards.iter().map(crate::creator_cards::Card::shown).collect();
+        Some(SwitchData { home: !self.switcher, recent, cards: self.switch_cards(), creator })
+    }
+
+    /// the switcher shows: opened (the row's ⌄, the strip's +), or Home – nothing in front, no workspace opened empty
+    pub(crate) fn switcher_shows(&self) -> bool {
+        self.switcher || (self.tabs.front.is_none() && self.empty_ws.is_none())
+    }
+
+    /// the ☰ menu's foot: the load in words
+    pub(crate) fn load_words(&self) -> String {
         let cpu = self.cpu.as_ref().and_then(|c| c.reading()).map_or_else(|| "CPU –".to_string(), |c| format!("CPU {:.0} %", c.value * 100.0));
         let gpu = self.gpu_load.reading().map_or_else(|| "GPU –".to_string(), |g| format!("GPU {:.0} %", g.value * 100.0));
         let khz = self.stage.khz().map_or_else(|| "no audio".to_string(), |k| bar::khz(k as f32));
-        (account, format!("{cpu} · {khz} · {gpu} · {:.0} fps", self.fps()))
+        format!("{cpu} · {khz} · {gpu} · {:.0} fps", self.fps())
     }
 
-    /// what the dashboard shows this frame, when it shows (nothing open: it is the page; else over the workspace)
-    pub(crate) fn dash_data(&self) -> Option<DashData> {
-        if !self.dashboard_shows() {
-            return None;
+    /// the views the ☰ lists for the workspace in front: its panels, and in a Show its sheets in the sheet panel's place
+    pub(crate) fn menu_views(&self) -> Vec<(&'static str, &'static str, &'static str, ViewState)> {
+        if self.deck_ws().is_none() || self.workspace == show::Workspace::Home {
+            return Vec::new();
         }
-        let (recent, library, _) = self.home_lines();
-        let why = library.is_empty().then(|| self.book_why().unwrap_or_else(|| "the library comes with a toon: sign in, or open a character of one".into()));
-        let menu = bar::MENU.iter().map(|(a, ..)| (*a, self.menu_why_not(*a).is_none())).collect();
-        let ws = self.deck_ws();
-        let views = if ws.is_some() && self.workspace != show::Workspace::Home { self.panels().views() } else { Vec::new() };
-        let (account, load) = self.dash_words();
-        Some(DashData { welcome: self.welcome && self.tabs.list.is_empty(), cards: self.dash_cards(), recent, library, why, menu, ws, views, account, load })
-    }
-
-    /// the dashboard shows: opened by the menu, or nothing in front and no workspace opened empty
-    pub(crate) fn dashboard_shows(&self) -> bool {
-        self.dashboard || (self.tabs.front.is_none() && self.empty_ws.is_none())
+        let mut views = self.panels().views();
+        if self.workspace == show::Workspace::Show {
+            let sheet = self.panels().view_state(show::author::SHEET_PANEL);
+            views.retain(|v| v.0 != show::author::SHEET_PANEL);
+            for &(id, name, icon, s) in &show::author::SHEETS {
+                views.push((id, name, icon, if self.show.sheet == Some(s) { sheet } else { ViewState::Hidden }));
+            }
+        }
+        views
     }
 
     /// the line an empty workspace shows on its stage
     pub(crate) fn empty_words(&self) -> Option<String> {
-        let w = self.empty_ws.filter(|_| self.tabs.front.is_none() && !self.dashboard)?;
+        let w = self.empty_ws.filter(|_| self.tabs.front.is_none() && !self.switcher)?;
         let how = match w {
-            Workspace::Scene => "open a scene from the dashboard (the menu, far right) or start a new one",
-            Workspace::Rigging => "open a character, an item or a module from the dashboard",
-            Workspace::Show => "open a show from the dashboard or start a new one",
+            Workspace::Scene => "open a scene (☰ Open) or start a new one (☰ New)",
+            Workspace::Rigging => "open a character, an item or a module (☰ Open)",
+            Workspace::Show => "open a show (☰ Open) or start a new one (☰ New)",
         };
         Some(format!("{}: nothing open yet – {how}.", w.word()))
     }
 }
 
-/// the dashboard's content, gathered before the frame is drawn
-pub struct DashData {
-    welcome: bool,
+/// the switcher's content, gathered before the frame is drawn
+pub struct SwitchData {
+    /// nothing open: Home under the bar; else the switcher over the workspace
+    pub home: bool,
+    recent: Vec<switcher::Recent>,
     cards: Vec<Card>,
-    recent: Vec<home::Line>,
-    library: Vec<home::Line>,
-    why: Option<String>,
-    menu: Vec<(bar::Action, bool)>,
-    ws: Option<Workspace>,
-    views: Vec<(&'static str, &'static str, &'static str, ViewState)>,
-    account: String,
-    load: String,
+    creator: Vec<switcher::CreatorCard>,
 }
 
-impl DashData {
+impl SwitchData {
     pub fn draw(&self, d: &mut deck_kit::base::draw::DrawList, t: &deck_kit::base::tokens::Tokens, size: (f32, f32), pointer: (f32, f32)) -> Vec<(deck_kit::base::draw::Rect, Press)> {
-        let dash = dashboard::Dash { welcome: self.welcome, cards: &self.cards, recent: &self.recent, library: &self.library, library_why: self.why.as_deref(), menu: &self.menu, workspace: self.ws, views: &self.views, account: &self.account, load: &self.load };
-        dashboard::draw(d, t, size, bar::bottom(t), &dash, pointer)
+        let top = if self.home { bar::bottom(t) } else { 0.0 };
+        switcher::draw(d, t, size, top, &switcher::Switch { recent: &self.recent, cards: &self.cards, creator: &self.creator }, pointer)
     }
 }
 
@@ -293,17 +360,12 @@ pub fn parse_ws(text: &str) -> Option<Workspace> {
     workspaces::ALL.into_iter().find(|w| w.word().eq_ignore_ascii_case(text))
 }
 
-/// the presses home.rs's lines map to, for the info
+/// what a place of the switcher does, for the info
 pub fn help_of(p: Press) -> (&'static str, String) {
     match p {
         Press::Workspace(w) => (w.word(), format!("{} Click to go there: its last item, else it opens empty.", w.about())),
-        Press::Home(home::Press::New(_)) => ("New", "A new scene (in a show's composer), a module (from one of the catalog's) or a show, in a tab of its own.".into()),
-        Press::Home(home::Press::Docs) => ("Help", "Opens the creator's docs, or copies the link.".into()),
-        Press::Home(_) => ("Open", "Opens it in a tab, or brings its tab to the front.".into()),
-        Press::Menu(a) => (bar::MENU.iter().find(|(m, ..)| *m == a).map_or("", |(_, l, _)| *l), "Click to do it.".into()),
-        Press::View(_, s) => (s.word(), "The view's state: hidden, a floating panel, on the stage (it takes a cell; drag a panel to a screen edge or corner for one) or full screen.".into()),
-        Press::Load => ("Load", String::new()),
-        Press::Card => ("Dashboard", "The workspaces, anything to open, the menu and the views; the account, the help, the build and the load at the bottom.".into()),
+        Press::Recent(_) => ("Open", "Opens it in a tab, or brings its tab to the front.".into()),
+        Press::Creator(_) => ("Creator", "A workspace of the creator: opens the creator there in the browser.".into()),
     }
 }
 

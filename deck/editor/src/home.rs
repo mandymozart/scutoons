@@ -1,6 +1,6 @@
-//! What opens items from nothing (decisions/deck.md [workspaces]): New (a scene, a module, a show), the recent items,
-//! the library and the help's link – the dashboard's "Open anything" (dashboard.rs). While no tab is open the deck's idle
-//! scene plays behind it (fireflies on black).
+//! What opens items from nothing (decisions/deck.md [workspaces]): New (a scene, a module, a show – the ☰ menu's New …),
+//! the recent items (the switcher's Last opened) and the help's link (the ☰ menu's Docs). While no tab is open the deck's
+//! idle scene plays behind Home (fireflies on black).
 
 /// where the help is (creator.scutoons.com/docs, #624): a press opens it in the browser, or copies it
 pub const DOCS: &str = "https://creator.scutoons.com/docs";
@@ -31,13 +31,12 @@ pub enum New {
     Show,
 }
 
-/// a press on Home
+/// what opens an item or the help
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Press {
     New(New),
-    /// a line of Recent, of the library: its index in what was drawn
+    /// a line of Last opened: its index in what was drawn
     Recent(usize),
-    Library(usize),
     Docs,
 }
 

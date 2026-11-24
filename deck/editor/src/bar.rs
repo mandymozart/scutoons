@@ -1,11 +1,11 @@
 //! The toolbar over the stage, and the window's title bar where the editor draws its own frame (the creator's bar, the
-//! same model – research/redesign/lap/crafts-v2.html `bars`): left the tabs of the items open, a strip (tabs.rs: the front
-//! one carries the path inside it, its steps go back up; an overflow list with Close others / Close all; + opens the
-//! dashboard); in the middle the workspaces Scene · Rigging · Show, flat, most used first; right, icons only: the
-//! play pill only where something plays (Edit / Play, play, BPM, the clock's source; Panic beside it), undo · redo,
-//! then Publish (only when something needs it) · account · the menu far right, which opens the dashboard. The build and
-//! the load meters are the dashboard's bottom line. Groups of icons and toolbars keep their bordered pill; on Windows the
-//! window buttons bare at the row's right end.
+//! same model – picture A1): left the tabs of the items open, a strip (tabs.rs: the front one carries the path inside it,
+//! its steps go back up; an overflow list with Close others / Close all; + opens the switcher); in the middle the
+//! workspace row Scene · Rigging · Show, most used first, with its ⌄ (the switcher) and nothing else (RULES H16); right,
+//! icons only: the play pill only where something plays (Edit / Play, play, BPM, the clock's source; Panic beside it),
+//! undo · redo, then Publish (only when something needs it) · account · the ☰ menu far right. The build and the load
+//! meters are the ☰ menu's foot. Groups of icons and toolbars keep their bordered pill; on Windows the window buttons
+//! bare at the row's right end.
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
 use deck_kit::editor::controls::{self, Rect};
@@ -23,7 +23,7 @@ pub fn bottom(t: &Tokens) -> f32 {
     margin(t) + t.size.top
 }
 
-/// one of the dashboard's menu lines
+/// what a line of the ☰ menu (main_menu.rs) or Publish does
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Open,
@@ -35,16 +35,6 @@ pub enum Action {
     Quit,
 }
 
-/// the dashboard's menu, top down: what each line says, whether it leaves for the browser (no save: everything saves itself)
-pub const MENU: [(Action, &str, bool); 7] = [
-    (Action::Open, "Open…", false),
-    (Action::New, "New…", false),
-    (Action::Publish, "Publish in the creator", true),
-    (Action::Settings, "Settings…", false),
-    (Action::Audio, "Audio & inputs", false),
-    (Action::Account, "Account", true),
-    (Action::Quit, "Quit to stage  F9", false),
-];
 
 /// a tab's mark beside its name: its item plays (Play, #629), or it is the show live
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,12 +97,12 @@ pub struct Bar<'a> {
     /// 0..1, the signing-in icon's breath (1 = still, reduce motion)
     pub pulse: f32,
     pub pointer: (f32, f32),
-    /// the room a workspace keeps in the row for its own pill (Show's view switch)
-    pub slot: f32,
     /// a panic holds: the pill resumes
     pub panicked: bool,
-    /// the dashboard is open: the menu is lit
-    pub dashboard: bool,
+    /// the ☰ menu is open: its button is lit
+    pub menu: bool,
+    /// the switcher is open: the row's ⌄ is lit
+    pub switcher: bool,
     /// the editor's own frame: where the window buttons go, and whether the window is maximised
     pub window: Option<(Side, bool)>,
 }
@@ -178,8 +168,8 @@ pub struct Placed {
     pub workspaces: Vec<(Workspace, Rect)>,
     pub modes: Vec<Rect>,
     pub play: Option<Rect>,
-    /// the place kept for the workspace's own pill
-    pub slot: Rect,
+    /// the workspace row's ⌄: the switcher
+    pub chooser: Option<Rect>,
     /// the panic pill (zero wide: not shown)
     pub panic: Rect,
     /// the play pill (zero wide: not shown)
@@ -303,9 +293,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     }
     icons.extend([("account", account_ink), ("menu", t.color.text)]);
     let (end_pill, places) = group(d, t, (x, y, inset), &icons, b.pointer);
-    if b.dashboard {
+    if b.menu {
         let m = places[places.len() - 1];
-        controls::active_tab(d, t, m, m.h * 0.5);
+        if let Some(g) = t.kit("icon_button", "on").ground {
+            d.round_rect(m.x, m.y, m.w, m.h, m.h * 0.5, g);
+        }
     }
     out.publish = b.publish.then(|| places[0]);
     out.account = places[places.len() - 2];
@@ -379,14 +371,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         out.source = Rect { x: wx - pad * 0.5, y, w: ww + pad, h };
         x = tempo.x - gap;
     }
-    if b.slot > 0.0 {
-        out.slot = Rect { x: x - b.slot, y, w: b.slot, h };
-        x = out.slot.x - gap;
-    }
     let right_start = x;
-    // the workspaces: in the window's middle when they fit there, else just before the right end
+    // the workspace row and its ⌄: in the window's middle when they fit there, else just before the right end
     let names: Vec<&str> = b.workspaces.iter().map(|w| w.word()).collect();
-    let ws_w = names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * pad + 2.0).sum::<f32>() - 2.0 + 2.0 * inset;
+    let ws_w = names.iter().map(|n| d.sans_width(px, n) + 2.0 * pad + 2.0).sum::<f32>() + ih + 2.0 * inset;
     let left = t.size.gap + lead_room;
     let min_strip = 3.0 * h;
     let ws_x = ((width - ws_w) * 0.5).min(right_start - ws_w).max(left + min_strip + gap);
@@ -395,9 +383,25 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     if ws_fits {
         let r = Rect { x: ws_x, y, w: ws_w, h };
         pill(d, t, r);
-        let on = b.workspace.and_then(|w| b.workspaces.iter().position(|x| *x == w)).unwrap_or(usize::MAX);
-        let places = controls::pills_rounded(d, t, (r.x + inset, y + inset, ih), &names, on, ir);
-        out.workspaces = b.workspaces.iter().copied().zip(places).collect();
+        let mut cx = r.x + inset;
+        // a workspace carries no border at rest: the one in front in the text colour, a rounded border under the pointer
+        for (ws, name) in b.workspaces.iter().zip(&names) {
+            let place = Rect { x: cx, y: y + inset, w: d.sans_width(px, name) + 2.0 * pad, h: ih };
+            let front = Some(*ws) == b.workspace;
+            let state = if place.has(b.pointer.0, b.pointer.1) { "hover" } else if front { "on" } else { "rest" };
+            let ink = controls::tab_frame(d, t, place, ir, state);
+            let ink = if front { t.kit("tab", "on").text.unwrap_or(t.color.text) } else { ink };
+            d.sans(place.x + pad, mid - px * 0.62, px, name, ink);
+            out.workspaces.push((*ws, place));
+            cx += place.w + 2.0;
+        }
+        let chooser = Rect { x: r.x + r.w - inset - ih, y: y + inset, w: ih, h: ih };
+        if b.switcher {
+            if let Some(g) = t.kit("icon_button", "on").ground {
+                d.round_rect(chooser.x, chooser.y, chooser.w, chooser.h, ir, g);
+            }
+        }
+        out.chooser = Some(inner_button(d, t, chooser, "down", if b.switcher { t.color.text } else { t.color.muted }, b.pointer));
         strip_end = r.x - gap;
     }
     // the tabs: a strip from the left, the front one with its path; the list and the + at its end
@@ -414,7 +418,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
         out.window = window::draw(d, t, room, y, maximised, b.pointer);
     }
     d.halo(None);
-    out.solid = [end_pill, undo_pill, out.tempo, out.panic, out.slot].into_iter().chain(out.workspaces.iter().map(|w| w.1)).chain(out.tabs.iter().map(|t| t.1)).chain(out.list).chain(out.plus).chain(out.modes.iter().copied()).filter(|r| r.w > 0.0).collect();
+    out.solid = [end_pill, undo_pill, out.tempo, out.panic].into_iter().chain(out.chooser).chain(out.workspaces.iter().map(|w| w.1)).chain(out.tabs.iter().map(|t| t.1)).chain(out.list).chain(out.plus).chain(out.modes.iter().copied()).filter(|r| r.w > 0.0).collect();
     out
 }
 
@@ -598,9 +602,9 @@ mod tests {
             account: Signed::In,
             pulse: 1.0,
             pointer: (0.0, 0.0),
-            slot: 0.0,
             panicked: false,
-            dashboard: false,
+            menu: false,
+            switcher: false,
             window: None,
         }
     }
@@ -641,18 +645,23 @@ mod tests {
     }
 
     #[test]
-    fn the_workspaces_sit_in_the_middle_flat_the_front_one_outlined() {
+    fn the_workspace_row_sits_in_the_middle_with_its_chooser_and_nothing_else() {
         let path = vec!["main".to_string()];
         let (d, p) = drawn_with(&bar(&TABS, Some(0), &path), 1920.0);
         assert_eq!(p.workspaces.iter().map(|w| w.0).collect::<Vec<_>>(), ALL);
         let first = p.workspaces[0].1;
-        let last = p.workspaces[2].1;
-        let centre = (first.x + last.x + last.w) * 0.5;
+        let chooser = p.chooser.expect("the row's ⌄");
+        let centre = (first.x + chooser.x + chooser.w) * 0.5;
         assert!((centre - 960.0).abs() < 20.0, "in the middle: {centre}");
+        assert!(chooser.x > p.workspaces[2].1.x, "the ⌄ ends the row");
         let t = Tokens::default();
         let rigging = p.workspaces[1].1;
-        assert!(d.prims().iter().any(|q| matches!(*q, Prim::Outline { x, w, color, .. } if (x - rigging.x).abs() < 0.01 && (w - rigging.w).abs() < 0.01 && color == t.color.text)), "the front one a thin outline");
+        assert!(!d.prims().iter().any(|q| matches!(*q, Prim::Outline { x, w, .. } if (x - rigging.x).abs() < 0.01 && (w - rigging.w).abs() < 0.01)), "the front one has no border at rest");
+        assert!(d.prims().iter().any(|q| matches!(*q, Prim::Text { color, x, .. } if color == t.color.text && (x - rigging.x - t.size.pad).abs() < 0.01)), "the front one in the text colour");
         assert!(!d.prims().iter().any(|q| matches!(*q, Prim::Rect { color, .. } if color == t.color.pressed)), "no pressed fill anywhere");
+        for word in ["Cues", "Problems", "Who", "Session", "Vote", "Demos"] {
+            assert!(!d.texts().contains(&word), "{word} is a view in the ☰, never a pill of the bar");
+        }
     }
 
     #[test]

@@ -128,6 +128,22 @@ impl DrawList {
         self.prims.truncate(n);
     }
 
+    /// the part `a..b` moved to the end, over everything drawn after it (a panel taken full over the overlay's ground)
+    pub fn lift(&mut self, a: usize, b: usize) {
+        let (a, b) = (a.min(self.prims.len()), b.min(self.prims.len()));
+        if a < b {
+            let part: Vec<Prim> = self.prims.drain(a..b).collect();
+            self.prims.extend(part);
+        }
+    }
+
+    /// only the part `a..b` kept (what lies on the overlay; the rest is the still under it)
+    pub fn keep(&mut self, a: usize, b: usize) {
+        let b = b.min(self.prims.len());
+        self.prims.truncate(b);
+        self.prims.drain(..a.min(b));
+    }
+
     /// Paint the parts `parts` (disjoint ranges of the list, each drawn whole: floating panels) in the given order, the
     /// last on top: they move to the end of their span in that order, what was drawn between them goes after them
     pub fn restack(&mut self, parts: &[(usize, usize)]) {

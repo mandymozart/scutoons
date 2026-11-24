@@ -269,7 +269,7 @@ impl Panels {
         }
     }
 
-    /// every panel as a view: its id, name, icon and state (the dashboard's Views)
+    /// every panel as a view: its id, name, icon and state (the ☰ Views)
     pub fn views(&self) -> Vec<(&'static str, &'static str, &'static str, ViewState)> {
         self.floats.all().into_iter().filter(|s| s.id != SETTINGS && !s.inline).map(|s| (s.id, s.name, s.icon, self.view_state(s.id))).collect()
     }
@@ -286,11 +286,35 @@ impl Panels {
 
     /// the panels as their order paints them, the last touched on top (after every panel of the frame is drawn)
     pub fn restack(&self, d: &mut DrawList) {
-        let drawn = self.drawn.borrow();
+        let mut drawn = self.drawn.borrow_mut();
         let order = self.floats.paint_order();
-        let mut parts: Vec<(usize, usize)> = order.iter().filter_map(|id| drawn.iter().find(|(d, ..)| d == id).map(|(_, a, b)| (*a, *b))).collect();
-        parts.retain(|(a, b)| b > a);
-        d.restack(&parts);
+        let mut parts: Vec<(&'static str, usize, usize)> = order.iter().filter_map(|id| drawn.iter().find(|(d, ..)| d == id).copied()).collect();
+        parts.retain(|(_, a, b)| b > a);
+        let ranges: Vec<(usize, usize)> = parts.iter().map(|p| (p.1, p.2)).collect();
+        let before = d.prims().len();
+        d.restack(&ranges);
+        let mut sorted = ranges.clone();
+        sorted.sort_unstable();
+        // restack moved the parts in paint order to the start of their span (unless they already lay so): their places now
+        if sorted != ranges && !sorted.windows(2).any(|w| w[0].1 > w[1].0) && d.prims().len() == before {
+            let mut at = sorted.first().map_or(0, |r| r.0);
+            for (id, a, b) in parts {
+                if let Some(e) = drawn.iter_mut().find(|e| e.0 == id) {
+                    *e = (id, at, at + (b - a));
+                }
+                at += b - a;
+            }
+        }
+    }
+
+    /// where panel `id` lies in the draw list this frame (after `restack`)
+    pub fn drawn_range(&self, id: &str) -> Option<(usize, usize)> {
+        self.drawn.borrow().iter().find(|e| e.0 == id).map(|e| (e.1, e.2))
+    }
+
+    /// the box a panel taken full fills: the window less the kit's margin, the bar's place too (RULES H15)
+    pub fn full_box(size: (f32, f32), margin: f32) -> Rect {
+        Rect { x: margin, y: margin, w: (size.0 - 2.0 * margin).max(1.0), h: (size.1 - 2.0 * margin).max(1.0) }
     }
 
     /// this frame's layout: the panels shown, each with its content's width and – when it knows it – height (else the
@@ -302,14 +326,18 @@ impl Panels {
         let shown: Vec<(&'static str, f32, Option<f32>)> = shown.iter().copied().chain(extra).collect();
         self.known = shown.iter().filter(|(_, _, h)| h.is_some()).map(|(id, ..)| *id).collect();
         let shown: Vec<Shown> = shown.iter().map(|&(id, w, h)| Shown { id, content: (w, h.unwrap_or_else(|| self.measured.get(id).copied().unwrap_or(UNMEASURED))) }).collect();
+        let whole = size;
         // the status bar keeps the bottom edge
         let size = (size.0, size.1 - deck_kit::editor::status::reserve(t));
-        let room = Self::room(size, top, m.gap);
+        let mut room = Self::room(size, top, m.gap);
         self.drawn.borrow_mut().clear();
-        // a view full screen takes the room alone; the views on the stage fill their cells, a gap apart
+        // a view taken full is a box on the overlay level, alone; the views on the stage fill their cells, a gap apart
         let full = self.full.as_deref().and_then(|f| shown.iter().find(|s| s.id == f)).map(|s| s.id);
         let (cells, shown): (Vec<(&str, Rect)>, Vec<Shown>) = match full {
-            Some(f) => (vec![(f, room)], shown.into_iter().filter(|s| s.id == f).collect()),
+            Some(f) => {
+                room = Self::full_box(whole, m.gap);
+                (vec![(f, room)], shown.into_iter().filter(|s| s.id == f).collect())
+            }
             None => {
                 let half = m.gap * 0.5;
                 let cells = self.stage.slot_rects(room).into_iter().filter_map(|(_, v, r)| Some((shown.iter().find(|s| Some(s.id) == v)?.id, Rect { x: r.x + half, y: r.y + half, w: r.w - m.gap, h: r.h - m.gap }))).collect();

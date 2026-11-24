@@ -754,7 +754,8 @@ mod tests {
         let mut host = host_with(VOTE);
         let (l, sent, relay) = link::Link::loopback();
         host.link = Some(l);
-        press(&mut host, |h| *h == Hit::Sheet(super::super::Sheet::Vote));
+        // the Vote view, as the ☰ Views opens it
+        host.press(Hit::Sheet(super::super::Sheet::Vote));
         let texts = frame(&mut host);
         assert!(texts.iter().any(|t| t == deck_ui::vote::NONE) && texts.iter().any(|t| t.starts_with("A vote opens from a row's question")), "{texts:?}");
         assert!(!host.hits.iter().any(|(_, h)| matches!(h, Hit::Vote(_))), "no form, no Open: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>());

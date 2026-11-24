@@ -110,10 +110,10 @@ impl ViewState {
 
     pub fn icon(self) -> &'static str {
         match self {
-            ViewState::Hidden => "close",
-            ViewState::Panel => "layers",
-            ViewState::Stage => "grid",
-            ViewState::Full => "eye",
+            ViewState::Hidden => "eye-off",
+            ViewState::Panel => "sidebar",
+            ViewState::Stage => "monitor",
+            ViewState::Full => "maximize",
         }
     }
 }

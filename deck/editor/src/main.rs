@@ -15,7 +15,7 @@ mod autosave;
 mod bar;
 mod book;
 mod colour;
-mod dashboard;
+mod creator_cards;
 mod dop;
 mod empty;
 mod frame;
@@ -28,6 +28,7 @@ mod idle;
 mod library;
 mod live_tabs;
 mod log;
+mod main_menu;
 mod logo;
 mod media;
 mod media_draw;
@@ -45,6 +46,7 @@ mod published;
 mod resume;
 mod routing;
 mod stage;
+mod switcher;
 mod tokens;
 mod ui;
 mod rig_presets;
@@ -211,8 +213,12 @@ struct Args {
     /// the History panel open in Build and Show; a check run's ask on its step (`revert:N` | `back:N`, `:confirm` stores it)
     history: bool,
     history_ask: Option<history_panel::ScriptAsk>,
-    /// the dashboard open at the start (`--main-menu`, `--dashboard`)
+    /// the ☰ menu open at the start (`--main-menu`), its Views beside it (`--views`); the switcher open (`--switcher`); the
+    /// creator's cards from a file (`--creator-session FILE`: GET /api/me/session's answer)
     main_menu: bool,
+    views_open: bool,
+    switcher: bool,
+    creator_session: Option<PathBuf>,
     /// a check run's views on the stage (`--stage mixer:left,info:top-right`), the view full screen, a workspace opened empty
     stage_views: Vec<(String, deck_ui::stage::Cell)>,
     full_view: Option<String>,
@@ -246,7 +252,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -395,7 +401,10 @@ fn args() -> Result<Args> {
             }
             "--log-info" => {}
             "--close" => a.closed.extend(val()?.split(',').map(str::trim).filter(|n| !n.is_empty()).map(String::from)),
-            "--main-menu" | "--dashboard" => a.main_menu = true,
+            "--main-menu" => a.main_menu = true,
+            "--views" => (a.main_menu, a.views_open) = (true, true),
+            "--switcher" | "--dashboard" => a.switcher = true,
+            "--creator-session" => a.creator_session = Some(PathBuf::from(val()?)),
             "--stage" => a.stage_views = resume::parse_stage(&val()?),
             "--full" => a.full_view = Some(val()?),
             "--empty" => a.empty_ws = Some(resume::parse_ws(&val()?).context("--empty scene | rigging | show")?),
@@ -482,7 +491,7 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--views] [--switcher] [--creator-session FILE] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
             other => anyhow::bail!("unknown argument {other}"),
@@ -521,10 +530,11 @@ enum Hit {
     Stage,
     /// a panel's ground: it keeps the press from the stage
     Ground,
-    /// the menu far right: the dashboard (its places: `dash_hits`)
+    /// the ☰ far right: the menu (its places: `menu_hits`)
     Menu,
-    /// the tab strip's +: the dashboard, to open anything
+    /// the tab strip's +, the workspace row's ⌄: the switcher (its places: `switch_hits`)
     Plus,
+    Chooser,
     Undo,
     Redo,
     Publish,
@@ -790,10 +800,15 @@ struct App {
     build: panels::Panels,
     panels_file: Option<PathBuf>,
     panels_moved: bool,
-    /// the dashboard is open (the menu far right); its welcome (nothing ever done); its places this frame
-    dashboard: bool,
-    welcome: bool,
-    dash_hits: Vec<(Rect, dashboard::Press)>,
+    /// the switcher is open over the workspace; its places this frame (Home's too); the creator's cards in it
+    switcher: bool,
+    switch_hits: Vec<(Rect, switcher::Press)>,
+    creator: creator_cards::Loader,
+    /// the ☰ menu open, and what is open beside it; its places this frame
+    main_menu: Option<main_menu::Side>,
+    menu_hits: Vec<(Rect, main_menu::Press)>,
+    /// the overlay level's still (RULES H15): none, being taken this frame, or under the overlay
+    still: Still,
     /// what reopening resumes (resume.rs), where it is kept (none in a check run); a workspace opened empty; the
     /// workspace and item last counted in front
     session: deck_ui::resume::Session,
@@ -1017,6 +1032,7 @@ fn run() -> Result<i32> {
     let app_routing = routing::Page::new(deck_native::audio::backend::DeckAudio::read());
     let app_routing = if args.frames.is_none() { app_routing.with_api(&args.api) } else { app_routing };
     let app_history = history::History::new(std::sync::Arc::new(show::api::Api::new(args.api.clone())));
+    let creator = args.creator_session.as_deref().map(creator_cards::Loader::from_file).unwrap_or_default();
     let mut app = App {
         panel: Panel { tab: args.tab, field: text::Field::with("Grüße an die Bühne – type here"), drag: None, hits: Vec::new(), field_rect: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 }, advance: 8.0 },
         args,
@@ -1069,9 +1085,12 @@ fn run() -> Result<i32> {
         build,
         panels_file,
         panels_moved: false,
-        dashboard: false,
-        welcome: false,
-        dash_hits: Vec::new(),
+        switcher: false,
+        switch_hits: Vec::new(),
+        creator,
+        main_menu: None,
+        menu_hits: Vec::new(),
+        still: Still::None,
         session,
         session_file,
         empty_ws: None,
@@ -1284,8 +1303,8 @@ impl App {
             (A::Open, show::Workspace::Stage | show::Workspace::Home) => self.open_rigs(x, y),
             (A::Open, _) => self.show.press(show::Hit::Load),
             (A::New, show::Workspace::Show) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
-            // New is the dashboard's: a scene, a module, a show
-            (A::New, _) => self.dashboard = true,
+            // New …: a scene, a module, a show, beside the ☰ menu
+            (A::New, _) => self.main_menu = Some(main_menu::Side::New),
             (A::Audio, _) => {
                 if self.workspace != show::Workspace::Stage {
                     if let Some(i) = self.tabs.list.iter().position(|t| matches!(t.kind, tabs::Kind::Scene | tabs::Kind::Character)) {
@@ -1364,7 +1383,7 @@ impl App {
                 deck_kit::editor::floats::Chrome::Handle if self.panels().floats.staged(spec.id) => "On the stage: drag the handle to float it again.",
                 deck_kit::editor::floats::Chrome::Handle => "Drag the handle to move it; it stays where you let it go, on top. Let go on a screen edge or corner: it takes the stage there.",
                 deck_kit::editor::floats::Chrome::Fold => "Click to fold it to its pill or open it again.",
-                deck_kit::editor::floats::Chrome::Close => "Click to close it; the dashboard's Views bring it back.",
+                deck_kit::editor::floats::Chrome::Close => "Click to close it; the ☰ menu's Views bring it back.",
                 deck_kit::editor::floats::Chrome::Edge(_) => "Drag to resize it; only the walls stop it, and it keeps its size.",
                 deck_kit::editor::floats::Chrome::Scroll => "Click the track to jump there; drag the thumb to scroll.",
             };
@@ -1373,22 +1392,23 @@ impl App {
         if let Some((name, text)) = self.tools.help_at(x, y) {
             return Some(Help::new(name, text));
         }
-        if self.dashboard_shows() && y > bar::bottom(&self.tokens.tokens) {
-            if let Some(p) = self.dash_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
-                if let dashboard::Press::Menu(a) = p {
-                    let label = bar::MENU.iter().find(|(m, ..)| *m == a).map_or("", |(_, l, _)| *l);
-                    return Some(Help::new(label, self.menu_why_not(a).unwrap_or("Click to do it.")));
-                }
-                if p == dashboard::Press::Load {
-                    return Some(Help::new("Load", bar::meters_words(self.cpu.as_ref().and_then(|c| c.reading()), self.gpu_time.as_ref().map(|_| self.gpu_load.reading().unwrap_or_default()), self.stage.khz().map(|k| k as f32), self.fps())));
-                }
+        if let Some(p) = self.menu_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
+            return Some(match p {
+                main_menu::Press::Line(main_menu::Line::Do(a)) => Help::new(main_menu::LINES.iter().flatten().find(|l| l.0 == main_menu::Line::Do(a)).map_or("", |l| l.1), self.menu_why_not(a).unwrap_or("Click to do it.")),
+                main_menu::Press::View(_, s) => Help::new(s.word(), "The view's state: hidden, a floating panel, on the stage (it takes a cell) or full (a box over the blurred workspace)."),
+                main_menu::Press::Ground => Help::new("Load", bar::meters_words(self.cpu.as_ref().and_then(|c| c.reading()), self.gpu_time.as_ref().map(|_| self.gpu_load.reading().unwrap_or_default()), self.stage.khz().map(|k| k as f32), self.fps())),
+                _ => Help::new("Menu", "Click to do it."),
+            });
+        }
+        if self.switcher_shows() {
+            if let Some(p) = self.switch_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
                 let (name, text) = resume::help_of(p);
                 return Some(Help::new(name, text));
             }
         }
         Some(match self.hit(x, y) {
-            Hit::Menu => Help::new("Menu", "The dashboard: the workspaces, anything to open, the menu (settings, audio, account, back to the deck's stage), the views of the workspace in front, the build and the load."),
-            Hit::Plus => Help::new("Open anything", "The dashboard: New, Recent, the library."),
+            Hit::Menu => Help::new("Menu", "Views and Save workspace, Search, Open, New, Settings, Audio & inputs, the account, back to the deck's stage, the docs; the load and the build."),
+            Hit::Plus | Hit::Chooser => Help::new("Switcher", "The workspaces – the deck's and the creator's – and what was last opened."),
             Hit::Undo => Help::new("Undo", "Takes back the newest change (ctrl+z)."),
             Hit::Redo => Help::new("Redo", "Brings the step taken back again (ctrl+shift+z)."),
             Hit::Publish => Help::new("Publish", self.menu_why_not(bar::Action::Publish).unwrap_or("Publishes what changed.")),
@@ -1426,8 +1446,8 @@ impl App {
                 let tab = self.tabs.list.get(i)?;
                 Help::new(tab.name.clone(), format!("A {} in a {} tab, kept as you left it. Click to bring it to the front.", tab.kind.word(), tab.kind.view().word()))
             }
-            Hit::TabClose(i) => Help::new(format!("Close {}", self.tabs.list.get(i)?.name), "What it changed is saved; it goes to the dashboard's Recent."),
-            Hit::TabList => Help::new("Tabs", "Every tab open, and Close others, Close all (all closed: the dashboard)."),
+            Hit::TabClose(i) => Help::new(format!("Close {}", self.tabs.list.get(i)?.name), "What it changed is saved; it goes to the switcher's Last opened."),
+            Hit::TabList => Help::new("Tabs", "Every tab open, and Close others, Close all (all closed: Home)."),
             Hit::Port(i) => {
                 let p = self.stage.ports.get(i)?;
                 let what = format!("{} {}.", if p.input { "An input," } else { "An output," }, p.ty);
@@ -1661,15 +1681,26 @@ impl App {
             }
             return;
         }
-        // the dashboard takes a press under the toolbar while it shows: a place does what it says; open over a workspace,
-        // anywhere else closes it
-        if self.dashboard_shows() && y > bar::bottom(&self.tokens.tokens) {
-            if let Some(p) = self.dash_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
-                return self.dashboard_press(p);
+        // the ☰ menu takes every press while it is open: a place does what it says, anywhere else closes it
+        if self.main_menu.is_some() {
+            let p = self.menu_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p);
+            return self.main_menu_press(p);
+        }
+        // the switcher over the workspace takes every press (a place does what it says, anywhere else closes it); Home
+        // the ones under the bar
+        if self.switcher || (self.switcher_shows() && y > bar::bottom(&self.tokens.tokens)) {
+            if let Some(p) = self.switch_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
+                return self.switcher_press(p);
             }
-            if self.dashboard {
-                self.dashboard = false;
+            if self.switcher {
+                self.switcher = false;
                 return;
+            }
+        }
+        // a panel taken full: a press outside its box puts it back as a panel
+        if let Some(id) = self.panels().full.clone() {
+            if !panels::Panels::full_box(self.window_size(), self.tokens.tokens.size.gap).has(x, y) {
+                return self.view_to(&id, deck_ui::stage::ViewState::Panel);
             }
         }
         if self.press_history(x, y) || self.press_status(x, y) {
@@ -1741,7 +1772,7 @@ impl App {
         }
         match self.hit(x, y) {
             Hit::Live(p) => self.live_press(p),
-            Hit::Plus => self.dashboard = true,
+            Hit::Plus | Hit::Chooser => self.open_switcher(),
             Hit::Undo => self.history_key(false),
             Hit::Redo => self.history_key(true),
             Hit::Publish => {
@@ -1754,7 +1785,7 @@ impl App {
             Hit::TabFront(i) => self.activate(i),
             Hit::TabClose(i) => self.close_tab(i),
             Hit::TabList => self.tab_list = true,
-            Hit::Menu => self.dashboard = !self.dashboard,
+            Hit::Menu => self.main_menu = Some(main_menu::Side::None),
             Hit::Panic => self.panic_pill(),
             Hit::Account => {
                 let line = self.auth.line(&deck_link::pairing::app_url());
@@ -3026,7 +3057,15 @@ impl App {
         let deck_ws = self.deck_ws();
         let can_undo = (self.history_doc().is_some() || !self.undo.is_empty(), self.history_doc().is_some());
         let publish = self.tabs.list.iter().any(|t| t.dirty) || (self.tabs.front.is_some() && self.live_dirty());
-        let dash = self.dash_data();
+        let dash = self.switch_data();
+        self.creator.poll();
+        let menu_views = if self.main_menu == Some(main_menu::Side::Views) { self.menu_views() } else { Vec::new() };
+        let menu_disabled: Vec<main_menu::Line> = [bar::Action::Open, bar::Action::New, bar::Action::Settings, bar::Action::Audio, bar::Action::Account, bar::Action::Quit].into_iter().filter(|a| self.menu_why_not(*a).is_some()).map(main_menu::Line::Do).chain(self.deck_ws().is_none().then_some(main_menu::Line::Views)).collect();
+        let load = self.load_words();
+        // the overlay level (RULES H15): the switcher over a workspace, a panel taken full, the new scene's prompt
+        let full_id = self.panels().full.clone();
+        let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some();
+        let blur = !self.settings.motion.reduce_motion;
         let zone = self.zone_now();
         let look = self.looking();
         self.follow_nodes();
@@ -3174,7 +3213,6 @@ impl App {
         let (live_words, live_on, live_presses) = live_tabs::switch(self.show.live(), self.show.locked);
         // Play on the stage: Keep takes what it changed into the working state
         let keeps = build && playing;
-        let slot = if shows { show::author::view_width(ui, t) } else { 0.0 };
         // the signing-in icon breathes, unless motion is reduced
         let pulse = if self.settings.motion.allows(true) { 0.5 + 0.5 * (self.started.elapsed().as_secs_f32() * std::f32::consts::TAU / 1.6).cos() } else { 1.0 };
         // the play pill only where something plays: a Scene, Asset, module or medium tab, or a Show
@@ -3200,15 +3238,20 @@ impl App {
             publish,
             account,
             pulse,
-            pointer: self.cursor,
-            slot,
+            pointer: if overlay || self.main_menu.is_some() { (f32::NAN, f32::NAN) } else { self.cursor },
             panicked: self.show.sub.panicked(),
-            dashboard: self.dashboard,
+            menu: self.main_menu.is_some(),
+            switcher: self.switcher,
             window: self.own_frame.map(|s| (s, window.is_maximized())),
         };
         let placed = bar::draw(ui, t, wf, &spec);
         if self.own_frame.is_some() {
             self.frame.frame = deck_kit::editor::window::Frame { size: (wf, hf), maximised: window.is_maximized(), band: bar_bottom, buttons: placed.window.clone(), solid: placed.solid.clone() };
+        }
+        // under the overlay the bar takes no press
+        let bar_hits = self.panel.hits.len();
+        if let Some(r) = placed.chooser {
+            self.panel.hits.push((r, Hit::Chooser));
         }
         self.panel.hits.push((placed.menu, Hit::Menu));
         self.panel.hits.push((placed.account, Hit::Account));
@@ -3254,7 +3297,9 @@ impl App {
         if let Some(r) = placed.list {
             self.panel.hits.push((r, Hit::TabList));
         }
-        self.show.view_slot = placed.slot;
+        if overlay {
+            self.panel.hits.truncate(bar_hits);
+        }
         'build: {
         if !build {
             self.show.hits.clear();
@@ -3882,13 +3927,14 @@ impl App {
             self.history_hits = history_panel::draw_all(ui, t, (wf, hf), ws, &self.history, self.cursor);
         }
         // the panels painted in their order, the last touched on top
-        match self.workspace {
+        let painted = match self.workspace {
             show::Workspace::Stage => &self.build,
             show::Workspace::Module => &self.module.panels,
             show::Workspace::Show => &self.show.show_panels,
             show::Workspace::Home | show::Workspace::Media => &self.home_panels,
-        }
-        .restack(ui);
+        };
+        painted.restack(ui);
+        let full_range = full_id.as_deref().and_then(|id| painted.drawn_range(id));
         // while a panel is in the hand: the drop zone under the pointer, and the cell it would take
         if let Some(cell) = zone {
             let on = t.kit("drop", "on");
@@ -3899,11 +3945,40 @@ impl App {
             let c = cell.rect(room);
             ui.outline(c.x, c.y, c.w, c.h, (t.size.radius * 2.0, 1.0), on.border.unwrap_or(t.color.text));
         }
-        if let Some(p) = self.scene_prompt.as_mut() {
-            p.draw(ui, t, (wf, hf));
+        // the overlay level (RULES H15): the frame's still, blurred once, under it – the still is taken on the overlay's
+        // first frame, drawn without it; motion reduced (or no still to be had), a plain see-through ground instead
+        if !overlay && self.still != Still::None {
+            ui.drop_backdrop();
+            self.still = Still::None;
         }
-        // the dashboard over everything but the toolbar
-        self.dash_hits = dash.map(|d| d.draw(ui, t, (wf, hf), self.cursor)).unwrap_or_default();
+        let taking = overlay && blur && gpu.can_capture && self.still == Still::None;
+        let on_still = overlay && self.still == Still::Shown && ui.has_backdrop();
+        if overlay && !taking {
+            if on_still {
+                ui.backdrop();
+                match full_range {
+                    Some((a, b)) => ui.keep(a, b),
+                    None => ui.truncate(0),
+                }
+            } else {
+                ui.rect(0.0, 0.0, wf, hf, t.kit("overlay", "reduced").ground.unwrap_or(t.color.panel()));
+                if let Some((a, b)) = full_range {
+                    ui.lift(a, b);
+                }
+            }
+        }
+        if !taking {
+            if let Some(p) = self.scene_prompt.as_mut() {
+                p.draw(ui, t, (wf, hf));
+            }
+            // the switcher over the workspace, or Home under the bar (the still's first frame keeps the last places)
+            self.switch_hits = dash.map(|d| d.draw(ui, t, (wf, hf), self.cursor)).unwrap_or_default();
+        }
+        self.menu_hits.clear();
+        if let Some(side) = self.main_menu {
+            let m = main_menu::Menu { disabled: &menu_disabled, side, views: &menu_views, load: &load, build: deck_native::BUILD };
+            self.menu_hits = main_menu::draw(ui, t, placed.menu, &m, self.cursor);
+        }
         self.tab_lines.clear();
         if self.tab_list {
             if let Some(at) = placed.list {
@@ -3927,6 +4002,7 @@ impl App {
         self.ui_ms.push(t0.elapsed().as_secs_f32() * 1000.0);
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
         let readback = shot.as_ref().map(|_| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
+        let still_copy = taking.then(|| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
         if let Some(g) = self.gpu_time.as_mut() {
             g.end(&mut enc);
         }
@@ -3944,6 +4020,21 @@ impl App {
         }
         if let Some(img) = self.stage.read_still(&gpu.device) {
             self.library.still(img);
+        }
+        if let Some((buf, stride)) = still_copy {
+            let rest = t.kit("overlay", "rest");
+            self.still = match read_out(&gpu.device, &buf, stride, (w, h), gpu.format()) {
+                Ok(px) => {
+                    let still = deck_kit::base::still::blurred(&px, (w, h), t.size.rem(rest.blur) * scale, rest.ground.unwrap_or(t.color.panel()));
+                    ui.set_backdrop(&gpu.device, &gpu.queue, &still);
+                    Still::Shown
+                }
+                Err(e) => {
+                    tracing::warn!("the overlay's still: {e:#}");
+                    Still::Failed
+                }
+            };
+            window.request_redraw();
         }
         if let (Some(path), Some((buf, stride))) = (shot, readback) {
             if let Err(e) = save(&gpu.device, &buf, stride, (w, h), gpu.format(), &path) {
@@ -4124,9 +4215,13 @@ impl ApplicationHandler for App {
                     self.panic_pill();
                 }
             }
-            // Esc closes the dashboard open over a workspace
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.dashboard && (self.tabs.front.is_some() || self.empty_ws.is_some()) => {
-                self.dashboard = false;
+            // Esc closes the ☰ menu, the switcher open over a workspace, a panel taken full
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && (self.main_menu.is_some() || self.switcher || self.panels().full.is_some()) => {
+                if self.main_menu.take().is_none() && !std::mem::take(&mut self.switcher) {
+                    if let Some(id) = self.panels().full.clone() {
+                        self.view_to(&id, deck_ui::stage::ViewState::Panel);
+                    }
+                }
             }
             WindowEvent::KeyboardInput { event, .. } if self.history.asking.is_some() => self.history_prompt_key(&event),
             WindowEvent::KeyboardInput { event, .. } if self.scene_prompt.is_some() => self.scene_prompt_key(&event),
@@ -4276,6 +4371,14 @@ fn number(v: f32) -> String {
     }
 }
 
+/// the overlay's still: none, under the overlay, or not to be had (the plain ground instead)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Still {
+    None,
+    Shown,
+    Failed,
+}
+
 /// the surface's texture into a buffer, for `save` (rows padded to 256 bytes)
 fn copy_out(device: &wgpu::Device, enc: &mut wgpu::CommandEncoder, tex: &wgpu::Texture, (w, h): (u32, u32)) -> (wgpu::Buffer, u32) {
     let stride = (w * 4).div_ceil(256) * 256;
@@ -4289,6 +4392,12 @@ fn copy_out(device: &wgpu::Device, enc: &mut wgpu::CommandEncoder, tex: &wgpu::T
 }
 
 fn save(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u32), format: wgpu::TextureFormat, path: &std::path::Path) -> Result<()> {
+    let px = read_out(device, buf, stride, (w, h), format)?;
+    image::RgbaImage::from_raw(w, h, px).context("the screenshot's pixels")?.save(path).with_context(|| format!("writing {}", path.display()))
+}
+
+/// the copied frame's pixels, RGBA
+fn read_out(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u32), format: wgpu::TextureFormat) -> Result<Vec<u8>> {
     let slice = buf.slice(..);
     let (tx, rx) = std::sync::mpsc::channel();
     slice.map_async(wgpu::MapMode::Read, move |r| {
@@ -4311,7 +4420,7 @@ fn save(device: &wgpu::Device, buf: &wgpu::Buffer, stride: u32, (w, h): (u32, u3
     }
     drop(data);
     buf.unmap();
-    image::RgbaImage::from_raw(w, h, px).context("the screenshot's pixels")?.save(path).with_context(|| format!("writing {}", path.display()))
+    Ok(px)
 }
 
 /// ctrl + / − / 0: a step of the UI size, as a browser's zoom
