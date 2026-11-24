@@ -575,8 +575,8 @@ impl crate::App {
 
     pub(crate) fn library_did(&mut self, did: Did) {
         match did {
-            Did::Taken => {}
-            Did::Action => self.show.press(crate::show::Hit::Compose(crate::show::new_scene::ComposeHit::Open)),
+            // no Library of the editor carries a button of its owner's
+            Did::Taken | Did::Action => {}
             Did::Click(i) if self.workspace == crate::show::Workspace::Module => self.library_open_entry(i),
             Did::Click(_) => {}
             Did::Open(i) => self.library_open_entry(i),

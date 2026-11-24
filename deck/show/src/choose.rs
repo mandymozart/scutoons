@@ -96,6 +96,92 @@ impl Line {
         }
         parts.join(" · ")
     }
+
+    /// where it stands against the version a flash pins: a device that is not here or has not answered is unknown, never
+    /// behind
+    pub fn standing(&self) -> Standing {
+        match (&self.runs, self.online) {
+            (Some(_), true) if self.old => Standing::Behind,
+            (Some(_), true) => Standing::Current,
+            _ => Standing::Unknown,
+        }
+    }
+
+    /// what the flash dialog says at the line's end: its standing in a word or two, then what it asks or lacks; whether
+    /// that warns
+    pub fn word(&self) -> (String, bool) {
+        let mut parts = vec![match (self.standing(), &self.runs) {
+            (Standing::Current, Some(r)) => format!("on {r}"),
+            (Standing::Behind, Some(r)) => format!("behind · runs {r}"),
+            _ if !self.online => "offline".to_string(),
+            _ => "no answer yet".to_string(),
+        }];
+        if self.keep.is_some() {
+            parts.push("asks not to be flashed".into());
+        }
+        if self.unsaved {
+            parts.push("unsaved configuration".into());
+        }
+        if self.rejected {
+            parts.push("rejected the last flash".into());
+        }
+        let warns = self.keep.is_some() || self.unsaved || self.rejected;
+        (parts.join(" · "), warns)
+    }
+}
+
+/// What a flash as a suggestion, or forced, means.
+pub fn forced_words(forced: bool) -> String {
+    if forced {
+        "Forced: every chosen deck takes it, nobody at a deck is asked.".into()
+    } else {
+        format!("A suggestion: who may reject at a deck has {} s to say no.", crate::ready::SUGGESTION_SECS)
+    }
+}
+
+/// What a locked flash, or one not locked, means.
+pub fn locked_words(locked: bool) -> String {
+    if locked {
+        "Locked: only a deck's owner can go back to its own version.".into()
+    } else {
+        "Each deck's operator can go back to their own version.".into()
+    }
+}
+
+/// A device against the version a flash pins (the bar's Flash dot, the dialog's lines).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Standing {
+    Current,
+    Behind,
+    /// offline, or no answer yet: never counted as behind
+    Unknown,
+}
+
+/// How the tree's devices stand against the show this conductor holds now: the top's version and each seat's pinned one.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Tally {
+    pub current: usize,
+    pub behind: usize,
+    pub unknown: usize,
+}
+
+/// The versions the conductor holds now, without fetching anything: its show, then the show each seat pins.
+pub fn held(sub: &Subtree) -> Lock {
+    let show = sub.conductor().show();
+    Lock { shows: std::iter::once(Pinned { id: show.id.clone(), version: show.version }).chain(show.seats.iter().map(|s| s.show.clone())).collect() }
+}
+
+/// Flash's dot is lit when this counts one behind; a software update of a deck is another path and counts nothing here.
+pub fn tally(sub: &Subtree) -> Tally {
+    let mut t = Tally::default();
+    for l in Choice::open(sub, &held(sub)).lines {
+        match l.standing() {
+            Standing::Current => t.current += 1,
+            Standing::Behind => t.behind += 1,
+            Standing::Unknown => t.unknown += 1,
+        }
+    }
+    t
 }
 
 /// The quick filters: each sets the ticks.
@@ -307,10 +393,27 @@ impl Choice {
     /// The prompt before the flash: always, also for one deck.
     pub fn prompt(&self) -> Prompt {
         let n = self.count();
-        let root = self.target.first().map_or("the show".to_string(), ToString::to_string);
         if n == 0 {
             return Prompt { title: "Nothing is chosen: tick a device to flash".into(), lines: vec![], warn: false, confirm: "Flash".into(), can: false };
         }
+        let (mut lines, mut warn) = self.says();
+        lines.push(("A deck that joins later gets it too, unless it asks not to be flashed.".into(), Tone::Muted));
+        warn |= self.forced;
+        lines.push((forced_words(self.forced), if self.forced { Tone::Warn } else { Tone::Muted }));
+        lines.push((locked_words(self.locked), if self.locked { Tone::Plain } else { Tone::Muted }));
+        let total = self.lines.len();
+        let what = if n == 1 { "device" } else { "devices" };
+        Prompt { title: format!("Flash {} to {n} of {total} {what}?", self.root()), lines, warn, confirm: if warn { "Force flash".into() } else { "Flash".into() }, can: true }
+    }
+
+    /// the show a flash names first
+    pub fn root(&self) -> String {
+        self.target.first().map_or("the show".to_string(), ToString::to_string)
+    }
+
+    /// What the prompt says of each device, and whether something is forced past a warning.
+    pub fn says(&self) -> (Vec<(String, Tone)>, bool) {
+        let root = self.root();
         let mut lines = vec![];
         let mut warn = false;
         for l in &self.lines {
@@ -345,21 +448,7 @@ impl Choice {
                 lines.push((format!("{} is not here – gets it when it joins", l.path), Tone::Muted));
             }
         }
-        lines.push(("A deck that joins later gets it too, unless it asks not to be flashed.".into(), Tone::Muted));
-        lines.push(if self.forced {
-            warn = true;
-            ("Forced: every chosen deck takes it, nobody at a deck is asked.".into(), Tone::Warn)
-        } else {
-            (format!("A suggestion: who may reject at a deck has {} s to say no.", crate::ready::SUGGESTION_SECS), Tone::Muted)
-        });
-        lines.push(if self.locked {
-            ("Locked: only a deck's owner can go back to its own version.".into(), Tone::Plain)
-        } else {
-            ("Each deck's operator can go back to their own version.".into(), Tone::Muted)
-        });
-        let total = self.lines.len();
-        let what = if n == 1 { "device" } else { "devices" };
-        Prompt { title: format!("Flash {root} to {n} of {total} {what}?"), lines, warn, confirm: if warn { "Force flash".into() } else { "Flash".into() }, can: true }
+        (lines, warn)
     }
 
     /// What the confirmed prompt sends: the unticked are left out; forced are the ticked that were warned of, or every
@@ -388,6 +477,8 @@ enum What {
     Fact(Fact),
     /// `seat:` / `outlet:` / `show:` with a value, or a flag (`ready`, `changed`, `old`, `keep`, `here`, `own`, `rejected`)
     State(String, Option<String>),
+    /// a word in the device's path, outlet or seat
+    Name(String),
 }
 
 /// What the typed filter's empty field shows.
@@ -416,10 +507,16 @@ fn terms(text: &str) -> Result<Vec<Term>, String> {
                     Some(_) => ["seat", "outlet", "show"].contains(&key.as_str()),
                     None => ["ready", "changed", "old", "keep", "here", "own", "rejected"].contains(&key.as_str()),
                 };
-            if !known || t.is_empty() {
+            // a bare word that is no flag finds a device by its name, its outlet or its seat
+            if (!known && value.is_some()) || t.is_empty() {
                 return Err(format!("'{t}' is no condition: {KEYS}"));
             }
-            Ok(Term { not, what: fact.map_or(What::State(key, value), What::Fact) })
+            let what = match fact {
+                Some(f) => What::Fact(f),
+                None if known => What::State(key, value),
+                None => What::Name(key),
+            };
+            Ok(Term { not, what })
         })
         .collect()
 }
@@ -451,6 +548,7 @@ impl Term {
                     _ => false,
                 }
             }
+            What::Name(w) => [Some(&l.path), l.outlet.as_ref(), l.seat.as_ref()].into_iter().flatten().any(|s| s.to_lowercase().contains(w.as_str())),
         };
         yes != self.not
     }
@@ -561,6 +659,28 @@ mod tests {
         let e = c.filter("where colour:red").unwrap_err();
         assert!(e.starts_with("'colour:red' is no condition"), "{e}");
         assert_eq!(c.count(), 1, "the ticks stay");
+        assert_eq!(c.filter("foyer"), Ok(2), "a bare word finds by name: the seat and what sits in it");
+        assert_eq!(c.filter("c7 and ready"), Ok(1));
+    }
+
+    /// Flash's dot: behind is a device here that runs another version than the conductor holds; one not here, or with no
+    /// answer yet, is unknown
+    #[test]
+    fn the_tally_counts_behind_only_what_is_here_and_answered() {
+        let mut s = sub();
+        assert_eq!(held(&s).shows, lock().shows, "the top's version and the seat's pin");
+        // c7 top@3 current; c8 top@2 behind; foyer foyer-loop@2 current; foyer/c3 foyer-loop@1 behind
+        assert_eq!(tally(&s), Tally { current: 2, behind: 2, unknown: 0 });
+        let c = Choice::open(&s, &held(&s));
+        assert_eq!(c.lines[1].word(), ("behind · runs top@2 · asks not to be flashed".to_string(), true));
+        assert_eq!(c.lines[0].word(), ("on top@3".to_string(), false));
+        // c8 leaves: unknown, not behind
+        let presence = serde_json::json!({ "groups": {}, "ready": [], "links": { "c7": { "hz": 30 } }, "seats": { "foyer": { "online": true } } });
+        s.on_wire(&Envelope::new("relay", Message::Presence(serde_json::from_value(presence).unwrap())), 30);
+        assert_eq!(tally(&s), Tally { current: 2, behind: 1, unknown: 1 });
+        let c = Choice::open(&s, &held(&s));
+        assert_eq!(c.lines[1].standing(), Standing::Unknown);
+        assert!(c.lines[1].word().0.starts_with("offline"));
     }
 
     #[test]

@@ -190,7 +190,7 @@ fn pick(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), label: &str, n
     (r, used.max(row - 2.0) + 4.0)
 }
 
-/// "Session" in the stage's place.
+/// The Readers view (the session offered to linked readers): its code, the link, its QR, the readers.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f32, f32)) {
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
     let p = host.session_panel();

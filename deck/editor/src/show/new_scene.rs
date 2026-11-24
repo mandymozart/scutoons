@@ -3,8 +3,8 @@
 //! `new`, `recast`, `check_new`); the stage plays it as the core resolves it (scene_resolve.rs); a save is a new draft
 //! through /api/scenes and the creator publishes it. A draft never published joins the scene list beside the rows band,
 //! marked as such: a cell here may take it, other decks play it once published (decisions/deck.md 2026-11-08 [scenes]).
+use super::dialog;
 use super::roles::Typing;
-use super::rows::{draw_picker, field, Line, Picker};
 use super::{Hit, Host, Sheet};
 use crate::rigs::{self, Catalog};
 use deck_kit::base::draw::DrawList;
@@ -19,9 +19,8 @@ use std::collections::BTreeMap;
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
 
-/// the scene list's button, the sheet's buttons
-pub const NEW: &str = "new scene";
-const BUTTONS: [(&str, ComposeHit); 4] = [("Load", ComposeHit::Load), ("Play", ComposeHit::Play), ("Open", ComposeHit::Build), ("Close", ComposeHit::Close)];
+/// the dialog's buttons: the foot's left, its right, its primary last
+const BUTTONS: [(&str, ComposeHit); 4] = [("Load …", ComposeHit::Load), ("Open", ComposeHit::Build), ("Close", ComposeHit::Close), ("Play", ComposeHit::Play)];
 const NO_RIGS: &str = "the toon's rigs come from the server: sign in, or wait for the rigs' list";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -293,69 +292,88 @@ impl Host {
     }
 }
 
-/// The sheet in the stage's place: the id and the name, the buttons, the cast with a × each, what the core says is
-/// missing, then the toon's rigs to pick from.
+/// The dialog's body in `a` (D3c): the id and the stage's name, the cast with a × each, what the core says is missing,
+/// the toon's rigs to tick; Load … at the foot's left, Open, Close and Play at its right.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
     let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
-    let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit(s, (w / d.advance(px)).max(0.0) as usize);
-    let w = (a.w * 0.5 - 2.0 * pad).max(200.0).min(a.w - 2.0 * pad);
-    let x = a.x + pad;
-    let mut y = a.y + pad;
-    let title = if host.compose.doc.is_some() { format!("SCENE SCENE:{} – A DRAFT OF THE SERVER'S", host.compose.id.to_uppercase()) } else { "NEW SCENE – IT SAVES ITSELF AS A DRAFT, PUBLISHED IN THE CREATOR".into() };
-    d.text(x, y, small, &fit(d, &title, small, a.w - 2.0 * pad), t.color.muted);
-    y += small * 1.8;
-    for (what, label, hit) in [(Typing::SceneId, "id", ComposeHit::Id), (Typing::SceneName, "name", ComposeHit::Name)] {
+    let fit = |d: &DrawList, s: &str, px: f32, w: f32| controls::fit_sans(d, px, s, w);
+    let col = t.size.rem(5.0);
+    let mut y = a.y;
+    for (what, label, hint, hit) in [(Typing::SceneId, "id", "scene:", ComposeHit::Id), (Typing::SceneName, "stage", "", ComposeHit::Name)] {
         let typing = host.typing.as_ref().filter(|(w, _)| *w == what).map(|(_, f)| f.text.clone());
-        let r = field(d, t, (x, y, w), label, &host.compose_now(&what), typing.as_deref());
+        let now = host.compose_now(&what);
+        let shown = if what == Typing::SceneId && typing.is_none() && !now.is_empty() { format!("scene:{now}") } else { now };
+        let r = dialog::labelled(d, t, (a.x, y, a.w, col), (label, hint), (&shown, typing.as_deref()), pointer);
         host.hits.push((r, Hit::Compose(hit)));
-        y += row;
+        y += t.size.row + pad * 0.3;
     }
-    let bh = t.size.row - 4.0;
-    let mut bx = x;
-    for (label, hit) in BUTTONS {
-        let bw = d.advance(font * 1.3) * label.chars().count() as f32 + 2.0 * pad;
-        let r = Rect { x: bx, y: y + 4.0, w: bw, h: bh };
-        super::live::button(d, t, r, label, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control }, t.color.text);
-        host.hits.push((r, Hit::Compose(hit)));
-        bx += bw + pad * 0.5;
-    }
-    y += bh + pad * 1.5;
-    d.text(x, y, small, "CAST", t.color.muted);
-    y += small * 1.6;
+    y += pad * 0.5;
+    controls::label(d, t, a.x, y, "cast", t.color.muted);
+    y += t.size.label * 1.25 + pad * 0.5;
     let doc = host.compose_document();
     if doc.holders.is_empty() {
-        d.text(x, y + 2.0, font, "nobody yet – pick from the toon's rigs below", t.color.muted);
+        d.sans(a.x, y, font, "nobody yet", t.color.muted);
         y += row;
     }
     for h in &doc.holders {
         let ty = y + (row - font * 1.25) * 0.5;
-        d.text(x, ty, font, &fit(d, h.filler.as_deref().unwrap_or(&h.id), font, w * 0.55), t.color.text);
-        d.text(x + w * 0.56, ty + 1.0, small, &fit(d, &format!("{} · {}", h.id, h.spot.as_deref().unwrap_or("the scene's spot")), small, w * 0.36), t.color.muted);
+        d.sans(a.x, ty, font, &fit(d, h.filler.as_deref().unwrap_or(&h.id), font, a.w * 0.5), t.color.text);
+        d.sans(a.x + a.w * 0.52, ty + 1.0, small, &fit(d, &format!("{} · {}", h.id, h.spot.as_deref().unwrap_or("the scene's spot")), small, a.w * 0.4), t.color.muted);
         if let Some(at) = h.filler.as_ref().and_then(|f| host.compose.cast.iter().position(|c| c == f)) {
-            let r = Rect { x: x + w - row, y: y + 2.0, w: row - 4.0, h: row - 4.0 };
-            d.text(r.x + 4.0, ty, font, "×", if r.has(pointer.0, pointer.1) { t.color.text } else { t.color.muted });
+            let r = Rect { x: a.x + a.w - row, y: y + 2.0, w: row - 4.0, h: row - 4.0 };
+            controls::icon_button(d, t, r, "close", t.color.muted, pointer);
             host.hits.push((r, Hit::Compose(ComposeHit::Drop(at))));
         }
         y += row;
     }
-    let problems = doc.check_new();
+    // what the core says is missing, once something is typed or cast
+    let begun = !host.compose.id.is_empty() || !host.compose.name.is_empty() || !host.compose.cast.is_empty();
+    let problems = if begun { doc.check_new() } else { Vec::new() };
     for p in problems.iter().filter(|p| !p.starts_with("the cast is empty")) {
-        d.text(x, y + 2.0, small, &fit(d, p, small, a.w - 2.0 * pad), t.color.warn);
+        d.sans(a.x, y, small, &fit(d, p, small, a.w), t.color.warn);
         y += small * 1.6;
     }
     y += pad;
-    let choices = host.cast_choices();
-    let cast = host.compose.cast.clone();
+    let toon = host.story_toon().unwrap_or_else(|| "no toon open".into());
+    controls::label(d, t, a.x, y, &format!("from {toon}'s rigs"), t.color.muted);
+    y += t.size.label * 1.25 + pad * 0.5;
     let query = host.compose_now(&Typing::SceneCast);
     let typing = host.typing.as_ref().filter(|(w, _)| *w == Typing::SceneCast).map(|(_, f)| f.text.clone());
-    let list = match &host.compose.catalog {
-        Some(_) => Ok(choices.iter().map(|(f, detail)| Line { label: f, detail, now: cast.contains(f), can: true }).collect()),
-        None => Err((NO_RIGS, "")),
+    let find = dialog::input(d, t, Rect { x: a.x, y, w: a.w, h: t.size.row - 4.0 }, (&query, typing.as_deref()), ("Find", true), pointer);
+    host.hits.push((find, Hit::Compose(ComposeHit::Find)));
+    y += t.size.row + pad * 0.3;
+    let foot = a.y + a.h - t.size.row - pad;
+    if host.compose.catalog.is_none() {
+        d.sans(a.x, y + 4.0, font, &fit(d, NO_RIGS, font, a.w), t.color.warn);
+    } else {
+        let cast = host.compose.cast.clone();
+        let lines: Vec<dialog::Tick> = host.cast_choices().into_iter().map(|(f, _)| dialog::Tick { on: cast.contains(&f), label: f, detail: String::new(), warns: false, indent: false, tick: true }).collect();
+        if lines.is_empty() {
+            d.sans(a.x, y + 4.0, font, deck_show::rows::NONE_FOUND, t.color.muted);
+        }
+        for (i, r) in dialog::ticks(d, t, Rect { x: a.x, y, w: a.w, h: foot - y - pad }, &lines, pointer).into_iter().enumerate() {
+            host.hits.push((r, Hit::Compose(ComposeHit::Pick(i))));
+        }
+    }
+    let right = [(BUTTONS[1].0, Hit::Compose(BUTTONS[1].1)), (BUTTONS[2].0, Hit::Compose(BUTTONS[2].1))];
+    let f = dialog::Foot { left: &[(BUTTONS[0].0, Hit::Compose(BUTTONS[0].1))], right: &right, primary: Some((BUTTONS[3].0, Hit::Compose(BUTTONS[3].1), true)) };
+    let hits = dialog::foot(d, t, Rect { x: a.x, y: foot, w: a.w, h: t.size.row }, &f, pointer);
+    host.hits.extend(hits);
+}
+
+/// what a place of the scene dialog means (the Info view and the hover, H14)
+pub fn help(hit: ComposeHit) -> Option<(String, String)> {
+    let (name, what) = match hit {
+        ComposeHit::Id => ("Id", "The scene's id: scene:<id>. It saves itself as a draft once it has one; the creator publishes it."),
+        ComposeHit::Name => ("Stage", "The name of the scene's stage."),
+        ComposeHit::Find => ("Find", "Finds a rig of the open toon; Enter takes the first found into the cast."),
+        ComposeHit::Pick(_) => ("Cast", "A press adds the rig to the cast or takes it off."),
+        ComposeHit::Load => ("Load …", "Reads the scene of this id from the server to recast it: its name and cast fill the dialog, a save goes on its version."),
+        ComposeHit::Play => ("Play", "The stage plays the scene as the core resolves it."),
+        ComposeHit::Build => ("Open", "Opens the scene in a tab of its own."),
+        _ => return None,
     };
-    let toon = host.story_toon().unwrap_or_else(|| "no toon open".into());
-    let heading = format!("THE CAST FROM {}'S RIGS – A PRESS ADDS OR TAKES OFF", toon.to_uppercase());
-    let p = Picker { title: &heading, field: ("find", &query, typing.as_deref(), Hit::Compose(ComposeHit::Find)), list, none: deck_show::rows::NONE_FOUND, pick: |i| Hit::Compose(ComposeHit::Pick(i)) };
-    draw_picker(d, t, host, Rect { x: a.x, y, w: a.w, h: (a.y + a.h - y).max(0.0) }, p, pointer);
+    Some((name.into(), what.into()))
 }
 
 #[cfg(test)]
@@ -398,7 +416,7 @@ mod tests {
     #[test]
     fn a_new_scene_is_named_and_cast_from_the_toons_rigs() {
         let mut host = host();
-        // the library's "new scene" (its one button: main.rs hands it on as this press)
+        // the ☰ menu's New … · Scene in the Show
         host.press(Hit::Compose(ComposeHit::Open));
         assert_eq!(host.sheet, Some(Sheet::Scene));
         assert!(host.compose_scene().unwrap_err().iter().any(|p| p.contains("no scene id")));

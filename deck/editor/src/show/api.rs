@@ -79,6 +79,19 @@ impl Api {
         }
     }
 
+    /// Is there a newer version of show `id` than `held` (`GET /shows/<id>?only=version` with `If-None-Match`, API.md "Is
+    /// there a newer version"): none = the held one is the newest (304), else the newest's id (200).
+    pub fn newest(&self, id: &str, held: u64) -> Result<Option<u64>, String> {
+        let url = format!("{}/shows/{id}?only=version", self.base);
+        let r = self.auth(Self::agent().get(&url)).set("If-None-Match", &format!("\"{held}\"")).call().map_err(|e| format!("{url}: {e}"))?;
+        if r.status() == 304 {
+            return Ok(None);
+        }
+        let v: serde_json::Value = r.into_json().map_err(|e| format!("{url}: {e}"))?;
+        let newest = v.get("version").and_then(serde_json::Value::as_u64).ok_or_else(|| format!("{url}: the answer has no version"))?;
+        Ok((newest != held).then_some(newest))
+    }
+
     /// #539: every toon's story events (`GET /api/creator/story-events`; the server asks a content editor's token): the
     /// answer's text, or its HTTP status (none: no answer) and what the transport said. deck-show story.rs reads both.
     pub fn story_events(&self) -> Result<String, (Option<u16>, String)> {

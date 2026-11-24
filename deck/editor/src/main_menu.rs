@@ -41,7 +41,7 @@ fn trail(l: Line) -> &'static str {
     }
 }
 
-/// what New … makes; TODO(#870): a scene and a show as dialogs on the overlay level, not today's sheets
+/// what New … makes: a scene and a show open as dialogs on the overlay level
 pub const NEW: [(home::New, &str); 3] = [(home::New::Scene, "Scene"), (home::New::Show, "Show"), (home::New::Module, "Module")];
 
 /// a press on the menu

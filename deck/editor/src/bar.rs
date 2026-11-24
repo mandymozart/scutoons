@@ -3,7 +3,8 @@
 //! its steps go back up; an overflow list with Close others / Close all; + opens the switcher); in the middle the
 //! workspace row Scene · Rigging · Show, most used first, with its ⌄ (the switcher) and nothing else (RULES H16); right,
 //! icons only: the play pill only where something plays (Edit / Play, play, BPM, the clock's source; Panic beside it),
-//! undo · redo, then Publish (only when something needs it) · account · the ☰ menu far right. The build and the load
+//! undo · redo, then Publish (only when something needs it) · Flash (in a Show: a box, a dot while a device of the tree is
+//! not on the show's version – RULES H18) · account · the ☰ menu far right. The build and the load
 //! meters are the ☰ menu's foot. Groups of icons and toolbars keep their bordered pill; on Windows the window buttons
 //! bare at the row's right end.
 use deck_kit::base::draw::DrawList;
@@ -93,6 +94,8 @@ pub struct Bar<'a> {
     pub undo: (bool, bool),
     /// Publish shows: something needs it
     pub publish: bool,
+    /// Flash shows (a Show in front), its dot lit: a device of the tree is not on the show's version
+    pub flash: Option<bool>,
     pub account: Signed,
     /// 0..1, the signing-in icon's breath (1 = still, reduce motion)
     pub pulse: f32,
@@ -182,6 +185,7 @@ pub struct Placed {
     pub undo: Rect,
     pub redo: Rect,
     pub publish: Option<Rect>,
+    pub flash: Option<Rect>,
     pub account: Rect,
     /// the menu: the dashboard
     pub menu: Rect,
@@ -291,12 +295,22 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     if b.publish {
         icons.push(("upload-cloud", t.color.text));
     }
+    if b.flash.is_some() {
+        icons.push(("package", t.color.text));
+    }
     icons.extend([("account", account_ink), ("menu", t.color.text)]);
     let (end_pill, places) = group(d, t, (x, y, inset), &icons, b.pointer);
     if b.menu {
         controls::icon_button_in(d, t, places[places.len() - 1], "menu", "on");
     }
     out.publish = b.publish.then(|| places[0]);
+    out.flash = b.flash.map(|_| places[places.len() - 3]);
+    if let (Some(true), Some(r)) = (b.flash, out.flash) {
+        // the kit's icon button with a dot
+        if let Some(m) = t.kit("icon_button", "dot").mark {
+            d.disc(r.x + r.w * 0.78, r.y + r.h * 0.22, r.h * 0.1, m);
+        }
+    }
     out.account = places[places.len() - 2];
     out.menu = places[places.len() - 1];
     x = end_pill.x - gap;
@@ -591,6 +605,7 @@ mod tests {
             panic: false,
             undo: (true, false),
             publish: false,
+            flash: None,
             account: Signed::In,
             pulse: 1.0,
             pointer: (0.0, 0.0),
@@ -621,6 +636,28 @@ mod tests {
         b.publish = false;
         let (_, q) = drawn_with(&b, 1600.0);
         assert!(q.publish.is_none() && (q.menu.x - p.menu.x).abs() < 0.01, "no Publish when nothing needs it; the menu keeps its place");
+    }
+
+    /// H18: in a Show, Flash is a box beside Publish, before the account; its dot lit while a device is behind
+    #[test]
+    fn flash_is_a_box_beside_publish_with_its_dot() {
+        let path = vec!["main".to_string()];
+        let mut b = bar(&TABS, Some(0), &path);
+        (b.publish, b.flash) = (true, Some(false));
+        let (_, p) = drawn_with(&b, 1600.0);
+        let (publish, flash) = (p.publish.unwrap(), p.flash.unwrap());
+        assert!(p.account.x > flash.x && flash.x > publish.x, "{p:?}");
+        let t = Tokens::default();
+        let dot = t.kit("icon_button", "dot").mark.unwrap();
+        let dots = |d: &DrawList| d.prims().iter().filter(|q| matches!(q, deck_kit::base::draw::Prim::Rect { color, .. } if *color == dot)).count();
+        let (d, _) = drawn_with(&b, 1600.0);
+        let unlit = dots(&d);
+        b.flash = Some(true);
+        let (d, _) = drawn_with(&b, 1600.0);
+        assert_eq!(dots(&d), unlit + 1, "a device behind: the dot");
+        b.flash = None;
+        let (_, q) = drawn_with(&b, 1600.0);
+        assert!(q.flash.is_none(), "no Show: no Flash");
     }
 
     #[test]
