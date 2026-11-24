@@ -122,7 +122,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, columns): (&Sh
                     let text = format!("{}", wires.len());
                     let tw = d.sans_width(t.size.small, &text) + t.size.rem(0.6);
                     let h = t.size.small * 1.5;
-                    d.round_rect(x - tw * 0.5, y - h * 0.5, tw, h, h * 0.5, t.color.surface);
+                    d.round_rect(x - tw * 0.5, y - h * 0.5, tw, h, h * 0.5, t.color.panel());
                     d.outline(x - tw * 0.5, y - h * 0.5, tw, h, (h * 0.5, 1.0), fade(c, 0.8));
                     d.text(x - tw * 0.5 + t.size.rem(0.3), y - t.size.small * 0.62, t.size.small, &text, t.color.text);
                 }

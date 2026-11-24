@@ -62,7 +62,7 @@ fn cues(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f
             d.text(xw, y + 4.0, font, "nothing changes", t.color.muted);
         }
         for (k, l) in lines.iter().enumerate() {
-            let color = if l.starts_with("sends ") { t.color.accent } else { t.color.text };
+            let color = if l.starts_with("sends ") { t.color.text } else { t.color.text };
             d.text(xw, y + 4.0 + k as f32 * lh, font, &fit(d, l, font, a.x + a.w - xw - pad), color);
         }
         d.rect(a.x, y + h - 1.0, a.w, 1.0, t.color.line);

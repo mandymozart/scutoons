@@ -476,7 +476,7 @@ mod tests {
         let rects = |c: [f32; 4]| layer.list.prims().iter().filter(|p| matches!(p, Prim::Rect { color, .. } if *color == c)).count();
         let (white, black) = (rects([1.0; 4]), rects([0.0, 0.0, 0.0, 1.0]));
         assert!(white == 1 && black >= 147, "the QR's square and its 147 modules: {white} white, {black} black");
-        let mint = deck_kit::live::tokens::hud().color.accent;
+        let mint = deck_kit::live::tokens::HUD_ACCENT;
         let code = layer.list.prims().iter().any(|p| matches!(*p, Prim::Text { start, end, color, .. } if color == mint && layer.list.text_of(start, end) == "Q5H-RT2"));
         assert!(code, "the code in the accent");
     }

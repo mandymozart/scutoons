@@ -47,6 +47,10 @@ pub enum Hit {
 pub trait Seen {
     /// selected, by id
     fn selected(&self, id: &str) -> bool;
+    /// under the pointer, by id
+    fn hovered(&self, _id: &str) -> bool {
+        false
+    }
     /// a focused spore's flash, 0 → 1 while it runs
     fn flashing(&self, id: &str) -> Option<f32>;
     /// pictures in the cards (a switch: off draws none)

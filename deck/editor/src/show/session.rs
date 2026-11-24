@@ -225,7 +225,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
     y += used + pad * 0.5;
     d.text(x, y, font, &fit(d, &p.place_line(), font, cw), t.color.text);
     y += font * 1.6;
-    d.text(x, y, small, &fit(d, &p.link_line(), small, cw), if p.has_link() { t.color.accent } else { t.color.muted });
+    d.text(x, y, small, &fit(d, &p.link_line(), small, cw), if p.has_link() { t.color.text } else { t.color.muted });
     y += small * 1.8;
     // Copy link, Open here
     let ink = if p.has_link() { t.color.text } else { t.color.muted };
@@ -263,7 +263,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
             break;
         }
         if r.drives {
-            d.disc(x + 4.0, y + row * 0.5, 4.0, t.color.accent);
+            d.disc(x + 4.0, y + row * 0.5, 4.0, t.color.go);
         }
         d.text(x + 16.0, y + (row - font * 1.25) * 0.5, font, &fit(d, &reader_line(r), font, col - 16.0), t.color.text);
         y += row;
@@ -296,11 +296,11 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.control);
         }
         if c.holder.is_some() {
-            d.disc(cx + 4.0, y + row * 0.5, 4.0, if c.away { t.color.muted } else { t.color.accent });
+            d.disc(cx + 4.0, y + row * 0.5, 4.0, if c.away { t.color.muted } else { t.color.go });
         }
         d.text(cx + 16.0, y + (row - small * 1.25) * 0.5, small, &fit(d, &camera_line(c), small, lw - 16.0), t.color.text);
         host.hits.push((r, Hit::SessionCamera(i)));
         y += row;
     }
-    d.text(cx, y + 4.0, small, &fit(d, &p.cameras_link, small, lw), t.color.accent);
+    d.text(cx, y + 4.0, small, &fit(d, &p.cameras_link, small, lw), t.color.text);
 }

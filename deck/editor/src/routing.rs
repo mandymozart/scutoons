@@ -410,7 +410,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         if r.has(pointer.0, pointer.1) {
             d.rect(r.x, r.y, r.w, r.h, t.color.control);
         }
-        d.text(area.x, text_y(*y, small), small, &fit(d, text, small, area.w), t.color.accent);
+        d.text(area.x, text_y(*y, small), small, &fit(d, text, small, area.w), t.color.text);
         hits.push((r, f));
         *y += row;
     };
@@ -492,7 +492,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
             for c in first..=last {
                 let r = Rect { x: area.x + label_w + (c - first) as f32 * (cell + 2.0), y: y + 2.0, w: cell, h: row - 4.0 };
                 let color = match (list.contains(&c), mapped) {
-                    (true, true) => t.color.accent,
+                    (true, true) => t.color.text,
                     (true, false) => t.color.muted,
                     _ => t.color.control,
                 };
@@ -515,7 +515,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
         if r.has(pointer.0, pointer.1) {
             d.rect(r.x, r.y, r.w, r.h, t.color.control);
         }
-        d.text(area.x, text_y(y, small), small, &fit(d, &o.text, small, area.w), t.color.accent);
+        d.text(area.x, text_y(y, small), small, &fit(d, &o.text, small, area.w), t.color.text);
         hits.push((r, Field::Offer));
         y += row;
     }

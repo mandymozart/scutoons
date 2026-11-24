@@ -12,11 +12,13 @@ use std::time::SystemTime;
 pub struct Look {
     pub theme: Theme,
     pub base: f32,
+    /// ok, warning and error in the colour-blind set (the kit's `[day|night.colorblind]`)
+    pub colorblind: bool,
 }
 
 impl Default for Look {
     fn default() -> Look {
-        Look { theme: Theme::Night, base: BASE }
+        Look { theme: Theme::Night, base: BASE, colorblind: false }
     }
 }
 
@@ -44,7 +46,7 @@ pub struct Watched {
 
 impl Watched {
     pub fn new(path: PathBuf, look: Look) -> Watched {
-        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base), look, text: String::new(), seen: None };
+        let mut w = Watched { path, tokens: Tokens::new(look.theme, look.base).colorblind(look.colorblind), look, text: String::new(), seen: None };
         w.poll();
         w
     }
@@ -78,7 +80,7 @@ impl Watched {
     }
 
     fn apply(&mut self) -> bool {
-        match Tokens::from_toml(&self.text, self.look.theme, self.look.base) {
+        match Tokens::from_toml(&self.text, self.look.theme, self.look.base).map(|t| t.colorblind(self.look.colorblind)) {
             Ok(t) => {
                 if t != self.tokens {
                     self.tokens = t;
@@ -123,12 +125,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let toml = dir.join("tokens.toml");
         std::fs::write(&toml, "[night.color]\nline = [1.0, 0.0, 0.0, 1.0]\n").unwrap();
-        let mut w = Watched::new(toml.clone(), Look { theme: Theme::Day, base: BASE });
+        let mut w = Watched::new(toml.clone(), Look { theme: Theme::Day, base: BASE, colorblind: false });
         let day = w.tokens.clone();
-        assert!(w.set(Look { theme: Theme::Night, base: 20.0 }));
+        assert!(w.set(Look { theme: Theme::Night, base: 20.0, colorblind: false }));
         assert_ne!(w.tokens.color.text, day.color.text);
         assert_eq!(w.tokens.color.line, [1.0, 0.0, 0.0, 1.0], "the file's night override");
         assert_eq!(w.tokens.size.font, 20.0);
+        assert!(w.set(Look { theme: Theme::Night, base: 20.0, colorblind: true }));
+        assert_eq!(w.tokens.color.stop, w.tokens.color.colorblind.stop, "the colour-blind set");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

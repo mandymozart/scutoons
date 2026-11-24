@@ -207,6 +207,9 @@ impl Seen for State {
     fn selected(&self, id: &str) -> bool {
         self.selected.iter().any(|s| s == id)
     }
+    fn hovered(&self, id: &str) -> bool {
+        self.hover.as_deref().and_then(|h| h.strip_prefix("node:")) == Some(id)
+    }
     fn flashing(&self, id: &str) -> Option<f32> {
         State::flashing(self, id)
     }

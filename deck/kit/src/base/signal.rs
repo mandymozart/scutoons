@@ -97,9 +97,8 @@ impl Signal {
     }
 }
 
-/// a colour per signal; day and night hold the same roles, each readable on its own panels
+/// a colour per signal; day and night hold the same roles, each readable on its own panels (the kit's `[day|night.signals]`)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
 pub struct Signals {
     pub event: [f32; 4],
     pub control: [f32; 4],
@@ -114,39 +113,15 @@ pub struct Signals {
     pub asset: [f32; 4],
 }
 
-use crate::base::tokens::rgb;
+use crate::base::tokens::Colors;
 
 impl Signals {
     pub fn day() -> Signals {
-        Signals {
-            event: rgb(0x22271e),
-            control: rgb(0x2f9e4a),
-            clock: rgb(0xc23238),
-            audio: rgb(0x0089a8),
-            picture: rgb(0x3a63c9),
-            address: rgb(0x8a4fd0),
-            vote: rgb(0xb07800),
-            scene: rgb(0xc8385a),
-            far: rgb(0x6b7461),
-            job: rgb(0xb86e0c),
-            asset: rgb(0x4f7d00),
-        }
+        Colors::day().signals
     }
 
     pub fn night() -> Signals {
-        Signals {
-            event: rgb(0xf3f3f0),
-            control: rgb(0x46d36a),
-            clock: rgb(0xe5484d),
-            audio: rgb(0x19b8d8),
-            picture: rgb(0x6f9bff),
-            address: rgb(0xb46bff),
-            vote: rgb(0xffb020),
-            scene: rgb(0xff6b8a),
-            far: rgb(0xa7af9b),
-            job: rgb(0xf0a030),
-            asset: rgb(0xb4ff32),
-        }
+        Colors::night().signals
     }
 
     pub fn of(&self, s: Signal) -> [f32; 4] {
@@ -175,7 +150,7 @@ impl Default for Signals {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::tokens::{contrast, Colors};
+    use crate::base::tokens::contrast;
 
     #[test]
     fn every_signal_has_a_look_of_its_own() {

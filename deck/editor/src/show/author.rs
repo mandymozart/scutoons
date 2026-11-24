@@ -33,7 +33,7 @@ pub fn view_switch(d: &mut DrawList, t: &Tokens, host: &mut Host, w: f32, sheets
     let names = view_names(sheets);
     let width: f32 = names.iter().map(|n| d.advance(t.size.small) * n.chars().count().max(2) as f32 + 2.0 * t.size.pad + 2.0).sum::<f32>() + 8.0;
     let slot = if host.view_slot.w > 0.0 { host.view_slot } else { Rect { x: w - width - 360.0, y: 8.0, w: width, h: t.size.top } };
-    d.round_rect(slot.x, slot.y, slot.w, slot.h, slot.h * 0.5, t.color.surface);
+    d.round_rect(slot.x, slot.y, slot.w, slot.h, slot.h * 0.5, t.color.panel());
     d.outline(slot.x, slot.y, slot.w, slot.h, (slot.h * 0.5, 1.0), t.color.line);
     let (x, y, h) = (slot.x + 4.0, slot.y + 4.0, slot.h - 8.0);
     let on = host.sheet.and_then(|s| sheets.iter().position(|(_, x)| *x == s)).unwrap_or(usize::MAX);
@@ -221,7 +221,7 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if presses && r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
             let open = addr.is_some() && addr == host.address;
             if open {
-                d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.accent);
+                d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.text);
             }
             d.text(vx + 6.0, y + 4.0, font, &fit(d, value, font, rx + rw - vx - 12.0), t.color.text);
             y += t.size.row;

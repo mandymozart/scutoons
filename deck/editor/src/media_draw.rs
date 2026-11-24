@@ -68,7 +68,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Media, (w, h): (f32, f32), top
         Body::Video(_) | Body::Image(_) => {
             card = aspect.map(|a| fit(stage, a));
             if let (Some(r), Some(p)) = (card, o.playback()) {
-                shade(d, r, p.crop, 1.0 - p.level(o.clock));
+                shade(d, t, r, p.crop, 1.0 - p.level(o.clock));
             }
         }
         Body::Audio(wave) => {
@@ -93,19 +93,19 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Media, (w, h): (f32, f32), top
 }
 
 /// what the crop cuts off, darkened over the picture `r`, and the fade's darkness `dark` (0..1) over what stays
-fn shade(d: &mut DrawList, r: Rect, crop: deck_core::asset_edit::Crop, dark: f32) {
+fn shade(d: &mut DrawList, t: &Tokens, r: Rect, crop: deck_core::asset_edit::Crop, dark: f32) {
     let [u, v, w, h] = crop.rect();
     let kept = Rect { x: r.x + u * r.w, y: r.y + v * r.h, w: w * r.w, h: h * r.h };
-    let cut = [0.0, 0.0, 0.0, 0.72];
+    let cut = alpha(t.color.stage, 0.72);
     d.rect(r.x, r.y, r.w, kept.y - r.y, cut);
     d.rect(r.x, kept.y + kept.h, r.w, r.y + r.h - kept.y - kept.h, cut);
     d.rect(r.x, kept.y, kept.x - r.x, kept.h, cut);
     d.rect(kept.x + kept.w, kept.y, r.x + r.w - kept.x - kept.w, kept.h, cut);
     if !crop.none() {
-        d.outline(kept.x, kept.y, kept.w, kept.h, (0.0, 1.0), [1.0, 1.0, 1.0, 0.6]);
+        d.outline(kept.x, kept.y, kept.w, kept.h, (0.0, 1.0), alpha(t.color.bright, 0.6));
     }
     if dark > 0.0 {
-        d.rect(kept.x, kept.y, kept.w, kept.h, [0.0, 0.0, 0.0, dark.clamp(0.0, 1.0)]);
+        d.rect(kept.x, kept.y, kept.w, kept.h, alpha(t.color.stage, dark.clamp(0.0, 1.0)));
     }
 }
 
@@ -156,7 +156,7 @@ fn timeline(d: &mut DrawList, t: &Tokens, m: &mut Media, r: Rect, length: f64, r
     if o.used.is_some() {
         d.rect(x_of(aa), r.y + r.h - 3.0, x_of(ab) - x_of(aa), 3.0, alpha(t.color.text, 0.5));
     }
-    d.rect(x_of(a), r.y, x_of(b) - x_of(a), r.h, alpha(t.color.accent, 0.35));
+    d.rect(x_of(a), r.y, x_of(b) - x_of(a), r.h, t.color.selection);
     let head = x_of(o.at());
     d.rect(head - 1.0, r.y - 3.0, 2.0, r.h + 6.0, t.color.bright);
     m.line = Some(r);
@@ -165,7 +165,7 @@ fn timeline(d: &mut DrawList, t: &Tokens, m: &mut Media, r: Rect, length: f64, r
     for (s, hit) in [(a, Hit::Start), (b, Hit::End)] {
         let x = x_of(s);
         let held = m.drag == Some(hit);
-        d.rect(x - hw * 0.5, r.y - 4.0, hw, r.h + 8.0, if held { t.color.bright } else { t.color.accent });
+        d.rect(x - hw * 0.5, r.y - 4.0, hw, r.h + 8.0, if held { t.color.bright } else { t.color.text });
         m.hits.push((Rect { x: x - hw * 2.0, y: r.y - 6.0, w: hw * 4.0, h: r.h + 12.0 }, hit));
     }
     let whose = if o.used.is_some() { "the use's" } else { "the asset's" };

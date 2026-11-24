@@ -134,7 +134,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
     let field = Rect { x: a.x + pad, y, w: a.w - 2.0 * pad, h: row - 4.0 };
     d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
     if f.typing {
-        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.accent);
+        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.text);
     }
     let (text, color) = match (f.typed.is_empty(), f.typing) {
         (true, false) => (deck_show::choose::FILTER_HINT.to_string(), t.color.muted),
@@ -168,7 +168,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         let indent = if l.path.contains('/') { 2.0 * pad } else { 0.0 };
         let (bx, by, bs) = (a.x + pad + indent, y + (lh - 14.0) * 0.5, 14.0);
         if c.is_ticked(i) {
-            d.round_rect(bx, by, bs, bs, 3.0, t.color.accent);
+            d.round_rect(bx, by, bs, bs, 3.0, t.color.text);
         } else {
             d.outline(bx, by, bs, bs, (3.0, 1.0), t.color.muted);
         }
@@ -209,7 +209,7 @@ pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect,
     let lh = font * 1.5;
     let h = pad * 3.0 + font * 1.8 + p.lines.len() as f32 * lh + row + pad;
     let (x, y) = (a.x + (a.w - w) * 0.5, a.y + ((a.h - h) * 0.4).max(pad));
-    d.round_rect(x, y, w, h, t.size.radius, t.color.surface);
+    d.round_rect(x, y, w, h, t.size.radius, t.color.panel());
     d.outline(x, y, w, h, (t.size.radius, 1.0), if p.warn { t.color.warn } else { t.color.line });
     d.text(x + pad, y + pad, font * 1.15, &fit(d, &p.title, font * 1.15, w - 2.0 * pad), t.color.text);
     let mut ly = y + pad + font * 1.8 + pad * 0.5;

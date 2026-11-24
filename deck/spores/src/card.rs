@@ -1,7 +1,7 @@
 //! One spore as a card: head and body share one border, the whole border thin in the kind's colour, the
 //! head faintly tinted with the kind's icon, the name, the kind's word and the fold; the pins one row each on the card's
 //! edge in their signal's colour, a held value in mono beside its label. Folded, the card is its head alone.
-use crate::paint::{faded, main_colour, mix, sans_fit, Cam};
+use crate::paint::{faded, main_colour, sans_fit, Cam};
 use crate::Seen;
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::graph::{Direction, Node, Placed};
@@ -22,8 +22,8 @@ pub struct Boxed {
     pub fold: Option<Rect>,
 }
 
-/// One node (`tint`: a folded group's colour instead of its kind's); selected an accent outline round the whole card,
-/// focused a flash and a skeleton shimmer.
+/// One node (`tint`: a folded group's colour instead of its kind's): its outline in its kind's colour, whole under the
+/// pointer; selected the text colour round the whole card on the selected ground; focused a flash and a skeleton shimmer.
 pub fn card(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<Rgb>), cam: &Cam, v: &dyn Seen) -> Boxed {
     let z = cam.view.zoom;
     let body = cam.rect(p.rect);
@@ -31,24 +31,38 @@ pub fn card(d: &mut DrawList, t: &Tokens, (n, p, tint): (&Node, &Placed, Option<
     let radius = t.size.radius * 1.5 * z;
     let kind = tint.map_or_else(|| main_colour(t, n), |c| colour::rgba(c, 1.0));
     let head = if n.collapsed { h } else { t.size.rem(2.0) * z };
-    let tinted = mix(t.color.control, kind, TINT);
-    d.round_rect(o.0, o.1, w, h, radius, t.color.control);
-    d.round_rect(o.0, o.1, w, head, radius, tinted);
+    let (selected, hovered) = (v.selected(&n.id), v.hovered(&n.id));
+    d.round_rect(o.0, o.1, w, h, radius, if selected { t.color.selected } else { t.color.control });
+    // the head's tint, its top corners the card's: drawn whole and clipped at the head's foot
+    let before = d.current_clip();
+    let head_box = Rect { x: o.0, y: o.1, w, h: head };
+    d.clip(Some(before.map_or(head_box, |c| meet(c, head_box))));
+    d.round_rect(o.0, o.1, w, head + radius, radius, faded(kind, TINT));
+    d.clip(before);
     if !n.collapsed {
-        d.rect(o.0, o.1 + radius, w, head - radius, tinted);
         d.rect(o.0, o.1 + head, w, 1.0, faded(kind, DIVIDE));
     }
-    d.outline(o.0, o.1, w, h, (radius, 1.0), faded(kind, if n.far { BORDER_FAR } else { BORDER }));
+    let edge = if selected {
+        t.color.text
+    } else if hovered {
+        kind
+    } else {
+        faded(kind, if n.far { BORDER_FAR } else { BORDER })
+    };
+    d.outline(o.0, o.1, w, h, (radius, if selected { 1.5 } else { 1.0 }), edge);
     let fold = head_line(d, t, n, (o, w, head), kind, z);
     preview(d, t, n, (o, w, h), z, v);
     pins(d, t, n, p, cam, w);
-    if v.selected(&n.id) {
-        d.outline(o.0 - 1.0, o.1 - 1.0, w + 2.0, h + 2.0, (radius + 1.0, 2.0), t.color.accent);
-    }
     if let Some(a) = v.flashing(&n.id) {
         flash(d, t, (o, w, h), radius, kind, a);
     }
     Boxed { body, fold }
+}
+
+/// where two rectangles overlap (none: an empty one)
+fn meet(a: Rect, b: Rect) -> Rect {
+    let (x, y) = (a.x.max(b.x), a.y.max(b.y));
+    Rect { x, y, w: ((a.x + a.w).min(b.x + b.w) - x).max(0.0), h: ((a.y + a.h).min(b.y + b.h) - y).max(0.0) }
 }
 
 /// the head: the kind's icon, the name (cut with an ellipsis), the kind's word small, the fold at its end; the fold's place

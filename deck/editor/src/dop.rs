@@ -517,9 +517,9 @@ fn shots_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVi
         let r = Rect { x: a.x - t.size.pad * 0.5, y: *y, w: a.w + t.size.pad * 0.5, h };
         let picked = sel.shot == Some(i);
         if picked {
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, fold::accent_dim(t));
+            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, fold::picked_ground(t));
         }
-        fold::view_thumb(d, t, Rect { x: a.x, y: r.y + (h - th) * 0.5, w: tw, h: th }, s.pitch, s.lens.ortho(), if picked { t.color.accent } else { t.color.muted });
+        fold::view_thumb(d, t, Rect { x: a.x, y: r.y + (h - th) * 0.5, w: tw, h: th }, s.pitch, s.lens.ortho(), if picked { t.color.text } else { t.color.muted });
         let ty = r.y + (h - px * 1.25) * 0.5;
         let id_x = a.x + tw + t.size.pad;
         d.sans(id_x, ty, px, &s.id, if picked { t.color.bright } else { t.color.text });
@@ -613,7 +613,7 @@ fn move_body(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, view: &SceneVie
     if let Some((kind, shot, p)) = playing {
         let bar = Rect { x: a.x, y: *y + 2.0, w: a.w, h: 3.0 };
         d.rect(bar.x, bar.y, bar.w, bar.h, t.color.control);
-        d.rect(bar.x, bar.y, bar.w * p.clamp(0.0, 1.0), bar.h, t.color.accent);
+        d.rect(bar.x, bar.y, bar.w * p.clamp(0.0, 1.0), bar.h, t.color.text);
         *y += 8.0;
         caption(d, t, a, y, &format!("playing: {kind} to {shot} · {:.0} %", p * 100.0));
     }

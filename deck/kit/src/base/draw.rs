@@ -102,6 +102,27 @@ impl DrawList {
         }
     }
 
+    /// the halo now, to put back after a part that sets its own (`restore_halo`)
+    pub fn halo_state(&self) -> ([f32; 4], usize) {
+        (self.halo, self.halo_from)
+    }
+
+    pub fn restore_halo(&mut self, (halo, from): ([f32; 4], usize)) {
+        (self.halo, self.halo_from) = (halo, from);
+    }
+
+    /// what was drawn since primitive `from` at `share` of its strength (a disabled control, the kit's `opacity`)
+    pub fn fade_from(&mut self, from: usize, share: f32) {
+        let f = |c: &mut [f32; 4]| c[3] *= share;
+        for p in self.prims.iter_mut().skip(from) {
+            match p {
+                Prim::Rect { color, .. } | Prim::Outline { color, .. } | Prim::Text { color, .. } | Prim::Icon { color, .. } | Prim::Segment { color, .. } | Prim::Poly { color, .. } => f(color),
+                Prim::Gradient { corners, .. } => corners.iter_mut().for_each(f),
+                Prim::Logo { .. } | Prim::Clip(_) | Prim::Picture { .. } => {}
+            }
+        }
+    }
+
     /// back to the first `n` primitives (a part drawn again: its text stays in the buffer until the frame is cleared)
     pub fn truncate(&mut self, n: usize) {
         self.prims.truncate(n);
@@ -220,6 +241,11 @@ impl DrawList {
             out = Some(out.map_or(r, |o| (o.0.min(r.0), o.1.min(r.1), o.2.max(r.2), o.3.max(r.3))));
         }
         out.map(|(x0, y0, x1, y1)| Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 })
+    }
+
+    /// the clip in force now (the last `clip`)
+    pub fn current_clip(&self) -> Option<Rect> {
+        self.prims.iter().rev().find_map(|p| if let Prim::Clip(c) = p { Some(c.map(|[x, y, w, h]| Rect { x, y, w, h })) } else { None }).flatten()
     }
 
     /// what is drawn next shows only inside `r` (none: everywhere again)

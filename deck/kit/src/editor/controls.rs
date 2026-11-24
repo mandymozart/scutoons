@@ -65,17 +65,25 @@ pub fn arrow_out(d: &mut DrawList, (x, y): (f32, f32), size: f32, color: [f32; 4
     d.segment((b.0, b.1 + size * 0.45), b, thick, color);
 }
 
-/// the view's one primary action: lime, its edge, ink text, an arrow out when it leads elsewhere; its place
+/// the view's one primary action: the pressed fill and its ink, an arrow out when it leads elsewhere; its place
 pub fn primary(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bool) -> Rect {
-    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.primary);
-    d.outline(r.x, r.y, r.w, r.h, (t.size.radius, 1.0), t.color.primary_line);
+    primary_in(d, t, r, text, outward, "rest")
+}
+
+/// the primary action in a state of the kit's `button_primary` (rest · hover · on · disabled)
+pub fn primary_in(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bool, state: &str) -> Rect {
+    let s = t.kit("button_primary", state);
+    let ink = s.faded(s.text.unwrap_or(t.color.pressed_text));
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, s.faded(g));
+    }
     let px = t.size.font;
     let w = d.sans_width(px, text);
     let tx = if outward { r.x + t.size.pad * 1.5 } else { r.x + (r.w - w) * 0.5 };
-    d.sans(tx, r.y + (r.h - px * 1.25) * 0.5, px, text, t.color.primary_ink);
+    d.sans(tx, r.y + (r.h - px * 1.25) * 0.5, px, text, ink);
     if outward {
         let s = px * 0.8;
-        arrow_out(d, (r.x + r.w - t.size.pad * 1.5 - s, r.y + (r.h - s) * 0.5), s, t.color.primary_ink);
+        arrow_out(d, (r.x + r.w - t.size.pad * 1.5 - s, r.y + (r.h - s) * 0.5), s, ink);
     }
     r
 }
@@ -115,12 +123,14 @@ pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[
             cy += h + gap;
         }
         let lit = on.get(i).copied().unwrap_or(false);
-        if lit {
-            d.round_rect(cx, cy, cw, h, t.size.radius, t.color.accent);
-        } else {
-            d.outline(cx, cy, cw, h, (t.size.radius, 1.0), t.color.line);
+        let s = t.kit("chip", if lit { "on" } else { "rest" });
+        if let Some(g) = s.ground {
+            d.round_rect(cx, cy, cw, h, h * 0.5, g);
         }
-        d.sans(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, if lit { t.color.surface } else { t.color.muted });
+        if let Some(b) = s.border {
+            d.outline(cx, cy, cw, h, (h * 0.5, t.size.edge), b);
+        }
+        d.sans(cx + t.size.pad * 0.5, cy + (h - px * 1.25) * 0.5, px, name, s.text.unwrap_or(t.color.muted));
         out.push(Rect { x: cx, y: cy, w: cw, h });
         cx += cw + gap;
     }
@@ -131,8 +141,7 @@ pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[
 /// #478: a small menu under `at`: a tree row per line, a tick before a ticked one; its lines' places
 pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str], ticked: &[bool], pointer: (f32, f32)) -> Vec<Rect> {
     let (h, px) = (t.size.tree_row, t.size.font);
-    d.round_rect(at.0, at.1, w, h * lines.len() as f32 + 4.0, t.size.radius, t.color.surface_head);
-    d.outline(at.0, at.1, w, h * lines.len() as f32 + 4.0, (t.size.radius, 1.0), t.color.line);
+    let halo = popover(d, t, Rect { x: at.0, y: at.1, w, h: h * lines.len() as f32 + 4.0 }, t.size.radius);
     let mut out = Vec::with_capacity(lines.len());
     for (i, line) in lines.iter().enumerate() {
         let r = Rect { x: at.0 + 2.0, y: at.1 + 2.0 + i as f32 * h, w: w - 4.0, h };
@@ -140,13 +149,27 @@ pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str]
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
         }
         if ticked.get(i).copied().unwrap_or(false) {
-            d.disc(r.x + 8.0, r.y + h * 0.5, 3.0, t.color.accent);
+            d.disc(r.x + 8.0, r.y + h * 0.5, 3.0, t.kit("menu_item", "on").mark.unwrap_or(t.color.text));
         }
         let line = fit_sans(d, px, line, w - 24.0);
         d.sans(r.x + 16.0, r.y + (h - px * 1.25) * 0.5, px, &line, t.color.text);
         out.push(r);
     }
+    d.restore_halo(halo);
     out
+}
+
+/// a menu's or a popover's ground (the kit's `menu`: the surface see-through, its line) with the ink ring on what is
+/// drawn over it; the halo before it, to put back when the popover is drawn
+pub fn popover(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32) -> ([f32; 4], usize) {
+    let s = t.kit("menu", "rest");
+    d.round_rect(r.x, r.y, r.w, r.h, radius, s.ground.unwrap_or(t.color.panel()));
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), b);
+    }
+    let before = d.halo_state();
+    d.halo(t.color.ring());
+    before
 }
 
 /// a line of a menu of actions: its words, whether it can be done now, whether it leaves for the browser
@@ -161,8 +184,7 @@ pub struct Action<'a> {
 pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Action], pointer: (f32, f32)) -> Vec<Rect> {
     let (h, px, pad) = (t.size.row, t.size.font, t.size.pad);
     let whole = h * lines.len() as f32 + pad;
-    d.round_rect(at.0, at.1, w, whole, t.size.radius * 2.0, t.color.surface);
-    d.outline(at.0, at.1, w, whole, (t.size.radius * 2.0, 1.0), t.color.line);
+    let halo = popover(d, t, Rect { x: at.0, y: at.1, w, h: whole }, t.size.radius * 2.0);
     let mut out = Vec::with_capacity(lines.len());
     for (i, line) in lines.iter().enumerate() {
         let r = Rect { x: at.0 + pad * 0.5, y: at.1 + pad * 0.5 + i as f32 * h, w: w - pad, h };
@@ -178,6 +200,7 @@ pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Ac
         }
         out.push(r);
     }
+    d.restore_halo(halo);
     out
 }
 
@@ -185,8 +208,7 @@ pub fn actions(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[Ac
 pub fn checks(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, title: &str, lines: &[(&str, bool)], pointer: (f32, f32)) -> Vec<Rect> {
     let (h, px, pad) = (t.size.row, t.size.font, t.size.pad);
     let whole = h * (lines.len() + 1) as f32 + pad;
-    d.round_rect(at.0, at.1, w, whole, t.size.radius * 2.0, t.color.surface);
-    d.outline(at.0, at.1, w, whole, (t.size.radius * 2.0, 1.0), t.color.line);
+    let halo = popover(d, t, Rect { x: at.0, y: at.1, w, h: whole }, t.size.radius * 2.0);
     label(d, t, at.0 + pad * 1.5, at.1 + pad * 0.5 + (h - t.size.label * 1.25) * 0.5, title, t.color.muted);
     let mut out = Vec::with_capacity(lines.len());
     for (i, &(line, on)) in lines.iter().enumerate() {
@@ -195,23 +217,132 @@ pub fn checks(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, title: &str,
             d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.hover);
         }
         if on {
-            d.disc(r.x + pad * 1.5, r.y + h * 0.5, t.size.rem(0.21), t.color.accent);
+            d.disc(r.x + pad * 1.5, r.y + h * 0.5, t.size.rem(0.21), t.kit("menu_item", "on").mark.unwrap_or(t.color.text));
         }
         let line = fit_sans(d, px, line, r.w - 4.0 * pad);
         d.sans(r.x + pad * 3.0, r.y + (h - px * 1.25) * 0.5, px, &line, t.color.text);
         out.push(r);
     }
+    d.restore_halo(halo);
     out
 }
 
-/// a lone icon you press, its ground showing under the pointer; its place
+/// a lone icon you press, round, its ground showing under the pointer; its place
 pub fn icon_button(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, color: [f32; 4], pointer: (f32, f32)) -> Rect {
     if at.has(pointer.0, pointer.1) {
-        d.round_rect(at.x, at.y, at.w, at.h, t.size.radius, t.color.hover);
+        d.round_rect(at.x, at.y, at.w, at.h, at.h.min(at.w) * 0.5, t.kit("icon_button", "hover").ground.unwrap_or(t.color.hover));
     }
     let size = at.h * 0.6;
     d.icon(at.x + (at.w - size) * 0.5, at.y + (at.h - size) * 0.5, size, name, color);
     at
+}
+
+/// an icon button in a state of the kit's `icon_button` (rest · hover · on · disabled · alone · dot): round; its place
+pub fn icon_button_in(d: &mut DrawList, t: &Tokens, at: Rect, name: &'static str, state: &str) -> Rect {
+    let s = t.kit("icon_button", state);
+    let r = at.h.min(at.w) * 0.5;
+    if let Some(g) = s.ground {
+        d.round_rect(at.x, at.y, at.w, at.h, r, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(at.x, at.y, at.w, at.h, (r, t.size.edge), s.faded(b));
+    }
+    let size = at.h * 0.6;
+    d.icon(at.x + (at.w - size) * 0.5, at.y + (at.h - size) * 0.5, size, name, s.faded(s.text.unwrap_or(t.color.text)));
+    if let Some(m) = s.mark {
+        d.disc(at.x + at.w * 0.78, at.y + at.h * 0.22, at.h * 0.1, m);
+    }
+    at
+}
+
+/// the keyboard focus round `r`: a ring in the text colour (the kit's `focus`), a step out
+pub fn focus_ring(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32) {
+    if let Some(c) = t.kit("focus", "rest").ring {
+        d.outline(r.x - 2.0, r.y - 2.0, r.w + 4.0, r.h + 4.0, (radius + 2.0, 1.5), c);
+    }
+}
+
+/// a tab's ground and border in a state of the kit's `tab` (rest · hover · on · dragged · disabled): none at rest, a
+/// rounded border on hover and while dragged; the ink its words take
+pub fn tab_frame(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32, state: &str) -> [f32; 4] {
+    let s = t.kit("tab", state);
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, radius, g);
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), b);
+    }
+    s.faded(s.text.unwrap_or(t.color.muted))
+}
+
+/// a tab with words (an item's tab, the workspace row, a panel's tab): its frame, its icon, its label; its place
+pub fn pill_tab(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), icon: Option<&'static str>, label: &str, state: &str) -> Rect {
+    let (px, pad) = (t.size.font, t.size.pad);
+    let is = t.size.rem(1.0);
+    let w = pad * 2.0 + icon.map_or(0.0, |_| is + pad * 0.6) + d.sans_width(px, label);
+    let r = Rect { x, y, w, h };
+    let ink = tab_frame(d, t, r, h * 0.5, state);
+    let mut cx = x + pad;
+    if let Some(i) = icon {
+        d.icon(cx, y + (h - is) * 0.5, is, i, ink);
+        cx += is + pad * 0.6;
+    }
+    d.sans(cx, y + (h - px * 1.25) * 0.5, px, label, ink);
+    r
+}
+
+/// a button with words in a state: `kind` the kit's `button_plain` (framed) or `button_quiet` (words only), a state of
+/// it (rest · hover · on · disabled · destroy); its place
+pub fn button(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), text: &str, kind: &str, state: &str) -> Rect {
+    let px = t.size.font;
+    let r = Rect { x, y, w: d.sans_width(px, text) + t.size.pad * 3.0, h };
+    let s = t.kit(kind, state);
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (t.size.radius, t.size.edge), s.faded(b));
+    }
+    d.sans(r.x + t.size.pad * 1.5, r.y + (h - px * 1.25) * 0.5, px, text, s.faded(s.text.unwrap_or(t.color.text)));
+    r
+}
+
+/// the badge (a chip) in a state of the kit's `chip` (rest · hover · on · disabled · ok · warning · error): small, round,
+/// line and words; its place
+pub fn chip_in(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), text: &str, state: &str) -> Rect {
+    let px = t.size.label;
+    let h = t.size.tree_row - 8.0 * t.size.edge;
+    let r = Rect { x, y, w: d.sans_width(px, text) + t.size.pad * 2.5, h };
+    let s = t.kit("chip", state);
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, h * 0.5, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (h * 0.5, t.size.edge), s.faded(b));
+    }
+    d.sans(r.x + t.size.pad * 1.25, r.y + (h - px * 1.25) * 0.5, px, text, s.faded(s.text.unwrap_or(t.color.muted)));
+    r
+}
+
+/// a field in a state: `kind` the kit's `field` (boxed: a value in a form, a search) or `select_quiet` (a filter or a
+/// sort: no box at rest); a chevron when it chooses; its place
+pub fn field(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, (kind, state): (&str, &str), chooses: bool) -> Rect {
+    let s = t.kit(kind, state);
+    let radius = if kind == "select_quiet" { r.h * 0.5 } else { t.size.radius };
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, radius, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), s.faded(b));
+    }
+    let px = t.size.font;
+    let room = r.w - t.size.pad * 2.0 - if chooses { px } else { 0.0 };
+    d.sans(r.x + t.size.pad, r.y + (r.h - px * 1.25) * 0.5, px, &fit_sans(d, px, text, room), s.faded(s.text.unwrap_or(t.color.text)));
+    if chooses {
+        let c = px * 0.8;
+        d.icon(r.x + r.w - t.size.pad - c, r.y + (r.h - c) * 0.5, c, if state == "on" { "up" } else { "down" }, s.faded(s.mark.unwrap_or(t.color.muted)));
+    }
+    r
 }
 
 /// a small labelled meter of how much of something is in use (0..1), its held peak a tick; the width it took
@@ -318,13 +449,23 @@ pub fn toggle(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, on: bool) -> R
     r
 }
 
-/// a switch: a round track, its knob right and the track green when on; its place
+/// a switch: a round track, its knob right and the track the pressed fill when on (the kit's `toggle`); its place
 pub fn switch(d: &mut DrawList, t: &Tokens, r: Rect, on: bool) -> Rect {
-    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, if on { t.color.go } else { t.color.within });
-    d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, t.size.edge), t.color.line);
+    switch_in(d, t, r, on, if on { "on" } else { "off" })
+}
+
+/// the switch in a state of the kit's `toggle` (off · hover · on · disabled)
+pub fn switch_in(d: &mut DrawList, t: &Tokens, r: Rect, on: bool, state: &str) -> Rect {
+    let s = t.kit("toggle", state);
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, s.faded(g));
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, t.size.edge), s.faded(b));
+    }
     let k = r.h * 0.38;
     let cx = if on { r.x + r.w - r.h * 0.5 } else { r.x + r.h * 0.5 };
-    d.disc(cx, r.y + r.h * 0.5, k, if on { t.color.bright } else { t.color.muted });
+    d.disc(cx, r.y + r.h * 0.5, k, s.faded(s.knob.unwrap_or(t.color.muted)));
     r
 }
 
@@ -353,7 +494,7 @@ pub fn knob(d: &mut DrawList, t: &Tokens, r: Rect, label: &str, value: Option<(&
     arc(d, 1.0, thick, t.color.within);
     let f = fraction.clamp(0.0, 1.0);
     if f > 0.0 {
-        arc(d, f, thick, if hot { t.color.selected } else { t.color.accent });
+        arc(d, f, thick, if hot { t.color.bright } else { t.color.text });
     }
     d.disc(at(f).0, at(f).1, thick * 0.9, t.color.text);
     let shown = fit_sans(d, small, text, radius * 1.7);
@@ -585,7 +726,7 @@ mod tests {
         assert_eq!(cells.len(), 2);
         assert!(cells[0].y >= t.size.row, "under the title");
         assert!((cells[1].y - cells[0].y - t.size.row).abs() < 1e-3);
-        let dots = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.accent)).count();
+        let dots = d.prims().iter().filter(|p| matches!(p, crate::base::draw::Prim::Rect { color, .. } if *color == t.color.text)).count();
         assert_eq!(dots, 1, "one is on");
     }
 

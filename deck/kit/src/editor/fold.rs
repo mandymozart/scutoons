@@ -1,6 +1,6 @@
 //! Folding sections and icon tiles: a section is one line (its line icon, its name, what it is set to now) that opens
-//! onto its body; a tile is a picture over its word, the picked one in the accent. Line art is 1.5 px; the accent only
-//! on what is picked. The caller says what a press means.
+//! onto its body; a tile is a picture over its word, the picked one in the text colour (the kit's `tile`). Line art is
+//! 1.5 px. The caller says what a press means.
 use crate::base::draw::{DrawList, Font};
 use crate::base::tokens::Tokens;
 use crate::editor::controls::{self, Rect};
@@ -10,10 +10,9 @@ pub const HEAD_ICON: f32 = 18.0;
 /// the line art's stroke
 pub const LINE: f32 = 1.5;
 
-/// the accent, faint: the ground of what is picked
-pub fn accent_dim(t: &Tokens) -> [f32; 4] {
-    let a = t.color.accent;
-    [a[0], a[1], a[2], 0.14]
+/// the faint ground of what is picked: the text colour see-through (the kit's `tile.on`)
+pub fn picked_ground(t: &Tokens) -> [f32; 4] {
+    t.kit("tile", "on").ground.unwrap_or(t.color.selected)
 }
 
 /// a section head's height
@@ -29,7 +28,7 @@ pub fn head(d: &mut DrawList, t: &Tokens, r: Rect, icon: &'static str, name: &st
     d.rect(r.x, r.y + r.h - t.size.edge, r.w, t.size.edge, t.color.line);
     let pad = t.size.pad;
     let mid = r.y + r.h * 0.5;
-    d.icon(r.x + pad, mid - HEAD_ICON * 0.5, HEAD_ICON, icon, t.color.accent);
+    d.icon(r.x + pad, mid - HEAD_ICON * 0.5, HEAD_ICON, icon, t.color.text);
     let name_x = r.x + pad * 2.0 + HEAD_ICON;
     controls::label(d, t, name_x, mid - t.size.label * 0.62, name, t.color.text);
     let sum_x = name_x + t.size.rem(5.4);
@@ -37,7 +36,7 @@ pub fn head(d: &mut DrawList, t: &Tokens, r: Rect, icon: &'static str, name: &st
     let room = r.x + r.w - pad * 2.0 - chev - sum_x;
     let px = t.size.small;
     d.sans(sum_x, mid - px * 0.62, px, &controls::fit_sans(d, px, summary, room), t.color.muted);
-    d.icon(r.x + r.w - pad - chev, mid - chev * 0.5, chev, if open { "down" } else { "next" }, if open { t.color.accent } else { t.color.muted });
+    d.icon(r.x + r.w - pad - chev, mid - chev * 0.5, chev, if open { "down" } else { "next" }, if open { t.color.text } else { t.color.muted });
     r
 }
 
@@ -59,10 +58,11 @@ pub fn grid(x: f32, y: f32, w: f32, n: usize, cols: usize, h: f32, gap: f32) -> 
 /// A tile: its frame, its word at the foot (two lines at most); the room left for its picture and the picture's colour.
 pub fn tile(d: &mut DrawList, t: &Tokens, r: Rect, word: &str, on: bool) -> (Rect, [f32; 4]) {
     if on {
-        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, accent_dim(t));
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, picked_ground(t));
     }
-    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 1.4, t.size.edge), if on { t.color.accent } else { t.color.line });
-    let ink = if on { t.color.accent } else { t.color.muted };
+    let s = t.kit("tile", if on { "on" } else { "rest" });
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 1.4, t.size.edge), s.border.unwrap_or(t.color.line));
+    let ink = if on { s.mark.unwrap_or(t.color.text) } else { t.color.muted };
     let px = t.size.label;
     let lines = wrap(d, px, word, r.w - 2.0);
     let lh = px * 1.25;
@@ -107,7 +107,7 @@ pub fn cone(d: &mut DrawList, area: Rect, half: f32, color: [f32; 4]) {
 /// A field that says one exact value (mono, on the left) and a word about it (muted, on the right); its place.
 pub fn value(d: &mut DrawList, t: &Tokens, r: Rect, value: &str, note: &str, hot: bool) -> Rect {
     d.round_rect(r.x, r.y, r.w, r.h, t.size.radius * 1.4, t.color.control);
-    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 1.4, t.size.edge), if hot { t.color.accent } else { t.color.line });
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 1.4, t.size.edge), if hot { t.color.text } else { t.color.line });
     let px = t.size.small;
     let y = r.y + (r.h - px * 1.25) * 0.5;
     let used = d.text(r.x + t.size.pad * 1.2, y, px, value, t.color.text);
@@ -156,7 +156,7 @@ mod tests {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
         let (room, ink) = tile(&mut d, &t, Rect { x: 0.0, y: 0.0, w: 50.0, h: 60.0 }, "fly through", true);
         assert!(room.h > 10.0 && room.y >= 0.0);
-        assert_eq!(ink, t.color.accent, "the picked one in the accent");
+        assert_eq!(ink, t.color.text, "the picked one in the text colour");
         head(&mut d, &t, Rect { x: 0.0, y: 100.0, w: 340.0, h: head_height(&t) }, "dop-lens", "LENS", "70 mm · perspective", false);
         assert!(d.texts().iter().any(|s| s.contains("70 mm")));
     }

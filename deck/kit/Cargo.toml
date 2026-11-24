@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+build = "build.rs"
 description = "The component library (#456, #485): one base on egui's primitives (painting, text, input) and two component modules, editor and live. No GPU, no window: an adapter draws egui's meshes. The editor, the deck's own UI and module interfaces share it."
 
 [features]

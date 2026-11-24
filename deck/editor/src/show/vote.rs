@@ -128,7 +128,7 @@ fn draw_panel(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: &Panel)
         let ink = if b.lead { t.color.text } else { t.color.muted };
         d.text(x, y, font, &fit(d, &b.label, font, lw - pad), ink);
         d.outline(x + lw, y, bw, font * 1.2, (2.0, 1.0), t.color.line);
-        d.rect(x + lw, y, bw * b.fill.clamp(0.0, 1.0), font * 1.2, if b.lead { t.color.accent } else { t.color.control });
+        d.rect(x + lw, y, bw * b.fill.clamp(0.0, 1.0), font * 1.2, if b.lead { t.color.text } else { t.color.control });
         d.text(x + lw + bw + pad, y, font, &format!("{} · {}%", b.count, b.percent), ink);
         y += font * 1.7;
     }

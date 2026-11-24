@@ -158,8 +158,7 @@ impl Typeahead {
         let x = self.x.min(limit.0 - WIDTH - 8.0).max(8.0);
         let y = self.y.min(limit.1 - height - 8.0).max(t.size.top + 4.0);
         self.frame = (x, y, row);
-        ui.round_rect(x - 1.0, y - 1.0, WIDTH + 2.0, height + 2.0, t.size.radius + 1.0, t.color.line);
-        ui.round_rect(x, y, WIDTH, height, t.size.radius, t.color.surface);
+        let halo = super::controls::popover(ui, t, super::controls::Rect { x, y, w: WIDTH, h: height }, t.size.radius);
         ui.round_rect(x, y, WIDTH, row, t.size.radius, t.color.control);
         let text_y = (row - font * 1.25) * 0.5;
         let adv = ui.advance(font);
@@ -193,6 +192,7 @@ impl Typeahead {
             ui.text(x + WIDTH - pad - w, top + text_y, font, &detail, t.color.muted);
             self.rows.push((top, i));
         }
+        ui.restore_halo(halo);
     }
 }
 

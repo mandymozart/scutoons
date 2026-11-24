@@ -801,11 +801,10 @@ pub fn clip_hits<H>(view: &View, hits: &mut Vec<(Rect, H)>, from: usize) {
 pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32, f32)) {
     let w = v.whole;
     let r = t.size.radius * 2.0;
-    let s = t.color.surface;
-    let ground = [s[0], s[1], s[2], s[3] * t.color.panel_opacity.clamp(0.0, 1.0)];
+    let s = t.kit("panel", "rest");
     let r = if v.collapsed || spec.inline { w.h * 0.5 } else { r };
-    d.round_rect(w.x, w.y, w.w, w.h, r, ground);
-    d.outline(w.x, w.y, w.w, w.h, (r, 1.0), t.color.line);
+    d.round_rect(w.x, w.y, w.w, w.h, r, s.ground.unwrap_or(t.color.panel()));
+    d.outline(w.x, w.y, w.w, w.h, (r, 1.0), s.border.unwrap_or(t.color.line));
     d.halo(t.color.ring());
     let hot = v.handle.has(pointer.0, pointer.1);
     let mid = v.handle.y + v.handle.h * 0.5;
@@ -815,6 +814,16 @@ pub fn begin(d: &mut DrawList, t: &Tokens, spec: &Spec, v: &View, pointer: (f32,
         d.icon(w.x + (w.w - icon) * 0.5, mid - icon * 0.5, icon, spec.icon, if hot { t.color.bright } else { t.color.text });
         d.halo(None);
         return;
+    }
+    // the title carries no border at rest; under the pointer (and so while it is dragged) a rounded one, as a tab's
+    if hot {
+        let named = v.collapsed && !spec.inline;
+        let end = if named { x + t.size.rem(2.72) + d.sans_width(t.size.font, spec.name) } else { x + t.size.rem(1.15) + icon };
+        let h = (v.handle.h - 4.0).clamp(0.0, t.size.row);
+        let r = Rect { x: x - t.size.pad * 0.5, y: mid - h * 0.5, w: end - x + t.size.pad, h };
+        if let Some(line) = t.kit("tab", "hover").border {
+            d.outline(r.x, r.y, r.w, r.h, (h * 0.5, t.size.edge), line);
+        }
     }
     d.icon(x, mid - grip * 0.5, grip, "grip", if hot { t.color.text } else { t.color.muted });
     d.icon(x + t.size.rem(1.15), mid - icon * 0.5, icon, spec.icon, t.color.text);

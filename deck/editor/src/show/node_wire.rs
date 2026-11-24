@@ -282,8 +282,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &Host, cam: &Cam, canvas: Rect) 
             let Some(body) = n.carried(hand, cursor).and_then(|i| n.drawn.get(i)).map(|(_, b)| n.on_screen(*b)) else { return };
             let (x, y) = (body.x + cursor.0 - from.0, body.y + cursor.1 - from.1);
             let radius = t.size.radius * 1.5 * z;
-            d.round_rect(x, y, body.w, body.h, radius, faded(t.color.accent, 0.08));
-            d.outline(x, y, body.w, body.h, (radius, 1.0), faded(t.color.accent, 0.8));
+            d.round_rect(x, y, body.w, body.h, radius, faded(t.color.text, 0.08));
+            d.outline(x, y, body.w, body.h, (radius, 1.0), faded(t.color.text, 0.8));
             if let Err(why) = host.hand_edits(hand) {
                 say(d, &why);
             }

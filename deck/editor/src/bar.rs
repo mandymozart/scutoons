@@ -184,11 +184,11 @@ pub struct Placed {
     pub solid: Vec<Rect>,
 }
 
-/// a pill's ground
+/// a pill's ground (the kit's `pill`: line and the panel ground)
 fn pill(d: &mut DrawList, t: &Tokens, r: Rect) {
-    let s = t.color.surface;
-    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, [s[0], s[1], s[2], s[3] * t.color.panel_opacity]);
-    d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), t.color.line);
+    let s = t.kit("pill", "rest");
+    d.round_rect(r.x, r.y, r.w, r.h, r.h * 0.5, s.ground.unwrap_or(t.color.panel()));
+    d.outline(r.x, r.y, r.w, r.h, (r.h * 0.5, 1.0), s.border.unwrap_or(t.color.line));
 }
 
 /// the widths the row's pills take at `width`: the path pill gets what the others leave
@@ -225,25 +225,26 @@ fn faded(c: [f32; 4], a: f32) -> [f32; 4] {
     [c[0], c[1], c[2], c[3] * a]
 }
 
-/// the beat dot: lit on the first part of each beat (the bar's first in the accent), dark between and while standing
+/// the beat dot: lit on the first part of each beat (the bar's first in the text colour, the others fainter), dark between
+/// and while standing
 fn beat_dot(d: &mut DrawList, t: &Tokens, (x, y): (f32, f32), b: deck_core::tempo::Beat) {
     let ink = match (b.lit, b.accent) {
-        (true, true) => t.color.accent,
-        (true, false) => t.color.text,
+        (true, true) => t.color.text,
+        (true, false) => faded(t.color.text, 0.6),
         _ => faded(t.color.muted, 0.35),
     };
     d.disc(x, y, t.size.rem(0.24), ink);
 }
 
-/// the bar meter: a cell per beat of the bar, the beat now filled (the first in the accent), the others faint
+/// the bar meter: a cell per beat of the bar, the beat now filled (the first in the text colour), the others faint
 fn bar_meter(d: &mut DrawList, t: &Tokens, r: Rect, b: deck_core::tempo::Beat) {
     let n = b.per_bar.max(1);
     let gap = (r.w * 0.12 / n as f32).min(t.size.rem(0.18));
     let w = (r.w - gap * (n - 1) as f32) / n as f32;
     for i in 0..n {
         let ink = match (i == b.beat, i == 0) {
-            (true, true) => t.color.accent,
-            (true, false) if b.running => t.color.text,
+            (true, true) => t.color.text,
+            (true, false) if b.running => faded(t.color.text, 0.6),
             (true, false) => t.color.muted,
             _ => faded(t.color.muted, 0.3),
         };
@@ -415,7 +416,7 @@ fn edit_play(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), (playing,
     controls::switch(d, t, track, playing);
     let px = t.size.small;
     let word = if playing { PLAY } else { EDIT };
-    d.sans(track.x + track.w + t.size.pad, y + (h - px * 1.25) * 0.5, px, word, if playing { t.color.go } else { t.color.text });
+    d.sans(track.x + track.w + t.size.pad, y + (h - px * 1.25) * 0.5, px, word, t.color.text);
     let mut out = vec![pill];
     if keep {
         out.extend(controls::pills_rounded(d, t, (x + w + 2.0, y, h), &[KEEP], usize::MAX, h * 0.5));
@@ -463,12 +464,10 @@ fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
         let front = Some(i) == b.front;
         let w = if front { widths[i] - squeeze } else { widths[i] } - 2.0;
         let r = Rect { x, y: a.y, w, h };
-        if front {
-            d.round_rect(r.x, r.y, r.w, r.h, radius, t.color.pressed);
-        } else if r.has(b.pointer.0, b.pointer.1) {
-            d.round_rect(r.x, r.y, r.w, r.h, radius, t.color.hover);
-        }
-        let ink = if front { t.color.pressed_text } else { t.color.text };
+        // a tab carries no border at rest: the front one in the text colour, the others muted; a rounded border under
+        // the pointer (the kit's `tab`)
+        let hover = controls::tab_frame(d, t, r, radius, if r.has(b.pointer.0, b.pointer.1) { "hover" } else if front { "on" } else { "rest" });
+        let ink = if front { t.kit("tab", "on").text.unwrap_or(t.color.text) } else { hover };
         let icon = t.size.rem(1.0);
         let mut cx = r.x + pad;
         d.icon(cx, mid - icon * 0.5, icon, tab.icon, ink);
@@ -480,7 +479,7 @@ fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
             cx += t.size.rem(0.6);
         }
         match tab.mark {
-            Mark::Playing => d.icon(cx + t.size.rem(0.15), mid - t.size.rem(0.35), t.size.rem(0.7), "play-fill", t.color.go),
+            Mark::Playing => d.icon(cx + t.size.rem(0.15), mid - t.size.rem(0.35), t.size.rem(0.7), "play-fill", ink),
             Mark::Live => d.disc(cx + t.size.rem(0.45), mid, t.size.rem(0.25), t.color.danger),
             Mark::None => {}
         }
@@ -510,7 +509,7 @@ fn tabs(d: &mut DrawList, t: &Tokens, a: Rect, b: &Bar, out: &mut Placed) {
             d.round_rect(close.x + 3.0, close.y + 3.0, close.w - 6.0, close.h - 6.0, radius, t.color.hover);
         }
         let s = t.size.rem(0.8);
-        d.icon(close.x + (h - s) * 0.5, mid - s * 0.5, s, "close", if front { t.color.pressed_text } else { t.color.muted });
+        d.icon(close.x + (h - s) * 0.5, mid - s * 0.5, s, "close", if front { ink } else { t.color.muted });
         out.tabs.push((i, r, close));
         x += w + 2.0;
     }
@@ -669,9 +668,14 @@ mod tests {
         }
         let inset = t.size.rem(0.29);
         let inner = t.size.top * 0.5 - inset;
-        let pressed: Vec<(f32, f32)> = d.prims().iter().filter_map(|p| if let Prim::Rect { r, h, color, .. } = *p { (color == t.color.pressed).then_some((r, h)) } else { None }).collect();
-        assert_eq!(pressed.len(), 1, "the front tab, its path inside it");
-        for (r, h) in pressed {
+        assert!(!d.prims().iter().any(|p| matches!(*p, Prim::Rect { color, .. } if color == t.color.pressed)), "the front tab is the text colour, no fill");
+        // under the pointer a tab takes a rounded border, concentric with the pill
+        let tab = draw(&mut DrawList::with_widths(std::sync::Arc::new(faces.widths())), &t, 1600.0, &b).tabs[0].1;
+        let mut d = DrawList::with_widths(std::sync::Arc::new(faces.widths()));
+        draw(&mut d, &t, 1600.0, &Bar { pointer: (tab.x + tab.w * 0.5, tab.y + tab.h * 0.5), ..b });
+        let borders: Vec<(f32, f32)> = d.prims().iter().filter_map(|p| if let Prim::Outline { r, h, color, .. } = *p { (color == t.color.line && h < t.size.top).then_some((r, h)) } else { None }).collect();
+        assert_eq!(borders.len(), 1, "the hovered tab's border");
+        for (r, h) in borders {
             assert!((r - inner).abs() < 0.01 && (h - (t.size.top - 2.0 * inset)).abs() < 0.01, "{r} {h}");
         }
     }
@@ -739,17 +743,17 @@ mod tests {
         assert!(p0.click.w == 0.0 && p.click.w > 0.0, "the button only with a clock");
         let inside = p.click.x >= p.tempo.x && p.click.x + p.click.w <= p.tempo.x + p.tempo.w + 0.01;
         assert!(inside && p.source.x + p.source.w <= p.click.x + 0.01, "the button last in the pill: {p:?}");
-        // beat 2 of 4, lit: the dot and the meter's cell in the text's ink, three faint cells
-        assert_eq!(inked(&on, t.color.text), 2, "{:?}", on.prims());
+        // beat 2 of 4, lit: the dot and the meter's cell in the text's ink at 60 %, three faint cells
+        assert_eq!(inked(&on, faded(t.color.text, 0.6)), 2, "{:?}", on.prims());
         assert_eq!(inked(&on, faded(t.color.muted, 0.3)), 3);
-        assert_eq!(inked(&none, t.color.text), 0);
+        assert_eq!(inked(&none, faded(t.color.text, 0.6)), 0);
         let icon = |d: &DrawList| d.prims().iter().find_map(|x| if let deck_kit::base::draw::Prim::Icon { name, .. } = *x { name.starts_with("metronome").then_some(name) } else { None });
         assert_eq!(icon(&on), Some("metronome"));
         assert_eq!(icon(&with_meter(Some((BEAT, false))).0), Some("metronome-off"));
-        // the bar's first beat lit: the dot and its cell in the accent; a bar of 3 has three cells
+        // the bar's first beat lit: the dot and its cell in the text colour; a bar of 3 has three cells
         let first = deck_core::tempo::Beat { beat: 0, per_bar: 3, accent: true, ..BEAT };
         let (d, _) = with_meter(Some((first, false)));
-        assert_eq!((inked(&d, t.color.accent), inked(&d, faded(t.color.muted, 0.3))), (2, 2));
+        assert_eq!((inked(&d, t.color.text), inked(&d, faded(t.color.muted, 0.3))), (2, 2));
         // standing: the dot dark
         let still = deck_core::tempo::Beat { lit: false, running: false, ..BEAT };
         let (d, _) = with_meter(Some((still, false)));

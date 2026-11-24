@@ -147,7 +147,7 @@ fn now(d: &mut DrawList, t: &Tokens, host: &mut Host, pointer: (f32, f32)) {
         d.round_rect(bx, by, bw, 2.6 * font * 1.25, t.size.radius, t.color.surface_head);
         d.outline(bx, by, bw, 2.6 * font * 1.25, (t.size.radius, 1.0), t.color.line);
         d.text(bx + pad, by + 4.0, font, &o.id, t.color.text);
-        d.text(bx + pad, by + 4.0 + font * 1.4, small, &fit(d, playing.as_deref().unwrap_or("nothing yet"), small, bw - 2.0 * pad), t.color.accent);
+        d.text(bx + pad, by + 4.0 + font * 1.4, small, &fit(d, playing.as_deref().unwrap_or("nothing yet"), small, bw - 2.0 * pad), t.color.text);
     }
     host.show_panels.close(d, o, &mut host.hits);
 }

@@ -47,8 +47,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), s: &Status, pointe
     let margin = t.size.rem(0.57);
     let bh = height(t);
     let bar = Rect { x: margin, y: h - margin - bh, w: (w - 2.0 * margin).max(1.0), h: bh };
-    let sf = t.color.surface;
-    d.round_rect(bar.x, bar.y, bar.w, bar.h, bh * 0.5, [sf[0], sf[1], sf[2], sf[3] * t.color.panel_opacity.clamp(0.0, 1.0)]);
+    d.round_rect(bar.x, bar.y, bar.w, bar.h, bh * 0.5, t.color.panel());
     d.outline(bar.x, bar.y, bar.w, bar.h, (bh * 0.5, 1.0), t.color.line);
     d.halo(t.color.ring());
     let (px, pad) = (t.size.small, t.size.pad);
@@ -63,7 +62,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32), s: &Status, pointe
     if log_icon.has(pointer.0, pointer.1) {
         d.round_rect(log_icon.x, log_icon.y, log_icon.w, log_icon.h, bh * 0.5, t.color.hover);
     }
-    d.icon(right, mid - icon * 0.5, icon, "entry", if s.log_open { t.color.accent } else { t.color.text });
+    d.icon(right, mid - icon * 0.5, icon, "entry", if s.log_open { t.color.text } else { t.color.muted });
     opens_log.push(log_icon);
     right -= pad;
     let counts_end = right;

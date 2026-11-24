@@ -5,8 +5,10 @@ use crate::rows::Edited;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// a group's colours, in the order new groups take them
-pub const COLOURS: [&str; 6] = ["#5fb3ff", "#7fd68a", "#f2b84b", "#e07ad6", "#ff7a6b", "#9a8cff"];
+/// a group's colours, in the order new groups take them (the kit's `[groups]`)
+pub fn colours() -> [String; 6] {
+    deck_kit::base::tokens::Colors::default().groups.map(deck_kit::base::tokens::to_hex)
+}
 /// a folded group's pill in the graph: `group:<id>`
 pub const GROUP: &str = deck_kit::base::graph::PILL;
 
@@ -122,9 +124,10 @@ pub fn edit(show: &Show, row: &str, e: &Edit) -> Result<Edited, String> {
             }
             c.groups.retain(|g| !g.nodes.is_empty());
             let id = free("group", |id| c.group(id).is_some());
-            let colour = COLOURS.iter().find(|k| !c.groups.iter().any(|g| g.colour == **k)).unwrap_or(&COLOURS[c.groups.len() % COLOURS.len()]);
+            let all = colours();
+            let colour = all.iter().find(|k| !c.groups.iter().any(|g| g.colour == **k)).unwrap_or(&all[c.groups.len() % all.len()]).clone();
             let label = format!("group {}", c.groups.len() + 1);
-            c.groups.push(Group { id, label: label.clone(), colour: (*colour).into(), nodes: nodes.clone(), folded: false });
+            c.groups.push(Group { id, label: label.clone(), colour, nodes: nodes.clone(), folded: false });
             format!("{label}: {} grouped", nodes.len())
         }
         Edit::GroupLabel { group, to } => {
@@ -140,8 +143,9 @@ pub fn edit(show: &Show, row: &str, e: &Edit) -> Result<Edited, String> {
         Edit::GroupColour { group } => {
             let i = group_at(c, group)?;
             let g = &mut c.groups[i];
-            let k = COLOURS.iter().position(|k| *k == g.colour).map_or(0, |k| (k + 1) % COLOURS.len());
-            g.colour = COLOURS[k].into();
+            let all = colours();
+            let k = all.iter().position(|k| *k == g.colour).map_or(0, |k| (k + 1) % all.len());
+            g.colour = all[k].clone();
             format!("{} recoloured", g.label)
         }
         Edit::Note { node, author } => {
@@ -218,7 +222,8 @@ mod tests {
         let n = edit(&f, &row, &Edit::GroupLabel { group: id.clone(), to: " sources ".into() }).unwrap().show;
         assert_eq!(n.rows[0].nodes.groups[0].label, "sources");
         let k = edit(&n, &row, &Edit::GroupColour { group: id.clone() }).unwrap().show;
-        assert_eq!(k.rows[0].nodes.groups[0].colour, COLOURS[1]);
+        assert_eq!(k.rows[0].nodes.groups[0].colour, colours()[1]);
+        assert_eq!(colours()[0], "#5fb3ff", "the stored form stays the hex the documents hold");
         let u = edit(&k, &row, &Edit::GroupLabel { group: id, to: "".into() }).unwrap().show;
         assert!(u.rows[0].nodes.groups.is_empty());
     }

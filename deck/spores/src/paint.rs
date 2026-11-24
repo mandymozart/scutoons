@@ -81,7 +81,7 @@ pub fn frame_of(doc: &Canvas, k: usize, members: &[usize], g: &Graph, placed: &[
     let b = graph::bounds_of(members.iter().filter_map(|&i| placed.get(i)).map(|p| p.rect));
     let u = cam.unit;
     let world = Rect { x: b.x - u, y: b.y - 2.0 * u, w: b.w + 2.0 * u, h: b.h + 3.0 * u };
-    let colour = grp.colour.as_deref().and_then(colour::rgb).map_or([0.6, 0.6, 0.6, 1.0], |c| colour::rgba(c, 1.0));
+    let colour = grp.colour.as_deref().and_then(colour::rgb).map_or_else(|| deck_kit::base::tokens::Colors::default().group(k), |c| colour::rgba(c, 1.0));
     Some(Frame { k, id: grp.id.clone(), label: grp.label.clone(), colour, rect: cam.rect(world) })
 }
 
@@ -100,8 +100,23 @@ pub fn wires(g: &Graph, placed: &[Placed], cam: &Cam) -> Vec<(usize, Wire)> {
         .collect()
 }
 
-/// a group's ground: its grid's dots in its colour, lighter than a reveal's, and its edge
-pub fn ground(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam, canvas: Rect) {
+/// the least room between two dots of the canvas's faint ground: zoomed out it takes every second line
+const FIELD_ROOM: f32 = 12.0;
+
+/// the canvas's own ground: one faint layer of the grid's dots under everything, in the line colour
+pub fn field(d: &mut DrawList, t: &Tokens, cam: &Cam, canvas: Rect) {
+    let mut unit = cam.unit;
+    while unit * cam.z() < FIELD_ROOM {
+        unit *= 2.0;
+    }
+    for (p, _) in canvas::dots(canvas, cam.at, cam.view, unit, |_| 1.0) {
+        d.disc(p.0, p.1, 1.0, t.color.line);
+    }
+}
+
+/// a group's ground: its grid's dots in its colour over the canvas's, lighter than a reveal's, and its edge (whole under
+/// the pointer)
+pub fn ground(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam, canvas: Rect, hovered: bool) {
     let r = f.rect;
     let inside = Rect { x: r.x.max(canvas.x), y: r.y.max(canvas.y), w: (r.x + r.w).min(canvas.x + canvas.w) - r.x.max(canvas.x), h: (r.y + r.h).min(canvas.y + canvas.h) - r.y.max(canvas.y) };
     if inside.w > 0.0 && inside.h > 0.0 {
@@ -109,7 +124,7 @@ pub fn ground(d: &mut DrawList, t: &Tokens, f: &Frame, cam: &Cam, canvas: Rect) 
             d.disc(p.0, p.1, 1.0, faded(f.colour, a));
         }
     }
-    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 2.0 * cam.z(), 1.0), faded(f.colour, 0.45));
+    d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 2.0 * cam.z(), 1.0), faded(f.colour, if hovered { 1.0 } else { 0.45 }));
 }
 
 /// a group's head: its fold, its swatch (the next colour), its label (renamed in place); the presses on them
@@ -230,10 +245,10 @@ pub fn reveal(d: &mut DrawList, r: &Reveal, (n, cam, canvas): (&dyn Seen, &Cam, 
             Shape::Line(pts) => canvas::to_line(pts, p),
         };
         let follow = blob.map_or(1.0, |q| 0.5 + 0.5 * canvas::falloff(((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt(), 8.0 * cam.unit * z));
-        s * canvas::falloff(d, reach) * follow * 0.6
+        s * canvas::falloff(d, reach) * follow * 0.9
     };
     for (p, a) in canvas::dots(area, cam.at, cam.view, cam.unit, near) {
-        d.disc(p.0, p.1, 1.1, faded(r.colour, a));
+        d.disc(p.0, p.1, 1.2, faded(r.colour, a));
     }
 }
 
@@ -296,12 +311,11 @@ fn wrap(text: &str, per: usize) -> Vec<String> {
     lines
 }
 
-/// The canvas's notes: neutral grey (the theme's ground and ink mixed: light at day, dark at night), the author small
-/// above; beside their spore, else in a column after the graph. `editing` = the text while a note is typed. The presses.
+/// The canvas's notes: on a control's see-through ground, the author small above; beside their spore, else in a column after the graph. `editing` = the text while a note is typed. The presses.
 pub fn notes(d: &mut DrawList, t: &Tokens, (doc, drawn, bounds): (&Canvas, &[(String, Rect)], Rect), cam: &Cam, editing: &dyn Fn(&str) -> Option<String>) -> Vec<(usize, Rect)> {
     let (z, u) = (cam.z(), cam.unit);
     let (small, pad) = (t.size.small * z, t.size.pad * z);
-    let ground = mix(t.color.surface, t.color.text, 0.13);
+    let ground = t.color.control;
     let mut free_y = bounds.y;
     let mut out = Vec::new();
     for (k, note) in doc.notes.as_deref().unwrap_or_default().iter().enumerate() {
