@@ -30,7 +30,7 @@
 		margin: 0;
 		padding: var(--space-05) 0 0;
 		border: var(--border-width-regular) solid var(--tool-line);
-		border-radius: 0;
+		border-radius: var(--kit-radius-box);
 		background: var(--tool-ground);
 		color: var(--tool-muted);
 		font-size: var(--type-caption-size);

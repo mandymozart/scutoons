@@ -45,7 +45,7 @@
 	};
 </script>
 
-<div class="panel" data-testid="generate-panel">
+<div class="panel" data-prop-stack data-testid="generate-panel">
 	{#if sb.sel}
 		<span class="sc-label">{m['storyboard.slot_title']({ id: sb.sel.id })}</span>
 		<ShotAssetSlot {sb} />

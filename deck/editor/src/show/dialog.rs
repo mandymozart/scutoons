@@ -73,7 +73,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, room: (f32, f32), poi
     host.hits.push((r, Hit::Ground));
     let s = t.kit("overlay", "box");
     let radius = t.size.radius * 2.0;
-    d.round_rect(r.x, r.y, r.w, r.h, radius, s.ground.unwrap_or(t.color.panel()));
+    d.round_rect(r.x, r.y, r.w, r.h, radius, s.ground.unwrap_or(t.color.popover()));
     if let Some(b) = s.border {
         d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), b);
     }

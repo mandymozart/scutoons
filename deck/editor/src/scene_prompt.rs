@@ -144,7 +144,7 @@ impl ScenePrompt {
         let w = (font * 32.0).min(room.0 - 2.0 * pad);
         let h = small * 1.8 + row * 2.0 + row + pad * 3.0 + (t.size.row - 4.0);
         let (x, y) = ((room.0 - w) * 0.5, ((room.1 - h) * 0.4).max(pad));
-        d.round_rect(x, y, w, h, t.size.radius, t.color.panel());
+        d.round_rect(x, y, w, h, t.size.radius, t.kit("overlay", "box").ground.unwrap_or(t.color.popover()));
         d.outline(x, y, w, h, (t.size.radius, 1.0), t.color.line);
         let (x, w) = (x + pad, w - 2.0 * pad);
         let mut y = y + pad;

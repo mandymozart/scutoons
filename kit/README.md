@@ -8,7 +8,8 @@
   showing through; an opaque grey fill does not exist; a grey ground in a draft or a capture is not the reference
   (owner 2026-11-24). The generator refuses an opaque ground.
 - The stage is black by night, white by day.
-- A panel and a menu are the stage colour (`surface`) at one strength (`panel_opacity`).
+- A panel is the stage colour (`surface`) at one strength (`panel_opacity`); a menu, a popover and a dialog's box lie
+  over panels and take a stronger one (`popover_opacity`), with the ink ring – still see-through.
 - A control is the text colour at 6 %, hover 10 %, selected 16 %.
 - No signal hue: on, focus, selected are the text colour; colour only says ok, warning, error; what keeps colour is in
   RULES H11.

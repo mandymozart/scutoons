@@ -40,7 +40,7 @@
 		margin: 0;
 		padding: 0 var(--space-05);
 		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
+		border-radius: var(--radius-none);
 		background: var(--paper);
 		color: var(--text-muted);
 		font: inherit;

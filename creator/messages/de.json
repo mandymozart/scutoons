@@ -2199,7 +2199,6 @@
 		"hh_link_hint": "Den Link des Handys kopieren",
 		"hh_link_copied": "Der Link des Handys ist kopiert.",
 		"hh_take_kept": "{kept} s von {all} s",
-		"hh_trim_clip": "am Clip unten",
 		"slot_title": "Asset · {id}",
 		"slot_by_hand": "Von Hand",
 		"slot_empty": "leer",

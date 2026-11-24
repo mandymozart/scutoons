@@ -13,6 +13,8 @@ export interface Look {
 	/** the colours by deck-kit name, "#rrggbb" or "#rrggbbaa" (lists such as axis and strips stay in the deck) */
 	colors: Record<string, string>;
 	panelOpacity: number;
+	/** a menu's, a popover's, a dialog box's strength over what lies under it: above a panel's, still see-through */
+	popoverOpacity: number;
 	inkRing: boolean;
 	signals: Record<string, string>;
 	outlets: Record<string, string>;
@@ -97,9 +99,11 @@ function colours(t: Table | undefined, where: string): Record<string, string> {
 }
 
 function look(f: Record<string, Table>, name: 'day' | 'night'): Look {
-	const { panel_opacity, ink_ring, ...merged } = { ...f.color, ...f[`${name}.color`] };
-	if (typeof panel_opacity !== 'number' || typeof ink_ring !== 'boolean') throw new Error(`[${name}.color] needs panel_opacity and ink_ring`);
-	if (!(panel_opacity > 0 && panel_opacity < 1)) throw new Error(`panel_opacity ${panel_opacity}: the stage shows through (0 < it < 1)`);
+	const { panel_opacity, popover_opacity, ink_ring, ...merged } = { ...f.color, ...f[`${name}.color`] };
+	if (typeof panel_opacity !== 'number' || typeof popover_opacity !== 'number' || typeof ink_ring !== 'boolean') throw new Error(`[${name}.color] needs panel_opacity, popover_opacity and ink_ring`);
+	for (const [k, v] of [['panel_opacity', panel_opacity], ['popover_opacity', popover_opacity]] as const) {
+		if (!(v > 0 && v < 1)) throw new Error(`${k} ${v}: the stage shows through (0 < it < 1)`);
+	}
 	const colors = colours(merged, `${name}.color`);
 	for (const k of ['surface', 'text', 'pressed', 'pressed_text']) if (!colors[k]) throw new Error(`[${name}.color] has no ${k}`);
 	if (colors.surface.length !== 7) throw new Error(`[${name}.color] surface is opaque (#rrggbb): panel_opacity makes it see-through`);
@@ -109,6 +113,7 @@ function look(f: Record<string, Table>, name: 'day' | 'night'): Look {
 	return {
 		colors,
 		panelOpacity: panel_opacity,
+		popoverOpacity: popover_opacity,
 		inkRing: ink_ring,
 		signals: colours(f[`${name}.signals`], `${name}.signals`),
 		outlets: colours(f[`${name}.outlets`], `${name}.outlets`),
@@ -139,7 +144,7 @@ export function parse(toml: string): KitTokens {
 const PARTS = ['text', 'ground', 'border', 'ring', 'knob', 'mark'];
 /** the colours a state may name: those tool-colours.css names --tool-* */
 const TOOL_TOKENS = ['text', 'muted', 'line', 'bright', 'control', 'hover', 'pressed', 'pressed_text', 'selected', 'within', 'selection', 'surface_head', 'danger', 'go', 'warn', 'stop'];
-/** what a state may name beside the colours: the see-through surface of a panel and a popover, and nothing */
+/** what a state may name beside the colours: the see-through surface of a panel (panel_opacity) and of a popover (popover_opacity), and nothing */
 const EXTRA_TOKENS = ['panel', 'popover', 'none'];
 /** never a ground at full strength: they are opaque greys (or the ink itself) */
 const NOT_A_GROUND = ['line', 'muted', 'text', 'bright', 'surface', 'stage'];
@@ -223,6 +228,9 @@ function lookCss(l: Look): string[] {
 		`\t--editor-panel-opacity: ${num(l.panelOpacity)};`,
 		`\t/* a floating panel's see-through ground (the surface's colour at the panel opacity, no blur) */`,
 		`\t--editor-panel-ground: rgb(${rgb(surface)} / ${num(l.panelOpacity)});`,
+		`\t/* a menu's, a popover's, a dialog box's see-through ground: over a panel, stronger than it */`,
+		`\t--editor-popover-opacity: ${num(l.popoverOpacity)};`,
+		`\t--editor-popover-ground: rgb(${rgb(surface)} / ${num(l.popoverOpacity)});`,
 		`\t/* the ink ring: text and icons on a panel take its ground's colour as an outline (deck-kit DrawList::halo) */`,
 		`\t--editor-halo: ${l.inkRing ? `0 0 2px ${surface}, 0 0 2px ${surface}, 0 0 3px ${surface}` : 'none'};`,
 		`\t/* what a port, a pin and a cable carries */`,

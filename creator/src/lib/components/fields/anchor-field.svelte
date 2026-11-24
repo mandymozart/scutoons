@@ -101,7 +101,7 @@
 		height: 100%; /* control-ok: a cell of the one control-height group */
 		min-width: 0;
 		min-height: 0;
-		border-radius: 0;
+		border-radius: calc(var(--editor-radius) / 2);
 		background: var(--tool-control);
 		cursor: pointer;
 		display: grid;

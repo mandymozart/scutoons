@@ -86,7 +86,7 @@
 >
 	<div class="veil" aria-hidden="true"></div>
 	{#if children && place !== 'veil'}
-		<div bind:this={box} class="content {cls}" tabindex="-1" {...rest}>{@render children()}</div>
+		<div bind:this={box} class="content {cls}" tabindex="-1" data-focus-own {...rest}>{@render children()}</div>
 	{/if}
 </div>
 

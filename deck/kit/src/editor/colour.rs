@@ -244,7 +244,7 @@ pub fn popover(d: &mut DrawList, t: &Tokens, (anchor, room): (Rect, (f32, f32)),
     let below = anchor.y + anchor.h + 4.0;
     let y = if below + h > room.1 - 8.0 { (anchor.y - 4.0 - h).max(8.0) } else { below };
     let whole = Rect { x, y, w, h };
-    d.round_rect(x, y, w, h, t.size.radius * 2.0, t.color.panel());
+    d.round_rect(x, y, w, h, t.size.radius * 2.0, t.color.popover());
     d.outline(x, y, w, h, (t.size.radius * 2.0, 1.0), t.color.line);
     let mut out = Placed { whole, parts: Vec::new() };
     let (ix, iw) = (x + pad, w - 2.0 * pad);

@@ -101,8 +101,8 @@
 		min-width: 0;
 		padding: 0 var(--space-05);
 		background: var(--paper);
-		border-right: var(--border-width-regular) solid var(--ink);
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-right: var(--border-width-hairline) solid var(--border-muted);
+		border-bottom: var(--border-width-hairline) solid var(--border-muted);
 	}
 	.label > span, .name {
 		overflow: hidden;
@@ -113,7 +113,7 @@
 		position: relative;
 		min-width: 0;
 		overflow-x: clip; /* an instant / a grip at the span's end: no scrollbar at zoom 1 */
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--border-muted);
 	}
 	.items { position: absolute; inset: 0; user-select: none; }
 	.item {
@@ -125,13 +125,19 @@
 		overflow: hidden;
 		/* the label hides on narrow items; the app's snippet can ask the item too (@container) */
 		container-type: inline-size;
-		background: var(--paper);
+		/* the kit's control: a see-through ground, rounded, no frame; a hairline of nothing keeps neighbours apart */
+		background: var(--tool-control, var(--paper));
+		background-clip: padding-box;
 		color: var(--ink);
-		border: var(--border-width-hairline) solid var(--ink);
+		border: var(--border-width-hairline) solid transparent;
+		border-radius: var(--radius-none);
 		scroll-margin-inline: var(--timeline-label) 0;
 	}
-	/* a picture (the app's snippet) covers the inversion: the selected item also gets an inset ink frame */
-	.item.sc-selected:not(:focus-visible) { outline: var(--border-width-focus) solid var(--ink); outline-offset: calc(-1 * var(--border-width-focus)); }
+	/* selected: the selected ground, no frame (RULES H11 – the live region's inset line too) */
+	.track .item.sc-selected[class] {
+		background: var(--tool-selected, var(--paper));
+		box-shadow: none;
+	}
 	.name {
 		display: block;
 		padding: 0 var(--space-025);

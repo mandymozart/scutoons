@@ -75,6 +75,8 @@
 		min-height: 20rem;
 		margin-top: var(--space-05);
 		position: relative;
-		border: var(--border-width-regular) solid var(--tool-text);
+		overflow: hidden;
+		border: var(--editor-edge) solid var(--tool-line);
+		border-radius: var(--kit-radius-box);
 	}
 </style>
