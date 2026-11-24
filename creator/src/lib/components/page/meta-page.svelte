@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { Icon, type GroupBarItem } from '@scutoons/ui';
+	import { Pill } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
@@ -38,16 +38,10 @@
 		help,
 		children,
 		status,
-		more = [],
-		selection = null,
 		ongoto
 	}: {
 		/** a Problems row's "go to" (the page's own places – the storyboard's shots); without it a row only restores */
 		ongoto?: (problem: Problem) => void;
-		/** the page's own entries in its line (the map builder's Import) */
-		more?: GroupBarItem[];
-		/** the selected object's own actions in the page's line */
-		selection?: { label: string; items: GroupBarItem[] } | null;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
 		title: string;
@@ -62,7 +56,7 @@
 		wide?: boolean;
 		/** the content fills the page's height without padding (a canvas: the map builder; with `usePageNav({ fill })`) */
 		fill?: boolean;
-		/** page-level actions in the page's line (e.g. "New character") */
+		/** the page's own actions (e.g. "New character"): IconButtons, in the page's toolbar pill (RULES H4) */
 		actions?: Snippet;
 		/** the page's help (Info) */
 		help: HelpPage;
@@ -113,9 +107,6 @@
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 	const unpublished = $derived(docs.some((d) => d.unpublished.length));
-	const extras = $derived(!!selection || more.length > 0 || !!actions);
-	/** a page entry or a selection's action as a button (a group gives its actions) */
-	const flat = (items: GroupBarItem[]): GroupBarItem[] => items.flatMap((i) => (i.items ? flat(i.items) : [i]));
 
 	// the bar: ↶ ↷, Publish (its dot; the page saved first) and History; the status bar: "saving…" and the counts; Problems is a panel tab
 	usePageDoc(() => ({ saving: anySaving, errors: errorCount, warnings: warningCount, unpublished, ...session.publishHooks, docs, undo, redo }));
@@ -141,36 +132,14 @@
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
 		<!-- the page's own status line (the script's rules link + cursor) -->
-		{#if status || extras}<div class="files" data-testid="page-status">{#if extras}{@render pageActions()}{/if}{#if status}<span class="status-end">{@render status()}</span>{/if}</div>{/if}
+		{#if status}<div class="files" data-testid="page-status"><span class="status-end">{@render status()}</span></div>{/if}
+		{#if actions}<div class="tools"><Pill label={title} data-testid="page-actions">{@render actions()}</Pill></div>{/if}
 		<DocNotices {session} docs={[...docs, ...along()]} />
 		<main class="content">
 			{@render children()}
 		</main>
 	{/if}
 </div>
-
-<!-- the page's own actions (they lay in the bar's Publish menu until Publish became one dialog, RULES H18) -->
-{#snippet pageActions()}
-	<div class="page-actions" data-testid="page-actions">
-		{#if selection}
-			<p class="label">{selection.label}</p>
-			<div class="row wrap">
-				{#each flat(selection.items) as item (item.id)}
-					<button type="button" class="ghost" class:active={item.active} disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
-				{/each}
-			</div>
-		{/if}
-		{#if more.length || actions}
-			<div class="row wrap">
-				{#each flat(more) as item (item.id)}
-					<button type="button" class="ghost" disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid}>{#if item.icon}<Icon name={item.icon} />{/if}{item.label}</button>
-				{/each}
-				{#if actions}{@render actions()}{/if}
-			</div>
-		{/if}
-	</div>
-{/snippet}
-
 
 <style>
 	.status-end {
@@ -212,22 +181,8 @@
 		width: 100%;
 		max-width: none;
 	}
-	.page-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	.row {
-		display: flex;
-		gap: var(--space-05);
-	}
-	.row.wrap {
-		flex-wrap: wrap;
-	}
-	.label {
-		margin: 0;
-		color: var(--tool-muted);
+	.tools {
+		padding: var(--space-05) var(--space-1) 0;
 	}
 	.pad {
 		padding: 1rem;

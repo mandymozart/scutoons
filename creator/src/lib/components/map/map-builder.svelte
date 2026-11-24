@@ -33,6 +33,7 @@
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
 	import { Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, choiceDialog } from '@scutoons/ui';
+	import { IconButton, Pill } from '@scutoons/ui/editor';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -573,7 +574,8 @@
 		regionBrush.region = id;
 	}
 
-	const selectionActions = $derived.by(() => {
+	type MapAction = { id: string; icon: string; label: string; run: () => void; active?: boolean; disabled?: boolean; testid?: string };
+	const selectionActions = $derived.by((): { label: string; items: MapAction[] } | null => {
 		const s = selection;
 		if (!s || !map) return null;
 		if (s.kind === 'place') {
@@ -715,7 +717,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" selection={selectionActions}>
+<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map">
 	{#if map}
 		<div class="builder" class:side-empty={sideEmpty} bind:this={builderEl} style:--map-side-width={sideSize.css} data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<!-- the tools are strips on the canvas at every width (owner 2026-10-11: "in Desktop platzeffizienter – Toons und
@@ -760,19 +762,31 @@
 					onaddroute={onAddRoute}
 					onendpoint={onEndpoint}
 				/>
-				<!-- UI-CONCEPTS E.10, on every width since 2026-10-11: tools left, fit + go to the view right (zoom: wheel / two fingers) -->
-				<div class="strip tools" role="toolbar" aria-label={m['creator.map']()}>
-					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer', 'V'], ['place', m['creator.map_tool_place'](), 'map-pin', 'P'], ['route', m['creator.map_tool_route'](), 'share-2', 'R']] as [id, label, icon, key] (id)}
-						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label="{label} ({key})" title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}"><Icon name={icon} /></button>
-					{/each}
-					<span class="sep"></span>
-					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)} data-testid="reader-view"><Icon name="eye" /></button>
-					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame"><Icon name="smartphone" /></button>
+				<!-- the page's toolbar on the canvas (RULES H4): the tools, the views, the selection's own actions; fit + go to the view bottom right -->
+				<div class="toolbar tools" role="toolbar" aria-label={m['creator.map']()}>
+					<Pill>
+						{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer', 'V'], ['place', m['creator.map_tool_place'](), 'map-pin', 'P'], ['route', m['creator.map_tool_route'](), 'share-2', 'R']] as [id, label, icon, key] (id)}
+							<IconButton label="{label} ({key})" {icon} pressed={tool === id} onclick={() => (tool = id as MapTool)} data-testid="tool-{id}" />
+						{/each}
+					</Pill>
+					<Pill>
+						<IconButton label={m['creator.map_reader_view']()} icon="eye" pressed={readerView} onclick={() => (readerView = !readerView)} data-testid="reader-view" />
+						<IconButton label={m['creator.map_phone_frame']()} icon="smartphone" pressed={phoneFrame} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame" />
+					</Pill>
+					{#if selectionActions}
+						<Pill label={selectionActions.label} data-testid="page-actions">
+							{#each selectionActions.items as item (item.id)}
+								<IconButton label={item.label} icon={item.icon} pressed={item.active} disabled={item.disabled} onclick={() => item.run?.()} data-testid={item.testid} />
+							{/each}
+						</Pill>
+					{/if}
 				</div>
 				{#if !allOnScreen || !atViewTarget}
-					<div class="strip zooms" role="group" aria-label={m['creator.field_map_zoom']()}>
-						{#if !allOnScreen}<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()} data-testid="map-fit"><Icon name="maximize" /></button>{/if}
-						{#if !atViewTarget}<button type="button" onclick={gotoView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()} data-testid="map-go-view"><Icon name="crosshair" /></button>{/if}
+					<div class="toolbar zooms">
+						<Pill label={m['creator.field_map_zoom']()}>
+							{#if !allOnScreen}<IconButton label={m['creator.map_fit']()} icon="maximize" onclick={fitAll} data-testid="map-fit" />{/if}
+							{#if !atViewTarget}<IconButton label={m['creator.map_go_view']()} icon="crosshair" onclick={gotoView} data-testid="map-go-view" />{/if}
+						</Pill>
 					</div>
 				{/if}
 			</div>
@@ -858,45 +872,22 @@
 		}
 	}
 
-	/* the canvas strips (every width): square, grouped controls (DESIGN.md "Round vs square") */
-	.strip {
+	/* the canvas toolbar: pills floating on the stage */
+	.toolbar {
 		position: absolute;
 		z-index: 2;
-		flex-direction: column;
-		background: var(--tool-popover);
-		text-shadow: var(--tool-halo);
-		border: var(--border-width-regular) solid var(--tool-text);
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 	}
-	.strip.tools {
+	.toolbar.tools {
 		top: 0.6rem;
-		left: 0.6rem;
+		left: 50%;
+		transform: translateX(-50%);
 	}
-	.strip.zooms {
+	.toolbar.zooms {
 		right: 0.6rem;
 		bottom: 0.6rem;
-	}
-	.strip button {
-		all: unset;
-		box-sizing: border-box;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--control-height);
-		height: var(--control-height);
-		color: var(--tool-text);
-		cursor: pointer;
-	}
-	.strip button.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-	}
-	.strip button:disabled {
-		opacity: 0.35;
-		cursor: default;
-	}
-	.strip .sep {
-		height: var(--border-width-regular);
-		background: var(--tool-pressed);
 	}
 	.start-tab {
 		padding: 0 0.75rem 1rem;

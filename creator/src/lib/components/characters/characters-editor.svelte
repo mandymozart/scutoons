@@ -26,7 +26,8 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
-	import { askDialog, Icon } from '@scutoons/ui';
+	import { askDialog } from '@scutoons/ui';
+	import { IconButton } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -252,7 +253,7 @@
 
 <MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters">
 	{#snippet actions()}
-		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
+		<IconButton label={m['creator.characters_new']()} icon="plus" onclick={startNew} data-testid="new-character" />
 	{/snippet}
 	<div class="area" class:open={!!selectedCharacter}>
 		{#if registry.loading}
