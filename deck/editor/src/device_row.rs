@@ -20,13 +20,16 @@ enum Job {
     Still { url: String, token: String, webp: Vec<u8> },
 }
 
+/// the workspace in front and its item
+type Front = (Option<Workspace>, Option<String>);
+
 #[derive(Default)]
 pub struct DeviceRow {
     /// the front (workspace, item) and the state last sent for it (none: not yet); the row's last items change only
     /// with the front
-    sent: Option<((Option<Workspace>, Option<String>), serde_json::Value)>,
+    sent: Option<(Front, serde_json::Value)>,
     /// the front workspace and item, since which frame, when its picture was last taken
-    front: (Option<Workspace>, Option<String>),
+    front: Front,
     since: u64,
     taken: Option<Instant>,
     /// each workspace's newest picture not sent yet
@@ -77,7 +80,7 @@ impl DeviceRow {
 
     /// Each frame (not in a check run): the front workspace and item, the row's last items, whether the switcher or
     /// Home covers the workspace. A changed row goes up; a workspace left sends its picture.
-    pub fn follow(&mut self, api: &str, token: Option<String>, front: (Option<Workspace>, Option<String>), last: &BTreeMap<Workspace, String>, covered: bool, frame: u64) {
+    pub fn follow(&mut self, api: &str, token: Option<String>, front: Front, last: &BTreeMap<Workspace, String>, covered: bool, frame: u64) {
         let shown = if covered { (None, None) } else { front.clone() };
         if shown != self.front {
             if let Some(left) = self.front.0.filter(|w| shown.0 != Some(*w)) {

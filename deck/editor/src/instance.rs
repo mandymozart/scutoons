@@ -76,8 +76,10 @@ fn take_line(s: TcpStream, secret: &str) -> Option<String> {
 pub fn claim(cache: &Path, link: Option<&str>) -> Claim {
     let file = cache.join(FILE);
     if hand(&file, link) {
+        tracing::info!("a deck editor runs already: it takes this start");
         return Claim::Handed;
     }
+    let _ = std::fs::create_dir_all(cache);
     let (tx, rx) = channel();
     let secret = secret();
     match TcpListener::bind((Ipv4Addr::LOCALHOST, 0)) {
