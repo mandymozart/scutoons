@@ -107,11 +107,12 @@ impl Serialize for Workspace {
 
 /// every kind of address the Library can list, in the order "Items to open" groups them: its word before `:` and
 /// how a list names it
-pub const KINDS: [(&str, &str); 28] = [
+pub const KINDS: [(&str, &str); 31] = [
     ("toon", "toons"),
     ("season", "seasons"),
     ("chapter", "chapters"),
     ("storyboard", "storyboards"),
+    ("shot", "shots"),
     ("character", "characters"),
     ("place", "places"),
     ("route", "routes"),
@@ -131,6 +132,8 @@ pub const KINDS: [(&str, &str); 28] = [
     ("preset", "presets"),
     ("show", "shows"),
     ("kanon", "Kanon texts"),
+    ("generator", "generators"),
+    ("person", "people"),
     ("image", "images"),
     ("audio", "audio"),
     ("video", "video"),
@@ -148,7 +151,7 @@ fn workspace(kind: &str, editor: Editor) -> Option<Workspace> {
         Editor::Creator => Some(match kind {
             "toon" | "season" => W::Toon,
             "chapter" => W::Chapter,
-            "storyboard" => W::Storyboard,
+            "storyboard" | "shot" | "generator" => W::Storyboard,
             "character" => W::Character,
             "place" | "route" | "region" => W::Map,
             "scene" => W::Scene,
@@ -160,7 +163,7 @@ fn workspace(kind: &str, editor: Editor) -> Option<Workspace> {
             _ => return None,
         }),
         Editor::Deck => Some(match kind {
-            "scene" | "character" => W::Stage,
+            "scene" | "character" | "shot" => W::Stage,
             "module" => W::Module,
             "show" => W::Show,
             "image" | "audio" | "video" | "model" | "animation" => W::Asset,
@@ -195,9 +198,9 @@ pub fn open(address: &str, editor: Editor) -> Result<Opening, String> {
     opens(kind, editor).map(|workspace| Opening { address: format!("{kind}:{id}"), workspace })
 }
 
-/// a Library entry opened: a toon's file by its kind (its address is its path), anything else by its address
+/// a Library entry opened: a toon's file by its kind (an address without it is its path), anything else by its address
 pub fn open_entry(kind: Kind, address: &str, editor: Editor) -> Result<Opening, String> {
-    if kind.is_file() {
+    if kind.is_file() && !address.starts_with(&format!("{}:", kind.id())) {
         open(&format!("{}:{address}", kind.id()), editor)
     } else {
         open(address, editor)
@@ -271,6 +274,13 @@ mod tests {
         assert_eq!(e(Kind::Place, "place:harbour"), Err("places open in the map of the creator; the deck editor has no workspace for them yet".into()));
         assert_eq!(e(Kind::File, "cat/notes.pdf"), Err("files open in the asset details of the creator; the deck editor has no workspace for them yet".into()));
         assert_eq!(e(Kind::Instrument, "instrument:organ"), Err("instruments have no workspace yet".into()));
+        assert_eq!(e(Kind::Image, "image:cat/a.webp"), Ok(("image:cat/a.webp".into(), "asset")), "the server's file address");
+        assert_eq!(e(Kind::Show, "show:duet"), Ok(("show:duet".into(), "show")));
+        assert_eq!(at("shot:catpope:3:sb-25-1", d), Ok(("shot:catpope:3:sb-25-1".into(), "stage")), "a shot opens on the stage");
+        assert_eq!(at("shot:catpope:3:sb-25-1", Editor::Creator), Ok(("shot:catpope:3:sb-25-1".into(), "storyboard")));
+        assert_eq!(e(Kind::Toon, "toon:catpope"), Err("toons open in the toon of the creator; the deck editor has no workspace for them yet".into()));
+        assert_eq!(e(Kind::Generator, "generator:g1"), Err("generators open in the storyboard of the creator; the deck editor has no workspace for them yet".into()));
+        assert_eq!(e(Kind::Person, "person:p1"), Err("people have no workspace yet".into()));
     }
 
     #[test]
@@ -283,7 +293,7 @@ mod tests {
             }
         }
         for (kind, _) in KINDS {
-            assert!(opens(kind, Editor::Creator).is_ok() || opens(kind, Editor::Deck).is_ok() || kind == "instrument" || kind == "preset", "{kind} opens somewhere or is a known gap");
+            assert!(opens(kind, Editor::Creator).is_ok() || opens(kind, Editor::Deck).is_ok() || ["instrument", "preset", "person"].contains(&kind), "{kind} opens somewhere or is a known gap");
         }
     }
 
@@ -295,7 +305,7 @@ mod tests {
         assert_eq!(no, json!({ "ok": false, "why": "phone: no such editor" }));
         let kinds: Vec<Value> = serde_json::from_str(&kinds_json("creator")).unwrap();
         assert_eq!(kinds.len(), KINDS.len() + 1);
-        assert_eq!(kinds[4], json!({ "kind": "character", "words": "characters", "workspace": "character", "opens": "the character workspace" }));
+        assert_eq!(kinds[5], json!({ "kind": "character", "words": "characters", "workspace": "character", "opens": "the character workspace" }));
         assert!(kinds.iter().any(|k| k["kind"] == "instrument" && k["why"] == "instruments have no workspace yet"));
         assert_eq!(kinds_json("phone"), "[]");
     }

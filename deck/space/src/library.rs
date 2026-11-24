@@ -6,6 +6,8 @@ use deck_catalog::library::{graph, Entry, Kind, Preview};
 use deck_catalog::Domain;
 use protocol::address_book::AddressKind;
 
+pub mod served;
+
 /// the book's characters (their top level), items, places and scenes; a character's and a scene's preview is the
 /// stage's still of it
 pub fn from_book(book: &Book, locale: &str) -> Vec<Entry> {

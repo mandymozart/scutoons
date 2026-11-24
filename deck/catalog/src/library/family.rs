@@ -2,7 +2,7 @@
 //! their format are one family – one tile, its versions a stack behind it (agents/ASSETS.md "Grouping", "Variants are
 //! suffixes"). A video's subtitles (`speak.en.vtt` beside `speak.mp4`) and the parts a document links to a model stand
 //! with it in a frame; the Library makes no link of its own: a frame is the name contract or a link the caller read.
-use super::{Entry, Kind, Preview};
+use super::{Kind, Preview};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -426,24 +426,3 @@ pub fn frames(families: &[Family], links: &[(String, String)]) -> Vec<Frame> {
     out
 }
 
-impl Family {
-    /// the family as the deck's library entry (its browser lists it like any asset)
-    pub fn entry(&self) -> Entry {
-        self.entry_on("")
-    }
-
-    /// the entry with its picture served from `cdn` (the assets' answer's base; empty = the paths as they are)
-    pub fn entry_on(&self, cdn: &str) -> Entry {
-        let detail = match (self.duration, self.width, self.height) {
-            (Some(s), _, _) => format!("{s:.1} s"),
-            (_, Some(w), Some(h)) => format!("{w} × {h}"),
-            _ => self.folder.clone(),
-        };
-        let cdn = cdn.trim_end_matches('/');
-        let preview = match &self.preview {
-            Preview::Picture { url } if !cdn.is_empty() => Preview::Picture { url: format!("{cdn}/{}", url.trim_start_matches('/')) },
-            p => p.clone(),
-        };
-        Entry { address: self.main.clone(), label: self.title.clone(), detail, kind: self.kind, preview, made_for: self.made_for.clone() }
-    }
-}

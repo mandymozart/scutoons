@@ -1,13 +1,19 @@
-//! The library panel (deck-kit `library`, the core's entries from deck-catalog / deck-space `library`) in Build, Show and
-//! Module: what each workspace loads into the one browser, the previews' pictures – a still the stage drew of what it
-//! played, kept in the cache by key, and an asset's picture fetched once – and the card's way out: dropped where the
-//! workspace takes it (Build's stage: a track; Show's cell: its piece), opened in its editor view on a second press.
+//! The library panel (deck-kit `library`) in Build, Show and Module: the server's Library of the toon (`served`, the same
+//! list the creator shows), a thing stepped into, the workspace's own entries only until the server has answered once
+//! (and their previews – a module's wiring, a still – where the server has no picture), the previews' pictures – a
+//! still the stage drew of what it played, kept in the cache by key, and a picture fetched once – and the card's way
+//! out: dropped where the workspace takes it (Build's stage: a track; Show's cell: its piece), opened in its editor
+//! view on a second press. The toon's files' families (`GET /api/assets`, deck-catalog `library::shelf`) give a card its
+//! versions, a slot its fit and an upload its folder.
 use crate::show::api::Api;
+use deck_catalog::library::served::Place;
 use deck_catalog::library::shelf::{Context, Shelf, Use};
 use deck_catalog::library::{self, Entry, Kind, Preview, Purpose};
+
+mod served;
 use deck_kit::base::draw::{DrawList, Rect};
 use deck_kit::base::tokens::Tokens;
-use deck_kit::editor::library::{Browser, Did, Source};
+use deck_kit::editor::library::{Browser, Did, Hit, Source};
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -158,13 +164,10 @@ impl Pictures {
     }
 }
 
-/// the toon's assets, asked once signed in: their families (deck-catalog `library::shelf`) and one entry per family
+/// the toon's assets, asked once signed in: their families (deck-catalog `library::shelf`)
 #[derive(Default)]
 struct Assets {
     shelf: Option<Shelf>,
-    list: Vec<Entry>,
-    /// every file its own entry (the browser's single levels)
-    singles: Vec<Entry>,
     /// where their paths are served from (the answer's `cdn`)
     cdn: String,
     rx: Option<Receiver<Result<Answer, String>>>,
@@ -187,8 +190,6 @@ fn answer(text: &str) -> Result<Answer, String> {
 impl Assets {
     fn take(&mut self, (mut shelf, cdn): Answer, context: &Context) {
         shelf.set_context(context.clone());
-        self.list = shelf.families(false).iter().map(|f| f.entry_on(&cdn)).collect();
-        self.singles = shelf.families(true).iter().map(|f| f.entry_on(&cdn)).collect();
         (self.shelf, self.cdn) = (Some(shelf), cdn);
     }
 }
@@ -206,16 +207,23 @@ pub fn rig_context(character: &str, toon: Option<&str>) -> Context {
     Context { open: Some(format!("character:{id}")), toon: toon.map(str::to_string), by_home: true, ..Context::default() }
 }
 
-/// now in ms since 1970: the shelf's "recently added"
-pub fn now_ms() -> f64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64() * 1000.0)
-}
+/// the pictures asked at once: the cards on screen, at most this many
+const SEEN: usize = 60;
 
 /// the library panel's state, one for the editor
 pub struct Library {
     pub browser: Browser,
-    /// this frame's entries, the workspace's
+    /// the entries listed: the server's (a place's, or what the thing stepped into uses), else the workspace's own
     pub entries: Vec<Entry>,
+    /// the workspace's own entries this frame
+    local: Vec<Entry>,
+    /// the server's Library
+    served: served::Served,
+    /// the toon and the open item the places are asked for
+    toon: Option<String>,
+    open: Option<String>,
+    /// the entries are to be made again (the server answered, the place or the workspace's own entries changed)
+    dirty: bool,
     pub purpose: Purpose,
     pub pictures: Pictures,
     assets: Assets,
@@ -237,19 +245,112 @@ pub struct Library {
 
 impl Library {
     pub fn new(cache: PathBuf) -> Library {
-        Library { browser: Browser::default(), entries: Vec::new(), purpose: Purpose::Build, pictures: Pictures::new(cache.join("stills")), assets: Assets::default(), playing: None, related_for: None, context: Context::default(), stamp: 0, base: String::new(), uploading: None, fresh: None }
+        Library {
+            browser: Browser::default(),
+            entries: Vec::new(),
+            local: Vec::new(),
+            served: served::Served::new(cache.join("library")),
+            toon: None,
+            open: None,
+            dirty: true,
+            purpose: Purpose::Build,
+            pictures: Pictures::new(cache.join("stills")),
+            assets: Assets::default(),
+            playing: None,
+            related_for: None,
+            context: Context::default(),
+            stamp: 0,
+            base: String::new(),
+            uploading: None,
+            fresh: None,
+        }
     }
 
-    /// the workspace's entries this frame, only the kinds its purpose loads
-    pub fn set(&mut self, purpose: Purpose, mut entries: Vec<Entry>) {
-        entries.retain(|e| purpose.kinds().contains(&e.kind));
+    /// The workspace's own entries this frame (only the kinds its purpose loads): listed until the server answered, and
+    /// lending their previews and "made for" to the server's entries of the same address.
+    pub fn set(&mut self, purpose: Purpose, mut local: Vec<Entry>) {
+        local.retain(|e| purpose.kinds().contains(&e.kind));
         if purpose != self.purpose {
             self.browser.filter.kinds.clear();
             self.browser.held = None;
+            self.dirty = true;
         }
         self.purpose = purpose;
-        self.pictures.want(&entries);
-        self.entries = entries;
+        if local != self.local {
+            self.local = local;
+            self.dirty = true;
+        }
+        if std::mem::take(&mut self.dirty) {
+            self.entries = self.listed();
+        }
+    }
+
+    /// what the panel lists: the thing stepped into's things and files, else the place's entries, else the workspace's own
+    fn listed(&self) -> Vec<Entry> {
+        let lend = |mut e: Entry| {
+            if let Some(l) = self.local.iter().find(|l| l.address == e.address) {
+                if !matches!(e.preview, Preview::Picture { .. }) && !matches!(l.preview, Preview::Kind) {
+                    e.preview = l.preview.clone();
+                }
+                e.made_for.clone_from(&l.made_for);
+            }
+            e
+        };
+        match (&self.served.inside, self.served.at(), &self.served.entries) {
+            (Some((i, _)), Some(_), _) => i.uses.iter().cloned().map(lend).collect(),
+            (None, Some(_), _) => Vec::new(),
+            (_, None, Some((list, _))) => list.iter().cloned().map(lend).collect(),
+            (_, None, None) => self.local.clone(),
+        }
+    }
+
+    /// The server's Library for `toon` and the open item: asked (from the cache at once, then the server), its answers
+    /// taken. Signed out: only what is kept.
+    pub fn ask_served(&mut self, base: &str, token: Option<String>, toon: Option<String>, open: Option<String>) {
+        let now = now();
+        if (&toon, &open) != (&self.toon, &self.open) {
+            (self.toon, self.open) = (toon, open);
+            self.dirty = true;
+        }
+        let before = self.served.place.clone();
+        self.served.ask(base, token, self.toon.as_deref(), self.open.as_deref(), now);
+        if self.served.poll() || before != self.served.place {
+            self.dirty = true;
+        }
+        if let Some(why) = self.served.failed.take() {
+            tracing::info!("the Library: {why}");
+        }
+    }
+
+    /// the place shown, by its index among those offered (the browser's chips)
+    pub fn choose_place(&mut self, n: usize) {
+        if let Some(p) = Place::offered(self.open.as_deref(), self.toon.as_deref()).get(n) {
+            self.served.place = Some(p.clone());
+            self.served.step_into("", None, None, now());
+            self.dirty = true;
+        }
+    }
+
+    /// step into `address` (none: out again)
+    pub fn step_into(&mut self, base: &str, token: Option<String>, address: Option<&str>) {
+        self.served.step_into(base, token, address, now());
+        (self.browser.chosen, self.browser.held) = (Vec::new(), None);
+        self.dirty = true;
+    }
+
+    /// the thing stepped into
+    pub fn inside(&self) -> Option<&deck_catalog::library::served::Inside> {
+        self.served.inside.as_ref().map(|(i, _)| i).filter(|_| self.served.at().is_some())
+    }
+
+    /// the address stepped into, until it is left
+    pub fn stepped(&self) -> Option<&str> {
+        self.served.at()
+    }
+
+    /// whether the list is the server's (a thing of it can be stepped into)
+    pub fn served_listed(&self) -> bool {
+        self.served.entries.is_some() || self.served.at().is_some()
     }
 
     /// the assets once, on a thread (signed in: the API answers only an editor)
@@ -281,11 +382,6 @@ impl Library {
         }
         let text = std::fs::read_to_string(dir.join("modules.json")).ok()?;
         crate::module::entries(&text).map_err(|e| tracing::warn!("--catalog modules: {e}")).ok()
-    }
-
-    /// the assets' entries: one per family, or one per file when the browser shows the levels single
-    pub fn assets(&self) -> Vec<Entry> {
-        if self.browser.single { self.assets.singles.clone() } else { self.assets.list.clone() }
     }
 
     /// where the assets' paths are served from (empty until they are known)
@@ -346,8 +442,8 @@ impl Library {
     /// the file just uploaded, chosen once its family is on the shelf
     fn choose_fresh(&mut self) {
         let Some(path) = self.fresh.take() else { return };
-        if let Some(f) = self.assets.shelf.as_ref().and_then(|s| s.family_in(&path, self.browser.single)) {
-            self.browser.chosen = vec![f.main.clone()];
+        if let Some(f) = self.assets.shelf.as_ref().and_then(|s| s.family_in(&path, false)) {
+            self.browser.chosen = vec![format!("{}:{}", f.kind.id(), f.main)];
         }
     }
 
@@ -371,8 +467,18 @@ impl Library {
     /// the panel's content in `a`; `action` = the workspace's one button
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, a: Rect, pointer: (f32, f32), action: Option<&str>) {
         let pictures = &self.pictures;
-        let src = Source { entries: &self.entries, shelf: self.assets.shelf.as_ref(), stamp: self.stamp, now_ms: now_ms() };
+        let current = self.served.place.as_ref();
+        let places: Vec<(String, bool)> = if self.served.entries.is_some() { Place::offered(self.open.as_deref(), self.toon.as_deref()).into_iter().map(|p| (p.word().to_string(), Some(&p) == current)).collect() } else { Vec::new() };
+        let note = match (self.inside(), &self.served.entries) {
+            (Some(_), _) => self.served.inside.as_ref().and_then(|(_, w)| w.as_deref()),
+            (None, Some((_, w))) if self.stepped().is_none() => w.as_deref(),
+            _ => None,
+        };
+        let inside = self.served.inside.as_ref().map(|(i, _)| i).filter(|_| self.served.at().is_some());
+        let src = Source { entries: &self.entries, shelf: self.assets.shelf.as_ref(), places: &places, inside, note };
         self.browser.draw(d, t, (a, pointer), &src, &|p| pictures.get(p), action);
+        let seen: Vec<Entry> = self.browser.hits.iter().filter(|(r, _)| r.y < a.y + a.h).filter_map(|(_, h)| if let Hit::Card(i) = h { self.entries.get(*i).cloned() } else { None }).take(SEEN).collect();
+        self.pictures.want(&seen);
     }
 
     /// An empty character rig turns "related" on once, with the modules: what is made for it first (owner 2026-11-16
@@ -402,7 +508,7 @@ impl Library {
 
     /// the family of a file's entry
     pub fn family(&self, e: &Entry) -> Option<&deck_catalog::library::family::Family> {
-        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, self.browser.single))
+        self.assets.shelf.as_ref().filter(|_| e.kind.is_file()).and_then(|s| s.family_in(e.path(), false))
     }
 
     /// whether this workspace takes `e`: a file by its family (its kind, then the fit), anything else by its kind
@@ -481,20 +587,19 @@ pub fn playing_key(build: Option<&str>, module: Option<&str>) -> Option<String> 
     }
 }
 
-/// Build: the catalog's module documents and instruments to drop on the rig, the book's characters to open, the assets
-pub fn of_build(modules: &[serde_json::Value], instruments: &[deck_space::rig::Instrument], book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) -> Vec<Entry> {
+/// Build: the catalog's module documents and instruments to drop on the rig, the book's characters to open
+pub fn of_build(modules: &[serde_json::Value], instruments: &[deck_space::rig::Instrument], book: Option<&deck_space::rig::book::Book>) -> Vec<Entry> {
     let mut out: Vec<Entry> = modules.iter().filter_map(|c| library::module(&serde_json::json!({ "id": c["id"], "content": c }))).collect();
     out.extend(deck_space::library::from_instruments(instruments));
     if let Some(b) = book {
         out.extend(deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| e.kind == Kind::Character));
     }
-    out.extend(assets);
     out
 }
 
 /// Build at a scene: the book's characters and items to fill its slots (without a book, what the deck's core rigs stand
-/// for), and the pictures among the assets to fill its parallax layers
-pub fn of_scene(modules: &[serde_json::Value], book: Option<&deck_space::rig::book::Book>, assets: Vec<Entry>) -> Vec<Entry> {
+/// for) and the modules with a slot
+pub fn of_scene(modules: &[serde_json::Value], book: Option<&deck_space::rig::book::Book>) -> Vec<Entry> {
     let mut out: Vec<Entry> = match book {
         Some(b) => deck_space::library::from_book(b, crate::LOCALE).into_iter().filter(|e| matches!(e.kind, Kind::Character | Kind::Item)).collect(),
         None => deck_space::rig::bundle::CORE
@@ -509,7 +614,6 @@ pub fn of_scene(modules: &[serde_json::Value], book: Option<&deck_space::rig::bo
     };
     let slotted = modules.iter().filter(|c| c["descriptor"]["slot"].is_string());
     out.extend(slotted.filter_map(|c| library::module(&serde_json::json!({ "id": c["id"], "content": c }))));
-    out.extend(assets.into_iter().filter(|e| e.kind == Kind::Image));
     out
 }
 
@@ -533,16 +637,23 @@ impl crate::App {
         if matches!(purpose, Purpose::Build | Purpose::Scene) && self.auth.token().is_some() {
             self.library.ask_assets(&self.args.api);
         }
+        let rig = (self.scene.is_none()).then(|| self.stage.bundle.rig.subject.clone());
+        let character = rig.as_deref().and_then(crate::toon::character).map(String::from);
+        let toon = self.book.book.as_deref().map(|b| b.toon().to_string()).filter(|t| !t.is_empty());
+        let open = match purpose {
+            Purpose::Scene => self.scene.as_ref().map(|v| format!("scene:{}", v.edit.doc.id)),
+            Purpose::Build => character.as_deref().map(|c| format!("character:{}", c.split('.').next().unwrap_or(c))),
+            Purpose::Module => self.module.open.as_ref().map(|o| format!("module:{}", o.id)),
+            Purpose::Show => None,
+        };
+        self.library.ask_served(&self.args.api, self.auth.token(), toon.clone(), open);
         let entries = match purpose {
-            Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref(), self.library.assets()),
-            Purpose::Scene => of_scene(self.rigs.module_docs(), self.book.book.as_deref(), self.library.assets()),
+            Purpose::Build => of_build(self.rigs.module_docs(), &crate::adding::instruments(&self.stage.bundle, self.rigs.instruments()), self.book.book.as_deref()),
+            Purpose::Scene => of_scene(self.rigs.module_docs(), self.book.book.as_deref()),
             Purpose::Show => self.show.library_entries(),
             Purpose::Module => of_modules(&self.module.list),
         };
         self.library.set(purpose, entries);
-        let rig = (self.scene.is_none()).then(|| self.stage.bundle.rig.subject.clone());
-        let character = rig.as_deref().and_then(crate::toon::character).map(String::from);
-        let toon = self.book.book.as_deref().map(|b| b.toon().to_string()).filter(|t| !t.is_empty());
         let context = match purpose {
             Purpose::Scene => self.scene.as_ref().map(|v| scene_context(&v.edit.doc.id, &v.edit.doc.toons, v.edit.doc.stage.media(), toon.as_deref())),
             Purpose::Build => character.as_deref().map(|c| rig_context(c, toon.as_deref())),
@@ -578,11 +689,37 @@ impl crate::App {
             // no Library of the editor carries a button of its owner's
             Did::Taken | Did::Action => {}
             Did::Click(i) if self.workspace == crate::show::Workspace::Module => self.library_open_entry(i),
-            Did::Click(_) => {}
+            // a thing of the server's Library is stepped into
+            Did::Click(i) => {
+                if let Some(e) = self.library.entries.get(i).filter(|e| !e.kind.is_file() && self.library.served_listed()) {
+                    let address = e.address.clone();
+                    self.library.step_into(&self.args.api, self.auth.token(), Some(&address));
+                }
+            }
             Did::Open(i) => self.library_open_entry(i),
             Did::Drop { entry, at } => {
                 self.carry = None;
                 self.library_drop(entry, at)
+            }
+            Did::Place(n) => self.library.choose_place(n),
+            Did::Back => self.library.step_into(&self.args.api, None, None),
+            Did::OpenAt => {
+                if let Some(at) = self.library.inside().map(|i| i.at.clone()) {
+                    self.library_open(at.kind, &at.address, &at.label);
+                }
+            }
+            Did::Level(n) => {
+                if let Some(l) = self.library.inside().and_then(|i| i.levels.get(n)).cloned() {
+                    self.library_open(Kind::Character, &l.address, &l.name);
+                }
+            }
+            Did::UsedIn(n) => {
+                let Some(link) = self.library.inside().and_then(|i| i.used_in.get(n)).cloned() else { return };
+                if link.thing {
+                    self.library.step_into(&self.args.api, self.auth.token(), Some(&link.address));
+                } else {
+                    self.library_open(Kind::Item, &link.address, &link.name);
+                }
             }
         }
     }
@@ -620,9 +757,14 @@ impl crate::App {
     /// an entry opened in its tab where the Library's open rule says, else its sentence
     fn library_open_entry(&mut self, i: usize) {
         let Some(e) = self.library.entries.get(i).cloned() else { return };
-        match deck_catalog::library::open::open_entry(e.kind, &e.address, deck_catalog::library::open::Editor::Deck) {
-            Ok(o) => self.open_item(&o.address, &e.label),
-            Err(why) => self.note(format!("{}: {why}", e.label)),
+        self.library_open(e.kind, &e.address, &e.label);
+    }
+
+    /// `address` opened where the Library's open rule says, else its sentence
+    fn library_open(&mut self, kind: Kind, address: &str, label: &str) {
+        match deck_catalog::library::open::open_entry(kind, address, deck_catalog::library::open::Editor::Deck) {
+            Ok(o) => self.open_item(&o.address, label),
+            Err(why) => self.note(format!("{label}: {why}")),
         }
     }
 
@@ -659,7 +801,7 @@ impl crate::App {
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene && e.kind == Kind::Module => self.module_drop(&e.address, at.0, at.1),
             crate::show::Workspace::Stage if self.library.purpose == Purpose::Scene => {
                 if !self.panels().floats.covers(at.0, at.1) {
-                    self.scene_drop(&e.address, e.kind, at.0, at.1);
+                    self.scene_drop(e.path(), e.kind, at.0, at.1);
                 }
             }
             crate::show::Workspace::Stage if !self.panels().floats.covers(at.0, at.1) => {
@@ -713,7 +855,16 @@ impl crate::App {
             if self.args.library_list {
                 self.library.browser.mode = deck_kit::editor::library::Mode::List;
             }
-            self.library.browser.single |= self.args.library_single;
+            if let Some(at) = self.args.library_at.clone() {
+                self.library.step_into(&self.args.api, self.auth.token(), Some(&at));
+            }
+        }
+        if let (2, Some(word)) = (self.frames, self.args.library_place.as_deref()) {
+            let offered = Place::offered(self.library.open.as_deref(), self.library.toon.as_deref());
+            match offered.iter().position(|p| p.word() == word) {
+                Some(n) => self.library.choose_place(n),
+                None => tracing::warn!("--library-place {word}: not one of {:?}", offered.iter().map(Place::word).collect::<Vec<_>>()),
+            }
         }
         if self.frames == 2 && self.args.library_related {
             self.library.browser.filter.related = Some(String::new());
@@ -803,29 +954,38 @@ mod tests {
         assert_eq!(lib.browser.filter.related, None, "a rig with tracks: as the viewer set it");
     }
 
+    /// the server's answer is the list (every kind, the same as the creator's); the workspace's own entries lend a
+    /// module its wiring; a file's family by its path says what fits
     #[test]
-    fn the_assets_answer_is_one_entry_per_family_on_the_cdn() {
-        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-families-{}", std::process::id())));
+    fn the_servers_library_is_the_list_and_the_workspace_lends_its_previews() {
+        let mut lib = Library::new(std::env::temp_dir().join(format!("deck-editor-served-list-{}", std::process::id())));
+        let page = serde_json::json!({ "library": 1, "version": "v", "toon": "cat", "place": "toon", "locale": "en", "total": 4, "next": null, "counts": {}, "entries": [
+            { "address": "toon:cat", "type": "toon", "name": "Cat", "picture": null, "toons": ["cat"], "usedIn": 0, "updated": null },
+            { "address": "module:walk", "type": "module", "name": "walk", "picture": null, "toons": [], "usedIn": 2, "updated": null },
+            { "address": "image:cat/s1/c1/hills.webp", "kind": "image", "name": "hills", "picture": "https://cdn.example/cat/s1/c1/hills.thumb.webp", "toons": ["cat"], "usedIn": 1, "updated": null },
+            { "address": "audio:cat/bells.128.mp3", "kind": "audio", "name": "bells", "picture": null, "toons": ["cat"], "usedIn": 0, "updated": null }
+        ] });
+        lib.served.entries = Some((deck_space::library::served::entries(&[deck_space::library::served::list(&page.to_string()).unwrap()]), None));
+        lib.dirty = true;
+        lib.set(Purpose::Scene, of_modules(&[module("walk"), module("analog")]));
+        assert_eq!(lib.entries.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["toon:cat", "module:walk", "image:cat/s1/c1/hills.webp", "audio:cat/bells.128.mp3"], "the server's, not the workspace's");
+        assert!(matches!(lib.entries[1].preview, Preview::Code { .. }), "the module's face lent by the workspace");
+        assert_eq!(lib.entries[2].preview, Preview::Picture { url: "https://cdn.example/cat/s1/c1/hills.thumb.webp".into() }, "the server's picture");
         let text = serde_json::json!({ "cdn": "https://cdn.example", "items": [
             { "id": "a1", "kind": "image", "renditions": [{ "path": "cat/s1/c1/hills.webp" }, { "path": "cat/s1/c1/hills.2x.webp" }, { "path": "cat/s1/c1/hills.3x.webp" }] },
             { "id": "a2", "kind": "audio", "path": "cat/bells.128.mp3" },
         ] })
         .to_string();
         lib.assets.take(answer(&text).unwrap(), &Context::default());
-        let list = lib.assets();
-        assert_eq!(list.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["cat/bells.128.mp3", "cat/s1/c1/hills.webp"], "three files of hills are one entry");
-        assert_eq!(list[1].preview, Preview::Picture { url: "https://cdn.example/cat/s1/c1/hills.webp".into() });
-        lib.set(Purpose::Scene, of_scene(&[], None, list));
-        assert!(lib.entries.iter().any(|e| e.address == "cat/s1/c1/hills.webp") && !lib.entries.iter().any(|e| e.kind == Kind::Audio), "a scene takes the pictures");
-        let files = lib.assets();
-        assert_eq!(lib.takes(&files[1]), Ok(()), "a picture fits a scene's layer");
-        assert!(lib.takes(&files[0]).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
-        lib.browser.single = true;
-        let singles = lib.assets();
-        assert_eq!(singles.len(), 4, "single levels: every file its own entry");
-        let two = singles.iter().find(|e| e.address == "cat/s1/c1/hills.2x.webp").expect("the 2x on its own");
-        assert_eq!(lib.family(two).map(|f| f.versions.len()), Some(1), "its family is the file alone");
-        assert_eq!(lib.takes(two), Ok(()));
+        let (hills, bells) = (lib.entries[2].clone(), lib.entries[3].clone());
+        assert_eq!(lib.family(&hills).map(|f| f.versions.len()), Some(3), "its family by its path");
+        assert_eq!(lib.takes(&hills), Ok(()), "a picture fits a scene's layer");
+        assert!(lib.takes(&bells).unwrap_err().starts_with("audio cannot be dropped on a scene"), "the family's refusal says why");
+        assert!(lib.takes(&lib.entries[0].clone()).unwrap_err().contains("does nothing yet"), "a toon dropped: nothing yet");
+        lib.served.entries = None;
+        lib.dirty = true;
+        lib.set(Purpose::Scene, of_modules(&[module("walk")]));
+        assert_eq!(lib.entries.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["module:walk"], "no answer yet: the workspace's own");
     }
 
     #[test]
@@ -844,7 +1004,7 @@ mod tests {
         lib.fresh = Some("cat/sun.2x.webp".into());
         lib.assets.take(answer(&fresh).unwrap(), &lib.context.clone());
         lib.choose_fresh();
-        assert_eq!(lib.browser.chosen, ["cat/sun.webp"], "the new file's card is chosen");
+        assert_eq!(lib.browser.chosen, ["image:cat/sun.webp"], "the new file's card is chosen");
     }
 
     #[test]
