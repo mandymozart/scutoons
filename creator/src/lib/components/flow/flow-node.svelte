@@ -85,9 +85,9 @@
 <Handle type="source" position={Position.Bottom} isConnectable={false} />
 
 <style>
-	/* DESIGN.md "Brutalist tools": ink on paper, 2px frames; a group is a strong box, a script point a lighter one, an
-	   exit a pill; only through a condition = dashed; unreachable / never / loop = the warning colour (like the chips).
-	   Pictures (owner 2026-10-06): fixed rem places per kind of box (flow-texts.ts boxSize), dashed while empty. */
+	/* the kit's tile: a line frame on the stage, rounded; a group's title is larger, an exit a pill; only through a
+	   condition = dashed; unreachable / never / loop = the warning colour (like the chips). Pictures: fixed rem places per
+	   kind of box (flow-texts.ts boxSize), dashed while empty. */
 	.box {
 		box-sizing: border-box;
 		width: 100%;
@@ -98,7 +98,8 @@
 		padding: 0 var(--space-05);
 		background: var(--tool-ground);
 		color: var(--tool-text);
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
+		border-radius: var(--kit-radius-tile);
 		overflow: hidden;
 		font-size: var(--type-caption-size);
 		line-height: 1.25;
@@ -301,7 +302,7 @@
 		color: var(--tool-muted);
 	}
 	.link:hover {
-		outline: var(--border-width-focus) solid var(--tool-text);
+		border-color: var(--tool-text);
 	}
 	/* zoomed far out (below ~0.6): faces and pictures step back, their places stay (the layout doesn't move) */
 	:global(.flow-small) .faces,

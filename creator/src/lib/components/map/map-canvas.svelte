@@ -876,7 +876,7 @@
 		top: -0.4rem;
 		width: 0.8rem;
 		height: 0.8rem;
-		border-radius: 0;
+		border-radius: calc(var(--editor-radius) / 2);
 		border-width: 0.125rem;
 		background: var(--tool-control);
 	}
@@ -1008,7 +1008,7 @@
 		top: -0.45rem;
 		width: 0.9rem;
 		height: 0.9rem;
-		border-radius: 0;
+		border-radius: 50%;
 		border-width: 0.0625rem;
 		background: var(--tool-pressed);
 		color: var(--tool-pressed-text);

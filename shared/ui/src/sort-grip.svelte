@@ -43,7 +43,7 @@
 		margin: 0;
 		padding: 0;
 		border: 0;
-		border-radius: 0;
+		border-radius: var(--radius-none);
 		background: transparent;
 		/* the row's colour (an inverted, selected row too), a bit quieter than its text */
 		color: inherit;

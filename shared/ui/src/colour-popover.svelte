@@ -217,6 +217,7 @@
 		width: 0.5rem;
 		height: 1.25rem;
 		border: var(--border-width-regular) solid var(--ink);
+		border-radius: var(--radius-none);
 		background: var(--paper);
 	}
 	.hue::-moz-range-thumb {
@@ -224,7 +225,7 @@
 		width: 0.5rem;
 		height: 1.25rem;
 		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
+		border-radius: var(--radius-none);
 		background: var(--paper);
 	}
 	.hex-row {

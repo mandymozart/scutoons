@@ -9,7 +9,7 @@
 	import { Icon } from '@scutoons/ui';
 	import { shotSvg } from '@scutoons/content/storyboard';
 	import { m } from '$lib/paraglide/messages.js';
-	import { bandFacts, nodeOf, statusOf, type BandLayout, type BoardNode } from '$lib/editor/storyboard-board-layout.ts';
+	import { TOP, bandFacts, nodeOf, statusOf, type BandLayout, type BandRow, type BoardNode } from '$lib/editor/storyboard-board-layout.ts';
 	import { captionOf, runningOf, stripTitle, titleOf, type WordsAt } from '$lib/editor/storyboard-board-words.ts';
 	import { euro } from '$lib/editor/storyboard-money.ts';
 	import { near } from '$lib/editor/storyboard-posters.ts';
@@ -35,6 +35,9 @@
 	const curNode = $derived(cur ? (layout.tree.get(cur) ?? null) : null);
 	const curAt = $derived(cur ? nodeOf(layout, cur) : null);
 	const captions = $derived(layout.card.meta > 0);
+	// the current card's actions hang into the row below: that row's label steps aside while they are there (rem)
+	const actionsTop = $derived(curAt ? curAt.y + TOP + curAt.h + (curAt.kind === 'strip' ? 0 : layout.card.meta) : null);
+	const underActions = (row: BandRow) => actionsTop !== null && !!curAt && row.y >= actionsTop - TOP && row.y < actionsTop + 2.5 && row.x < curAt.x + 10 && curAt.x < row.x + 6;
 	/** the render's picture: the shot's schematic as the creator draws it */
 	const render = $derived.by(() => {
 		if (!band.entry) return null;
@@ -89,7 +92,7 @@
 			{#if seen || current}
 				<VariantsLines lines={layout.lines} width={layout.width} height={layout.height} />
 				{#each layout.rows as row, i (i)}
-					{#if row.label}<span class="label" style:left="{row.x}rem" style:top="{row.y}rem">{row.label === 'source' ? m['storyboard.board_row_source']() : m['storyboard.board_row_earlier']()}</span>{/if}
+					{#if row.label && !underActions(row)}<span class="label" style:left="{row.x}rem" style:top="{row.y}rem">{row.label === 'source' ? m['storyboard.board_row_source']() : m['storyboard.board_row_earlier']()}</span>{/if}
 				{/each}
 				<div class="cards" role="listbox" aria-label={m['storyboard.board_cards']({ shot })}>
 					{#each layout.nodes as node (node.key)}
@@ -132,7 +135,8 @@
 		z-index: 3;
 		height: 2.5rem;
 		background: transparent;
-		border-bottom: var(--border-width-hairline) solid var(--tool-text);
+		border-bottom: var(--border-width-hairline) solid var(--tool-line);
+		color: var(--tool-muted);
 		font-size: var(--type-caption-size);
 		cursor: pointer;
 	}
@@ -155,9 +159,8 @@
 	.facts {
 		color: var(--tool-muted);
 	}
-	/* the current band's head: the kit's open section head (see-through), the text colour */
+	/* the current band's head: no ground (RULES H11), the text colour */
 	.band.current .head {
-		background: var(--kit-section-on-ground);
 		color: var(--tool-text);
 	}
 	.dot {

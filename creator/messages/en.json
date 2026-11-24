@@ -2192,7 +2192,6 @@
 		"hh_link_hint": "Copy the phone's link",
 		"hh_link_copied": "The phone's link is copied.",
 		"hh_take_kept": "{kept} s of {all} s",
-		"hh_trim_clip": "on the clip below",
 		"slot_title": "Asset · {id}",
 		"slot_by_hand": "By hand",
 		"slot_empty": "empty",
