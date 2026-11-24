@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import { dialogState } from './dialogs.svelte.ts';
 	import Overlay from './editor/overlay.svelte';
+	import ListRow from './editor/list-row.svelte';
 	import { onOverlayLevel } from './editor/overlay-level.ts';
 
 	/** Shows the in-page dialogs of `confirmDialog` / `askDialog` (dialogs.svelte.ts); once in the app's root layout. */
@@ -45,7 +46,7 @@
 {#if level && request}<Overlay place="veil" />{/if}
 <dialog bind:this={element} class="sc-dialog" class:on-overlay={level} oncancel={(e) => { e.preventDefault(); dialogState.close(request?.input ? null : false); }} aria-labelledby="sc-dialog-title">
 	{#if request}
-		<form method="dialog" onsubmit={confirm}>
+		<form method="dialog" onsubmit={confirm} title={request.hover}>
 			<h2 id="sc-dialog-title">{request.title}</h2>
 			{#if request.message}<p class="message">{request.message}</p>{/if}
 			{#if request.checklist}
@@ -68,9 +69,14 @@
 			{#if request.choices}
 				<div class="choices">
 					{#each request.choices as item (item.id)}
-						<button type="button" class="secondary choice" onclick={() => dialogState.close(item.id)}>
-							<span>{item.label}</span>{#if item.detail}<small>{item.detail}</small>{/if}
-						</button>
+						<!-- on the editor kit a choice is the kit's list row (its see-through grounds, RULES H11) -->
+						{#if level}
+							<ListRow label={item.label} detail={item.detail} onclick={() => dialogState.close(item.id)} />
+						{:else}
+							<button type="button" class="secondary choice" onclick={() => dialogState.close(item.id)}>
+								<span>{item.label}</span>{#if item.detail}<small>{item.detail}</small>{/if}
+							</button>
+						{/if}
 					{/each}
 				</div>
 			{/if}

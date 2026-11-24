@@ -25,7 +25,7 @@
 
 	/** a module of its own for the rig, its first files the core's template; the rig names it, it opens */
 	async function newPolicy(): Promise<void> {
-		const typed = await askDialog({ title: m['creator.sound_new_policy'](), message: m['creator.sound_new_policy_hint']({ subject: session.subject }), label: 'id', value: policyIdFor(session.subject), select: true, confirmLabel: m['creator.sound_new_module_create']() });
+		const typed = await askDialog({ title: m['creator.sound_new_policy'](), hover: m['creator.sound_new_policy_hint']({ subject: session.subject }), label: 'id', value: policyIdFor(session.subject), select: true, confirmLabel: m['creator.sound_new_module_create']() });
 		const id = typed?.trim() ?? '';
 		if (!id) return;
 		await session.loadLists();

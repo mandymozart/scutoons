@@ -373,7 +373,7 @@
 		letter-spacing: var(--tracking-label);
 		color: var(--tool-text);
 	}
-	.ratio select {
+	.ratio :global(select) {
 		max-width: 100%;
 	}
 	.custom {

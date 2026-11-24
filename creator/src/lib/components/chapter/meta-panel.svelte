@@ -147,7 +147,7 @@
 		align-items: center;
 		gap: 0.4rem;
 	}
-	.status-field select {
+	.status-field :global(select) {
 		width: auto;
 	}
 	.status .hint {

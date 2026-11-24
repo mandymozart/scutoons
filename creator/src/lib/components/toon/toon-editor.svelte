@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
+	import { Select } from '@scutoons/ui/editor';
 	import { entities, mediaRequests, resolveText, type Status, type ToonLanguages } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { requestsDoc, requestsOf } from '$lib/editor/characters.ts';
@@ -58,17 +59,17 @@
 				<span class="sc-label">{m['creator.status']()}</span>
 				<div class="status-row">
 					{#each statusLocales as l (l)}
-						<label class="status-field">
+						<span class="status-field" class:inherited={!ownStatus(l)}>
 							<span>{l}{#if l === entry.textSource}<SourceMark />{/if}</span>
-							<select
-								class:inherited={!ownStatus(l)}
+							<Select
+								quiet
+								label="{m['creator.status']()} · {l}"
 								value={statusOf(l) ?? 'published'}
-								onchange={(e) => entry.setText(['languageStatus'], l, e.currentTarget.value, `status:${l}`)}
+								options={STATUSES.map((s) => ({ value: s, label: statusWord(s) }))}
+								onchange={(v) => entry.setText(['languageStatus'], l, v, `status:${l}`)}
 								data-testid="toon-status-{l}"
-							>
-								{#each STATUSES as s}<option value={s}>{statusWord(s)}</option>{/each}
-							</select>
-						</label>
+							/>
+						</span>
 					{/each}
 				</div>
 				<p class="hint">{m['creator.toon_status_hint']()}</p>
@@ -181,11 +182,8 @@
 		align-items: center;
 		gap: 0.4rem;
 	}
-	.status-field select {
-		width: auto;
-	}
 	/* a language without its own status shows the source's */
-	.status-field select.inherited {
+	.inherited :global(.kit-select) {
 		color: var(--tool-muted);
 	}
 	.warn {

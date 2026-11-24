@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Button, IconButton, Pill, Select } from '@scutoons/ui/editor';
 	import { tick } from 'svelte';
-	import { Icon, Segmented, clickOutside } from '@scutoons/ui';
+	import { Icon, clickOutside } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { GRID_SIZES, type ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 	import type { Tool } from '$lib/components/slice/slice-canvas.svelte';
@@ -9,7 +9,7 @@
 	import { SAMPLE_READERS, type SampleReaderId } from '$lib/editor/sample-readers.ts';
 
 	/**
-	 * The slice editor's tool strip, left of the canvas (UI-CONCEPTS E.4, owner 2026-10-07): two square vertical groups.
+	 * The slice editor's tool strip, left of the canvas (UI-CONCEPTS E.4, owner 2026-10-07): two upright pills of icons (RULES H4).
 	 * **View** – the grid (pressed = snap on, its size in the corner; hold, right-click, the number or → open the sizes),
 	 * the zoom (opens zoom out · % · zoom in · fit · 1:1 – the Flow's square group), the strip's seams (a hairline across
 	 * the art – TEXT-ACROSS-SLICES.md §4.1), and with texts holding `{…}` the
@@ -25,16 +25,31 @@
 		complete: () => m['creator.expr_sample_complete']()
 	};
 
+	const TOOLS: { value: Tool; icon: string; title: () => string }[] = [
+		{ value: 'text', icon: 'type', title: () => m['creator.tool_text']() },
+		{ value: 'item', icon: 'box', title: () => m['creator.tool_item']() },
+		{ value: 'piece', icon: 'shapes', title: () => m['creator.tool_piece']() },
+		{ value: 'sample', icon: 'music', title: () => m['creator.tool_sample']() },
+		{ value: 'event', icon: 'zap', title: () => m['creator.tool_event']() }
+	];
+
 	type Flyout = 'sizes' | 'zoom' | 'sample';
 	let open = $state<Flyout | null>(null);
 	let root = $state<HTMLElement | null>(null);
 	const percent = $derived(Math.round(view.shownZoom * 100));
 
-	/** opens a flyout and moves the keyboard into it (its chosen entry, else its first control) */
+	/** opens a flyout beside its button, its first control level with it, and moves the keyboard into it (its chosen entry, else its first control) */
 	async function show(which: Flyout) {
 		open = which;
 		await tick();
 		const box = root?.querySelector<HTMLElement>(`[data-flyout="${which}"]`);
+		const opener = root?.querySelector<HTMLElement>(`[data-opens="${which}"]`);
+		const first = box?.querySelector<HTMLElement>('button, select');
+		if (root && box && opener && first) {
+			const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+			const top = opener.getBoundingClientRect().top - root.getBoundingClientRect().top - (first.getBoundingClientRect().top - box.getBoundingClientRect().top);
+			box.style.top = `${top / rem}rem`;
+		}
 		(box?.querySelector<HTMLElement>('[aria-checked="true"], [aria-pressed="true"]') ?? box?.querySelector<HTMLElement>('button, select'))?.focus();
 	}
 	function close(focusOpener = false) {
@@ -92,14 +107,13 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="slice-tools" bind:this={root} onkeydown={onKeydown} {@attach clickOutside(() => (open = null), { escape: false })} data-testid="slice-tools">
-	<div class="sc-seg is-column" role="group" aria-label={m['creator.canvas_view']()} data-testid="tools-view">
-		<button
-			type="button"
+	<Pill vertical label={m['creator.canvas_view']()} data-testid="tools-view">
+		<IconButton
+			label={m['creator.canvas_snap']()}
 			class="grid-button"
-			aria-pressed={view.snap}
+			pressed={view.snap}
 			aria-haspopup="true"
 			aria-expanded={open === 'sizes'}
-			aria-label={m['creator.canvas_snap']()}
 			title={m['creator.canvas_snap_size']({ size: view.gridSize })}
 			data-opens="sizes"
 			onclick={gridClick}
@@ -113,79 +127,47 @@
 		>
 			<Icon name="grid" />
 			<span class="corner" data-testid="grid-size">{view.gridSize}</span>
-		</button>
-		<button
-			type="button"
-			aria-haspopup="true"
-			aria-expanded={open === 'zoom'}
-			aria-label={m['creator.canvas_zoom']({ percent })}
-			title={m['creator.canvas_zoom']({ percent })}
-			data-opens="zoom"
-			onclick={() => toggle('zoom')}
-			data-testid="canvas-zoom"
-		>
-			<Icon name="zoom-in" />
-		</button>
+		</IconButton>
+		<IconButton label={m['creator.canvas_zoom']({ percent })} icon="zoom-in" aria-haspopup="true" aria-expanded={open === 'zoom'} data-opens="zoom" onclick={() => toggle('zoom')} data-testid="canvas-zoom" />
 		<!-- the strip's seams as a hairline across the art (TEXT-ACROSS-SLICES.md §4.1; the numbers always show) -->
-		<button
-			type="button"
-			aria-pressed={view.seams}
-			aria-label={m['creator.canvas_seams']()}
-			title={m['creator.canvas_seams']()}
-			onclick={() => (view.seams = !view.seams)}
-			data-testid="seams-toggle"
-		>
-			<Icon name="scissors" />
-		</button>
+		<IconButton label={m['creator.canvas_seams']()} icon="scissors" pressed={view.seams} onclick={() => (view.seams = !view.seams)} data-testid="seams-toggle" />
 		{#if expressions}
-			<button
-				type="button"
+			<IconButton
+				label={m['creator.canvas_preview']()}
+				icon="eye"
+				title={m['creator.expr_canvas_preview']()}
+				pressed={exprContext.sample !== 'written'}
 				aria-haspopup="true"
 				aria-expanded={open === 'sample'}
-				aria-pressed={exprContext.sample !== 'written'}
-				aria-label={m['creator.canvas_preview']()}
-				title={m['creator.expr_canvas_preview']()}
 				data-opens="sample"
 				onclick={() => toggle('sample')}
 				data-testid="canvas-sample-open"
-			>
-				<Icon name="eye" />
-			</button>
+			/>
 		{/if}
-	</div>
+	</Pill>
 
-	<Segmented
-		vertical
-		label={m['creator.canvas_content']()}
-		value={view.tool}
-		onchange={(t: Tool) => view.setTool(t)}
-		testid="tools-content"
-		options={[
-			{ value: 'text', icon: 'type', title: m['creator.tool_text'](), testid: 'tool-text' },
-			{ value: 'item', icon: 'box', title: m['creator.tool_item'](), testid: 'tool-item' },
-			{ value: 'piece', icon: 'shapes', title: m['creator.tool_piece'](), testid: 'tool-piece' },
-			{ value: 'sample', icon: 'music', title: m['creator.tool_sample'](), testid: 'tool-sample' },
-			{ value: 'event', icon: 'zap', title: m['creator.tool_event'](), testid: 'tool-event' }
-		]}
-	/>
+	<Pill vertical label={m['creator.canvas_content']()} data-testid="tools-content">
+		{#each TOOLS as t (t.value)}
+			<IconButton label={t.title()} icon={t.icon} pressed={view.tool === t.value} onclick={() => view.setTool(t.value)} data-testid="tool-{t.value}" />
+		{/each}
+	</Pill>
 
 	{#if open === 'sizes'}
-		<div class="flyout at-1 sc-seg is-column" role="radiogroup" aria-label={m['creator.canvas_grid_sizes']()} data-flyout="sizes" data-testid="grid-sizes">
+		<Pill vertical label={m['creator.canvas_grid_sizes']()} class="flyout" data-flyout="sizes" data-testid="grid-sizes">
 			{#each GRID_SIZES as g (g)}
-				<button type="button" role="radio" aria-checked={view.snap && view.gridSize === g} title={m['creator.canvas_grid_size']()} onclick={() => pickSize(g)} data-testid="grid-size-{g}">{g}</button>
+				<IconButton label={String(g)} title={m['creator.canvas_grid_size']()} pressed={view.snap && view.gridSize === g} onclick={() => pickSize(g)} data-testid="grid-size-{g}">{g}</IconButton>
 			{/each}
-		</div>
+		</Pill>
 	{:else if open === 'zoom'}
-		<!-- the Flow's zoom look: one square group (DESIGN.md "Round vs square") -->
-		<div class="flyout at-2 sc-seg" role="group" aria-label={m['creator.canvas_zoom']({ percent })} data-flyout="zoom" data-testid="canvas-zoom-flyout">
-			<button type="button" title={m['creator.flow_zoom_out']()} aria-label={m['creator.flow_zoom_out']()} disabled={view.shownZoom <= 0.5} onclick={() => view.zoomOut()} data-testid="canvas-zoom-out"><Icon name="zoom-out" /></button>
+		<Pill label={m['creator.canvas_zoom']({ percent })} class="flyout" data-flyout="zoom" data-testid="canvas-zoom-flyout">
+			<IconButton label={m['creator.flow_zoom_out']()} icon="zoom-out" disabled={view.shownZoom <= 0.5} onclick={() => view.zoomOut()} data-testid="canvas-zoom-out" />
 			<output class="pct" aria-live="polite" data-testid="canvas-zoom-value">{percent} %</output>
-			<button type="button" title={m['creator.flow_zoom_in']()} aria-label={m['creator.flow_zoom_in']()} disabled={view.shownZoom >= 3} onclick={() => view.zoomIn()} data-testid="canvas-zoom-in"><Icon name="zoom-in" /></button>
-			<button type="button" title={m['creator.canvas_zoom_fit']()} aria-label={m['creator.canvas_zoom_fit']()} aria-pressed={view.zoom === null} onclick={() => (view.zoom = null)} data-testid="canvas-zoom-fit"><Icon name="maximize" /></button>
-			<button type="button" class="word" title={m['creator.canvas_zoom_1x']()} aria-label={m['creator.canvas_zoom_1x']()} aria-pressed={view.zoom === 1} onclick={() => (view.zoom = 1)} data-testid="canvas-zoom-1x">1:1</button>
-		</div>
+			<IconButton label={m['creator.flow_zoom_in']()} icon="zoom-in" disabled={view.shownZoom >= 3} onclick={() => view.zoomIn()} data-testid="canvas-zoom-in" />
+			<IconButton label={m['creator.canvas_zoom_fit']()} icon="maximize" pressed={view.zoom === null} onclick={() => (view.zoom = null)} data-testid="canvas-zoom-fit" />
+			<Button variant="quiet" title={m['creator.canvas_zoom_1x']()} aria-label={m['creator.canvas_zoom_1x']()} pressed={view.zoom === 1} onclick={() => (view.zoom = 1)} data-testid="canvas-zoom-1x">1:1</Button>
+		</Pill>
 	{:else if open === 'sample'}
-		<div class="flyout at-3 sample" data-flyout="sample">
+		<div class="flyout sample" data-flyout="sample">
 			<Select quiet label={m['creator.expr_preview_as']()} title={m['creator.expr_canvas_preview']()} value={exprContext.sample} options={(['written', ...SAMPLE_READERS] as const).map((id) => ({ value: id, label: SAMPLE_WORDS[id]() }))} onchange={(v) => (exprContext.sample = v as typeof exprContext.sample)} data-testid="canvas-sample" />
 		</div>
 	{/if}
@@ -193,7 +175,6 @@
 
 <style>
 	.slice-tools {
-		--strip: var(--control-height);
 		position: relative;
 		z-index: 6;
 		display: flex;
@@ -201,25 +182,8 @@
 		gap: var(--space-05);
 		align-self: flex-start;
 	}
-	.slice-tools :global(.sc-seg > button) {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		box-sizing: border-box;
-		min-width: var(--strip);
-		min-height: var(--strip); /* control-ok: --control-height */
-		padding: 0;
-	}
-	.slice-tools :global(.sc-seg > button[aria-expanded='true']) {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		border-color: var(--tool-text);
-	}
-	.grid-button {
-		position: relative;
-	}
 	/* the icon steps up-left to make room for the size */
-	.grid-button > :global(:first-child) {
+	.slice-tools :global(.grid-button > svg) {
 		translate: -0.1875rem -0.1875rem;
 	}
 	/* the grid size in the button's corner – its own target: a click there opens the sizes */
@@ -232,28 +196,15 @@
 		line-height: 1;
 		font-variant-numeric: tabular-nums;
 	}
-	.grid-button[aria-pressed='false'] .corner {
+	.slice-tools :global(.grid-button:not(.pressed) > .corner) {
 		opacity: 0.6;
 	}
-	/* beside its button: --strip per row above it, the group's frame included */
-	.flyout {
+	/* beside the strip; show() sets its top level with its button */
+	.slice-tools :global(.flyout) {
 		position: absolute;
 		left: calc(100% + var(--space-05));
-		top: calc(var(--row) * var(--strip));
+		top: 0;
 		z-index: 20;
-	}
-	.flyout.at-1 {
-		--row: 0;
-	}
-	.flyout.at-2 {
-		--row: 1;
-	}
-	/* the sample preview: under the seams toggle */
-	.flyout.at-3 {
-		--row: 3;
-	}
-	.flyout > button.word {
-		padding: 0 var(--space-05);
 	}
 	.pct {
 		display: inline-flex;
@@ -264,7 +215,7 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
-	.sample select {
+	.sample :global(select) {
 		width: auto;
 	}
 </style>

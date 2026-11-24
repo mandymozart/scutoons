@@ -375,7 +375,7 @@
 		gap: var(--space-05);
 		margin-top: var(--space-1);
 	}
-	.where select {
+	.where :global(select) {
 		width: auto;
 	}
 </style>

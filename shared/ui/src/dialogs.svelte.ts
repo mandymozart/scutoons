@@ -10,6 +10,8 @@
 export interface DialogRequest {
 	title: string;
 	message?: string;
+	/** what the dialog means, as its hover text (RULES H14: no hint lines) */
+	hover?: string;
 	confirmLabel: string;
 	cancelLabel?: string;
 	/** a text field (askDialog) */
@@ -82,7 +84,7 @@ export async function checklistDialog(options: {
  * One line to pick (owner 2026-10-12, the route's start / end: "select a location or create one"): the picked line's id,
  * or null when cancelled. A tap on a line answers – no primary button.
  */
-export async function choiceDialog(options: { title: string; message?: string; choices: ChecklistItem[]; cancelLabel?: string }): Promise<string | null> {
+export async function choiceDialog(options: { title: string; message?: string; hover?: string; choices: ChecklistItem[]; cancelLabel?: string }): Promise<string | null> {
 	const { choices, ...rest } = options;
 	const value = await open({ ...rest, confirmLabel: '', choices });
 	return typeof value === 'string' ? value : null;
@@ -96,6 +98,7 @@ export async function choiceDialog(options: { title: string; message?: string; c
 export async function askDialog(options: {
 	title: string;
 	message?: string;
+	hover?: string;
 	label: string;
 	placeholder?: string;
 	value?: string;

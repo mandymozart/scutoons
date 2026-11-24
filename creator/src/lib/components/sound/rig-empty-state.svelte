@@ -76,7 +76,7 @@
 		align-items: center;
 		gap: var(--space-05);
 	}
-	.row select {
+	.row :global(select) {
 		flex: 1;
 		min-width: 0;
 	}
