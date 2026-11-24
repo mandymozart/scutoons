@@ -1,16 +1,12 @@
 <script lang="ts" module>
 	import type { CastEntry, CharacterRegistry, MoodVocabulary } from '@scutoons/content';
-	import type { ToonInfo } from '$lib/editor/characters.ts';
 
-	/** What the VN character fields pick from (see the chapter editor). */
+	/** What the VN character fields show and check (see the chapter editor); the Library is what they pick from. */
 	export interface CharacterChoices {
 		registry: CharacterRegistry | null;
 		moods: MoodVocabulary;
-		toons: ToonInfo[];
 		/** the cast of the chapter's season */
 		cast: CastEntry[];
-		/** e.g. "Season 1" */
-		season: string;
 		locale: string;
 		/** after a pick: adds the character / persona to the season's cast when it isn't there (with an undo notice) */
 		ensureCast: (character: string, persona: string) => void;
@@ -35,12 +31,14 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CharacterPickerSheet, { type PickedCharacter } from '$lib/components/characters/character-picker-sheet.svelte';
+	import { library, type PickedThing } from '$lib/editor/library.svelte.ts';
+	import { thingId } from '$lib/editor/library-list.ts';
 
 	/**
-	 * A VN character reference: shows who (thumbnail, "Cat Pope · Biker · with helmet · happy") and opens the visual
-	 * picker. `scene` refs (joinScene/leaveScene) store `character`, `persona`, `look?`, `mood?` (+ `variant`, the view);
-	 * `speaker` refs (showMessage) store `character` and `persona`. Written to every locale file (one undo step).
+	 * A VN character reference: shows who (thumbnail, "Cat Pope · Biker · with helmet · happy") and opens the Library on
+	 * characters – the season's cast first, a press steps into the character for its persona. `scene` refs
+	 * (joinScene/leaveScene) store `character`, `persona`, `look?`, `mood?` (+ `variant`, the view); `speaker` refs
+	 * (showMessage) store `character` and `persona`. Written to every locale file (one undo step).
 	 */
 	let {
 		doc,
@@ -59,7 +57,6 @@
 		placeholder?: string;
 	} = $props();
 
-	let open = $state(false);
 	const ref = $derived<Record<string, any>>(getAt(doc.data[doc.primary], path) ?? {});
 	// old refs ({ name }, old ids like plf) are read as their current form
 	const normalized = $derived(resolveCharacterId(ref.character ?? ref.name ?? '', ref.persona));
@@ -78,7 +75,21 @@
 		return parts.join(' · ');
 	});
 
-	function pick(p: PickedCharacter) {
+	/** the slot asks the Library: characters, the season's cast first; a press steps into one for its persona */
+	function open() {
+		const type = getAt(doc.data[doc.primary], [...path.slice(0, -1), 'type']);
+		library.startPick({
+			label: typeof type === 'string' ? `${label} · ${type}` : label,
+			types: ['character'],
+			depth: 'persona',
+			first: 'cast',
+			value: id ? `character:${id}` : undefined,
+			onthing: (picked) => pick(picked)
+		});
+	}
+
+	function pick(picked: PickedThing) {
+		const p = { ...picked, character: thingId(picked.address) };
 		doc.edit((file) => {
 			let target = getAt(file, path);
 			if (!target) return;
@@ -103,28 +114,22 @@
 
 <div class="field ref-field" data-testid="character-ref">
 	<span class="label">{label}</span>
-	<button type="button" class="ref" class:unknown={!!id && !character} class:off-cast={!!character && (!inCast || !inCast.personas.includes(persona))} onclick={() => (open = true)} data-testid="character-ref-open">
+	<button
+		type="button"
+		class="ref"
+		class:unknown={!!id && !character}
+		class:off-cast={!!character && (!inCast || !inCast.personas.includes(persona))}
+		title={m['creator.characters_choose']()}
+		onclick={open}
+		data-testid="character-ref-open"
+	>
 		<span class="img" style:background={character?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 		<span class="text">{summary}</span>
-		<span class="hint">{m['creator.characters_choose']()}</span>
 	</button>
 	{#if character && (!inCast || !inCast.personas.includes(persona))}
 		<button type="button" class="ghost warn" onclick={() => choices.ensureCast(id, persona)}>{m['creator.characters_add_to_cast']()}</button>
 	{/if}
 </div>
-
-<CharacterPickerSheet
-	bind:open
-	registry={choices.registry}
-	moods={choices.moods}
-	toons={choices.toons}
-	cast={choices.cast}
-	season={choices.season}
-	locale={choices.locale}
-	mode={kind === 'scene' ? 'expression' : 'persona'}
-	value={{ character: id, persona, look: ref.look, mood: ref.mood }}
-	onpick={pick}
-/>
 
 <style>
 	.ref-field {

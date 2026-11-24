@@ -59,7 +59,7 @@
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
-	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
+	import { pickItem } from '$lib/editor/library-pick.svelte.ts';
 	import { pickPiece } from '$lib/editor/library-drop.ts';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { judgedPresets, ownPresets, presetsDoc } from '$lib/editor/presets-doc.ts';
@@ -141,9 +141,7 @@
 			: {
 					registry: registryOf(registry),
 					moods: moodsOf(moods),
-					toons: toonInfos,
 					cast: seasonCast,
-					season: m['creator.season']({ number: SEASON }),
 					// names, looks and moods in the header's text language (BACKLOG 10.51)
 					locale: textLanguage.names,
 					ensureCast
@@ -784,6 +782,12 @@
 		if (refused) return void toast(refused.message, { type: 'error', timeout: 0 });
 		view.select(edits.addSliceItem(t, itemId, spot));
 	}
+	// the item tool / "+ item" asks the Library for an item
+	$effect(() => {
+		if (!view.pickingItem) return;
+		view.pickingItem = false;
+		untrack(() => pickItem({ label: m['creator.add_slice_item']() }, addSliceItem));
+	});
 	/** a picked collage piece at the piece tool's spot (research/COLLAGE.md §3: a click = centred there, a drag = its rect) */
 	// the piece tool / "+ piece" asks the Library for a picture
 	$effect(() => {
@@ -1042,9 +1046,6 @@
 			</main>
 
 		</div>
-		{#if view.section === 'slice' && activeSlice}
-			<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
-		{/if}
 	{/if}
 
 </div>

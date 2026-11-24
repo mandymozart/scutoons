@@ -21,16 +21,14 @@
 	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { dropAsset, isAssetDrag } from '$lib/editor/library-drop.ts';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
-	 * a red "not on the CDN" badge, and a dashed "missing – add image" cell that opens the asset dialog (set the path, prefilled with
-	 * the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG; the characters import writes the WebP), or leave a
-	 * note = an asset request). The avatar is derived from the portrait (a small indicator); full is unused (only with
-	 * "all views"). Empty cells show faded what the reader shows instead (`resolveExpression`).
+	 * a red "not on the CDN" badge, and a dashed "missing – add image" cell; a cell opens the Library on pictures (an upload
+	 * goes to the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp`).
+	 * The avatar is derived from the portrait (a small indicator); full is unused (only with "all views"). Empty cells show faded what the reader shows instead (`resolveExpression`).
 	 */
 	let {
 		character,
@@ -62,8 +60,6 @@
 	let showStandard = $state(true);
 	let allViews = $state(false);
 	let newMood = $state('');
-	let dialog = $state<{ mood: string; view: string } | null>(null);
-	let dialogOpen = $state(false);
 
 	const standard = $derived(sortedMoods(moods).filter((x) => x.standard).map((x) => x.id));
 	const rowMoods = $derived.by(() => {
@@ -112,11 +108,6 @@
 	/** the cell a Library tile is dragged over */
 	let dropOn = $state<string | null>(null);
 
-	function openDialog(mood: string, view: string) {
-		dialog = { mood, view };
-		dialogOpen = true;
-	}
-
 	/** the cell's file from the Library: the slot on top, only square pictures pickable, Upload to the convention path */
 	function pickInLibrary(mood: string, view: string) {
 		const c = cell(mood, view);
@@ -125,6 +116,7 @@
 			kinds: ['image'],
 			square: view !== 'full',
 			path: c.convention,
+			value: c.path || undefined,
 			onpick: (path) => onset(mood, view, path)
 		});
 	}
@@ -179,7 +171,7 @@
 						data-control-exempt="picture cell"
 						class:requested={!!request}
 						title={c.path || c.convention}
-						onclick={() => openDialog(mood, view)}
+						onclick={() => pickInLibrary(mood, view)}
 						ondragover={(e) => isAssetDrag(e) && (e.preventDefault(), (dropOn = `${mood} ${view}`))}
 						ondragleave={() => (dropOn = null)}
 						ondrop={(e) => ((dropOn = null), dropAsset(e, { kinds: ['image'], square: view !== 'full' }, (path) => onset(mood, view, path)))}
@@ -215,20 +207,6 @@
 		<button type="button" class="ghost" onclick={addMood} disabled={!MOOD_ID.test(newMood.trim().toLowerCase().replace(/\s+/g, '-'))}><Icon name="plus" /> {m['creator.characters_add_mood']()}</button>
 	</p>
 </section>
-
-{#if dialog}
-	{@const c = cell(dialog.mood, dialog.view)}
-	{#key `${dialog.mood}/${dialog.view}`}
-		<AssetDialog
-			bind:open={dialogOpen}
-			title="{character.id} · {persona} · {look.id} · {moodLabel(dialog.mood, locale, moods)} ({dialog.view})"
-			path={c.path}
-			convention={c.convention}
-			onset={(path) => dialog && onset(dialog.mood, dialog.view, path)}
-			onlibrary={() => dialog && pickInLibrary(dialog.mood, dialog.view)}
-		/>
-	{/key}
-{/if}
 
 <style>
 	.bar {

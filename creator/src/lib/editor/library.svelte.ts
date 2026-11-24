@@ -2,7 +2,7 @@
 // space-web) over the registry's assets – a file's versions, whether it fits a slot, where an upload goes, the selection –
 // what the open items use (each editor hands its document's uses in), a blank slot's pick request. What is listed is the
 // server's answer (library-shelf.svelte.ts). The rules are the core's and the server's; this holds and loads.
-import { createAssetLibrary, type AssetSummary } from '@scutoons/api';
+import { createAssetLibrary, type AssetSummary, type LevelKind, type LibraryEntry, type ThingType } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
 import type { AssetFamily, LibraryFitAnswer, LibraryUse, SlotFit } from '@scutoons/media';
 import { libraryCore, libraryOpener, loadLibraryModule, type LibraryCore, type LibraryModule, type LibraryOpener } from '@scutoons/media/library';
@@ -16,14 +16,48 @@ const WASM_BASE = '/live/';
 /** the tiles' width in rem: continuous, remembered */
 export const TILE_SIZE = { min: 5, max: 12, step: 0.5, start: 7 } as const;
 
-/** a blank slot asking the Library for a file: the slot's name on top, only what fits shown */
-export interface PickRequest extends SlotFit {
-	/** what the bar says: "Look tourist · mood happy" */
+/** what every slot's pick says: its name on top, what is in it now, what this thing already has (shown first) */
+interface PickBase {
+	/** what the head says: "character · showMessage", "Look tourist · mood happy" */
 	label: string;
+	/** what the slot holds now (a file's path, a thing's address): shown chosen */
+	value?: string;
+	/** the place shown first, before everything else: This item (the default), the season's cast, This toon */
+	first?: 'item' | 'cast' | 'toon';
+}
+
+/** a slot asking the Library for a file: only what fits shown */
+export interface FilePick extends PickBase, SlotFit {
 	/** where Upload puts a new file for this slot (the slot's convention path) – else the open item's folder */
 	path?: string;
 	onpick: (path: string) => void;
 }
+
+/** a thing picked, as deep as its slot asked: a character's persona (the level's own id) */
+export interface PickedThing {
+	address: string;
+	entry: LibraryEntry | null;
+	persona?: string;
+	look?: string;
+	mood?: string;
+}
+
+/** a slot asking the Library for a thing of `types` (a character, an item, a person) */
+export interface ThingPick extends PickBase {
+	types: readonly ThingType[];
+	/** the level a picked thing is stepped into for (a speaker's persona): a press on the thing steps in */
+	depth?: LevelKind;
+	/** what the slot holds already (a related item, a credited person): left out */
+	taken?: readonly string[];
+	/** only these entries fit (an item slot: plain items, no recipes) */
+	accept?: (entry: LibraryEntry) => boolean;
+	/** a new one from the Find text (a person): the words of the button, what it does */
+	create?: { label: (name: string) => string; run: (name: string) => void };
+	onthing: (picked: PickedThing) => void;
+}
+
+export type PickRequest = FilePick | ThingPick;
+export const isThingPick = (request: PickRequest | null): request is ThingPick => !!request && 'types' in request;
 
 interface Remembered {
 	tile: number;
@@ -169,6 +203,12 @@ class Library {
 		return this.core?.families(false).find((f) => f.versions.some((v) => v.path === path)) ?? null;
 	}
 
+	/** the Library's address of the file holding `path` (a slot may hold one of its levels) */
+	addressOf(path: string): string | undefined {
+		const family = path ? this.familyOf(path) : null;
+		return family ? fileAddress(family) : undefined;
+	}
+
 	/** a click on a tile: one, Ctrl / ⌘ adds or takes one, Shift a run in `order` (the addresses as shown) */
 	click(address: string, keys: { shift?: boolean; toggle?: boolean } = {}, order: string[] = []) {
 		if (!this.core) {
@@ -188,31 +228,43 @@ class Library {
 		this.details = false;
 	}
 
-	/** Use: a pick fills its slot; otherwise the editors that take a drop listen for `sc-library-use` – TODO(#694) */
+	/** Use: the editors that take a drop listen for `sc-library-use` – TODO(#694) */
 	use(family: AssetFamily, path = family.main) {
-		if (this.pick) {
-			if (!this.takes(path, this.pick).ok) return;
-			const request = this.pick;
-			this.pick = null;
-			request.onpick(path);
-			return;
-		}
 		window.dispatchEvent(new CustomEvent('sc-library-use', { detail: { path, key: family.key, kind: family.kind } }));
 	}
 
-	/** a picker asks the Library for the kinds its slot takes */
+	/** a slot asks: the picker opens on the overlay level (library-picker.svelte) */
 	startPick(request: PickRequest) {
 		this.pick = request;
-		this.clearSelection();
 	}
 
 	cancelPick() {
 		this.pick = null;
 	}
 
+	/** the file pick's answer: when it fits, its slot is filled and the picker closes – else why not */
+	pickFile(path: string): LibraryFitAnswer {
+		const request = this.pick;
+		if (!request || isThingPick(request)) return { ok: false, unknown: true };
+		const answer = this.takes(path, request);
+		if (!answer.ok) return answer;
+		this.pick = null;
+		request.onpick(path);
+		return answer;
+	}
+
+	/** the thing pick's answer: its slot is filled, the picker closes */
+	pickThing(picked: PickedThing) {
+		const request = this.pick;
+		if (!isThingPick(request)) return;
+		this.pick = null;
+		request.onthing(picked);
+	}
+
 	/** where a new file goes: the slot's own path, else the open item's folder */
 	uploadPath(file: File): string | null {
-		return this.core?.uploadPath(file.name, this.pick?.path) ?? null;
+		const pick = this.pick && !isThingPick(this.pick) ? this.pick : null;
+		return this.core?.uploadPath(file.name, pick?.path) ?? null;
 	}
 
 	/** a new file; an upload that fits the picker is picked at once. → its path and, when the image rule converted it, what it became */
@@ -225,7 +277,7 @@ class Library {
 		const family = this.familyOf(path);
 		this.fresh = family ? fileAddress(family) : null;
 		if (family) this.click(fileAddress(family));
-		if (this.pick && family && this.takes(path, this.pick).ok) this.use(family, path);
+		if (this.pick && !isThingPick(this.pick)) this.pickFile(path);
 		return { path, converted: path !== asked ? path : null };
 	}
 

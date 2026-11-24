@@ -47,7 +47,6 @@
 		}
 		return [...byRef.values()];
 	});
-	const fits = $derived(!library.pick || library.takes(family.main, library.pick).ok);
 	const chapterOpen = $derived(!!library.address?.startsWith('chapter:') && family.kind === 'image');
 	const picture = $derived(previewPicture(family.preview));
 	const video = $derived(family.versions.find((v) => v.kind === 'video' && v.label === '480p') ?? family.versions.find((v) => v.kind === 'video'));
@@ -81,10 +80,9 @@
 	<h2><button type="button" class="name" data-control-exempt="text link" title={m['library.rename']()} onclick={() => renameFamily(family)}>{family.title}</button></h2>
 	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
 
-	<!-- what can be done with it here (#750): Use only while a slot picks, the cover only in a chapter; the rest as icons -->
+	<!-- what can be done with it here (#750): the cover only in a chapter; the rest as icons -->
 	<div class="actions">
-		{#if library.pick}<button type="button" class="primary" onclick={() => library.use(family)} disabled={!fits}>{m['library.use_here']()}</button>{/if}
-		{#if chapterOpen && !library.pick}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
+		{#if chapterOpen}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
 		<span class="icons">
 			<button type="button" class="ghost icon" title={m['library.download']()} aria-label={m['library.download']()} onclick={() => downloadFamilies([family])}><Icon name="download" size="1rem" /></button>
 			<button type="button" class="ghost icon" title={m['library.copy_path']()} aria-label={m['library.copy_path']()} onclick={() => copyPath(family)}><Icon name="copy" size="1rem" /></button>

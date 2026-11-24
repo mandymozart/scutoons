@@ -43,7 +43,6 @@
 
 <div bind:this={el} class="menu" role="menu" tabindex="-1" style:left="{at.left}rem" style:top="{at.top}rem" onkeydown={keys} data-testid="library-menu">
 	{#if one}
-		{#if library.pick}<button type="button" role="menuitem" onclick={() => run(() => library.use(one))}><Icon name="check" size="0.9rem" />{m['library.use_here']()}<kbd>↵</kbd></button>{/if}
 		<button type="button" role="menuitem" onclick={() => run(() => (library.details = true))}><Icon name="info" size="0.9rem" />{m['library.details']()}</button>
 		<button type="button" role="menuitem" onclick={() => run(() => renameFamily(one))}><Icon name="edit-2" size="0.9rem" />{m['library.rename']()}<kbd>F2</kbd></button>
 		<button type="button" role="menuitem" onclick={() => run(() => onreplace(one))}><Icon name="repeat" size="0.9rem" />{m['library.replace']()}</button>

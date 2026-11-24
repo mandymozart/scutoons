@@ -1,11 +1,12 @@
 // The Library's list, one for the whole creator: the server's answer (GET /api/library, `@scutoons/api` library()) for
 // the place, the type and From chosen, held per query with its version (a second look asks with If-None-Match), and the
 // thing stepped into (`?at=`). The server resolves what is listed; this holds the choices and what came back.
-import { library as libraryAnswer, libraryPath, type FileKind, type FileOrigin, type LibraryEntry, type LibraryLevel, type LibraryQuery, type LibraryStep } from '@scutoons/api';
+import { getContext, setContext } from 'svelte';
+import { library as libraryAnswer, libraryPath, type FileOrigin, type LibraryEntry, type LibraryLevel, type LibraryQuery, type LibraryStep } from '@scutoons/api';
 import { api } from '$lib/api.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
-import { shared } from '$lib/utils/shared.ts';
-import { placeAvailable, placeQuery, startPlace, type PlaceContext, type ShelfGrouping, type ShelfPlace, type ShelfSort } from './library-list.ts';
+import { contextKey, shared } from '$lib/utils/shared.ts';
+import { placeAvailable, placeQuery, startPlace, type PickFit, type PlaceContext, type ShelfGrouping, type ShelfPlace, type ShelfSort } from './library-list.ts';
 
 const VIEW_KEY = 'sc-creator-library-shelf';
 
@@ -33,7 +34,7 @@ async function every(q: LibraryQuery, held?: string): Promise<Held | null> {
 	return { version: first.version, entries };
 }
 
-class Shelf {
+export class Shelf {
 	/** the place chosen and the front item it was chosen for (a new front item starts on its own place) */
 	#place = $state<{ place: ShelfPlace; for: string | null } | null>(null);
 	/** the cast chosen in By cast (`season:<toon>:<n>`); none: the open item's season */
@@ -106,9 +107,9 @@ class Shelf {
 		this.leave();
 	}
 
-	/** the server's query for what is chosen */
-	queryFor(ctx: PlaceContext, pickKinds: readonly FileKind[] | null): LibraryQuery {
-		return placeQuery(this.place(ctx), ctx, this.choice, this.from, pickKinds, getLocale());
+	/** the server's query for what is chosen (a pick: within what its slot takes) */
+	queryFor(ctx: PlaceContext, fit: PickFit | null = null): LibraryQuery {
+		return placeQuery(this.place(ctx), ctx, this.choice, this.from, fit, getLocale());
 	}
 
 	/** show the answer for `q`: held at once, asked again with its version; a failed ask waits for the next change */
@@ -210,3 +211,10 @@ class Shelf {
 }
 
 export const shelf = shared('creator-library-shelf', () => new Shelf());
+/** the picker's own list (its place, Find and the thing stepped into), so the Library panel under it keeps its own */
+export const pickShelf = shared('creator-library-pick-shelf', () => new Shelf());
+
+const SHELF = contextKey('library-shelf');
+/** the parts of the Library inside a picker read the picker's list */
+export const provideShelf = (s: Shelf) => setContext(SHELF, s);
+export const useShelf = (): Shelf => getContext<Shelf | undefined>(SHELF) ?? shelf;

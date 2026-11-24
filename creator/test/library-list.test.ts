@@ -1,9 +1,25 @@
 // The Library's list from the server's answer (lib/editor/library-list.ts): the query a place asks, Find, the order and
-// runs shown, the levels of a thing stepped into.
+// runs shown, the levels of a thing stepped into, a slot's pick.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { LibraryEntry, LibraryLevel } from '@scutoons/api';
-import { filePath, findIn, levelColumns, levelKey, placeAvailable, placeQuery, sortEntries, startPlace, typeRuns, TYPE_CHOICES } from '../src/lib/editor/library-list.ts';
+import {
+	filePath,
+	findIn,
+	firstPlace,
+	levelColumns,
+	levelIds,
+	levelKey,
+	pickChoices,
+	pickGroups,
+	placeAvailable,
+	placeQuery,
+	sortEntries,
+	startPlace,
+	thingId,
+	typeRuns,
+	TYPE_CHOICES
+} from '../src/lib/editor/library-list.ts';
 
 const entry = (address: string, name: string, more: Partial<LibraryEntry> = {}): LibraryEntry => ({
 	address,
@@ -24,13 +40,32 @@ test('a place asks its own query: the item, the cast of a season, the toon, the 
 	assert.deepEqual(placeQuery('recent', ctx, 'all', 'uploaded', null, 'en'), { locale: 'en', limit: 5000, toon: 'catpope', place: 'recent', from: 'uploaded' });
 });
 
-test('the type select asks types or kinds; a pick asks only the kinds its slot takes', () => {
+test('the type select asks types or kinds; a pick asks what its slot takes, narrowed by the select', () => {
 	const ctx = { toon: 'catpope', open: null, season: null };
 	assert.deepEqual(placeQuery('toon', ctx, 'instrument', null, null, 'en').type, ['instrument', 'rig']);
 	assert.deepEqual(placeQuery('toon', ctx, 'model', null, null, 'en').kind, ['model']);
-	const pick = placeQuery('toon', ctx, 'character', null, ['image'], 'en');
-	assert.deepEqual([pick.type, pick.kind], [undefined, ['image']]);
+	const files = placeQuery('toon', ctx, 'all', null, { kinds: ['image', 'video'] }, 'en');
+	assert.deepEqual([files.type, files.kind], [undefined, ['image', 'video']]);
+	assert.deepEqual(placeQuery('toon', ctx, 'video', null, { kinds: ['image', 'video'] }, 'en').kind, ['video']);
+	assert.deepEqual(placeQuery('all', ctx, 'all', null, { types: ['character'] }, 'en').type, ['character']);
 	assert.equal(TYPE_CHOICES.filter((c) => c.group === 'things').length, 11);
+});
+
+test("a pick: its type choices, the place shown first, the first place's entries before everyone else", () => {
+	assert.deepEqual(pickChoices({ types: ['character'] }), ['all', 'character']);
+	assert.deepEqual(pickChoices({ kinds: ['image', 'video'] }), ['all', 'image', 'video']);
+	assert.deepEqual(pickChoices({ types: ['rig'] }), ['all', 'instrument']);
+	const chapter = { toon: 'catpope', open: 'chapter:catpope:3', season: 'season:catpope:1' };
+	assert.equal(firstPlace('cast', chapter), 'cast');
+	assert.equal(firstPlace(undefined, chapter), 'item');
+	assert.equal(firstPlace('cast', { toon: 'catpope', open: 'toon:catpope', season: null }), 'toon');
+	assert.equal(firstPlace(undefined, { toon: null, open: null, season: null }), null);
+	const cast = [entry('character:catpope', 'Cat Pope'), entry('character:boy', 'Boy')];
+	const all = [entry('character:boy', 'Boy'), entry('character:sandy', 'Sandy'), entry('character:crows', 'Crows')];
+	const groups = pickGroups(cast, all, (e) => e.address !== 'character:crows');
+	assert.deepEqual([groups.first.map((e) => e.name), groups.rest.map((e) => e.name)], [['Cat Pope', 'Boy'], ['Sandy']]);
+	assert.equal(thingId('item:camera'), 'camera');
+	assert.equal(thingId('person:p12'), 'p12');
 });
 
 test('a place needs what it narrows to', () => {
@@ -70,6 +105,9 @@ test('a character stepped into: personas, the chosen persona\'s looks, the chose
 	const deep = levelColumns(levels, at, ['character:catpope.regular', 'character:catpope.regular.default', 'character:catpope.regular.default#happy']);
 	assert.deepEqual(deep.map((c) => [c.level, c.rows.length]), [['persona', 2], ['look', 1], ['mood', 2]]);
 	assert.equal(levelKey(deep[2].rows[0]), 'character:catpope.regular.default#happy');
+	// a pick takes the ids: the persona's and the look's address past their parent's, the mood's own
+	assert.deepEqual(levelIds([levels[0]]), { persona: 'regular' });
+	assert.deepEqual(levelIds([levels[0], levels[1], levels[2]]), { persona: 'regular', look: 'default', mood: 'happy' });
 	// a toon: seasons, then the chosen season's chapters
 	const toon = [level('season:catpope:1', 'season', 'toon:catpope'), level('chapter:catpope:1', 'chapter', 'season:catpope:1')];
 	assert.deepEqual(levelColumns(toon, 'toon:catpope', ['season:catpope:1']).map((c) => c.level), ['season', 'chapter']);

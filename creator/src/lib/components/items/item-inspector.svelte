@@ -7,7 +7,7 @@
 	import { sliceLength } from '$lib/editor/length-units.ts';
 	import { useCoreUnits } from '$lib/editor/core-units-context.ts';
 	import RepeatsField from '$lib/components/fields/repeats-field.svelte';
-	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
+	import { pickItem } from '$lib/editor/library-pick.svelte.ts';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -53,7 +53,6 @@
 	const def = $derived(itemCatalog.catalog?.items.find((i) => i.id === placed?.item));
 	const action = $derived(placed?.action ?? 'none');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
-	let picking = $state(false);
 
 	/** X / Y / W in the unit the member picks in the field (owner 2026-10-18, length-units.ts); stored as % of the slice */
 	const slice = $derived(doc.get(doc.primary, path.slice(0, -2)));
@@ -101,9 +100,13 @@
 
 		<div class="row">
 			<code>{placed.item}</code>
-			<button type="button" class="secondary" onclick={() => (picking = true)} data-testid="item-change">{m['creator.slice_item_change']()}</button>
+			<button
+				type="button"
+				class="secondary"
+				onclick={() => pickItem({ label: m['creator.slice_item_change'](), value: placed.item ? `item:${placed.item}` : undefined }, (id) => doc.set(p('item'), id))}
+				data-testid="item-change">{m['creator.slice_item_change']()}</button
+			>
 		</div>
-		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.set(p('item'), item.id)} />
 
 		<!-- X / Y = the anchor point's position (owner 2026-10-17; 'b' keeps an item on its baseline); compact rows with a
 		     unit per field (owner 2026-10-18) -->

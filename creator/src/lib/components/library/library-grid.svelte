@@ -7,7 +7,8 @@
 
 	/**
 	 * Entries of the Library's answer as tiles (or rows), the panel's and a stepped-into thing's: one list, or "By type"
-	 * the runs of one type or kind under its word. Drawn a page at a time as the end scrolls into view.
+	 * the runs of one type or kind under its word. Drawn a page at a time as the end scrolls into view. A picker hands in
+	 * `onpress` (a press picks) and `chosen` (what its slot holds).
 	 */
 	let {
 		entries,
@@ -16,7 +17,9 @@
 		grouped = false,
 		label,
 		onopen,
-		onmenu
+		onmenu,
+		onpress,
+		chosen
 	}: {
 		entries: readonly LibraryEntry[];
 		tile: number;
@@ -25,6 +28,8 @@
 		label: string;
 		onopen: (entry: LibraryEntry) => void;
 		onmenu?: (x: number, y: number) => void;
+		onpress?: (entry: LibraryEntry) => void;
+		chosen?: string | null;
 	} = $props();
 
 	const PAGE = 120;
@@ -70,7 +75,15 @@
 		{#if run.key}<h3 class="head">{runLabel(run.key)}</h3>{/if}
 		<div class="tiles" class:list role="listbox" aria-multiselectable="true" aria-label={run.key ? runLabel(run.key) : label} style:--tile="{tile}rem">
 			{#each run.entries as e (e.address)}
-				<LibraryTile entry={e} row={list} selected={library.chosen.includes(e.address)} fresh={library.fresh === e.address} onpress={(k) => library.click(e.address, k, order)} onopen={() => onopen(e)} {onmenu} />
+				<LibraryTile
+					entry={e}
+					row={list}
+					selected={chosen !== undefined ? chosen === e.address : library.chosen.includes(e.address)}
+					fresh={library.fresh === e.address}
+					onpress={(k) => (onpress ? onpress(e) : library.click(e.address, k, order))}
+					onopen={() => onopen(e)}
+					{onmenu}
+				/>
 			{/each}
 		</div>
 	</section>

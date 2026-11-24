@@ -4,13 +4,15 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newPerson, newRole, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import PersonPicker from '$lib/components/credits/person-picker.svelte';
+	import { library } from '$lib/editor/library.svelte.ts';
+	import { thingId } from '$lib/editor/library-list.ts';
 	import RolePicker from '$lib/components/credits/role-picker.svelte';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * An ordered list of `{ person, roles }` of a section (toon sections have two: lead + entries). Reorder with the
 	 * shared Sortable (the ⋮⋮ grip: drag, or Alt+ArrowUp / ArrowDown); roles are chips (click = detail / language, × = remove).
+	 * "+ Person" opens the Library on people – this toon's first, those listed here left out; a new name creates one.
 	 */
 	let {
 		credits,
@@ -56,6 +58,16 @@
 		const person = newPerson(name, registry);
 		edit<{ people: any[] }>(people, (file) => file.people.push(person));
 		addPerson(person.id);
+	}
+	function pickPerson() {
+		library.startPick({
+			label: m['creator.credits_add_person'](),
+			types: ['person'],
+			first: 'toon',
+			taken: [...listed].map((id) => `person:${id}`),
+			create: { label: (name) => m['creator.credits_create_person']({ name }), run: createPerson },
+			onthing: (picked) => addPerson(thingId(picked.address))
+		});
 	}
 	function addRole(i: number, role: string) {
 		change((l) => l[i].roles.push({ role }));
@@ -144,7 +156,7 @@
 			</li>
 		{/each}
 	</ol>
-	<PersonPicker people={peopleOf(people)?.people ?? []} {listed} testid="{testid}-person-picker" onpick={addPerson} oncreate={createPerson} />
+	<button type="button" class="ghost add" onclick={pickPerson} data-testid="{testid}-person-picker-open">+ {m['creator.credits_add_person']()}</button>
 </div>
 
 <style>
@@ -207,6 +219,9 @@
 		flex-wrap: wrap;
 		padding: 0.3rem;
 		background: transparent;
+	}
+	.add {
+		align-self: flex-start;
 	}
 	.details label {
 		display: flex;

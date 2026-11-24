@@ -2,7 +2,7 @@
 // a tree row (a slice row, a mood cell) asks the core whether the file fits; a drop that doesn't fit says why.
 import type { AssetFamily, DropAnswer, LibraryFitAnswer, MediaHost, PickedFile, SlotFit } from '@scutoons/media';
 import type { RegistryCharacter } from '@scutoons/content';
-import { fileAddress, library } from '$lib/editor/library.svelte.ts';
+import { library } from '$lib/editor/library.svelte.ts';
 import { imageRatio, libraryPiece, type PickedPiece } from '$lib/editor/collage-pick.ts';
 import { asset } from '$lib/utils/cdn.ts';
 import { toast } from '$lib/toasts.ts';
@@ -58,10 +58,9 @@ export const libraryHost: MediaHost = {
 			label: request.label,
 			kinds: request.kinds,
 			square: request.square,
+			value: request.value || undefined,
 			onpick: (path) => request.onpick(path, filesOf(library.familyOf(path)))
 		});
-		const current = request.value ? library.familyOf(request.value) : null;
-		if (current) library.click(fileAddress(current));
 	},
 	over: overAsset,
 	drop: dropAsset
