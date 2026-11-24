@@ -55,7 +55,7 @@
 			<h2>{m['creator.meta']()}</h2>
 			<LocaleText doc={entry} path={['title']} label={m['creator.field_title']()} multiline={false} />
 			<LocaleText doc={entry} path={['description']} label={m['creator.field_description']()} rows={3} />
-			<div class="status" data-testid="toon-status">
+			<div class="status" title={m['creator.toon_status_hint']()} data-testid="toon-status">
 				<span class="sc-label">{m['creator.status']()}</span>
 				<div class="status-row">
 					{#each statusLocales as l (l)}
@@ -72,14 +72,12 @@
 						</span>
 					{/each}
 				</div>
-				<p class="hint">{m['creator.toon_status_hint']()}</p>
 			</div>
 			<LocaleText doc={entry} path={['release']} label={m['creator.field_release']()} type="date" />
 		</section>
 
 		<section class="sc-section neutral" data-testid="toon-neutral">
-			<h2>{m['creator.toon_neutral']()}</h2>
-			<p class="hint">{m['creator.toon_neutral_hint']()}</p>
+			<h2 title={m['creator.toon_neutral_hint']()}>{m['creator.toon_neutral']()}</h2>
 			<PropField doc={entry} path={['authors']} label={m['creator.field_authors']()} type="list" testid="toon-authors" />
 			<div class="sc-fields" data-cols="3" data-align="start">
 				<PropField doc={entry} path={['chapters']} label={m['creator.field_chapter_count']()} type="number" step={1} min={0} />
@@ -100,9 +98,8 @@
 			{/if}
 
 			<div class="sub" data-testid="toon-landing">
-				<h3>{m['creator.landing']()}</h3>
-				<p class="hint">{m['creator.landing_hint']()}</p>
-				<label class="check">
+				<h3 title={m['creator.landing_hint']()}>{m['creator.landing']()}</h3>
+				<label class="check" title={m['creator.announce_hint']()}>
 					<input
 						type="checkbox"
 						checked={data?.announce === true}
@@ -111,7 +108,6 @@
 					/>
 					<span>{m['creator.announce']()}</span>
 				</label>
-				<p class="hint">{m['creator.announce_hint']()}</p>
 				<div class="media">
 					<MediaSlot {toon} label={m['creator.field_avatar']()} value={data?.avatar || undefined} onchange={(v) => entry.set(['avatar'], v || 'avatar.webp')} testid="toon-avatar" />
 					<MediaSlot {toon} label={m['creator.field_tile_image']()} value={data?.tile?.image || undefined} onchange={(v) => entry.set(['tile', 'image'], v || undefined)} testid="toon-tile-image" />
@@ -122,8 +118,8 @@
 			</div>
 
 			<div class="sub" data-testid="toon-map">
-				<h3>{m['creator.map_start_view']()}</h3>
-				<p class="hint">{m['creator.map_start_view_hint']()} <a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a></p>
+				<h3 title={m['creator.map_start_view_hint']()}>{m['creator.map_start_view']()}</h3>
+				<a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a>
 				<div class="sc-fields" data-cols="4" data-align="start">
 					<PropField doc={entry} path={['map', 'center', 'x']} label={m['creator.field_map_x']()} type="number" step={1} />
 					<PropField doc={entry} path={['map', 'center', 'y']} label={m['creator.field_map_y']()} type="number" step={1} />
