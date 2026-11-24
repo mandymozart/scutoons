@@ -9,8 +9,9 @@
  *   panel           a floating panel's see-through ground (the surface, the stage colour, × panel opacity)
  *   halo            text-shadow on a panel's text: the ink ring of its ground's colour (none by day)
  *   icon-halo       the same ring on icons and SVGs on a panel (filter: drop-shadow)
- *   popover         the ground of a menu, a dropdown, a dialog, a tooltip, a toast: the same see-through ground as a
- *                   panel, with its 1px line – never a grey
+ *   popover         the ground of a menu, a dropdown, a dialog, a tooltip, a toast: the surface at the popover opacity
+ *                   (stronger than a panel's, so a panel's words under it don't mix in), with its 1px line and the ink
+ *                   ring – see-through, never a grey
  *   head            a fold row's / a tile's ground (the text colour at 5 %)
  *   control         a field's or a framed control's ground (text 6 %) · hover the same under the pointer (text 10 %)
  *   pressed         a pressed segment / tab / toggle / the primary action, pressed-text the ink on it
@@ -33,7 +34,7 @@
 	--tool-panel: var(--editor-panel-ground);
 	--tool-halo: var(--editor-halo);
 	--tool-icon-halo: drop-shadow(0 0 1px var(--editor-surface)) drop-shadow(0 0 1px var(--editor-surface));
-	--tool-popover: var(--editor-panel-ground);
+	--tool-popover: var(--editor-popover-ground);
 	--tool-head: var(--editor-surface-head);
 	--tool-control: var(--editor-control);
 	--tool-hover: var(--editor-hover);

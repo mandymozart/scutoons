@@ -3,8 +3,8 @@
 # The kit's tokens – the one source of the look of the deck's UI (deck-kit) and the web tools (shared/tokens).
 # Palette D (RULES H11): no accent, no lime, no green switch; on, focus, active and selected are the text colour, the one
 # primary action is the pressed fill, colour says only ok (go), warning (warn) and error (stop). The grounds a control
-# stands on are see-through: the text colour at a low alpha; a menu's or a panel's is the surface (the stage colour) at
-# panel_opacity – never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a
+# stands on are see-through: the text colour at a low alpha; a panel's is the surface (the stage colour) at
+# panel_opacity, a menu's or a popover's at popover_opacity – never an opaque grey (the generator refuses one). What keeps its colour: signals, outlet types, a
 # group of spores, the mixer's strips.
 #
 # Shape (deck-kit's `tokens.toml`, deck/kit/src/base/tokens.rs `File`): `[color]` and `[size]` for both looks,
@@ -18,8 +18,11 @@ stage = "#000000"
 # light ink: text over the stage and on a coloured ground
 bright = "#f3f3f0"
 danger = "#c0392b"
-# how much a surface covers the stage behind it (0..1): the see-through ground of panels, the bar, menus, popovers
+# how much a surface covers the stage behind it (0..1): the see-through ground of panels and the bar
 panel_opacity = 0.85
+# the same for what lies over a panel – a menu, a picker, hover text, a dialog's box: stronger, so a panel's words under
+# it do not mix with its own; still see-through (0..1)
+popover_opacity = 0.95
 # the view gizmo's x, y, z
 axis = ["#ed4552", "#78bf33", "#4087f2"]
 
@@ -46,7 +49,7 @@ panel_h = 3.4
 spacing = 0.15
 
 [night.color]
-# the stage colour, opaque: at panel_opacity it is the ground of a floating panel, the bar, a menu, a popover, a dialog;
+# the stage colour, opaque: at panel_opacity the ground of a floating panel and the bar, at popover_opacity of a menu, a popover, a dialog;
 # opaque only as the ink ring
 surface = "#000000"
 # a fold row's or a tile's head: text 5 %
@@ -152,7 +155,7 @@ stop = "#8f3300"
 #   [component.<name>.<state>]   <part> = "<token>"   or   "<token> <n>%"   (the token see-through at n %)
 # Parts: text · ground · border · ring (the focus outline) · knob · mark (a tick, a dot, a chevron, the insert line) ·
 # opacity (a number) · blur (rem; the overlay's alone). Tokens: the colours above by name (text, muted, line, control, hover, pressed, pressed_text,
-# selected, within, selection, surface_head, go, warn, stop) and panel / popover (the surface at panel_opacity) and
+# selected, within, selection, surface_head, go, warn, stop), panel (the surface at panel_opacity), popover (at popover_opacity) and
 # none. A ground is never an opaque grey: line, muted, text and bright are refused as a ground (the generator).
 # The web tools get them as --kit-<name>-<state>-<part> (shared/tokens/kit.css).
 

@@ -127,15 +127,20 @@
 		align-items: center;
 		gap: var(--kit-icon-gap);
 		min-width: 0;
+		width: 100%;
+	}
+	.line > :global(svg) {
+		flex: none;
 	}
 	.name {
 		flex: none;
 	}
 	.meta {
-		flex: 1 1 auto;
+		flex: 1 1 0;
 		text-align: right;
 		min-width: 0;
 		overflow: hidden;
+		white-space: nowrap;
 		color: var(--tool-muted);
 		font-size: var(--editor-small);
 		text-overflow: ellipsis;
