@@ -81,6 +81,9 @@ export function placeQuery(place: ShelfPlace, ctx: PlaceContext, choice: string,
 	return q;
 }
 
+/** an item's place the server knows nothing at yet (404): a fresh draft – it uses nothing, an empty list, not a failure */
+export const freshItem = (q: LibraryQuery, status: number | undefined): boolean => status === 404 && !!q.place?.startsWith('item:');
+
 /** the type select's choices for a slot: "All types" (all it takes), then each type or kind it takes */
 export const pickChoices = (fit: PickFit): string[] => [
 	'all',
