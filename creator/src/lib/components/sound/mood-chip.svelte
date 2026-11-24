@@ -3,6 +3,7 @@
 	// moods as faces (the character's portraits) – auto lets the engine's ladder choose. The mood is the first of the
 	// character's properties the stage will simulate (look, persona … follow as more chips).
 	import { clickOutside } from '@scutoons/ui';
+	import { Button, Tile } from '@scutoons/ui/editor';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -36,19 +37,20 @@
 </script>
 
 <div class="wrap" {@attach clickOutside(() => (open = false))}>
-	<button type="button" class="chip" aria-haspopup="listbox" aria-expanded={open} title={m['creator.sound_mood']()} onclick={() => (open = !open)} data-testid="sound-mood">
-		{#if face(shown)}<img src={face(shown)} alt="" />{/if}
+	<Button aria-haspopup="listbox" aria-expanded={open} title={m['creator.sound_mood']()} onclick={() => (open = !open)} data-testid="sound-mood">
+		{#if face(shown)}<img class="face" src={face(shown)} alt="" />{/if}
 		<span class="k">{m['creator.sound_mood']()}</span>
 		<span>{value === 'auto' ? m['creator.sound_mood_auto']() : value}</span>
-	</button>
+	</Button>
 	{#if open}
 		<ul class="faces" role="listbox" aria-label={m['creator.sound_mood']()}>
 			{#each ['auto', ...moods] as mood (mood)}
 				<li>
-					<button type="button" role="option" aria-selected={value === mood} class:on={value === mood} onclick={() => pick(mood)} data-testid="sound-mood-{mood}">
-						{#if mood !== 'auto' && face(mood)}<img src={face(mood)} alt="" />{:else if mood === 'auto' && face(playing)}<img class="auto" src={face(playing)} alt="" />{:else}<span class="blank"></span>{/if}
-						<span>{mood === 'auto' ? m['creator.sound_mood_auto']() : mood}</span>
-					</button>
+					<Tile label={mood === 'auto' ? m['creator.sound_mood_auto']() : mood} on={value === mood} role="option" aria-selected={value === mood} onclick={() => pick(mood)} data-testid="sound-mood-{mood}">
+						{#snippet picture()}
+							{#if mood !== 'auto' && face(mood)}<img src={face(mood)} alt="" />{:else if mood === 'auto' && face(playing)}<img class="auto" src={face(playing)} alt="" />{/if}
+						{/snippet}
+					</Tile>
 				</li>
 			{/each}
 		</ul>
@@ -59,32 +61,15 @@
 	.wrap {
 		position: relative;
 	}
-	.chip {
-		all: unset;
-		box-sizing: border-box;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		height: 2rem;
-		padding: 0 0.5rem 0 0.25rem;
-		cursor: pointer;
-		color: var(--tool-pressed-text);
-		background: color-mix(in srgb, var(--tool-pressed) 70%, transparent);
-		border: 1px solid color-mix(in srgb, var(--tool-ground) 45%, transparent);
-		font-size: 0.75rem;
-	}
-	.chip:focus-visible,
-	.chip[aria-expanded='true'] {
-		border-color: var(--tool-ground);
-	}
-	.chip img {
-		width: 1.5rem;
-		height: 1.5rem;
+	.face {
+		width: 1.25rem;
+		height: 1.25rem;
+		border-radius: 50%;
 		object-fit: cover;
-		background: var(--tool-ground);
 	}
 	.k {
-		color: color-mix(in srgb, var(--tool-pressed-text) 60%, transparent);
+		color: var(--tool-muted);
+		margin-right: var(--space-025);
 	}
 	.faces {
 		position: absolute;
@@ -96,50 +81,21 @@
 		list-style: none;
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		width: min(19rem, 70vw);
+		width: min(22rem, 70vw);
 		box-sizing: border-box;
 		gap: 0.25rem;
 		background: var(--tool-popover);
 		text-shadow: var(--tool-halo);
 		color: var(--tool-text);
-		border: var(--border-width-regular) solid var(--tool-text);
-		max-height: 16rem;
+		border: 1px solid var(--tool-line);
+		border-radius: var(--editor-radius);
+		max-height: 18rem;
 		overflow-y: auto;
 	}
-	.faces button {
-		all: unset;
-		box-sizing: border-box;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.125rem;
-		padding: 0.25rem 0; /* control-ok: a two-line tile (portrait over label), not a single-line control */
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		text-align: center;
-	}
-	.faces button span:last-child {
-		max-width: 100%;
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-	}
-	.faces button:hover,
-	.faces button:focus-visible {
-		outline: var(--border-width-regular) solid var(--tool-text);
-		outline-offset: -2px;
-	}
-	.faces button.on {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-	}
-	.faces img,
-	.faces .blank {
+	.faces img {
 		width: 2.5rem;
 		height: 2.5rem;
 		object-fit: cover;
-		background: var(--tool-ground);
 	}
 	.faces img.auto {
 		opacity: 0.55;

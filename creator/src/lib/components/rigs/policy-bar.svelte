@@ -4,6 +4,7 @@
 	// policy" comes back to it after another module was picked. The core's word on the draft stands here too: why it does
 	// not read yet ("compile it first") or what the browser's deck leaves out of it (no module runtime before #290).
 	import { askDialog } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import { putDraft } from '$lib/api.ts';
 	import { firstDraft, idProblem } from '$lib/editor/module-catalog.ts';
 	import { moduleKey } from '$lib/editor/module-store.ts';
@@ -47,9 +48,9 @@
 		{#if !session.rig}{m['creator.sound_policy_needs_rig']()}{:else if policy}{m['creator.sound_policy_of']({ id: policy })}{:else}{m['creator.sound_policy_none']()}{/if}
 	</span>
 	{#if session.rig && !policy}
-		<button type="button" onclick={newPolicy} data-testid="sound-new-policy">{m['creator.sound_new_policy']()}</button>
+		<Button onclick={newPolicy} data-testid="sound-new-policy">{m['creator.sound_new_policy']()}</Button>
 	{:else if policy && policy !== open}
-		<button type="button" onclick={() => onselect(policy)} data-testid="sound-open-policy">{m['creator.sound_policy_open']()}</button>
+		<Button onclick={() => onselect(policy)} data-testid="sound-open-policy">{m['creator.sound_policy_open']()}</Button>
 	{/if}
 </div>
 {#if notice || session.problem}<p class="said" role="status" data-testid="sound-policy-status">{notice || session.problem}</p>{/if}
@@ -62,23 +63,18 @@
 		justify-content: space-between;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		border-bottom: 1px solid var(--tool-line);
+		font-size: var(--type-caption-size);
 	}
 	.line {
 		min-width: 0;
-	}
-	.bar button {
-		flex: none;
 	}
 	.said {
 		flex: none;
 		margin: 0;
 		padding: var(--space-025) var(--space-1);
 		color: var(--tool-muted);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
+		font-size: var(--type-caption-size);
+		border-bottom: 1px solid var(--tool-line);
 	}
 </style>

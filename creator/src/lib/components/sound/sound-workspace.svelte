@@ -147,7 +147,7 @@
 		min-height: 0;
 	}
 	.designer-half {
-		border-right: var(--border-width-regular) solid var(--tool-text);
+		border-right: 1px solid var(--tool-line);
 	}
 	.split.stacked {
 		grid-template-columns: minmax(0, 1fr);
@@ -158,6 +158,6 @@
 	}
 	.stacked .designer-half {
 		border-right: 0;
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
+		border-bottom: 1px solid var(--tool-line);
 	}
 </style>

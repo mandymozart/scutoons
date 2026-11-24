@@ -215,7 +215,7 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 //     the grey surface is a ground only through --tool-panel / --tool-popover / --tool-head, which say what the box is
 //   - a see-through ground (a panel, a menu, a popover, a tooltip, an overlay box) carries the halo: text-shadow: var(--tool-halo)
 // COLOUR_ALLOW: file + text of the declaration + why, for what truly must stay (keep it short)
-const COLOUR_DIRS = ['creator/src', 'shared/ui/src/editor', 'shared/tokens/tools.css'];
+const COLOUR_DIRS = ['creator/src', 'shared/ui/src/editor', 'shared/rig-designer/src', 'shared/tokens/tools.css'];
 const COLOUR_ALLOW = [
 	// [file, a substring of the declaration, the reason]
 	// empty after #831's sweep; url() contents (the select chevron's data URI) are not read as colours

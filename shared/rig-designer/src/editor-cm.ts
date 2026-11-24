@@ -2,7 +2,7 @@
 // loaded through `loadEditor()` (a dynamic import, editor.ts) when the Rust tab first opens – the deck page's bundle
 // does not grow. One view; every file keeps its own EditorState (text, cursor, undo history) while another shows.
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
+import { bracketMatching, defaultHighlightStyle, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { rust } from '@codemirror/lang-rust';
 import { lintGutter, setDiagnostics, type Diagnostic as CmDiagnostic } from '@codemirror/lint';
 import { Compartment, EditorState } from '@codemirror/state';
@@ -28,21 +28,31 @@ export interface EditorOptions {
 	label: string;
 }
 
-// ink on paper, mono, rem (DESIGN.md "Brutalist tools": no px type, 2px frames are the page's)
+// the kit's colours (--tool-*): the stage shows through, the code in the mono face, rem
 const theme = EditorView.theme({
-	'&': { height: '100%', color: 'var(--ink)', backgroundColor: 'var(--paper)', fontSize: 'var(--designer-code-size, 0.8125rem)' },
-	'&.cm-focused': { outline: 'var(--border-width-focus) solid var(--ink)', outlineOffset: '-3px' },
+	'&': { height: '100%', color: 'var(--tool-text)', backgroundColor: 'transparent', fontSize: 'var(--designer-code-size, 0.8125rem)' },
+	'&.cm-focused': { outline: 'none' },
 	'.cm-scroller': { fontFamily: 'var(--font-mono)', lineHeight: '1.5', overflow: 'auto' },
-	'.cm-content': { caretColor: 'var(--ink)', padding: '0.5rem 0' },
-	'.cm-gutters': { backgroundColor: 'var(--paper)', color: 'color-mix(in srgb, var(--ink) 50%, transparent)', border: 'none', borderRight: '1px solid color-mix(in srgb, var(--ink) 20%, transparent)' },
-	'.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--ink) 6%, transparent)' },
-	'.cm-activeLineGutter': { backgroundColor: 'color-mix(in srgb, var(--ink) 6%, transparent)', color: 'var(--ink)' },
-	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--primary-cyan, #00d1ff) 35%, transparent)' },
-	'.cm-lintRange-error': { backgroundImage: 'none', textDecoration: 'underline wavy var(--state-error)', textUnderlineOffset: '0.2em' },
-	'.cm-lintRange-warning': { backgroundImage: 'none', textDecoration: 'underline wavy var(--state-warning)', textUnderlineOffset: '0.2em' },
-	'.cm-tooltip': { fontFamily: 'var(--font-mono)', fontSize: '0.75rem', border: 'var(--border-width-regular) solid var(--ink)', backgroundColor: 'var(--paper)', color: 'var(--ink)', borderRadius: '0' },
-	'.cm-diagnostic': { padding: '0.25rem 0.5rem' }
+	'.cm-content': { caretColor: 'var(--tool-text)', padding: '0.5rem 0' },
+	'.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--tool-text)' },
+	'.cm-gutters': { backgroundColor: 'transparent', color: 'var(--tool-muted)', border: 'none', borderRight: '1px solid var(--tool-line)' },
+	'.cm-activeLine': { backgroundColor: 'var(--tool-control)' },
+	'.cm-activeLineGutter': { backgroundColor: 'var(--tool-control)', color: 'var(--tool-text)' },
+	'.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': { backgroundColor: 'var(--tool-selection)' },
+	'.cm-matchingBracket': { backgroundColor: 'var(--tool-selected)', outline: 'none' },
+	'.cm-lintRange-error': { backgroundImage: 'none', textDecoration: 'underline wavy var(--tool-stop)', textUnderlineOffset: '0.2em' },
+	'.cm-lintRange-warning': { backgroundImage: 'none', textDecoration: 'underline wavy var(--tool-warn)', textUnderlineOffset: '0.2em' },
+	'.cm-tooltip': { fontSize: 'var(--type-caption-size)', border: '1px solid var(--tool-line)', backgroundColor: 'var(--tool-popover)', color: 'var(--tool-text)', textShadow: 'var(--tool-halo)', borderRadius: 'var(--editor-radius)' },
+	// a state shows as its colour, never as a thick side bar (RULES H10)
+	'.cm-diagnostic': { padding: '0.25rem 0.5rem' },
+	'.cm-diagnostic-error, .cm-diagnostic-warning, .cm-diagnostic-info, .cm-diagnostic-hint': { borderLeft: 'none' },
+	'.cm-diagnostic-error': { color: 'var(--tool-stop)' },
+	'.cm-diagnostic-warning': { color: 'var(--tool-warn)' }
 });
+
+// the code keeps CodeMirror's own colours; mixed toward the text colour by --code-hue (the Rust tab sets it lower by
+// night) so they read on the black stage as on the white one
+const highlight = HighlightStyle.define(defaultHighlightStyle.specs.map((spec) => (typeof spec.color === 'string' ? { ...spec, color: `color-mix(in oklab, ${spec.color} var(--code-hue, 100%), var(--tool-text))` } : spec)));
 
 export function createEditor(parent: HTMLElement, o: EditorOptions): EditorHandle {
 	const states = new Map<string, EditorState>();
@@ -65,7 +75,7 @@ export function createEditor(parent: HTMLElement, o: EditorOptions): EditorHandl
 		history(),
 		indentOnInput(),
 		bracketMatching(),
-		syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+		syntaxHighlighting(highlight, { fallback: true }),
 		rust(),
 		lintGutter(),
 		keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),

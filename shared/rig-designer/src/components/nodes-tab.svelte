@@ -40,8 +40,8 @@
 	{#if layout.nodes.length === 0}
 		<p class="muted">{wiring.problem || m['designer.nodes_empty']()}</p>
 	{:else}
-		<p class="muted">{m['designer.nodes_hint']()}</p>
 		<svg viewBox="0 0 {layout.width} {layout.height}" style:max-width="{layout.width}rem" role="img" aria-label={m['designer.nodes_graph']()}>
+			<title>{m['designer.nodes_hint']()}</title>
 			<!-- the viewBox counts in rem (at full size): a text's size, a stroke's width are rem too -->
 			<g font-size="0.6875">
 			{#each layout.cables as c (c.index)}
@@ -80,14 +80,12 @@
 		height: 100%;
 		overflow: auto;
 		padding: var(--space-1);
-		background: var(--paper);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		color: var(--tool-text);
+		font-family: var(--font-sans);
 	}
 	.muted {
 		margin: 0 0 var(--space-05);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	/* the whole rig at once: at most its own size, smaller when the half is narrower (the viewBox keeps its shape) */
 	svg {
@@ -95,66 +93,86 @@
 		width: 100%;
 		height: auto;
 	}
+	/* cables and pins keep their signal's colour and shape (RULES H11: the deck's one signal table) */
 	.cable {
 		fill: none;
-		stroke: var(--ink);
+		stroke: var(--signal-audio);
 		stroke-width: 0.0625;
 	}
 	.cable.control {
-		stroke: var(--text-muted);
+		stroke: var(--signal-control);
 		stroke-dasharray: 0.25 0.1875;
 	}
 	.cable.video {
-		stroke: var(--primary-cyan);
+		stroke: var(--signal-picture);
 		stroke-width: 0.125;
 	}
 	.cable.event {
+		stroke: var(--signal-event);
 		stroke-width: 0.125;
 		stroke-dasharray: 0.5 0.1875;
 	}
 	.cable.back {
 		stroke-dasharray: 0.0625 0.1875;
 	}
+	/* a node: the control ground (see-through), its line; its head the text colour at the head's strength */
 	.box {
-		fill: var(--paper);
-		stroke: var(--ink);
-		stroke-width: 0.125;
+		fill: var(--tool-control);
+		stroke: var(--tool-line);
+		stroke-width: 0.0625;
 	}
 	.head {
-		fill: var(--ink);
+		fill: var(--tool-head);
 	}
 	.id {
-		fill: var(--paper);
+		fill: var(--tool-text);
 	}
 	.kind {
-		fill: color-mix(in srgb, var(--paper) 65%, transparent);
+		fill: var(--tool-muted);
 		text-anchor: end;
 	}
 	.idle {
 		opacity: 0.45;
 	}
 	.port {
-		fill: var(--paper);
-		stroke: var(--ink);
+		fill: var(--tool-ground);
+		stroke: var(--signal-audio);
 		stroke-width: 0.0625;
 	}
 	.port.wired {
-		fill: var(--ink);
+		fill: var(--signal-audio);
+	}
+	.port.control {
+		stroke: var(--signal-control);
+	}
+	.port.control.wired {
+		fill: var(--signal-control);
+	}
+	.port.video {
+		stroke: var(--signal-picture);
 	}
 	.port.video.wired {
-		fill: var(--primary-cyan);
+		fill: var(--signal-picture);
+	}
+	.port.event {
+		stroke: var(--signal-event);
+	}
+	.port.event.wired {
+		fill: var(--signal-event);
 	}
 	.port-name {
-		fill: var(--ink);
+		fill: var(--tool-muted);
 	}
 	.port-name.out {
 		text-anchor: end;
 	}
+	/* the live value on a cable: the mono face, ringed with the stage so it reads over the line */
 	.value {
-		fill: var(--ink);
+		fill: var(--tool-text);
 		text-anchor: middle;
+		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
-		stroke: var(--paper);
+		stroke: var(--tool-ground);
 		stroke-width: 0.25;
 		paint-order: stroke;
 	}

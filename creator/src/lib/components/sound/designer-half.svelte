@@ -4,7 +4,8 @@
 	// the tab row – Parameters · Nodes · Rust · Assignment (a rig page: the character's rig as a form, #283), all mounted while hidden.
 	import { DesignerTabs, NodesTab, ParametersTab, RustTab, type DesignerTabId, type GraphWiring, type RigDesigner } from '@scutoons/rig-designer';
 	import type { EngineHost } from '@scutoons/engine-host';
-	import { Icon } from '@scutoons/ui';
+	import { Button, IconButton, Select } from '@scutoons/ui/editor';
+	import { VIEWER_URL } from '$lib/config.ts';
 	import AssignmentPane from '$lib/components/rigs/assignment-pane.svelte';
 	import PolicyBar from '$lib/components/rigs/policy-bar.svelte';
 	import type { RigSession } from '$lib/editor/rig-session.svelte.ts';
@@ -35,17 +36,14 @@
 		{#if fixed}
 			<span class="title" data-testid="sound-module-title">module:{fixed}</span>
 		{:else}
-			<select onchange={(e) => onselect(e.currentTarget.value || null)} aria-label={m['creator.sound_module']()} title={m['creator.sound_module']()} data-testid="sound-module">
-				{#if !session?.policy}<option value="" selected={!selected}>{m['creator.sound_module_none']()}</option>{/if}
-				{#each modules as id (id)}<option value={id} selected={id === selected}>module:{id}{factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}</option>{/each}
-			</select>
+			<span class="pick"><Select value={selected ?? ''} options={[...(session?.policy ? [] : [{ value: '', label: m['creator.sound_module_none']() }]), ...modules.map((id) => ({ value: id, label: `module:${id}${factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}` }))]} label={m['creator.sound_module']()} onchange={(v) => onselect(v || null)} data-testid="sound-module" /></span>
 		{/if}
+		<!-- TODO(#859): the deck opens on this module; until then a plain link to the deck -->
+		<Button variant="quiet" icon="external-link" href="{VIEWER_URL}/live/deck" target="_blank" rel="noopener" title={m['creator.sound_open_in_deck_title']()} data-testid="sound-open-deck">{m['creator.sound_open_in_deck']()}</Button>
 		{#if designer.factory && designer.moduleId}
-			<button type="button" onclick={onderive} title={m['creator.sound_derive_title']({ id: designer.moduleId })} data-testid="sound-derive">{m['creator.sound_derive']()}</button>
+			<Button onclick={onderive} title={m['creator.sound_derive_title']({ id: designer.moduleId })} data-testid="sound-derive">{m['creator.sound_derive']()}</Button>
 		{/if}
-		<button type="button" class="sc-round" onclick={onnew} title={m['creator.sound_new_module']()} aria-label={m['creator.sound_new_module']()} data-testid="sound-new-module">
-			<Icon name="plus" size="1rem" />
-		</button>
+		<IconButton alone icon="plus" label={m['creator.sound_new_module']()} onclick={onnew} data-testid="sound-new-module" />
 	</header>
 	{#if notice}<p class="note" role="status">{notice}</p>{/if}
 	<DesignerTabs value={tab} onchange={(id) => (tab = id)} />
@@ -76,9 +74,8 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
-	.head select,
+	.pick,
 	.title {
 		flex: 1;
 		min-width: 0;
@@ -87,13 +84,14 @@
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
-		font-family: var(--font-mono);
+		font-size: var(--type-title-size);
 	}
 	.body {
 		flex: 1;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		border-top: 1px solid var(--tool-line);
 	}
 	.pane {
 		flex: 1;
@@ -107,7 +105,6 @@
 		margin: 0;
 		padding: var(--space-025) var(--space-1);
 		color: var(--tool-muted);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 	}
 	.pad {
 		padding: var(--space-1);

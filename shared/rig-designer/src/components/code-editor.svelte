@@ -73,7 +73,6 @@
 		min-height: 0;
 		min-width: 0;
 		overflow: hidden;
-		background: var(--paper);
 	}
 	.editor :global(.cm-editor) {
 		position: absolute;
@@ -82,8 +81,7 @@
 	.note {
 		margin: 0;
 		padding: var(--space-1);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--text-muted);
+		font-size: var(--type-caption-size);
+		color: var(--tool-muted);
 	}
 </style>

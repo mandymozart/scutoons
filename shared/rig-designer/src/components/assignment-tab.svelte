@@ -8,6 +8,7 @@
 	// `face` says, no rule here – is read-only with the reason, and the inputs the form has no field for are listed.
 	import { addTrack, faceTrack, moodPreset, moodRows, ownedBy, ownedInputs, presetsOf, removeTrack, setMoodPreset, setTrack, type CatalogInstrument, type CatalogPreset, type RigCoverage, type RigDoc, type RigDriven, type RigFace } from '../assignment.ts';
 	import { CloseButton } from '@scutoons/ui';
+	import { Button, Select, Toggle, type SelectOption } from '@scutoons/ui/editor';
 	import { designerLocale } from '../setup.ts';
 	import { m } from '../messages.ts';
 
@@ -37,6 +38,10 @@
 	const why = (by: RigDriven | null) => (by ? m['designer.assign_driven']({ output: by.output, mode: by.mode }) : undefined);
 	const presetOwner = (track: string) => ownedBy(faceTrack(face, track)?.preset_driven);
 	const gainOwner = (track: string) => ownedBy(faceTrack(face, track)?.gain_driven);
+	const instrumentOptions = $derived<SelectOption[]>(instruments.map((i) => ({ value: i.id, label: `${label(i.name, i.id)}${i.kind ? ` · ${i.kind}` : ''}` })));
+	/** a track's instruments: the catalog's, and the one it names when the catalog lacks it */
+	const instrumentsFor = (id: string): SelectOption[] => (instruments.some((i) => i.id === id) ? instrumentOptions : [{ value: id, label: id }, ...instrumentOptions]);
+	const presetOptions = (instrument: string, none: string): SelectOption[] => [{ value: '', label: none }, ...presetsOf(instrument, presets).map((p) => ({ value: p.id, label: p.id }))];
 </script>
 
 {#snippet codeMark(by: RigDriven | null)}
@@ -52,7 +57,7 @@
 
 	{#if !rig}
 		<p class="muted">{m['designer.assign_none']()}</p>
-		<button type="button" onclick={oncreate} data-testid="assign-create">{m['designer.assign_create']()}</button>
+		<Button onclick={oncreate} data-testid="assign-create">{m['designer.assign_create']()}</Button>
 	{:else}
 		<h3>{m['designer.assign_tracks']()}</h3>
 		{#if rig.track.length > 0}
@@ -65,38 +70,30 @@
 						<tr data-testid="assign-track">
 							<td>{t.id}</td>
 							<td>
-								<select value={t.instrument} onchange={(e) => onchange(setTrack(rig, t.id, { instrument: e.currentTarget.value }))} aria-label={m['designer.assign_instrument']()}>
-									{#if !instruments.some((i) => i.id === t.instrument)}<option value={t.instrument}>{t.instrument}</option>{/if}
-									{#each instruments as i (i.id)}<option value={i.id}>{label(i.name, i.id)}{i.kind ? ` · ${i.kind}` : ''}</option>{/each}
-								</select>
+								<Select value={t.instrument} options={instrumentsFor(t.instrument)} label={m['designer.assign_instrument']()} onchange={(v) => onchange(setTrack(rig, t.id, { instrument: v }))} />
 							</td>
 							<td>
-								<select value={t.preset ?? ''} disabled={!!presetOwner(t.id)} title={why(presetOwner(t.id))} onchange={(e) => onchange(setTrack(rig, t.id, { preset: e.currentTarget.value }))} aria-label={m['designer.assign_preset']()} data-testid="assign-track-preset">
-									<option value="">{m['designer.assign_bare']()}</option>
-									{#each presetsOf(t.instrument, presets) as p (p.id)}<option value={p.id}>{p.id}</option>{/each}
-								</select>
-								{@render codeMark(presetOwner(t.id))}
+								<span class="cell">
+									<Select value={t.preset ?? ''} options={presetOptions(t.instrument, m['designer.assign_bare']())} label={m['designer.assign_preset']()} disabled={!!presetOwner(t.id)} title={why(presetOwner(t.id))} onchange={(v) => onchange(setTrack(rig, t.id, { preset: v }))} data-testid="assign-track-preset" />
+									{@render codeMark(presetOwner(t.id))}
+								</span>
 							</td>
 							<td><input type="number" step="0.05" min="0" value={t.gain ?? 1} disabled={!!gainOwner(t.id)} title={why(gainOwner(t.id))} onchange={(e) => onchange(setTrack(rig, t.id, { gain: num(e.currentTarget.value, 1) }))} aria-label={m['designer.assign_gain']()} />{@render codeMark(gainOwner(t.id))}</td>
 							<td><input type="number" step="0.1" min="-1" max="1" value={t.pan ?? 0} onchange={(e) => onchange(setTrack(rig, t.id, { pan: num(e.currentTarget.value, 0) }))} aria-label={m['designer.assign_pan']()} /></td>
-							<td><input type="checkbox" checked={t.mute ?? false} onchange={(e) => onchange(setTrack(rig, t.id, { mute: e.currentTarget.checked }))} aria-label={m['designer.assign_mute']()} /></td>
+							<td><Toggle on={t.mute ?? false} label={m['designer.assign_mute']()} onchange={(on) => onchange(setTrack(rig, t.id, { mute: on }))} /></td>
 							<td><CloseButton label={m['designer.assign_remove']({ id: t.id })} stroke={1} onclick={() => onchange(removeTrack(rig, t.id))} /></td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		{/if}
-		<label class="add">
+		<div class="add">
 			<span>{m['designer.assign_add']()}</span>
-			<select bind:value={adding} onchange={() => adding && (onchange(addTrack(rig, adding, presets)), (adding = ''))} data-testid="assign-add">
-				<option value="">…</option>
-				{#each instruments as i (i.id)}<option value={i.id}>{label(i.name, i.id)}{i.kind ? ` · ${i.kind}` : ''}</option>{/each}
-			</select>
-		</label>
+			<Select bind:value={adding} options={[{ value: '', label: '…' }, ...instrumentOptions]} label={m['designer.assign_add']()} onchange={(v) => v && (onchange(addTrack(rig, v, presets)), (adding = ''))} data-testid="assign-add" />
+		</div>
 
 		{#if rig.track.length > 0 && rows.length > 0}
-			<h3>{m['designer.assign_moods']()}</h3>
-			<p class="muted">{m['designer.assign_moods_hint']()}</p>
+			<h3 title={m['designer.assign_moods_hint']()}>{m['designer.assign_moods']()}</h3>
 			<table>
 				<thead>
 					<tr><th>{m['designer.assign_mood']()}</th>{#each rig.track as t (t.id)}<th>{t.id} {@render codeMark(presetOwner(t.id))}</th>{/each}</tr>
@@ -107,10 +104,7 @@
 							<td>{mood}</td>
 							{#each rig.track as t (t.id)}
 								<td>
-									<select value={moodPreset(rig, mood, t.id) ?? ''} disabled={!!presetOwner(t.id)} title={why(presetOwner(t.id))} onchange={(e) => onchange(setMoodPreset(rig, mood, t.id, e.currentTarget.value || null))} aria-label="{mood} · {t.id}">
-										<option value="">{m['designer.assign_own']()}</option>
-										{#each presetsOf(t.instrument, presets) as p (p.id)}<option value={p.id}>{p.id}</option>{/each}
-									</select>
+									<Select value={moodPreset(rig, mood, t.id) ?? ''} options={presetOptions(t.instrument, m['designer.assign_own']())} label="{mood} · {t.id}" disabled={!!presetOwner(t.id)} title={why(presetOwner(t.id))} onchange={(v) => onchange(setMoodPreset(rig, mood, t.id, v || null))} />
 								</td>
 							{/each}
 						</tr>
@@ -120,8 +114,7 @@
 		{/if}
 
 		{#if owned.length > 0}
-			<h3>{m['designer.assign_owned']()}</h3>
-			<p class="muted">{m['designer.assign_owned_hint']({ module: face?.policy?.module ?? '' })}</p>
+			<h3 title={m['designer.assign_owned_hint']({ module: face?.policy?.module ?? '' })}>{m['designer.assign_owned']()}</h3>
 			<table data-testid="assign-owned">
 				<thead>
 					<tr><th>{m['designer.assign_input']()}</th><th>{m['designer.assign_output']()}</th><th>{m['designer.assign_mode']()}</th></tr>
@@ -141,28 +134,26 @@
 		height: 100%;
 		overflow: auto;
 		padding: var(--space-1);
-		background: var(--paper);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		color: var(--tool-text);
 	}
 	p {
 		margin: 0 0 var(--space-05);
 	}
 	.muted {
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 	.status.missing,
 	.problem {
-		color: var(--state-error);
+		color: var(--tool-stop);
 	}
+	/* a section's head: the label type, muted (deck-kit's) */
 	h3 {
-		margin: var(--space-1) 0 var(--space-05);
-		font-size: 0.75rem;
+		margin: var(--space-1) 0 var(--space-025);
+		font-size: var(--type-label-size);
 		font-weight: inherit;
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label, 0.08em);
-		color: var(--text-muted);
+		letter-spacing: var(--tracking-label);
+		color: var(--tool-muted);
 	}
 	table {
 		width: 100%;
@@ -172,29 +163,34 @@
 	td {
 		padding: var(--space-025) var(--space-05) var(--space-025) 0;
 		text-align: left;
+		vertical-align: middle;
 		font-weight: inherit;
-		border-bottom: var(--border-width-hairline) solid color-mix(in srgb, var(--ink) 20%, transparent);
+		border-bottom: 1px solid var(--tool-line);
 	}
 	th {
-		color: var(--text-muted);
-		text-transform: uppercase;
+		font-size: var(--type-caption-size);
+		color: var(--tool-muted);
 	}
-	select,
+	.cell {
+		display: flex;
+		align-items: center;
+		gap: var(--space-025);
+	}
 	input[type='number'] {
+		width: 5.5rem;
 		max-width: 100%;
-		font: inherit;
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
 	}
-	input[type='number'] {
-		width: 4rem;
-	}
-	select:disabled,
 	input:disabled {
 		opacity: 0.6;
 	}
 	.code {
 		margin-left: var(--space-025);
-		color: var(--text-muted);
+		font-size: var(--type-label-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
+		color: var(--tool-muted);
 	}
 	.add {
 		display: flex;

@@ -92,7 +92,7 @@
 		height: 10rem;
 		display: flex;
 		flex-direction: column;
-		border-top: var(--border-width-regular) solid var(--tool-text);
+		border-top: 1px solid var(--tool-line);
 		font-size: 0.75rem;
 	}
 	.cols {
