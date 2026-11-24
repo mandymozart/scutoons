@@ -32,6 +32,8 @@ const KINDS: Record<string, { workspace: WorkspaceKind; icon: string }> = {
 	notifications: { workspace: 'help', icon: 'bell' }
 };
 const CATALOG = { workspace: 'catalog' as const, icon: 'package' };
+/** a file's kind (the Library's `image`, `video` …) → its icon */
+export const FILE_ICONS: Readonly<Record<string, string>> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 
 export const kindOf = (address: string): string => address.slice(0, Math.max(0, address.indexOf(':'))) || address;
 

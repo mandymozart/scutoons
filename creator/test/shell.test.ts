@@ -1,7 +1,7 @@
 // The shell's pure parts (lib/shell): addresses ↔ routes, the tabs, this machine's settings.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, startsAtTop, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
+import { AREAS, FILE_ICONS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, startsAtTop, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, pageLabel, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
 import { NO_USE, ROW, entered, fits, readUse, startKinds, workspaceClick, workspaceFor, workspaceRow } from '../src/lib/shell/workspaces.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
@@ -198,6 +198,17 @@ test('the Log is in every workspace; its old id Problems still names it', () => 
 	}
 	assert.equal(panelSpecs('scene', availableTabs([], null), TABS).find((p) => p.id === 'log')?.place.closed, true, 'a workspace without it in its preset: a closed panel');
 	assert.equal(tabIdOf('problems'), 'log');
+});
+
+test('the scene page (lap 2 C5): the still is the whole back, its facts an open panel at the right, the Library folded', () => {
+	assert.equal(PRESETS.scene.clear, false, 'full-bleed: the still runs under the bar');
+	const specs = panelSpecs('scene', availableTabs(['facts'], null), TABS);
+	const facts = specs.find((p) => p.tabs?.includes('facts'));
+	assert.equal(facts?.place.corner, 'top-right');
+	assert.ok(!facts?.place.closed && !facts?.place.collapsed, 'open at rest');
+	assert.equal(specs.find((p) => p.id === 'library')?.place.collapsed, true);
+	assert.ok(!specs.some((p) => p.tabs?.includes('tree')), 'no list of scenes of its own');
+	assert.equal(FILE_ICONS.video, 'film');
 });
 
 test('an address as the Log’s scope: a toon’s items under the toon, a chapter under its season', () => {
