@@ -4,7 +4,7 @@
 import { goto } from '$app/navigation';
 import { languageCommand } from '@scutoons/ui';
 import type { AssetFamily, LibraryKind } from '@scutoons/media';
-import { fileAddress, library } from '$lib/editor/library.svelte.ts';
+import { library } from '$lib/editor/library.svelte.ts';
 import { shelf } from '$lib/editor/library-shelf.svelte.ts';
 import { kindWord } from '$lib/labels.ts';
 import type { CreatorNav } from '$lib/nav.svelte.ts';
@@ -137,7 +137,7 @@ export function launch(entry: LaunchEntry, logout: () => unknown) {
 			shelf.setPlace('all', library.address);
 			shelf.query = entry.label;
 			const family = library.core?.families(false).find((f) => `asset:${f.key}` === id);
-			if (family) library.click(fileAddress(family));
+			if (family) library.click(library.fileAddress(family));
 			return;
 		}
 		case 'command':

@@ -2347,6 +2347,7 @@
 		"log_find": "Suchen",
 		"log_copy": "Alles kopieren",
 		"log_copied": "Log kopiert",
+		"log_core_failed": "Der Kern des Decks (space-web) wurde nicht geladen – Log, Einheiten und Prüfungen fehlen hier: {reason}",
 		"log_empty": "Nichts in diesem Bereich.",
 		"log_notes": "Hinweise {count}",
 		"log_jump": "Hinspringen",

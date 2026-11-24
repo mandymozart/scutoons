@@ -43,7 +43,7 @@
 	const path = $derived(filePath(entry));
 	const icon = $derived(entry.kind ? (FILE_ICONS[entry.kind] ?? 'file') : (TYPE_ICONS[entry.type ?? ''] ?? iconOf(entry.address)));
 	const what = $derived(entry.type ? m[`library.type_${entry.type}`]() : m[`library.file_${entry.kind ?? 'file'}`]());
-	const family = $derived(path ? library.byAddress.get(entry.address) : undefined);
+	const family = $derived(path ? library.familyAt(entry.address) : undefined);
 	/** a model whose still is not stored yet: rendered here, sent up once */
 	const renders = $derived(entry.kind === 'model' && !entry.picture && !!path);
 

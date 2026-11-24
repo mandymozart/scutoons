@@ -33,8 +33,8 @@
 
 <Pill as="footer" status class="status-bar" data-testid="status-bar" data-control-exempt="the status pill's parts: deck-kit status.rs's height">
 	<Button variant="quiet" fill onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-message">
-		<span class="dot {newest?.level ?? 'none'}" aria-hidden="true"></span>
-		<span class="words">{newest?.text ?? m['shell.status_none']()}</span>
+		<span class="dot {newest?.level ?? (log.failure ? 'error' : 'none')}" aria-hidden="true"></span>
+		<span class="words">{newest?.text ?? log.failure ?? m['shell.status_none']()}</span>
 		{#if newest}<span class="age">{newest.age}</span>{/if}
 	</Button>
 	{#if shell.status}{@render shell.status()}{:else if saving}<span class="saving" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}

@@ -2347,6 +2347,7 @@
 		"log_find": "Find",
 		"log_copy": "Copy all",
 		"log_copied": "Log copied",
+		"log_core_failed": "The deck's core (space-web) did not load, so the Log, units and checks are missing here: {reason}",
 		"log_empty": "Nothing in this scope.",
 		"log_notes": "Notes {count}",
 		"log_jump": "Jump to it",

@@ -5,6 +5,7 @@
 import { untrack } from 'svelte';
 import type { LogCore, LogCounts, LogFilter, LogLegend, LogLine, LogScopePill, LogView } from '@scutoons/content';
 import { shared } from '$lib/utils/shared.ts';
+import { m } from '$lib/paraglide/messages.js';
 
 const EMPTY: LogView = { problems: [], events: [], counts: { errors: 0, warnings: 0 }, notes: 0, newest: null };
 
@@ -40,9 +41,15 @@ class CreatorLog {
 		if (this.#waiting.length) void this.load();
 	}
 
-	/** runs on the core now or once it is there; never a dependency of the effect that posts */
+	/** the one line the Log can still say when its core did not load */
+	get failure(): string | null {
+		return this.status === 'error' ? m['shell.log_core_failed']({ reason: this.error ?? '' }) : null;
+	}
+
+	/** runs on the core now or once it is there (nothing after the core failed to load); never a dependency of the effect that posts */
 	#with(run: (core: LogCore) => void) {
 		untrack(() => {
+			if (this.status === 'error') return;
 			if (this.#core) {
 				run(this.#core);
 				this.version++;
@@ -53,8 +60,9 @@ class CreatorLog {
 		});
 	}
 
+	/** tried once: a failed load stays failed for the page (asked again on every post, it would fetch without end) */
 	async load() {
-		if (!this.#loader || this.status === 'loading' || this.status === 'ready') return;
+		if (!this.#loader || this.status !== 'idle') return;
 		this.status = 'loading';
 		try {
 			const core = await this.#loader();
@@ -63,8 +71,10 @@ class CreatorLog {
 			this.status = 'ready';
 			this.version++;
 		} catch (e) {
+			this.#waiting = [];
 			this.error = e instanceof Error ? e.message : String(e);
 			this.status = 'error';
+			console.error(this.failure);
 		}
 	}
 

@@ -115,7 +115,7 @@
 	/** a double click: a thing is stepped into, a file used */
 	function open(entry: LibraryEntry) {
 		if (entry.type) return shelf.stepInto(entry.address);
-		const family = library.byAddress.get(entry.address);
+		const family = library.familyAt(entry.address);
 		if (family) library.use(family);
 	}
 
