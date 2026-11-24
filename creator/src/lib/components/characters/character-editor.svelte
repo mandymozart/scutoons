@@ -54,7 +54,6 @@
 		look = $bindable(''),
 		toons,
 		casts,
-		castDocs,
 		kanon,
 		vocabulary,
 		onselect
@@ -67,9 +66,8 @@
 		persona?: string;
 		look?: string;
 		toons: ToonInfo[];
+		/** every toon's cast (the Cast tab: where it is cast in) */
 		casts: Record<string, ToonCast | null>;
-		/** the toons' cast documents (Cast edits them; saved with the page) */
-		castDocs: Record<string, ContentDoc>;
 		/** the page's Kanon texts (saved with the page) */
 		kanon: KanonDocs;
 		/** the mood words (every character's), under the Expressions tab */
@@ -234,7 +232,7 @@
 
 {#snippet castTab()}
 	{#if character}
-		<div class="say"><CharacterLinks {character} {registry} casts={castDocs} {toons} /></div>
+		<div class="say"><CharacterLinks {character} {casts} {toons} /></div>
 	{/if}
 {/snippet}
 

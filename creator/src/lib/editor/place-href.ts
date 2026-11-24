@@ -5,7 +5,7 @@ import { experienceHref } from './experiences.ts';
 
 /**
  * The creator page that edits a stored file (the dashboard's lists, the review list): a chapter → its editor, a season,
- * a toon's entry / settings / credits / script → their pages, a cast → Characters (its Links), a catalog entry → its catalog page, a map document → the map,
+ * a toon's entry / settings / credits / script → their pages, a cast → its first season's Cast in the toon, a catalog entry → its catalog page, a map document → the map,
  * the character registry → Characters, a deck scene → its page in Scenes, a module or a rig → the editor (`/edit/<key>`),
  * a storyboard → its chapter's storyboard page, an XR experience → its page in Experiences. `toon` is the file's toon
  * when the key does not name it (a review's toon).
@@ -40,6 +40,7 @@ export function placeHref(key: string, toon: string | null = null): string {
 		case 'region':
 			return '/map';
 		case 'cast':
+			return `/${t}/season/1/cast`;
 		case 'characters':
 		case 'character':
 		case 'moods':

@@ -14,7 +14,6 @@
 		personaIds,
 		pickText,
 		findPersona,
-		castSeasons,
 		validateAssetRequests,
 		validateFile,
 		validateLocales,
@@ -32,7 +31,6 @@
 	import {
 		addCharacter,
 		castDoc,
-		castWithStar,
 		castOf,
 		characterLanguages,
 		edit,
@@ -61,8 +59,8 @@
 	/**
 	 * A character's page: the registry (entity `characters`) with the open character as its workspace (CharacterEditor,
 	 * opened from the Library's Items to open). No character open: Home with the
-	 * Library's characters. Every toon's cast is read for "appears in", the Library's cast facet and the validation – and
-	 * edited in a character's Cast tab (saved with the page). The mood words sit under its Expressions tab.
+	 * Library's characters. Every toon's cast is read for "appears in", a character's Cast tab ("cast in") and the validation;
+	 * a cast is edited in its toon's season. The mood words sit under its Expressions tab.
 	 */
 	const registry = registryDoc();
 	const moods = moodsDoc();
@@ -104,10 +102,6 @@
 		castDocs = loaded;
 		closeArrivedRequests();
 	});
-	/** a cast edited in Links keeps its toon's star in every season */
-	function beforeSave() {
-		for (const [toon, doc] of Object.entries(castDocs)) if (doc.dirty) castWithStar(doc, registry, toon, castSeasons(castOf(doc)));
-	}
 
 	/** open requests whose file is now at the convention path are done (a draft edit of the wanted images) */
 	async function closeArrivedRequests() {
@@ -256,7 +250,7 @@
 	<MoodsPanel {moods} registry={file} languages={allLanguages} />
 {/snippet}
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => [...kanon.all(), ...Object.values(castDocs)]} {validate} {beforeSave} wide fill={!!selectedCharacter} help="characters">
+<MetaPage toon="" title={m['creator.characters']()} {docs} along={() => kanon.all()} {validate} wide fill={!!selectedCharacter} help="characters">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
@@ -265,7 +259,7 @@
 			<p class="hint pad-top">{m['creator.loading']()}</p>
 		{:else if selectedCharacter}
 			{#key selected}
-				<CharacterEditor {registry} moodsDoc={moods} requestsDoc={requests} moods={vocabulary} id={selected} bind:persona bind:look {toons} {casts} {castDocs} {kanon} vocabulary={vocabularyTab} onselect={(id) => select(id)} />
+				<CharacterEditor {registry} moodsDoc={moods} requestsDoc={requests} moods={vocabulary} id={selected} bind:persona bind:look {toons} {casts} {kanon} vocabulary={vocabularyTab} onselect={(id) => select(id)} />
 			{/key}
 		{/if}
 	</div>

@@ -1,7 +1,6 @@
 {
 	"creator/src/lib/components/chapter/chapter-tree.svelte": 2,
 	"creator/src/lib/components/chapter/slice-import.svelte": 1,
-	"creator/src/lib/components/characters/character-links.svelte": 3,
 	"creator/src/lib/components/characters/character-model-canvas.svelte": 8,
 	"creator/src/lib/components/credits/role-picker.svelte": 1,
 	"creator/src/lib/components/events/vn-events.svelte": 1,
