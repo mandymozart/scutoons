@@ -7,7 +7,7 @@
 	 * the halo. What sits inside – IconButton, Button, PillTab – is inset by --kit-inset, the pill's height less twice the
 	 * inset, and rounded by the pill's radius less the inset (their corners share a centre: deck-kit's `pills_rounded`),
 	 * `--kit-seam` apart. `as` picks the element (a bar's `nav`, a status `footer`); `grow` lets it take the room left; `status` is the lower
-	 * pill of the status bar. A group of icons and a toolbar always keep the pill's ground and line (owner 2026-11-24); a
+	 * pill of the status bar; `vertical` stands it up as a column (a tool strip beside a canvas), the same pill turned. A group of icons and a toolbar always keep the pill's ground and line (owner 2026-11-24); a
 	 * single icon stands alone as a round IconButton.
 	 */
 	type Props = {
@@ -15,13 +15,14 @@
 		as?: 'div' | 'span' | 'nav' | 'footer' | 'header';
 		grow?: boolean;
 		status?: boolean;
+		vertical?: boolean;
 		children: Snippet;
 	} & Omit<HTMLAttributes<HTMLElement>, 'children'>;
 
-	let { label, as = 'div', grow = false, status = false, children, ...rest }: Props = $props();
+	let { label, as = 'div', grow = false, status = false, vertical = false, children, ...rest }: Props = $props();
 </script>
 
-<svelte:element this={as} role={label && as !== 'nav' ? 'group' : undefined} aria-label={label} {...rest} class="kit-pill {rest.class ?? ''}" class:grow class:status>{@render children()}</svelte:element>
+<svelte:element this={as} role={label && as !== 'nav' ? 'group' : undefined} aria-label={label} aria-orientation={vertical ? 'vertical' : undefined} {...rest} class="kit-pill {rest.class ?? ''}" class:grow class:status class:vertical>{@render children()}</svelte:element>
 
 <style>
 	.kit-pill {
@@ -56,5 +57,12 @@
 	}
 	.grow {
 		flex: 1 1 auto;
+	}
+	/* a column: the pill's height is its width, the inset runs top and bottom */
+	.vertical {
+		flex-direction: column;
+		width: var(--pill);
+		height: auto;
+		padding: calc(var(--kit-inset) - var(--editor-edge)) 0;
 	}
 </style>
