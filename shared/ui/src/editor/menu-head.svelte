@@ -15,7 +15,7 @@
 		gap: var(--kit-icon-gap);
 		min-height: var(--control-height);
 		padding: 0 var(--editor-pad);
-		color: var(--tool-muted);
+		color: var(--kit-menu-item-head-text);
 		font-size: var(--editor-label);
 		letter-spacing: var(--editor-label-spacing);
 		text-transform: uppercase;

@@ -54,7 +54,6 @@
 		left: var(--kit-margin);
 		right: var(--kit-margin);
 		bottom: var(--kit-margin);
-		--kit-icon-gap: calc(var(--editor-pad) * 0.8);
 	}
 	.words {
 		min-width: 0;

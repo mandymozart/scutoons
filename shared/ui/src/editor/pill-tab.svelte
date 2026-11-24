@@ -140,7 +140,7 @@
 		border-radius: var(--kit-r, var(--editor-radius));
 		background: none;
 		background-clip: content-box;
-		color: var(--tool-muted);
+		color: var(--kit-tab-rest-text);
 		cursor: pointer;
 	}
 	.on .close {
@@ -148,8 +148,8 @@
 	}
 	@media (hover: hover) {
 		.close:hover {
-			background-color: var(--tool-hover);
-			color: var(--tool-text);
+			background-color: var(--kit-icon-button-hover-ground);
+			color: var(--kit-tab-hover-text);
 		}
 	}
 	.open:focus-visible,

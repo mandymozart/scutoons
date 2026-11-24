@@ -577,9 +577,9 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	padding-block: 0;
 	line-height: var(--type-button-line);
 }
-/* an interactive chip in a row of controls (a removable language, a tag with ×): a control, so exactly
-   --control-height, 2px ink frame, body type. Its buttons span the chip's full height (over the frame) and carry no
-   frame of their own until hover. Not a status badge – those are `.sc-chip` (caption, filled). */
+/* an interactive chip in a row of controls (a removable language, a tag with ×): the kit's Chip (round, its line, no
+   ground) at a control's height, body type. Its buttons span the chip's full height (over the frame), round as the chip,
+   and carry no frame of their own until hover. Not a status badge – those are `.sc-chip` (caption). */
 .sc-chip-control {
 	display: inline-flex;
 	align-items: center;
@@ -588,9 +588,9 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	height: var(--control-height);
 	margin: 0;
 	padding: 0 0 0 var(--space-05);
-	border: var(--border-width-regular) solid var(--tool-line);
-	border-radius: var(--radius-none);
-	background: var(--tool-control);
+	border: var(--border-width-regular) solid var(--kit-chip-rest-border);
+	border-radius: calc(var(--control-height) / 2);
+	background: var(--kit-chip-rest-ground);
 	color: var(--tool-text);
 	font-size: var(--type-body-size);
 	line-height: var(--type-button-line);
@@ -608,12 +608,13 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	margin: calc(-1 * var(--border-width-regular)) 0;
 	padding: 0 var(--space-05);
 	border: var(--border-width-regular) solid transparent;
+	border-radius: calc(var(--control-height) / 2);
 	background: transparent;
 	color: var(--tool-text);
 	line-height: var(--type-button-line);
 }
 .sc-chip-control :where(button:hover:not(:disabled)) {
-	border-color: var(--tool-muted);
+	border-color: var(--kit-chip-hover-border);
 }
 .sc-chip-control :where(button:last-child) {
 	margin-right: calc(-1 * var(--border-width-regular));
@@ -625,7 +626,7 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 }
 /* something to look at (not in the cast, an unknown item) */
 .sc-chip-control.is-warning {
-	border-color: var(--tool-warn);
+	border-color: var(--kit-chip-warning-border);
 }
 /* a filled tag with buttons (a credit's role): ink; .is-draft = a one-off (custom) value */
 .sc-chip-control.is-filled {
@@ -646,7 +647,7 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	border-color: currentColor;
 }
 .sc-chip-control.is-error :where(button:first-child) {
-	color: var(--tool-stop);
+	color: var(--kit-chip-error-text);
 }
 
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
@@ -816,7 +817,7 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	display: inline-flex;
 	box-sizing: border-box;
 	border: var(--border-width-regular) solid var(--kit-segments-rest-border);
-	border-radius: var(--radius-none);
+	border-radius: var(--editor-radius);
 	background: var(--kit-segments-rest-ground);
 }
 .sc-seg.is-column {
@@ -831,9 +832,9 @@ html .sc-tool :is(dialog.sc-sheet, .sc-button, .sc-palette, .sc-info-panel) {
 	margin: 0;
 	padding: 0 var(--space-05);
 	border: var(--border-width-regular) solid transparent;
-	border-radius: var(--radius-none);
+	border-radius: var(--editor-radius);
 	background: transparent;
-	color: var(--tool-text);
+	color: var(--kit-segments-rest-text);
 }
 .sc-seg > button:hover:not(:disabled),
 .sc-seg > button[data-kit-state~='hover'] {

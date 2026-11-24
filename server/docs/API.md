@@ -352,6 +352,12 @@ so which creator workspaces they start with – access stays with the roles. Not
 An invite signs no one up (the address still needs a signup code, #837); when that address's account is created or signs
 in, the invite is accepted and gives the member its crafts (`source: invite`, shown as "from your invite"). No invite mail yet.
 
+The seed's `workspaces` per craft: show_runner toon · chapter · flow · scene · illustrator character · storyboard · chapter ·
+video_editor storyboard · scene · sound · writer text · chapter · storyboard · translator text · chapter · animator
+character · scene · storyboard · sound_designer sound · scene · character · developer catalog · map · flow · scene. No craft
+lists `experience` (XR) or `generate`. The crafts only pick the creator's bar row (theirs, plus the used and the open
+ones); every workspace – those two too – stays reachable from the row's ⌄, the switcher and Search, with or without crafts (#887).
+
 ## Workspace layouts (2026-11-24, #827 – migration `2026-11-24-workspace-layouts`)
 
 A member's saved creator workspaces: what Reset goes back to and a new device starts from; a row with a `name` is an own

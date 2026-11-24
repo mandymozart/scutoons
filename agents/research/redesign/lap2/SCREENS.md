@@ -46,9 +46,9 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | C4 | Characters | the Rig tab without the Bones and Clips lists – the rest as today (the look's 3D model, the model's line, Idle, Body, A-pose) – and "Open in the deck"; no Import images; 2D-first or 3D-first is open | current |
 | C4b | Characters: the Cast tab | "cast in": the seasons the character is cast in, each a link to the toon's season – not an editor | current (card: the Cast tab) |
 | C5 | Scenes: the scene page | no Tree of all scenes (the Library opens scenes); the scene's preview covers the whole back; "Edit in deck" on it; the facts and versions in a panel | current |
-| C6 | Rigs | "Open in the deck" under the model's line; the rest of the Rig tab as C4 | current |
+| C6 | Rigs | "Open in the deck" under the model's line; the rest of the Rig tab as C4 | current; built: a rig opened from the Library or Search (`/edit/rig:character.<id>`) lands in Sound design, not on the Rig tab (#896 brings it there) |
 | C7 | Flow | kit look | current (from now/ws-flow) |
-| C8 | Sound design: the module editor (Parameters · Nodes · Rust · Assignment, Problems, Console, the knobs) | never designed – today's editor is captured (now/ws-sound). Thought aloud: it might have to be removed, because modules are edited in the deck; then a module in the creator is a preview with "Edit in deck" | words – today on the kit (from now/ws-sound) and the open point |
+| C8 | Sound design: the module editor (Parameters · Nodes · Rust · Assignment, Problems, Console, the knobs) | never designed – today's editor is captured (now/ws-sound). Thought aloud: it might have to be removed, because modules are edited in the deck; then a module in the creator is a preview with "Edit in deck" | built in the kit look (#875): Parameters · Nodes · Rust · Assignment, Problems, Console, the knobs – still a fixed column and bands, not panels (#896); not drawn |
 | C9 | Catalog | an entry open, no list of every entry (the Library finds them); no Import images | current (from now/ws-catalog; the kind tabs kept as today; card: the Catalog's top level) |
 | C10 | Map | the 0 px bug fixed; no Import images; kit look on its tool strip | current |
 | C11 | Generate | the stub stays in this lap; the deck's canvas comes with #764 | current (panels from presets.ts; the stub not captured) |
@@ -68,7 +68,7 @@ Every screen is 1440×900, night first, drawn from today's screen (`now/`, the w
 | D3 | Show | no pill of its own in the bar: Cues, Problems, Who, Session, Vote and Demos are views; the row's ⚡ slot with Find; the tab "Spores"; no thick left bar | current – show.html `?v=0`, spores-view.html (the draft shows show.html, the Library drawn over it as C12) |
 | D3b | Show · Flash: the same dialog as Publish | opened from the bar beside Publish; on the overlay level: the devices ticked, All · None, "Flash 2", then the confirm, then the report; the words as today | current |
 | D3c | Show · Scene: a dialog | on the overlay level: a new deck scene or a recast – id, stage, the cast from the toon's rigs; saves itself as a draft; the words as today | current |
-| D4 | Module, nothing open | the shared bar, kit look | current |
+| D4 | Module, nothing open | the shared bar, kit look | current; built: the Module workspace is in neither the row nor the switcher – reached only by `--module` (#909) |
 | D4b | **Module, a module open** (new) | never drawn: its Parameters, Problems, the module heard alone on the stage, Derive for a factory module; the code opens in the external editor | words – no capture: a frame and the open point |
 | D5 | An asset open | the one place an asset's inside is shown; "Edit in deck" lands here; the Library as C12 | current |
 | D6 | Rigging | #830 | moved – crafts-v2 `rig` |

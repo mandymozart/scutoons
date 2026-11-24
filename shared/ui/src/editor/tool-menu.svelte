@@ -177,8 +177,8 @@
 		background: currentColor;
 	}
 	.tool.open {
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
+		background: var(--kit-icon-button-on-ground);
+		color: var(--kit-icon-button-on-text);
 	}
 	.tool:focus-visible {
 		outline: 2px solid var(--kit-focus-rest-ring);
@@ -186,7 +186,7 @@
 	}
 	@media (hover: hover) {
 		.tool:not(.open):hover {
-			background: var(--tool-hover);
+			background: var(--kit-icon-button-hover-ground);
 		}
 	}
 	.flyout {
@@ -197,9 +197,9 @@
 		width: max-content;
 		max-width: calc(100vw - 0.5rem);
 		padding: 0.5rem var(--editor-pad);
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: var(--editor-radius);
-		background: var(--tool-popover);
+		border: var(--editor-edge) solid var(--kit-menu-rest-border);
+		border-radius: var(--kit-radius-box);
+		background: var(--kit-menu-rest-ground);
 		color: var(--tool-text);
 		outline: none;
 		text-shadow: var(--tool-halo);

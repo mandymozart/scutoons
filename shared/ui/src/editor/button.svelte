@@ -139,7 +139,15 @@
 		outline-offset: 1px;
 	}
 	.kit-button:disabled {
-		opacity: var(--kit-button-primary-disabled-opacity);
 		cursor: not-allowed;
+	}
+	.framed:disabled {
+		opacity: var(--kit-button-plain-disabled-opacity);
+	}
+	.quiet:disabled {
+		opacity: var(--kit-button-quiet-disabled-opacity);
+	}
+	.primary:disabled {
+		opacity: var(--kit-button-primary-disabled-opacity);
 	}
 </style>

@@ -61,8 +61,8 @@
 		padding: 0 var(--editor-pad);
 		border: 0;
 		border-radius: var(--editor-radius);
-		background: none;
-		color: var(--tool-text);
+		background: var(--kit-menu-item-rest-ground);
+		color: var(--kit-menu-item-rest-text);
 		font: inherit;
 		line-height: 1.2;
 		text-align: left;
