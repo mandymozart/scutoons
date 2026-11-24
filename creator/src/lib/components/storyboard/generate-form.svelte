@@ -7,6 +7,7 @@
 	// start – once, never retried. The gate's 402 is one notice. Luma – by hand: generate-manual.svelte.
 	import { untrack } from 'svelte';
 	import { PropRow, PropSelect, ScrubNumber, confirmDialog } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { generatorState, inputsOf } from '$lib/editor/storyboard-generate.ts';
@@ -35,6 +36,13 @@
 			const label = x.manual ? m['storyboard.gen_manual']() : state === 'not_configured' ? m['storyboard.gen_not_set_up']({ label: x.label }) : state === 'unavailable' ? m['storyboard.gen_unavailable']({ label: x.label }) : x.label;
 			return { value: x.id, label, disabled: state !== 'ready' };
 		})
+	);
+	/** the generators without a key and the by-hand note: the generator row's hover text, not lines in the panel (RULES H14) */
+	const generatorHint = $derived(
+		[
+			...gen.generators.filter((x) => generatorState(x) === 'not_configured').map((x) => `${x.label}: ${m['storyboard.gen_not_set_up_hint']({ setting: x.setting })}`),
+			...(gen.generators.find((x) => x.id === gen.form.generator)?.manual ? [m['storyboard.gen_manual_note']()] : [])
+		].join(' · ') || undefined
 	);
 	const local = (id: number) => {
 		const x = sb.generations.find((y) => y.id === id);
@@ -85,7 +93,7 @@
 	<ImproveLine {sb} />
 	{#if gen.loadError}<p class="hint sc-error">{m['storyboard.gen_load_error']({ error: gen.loadError })}</p>{/if}
 	{#if gen.generators.length}
-		<PropRow label={m['storyboard.gen_generator']()}>
+		<PropRow label={m['storyboard.gen_generator']()} hint={generatorHint}>
 			<PropSelect label={m['storyboard.gen_generator']()} required options={generatorOptions} value={gen.form.generator} onchange={(v) => v && gen.setGenerator(v)} testid="generate-generator" />
 		</PropRow>
 		{#if g && !g.manual && g.models.length > 1}
@@ -93,19 +101,11 @@
 				<PropSelect label={m['storyboard.gen_model']()} required options={g.models.map((x) => ({ value: x.id, label: x.label }))} value={gen.form.model} onchange={(v) => v && gen.setModel(v)} testid="generate-model" />
 			</PropRow>
 		{/if}
-		<!-- every generator the server knows, also the ones without a key: why it can't run, said once -->
-		{#each gen.generators.filter((x) => generatorState(x) === 'not_configured') as x (x.id)}
-			<p class="hint muted" data-testid="not-set-up-{x.id}">{x.label}: {m['storyboard.gen_not_set_up_hint']({ setting: x.setting })}</p>
-		{/each}
-	{/if}
-
-	{#if g?.manual}
-		<p class="hint muted">{m['storyboard.gen_manual_note']()}</p>
 	{/if}
 
 	{#if g && (gen.ready || g.manual)}
 		<PropRow label={m['storyboard.gen_prompt']()}>
-			<button type="button" class:secondary={!g.manual || !!gen.form.prompt} title={m['storyboard.gen_build_hint']()} onclick={() => gen.build()} data-testid="generate-build">{m['storyboard.gen_build']()}</button>
+			<Button title={m['storyboard.gen_build_hint']()} onclick={() => gen.build()} data-testid="generate-build">{m['storyboard.gen_build']()}</Button>
 		</PropRow>
 		<!-- the prompt full width under its row (a built one is long); by hand it is only shown to copy -->
 		{#if g.manual}
@@ -151,7 +151,7 @@
 		{#if budgetLine}<p class="hint muted" data-testid="generate-budget">{budgetLine}</p>{/if}
 		{#if noticeText}<p class="hint notice" role="alert" data-testid="generate-notice">{noticeText}</p>{/if}
 		<div class="buttons">
-			<button type="button" disabled={blocked || preparing} title={m['storyboard.gen_generate_hint']()} onclick={send} data-testid="generate-send">{preparing ? m['storyboard.gen_preparing']() : m['storyboard.gen_generate']()}</button>
+			<Button variant="primary" disabled={blocked || preparing} title={m['storyboard.gen_generate_hint']()} onclick={send} data-testid="generate-send">{preparing ? m['storyboard.gen_preparing']() : m['storyboard.gen_generate']()}</Button>
 		</div>
 	{/if}
 </div>
@@ -190,7 +190,7 @@
 	/* the budget gate's refusal: one framed line that stays until the next send */
 	.notice {
 		padding: var(--space-05);
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
 	}
 	.check {
 		display: flex;
