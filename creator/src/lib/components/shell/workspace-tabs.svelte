@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { IconButton, Pill, PillTab } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { workspaceOf, type WorkspaceKind } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
-	import { fits, workspaceClick, workspaceRow, type WorkspaceRef } from '$lib/shell/workspaces.ts';
+	import { emptyWorkspace, fits, workspaceClick, workspaceRow, type WorkspaceRef } from '$lib/shell/workspaces.ts';
+	import { WholeStrip } from '$lib/shell/strip.svelte.ts';
 	import { workspaceName } from '$lib/shell/workspace-names.ts';
 	import { layouts } from '$lib/shell/layouts.svelte.ts';
 	import { shownWorkspace, withOwn } from '$lib/shell/layouts.ts';
@@ -18,7 +21,8 @@
 	 */
 	const row = $derived(withOwn(workspaceRow(shell.use, shell.state.tabs, crafts.starts), layouts.state.own));
 	const front = $derived(shell.state.front);
-	const current = $derived(front ? workspaceOf(front) : null);
+	/** the front item's workspace; none in front: the one whose empty page is shown */
+	const current = $derived(front ? workspaceOf(front) : emptyWorkspace(page.url.pathname));
 	const dim = (kind: WorkspaceKind) => !!front && !fits(front, kind);
 	const isOn = (w: { kind: WorkspaceKind; id: string }) => w.kind === current && w.id === shownWorkspace(layouts.chosen, layouts.state.own, w.kind);
 	const nameOf = (w: { kind: WorkspaceKind; name?: string }) => w.name ?? workspaceName(w.kind);
@@ -27,26 +31,27 @@
 	const goes = (w: WorkspaceRef & { href: string }) => workspaceClick(front, frontHref, w, w.href);
 	const pick = (w: WorkspaceRef & { href: string }) => shell.pickWorkspace(w, goes(w).keeps);
 
-	let box = $state<HTMLElement>();
-	// the one that is on scrolls into view (only as far as needed)
+	const strip = new WholeStrip('[data-workspace-tab]');
+	const onAt = () => strip.indexOf((t) => t.classList.contains('on'));
+	// the one that is on scrolls into view, a whole workspace at the left edge – also when the open items' tabs narrow the
+	// row (scrollIntoView stopped anywhere, cutting the first word at its start)
 	$effect(() => {
 		void current;
 		void row.length;
-		const on = box?.querySelector<HTMLElement>('.kit-pill-tab.on');
-		on?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		untrack(() => strip.show(onAt()));
 	});
-	/** a wheel turned over the row scrolls it sideways */
-	function wheel(event: WheelEvent) {
-		const el = box;
-		if (!el || el.scrollWidth <= el.clientWidth || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-		event.preventDefault();
-		el.scrollLeft += event.deltaY;
-	}
+	$effect(() => {
+		void strip.el;
+		void row.length;
+		return untrack(() => strip.watch(() => strip.show(onAt(), false)));
+	});
 </script>
+
+<svelte:window onresize={() => strip.show(onAt(), false)} />
 
 {#if row.length}
 	<Pill as="nav" label={m['shell.workspaces']()} class="workspaces" data-testid="workspace-tabs">
-		<div class="row" bind:this={box} onwheel={wheel}>
+		<div class="row" class:after={strip.after} bind:this={strip.el} onwheel={strip.wheel} onscroll={strip.measure}>
 			{#each row as w (w.id)}
 				<PillTab label={nameOf(w)} href={goes(w).href} on={isOn(w)} dim={dim(w.kind)} title={dim(w.kind) ? m['shell.ws_elsewhere']({ name: nameOf(w) }) : nameOf(w)} onclick={() => pick(w)} data-workspace-tab data-testid="workspace-{w.id}" />
 			{/each}
@@ -71,5 +76,8 @@
 	}
 	.row::-webkit-scrollbar {
 		display: none;
+	}
+	.row.after {
+		mask-image: linear-gradient(to left, transparent, var(--tool-text) 2rem);
 	}
 </style>

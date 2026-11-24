@@ -6,7 +6,7 @@ import { toast } from '$lib/toasts.ts';
 import { fillDeckHooks } from './deck.ts';
 import { creatorLinkHref, desktopBridge } from './desktop.ts';
 import { shell } from './shell.svelte.ts';
-import { workspaceRow } from './workspaces.ts';
+import { workspaceList } from './workspaces.ts';
 
 export function startDesktop(): void {
 	const bridge = desktopBridge();
@@ -20,7 +20,7 @@ export function startDesktop(): void {
 			})
 	});
 	bridge.onLink((link) => {
-		const href = creatorLinkHref(link, (kind) => workspaceRow(shell.use, shell.state.tabs).find((entry) => entry.kind === kind)?.href ?? null);
+		const href = creatorLinkHref(link, (kind) => workspaceList(shell.use, shell.state.tabs).find((entry) => entry.kind === kind)?.href ?? null);
 		if (href) void goto(href);
 	});
 }

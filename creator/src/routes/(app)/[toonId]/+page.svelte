@@ -18,6 +18,8 @@
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
+	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
+	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
@@ -249,8 +251,15 @@
 		}
 	});
 	useAutosave(session);
-	// the bar's Publish saves the page first and has it read again what went live
-	usePageDoc(() => ({ saving: busy || session.anySaving, unpublished: pageDocs.some((d) => d.unpublished.length > 0), ...session.publishHooks }));
+	// the bar's Publish saves the page first and has it read again what went live; ↶ ↷ the toon's and the season's edits
+	const creator = getCreatorSession();
+	usePageDoc(() => ({
+		saving: busy || session.anySaving,
+		unpublished: pageDocs.some((d) => d.unpublished.length > 0),
+		...session.publishHooks,
+		undo: () => void pageUndo(pageDocs, creator.user?.email ?? ''),
+		redo: () => void pageRedo(pageDocs)
+	}));
 </script>
 
 <div class="creator-page">

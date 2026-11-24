@@ -3,7 +3,7 @@
 // ring's step. Tests: test/shell.test.ts.
 import type { Tab } from './tabs.ts';
 import { workspaceOf, type WorkspaceKind } from './address.ts';
-import { ROW, workspaceRow, type WorkspaceUse } from './workspaces.ts';
+import { ROW, startHref, workspaceList, type WorkspaceUse } from './workspaces.ts';
 import { shownWorkspace, withOwn, type OwnWorkspace } from './layouts.ts';
 
 export interface WorkspaceCard {
@@ -12,7 +12,7 @@ export interface WorkspaceCard {
 	id: string;
 	/** an own workspace's name */
 	name?: string;
-	/** where opening the card goes; null: the workspace needs an item first (nothing open yet) */
+	/** where opening the card goes: its item, its start or its empty page; null: none (an own workspace's kind decides) */
 	href: string | null;
 	/** the open item it shows (its last one while open), else null */
 	shown: Tab | null;
@@ -26,9 +26,9 @@ export interface WorkspaceCard {
 export const isWelcome = (use: WorkspaceUse, tabs: readonly Tab[], recent: number): boolean => !tabs.length && !recent && !Object.keys(use.uses).length;
 
 /**
- * The cards: the front item's workspace first, then the others most used first (the bar's row order). The welcome shows
- * the member's crafts' workspaces (`starts`), else every workspace of the row, empty. An own workspace stands beside the
- * one it is made from (`chosen`: the one each kind shows).
+ * The cards: the front item's workspace first, then every other, most used first. The welcome shows every workspace,
+ * empty, the member's crafts' (`starts`) first. An own workspace stands beside the one it is made from (`chosen`: the
+ * one each kind shows).
  */
 export function workspaceCards(
 	use: WorkspaceUse,
@@ -46,7 +46,7 @@ export function workspaceCards(
 		const shown = (kind === current ? open.find((t) => t.address === front) : null) ?? open.find((t) => t.address === last) ?? open[0] ?? null;
 		return { kind, href: shown?.href ?? href, shown, open, front: kind === current };
 	};
-	const kinds = welcome ? (starts.length ? starts : ROW).map((kind) => card(kind, null)) : workspaceRow(use, tabs, starts).map((e) => card(e.kind, e.href));
+	const kinds = welcome ? [...starts, ...ROW.filter((k) => !starts.includes(k))].map((kind) => card(kind, startHref(kind))) : workspaceList(use, tabs, starts).map((e) => card(e.kind, e.href));
 	if (!welcome && current && !kinds.some((c) => c.kind === current)) kinds.unshift(card(current, null));
 	const cards: WorkspaceCard[] = withOwn(kinds, own).map((c) => ({ ...c, front: c.front && c.id === shownWorkspace(chosen, own, c.kind) }));
 	const at = cards.findIndex((c) => c.front);
