@@ -49,6 +49,7 @@ export function libraryPath(q: LibraryQuery = {}): string {
  */
 export function library(client: ApiClient, q: LibraryQuery & { at: string }, held?: string): Promise<LibraryStep | null>;
 export function library(client: ApiClient, q?: LibraryQuery & { at?: null }, held?: string): Promise<LibraryList | null>;
+export function library(client: ApiClient, q: LibraryQuery, held?: string): Promise<LibraryList | LibraryStep | null>;
 export async function library(client: ApiClient, q: LibraryQuery = {}, held?: string): Promise<LibraryList | LibraryStep | null> {
 	try {
 		const response = await client.fetchRaw(libraryPath(q), held ? { headers: { 'If-None-Match': `"${held}"` } } : {});

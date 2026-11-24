@@ -6,7 +6,7 @@
 // the creator shows.
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
-import { createApiClient, createAssetsApi, createContentApi } from '@scutoons/api';
+import { createApiClient, createAssetsApi, createContentApi, library, type LibraryQuery } from '@scutoons/api';
 import {
 	chapterExits,
 	chapterFlow,
@@ -233,6 +233,39 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 				versions: a.versions.length,
 				usages: a.usages.map((u) => ({ ref: u.ref, source: u.source, field: u.field, state: u.state, path: u.path }))
 			});
+		})
+	);
+
+	server.registerTool(
+		'read_library',
+		{
+			description:
+				'The extended Library (GET /api/library): things (toon, character, scene, show, place, item with its subtype, module, instrument, rig, generator, Kanon text, person) and files (image, audio, video, model, animation, file) in one list – each with its address, name, picture, toons and how many things use it. A place narrows it: `toon` (This toon, the default with a toon), `all`, `recent`, `unused`, `item:<address>` (what a thing uses), `cast:<season>` (a season\'s cast with its characters\' files). `at` steps into a thing: a character\'s personas › looks › moods, a toon\'s seasons › chapters, the files and things it uses, and what uses it (used in). A long list comes in pages: pass `next` back as `cursor`.',
+			inputSchema: z.object({
+				toon: z.string().optional().describe('the toon (list_toons); none = every toon'),
+				at: z.string().optional().describe('a thing\'s address (`character:catpope`, `toon:catpope`, `scene:nave`) or a file\'s (`image:<path>`): step into it'),
+				place: z.string().optional().describe('toon | all | recent | unused | item:<address> | cast:<season>'),
+				type: z.string().optional().describe('thing types, comma-separated (character,scene)'),
+				subtype: z.enum(['recipe', 'product', 'edition', 'album', 'home-scene']).optional(),
+				kind: z.string().optional().describe('file kinds, comma-separated (image,model)'),
+				from: z.enum(['uploaded', 'imported', 'generated']).optional(),
+				locale: z.string().optional().describe('the names\' language (two letters, default en)'),
+				cursor: z.string().optional(),
+				limit: z.number().int().min(1).max(5000).optional().describe('entries per page (default 200 here)')
+			}),
+			annotations: read
+		},
+		guard(async ({ type, kind, place, limit, ...q }) => {
+			// the server checks the words; this only splits them
+			const list = (s?: string) => s?.split(',').map((x) => x.trim()).filter(Boolean);
+			const query: LibraryQuery = {
+				...q,
+				place: place as LibraryQuery['place'],
+				type: list(type) as LibraryQuery['type'],
+				kind: list(kind) as LibraryQuery['kind'],
+				limit: q.at ? undefined : (limit ?? 200)
+			};
+			return text(await library(client, query));
 		})
 	);
 
