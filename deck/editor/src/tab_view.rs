@@ -689,6 +689,8 @@ impl crate::App {
                 self.new_show_tab();
                 self.show.press(show::Hit::Sheet(show::Sheet::NewShow));
             }
+            // in a Show: a deck scene cast from the toon's rigs (the Show's scene dialog), else a scene of its own tab
+            home::Press::New(home::New::Scene) if self.workspace == Workspace::Show => self.show.press(show::Hit::Compose(show::new_scene::ComposeHit::Open)),
             home::Press::New(home::New::Scene) => self.ask_new_scene(),
         }
     }

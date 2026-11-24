@@ -1,60 +1,70 @@
-//! Flash: choose the devices, then confirm (#471; the owner's draft 7 "Flash: choose the decks, then confirm"). Flash opens
-//! the list of every device of the tree in the stage's place, all chosen but the decks that ask not to be flashed; the quick
-//! filters, the typed filter and a hand set the ticks; "Flash …" opens the prompt, and only its confirm sends. The list, the
-//! filters, the prompt's words and what the flash names are deck-show's choose.rs; this file lays them out and hands the
-//! presses and the typed filter in (RULES A1, A2).
+//! Flash: the bar's box icon opens it as a dialog on the overlay level (RULES H18, the same act as the creator's Publish):
+//! every device of the tree, ticked but the decks that ask not to be flashed; Find, All · None; one primary button with
+//! the count; then the confirm in the same box, a suggestion or forced, locked or not; then the report there. The list, its
+//! words, the filter and what the flash names are deck-show's choose.rs; this file lays them out and hands the presses
+//! and the typed filter in (RULES A1, A2).
+use super::dialog::{self, Foot};
 use super::live::button;
 use super::{now, Hit, Host, Sheet};
-use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
 use deck_kit::base::tokens::Tokens;
+use deck_kit::editor::controls::{self, Rect};
 use deck_show::choose::{Choice, Prompt, Tone};
 use deck_show::Lock;
 use winit::keyboard::{Key, NamedKey};
 
-/// The flash list while it is open.
+/// where the flash dialog is
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Step {
+    /// the devices to tick
+    List,
+    /// the confirm: only its Flash sends
+    Ask,
+    /// what was sent, and the decks' answers as they come
+    Report(String),
+}
+
+/// The flash dialog while it is open.
 pub struct Flashing {
     pub choice: Choice,
     lock: Lock,
-    /// the prompt is up
-    pub asking: bool,
+    pub step: Step,
     /// the typed filter's text, and whether keys go to it
     pub typed: String,
     pub typing: bool,
 }
 
 impl Host {
-    /// Flash pressed: the tree resolved, the list opens (nothing is sent yet).
+    /// The bar's Flash: the tree resolved, the dialog opens (nothing is sent yet).
     pub(super) fn open_flash(&mut self) {
         match self.resolve() {
             Ok(lock) => {
                 let choice = Choice::open(&self.sub, &lock);
-                self.status = format!("{} of {} devices chosen", choice.count(), choice.lines.len());
-                self.flashing = Some(Flashing { choice, lock, asking: false, typed: String::new(), typing: false });
+                self.flashing = Some(Flashing { choice, lock, step: Step::List, typed: String::new(), typing: false });
                 self.sheet = Some(Sheet::Flash);
             }
             Err(e) => self.refuse(e),
         }
     }
 
+    /// Flash's dot: a device of the tree here is not on the version this conductor holds (deck-show `tally`)
+    pub fn flash_dot(&self) -> deck_show::choose::Tally {
+        deck_show::choose::tally(&self.sub)
+    }
+
     pub(super) fn flash_press(&mut self, hit: Hit) {
         let Some(f) = self.flashing.as_mut() else { return };
+        f.typing = f.typing && hit == Hit::FlashType;
         match hit {
             Hit::FlashTick(i) => f.choice.toggle(i),
-            Hit::FlashQuick(i) => {
-                if let Some((q, _)) = f.choice.quicks().get(i).cloned() {
-                    f.choice.quick(&q);
-                }
-            }
+            Hit::FlashAll => f.choice.quick(&deck_show::choose::Quick::All),
+            Hit::FlashNone => f.choice.quick(&deck_show::choose::Quick::None),
             Hit::FlashType => f.typing = true,
-            Hit::FlashLock => f.choice.locked = !f.choice.locked,
-            Hit::FlashForce => f.choice.forced = !f.choice.forced,
-            Hit::FlashAsk => f.asking = true,
-            Hit::FlashCancel if f.asking => f.asking = false,
-            Hit::FlashCancel => {
-                self.flashing = None;
-                self.sheet = None;
-            }
+            Hit::FlashLock(on) => f.choice.locked = on,
+            Hit::FlashForce(on) => f.choice.forced = on,
+            Hit::FlashAsk if f.choice.count() > 0 => f.step = Step::Ask,
+            Hit::FlashCancel if f.step == Step::Ask => f.step = Step::List,
+            Hit::FlashCancel => self.close_dialog(),
             Hit::FlashConfirm => {
                 if !f.choice.prompt().can {
                     return;
@@ -62,10 +72,12 @@ impl Host {
                 let pick = f.choice.pick(None);
                 let lock = f.lock.clone();
                 let out = self.sub.flash_to(&lock, &pick, now());
-                self.status = format!("flashed {} – {} left out", lock.shows.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "), pick.skip.len());
+                let said = format!("flashed {} – {} left out", lock.shows.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "), pick.skip.len());
+                self.status.clone_from(&said);
                 self.send(out);
-                self.flashing = None;
-                self.sheet = None;
+                if let Some(f) = self.flashing.as_mut() {
+                    f.step = Step::Report(said);
+                }
             }
             _ => {}
         }
@@ -102,6 +114,27 @@ impl Host {
         true
     }
 
+    /// A check run (`--devices`): decks answer as the relay would hand their flash reports on, each on an outlet and a
+    /// version of the show; the ones marked offline are not in the relay's presence.
+    pub fn script_devices(&mut self, devices: &[Device]) {
+        let id = self.sub.conductor().show().id.clone();
+        let mut links = serde_json::Map::new();
+        for dev in devices {
+            let mut r = deck_show::flash::report(&deck_show::Pinned { id: id.clone(), version: dev.version }, true, None);
+            (r.outlet, r.device) = (Some(dev.outlet.clone()), Some("native".into()));
+            let out = self.sub.on_wire(&protocol::Envelope::new(dev.id.clone(), protocol::Message::FlashReport(r)), now());
+            self.send(out);
+            if dev.online {
+                links.insert(dev.id.clone(), serde_json::json!({ "hz": 30 }));
+            }
+        }
+        let presence = serde_json::json!({ "groups": {}, "ready": [], "links": links, "seats": {} });
+        if let Ok(p) = serde_json::from_value(presence) {
+            let out = self.sub.on_wire(&protocol::Envelope::new("relay", protocol::Message::Presence(p)), now());
+            self.send(out);
+        }
+    }
+
     /// A check run: the typed filter applied as if typed and entered.
     pub fn script_filter(&mut self, text: &str) {
         if let Some(f) = self.flashing.as_mut() {
@@ -112,96 +145,139 @@ impl Host {
     }
 }
 
-fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
-    controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
+/// a deck a check run makes answer: its client id, its outlet, the show's version it runs, whether it is here
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Device {
+    pub id: String,
+    pub outlet: String,
+    pub version: u32,
+    pub online: bool,
 }
 
+/// `ID=OUTLET@VERSION[~],…` (`~`: not here)
+pub fn parse_devices(v: &str) -> Option<Vec<Device>> {
+    v.split(',')
+        .map(|d| {
+            let (id, rest) = d.trim().split_once('=')?;
+            let (rest, online) = rest.strip_suffix('~').map_or((rest, true), |r| (r, false));
+            let (outlet, version) = rest.split_once('@')?;
+            Some(Device { id: id.into(), outlet: outlet.into(), version: version.parse().ok()?, online })
+        })
+        .collect()
+}
+
+fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
+    controls::fit_sans(d, px, text, w)
+}
+
+/// The flash dialog's body in `a`: the step it is at.
 pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
     let Some(f) = host.flashing.as_ref() else { return };
-    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.row);
+    match f.step.clone() {
+        Step::List => list(d, t, host, a, pointer),
+        Step::Ask => ask(d, t, host, a, pointer),
+        Step::Report(said) => report(d, t, host, a, &said, pointer),
+    }
+}
+
+fn list(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+    let Some(f) = host.flashing.as_ref() else { return };
+    let (pad, row) = (t.size.pad, t.size.row);
     let c = &f.choice;
     let mut hits = vec![];
-    let mut y = a.y + pad;
-    d.text(a.x + pad, y, small, &format!("FLASH – {} OF {} DEVICES CHOSEN", c.count(), c.lines.len()), t.color.muted);
-    y += small * 1.8;
-    // the quick filters, then the typed one
-    let quicks = c.quicks();
-    let names: Vec<&str> = quicks.iter().map(|(_, w)| w.as_str()).collect();
-    for (i, r) in controls::pills(d, t, a.x + pad, y, row - 4.0, &names, usize::MAX).into_iter().enumerate() {
-        hits.push((r, Hit::FlashQuick(i)));
-    }
-    y += row + 2.0;
-    let field = Rect { x: a.x + pad, y, w: a.w - 2.0 * pad, h: row - 4.0 };
-    d.round_rect(field.x, field.y, field.w, field.h, t.size.radius, t.color.control);
-    if f.typing {
-        d.outline(field.x, field.y, field.w, field.h, (t.size.radius, 1.0), t.color.text);
-    }
-    let (text, color) = match (f.typed.is_empty(), f.typing) {
-        (true, false) => (deck_show::choose::FILTER_HINT.to_string(), t.color.muted),
-        (_, true) => (format!("{}|", f.typed), t.color.text),
-        (false, false) => (f.typed.clone(), t.color.text),
-    };
-    d.text(field.x + 6.0, field.y + 4.0, font, &fit(d, &text, font, field.w - 12.0), color);
+    let mut y = a.y;
+    let shown = if f.typing { Some(f.typed.as_str()) } else { None };
+    let field = dialog::input(d, t, Rect { x: a.x, y, w: a.w, h: row - 4.0 }, (&c.filter, shown), ("Find", true), pointer);
     hits.push((field, Hit::FlashType));
-    y += row;
+    y += row + pad * 0.5;
     if let Some(e) = &c.error {
-        d.text(a.x + pad, y, small, &fit(d, e, small, a.w - 2.0 * pad), t.color.danger);
-        y += small * 1.6;
+        d.sans(a.x, y, t.size.small, &fit(d, e, t.size.small, a.w), t.color.danger);
+        y += t.size.small * 1.6;
     }
-    d.rect(a.x, y, a.w, 1.0, t.color.line);
-    y += 4.0;
-    // the list
-    let lh = font * 2.6;
-    let foot = a.y + a.h - row - 2.0 * pad;
-    if c.lines.is_empty() {
-        d.text(a.x + pad, y + 4.0, font, "No device has answered yet: decks that join later get the flash too.", t.color.muted);
+    let (all, none) = dialog::count_head(d, t, (a.x, y, a.w), &format!("{} of {} chosen", c.count(), c.lines.len()), pointer);
+    hits.extend([(all, Hit::FlashAll), (none, Hit::FlashNone)]);
+    y += row;
+    let foot = a.y + a.h - row - pad;
+    let lines: Vec<dialog::Tick> = c
+        .lines
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            let (word, warns) = l.word();
+            dialog::Tick { label: l.head(), detail: word, on: c.is_ticked(i), warns, indent: l.path.contains('/'), tick: true }
+        })
+        .collect();
+    if lines.is_empty() {
+        d.sans(a.x, y + 4.0, t.size.font, "No device has answered yet: decks that join later get the flash too.", t.color.muted);
     }
-    for (i, l) in c.lines.iter().enumerate() {
-        if y + lh > foot {
-            d.text(a.x + pad, y + 2.0, small, &format!("{} more …", c.lines.len() - i), t.color.muted);
-            break;
-        }
-        let whole = Rect { x: a.x, y, w: a.w, h: lh };
-        if whole.has(pointer.0, pointer.1) {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
-        }
-        let indent = if l.path.contains('/') { 2.0 * pad } else { 0.0 };
-        let (bx, by, bs) = (a.x + pad + indent, y + (lh - 14.0) * 0.5, 14.0);
-        if c.is_ticked(i) {
-            d.round_rect(bx, by, bs, bs, 3.0, t.color.text);
-        } else {
-            d.outline(bx, by, bs, bs, (3.0, 1.0), t.color.muted);
-        }
-        let tx = bx + bs + pad;
-        let tw = a.x + a.w - tx - pad;
-        d.text(tx, y + 3.0, font, &fit(d, &format!("{} · {}", l.head(), l.kind), font, tw), if l.online { t.color.text } else { t.color.muted });
-        let state_color = if l.keep.is_some() || l.unsaved || l.rejected { t.color.warn } else { t.color.muted };
-        d.text(tx, y + 3.0 + font * 1.3, small, &fit(d, &l.state(), small, tw), state_color);
-        d.rect(a.x, y + lh - 1.0, a.w, 1.0, t.color.line);
-        hits.push((whole, Hit::FlashTick(i)));
-        y += lh;
+    for (i, r) in dialog::ticks(d, t, Rect { x: a.x, y, w: a.w, h: foot - y - pad }, &lines, pointer).into_iter().enumerate() {
+        hits.push((r, Hit::FlashTick(i)));
     }
-    // the foot: the lock, forced or a suggestion (#481), cancel, on to the prompt
-    let bw = ((a.w - 5.0 * pad) / 4.0).min(220.0);
-    let lock = Rect { x: a.x + pad, y: foot + pad, w: bw, h: row };
-    let force = Rect { x: a.x + bw + 2.0 * pad, y: foot + pad, w: bw, h: row };
-    let cancel = Rect { x: a.x + a.w - 2.0 * (bw + pad), y: foot + pad, w: bw, h: row };
-    let ask = Rect { x: a.x + a.w - bw - pad, y: foot + pad, w: bw, h: row };
-    let lock_word = if c.locked { "Locked" } else { "Not locked" };
-    button(d, t, lock, lock_word, if c.locked { t.color.selected } else { t.color.control }, t.color.text);
-    button(d, t, force, if c.forced { "Forced" } else { "A suggestion" }, if c.forced { t.color.selected } else { t.color.control }, t.color.text);
-    button(d, t, cancel, "Cancel", t.color.control, t.color.text);
-    controls::primary(d, t, ask, &format!("Flash {} …", c.count()), false);
-    hits.extend([(lock, Hit::FlashLock), (force, Hit::FlashForce), (cancel, Hit::FlashCancel), (ask, Hit::FlashAsk)]);
-    if f.asking {
-        // the prompt over the list: its presses only
-        hits.clear();
-        prompt(d, t, &c.prompt(), a, &mut hits, (Hit::FlashConfirm, Hit::FlashCancel));
-    }
+    let n = c.count();
+    let go = format!("Flash {n}");
+    hits.extend(dialog::foot(d, t, Rect { x: a.x, y: foot, w: a.w, h: row }, &Foot { left: &[("Cancel", Hit::FlashCancel)], right: &[], primary: Some((&go, Hit::FlashAsk, n > 0)) }, pointer));
     host.hits.extend(hits);
 }
 
-/// a prompt of deck-show's (the flash's, a role's remove, a kick, the History's revert) over `a`: its confirm and its back press `yes`, `no`
+fn ask(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+    let Some(f) = host.flashing.as_ref() else { return };
+    let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
+    let c = &f.choice;
+    let p = c.prompt();
+    let mut hits = vec![];
+    let mut y = a.y;
+    let px = font * 1.2;
+    d.sans(a.x, y, px, &fit(d, &p.title, px, a.w), t.color.text);
+    y += px * 1.25 + pad;
+    let h = row - 4.0;
+    let forced = dialog::segments(d, t, (a.x, y, h), &["A suggestion", "Forced"], usize::from(c.forced), pointer);
+    hits.extend(forced.into_iter().enumerate().map(|(i, r)| (r, Hit::FlashForce(i == 1))));
+    y += h + pad * 0.6;
+    let locked = dialog::segments(d, t, (a.x, y, h), &["Not locked", "Locked"], usize::from(c.locked), pointer);
+    hits.extend(locked.into_iter().enumerate().map(|(i, r)| (r, Hit::FlashLock(i == 1))));
+    y += h + pad;
+    // what each device loses or keeps (what a choice means is its hover text, H14)
+    let foot = a.y + a.h - row - pad;
+    for (line, tone) in c.says().0.iter().filter(|(_, tone)| *tone != Tone::Muted) {
+        if y + font * 1.5 > foot {
+            break;
+        }
+        let ink = if *tone == Tone::Warn { t.color.warn } else { t.color.text };
+        if *tone == Tone::Warn {
+            d.disc(a.x + 3.0, y + font * 0.62, 3.5, t.color.warn);
+        }
+        d.sans(a.x + 12.0, y, font, &fit(d, line, font, a.w - 12.0), ink);
+        y += font * 1.5;
+    }
+    let confirm = p.confirm.clone();
+    hits.extend(dialog::foot(d, t, Rect { x: a.x, y: foot, w: a.w, h: row }, &Foot { left: &[("Back", Hit::FlashCancel)], right: &[], primary: Some((&confirm, Hit::FlashConfirm, p.can)) }, pointer));
+    host.hits.extend(hits);
+}
+
+fn report(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, said: &str, pointer: (f32, f32)) {
+    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.row);
+    let mut y = a.y;
+    d.sans(a.x, y, font * 1.2, &fit(d, said, font * 1.2, a.w), t.color.text);
+    y += font * 1.5 + pad;
+    // what each deck and sub conductor answered, as it comes (deck-show's words)
+    let foot = a.y + a.h - row - pad;
+    for r in deck_show::view::reports(&host.sub) {
+        if y + font * 1.5 > foot {
+            break;
+        }
+        d.disc(a.x + 4.0, y + font * 0.62, 3.5, if r.ok { t.color.go } else { t.color.warn });
+        d.sans(a.x + 14.0, y, font, &fit(d, &format!("{} · {}", r.what, r.from), font, a.w - 14.0), t.color.text);
+        y += font * 1.5;
+        for l in std::iter::once(&r.line).chain(&r.lacks) {
+            d.sans(a.x + 14.0, y, small, &fit(d, l, small, a.w - 14.0), t.color.muted);
+            y += small * 1.6;
+        }
+    }
+    let hits = dialog::foot(d, t, Rect { x: a.x, y: foot, w: a.w, h: row }, &Foot { left: &[], right: &[("Close", Hit::DialogClose)], primary: None }, pointer);
+    host.hits.extend(hits);
+}
+
+/// a prompt of deck-show's (a role's remove, a kick, the History's revert) over `a`: its confirm and its back press `yes`, `no`
 pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect, hits: &mut Vec<(Rect, H)>, (yes, no): (H, H)) {
     let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
     d.rect(a.x, a.y, a.w, a.h, [t.color.stage[0], t.color.stage[1], t.color.stage[2], 0.7]);
@@ -211,7 +287,7 @@ pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect,
     let (x, y) = (a.x + (a.w - w) * 0.5, a.y + ((a.h - h) * 0.4).max(pad));
     d.round_rect(x, y, w, h, t.size.radius, t.color.panel());
     d.outline(x, y, w, h, (t.size.radius, 1.0), if p.warn { t.color.warn } else { t.color.line });
-    d.text(x + pad, y + pad, font * 1.15, &fit(d, &p.title, font * 1.15, w - 2.0 * pad), t.color.text);
+    d.text(x + pad, y + pad, font * 1.15, &controls::fit(&p.title, ((w - 2.0 * pad) / d.advance(font * 1.15)).max(0.0) as usize), t.color.text);
     let mut ly = y + pad + font * 1.8 + pad * 0.5;
     for (line, tone) in &p.lines {
         let color = match tone {
@@ -222,7 +298,7 @@ pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect,
         if *tone == Tone::Warn {
             d.disc(x + pad + 3.0, ly + font * 0.62, 3.5, t.color.warn);
         }
-        d.text(x + pad + 12.0, ly, font, &fit(d, line, font, w - 2.0 * pad - 12.0), color);
+        d.text(x + pad + 12.0, ly, font, &controls::fit(line, ((w - 2.0 * pad - 12.0) / d.advance(font)).max(0.0) as usize), color);
         ly += lh;
     }
     let bw = 160.0_f32.min((w - 3.0 * pad) / 2.0);
@@ -239,4 +315,23 @@ pub(crate) fn prompt<H: Copy>(d: &mut DrawList, t: &Tokens, p: &Prompt, a: Rect,
         hits.push((confirm, yes));
     }
     hits.push((cancel, no));
+}
+
+/// what a place of the flash dialog means (the Info view and the hover, H14)
+pub fn help(host: &Host, hit: Hit) -> Option<(String, String)> {
+    let f = host.flashing.as_ref()?;
+    Some(match hit {
+        Hit::FlashTick(i) => {
+            let l = f.choice.lines.get(i)?;
+            (l.head(), format!("{}. Click to tick it or leave it out.", l.state()))
+        }
+        Hit::FlashType => ("Find".into(), format!("A device's name, or conditions: {}. Enter applies it.", deck_show::choose::FILTER_HINT)),
+        Hit::FlashAll => ("All".into(), "Ticks every device.".into()),
+        Hit::FlashNone => ("None".into(), "Leaves every device out.".into()),
+        Hit::FlashForce(on) => (if on { "Forced" } else { "A suggestion" }.into(), deck_show::choose::forced_words(on)),
+        Hit::FlashLock(on) => (if on { "Locked" } else { "Not locked" }.into(), deck_show::choose::locked_words(on)),
+        Hit::FlashAsk => ("Flash".into(), "On to the confirm: nothing is sent before it.".into()),
+        Hit::FlashConfirm => ("Flash".into(), "Sends the show to the devices ticked.".into()),
+        _ => return None,
+    })
 }

@@ -428,6 +428,9 @@ fn args() -> Result<Args> {
             "--flash-ask" => a.script.flash_ask = true,
             "--flash-confirm" => a.script.flash_confirm = true,
             "--flash-force" => a.script.flash_force = true,
+            // H19: the server names this version the newest of the show shown – its notice, without a server
+            "--newer-version" => a.script.newer = Some(val()?.parse().context("--newer-version VERSION_ID")?),
+            "--devices" => a.script.devices = show::flash::parse_devices(&val()?).context("--devices ID=OUTLET@VERSION[~],…")?,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
             "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos | new-show")?),
@@ -538,6 +541,8 @@ enum Hit {
     Undo,
     Redo,
     Publish,
+    /// a Show's Flash: its dialog (show/flash.rs)
+    Flash,
     /// a workspace of the row
     Workspace(deck_ui::workspaces::Workspace),
     /// the toolbar's panic pill
@@ -1300,9 +1305,7 @@ impl App {
         }
         let (x, y) = self.cursor;
         match (a, self.workspace) {
-            (A::Open, show::Workspace::Stage | show::Workspace::Home) => self.open_rigs(x, y),
-            (A::Open, _) => self.show.press(show::Hit::Load),
-            (A::New, show::Workspace::Show) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
+            (A::Open, _) => self.open_rigs(x, y),
             // New …: a scene, a module, a show, beside the ☰ menu
             (A::New, _) => self.main_menu = Some(main_menu::Side::New),
             (A::Audio, _) => {
@@ -1400,6 +1403,11 @@ impl App {
                 _ => Help::new("Menu", "Click to do it."),
             });
         }
+        if self.workspace == show::Workspace::Show {
+            if let Some((name, text)) = show::dialog::help(&self.show, x, y) {
+                return Some(Help::new(name, text));
+            }
+        }
         if self.switcher_shows() {
             if let Some(p) = self.switch_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
                 let (name, text) = resume::help_of(p);
@@ -1412,6 +1420,10 @@ impl App {
             Hit::Undo => Help::new("Undo", "Takes back the newest change (ctrl+z)."),
             Hit::Redo => Help::new("Redo", "Brings the step taken back again (ctrl+shift+z)."),
             Hit::Publish => Help::new("Publish", self.menu_why_not(bar::Action::Publish).unwrap_or("Publishes what changed.")),
+            Hit::Flash => {
+                let n = self.show.flash_dot();
+                Help::new("Flash", format!("Sends the show to the decks of its tree: {} on its version, {} behind, {} offline or not answered yet. Click to choose them.", n.current, n.behind, n.unknown))
+            }
             Hit::Workspace(w) => Help::new(w.word(), format!("{} Click to go there: the item in front stays when it fits, else its last item comes forward, else it opens empty.", w.about())),
             Hit::TempoClick => Help::new(
                 if self.stage.pill.is_some_and(|p| p.click) { "Click on" } else { "Click off" },
@@ -1652,6 +1664,11 @@ impl App {
             let outcome = p.press(x, y);
             return self.scene_prompt_done(outcome);
         }
+        // a Show's dialog on the overlay level: only its places answer, a press outside closes it
+        if self.workspace == show::Workspace::Show && self.show.dialog() {
+            let h = self.show.hit(x, y).unwrap_or(show::Hit::DialogClose);
+            return self.show.press(h);
+        }
         // a click elsewhere finishes the typing
         if let Some(e) = &self.edit {
             if e.at.has(x, y) {
@@ -1780,6 +1797,7 @@ impl App {
                     self.refuse(why.to_string(), x, y);
                 }
             }
+            Hit::Flash => self.show.press(show::Hit::Flash),
             Hit::Workspace(w) => self.workspace_click(w),
             Hit::TabFront(i) if self.tabs.front == Some(i) => self.tab_top(),
             Hit::TabFront(i) => self.activate(i),
@@ -3062,9 +3080,11 @@ impl App {
         let menu_views = if self.main_menu == Some(main_menu::Side::Views) { self.menu_views() } else { Vec::new() };
         let menu_disabled: Vec<main_menu::Line> = [bar::Action::Open, bar::Action::New, bar::Action::Settings, bar::Action::Audio, bar::Action::Account, bar::Action::Quit].into_iter().filter(|a| self.menu_why_not(*a).is_some()).map(main_menu::Line::Do).chain(self.deck_ws().is_none().then_some(main_menu::Line::Views)).collect();
         let load = self.load_words();
-        // the overlay level (RULES H15): the switcher over a workspace, a panel taken full, the new scene's prompt
+        // the overlay level (RULES H15): the switcher over a workspace, a panel taken full, the new scene's prompt, a Show's
+        // dialog
         let full_id = self.panels().full.clone();
-        let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some();
+        let dialog = self.workspace == show::Workspace::Show && self.show.dialog();
+        let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some() || dialog;
         let blur = !self.settings.motion.reduce_motion;
         // the still is taken of the workspace as it lies under the overlay: a panel taken full floats in it, that once
         if overlay && blur && self.still == Still::None && self.gpu.as_ref().is_some_and(|g| g.can_capture) && full_id.is_some() {
@@ -3240,6 +3260,7 @@ impl App {
             panic: shows || playing || self.show.sub.panicked() || self.show.live(),
             undo: can_undo,
             publish,
+            flash: shows.then(|| self.show.flash_dot().behind > 0),
             account,
             pulse,
             pointer: if overlay || self.main_menu.is_some() { (f32::NAN, f32::NAN) } else { self.cursor },
@@ -3263,6 +3284,9 @@ impl App {
         self.panel.hits.push((placed.redo, Hit::Redo));
         if let Some(r) = placed.publish {
             self.panel.hits.push((r, Hit::Publish));
+        }
+        if let Some(r) = placed.flash {
+            self.panel.hits.push((r, Hit::Flash));
         }
         if let Some(r) = placed.plus {
             self.panel.hits.push((r, Hit::Plus));
@@ -3971,9 +3995,15 @@ impl App {
                 }
             }
         }
+        if dialog && taking {
+            self.show.hits.clear();
+        }
         if !taking {
             if let Some(p) = self.scene_prompt.as_mut() {
                 p.draw(ui, t, (wf, hf));
+            }
+            if dialog {
+                show::dialog::draw(ui, t, &mut self.show, (wf, hf), self.cursor);
             }
             // the switcher over the workspace, or Home under the bar (the still's first frame keeps the last places)
             self.switch_hits = dash.map(|d| d.draw(ui, t, (wf, hf), self.cursor)).unwrap_or_default();
@@ -4219,6 +4249,10 @@ impl ApplicationHandler for App {
                     self.panic_pill();
                 }
             }
+            // Esc in a Show's dialog: a field typed stops, the confirm steps back, else it closes
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.workspace == show::Workspace::Show && self.show.dialog() => self.show.dialog_escape(),
+            // the window's focus: a newer version of the open show is asked for at once (H19)
+            WindowEvent::Focused(true) => self.show.newer.focus = true,
             // Esc closes the ☰ menu, the switcher open over a workspace, a panel taken full
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && (self.main_menu.is_some() || self.switcher || self.panels().full.is_some()) => {
                 if self.main_menu.take().is_none() && !std::mem::take(&mut self.switcher) {

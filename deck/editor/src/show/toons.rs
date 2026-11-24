@@ -26,7 +26,6 @@ pub struct Toons {
     pub name: String,
 }
 
-pub const NEW_TITLE: &str = "NEW SHOW – TYPE ITS NAME, THEN PICK ITS TOON";
 const ON_ITS_WAY: &str = "the library's toons are on their way";
 
 impl Host {
@@ -213,20 +212,43 @@ pub fn in_place(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32, 
     small * 1.8 + picker(d, t, host, (x, y + small * 1.8, w))
 }
 
-/// New show in the stage's place: its name, then its toon – a toon picked makes the show.
-pub fn new_sheet(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, _pointer: (f32, f32)) {
-    let (pad, small, row) = (t.size.pad, t.size.small, t.size.tree_row);
-    let w = (a.w - 2.0 * pad).min(520.0);
-    let mut y = a.y + pad;
-    d.text(a.x + pad, y, small, &fit(d, NEW_TITLE, small, a.w - 2.0 * pad), t.color.muted);
-    y += small * 1.8;
+/// New show as a dialog's body in `a`: its name, then its toon found and picked – a toon picked makes the show.
+pub fn new_sheet(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f32)) {
+    let (pad, font, row) = (t.size.pad, t.size.font, t.size.row);
+    let col = t.size.rem(5.0);
+    let mut y = a.y;
     let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::NewName).map(|(_, f)| f.text.clone());
     let name = host.toons.name.clone();
-    let r = field(d, t, (a.x + pad, y, w), "name", &name, typing.as_deref());
+    let r = super::dialog::labelled(d, t, (a.x, y, a.w, col), ("name", ""), (&name, typing.as_deref()), pointer);
     host.hits.push((r, Hit::NewName));
-    y += row + pad * 0.5;
-    d.text(a.x + pad, y + (row - t.size.font * 1.25) * 0.5, t.size.font, "toon", t.color.muted);
-    picker(d, t, host, (a.x + pad + w * 0.38, y + 2.0, w * 0.62));
+    y += row + pad;
+    controls::label(d, t, a.x, y, "toon", t.color.muted);
+    y += t.size.label * 1.25 + pad * 0.5;
+    let typing = host.typing.as_ref().filter(|(what, _)| *what == Typing::ToonFind).map(|(_, f)| f.text.clone());
+    let query = host.toon_query_now();
+    let r = super::dialog::input(d, t, Rect { x: a.x, y, w: a.w, h: row - 4.0 }, (&query, typing.as_deref()), ("Find", true), pointer);
+    host.hits.push((r, Hit::ToonFind));
+    y += row + pad * 0.3;
+    let foot = a.y + a.h - row - pad;
+    let note = match (&host.toons.why, host.toons.list.is_empty()) {
+        (Some(why), true) => Some((why.clone(), t.color.warn)),
+        (None, true) => Some((ON_ITS_WAY.to_string(), t.color.muted)),
+        _ => None,
+    };
+    if let Some((text, ink)) = note {
+        d.sans(a.x, y + 4.0, font, &controls::fit_sans(d, font, &text, a.w), ink);
+    } else {
+        let found = host.toons_found();
+        if found.is_empty() {
+            d.sans(a.x, y + 4.0, font, deck_show::document::NO_TOON_FOUND, t.color.muted);
+        }
+        let lines: Vec<super::dialog::Tick> = found.into_iter().map(|toon| super::dialog::Tick { label: toon, detail: String::new(), on: false, warns: false, indent: false, tick: false }).collect();
+        for (i, r) in super::dialog::ticks(d, t, Rect { x: a.x, y, w: a.w, h: foot - y - pad }, &lines, pointer).into_iter().enumerate() {
+            host.hits.push((r, Hit::ToonPick(i)));
+        }
+    }
+    let hits = super::dialog::foot(d, t, Rect { x: a.x, y: foot, w: a.w, h: row }, &super::dialog::Foot { left: &[("Cancel", Hit::DialogClose)], right: &[], primary: None }, pointer);
+    host.hits.extend(hits);
 }
 
 #[cfg(test)]
@@ -240,6 +262,7 @@ mod tests {
         host.hits.clear();
         super::super::author::draw(&mut d, &t, host, 2560.0, 1440.0, (0.0, 0.0));
         super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-toons-library")), (0.0, 0.0));
+        super::super::dialog::draw(&mut d, &t, host, (2560.0, 1440.0), (0.0, 0.0));
         let (r, hit) = host.hits.iter().rev().find(|(_, h)| *h == want).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits));
         assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit));
         host.press(hit);

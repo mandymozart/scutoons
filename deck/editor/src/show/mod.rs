@@ -10,7 +10,8 @@
 //! every edit of the document while it is on.
 //! - **Authoring** (author.rs): the conductors tree with a breadcrumb into a sub conductor, the rows band, the inspector, the
 //!   seats, each deck's answer to the last flash; the 2D node overlay over the dimmed stage (#446) with a 2D / 3D switch; the
-//!   cue sheet and the problems list in its place (sheets.rs); save and load through /api/shows (api.rs). rows.rs: rows,
+//!   cue sheet and the problems list in its place (sheets.rs); Flash, a scene and a new show as dialogs on the overlay level
+//!   (dialog.rs); save through /api/shows (api.rs), a newer version announced with Reload (newer.rs). rows.rs: rows,
 //!   columns and groups named in place in the band's heads, columns grouped, a cell's content picked in the cell;
 //!   #539 (events.rs): the event a row fires on, picked from the toon's story events. #551 (ask.rs): several cells of a
 //!   row selected (shift), the right click's typeahead on them – a new question, the story's, add to, leave –, the
@@ -29,6 +30,7 @@ pub mod build;
 pub mod cue;
 pub(crate) mod condition;
 pub mod demos;
+pub mod dialog;
 mod events;
 pub mod nodes;
 mod node_drop;
@@ -36,10 +38,11 @@ mod node_drop;
 use deck_spores::paint as node_paint;
 mod node_pick;
 mod node_wire;
-pub(crate) mod flash;
+pub mod flash;
 mod link;
 pub mod live;
 pub mod new_scene;
+pub mod newer;
 mod roles;
 mod rows;
 pub mod saving;
@@ -84,12 +87,12 @@ impl Workspace {
     }
 }
 
-/// What the Show workspace shows in the stage's place instead of the overlay (#91 item 6).
+/// What the Show workspace shows in its sheet panel (a view, RULES H16), or as a dialog on the overlay level (dialog.rs).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sheet {
     Cues,
     Problems,
-    /// #471: the devices to flash, then the prompt (flash.rs)
+    /// #471: the devices to flash, then the confirm, then the report – a dialog (flash.rs)
     Flash,
     /// #478: who is here, `role: name`, with move to, rename, kick (roles.rs)
     Who,
@@ -194,19 +197,25 @@ pub enum Hit {
     /// the show's stage background: a click on its value types it, on its swatch opens the colour picker (the editor's)
     Background,
     BackgroundColour,
-    Load,
-    /// the tree resolved to exact versions: the list of the devices to flash opens (#471)
+    /// the notice's Reload: the server's newer version of the show shown (newer.rs)
+    Reload,
+    /// the bar's Flash: the tree resolved to exact versions, the flash dialog opens (#471, flash.rs)
     Flash,
-    /// #471, the flash list: a line's tick, a quick filter, the typed filter's field, the lock, forced or a suggestion
-    /// (#481), on to the prompt, the prompt confirmed, back / cancel
+    /// the flash dialog: a line's tick, All, None, the typed filter's field, locked or not, forced or a suggestion
+    /// (#481), on to the confirm, the confirm's Flash, back / cancel
     FlashTick(usize),
-    FlashQuick(usize),
+    FlashAll,
+    FlashNone,
     FlashType,
-    FlashLock,
-    FlashForce,
+    FlashLock(bool),
+    FlashForce(bool),
     FlashAsk,
     FlashConfirm,
     FlashCancel,
+    /// a dialog's ×, or a press outside its box (dialog.rs)
+    DialogClose,
+    /// a ground that takes the press and does nothing (a dialog's box, the notice)
+    Ground,
     /// the overlay: 2D (true) or the stage alone (3D)
     View(bool),
     /// the node view: its direction, framing everything
@@ -343,8 +352,10 @@ pub struct Host {
     pub seat: Option<usize>,
     /// this frame's places
     pub hits: Vec<(Rect, Hit)>,
-    /// #471: the flash list while it is open
+    /// #471: the flash dialog while it is open
     pub flashing: Option<flash::Flashing>,
+    /// H19: the server's newer versions (newer.rs)
+    pub newer: newer::Newer,
     /// each show document edited saves itself (saving.rs), by its id
     pub saves: BTreeMap<String, crate::autosave::Autosave<String>>,
     /// scenes with something unsent that are open nowhere, by id: they go up from here (saving.rs)
@@ -428,7 +439,7 @@ impl Host {
         show_panels.floats.scrolls_itself("nodes");
         let scroll = deck_kit::editor::table::Scroll::default();
         let saves = version.map(|v| (show.id.clone(), crate::autosave::Autosave::new(Some(v)))).into_iter().collect();
-        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carried: None, refused: None, toon: None, story: None, event_query: String::new(), event_scope: Default::default(), slot_at: None, typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
+        let mut host = Host { sub: Subtree::new(show, ClockChoice::Parent), library: BTreeMap::new(), path: Vec::new(), row: 0, role: None, cells: Vec::new(), columns: Vec::new(), group: None, context: None, show_panels, show_scroll: scroll, band: None, sizes: BTreeMap::new(), views_file: None, resizing: None, last_edge: None, band_fits: sizing::Fits::default(), help: None, address: None, book: None, cameras: BTreeMap::new(), live_cameras: BTreeMap::new(), hands: Vec::new(), book_why: None, carried: None, refused: None, toon: None, story: None, event_query: String::new(), event_scope: Default::default(), slot_at: None, typing: None, asking: None, menu: None, lock: false, locked: false, live_asked: false, status, unloaded, bad: false, wiring: None, flow: None, two_d: true, sheet: None, seat: None, hits: Vec::new(), flashing: None, newer: newer::Newer::default(), saves, unsent: BTreeMap::new(), session: session::Session::default(), toons: toons::Toons::default(), voting: vote::Voting::default(), knobs: values::Loader::new(api.base.clone()), knob_drag: None, cursor: (0.0, 0.0), cue_mix: deck_engine::cue::MIX, mix_drag: None, mix_width: 1.0, to_prelisten: None, prelistening: None, cue_note: None, build: None, to_build: None, compose: new_scene::Composer::default(), to_stage: None, demos: Vec::new(), demo_book: None, link, api, nodes: nodes::NodeView::default() };
         host.adopt_kept();
         host
     }
@@ -509,6 +520,7 @@ impl Host {
         self.knobs.poll();
         self.compose_poll();
         self.toons_poll();
+        self.newer_poll();
         let mut out = self.sub.tick(ms);
         if let Some(l) = &self.link {
             self.hands.clear();
@@ -519,8 +531,8 @@ impl Host {
                 out.extend(self.sub.on_wire(&e, ms));
             }
         }
-        // #471: the open flash list follows what the devices say (not under the prompt: what it says is what goes)
-        if let Some(f) = self.flashing.as_mut().filter(|f| !f.asking) {
+        // #471: the open flash list follows what the devices say (not under the confirm: what it says is what goes)
+        if let Some(f) = self.flashing.as_mut().filter(|f| f.step == flash::Step::List) {
             f.choice.refresh(&self.sub);
         }
         self.send(out);
@@ -630,9 +642,11 @@ impl Host {
                 let now = self.shown().background.as_ref().map_or("", |b| b.text()).to_string();
                 self.typing = Some((roles::Typing::Background, deck_kit::base::text::Field::with(&now)));
             }
-            Hit::Load => self.load(),
+            Hit::Reload => self.load(),
             Hit::Flash => self.open_flash(),
-            Hit::FlashTick(_) | Hit::FlashQuick(_) | Hit::FlashType | Hit::FlashLock | Hit::FlashForce | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
+            Hit::FlashTick(_) | Hit::FlashAll | Hit::FlashNone | Hit::FlashType | Hit::FlashLock(_) | Hit::FlashForce(_) | Hit::FlashAsk | Hit::FlashConfirm | Hit::FlashCancel => self.flash_press(hit),
+            Hit::DialogClose => self.close_dialog(),
+            Hit::Ground => {}
             Hit::Nodes(_) => self.nodes_press(hit),
             Hit::View(two_d) => {
                 self.two_d = two_d;
@@ -753,7 +767,8 @@ impl Host {
         self.load();
     }
 
-    /// the server's newest of the shown document; a local copy not sent yet stays open, one in conflict gives way
+    /// the server's newest of the shown document (the notice's Reload); a local copy not sent yet stays open and goes up
+    /// first, one in conflict gives way
     fn load(&mut self) {
         let id = self.shown().id.clone();
         if self.api.outbox.get("show", &id).is_some_and(|e| !e.conflict) {
@@ -802,6 +817,10 @@ pub struct Script {
     pub flash_ask: bool,
     pub flash_confirm: bool,
     pub flash_force: bool,
+    /// H19: the server names this the newest version of the show shown (the notice shows, no server needed)
+    pub newer: Option<u64>,
+    /// decks that answer as if over the relay (flash.rs `Device`): Flash's dot and the dialog's lines without a relay
+    pub devices: Vec<flash::Device>,
     /// #478: the role the inspector shows (an outlet id); with `--sheet who`, a client (its name or id) moved to a role
     /// (`NAME=ROLE`, an empty role = no role) by its move menu, and a client's move menu left open
     pub role: Option<String>,
@@ -1051,7 +1070,13 @@ impl Host {
                     self.script_filter(text);
                 }
             }
-            65 if s.flash_force => self.press(Hit::FlashForce),
+            65 if s.flash_force => self.press(Hit::FlashForce(true)),
+            10 => {
+                if let Some(v) = s.newer {
+                    self.script_newer(v);
+                }
+            }
+            12 if !s.devices.is_empty() => self.script_devices(&s.devices),
             80 if s.flash_ask => self.press(Hit::FlashAsk),
             90 if s.flash_confirm => self.press(Hit::FlashConfirm),
             _ => {}
