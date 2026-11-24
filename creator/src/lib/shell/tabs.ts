@@ -34,13 +34,13 @@ export function visit(state: TabsState, address: string | null, href: string, la
 	const at = state.tabs.findIndex((t) => t.address === address);
 	if (at >= 0) {
 		const old = state.tabs[at];
-		const next = { ...old, href, label: label || old.label };
+		const next = { ...old, href, label: label?.trim() ? label : old.label };
 		if (state.front === address && old.href === href && next.label === old.label) return state;
 		const tabs = [...state.tabs];
 		tabs[at] = next;
 		return { tabs, front: address };
 	}
-	const tab: Tab = { address, href, label: label || address };
+	const tab: Tab = { address, href, label: label?.trim() ? label : address };
 	const from = state.tabs.findIndex((t) => t.address === state.front);
 	const tabs = [...state.tabs];
 	tabs.splice(from >= 0 ? from + 1 : tabs.length, 0, tab);
@@ -63,7 +63,7 @@ export const pageLabel = (crumbs: readonly { href: string; label: string }[], hr
 
 export function rename(state: TabsState, address: string, label: string): TabsState {
 	const tab = state.tabs.find((t) => t.address === address);
-	if (!tab || !label || tab.label === label) return state;
+	if (!tab || !label.trim() || tab.label === label) return state;
 	return { ...state, tabs: state.tabs.map((t) => (t.address === address ? { ...t, label } : t)) };
 }
 
@@ -109,8 +109,8 @@ export function readTabs(raw: unknown, gone: (address: string) => boolean = () =
 	const v = raw as Partial<TabsState> | null;
 	if (!v || !Array.isArray(v.tabs)) return EMPTY;
 	const tabs = v.tabs
-		.filter((t): t is Tab => !!t && typeof t.address === 'string' && typeof t.href === 'string' && t.href.startsWith('/') && !gone(t.address))
-		.map((t) => ({ address: t.address, href: t.href, label: typeof t.label === 'string' ? t.label : t.address, ...(typeof t.workspace === 'string' && t.workspace ? { workspace: t.workspace } : {}) }))
+		.filter((t): t is Tab => !!t && typeof t.address === 'string' && !!t.address.trim() && typeof t.href === 'string' && t.href.startsWith('/') && !gone(t.address))
+		.map((t) => ({ address: t.address, href: t.href, label: typeof t.label === 'string' && t.label.trim() ? t.label : t.address, ...(typeof t.workspace === 'string' && t.workspace ? { workspace: t.workspace } : {}) }))
 		.filter((t, i, all) => all.findIndex((o) => o.address === t.address) === i)
 		.slice(0, MAX_TABS);
 	const front = typeof v.front === 'string' && tabs.some((t) => t.address === v.front) ? v.front : null;
