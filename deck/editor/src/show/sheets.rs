@@ -48,10 +48,11 @@ fn cues(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f32, f
             break;
         }
         let whole = Rect { x: a.x, y, w: a.w, h };
+        // the row shown: see-through like the band's selection, its words keep their colours
         if i == host.row {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.selected);
+            d.round_rect(whole.x, whole.y, whole.w, whole.h, t.size.radius, t.color.selected);
         } else if whole.has(pointer.0, pointer.1) {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
+            controls::list_row(d, t, whole, "hover");
         }
         d.text(xn, y + 4.0, font, &c.number.to_string(), t.color.muted);
         d.text(xr, y + 4.0, font, &fit(d, &c.row, font, xt - xr - pad), t.color.text);
@@ -89,7 +90,7 @@ fn problems(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, pointer: (f3
         }
         let whole = Rect { x: a.x, y, w: a.w, h: lh };
         if whole.has(pointer.0, pointer.1) {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
+            controls::list_row(d, t, whole, "hover");
         }
         d.disc(a.x + pad + 4.0, y + lh * 0.5, 4.0, if p.error { t.color.danger } else { t.color.warn });
         d.text(a.x + pad + 16.0, y + (lh - font * 1.25) * 0.5, font, &fit(d, &p.text, font, a.w - 2.0 * pad - 16.0), t.color.text);

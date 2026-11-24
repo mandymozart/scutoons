@@ -3715,7 +3715,7 @@ impl App {
             }
             let names = TABS.map(|(_, name)| name);
             let active = TABS.iter().position(|(tab, _)| *tab == self.panel.tab).unwrap_or(0);
-            for (r, (tab, _)) in controls::pills(ui, t, a.x, y, row - 4.0, &names, active).into_iter().zip(TABS) {
+            for (r, (tab, _)) in controls::tabs(ui, t, (a.x, y, row - 4.0), &names, active, (t.size.radius, self.cursor)).into_iter().zip(TABS) {
                 self.panel.hits.push((r, Hit::Tab(tab)));
             }
             y += row + pad / 2.0;
@@ -3944,7 +3944,7 @@ impl App {
                 show::Workspace::Home | show::Workspace::Media => &mut self.home_panels,
             };
             if let Some(o) = ws.open(ui, t, panels::SETTINGS, cursor, 0) {
-                let mut places = settings::draw(ui, t, o.area, &s);
+                let mut places = settings::draw(ui, t, o.area, &s, cursor);
                 ws.close(ui, o, &mut places);
                 self.settings_hits = places;
             }

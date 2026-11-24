@@ -31,7 +31,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, m: &mut Module, (stage, prefs): (&Stag
         for (i, p) in m.problems.iter().enumerate() {
             let r = Rect { x: a.x, y: by, w: a.w, h: line_h };
             if r.has(pointer.0, pointer.1) {
-                d.rect(r.x, r.y, r.w, r.h, t.color.hover);
+                controls::list_row(d, t, r, "hover");
             }
             let ty = by + (line_h - font * 1.25) * 0.5;
             d.disc(a.x + 4.0, ty + font * 0.62, 3.5, if p.error { t.color.danger } else { t.color.warn });

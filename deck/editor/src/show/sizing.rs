@@ -199,7 +199,7 @@ pub(super) fn measure(d: &DrawList, t: &Tokens, host: &Host, m: &Matrix, rad: f3
     let (pad, font, small, lpx) = (t.size.pad, t.size.font, t.size.small, t.size.label * 1.2);
     let w = |px: f32, s: &str| d.advance(px) * s.chars().count() as f32;
     let h0 = t.size.rem(CELL.1);
-    let stop = t.size.rem(0.85);
+    let stop = super::band::stop_width(t);
     let mut columns: Vec<f32> = m
         .columns
         .iter()

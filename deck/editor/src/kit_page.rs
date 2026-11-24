@@ -142,14 +142,9 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32)) {
         if i < 5 {
             let from = d.prims().len();
             let names = ["2 legs", "wings"];
-            let widths: Vec<f32> = names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * t.size.pad).collect();
-            let r = Rect { x, y, w: widths.iter().sum::<f32>() + 2.0 + 2.0, h: ch };
-            let s = t.kit("segments", if i == 1 { "hover" } else { "rest" });
-            ground(d, t, "segments", r, t.size.radius);
-            if i == 1 {
-                d.round_rect(x + 1.0 + widths[0] + 2.0, y + 1.0, widths[1], ch - 2.0, t.size.radius, s.ground.unwrap_or(t.color.hover));
-            }
-            controls::pills(d, t, x + 1.0, y + 1.0, ch - 2.0, &names, if i == 2 { 1 } else { 0 });
+            let r = Rect { x, y, w: controls::segments_width(d, t, &names), h: ch };
+            // hover: the pointer on wings
+            controls::segments(d, t, (x, y, ch), &names, if i == 2 { 1 } else { 0 }, if i == 1 { (x + r.w - 4.0, y + ch * 0.5) } else { AWAY });
             focus(d, t, i, r, t.size.radius);
             if i == 4 {
                 disabled(d, t, from, "segments");
@@ -283,13 +278,8 @@ pub fn draw(d: &mut DrawList, t: &Tokens, (w, h): (f32, f32)) {
         }
         let r = Rect { x, y: y + (ch - fold::head_height(t)) * 0.5, w: t.size.rem(13.0), h: fold::head_height(t) };
         let from = d.prims().len();
-        if i == 1 {
-            if let Some(g) = t.kit("section", "hover").ground {
-                d.rect(r.x, r.y, r.w, r.h, g);
-            }
-        }
-        fold::head(d, t, r, "sliders", "Lens", "70 mm", i == 2);
-        focus(d, t, i, r, 0.0);
+        fold::head_in(d, t, r, ("sliders", "Lens", "70 mm"), ["rest", "hover", "on", "rest", "disabled"][i]);
+        focus(d, t, i, r, t.size.radius);
         if i == 4 {
             disabled(d, t, from, "section");
         }

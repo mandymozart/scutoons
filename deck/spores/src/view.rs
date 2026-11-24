@@ -25,7 +25,7 @@ pub fn head(d: &mut DrawList, t: &Tokens, s: &State, g: &Graph, a: Rect) -> Vec<
     let mut hits = Vec::new();
     let dir = s.direction;
     let names = [Direction::Lr.word(), Direction::Tb.word()];
-    let pills = controls::pills(d, t, a.x, a.y + 2.0, head - 8.0, &names, if dir == Direction::Lr { 0 } else { 1 });
+    let pills = controls::segments(d, t, (a.x, a.y + 2.0, head - 8.0), &names, if dir == Direction::Lr { 0 } else { 1 }, (f32::MIN, f32::MIN));
     for (r, dir) in pills.iter().zip([Direction::Lr, Direction::Tb]) {
         hits.push((*r, Hit::Flow(dir)));
     }

@@ -31,7 +31,8 @@ pub fn switch_width(d: &DrawList, t: &Tokens, offered: &[Unit]) -> f32 {
     if offered.len() < 2 {
         return 0.0;
     }
-    offered.iter().map(|u| d.sans_width(t.size.small, u.word()) + t.size.pad * 1.2).sum::<f32>() + 2.0 * (offered.len() - 1) as f32
+    let words: Vec<&str> = offered.iter().map(|u| u.word()).collect();
+    controls::segments_width(d, t, &words)
 }
 
 /// The units `offered` as segments ending at `right`, `h` high from `y`, the one `on` pressed; each segment's place and
@@ -40,22 +41,10 @@ pub fn switch(d: &mut DrawList, t: &Tokens, (right, y, h): (f32, f32, f32), offe
     if offered.len() < 2 {
         return Vec::new();
     }
-    let px = t.size.small;
-    let mut x = right - switch_width(d, t, offered);
-    let mut out = Vec::with_capacity(offered.len());
-    for &u in offered {
-        let w = d.sans_width(px, u.word()) + t.size.pad * 1.2;
-        let lit = u == on;
-        if lit {
-            crate::editor::controls::active_tab(d, t, Rect { x, y, w, h }, t.size.radius);
-        } else {
-            d.outline(x, y, w, h, (t.size.radius, t.size.edge), t.color.line);
-        }
-        d.sans(x + t.size.pad * 0.6, y + (h - px * 1.25) * 0.5, px, u.word(), if lit { t.color.text } else { t.color.muted });
-        out.push((Rect { x, y, w, h }, u));
-        x += w + 2.0;
-    }
-    out
+    let words: Vec<&str> = offered.iter().map(|u| u.word()).collect();
+    let at = offered.iter().position(|u| *u == on).unwrap_or(usize::MAX);
+    let x = right - switch_width(d, t, offered);
+    controls::segments(d, t, (x, y, h), &words, at, (f32::MIN, f32::MIN)).into_iter().zip(offered.iter().copied()).collect()
 }
 
 /// A value to drag, with its unit switch: the label, `v` (in `unit`) on its fill at `fraction`, the units `offered` at

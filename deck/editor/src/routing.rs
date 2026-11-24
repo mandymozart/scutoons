@@ -408,7 +408,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     let link = |d: &mut DrawList, y: &mut f32, text: &str, f: Field, hits: &mut Vec<(Rect, Field)>| {
         let r = Rect { x: area.x, y: *y, w: area.w, h: row };
         if r.has(pointer.0, pointer.1) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.control);
+            controls::list_row(d, t, r, "hover");
         }
         d.text(area.x, text_y(*y, small), small, &fit(d, text, small, area.w), t.color.text);
         hits.push((r, f));
@@ -427,7 +427,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
 
     y += controls::section(d, t, area.x, y + 4.0, area.w, "HOST", false) + 4.0;
     let names: Vec<&str> = page.hosts.iter().map(|h| h.name.as_str()).collect();
-    for (i, r) in controls::pills(d, t, area.x, y, row - 4.0, &names, page.host().unwrap_or(usize::MAX)).into_iter().enumerate() {
+    for (i, r) in controls::segments(d, t, (area.x, y, row - 4.0), &names, page.host().unwrap_or(usize::MAX), pointer).into_iter().enumerate() {
         hits.push((r, Field::Host(i)));
     }
     y += row + 4.0;
@@ -438,16 +438,13 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     let chosen = page.device();
     for (i, dev) in page.devices().iter().enumerate() {
         let r = Rect { x: area.x, y, w: area.w, h: row };
-        if chosen == Some(i) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.selection);
-        } else if r.has(pointer.0, pointer.1) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.control);
-        }
+        let ink = controls::list_row(d, t, r, if chosen == Some(i) { "selected" } else if r.has(pointer.0, pointer.1) { "hover" } else { "rest" });
         let what = match &dev.error {
             Some(e) => format!("{} – {e}", dev.label()),
             None => format!("{} · {} ch · {} Hz", dev.label(), dev.channels, dev.rate),
         };
-        d.text(r.x + 4.0, text_y(y, font), font, &fit(d, &what, font, r.w - 8.0), if dev.error.is_some() { t.color.muted } else { t.color.text });
+        let ink = if chosen == Some(i) || dev.error.is_none() { ink } else { t.color.muted };
+        d.text(r.x + 4.0, text_y(y, font), font, &fit(d, &what, font, r.w - 8.0), ink);
         hits.push((r, Field::Device(i)));
         y += row;
     }
@@ -460,7 +457,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     let labels: Vec<String> = BUFFERS.iter().map(|&b| if b == 0 { "default".into() } else { b.to_string() }).collect();
     let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
     let on = BUFFERS.iter().position(|&b| b == page.draft.audio_buffer.unwrap_or(0)).unwrap_or(usize::MAX);
-    for (i, r) in controls::pills(d, t, area.x, y, row - 4.0, &labels, on).into_iter().enumerate() {
+    for (i, r) in controls::segments(d, t, (area.x, y, row - 4.0), &labels, on, pointer).into_iter().enumerate() {
         hits.push((r, Field::Buffer(i)));
     }
     y += row;
@@ -513,7 +510,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     if let Some(o) = page.offer() {
         let r = Rect { x: area.x, y, w: area.w, h: row };
         if r.has(pointer.0, pointer.1) {
-            d.rect(r.x, r.y, r.w, r.h, t.color.control);
+            controls::list_row(d, t, r, "hover");
         }
         d.text(area.x, text_y(y, small), small, &fit(d, &o.text, small, area.w), t.color.text);
         hits.push((r, Field::Offer));

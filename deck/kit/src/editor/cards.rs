@@ -51,8 +51,6 @@ pub struct Tag<'a> {
     pub icon: &'static str,
     pub tint: [f32; 4],
     pub text: &'a str,
-    /// offered, waiting for a yes: a dashed border
-    pub dashed: bool,
     /// the width kept free after the words (the caller draws there)
     pub trail: f32,
 }
@@ -77,16 +75,18 @@ pub fn tag(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), tag: &Tag) 
     let words = fit(d, tag.text, px, (w - frame).max(0.0));
     let tw = d.advance(px) * words.chars().count() as f32;
     let r = Rect { x, y, w: (frame + tw).min(w.max(frame)), h };
-    let border = fade(t.color.muted, 0.55);
-    if tag.dashed {
-        dashed(d, r, border);
-    } else {
-        d.outline(r.x, r.y, r.w, r.h, (t.size.radius * 0.6, 1.0), border);
+    // the kit's chip at rest: round, its line, its words muted
+    let s = t.kit("chip", "rest");
+    if let Some(g) = s.ground {
+        d.round_rect(r.x, r.y, r.w, r.h, h * 0.5, g);
+    }
+    if let Some(b) = s.border {
+        d.outline(r.x, r.y, r.w, r.h, (h * 0.5, t.size.edge), b);
     }
     d.icon(x + inset, y + (h - icon) * 0.5, icon, tag.icon, tag.tint);
     let tx = x + inset + icon + gap;
     if !words.is_empty() {
-        d.text(tx, y + (h - px * 1.25) * 0.5, px, &words, t.color.muted);
+        d.text(tx, y + (h - px * 1.25) * 0.5, px, &words, s.text.unwrap_or(t.color.muted));
     }
     (r, tx + tw + if trail > 0.0 { h * 0.3 } else { 0.0 })
 }
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn a_tag_cuts_its_words_to_its_width_and_keeps_its_trail() {
         let (mut d, t) = (DrawList::new(0.6), Tokens::default());
-        let long = Tag { icon: "bolt", tint: t.color.muted, text: "ch3 · yellowmouse-enters-the-nave", dashed: false, trail: 12.0 };
+        let long = Tag { icon: "bolt", tint: t.color.muted, text: "ch3 · yellowmouse-enters-the-nave", trail: 12.0 };
         let (r, trail) = tag(&mut d, &t, (0.0, 0.0, 120.0), &long);
         assert!(r.w <= 120.0 + 0.01, "{r:?}");
         assert!(d.texts().iter().any(|s| s.ends_with('…')), "{:?}", d.texts());
