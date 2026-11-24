@@ -162,21 +162,14 @@ pub fn height(t: &Tokens) -> f32 {
 }
 
 /// the panel's content in `area`; its places, and where the volume's track is (a press there sets it)
-pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings) -> Vec<(Rect, Press)> {
+pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, s: &Settings, pointer: (f32, f32)) -> Vec<(Rect, Press)> {
     let (row, pad) = (t.size.tree_row, t.size.pad);
     let mut out = Vec::new();
     let mut y = area.y;
     y += controls::section(d, t, area.x, y, area.w, "Look", true);
-    let half = (area.w - pad) / 2.0;
-    for (i, (label, theme)) in [("Day", Theme::Day), ("Night", Theme::Night)].into_iter().enumerate() {
-        let r = Rect { x: area.x + i as f32 * (half + pad), y, w: half, h: t.size.row - 4.0 };
-        let on = s.look.theme == theme;
-        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.within);
-        if on {
-            controls::active_tab(d, t, r, t.size.radius);
-        }
-        let tw = d.advance(t.size.small) * label.chars().count() as f32;
-        d.text(r.x + (r.w - tw) * 0.5, r.y + (r.h - t.size.small * 1.25) * 0.5, t.size.small, label, if on { t.color.text } else { t.color.muted });
+    let themes = [Theme::Day, Theme::Night];
+    let on = themes.iter().position(|th| *th == s.look.theme).unwrap_or(usize::MAX);
+    for (r, theme) in controls::segments(d, t, (area.x, y, t.size.row - 4.0), &["Day", "Night"], on, pointer).into_iter().zip(themes) {
         out.push((r, Press::Theme(theme)));
     }
     y += t.size.row;
@@ -274,7 +267,7 @@ mod tests {
         let t = Tokens::default();
         let mut d = DrawList::new(0.6);
         let s = Settings::default();
-        let places = draw(&mut d, &t, Rect { x: 0.0, y: 0.0, w: 320.0, h: 600.0 }, &s);
+        let places = draw(&mut d, &t, Rect { x: 0.0, y: 0.0, w: 320.0, h: 600.0 }, &s, (-1.0, -1.0));
         assert_eq!(places.len(), 2 + LOOK.len() + MOTION.len() + SOUND.len() + 1 + 3);
         let (_, day) = places[0];
         let mut pressed = s;

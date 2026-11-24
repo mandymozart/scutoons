@@ -427,7 +427,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
 
     y += controls::section(d, t, area.x, y + 4.0, area.w, "HOST", false) + 4.0;
     let names: Vec<&str> = page.hosts.iter().map(|h| h.name.as_str()).collect();
-    for (i, r) in controls::pills(d, t, area.x, y, row - 4.0, &names, page.host().unwrap_or(usize::MAX)).into_iter().enumerate() {
+    for (i, r) in controls::segments(d, t, (area.x, y, row - 4.0), &names, page.host().unwrap_or(usize::MAX), pointer).into_iter().enumerate() {
         hits.push((r, Field::Host(i)));
     }
     y += row + 4.0;
@@ -460,7 +460,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, area: Rect, page: &mut Page, stage: &S
     let labels: Vec<String> = BUFFERS.iter().map(|&b| if b == 0 { "default".into() } else { b.to_string() }).collect();
     let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
     let on = BUFFERS.iter().position(|&b| b == page.draft.audio_buffer.unwrap_or(0)).unwrap_or(usize::MAX);
-    for (i, r) in controls::pills(d, t, area.x, y, row - 4.0, &labels, on).into_iter().enumerate() {
+    for (i, r) in controls::segments(d, t, (area.x, y, row - 4.0), &labels, on, pointer).into_iter().enumerate() {
         hits.push((r, Field::Buffer(i)));
     }
     y += row;

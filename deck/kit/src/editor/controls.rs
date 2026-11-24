@@ -88,30 +88,89 @@ pub fn primary_in(d: &mut DrawList, t: &Tokens, r: Rect, text: &str, outward: bo
     r
 }
 
-/// pills side by side, one of them on; their places
+/// where no pointer is
+const AWAY: (f32, f32) = (f32::MIN, f32::MIN);
+
+/// tabs side by side, one of them on (the kit's `tab`): no border at rest, the one on in the text colour, the others
+/// muted; their places
 pub fn pills(d: &mut DrawList, t: &Tokens, x: f32, y: f32, h: f32, names: &[&str], on: usize) -> Vec<Rect> {
     pills_rounded(d, t, (x, y, h), names, on, t.size.radius)
 }
 
-/// the active tab's look: a thin outline in the text's ink, no fill, rounded by `radius`
-pub fn active_tab(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32) {
-    d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), t.color.text);
+/// the same, a hover rounded by `radius` (inside a pill: the pill's radius less the inset, so their corners share a centre)
+pub fn pills_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, radius: f32) -> Vec<Rect> {
+    tabs(d, t, (x, y, h), names, on, (radius, AWAY))
 }
 
-/// the same, the one on rounded by `radius` (inside a pill: the pill's radius less the inset, so their corners share a
-/// centre); the one on is the active tab: a thin outline, the others muted
-pub fn pills_rounded(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, radius: f32) -> Vec<Rect> {
+/// the same with the pointer: the tab under it shows the kit's rounded hover border
+pub fn tabs(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, (radius, pointer): (f32, (f32, f32))) -> Vec<Rect> {
     let px = t.size.small;
     let mut cx = x;
     let mut out = Vec::with_capacity(names.len());
     for (i, name) in names.iter().enumerate() {
-        let w = d.sans_width(px, name) + 2.0 * t.size.pad;
-        if i == on {
-            active_tab(d, t, Rect { x: cx, y, w, h }, radius);
+        let r = Rect { x: cx, y, w: d.sans_width(px, name) + 2.0 * t.size.pad, h };
+        let state = if r.has(pointer.0, pointer.1) {
+            "hover"
+        } else if i == on {
+            "on"
+        } else {
+            "rest"
+        };
+        let ink = tab_frame(d, t, r, radius, state);
+        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, ink);
+        out.push(r);
+        cx += r.w + 2.0;
+    }
+    out
+}
+
+/// a segment's inset in its frame
+fn segment_inset(t: &Tokens) -> f32 {
+    2.0 * t.size.edge
+}
+
+/// how wide `segments` draws `names`
+pub fn segments_width(d: &DrawList, t: &Tokens, names: &[&str]) -> f32 {
+    names.iter().map(|n| d.sans_width(t.size.small, n) + 2.0 * t.size.pad).sum::<f32>() + 2.0 * segment_inset(t)
+}
+
+/// Segments (the kit's `segments`): one choice of a few in one frame, its line on the control ground; the one on in the
+/// pressed fill, the one under the pointer on the hover ground, rounded concentric with the frame; each segment's place.
+pub fn segments(d: &mut DrawList, t: &Tokens, (x, y, h): (f32, f32, f32), names: &[&str], on: usize, pointer: (f32, f32)) -> Vec<Rect> {
+    let (px, inset, radius) = (t.size.small, segment_inset(t), t.size.radius);
+    let inner = (radius - inset).max(0.0);
+    let frame = t.kit("segments", "rest");
+    let w = segments_width(d, t, names);
+    if let Some(g) = frame.ground {
+        d.round_rect(x, y, w, h, radius, g);
+    }
+    if let Some(b) = frame.border {
+        d.outline(x, y, w, h, (radius, t.size.edge), b);
+    }
+    let mut cx = x + inset;
+    let mut out = Vec::with_capacity(names.len());
+    for (i, name) in names.iter().enumerate() {
+        let sw = d.sans_width(px, name) + 2.0 * t.size.pad;
+        let r = Rect { x: cx, y: y + inset, w: sw, h: h - 2.0 * inset };
+        let state = if i == on {
+            "on"
+        } else if r.has(pointer.0, pointer.1) {
+            "hover"
+        } else {
+            "rest"
+        };
+        let s = t.kit("segments", state);
+        if state != "rest" {
+            if let Some(g) = s.ground {
+                d.round_rect(r.x, r.y, r.w, r.h, inner, g);
+            }
         }
-        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, if i == on { t.color.text } else { t.color.muted });
-        out.push(Rect { x: cx, y, w, h });
-        cx += w + 2.0;
+        d.sans(cx + t.size.pad, y + (h - px * 1.25) * 0.5, px, name, s.text.unwrap_or(t.color.muted));
+        // the place takes the frame's inset at both ends: the whole frame answers a press
+        let from = if i == 0 { x } else { cx };
+        let to = if i + 1 == names.len() { x + w } else { cx + sw };
+        out.push(Rect { x: from, y, w: to - from, h });
+        cx += sw;
     }
     out
 }

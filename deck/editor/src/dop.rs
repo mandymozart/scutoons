@@ -278,7 +278,10 @@ fn short(v: f32) -> String {
 
 #[allow(clippy::too_many_arguments)]
 fn pills_row(d: &mut DrawList, t: &Tokens, a: Rect, y: &mut f32, names: &[&str], on: usize, fields: &[Field], out: &mut Vec<(Rect, Field)>) {
-    for (r, f) in controls::pills(d, t, a.x, *y, t.size.row - 4.0, names, on).into_iter().zip(fields) {
+    // one of a few chosen: segments; none: words to press
+    let h = t.size.row - 4.0;
+    let places = if on < names.len() { controls::segments(d, t, (a.x, *y, h), names, on, (f32::MIN, f32::MIN)) } else { controls::pills(d, t, a.x, *y, h, names, on) };
+    for (r, f) in places.into_iter().zip(fields) {
         out.push((r, *f));
     }
     *y += t.size.row;
