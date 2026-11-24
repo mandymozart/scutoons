@@ -45,26 +45,33 @@ const SCHEMAS = {
 	'map-region': 'RegionDoc',
 	// the custom collage presets (research/COLLAGE.md §12): a bad colour, blend, number or id never saves
 	colorations: 'Colorations',
-	events: 'EventList'
+	events: 'EventList',
+	// a chapter's storyboard `storyboard:<toon>:<n>` – its types live in the sub-path src/storyboard/ (not re-exported)
+	storyboard: { type: 'ChapterStoryboard', from: 'src/storyboard/index.ts' }
 };
 
 // every object stays open (unknown keys pass), except a type whose doc comment says `@additionalProperties false`
 // (RendererParams: a stale creator tab or MCP copy must not write the Swiper's keys back – FEATURES 10.100 §8)
-const generator = createGenerator({
-	path: join(root, 'src/index.ts'),
-	tsconfig: join(root, 'tsconfig.json'),
-	expose: 'export',
-	topRef: true,
-	jsDoc: 'extended',
-	extraTags: ['additionalProperties'],
-	skipTypeCheck: true,
-	additionalProperties: true
-});
+const generatorOf = (from) =>
+	createGenerator({
+		path: join(root, from),
+		tsconfig: join(root, 'tsconfig.json'),
+		expose: 'export',
+		topRef: true,
+		jsDoc: 'extended',
+		extraTags: ['additionalProperties'],
+		skipTypeCheck: true,
+		additionalProperties: true
+	});
+const generators = new Map();
+const generatorFor = (from = 'src/index.ts') => generators.get(from) ?? generators.set(from, generatorOf(from)).get(from);
 
 const check = process.argv.includes('--check');
 const stale = [];
 
-for (const [name, types] of Object.entries(SCHEMAS)) {
+for (const [name, entry] of Object.entries(SCHEMAS)) {
+	const { types, from } = typeof entry === 'object' && !Array.isArray(entry) ? { types: entry.type, from: entry.from } : { types: entry, from: undefined };
+	const generator = generatorFor(from);
 	const [type, ...more] = [types].flat();
 	const schema = {
 		$id: `https://scutoons.com/schema/${name}.schema.json`,

@@ -1,10 +1,10 @@
 // The shot list of a chapter's storyboards (from scripts/storyboard/shotlist.mjs, #119), grouped by place and by what
-// each shot wants (photo / unreal / direct / generated / art): the sheet for matching the Figma selection, for planning
+// each shot wants (photo / deck / direct / generated / art): the sheet for matching the Figma selection, for planning
 // a shooting and – for the gaps – for prompting.
 
 import { measureShot, shotsOf } from './measure.ts';
 import type { StoryboardDoc } from './types.ts';
-import { textOf } from './vocab.ts';
+import { readSource, textOf } from './vocab.ts';
 
 export interface ShotRow {
 	scene: number | undefined;
@@ -22,7 +22,7 @@ export interface ShotRow {
 }
 
 /** the order of the want table */
-export const WANTS = ['photo', 'direct', 'unreal', 'generated', 'art', '?'] as const;
+export const WANTS = ['photo', 'direct', 'deck', 'generated', 'art', '?'] as const;
 
 /** one row per shot, in scene order */
 export function shotRows(scenes: StoryboardDoc[]): ShotRow[] {
@@ -35,7 +35,7 @@ export function shotRows(scenes: StoryboardDoc[]): ShotRow[] {
 			const m = measureShot(shot);
 			rows.push({
 				scene: sb.source?.scene, id: shot.id, place: loc?.place ?? loc?.new ?? loc?.ref ?? '–', time: loc?.time ?? '',
-				want: shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
+				want: readSource(shot.source?.want) ?? shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
 				framing: [shot.shot?.size, shot.shot?.angle, shot.projection !== 'perspective' ? shot.projection : ''].filter(Boolean).join(' '),
 				who: (shot.figures ?? []).map((f) => `${cast[f.cast]?.new ?? f.cast}${f.mood ? ` (${f.mood})` : ''}`).join(', '),
 				action: textOf(shot.action)
@@ -53,7 +53,7 @@ export const wantCounts = (rows: ShotRow[]): [string, number][] =>
 export function shotlistMarkdown(name: string, rows: ShotRow[]): string {
 	const md = [`# Shot list ${name} – ${rows.length} shots`, '',
 		'What each shot needs, by place. Match against the Figma selection on the chapter page; the shooting pages only for gaps.',
-		'`want`: photo = from a shooting · direct = to be photographed · unreal = render · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
+		'`want`: photo = from a shooting · direct = to be photographed · deck = a scene in the deck · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
 		'| want | shots |', '|---|---|', ...WANTS.map((w) => `| ${w} | ${rows.filter((r) => r.want === w).length} |`).filter((l) => !l.endsWith('| 0 |')), ''];
 	for (const place of [...new Set(rows.map((r) => r.place))]) {
 		const rs = rows.filter((r) => r.place === place);

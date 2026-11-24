@@ -1,4 +1,4 @@
-// The shot list of a chapter's storyboards, grouped by place and by what each shot wants (photo / unreal / direct /
+// The shot list of a chapter's storyboards, grouped by place and by what each shot wants (photo / deck / direct /
 // generated / art): the sheet for matching the Figma selection (S1C3 page), for planning a shooting, and – for the
 // gaps – for prompting. Markdown.
 //
@@ -6,7 +6,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { ROOT, textOf } from './lib.mjs';
+import { ROOT, readSource, textOf } from './lib.mjs';
 import { loadStoryboards, measureShot, shotsOf } from './storyboard.mjs';
 
 const args = process.argv.slice(2);
@@ -28,17 +28,17 @@ for (const { sb } of list) {
 		const m = measureShot(shot);
 		rows.push({
 			scene: sb.source?.scene, id: shot.id, place: loc?.place ?? loc?.new ?? loc?.ref ?? '–', time: loc?.time ?? '',
-			want: shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
+			want: readSource(shot.source?.want) ?? shot.source?.want ?? '?', format: `${shot.format} ${shot.aspect}`, px: shot.format === 'loop360' ? `${m.panoScreens.toFixed(1)} screens wide` : `390 × ${m.h}`,
 			framing: [shot.shot?.size, shot.shot?.angle, shot.projection !== 'perspective' ? shot.projection : ''].filter(Boolean).join(' '),
 			who: (shot.figures ?? []).map((f) => `${cast[f.cast]?.new ?? f.cast}${f.mood ? ` (${f.mood})` : ''}`).join(', '),
 			action: textOf(shot.action)
 		});
 	}
 }
-const wants = ['photo', 'direct', 'unreal', 'generated', 'art', '?'];
+const wants = ['photo', 'direct', 'deck', 'generated', 'art', '?'];
 const md = [`# Shot list ${name} – ${rows.length} shots`, '',
 	'What each shot needs, by place. Match against the Figma selection on the chapter page; the shooting pages only for gaps.',
-	'`want`: photo = from a shooting · direct = to be photographed · unreal = render · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
+	'`want`: photo = from a shooting · direct = to be photographed · deck = a scene in the deck · generated = prompt it (Luma, manual) · art = drawn / graphic.', '',
 	'| want | shots |', '|---|---|', ...wants.map((w) => `| ${w} | ${rows.filter((r) => r.want === w).length} |`).filter((l) => !l.endsWith('| 0 |')), ''];
 const byPlace = [...new Set(rows.map((r) => r.place))];
 for (const place of byPlace) {

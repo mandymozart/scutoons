@@ -51,6 +51,20 @@ final class ContentSchemasTest extends TestCase
         self::assertSame(array_keys(\Scutoons\Domain\Content\EntityKey::KINDS), array_keys(ContentSchemas::BY_KIND), 'every entity kind is mapped');
     }
 
+    public function testAStoryboardShotsAssetAndWhatItWasMadeInto(): void
+    {
+        $shot = ['id' => 'sb-1-1', 'format' => 'viewport', 'aspect' => '9:16', 'action' => ['de' => 'x'], 'source' => ['want' => 'unreal']];
+        $doc = fn (array $extra): array => ['storyboard' => 2, 'toon' => 'catpope', 'chapter' => 3, 'scenes' => [
+            ['storyboard' => 2, 'toon' => 'catpope', 'source' => ['scene' => 1], 'groups' => [['label' => 'scene-1', 'shots' => [$extra + $shot]]]],
+        ]];
+        self::assertSame([], $this->problems('storyboard', $doc([])), 'an older storyboard (no asset, "unreal") still saves');
+        self::assertSame([], $this->problems('storyboard', $doc(['asset' => 'image:catpope/s1/c3/a.webp', 'made' => ['deck' => 'scene:sb-catpope-3-1-1', 'xr' => 'experience:poster-catpope']])));
+        self::assertSame([], $this->problems('storyboard', $doc(['asset' => 'generator:luma', 'source' => ['want' => 'deck']])));
+        self::assertNotSame([], $this->problems('storyboard', $doc(['asset' => 'catpope/a.webp'])), 'a path is not an address');
+        self::assertNotSame([], $this->problems('storyboard', $doc(['made' => ['deck' => 'experience:x']])));
+        self::assertNotSame([], $this->problems('storyboard', $doc(['source' => ['want' => 'render']])));
+    }
+
     public function testEvents(): void
     {
         self::assertSame([], $this->problems('events', [self::EVENT, ['link' => 'https://x.test'] + self::EVENT]));
