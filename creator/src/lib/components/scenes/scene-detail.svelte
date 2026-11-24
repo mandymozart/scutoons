@@ -1,33 +1,28 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import type { ContentVersion } from '@scutoons/api';
+	import { Chip } from '@scutoons/ui/editor';
 	import { fillWords, labelIn, sceneTitle, type PublishOutcome, type SceneRow } from '$lib/editor/scenes.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import OpenInDeck from '$lib/components/shell/open-in-deck.svelte';
 
 	/**
-	 * One scene's page (#490, draft 3): its id and state, what the last Publish answered (the core's problems, or the
-	 * check not reachable), its facts – where it plays, the spot, who stands there (a filler, or a placeholder's filter;
-	 * a spawn zone takes many), its toons – and its versions (restore). Read only: the facts come from the newest version.
+	 * The open scene in its panel over the preview (lap 2 C5), read only – the scene is edited in the deck: its name, key
+	 * and state, what the last Publish answered (the core's problems, or the check not reachable), its facts – where it
+	 * plays, the spot, who stands there (a filler, or a placeholder's filter; a spawn zone takes many), its toons – and its
+	 * versions. The facts come from the newest version.
 	 */
 	let {
 		row,
 		versions,
 		published,
-		outcome,
-		restore,
-		status
+		outcome
 	}: {
 		row: SceneRow;
 		versions: ContentVersion[];
 		/** the published version's id (null: never published) */
 		published: number | null;
 		outcome: PublishOutcome | null;
-		restore: (v: ContentVersion) => void;
-		/** the state badge */
-		status: Snippet;
 	} = $props();
 
 	const nav = getCreatorNav();
@@ -38,14 +33,16 @@
 		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : (iso ?? '');
 	};
 	const newest = $derived(versions[0]?.id ?? null);
+	const tags = (id: number) => [id === newest ? m['creator.history_current']() : null, id === published ? m['creator.scenes_published']() : null].filter(Boolean).join(' · ');
 </script>
 
 <article class="scene" data-testid="scene-detail">
 	<header>
-		<h1>{sceneTitle(f)}</h1>
+		<h2>{sceneTitle(f)}</h2>
+		<span class="state" data-testid="scene-state">
+			{#if row.state === 'published'}<Chip label={m['creator.scenes_published']()} on />{:else}<Chip label={m['creator.scenes_draft']()} title={row.state === 'unpublished' ? m['creator.scenes_unpublished']() : undefined} />{/if}
+		</span>
 		<code class="key">scene:{f.id}</code>
-		<span class="state" data-testid="scene-state">{@render status()}</span>
-		<OpenInDeck address="scene:{f.id}" testid="scene-open-deck" />
 	</header>
 
 	{#if outcome?.kind === 'problems'}
@@ -57,8 +54,6 @@
 		<p class="problems" role="alert" data-testid="scene-unreachable">{m['creator.scenes_unreachable']()}</p>
 	{:else if outcome?.kind === 'error'}
 		<p class="problems" role="alert">{outcome.message}</p>
-	{:else if row.state === 'published'}
-		<p class="sc-empty">{m['creator.scenes_nothing_new']()}</p>
 	{/if}
 
 	<dl class="facts" data-testid="scene-facts">
@@ -97,20 +92,15 @@
 		</dd>
 	</dl>
 
-	<h2>{m['creator.scenes_versions']()}</h2>
+	<h3>{m['creator.scenes_versions']()}</h3>
 	<ol class="versions" data-testid="scene-versions">
 		{#each versions as v (v.id)}
-			<li class:live={v.id === published}>
-				<span class="what">
-					<span>{when(v.created_at)}</span>
-					{#if v.id === newest}<span class="tag">{m['creator.history_current']()}</span>{/if}
-					{#if v.id === published}<span class="tag">{m['creator.scenes_published']()}</span>{/if}
-					<br /><span class="muted">{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}</span>
-					{#if v.message}<br /><i>{v.message}</i>{/if}
-				</span>
-				{#if v.id !== newest}
-					<button type="button" class="ghost" onclick={() => restore(v)} data-testid="scene-restore-{v.id}">{m['creator.restore']()}</button>
-				{/if}
+			{@const tag = tags(v.id)}
+			<li>
+				<span>{when(v.created_at)}</span>
+				{#if tag}<Chip label={tag} on={v.id === published} />{/if}
+				<br /><span class="muted">{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}</span>
+				{#if v.message}<br /><i>{v.message}</i>{/if}
 			</li>
 		{/each}
 	</ol>
@@ -120,34 +110,48 @@
 	.scene {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--editor-gap);
+		padding: var(--editor-pad);
+		font-size: var(--editor-small);
 	}
 	header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0.75rem;
-	}
-	h1 {
-		margin: 0;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		align-items: center;
+		gap: 0.1rem var(--editor-gap);
 	}
 	h2 {
+		margin: 0;
+		font-family: var(--editor-sans);
+		font-size: var(--editor-title, 1.15rem);
+		font-weight: 400;
+		letter-spacing: normal;
+		text-transform: none;
+	}
+	h3 {
 		margin: 0.5rem 0 0;
-		font-size: var(--type-caption-size);
+		padding-bottom: 0.3rem;
+		border-bottom: var(--editor-edge) solid var(--tool-line);
+		font-size: var(--editor-label);
+		font-weight: 400;
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
+		color: var(--tool-muted);
+	}
+	.key {
+		grid-column: 1 / -1;
+		font-family: var(--editor-mono, ui-monospace, monospace);
+		font-size: var(--editor-label);
 	}
 	.key,
 	.muted {
 		color: var(--tool-muted);
 	}
-	.state {
-		margin-left: auto;
-	}
 	.problems {
 		margin: 0;
 		padding: 0.5rem 0.75rem;
-		border: var(--border-width-regular) solid var(--tool-stop);
+		border: var(--editor-edge) solid var(--tool-stop);
+		border-radius: var(--editor-radius);
 		color: var(--tool-stop);
 	}
 	.problems p {
@@ -159,15 +163,16 @@
 	}
 	.facts {
 		display: grid;
-		grid-template-columns: minmax(6rem, max-content) 1fr;
-		gap: 0.5rem 1.5rem;
+		grid-template-columns: minmax(5rem, max-content) 1fr;
+		gap: 0.5rem 1.25rem;
 		margin: 0;
 	}
 	dt {
-		font-size: var(--type-caption-size);
+		font-size: var(--editor-label);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		padding-top: 0.15rem;
+		color: var(--tool-muted);
+		padding-top: 0.1rem;
 	}
 	dd {
 		margin: 0;
@@ -185,22 +190,12 @@
 		list-style: none;
 		margin: 0;
 		padding: 0;
-	}
-	.versions li {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.4rem 0;
-		border-top: var(--border-width-regular) solid var(--tool-line);
+		flex-direction: column;
+		gap: 0.6rem;
 	}
-	.versions li.live {
-		border-top-color: var(--tool-text);
-	}
-	.tag {
-		margin-left: 0.4rem;
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+	.versions li > :global(.kit-chip) {
+		margin-left: 0.3rem;
+		vertical-align: middle;
 	}
 </style>

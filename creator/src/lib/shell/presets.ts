@@ -102,8 +102,8 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	character: { main: 'sheet', panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, views(['sheet', '3d']), library()] },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
-	// no list of its own: the Library opens the scenes (not twice)
-	scene: { panels: [library({})] },
+	// lap 2 C5: the scene's still is the whole back, its facts and versions a panel over it; no list of its own (the Library opens scenes)
+	scene: { panels: [right(['facts'], {}, 30), library()], clear: false },
 	// the XR editor (#482): the stage is the experience, the whole window; the panels float over it
 	experience: { panels: [left(['tree']), right(['inspector', 'experience', 'weave']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['log'], FOLDED)] },
