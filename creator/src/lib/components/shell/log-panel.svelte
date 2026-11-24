@@ -85,6 +85,12 @@
 		{/if}
 	</div>
 	<div class="lines">
+		{#if log.failure}
+			<div class="line error" data-testid="log-core-failed">
+				<span class="dot" aria-hidden="true"></span>
+				<div class="body"><span class="where"><span class="lvl">error</span></span><span class="text">{log.failure}</span></div>
+			</div>
+		{/if}
 		{#if show !== 'events' && view.problems.length}
 			<p class="group"><span>{words('problems')}</span><span>{view.problems.length}</span></p>
 			{#each view.problems as line (line.key)}
@@ -120,7 +126,7 @@
 				</div>
 			{/each}
 		{/if}
-		{#if !(show !== 'events' && view.problems.length) && !(show !== 'problems' && view.events.length)}
+		{#if !log.failure && !(show !== 'events' && view.problems.length) && !(show !== 'problems' && view.events.length)}
 			<p class="sc-empty">{m['shell.log_empty']()}</p>
 		{/if}
 	</div>

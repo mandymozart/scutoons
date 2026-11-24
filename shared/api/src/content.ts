@@ -57,6 +57,13 @@ export interface PartialPublish {
 /** a draft dependency a Publish takes along (`/entities/publish/plan`): its index row and the key that needs it */
 export type PublishDependency = ContentIndexEntity & { needed_by: string };
 
+/** a plan's answer: the draft dependencies, and each asked key the server does not read, with its reason */
+export interface PublishPlan {
+	status: string;
+	entities: PublishDependency[];
+	refused: { key: string; code: string; reason: string }[];
+}
+
 /** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */
 export interface ContentReview {
 	id: number;
@@ -223,7 +230,7 @@ export function createContentApi(client: ApiClient) {
 		publishPartial: (versions: { key: string; version?: number }[]) => client.post<PartialPublish>('/entities/publish', { versions, partial: true }),
 
 		/** The unpublished draft dependencies a Publish of these takes along, transitively (the server's one rule) */
-		publishPlan: (versions: { key: string; version?: number }[]) => client.post<{ status: string; entities: PublishDependency[] }>('/entities/publish/plan', { versions }),
+		publishPlan: (versions: { key: string; version?: number }[]) => client.post<PublishPlan>('/entities/publish/plan', { versions }),
 
 		/** Every catalog entry of a kind as a document: its newest version, draft / live / physical */
 		catalogDocs: (kind: CatalogDocKind) => client.get<{ status: string; kind: CatalogDocKind; entries: CatalogDoc[] }>(`/catalog/docs/${kind}`),

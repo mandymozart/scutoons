@@ -245,7 +245,8 @@ final class EntitiesController
 
     /**
      * POST /api/entities/publish/plan { versions: [{ key, version? }] } – what a Publish of these takes along: their
-     * unpublished draft dependencies, transitively (PublishDependencies) → { status, entities: [index row + needed_by] }
+     * unpublished draft dependencies, transitively (PublishDependencies) → { status, entities: [index row + needed_by],
+     * refused: [{ key, code, reason }] } – a key the server does not read is named there, the rest is planned
      */
     public function publishPlan(Request $request, Response $response): Response
     {
@@ -253,10 +254,21 @@ final class EntitiesController
         $body = $this->body($request);
         $list = is_array($body->versions ?? null) ? $body->versions : throw new ApiError(400, 'missing_versions', 'versions is required.');
         if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_versions', 'versions must hold 1–500 documents.');
-        $added = $this->dependencies->of(self::versionMap($list));
+        $valid = [];
+        $refused = [];
+        foreach ($list as $v) {
+            $raw = $v instanceof stdClass ? ($v->key ?? null) : null;
+            try {
+                EntityKey::parse($raw);
+                $valid[] = $v;
+            } catch (ApiError $e) {
+                $refused[] = ['key' => is_scalar($raw) ? (string) $raw : '', 'code' => $e->errorCode, 'reason' => $e->getMessage()];
+            }
+        }
+        $added = $this->dependencies->of(self::versionMap($valid));
         $factory = array_flip($this->docs->factoryModuleKeys());
         $rows = array_map(fn(array $e) => $e + ['needed_by' => $added[$e['key']]] + (isset($factory[$e['key']]) ? ['read_only' => true] : []), $this->store->indexOf(array_keys($added)));
-        return Json::response($response, 200, ['status' => 'success', 'entities' => $rows]);
+        return Json::response($response, 200, ['status' => 'success', 'entities' => $rows, 'refused' => $refused]);
     }
 
     /**

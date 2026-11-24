@@ -8,6 +8,7 @@ import type { AssetFamily, LibraryFitAnswer, LibraryUse, SlotFit } from '@scutoo
 import { libraryCore, libraryOpener, loadLibraryModule, type LibraryCore, type LibraryModule, type LibraryOpener } from '@scutoons/media/library';
 import { assetsApi } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
+import { familiesByPath, familyAddress, pathOf } from '$lib/editor/library-address.ts';
 
 const assetLibrary = createAssetLibrary(assetsApi);
 const VIEW_KEY = 'sc-creator-library-view';
@@ -77,8 +78,6 @@ function readView(): Remembered {
 	}
 }
 
-/** a file's address in the Library's answer: `<kind>:<main path>` */
-export const fileAddress = (family: Pick<AssetFamily, 'kind' | 'main'>): string => `${family.kind}:${family.main}`;
 
 class Library {
 	core = $state.raw<LibraryCore | null>(null);
@@ -89,6 +88,8 @@ class Library {
 	/** bumped when the core's families or context change */
 	private version = $state(0);
 	private module: Promise<LibraryModule> | null = null;
+	/** each registry asset's registered file (its id → path): the path the Library's answer names it by */
+	private registered = $state.raw<ReadonlyMap<string, string>>(new Map());
 
 	/** the front item's address (the shell's front tab) and toon: the places This item and This toon */
 	address = $state<string | null>(null);
@@ -115,14 +116,24 @@ class Library {
 		if (typeof localStorage !== 'undefined') Object.assign(this, readView());
 	}
 
-	/** the families by their file address */
-	readonly byAddress: Map<string, AssetFamily> = $derived.by(() => {
+	/** the families by the path of each of their files */
+	private readonly byPath: Map<string, AssetFamily> = $derived.by(() => {
 		void this.version;
-		return new Map((this.core?.families(false) ?? []).map((f) => [fileAddress(f), f]));
+		return familiesByPath(this.core?.families(false) ?? []);
 	});
 
-	readonly selectedFamily: AssetFamily | null = $derived(this.chosen.length ? (this.byAddress.get(this.chosen[this.chosen.length - 1]) ?? null) : null);
-	readonly chosenFamilies: AssetFamily[] = $derived(this.chosen.map((k) => this.byAddress.get(k)).filter((f): f is AssetFamily => !!f));
+	/** the family a file address (`<kind>:<path>`) names – by any of its files */
+	familyAt(address: string): AssetFamily | null {
+		return this.byPath.get(pathOf(address)) ?? null;
+	}
+
+	/** a family's address as the Library's answer names it */
+	fileAddress(family: AssetFamily): string {
+		return familyAddress(family, this.registered);
+	}
+
+	readonly selectedFamily: AssetFamily | null = $derived(this.chosen.length ? this.familyAt(this.chosen[this.chosen.length - 1]) : null);
+	readonly chosenFamilies: AssetFamily[] = $derived(this.chosen.map((k) => this.familyAt(k)).filter((f): f is AssetFamily => !!f));
 
 	/** whether the open item has a use index (its editor handed one in); else its folder stands for it */
 	readonly indexed: boolean = $derived(!!this.address && this.address in this.usesBy);
@@ -174,6 +185,7 @@ class Library {
 			const [mod, { items }] = await Promise.all([this.module, assetLibrary.all()]);
 			this.core?.free();
 			this.core = libraryCore(mod, items as AssetSummary[]);
+			this.registered = new Map((items as AssetSummary[]).map((a) => [a.id, a.path]));
 			this.status = 'ready';
 			this.sync();
 			if (force) this.changed++;
@@ -201,14 +213,13 @@ class Library {
 
 	/** the family holding `path` */
 	familyOf(path: string): AssetFamily | null {
-		void this.version;
-		return this.core?.families(false).find((f) => f.versions.some((v) => v.path === path)) ?? null;
+		return this.byPath.get(path) ?? null;
 	}
 
 	/** the Library's address of the file holding `path` (a slot may hold one of its levels) */
 	addressOf(path: string): string | undefined {
 		const family = path ? this.familyOf(path) : null;
-		return family ? fileAddress(family) : undefined;
+		return family ? this.fileAddress(family) : undefined;
 	}
 
 	/** a click on a tile: one, Ctrl / ⌘ adds or takes one, Shift a run in `order` (the addresses as shown) */
@@ -278,8 +289,8 @@ class Library {
 		const path = answer.uploaded || asked;
 		await this.load(true);
 		const family = this.familyOf(path);
-		this.fresh = family ? fileAddress(family) : null;
-		if (family) this.click(fileAddress(family));
+		this.fresh = family ? this.fileAddress(family) : null;
+		if (family) this.click(this.fileAddress(family));
 		if (this.pick && !isThingPick(this.pick)) this.pickFile(path);
 		return { path, converted: path !== asked ? path : null };
 	}

@@ -11,7 +11,7 @@
 	import { library } from '$lib/editor/library.svelte.ts';
 	import { filePath } from '$lib/editor/library-list.ts';
 	import { thumbs, urlToStill } from '$lib/shell/thumbs.svelte.ts';
-	import { iconOf } from '$lib/shell/address.ts';
+	import { FILE_ICONS, iconOf } from '$lib/shell/address.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -39,12 +39,11 @@
 		onmenu?: (x: number, y: number) => void;
 	} = $props();
 
-	const KIND_ICONS: Record<string, string> = { image: 'image', video: 'film', audio: 'music', model: 'box', animation: 'activity', file: 'file' };
 	const TYPE_ICONS: Record<string, string> = { place: 'map-pin', show: 'play', instrument: 'music', person: 'user' };
 	const path = $derived(filePath(entry));
-	const icon = $derived(entry.kind ? (KIND_ICONS[entry.kind] ?? 'file') : (TYPE_ICONS[entry.type ?? ''] ?? iconOf(entry.address)));
+	const icon = $derived(entry.kind ? (FILE_ICONS[entry.kind] ?? 'file') : (TYPE_ICONS[entry.type ?? ''] ?? iconOf(entry.address)));
 	const what = $derived(entry.type ? m[`library.type_${entry.type}`]() : m[`library.file_${entry.kind ?? 'file'}`]());
-	const family = $derived(path ? library.byAddress.get(entry.address) : undefined);
+	const family = $derived(path ? library.familyAt(entry.address) : undefined);
 	/** a model whose still is not stored yet: rendered here, sent up once */
 	const renders = $derived(entry.kind === 'model' && !entry.picture && !!path);
 

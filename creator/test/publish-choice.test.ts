@@ -22,6 +22,14 @@ test('a tick on and off leaves the rest', () => {
 	assert.deepEqual([...ticked], ['character:sandgirl']);
 });
 
+test('a line the server refuses starts unticked and cannot be ticked', () => {
+	const withRefused = [...lines, { id: 'scene:catpope:1:intro:de', review: false, refused: 'Unknown entity key.' }];
+	assert.equal(startTicks(withRefused, new Set()).has('scene:catpope:1:intro:de'), false);
+	assert.equal(startTicks(withRefused, new Set()).size, 4);
+	assert.deepEqual([...toggled(new Set(), 'scene:catpope:1:intro:de', true, withRefused)], []);
+	assert.deepEqual([...toggled(new Set(), 'module:walk', true, withRefused)], ['module:walk']);
+});
+
 test('the primary submits as soon as a ticked line goes to review', () => {
 	assert.equal(primaryKind(lines, new Set(['character:sandgirl'])), 'publish');
 	assert.equal(primaryKind(lines, new Set(['character:sandgirl', 'chapter:feilchen:3:de'])), 'submit');

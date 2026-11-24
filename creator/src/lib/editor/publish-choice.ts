@@ -7,13 +7,16 @@ export interface ChoiceLine {
 	review: boolean;
 	/** someone else's submit this account decides on (published as submitted): its reviews */
 	decide?: readonly number[];
+	/** the server refuses this key: never ticked */
+	refused?: string;
 }
 
-/** every line ticked, but the ones the open page holds back */
-export const startTicks = (lines: ChoiceLine[], held: ReadonlySet<string>): Set<string> => new Set(lines.filter((l) => !held.has(l.id)).map((l) => l.id));
+/** every line ticked, but the ones the open page holds back and the ones the server refuses */
+export const startTicks = (lines: ChoiceLine[], held: ReadonlySet<string>): Set<string> => new Set(lines.filter((l) => !held.has(l.id) && !l.refused).map((l) => l.id));
 
 /** one line ticked or not */
-export function toggled(ticked: ReadonlySet<string>, id: string, on: boolean): Set<string> {
+export function toggled(ticked: ReadonlySet<string>, id: string, on: boolean, lines: readonly ChoiceLine[] = []): Set<string> {
+	if (on && lines.some((l) => l.id === id && l.refused)) return new Set(ticked);
 	const next = new Set(ticked);
 	if (on) next.add(id);
 	else next.delete(id);

@@ -71,7 +71,7 @@
 	function open(entry: LibraryEntry) {
 		if (pick) return pick.entry(entry);
 		if (entry.type) return shelf.stepInto(entry.address, true);
-		const family = library.byAddress.get(entry.address);
+		const family = library.familyAt(entry.address);
 		if (family) library.use(family);
 	}
 </script>

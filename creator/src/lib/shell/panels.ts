@@ -34,7 +34,9 @@ export function tabSpecs(kind?: WorkspaceKind | 'home' | string): TabSpec[] {
 		{ id: 'runs', name: m['shell.gen_runs'](), icon: 'play', about: m['shell.gen_runs_about']() },
 		{ id: 'kanon', name: m['creator.kanon'](), icon: 'file-text', about: m['shell.panel_kanon_about']() },
 		{ id: 'outline', name: m['shell.panel_outline'](), icon: 'list', about: m['shell.panel_outline_about']() },
-		{ id: 'facts', name: m['shell.panel_facts'](), icon: 'info', about: m['shell.panel_facts_about']() },
+		kind === 'scene'
+			? { id: 'facts', name: m['shell.panel_scene'](), icon: 'box', about: m['shell.panel_scene_about']() }
+			: { id: 'facts', name: m['shell.panel_facts'](), icon: 'info', about: m['shell.panel_facts_about']() },
 		{ id: 'expressions', name: m['character.expressions'](), icon: 'smile', about: m['character.expressions_about']() },
 		{ id: 'rig', name: m['character.rig'](), icon: 'box', about: m['character.rig_about']() },
 		{ id: 'voice', name: m['character.voice'](), icon: 'mic', about: m['character.voice_about']() },

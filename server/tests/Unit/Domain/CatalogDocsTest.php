@@ -214,6 +214,21 @@ final class CatalogDocsTest extends TestCase
         self::assertSame(['module:boy_rig' => 'not compiled yet – compile it first', 'rig:character.girl' => 'needs module boy_rig, which was refused'], array_column($girl['refused'], 'reason', 'key'));
     }
 
+    /** a key the server does not read is named with its reason in the plan; the rest of the list is planned */
+    public function testThePlanNamesAnUnknownKeyAndPlansTheRest(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $this->put($writer, 'preset:drone.dark', ['id' => 'drone.dark', 'instrument' => 'drone', 'parent' => 'drone.base', 'values' => ['drone.freq' => 41.0]]);
+        self::assertSame(200, $this->put($writer, 'rig:character.boy', ['subject' => 'character.boy', 'track' => [['id' => 'pad', 'instrument' => 'drone', 'preset' => 'drone.dark']]])->getStatusCode());
+        $old = 'scene:catpope:1:intro:de';
+        $response = $this->request('POST', '/api/entities/publish/plan', $this->bearer($writer), (string) json_encode(['versions' => [['key' => $old], ['key' => 'rig:character.boy']]]));
+        self::assertSame(200, $response->getStatusCode());
+        $plan = self::json($response);
+        self::assertSame(['preset:drone.dark' => 'rig:character.boy'], array_column($plan['entities'], 'needed_by', 'key'));
+        self::assertSame([['key' => $old, 'code' => 'invalid_key', 'reason' => 'Unknown entity key.']], $plan['refused']);
+        self::assertSame([], self::json($this->request('POST', '/api/entities/publish/plan', $this->bearer($writer), (string) json_encode(['versions' => [['key' => 'rig:character.boy']]])))['refused']);
+    }
+
     /** #803: a factory module is read-only – the index marks it, so no publish list offers an old draft of it */
     public function testTheIndexMarksFactoryModulesReadOnly(): void
     {

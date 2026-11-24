@@ -185,17 +185,20 @@ export interface PublishTreeResult {
  * The one collector: the scope's drafts and the unpublished drafts they depend on, transitively (the server's rule) –
  * each dependency with the key that needs it
  */
-export async function collectPublishable(scope: PublishScope): Promise<{ files: ContentIndexEntity[]; neededBy: Map<string, string> }> {
+export async function collectPublishable(scope: PublishScope): Promise<{ files: ContentIndexEntity[]; neededBy: Map<string, string>; refused: Map<string, string> }> {
 	const own = await pendingFiles(scope);
-	if (!own.length) return { files: [], neededBy: new Map() };
+	if (!own.length) return { files: [], neededBy: new Map(), refused: new Map() };
 	const have = new Set(own.map((f) => f.key));
 	const asked = own.map((f) => ({ key: f.key, version: f.latest }));
 	// the API takes 500 at a time
 	const chunks = Array.from({ length: Math.ceil(asked.length / 500) }, (_, i) => asked.slice(i * 500, i * 500 + 500));
-	const found = (await Promise.all(chunks.map((c) => publishPlan(c)))).flatMap((r) => r.entities);
+	const plans = await Promise.all(chunks.map((c) => publishPlan(c)));
+	const found = plans.flatMap((r) => r.entities);
 	const deps = [...new Map(found.filter((e) => !have.has(e.key) && hasDraft(e)).map((e) => [e.key, e])).values()];
 	const files = [...own, ...deps].sort(byTree);
-	return { files, neededBy: new Map(deps.map((d) => [d.key, d.needed_by])) };
+	// a key the server does not read: its line stays, with the server's reason, and is not sent
+	const refused = new Map(plans.flatMap((r) => r.refused ?? []).map((r) => [r.key, r.reason]));
+	return { files, neededBy: new Map(deps.map((d) => [d.key, d.needed_by])), refused };
 }
 
 /** one line of the Publish dialog (lap 2 A10): a file by its name, what its draft does, its kind; the rest is hover text */
@@ -212,6 +215,8 @@ export interface PublishLine {
 	review: boolean;
 	/** someone else's submit this account decides on: its reviews, published as submitted */
 	decide?: number[];
+	/** the server refuses this key (the plan's reason): shown on the line, never ticked */
+	refused?: string;
 }
 
 /** what a scope has to publish: the files and their lines, in the tree's order */
@@ -222,11 +227,12 @@ export interface Publishable {
 
 /** The dialog's list for a scope: its drafts and what they need, one line each */
 export async function publishable(scope: PublishScope): Promise<Publishable> {
-	const { files, neededBy } = await collectPublishable(scope);
+	const { files, neededBy, refused } = await collectPublishable(scope);
 	if (!files.length) return { files, lines: [] };
 	const toonName = (id: string | null) => (id ? ((scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id) : '');
 	const lines = (await linesOf(files, neededBy)).map((l) => ({
 		id: l.id,
+		...(refused.has(l.id) ? { refused: refused.get(l.id) } : {}),
 		label: l.part ? nameOf(l.part.name, l.file.key.split(':')[1] ?? null) : label(l.file.key),
 		type: [kindWord(l.file.key) ?? '', scope.kind === 'all' ? toonName(l.file.toon) : ''].filter(Boolean).join(' · '),
 		chip: CHANGE_WORD[l.part?.change ?? (l.file.published === null ? 'added' : 'changed')](),
