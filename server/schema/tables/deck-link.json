@@ -1,0 +1,6 @@
+{
+	"description": "The link that opens the deck on a workspace and an item (agents/research/redesign/lap2/DECK-LINK.md, #859): `<scheme>://<workspace>` or `<scheme>://<workspace>/<address>`. The workspace is the deck's own name for it – the core's (deck-catalog `library::open`, `Workspace::id` for `Editor::Deck`: stage · module · show · asset; rigging with #830), a lowercase word; the core also says where an item opens, the creator only asks. The address is an A14 address `<kind>:<id>` (the kind a lowercase word), every byte outside A-Z a-z 0-9 - . _ ~ : / percent-encoded as UTF-8 with upper-case hex. `cards`: the deck's workspace row in its order, the creator's switcher lists them as deck cards. The creator builds the link (shared/api deck-link.ts), the deck reads it (#873); both run deck-link.vectors.json. The deck's device row (PUT /api/me/session, read with ?app=<app>) holds `state`: { app, v, workspace, last: { <workspace>: <address> } } – the workspace in front and each workspace's last item.",
+	"scheme": "scutoons-deck",
+	"app": "deck",
+	"cards": ["stage", "rigging", "show"]
+}

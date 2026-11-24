@@ -1,0 +1,37 @@
+{
+	"description": "The deck link's cases every language runs (deck-link.json): `links` – a workspace and an address (null: none) and the link; `refused` – no link; `states` – the deck's device row state and what a reader takes from it (null: not the deck's).",
+	"links": [
+		{ "workspace": "stage", "address": "scene:avatar-home", "link": "scutoons-deck://stage/scene:avatar-home" },
+		{ "workspace": "show", "address": null, "link": "scutoons-deck://show" },
+		{ "workspace": "stage", "address": "character:catpope", "link": "scutoons-deck://stage/character:catpope" },
+		{ "workspace": "rigging", "address": "rig:catpope", "link": "scutoons-deck://rigging/rig:catpope" },
+		{ "workspace": "module", "address": "module:arp", "link": "scutoons-deck://module/module:arp" },
+		{ "workspace": "asset", "address": "video:live/x/loop clip.mov", "link": "scutoons-deck://asset/video:live/x/loop%20clip.mov" },
+		{ "workspace": "asset", "address": "image:catpope/müller.webp", "link": "scutoons-deck://asset/image:catpope/m%C3%BCller.webp" },
+		{ "workspace": "stage", "address": "scene:a#b?c&d", "link": "scutoons-deck://stage/scene:a%23b%3Fc%26d" },
+		{ "workspace": "asset", "address": "image:it's (1)!.png", "link": "scutoons-deck://asset/image:it%27s%20%281%29%21.png" },
+		{ "workspace": "asset", "address": "model:a_b.c~d-e%.glb", "link": "scutoons-deck://asset/model:a_b.c~d-e%25.glb" }
+	],
+	"refused": [
+		{ "workspace": "Stage", "address": "scene:x" },
+		{ "workspace": "", "address": null },
+		{ "workspace": "stage/x", "address": null },
+		{ "workspace": "stage", "address": "avatar-home" },
+		{ "workspace": "stage", "address": ":x" },
+		{ "workspace": "stage", "address": "Scene:x" },
+		{ "workspace": "stage", "address": "scene:" }
+	],
+	"states": [
+		{
+			"state": { "app": "deck", "v": 1, "workspace": "stage", "last": { "stage": "scene:avatar-home", "rigging": "rig:catpope", "show": "show:new-show" } },
+			"read": { "workspace": "stage", "last": { "stage": "scene:avatar-home", "rigging": "rig:catpope", "show": "show:new-show" } }
+		},
+		{
+			"state": { "app": "deck", "v": 1, "workspace": "Show", "last": { "stage": "nope", "show": "show:x", "Rigging": "rig:y", "module": 3 } },
+			"read": { "workspace": null, "last": { "show": "show:x" } }
+		},
+		{ "state": { "app": "deck", "v": 1 }, "read": { "workspace": null, "last": {} } },
+		{ "state": { "v": 1, "window": { "w": 1, "h": 1 } }, "read": null },
+		{ "state": "stage", "read": null }
+	]
+}
