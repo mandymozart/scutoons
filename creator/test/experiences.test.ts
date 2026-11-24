@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { CatalogDoc } from '@scutoons/api';
-import { contentUrl, entityCounts, experienceContents, experienceFacts, experienceHref, experienceOutline, experienceRows, experienceState, kb, pluginRows, readerHref, surfaceSize, titleIn } from '../src/lib/editor/experiences.ts';
+import { contentUrl, entityCounts, experienceContents, experienceFacts, experienceHref, experienceId, newPoster, POSTER_MM, experienceOutline, experienceRows, experienceState, kb, pluginRows, readerHref, surfaceSize, titleIn } from '../src/lib/editor/experiences.ts';
 
 const doc = (id: string, content: Record<string, unknown>, state: Partial<CatalogDoc> = {}): CatalogDoc => ({
 	id,
@@ -115,4 +115,20 @@ test('plugins: id, API, the code size in bytes; the contents in one call', () =>
 test('the links: the page in the creator, the reader preview of the draft', () => {
 	assert.equal(experienceHref('poster-catpope'), '/experiences/poster-catpope');
 	assert.equal(readerHref('https://scutoons.com', 'poster-catpope'), 'https://scutoons.com/xr/poster-catpope?draft=1');
+});
+
+test('a new poster: an id from its title, free; one scene with one poster-sized surface, the outline reads it', () => {
+	assert.equal(experienceId('Krähen am Karlsplatz!'), 'poster-krahen-am-karlsplatz');
+	assert.equal(experienceId('Straße'), 'poster-strasse');
+	assert.equal(experienceId('  '), 'poster-new');
+	assert.equal(experienceId('Crows', new Set(['poster-crows', 'poster-crows-2'])), 'poster-crows-3');
+	assert.match(experienceId('x'.repeat(200)), /^[a-z][a-z0-9-]{1,63}$/);
+	const doc = newPoster({ id: 'poster-crows', title: 'Crows', locale: 'de', toon: 'catpope', label: 'Poster', schema: '6.0', now: '2026-11-24T00:00:00Z' });
+	assert.deepEqual([doc.type, doc.title, doc.toons, doc.assets, doc.plugins], ['poster', { de: 'Crows' }, ['catpope'], 'xr/poster-crows', []]);
+	assert.equal(doc.configuration.initialScene, doc.configuration.scenes[0].id);
+	assert.deepEqual(newPoster({ ...doc, title: 'Crows', locale: 'de', toon: null, label: 'Poster', schema: '6.0', now: '' }).toons, []);
+	const outline = experienceOutline(doc.configuration);
+	assert.equal(outline.scenes.length, 1);
+	assert.deepEqual(outline.scenes[0].surfaces.map((s) => [s.widthMm, s.heightMm]), [[POSTER_MM.width, POSTER_MM.height]]);
+	assert.equal(experienceFacts(doc, 'poster-crows').type, 'poster');
 });

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Icon } from '@scutoons/ui';
+	import { goto } from '$app/navigation';
+	import { askDialog, Icon } from '@scutoons/ui';
+	import { Button } from '@scutoons/ui/editor';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
@@ -24,6 +26,9 @@
 		type XrTreeAdd
 	} from '@scutoons/xr-engine/tree';
 	import { neutralDoc } from '$lib/editor/languages.ts';
+	import { createPoster } from '$lib/editor/experience-create.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { toast } from '$lib/toasts.ts';
 	import { publishOutcome } from '$lib/editor/scenes.ts';
 	import type { PublishRefusal } from '$lib/editor/publish-report.ts';
 	import { STAGE_LOADING, type StagePlacement, type StageTool, type StageView } from '$lib/editor/xr-stage.ts';
@@ -36,6 +41,7 @@
 	import ExperienceTree from '$lib/components/experiences/experience-tree.svelte';
 	import ExperienceScenes from '$lib/components/experiences/experience-scenes.svelte';
 	import ExperienceStage from '$lib/components/experiences/experience-stage.svelte';
+	import NotFound from '$lib/components/page/not-found.svelte';
 
 	/**
 	 * The XR editor's workspace (#482): the stage is the experience and fills the whole workspace; the panels lie over it –
@@ -75,6 +81,22 @@
 	});
 
 	const content = $derived(doc && !doc.loading ? (doc.data[NEUTRAL_LOCALE] ?? null) : null);
+	const unknown = $derived(!!doc && !doc.loading && !doc.error && doc.source[NEUTRAL_LOCALE] === 'missing');
+
+	/** a new poster: its title asked, its first draft saved, then it opens */
+	let making = $state(false);
+	async function makePoster() {
+		const title = (await askDialog({ title: m['creator.experiences_new_title'](), label: m['creator.experiences_new_label'](), confirmLabel: m['creator.experiences_new']() }))?.trim();
+		if (!title) return;
+		making = true;
+		try {
+			await goto(experienceHref(await createPoster(title, textLanguage.names || locale)));
+		} catch (e) {
+			toast(m['creator.experiences_new_failed']({ reason: e instanceof Error ? e.message : String(e) }), { type: 'error' });
+		} finally {
+			making = false;
+		}
+	}
 	const facts = $derived(content && id ? experienceFacts(content, id) : null);
 	const scenes = $derived(experienceOutline((content as { configuration?: unknown } | null)?.configuration).scenes);
 	const scene = $derived(scenes.find((s) => s.id === picked)?.id ?? scenes[0]?.id ?? '');
@@ -286,6 +308,9 @@
 		<div class="empty">
 			{#if !id}
 				<p>{m['creator.experiences_from_library']()}</p>
+				<Button icon="plus" disabled={making} onclick={makePoster} data-testid="experience-new">{m['creator.experiences_new']()}</Button>
+			{:else if unknown}
+				<NotFound what={m['creator.experiences_unknown']()} />
 			{:else if doc?.error}
 				<p role="alert">{doc.error}</p>
 			{:else if doc && !doc.loading}

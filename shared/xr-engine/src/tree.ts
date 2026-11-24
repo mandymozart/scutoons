@@ -3,7 +3,7 @@ import { filterTreeAdd, treeAddItems } from '../osct/editor/src/lib/tree-add';
 import { addSurface } from '../osct/editor/src/lib/surface-edit';
 import { newNode, nodeAt, removeNode } from '../osct/editor/src/lib/values';
 import { nodeAssetTypes, nodeTypes, pluginNodeTypes } from '../osct/shared/types/node-types';
-import type { SurfaceData } from '../osct/shared/types/game-config';
+import { CONTENT_SCHEMA_VERSION, type SurfaceData } from '../osct/shared/types/game-config';
 import type { EntityData } from '../osct/engine/src/types';
 import type * as api from './tree-api';
 
@@ -14,6 +14,7 @@ const node = (data: Tree): api.XrNode => data as unknown as api.XrNode;
 const edit = (e: { tree: Tree; path: number[] } | null): api.XrTreeEdit | null => (e ? { tree: node(e.tree), path: e.path } : null);
 
 export const XR_ADD_PLACES: typeof api.XR_ADD_PLACES = ADD_PLACES;
+export const XR_CONTENT_SCHEMA: typeof api.XR_CONTENT_SCHEMA = CONTENT_SCHEMA_VERSION;
 export const xrNodeTypes: typeof api.xrNodeTypes = () => nodeTypes();
 export const xrNodeFileTypes: typeof api.xrNodeFileTypes = (type) => {
 	const kinds = nodeAssetTypes(type);

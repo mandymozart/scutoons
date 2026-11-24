@@ -1,8 +1,8 @@
 <script lang="ts">
 	// The shot's asset slot (lap 2 C3c; AI-HOOKS.md §0): a picture or a video – picked in the Library through the one
 	// picker (files and generators that fit; Upload there), a file dropped on the slot (an upload, or a Library tile), or a
-	// generator added from the Library, which stands in until a take is assigned – "Open" goes to the Generate workspace.
-	// The pick is stored in the shot as a Library address; empty, the slot shows the shot's approved generation.
+	// generator added from the Library (a picked one, or a new one named after the shot), which stands in until a take is
+	// assigned – "Open" goes to the Generate workspace. The pick is stored in the shot as a Library address; empty, the slot shows the shot's approved generation.
 	// What fits is the core's (library.takes).
 	import { goto } from '$app/navigation';
 	import { Icon } from '@scutoons/ui';
@@ -38,9 +38,12 @@
 			first: 'toon',
 			value: content.at === 'file' ? content.path : undefined,
 			onpick: (path) => store(id, pickedFile(path, library.familyOf(path))),
-			things: { types: ['generator'], onthing: (t) => store(id, t.address) }
+			things: { types: ['generator'], onthing: (t) => store(id, t.address), create: { label: () => m['library.new_generator'](), run: () => store(id, shotGenerator(id)) } }
 		});
 	}
+
+	/** a new generator for the shot: it stands in the slot under the shot's name until a take is assigned */
+	const shotGenerator = (id: string) => `generator:${id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[^a-z0-9]+/, '')}`;
 
 	/** the shot's asset: a Library address (null or one the core doesn't read: not taken, the slot stays) */
 	function store(id: string, address: string | null) {
