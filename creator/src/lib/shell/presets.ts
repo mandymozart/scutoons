@@ -55,6 +55,17 @@ export type TabId =
 	| 'output'
 	| 'experience'
 	| 'scenes'
+	/** Sound design: the module's code (its main view), its parameters, its wiring as nodes, the rig's assignment */
+	| 'rust'
+	| 'parameters'
+	| 'nodes'
+	| 'assignment'
+	/** Sound design: the deck playing the rig (the being), its outputs' meters, its knobs, the compile's problems and console */
+	| 'monitor'
+	| 'meters'
+	| 'knobs'
+	| 'diagnostics'
+	| 'console'
 	| 'library'
 	| 'settings';
 
@@ -107,7 +118,21 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	// the XR editor (#482): the stage is the experience, the whole window; the panels float over it
 	experience: { panels: [left(['tree']), right(['inspector', 'experience', 'weave']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['log'], FOLDED)] },
-	sound: { panels: [right(['log'], FOLDED), library()] },
+	// the module editor on the host (lap 2 T10): the code on the stage; the monitor at the right with its meters and knobs
+	// under it; the compile's Problems and Console at the bottom left; Parameters · Nodes · Assignment folded beside the Log
+	sound: {
+		main: 'rust',
+		panels: [
+			right(['log'], FOLDED),
+			{ id: 'module', tabs: ['rust', 'parameters', 'nodes', 'assignment'], place: at('top-right', 11, 0, FOLDED), size: { w: 40, h: 'fill' }, min: { w: 20, h: 12 } },
+			{ id: 'monitor', tabs: ['monitor'], place: at('top-right', 0, 3.5), size: { w: 26, h: 18 }, min: { w: 14, h: 10 } },
+			{ id: 'knobs', tabs: ['knobs'], place: at('bottom-right', 0, 4.5), size: { w: 26, h: 11 }, min: { w: 12, h: 7 } },
+			{ id: 'meters', tabs: ['meters'], place: at('bottom-right', 27, 4.5), size: { w: 9, h: 11 }, min: { w: 6, h: 7 } },
+			{ id: 'diagnostics', tabs: ['diagnostics'], place: at('bottom-left', 0, 0), size: { w: 28, h: 10 }, min: { w: 14, h: 6 } },
+			{ id: 'console', tabs: ['console'], place: at('bottom-left', 29, 0), size: { w: 28, h: 10 }, min: { w: 14, h: 6 } },
+			library()
+		]
+	},
 	// the writing page (lap 2 C14): the text on the stage, the Outline and the Facts (with the Versions) folded at rest
 	text: { panels: [left(['outline', 'tree'], FOLDED), { ...right(['facts', 'history', 'log'], FOLDED, 20), size: { w: 22, h: 20 } }] },
 	generate: { main: 'canvas', panels: [left(['spores', 'canvas']), right(['runs', 'log'], FOLDED), library()] },

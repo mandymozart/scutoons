@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The Rust tab (RIG-EDITING.md §2.3): the file tabs with Save and Compile at the right (Save a lone round icon, Compile
-	// the one primary, last), the editor filling the height, Problems and Console in a band under it. Disabled actions say
+	// the one primary, last), the editor filling the height; Problems and Console are panels of their own. Disabled actions say
 	// why (their title and the muted line): over a limit, compiling, or the user may not compile (the API's 403
 	// `creator_only` is a sentence, not an error).
 	import { Button, IconButton } from '@scutoons/ui/editor';
@@ -8,7 +8,6 @@
 	import { m } from '../messages.ts';
 	import CodeEditor from './code-editor.svelte';
 	import FileStrip from './file-strip.svelte';
-	import ProblemsConsole from './problems-console.svelte';
 
 	let { designer }: { designer: RigDesigner } = $props();
 
@@ -33,7 +32,6 @@
 	</div>
 	{#if designer.notice}<p class="notice" role="status">{designer.notice}</p>{/if}
 	<div class="slot"><CodeEditor {designer} /></div>
-	<ProblemsConsole {designer} />
 </div>
 
 <style>

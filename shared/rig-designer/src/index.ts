@@ -17,6 +17,8 @@ export { failureText, problemText, nameProblemText, isQuiet } from './reasons.ts
 export { STARTER_FILES } from './starter.ts';
 export { MODULE_ID, isModuleId, moduleIdOf, moduleContent, readModuleContent, sameFiles, type CompileOutcome } from './store.ts';
 export { default as RustTab } from './components/rust-tab.svelte';
+export { default as ProblemsPane } from './components/problems-pane.svelte';
+export { default as ConsolePane } from './components/console-pane.svelte';
 export { default as ParametersTab } from './components/parameters-tab.svelte';
 export { default as NodesTab } from './components/nodes-tab.svelte';
 export { layoutGraph, cableText, cableTexts, NODE, type GraphIn, type GraphWiring, type GraphNode, type GraphLink, type GraphPort, type GraphLayout } from './nodes.ts';

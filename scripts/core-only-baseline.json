@@ -105,18 +105,6 @@
 		}
 	],
 	"budgets": {
-		"creator/src/lib/components/sound/deck-half.svelte": {
-			"lines": 105,
-			"functions": 5,
-			"math": 1,
-			"escapes": 0
-		},
-		"creator/src/lib/components/sound/designer-half.svelte": {
-			"lines": 111,
-			"functions": 0,
-			"math": 0,
-			"escapes": 0
-		},
 		"creator/src/lib/components/sound/mood-chip.svelte": {
 			"lines": 147,
 			"functions": 2,
