@@ -38,10 +38,10 @@ way we could even migrate in the future or run various systems behind it. Long-t
 |---|---|---|
 | `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / animation / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `edits` (JSON, #651: the edit list – "Edits" below), `status` active / deleted, created/updated/by |
 | `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, `spots` (JSON, #724: the model's spots – "Spots" below), `skeleton` (JSON, #817 – "Shared animations" below), created/by |
-| `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
+| `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster, thumb), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `time_offset` + `frame_rate` (#651: the time map against the source, NULL = not measured), `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_shapes` | the vector library (migration `2026-10-17-asset-shapes`) | `asset_id` (1:1), `tile` x / y / null, `mask`, `colors` (JSON, measured), `source` / `derived` (JSON, provenance) – an asset with a row is a shape: `GET /api/assets?kind=shape`, each row + `shape: { tile, mask, colors }` (research/VECTORS.md §5a) |
-| `asset_jobs` | optimization jobs | `kind` video-renditions / image-webp / poster, `status` queued / running / done / failed, `params`, `log` |
+| `asset_jobs` | optimization jobs | `kind` video-renditions / image-webp / poster / thumb, `status` queued / running / done / failed, `params`, `log` |
 
 Without the migration the asset endpoints answer 503 `not_available`; nothing else changes (the content save hook is
 silent). Domain: `server/src/Domain/Assets` (AssetPaths, AssetRegistry, AssetImporter, AssetUsages, AssetService,
@@ -57,6 +57,7 @@ AssetJobs, MediaProbe); storage: `server/src/Infrastructure/AssetStorage`.
 | `images/{1x,2x,3x}/y.jpg`, `y@2x.png` | `…/images/y` | 1x low, 2x medium, 3x high |
 | `images/z.png` + `images/z.webp` | `…/images/z` | the PNG/JPEG is `original`, the WebP twin `webp` |
 | `videos/x.poster.webp` | `…/videos/x` | poster (a video's frame) |
+| `…/x.thumb.webp` | `…/x` (any kind) | thumb (the standard still, 264 × 168 – server/docs/API.md "Thumbnails", #842) |
 
 The version's source = a plain file in a delivered format, else the biggest marker. Dot files / folders (`.versions/`),
 Thumbs.db, half-written uploads are never registered.
@@ -135,7 +136,7 @@ next lap is decoded ahead across the out point (deck-media `Player::set_span`). 
 
 Video renditions = the trailer-loop recipe: H.264 `-preset slow -crf 24 / 24 / 22` for 480p / 720p / 1080p, `yuv420p`,
 AAC 128k, `+faststart`; only levels up to the source's height; existing files kept unless `params.overwrite` (then replaced
-in place + purged). Image WebP q85 (+ `params.widths` → `<slug>.<w>w.webp`). Poster: WebP frame at `params.at` s.
+in place + purged). Image WebP q85 (+ `params.widths` → `<slug>.<w>w.webp`). Poster: WebP frame at `params.at` s. Thumb: the 264 × 168 still (images; videos at `params.at`), queued by every new version of an image / video and recorded in `thumbnails` (#842).
 Tested for real on a copy (`s1c1-key-visual` → 480p 460 KB + poster in ~4 s).
 
 ## Storage drivers (`AssetStorage` interface)

@@ -6,6 +6,7 @@ namespace Scutoons\Console;
 use Scutoons\Domain\Assets\AssetJobs;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
+use Scutoons\Domain\Thumbnails\Thumbnails;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -18,11 +19,12 @@ use Symfony\Component\Console\Output\OutputInterface;
  *   assets:jobs                         run every queued optimization job (needs ffmpeg)
  *   assets:jobs --queue=<asset id|slug> --kind=video-renditions [--params='{"levels":[480,720]}']
  *   assets:jobs --upload=<local file> --path=<cdn path>    upload a (big) file as a new asset / rendition
+ *   assets:jobs --thumbs[=500]          queue the standard still for images / videos without a fresh one (then run them)
  */
 #[AsCommand(name: 'assets:jobs', description: 'Run queued asset optimization jobs (ffmpeg), queue one, or upload a big file')]
 final class AssetsJobsCommand extends Command
 {
-    public function __construct(private readonly AssetJobs $jobs, private readonly AssetRegistry $registry, private readonly AssetService $service)
+    public function __construct(private readonly AssetJobs $jobs, private readonly AssetRegistry $registry, private readonly AssetService $service, private readonly Thumbnails $thumbnails)
     {
         parent::__construct();
     }
@@ -31,7 +33,8 @@ final class AssetsJobsCommand extends Command
     {
         $this->addArgument('id', InputArgument::OPTIONAL, 'run only this job')
             ->addOption('queue', null, InputOption::VALUE_REQUIRED, 'queue a job for this asset (id or slug)')
-            ->addOption('kind', null, InputOption::VALUE_REQUIRED, 'video-renditions | image-webp | poster')
+            ->addOption('kind', null, InputOption::VALUE_REQUIRED, 'video-renditions | image-webp | poster | thumb')
+            ->addOption('thumbs', null, InputOption::VALUE_OPTIONAL, 'queue thumb jobs for stills that are missing or stale (at most N)', false)
             ->addOption('params', null, InputOption::VALUE_REQUIRED, 'job params as JSON', '{}')
             ->addOption('upload', null, InputOption::VALUE_REQUIRED, 'a local file to upload')
             ->addOption('path', null, InputOption::VALUE_REQUIRED, 'its CDN path, e.g. catpope/videos/clip.1080p.mp4')
@@ -48,6 +51,11 @@ final class AssetsJobsCommand extends Command
         if (($file = $input->getOption('upload')) !== null) {
             $result = $this->service->upload(['id' => 'cli'], (string) $file, (string) $input->getOption('path'));
             $output->writeln('Uploaded ' . $result['uploaded'] . ' → asset ' . $result['asset']['id'] . ' (' . $result['asset']['slug'] . ')');
+            return self::SUCCESS;
+        }
+        if (($thumbs = $input->getOption('thumbs')) !== false) {
+            $count = $this->thumbnails->queueMissing(max(1, (int) ($thumbs ?? 500) ?: 500));
+            $output->writeln("Queued $count thumb jobs – run assets:jobs to make them.");
             return self::SUCCESS;
         }
         if (($target = $input->getOption('queue')) !== null) {

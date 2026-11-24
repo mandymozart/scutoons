@@ -9,6 +9,8 @@
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
 	import { layouts } from '$lib/shell/layouts.svelte.ts';
+	import { thumbs } from '$lib/shell/thumbs.svelte.ts';
+	import { workspaceThumbKey } from '@scutoons/api';
 	import DashboardBoxes from '$lib/components/shell/dashboard-boxes.svelte';
 	import WorkspaceCardView from '$lib/components/shell/workspace-card.svelte';
 
@@ -36,6 +38,8 @@
 	$effect(() => {
 		void tick().then(() => untrack(() => focusRing(firstRing(cards))));
 	});
+	// each card's picture as it was left
+	$effect(() => thumbs.want(cards.map((c) => workspaceThumbKey(c.id))));
 	$effect(() => {
 		if (ring >= cards.length) ring = Math.max(0, cards.length - 1);
 	});

@@ -338,14 +338,14 @@ final class AssetUsages
         foreach ($this->db->all('SELECT DISTINCT path FROM asset_usages') as $r) $used[(string) $r['path']] = true;
         $current = [];
         $assets = [];
-        foreach ($this->db->all("SELECT a.id, a.slug, a.kind, v.path AS source, r.path, r.size FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'
+        foreach ($this->db->all("SELECT a.id, a.slug, a.kind, v.path AS source, r.path, r.size, r.label FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'
                 JOIN asset_renditions r ON r.version_id = v.id WHERE a.status = 'active' ORDER BY a.slug, r.path") as $r) {
             $id = (string) $r['id'];
             $path = (string) $r['path'];
             $current[$path] = true;
             $assets[$id] ??= ['id' => $id, 'slug' => (string) $r['slug'], 'kind' => (string) $r['kind'], 'source' => (string) $r['source'], 'used' => false, 'current' => [], 'old' => []];
             if (isset($used[$path])) $assets[$id]['used'] = true;
-            else $assets[$id]['current'][$path] = ['path' => $path, 'what' => 'current', 'size' => (int) $r['size']];
+            else $assets[$id]['current'][$path] = ['path' => $path, 'what' => 'current', 'size' => (int) $r['size'], 'thumb' => $r['label'] === 'thumb'];
         }
         foreach ($this->db->all("SELECT a.id, r.path, r.size FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'archived'
                 JOIN asset_renditions r ON r.version_id = v.id WHERE a.status = 'active' ORDER BY r.path") as $r) {
@@ -365,7 +365,12 @@ final class AssetUsages
         $out = [];
         foreach ($assets as $a) {
             $files = $a['current'];
-            if ($a['used']) unset($files[$a['source']]);
+            // a used asset keeps its source and its still (Thumbnails)
+            if ($a['used']) $files = array_filter($files, fn(array $f) => $f['path'] !== $a['source'] && !$f['thumb']);
+            $files = array_map(static function (array $f): array {
+                unset($f['thumb']);
+                return $f;
+            }, $files);
             $files = [...array_values($files), ...array_values($a['old'])];
             if (!$files) continue;
             $out[] = ['id' => $a['id'], 'slug' => $a['slug'], 'kind' => $a['kind'], 'all_unused' => !$a['used'], 'files' => $files,

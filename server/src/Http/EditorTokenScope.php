@@ -7,7 +7,7 @@ use Scutoons\Domain\ApiError;
 
 /**
  * What the native editor's token (`Bearer sce_…`, Domain\Decks\Decks, kind editor) may do: read with its member's
- * rights and save drafts – a new draft version of an entity, a show or a deck scene. Publishing stays in the browser
+ * rights and save drafts – a new draft version of an entity, a show or a deck scene – and its stills (/api/thumbs). Publishing stays in the browser
  * (decisions/deck.md 2026-11-09): every other write is refused, and so are the account's own sign-in routes, like a
  * deck's (DeckTokenScope). The path is matched as the router sees it (decoded, without a trailing slash).
  */
@@ -30,6 +30,7 @@ final class EditorTokenScope
             return;
         }
         if ($method === 'PUT' && preg_match(self::DRAFTS, $path) === 1) return;
+        if ($method === 'PUT' && $path === '/api/thumbs') return; // the editor's stills
         throw self::refused();
     }
 

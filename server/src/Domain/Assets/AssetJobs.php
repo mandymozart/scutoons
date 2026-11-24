@@ -5,6 +5,8 @@ namespace Scutoons\Domain\Assets;
 
 use RuntimeException;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Thumbnails\ThumbnailRows;
+use Scutoons\Domain\Thumbnails\Thumbnails;
 use Scutoons\Infrastructure\AssetStorage\AssetStorage;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\AssetStorage\StorageKey;
@@ -25,10 +27,12 @@ use Throwable;
  *                     params.overwrite (then replaced in place + purged)
  *   image-webp        a WebP twin of a PNG / JPEG source (q 85), params.widths [390, 780 …] → <slug>.<w>w.webp
  *   poster            a WebP frame of a video at params.at seconds (default 1) → <slug>.poster.webp
+ *   thumb             the standard still (Thumbnails: 264 × 168 WebP, centre-cut) of an image or a video's frame at
+ *                     params.at (default 1) → <slug>.thumb.webp, always replaced, recorded as the asset's thumbnail
  */
 final class AssetJobs
 {
-    public const KINDS = ['video-renditions', 'image-webp', 'poster'];
+    public const KINDS = ['video-renditions', 'image-webp', 'poster', 'thumb'];
     /** height → [quality level, crf] */
     public const VIDEO_LEVELS = [480 => ['low', 24], 720 => ['medium', 24], 1080 => ['high', 22]];
 
@@ -40,6 +44,7 @@ final class AssetJobs
         private readonly MediaProbe $probe,
         private readonly Settings $settings,
         private readonly AssetTimeMaps $timeMaps,
+        private readonly ThumbnailRows $thumbnails,
     ) {
     }
 
@@ -51,8 +56,12 @@ final class AssetJobs
     {
         $asset = $this->registry->asset($assetId) ?? throw new ApiError(404, 'not_found', 'Unknown asset.');
         if (!in_array($kind, self::KINDS, true)) throw new ApiError(422, 'invalid_kind', 'Unknown job kind.', ['kinds' => self::KINDS]);
-        $expected = $kind === 'image-webp' ? 'image' : 'video';
-        if ($asset['kind'] !== $expected) throw new ApiError(422, 'invalid_kind', "A $kind job needs a $expected asset.");
+        if ($kind === 'thumb') {
+            if (!in_array($asset['kind'], ['image', 'video'], true)) throw new ApiError(422, 'invalid_kind', 'A thumb job needs an image or a video asset.');
+        } else {
+            $expected = $kind === 'image-webp' ? 'image' : 'video';
+            if ($asset['kind'] !== $expected) throw new ApiError(422, 'invalid_kind', "A $kind job needs a $expected asset.");
+        }
         $this->db->run('INSERT INTO asset_jobs (asset_id, kind, status, params, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)',
             [$assetId, $kind, 'queued', (string) json_encode($params, JSON_UNESCAPED_SLASHES), $this->clock->utc(), $by]);
         return $this->job($this->db->lastInsertId());
@@ -78,6 +87,12 @@ final class AssetJobs
     {
         $id = $this->db->value("SELECT id FROM asset_jobs WHERE status = 'queued' ORDER BY id LIMIT 1");
         return $id === null ? null : (int) $id;
+    }
+
+    /** Whether the server draws this asset's still (an image ffmpeg reads, a video); the rest come from a renderer */
+    public static function thumbable(string $kind, string $source): bool
+    {
+        return $kind === 'video' || ($kind === 'image' && AssetPaths::extension($source) !== 'svg');
     }
 
     public function ffmpeg(): string
@@ -115,9 +130,13 @@ final class AssetJobs
                 'video-renditions' => $this->videoRenditions($local, (string) $asset['slug'], $params, $work, $note),
                 'image-webp' => $this->imageWebp($local, (string) $asset['slug'], $params, $work, $note),
                 'poster' => $this->poster($local, (string) $asset['slug'], $params, $work, $note),
+                'thumb' => $this->thumb($local, (string) $asset['slug'], (string) $asset['kind'], $params, $work, $note),
                 default => throw new RuntimeException('Unknown kind.'),
             };
-            $this->store($storage, (string) $asset['id'], (int) $version['id'], $local, $outputs, ($params['overwrite'] ?? false) === true, $note);
+            $this->store($storage, (string) $asset['id'], (int) $version['id'], $local, $outputs, $job['kind'] === 'thumb' || ($params['overwrite'] ?? false) === true, $note);
+            if ($job['kind'] === 'thumb') {
+                $this->thumbnails->record('', 'asset:' . $asset['id'], $outputs[0]['path'], (string) $version['number'], 'server', (int) filesize($outputs[0]['file']), null);
+            }
         } catch (Throwable $error) {
             $status = 'failed';
             $note('FAILED: ' . $error->getMessage());
@@ -223,6 +242,20 @@ final class AssetJobs
         $file = "$work/poster.webp";
         $this->exec([$this->ffmpeg(), '-y', '-v', 'error', '-ss', (string) $at, '-i', $source, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '88', $file], $note);
         return [['file' => $file, 'path' => self::outputPath($slug, 'poster', 'webp'), 'label' => 'poster', 'quality' => null]];
+    }
+
+    /**
+     * @param array<mixed> $params
+     * @return list<array{file: string, path: string, label: string, quality: ?string}>
+     */
+    private function thumb(string $source, string $slug, string $kind, array $params, string $work, callable $note): array
+    {
+        $at = isset($params['at']) && is_numeric($params['at']) ? max(0.0, (float) $params['at']) : 1.0;
+        $file = "$work/thumb.webp";
+        $fit = sprintf('scale=%1$d:%2$d:force_original_aspect_ratio=increase:flags=lanczos,crop=%1$d:%2$d', Thumbnails::WIDTH, Thumbnails::HEIGHT);
+        $seek = $kind === 'video' ? ['-ss', (string) $at] : [];
+        $this->exec([$this->ffmpeg(), '-y', '-v', 'error', ...$seek, '-i', $source, '-frames:v', '1', '-vf', $fit, '-c:v', 'libwebp', '-quality', '82', $file], $note);
+        return [['file' => $file, 'path' => self::outputPath($slug, 'thumb', 'webp'), 'label' => 'thumb', 'quality' => null]];
     }
 
     /** @param list<string> $command */
