@@ -99,7 +99,7 @@
 	}
 	.id {
 		flex: none;
-		font-family: var(--font-mono);
+		font-family: var(--editor-sans);
 		font-size: var(--editor-small);
 	}
 </style>

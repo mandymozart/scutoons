@@ -62,7 +62,7 @@
 			<li>Deliver PNG under the convention name; the characters import writes the WebP (q85) and the avatar: <code>characters/&lt;character&gt;[-&lt;persona&gt;]/&lt;character&gt;[-&lt;persona&gt;][_&lt;look&gt;]_&lt;view&gt;-&lt;mood&gt;.webp</code>.</li>
 			<li>Transitions are named after their looks: <code>…_transition-&lt;from&gt;-to-&lt;to&gt;</code> (e.g. <code>yellowmouse_transition-helmet-to-default</code>).</li>
 			<li>A-pose (the members' avatar body, per look): full body, neutral, 768 × 1152, <code>characters/&lt;character&gt;[-&lt;persona&gt;]/&lt;character&gt;[-&lt;persona&gt;][_&lt;look&gt;]_apose.webp</code>.</li>
-			<li>A missing image falls back step by step (same look neutral → default look → regular persona → the single image → a “missing” placeholder) – scenes keep working. Wanted images are listed on the Characters page.</li>
+			<li>A missing image falls back step by step (same look neutral → default look → regular persona → the single image → a “missing” placeholder) – scenes keep working.</li>
 		</ul>
 	{/if}
 

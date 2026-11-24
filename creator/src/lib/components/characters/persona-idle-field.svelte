@@ -65,7 +65,7 @@
 	}
 </script>
 
-<label class="idle">
+<label class="idle" title={!model.facts ? m['creator.characters_idle_no_model']() : !library.length ? m['creator.characters_idle_none_fit']() : undefined}>
 	<span>{m['creator.characters_idle']()}</span>
 	{#if model.facts}
 		<Select
@@ -80,9 +80,6 @@
 			onchange={(v) => pick(v)}
 			data-testid="persona-idle"
 		/>
-		{#if !library.length}<span class="sc-caption">{m['creator.characters_idle_none_fit']()}</span>{/if}
-	{:else}
-		<span class="sc-caption">{m['creator.characters_idle_no_model']()}</span>
 	{/if}
 </label>
 

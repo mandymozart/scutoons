@@ -167,7 +167,7 @@
 		outline-offset: -2px;
 	}
 	.id {
-		font-family: var(--font-mono);
+		font-family: var(--editor-sans);
 	}
 	.kept {
 		flex: 1;

@@ -140,7 +140,7 @@
 	}
 	.key {
 		grid-column: 1 / -1;
-		font-family: var(--editor-mono, ui-monospace, monospace);
+		font-family: var(--font-mono);
 		font-size: var(--editor-label);
 	}
 	.key,

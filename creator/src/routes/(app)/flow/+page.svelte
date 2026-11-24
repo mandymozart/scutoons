@@ -1,23 +1,21 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { universeFlow, type DeadPlace, type FlowIndex, type FlowNode } from '@scutoons/content';
+	import { universeFlow, type FlowIndex, type FlowNode } from '@scutoons/content';
 	import { api } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
-	import { usePageNav, getCreatorNav } from '$lib/nav.svelte.ts';
+	import { usePageNav } from '$lib/nav.svelte.ts';
 	import { pickText } from '$lib/editor/toon-flow.ts';
-	import FlowDead from '$lib/components/flow/flow-dead.svelte';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
 	import { FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
 	/**
 	 * The SCUTOONS-wide Flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"; Universe, next to the world map): one box
 	 * per toon (its seasons and chapters), the jumps between toons and to products / XR – from the server's flow index
-	 * (`GET /api/creator/flow-index`, so the browser doesn't load every toon), dead things per toon below. A toon's box
+	 * (`GET /api/creator/flow-index`, so the browser doesn't load every toon). A toon's box
 	 * opens its toon page with its Flow (the seasons and chapters). Read-only; the graph is loaded only here.
 	 */
 	usePageNav({ fill: true });
-	const nav = getCreatorNav();
 	const graph = import('$lib/components/flow/flow-graph.svelte');
 	let index = $state.raw<FlowIndex | null>(null);
 	let error = $state<string | null>(null);
@@ -33,7 +31,6 @@
 	const pictures = $derived(index ? new FlowPictures('', { index }) : undefined);
 	const link = (n: FlowNode) => n.kind === 'toon' || (n.kind === 'exit' && n.target?.type === 'toon');
 	const open = (n: FlowNode) => goto(`/${n.toon ?? n.target?.value}?flow=1`);
-	const deadOf = $derived(index?.dead ? Object.entries(index.dead).filter(([, d]) => d.unread.length + d.unset.length + d.points.length + d.labels.length > 0) : []);
 </script>
 
 <section class="universe-flow" data-testid="universe-flow">
@@ -51,12 +48,6 @@
 			{/await}
 		{/if}
 	</div>
-	{#each deadOf as [toon, dead] (toon)}
-		<div class="dead-row">
-			<span class="toon">{nav.toonName(toon)}</span>
-			<FlowDead {dead} onopen={(at: DeadPlace) => goto(`/${toon}/chapter/${at.chapter}?flow=1`)} />
-		</div>
-	{/each}
 </section>
 
 <style>
@@ -85,14 +76,5 @@
 		margin-top: var(--space-05);
 		position: relative;
 		border: var(--border-width-regular) solid var(--tool-text);
-	}
-	.dead-row {
-		display: flex;
-		gap: var(--space-05);
-		align-items: baseline;
-	}
-	.toon {
-		font-size: var(--type-caption-size);
-		flex: none;
 	}
 </style>
