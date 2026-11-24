@@ -63,10 +63,8 @@
 	<div class="stage" data-theme="night">
 		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
 		<div class="foot">
-			<div class="chips">
-				<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
-			</div>
-			<p class="perf" data-testid="sound-status" title="{m['creator.sound_perf']()}: {stats.state} · {stats.perf}">{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
+			<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
+			<span class="perf" data-testid="sound-status" title="{m['creator.sound_perf']()}: {stats.state} · {stats.perf}">{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></span>
 		</div>
 	</div>
 	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} />
@@ -86,8 +84,7 @@
 		position: relative;
 		background: var(--tool-ground);
 	}
-	/* the mood chip and the performance in one row at the picture's foot – the engine draws its build label at the top –
-	   the performance gives way, never covers the chip */
+	/* the mood chip and the performance at the picture's foot (the engine's build label is at the top); the performance gives way */
 	.foot {
 		position: absolute;
 		inset: auto var(--space-05) var(--space-05);
@@ -98,16 +95,11 @@
 		z-index: 2;
 		pointer-events: none;
 	}
-	.chips {
-		display: flex;
-		flex: none;
-		gap: 0.25rem;
+	.foot > :global(:first-child) {
 		pointer-events: auto;
 	}
-	/* the performance, tiny: it is the visual and the audio together that it measures */
 	.perf {
 		min-width: 0;
-		margin: 0;
 		overflow: hidden;
 		font-size: var(--type-nav-micro-size);
 		color: var(--tool-muted);
