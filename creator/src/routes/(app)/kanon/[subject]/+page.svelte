@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { entities, parseKanonSubject, type ToonLanguages } from '@scutoons/content';
-	import ScriptEditor from '$lib/components/script/script-editor.svelte';
+	import KanonEditor from '$lib/components/writing/kanon-editor.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -18,6 +17,14 @@
 		textLanguage.page.languages.length ? ({ source: PLATFORM_SOURCE_LANGUAGE, languages: textLanguage.page.languages } as ToonLanguages) : null
 	);
 	const languages = $derived<Promise<ToonLanguages | null>>(parsed?.kind === 'toon' ? loadToonLanguages(parsed.toon) : Promise.resolve(universe));
+	/** the text's name: its subject's parts after the kind ("Catpope · Human", "Cathedral") */
+	const title = $derived(
+		subject
+			.split('.')
+			.slice(1)
+			.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+			.join(' · ')
+	);
 </script>
 
 {#if !parsed}
@@ -28,7 +35,7 @@
 	{:then langs}
 		{#if langs}
 			{#key `${subject}/${langs.languages.join(',')}`}
-				<ScriptEditor entity={entities.kanon(subject)} toon={parsed.kind === 'toon' ? parsed.toon : ''} languages={langs} title={fileLabel(entities.kanon(subject))} />
+				<KanonEditor entity={entities.kanon(subject)} subject={parsed} toon={parsed.kind === 'toon' ? parsed.toon : ''} languages={langs} {title} />
 			{/key}
 		{:else}
 			<p class="pad">{m['creator.loading']()}</p>

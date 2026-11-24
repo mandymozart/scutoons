@@ -171,11 +171,11 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
 	}
+	/* a person's line: no box, a hairline between the lines (lap 2 C14) */
 	li {
-		border: 1px solid var(--tool-line);
-		padding: 0.25rem 0.4rem;
+		border-bottom: var(--editor-edge) solid var(--tool-line);
+		padding: 0.35rem 0;
 		background: transparent;
 		display: flex;
 		flex-direction: column;

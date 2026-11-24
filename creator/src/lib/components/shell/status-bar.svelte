@@ -37,7 +37,7 @@
 		<span class="words">{newest?.text ?? m['shell.status_none']()}</span>
 		{#if newest}<span class="age">{newest.age}</span>{/if}
 	</Button>
-	{#if saving}<span class="saving" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
+	{#if shell.status}{@render shell.status()}{:else if saving}<span class="saving" data-testid="save-state"><span class="dot warn" aria-hidden="true"></span>{m['creator.saving']()}</span>{/if}
 	{#if counts && (doc?.errors !== undefined || counts.errors || counts.warnings)}
 		<Button variant="quiet" onclick={openLog} title={m['shell.status_open_log']()} data-testid="status-counts">
 			<span class:bad={counts.errors > 0}>{m['creator.problems_errors']({ count: counts.errors })}</span>

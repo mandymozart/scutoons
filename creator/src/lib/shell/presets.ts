@@ -22,6 +22,9 @@ export type TabId =
 	| 'toon'
 	| 'inspector'
 	| 'kanon'
+	/** a writing page's sections and its facts (lap 2 C14) */
+	| 'outline'
+	| 'facts'
 	/** a character's sections beside the Kanon: its moods' pictures, its model, its voice, where it is cast, how its pictures are made */
 	| 'expressions'
 	| 'rig'
@@ -91,7 +94,7 @@ const LOG: PresetPanel = { id: 'log', tabs: ['log'], place: at('bottom-right', 0
 /** every workspace's preset (research/redesign/PLAN.md §4) */
 export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	home: { panels: [library({})] },
-	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), library()] },
+	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), preview(FOLDED), library()] },
 	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow', 'weave']), preview(FOLDED), library()] },
 	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
 	character: { main: 'sheet', panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, views(['sheet', '3d']), library()] },
@@ -103,7 +106,8 @@ export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	experience: { panels: [left(['tree']), right(['inspector', 'experience', 'weave']), foot(['scenes']), library()], clear: false },
 	flow: { panels: [right(['log'], FOLDED)] },
 	sound: { panels: [right(['log'], FOLDED), library()] },
-	text: { panels: [left(['tree']), right(['log'], FOLDED)] },
+	// the writing page (lap 2 C14): the text on the stage, the Outline and the Facts (with the Versions) folded at rest
+	text: { panels: [left(['outline', 'tree'], FOLDED), { ...right(['facts', 'history', 'log'], FOLDED, 20), size: { w: 22, h: 20 } }] },
 	generate: { main: 'canvas', panels: [left(['spores', 'canvas']), right(['runs', 'log'], FOLDED), library()] },
 	help: { panels: [] }
 };

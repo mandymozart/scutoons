@@ -97,9 +97,10 @@
 		flex-direction: column;
 		gap: 1rem;
 	}
+	/* a section stands in the writing page's column: no box, a hairline above it (lap 2 C14) */
 	.section {
-		border: 2px solid var(--tool-text);
-		padding: 0.5rem 0.75rem 0.75rem;
+		border-top: var(--editor-edge) solid var(--tool-line);
+		padding: 0.75rem 0 0.5rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -114,9 +115,7 @@
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
-		background: var(--tool-pressed);
-		color: var(--tool-pressed-text);
-		padding: 0 0.4rem;
+		color: var(--tool-muted);
 	}
 	.num input {
 		width: 4rem;

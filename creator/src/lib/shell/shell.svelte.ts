@@ -71,6 +71,8 @@ class Shell {
 	doc = $state.raw<PageDoc | null>(null);
 	/** the panel tabs the front page fills, by tab id (lib/shell/panels.ts) */
 	tabs = $state.raw<Record<string, Snippet>>({});
+	/** the front page's own part of the status bar (a writing page: words, reading time, the save state) */
+	status = $state.raw<Snippet | null>(null);
 	/** the front workspace's panels (set by the workspace host: the Views menu reads and changes them) */
 	floats = $state.raw<Floats | null>(null);
 	/** the tabs with content in the front workspace (the Views list) */
@@ -266,6 +268,17 @@ export function usePageDoc(doc: () => PageDoc | null) {
 		shell.doc = value;
 		return () => {
 			if (shell.doc === value) shell.doc = null;
+		};
+	});
+}
+
+/** The page puts its own part into the status bar while it is mounted (call during component init) */
+export function usePageStatus(status: () => Snippet | null) {
+	$effect(() => {
+		const value = status();
+		shell.status = value;
+		return () => {
+			if (shell.status === value) shell.status = null;
 		};
 	});
 }
