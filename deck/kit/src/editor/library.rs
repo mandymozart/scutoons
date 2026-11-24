@@ -1,15 +1,15 @@
-//! The library browser (owner 2026-11-16 [design]): one component for whatever source it is handed – modules,
-//! instruments, the catalog, scenes, assets (deck-catalog `library`). A find field, a chip per kind there is (and
-//! "related" when a character is open), cards in a grid or rows in a list, each with the preview the core chose for its
-//! content. A card pressed and moved is dragged (its owner puts it in the one hand, `carry`); let go, its owner is told
-//! where; a second press on it soon after opens it. The toon's files come as the shelf's families (deck-catalog
-//! `library::shelf`): a family with more than one version is drawn as a stack.
+//! The library browser (owner 2026-11-16 [design]): one component for whatever list it is handed – the server's Library
+//! (deck-catalog `library::served`), a workspace's own entries. A find field, the places as chips, a chip per kind there
+//! is (and "related" when a character is open), cards in a grid or rows in a list, each with the preview the core chose
+//! for its content. A thing stepped into shows its levels, what it uses as cards and what uses it. A card pressed and
+//! moved is dragged (its owner puts it in the one hand, `carry`); let go, its owner is told where; a second press on it
+//! soon after opens it. A file whose family has more than one version (deck-catalog `library::shelf`) is drawn as a stack.
 use crate::base::draw::{DrawList, Rect};
 use crate::base::text::Field;
 use crate::base::tokens::Tokens;
 use crate::editor::controls;
-use deck_catalog::library::shelf::{select, Group, GroupKind, Grouping, Query, Scope, Shelf, Sort, Special, View};
-use std::collections::HashMap;
+use deck_catalog::library::served::Inside;
+use deck_catalog::library::shelf::{select, Shelf};
 use deck_catalog::library::{facets, find, Entry, Filter, Kind, Preview};
 
 /// a card's width and its preview's height in the grid; a row's preview in the list
@@ -20,34 +20,13 @@ const ROW_PREVIEW: (f32, f32) = (44.0, 28.0);
 const DRAG: f32 = 5.0;
 /// a second press within this many seconds opens
 const OPEN: f64 = 0.45;
-/// "recently added" is asked again once a minute, not every frame
-const MINUTE: f64 = 60_000.0;
+/// a level hangs this far in from its parent
+const INDENT: f32 = 12.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Grid,
     List,
-}
-
-/// a place among the toon's files beyond the scope (the shelf's specials)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Place {
-    /// added within the last week
-    Recent,
-    /// no credits line
-    Credits,
-    /// lacking a version its kind and place should have (on demand only: no count, no warning)
-    Missing,
-}
-
-impl Place {
-    fn special(self) -> Special {
-        match self {
-            Place::Recent => Special::Recent,
-            Place::Credits => Special::Credits,
-            Place::Missing => Special::Missing,
-        }
-    }
 }
 
 /// what a place in the browser does when pressed
@@ -59,48 +38,42 @@ pub enum Hit {
     Mode,
     /// the owner's one button (Show's "new scene")
     Action,
-    /// the toon's files: what is shown of them
-    Scope(Scope),
-    /// a group's heading, by its place among the groups drawn
-    Fold(usize),
-    /// a place, or back to all of the scope
-    Place(Place),
     /// the selection's cross: none chosen
     Unselect,
-    /// the places per item: open or fold their list
-    Items,
-    /// one item's files, by its place in the list drawn (again: all of the scope)
-    Item(usize),
-    /// the next grouping: by use, by kind, none
-    Grouping,
-    /// the next order: name, newest, biggest, most used
-    Sort,
-    /// the levels stacked (one card per family) or single (every file its own)
-    Levels,
+    /// one of the owner's places, by its index
+    Place(usize),
+    /// out of the thing stepped into
+    Back,
+    /// the thing stepped into, opened in its workspace
+    OpenAt,
+    /// a level inside it, by its index
+    Level(usize),
+    /// a thing that uses it, by its index
+    UsedIn(usize),
     /// a card, by its entry's index
     Card(usize),
 }
 
-/// what the browser lists: its owner's entries and, when the workspace lists the toon's files, their shelf (an entry
-/// of a file kind is a family's card, its address the family's main file)
+/// what the browser lists: its owner's entries, the toon's families for the stacks, the places, a thing stepped into
 #[derive(Clone, Copy)]
 pub struct Source<'a> {
     pub entries: &'a [Entry],
     pub shelf: Option<&'a Shelf>,
-    /// changes whenever the shelf or its context does (the view is asked again)
-    pub stamp: u64,
-    /// now, in ms since 1970
-    pub now_ms: f64,
+    /// each place's words and whether it is the one shown
+    pub places: &'a [(String, bool)],
+    pub inside: Option<&'a Inside>,
+    /// one muted line over the cards (what an offline Library shows)
+    pub note: Option<&'a str>,
 }
 
 impl<'a> Source<'a> {
     pub fn plain(entries: &'a [Entry]) -> Source<'a> {
-        Source { entries, shelf: None, stamp: 0, now_ms: 0.0 }
+        Source { entries, shelf: None, places: &[], inside: None, note: None }
     }
 
-    /// how many versions the card of `e` stacks (1: a single file, single levels or no family)
-    pub fn stack(&self, e: &Entry, single: bool) -> usize {
-        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_in(&e.address, single)).map_or(1, |f| f.versions.len())
+    /// how many versions the card of `e` stacks (1: a single file or no family)
+    pub fn stack(&self, e: &Entry) -> usize {
+        self.shelf.filter(|_| e.kind.is_file()).and_then(|s| s.family_in(e.path(), false)).map_or(1, |f| f.versions.len())
     }
 }
 
@@ -137,6 +110,11 @@ pub enum Did {
     Action,
     /// a card let go over (x, y)
     Drop { entry: usize, at: (f32, f32) },
+    Place(usize),
+    Back,
+    OpenAt,
+    Level(usize),
+    UsedIn(usize),
 }
 
 /// the browser's state; the entries stay their owner's
@@ -151,19 +129,6 @@ pub struct Browser {
     pub held: Option<Held>,
     last: Option<(usize, f64)>,
     pub hits: Vec<(Rect, Hit)>,
-    /// the toon's files: used by the open item, all (the open item's pinned on top, the rest folded until a search), unused
-    pub scope: Scope,
-    pub grouping: Grouping,
-    pub sort: Sort,
-    /// every file on its own instead of the families' stacks (its owner lists the single files then)
-    pub single: bool,
-    pub place: Option<Place>,
-    /// the one item whose files are shown (a place of its own, beside `place`)
-    pub item: Option<String>,
-    /// the list of places per item is open
-    pub items_open: bool,
-    /// the items listed, in their order (an item row's press)
-    items: Vec<String>,
     /// the cards the last drop let go of, in the order shown (several when a chosen card was dragged)
     dropped: Vec<usize>,
     /// the cards chosen (by address) and the one a Shift run starts from
@@ -173,17 +138,11 @@ pub struct Browser {
     pub keys: (bool, bool),
     /// the cards drawn, in their order: entry and address (a Shift run's order)
     order: Vec<(usize, String)>,
-    /// the groups the viewer folded or opened, by key (a search opens them all)
-    pub folds: HashMap<String, bool>,
-    /// the groups drawn: key and whether folded (a heading's press)
-    folded: Vec<(String, bool)>,
-    /// the shelf's last view: the stamp and query it answers
-    view: Option<(u64, Query, View)>,
 }
 
 impl Default for Browser {
     fn default() -> Browser {
-        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), scope: Scope::All, grouping: Grouping::Use, sort: Sort::Name, single: false, place: None, item: None, items_open: false, items: Vec::new(), dropped: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new(), folds: HashMap::new(), folded: Vec::new(), view: None }
+        Browser { filter: Filter::default(), mode: Mode::Grid, typing: None, character: None, held: None, last: None, hits: Vec::new(), dropped: Vec::new(), chosen: Vec::new(), anchor: None, keys: (false, false), order: Vec::new() }
     }
 }
 
@@ -249,57 +208,18 @@ impl Browser {
                 Did::Taken
             }
             Hit::Action => Did::Action,
-            Hit::Scope(scope) => {
-                self.scope = scope;
-                Did::Taken
-            }
             Hit::Unselect => {
                 (self.chosen, self.anchor) = (Vec::new(), None);
                 Did::Taken
             }
-            Hit::Place(p) => {
-                self.place = if self.place == Some(p) { None } else { Some(p) };
-                self.item = None;
-                Did::Taken
-            }
-            Hit::Items => {
-                self.items_open = !self.items_open;
-                Did::Taken
-            }
-            Hit::Item(n) => {
-                let picked = self.items.get(n).cloned();
-                self.item = if self.item == picked { None } else { picked };
-                self.place = None;
-                Did::Taken
-            }
-            Hit::Grouping => {
-                self.grouping = match self.grouping {
-                    Grouping::Use => Grouping::Kind,
-                    Grouping::Kind => Grouping::None,
-                    Grouping::None => Grouping::Use,
-                };
-                Did::Taken
-            }
-            Hit::Sort => {
-                self.sort = match self.sort {
-                    Sort::Name => Sort::Recent,
-                    Sort::Recent => Sort::Size,
-                    Sort::Size => Sort::Uses,
-                    Sort::Uses => Sort::Name,
-                };
-                Did::Taken
-            }
-            Hit::Levels => {
-                self.single = !self.single;
+            Hit::Place(n) => {
                 (self.chosen, self.anchor) = (Vec::new(), None);
-                Did::Taken
+                Did::Place(n)
             }
-            Hit::Fold(n) => {
-                if let Some((key, folded)) = self.folded.get(n).cloned() {
-                    self.folds.insert(key, !folded);
-                }
-                Did::Taken
-            }
+            Hit::Back => Did::Back,
+            Hit::OpenAt => Did::OpenAt,
+            Hit::Level(n) => Did::Level(n),
+            Hit::UsedIn(n) => Did::UsedIn(n),
             Hit::Card(i) => {
                 let (shift, toggle) = self.keys;
                 // a plain press on one of several chosen cards keeps them: it may drag them all (a click narrows on release)
@@ -372,23 +292,19 @@ impl Browser {
         Some(Did::Click(h.entry))
     }
 
-    /// The browser in `a`: the find field, the chips, the cards – the owner's entries, then the toon's files in the
-    /// shelf's groups. `picture` answers which of the screen's pictures shows a preview (a still or a picture already
-    /// loaded); `action` is the owner's one button.
+    /// The browser in `a`: the find field, the places and kinds as chips (or the thing stepped into: back, its name, Open,
+    /// its levels), the cards, what uses the thing. `picture` answers which of the screen's pictures shows a preview (a
+    /// still or a picture already loaded); `action` is the owner's one button.
     pub fn draw(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), src: &Source, picture: &dyn Fn(&Preview) -> Option<u64>, action: Option<&str>) {
         let entries = src.entries;
         self.hits.clear();
-        let (pad, small, row) = (t.size.pad, t.size.small, t.size.tree_row);
+        let (small, row) = (t.size.small, t.size.tree_row);
         let mut y = a.y;
         // the find field, the mode and the owner's button on one line
         let side = row - 4.0;
         let mut right = a.x + a.w;
         if let Some(label) = action {
-            let w = d.sans_width(small, label) + 2.0 * pad;
-            let r = Rect { x: right - w, y: y + 2.0, w, h: side };
-            d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
-            d.sans(r.x + pad, r.y + (r.h - small * 1.25) * 0.5, small, label, t.color.text);
-            self.hits.push((r, Hit::Action));
+            let r = self.button(d, t, (right, y + 2.0, side), label, pointer, Hit::Action);
             right = r.x - 4.0;
         }
         let mode = controls::icon_button(d, t, Rect { x: right - side, y: y + 2.0, w: side, h: side }, if self.mode == Mode::Grid { "list" } else { "grid" }, t.color.muted, pointer);
@@ -407,18 +323,24 @@ impl Browser {
         d.sans(field.x + 24.0, field.y + (field.h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &text, field.w - 30.0), ink);
         self.hits.push((field, Hit::Find));
         y += row + 4.0;
+        if let Some(inside) = src.inside {
+            y = self.inside(d, t, (a, pointer), y, inside);
+        }
         let f = self.filter_now();
-        let plain: Vec<usize> = find(entries, &f).into_iter().filter(|&i| src.shelf.is_none() || !entries[i].kind.is_file()).collect();
-        let groups = self.groups(src, &f);
-        // a chip per kind there is, "related" when a character is open, then the shelf's
+        let shown = find(entries, &f);
+        // the places (not inside a thing), a chip per kind there is, "related" when a character is open
+        let mut chips: Vec<(String, bool, Hit)> = Vec::new();
+        if src.inside.is_none() {
+            chips.extend(src.places.iter().enumerate().map(|(n, (w, on))| (w.clone(), *on, Hit::Place(n))));
+        }
         let kinds = facets(entries);
-        let mut chips: Vec<(String, bool, Hit)> = kinds.iter().map(|(k, n)| (format!("{} {n}", k.word()), self.filter.kinds.contains(k), Hit::Facet(*k))).collect();
+        if kinds.len() > 1 {
+            chips.extend(kinds.iter().map(|(k, n)| (format!("{} {n}", k.word()), self.filter.kinds.contains(k), Hit::Facet(*k))));
+        }
         if let Some(c) = &self.character {
             chips.push((format!("related to {}", c.strip_prefix("character:").unwrap_or(c)), self.filter.related.is_some(), Hit::Related));
         }
-        let shelf_chips = self.shelf_chips();
-        if chips.len() > 1 || self.character.is_some() || !shelf_chips.is_empty() {
-            chips.extend(shelf_chips);
+        if !chips.is_empty() {
             let names: Vec<&str> = chips.iter().map(|(n, _, _)| n.as_str()).collect();
             let on: Vec<bool> = chips.iter().map(|(_, o, _)| *o).collect();
             let (places, used) = controls::chips(d, t, (a.x, y, a.w), &names, &on);
@@ -427,12 +349,11 @@ impl Browser {
             }
             y += used + 6.0;
         }
-        if let Some(text) = self.drop_line(src) {
+        if let Some(text) = src.note {
             let h = small * 1.4 + 4.0;
-            d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &text, a.w), t.color.muted);
+            d.sans(a.x, y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, text, a.w), t.color.muted);
             y += h + 2.0;
         }
-        y = self.item_places(d, t, (a, pointer), y);
         if self.chosen.len() > 1 {
             let h = small * 1.4 + 6.0;
             let text = format!("{} selected", self.chosen.len());
@@ -442,152 +363,85 @@ impl Browser {
             y += h + 4.0;
         }
         self.order.clear();
-        if plain.is_empty() && groups.is_empty() {
+        if shown.is_empty() && src.inside.is_none() {
             let why = if entries.is_empty() { "nothing here yet" } else { "nothing found" };
             d.sans(a.x, y + 4.0, small, why, t.color.muted);
             return;
         }
-        let plain: Vec<Cell> = plain.into_iter().map(|i| Cell { tiles: vec![Tile::Card(i)], frame: None }).collect();
-        y = self.cards(d, t, (a, pointer), y, src, &plain, picture);
-        self.folded.clear();
-        for (n, g) in groups.iter().enumerate() {
-            if g.header {
-                let h = small * 1.4 + 8.0;
-                let r = Rect { x: a.x, y, w: a.w, h };
-                if r.has(pointer.0, pointer.1) {
-                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
-                }
-                d.icon(r.x + 2.0, r.y + (h - 12.0) * 0.5, 12.0, if g.folded { "next" } else { "down" }, t.color.muted);
-                let count = g.cells.iter().map(|c| c.tiles.len()).sum::<usize>().to_string();
-                let cw = d.sans_width(small, &count);
-                d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &g.title, r.w - cw - 28.0), t.color.text);
-                d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &count, t.color.muted);
-                d.rect(r.x, r.y + h - t.size.edge, r.w, t.size.edge, t.color.line);
-                self.hits.push((r, Hit::Fold(n)));
-                y += h + 4.0;
-            }
-            self.folded.push((g.key.clone(), g.folded));
-            if !g.folded {
-                y = self.cards(d, t, (a, pointer), y, src, &g.cells, picture);
-            }
+        y = self.cards(d, t, (a, pointer), y, src, &shown, picture);
+        if let Some(inside) = src.inside {
+            self.used_in(d, t, (a, pointer), y, inside);
         }
     }
 
-    /// The toon's files the shelf shows for the filter, in its groups: its view asked again only when the query or the
-    /// shelf changed; only the kinds the owner lists (`within`), the kind chips picked, each family the owner's entry.
-    fn groups(&mut self, src: &Source, f: &Filter) -> Vec<Shown> {
-        let Some(shelf) = src.shelf else {
-            self.view = None;
-            return Vec::new();
-        };
-        let within: Vec<Kind> = Kind::ALL.into_iter().filter(|k| k.is_file() && src.entries.iter().any(|e| e.kind == *k)).collect();
-        if within.is_empty() {
-            self.view = None;
-            return Vec::new();
-        }
-        let q = Query { scope: self.scope, grouping: self.grouping, sort: self.sort, special: self.item.clone().map(Special::Item).or(self.place.map(Place::special)), query: f.query.clone(), related: f.related.clone(), single: self.single, now_ms: (src.now_ms / MINUTE).floor() * MINUTE, within, ..Query::default() };
-        if !matches!(&self.view, Some((stamp, asked, _)) if *stamp == src.stamp && *asked == q) {
-            self.view = Some((src.stamp, q.clone(), shelf.view(&q)));
-        }
-        let Some((_, _, view)) = &self.view else { return Vec::new() };
-        let by_address: HashMap<&str, usize> = src.entries.iter().enumerate().filter(|(_, e)| e.kind.is_file()).map(|(i, e)| (e.address.as_str(), i)).collect();
-        let searching = !q.query.trim().is_empty();
-        view.groups
-            .iter()
-            .filter_map(|g| {
-                let cells: Vec<Cell> = g.cells.iter().filter_map(|c| cell((shelf, self.single), c, &by_address, src.entries, f)).collect();
-                let folded = !searching && self.folds.get(&g.key).copied().unwrap_or(g.folded);
-                (!cells.is_empty()).then(|| Shown { key: g.key.clone(), title: title(g), header: g.what != GroupKind::All, folded, cells })
-            })
-            .collect()
+    /// a small button ending at `right` on the line at `y`, `side` high; its place
+    fn button(&mut self, d: &mut DrawList, t: &Tokens, (right, y, side): (f32, f32, f32), label: &str, pointer: (f32, f32), hit: Hit) -> Rect {
+        let (pad, small) = (t.size.pad, t.size.small);
+        let w = d.sans_width(small, label) + 2.0 * pad;
+        let r = Rect { x: right - w, y, w, h: side };
+        d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, if r.has(pointer.0, pointer.1) { t.color.hover } else { t.color.control });
+        d.sans(r.x + pad, r.y + (r.h - small * 1.25) * 0.5, small, label, t.color.text);
+        self.hits.push((r, hit));
+        r
     }
 
-    /// The places per item (the shelf's one-item places): a heading that opens the list, each item's address and how many
-    /// of the scope's files it has; the one shown is lit. Where it ends.
-    fn item_places(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32) -> f32 {
-        let list: Vec<(String, usize)> = self.view.as_ref().map(|(_, _, v)| v.specials.items.clone()).unwrap_or_default();
-        self.items = list.iter().map(|(i, _)| i.clone()).collect();
-        if list.is_empty() {
-            return y;
-        }
+    /// One row of a list in `a` at `y`: its words, a muted word at the right, hung in by `depth`; where it ends.
+    #[allow(clippy::too_many_arguments)]
+    fn row(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), y: f32, depth: usize, (words, side): (&str, &str), hit: Hit) -> f32 {
         let small = t.size.small;
         let h = small * 1.4 + 6.0;
-        let head = Rect { x: a.x, y, w: a.w, h };
-        if head.has(pointer.0, pointer.1) {
-            d.rect(head.x, head.y, head.w, head.h, t.color.hover);
+        let r = Rect { x: a.x, y, w: a.w, h };
+        if r.has(pointer.0, pointer.1) {
+            d.rect(r.x, r.y, r.w, r.h, t.color.hover);
         }
-        d.icon(head.x + 2.0, head.y + (h - 12.0) * 0.5, 12.0, if self.items_open { "down" } else { "next" }, t.color.muted);
-        let title = match &self.item {
-            Some(i) => format!("by item: {i}"),
-            None => format!("by item {}", list.len()),
-        };
-        d.sans(head.x + 18.0, head.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &title, head.w - 22.0), if self.item.is_some() { t.color.text } else { t.color.muted });
-        self.hits.push((head, Hit::Items));
-        y += h;
-        if self.items_open {
-            for (n, (item, count)) in list.iter().enumerate() {
-                let r = Rect { x: a.x, y, w: a.w, h };
-                if self.item.as_deref() == Some(item.as_str()) {
-                    d.round_rect(r.x, r.y, r.w, r.h, t.size.radius, t.color.selected);
-                } else if r.has(pointer.0, pointer.1) {
-                    d.rect(r.x, r.y, r.w, r.h, t.color.hover);
-                }
-                let c = count.to_string();
-                let cw = d.sans_width(small, &c);
-                d.sans(r.x + 18.0, r.y + (h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, item, r.w - cw - 28.0), t.color.text);
-                d.sans(r.x + r.w - cw - 4.0, r.y + (h - small * 1.25) * 0.5, small, &c, t.color.muted);
-                self.hits.push((r, Hit::Item(n)));
-                y += h;
-            }
-        }
-        y + 4.0
+        let sw = d.sans_width(small, side);
+        let x = r.x + 4.0 + INDENT * depth as f32;
+        d.sans(x, r.y + (h - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, words, (r.x + r.w - sw - 12.0 - x).max(0.0)), t.color.text);
+        d.sans(r.x + r.w - sw - 4.0, r.y + (h - small * 1.25) * 0.5, small, side, t.color.muted);
+        self.hits.push((r, hit));
+        y + h
     }
 
-    /// where a file dropped on the editor goes (the core's folder for the open item), when the workspace lists files
-    fn drop_line(&self, src: &Source) -> Option<String> {
-        let to = src.shelf.filter(|_| self.view.is_some()).and_then(Shelf::upload_folder)?;
-        Some(format!("files dropped here go to {to}"))
+    /// The thing stepped into: back, its name and Open on one line, then its levels hung under their parents.
+    fn inside(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, inside: &Inside) -> f32 {
+        let side = t.size.tree_row - 4.0;
+        let back = controls::icon_button(d, t, Rect { x: a.x, y: y + 2.0, w: side, h: side }, "previous", t.color.muted, pointer);
+        self.hits.push((back, Hit::Back));
+        let open = self.button(d, t, (a.x + a.w, y + 2.0, side), "open", pointer, Hit::OpenAt);
+        let x = back.x + back.w + 6.0;
+        let name = format!("{} · {}", inside.at.label, inside.at.kind.word());
+        d.sans(x, y + 2.0 + (side - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &name, (open.x - 6.0 - x).max(0.0)), t.color.text);
+        y += t.size.tree_row + 2.0;
+        // a look names how many moods it has: a mood is opened from its look, the list stays short
+        for (n, l) in inside.levels.iter().enumerate().filter(|(_, l)| l.mood.is_none()) {
+            let moods = inside.levels.iter().filter(|m| m.mood.is_some() && m.parent == l.address).count();
+            let side = match moods {
+                0 => l.level.clone(),
+                1 => format!("{} · 1 mood", l.level),
+                n => format!("{} · {n} moods", l.level),
+            };
+            y = self.row(d, t, (a, pointer), y, l.depth, (&l.name, &side), Hit::Level(n));
+        }
+        y + 6.0
     }
 
-    /// the shelf's chips after the kinds: its scopes with their counts, the places, the grouping and the order
-    fn shelf_chips(&self) -> Vec<(String, bool, Hit)> {
-        let Some((_, _, v)) = &self.view else { return Vec::new() };
-        let mut out = Vec::new();
-        for (scope, word, n) in [(Scope::Context, "in use", v.scopes.context), (Scope::All, "all files", v.scopes.all), (Scope::Unused, "unused", v.scopes.unused)] {
-            if n > 0 || self.scope == scope || scope == Scope::All {
-                out.push((format!("{word} {n}"), self.scope == scope, Hit::Scope(scope)));
-            }
+    /// what uses the thing stepped into: a heading, then a row each, how it uses it at the right
+    fn used_in(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, inside: &Inside) {
+        if inside.used_in.is_empty() {
+            return;
         }
-        let places = [
-            (Place::Recent, format!("this week {}", v.specials.recent), v.specials.recent > 0),
-            (Place::Credits, format!("no credits {}", v.specials.credits.unwrap_or(0)), v.specials.credits.is_some_and(|n| n > 0)),
-            (Place::Missing, "missing versions".to_string(), v.specials.missing > 0),
-        ];
-        for (place, word, there) in places {
-            if there || self.place == Some(place) {
-                out.push((word, self.place == Some(place), Hit::Place(place)));
-            }
+        let small = t.size.small;
+        y += 6.0;
+        d.sans(a.x, y, small, &format!("used in {}", inside.used_in.len()), t.color.muted);
+        y += small * 1.4 + 4.0;
+        for (n, l) in inside.used_in.iter().enumerate() {
+            y = self.row(d, t, (a, pointer), y, 0, (&l.name, &l.role), Hit::UsedIn(n));
         }
-        let grouping = match self.grouping {
-            Grouping::Use => "by use",
-            Grouping::Kind => "by kind",
-            Grouping::None => "no groups",
-        };
-        let sort = match self.sort {
-            Sort::Name => "by name",
-            Sort::Recent => "newest first",
-            Sort::Size => "biggest first",
-            Sort::Uses => "most used first",
-        };
-        out.push((grouping.to_string(), false, Hit::Grouping));
-        out.push((sort.to_string(), false, Hit::Sort));
-        out.push((if self.single { "levels single" } else { "levels stacked" }.to_string(), self.single, Hit::Levels));
-        out
     }
 
-    /// The cells of `list` from `y` on, in the grid or the list, a frame's tiles together inside its outline; where they end.
+    /// The cards of `list` (indices into the entries) from `y` on, in the grid or the list; where they end.
     #[allow(clippy::too_many_arguments)]
-    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[Cell], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
+    fn cards(&mut self, d: &mut DrawList, t: &Tokens, (a, pointer): (Rect, (f32, f32)), mut y: f32, src: &Source, list: &[usize], picture: &dyn Fn(&Preview) -> Option<u64>) -> f32 {
         if list.is_empty() {
             return y;
         }
@@ -601,31 +455,25 @@ impl Browser {
         let cw = (a.w - gap * (cols - 1) as f32) / cols as f32;
         let ch = if grid { CARD_PREVIEW + small * 1.4 * 2.0 + 8.0 } else { row_h };
         let step = if grid { ch + gap } else { row_h };
-        let slot = |n: usize| Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * step, w: cw, h: ch };
-        let mut n = 0;
-        for c in list {
-            let first = n;
-            for tile in &c.tiles {
-                self.tile(d, t, (slot(n), pointer), src, tile, picture);
-                n += 1;
+        for (n, &i) in list.iter().enumerate() {
+            let r = Rect { x: a.x + (n % cols) as f32 * (cw + gap), y: y + (n / cols) as f32 * step, w: cw, h: ch };
+            // a card outside the area is not drawn (a toon lists thousands); it keeps its place in the order
+            if r.y > a.y + a.h || r.y + r.h < a.y {
+                self.order.push((i, src.entries[i].address.clone()));
+                continue;
             }
-            if c.frame.is_some() {
-                frame(d, t, (first..n).map(slot).collect(), if grid { gap * 0.5 - 1.0 } else { 1.0 });
-            }
+            self.card(d, t, (r, pointer), src, i, picture);
         }
-        y + n.div_ceil(cols) as f32 * step + if grid { 0.0 } else { 4.0 }
+        y + list.len().div_ceil(cols) as f32 * step + if grid { 0.0 } else { 4.0 }
     }
 
-    /// one tile in `r`: an owner's card (pressed, dragged, chosen) or a frame's part the owner does not list (drawn only)
-    fn tile(&mut self, d: &mut DrawList, t: &Tokens, (r, pointer): (Rect, (f32, f32)), src: &Source, tile: &Tile, picture: &dyn Fn(&Preview) -> Option<u64>) {
+    /// the card of entry `i` in `r`: pressed, dragged, chosen
+    fn card(&mut self, d: &mut DrawList, t: &Tokens, (r, pointer): (Rect, (f32, f32)), src: &Source, i: usize, picture: &dyn Fn(&Preview) -> Option<u64>) {
         let small = t.size.small;
-        let (e, i) = match tile {
-            Tile::Card(i) => (&src.entries[*i], Some(*i)),
-            Tile::Part(e) => (e, None),
-        };
-        let lit = i.is_some_and(|i| self.held.map(|h| h.entry) == Some(i) || self.chosen.contains(&e.address));
-        let hover = i.is_some() && r.has(pointer.0, pointer.1);
-        let stack = if i.is_some() { src.stack(e, self.single) } else { 1 };
+        let e = &src.entries[i];
+        let lit = self.held.map(|h| h.entry) == Some(i) || self.chosen.contains(&e.address);
+        let hover = r.has(pointer.0, pointer.1);
+        let stack = src.stack(e);
         match self.mode {
             Mode::Grid => {
                 sheets(d, t, r, stack);
@@ -650,81 +498,8 @@ impl Browser {
                 d.sans(r.x + r.w - dw - 4.0, r.y + (r.h - small * 1.25) * 0.5, small, &controls::fit_sans(d, small, &e.detail, dw), t.color.muted);
             }
         }
-        if let Some(i) = i {
-            self.order.push((i, e.address.clone()));
-            self.hits.push((r, Hit::Card(i)));
-        }
-    }
-}
-
-/// what one place in the files shows: an owner's card, or a frame's part the owner does not list
-#[derive(Debug, Clone, PartialEq)]
-enum Tile {
-    Card(usize),
-    Part(Entry),
-}
-
-/// one cell: one card, or a frame's main and its parts
-#[derive(Debug, Clone)]
-struct Cell {
-    tiles: Vec<Tile>,
-    frame: Option<Kind>,
-}
-
-/// The shelf's cell as tiles: each family the owner's entry (by its main file); a frame's part the owner does not list is
-/// drawn from its family. A kind chip picks by the cell's main. None = nothing of it is shown.
-fn cell((shelf, single): (&Shelf, bool), c: &deck_catalog::library::shelf::Cell, by_address: &HashMap<&str, usize>, entries: &[Entry], f: &Filter) -> Option<Cell> {
-    let mut tiles = Vec::new();
-    for k in &c.keys {
-        let Some(fam) = shelf.family_in(k, single) else { continue };
-        match by_address.get(fam.main.as_str()).copied() {
-            Some(i) => tiles.push(Tile::Card(i)),
-            None if !tiles.is_empty() => tiles.push(Tile::Part(fam.entry())),
-            None => return None,
-        }
-    }
-    let Some(Tile::Card(main)) = tiles.first() else { return None };
-    (f.kinds.is_empty() || f.kinds.contains(&entries[*main].kind)).then(|| Cell { frame: c.frame.filter(|_| tiles.len() > 1), tiles })
-}
-
-/// a frame's outline around its tiles: in the grid one per row they take, in the list one around its rows
-fn frame(d: &mut DrawList, t: &Tokens, slots: Vec<Rect>, pad: f32) {
-    let mut rows: Vec<Rect> = Vec::new();
-    for r in slots {
-        match rows.last_mut() {
-            Some(last) if last.y == r.y => last.w = r.x + r.w - last.x,
-            // the list: one row under the other
-            Some(last) if last.x == r.x && last.w == r.w => last.h = r.y + r.h - last.y,
-            _ => rows.push(r),
-        }
-    }
-    for r in rows {
-        d.outline(r.x - pad, r.y - pad, r.w + 2.0 * pad, r.h + 2.0 * pad, (t.size.radius + pad, 1.0), t.color.text);
-    }
-}
-
-/// one group of the toon's files as the browser shows it
-struct Shown {
-    key: String,
-    title: String,
-    /// a heading over it (not over the one group of an ungrouped view)
-    header: bool,
-    folded: bool,
-    /// the owner's entries in the shelf's order, a frame's together
-    cells: Vec<Cell>,
-}
-
-/// a group's heading
-fn title(g: &Group) -> String {
-    let item = g.item.as_deref().unwrap_or("");
-    match g.what {
-        GroupKind::Open => format!("here: {item}"),
-        GroupKind::Unused => "unused".into(),
-        GroupKind::Item => item.to_string(),
-        GroupKind::Toon => format!("the toon {}", item.strip_prefix("toon:").unwrap_or(item)),
-        GroupKind::Other => "other files".into(),
-        GroupKind::Kind => Kind::of_id(item).map_or_else(|| item.to_string(), |k| k.word().to_string()),
-        GroupKind::All => "all files".into(),
+        self.order.push((i, e.address.clone()));
+        self.hits.push((r, Hit::Card(i)));
     }
 }
 
@@ -878,239 +653,71 @@ mod tests {
     }
 
     /// the toon's files as the shelf's families: two versions of one picture are one card, drawn as a stack
-    pub(crate) fn shelf() -> Shelf {
+    fn shelf() -> Shelf {
         let file = |path: &str| format!(r#"{{ "path": "{path}", "size": 10 }}"#);
-        let asset = |id: &str, kind: &str, files: &[&str], extra: &str| format!(r#"{{ "id": "{id}", "kind": "{kind}", "usages": 1{extra}, "renditions": [{}] }}"#, files.iter().map(|f| file(f)).collect::<Vec<_>>().join(","));
-        let items = [
-            asset("a1", "image", &["cat/s1/c1/hills.webp", "cat/s1/c1/hills.2x.webp", "cat/s1/c1/hills.3x.webp"], r#", "updated_at": "2026-11-19 10:00:00""#),
-            asset("a2", "image", &["cat/s1/c2/sky.webp"], r#", "credits": """#),
-            asset("a3", "audio", &["cat/bells.128.mp3"], r#", "usages": 0"#),
-        ];
+        let asset = |id: &str, kind: &str, files: &[&str]| format!(r#"{{ "id": "{id}", "kind": "{kind}", "usages": 1, "renditions": [{}] }}"#, files.iter().map(|f| file(f)).collect::<Vec<_>>().join(","));
+        let items = [asset("a1", "image", &["cat/s1/c1/hills.webp", "cat/s1/c1/hills.2x.webp", "cat/s1/c1/hills.3x.webp"]), asset("a2", "image", &["cat/s1/c2/sky.webp"])];
         Shelf::from_json(&format!(r#"{{ "items": [{}] }}"#, items.join(","))).expect("the answer")
     }
 
-    #[test]
-    fn a_family_of_versions_is_one_card_drawn_as_a_stack() {
-        let shelf = shelf();
-        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        assert_eq!(entries.len(), 3, "one card per family, not per file");
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 0, now_ms: 0.0 };
-        let hills = entries.iter().position(|e| e.label == "hills").expect("hills");
-        let sky = entries.iter().position(|e| e.label == "sky").expect("sky");
-        assert_eq!((src.stack(&entries[hills], false), src.stack(&entries[sky], false)), (3, 1));
-        assert_eq!(src.stack(&entries[hills], true), 1, "single levels: no stack");
-        let mut b = Browser::default();
-        b.filter.query = "hills".into();
-        let d = draw_src(&mut b, &src);
-        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(hills)).expect("the hills' card");
-        let behind = |k: f32| d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP * k && *y == r.y - SHEET_STEP * k));
-        assert!(behind(1.0) && behind(2.0) && !behind(3.0), "two sheets behind the three versions' card");
-    }
-
     fn draw_src(b: &mut Browser, src: &Source) -> DrawList {
-        let mut d = DrawList::new(8.0);
+        // narrow letters: the words fit and are read whole
+        let mut d = DrawList::new(0.5);
         b.draw(&mut d, &Tokens::default(), (Rect { x: 0.0, y: 0.0, w: 420.0, h: 4000.0 }, (-1.0, -1.0)), src, &|_| None, None);
         d
     }
 
+    #[test]
+    fn a_file_with_versions_is_drawn_as_a_stack() {
+        let shelf = shelf();
+        let entries = vec![entry("image:cat/s1/c1/hills.webp", Kind::Image, Preview::Kind, &[]), entry("image:cat/s1/c2/sky.webp", Kind::Image, Preview::Kind, &[])];
+        let src = Source { shelf: Some(&shelf), ..Source::plain(&entries) };
+        assert_eq!((src.stack(&entries[0]), src.stack(&entries[1])), (3, 1), "the server's file address, its family by its path");
+        let mut b = Browser::default();
+        let d = draw_src(&mut b, &src);
+        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(0)).expect("the hills' card");
+        let behind = |k: f32| d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP * k && *y == r.y - SHEET_STEP * k));
+        assert!(behind(1.0) && behind(2.0) && !behind(3.0), "two sheets behind the three versions' card");
+    }
+
+    #[test]
+    fn the_places_are_chips_and_a_note_says_what_is_shown() {
+        let e = list();
+        let places = [("this toon".to_string(), true), ("everything".to_string(), false)];
+        let src = Source { places: &places, note: Some("offline: the Library as last read"), ..Source::plain(&e) };
+        let mut b = Browser { chosen: vec!["module:walk".into()], ..Browser::default() };
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().contains(&"offline: the Library as last read"));
+        let (x, y) = at(&b, Hit::Place(1));
+        assert_eq!(b.press(x, y, 0.0), Some(Did::Place(1)), "the owner asks the place");
+        assert!(b.chosen.is_empty(), "another place: nothing chosen");
+    }
+
+    #[test]
+    fn a_thing_stepped_into_shows_its_levels_what_it_uses_and_what_uses_it() {
+        use deck_catalog::library::served::{Inside, Level, Link};
+        let level = |depth: usize, address: &str, level: &str, name: &str, parent: &str| Level { depth, address: address.into(), level: level.into(), name: name.into(), parent: parent.into(), mood: None };
+        let step = Inside {
+            at: entry("character:catpope", Kind::Character, Preview::Kind, &[]),
+            levels: vec![level(0, "character:catpope.human", "persona", "human", "character:catpope"), level(1, "character:catpope.human.helmet", "look", "helmet", "character:catpope.human")],
+            uses: vec![entry("image:c/a.webp", Kind::Image, Preview::Kind, &[])],
+            used_in: vec![Link { address: "season:catpope:1".into(), thing: false, name: "Season 1".into(), role: "cast".into() }],
+        };
+        let places = [("this toon".to_string(), true)];
+        let src = Source { places: &places, inside: Some(&step), ..Source::plain(&step.uses) };
+        let mut b = Browser::default();
+        let d = draw_src(&mut b, &src);
+        assert!(d.texts().iter().any(|s| s.starts_with("catpope · characters")) && d.texts().contains(&"helmet") && d.texts().contains(&"cast"));
+        assert!(!b.hits.iter().any(|(_, h)| matches!(h, Hit::Place(_))), "inside a thing: no places");
+        assert_eq!(cards(&b), [0], "the files it uses are cards");
+        for (hit, did) in [(Hit::Back, Did::Back), (Hit::OpenAt, Did::OpenAt), (Hit::Level(1), Did::Level(1)), (Hit::UsedIn(0), Did::UsedIn(0))] {
+            let (x, y) = at(&b, hit);
+            assert_eq!(b.press(x, y, 0.0), Some(did));
+        }
+    }
+
     fn cards(b: &Browser) -> Vec<usize> {
         b.hits.iter().filter_map(|(_, h)| if let Hit::Card(i) = h { Some(*i) } else { None }).collect()
-    }
-
-    #[test]
-    fn the_files_are_scoped_by_use_and_all_pins_the_open_item_and_folds_the_rest() {
-        let mut shelf = shelf();
-        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("scene:nave".into()), toon: Some("cat".into()), uses: vec![deck_catalog::library::shelf::Use { path: "cat/s1/c2/sky.webp".into(), item: "scene:nave".into(), part: "layer 1".into(), at: String::new() }], ..Default::default() });
-        let mut entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        entries.insert(0, entry("module:walk", Kind::Module, Preview::Kind, &[]));
-        let label = |i: usize| entries[i].label.clone();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let mut b = Browser::default();
-        draw_src(&mut b, &src);
-        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["walk", "sky"], "the owner's entries, then the open item's files pinned; the rest folded");
-        let folds = b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count();
-        assert!(folds >= 2, "a heading per group");
-        let (x, y) = at(&b, Hit::Fold(1));
-        b.press(x, y, 0.0);
-        draw_src(&mut b, &src);
-        assert_eq!(cards(&b).len(), 3, "a heading opens its group");
-        let (x, y) = at(&b, Hit::Scope(Scope::Context));
-        b.press(x, y, 1.0);
-        draw_src(&mut b, &src);
-        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["walk", "sky"], "in use: only what the scene uses");
-        b.scope = Scope::All;
-        b.filter.query = "bells".into();
-        draw_src(&mut b, &src);
-        assert_eq!(cards(&b).into_iter().map(label).collect::<Vec<_>>(), ["bells"], "a search opens every group");
-        b.filter.query.clear();
-        b.filter.kinds = vec![Kind::Image];
-        draw_src(&mut b, &src);
-        assert!(cards(&b).into_iter().all(|i| entries[i].kind == Kind::Image), "a kind chip narrows the files too");
-    }
-
-    #[test]
-    fn the_files_group_by_use_kind_or_none_and_sort_by_name_newest_size_or_uses() {
-        let shelf = shelf();
-        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let mut b = Browser::default();
-        draw_src(&mut b, &src);
-        let (x, y) = at(&b, Hit::Grouping);
-        b.press(x, y, 0.0);
-        assert_eq!(b.grouping, Grouping::Kind);
-        draw_src(&mut b, &src);
-        assert_eq!(b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count(), 2, "a heading per kind: images, audio");
-        b.press(x, y, 1.0);
-        let d = draw_src(&mut b, &src);
-        assert_eq!(b.hits.iter().filter(|(_, h)| matches!(h, Hit::Fold(_))).count(), 0, "no groups: no headings");
-        assert!(d.texts().contains(&"no groups"));
-        let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
-        assert_eq!(names(&b), ["bells", "hills", "sky"], "by name");
-        let (x, y) = at(&b, Hit::Sort);
-        b.press(x, y, 2.0);
-        draw_src(&mut b, &src);
-        assert_eq!(names(&b)[0], "hills", "newest first");
-        b.press(x, y, 3.0);
-        draw_src(&mut b, &src);
-        assert_eq!(names(&b)[0], "hills", "biggest first: three files");
-        b.press(x, y, 4.0);
-        draw_src(&mut b, &src);
-        assert_eq!(names(&b).last().map(String::as_str), Some("bells"), "most used first: the unused last");
-    }
-
-    #[test]
-    fn places_show_the_files_added_this_week_without_credits_or_missing_versions() {
-        let shelf = shelf();
-        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        let now = deck_catalog::library::shelf::epoch_ms("2026-11-20 10:00:00").unwrap();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: now };
-        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
-        let d = draw_src(&mut b, &src);
-        assert!(d.texts().contains(&"this week 1") && d.texts().contains(&"no credits 1"), "{:?}", d.texts());
-        let names = |b: &Browser| cards(b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>();
-        let (x, y) = at(&b, Hit::Place(Place::Recent));
-        b.press(x, y, 0.0);
-        draw_src(&mut b, &src);
-        assert_eq!(names(&b), ["hills"]);
-        let (x, y) = at(&b, Hit::Place(Place::Credits));
-        b.press(x, y, 1.0);
-        draw_src(&mut b, &src);
-        assert_eq!(names(&b), ["sky"]);
-        let (x, y) = at(&b, Hit::Place(Place::Missing));
-        b.press(x, y, 2.0);
-        let d = draw_src(&mut b, &src);
-        assert!(d.texts().contains(&"missing versions"), "on demand, without a count");
-        assert!(names(&b).contains(&"bells".to_string()), "an audio lacking its levels: {:?}", names(&b));
-        b.press(x, y, 3.0);
-        draw_src(&mut b, &src);
-        assert_eq!((b.place, names(&b).len()), (None, 3), "the same place again: all of the scope");
-    }
-
-    /// the toon's files with a video and its subtitles (a file kind no workspace lists)
-    fn framed() -> Shelf {
-        let items = r#"{ "items": [
-            { "id": "v", "kind": "video", "usages": 1, "renditions": [{ "path": "cat/s1/speak.720p.mp4", "width": 1280, "height": 720 }, { "path": "cat/s1/speak.480p.mp4", "width": 854, "height": 480 }] },
-            { "id": "s", "kind": "other", "usages": 1, "renditions": [{ "path": "cat/s1/speak.en.vtt" }] },
-            { "id": "h", "kind": "image", "usages": 1, "renditions": [{ "path": "cat/s1/hills.webp" }, { "path": "cat/s1/hills.2x.webp" }] }
-        ] }"#;
-        Shelf::from_json(items).expect("the answer")
-    }
-
-    /// a video and its subtitles stand in one frame: the subtitles drawn from their family though the owner lists no
-    /// files of their kind, outlined together with the video's card
-    #[test]
-    fn a_video_and_its_subtitles_stand_in_one_frame() {
-        let shelf = framed();
-        let entries: Vec<Entry> = shelf.families(false).iter().filter(|f| f.kind != Kind::File).map(|f| f.entry()).collect();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
-        let d = draw_src(&mut b, &src);
-        assert_eq!(cards(&b).len(), 2, "the part is drawn, not a card of the owner's");
-        let video = entries.iter().position(|e| e.kind == Kind::Video).unwrap();
-        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
-        let tiles = |d: &DrawList, r: Rect| d.prims().iter().filter(|p| matches!(p, Prim::Rect { y, w, h, .. } if *y == r.y && *w == r.w && *h == r.h)).count();
-        assert_eq!(tiles(&d, r), 3, "the video, its subtitles' tile, the hills");
-        assert!(d.prims().iter().any(|p| matches!(p, Prim::Icon { name, .. } if *name == Kind::File.icon())), "the subtitles show their kind");
-        let framed = d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, w, .. } if *x < r.x && *y < r.y && *w > 2.0 * r.w));
-        assert!(framed, "one outline around the video and its subtitles");
-        b.mode = Mode::List;
-        let d = draw_src(&mut b, &src);
-        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(video)).unwrap();
-        assert!(d.prims().iter().any(|p| matches!(p, Prim::Outline { y, h, .. } if *y < r.y && *h > 2.0 * r.h)), "in the list: one outline around both rows");
-    }
-
-    /// the levels chip: stacked one card per family, single every file its own card (the owner lists the single files)
-    #[test]
-    fn the_levels_show_stacked_or_single() {
-        let shelf = shelf();
-        let stacked: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        let single: Vec<Entry> = shelf.families(true).iter().map(|f| f.entry()).collect();
-        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
-        let d = draw_src(&mut b, &Source { entries: &stacked, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 });
-        assert!(d.texts().contains(&"levels stacked"));
-        assert_eq!(cards(&b).len(), 3);
-        let (x, y) = at(&b, Hit::Levels);
-        b.chosen = vec!["cat/bells.128.mp3".into()];
-        b.press(x, y, 0.0);
-        assert!(b.single && b.chosen.is_empty(), "single, and the stacked selection gone");
-        let src = Source { entries: &single, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let d = draw_src(&mut b, &src);
-        assert!(d.texts().contains(&"levels single"));
-        assert_eq!(cards(&b).len(), 5, "hills' 2x and 3x stand alone");
-        let three = single.iter().position(|e| e.address == "cat/s1/c1/hills.3x.webp").expect("the 3x");
-        let (r, _) = *b.hits.iter().find(|(_, h)| *h == Hit::Card(three)).unwrap();
-        assert!(!d.prims().iter().any(|p| matches!(p, Prim::Outline { x, y, .. } if *x == r.x + SHEET_STEP && *y == r.y - SHEET_STEP)), "no sheets behind a single file");
-    }
-
-    #[test]
-    fn the_browser_says_where_a_dropped_file_goes() {
-        let mut shelf = shelf();
-        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        let mut b = Browser::default();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let d = draw_src(&mut b, &src);
-        assert_eq!(b.drop_line(&src), None, "nothing open, no toon: no folder");
-        assert!(!d.texts().iter().any(|s| s.starts_with("fil")));
-        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("character:catpope".into()), toon: Some("cat".into()), by_home: true, ..Default::default() });
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 2, now_ms: 0.0 };
-        let d = draw_src(&mut b, &src);
-        assert_eq!(b.drop_line(&src).as_deref(), Some("files dropped here go to characters/catpope/"));
-        assert!(d.texts().iter().any(|s| s.starts_with("fil")), "drawn (cut to the panel's width): {:?}", d.texts());
-        let modules = list();
-        let src = Source { entries: &modules, shelf: Some(&shelf), stamp: 3, now_ms: 0.0 };
-        draw_src(&mut b, &src);
-        assert_eq!(b.drop_line(&src), None, "a workspace that lists no files takes none");
-    }
-
-    /// every item with files is a place of its own: listed with its count, pressed it shows only its files
-    #[test]
-    fn each_item_is_a_place_listed_with_its_count() {
-        let mut shelf = shelf();
-        let used = |path: &str, item: &str| deck_catalog::library::shelf::Use { path: path.into(), item: item.into(), part: String::new(), at: String::new() };
-        shelf.set_context(deck_catalog::library::shelf::Context { open: Some("scene:nave".into()), toon: Some("cat".into()), uses: vec![used("cat/s1/c2/sky.webp", "scene:nave"), used("cat/s1/c1/hills.2x.webp", "scene:dunes")], ..Default::default() });
-        let entries: Vec<Entry> = shelf.families(false).iter().map(|f| f.entry()).collect();
-        let src = Source { entries: &entries, shelf: Some(&shelf), stamp: 1, now_ms: 0.0 };
-        let mut b = Browser { grouping: Grouping::None, ..Browser::default() };
-        draw_src(&mut b, &src);
-        assert!(!b.hits.iter().any(|(_, h)| matches!(h, Hit::Item(_))), "folded at first");
-        let (x, y) = at(&b, Hit::Items);
-        b.press(x, y, 0.0);
-        let d = draw_src(&mut b, &src);
-        assert_eq!(b.items, ["chapter:cat:1", "chapter:cat:2", "scene:dunes", "scene:nave", "toon:cat"], "every item with files, in natural order");
-        assert!(d.texts().iter().filter(|s| **s == "1").count() >= 4, "each with its count: {:?}", d.texts());
-        let dunes = b.items.iter().position(|i| i == "scene:dunes").unwrap();
-        let (x, y) = at(&b, Hit::Item(dunes));
-        b.press(x, y, 1.0);
-        draw_src(&mut b, &src);
-        assert_eq!(cards(&b).into_iter().map(|i| entries[i].label.clone()).collect::<Vec<_>>(), ["hills"], "only the files scene:dunes uses");
-        let (x, y) = at(&b, Hit::Place(Place::Credits));
-        b.press(x, y, 2.0);
-        assert_eq!((b.item.as_deref(), b.place), (None, Some(Place::Credits)), "a place replaces the item");
-        let (x, y) = at(&b, Hit::Item(dunes));
-        b.press(x, y, 3.0);
-        b.press(x, y, 4.0);
-        draw_src(&mut b, &src);
-        assert_eq!((b.item.as_deref(), b.place, cards(&b).len()), (None, None, 3), "the same item again: all of the scope");
     }
 
     /// several chosen cards go into the hand together when one of them is dragged; a click on one narrows to it

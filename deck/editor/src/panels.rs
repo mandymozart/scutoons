@@ -30,7 +30,7 @@ const SETTINGS_PANEL: Spec = spec("settings", "Settings", "settings", "Day or ni
 /// the stage editor's: a Scene tab and a character's Asset tab
 pub const BUILD: [Spec; 11] = [
     spec("tree", "Rig", "tree", "The rig, its tracks and their nodes. In Wire a click goes to that level.", Place::at(TL, 0.0, 0.0)),
-    spec("library", "Library", "grid", "Modules and instruments to drop on the stage as a track, characters to open, the assets; filter, related to the rig open.", Place::at(BL, 0.0, 0.0)),
+    spec("library", "Library", "grid", "The toon's things and files by place: modules and instruments drop on the stage as a track; a click steps into a thing, a double click opens it.", Place::at(BL, 0.0, 0.0)),
     spec("inspector", "Inspector", "inspector", "What is selected: its values as scrub numbers; the rig picker and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("audio", "Audio", "activity", "The sound card, its inputs and outputs, the map and the test tones.", Place::at(BL, 740.0, 0.0).folded()),
     spec("info", "Info", "info", "What is under the pointer: its name and what it does.", Place::at(BL, 450.0, 0.0)),
@@ -49,7 +49,7 @@ pub const SHOW: [Spec; 14] = [
     spec("inspector", "Inspector", "inspector", "The row, the role or the cells selected; Load, Flash and Save.", Place::at(TR, 0.0, 0.0)).essential(),
     spec("sheet", "Sheet", "layers", "The sheet open: cues, problems, who is here, the session, the vote, a picker or the flash list.", Place::at(TL, 320.0, 0.0)).essential(),
     spec("nodes", "Spores", "node", "What comes from far, the cells of the row and what the row sends, over the stage.", Place::at(TL, 320.0, 0.0)),
-    spec("library", "Library", "grid", "The toon's scenes, characters and items: drag one onto a cell, a double click opens it as a tab.", Place::at(BR, 0.0, 0.0)),
+    spec("library", "Library", "grid", "The toon's things and files by place: drag a scene, character, item or place onto a cell; a click steps into a thing, a double click opens it as a tab.", Place::at(BR, 0.0, 0.0)),
     spec("rows", "Rows", "list", "The rows of the show: what fires each one and every column's cell; a row's ▶ fires it, a cell's ▶ launches it.", Place::at(BL, 0.0, 0.0)).essential(),
     spec("session", "Session", "activity", "This conductor, its seats, the linked readers, the vote and the outlets.", Place::at(TL, 0.0, 0.0).closed()),
     spec("now", "Stage now", "eye", "What plays on each outlet now.", Place::at(TL, 320.0, 0.0).closed()),

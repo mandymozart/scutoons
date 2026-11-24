@@ -25,8 +25,24 @@ export const startKinds = (ids: readonly string[] | null | undefined): Workspace
 /** the row's workspaces before any use: the crafts' first, in their order; without crafts the whole row */
 const baseRow = (starts: readonly WorkspaceKind[]): readonly WorkspaceKind[] => (starts.length ? [...starts, ...ROW.filter((k) => !starts.includes(k))] : ROW);
 
-/** where a workspace starts when it has shown nothing yet (an area's own list); the others need an item first (a character opens from the Library) */
+/** where a workspace starts when it has shown nothing yet: an area's own list, else its empty page (Search opens an item of it) */
 const STARTS: Partial<Record<WorkspaceKind, string>> = { scene: '/scenes', catalog: '/catalog/items', map: '/map', flow: '/flow', generate: '/generate', experience: '/experiences' };
+
+/** a workspace's empty page: what the stage shows in a workspace that needs an item first */
+export const EMPTY_PATH = '/workspace/';
+
+export const startHref = (kind: WorkspaceKind): string => STARTS[kind] ?? `${EMPTY_PATH}${kind}`;
+
+/** what Search starts with on a workspace's empty page: the address of the items it opens (a storyboard is a chapter's) */
+const FINDS: Partial<Record<WorkspaceKind, string>> = { toon: 'toon:', chapter: 'chapter:', storyboard: 'chapter:', character: 'character:', sound: 'rig:', text: 'kanon:' };
+export const findSeed = (kind: WorkspaceKind): string => FINDS[kind] ?? '';
+
+/** the workspace whose empty page `pathname` is, else null */
+export function emptyWorkspace(pathname: string): WorkspaceKind | null {
+	if (!pathname.startsWith(EMPTY_PATH)) return null;
+	const kind = decodeURIComponent(pathname.slice(EMPTY_PATH.length)).replace(/\/$/, '') as WorkspaceKind;
+	return ROW.includes(kind) && !STARTS[kind] ? kind : null;
+}
 
 /** an address that only passes through (the old characters list goes Home): no workspace remembers it */
 const passing = (address: string) => address === AREAS.characters || isGone(address);
@@ -91,26 +107,35 @@ export function entered(use: WorkspaceUse, from: WorkspaceKind | null, address: 
 
 export interface RowEntry {
 	kind: WorkspaceKind;
-	/** where clicking it goes: its last item (as its open tab is now), else an open item of it, else its start */
+	/** where clicking it goes: its last item (as its open tab is now), else an open item of it, else its start or empty page */
 	href: string;
 }
 
-/**
- * The row: every workspace with somewhere to go, most used first (ties: the crafts' order, then the row's). With crafts
- * (`starts`) only theirs and those used or open – flat, never grouped by craft.
- */
-export function workspaceRow(use: WorkspaceUse, tabs: readonly Tab[], starts: readonly WorkspaceKind[] = []): RowEntry[] {
+/** every workspace with where it goes and whether an item of it is open, most used first (ties: the crafts' order, then the row's) */
+function ranked(use: WorkspaceUse, tabs: readonly Tab[], starts: readonly WorkspaceKind[]): (RowEntry & { open: boolean })[] {
 	const order = baseRow(starts);
-	const entries: RowEntry[] = [];
-	for (const kind of order) {
+	const entries = order.map((kind) => {
 		const last = use.last[kind];
 		const open = (last && tabs.find((t) => t.address === last.address)) ?? tabs.find((t) => !passing(t.address) && workspaceOf(t.address) === kind);
-		if (starts.length && !starts.includes(kind) && !open && !use.uses[kind]) continue;
-		const href = open?.href ?? last?.href ?? STARTS[kind];
-		if (href) entries.push({ kind, href });
-	}
+		return { kind, href: open?.href ?? last?.href ?? startHref(kind), open: !!open };
+	});
 	const rank = (k: WorkspaceKind) => use.uses[k] ?? 0;
 	return entries.sort((a, b) => rank(b.kind) - rank(a.kind) || order.indexOf(a.kind) - order.indexOf(b.kind));
+}
+
+/** every workspace – the switcher's and Search's list: crafts (`starts`) order it, never leave one out */
+export function workspaceList(use: WorkspaceUse, tabs: readonly Tab[], starts: readonly WorkspaceKind[] = []): RowEntry[] {
+	return ranked(use, tabs, starts).map(({ kind, href }) => ({ kind, href }));
+}
+
+/**
+ * The bar's row, flat and never grouped by craft: with crafts (`starts`) theirs and those used or open, else every
+ * workspace; what it leaves out is in the switcher (its ⌄).
+ */
+export function workspaceRow(use: WorkspaceUse, tabs: readonly Tab[], starts: readonly WorkspaceKind[] = []): RowEntry[] {
+	return ranked(use, tabs, starts)
+		.filter((e) => !starts.length || starts.includes(e.kind) || e.open || !!use.uses[e.kind])
+		.map(({ kind, href }) => ({ kind, href }));
 }
 
 /** what the browser kept, checked: anything broken is left out */

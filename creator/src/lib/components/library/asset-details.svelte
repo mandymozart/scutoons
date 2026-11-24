@@ -68,7 +68,7 @@
 	{#if drawer && onclose}<span class="close"><CloseButton label={m['library.close']()} onclick={onclose} /></span>{/if}
 	<AssetPreview {family} small={drawer} />
 	<h2><button type="button" class="name" data-control-exempt="text link" title={m['library.rename']()} onclick={() => renameFamily(family)}>{family.title}</button></h2>
-	<p class="mono sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
+	<p class="sub">{family.key} · {m[`library.kind_${family.kind}`]()}{#if dims(family.width, family.height)} · {dims(family.width, family.height)}{/if} · {bytes(family.size)}{#if family.version > 1} · v{family.version}{/if}</p>
 
 	<!-- what can be done with it here (#750): the cover only in a chapter; the rest as icons -->
 	<div class="actions">
@@ -98,8 +98,8 @@
 			<ul class="uses">
 				{#each others as u (u.ref)}
 					<li>
-						{#if u.href}<button type="button" class="jump" data-control-exempt="text link" onclick={() => jump(u.href!)}>{u.ref}</button>{:else}<span class="mono">{u.ref}</span>{/if}
-						<span class="mono muted">{[...u.fields].join(', ')}</span>
+						{#if u.href}<button type="button" class="jump" data-control-exempt="text link" onclick={() => jump(u.href!)}>{u.ref}</button>{:else}<span>{u.ref}</span>{/if}
+						<span class="muted">{[...u.fields].join(', ')}</span>
 						{#if u.state === 'draft'}<span class="tag">{m['library.draft']()}</span>{/if}
 					</li>
 				{/each}
@@ -115,9 +115,9 @@
 			<tbody>
 				{#each family.versions as v (v.path)}
 					<tr title={v.path}>
-						<td class="mono">{v.label}</td>
-						<td class="mono muted">{v.ext}{#if dims(v.width, v.height)} · {dims(v.width, v.height)}{/if}{#if v.duration} · {formatDuration(v.duration)}{/if}</td>
-						<td class="mono num">{bytes(v.size)}</td>
+						<td>{v.label}</td>
+						<td class="muted">{v.ext}{#if dims(v.width, v.height)} · {dims(v.width, v.height)}{/if}{#if v.duration} · {formatDuration(v.duration)}{/if}</td>
+						<td class="num">{bytes(v.size)}</td>
 						<td>{#if v.quality}<span class="tag">{v.quality}</span>{/if}</td>
 					</tr>
 				{/each}
@@ -171,9 +171,6 @@
 		margin: 0 0 0.5rem;
 		color: var(--tool-muted);
 		word-break: break-all;
-	}
-	.mono {
-		font-family: var(--editor-mono, ui-monospace, monospace);
 	}
 	.muted {
 		color: var(--tool-muted);

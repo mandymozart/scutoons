@@ -1,6 +1,6 @@
 //! The Library's shelf: the families with what the open item uses, and the one rule of what a view shows – the
-//! scope (used by the open item, the toon, all, unused), the search, the kind, the places (recently added, missing
-//! credits, one item), what a picker's slot takes, the sort and the groups (in All the open item's files pinned on
+//! scope (used by the open item, the toon, all, unused), the search, the kind, the places (missing credits, one
+//! item), what a picker's slot takes, the sort and the groups (in All the open item's files pinned on
 //! top, then the unused, then one group per other item, then the toon-wide ones, all but the first folded until a
 //! search). The uses are data the caller read from the open item's document; the shelf links nothing.
 use super::family::{self, Family, Frame, Origin};
@@ -54,10 +54,10 @@ pub enum Sort {
     Uses,
 }
 
-/// a place of the browser beyond the scope: recently added, missing credits, one item's files
+/// a place of the browser beyond the scope: missing credits, one item's files (what was added lately is the server's
+/// place, served.rs)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Special {
-    Recent,
     Credits,
     /// the families lacking a version they should have (shown on demand)
     Missing,
@@ -91,8 +91,6 @@ pub struct Misfit {
     pub square: bool,
 }
 
-/// Added within the last week.
-pub const RECENT_DAYS: f64 = 7.0;
 /// A square slot takes a picture whose sides differ by at most this share.
 pub const SQUARE_TOLERANCE: f64 = 0.02;
 
@@ -146,8 +144,6 @@ pub struct Query {
     pub related: Option<String>,
     /// every file on its own instead of the families' stacks
     pub single: bool,
-    /// now, in ms since 1970 (for "recently added")
-    pub now_ms: f64,
     /// the kinds the workspace lists at all (none = every kind): the rest are not counted anywhere
     pub within: Vec<Kind>,
 }
@@ -217,7 +213,6 @@ pub struct ScopeCounts {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Specials {
-    pub recent: usize,
     /// None: the registry's answer carries no credits
     pub credits: Option<usize>,
     pub missing: usize,
@@ -487,13 +482,8 @@ impl Shelf {
         words.iter().all(|w| hay.contains(w.as_str()))
     }
 
-    fn recent(f: &Family, now_ms: f64) -> bool {
-        f.updated.as_deref().and_then(epoch_ms).is_some_and(|at| now_ms - at <= RECENT_DAYS * 86_400_000.0 && now_ms >= at - 86_400_000.0)
-    }
-
-    fn special(&self, s: &Special, f: &Family, uses: &[usize], now_ms: f64) -> bool {
+    fn special(&self, s: &Special, f: &Family, uses: &[usize]) -> bool {
         match s {
-            Special::Recent => Self::recent(f, now_ms),
             Special::Credits => f.credits == Some(false),
             Special::Missing => !f.missing.is_empty(),
             Special::Item(item) => self.items_of(f, uses).iter().any(|i| i == item),
@@ -543,7 +533,6 @@ impl Shelf {
         let related = |i: usize| q.related.as_deref().is_none_or(|c| crate::made_for(&list[i].made_for, c.strip_prefix("character:").unwrap_or(c)));
         let searched: Vec<usize> = scoped.iter().copied().filter(|&i| Self::matches(&list[i], &q.query) && fits(i) && related(i)).collect();
         let specials = Specials {
-            recent: searched.iter().filter(|&&i| Self::recent(&list[i], q.now_ms)).count(),
             credits: all.iter().any(|&i| list[i].credits.is_some()).then(|| searched.iter().filter(|&&i| list[i].credits == Some(false)).count()),
             missing: searched.iter().filter(|&&i| !list[i].missing.is_empty()).count(),
             items: {
@@ -565,7 +554,7 @@ impl Shelf {
                 .filter(|(_, n)| *n > 0)
                 .collect(),
         };
-        let placed: Vec<usize> = searched.iter().copied().filter(|&i| q.special.as_ref().is_none_or(|s| self.special(s, &list[i], &idx[i], q.now_ms))).collect();
+        let placed: Vec<usize> = searched.iter().copied().filter(|&i| q.special.as_ref().is_none_or(|s| self.special(s, &list[i], &idx[i]))).collect();
         let origins = Origin::ALL.iter().map(|&o| (o, placed.iter().filter(|&&i| list[i].origin == o).count())).collect();
         let kinds = Kind::ALL.iter().map(|&k| (k, placed.iter().filter(|&&i| list[i].kind == k).count())).filter(|(_, n)| *n > 0).collect();
         let shown: Vec<usize> = placed.into_iter().filter(|&i| q.kind.is_none_or(|k| list[i].kind == k) && q.origin.is_none_or(|o| list[i].origin == o)).collect();
@@ -748,7 +737,6 @@ pub fn query_of(v: &Value) -> Query {
         query: s("query").to_string(),
         kind: Kind::of_id(s("kind")),
         special: match s("special") {
-            "recent" => Some(Special::Recent),
             "credits" => Some(Special::Credits),
             "missing" => Some(Special::Missing),
             x => x.strip_prefix("item:").map(|i| Special::Item(i.to_string())).or_else(|| x.strip_prefix("cast:").map(|c| Special::Cast(c.to_string()))),
@@ -757,7 +745,6 @@ pub fn query_of(v: &Value) -> Query {
         fit: fit_of(&v["fit"]),
         related: v["related"].as_str().filter(|r| !r.is_empty()).map(str::to_string),
         single: v["single"] == Value::Bool(true),
-        now_ms: v["now"].as_f64().unwrap_or(0.0),
         within: kinds_of(&v["within"]),
     }
 }

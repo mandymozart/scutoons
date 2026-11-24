@@ -33,12 +33,11 @@
 		</div>
 		<span class="thread" aria-hidden="true"></span>
 		<Card class="output" title={m['shell.gen_output']()} data-testid="spore-output">
-			<div class="formats" role="radiogroup" aria-label={m['shell.gen_output']()}>
+			<div class="formats" role="radiogroup" aria-label={m['shell.gen_output']()} title={m['shell.gen_output_about']()}>
 				{#each OUTPUT_FORMATS as f (f)}
 					<Chip label={formatName(f)} on={output === f} onclick={() => (output = f)} testid="output-{f}" />
 				{/each}
 			</div>
-			<p class="about">{m['shell.gen_output_about']()}</p>
 			<span class="hook" title={hookNote('output')}><Chip label={m['shell.gen_hook_slot']()} icon="corner-down-right" testid="hook-output" /></span>
 		</Card>
 	</div>
@@ -97,11 +96,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.25rem;
-	}
-	.about {
-		margin: 0;
-		color: var(--tool-muted);
-		font-size: var(--editor-small);
 	}
 	.hook {
 		align-self: flex-start;

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, FILE_ICONS, addressOf, hrefOf, iconOf, isGone, pickedInArea, resolveTyped, startsAtTop, scopeOf, workspaceOf } from '../src/lib/shell/address.ts';
 import { EMPTY, MAX_TABS, close, closeAll, closeOthers, keepIn, pageLabel, readTabs, rename, retarget, stepTab, visit } from '../src/lib/shell/tabs.ts';
-import { NO_USE, ROW, entered, fits, readUse, startKinds, workspaceClick, workspaceFor, workspaceRow } from '../src/lib/shell/workspaces.ts';
+import { NO_USE, ROW, emptyWorkspace, entered, findSeed, fits, readUse, startHref, startKinds, workspaceClick, workspaceFor, workspaceList, workspaceRow } from '../src/lib/shell/workspaces.ts';
+import { showWhole, stepWhole, wholeIn } from '../src/lib/shell/strip.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src/lib/shell/presets.ts';
 import { addSpore, hooksOf, removeSpore } from '../src/lib/editor/spores.ts';
@@ -292,7 +293,8 @@ test('the workspace row: most used first, never grouped; each goes to its last i
 	assert.deepEqual(row.slice(0, 3).map((r) => r.kind), ['chapter', 'map', 'toon']);
 	assert.equal(row.find((r) => r.kind === 'toon')?.href, '/catpope/season/1', 'an open item of it');
 	assert.equal(row.find((r) => r.kind === 'scene')?.href, '/scenes', 'its start');
-	assert.ok(!row.some((r) => r.kind === 'storyboard' || r.kind === 'text' || r.kind === 'character'), 'a workspace with nowhere to go is not offered');
+	assert.equal(row.find((r) => r.kind === 'storyboard')?.href, '/workspace/storyboard', 'a workspace that needs an item first: its empty page');
+	assert.equal(row.length, ROW.length, 'every workspace is offered');
 	assert.ok(fits('chapter:catpope:3', 'chapter'));
 	assert.ok(!fits('chapter:catpope:3', 'character'), 'a chapter does not fit the character workspace: dimmed there');
 	assert.ok(!fits(null, 'chapter'));
@@ -369,7 +371,8 @@ test('the welcome: nothing used yet – every workspace of the row, empty', () =
 	assert.equal(isWelcome(NO_USE, [], 1), false);
 	const cards = workspaceCards(NO_USE, [], null, true);
 	assert.ok(cards.length >= 8);
-	assert.ok(cards.every((c) => !c.shown && c.href === null && !c.front));
+	assert.ok(cards.every((c) => !c.shown && c.href === startHref(c.kind) && !c.front), 'empty: each goes to its start or its empty page');
+	assert.deepEqual(cards.map((c) => c.kind), [...ROW]);
 	assert.equal(greetName('mira.k@example.org'), 'Mira');
 	assert.equal(greetName(''), '');
 });
@@ -378,12 +381,65 @@ test('crafts: the welcome and the row show the crafts\' workspaces, flat; used o
 	assert.deepEqual(startKinds(['character', 'storyboard', 'nope', 'character', 'text']), ['character', 'storyboard', 'text'], 'known ones, each once, in order');
 	assert.deepEqual(startKinds(null), []);
 	const starts = startKinds(['scene', 'map', 'catalog']);
-	assert.deepEqual(workspaceCards(NO_USE, [], null, true, starts).map((c) => c.kind), ['scene', 'map', 'catalog'], 'the welcome: the crafts\' workspaces in their order');
+	const welcome = workspaceCards(NO_USE, [], null, true, starts).map((c) => c.kind);
+	assert.deepEqual(welcome.slice(0, 3), ['scene', 'map', 'catalog'], 'the welcome: the crafts\' workspaces first, in their order');
+	assert.equal(welcome.length, ROW.length, 'then every other: crafts never hide a workspace');
 	assert.deepEqual(workspaceRow(NO_USE, [], starts).map((r) => r.kind), ['scene', 'map', 'catalog'], 'only theirs, the crafts\' order before use');
 	const tabs = [{ address: 'chapter:catpope:3', href: '/catpope/chapter/3', label: 'Chapter 3' }];
 	const use = { uses: { catalog: 4, flow: 1 }, last: { flow: { address: 'flow', href: '/flow' } } };
 	assert.deepEqual(workspaceRow(use, tabs, starts).map((r) => r.kind), ['catalog', 'flow', 'scene', 'map', 'chapter'], 'most used first; a used or open workspace outside the crafts stays');
-	assert.ok(workspaceRow(NO_USE, [], []).length >= 4, 'no crafts: every workspace with somewhere to go');
+	assert.deepEqual(workspaceRow(NO_USE, [], []).map((r) => r.kind), [...ROW], 'no crafts: every workspace');
+});
+
+test('every workspace is reachable (#887): crafts order the switcher and Search, and pick the row; none needs an open item', () => {
+	const illustrator = startKinds(['character', 'storyboard', 'chapter']);
+	assert.deepEqual(
+		workspaceRow(NO_USE, [], illustrator).map((r) => [r.kind, r.href]),
+		[['character', '/workspace/character'], ['storyboard', '/workspace/storyboard'], ['chapter', '/workspace/chapter']],
+		'a craft whose workspaces need an item first still has its row: each on its empty page'
+	);
+	const all = workspaceList(NO_USE, [], illustrator);
+	assert.deepEqual(all.slice(0, 3).map((r) => r.kind), illustrator, 'the crafts\' first');
+	assert.deepEqual([...all.map((r) => r.kind)].sort(), [...ROW].sort(), 'then every other, XR and Generate too');
+	assert.equal(all.find((r) => r.kind === 'experience')?.href, '/experiences');
+	assert.equal(all.find((r) => r.kind === 'generate')?.href, '/generate');
+	const cards = workspaceCards({ uses: { map: 2 }, last: {} }, [], null, false, illustrator);
+	assert.equal(cards.length, ROW.length, 'the switcher: every workspace, used or not');
+	assert.equal(cards[0].kind, 'map', 'most used first');
+	for (const kind of ['toon', 'chapter', 'storyboard', 'character', 'sound', 'text'] as const) {
+		assert.equal(startHref(kind), `/workspace/${kind}`);
+		assert.equal(emptyWorkspace(`/workspace/${kind}`), kind);
+		assert.ok(findSeed(kind).endsWith(':'), `${kind}: Search starts on the addresses of its items`);
+	}
+	assert.equal(emptyWorkspace('/workspace/scene'), null, 'a workspace with a start of its own has no empty page');
+	assert.equal(emptyWorkspace('/workspace/nope'), null);
+	assert.equal(emptyWorkspace('/map'), null);
+	assert.equal(addressOf('/workspace/chapter'), null, 'an empty page is no item: no tab');
+});
+
+test('a row that scrolls stops on a whole item at its left edge (#895): no name cut at its start', () => {
+	// five items of 100 with a seam of 4, a visible width of 250
+	const spans = [0, 1, 2, 3, 4].map((i) => ({ left: i * 104, right: i * 104 + 100 }));
+	assert.deepEqual(showWhole(spans, 0, 0, 250), { left: 0, pad: 0 }, 'in view: as it is');
+	assert.deepEqual(showWhole(spans, 3, 0, 250), { left: 208, pad: 0 }, 'to the right: the first start that shows it whole');
+	assert.deepEqual(showWhole(spans, 4, 0, 250), { left: 312, pad: 46 }, 'the last: its start reached by room after it, not a cut first item');
+	assert.deepEqual(showWhole(spans, 1, 312, 250), { left: 104, pad: 0 }, 'to the left: its own start');
+	assert.deepEqual(showWhole(spans, 3, 208, 250), { left: 208, pad: 0 }, 'already whole on a start: unchanged');
+	assert.deepEqual(showWhole(spans, 3, 230, 250), { left: 208, pad: 0 }, 'whole but the left edge cuts an item: back onto a start');
+	assert.deepEqual(showWhole(spans, 2, 0, 250, 40), { left: 104, pad: 0 }, 'an item under the right end\'s fade is not whole');
+	assert.deepEqual(showWhole([{ left: 0, right: 80 }], 0, 0, 250), { left: 0, pad: 0 }, 'all in view: no scroll');
+	assert.deepEqual(stepWhole(spans, 0, 250, 1), { left: 104, pad: 0 });
+	assert.deepEqual(stepWhole(spans, 104, 250, -1), { left: 0, pad: 0 });
+	assert.equal(wholeIn(spans, 0, 250), 2);
+	assert.deepEqual(stepWhole(spans, 0, 250, wholeIn(spans, 0, 250)), { left: 208, pad: 0 }, 'a page: as many as lie whole');
+});
+
+test('no tab without a name (#895): an empty label falls back to the address', () => {
+	assert.equal(visit(EMPTY, 'scene:duet', '/scenes/duet', '').tabs[0].label, 'scene:duet');
+	assert.equal(visit(EMPTY, 'scene:duet', '/scenes/duet', '  ').tabs[0].label, 'scene:duet');
+	const s = visit(EMPTY, 'scene:duet', '/scenes/duet', 'Duet');
+	assert.equal(rename(s, 'scene:duet', ' '), s);
+	assert.deepEqual(readTabs({ tabs: [{ address: 'scene:duet', href: '/scenes/duet', label: '' }, { address: '', href: '/x', label: 'x' }], front: 'scene:duet' }).tabs, [{ address: 'scene:duet', href: '/scenes/duet', label: 'scene:duet' }]);
 });
 
 test('crafts before the migration: a missing or failing API means no crafts – the usual workspaces, no question, nothing throws', async () => {

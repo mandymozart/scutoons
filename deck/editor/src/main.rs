@@ -233,8 +233,9 @@ struct Args {
     /// a check run's library in the list mode, filtered by a query
     library_find: Option<String>,
     library_list: bool,
-    /// a check run's Library shows the levels single
-    library_single: bool,
+    /// a check run's Library: the place shown by its chip's words (`this toon`), the thing stepped into
+    library_place: Option<String>,
+    library_at: Option<String>,
     /// a check run's Library starts with these cards chosen (addresses)
     library_choose: Vec<String>,
     library_related: bool,
@@ -257,7 +258,7 @@ struct Args {
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new(), link: None };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_place: None, library_at: None, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new(), link: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -296,7 +297,8 @@ fn args() -> Result<Args> {
             }
             "--library-find" => a.library_find = Some(val()?),
             "--library-list" => a.library_list = true,
-            "--library-single" => a.library_single = true,
+            "--library-place" => a.library_place = Some(val()?),
+            "--library-at" => a.library_at = Some(val()?),
             "--library-choose" => a.library_choose = val()?.split(',').map(str::to_string).collect(),
             "--library-related" => a.library_related = true,
             "--save-state" => a.save_state = Some(val()?),

@@ -15,6 +15,9 @@
 //                                                server/src/Generated/StoryEventTypes.php (the same list, #521: the server's story events)
 //   server/schema/api/spore-network.schema.json → deck/protocol/src/spore_network.rs (#763: one level of the spore network, a weave – protocol::spore_network)
 //                                                shared/api/src/spore-network.ts       (TS types, @scutoons/api: Spores)
+//   server/schema/api/library.schema.json      → deck/protocol/src/library.rs        (the extended Library's answer – protocol::library)
+//                                                shared/api/src/library-types.ts       (TS types, @scutoons/api: library())
+//                                                server/src/Generated/LibraryTypes.php (PHPStan shapes + the enums' values)
 //
 // The Rust and TS types come from the relay protocol's emitters (same schema subset, same output style); only their file header
 // differs. The PHP shapes and the tables are written here. A construct outside the subset throws, so a new one is a change here first.
@@ -63,7 +66,8 @@ export const paths = {
 	viewTs: join(repo, 'shared', 'api', 'src', 'spore-network.ts'),
 	librarySchema: join(here, 'api', 'library.schema.json'),
 	libraryTs: join(repo, 'shared', 'api', 'src', 'library-types.ts'),
-	libraryPhp: join(repo, 'server', 'src', 'Generated', 'LibraryTypes.php')
+	libraryPhp: join(repo, 'server', 'src', 'Generated', 'LibraryTypes.php'),
+	libraryRs: join(repo, 'deck', 'protocol', 'src', 'library.rs')
 };
 
 const header = (source: string) => `GENERATED from ${source} by server/schema/generate.ts – edit the source, run \`npm run generate\`.`;
@@ -428,6 +432,69 @@ export function libraryTs(schema: Draft07): string {
 	].join('');
 }
 
+const rsKeyword = (name: string) => (['type', 'as', 'ref', 'match', 'use', 'mod', 'fn', 'in', 'self'].includes(name) ? `r#${name}` : name);
+const rsSnake = (s: string): string => s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+const rsPascal = (s: string): string =>
+	s
+		.split(/[^A-Za-z0-9]+/)
+		.filter(Boolean)
+		.map((w) => w[0].toUpperCase() + w.slice(1))
+		.join('');
+
+/** one field's Rust type: `["x", "null"]` is an `Option` that is always written (`null`), a field not required an `Option` left out */
+function rsType(s: Draft07, where: string): { ty: string; nullable: boolean } {
+	if (s.$ref) return { ty: refName(s.$ref), nullable: false };
+	if (typeof s.const === 'number') return { ty: 'i64', nullable: false };
+	const types = Array.isArray(s.type) ? s.type : s.type ? [s.type] : [];
+	const nullable = types.includes('null');
+	const [t, ...more] = types.filter((x) => x !== 'null');
+	if (more.length) throw new Error(`${where}: one type besides null`);
+	const scalar: Record<string, string> = { string: 'String', integer: 'i64', number: 'f64', boolean: 'bool' };
+	if (scalar[t]) return { ty: scalar[t], nullable };
+	if (t === 'array' && s.items) return { ty: `Vec<${rsType(s.items, `${where}[]`).ty}>`, nullable };
+	if (t === 'object' && !s.properties && typeof s.additionalProperties === 'object') {
+		return { ty: `std::collections::BTreeMap<String, ${rsType(s.additionalProperties, `${where}{}`).ty}>`, nullable };
+	}
+	throw new Error(`${where}: unsupported for Rust`);
+}
+
+/** serde types for the deck (deck/protocol `library`): each enum with its words, each object a struct, a map a BTreeMap */
+export function libraryRs(schema: Draft07): string {
+	const { format, defs } = libraryParts(schema);
+	const doc = (text: string | undefined, indent = '') => (text ? `${indent}/// ${oneLine(text)}\n` : '');
+	const out = [
+		`// ${header(rel(paths.librarySchema))}\n`,
+		`//! ${oneLine(schema.description ?? '')}\n`,
+		'#![allow(clippy::all)]\nuse serde::{Deserialize, Serialize};\n\n',
+		`/// the format the API answers (\`library\`)\npub const LIBRARY_FORMAT: i64 = ${format};\n\n`
+	];
+	for (const [name, def] of defs) {
+		out.push(doc(def.description));
+		if (def.enum) {
+			const words = def.enum.map(String);
+			out.push(`#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]\npub enum ${name} {\n`);
+			out.push(words.map((v) => `\t#[serde(rename = "${v}")]\n\t${rsPascal(v)},\n`).join(''), '}\n\n');
+			out.push(`impl ${name} {\n\t/// every ${name}, in the schema's order\n\tpub const ALL: [${name}; ${words.length}] = [${words.map((v) => `${name}::${rsPascal(v)}`).join(', ')}];\n\n`);
+			out.push(`\tpub const fn as_str(self) -> &'static str {\n\t\tmatch self {\n${words.map((v) => `\t\t\t${name}::${rsPascal(v)} => "${v}",\n`).join('')}\t\t}\n\t}\n}\n\n`);
+		} else if (def.type === 'object' && def.properties) {
+			out.push(`#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\npub struct ${name} {\n`);
+			for (const [field, p] of Object.entries(def.properties)) {
+				const { ty, nullable } = rsType(p, `${name}.${field}`);
+				const required = def.required?.includes(field) ?? false;
+				const rust = rsKeyword(rsSnake(field));
+				const attrs = rust.replace(/^r#/, '') !== field ? [`rename = "${field}"`] : [];
+				if (!required) attrs.push('default', 'skip_serializing_if = "Option::is_none"');
+				const attr = attrs.length ? `\t#[serde(${attrs.join(', ')})]\n` : '';
+				out.push(doc(p.description, '\t'), attr, `\tpub ${rust}: ${nullable || !required ? `Option<${ty}>` : ty},\n`);
+			}
+			out.push('}\n\n');
+		} else {
+			out.push(`pub type ${name} = ${rsType(def, name).ty};\n\n`);
+		}
+	}
+	return out.join('').trimEnd() + '\n';
+}
+
 /** PHPStan shapes (`@phpstan-import-type … from LibraryTypes`), the format and each enum's values */
 export function libraryPhp(schema: Draft07): string {
 	const { format, defs } = libraryParts(schema);
@@ -497,6 +564,7 @@ export function generate(): Record<string, string> {
 	return {
 		[paths.libraryTs]: libraryTs(library),
 		[paths.libraryPhp]: libraryPhp(library),
+		[paths.libraryRs]: libraryRs(library),
 		[paths.viewRs]: sporeNetworkRs(view),
 		[paths.viewTs]: sporeNetworkTs(view),
 		[paths.storyRs]: storyEventsRs(chapter),

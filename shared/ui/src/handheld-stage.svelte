@@ -96,7 +96,7 @@
 		overflow: hidden;
 		touch-action: none;
 		user-select: none;
-		font-family: var(--font-family-mono, monospace);
+		font-family: var(--font-sans);
 	}
 	.stage {
 		position: absolute;

@@ -82,7 +82,7 @@
 	}
 	.problem {
 		color: var(--tool-stop);
-		font-family: var(--font-mono);
+		font-family: var(--editor-sans);
 		font-size: 0.75rem;
 	}
 </style>

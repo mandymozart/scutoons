@@ -68,8 +68,7 @@
 	}
 </script>
 
-<div class="prompts" data-testid="character-prompts">
-	<p class="hint">{m['creator.prompts_hint']()}</p>
+<div class="prompts" title={m['creator.prompts_hint']()} data-testid="character-prompts">
 	{#each prompts as p (p.id)}
 		<details data-testid="prompt-{p.id}">
 			<summary>{p.title}</summary>
@@ -85,9 +84,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.prompts > .hint {
-		margin: 0;
 	}
 	details > button {
 		margin-top: 0.5rem;

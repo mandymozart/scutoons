@@ -133,7 +133,7 @@
 	}
 	.num,
 	.name {
-		font-family: var(--font-mono);
+		font-family: var(--editor-sans);
 	}
 	.num {
 		flex: none;

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { Card, ListRow } from '@scutoons/ui/editor';
+	import { Button, Card, ListRow } from '@scutoons/ui/editor';
+	import { publishFlow } from '$lib/editor/publish-flow.svelte.ts';
+	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { toonName } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { recent } from '$lib/recent.svelte.ts';
@@ -17,7 +19,8 @@
 
 	/**
 	 * The switcher's two boxes: Last opened · Needs review / Not published – each line named by the item's own name,
-	 * its kind beside it (scenes and shows too); sending out is Publish's alone (RULES H18). The welcome has nothing
+	 * its kind beside it (scenes and shows too); sending out is Publish's alone (RULES H18) – the box's Publish opens the
+	 * bar's one dialog. The welcome has nothing
 	 * opened yet: Not published alone, wide.
 	 */
 	let { welcome = false }: { welcome?: boolean } = $props();
@@ -45,7 +48,12 @@
 	);
 	const waiting = $derived((reviews.overview?.to_review?.length ?? 0) + (reviews.overview?.mine ?? []).filter((r) => r.state === 'pending' || r.state === 'returned').length);
 	const shown = $derived(welcome ? 6 : Math.max(1, ROWS - Math.min(waiting, 2)));
-	const rowMeta = (key: string, toon: string | null) => [m['shell.dash_not_published_row'](), kindWord(key), toon ? nav.toonName(toon) : ''].filter(Boolean).join(' · ');
+	/** the bar's one Publish dialog (RULES H18), the switcher put away under it */
+	function publish() {
+		shell.toggleSwitcher(false);
+		void publishFlow.show(toons, shell.doc);
+	}
+	const rowMeta =(key: string, toon: string | null) => [m['shell.dash_not_published_row'](), kindWord(key), toon ? nav.toonName(toon) : ''].filter(Boolean).join(' · ');
 </script>
 
 <div class="boxes" class:welcome>
@@ -73,8 +81,11 @@
 			{/each}
 			{#if !waiting && !notPublished.list.length}<p class="quiet">{m['shell.nothing_waiting']()}</p>{/if}
 		</div>
-		{#if notPublished.list.length > shown}
-			<span class="actions"><span class="quiet">{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span></span>
+		{#if notPublished.list.length}
+			<span class="actions">
+				{#if notPublished.list.length > shown}<span class="quiet" title={m['creator.dash_more_title']()}>{m['creator.dash_more']({ count: notPublished.list.length - shown })}</span>{/if}
+				<Button icon="upload-cloud" onclick={publish} data-testid="dash-publish">{m['creator.dash_publish']({ count: notPublished.list.length })}</Button>
+			</span>
 		{/if}
 	</Card>
 </div>

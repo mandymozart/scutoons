@@ -204,8 +204,32 @@ impl CastWord {
     }
 }
 
-/// the reserved action that cuts a scene's camera to one of its shots: `shot:<id>`
+/// the reserved action that cuts a scene's camera to one of its shots: `shot:<id>`; as a place, a storyboard's shot
+/// (`ShotAddress`) – both name a shot: the camera's in a scene, the storyboard's in a chapter
 pub const SHOT: &str = "shot";
+
+/// A storyboard's shot as a place: `shot:<toon>:<chapter>:<shot-id>` (`shot:catpope:3:sb-25-1`; the grammar is the
+/// storyboard's, `@scutoons/content/storyboard` `shotAddress`). The deck opens it on its stage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShotAddress {
+    pub toon: String,
+    pub chapter: u32,
+    pub shot: String,
+}
+
+impl ShotAddress {
+    pub fn parse(s: &str) -> Result<ShotAddress, String> {
+        let bad = || format!("'{s}' is not a shot (shot:<toon>:<chapter>:sb-<id>)");
+        let mut parts = s.splitn(4, ':');
+        let (Some(SHOT), Some(toon), Some(chapter), Some(shot)) = (parts.next(), parts.next(), parts.next(), parts.next()) else { return Err(bad()) };
+        let numbered = !chapter.is_empty() && chapter.bytes().all(|b| b.is_ascii_digit()) && (chapter == "0" || !chapter.starts_with('0'));
+        if !numbered || !shot.starts_with("sb-") || shot.len() == 3 || shot.contains(char::is_whitespace) {
+            return Err(bad());
+        }
+        word(toon, "a shot's toon")?;
+        Ok(ShotAddress { toon: toon.to_string(), chapter: chapter.parse().map_err(|_| bad())?, shot: shot.to_string() })
+    }
+}
 /// the reserved action that plays one of a scene camera's moves (and its chain): `move:<id>`
 pub const MOVE: &str = "move";
 
@@ -558,6 +582,16 @@ pub fn resolve(a: &Address, context: &Context, reach: Reach) -> Result<Resolved,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_shot_is_a_toons_chapter_and_its_storyboard_id() {
+        use super::ShotAddress;
+        assert_eq!(ShotAddress::parse("shot:catpope:3:sb-25-1"), Ok(ShotAddress { toon: "catpope".into(), chapter: 3, shot: "sb-25-1".into() }));
+        assert_eq!(ShotAddress::parse("shot:catpope:0:sb-a").map(|s| s.chapter), Ok(0));
+        for bad in ["shot:wide", "shot:catpope:03:sb-1", "shot:catpope:3:wide", "shot:catpope:3:sb-", "scene:catpope:3:sb-1", "shot::3:sb-1"] {
+            assert!(ShotAddress::parse(bad).is_err(), "{bad}");
+        }
+    }
+
     #[test]
     fn at_or_below_is_the_reference_or_a_dot_down_from_it() {
         use super::at_or_below;

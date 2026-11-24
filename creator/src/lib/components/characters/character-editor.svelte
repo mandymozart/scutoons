@@ -32,7 +32,6 @@
 	import CharacterInspector, { type Level } from '$lib/components/characters/character-inspector.svelte';
 	import CharacterLinks from '$lib/components/characters/character-links.svelte';
 	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
-	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import MoodStrip from '$lib/components/characters/mood-strip.svelte';
 	import KanonPanel from '$lib/components/characters/kanon-panel.svelte';
 	import { characterSubject, type KanonDocs } from '$lib/editor/kanon-docs.svelte.ts';
@@ -240,9 +239,6 @@
 	{#if character && currentPersona}
 		<Section id="character-prompts" label={m['creator.prompts_title']()}>
 			<CharacterPrompts registry={file} {character} persona={personaId} look={lookId} {moods} {requests} locale={source} />
-		</Section>
-		<Section id="character-wanted" label={m['creator.characters_wanted']()}>
-			<WantedImages registry={file} {moods} {requests} locale={source} character={character.id} persona={personaId} look={lookId} />
 		</Section>
 	{/if}
 {/snippet}

@@ -44,15 +44,14 @@
 
 <section class="meta-panel" data-testid="meta-panel">
 	<!-- the chapter's number, prominent (owner 2026-10-03): it is its identity – URL, release order – and never changes -->
-	<header class="chapter-head" data-testid="chapter-number">
+	<header class="chapter-head" title={m['creator.chapter_number_hint']({ path: `/${doc.toon}/chapter/${number}` })} data-testid="chapter-number">
 		<h2>{fileLabel(entities.chapter(doc.toon, number))}</h2>
-		<p class="hint">{m['creator.chapter_number_hint']({ path: `/${doc.toon}/chapter/${number}` })}</p>
 	</header>
 
 	<LocaleText {doc} path={['title']} label={m['creator.field_title']()} multiline={false} />
 	<LocaleText {doc} path={['description']} label={m['creator.field_description']()} rows={3} />
 
-	<div class="status" data-testid="chapter-status">
+	<div class="status" title={m['creator.status_hint']({ file: m['creator.season']({ number: Number(season?.get(season.primary, ['number'])) || 1 }) })} data-testid="chapter-status">
 		<span class="sc-label">{m['creator.status']()}</span>
 		{#if !season || season.loading}
 			<p class="hint">{m['creator.loading']()}</p>
@@ -110,9 +109,6 @@
 		font-size: var(--type-title-size, 1.5rem);
 		text-transform: none;
 		letter-spacing: normal;
-	}
-	.chapter-head .hint {
-		margin: 0.25rem 0 0;
 	}
 	.meta-panel {
 		display: flex;

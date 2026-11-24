@@ -94,6 +94,7 @@ pub fn plan(view: View, kind: Kind) -> Result<Outcome, String> {
     use Kind::*;
     use Outcome::*;
     let why = match (view, kind) {
+        (_, Toon | Show | Generator | Kanon | Person) => "a drop of one does nothing yet: a double click opens it",
         (View::ShowRow, Scene | Character | Item | Place) => return Ok(Piece),
         (View::ShowRow, Model) => return Ok(Reference(Preview::Model)),
         (View::ShowRow, Image) => return Ok(Reference(Preview::Picture)),
@@ -154,7 +155,8 @@ mod tests {
         assert_eq!(ok(Kind::Module), Err("modules cannot be dropped in a Show row: a row holds pieces: scenes, characters, items and places".into()));
         assert_eq!(ok(Kind::Instrument), Err("instruments cannot be dropped in a Show row: a row holds pieces: scenes, characters, items and places".into()));
         assert_eq!(ok(Kind::Rig), Err("rigs cannot be dropped in a Show row: a row holds pieces: scenes, characters, items and places".into()));
-        assert_eq!(table(View::ShowRow).iter().filter(|(_, r)| r.is_err()).count(), 3);
+        assert_eq!(table(View::ShowRow).iter().filter(|(_, r)| r.is_err()).count(), 8);
+        assert_eq!(ok(Kind::Show), Err("shows cannot be dropped in a Show row: a drop of one does nothing yet: a double click opens it".into()));
     }
 
     #[test]
@@ -182,7 +184,7 @@ mod tests {
         assert_eq!(ok(Kind::Image), Ok(Outcome::Layer));
         assert_eq!(ok(Kind::Module), Ok(Outcome::Modules));
         let refused: Vec<Kind> = table(View::Scene).into_iter().filter(|(_, r)| r.is_err()).map(|(k, _)| k).collect();
-        assert_eq!(refused, [Kind::Instrument, Kind::Rig, Kind::Scene, Kind::Place, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation, Kind::File]);
+        assert_eq!(refused, [Kind::Toon, Kind::Scene, Kind::Show, Kind::Place, Kind::Instrument, Kind::Rig, Kind::Generator, Kind::Kanon, Kind::Person, Kind::Audio, Kind::Video, Kind::Model, Kind::Animation, Kind::File]);
         assert_eq!(ok(Kind::Audio), Err("audio cannot be dropped on a scene: its slots take characters and items, its layers pictures, the Modules of its camera and members modules".into()));
     }
 

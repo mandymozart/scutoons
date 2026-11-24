@@ -276,6 +276,24 @@
 				transition: width 0.15s linear;
 			}
 
+			/* a tool (the creator, data-tool): the stage of the stored theme (theme.js sets it on <html> before the first paint) –
+			   white by day, black by night with the logo turned light – and the words in the kit's sans (kit/tokens.toml, the
+			   tools' --editor-sans; its own fonts aren't loaded yet) */
+			#sc-boot[data-tool] {
+				font-family: 'ABC Areal', 'Noto Sans', system-ui, sans-serif;
+			}
+			html[data-theme='night']:has(#sc-boot[data-tool]),
+			html[data-theme='night'] #sc-boot[data-tool] {
+				background: #000;
+				color: #f3f3f0;
+			}
+			html[data-theme='night'] #sc-boot[data-tool] .mid img {
+				filter: invert(1);
+			}
+			html[data-theme='night'] #sc-boot[data-tool] .fill {
+				background: #f3f3f0;
+			}
+
 			@media (prefers-reduced-motion: reduce) {
 				#sc-boot .sk::after {
 					animation: none;
@@ -283,12 +301,29 @@
 				}
 			}
 		</style>
+		<script data-key="sc-creator-settings">
+			// A tool's stored theme on <html> before anything paints (the creator's Settings › Theme, kept in this browser under
+			// the script's data-key; day when none), so the boot screen and the app's first frame stand on the stage of that
+			// theme – black by night, white by day, no white flash. `npm run boot:sync` writes it into the tool's app.html head.
+			(() => {
+				const root = document.documentElement;
+				let theme = 'day';
+				try {
+					const kept = JSON.parse(localStorage.getItem(document.currentScript.dataset.key) ?? 'null');
+					if (kept && kept.theme === 'night') theme = 'night';
+				} catch {
+					/* no storage or a broken entry: day */
+				}
+				root.dataset.theme = theme;
+				if (theme === 'night') document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#000000');
+			})();
+		</script>
 		<!-- /sc-boot:style -->
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<!-- sc-boot:body (generated from shared/boot by `npm run boot:sync` – edit there) -->
-		<div id="sc-boot" data-expect="1300000">
+		<div id="sc-boot" data-expect="1300000" data-tool>
 			<div class="mid">
 				<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
 				<span class="say"></span>

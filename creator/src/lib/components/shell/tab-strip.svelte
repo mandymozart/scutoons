@@ -1,63 +1,35 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { IconButton, Menu, MenuItem, Pill, PillTab } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf } from '$lib/shell/address.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
+	import { WholeStrip } from '$lib/shell/strip.svelte.ts';
 
 	/**
 	 * The open items' tabs: a strip that scrolls (wheel, trackpad, ‹ ›) and keeps its order – a click never moves a tab, the
-	 * front one scrolls into view, a new one opens right of the front one; the ends fade while more lies beyond them. The
-	 * list names every tab (Close others, Close all); ＋ opens the Library. Ctrl Tab / Ctrl Shift Tab go along the strip,
+	 * front one scrolls into view, a new one opens right of the front one; it stops with a whole tab at its left edge (no
+	 * name cut at its start) and its right end fades while more lies beyond. The list names every tab (Close others, Close all); ＋ opens the Library. Ctrl Tab / Ctrl Shift Tab go along the strip,
 	 * Ctrl W closes the front tab – where the browser keeps those keys, Alt PageDown / Alt PageUp / Alt W do it.
 	 */
-	let strip = $state<HTMLElement>();
+	const strip = new WholeStrip('[data-tab-pill]');
 	let listOpen = $state(false);
-	let before = $state(false);
-	let after = $state(false);
 	const tabs = $derived(shell.state.tabs);
+	const frontAt = () => strip.indexOf((t) => t.dataset.address === shell.state.front);
 
-	function measure() {
-		const el = strip;
-		if (!el) return;
-		before = el.scrollLeft > 1;
-		after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-	}
+	// the front tab scrolls into view, a whole tab at the left edge (never a name cut at its start); the strip's order stays
 	$effect(() => {
-		void tabs.length;
-		const el = strip;
-		if (!el) return;
-		measure();
-		const observer = new ResizeObserver(measure);
-		observer.observe(el);
-		return () => observer.disconnect();
+		void shell.state.front;
+		// a tab renamed (its name known after it opened) changes the widths
+		void tabs.map((t) => t.label).join('\n');
+		untrack(() => (shell.state.front ? strip.show(frontAt()) : strip.measure()));
 	});
-	// the front tab scrolls into view (only as far as needed); the strip's order stays
 	$effect(() => {
-		const front = shell.state.front;
+		void strip.el;
 		void tabs.length;
-		const el = strip;
-		if (!el || !front) return;
-		const tab = [...el.querySelectorAll<HTMLElement>('[data-tab-pill]')].find((t) => t.dataset.address === front);
-		if (!tab) return;
-		const left = tab.offsetLeft;
-		const right = left + tab.offsetWidth;
-		const pad = 1.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-		if (left < el.scrollLeft) el.scrollTo({ left: Math.max(0, left - pad), behavior: 'smooth' });
-		else if (right > el.scrollLeft + el.clientWidth) el.scrollTo({ left: right - el.clientWidth + pad, behavior: 'smooth' });
+		return untrack(() => strip.watch(() => shell.state.front && strip.show(frontAt(), false)));
 	});
-
-	function page(dir: -1 | 1) {
-		const el = strip;
-		if (el) el.scrollBy({ left: dir * el.clientWidth * 0.7, behavior: 'smooth' });
-	}
-	/** a mouse wheel turns into a sideways scroll (a trackpad's own sideways move passes) */
-	function onwheel(e: WheelEvent) {
-		const el = strip;
-		if (!el || Math.abs(e.deltaX) >= Math.abs(e.deltaY) || el.scrollWidth <= el.clientWidth) return;
-		e.preventDefault();
-		el.scrollLeft += e.deltaY;
-	}
 
 	function closeTab(address: string) {
 		const next = shell.close(address);
@@ -90,20 +62,20 @@
 	}
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} onresize={() => shell.state.front && strip.show(frontAt(), false)} />
 
 <Pill class="open-items" data-testid="tabs">
-	{#if before || after}
-		<IconButton label={m['shell.tabs_left']()} icon="chevron-left" disabled={!before} onclick={() => page(-1)} data-testid="tabs-left" />
+	{#if strip.before || strip.after}
+		<IconButton label={m['shell.tabs_left']()} icon="chevron-left" disabled={!strip.before} onclick={() => strip.page(-1)} data-testid="tabs-left" />
 	{/if}
-	<div class="strip" class:before class:after bind:this={strip} onscroll={measure} {onwheel}>
+	<div class="strip" class:after={strip.after} bind:this={strip.el} onscroll={strip.measure} onwheel={strip.wheel}>
 		{#each tabs as tab (tab.address)}
 			{@const front = tab.address === shell.state.front}
 			<PillTab label={tab.label} title={tab.address} icon={iconOf(tab.address)} href={tab.href} on={front} closeLabel={m['shell.close_tab']({ name: tab.label })} onclose={() => closeTab(tab.address)} data-tab-pill data-testid="tab" data-address={tab.address} />
 		{/each}
 	</div>
-	{#if before || after}
-		<IconButton label={m['shell.tabs_right']()} icon="chevron-right" disabled={!after} onclick={() => page(1)} data-testid="tabs-right" />
+	{#if strip.before || strip.after}
+		<IconButton label={m['shell.tabs_right']()} icon="chevron-right" disabled={!strip.after} onclick={() => strip.page(1)} data-testid="tabs-right" />
 	{/if}
 	{#if tabs.length > 1}
 		<Menu label={m['shell.tab_list']()} icon="chevron-down" align="start" bind:open={listOpen} testid="tab-list" menuTestid="tab-list-menu">
@@ -141,14 +113,8 @@
 	.strip::-webkit-scrollbar {
 		display: none;
 	}
-	/* the ends fade while more lies beyond them */
-	.strip.before {
-		mask-image: linear-gradient(to right, transparent, var(--tool-text) var(--fade));
-	}
+	/* the right end fades while more lies beyond it; the left edge always starts on a whole tab (‹ says more lies before) */
 	.strip.after {
 		mask-image: linear-gradient(to left, transparent, var(--tool-text) var(--fade));
-	}
-	.strip.before.after {
-		mask-image: linear-gradient(to right, transparent, var(--tool-text) var(--fade), var(--tool-text) calc(100% - var(--fade)), transparent);
 	}
 </style>

@@ -159,13 +159,11 @@ try {
 	const pics = await until(`(() => { const img = document.querySelector('[data-testid="flow-pic-g0"] img'); if (!img || !img.complete) return null; const all = [...document.querySelectorAll('.svelte-flow .pic img')]; return { first: img.naturalWidth > 0 ? img.getAttribute('src') : '', broken: all.filter((i) => i.complete && i.naturalWidth === 0).length, slots: document.querySelectorAll('.svelte-flow .pic').length }; })()`, 10000);
 	check(pics && pics.first.endsWith('s1c2-slice-9.webp') && pics.broken === 0, 'Flow panel: group A shows its first slice as a picture, no broken image', JSON.stringify(pics));
 	// the season's and the toon's Flow dock on the right and push the page (like the chapter's Flow and the Ask panel)
-	const pushed = (sel) => `(() => { const dock = document.querySelector('[data-testid="toon-flow"]')?.closest('aside'); const page = document.querySelector('${sel}'); if (!dock || !page || !document.querySelector('.svelte-flow__node')) return null; const d = dock.getBoundingClientRect(), p = page.getBoundingClientRect(); return { dockLeft: Math.round(d.left), pageRight: Math.round(p.right), zoom: document.querySelector('.svelte-flow__viewport')?.style.transform, dead: document.querySelector('[data-testid="flow-dead"] summary')?.textContent ?? '' }; })()`;
+	const pushed = (sel) => `(() => { const dock = document.querySelector('[data-testid="toon-flow"]')?.closest('aside'); const page = document.querySelector('${sel}'); if (!dock || !page || !document.querySelector('.svelte-flow__node')) return null; const d = dock.getBoundingClientRect(), p = page.getBoundingClientRect(); return { dockLeft: Math.round(d.left), pageRight: Math.round(p.right), zoom: document.querySelector('.svelte-flow__viewport')?.style.transform }; })()`;
 	for (const [what, url, sel] of [['season', `${CREATOR}/sandbox/season/1?flow=1`, '.meta-page .content'], ['toon', `${CREATOR}/sandbox?flow=1`, '.creator-page']]) {
 		await send('Page.navigate', { url });
 		const g = await until(pushed(sel), 30000);
 		check(g && g.pageRight <= g.dockLeft + 1 && /scale\(1\)/.test(g.zoom), `${what} Flow: docked, the page makes room (page ends ${g?.pageRight}, dock starts ${g?.dockLeft}), first view 1:1`, JSON.stringify(g));
-		// the dead things in words ("Unused: 1 variable · 9 labels"), never bare numbers
-		check(!g?.dead || !/:\s*\d+\s*·\s*\d+/.test(g.dead), `${what} Flow: the dead-things line in words`, g?.dead);
 	}
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {

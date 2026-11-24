@@ -31,6 +31,7 @@
 	import { isSearchKey, isSwitcherKey } from '$lib/shell/launcher.ts';
 	import { ITEM_VIEW } from '$lib/shell/stage.ts';
 	import { saveWorkspace } from '$lib/shell/workspace-actions.ts';
+	import { emptyWorkspace } from '$lib/shell/workspaces.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Workspace from '$lib/components/shell/workspace.svelte';
@@ -253,7 +254,8 @@
 		const label = item?.includes('?') ? front.slice(front.indexOf(':') + 1) : pageLabel(nav.extra, item) || tabLabel(tabPath(nav.base), item);
 		if (label) shell.rename(front, label);
 	});
-	const workspace = $derived(shell.state.front ? (workspaceOf(shell.state.front) ?? 'home') : 'home');
+	/** the front item's workspace; nothing in front: the workspace whose empty page this is, else Home */
+	const workspace = $derived(shell.state.front ? (workspaceOf(shell.state.front) ?? 'home') : (emptyWorkspace(page.url.pathname) ?? 'home'));
 	/** where the open item is read: the toon or its chapter in the reader (printed URLs, RULES I1) */
 	const reader = $derived(toonId ? `${VIEWER_URL}/${toonId}${page.params.chapterNumber ? `/chapter/${page.params.chapterNumber}` : ''}` : null);
 

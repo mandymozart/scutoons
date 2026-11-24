@@ -18,6 +18,8 @@
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { usePageDoc, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { DocSession, useAutosave } from '$lib/editor/doc-session.svelte.ts';
+	import { pageRedo, pageUndo } from '$lib/editor/history.svelte.ts';
+	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import FlowTab from '$lib/components/flow/flow-tab.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
@@ -249,8 +251,15 @@
 		}
 	});
 	useAutosave(session);
-	// the bar's Publish saves the page first and has it read again what went live
-	usePageDoc(() => ({ saving: busy || session.anySaving, unpublished: pageDocs.some((d) => d.unpublished.length > 0), ...session.publishHooks }));
+	// the bar's Publish saves the page first and has it read again what went live; ↶ ↷ the toon's and the season's edits
+	const creator = getCreatorSession();
+	usePageDoc(() => ({
+		saving: busy || session.anySaving,
+		unpublished: pageDocs.some((d) => d.unpublished.length > 0),
+		...session.publishHooks,
+		undo: () => void pageUndo(pageDocs, creator.user?.email ?? ''),
+		redo: () => void pageRedo(pageDocs)
+	}));
 </script>
 
 <div class="creator-page">
@@ -311,7 +320,7 @@
 				<!-- owner 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
 				     translations with × (owner 2026-10-14: the source is changed on the script page – the ultimate source), an "add" select at the end -->
 				<section class="languages" data-testid="languages">
-					<span class="sc-label">{m['creator.languages']()}</span>
+					<span class="sc-label" title={m['creator.languages_hint']()}>{m['creator.languages']()}</span>
 					<ul class="chips">
 						<li class="sc-chip-control is-filled source" title={m['creator.source_language']()} data-testid="source-language">{languageLabel(edited.source)}<SourceMark /></li>
 						{#each targets as l (l)}
