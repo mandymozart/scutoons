@@ -184,7 +184,7 @@
 		padding: 0 var(--space-1);
 		border: 0;
 		border-bottom: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
+		border-radius: var(--radius-none) var(--radius-none) 0 0;
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;

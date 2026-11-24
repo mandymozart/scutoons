@@ -150,16 +150,17 @@
 		position: absolute;
 		inset: 0;
 	}
-	/* Svelte Flow in the house look: paper, ink lines, the reader's caption type for edge labels */
+	/* Svelte Flow in the kit's look: the stage shows through, ink lines, the kit's radii */
 	.graph :global(.svelte-flow) {
-		--xy-background-color: var(--tool-ground);
+		--xy-background-color: transparent;
 		--xy-edge-stroke: var(--tool-text);
 		--xy-edge-stroke-width: 1.5;
 		--xy-edge-label-background-color: var(--tool-ground);
 		--xy-edge-label-color: var(--tool-text);
-		--xy-minimap-background-color: var(--tool-ground);
-		--xy-minimap-mask-background-color: color-mix(in srgb, var(--tool-pressed) 12%, transparent);
-		--xy-node-border-radius: 0;
+		--xy-minimap-background-color: transparent;
+		--xy-minimap-mask-background-color: var(--tool-hover);
+		--xy-minimap-mask-stroke-color: var(--tool-line);
+		--xy-node-border-radius: var(--kit-radius-tile);
 		font-family: inherit;
 	}
 	.graph :global(.svelte-flow__node-flow) {
@@ -192,7 +193,9 @@
 	}
 	/* on the stage the graph runs under the bar and the panels: its own controls keep clear of them (stage.svelte) */
 	.graph :global(.svelte-flow__minimap) {
-		border: var(--border-width-regular) solid var(--tool-text);
+		border: var(--editor-edge) solid var(--tool-line);
+		border-radius: var(--kit-radius-tile);
+		overflow: hidden;
 		margin: var(--space-05);
 		margin-right: calc(var(--stage-right, 0rem) + var(--space-05));
 		margin-bottom: calc(var(--stage-bottom, 0rem) + var(--space-05));
