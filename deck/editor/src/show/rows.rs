@@ -343,69 +343,6 @@ pub fn cell_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (x, y, w): (f32,
     y + pad * 0.5 - top
 }
 
-/// One line of a picker in the stage's place: its label, its detail, whether it is what is set now, whether a press picks it.
-pub(super) struct Line<'a> {
-    pub label: &'a str,
-    pub detail: &'a str,
-    pub now: bool,
-    pub can: bool,
-}
-
-/// What a picker in the stage's place shows (#537 the piece, #539 the event – one look): its heading, its typed field
-/// (the label, the query, the text while typed, its place), then the lines (a press on line `i` is `pick(i)`; none match:
-/// `none`) or, where there is no list, why not and what to type.
-pub(super) struct Picker<'a> {
-    pub title: &'a str,
-    pub field: (&'a str, &'a str, Option<&'a str>, Hit),
-    pub list: Result<Vec<Line<'a>>, (&'a str, &'a str)>,
-    pub none: &'a str,
-    pub pick: fn(usize) -> Hit,
-}
-
-pub(super) fn draw_picker(d: &mut DrawList, t: &Tokens, host: &mut Host, a: Rect, p: Picker, pointer: (f32, f32)) {
-    let (pad, font, small, row) = (t.size.pad, t.size.font, t.size.small, t.size.tree_row);
-    let mut y = a.y + pad;
-    d.text(a.x + pad, y, small, &fit(d, p.title, small, a.w - 2.0 * pad), t.color.muted);
-    y += small * 1.8;
-    let (label, query, typing, hit) = p.field;
-    let r = field(d, t, (a.x + pad, y, (a.w - 2.0 * pad).min(520.0)), label, query, typing);
-    host.hits.push((r, hit));
-    y += row + pad * 0.5;
-    d.rect(a.x, y - 4.0, a.w, 1.0, t.color.line);
-    let list = match p.list {
-        Ok(list) => list,
-        Err((why, type_it)) => {
-            d.text(a.x + pad, y + 4.0, font, &fit(d, why, font, a.w - 2.0 * pad), t.color.warn);
-            d.text(a.x + pad, y + 4.0 + font * 1.7, font, &fit(d, type_it, font, a.w - 2.0 * pad), t.color.muted);
-            return;
-        }
-    };
-    if list.is_empty() {
-        d.text(a.x + pad, y + 4.0, font, p.none, t.color.muted);
-    }
-    for (i, l) in list.iter().enumerate() {
-        if y + row > a.y + a.h {
-            d.text(a.x + pad, y + 2.0, small, &format!("{} more …", list.len() - i), t.color.muted);
-            break;
-        }
-        let whole = Rect { x: a.x, y, w: a.w, h: row };
-        if l.now {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.selected);
-        } else if l.can && whole.has(pointer.0, pointer.1) {
-            d.rect(whole.x, whole.y, whole.w, whole.h, t.color.hover);
-        }
-        let ty = y + (row - font * 1.25) * 0.5;
-        d.text(a.x + pad, ty, font, &fit(d, l.label, font, a.w * 0.4 - pad), if l.can { t.color.text } else { t.color.muted });
-        d.text(a.x + a.w * 0.4, ty + 1.0, small, &fit(d, l.detail, small, a.w * 0.6 - pad), t.color.muted);
-        d.rect(a.x, y + row - 1.0, a.w, 1.0, t.color.line);
-        if l.can {
-            host.hits.push((whole, (p.pick)(i)));
-        }
-        y += row;
-    }
-}
-
-
 #[cfg(test)]
 pub(super) mod tests {
     use super::super::{api, author, Hit, Host};
@@ -472,6 +409,8 @@ pub(super) mod tests {
         host.hits.clear();
         author::draw(&mut d, &t, host, W, H, (0.0, 0.0));
         super::super::scenes::panel(&mut d, &t, host, &mut crate::library::Library::new(std::env::temp_dir().join("deck-editor-rows-library")), (0.0, 0.0));
+        // an open dialog lies over it all: only its places answer
+        super::super::dialog::draw(&mut d, &t, host, (W, H), (0.0, 0.0));
         let (r, hit) = host.hits.iter().rev().find(|(_, h)| want(h)).copied().unwrap_or_else(|| panic!("no such place: {:?}", host.hits.iter().map(|(_, h)| h).collect::<Vec<_>>()));
         assert_eq!(host.hit(r.x + r.w * 0.5, r.y + r.h * 0.5), Some(hit), "the place answers its press");
         host.press(hit);
@@ -534,7 +473,7 @@ pub(super) mod tests {
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "new-show", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
-        press(&mut host, |h| *h == Hit::Load);
+        host.reload();
         assert_eq!(host.status, "loaded new-show@1");
         assert_eq!(host.shown(), &fixture, "loaded as saved");
 

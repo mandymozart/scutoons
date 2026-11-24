@@ -9,13 +9,14 @@
 //! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
 //! route in the rig through the core's edit and validate, the rig replays, the draft is its outbox entry; ctrl+z takes it back.
 //!
-//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
+//! deck-editor [scutoons-deck://WORKSPACE[/ADDRESS]] [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod adding;
 mod autosave;
 mod bar;
 mod book;
 mod colour;
 mod creator_cards;
+mod device_row;
 mod dop;
 mod empty;
 mod frame;
@@ -30,12 +31,14 @@ mod live_tabs;
 mod log;
 mod main_menu;
 mod logo;
+mod opens;
 mod media;
 mod media_draw;
 mod media_tab;
 mod mixer;
 mod module;
 mod inspector;
+mod instance;
 mod kit_page;
 mod kit_spores;
 mod latency;
@@ -250,10 +253,12 @@ struct Args {
     node_zoom: Option<f32>,
     /// the kit page over everything (kit_page.rs): every component in its states
     kit: bool,
+    /// the `scutoons-deck://` link it was started with (opens.rs)
+    link: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_place: None, library_at: None, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_place: None, library_at: None, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new(), link: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -430,6 +435,9 @@ fn args() -> Result<Args> {
             "--flash-ask" => a.script.flash_ask = true,
             "--flash-confirm" => a.script.flash_confirm = true,
             "--flash-force" => a.script.flash_force = true,
+            // H19: the server names this version the newest of the show shown – its notice, without a server
+            "--newer-version" => a.script.newer = Some(val()?.parse().context("--newer-version VERSION_ID")?),
+            "--devices" => a.script.devices = show::flash::parse_devices(&val()?).context("--devices ID=OUTLET@VERSION[~],…")?,
             "--seat" => a.script.seat = Some(val()?),
             "--row" => a.script.row = Some(val()?),
             "--sheet" => a.script.sheet = Some(show::Sheet::parse(&val()?).context("--sheet cues | problems | flash | who | session | vote | event | scene | demos | new-show")?),
@@ -493,9 +501,10 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--views] [--switcher] [--creator-session FILE] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [scutoons-deck://WORKSPACE[/ADDRESS]] [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--views] [--switcher] [--creator-session FILE] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
+            v if v.get(..14).is_some_and(|s| s.eq_ignore_ascii_case("scutoons-deck:")) => a.link = Some(v.to_string()),
             other => anyhow::bail!("unknown argument {other}"),
         }
     }
@@ -540,6 +549,8 @@ enum Hit {
     Undo,
     Redo,
     Publish,
+    /// a Show's Flash: its dialog (show/flash.rs)
+    Flash,
     /// a workspace of the row
     Workspace(deck_ui::workspaces::Workspace),
     /// the toolbar's panic pill
@@ -806,6 +817,9 @@ struct App {
     switcher: bool,
     switch_hits: Vec<(Rect, switcher::Press)>,
     creator: creator_cards::Loader,
+    /// the starts handed to this editor (one per machine; none in a check run), its device row and cards' stills
+    instance: Option<instance::Instance>,
+    row: device_row::DeviceRow,
     /// the ☰ menu open, and what is open beside it; its places this frame
     main_menu: Option<main_menu::Side>,
     menu_hits: Vec<(Rect, main_menu::Press)>,
@@ -910,6 +924,11 @@ fn run() -> Result<i32> {
         deck_native::module_host::Library::global().get(id).map(|l| l.host())
     }));
     let _ = CACHE.set(deck_native::cache::for_api(&args.api));
+    let instance = match args.frames.is_none().then(|| instance::claim(&cache_dir(), args.link.as_deref())) {
+        Some(instance::Claim::Handed) => return Ok(0),
+        Some(instance::Claim::Own(i)) => Some(i),
+        None => None,
+    };
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let cache = cache_dir();
     // a check run never reads or writes the outbox
@@ -1090,6 +1109,8 @@ fn run() -> Result<i32> {
         switcher: false,
         switch_hits: Vec::new(),
         creator,
+        instance,
+        row: Default::default(),
         main_menu: None,
         menu_hits: Vec::new(),
         still: Still::None,
@@ -1302,9 +1323,7 @@ impl App {
         }
         let (x, y) = self.cursor;
         match (a, self.workspace) {
-            (A::Open, show::Workspace::Stage | show::Workspace::Home) => self.open_rigs(x, y),
-            (A::Open, _) => self.show.press(show::Hit::Load),
-            (A::New, show::Workspace::Show) => self.show.press(show::Hit::Sheet(show::Sheet::NewShow)),
+            (A::Open, _) => self.open_rigs(x, y),
             // New …: a scene, a module, a show, beside the ☰ menu
             (A::New, _) => self.main_menu = Some(main_menu::Side::New),
             (A::Audio, _) => {
@@ -1402,6 +1421,11 @@ impl App {
                 _ => Help::new("Menu", "Click to do it."),
             });
         }
+        if self.workspace == show::Workspace::Show {
+            if let Some((name, text)) = show::dialog::help(&self.show, x, y) {
+                return Some(Help::new(name, text));
+            }
+        }
         if self.switcher_shows() {
             if let Some(p) = self.switch_hits.iter().find(|(r, _)| r.has(x, y)).map(|(_, p)| *p) {
                 let (name, text) = resume::help_of(p);
@@ -1414,6 +1438,10 @@ impl App {
             Hit::Undo => Help::new("Undo", "Takes back the newest change (ctrl+z)."),
             Hit::Redo => Help::new("Redo", "Brings the step taken back again (ctrl+shift+z)."),
             Hit::Publish => Help::new("Publish", self.menu_why_not(bar::Action::Publish).unwrap_or("Publishes what changed.")),
+            Hit::Flash => {
+                let n = self.show.flash_dot();
+                Help::new("Flash", format!("Sends the show to the decks of its tree: {} on its version, {} behind, {} offline or not answered yet. Click to choose them.", n.current, n.behind, n.unknown))
+            }
             Hit::Workspace(w) => Help::new(w.word(), format!("{} Click to go there: the item in front stays when it fits, else its last item comes forward, else it opens empty.", w.about())),
             Hit::TempoClick => Help::new(
                 if self.stage.pill.is_some_and(|p| p.click) { "Click on" } else { "Click off" },
@@ -1654,6 +1682,11 @@ impl App {
             let outcome = p.press(x, y);
             return self.scene_prompt_done(outcome);
         }
+        // a Show's dialog on the overlay level: only its places answer, a press outside closes it
+        if self.workspace == show::Workspace::Show && self.show.dialog() {
+            let h = self.show.hit(x, y).unwrap_or(show::Hit::DialogClose);
+            return self.show.press(h);
+        }
         // a click elsewhere finishes the typing
         if let Some(e) = &self.edit {
             if e.at.has(x, y) {
@@ -1782,6 +1815,7 @@ impl App {
                     self.refuse(why.to_string(), x, y);
                 }
             }
+            Hit::Flash => self.show.press(show::Hit::Flash),
             Hit::Workspace(w) => self.workspace_click(w),
             Hit::TabFront(i) if self.tabs.front == Some(i) => self.tab_top(),
             Hit::TabFront(i) => self.activate(i),
@@ -3002,6 +3036,7 @@ impl App {
         self.follow_scene();
         self.follow_tabs();
         self.follow_session();
+        self.take_links();
         self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
             self.book = book::Loader::new(&self.args.api, &[], Some(&f), None, &cache_dir());
@@ -3064,9 +3099,11 @@ impl App {
         let menu_views = if self.main_menu == Some(main_menu::Side::Views) { self.menu_views() } else { Vec::new() };
         let menu_disabled: Vec<main_menu::Line> = [bar::Action::Open, bar::Action::New, bar::Action::Settings, bar::Action::Audio, bar::Action::Account, bar::Action::Quit].into_iter().filter(|a| self.menu_why_not(*a).is_some()).map(main_menu::Line::Do).chain(self.deck_ws().is_none().then_some(main_menu::Line::Views)).collect();
         let load = self.load_words();
-        // the overlay level (RULES H15): the switcher over a workspace, a panel taken full, the new scene's prompt
+        // the overlay level (RULES H15): the switcher over a workspace, a panel taken full, the new scene's prompt, a Show's
+        // dialog
         let full_id = self.panels().full.clone();
-        let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some();
+        let dialog = self.workspace == show::Workspace::Show && self.show.dialog();
+        let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some() || dialog;
         let blur = !self.settings.motion.reduce_motion;
         // the still is taken of the workspace as it lies under the overlay: a panel taken full floats in it, that once
         if overlay && blur && self.still == Still::None && self.gpu.as_ref().is_some_and(|g| g.can_capture) && full_id.is_some() {
@@ -3242,6 +3279,7 @@ impl App {
             panic: shows || playing || self.show.sub.panicked() || self.show.live(),
             undo: can_undo,
             publish,
+            flash: shows.then(|| self.show.flash_dot().behind > 0),
             account,
             pulse,
             pointer: if overlay || self.main_menu.is_some() { (f32::NAN, f32::NAN) } else { self.cursor },
@@ -3265,6 +3303,9 @@ impl App {
         self.panel.hits.push((placed.redo, Hit::Redo));
         if let Some(r) = placed.publish {
             self.panel.hits.push((r, Hit::Publish));
+        }
+        if let Some(r) = placed.flash {
+            self.panel.hits.push((r, Hit::Flash));
         }
         if let Some(r) = placed.plus {
             self.panel.hits.push((r, Hit::Plus));
@@ -3973,9 +4014,15 @@ impl App {
                 }
             }
         }
+        if dialog && taking {
+            self.show.hits.clear();
+        }
         if !taking {
             if let Some(p) = self.scene_prompt.as_mut() {
                 p.draw(ui, t, (wf, hf));
+            }
+            if dialog {
+                show::dialog::draw(ui, t, &mut self.show, (wf, hf), self.cursor);
             }
             // the switcher over the workspace, or Home under the bar (the still's first frame keeps the last places)
             self.switch_hits = dash.map(|d| d.draw(ui, t, (wf, hf), self.cursor)).unwrap_or_default();
@@ -4009,6 +4056,7 @@ impl App {
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
         let readback = shot.as_ref().map(|_| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
         let still_copy = taking.then(|| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
+        let card_copy = (!overlay && self.row.wants_still(self.frames)).then(|| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
         if let Some(g) = self.gpu_time.as_mut() {
             g.end(&mut enc);
         }
@@ -4026,6 +4074,9 @@ impl App {
         }
         if let Some(img) = self.stage.read_still(&gpu.device) {
             self.library.still(img);
+        }
+        if let Some(px) = card_copy.and_then(|(buf, stride)| read_out(&gpu.device, &buf, stride, (w, h), gpu.format()).ok()) {
+            self.row.took(px, (w, h));
         }
         if let Some((buf, stride)) = still_copy {
             let rest = t.kit("overlay", "rest");
@@ -4221,6 +4272,10 @@ impl ApplicationHandler for App {
                     self.panic_pill();
                 }
             }
+            // Esc in a Show's dialog: a field typed stops, the confirm steps back, else it closes
+            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && self.workspace == show::Workspace::Show && self.show.dialog() => self.show.dialog_escape(),
+            // the window's focus: a newer version of the open show is asked for at once (H19)
+            WindowEvent::Focused(true) => self.show.newer.focus = true,
             // Esc closes the ☰ menu, the switcher open over a workspace, a panel taken full
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed && event.logical_key == Key::Named(NamedKey::Escape) && (self.main_menu.is_some() || self.switcher || self.panels().full.is_some()) => {
                 if self.main_menu.take().is_none() && !std::mem::take(&mut self.switcher) {

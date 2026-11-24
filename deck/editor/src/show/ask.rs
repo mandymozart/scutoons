@@ -671,7 +671,7 @@ mod tests {
         host.save_waiting();
         assert_eq!(host.save_pill(), "saved · v2");
         host.sub = deck_show::Subtree::new(deck_show::parse(r#"{ "id": "vote-cell", "version": 1, "toons": ["catpope"], "outlets": [{ "id": "left" }], "rows": [] }"#).unwrap(), deck_show::ClockChoice::Parent);
-        press(&mut host, |h| *h == Hit::Load);
+        host.reload();
         assert_eq!(host.shown(), &made, "loaded as saved");
 
         // the cell's ▶ – the conductor opens the question's vote for both columns, through the relay

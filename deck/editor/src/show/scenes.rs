@@ -75,12 +75,12 @@ impl Host {
 }
 
 /// Show's library panel: the toon picker in place while the show names none, why there is no book yet, else the library
-/// with "new scene".
+/// (a new scene is the ☰ menu's New …).
 pub fn panel(d: &mut DrawList, t: &Tokens, host: &mut Host, lib: &mut Library, pointer: (f32, f32)) {
     let (pad, small) = (t.size.pad, t.size.small);
     if host.show_toon().is_some() && host.book.is_some() {
         if let Some(o) = host.show_panels.open(d, t, PANEL, pointer, 0) {
-            lib.draw(d, t, o.area, pointer, Some(super::new_scene::NEW));
+            lib.draw(d, t, o.area, pointer, None);
             host.show_panels.close(d, o, &mut lib.browser.hits);
         }
         return;
@@ -165,7 +165,7 @@ pub(in crate::show) mod tests {
         frame(&mut host, &mut lib);
         let listed: Vec<&str> = lib.entries.iter().map(|e| e.address.as_str()).collect();
         assert_eq!(listed, ["scene:nave", "scene:vigil", "character:catpope"]);
-        assert!(lib.browser.hits.iter().any(|(_, h)| *h == deck_kit::editor::library::Hit::Action), "new scene");
+        assert!(!lib.browser.hits.iter().any(|(_, h)| *h == deck_kit::editor::library::Hit::Action), "a new scene is the ☰ menu's");
     }
 
     #[test]

@@ -15,12 +15,10 @@ pub fn draw(d: &mut DrawList, t: &Tokens, host: &mut Host, area: Rect, pointer: 
     match host.sheet {
         Some(Sheet::Cues) => cues(d, t, host, area, pointer),
         Some(Sheet::Problems) => problems(d, t, host, area, pointer),
-        Some(Sheet::Flash) => super::flash::draw(d, t, host, area, pointer),
         Some(Sheet::Who) => super::roles::who(d, t, host, area, pointer),
-        Some(Sheet::Event) => {}
-        Some(Sheet::Scene) => super::new_scene::draw(d, t, host, area, pointer),
+        // the slot's Find hangs under its slot; Flash, a scene and a new show are dialogs (dialog.rs)
+        Some(Sheet::Event | Sheet::Flash | Sheet::Scene | Sheet::NewShow) => {}
         Some(Sheet::Demos) => super::demos::draw(d, t, host, area, pointer),
-        Some(Sheet::NewShow) => super::toons::new_sheet(d, t, host, area, pointer),
         Some(Sheet::Session) => super::session::draw(d, t, host, area, pointer),
         Some(Sheet::Vote) => super::vote::draw(d, t, host, area, pointer),
         None => {}

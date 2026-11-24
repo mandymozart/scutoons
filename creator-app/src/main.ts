@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, session, shell, type IpcMainEvent, type WebContents } from 'electron';
 import { deckInstalled } from './deck.ts';
+import { frameOf, frameOptions, windowAction, type Frame } from './frame.ts';
 import { goesOutside, linkIn, readConfig, readSchemes, sameOrigin } from './link.ts';
 
 const root = path.join(__dirname, '..');
@@ -79,10 +80,14 @@ function createWindow(): void {
 		show: false,
 		autoHideMenuBar: true,
 		backgroundColor: nativeTheme.shouldUseDarkColors ? '#000000' : '#ffffff',
+		...frameOptions(process.platform),
 		webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
 	});
 	if (process.platform !== 'darwin') window.removeMenu();
 	window.once('ready-to-show', () => window?.show());
+	const maximized = (on: boolean) => () => window?.webContents.send('creator-app:maximized', on);
+	window.on('maximize', maximized(true));
+	window.on('unmaximize', maximized(false));
 	window.on('focus', () => void refreshDeck());
 	window.on('closed', () => (window = null));
 	window.webContents.on('did-start-navigation', (details) => {
@@ -127,6 +132,20 @@ if (!app.requestSingleInstanceLock()) {
 	});
 	ipcMain.on('creator-app:deck-download', (event) => {
 		if (fromCreator(event) && config.deckDownloadUrl) void shell.openExternal(config.deckDownloadUrl);
+	});
+	// the main window has no system title bar (frame.ts); a window the page opened keeps the system's
+	ipcMain.on('creator-app:frame', (event) => {
+		const own = fromCreator(event) && event.sender === window?.webContents;
+		const frame: Frame = own ? frameOf(process.platform) : 'system';
+		event.returnValue = fromCreator(event) ? { frame, maximized: own && !!window?.isMaximized() } : null;
+	});
+	ipcMain.on('creator-app:window', (event, raw: unknown) => {
+		const action = windowAction(raw);
+		if (!action || !fromCreator(event) || !window || event.sender !== window.webContents) return;
+		if (action === 'minimize') window.minimize();
+		else if (action === 'close') window.close();
+		else if (window.isMaximized()) window.unmaximize();
+		else window.maximize();
 	});
 
 	void app.whenReady().then(async () => {

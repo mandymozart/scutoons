@@ -1,10 +1,9 @@
 //! A Show tab (#91, the owner's draft m1-show), floating panels over the stage: the outline (this deck's conductor, its
 //! seats – a seat enters its sub conductor, the toolbar's path leads back –, the roles, the rows of the document shown);
 //! the node view of the selected row (nodes.rs) or the sheet open; the rows band, which is the cue matrix too; the scene
-//! list; the inspector of the row with save and load; the info; a running show's optional panels (live.rs). The sheets'
+//! list; the inspector of the row; the info; a running show's optional panels (live.rs). The sheets'
 //! pills sit in the toolbar, the 2D / 3D switch in the tools pill. The words are deck-show's view.rs; this file lays them
 //! out and names the places (`Hit`).
-use super::live::button;
 use super::{Hit, Host, Sheet};
 use deck_kit::editor::controls::{self, Rect};
 use deck_kit::base::draw::DrawList;
@@ -15,13 +14,13 @@ fn fit(d: &DrawList, text: &str, px: f32, w: f32) -> String {
     controls::fit(text, (w / d.advance(px)).max(0.0) as usize)
 }
 
-/// the Show's views of its own (RULES H16): each a sheet in the sheet panel, listed in the ☰ Views – id, name, icon (the
-/// flash list opens from Flash)
+/// the Show's views of its own (RULES H16): each a sheet in the sheet panel, listed in the ☰ Views – id, name, icon (Flash,
+/// a scene and a new show are dialogs: dialog.rs)
 pub const SHEETS: [(&str, &str, &str, Sheet); 6] = [
     ("cues", "Cues", "list", Sheet::Cues),
     ("problems", "Problems", "alert", Sheet::Problems),
     ("who", "Who", "users", Sheet::Who),
-    ("session", "Session", "link", Sheet::Session),
+    ("readers", "Readers", "link", Sheet::Session),
     ("vote", "Vote", "activity", Sheet::Vote),
     ("demos", "Demos", "play", Sheet::Demos),
 ];
@@ -59,8 +58,8 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
     // the panels shown and what each asks for: the rows band as its whole table, scrolled once it cannot grow
     let band_size = super::band::table(t, &band, true, &host.view_sizes()).size();
     let mut shown: Vec<(&'static str, f32, Option<f32>)> = vec![("outline", t.size.tree * 1.3, None), ("inspector", 340.0, None)];
-    // the slot's Find hangs under its slot, not in a sheet
-    if sheet.is_some_and(|s| s != Sheet::Event) {
+    // the slot's Find hangs under its slot, a dialog lies on the overlay level (dialog.rs): neither is in the sheet panel
+    if sheet.is_some_and(|s| s != Sheet::Event && !s.dialog()) {
         shown.push((SHEET_PANEL, 640.0, Some(440.0)));
     } else if host.two_d {
         shown.push(("nodes", 960.0, Some(560.0)));
@@ -125,18 +124,11 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         host.show_panels.close(d, o, &mut host.hits);
     }
 
-    // the inspector: Load, Flash and what the last one came to, then the row's (or #478 the selected role's)
+    // the inspector: the show's background and toons, then the row's (or #478 the selected role's); Flash is the bar's,
+    // a newer version a notice (RULES H18, H19)
     if let Some(o) = host.show_panels.open(d, t, "inspector", pointer, host.hits.len()) {
         let a = o.area;
-        let bh = 30.0;
-        let bw = (a.w - pad) / 2.0;
-        let load = Rect { x: a.x, y: a.y, w: bw, h: bh };
-        let flash = Rect { x: a.x + bw + pad, y: a.y, w: bw, h: bh };
-        button(d, t, load, "Load", t.color.control, t.color.text);
-        button(d, t, flash, "Flash", t.color.control, t.color.text);
-        host.hits.push((load, Hit::Load));
-        host.hits.push((flash, Hit::Flash));
-        let mut y = a.y + bh + 6.0 + small * 0.6;
+        let mut y = a.y;
         let typing = host.typing.as_ref().filter(|(what, _)| matches!(what, super::roles::Typing::Background)).map(|(_, f)| f.text.clone());
         match typing {
             Some(text) => {
@@ -168,8 +160,9 @@ fn draw_once(d: &mut DrawList, t: &Tokens, host: &mut Host, (w, h): (f32, f32), 
         deck_kit::editor::info::body(d, t, (o.area.x, o.area.y, o.area.w), host.help.as_ref());
         host.show_panels.close(d, o, &mut host.hits);
     }
-    // the slot's Find, over the panels
+    // the slot's Find, over the panels; a newer version's notice above the status line
     super::events::find(d, t, host, (w, h), pointer);
+    super::newer::notice(d, t, host, (w, h), pointer);
     // #478: a prompt asked (a role's remove) over everything: only its presses count
     let room = crate::panels::Panels::room((w, h), crate::bar::bottom(t), t.size.gap);
     super::roles::ask(d, t, host, room);
@@ -233,19 +226,6 @@ fn row_side(d: &mut DrawList, t: &Tokens, host: &mut Host, (show, sel, seats): (
         y += font * 1.5;
         d.text(rx + rw * 0.38, y + 2.0, small, &fit(d, &s.sits, small, rw * 0.62), t.color.muted);
         y += t.size.row;
-    }
-    // #91 item 5: what each deck and sub conductor answered to the last flash (deck-show's words)
-    y += controls::section(d, t, rx, y, rw, "FLASH REPORTS", false);
-    let reports = view::reports(&host.sub);
-    for r in &reports {
-        d.disc(rx + 4.0, y + 4.0 + font * 0.62, 3.5, if r.ok { t.color.go } else { t.color.warn });
-        d.text(rx + 14.0, y + 4.0, font, &fit(d, &format!("{} · {}", r.what, r.from), font, rw - 14.0), t.color.text);
-        y += font * 1.5;
-        for l in std::iter::once(&r.line).chain(&r.lacks) {
-            d.text(rx + 14.0, y + 2.0, small, &fit(d, l, small, rw - 14.0), t.color.muted);
-            y += small * 1.6;
-        }
-        y += pad * 0.5;
     }
     y
 }

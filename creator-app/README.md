@@ -19,6 +19,21 @@ deck is installed. It sits outside the npm workspaces, with its own `package-loc
 - Downloads (Electron, NSIS) are cached in `creator-app/.cache/`; `dist/`, `out/` and `.cache/` are ignored.
 - Sign-in: email and the one-time code typed in the app. The mail's magic link opens the browser, not the app.
 
+## The window (#886)
+
+As the deck's editor (`deck/editor/src/frame.rs`): no system title bar. `src/frame.ts` decides it, the preload hands the
+page `frame` and the window's buttons (minimize, maximize / restore, close, the maximized state), nothing else; the main
+process acts only on the creator's own main window.
+
+- **Windows and Linux** (one path): a frameless window (`frame: false`; on Windows `thickFrame` keeps the resize edges,
+  snapping and the shadow). The creator's bar is the title bar: its empty run is the drag region
+  (`-webkit-app-region: drag`, a double click maximizes / restores), its controls are not, and the three window buttons
+  (– □/❐ ×) sit at its right end after ☰. The deck's light Arch system has no system top bar either, so Linux matches
+  Windows (owner 2026-11-24). Built and seen on Windows only; the Linux window is configured, untested.
+- **macOS:** `titleBarStyle: 'hiddenInset'` – the system's traffic lights at the bar's left end (the bar leaves room
+  for them), the bar the drag region, no own buttons. Configured, untested.
+- A window the page opens (same origin) keeps the system's frame.
+
 ## The links
 
 - Windows: the installer writes `HKCU\Software\Classes\scutoons-creator` (generated `out/installer.nsh`) and the
