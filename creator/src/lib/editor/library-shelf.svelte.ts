@@ -5,10 +5,14 @@ import { getContext, setContext } from 'svelte';
 import { library as libraryAnswer, libraryPath, type FileOrigin, type LibraryEntry, type LibraryLevel, type LibraryQuery, type LibraryStep } from '@scutoons/api';
 import { api, ApiError } from '$lib/api.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
+import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 import { contextKey, shared } from '$lib/utils/shared.ts';
 import { freshItem, placeAvailable, placeQuery, startPlace, type PickFit, type PlaceContext, type ShelfGrouping, type ShelfPlace, type ShelfSort } from './library-list.ts';
 
 const VIEW_KEY = 'sc-creator-library-shelf';
+
+/** the language the Library's names are asked in: the one every content name follows (the text language), as the tree */
+export const namesLocale = () => textLanguage.names || getLocale();
 
 interface Held {
 	version: string;
@@ -109,7 +113,7 @@ export class Shelf {
 
 	/** the server's query for what is chosen (a pick: within what its slot takes) */
 	queryFor(ctx: PlaceContext, fit: PickFit | null = null): LibraryQuery {
-		return placeQuery(this.place(ctx), ctx, this.choice, this.from, fit, getLocale());
+		return placeQuery(this.place(ctx), ctx, this.choice, this.from, fit, namesLocale());
 	}
 
 	/** show the answer for `q`: held at once, asked again with its version; a failed ask waits for the next change */
@@ -154,7 +158,7 @@ export class Shelf {
 		if (known) return known[0] ?? null;
 		if (!this.#openAsked.has(address)) {
 			this.#openAsked.add(address);
-			libraryAnswer(api, { at: address, locale: getLocale() })
+			libraryAnswer(api, { at: address, locale: namesLocale() })
 				.then((step) => step && (this.#openToons = { ...this.#openToons, [address]: step.at.toons }))
 				.catch(() => undefined);
 		}
@@ -163,16 +167,17 @@ export class Shelf {
 
 	/** a toon's seasons, read once (its step) */
 	loadToon(toon: string) {
-		if (this.#toonsAsked.has(toon)) return;
-		this.#toonsAsked.add(toon);
-		libraryAnswer(api, { at: `toon:${toon}`, locale: getLocale() })
+		const asked = `${toon}:${namesLocale()}`;
+		if (this.#toonsAsked.has(asked)) return;
+		this.#toonsAsked.add(asked);
+		libraryAnswer(api, { at: `toon:${toon}`, locale: namesLocale() })
 			.then((step) => {
 				if (!step) return;
 				const seasons = step.levels.filter((l) => l.level === 'season');
 				const seasonOf = Object.fromEntries(step.levels.filter((l) => l.level === 'chapter' && l.parent.startsWith('season:')).map((l) => [l.address, l.parent]));
 				this.toons = { ...this.toons, [toon]: { seasons, seasonOf } };
 			})
-			.catch(() => this.#toonsAsked.delete(toon));
+			.catch(() => this.#toonsAsked.delete(asked));
 	}
 
 	/** step into a thing (from the list: a new trail; from a thing stepped into: one deeper) */
@@ -205,7 +210,7 @@ export class Shelf {
 	async #stepTo(address: string) {
 		this.stepStatus = 'loading';
 		try {
-			const step = await libraryAnswer(api, { at: address, locale: getLocale() });
+			const step = await libraryAnswer(api, { at: address, locale: namesLocale() });
 			if (this.trail.at(-1) !== address) return;
 			if (step) ((this.step = step), (this.names = { ...this.names, [address]: step.at.name }));
 			this.stepStatus = 'ready';

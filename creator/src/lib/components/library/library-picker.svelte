@@ -4,10 +4,9 @@
 	import { Button, Chip, Overlay } from '@scutoons/ui/editor';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { isThingPick, library } from '$lib/editor/library.svelte.ts';
-	import { pickShelf as shelf, provideShelf } from '$lib/editor/library-shelf.svelte.ts';
+	import { namesLocale, pickShelf as shelf, provideShelf } from '$lib/editor/library-shelf.svelte.ts';
 	import { pickFirst, pickStepped, pressEntry, takesThing } from '$lib/editor/library-pick.svelte.ts';
 	import { PICK_PLACES, findIn, firstPlace, pickChoices, pickGroups, placeAvailable, placeQuery, seasonToon, sortEntries, type PickFit, type PlaceContext, type ShelfPlace } from '$lib/editor/library-list.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import LibraryFind from '$lib/components/library/library-find.svelte';
 	import LibraryGrid from '$lib/components/library/library-grid.svelte';
@@ -41,9 +40,9 @@
 	const ctx = $derived<PlaceContext>({ toon, open: library.address, season: shelf.seasonFor(toon, library.address) });
 	const place = $derived(shelf.place(ctx));
 	const from = $derived(things ? null : shelf.from);
-	const query = $derived(placeQuery(place, ctx, shelf.choice, from, fit, getLocale()));
+	const query = $derived(placeQuery(place, ctx, shelf.choice, from, fit, namesLocale()));
 	const first = $derived(place === 'all' ? firstPlace(request.first, ctx) : null);
-	const firstQuery = $derived(first ? placeQuery(first, ctx, shelf.choice, from, fit, getLocale()) : null);
+	const firstQuery = $derived(first ? placeQuery(first, ctx, shelf.choice, from, fit, namesLocale()) : null);
 	// a cast lists characters and their files; Unused lists files
 	const chips = $derived(
 		PICK_PLACES.filter((p) => placeAvailable(p, ctx) && (p !== 'unused' || !things) && (p !== 'cast' || !isThingPick(request) || request.types.includes('character')))

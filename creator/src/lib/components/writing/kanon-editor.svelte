@@ -79,17 +79,22 @@
 	const current = $derived(outline.filter((h) => h.line <= caret).at(-1) ?? null);
 	const words = $derived(wordCount(text));
 	const translating = $derived(locale !== doc.primary);
-	const showCompare = $derived(comparing && translating && !!script);
+	const showCompare = $derived(comparing && translating);
 
 	function write(next: string) {
-		if (doc.data[locale] && doc.data[locale].text !== next) doc.setLocal(locale, ['text'], next, `script-text:${locale}`);
+		// a translation written beside the source for the first time: its document starts with the first word
+		if (!doc.data[locale]) {
+			if (!next) return;
+			doc.createLocale(locale, () => ({ text: '' }));
+		}
+		if (doc.data[locale].text !== next) doc.setLocal(locale, ['text'], next, `script-text:${locale}`);
 	}
 
 	let editing = $state(false);
 	// an empty text has nothing to guard: it opens ready to type, the caret in the column
 	let focused = false;
 	$effect(() => {
-		if (doc.loading || editing || text.trim() || !script) return;
+		if (doc.loading || editing || text.trim() || (!script && !showCompare)) return;
 		untrack(() => {
 			editing = true;
 			if (!focused) void tick().then(() => editor?.focus());
@@ -204,7 +209,7 @@
 {/snippet}
 
 <MetaPage {toon} {title} docs={[doc]} {validate} wide help="kanon" beforeSave={flush}>
-	{#if !script}
+	{#if !script && !showCompare}
 		<WritingPage title={title} {sub}>
 			<p class="muted" data-testid="script-missing">{m['creator.kanon_missing_locale']({ locale, source: doc.primary })}</p>
 			<p class="row">
