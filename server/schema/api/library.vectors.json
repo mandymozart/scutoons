@@ -1,0 +1,55 @@
+{
+	"description": "The extended Library's file cases (#864): a registry asset (its kind, slug, title, main path and current renditions) → its Library entry's kind, name and picture. The server writes the entries (UniverseIndex::file, PHPUnit ExtendedLibraryApiTest reads these cases); the deck's own reading of GET /api/assets (deck-catalog library.rs `asset`, library/family.rs `kind_of_asset`) gives the same and goes when the deck reads GET /api/library (#874). `recent_days`: the place Recently added (the shelf's RECENT_DAYS).",
+	"cdn": "https://cdn.example",
+	"recent_days": 7,
+	"cases": [
+		{
+			"what": "an image: its smallest image rendition",
+			"asset": { "slug": "cat/s1/a", "kind": "image", "title": "", "path": "cat/s1/a.webp" },
+			"renditions": [
+				{ "path": "cat/s1/a.webp", "mime": "image/webp", "width": 1170, "origin": "uploaded" },
+				{ "path": "cat/s1/a.small.webp", "mime": "image/webp", "width": 390, "origin": "generated" }
+			],
+			"expect": { "kind": "image", "name": "cat/s1/a", "picture": "https://cdn.example/cat/s1/a.small.webp", "origin": "uploaded" }
+		},
+		{
+			"what": "an image without renditions: its own file",
+			"asset": { "slug": "cat/b", "kind": "image", "title": "Bee", "path": "cat/b.png" },
+			"renditions": [],
+			"expect": { "kind": "image", "name": "Bee", "picture": "https://cdn.example/cat/b.png", "origin": "imported" }
+		},
+		{
+			"what": "a video: its poster",
+			"asset": { "slug": "cat/trailer", "kind": "video", "title": "", "path": "cat/trailer.mp4" },
+			"renditions": [
+				{ "path": "cat/trailer.mp4", "mime": "video/mp4", "width": 1920, "origin": "imported" },
+				{ "path": "cat/trailer.poster.webp", "mime": "image/webp", "width": 1920, "origin": "generated" }
+			],
+			"expect": { "kind": "video", "name": "cat/trailer", "picture": "https://cdn.example/cat/trailer.poster.webp", "origin": "imported" }
+		},
+		{
+			"what": "a video without a poster, a model, an audio file: no picture yet",
+			"asset": { "slug": "cat/torso", "kind": "model", "title": "", "path": "cat/torso.glb" },
+			"renditions": [{ "path": "cat/torso.glb", "mime": "model/gltf-binary", "width": null, "origin": "uploaded" }],
+			"expect": { "kind": "model", "name": "cat/torso", "picture": null, "origin": "uploaded" }
+		},
+		{
+			"what": "an audio file with a cover rendition: a sound shows no picture",
+			"asset": { "slug": "cat/bell", "kind": "audio", "title": "Bell", "path": "cat/bell.mp3" },
+			"renditions": [{ "path": "cat/bell.mp3", "mime": "audio/mpeg", "width": null, "origin": "imported" }, { "path": "cat/bell.webp", "mime": "image/webp", "width": 300, "origin": "imported" }],
+			"expect": { "kind": "audio", "name": "Bell", "picture": null, "origin": "imported" }
+		},
+		{
+			"what": "archive, document, font and other are a file",
+			"asset": { "slug": "scutoons/fonts/x", "kind": "font", "title": "", "path": "scutoons/fonts/x.woff2" },
+			"renditions": [],
+			"expect": { "kind": "file", "name": "scutoons/fonts/x", "picture": null, "origin": "imported" }
+		},
+		{
+			"what": "an animation keeps its kind",
+			"asset": { "slug": "scutoons/animations/walk", "kind": "animation", "title": "Walk", "path": "scutoons/animations/walk.glb" },
+			"renditions": [{ "path": "scutoons/animations/walk.glb", "mime": "model/gltf-binary", "width": null, "origin": "uploaded" }],
+			"expect": { "kind": "animation", "name": "Walk", "picture": null, "origin": "uploaded" }
+		}
+	]
+}

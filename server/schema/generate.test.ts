@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { addressBookPhp, addressBookRs, addressBookTs, paths, scenePhp, sceneTs, storyEventsRs, storyTypes, tablesPhp, tablesRs, tablesTs, type ContractRoot, type Draft07 } from './generate.ts';
+import { addressBookPhp, addressBookRs, addressBookTs, libraryPhp, libraryTs, paths, scenePhp, sceneTs, storyEventsRs, storyTypes, tablesPhp, tablesRs, tablesTs, type ContractRoot, type Draft07 } from './generate.ts';
 
 const root = JSON.parse(readFileSync(paths.schema, 'utf8')) as ContractRoot;
 const legacy = JSON.parse(readFileSync(paths.legacyIds, 'utf8'));
@@ -70,6 +70,22 @@ test('the story events (#517): every VNEvent type of the chapter schema, in Rust
 	assert.ok(types.includes('joinScene') && types.includes('leaveScene') && types.includes('showMessage'));
 	assert.match(storyEventsRs(chapter), new RegExp(`pub const STORY_EVENT_TYPES: \\[&str; ${types.length}\\] = \\["showMessage", `));
 	assert.throws(() => storyTypes({ definitions: { VNEvent: { anyOf: [{ type: 'object' }] } } }), /string `type` const/);
+});
+
+test('the extended Library (#864): every definition in TS and PHP, nullable pictures, the enums once', () => {
+	const library = JSON.parse(readFileSync(paths.librarySchema, 'utf8')) as Draft07;
+	const ts = libraryTs(library);
+	const php = libraryPhp(library);
+	for (const name of Object.keys(library.definitions ?? {})) {
+		assert.match(ts, new RegExp(`export type ${name} = `), `TS ${name}`);
+		assert.match(php, new RegExp(`@phpstan-type ${name} `), `PHP ${name}`);
+	}
+	assert.match(ts, /export const LIBRARY_FORMAT = 1 as const;/);
+	assert.match(ts, /\tpicture: string \| null;\n/);
+	assert.match(ts, /export const THING_TYPES: readonly ThingType\[\] = \['toon', 'character', /);
+	assert.match(php, /public const FORMAT = 1;/);
+	assert.match(php, /public const FILE_KIND = \['image', 'audio', 'video', 'model', 'animation', 'file'\];/);
+	assert.throws(() => libraryTs({ ...library, definitions: { ...library.definitions, LibraryList: { type: 'object' } } }), /numeric const/);
 });
 
 test('a scene schema outside the subset is refused, not guessed', () => {
