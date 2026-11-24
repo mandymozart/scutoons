@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Slider } from '@scutoons/ui/editor';
 	import { untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
@@ -162,7 +162,7 @@
 			{@const level = v ?? held?.volume ?? 0}
 			<div class="strip" class:held={v === undefined} data-testid="mixer-{track.id}">
 				<span class="val">{Math.round(level * 100)}</span>
-				<input class="fader" type="range" min="0" max="1" step="0.05" value={level} aria-label={m['creator.music_volume']({ track: track.id })} oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
+				<span class="fader"><Slider vertical min={0} max={1} step={0.05} value={level} label={m['creator.music_volume']({ track: track.id })} oninput={(v) => setVolume(track.id, v)} /></span>
 				<span class="name" title={track.id}>{track.id}</span>
 				{#if v === undefined}
 					<span class="from" title={held ? m['creator.music_holds']({ level: Math.round(held.volume * 100), from: held.label }) : m['creator.music_silent_hint']()}>{held ? held.label : m['creator.music_silent']()}</span>
@@ -263,11 +263,10 @@
 		font-variant-numeric: tabular-nums;
 	}
 	.fader {
-		writing-mode: vertical-lr;
-		direction: rtl;
+		display: flex;
+		justify-content: center;
 		width: 1.5rem;
-		height: 8rem;
-		margin: 0;
+		--slider-length: 8rem;
 	}
 	.name,
 	.from {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { SortGrip, sortable } from '@scutoons/ui';
-	import { Button, IconButton, Select } from '@scutoons/ui/editor';
+	import { Button, IconButton, Select, Toggle } from '@scutoons/ui/editor';
 	import { MAP_NETWORKS, MAP_SOURCE_LANGUAGE, isPlaceWaypoint, mapName, slugId, type LocaleText, type MapNetwork, type MapPath, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -74,7 +74,7 @@
 		data-testid="route-network"
 	/>
 </label>
-<label class="check"><input type="checkbox" checked={!!route.hidden} onchange={(e) => editRoute(doc, route.id, (r) => { if (e.currentTarget.checked) r.hidden = true; else delete r.hidden; })} /> {m['creator.map_hidden']()}</label>
+<Toggle shown on={!!route.hidden} label={m['creator.map_hidden']()} onchange={(on) => editRoute(doc, route.id, (r) => { if (on) r.hidden = true; else delete r.hidden; })} />
 <fieldset>
 	<legend>{m['creator.map_waypoints']()} ({route.waypoints.length})</legend>
 	<p class="hint">{m['creator.map_insert_hint']()}</p>

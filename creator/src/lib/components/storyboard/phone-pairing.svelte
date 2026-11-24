@@ -5,7 +5,7 @@
 	// QUIC · WebSocket), the live smoothing and the scale, then Disconnect · Recenter · Record (the one primary action; the
 	// phone has the same buttons).
 	import { QrCode } from '@scutoons/ui';
-	import { Button } from '@scutoons/ui/editor';
+	import { Button, Slider } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import type { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
@@ -58,9 +58,9 @@
 	</div>
 	<div class="ranges">
 		<label class="sc-label" for="hh-smooth" title={m['storyboard.hh_smooth_live_hint']()}>{m['storyboard.hh_smooth']()}</label>
-		<input id="hh-smooth" type="range" min="0" max="1" step="0.05" value={hh.smooth} aria-label={m['storyboard.hh_smooth_live']()} title="{m['storyboard.hh_smooth_live']()}: {hh.smooth.toFixed(2)}" oninput={(e) => hh.setSmooth(Number(e.currentTarget.value))} data-testid="hh-smooth" />
+		<Slider id="hh-smooth" min={0} max={1} step={0.05} value={hh.smooth} label={m['storyboard.hh_smooth_live']()} title="{m['storyboard.hh_smooth_live']()}: {hh.smooth.toFixed(2)}" oninput={(v) => hh.setSmooth(v)} data-testid="hh-smooth" />
 		<label class="sc-label" for="hh-scale" title={m['storyboard.hh_scale_hint']()}>{m['storyboard.hh_scale']()}</label>
-		<input id="hh-scale" type="range" min="0.1" max="5" step="0.05" value={hh.scale} aria-label={m['storyboard.hh_scale_label']()} title="{m['storyboard.hh_scale_label']()}: {hh.scale.toFixed(2)}" oninput={(e) => hh.setScale(Number(e.currentTarget.value))} data-testid="hh-scale" />
+		<Slider id="hh-scale" min={0.1} max={5} step={0.05} value={hh.scale} label={m['storyboard.hh_scale_label']()} title="{m['storyboard.hh_scale_label']()}: {hh.scale.toFixed(2)}" oninput={(v) => hh.setScale(v)} data-testid="hh-scale" />
 	</div>
 	<div class="buttons">
 		<Button onclick={() => hh.unpair()} data-testid="hh-disconnect">{m['storyboard.hh_disconnect']()}</Button>
@@ -129,9 +129,7 @@
 		gap: 0.45rem 0.6rem;
 		align-items: center;
 		margin-top: 0.7rem;
-	}
-	.ranges input {
-		width: 100%;
+		--slider-length: 100%;
 	}
 	.buttons {
 		display: flex;

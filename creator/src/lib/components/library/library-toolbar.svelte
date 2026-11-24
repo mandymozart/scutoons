@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { IconButton, Select, type SelectOption } from '@scutoons/ui/editor';
+	import { IconButton, Select, Slider, type SelectOption } from '@scutoons/ui/editor';
 	import { TILE_SIZE, library } from '$lib/editor/library.svelte.ts';
 	import { useShelf } from '$lib/editor/library-shelf.svelte.ts';
 	import { SHELF_GROUPINGS, SHELF_SORTS, TYPE_CHOICES, type ShelfGrouping, type ShelfSort } from '$lib/editor/library-list.ts';
@@ -49,18 +49,9 @@
 	/>
 	<span class="sp"></span>
 	{#if !library.list}
-		<input
-			class="size"
-			type="range"
-			min={TILE_SIZE.min}
-			max={TILE_SIZE.max}
-			step={TILE_SIZE.step}
-			value={library.tile}
-			oninput={(e) => library.setView({ tile: Number(e.currentTarget.value) })}
-			aria-label={m['library.tile_size']()}
-			title={m['library.tile_size']()}
-			data-testid="library-tile-size"
-		/>
+		<span class="size"
+			><Slider min={TILE_SIZE.min} max={TILE_SIZE.max} step={TILE_SIZE.step} value={library.tile} label={m['library.tile_size']()} oninput={(tile) => library.setView({ tile })} data-testid="library-tile-size" /></span
+		>
 	{/if}
 	<IconButton icon="list" label={m['library.as_list']()} pressed={library.list} onclick={() => library.setView({ list: !library.list })} />
 </div>
@@ -76,6 +67,7 @@
 		flex: 1 1 auto;
 	}
 	.size {
-		width: 3rem;
+		display: flex;
+		--slider-length: 3rem;
 	}
 </style>

@@ -4,7 +4,7 @@
 	// explaining sentence is hover text), its smoothing and Render (the studio look as a WebM into the workspace folder +
 	// its record). Every change is one undo step.
 	import { confirmDialog, Segmented } from '@scutoons/ui';
-	import { Button, IconButton } from '@scutoons/ui/editor';
+	import { Button, IconButton, Slider } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toast } from '$lib/toasts.ts';
 	import { activeTake, removeTake, setActive, setOn, setTakeField, takeEnd, takesOf } from '$lib/editor/storyboard-takes.ts';
@@ -88,16 +88,15 @@
 						<div><Button onclick={toTrim} title={m['storyboard.hh_trim_here']({ take: take.id })} data-testid="hh-to-trim">{m['storyboard.hh_open_timeline']()}</Button></div>
 					{/if}
 					<label class="sc-label" for="hh-take-smooth" title={m['storyboard.hh_smooth_hint']()}>{m['storyboard.hh_smooth']()}</label>
-					<input
+					<Slider
 						id="hh-take-smooth"
-						type="range"
-						min="0"
-						max="1"
-						step="0.05"
+						min={0}
+						max={1}
+						step={0.05}
 						value={take.smooth ?? 0}
-						aria-label={m['storyboard.hh_smooth_take']({ take: take.id })}
+						label={m['storyboard.hh_smooth_take']({ take: take.id })}
 						title="{m['storyboard.hh_smooth_take']({ take: take.id })}: {(take.smooth ?? 0).toFixed(2)}"
-						oninput={(e) => change(setTakeField(take.id, 'smooth', Number(e.currentTarget.value)), `${entry.id}:${take.id}:smooth`)}
+						oninput={(v) => change(setTakeField(take.id, 'smooth', v), `${entry.id}:${take.id}:smooth`)}
 						data-testid="hh-take-smooth"
 					/>
 					<span class="sc-label" title={m['storyboard.hh_render_hint']()}>{m['storyboard.hh_render']()}</span>
@@ -118,6 +117,7 @@
 		flex-direction: column;
 		gap: 0.3rem;
 		padding: var(--editor-pad);
+		--slider-length: 100%;
 	}
 	.sc-label {
 		margin-top: 0.7rem;
@@ -184,8 +184,5 @@
 	.take.active .kept,
 	.take.active .at {
 		color: inherit;
-	}
-	input[type='range'] {
-		width: 100%;
 	}
 </style>

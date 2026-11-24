@@ -2,6 +2,7 @@
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { moveAt } from '$lib/editor/move.ts';
 	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
+	import { Toggle } from '@scutoons/ui/editor';
 	import { DEFAULT_MOOD, MOOD_ID, sortedMoods, type CharacterRegistry, type LocaleText, type MoodVocabulary } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
@@ -60,10 +61,7 @@
 				<SortGrip label={m['creator.sort_move']({ name: mood.id })} title={m['creator.sort_hint']()} />
 				<code>{mood.id}</code>
 				<LocaleMapField value={mood.label} {languages} label={m['creator.characters_look_label']()} required onchange={(v) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (t) t.label = v; }, `mood-${mood.id}`)} />
-				<label class="check">
-					<input type="checkbox" checked={!!mood.standard} onchange={(e) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (!t) return; if (e.currentTarget.checked) t.standard = true; else delete t.standard; })} />
-					{m['creator.characters_standard']()}
-				</label>
+				<Toggle shown on={!!mood.standard} label={m['creator.characters_standard']()} onchange={(on) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (!t) return; if (on) t.standard = true; else delete t.standard; })} />
 				<span class="hint">{m['creator.characters_mood_used']({ count: usage.get(mood.id) ?? 0 })}</span>
 				<button
 					type="button"
@@ -120,13 +118,6 @@
 		li > :global(:nth-child(4)) { grid-area: check; }
 		li > :global(:nth-child(5)) { grid-area: used; }
 		li > :global(:nth-child(6)) { grid-area: remove; }
-	}
-	.check {
-		display: flex;
-		gap: 0.25rem;
-		align-items: center;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 	.add {
 		display: flex;

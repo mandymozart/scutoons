@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Slider } from '@scutoons/ui/editor';
 	import { CloseIcon } from '@scutoons/ui';
 	import type { RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -63,7 +63,7 @@
 		<label>
 			{m['creator.characters_testo']()} {character.testo ?? '–'}
 			<span class="inline">
-				<input type="range" min="0" max="100" step="1" value={character.testo ?? 50} oninput={(e) => setField('testo', Number(e.currentTarget.value))} data-testid="character-testo" />
+				<Slider min={0} max={100} step={1} label={m['creator.characters_testo']()} value={character.testo ?? 50} oninput={(v) => setField('testo', v)} data-testid="character-testo" />
 				<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
 			</span>
 		</label>

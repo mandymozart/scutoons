@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Select } from '@scutoons/ui/editor';
+	import { Select, Toggle } from '@scutoons/ui/editor';
 	import {
 		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, VIEWPORT_POSITIONS,
 		aspectRatioLabel, getAt, parseFrameRatio, viewportObjectFit, viewportObjectPosition,
@@ -231,16 +231,12 @@
 		/>
 	{#if video}
 		<div class="flags">
-			<label title={m['creator.video_player_hint']()}
-				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> {m['creator.video_flag_player']()}</label
-			>
+			<Toggle shown on={video.player === true} label={m['creator.video_flag_player']()} title={m['creator.video_player_hint']()} onchange={setPlayer} data-testid="video-player" />
 			{#if video.player !== true}
-				<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> {m['creator.field_loop']()}</label>
-				<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> {m['creator.video_flag_autoplay']()}</label>
+				<Toggle shown on={video.loop !== false} label={m['creator.field_loop']()} onchange={(on) => setFlag('loop', on)} />
+				<Toggle shown on={video.autoplay !== false} label={m['creator.video_flag_autoplay']()} onchange={(on) => setFlag('autoplay', on)} />
 			{/if}
-			<label title={m['creator.video_controls_hint']()}
-				><input type="checkbox" checked={showsControls} onchange={(e) => setControls(e.currentTarget.checked)} data-testid="video-controls" /> {m['creator.video_flag_controls']()}</label
-			>
+			<Toggle shown on={showsControls} label={m['creator.video_flag_controls']()} title={m['creator.video_controls_hint']()} onchange={setControls} data-testid="video-controls" />
 		</div>
 
 		<fieldset class="group" data-testid="video-placement">
@@ -334,9 +330,7 @@
 	</p>
 	{/if}
 
-	<label data-testid="slice-sensitive"
-		><input type="checkbox" checked={slice?.sensitive === true} onchange={(e) => setSensitive(e.currentTarget.checked)} /> {m['creator.slice_sensitive']()}</label
-	>
+	<Toggle shown on={slice?.sensitive === true} label={m['creator.slice_sensitive']()} onchange={setSensitive} data-testid="slice-sensitive" />
 	<p class="hint">{m['creator.slice_sensitive_hint']()}</p>
 </div>
 
