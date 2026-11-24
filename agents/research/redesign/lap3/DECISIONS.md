@@ -1,4 +1,4 @@
-<!-- status: lap 3's decisions as the owner made them on the draft's cards (epic #903), from 2026-11-24 – one line each in the form of agents/decisions/*.md, to be folded into decisions/creator.md, law.md and RULES.md with the plan (kit-wide ones change both apps). Nothing here is built; no tickets yet. -->
+<!-- status: lap 3's decisions as the owner made them on the draft's cards (epic #903), from 2026-11-24 – one line each in the form of agents/decisions/*.md, folded into agents/decisions/law.md ([editor-style], the kit-wide nine) and agents/decisions/creator.md ([creator], eight lines) on 2026-11-24; RULES.md changes when lap 3's plan is built. Nothing here is built; no tickets yet. -->
 # Lap 3 – decisions
 
 The owner's words for sixteen of them are one sentence, on round 1's cards: *"1: M1, M2, M3, T1, T2, L1, L2, L3, V1, V2, S1, S2, S3, S4, P1 and P3. I agreed on your recommendation."* (2026-11-24). Two of those cards had no recommendation (M3, the second of P3); there the "1" is taken as the card's first option and marked – to correct if meant otherwise.
