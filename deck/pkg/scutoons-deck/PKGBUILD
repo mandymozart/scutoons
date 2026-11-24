@@ -76,6 +76,9 @@ package() {
   case " $(_apps) " in *" deck-editor "*)
     install -Dm755 "$srcdir/target/release/deck-editor" "$pkgdir/usr/bin/deck-editor"
     install -Dm644 "$_deck/editor/tokens.toml" "$pkgdir/usr/share/deck/editor/tokens.toml"
+    # the creator's `scutoons-deck://` links open the editor (DECK-LINK.md); a second start hands its link to the running one.
+    # desktop-file-utils' hook registers the MimeType; `xdg-mime default scutoons-deck-editor.desktop x-scheme-handler/scutoons-deck` makes it the default
+    install -Dm644 "$startdir/scutoons-deck-editor.desktop" "$pkgdir/usr/share/applications/scutoons-deck-editor.desktop"
     mkdir -p "$pkgdir/usr/share/deck/demos" && cp -r "$_deck/demos/." "$pkgdir/usr/share/deck/demos/"
   esac
   # #427: the system scenes are in the binary; a package carries no sandbox scenes (the dev image and channel do)

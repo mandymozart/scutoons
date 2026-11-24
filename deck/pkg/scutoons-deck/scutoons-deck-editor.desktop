@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SCUTOONS Deck
+GenericName=Deck editor
+Comment=Scenes, rigging and shows on the deck
+Exec=deck-editor %u
+Terminal=false
+Categories=AudioVideo;Graphics;
+MimeType=x-scheme-handler/scutoons-deck;
+StartupNotify=true
