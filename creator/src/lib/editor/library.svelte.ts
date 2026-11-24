@@ -182,10 +182,10 @@ class Library {
 		}
 	}
 
-	/** the core's open rule for the creator: where an address opens, or why not (no assets needed) */
-	async opener(): Promise<LibraryOpener> {
+	/** the core's open rule for an editor (the creator's own by default): where an address opens, or why not (no assets needed) */
+	async opener(editor: Parameters<typeof libraryOpener>[1] = 'creator'): Promise<LibraryOpener> {
 		this.module ??= loadLibraryModule(WASM_BASE);
-		return libraryOpener(await this.module, 'creator');
+		return libraryOpener(await this.module, editor);
 	}
 
 	detail(id: string) {

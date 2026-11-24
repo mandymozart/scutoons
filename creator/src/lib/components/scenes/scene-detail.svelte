@@ -5,6 +5,7 @@
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
+	import OpenInDeck from '$lib/components/shell/open-in-deck.svelte';
 
 	/**
 	 * One scene's page (#490, draft 3): its id and state, what the last Publish answered (the core's problems, or the
@@ -44,6 +45,7 @@
 		<h1>{sceneTitle(f)}</h1>
 		<code class="key">scene:{f.id}</code>
 		<span class="state" data-testid="scene-state">{@render status()}</span>
+		<OpenInDeck address="scene:{f.id}" testid="scene-open-deck" />
 	</header>
 
 	{#if outcome?.kind === 'problems'}

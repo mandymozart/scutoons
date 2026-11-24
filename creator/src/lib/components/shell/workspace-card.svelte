@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
-	import { IconButton, Thumb } from '@scutoons/ui/editor';
+	import { Chip, IconButton, Thumb } from '@scutoons/ui/editor';
 	import { workspaceThumbKey } from '@scutoons/api';
 	import { toonAsset } from '@scutoons/content';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
@@ -8,13 +8,15 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { iconOf, workspaceOf } from '$lib/shell/address.ts';
 	import type { WorkspaceCard } from '$lib/shell/dashboard.ts';
+	import { onDeckLink, type DeckCard } from '$lib/shell/deck.ts';
 	import { snapshots } from '$lib/shell/snapshots.svelte.ts';
 	import { thumbs } from '$lib/shell/thumbs.svelte.ts';
-	import { workspaceName } from '$lib/shell/workspace-names.ts';
+	import { deckWorkspaceName, workspaceName } from '$lib/shell/workspace-names.ts';
 
 	/**
 	 * A workspace in the switcher (lap2 B7): its last capture fills the card, its name and what is open in it over the
 	 * picture; without a capture yet the item's toon and its kind's icon. ✕ closes that item. Views are in the ☰ menu only.
+	 * A deck card (A3) carries the quiet chip "Deck" and is the link that opens the deck there (A3b: the browser asks once).
 	 */
 	let {
 		card,
@@ -22,11 +24,14 @@
 		onopen,
 		onclose,
 		onfocus
-	}: { card: WorkspaceCard; ring?: boolean; onopen: (card: WorkspaceCard) => void; onclose: (address: string) => void; onfocus: () => void } = $props();
+	}: { card: WorkspaceCard | DeckCard; ring?: boolean; onopen: (card: WorkspaceCard) => void; onclose: (address: string) => void; onfocus: () => void } = $props();
 
 	const nav = getCreatorNav();
-	const name = $derived(card.name ?? workspaceName(card.kind));
-	const item = $derived(card.shown);
+	const deck = $derived('workspace' in card ? card : null);
+	const own = $derived('workspace' in card ? null : card);
+	const name = $derived(deck ? deckWorkspaceName(deck.workspace) : own ? (own.name ?? workspaceName(own.kind)) : '');
+	const item = $derived(own?.shown ?? null);
+	const address = $derived(deck ? deck.item : (item?.address ?? null));
 	const toon = $derived(item ? (item.address.split(':')[1] ?? null) : null);
 	const avatar = $derived.by(() => {
 		const ws = item ? workspaceOf(item.address) : null;
@@ -34,29 +39,37 @@
 		return t?.avatar ? asset(toonAsset(t.id, t.avatar)) : null;
 	});
 	const still = $derived(snapshots.local[card.id] ?? thumbs.get(workspaceThumbKey(card.id))?.url ?? null);
-	const more = $derived(card.open.length > 1 ? ` +${card.open.length - 1}` : '');
+	const more = $derived(own && own.open.length > 1 ? ` +${own.open.length - 1}` : '');
+	const shown = $derived(deck ? deck.item : item ? `${item.label}${more}` : null);
+	const href = $derived(deck ? deck.href : (own?.href ?? null));
+	function click(event: MouseEvent) {
+		if (deck) onDeckLink(event);
+		else if (own) onopen(own);
+	}
 </script>
 
-<div class="ws-card" class:front={card.front} class:empty={!item} class:captured={!!still} data-testid="dash-card" data-kind={card.kind} data-workspace={card.id}>
+<div class="ws-card" class:front={own?.front} class:empty={!address} class:captured={!!still} data-testid="dash-card" data-kind={own?.kind ?? 'deck'} data-workspace={card.id}>
 	{#snippet inside()}
 		<Thumb src={still} fill empty={m['shell.no_still']()}>
 			<span class="placeholder">
 				{#if avatar}<ToonAvatar src={avatar} name={toon ?? ''} size="2.6rem" />{/if}
-				<Icon name={item ? iconOf(item.address) : 'layout'} size="2rem" strokeWidth={1.25} />
+				<Icon name={address ? iconOf(address) : 'layout'} size="2rem" strokeWidth={1.25} />
 			</span>
 		</Thumb>
-		{#if card.front}<span class="tag">{m['shell.dash_front']()}</span>{/if}
+		{#if own?.front}<span class="tag">{m['shell.dash_front']()}</span>{/if}
 		<span class="words">
 			<span class="word">{name}</span>
-			<span class="quiet">{item ? `${item.label}${more}` : m['shell.dash_nothing_open']()}</span>
+			<span class="quiet">{shown ?? m['shell.dash_nothing_open']()}</span>
 		</span>
 	{/snippet}
-	{#if card.href}
-		<a class="open" href={card.href} data-ring={ring || undefined} onclick={() => onopen(card)} {onfocus} data-testid="dash-card-open">{@render inside()}</a>
+	{#if href}
+		<a class="open" {href} title={deck ? m['shell.deck_card_title']() : undefined} data-ring={ring || undefined} onclick={click} {onfocus} data-testid="dash-card-open">{@render inside()}</a>
 	{:else}
-		<button type="button" class="open" data-ring={ring || undefined} onclick={() => onopen(card)} {onfocus} data-testid="dash-card-open">{@render inside()}</button>
+		<button type="button" class="open" data-ring={ring || undefined} onclick={click} {onfocus} data-testid="dash-card-open">{@render inside()}</button>
 	{/if}
-	{#if item}
+	{#if deck}
+		<span class="deck" aria-hidden="true"><Chip label={m['shell.deck_chip']()} tabindex={-1} testid="dash-card-deck" /></span>
+	{:else if item}
 		<span class="close">
 			<IconButton label={m['shell.close_tab']({ name: item.label })} onclick={() => onclose(item.address)} tabindex={-1} data-testid="dash-card-close"><CloseIcon size="0.8rem" stroke={1} /></IconButton>
 		</span>
@@ -181,6 +194,17 @@
 	}
 	.captured .quiet {
 		color: var(--tool-text);
+	}
+	/* the chip lies on the card; the card under it takes the click */
+	.deck {
+		position: absolute;
+		z-index: 2;
+		right: var(--editor-pad);
+		bottom: var(--editor-pad);
+		pointer-events: none;
+	}
+	.ws-card:has(.deck) .words {
+		padding-right: 4rem;
 	}
 	.close {
 		position: absolute;

@@ -8,6 +8,8 @@
 	import { firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards, type WorkspaceCard } from '$lib/shell/dashboard.ts';
 	import { shell } from '$lib/shell/shell.svelte.ts';
 	import { crafts } from '$lib/shell/crafts.svelte.ts';
+	import { deckCards } from '$lib/shell/deck.ts';
+	import { deckRow } from '$lib/shell/deck.svelte.ts';
 	import { layouts } from '$lib/shell/layouts.svelte.ts';
 	import { thumbs } from '$lib/shell/thumbs.svelte.ts';
 	import { workspaceThumbKey } from '@scutoons/api';
@@ -18,13 +20,16 @@
 	 * The switcher (lap2 A3, RULES H15): on the overlay level – the bar, the stage and the panels blurred under it; no bar,
 	 * no search field, no foot of its own. Esc, a click outside, Ctrl K or the workspace row's ⌄ go back to where you were.
 	 * Last opened · Needs review / Not published, then the workspaces – flat, the front one first, then most used – each
-	 * showing what is open in it; at most 1160 px wide, centred. Tab / Shift Tab and the arrows move the ring, Enter opens;
+	 * showing what is open in it, then the deck's workspaces in the deck's order (A3: the chip "Deck", each on what the
+	 * deck last had open there, Enter opens the deck there); at most 1160 px wide, centred. Tab / Shift Tab and the arrows move the ring, Enter opens;
 	 * a typed letter opens Search with it. Nothing used yet: the welcome – Not published in her toons, her crafts'
 	 * workspaces empty.
 	 */
 	const session = getCreatorSession();
 	const welcome = $derived(isWelcome(shell.use, shell.state.tabs, recent.list.length));
 	const cards = $derived(workspaceCards(shell.use, shell.state.tabs, shell.state.front, welcome, crafts.starts, layouts.state.own, layouts.chosen));
+	const decks = $derived(deckCards(deckRow.state));
+	const all = $derived([...cards, ...decks]);
 	let ring = $state(0);
 	let box = $state<HTMLElement>();
 	let grid = $state<HTMLElement>();
@@ -38,10 +43,12 @@
 	$effect(() => {
 		void tick().then(() => untrack(() => focusRing(firstRing(cards))));
 	});
+	// what the deck has open now
+	$effect(() => void deckRow.read());
 	// each card's picture as it was left
-	$effect(() => thumbs.want(cards.map((c) => workspaceThumbKey(c.id))));
+	$effect(() => thumbs.want(all.map((c) => workspaceThumbKey(c.id))));
 	$effect(() => {
-		if (ring >= cards.length) ring = Math.max(0, cards.length - 1);
+		if (ring >= all.length) ring = Math.max(0, all.length - 1);
 	});
 
 	function open(card: WorkspaceCard) {
@@ -52,7 +59,7 @@
 	function closeItem(address: string) {
 		const next = shell.close(address);
 		if (next) void goto(next);
-		void tick().then(() => focusRing(Math.min(ring, cards.length - 1)));
+		void tick().then(() => focusRing(Math.min(ring, all.length - 1)));
 	}
 
 	const columns = () => (grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length : 1);
@@ -64,7 +71,7 @@
 		if (box.querySelector('[aria-expanded="true"]') || document.querySelector('dialog[open]')) return;
 		const active = document.activeElement;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
-		const count = cards.length;
+		const count = all.length;
 		if (event.key === 'Tab') {
 			event.preventDefault();
 			const onCard = cardEls().includes(active as HTMLElement);
@@ -99,7 +106,7 @@
 		<DashboardBoxes {welcome} />
 		<h2 class="label">{m['shell.workspaces']()}</h2>
 		<div class="cards" bind:this={grid}>
-			{#each cards as card, i (card.id)}
+			{#each all as card, i (card.id)}
 				<WorkspaceCardView {card} ring={i === ring} onopen={open} onclose={closeItem} onfocus={() => (ring = i)} />
 			{/each}
 		</div>
