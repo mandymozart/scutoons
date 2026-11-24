@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { Icon, Segmented, SortGrip, sortable } from '@scutoons/ui';
 	import { COVER_ALIGNS, COVER_COLORS, COVER_COLOR_VALUES, COVER_LIMITS, COVER_TEXT_SOURCES, type CoverLine } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -80,9 +81,7 @@
 		<div class="props" data-testid="cover-props">
 			<label class="field">
 				<span class="sc-label">{m['creator.cover_text']()}</span>
-				<select value={line.text} onchange={(e) => ontext(i, e.currentTarget.value as CoverLine['text'])} data-testid="cover-text-source">
-					{#each COVER_TEXT_SOURCES as s (s)}<option value={s} selected={line.text === s}>{sourceLabel(s)}</option>{/each}
-				</select>
+				<Select label={m['creator.cover_text']()} value={line.text} options={COVER_TEXT_SOURCES.map((s) => ({ value: s, label: sourceLabel(s) }))} onchange={(v) => ontext(i, v as CoverLine['text'])} data-testid="cover-text-source" />
 			</label>
 			{#if line.text === 'custom'}
 				<div class="custom" data-testid="cover-custom-text">
@@ -125,9 +124,7 @@
 						<span class="sc-label">{label}</span>
 						<span class="color">
 							<span class="swatch" style="background: {COVER_COLOR_VALUES[line[k] ?? (fallback as 'paper')]}"></span>
-							<select onchange={(e) => onedit(i, { [k]: e.currentTarget.value === fallback ? undefined : e.currentTarget.value }, `cover-${k}`)} data-testid="cover-{key}">
-								{#each COVER_COLORS as c (c)}<option value={c} selected={(line[k] ?? fallback) === c}>{colorLabel(c)}</option>{/each}
-							</select>
+							<Select {label} value={line[k] ?? fallback} options={COVER_COLORS.map((c) => ({ value: c, label: colorLabel(c) }))} onchange={(v) => onedit(i, { [k]: v === fallback ? undefined : v }, `cover-${k}`)} data-testid="cover-{key}" />
 						</span>
 					</label>
 				{/each}

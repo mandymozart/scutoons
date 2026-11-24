@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { CREDIT_SECTION_KINDS, sectionName, type CreditSection, type CreditSectionKind, type ToonCredits } from '@scutoons/content';
@@ -84,9 +85,7 @@
 	{/each}
 
 	<div class="add">
-		<select bind:value={addKind} aria-label={m['creator.credits_section_kind']()} data-testid="add-section-kind">
-			{#each CREDIT_SECTION_KINDS as kind (kind)}<option value={kind}>{kindLabel(kind)}</option>{/each}
-		</select>
+		<Select label={m['creator.credits_section_kind']()} value={addKind} options={CREDIT_SECTION_KINDS.map((kind) => ({ value: kind, label: kindLabel(kind) }))} onchange={(v) => (addKind = v as typeof addKind)} data-testid="add-section-kind" />
 		<button type="button" class="secondary" onclick={add} data-testid="add-section"><Icon name="plus" /> {m['creator.credits_add_section']()}</button>
 	</div>
 </div>

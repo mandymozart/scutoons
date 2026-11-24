@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { CloseIcon, Icon, SortGrip, confirmDialog, region as selectionRegion, sortable } from '@scutoons/ui';
-	import { Button } from '@scutoons/ui/editor';
+	import { Button, Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -318,10 +318,7 @@
 			{#if isOpen(i)}
 				<label class="type-field">
 					<span class="sc-label">{m['creator.field_type']()}</span>
-					<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
-						{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
-						{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
-					</select>
+					<Select label={m['creator.field_type']()} value={event?.type ?? ''} options={[...FORM_TYPES.map((t) => ({ value: t, label: t })), ...(!known && event?.type ? [{ value: event.type, label: event.type }] : [])]} onchange={(v) => changeType(i, v)} />
 				</label>
 				{#if !known}
 					<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>

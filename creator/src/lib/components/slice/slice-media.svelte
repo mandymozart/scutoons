@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import {
 		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, VIEWPORT_POSITIONS,
 		aspectRatioLabel, getAt, parseFrameRatio, viewportObjectFit, viewportObjectPosition,
@@ -255,13 +256,17 @@
 				<!-- the box in the column: the media's own ratio, or a frame (the slice size follows it) -->
 				<label class="field ratio">
 					<span class="lbl" title={m['creator.video_frame_hint']()}>{m['creator.video_frame']()}</span>
-					<select value={frameChoice} onchange={(e) => chooseFrame(e.currentTarget.value)} data-testid="video-frame">
-						<option value="original">{m['creator.video_frame_original']()}</option>
-						{#each FRAME_PRESETS as preset (preset.id)}
-							<option value={preset.id}>{preset.id === 'keyvisual' ? m['creator.video_frame_keyvisual']() : preset.ratio}</option>
-						{/each}
-						<option value="custom">{m['creator.video_frame_custom']()}</option>
-					</select>
+					<Select
+						label={m['creator.video_frame']()}
+						value={frameChoice}
+						options={[
+							{ value: 'original', label: m['creator.video_frame_original']() },
+							...FRAME_PRESETS.map((preset) => ({ value: preset.id, label: preset.id === 'keyvisual' ? m['creator.video_frame_keyvisual']() : preset.ratio })),
+							{ value: 'custom', label: m['creator.video_frame_custom']() }
+						]}
+						onchange={(v) => chooseFrame(v)}
+						data-testid="video-frame"
+					/>
 				</label>
 				{#if frameChoice === 'custom'}
 					<div class="custom" data-testid="video-frame-custom">

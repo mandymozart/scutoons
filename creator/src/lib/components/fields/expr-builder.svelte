@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { onMount } from 'svelte';
 	import { clickOutside, region, Segmented } from '@scutoons/ui';
 	import { EXPR_FUNCTIONS, EXPR_NAMESPACES, evaluateExpression, evaluateText, showValue, type ExprFunction, type ExprParam } from '@scutoons/content';
@@ -251,10 +252,7 @@
 		<div class="row">
 			<div class="field">
 				<label for="{uid}-op">{m['creator.expr_op']()}</label>
-				<select id="{uid}-op" bind:value={model.op} onfocus={() => (searching = false)} data-testid="expr-op">
-					<option value="">{m['creator.expr_op_none']()}</option>
-					{#each BUILDER_OPS as op (op)}<option value={op}>{OP_WORDS[op]()}</option>{/each}
-				</select>
+				<Select id="{uid}-op" label={m['creator.expr_op']()} value={model.op} options={[{ value: '', label: m['creator.expr_op_none']() }, ...BUILDER_OPS.map((op) => ({ value: op, label: OP_WORDS[op]() }))]} onchange={(v) => (model.op = v as typeof model.op)} onfocus={() => (searching = false)} data-testid="expr-op" />
 			</div>
 			{#if model.op}
 				<div class="field">
@@ -279,9 +277,7 @@
 	{:else if model.kind === 'list'}
 		<div class="field">
 			<label for="{uid}-list">{m['creator.expr_list_kind']()}</label>
-			<select id="{uid}-list" bind:value={model.list} data-autofocus data-testid="expr-list-kind">
-				{#each BUILDER_LISTS as k (k)}<option value={k}>{listWord(k)}</option>{/each}
-			</select>
+			<Select id="{uid}-list" label={m['creator.expr_list_kind']()} value={model.list} options={BUILDER_LISTS.map((k) => ({ value: k, label: listWord(k) }))} onchange={(v) => (model.list = v as typeof model.list)} data-autofocus data-testid="expr-list-kind" />
 		</div>
 		{#each model.items as _, i (i)}
 			<div class="item">
@@ -301,9 +297,7 @@
 		<div class="row">
 			<div class="field">
 				<label for="{uid}-sample">{m['creator.expr_preview_as']()}</label>
-				<select id="{uid}-sample" value={sample} onchange={(e) => (exprContext.sample = e.currentTarget.value as SampleReaderId)} data-testid="expr-sample">
-					{#each SAMPLE_READERS as id (id)}<option value={id}>{SAMPLE_WORDS[id]()}</option>{/each}
-				</select>
+				<Select id="{uid}-sample" label={m['creator.expr_preview_as']()} value={sample} options={SAMPLE_READERS.map((id) => ({ value: id, label: SAMPLE_WORDS[id]() }))} onchange={(v) => (exprContext.sample = v as SampleReaderId)} data-testid="expr-sample" />
 			</div>
 		</div>
 		<p class="result" {lang} data-testid="expr-preview">{preview || m['creator.expr_preview_empty']()}</p>

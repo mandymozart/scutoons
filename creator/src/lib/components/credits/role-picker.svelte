@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { ROLE_CATEGORIES, RoleCategory, pickText, type CreditRole, type LocaleText } from '@scutoons/content';
-	import { Chip } from '@scutoons/ui/editor';
+	import { Chip, Select } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
@@ -103,9 +103,7 @@
 				<LocaleMapField value={label} {languages} label={m['creator.credits_label']()} required onchange={(v) => (label = v)} testid="{testid}-label" />
 				<label>
 					<span class="cat">{m['creator.credits_category']()}</span>
-					<select bind:value={category} data-testid="{testid}-category">
-						{#each ROLE_CATEGORIES as c (c)}<option value={c}>{c}</option>{/each}
-					</select>
+					<Select label={m['creator.credits_category']()} value={category} onchange={(v) => (category = v as RoleCategory)} options={ROLE_CATEGORIES.map((c) => ({ value: c, label: c }))} data-testid="{testid}-category" />
 				</label>
 				<div class="row">
 					<button type="button" onclick={create} disabled={!Object.values(label).some((t) => t.trim())} data-testid="{testid}-create-submit">{m['creator.credits_create_role']()}</button>

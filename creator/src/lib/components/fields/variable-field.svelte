@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { GLOBAL_VARIABLES, variableRef, type Path } from '@scutoons/content';
 	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
@@ -72,13 +73,19 @@
 
 <div class="field" data-testid={testid ? `${testid}-domain` : undefined}>
 	<label for="{id}-domain">{scope ? m['creator.ask_scope']() : domainLabel}</label>
-	<select id="{id}-domain" value={domain} onchange={(e) => setDomain(e.currentTarget.value)}>
-		<option value="toon">{m['creator.variable_domain_toon']({ toon: own })}</option>
-		<option value="global">{m['creator.variable_domain_global']()}</option>
-		{#each others as t (t.id)}<option value="toon:{t.id}">{t.name}</option>{/each}
-		{#if domain.startsWith('toon:') && !others.some((t) => `toon:${t.id}` === domain)}<option value={domain}>{domain.slice(5)} (?)</option>{/if}
-		{#if scope}<option value="reader">{m['creator.ask_scope_reader']()}</option>{/if}
-	</select>
+	<Select
+		id="{id}-domain"
+		label={scope ? m['creator.ask_scope']() : domainLabel}
+		value={domain}
+		options={[
+			{ value: 'toon', label: m['creator.variable_domain_toon']({ toon: own }) },
+			{ value: 'global', label: m['creator.variable_domain_global']() },
+			...others.map((t) => ({ value: `toon:${t.id}`, label: t.name })),
+			...(domain.startsWith('toon:') && !others.some((t) => `toon:${t.id}` === domain) ? [{ value: domain, label: `${domain.slice(5)} (?)` }] : []),
+			...(scope ? [{ value: 'reader', label: m['creator.ask_scope_reader']() }] : [])
+		]}
+		onchange={(v) => setDomain(v)}
+	/>
 </div>
 {#if !reader}
 	<div class="field" data-testid={testid || undefined}>

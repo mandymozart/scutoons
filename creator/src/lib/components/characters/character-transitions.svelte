@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { conventionTransitionPath, defaultLookId, lookLabel, type CharacterPersona } from '@scutoons/content';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -38,13 +39,9 @@
 			<img src={asset(t.image)} alt="" loading="lazy" />
 			<div class="col">
 				<span class="inline">
-					<select value={t.from} onchange={(e) => change((p) => p.transitions && (p.transitions[i].from = e.currentTarget.value))}>
-						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, textLanguage.names)}</option>{/each}
-					</select>
+					<Select label={lookLabel(persona, t.from, textLanguage.names)} value={t.from} options={lookIds.map((l) => ({ value: l, label: lookLabel(persona, l, textLanguage.names) }))} onchange={(v) => change((p) => p.transitions && (p.transitions[i].from = v))} />
 					→
-					<select value={t.to} onchange={(e) => change((p) => p.transitions && (p.transitions[i].to = e.currentTarget.value))}>
-						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, textLanguage.names)}</option>{/each}
-					</select>
+					<Select label={lookLabel(persona, t.to, textLanguage.names)} value={t.to} options={lookIds.map((l) => ({ value: l, label: lookLabel(persona, l, textLanguage.names) }))} onchange={(v) => change((p) => p.transitions && (p.transitions[i].to = v))} />
 				</span>
 				<input type="text" value={t.image} onchange={(e) => change((p) => p.transitions && (p.transitions[i].image = e.currentTarget.value.trim()))} />
 				<LocaleMapField value={t.label} {languages} label={m['creator.characters_look_label']()} onchange={(v) => change((p) => { if (!p.transitions) return; const x = cleanText(v); if (x) p.transitions[i].label = x; else delete p.transitions[i].label; }, `transition-${i}`)} />

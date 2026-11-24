@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { CloseIcon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { actionsOf, clone, getAt, type Path } from '@scutoons/content';
@@ -42,9 +43,7 @@
 	{#each actionsOf(event.params?.onSelect) as any[] as action, ai (ai)}
 		{@const ap = actionPath(event, path, ai)}
 		<div class="action">
-			<select value={actionKind(action)} onchange={(e) => editActions((list) => (list[ai] = newAction(e.currentTarget.value, pointNames)))} aria-label={m['creator.vn_action']()}>
-				{#each ACTION_KINDS as k (k)}<option value={k}>{m[`creator.vn_action_${k}`]()}</option>{/each}
-			</select>
+			<Select label={m['creator.vn_action']()} value={actionKind(action)} options={ACTION_KINDS.map((k) => ({ value: k, label: m[`creator.vn_action_${k}`]() }))} onchange={(v) => editActions((list) => (list[ai] = newAction(v, pointNames)))} />
 			<div class="sc-fields action-fields" data-cols="3" data-density="dense" data-align="end">
 				{#if action?.set}
 					<AddressField {doc} path={[...ap, 'set']} spec={TARGETS.variable} free="variable" label={m['creator.field_variable']()} testid="choice-{index}-set-{ai}" />

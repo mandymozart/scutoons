@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { tick } from 'svelte';
 	import { Icon, Segmented, clickOutside } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
@@ -185,9 +186,7 @@
 		</div>
 	{:else if open === 'sample'}
 		<div class="flyout at-3 sample" data-flyout="sample">
-			<select bind:value={exprContext.sample} aria-label={m['creator.expr_preview_as']()} title={m['creator.expr_canvas_preview']()} data-testid="canvas-sample">
-				{#each ['written', ...SAMPLE_READERS] as const as id (id)}<option value={id}>{SAMPLE_WORDS[id]()}</option>{/each}
-			</select>
+			<Select quiet label={m['creator.expr_preview_as']()} title={m['creator.expr_canvas_preview']()} value={exprContext.sample} options={(['written', ...SAMPLE_READERS] as const).map((id) => ({ value: id, label: SAMPLE_WORDS[id]() }))} onchange={(v) => (exprContext.sample = v as typeof exprContext.sample)} data-testid="canvas-sample" />
 		</div>
 	{/if}
 </div>

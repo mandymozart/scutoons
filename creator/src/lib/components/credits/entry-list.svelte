@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Select } from '@scutoons/ui/editor';
 	import { CloseIcon, SortGrip, sortable } from '@scutoons/ui';
 	import { getAt, Language, peopleIndex, roleIndex, roleText, type CreditEntry, type LocaleText, type Path, type RoleCategory, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -136,18 +137,16 @@
 							/>
 							<label>
 								<span class="hint">{m['creator.credits_language']()}</span>
-								<select
+								<Select
+									label={m['creator.credits_language']()}
 									value={r.language ?? ''}
-									onchange={(e) =>
+									options={[{ value: '', label: '–' }, ...Object.values(Language).map((l) => ({ value: l, label: l }))]}
+									onchange={(v) =>
 										change((l) => {
-											const v = e.currentTarget.value;
 											if (v) l[i].roles[k].language = v as Language;
 											else delete l[i].roles[k].language;
 										})}
-								>
-									<option value="">–</option>
-									{#each Object.values(Language) as l (l)}<option value={l}>{l}</option>{/each}
-								</select>
+								/>
 							</label>
 						</div>
 					{/if}
