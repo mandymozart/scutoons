@@ -177,7 +177,7 @@ pub fn menu(d: &mut DrawList, t: &Tokens, at: (f32, f32), w: f32, lines: &[&str]
 /// drawn over it; the halo before it, to put back when the popover is drawn
 pub fn popover(d: &mut DrawList, t: &Tokens, r: Rect, radius: f32) -> ([f32; 4], usize) {
     let s = t.kit("menu", "rest");
-    d.round_rect(r.x, r.y, r.w, r.h, radius, s.ground.unwrap_or(t.color.panel()));
+    d.round_rect(r.x, r.y, r.w, r.h, radius, s.ground.unwrap_or(t.color.popover()));
     if let Some(b) = s.border {
         d.outline(r.x, r.y, r.w, r.h, (radius, t.size.edge), b);
     }

@@ -172,10 +172,9 @@ pub fn find(d: &mut DrawList, t: &Tokens, host: &mut Host, room: (f32, f32), poi
     let below = anchor.y + anchor.h + 4.0;
     let y0 = if below + h > room.1 - 8.0 { (anchor.y - 4.0 - h).max(8.0) } else { below };
     let whole = Rect { x, y: y0, w, h };
-    // its own ground: the stage under the panel's, so the band under it does not show through
+    // the popover ground: strong enough that the band under it does not mix in, still see-through (H15)
     let round = t.size.radius * 2.0;
-    d.round_rect(x, y0, w, h, round, t.color.stage);
-    d.round_rect(x, y0, w, h, round, t.color.panel());
+    d.round_rect(x, y0, w, h, round, t.color.popover());
     d.outline(x, y0, w, h, (round, 1.0), t.color.line);
     host.hits.push((whole, Hit::EventGround));
     let (ix, iw) = (x + pad, w - 2.0 * pad);
