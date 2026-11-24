@@ -4,11 +4,12 @@
 	import { readSettings, SETTINGS_KEY } from '$lib/shell/settings.ts';
 	import KitStates from '$lib/components/page/kit-states.svelte';
 	import KitShell from '$lib/components/page/kit-shell.svelte';
+	import KitParts from '$lib/components/page/kit-parts.svelte';
 	import { at, Button, Floats, FloatingPanels, ListRow, Pill, PillTabs, Section, Toggle, ToolGroup, ToolMenu, type PanelSpec, type TabSpec } from '@scutoons/ui/editor';
 
 	// Dev only: the editor kit over a stage – drag a panel by its grip, a tab into another panel or out onto the stage,
 	// resize an edge (the neighbours make room), fold by a double-click on the head; reload and the layout is back.
-	// States: every component of the kit in its states (kit-states.svelte). Shell: the creator's bar and menus (kit-shell.svelte).
+	// States: every component of the kit in its states (kit-states.svelte, then kit-parts.svelte). Shell: the creator's bar and menus (kit-shell.svelte).
 	const TABS: TabSpec[] = [
 		{ id: 'outline', name: 'Outline', icon: 'list', about: 'The open item’s structure' },
 		{ id: 'history', name: 'History', icon: 'clock', about: 'Saved versions' },
@@ -42,11 +43,14 @@
 
 	let workspace = $state('scene');
 	const floats = $derived(new Floats(`kit-${workspace === 'states' ? 'scene' : workspace}`, PANELS, TABS));
-	// Day / Night only in the creator's Settings (Look): the demo follows what they keep in this browser
+	// Day / Night and the colour-blind colours only in the creator's Settings (Look): the demo follows what they keep in this browser
 	let day = $state(false);
+	let colorblind = $state(false);
 	$effect(() => {
 		try {
-			day = readSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null')).theme === 'day';
+			const kept = readSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null'));
+			day = kept.theme === 'day';
+			colorblind = kept.colorblind;
 		} catch {
 			day = false;
 		}
@@ -69,7 +73,7 @@
 
 <svelte:head><title>Editor kit</title></svelte:head>
 
-<div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'}>
+<div class="kit sc-tool sc-desktop-only" data-theme={day ? 'day' : 'night'} data-colorblind={colorblind ? '' : undefined}>
 	<header class="bar">
 		<span class="name">Editor kit</span>
 		<Pill as="nav" label="Workspaces"><PillTabs items={WORKSPACES} on={workspace} onselect={(id) => (workspace = id)} /></Pill>
@@ -79,6 +83,7 @@
 	<main class="room" class:scroll={workspace === 'states'}>
 		{#if workspace === 'states'}
 			<KitStates />
+			<KitParts {day} {colorblind} />
 		{:else if workspace === 'shell'}
 			<KitShell onleave={() => (workspace = 'scene')} />
 		{:else}

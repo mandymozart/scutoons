@@ -60,7 +60,7 @@
 		</div>
 		<div class="row" title={m['shell.colorblind_hint']()}>
 			<span>{m['shell.colorblind']()}</span>
-			<Toggle on={s.colorblind} label={m['shell.colorblind']()} title={m['shell.colorblind_hint']()} onchange={(on) => shell.change({ colorblind: on })} data-testid="settings-colorblind" />
+			<Toggle on={s.colorblind} label={m['shell.colorblind']()} title={m['shell.colorblind_hint']()} onchange={(on) => shell.change({ colorblind: on })} />
 		</div>
 		<div class="row">
 			<span>{m['shell.ui_size']()}</span>

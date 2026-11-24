@@ -3,6 +3,7 @@
 	import { Button, Chip, IconButton, Overlay } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { publishFlow as flow } from '$lib/editor/publish-flow.svelte.ts';
+	import PublishLine from './publish-line.svelte';
 
 	/**
 	 * The one Publish dialog (lap 2 A10, RULES H18) on the overlay level: what readers do not see yet as a ticked list,
@@ -36,12 +37,7 @@
 					{#each flow.lines as line (line.id)}
 						{@const on = flow.ticked.has(line.id)}
 						<li>
-							<label class="line" title={flow.held.get(line.id) ?? line.hint} data-testid="publish-line">
-								<input type="checkbox" checked={on} disabled={sending} onchange={(e) => flow.tick(line.id, e.currentTarget.checked)} />
-								<span class="name">{line.label}</span>
-								<Chip label={line.chip} tabindex={-1} disabled={sending} onclick={() => flow.tick(line.id, !on)} />
-								<span class="type">{line.type}</span>
-							</label>
+							<PublishLine {line} {on} disabled={sending} title={flow.held.get(line.id) ?? line.hint} ontick={(next) => flow.tick(line.id, next)} />
 						</li>
 					{/each}
 				</ul>
@@ -152,55 +148,6 @@
 		padding: 0;
 		overflow: auto;
 		list-style: none;
-	}
-	.line {
-		display: flex;
-		align-items: center;
-		gap: var(--kit-gap);
-		min-height: var(--editor-row);
-		cursor: pointer;
-	}
-	/* the tick: the control's line, ticked the pressed fill (RULES H11 – no hue) */
-	.line input {
-		appearance: none;
-		display: inline-grid;
-		flex: none;
-		place-items: center;
-		width: 1rem;
-		height: 1rem; /* control-ok: a tick box, not a single-line control */
-		margin: 0;
-		border: var(--editor-edge) solid var(--tool-line);
-		border-radius: calc(var(--editor-radius) / 2);
-		background: var(--kit-field-rest-ground);
-		cursor: pointer;
-	}
-	.line input:checked {
-		border-color: var(--tool-pressed);
-		background: var(--tool-pressed);
-	}
-	.line input:checked::after {
-		content: '';
-		width: 0.3rem;
-		height: 0.55rem; /* control-ok: the tick's mark */
-		margin-top: -0.12rem;
-		border: solid var(--tool-pressed-text);
-		border-width: 0 calc(2 * var(--editor-edge)) calc(2 * var(--editor-edge)) 0;
-		transform: rotate(45deg);
-	}
-	.line input:focus-visible {
-		outline: var(--editor-edge) solid var(--tool-text);
-		outline-offset: var(--editor-edge);
-	}
-	.name {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.type {
-		flex: none;
-		margin-left: auto;
-		color: var(--tool-muted);
 	}
 	.report li {
 		display: flex;
