@@ -43,7 +43,7 @@ export { createCraftsApi, craftName, type Craft, type CraftsApi, type MemberCraf
 export { createLayoutsApi, type CraftLayout, type LayoutsApi, type MemberLayouts, type SavedLayout } from './layouts.ts';
 export { assetThumbKey, createThumbsApi, THUMB_HEIGHT, THUMB_LOOKUP_MAX, THUMB_WIDTH, workspaceThumbKey, type Thumb, type ThumbLookup, type ThumbsApi } from './thumbs.ts';
 export { createDeviceSessionApi, type DeviceSession, type DeviceSessionApi, type MemberSession } from './device-session.ts';
-export { DECK_APP, DECK_CARDS, DECK_SCHEME, deckLink, readDeckState, type DeckState } from './deck-link.ts';
+export { CREATOR_APP, CREATOR_SCHEME, DECK_APP, DECK_CARDS, DECK_SCHEME, creatorLink, deckLink, readAppLink, readDeckState, type AppLink, type DeckState } from './deck-link.ts';
 export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
 export {
 	EVENT_NAMES,

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vectors from '../../../server/schema/tables/deck-link.vectors.json' with { type: 'json' };
-import { DECK_CARDS, deckLink, readDeckState } from '../src/deck-link.ts';
+import { DECK_CARDS, creatorLink, deckLink, readAppLink, readDeckState } from '../src/deck-link.ts';
 
 test('the links every language builds and reads (deck-link.vectors.json)', () => {
 	for (const v of vectors.links) assert.equal(deckLink(v.workspace, v.address), v.link, `${v.workspace} ${v.address}`);
@@ -17,4 +17,18 @@ test("the deck's device row as read", () => {
 
 test("the deck's cards in the deck's order", () => {
 	assert.deepEqual(DECK_CARDS, ['stage', 'rigging', 'show']);
+});
+
+test("the creator's links (deck-link.vectors.json creator_links)", () => {
+	for (const v of vectors.creator_links) assert.equal(creatorLink(v.workspace, v.address), v.link, `${v.workspace} ${v.address}`);
+	for (const v of vectors.refused) assert.equal(creatorLink(v.workspace, v.address), null, `${v.workspace} ${v.address}`);
+});
+
+test('a link of either app as read', () => {
+	for (const v of vectors.read) assert.deepEqual(readAppLink(v.link), v.read, v.link);
+});
+
+test('every link reads back to its workspace and address', () => {
+	for (const v of vectors.links) assert.deepEqual(readAppLink(v.link), { app: 'deck', workspace: v.workspace, address: v.address }, v.link);
+	for (const v of vectors.creator_links) assert.deepEqual(readAppLink(v.link), { app: 'creator', workspace: v.workspace, address: v.address }, v.link);
 });
