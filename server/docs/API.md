@@ -395,7 +395,8 @@ centre-cut (`fitted`), taken once the thing has settled, keyed by what it shows.
 stamp is not the current version – make it again. Files live in the primary asset storage (local in dev, bunny in production);
 `.thumbs/` is never registered as assets. The asset list (`GET /assets`) leaves the `thumb` rendition out (the detail keeps it), and Unused never offers a used
 asset's still. Stills of what was there before: `php bin/console assets:jobs --thumbs[=N]` queues the missing / stale ones, then
-`assets:jobs` makes them (ffmpeg).
+`assets:jobs` makes them (ffmpeg). The extended Library answers the stills as `picture` (an asset's `thumb` rendition; an
+address's still for a thing without a picture of its own); the creator's switcher shows the member's `workspace:` stills.
 
 | Method | Path | |
 |---|---|---|
