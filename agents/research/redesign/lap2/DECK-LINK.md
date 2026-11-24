@@ -17,7 +17,7 @@ Owner 2026-11-24: *"workspaces from the deck or the creator should be shown vice
 - **Not chosen:** the creator page calling the deck on `http://127.0.0.1:<port>`. Chrome 142+ asks the user for "local network access" on every site that does it, Safari and Firefox differ; on the deck OS a managed policy could allow it, elsewhere it is a prompt. The server message + the URL scheme need no such permission.
 
 ## With the creator as an Electron app (decided 2026-11-24)
-Both apps are then programs on the machine: the creator registers `scutoons-creator://` the same way as the deck's scheme (Electron's own `setAsDefaultProtocolClient` + its single-instance lock), and the two can talk directly on the machine (a local socket / pipe) without any browser permission. The server message stays for a deck on another machine.
+Both apps are then programs on the machine: the creator registers `scutoons-creator://` the same way as the deck's scheme (Electron's own `setAsDefaultProtocolClient` + its single-instance lock), and the two can talk directly on the machine (a local socket / pipe) without any browser permission. The server message stays for a deck on another machine. Built (#860): `creator-app/` loads the deployed creator; `scutoons-creator://<workspace>/<address>` is the same grammar under the creator's scheme (deck-link.json `creator`, its vectors `creator_links` and `read`), the workspace the creator's own name for it.
 
 ## What it means for the screens
 - One switcher list in both apps: the creator's workspaces and the deck's (Scene · Rigging · Show), each card with its still and its last content; a deck card says whether the deck is running on this machine (from its last report) – opening it jumps there or starts it.

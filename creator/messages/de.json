@@ -2432,6 +2432,8 @@
 		"dash_nothing_open": "Noch nichts offen",
 		"open_in_deck": "Im Deck öffnen",
 		"open_in_deck_title": "Öffnet das Deck damit – der Browser fragt einmal, ob er darf",
+		"deck_missing": "Kein Deck auf diesem Rechner",
+		"deck_download": "Deck herunterladen",
 		"deck_chip": "Deck",
 		"deck_card_title": "Öffnet das Deck in diesem Arbeitsbereich – der Browser fragt einmal, ob er darf",
 		"deck_ws_stage": "Szene",

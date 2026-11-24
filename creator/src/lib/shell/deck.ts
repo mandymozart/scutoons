@@ -34,7 +34,7 @@ const hooks: DeckHooks = { missing: () => false, offer: () => {} };
 
 /**
  * Whether this machine has no deck. The web creator cannot tell and just tries the link (false); the installed creator
- * fills it from the system's handler for the scheme, with the download it offers instead (`fillDeckHooks`, TODO(#860)).
+ * fills it from the system's handler for the scheme, with the download it offers instead (`fillDeckHooks`, desktop.svelte.ts).
  */
 export const deckMissing = (): boolean => hooks.missing();
 

@@ -46,6 +46,7 @@
 	import { keepScroll, resume, resumeScroll } from '$lib/shell/resume.svelte.ts';
 	import type { DashboardState } from '$lib/shell/resume.ts';
 	import { openings } from '$lib/shell/openings.svelte.ts';
+	import { startDesktop } from '$lib/shell/desktop.svelte.ts';
 	import { log } from '$lib/log/log.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
@@ -237,6 +238,8 @@
 			history.replaceState = replaceState;
 		};
 	});
+	// after the resumed start: a link handed to the installed creator goes last, so it wins
+	onMount(startDesktop);
 	// the front tab's name once the names are known (a reload shows the stored one until then)
 	const path = $derived(tabPath(nav.crumbs));
 	$effect(() => {

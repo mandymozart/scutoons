@@ -2432,6 +2432,8 @@
 		"dash_nothing_open": "Nothing open yet",
 		"open_in_deck": "Open in the deck",
 		"open_in_deck_title": "Opens the deck on this – your browser asks once whether it may",
+		"deck_missing": "No deck on this computer",
+		"deck_download": "Download the deck",
 		"deck_chip": "Deck",
 		"deck_card_title": "Opens the deck on this workspace – your browser asks once whether it may",
 		"deck_ws_stage": "Scene",

@@ -1,5 +1,31 @@
 {
-	"description": "The deck link's cases every language runs (deck-link.json): `links` – a workspace and an address (null: none) and the link; `refused` – no link; `states` – the deck's device row state and what a reader takes from it (null: not the deck's).",
+	"description": "The deck link's cases every language runs (deck-link.json): `links` – a workspace and an address (null: none) and the link; `refused` – no link; `states` – the deck's device row state and what a reader takes from it (null: not the deck's); `creator_links` – the same for the creator's scheme; `read` – a link as either app reads it (null: not a link of the two apps); every link of `links` and `creator_links` reads back to its workspace and address.",
+	"creator_links": [
+		{ "workspace": "scene", "address": "scene:avatar-home", "link": "scutoons-creator://scene/scene:avatar-home" },
+		{ "workspace": "catalog", "address": null, "link": "scutoons-creator://catalog" },
+		{ "workspace": "chapter", "address": "chapter:feilchen:3", "link": "scutoons-creator://chapter/chapter:feilchen:3" },
+		{ "workspace": "sound", "address": "rig:catpope", "link": "scutoons-creator://sound/rig:catpope" },
+		{ "workspace": "character", "address": "character:catpope", "link": "scutoons-creator://character/character:catpope" },
+		{ "workspace": "scene", "address": "scene:a#b?c&d", "link": "scutoons-creator://scene/scene:a%23b%3Fc%26d" }
+	],
+	"read": [
+		{ "link": "scutoons-creator://scene/scene:avatar-home", "read": { "app": "creator", "workspace": "scene", "address": "scene:avatar-home" } },
+		{ "link": "scutoons-creator://catalog", "read": { "app": "creator", "workspace": "catalog", "address": null } },
+		{ "link": "scutoons-creator://catalog/", "read": { "app": "creator", "workspace": "catalog", "address": null } },
+		{ "link": "SCUTOONS-Creator://scene/scene:x", "read": { "app": "creator", "workspace": "scene", "address": "scene:x" } },
+		{ "link": "scutoons-deck://asset/image:catpope/m%C3%BCller.webp", "read": { "app": "deck", "workspace": "asset", "address": "image:catpope/müller.webp" } },
+		{ "link": "scutoons-deck://show", "read": { "app": "deck", "workspace": "show", "address": null } },
+		{ "link": "scutoons-other://scene", "read": null },
+		{ "link": "https://creator.scutoons.com/scenes/avatar-home", "read": null },
+		{ "link": "scutoons-creator:scene", "read": null },
+		{ "link": "scutoons-creator://", "read": null },
+		{ "link": "scutoons-creator://Scene", "read": null },
+		{ "link": "scutoons-creator://scene/avatar-home", "read": null },
+		{ "link": "scutoons-creator://scene/scene:", "read": null },
+		{ "link": "scutoons-creator://scene/scene:a?b", "read": null },
+		{ "link": "scutoons-creator://scene/scene:a#b", "read": null },
+		{ "link": "scutoons-creator://scene/scene:%E0%A4%A", "read": null }
+	],
 	"links": [
 		{ "workspace": "stage", "address": "scene:avatar-home", "link": "scutoons-deck://stage/scene:avatar-home" },
 		{ "workspace": "show", "address": null, "link": "scutoons-deck://show" },

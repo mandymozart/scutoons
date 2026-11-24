@@ -1,4 +1,4 @@
-// The link that opens the deck: its grammar, the deck's cards and the deck's device row are server/schema/tables/
+// The links that open the deck and the installed creator: their grammar, the deck's cards and device row are server/schema/tables/
 // deck-link.json, the one definition the deck reads too (#873); both run deck-link.vectors.json. Where an item opens in the
 // deck is the core's (deck-catalog `library::open`): the caller asks it and passes its workspace. Pure: test/deck-link.test.ts.
 import table from '../../../server/schema/tables/deck-link.json' with { type: 'json' };
@@ -23,11 +23,52 @@ const encode = (address: string): string =>
 		.replace(/%3A/g, ':')
 		.replace(/%2F/g, '/');
 
+const linkOf = (scheme: string, workspace: string, address: string | null): string | null => {
+	if (!isWord(workspace)) return null;
+	if (address === null) return `${scheme}://${workspace}`;
+	return isAddress(address) ? `${scheme}://${workspace}/${encode(address)}` : null;
+};
+
 /** the link opening the deck on `workspace` and, given, the item at `address`; null when either is not one */
 export function deckLink(workspace: string, address: string | null = null): string | null {
-	if (!isWord(workspace)) return null;
-	if (address === null) return `${DECK_SCHEME}://${workspace}`;
-	return isAddress(address) ? `${DECK_SCHEME}://${workspace}/${encode(address)}` : null;
+	return linkOf(DECK_SCHEME, workspace, address);
+}
+
+/** the installed creator's scheme (`scutoons-creator`) */
+export const CREATOR_SCHEME: string = table.creator.scheme;
+/** what a creator link reads as its `app` */
+export const CREATOR_APP: string = table.creator.app;
+
+/** the link opening the installed creator on its `workspace` and, given, the item at `address` */
+export function creatorLink(workspace: string, address: string | null = null): string | null {
+	return linkOf(CREATOR_SCHEME, workspace, address);
+}
+
+/** a link of either app, read */
+export interface AppLink {
+	/** `deck` or `creator` (deck-link.json `app`) */
+	app: string;
+	workspace: string;
+	address: string | null;
+}
+
+const LINK = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/([^/?#]*)(?:\/([^?#]*))?$/s;
+
+/** a `scutoons-deck://` or `scutoons-creator://` link → its app, workspace and address; anything else: null */
+export function readAppLink(link: string): AppLink | null {
+	const match = LINK.exec(link);
+	if (!match) return null;
+	const scheme = match[1].toLowerCase();
+	const app = scheme === DECK_SCHEME ? DECK_APP : scheme === CREATOR_SCHEME ? CREATOR_APP : null;
+	if (!app || !isWord(match[2])) return null;
+	if (!match[3]) return { app, workspace: match[2], address: null };
+	let address: string;
+	try {
+		address = decodeURIComponent(match[3]);
+	} catch {
+		return null;
+	}
+	return isAddress(address) ? { app, workspace: match[2], address } : null;
 }
 
 /** what the deck's device row says: the workspace in front and each workspace's last item */
