@@ -1,5 +1,5 @@
-// Workspace snapshots (#842): what the front workspace looks like, taken once it held still (stills.ts `snapshotDue`)
-// and kept in memory; leaving it – another workspace, the dashboard, the window hidden – sends the last one up as the
+// Workspace captures: what the front workspace looks like, taken once it held still (stills.ts `snapshotDue`)
+// and kept in memory; leaving it – another workspace, the switcher, the window hidden – sends the last one up as the
 // member's own `workspace:<id>` still. The picture: the stage's canvas where one fills it (a 3D place, a scene), else a
 // DOM capture of the window without the overlays (modern-screenshot, loaded on first use).
 import { workspaceThumbKey } from '@scutoons/api';
@@ -7,8 +7,8 @@ import { shared } from '$lib/utils/shared.ts';
 import { snapshotDue } from './stills.ts';
 import { thumbs, toStill } from './thumbs.svelte.ts';
 
-/** what never belongs in a workspace's picture: the overlays over it */
-const SKIP = '[data-testid="dashboard"], [data-testid="launcher"], [data-testid="user-menu"], [data-snapshot-skip]';
+/** what never belongs in a workspace's picture: the overlay level (the switcher, Search, dialogs) and what floats over it */
+const SKIP = '[data-overlay], dialog[open], [data-snapshot-skip]';
 /** a canvas counts as the stage's picture when it covers this share of the stage */
 const CANVAS_SHARE = 0.4;
 /** workspaces without a picture of their own */
@@ -64,7 +64,7 @@ export async function captureWorkspace(): Promise<Blob | null> {
 }
 
 class Snapshots {
-	/** this visit's newest picture per workspace (an object URL) – the dashboard shows it before the server has it */
+	/** this visit's newest picture per workspace (an object URL) – the switcher shows it before the server has it */
 	local = $state.raw<Record<string, string>>({});
 	#held = new Map<string, Blob>();
 	#taken = new Map<string, number>();
@@ -95,8 +95,8 @@ class Snapshots {
 	}
 
 	/**
-	 * The front workspace and whether something lies over it (the dashboard): a workspace left sends its last picture; the
-	 * dashboard coming up takes a fresh one first (the workspace still shows under it).
+	 * The front workspace and whether something lies over it (the switcher): a workspace left sends its last picture; the
+	 * switcher coming up takes a fresh one first (the workspace still shows under it).
 	 */
 	front(id: string, away: boolean) {
 		const was = this.#front;

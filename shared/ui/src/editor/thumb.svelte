@@ -3,15 +3,18 @@
 	import Icon from '../icon.svelte';
 
 	/**
-	 * A thumbnail (deck-kit's still, deck/editor/src/library.rs STILL): the 264 × 168 shape, a tile's corner and line, the
-	 * picture cut to the shape (`fit` contain shows a whole picture that is not a still yet). Without a picture the
-	 * placeholder: `children` (an avatar …) or the kind's icon. `over` lies on top (a count, a badge).
+	 * A thumbnail (deck-kit's still, deck/editor/src/library.rs STILL; kit/tokens.toml `[component.thumb.*]`): the 264 × 168
+	 * shape, a tile's corner and line, the picture cut to the shape (`fit` contain shows a whole picture that is not a still
+	 * yet). Without a picture: `children` (an avatar …) or the kind's icon on the see-through ground, `empty` as its hover
+	 * text. `fill` covers the parent instead (a card's whole ground). `over` lies on top (a count, a badge).
 	 */
 	let {
 		src = null,
 		icon = 'image',
 		fit = 'cover',
 		size = '1.6rem',
+		fill = false,
+		empty,
 		class: extra = '',
 		children,
 		over
@@ -21,6 +24,9 @@
 		fit?: 'cover' | 'contain';
 		/** the placeholder icon's size */
 		size?: string;
+		fill?: boolean;
+		/** the placeholder's hover text (a still that does not exist yet) */
+		empty?: string;
 		class?: string;
 		children?: Snippet;
 		over?: Snippet;
@@ -30,13 +36,13 @@
 	const shown = $derived(src && failed !== src ? src : null);
 </script>
 
-<span class="kit-thumb {extra}" data-testid="kit-thumb" data-filled={shown ? '' : undefined}>
+<span class="kit-thumb {extra}" class:fill data-testid="kit-thumb" data-filled={shown ? '' : undefined}>
 	{#if shown}
 		<img src={shown} alt="" loading="lazy" draggable="false" class:contain={fit === 'contain'} onerror={() => (failed = shown)} />
-	{:else if children}
-		<span class="place">{@render children()}</span>
 	{:else}
-		<span class="place"><Icon name={icon} {size} strokeWidth={1.25} /></span>
+		<span class="place" title={empty}>
+			{#if children}{@render children()}{:else}<Icon name={icon} {size} strokeWidth={1.25} />{/if}
+		</span>
 	{/if}
 	{#if over}{@render over()}{/if}
 </span>
@@ -49,10 +55,23 @@
 		box-sizing: border-box;
 		width: 100%;
 		aspect-ratio: 264 / 168;
-		border: var(--editor-edge) solid var(--tool-line);
+		border: var(--editor-edge) solid var(--kit-thumb-rest-border);
 		border-radius: var(--kit-radius-tile);
 		overflow: hidden;
 		color: var(--tool-muted);
+	}
+	@media (hover: hover) {
+		.kit-thumb:not(.fill):hover {
+			border-color: var(--kit-thumb-hover-border);
+		}
+	}
+	.kit-thumb.fill {
+		position: absolute;
+		inset: 0;
+		width: auto;
+		aspect-ratio: auto;
+		border: 0;
+		border-radius: inherit;
 	}
 	img {
 		position: absolute;
