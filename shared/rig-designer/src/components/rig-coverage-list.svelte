@@ -31,19 +31,16 @@
 <style>
 	.missing {
 		padding: var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		border-top: 1px solid var(--tool-line);
+		color: var(--tool-text);
 	}
 	h3 {
 		margin: 0 0 var(--space-05);
-		font-size: 0.75rem;
+		font-size: var(--type-label-size);
 		font-weight: inherit;
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label, 0.08em);
-		color: var(--text-muted);
+		letter-spacing: var(--tracking-label);
+		color: var(--tool-muted);
 	}
 	ul {
 		margin: 0;
@@ -53,12 +50,13 @@
 		flex-wrap: wrap;
 		gap: var(--space-025) var(--space-1);
 	}
+	/* the open one: the text colour, its address underlined (no inverted ground) */
 	li.on a {
-		background: var(--ink);
-		color: var(--paper);
+		color: var(--tool-text);
+		text-decoration-thickness: 2px;
 	}
 	.muted {
 		margin-left: var(--space-025);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
 </style>

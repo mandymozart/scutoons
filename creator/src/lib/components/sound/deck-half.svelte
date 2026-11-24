@@ -1,10 +1,8 @@
 <script lang="ts">
-	// The deck half of the Sound design workspace (#282): the engine host of #298 (`<EngineStage gate>`) on the empty rigging
-	// stage (#425: no room behind the being) playing the
-	// character's rig – the being, the knobs and the sound. The sound starts with the round Play button on the stage (or the
-	// first click on it; the browser holds the first sound back until a gesture). The character's properties sit on the stage
-	// as chips (the mood is the first; look, persona … follow); under it the signal strip (owner draft 2026-11-02). The
-	// compiled module plays here with #290 (what the deck plays today is the Info panel's to say once the editor has one).
+	// The deck half of the Sound design workspace: the engine host on the empty rigging stage playing the character's rig –
+	// the being, the knobs and the sound (from the stage's Play button: the browser holds sound back until a gesture). The
+	// character's properties sit on the stage as chips, the signal strip under it. The deck's stage is black by day too:
+	// what lies on it takes the night colours.
 	import { EngineStage, emptySnapshot, type EngineHost, type EngineSnapshot } from '@scutoons/engine-host';
 	import type { GraphWiring } from '@scutoons/rig-designer';
 	import { API_URL, CDN_SERVER } from '$lib/config.ts';
@@ -62,7 +60,7 @@
 </script>
 
 <div class="deck" data-testid="sound-deck">
-	<div class="stage">
+	<div class="stage" data-theme="night">
 		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
 		<div class="chips">
 			<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
@@ -84,7 +82,7 @@
 		flex: 1;
 		min-height: 10rem;
 		position: relative;
-		background: var(--tool-pressed);
+		background: var(--tool-ground);
 	}
 	.chips {
 		position: absolute;
@@ -103,7 +101,7 @@
 		z-index: 2;
 		pointer-events: none;
 		font-size: var(--type-nav-micro-size);
-		color: color-mix(in srgb, var(--tool-pressed-text) 60%, transparent);
+		color: var(--tool-muted);
 		white-space: nowrap;
 	}
 </style>

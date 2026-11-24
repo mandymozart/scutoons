@@ -4,6 +4,7 @@
 	// policy, #412), heard on the deck half at every change, and the characters without a default rig (the core's coverage
 	// over the registry and the catalog's rig list). What a policy owns the form shows read-only, from the core's face.
 	import { AssignmentTab, RigCoverageList, designerMessages as m } from '@scutoons/rig-designer';
+	import { Button } from '@scutoons/ui/editor';
 	import { editHref } from '$lib/editor/edit-key.ts';
 	import { rigKey } from '$lib/editor/rig-assign.ts';
 	import RigBodySlot from '$lib/components/rigs/rig-body-slot.svelte';
@@ -31,7 +32,7 @@
 	<RigCoverageList list={session.coverage} current={session.subject} href={(c) => editHref(rigKey(c.subject), { w: 'sound' })} />
 	{#if session.rig}
 		<footer class="actions">
-			<button type="button" onclick={() => session.hear()} title={m['designer.assign_hear_title']()} data-testid="assign-hear">{m['designer.assign_hear']()}</button>
+			<Button onclick={() => session.hear()} title={m['designer.assign_hear_title']()} data-testid="assign-hear">{m['designer.assign_hear']()}</Button>
 		</footer>
 	{/if}
 </div>
@@ -46,17 +47,16 @@
 	.form {
 		flex: 1;
 		min-height: 0;
+		display: grid;
+		overflow: hidden;
 	}
 	.actions {
 		flex: none;
 		display: flex;
 		align-items: center;
+		justify-content: flex-end;
 		gap: var(--space-05);
 		padding: var(--space-05) var(--space-1);
-		border-top: var(--border-width-regular) solid var(--tool-text);
-		background: transparent;
-	}
-	.actions > :first-child {
-		margin-left: auto;
+		border-top: 1px solid var(--tool-line);
 	}
 </style>

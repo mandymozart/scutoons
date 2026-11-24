@@ -21,7 +21,7 @@
 		{#if d.params.length === 0}
 			<p class="muted">{m['designer.params_empty']()}</p>
 		{:else}
-			<table>
+			<table class="values">
 				<thead>
 					<tr><th>{m['designer.param_name']()}</th><th>{m['designer.param_min']()}</th><th>{m['designer.param_max']()}</th><th>{m['designer.param_default']()}</th></tr>
 				</thead>
@@ -52,25 +52,23 @@
 		height: 100%;
 		overflow: auto;
 		padding: var(--space-1);
-		background: var(--paper);
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		color: var(--tool-text);
 	}
 	.head {
 		margin: 0 0 var(--space-05);
 	}
 	.muted {
 		margin: 0 0 var(--space-05);
-		color: var(--text-muted);
+		color: var(--tool-muted);
 	}
+	/* a section's head: the label type, muted (deck-kit's) */
 	h3 {
-		margin: var(--space-1) 0 var(--space-05);
-		font-size: 0.75rem;
+		margin: var(--space-1) 0 var(--space-025);
+		font-size: var(--type-label-size);
 		font-weight: inherit;
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label, 0.08em);
-		color: var(--text-muted);
+		letter-spacing: var(--tracking-label);
+		color: var(--tool-muted);
 	}
 	table {
 		width: 100%;
@@ -78,14 +76,20 @@
 	}
 	th,
 	td {
-		padding: var(--space-025) var(--space-05) var(--space-025) 0;
+		height: var(--editor-tree-row);
+		padding: 0 var(--space-05) 0 0;
 		text-align: left;
 		font-weight: inherit;
-		border-bottom: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
-		font-variant-numeric: tabular-nums;
+		border-bottom: 1px solid var(--tool-line);
 	}
 	th {
-		color: var(--text-muted);
-		text-transform: uppercase;
+		font-size: var(--type-caption-size);
+		color: var(--tool-muted);
+	}
+	/* the values: the mono face, figures in columns */
+	.values td + td {
+		font-family: var(--font-mono);
+		font-size: var(--type-caption-size);
+		font-variant-numeric: tabular-nums;
 	}
 </style>
