@@ -131,7 +131,7 @@ pub fn badge(d: &mut DrawList, t: &Tokens, at: (f32, f32), text: &str, on: bool)
     chip_in(d, t, at, text, if on { "on" } else { "rest" })
 }
 
-/// #478: chips that are each on or off (a filter's facts) – the kit's badge – side by side and on to the next line at
+/// chips that are each on or off (a filter's facts) – the kit's badge – side by side and on to the next line at
 /// `w`; their places and the height they took
 pub fn chips(d: &mut DrawList, t: &Tokens, (x, y, w): (f32, f32, f32), names: &[&str], on: &[bool]) -> (Vec<Rect>, f32) {
     let (h, gap) = (badge_height(t), t.size.pad * 0.5);

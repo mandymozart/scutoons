@@ -3066,6 +3066,10 @@ impl App {
         let full_id = self.panels().full.clone();
         let overlay = self.switcher || full_id.is_some() || self.scene_prompt.is_some();
         let blur = !self.settings.motion.reduce_motion;
+        // the still is taken of the workspace as it lies under the overlay: a panel taken full floats in it, that once
+        if overlay && blur && self.still == Still::None && self.gpu.as_ref().is_some_and(|g| g.can_capture) && full_id.is_some() {
+            self.panels_mut().full = None;
+        }
         let zone = self.zone_now();
         let look = self.looking();
         self.follow_nodes();

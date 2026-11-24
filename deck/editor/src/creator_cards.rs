@@ -1,4 +1,4 @@
-//! The creator's workspaces in the deck's switcher (#859, server/schema/tables/deck-link.json): read from the member's
+//! The creator's workspaces in the deck's switcher (server/schema/tables/deck-link.json): read from the member's
 //! newest creator row (GET /api/me/session?device=…: `other`, the creator's own state) – its open tabs, grouped by the
 //! workspace each was last shown in, the front one's item first. Read once a switcher opens, in the background; signed
 //! out, offline or with no creator row there are none. A card opens the creator in the browser on its tab's page.

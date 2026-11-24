@@ -294,10 +294,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
     icons.extend([("account", account_ink), ("menu", t.color.text)]);
     let (end_pill, places) = group(d, t, (x, y, inset), &icons, b.pointer);
     if b.menu {
-        let m = places[places.len() - 1];
-        if let Some(g) = t.kit("icon_button", "on").ground {
-            d.round_rect(m.x, m.y, m.w, m.h, m.h * 0.5, g);
-        }
+        controls::icon_button_in(d, t, places[places.len() - 1], "menu", "on");
     }
     out.publish = b.publish.then(|| places[0]);
     out.account = places[places.len() - 2];
@@ -396,12 +393,7 @@ pub fn draw(d: &mut DrawList, t: &Tokens, width: f32, b: &Bar) -> Placed {
             cx += place.w + 2.0;
         }
         let chooser = Rect { x: r.x + r.w - inset - ih, y: y + inset, w: ih, h: ih };
-        if b.switcher {
-            if let Some(g) = t.kit("icon_button", "on").ground {
-                d.round_rect(chooser.x, chooser.y, chooser.w, chooser.h, ir, g);
-            }
-        }
-        out.chooser = Some(inner_button(d, t, chooser, "down", if b.switcher { t.color.text } else { t.color.muted }, b.pointer));
+        out.chooser = Some(if b.switcher { controls::icon_button_in(d, t, chooser, "down", "on") } else { inner_button(d, t, chooser, "down", t.color.muted, b.pointer) });
         strip_end = r.x - gap;
     }
     // the tabs: a strip from the left, the front one with its path; the list and the + at its end

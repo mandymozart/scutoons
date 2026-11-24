@@ -37,12 +37,11 @@ pub const LINES: [Option<(Line, &str, &str)>; 11] = [
 fn trail(l: Line) -> &'static str {
     match l {
         Line::Do(Action::Quit) => "F9",
-        Line::SaveWorkspace => "Ctrl S",
         _ => "",
     }
 }
 
-/// what New … makes (scene and show open today's sheets – their dialogs are #870's)
+/// what New … makes; TODO(#870): a scene and a show as dialogs on the overlay level, not today's sheets
 pub const NEW: [(home::New, &str); 3] = [(home::New::Scene, "Scene"), (home::New::Show, "Show"), (home::New::Module, "Module")];
 
 /// a press on the menu
