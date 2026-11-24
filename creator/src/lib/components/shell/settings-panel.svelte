@@ -58,6 +58,10 @@
 			<span>{m['shell.theme']()}</span>
 			<PillTabs label={m['shell.theme']()} on={s.theme} onselect={(id) => shell.change({ theme: id as 'day' | 'night' })} items={[{ id: 'day', label: m['shell.day'](), testid: 'theme-day' }, { id: 'night', label: m['shell.night'](), testid: 'theme-night' }]} />
 		</div>
+		<div class="row" title={m['shell.colorblind_hint']()}>
+			<span>{m['shell.colorblind']()}</span>
+			<Toggle on={s.colorblind} label={m['shell.colorblind']()} title={m['shell.colorblind_hint']()} onchange={(on) => shell.change({ colorblind: on })} />
+		</div>
 		<div class="row">
 			<span>{m['shell.ui_size']()}</span>
 			<span class="pair">

@@ -263,10 +263,12 @@
 		recent.visit({ href: page.url.pathname + page.url.search, trail: crumbs.filter((c, i, all) => i === all.length - 1 || !c.href.includes('/season/')).map((c) => c.label), toon: toonId });
 	});
 
-	// this machine's settings on the page: the theme (night first), the UI size, motion
+	// this machine's settings on the page: the theme (night first), the colour-blind set, the UI size, motion
 	$effect(() => {
 		const root = document.documentElement;
 		root.dataset.theme = shell.settings.theme;
+		if (shell.settings.colorblind) root.dataset.colorblind = '';
+		else delete root.dataset.colorblind;
 		root.style.setProperty('--ui-scale', String(shell.settings.scale));
 		root.dataset.motion = shell.settings.reduceMotion ? 'reduced' : 'full';
 		root.dataset.panelTransitions = shell.settings.panelTransitions && !shell.settings.reduceMotion ? 'on' : 'off';

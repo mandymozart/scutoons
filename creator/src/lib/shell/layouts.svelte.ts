@@ -6,26 +6,12 @@ import { api } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { NO_LAYOUTS, readLayouts, readChosen, readKept, startKind, startOf, toKept, withSaved, without, type LayoutsState } from './layouts.ts';
 import type { WorkspaceKind } from './address.ts';
+import { readJson, writeJson, writesHeld } from './kept.ts';
 
 const KEPT_KEY = 'sc-creator-layouts';
 export const CHOSEN_KEY = 'sc-creator-chosen';
 
 const layoutsApi = createLayoutsApi(api);
-
-function readJson(key: string): unknown {
-	try {
-		return JSON.parse(localStorage.getItem(key) ?? 'null');
-	} catch {
-		return null;
-	}
-}
-function writeJson(key: string, value: unknown): void {
-	try {
-		localStorage.setItem(key, JSON.stringify(value));
-	} catch {
-		// storage blocked or full: it holds for this visit
-	}
-}
 
 /** where a save landed: with the account, or only in this browser (the server did not take it) */
 export type SavedWhere = 'account' | 'browser';
@@ -63,6 +49,7 @@ class Layouts {
 	/** the workspace's layout becomes its saved state; `own`: a new own workspace (or its new name) */
 	async save(id: string, layout: unknown, own?: { name: string; kind: WorkspaceKind }): Promise<SavedWhere> {
 		this.#set(withSaved(this.state, id, layout, own));
+		if (writesHeld()) return 'browser';
 		try {
 			await layoutsApi.save(id, { layout, ...(own ? { name: own.name, kind: own.kind } : {}) });
 			return 'account';
@@ -75,6 +62,7 @@ class Layouts {
 	async remove(id: string): Promise<void> {
 		this.#set(without(this.state, id));
 		this.choose(Object.fromEntries(Object.entries(this.chosen).filter(([, shown]) => shown !== id)));
+		if (writesHeld()) return;
 		try {
 			await layoutsApi.remove(id);
 		} catch {
