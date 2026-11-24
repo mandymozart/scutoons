@@ -34,7 +34,7 @@ export const EMPTY_PATH = '/workspace/';
 export const startHref = (kind: WorkspaceKind): string => STARTS[kind] ?? `${EMPTY_PATH}${kind}`;
 
 /** what Search starts with on a workspace's empty page: the address of the items it opens (a storyboard is a chapter's) */
-const FINDS: Partial<Record<WorkspaceKind, string>> = { toon: 'toon:', chapter: 'chapter:', storyboard: 'chapter:', character: 'character:', sound: 'rig:', text: 'kanon:' };
+const FINDS: Partial<Record<WorkspaceKind, string>> = { toon: 'toon:', chapter: 'chapter:', storyboard: 'chapter:', character: 'character:', sound: 'module:', text: 'kanon:' };
 export const findSeed = (kind: WorkspaceKind): string => FINDS[kind] ?? '';
 
 /** the workspace whose empty page `pathname` is, else null */

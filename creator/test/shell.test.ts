@@ -8,7 +8,7 @@ import { showWhole, stepWhole, wholeIn } from '../src/lib/shell/strip.ts';
 import { DEFAULTS, clampScale, readSettings, readViews } from '../src/lib/shell/settings.ts';
 import { PRESETS, availableTabs, panelSpecs, presetStart, tabIdOf } from '../src/lib/shell/presets.ts';
 import { addSpore, hooksOf, removeSpore } from '../src/lib/editor/spores.ts';
-import { clampSplit, isCanvas, freeRoom } from '../src/lib/shell/stage.ts';
+import { clampSplit, isCanvas, freeRoom, roomAround } from '../src/lib/shell/stage.ts';
 import { ago, firstRing, greetName, isWelcome, rowStep, stepRing, workspaceCards } from '../src/lib/shell/dashboard.ts';
 import { NO_CRAFTS, asksCrafts, readCrafts, showsTextLanguage } from '../src/lib/shell/crafts.ts';
 import { NO_LAYOUTS, cleanName, fromAnswer, ownId, readChosen, readKept, shownWorkspace, startKind, startOf, toKept, withOwn, withSaved, without } from '../src/lib/shell/layouts.ts';
@@ -39,7 +39,9 @@ test('a route reads as the address of the item it edits; Home is none', () => {
 	assert.equal(addressOf('/catalog/items', '?id=camera'), 'item:camera');
 	assert.equal(addressOf('/catalog/recipes', '?id=repair'), 'recipe:repair');
 	assert.equal(addressOf('/catalog/items/camera/collage'), 'item:camera');
-	assert.equal(addressOf('/edit/rig:character.catpope'), 'rig:character.catpope');
+	assert.equal(addressOf('/edit/rig:character.catpope', '?w=sound'), 'rig:character.catpope');
+	assert.equal(addressOf('/edit/rig:character.catpope'), 'character:catpope', 'on its way to the Rig tab: the character’s tab');
+	assert.equal(addressOf('/edit/rig:item.drum-machine'), 'rig:item.drum-machine');
 	assert.equal(addressOf('/edit/nonsense'), null);
 	assert.equal(addressOf('/kanon/character.catpope'), 'kanon:character.catpope');
 });
@@ -65,6 +67,10 @@ test('an address leads back to its page, and every route round-trips', () => {
 		assert.equal(addressOf(...(hrefOf(address)!.split(/(?=\?)/) as [string, string?])), address, `${path}${search}`);
 	}
 	assert.equal(hrefOf('place:crypt'), '/map?location=crypt');
+	assert.equal(hrefOf('rig:character.catpope'), '/characters?id=catpope&tab=rig', "a character's rig opens on its Rig tab (lap 2 C4)");
+	assert.equal(addressOf('/characters', '?id=catpope&tab=rig'), 'character:catpope');
+	assert.equal(hrefOf('rig:item.drum-machine'), '/edit/rig:item.drum-machine');
+	assert.equal(hrefOf('module:walk'), '/edit/module:walk');
 	assert.equal(hrefOf('bogus:thing'), null);
 });
 
@@ -234,6 +240,30 @@ test('the free room: between the left and the right column of panels', () => {
 	assert.deepEqual(freeRoom([], 1000), { left: 0, right: 1000 });
 	assert.deepEqual(freeRoom([{ x: 0, w: 200 }, { x: 700, w: 300 }, { x: 650, w: 350 }], 1000), { left: 200, right: 650 });
 	assert.deepEqual(freeRoom([{ x: 0, w: 600 }, { x: 550, w: 450 }], 1000), { left: 600, right: 600 }, 'never less than nothing');
+});
+
+test('the room panels take from a view on the whole stage: the lower half from its bottom, the upper half from its side', () => {
+	const area = { x: 0, y: 50, w: 1000, h: 800 };
+	assert.deepEqual(roomAround([], area), { left: 0, right: 0, bottom: 0 });
+	const monitor = { x: 640, y: 50, w: 360, h: 250 };
+	const problems = { x: 0, y: 710, w: 400, h: 140 };
+	const knobs = { x: 640, y: 650, w: 360, h: 150 };
+	const tree = { x: 0, y: 50, w: 250, h: 800 };
+	assert.deepEqual(roomAround([monitor, problems, knobs, tree], area), { left: 250, right: 360, bottom: 200 });
+	assert.deepEqual(roomAround([{ x: 0, y: 700, w: 1000, h: 150 }], area), { left: 0, right: 0, bottom: 0 }, 'a band across the window narrows nothing');
+});
+
+test('Sound design on the host (lap 2 T10): the code on the stage, every part of the module editor a view of a panel', () => {
+	assert.equal(PRESETS.sound.main, 'rust');
+	const tabs = PRESETS.sound.panels.flatMap((p) => p.tabs);
+	for (const t of ['rust', 'parameters', 'nodes', 'assignment', 'monitor', 'meters', 'knobs', 'diagnostics', 'console', 'log', 'library']) assert.ok(tabs.includes(t as never), t);
+	assert.ok(isCanvas('rust') && isCanvas('nodes') && isCanvas('monitor'));
+	assert.equal(findSeed('sound'), 'module:', 'Search on its empty page offers modules: a rig opens on its character');
+	const ids = ['rust', 'parameters', 'nodes', 'monitor', 'meters', 'knobs', 'diagnostics', 'console'];
+	const specs = panelSpecs('sound', availableTabs(ids, null), [...ids, 'assignment', 'library', 'log', 'settings'].map((id) => ({ id, name: id, icon: 'x', about: '' })));
+	assert.ok(!specs.some((p) => p.tabs?.includes('assignment')), 'a module page: no Assignment');
+	assert.equal(specs.find((p) => p.id === 'monitor')?.place.corner, 'top-right');
+	assert.equal(specs.find((p) => p.id === 'diagnostics')?.place.corner, 'bottom-left');
 });
 
 test('one workspace model: a main view on the stage + panels; a main view always sits in a panel', () => {

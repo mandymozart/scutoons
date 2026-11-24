@@ -3,7 +3,7 @@
 // so a route reads as an address and an address leads back to a route. Pure: test/shell.test.ts.
 import { CATALOG_DOC_KINDS, catalogDocKey, type CatalogDocKind } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
-import { editHref, parseEditKey } from '../editor/edit-key.ts';
+import { editHref, parseEditKey, rigHome } from '../editor/edit-key.ts';
 import { experienceHref } from '../editor/experiences.ts';
 
 /** what an opened item is edited in – one background and its default panels each */
@@ -119,8 +119,12 @@ export function addressOf(pathname: string, search = ''): string | null {
 			const id = params.get('id');
 			return id ? `${CATALOG_DOC_KINDS[page]}:${id}` : `catalog:${page}`;
 		}
-		case 'edit':
-			return second && parseEditKey(second) ? second : null;
+		case 'edit': {
+			const target = second ? parseEditKey(second) : null;
+			if (!target) return null;
+			// a character's rig without a workspace asked for is on its way to the character's Rig tab: no tab of its own
+			return !params.has('w') && rigHome(target) && target.kind === 'rig' ? `character:${target.character}` : second;
+		}
 		case 'kanon':
 			return second ? `kanon:${second}` : null;
 	}
@@ -143,7 +147,8 @@ export function hrefOf(address: string): string | null {
 	if (address === AREAS.guide) return '/guide';
 	if (address === AREAS.notifications) return '/notifications';
 	if (kind === 'catalog' && id) return `/catalog/${encodeURIComponent(id)}`;
-	if (parseEditKey(address)) return editHref(address);
+	const edit = parseEditKey(address);
+	if (edit) return rigHome(edit) ?? editHref(address);
 	const doc = catalogDocKey(address);
 	if (doc) return `/catalog/${doc.kind}?id=${encodeURIComponent(doc.id)}`;
 	const ref = parseEntityKey(address);

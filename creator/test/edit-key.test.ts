@@ -1,7 +1,7 @@
 // `npm test -w scutoons-creator`: the editor's address (lib/editor/edit-key.ts, EDITOR.md §4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { editHref, parseEditKey, selectedModule, workspaceOf } from '../src/lib/editor/edit-key.ts';
+import { editHref, parseEditKey, rigHome, selectedModule, workspaceOf } from '../src/lib/editor/edit-key.ts';
 
 test('a rig key names its character; a module key its id; the rest is not editable yet', () => {
 	assert.deepEqual(parseEditKey('rig:character.catpope'), { kind: 'rig', key: 'rig:character.catpope', subject: 'character.catpope', character: 'catpope' });
@@ -30,4 +30,11 @@ test('editHref builds the address', () => {
 	assert.equal(editHref('rig:character.catpope', { w: 'sound' }), '/edit/rig:character.catpope?w=sound');
 	assert.equal(editHref('rig:character.catpope', { w: 'sound', sel: 'module:walk' }), '/edit/rig:character.catpope?w=sound&sel=module%3Awalk');
 	assert.equal(editHref('module:walk'), '/edit/module:walk');
+});
+
+test("a character's rig lands on the character's Rig tab (lap 2 C4); an item's rig and a module have no such page", () => {
+	assert.equal(rigHome(parseEditKey('rig:character.catpope')!), '/characters?id=catpope&tab=rig');
+	assert.equal(rigHome(parseEditKey('rig:character.catpope.dj')!), '/characters?id=catpope&persona=dj&tab=rig');
+	assert.equal(rigHome(parseEditKey('rig:item.drum-machine')!), null);
+	assert.equal(rigHome(parseEditKey('module:walk')!), null);
 });
