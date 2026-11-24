@@ -709,15 +709,16 @@ impl crate::App {
                 }
             }
             Did::Level(n) => {
-                if let Some((_, l)) = self.library.inside().and_then(|i| i.levels.get(n)).cloned() {
+                if let Some(l) = self.library.inside().and_then(|i| i.levels.get(n)).cloned() {
                     self.library_open(Kind::Character, &l.address, &l.name);
                 }
             }
             Did::UsedIn(n) => {
                 let Some(link) = self.library.inside().and_then(|i| i.used_in.get(n)).cloned() else { return };
-                match link.r#type {
-                    Some(_) => self.library.step_into(&self.args.api, self.auth.token(), Some(&link.address)),
-                    None => self.library_open(Kind::Item, &link.address, &link.name),
+                if link.thing {
+                    self.library.step_into(&self.args.api, self.auth.token(), Some(&link.address));
+                } else {
+                    self.library_open(Kind::Item, &link.address, &link.name);
                 }
             }
         }
@@ -964,7 +965,7 @@ mod tests {
             { "address": "image:cat/s1/c1/hills.webp", "kind": "image", "name": "hills", "picture": "https://cdn.example/cat/s1/c1/hills.thumb.webp", "toons": ["cat"], "usedIn": 1, "updated": null },
             { "address": "audio:cat/bells.128.mp3", "kind": "audio", "name": "bells", "picture": null, "toons": ["cat"], "usedIn": 0, "updated": null }
         ] });
-        lib.served.entries = Some((deck_catalog::library::served::entries(&[serde_json::from_value(page).unwrap()]), None));
+        lib.served.entries = Some((deck_space::library::served::entries(&[deck_space::library::served::list(&page.to_string()).unwrap()]), None));
         lib.dirty = true;
         lib.set(Purpose::Scene, of_modules(&[module("walk"), module("analog")]));
         assert_eq!(lib.entries.iter().map(|e| e.address.as_str()).collect::<Vec<_>>(), ["toon:cat", "module:walk", "image:cat/s1/c1/hills.webp", "audio:cat/bells.128.mp3"], "the server's, not the workspace's");

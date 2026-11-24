@@ -22,5 +22,3 @@ docs = []
 serde.workspace = true
 serde_json.workspace = true
 schemars = { version = "1", optional = true }
-# the extended Library's answer (protocol::library, generated from server/schema/api/library.schema.json)
-protocol = { workspace = true }

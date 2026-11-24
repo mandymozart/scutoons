@@ -2,6 +2,7 @@
 //! thread and kept on disk by its query: asked again with the version held (`If-None-Match` → 304, nothing sent), and
 //! offline or refused the last answer stays with a word that it is the last one. A thing stepped into is read the same way.
 use deck_catalog::library::served::{self, Inside, Place};
+use deck_space::library::served as answer;
 use deck_catalog::library::Entry;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
@@ -122,13 +123,13 @@ fn take(a: &mut Option<Asking>) -> Option<Result<Read, String>> {
 }
 
 fn list_entries(pages: &[String]) -> Vec<Entry> {
-    let lists: Vec<_> = pages.iter().filter_map(|p| served::list(p).map_err(|e| tracing::warn!("{e}")).ok()).collect();
-    served::entries(&lists)
+    let lists: Vec<_> = pages.iter().filter_map(|p| answer::list(p).map_err(|e| tracing::warn!("{e}")).ok()).collect();
+    answer::entries(&lists)
 }
 
 fn step_of(pages: &[String], stale: Option<String>) -> Option<(Inside, Option<String>)> {
-    let s = served::step(pages.first()?).map_err(|e| tracing::warn!("{e}")).ok()?;
-    Some((Inside::of(&s), stale))
+    let i = answer::inside(pages.first()?).map_err(|e| tracing::warn!("{e}")).ok()?;
+    Some((i, stale))
 }
 
 /// the answer kept on disk for a query: its version and its pages
@@ -182,8 +183,8 @@ fn fetch(base: &str, token: &str, query: &str, file: &Path, paged: bool) -> Resu
     let etag = first.header("ETag").unwrap_or_default().to_string();
     let mut pages = vec![first.into_string().map_err(|e| format!("the Library: {e}"))?];
     while paged && pages.len() < MAX_PAGES {
-        let list = served::list(pages.last().expect("a page"))?;
-        let Some(next) = served::next_query(query, &list) else { break };
+        let list = answer::list(pages.last().expect("a page"))?;
+        let Some(next) = served::next_query(query, list.next.as_deref()) else { break };
         let page = get(&next).call().map_err(|e| format!("the Library's next page: {e}"))?;
         pages.push(page.into_string().map_err(|e| format!("the Library: {e}"))?);
     }

@@ -413,14 +413,14 @@ impl Browser {
         d.sans(x, y + 2.0 + (side - t.size.font * 1.25) * 0.5, t.size.font, &controls::fit_sans(d, t.size.font, &name, (open.x - 6.0 - x).max(0.0)), t.color.text);
         y += t.size.tree_row + 2.0;
         // a look names how many moods it has: a mood is opened from its look, the list stays short
-        for (n, (depth, l)) in inside.levels.iter().enumerate().filter(|(_, (_, l))| l.mood.is_none()) {
-            let moods = inside.levels.iter().filter(|(_, m)| m.mood.is_some() && m.parent == l.address).count();
+        for (n, l) in inside.levels.iter().enumerate().filter(|(_, l)| l.mood.is_none()) {
+            let moods = inside.levels.iter().filter(|m| m.mood.is_some() && m.parent == l.address).count();
             let side = match moods {
-                0 => l.level.as_str().to_string(),
-                1 => format!("{} · 1 mood", l.level.as_str()),
-                n => format!("{} · {n} moods", l.level.as_str()),
+                0 => l.level.clone(),
+                1 => format!("{} · 1 mood", l.level),
+                n => format!("{} · {n} moods", l.level),
             };
-            y = self.row(d, t, (a, pointer), y, *depth, (&l.name, &side), Hit::Level(n));
+            y = self.row(d, t, (a, pointer), y, l.depth, (&l.name, &side), Hit::Level(n));
         }
         y + 6.0
     }
@@ -435,7 +435,7 @@ impl Browser {
         d.sans(a.x, y, small, &format!("used in {}", inside.used_in.len()), t.color.muted);
         y += small * 1.4 + 4.0;
         for (n, l) in inside.used_in.iter().enumerate() {
-            y = self.row(d, t, (a, pointer), y, 0, (&l.name, l.r#as.as_str()), Hit::UsedIn(n));
+            y = self.row(d, t, (a, pointer), y, 0, (&l.name, &l.role), Hit::UsedIn(n));
         }
     }
 
@@ -695,21 +695,19 @@ mod tests {
 
     #[test]
     fn a_thing_stepped_into_shows_its_levels_what_it_uses_and_what_uses_it() {
-        let answer = r#"{ "library": 1, "version": "v", "locale": "en",
-            "at": { "address": "character:catpope", "type": "character", "name": "Cat Pope", "picture": null, "toons": [], "usedIn": 1, "updated": null },
-            "levels": [
-                { "address": "character:catpope.human", "level": "persona", "name": "human", "picture": null, "parent": "character:catpope" },
-                { "address": "character:catpope.human.helmet", "level": "look", "name": "helmet", "picture": null, "parent": "character:catpope.human" }
-            ],
-            "files": [{ "address": "image:c/a.webp", "kind": "image", "name": "a", "picture": null, "toons": [], "usedIn": 1, "updated": null }],
-            "uses": [],
-            "usedIn": [{ "address": "season:catpope:1", "name": "Season 1", "as": "cast" }] }"#;
-        let step = deck_catalog::library::served::Inside::of(&deck_catalog::library::served::step(answer).unwrap());
+        use deck_catalog::library::served::{Inside, Level, Link};
+        let level = |depth: usize, address: &str, level: &str, name: &str, parent: &str| Level { depth, address: address.into(), level: level.into(), name: name.into(), parent: parent.into(), mood: None };
+        let step = Inside {
+            at: entry("character:catpope", Kind::Character, Preview::Kind, &[]),
+            levels: vec![level(0, "character:catpope.human", "persona", "human", "character:catpope"), level(1, "character:catpope.human.helmet", "look", "helmet", "character:catpope.human")],
+            uses: vec![entry("image:c/a.webp", Kind::Image, Preview::Kind, &[])],
+            used_in: vec![Link { address: "season:catpope:1".into(), thing: false, name: "Season 1".into(), role: "cast".into() }],
+        };
         let places = [("this toon".to_string(), true)];
         let src = Source { places: &places, inside: Some(&step), ..Source::plain(&step.uses) };
         let mut b = Browser::default();
         let d = draw_src(&mut b, &src);
-        assert!(d.texts().iter().any(|s| s.starts_with("Cat Pope")) && d.texts().contains(&"helmet") && d.texts().contains(&"cast"));
+        assert!(d.texts().iter().any(|s| s.starts_with("catpope · characters")) && d.texts().contains(&"helmet") && d.texts().contains(&"cast"));
         assert!(!b.hits.iter().any(|(_, h)| matches!(h, Hit::Place(_))), "inside a thing: no places");
         assert_eq!(cards(&b), [0], "the files it uses are cards");
         for (hit, did) in [(Hit::Back, Did::Back), (Hit::OpenAt, Did::OpenAt), (Hit::Level(1), Did::Level(1)), (Hit::UsedIn(0), Did::UsedIn(0))] {
