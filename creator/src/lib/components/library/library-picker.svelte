@@ -61,6 +61,8 @@
 	const firstLabel = $derived(first === 'cast' ? castLabel : first === 'toon' && toon ? m['library.place_toon_named']({ toon: nav.toonName(toon) }) : first ? placeLabel(first) : '');
 	const crumbPlace = $derived(place === 'cast' ? castLabel : placeLabel(place));
 	const create = $derived(isThingPick(request) && request.create && shelf.query.trim() ? request.create : null);
+	/** a file slot that also takes a new thing (a shot's new generator): beside Upload */
+	const fileCreate = $derived(isThingPick(request) ? null : (request?.things?.create ?? null));
 	/** what the slot holds, as the list names it (a file: its family's address, once the registry is read) */
 	const chosen = $derived((isThingPick(request) ? request.value : request.value && library.addressOf(request.value)) ?? null);
 	const stepPickable = $derived(!!shelf.step && takesThing(shelf.step.at));
@@ -114,7 +116,7 @@
 
 	function made() {
 		const name = shelf.query.trim();
-		const make = create;
+		const make = create ?? fileCreate;
 		library.cancelPick();
 		make?.run(name);
 	}
@@ -147,6 +149,7 @@
 		</div>
 		<div class="row">
 			<LibraryFind bind:value={shelf.query} bind:input={search} autofocus testid="library-pick-search" />
+			{#if fileCreate}<Button icon="zap" onclick={made} data-testid="library-pick-new">{fileCreate.label(shelf.query.trim())}</Button>{/if}
 			{#if !things}
 				<Button variant="primary" icon="upload" title={m['library.upload_title']()} onclick={() => fileInput?.click()}>{m['library.upload']()}</Button>
 				<input bind:this={fileInput} type="file" multiple hidden onchange={(e) => (upload([...(e.currentTarget.files ?? [])]), (e.currentTarget.value = ''))} />
