@@ -3,7 +3,7 @@
 	import { Button, Chip, IconButton, Overlay } from '@scutoons/ui/editor';
 	import { m } from '$lib/paraglide/messages.js';
 	import { publishFlow as flow } from '$lib/editor/publish-flow.svelte.ts';
-	import PublishLine from './publish-line.svelte';
+	import PublishLine from '$lib/components/shell/publish-line.svelte';
 
 	/**
 	 * The one Publish dialog (lap 2 A10, RULES H18) on the overlay level: what readers do not see yet as a ticked list,

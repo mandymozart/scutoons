@@ -19,7 +19,7 @@
 	import Filmstrip from '$lib/components/filmstrip/filmstrip.svelte';
 	import WritingPage from '$lib/components/writing/writing-page.svelte';
 	import ReadParagraph from '$lib/components/writing/read-paragraph.svelte';
-	import { publishLines, publishSamples, sampleStill } from './kit-samples.ts';
+	import { publishLines, publishSamples, sampleStill } from '$lib/components/page/kit-samples.ts';
 
 	/**
 	 * The kit's parts that are more than a control (kit-d.html's rows after the controls, and what the live check found

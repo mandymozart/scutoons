@@ -8,7 +8,7 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { setCreatorNav } from '$lib/nav.svelte.ts';
 	import { publishFlow, serverSource } from '$lib/editor/publish-flow.svelte.ts';
-	import { publishSamples as samples } from './kit-samples.ts';
+	import { publishSamples as samples } from '$lib/components/page/kit-samples.ts';
 	import ShellBar from '$lib/components/shell/shell-bar.svelte';
 	import Dashboard from '$lib/components/shell/dashboard.svelte';
 	import Launcher from '$lib/components/shell/launcher.svelte';
