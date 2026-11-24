@@ -9,13 +9,14 @@
 //! The Wire side (#431, wires.rs): the top bar's switch or `w`; the ports around the being's points, a dragged cable is a
 //! route in the rig through the core's edit and validate, the rig replays, the draft is its outbox entry; ctrl+z takes it back.
 //!
-//! deck-editor [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
+//! deck-editor [scutoons-deck://WORKSPACE[/ADDRESS]] [--rig catpope] [--frames N] [--screenshot FILE] [--tokens FILE] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO]
 mod adding;
 mod autosave;
 mod bar;
 mod book;
 mod colour;
 mod creator_cards;
+mod device_row;
 mod dop;
 mod empty;
 mod frame;
@@ -30,12 +31,14 @@ mod live_tabs;
 mod log;
 mod main_menu;
 mod logo;
+mod opens;
 mod media;
 mod media_draw;
 mod media_tab;
 mod mixer;
 mod module;
 mod inspector;
+mod instance;
 mod kit_page;
 mod kit_spores;
 mod latency;
@@ -249,10 +252,12 @@ struct Args {
     node_zoom: Option<f32>,
     /// the kit page over everything (kit_page.rs): every component in its states
     kit: bool,
+    /// the `scutoons-deck://` link it was started with (opens.rs)
+    link: Option<String>,
 }
 
 fn args() -> Result<Args> {
-    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new() };
+    let mut a = Args { rig_given: false, tabs: None, front: None, tab_cap: None, tab_list: false, tabs_file: None, inputs: Vec::new(), input_at: None, stop_at: None, monitor: Vec::new(), home_new: None, module: module::Script::default(), rig: "catpope".into(), fullscreen: false, frames: None, screenshot: None, tempo_type: None, click: false, tokens: None, volume: 0.5, size: None, wire: true, draft: None, gesture: None, view: None, enter: None, select: None, pull: false, menu: None, tab: Tab::Rig, audio: false, workspace: show::Workspace::Stage, show_file: None, show_id: None, relay: None, api: std::env::var("DECK_API").unwrap_or_else(|_| deck_native::cache::API.into()), script: show::Script::default(), toon: None, book: None, far: None, story: None, rigs: None, catalog: None, add: None, member: None, demo: None, grid: None, theme: None, ui_size: None, settings: false, panic: false, go_live: Vec::new(), lock: false, save_state: None, tools_folded: false, closed: Vec::new(), log: false, history: false, history_ask: None, main_menu: false, views_open: false, switcher: false, creator_session: None, stage_views: Vec::new(), full_view: None, empty_ws: None, colour: None, library_drag: None, library_find: None, library_list: false, library_single: false, library_choose: Vec::new(), library_related: false, pan: None, camera: false, dop: None, scene_file: None, rig_preset: None, nodes: None, node_zoom: None, kit: false, open: None, page: None, pointer: None, handoff: Default::default(), f9_at: None, asset: None, asset_edits: None, units: Vec::new(), link: None };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
         let mut val = || it.next().with_context(|| format!("{k} needs a value"));
@@ -494,9 +499,10 @@ fn args() -> Result<Args> {
                 a.size = Some((w.trim().parse()?, h.trim().parse()?));
             }
             "--help" | "-h" => {
-                println!("deck-editor [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--views] [--switcher] [--creator-session FILE] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
+                println!("deck-editor [scutoons-deck://WORKSPACE[/ADDRESS]] [--open ITEM,ITEM|home] [--tab ITEM|N] [--tab-cap N] [--tab-list] [--tabs-file FILE] [--input ADDRESS=V|ADDRESS>NAME[:K=V;…]|midi:B,B,B [--input-at N]] [--play [--stop-at N]] [--home-new scene[=NAME]|show|module] [--rig catpope] [--fullscreen] [--frames N] [--screenshot FILE] [--tempo-type TEXT] [--click] [--tokens FILE] [--size W,H] [--pointer X,Y] [--volume V] [--wire] [--draft FILE] [--gesture FROM,TO] [--view 0-5] [--menu PORT,QUERY[,pick]] [--toon TOON] [--book FILE] [--select NODE --far QUERY[,pick]] [--demo NAME] [--panic] [--colour open|pick|drop:X,Y|take:X,Y] [--save-state saving|offline|conflict] [--settings] [--close ID,ID] [--main-menu] [--views] [--switcher] [--creator-session FILE] [--module ID [--module-build] [--module-save] [--module-save-as ID]] [--scene-file FILE [--dop modules]] [--rig-preset save-as:NAME|dirty:NAME|member:NAME] [--handoff FILE] [--f9 N]");
                 std::process::exit(0);
             }
+            v if v.get(..14).is_some_and(|s| s.eq_ignore_ascii_case("scutoons-deck:")) => a.link = Some(v.to_string()),
             other => anyhow::bail!("unknown argument {other}"),
         }
     }
@@ -809,6 +815,9 @@ struct App {
     switcher: bool,
     switch_hits: Vec<(Rect, switcher::Press)>,
     creator: creator_cards::Loader,
+    /// the starts handed to this editor (one per machine; none in a check run), its device row and cards' stills
+    instance: Option<instance::Instance>,
+    row: device_row::DeviceRow,
     /// the ☰ menu open, and what is open beside it; its places this frame
     main_menu: Option<main_menu::Side>,
     menu_hits: Vec<(Rect, main_menu::Press)>,
@@ -913,6 +922,11 @@ fn run() -> Result<i32> {
         deck_native::module_host::Library::global().get(id).map(|l| l.host())
     }));
     let _ = CACHE.set(deck_native::cache::for_api(&args.api));
+    let instance = match args.frames.is_none().then(|| instance::claim(&cache_dir(), args.link.as_deref())) {
+        Some(instance::Claim::Handed) => return Ok(0),
+        Some(instance::Claim::Own(i)) => Some(i),
+        None => None,
+    };
     let subject = if args.rig.contains('.') { args.rig.clone() } else { format!("character.{}", args.rig) };
     let cache = cache_dir();
     // a check run never reads or writes the outbox
@@ -1093,6 +1107,8 @@ fn run() -> Result<i32> {
         switcher: false,
         switch_hits: Vec::new(),
         creator,
+        instance,
+        row: Default::default(),
         main_menu: None,
         menu_hits: Vec::new(),
         still: Still::None,
@@ -3018,6 +3034,7 @@ impl App {
         self.follow_scene();
         self.follow_tabs();
         self.follow_session();
+        self.take_links();
         self.take_frame();
         if let Some(f) = self.show.demo_book.take() {
             self.book = book::Loader::new(&self.args.api, &[], Some(&f), None, &cache_dir());
@@ -4037,6 +4054,7 @@ impl App {
         let shot = self.args.screenshot.clone().filter(|_| self.args.frames.is_some_and(|n| self.frames + 1 >= n) && gpu.can_capture);
         let readback = shot.as_ref().map(|_| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
         let still_copy = taking.then(|| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
+        let card_copy = (!overlay && self.row.wants_still(self.frames)).then(|| copy_out(&gpu.device, &mut enc, &frame.texture, (w, h)));
         if let Some(g) = self.gpu_time.as_mut() {
             g.end(&mut enc);
         }
@@ -4054,6 +4072,9 @@ impl App {
         }
         if let Some(img) = self.stage.read_still(&gpu.device) {
             self.library.still(img);
+        }
+        if let Some(px) = card_copy.and_then(|(buf, stride)| read_out(&gpu.device, &buf, stride, (w, h), gpu.format()).ok()) {
+            self.row.took(px, (w, h));
         }
         if let Some((buf, stride)) = still_copy {
             let rest = t.kit("overlay", "rest");

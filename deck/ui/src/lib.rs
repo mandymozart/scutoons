@@ -41,6 +41,9 @@ pub mod handoff;
 /// the deck editor's workspaces Scene · Rigging · Show (XR is the creator's), their row and what a click on one does
 pub mod workspaces;
 
+/// the links that open the deck and the creator (deck-link.json), the deck's device row
+pub mod link;
+
 /// a view taking the stage – the four layouts, the four view states, the drop zones
 pub mod stage;
 
