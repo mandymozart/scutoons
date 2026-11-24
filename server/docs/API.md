@@ -375,7 +375,7 @@ updated_at)`; the device id is random and kept in the browser. The server checks
 
 | Method | Path | |
 |---|---|---|
-| GET | `/me/session?device=<id>` | `{ available, mine: { device, name, state, updated_at } \| null, other: … \| null }` – `other` is the newest other device; before the migration `available: false`; `400 bad_device` |
+| GET | `/me/session?device=<id>[&app=<word>]` | `{ available, mine: { device, name, state, updated_at } \| null, other: … \| null[, app: … \| null] }` – `other` is the newest other device's creator row (a state naming an `app` – the deck's, `server/schema/tables/deck-link.json` – is never offered); with `app`, `app` is that app's newest row of another device; before the migration `available: false`; `400 bad_device` / `bad_app` |
 | PUT | `/me/session` | `{ device, name, state }` → `{ session }`; `400 bad_device` / `bad_state`, `413 state_too_large`; not with an AI connection; `503 not_available` before the migration |
 
 ## Thumbnails (2026-11-26, #842 – migration `2026-11-26-thumbnails`)

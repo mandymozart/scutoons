@@ -12,7 +12,8 @@ use Scutoons\Support\Time;
 /**
  * A member's creator resume state per device (migration 2026-11-24-member-sessions): what each device had open, so another
  * device can offer to continue from it. The state is the creator's own JSON – the server checks only that it is an object
- * and its size. Rights: a member reads and writes only their own rows.
+ * and its size; another app's row (the deck's) names its `app` in the state (server/schema/tables/deck-link.json).
+ * Rights: a member reads and writes only their own rows.
  */
 final class DeviceSessions
 {
@@ -22,27 +23,34 @@ final class DeviceSessions
     public const MAX_DEVICES = 12;
     public const MAX_NAME = 60;
     private const DEVICE = '/^[A-Za-z0-9_-]{8,64}$/';
+    private const APP = '/^[a-z][a-z0-9-]{0,31}$/';
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
     }
 
     /**
-     * GET /api/me/session?device=: this device's row and the newest row of another device. `available` false: the
-     * migration has not run.
-     * @return array{available: bool, mine: array<string, mixed>|null, other: array<string, mixed>|null}
+     * GET /api/me/session?device=[&app=]: this device's row and the newest creator row of another device (a row whose
+     * state names an `app` is that app's, never offered to the creator); with `app`, also that app's newest row of another
+     * device. `available` false: the migration has not run.
+     * @return array{available: bool, mine: array<string, mixed>|null, other: array<string, mixed>|null, app?: array<string, mixed>|null}
      */
-    public function of(string $userId, string $device): array
+    public function of(string $userId, string $device, ?string $app = null): array
     {
         self::checkDevice($device);
+        if ($app !== null && preg_match(self::APP, $app) !== 1) throw new ApiError(400, 'bad_app', 'An app: a lowercase word.');
+        $rows = 'SELECT device_id, device_name, state, updated_at FROM member_sessions WHERE user_id = ? AND device_id <> ? AND ';
+        $newest = ' ORDER BY updated_at DESC, device_id LIMIT 1';
         try {
             $mine = $this->db->all('SELECT device_id, device_name, state, updated_at FROM member_sessions WHERE user_id = ? AND device_id = ?', [$userId, $device]);
-            $other = $this->db->all('SELECT device_id, device_name, state, updated_at FROM member_sessions WHERE user_id = ? AND device_id <> ? ORDER BY updated_at DESC, device_id LIMIT 1', [$userId, $device]);
+            $other = $this->db->all($rows . "JSON_VALUE(state, '$.app') IS NULL" . $newest, [$userId, $device]);
+            $theirs = $app === null ? [] : $this->db->all($rows . "JSON_VALUE(state, '$.app') = ?" . $newest, [$userId, $device, $app]);
         } catch (PDOException $error) {
-            if (self::missing($error)) return ['available' => false, 'mine' => null, 'other' => null];
+            if (self::missing($error)) return ['available' => false, 'mine' => null, 'other' => null] + ($app === null ? [] : ['app' => null]);
             throw $error;
         }
-        return ['available' => true, 'mine' => isset($mine[0]) ? self::json($mine[0]) : null, 'other' => isset($other[0]) ? self::json($other[0]) : null];
+        $out = ['available' => true, 'mine' => isset($mine[0]) ? self::json($mine[0]) : null, 'other' => isset($other[0]) ? self::json($other[0]) : null];
+        return $app === null ? $out : $out + ['app' => isset($theirs[0]) ? self::json($theirs[0]) : null];
     }
 
     /**

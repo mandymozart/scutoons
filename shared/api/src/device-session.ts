@@ -15,13 +15,16 @@ export interface MemberSession {
 	available: boolean;
 	/** this device's row */
 	mine: DeviceSession | null;
-	/** the newest row of another device */
+	/** the newest creator row of another device */
 	other: DeviceSession | null;
+	/** asked with `app`: that app's newest row of another device (the deck's: deck-link.ts) */
+	app?: DeviceSession | null;
 }
 
 export function createDeviceSessionApi(api: ApiClient) {
 	return {
-		mine: (device: string) => api.get<{ status: string } & MemberSession>(`/me/session?device=${encodeURIComponent(device)}`),
+		mine: (device: string, app?: string) =>
+			api.get<{ status: string } & MemberSession>(`/me/session?device=${encodeURIComponent(device)}${app ? `&app=${encodeURIComponent(app)}` : ''}`),
 		save: (body: { device: string; name: string; state: unknown }) => api.put<{ status: string; session: DeviceSession }>('/me/session', body)
 	};
 }

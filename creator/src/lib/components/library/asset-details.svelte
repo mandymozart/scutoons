@@ -10,12 +10,13 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import VersionsTray from '$lib/components/library/versions-tray.svelte';
+	import OpenInDeck from '$lib/components/shell/open-in-deck.svelte';
 
 	/**
 	 * A family's details – the browser's drawer at the right, the panel's at its bottom (`drawer`): the preview, the
 	 * name (F2 renames it: URL and uses stay), Use / Set as cover, where the open item uses it (each part a jump to it),
 	 * where else the registry knows it used, its versions (a tray to use one exactly, the table),
-	 * Download, Copy path, Credits (#690), Delete.
+	 * Open in the deck, Download, Copy path, Credits (#690), Delete.
 	 */
 	let { family, drawer = false, onreplace, onclose }: { family: AssetFamily; drawer?: boolean; onreplace: (file: File) => void; onclose?: () => void } = $props();
 
@@ -83,6 +84,7 @@
 	<!-- what can be done with it here (#750): the cover only in a chapter; the rest as icons -->
 	<div class="actions">
 		{#if chapterOpen}<button type="button" onclick={setCover} data-testid="library-set-cover">{m['library.set_cover']()}</button>{/if}
+		<OpenInDeck address="{family.kind}:{family.main}" testid="library-open-deck" />
 		<span class="icons">
 			<button type="button" class="ghost icon" title={m['library.download']()} aria-label={m['library.download']()} onclick={() => downloadFamilies([family])}><Icon name="download" size="1rem" /></button>
 			<button type="button" class="ghost icon" title={m['library.copy_path']()} aria-label={m['library.copy_path']()} onclick={() => copyPath(family)}><Icon name="copy" size="1rem" /></button>

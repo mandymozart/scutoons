@@ -5,7 +5,7 @@
 	import { DesignerTabs, NodesTab, ParametersTab, RustTab, type DesignerTabId, type GraphWiring, type RigDesigner } from '@scutoons/rig-designer';
 	import type { EngineHost } from '@scutoons/engine-host';
 	import { Button, IconButton, Select } from '@scutoons/ui/editor';
-	import { VIEWER_URL } from '$lib/config.ts';
+	import OpenInDeck from '$lib/components/shell/open-in-deck.svelte';
 	import AssignmentPane from '$lib/components/rigs/assignment-pane.svelte';
 	import PolicyBar from '$lib/components/rigs/policy-bar.svelte';
 	import type { RigSession } from '$lib/editor/rig-session.svelte.ts';
@@ -38,8 +38,7 @@
 		{:else}
 			<span class="pick"><Select value={selected ?? ''} options={[...(session?.policy ? [] : [{ value: '', label: m['creator.sound_module_none']() }]), ...modules.map((id) => ({ value: id, label: `module:${id}${factory.includes(id) ? ` · ${m['creator.sound_factory']()}` : ''}` }))]} label={m['creator.sound_module']()} onchange={(v) => onselect(v || null)} data-testid="sound-module" /></span>
 		{/if}
-		<!-- TODO(#859): the deck opens on this module; until then a plain link to the deck -->
-		<Button variant="quiet" icon="external-link" href="{VIEWER_URL}/live/deck" target="_blank" rel="noopener" title={m['creator.sound_open_in_deck_title']()} data-testid="sound-open-deck">{m['creator.sound_open_in_deck']()}</Button>
+		{#if designer.moduleId || session}<OpenInDeck address={designer.moduleId ? `module:${designer.moduleId}` : `rig:${session?.subject}`} testid="sound-open-deck" />{/if}
 		{#if designer.factory && designer.moduleId}
 			<Button onclick={onderive} title={m['creator.sound_derive_title']({ id: designer.moduleId })} data-testid="sound-derive">{m['creator.sound_derive']()}</Button>
 		{/if}

@@ -19,3 +19,12 @@ const NAMES: Record<WorkspaceKind, () => string> = {
 };
 
 export const workspaceName = (kind: WorkspaceKind): string => NAMES[kind]();
+
+/** the deck's workspaces as the deck's row names them (server/schema/tables/deck-link.json `cards`); another: its word */
+const DECK_NAMES: Record<string, () => string> = {
+	stage: () => m['shell.deck_ws_stage'](),
+	rigging: () => m['shell.deck_ws_rigging'](),
+	show: () => m['shell.deck_ws_show']()
+};
+
+export const deckWorkspaceName = (workspace: string): string => DECK_NAMES[workspace]?.() ?? workspace;
