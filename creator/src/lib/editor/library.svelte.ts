@@ -1,9 +1,10 @@
-// The Library's state, one for the whole creator: the core (deck-catalog `library::shelf` through space-web) over the
-// registry's assets, what the open items use (each editor hands its document's uses in), the view's choices, the
-// selection, the folds the person changed, a blank slot's pick request. The rules are the core's; this holds and loads.
+// The Library's files and their actions, one for the whole creator: the core (deck-catalog `library::shelf` through
+// space-web) over the registry's assets – a file's versions, whether it fits a slot, where an upload goes, the selection –
+// what the open items use (each editor hands its document's uses in), a blank slot's pick request. What is listed is the
+// server's answer (library-shelf.svelte.ts). The rules are the core's and the server's; this holds and loads.
 import { createAssetLibrary, type AssetSummary } from '@scutoons/api';
 import { parseEntityKey } from '@scutoons/content';
-import type { AssetFamily, LibraryCast, LibraryFitAnswer, LibraryGrouping, LibraryKind, LibraryOrigin, LibraryQuery, LibraryScope, LibrarySort, LibraryUse, LibraryView, SlotFit } from '@scutoons/media';
+import type { AssetFamily, LibraryFitAnswer, LibraryUse, SlotFit } from '@scutoons/media';
 import { libraryCore, libraryOpener, loadLibraryModule, type LibraryCore, type LibraryModule, type LibraryOpener } from '@scutoons/media/library';
 import { assetsApi } from '$lib/api.ts';
 import { shared } from '$lib/utils/shared.ts';
@@ -27,148 +28,90 @@ export interface PickRequest extends SlotFit {
 interface Remembered {
 	tile: number;
 	list: boolean;
-	sort: LibrarySort;
-	grouping: LibraryGrouping;
-	single: boolean;
 }
 
 function readView(): Remembered {
-	const start: Remembered = { tile: TILE_SIZE.start, list: false, sort: 'name', grouping: 'use', single: false };
+	const start: Remembered = { tile: TILE_SIZE.start, list: false };
 	try {
 		const v = JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null') ?? {};
 		const tile = Number(v.tile);
-		return {
-			tile: tile >= TILE_SIZE.min && tile <= TILE_SIZE.max ? tile : start.tile,
-			list: v.list === true,
-			sort: ['name', 'recent', 'size', 'uses'].includes(v.sort) ? v.sort : start.sort,
-			grouping: ['use', 'kind', 'none'].includes(v.grouping) ? v.grouping : start.grouping,
-			single: v.single === true
-		};
+		return { tile: tile >= TILE_SIZE.min && tile <= TILE_SIZE.max ? tile : start.tile, list: v.list === true };
 	} catch {
 		return start;
 	}
 }
 
+/** a file's address in the Library's answer: `<kind>:<main path>` */
+export const fileAddress = (family: Pick<AssetFamily, 'kind' | 'main'>): string => `${family.kind}:${family.main}`;
+
 class Library {
 	core = $state.raw<LibraryCore | null>(null);
 	status = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
 	error = $state('');
-	/** bumped when the core's families or context change: the view reads it */
+	/** bumped when the registry's files were read again (an upload, a rename …): the list asks the server again */
+	changed = $state(0);
+	/** bumped when the core's families or context change */
 	private version = $state(0);
 	private module: Promise<LibraryModule> | null = null;
 
-	/** the front item's address (the shell's front tab) and toon: the workspace's pre-filter */
+	/** the front item's address (the shell's front tab) and toon: the places This item and This toon */
 	address = $state<string | null>(null);
 	toonHint = $state<string | null>(null);
 	readonly toon: string | null = $derived(this.address ? (parseEntityKey(this.address)?.toon ?? this.toonHint) : this.toonHint);
 	/** the uses each open item's editor read from its document, by the item's address */
 	private usesBy = $state.raw<Record<string, LibraryUse[]>>({});
-	/** the casts an editor handed in (the seasons' characters): the places' cast facet */
-	private casts = $state.raw<LibraryCast[]>([]);
 
-	scope = $state<LibraryScope>('context');
-	grouping = $state<LibraryGrouping>('use');
-	sort = $state<LibrarySort>('name');
-	kind = $state<LibraryKind | null>(null);
-	query = $state('');
-	special = $state<string | null>(null);
-	origin = $state<LibraryOrigin | null>(null);
-	/** every file on its own (the browser's levels) */
-	single = $state(false);
 	tile = $state<number>(TILE_SIZE.start);
 	list = $state(false);
-	/** the groups the person folded or opened, by key (back to the core's start on a new scope or grouping) */
-	folds = $state<Record<string, boolean>>({});
 
+	/** the entries chosen, by address (a file's `<kind>:<path>`, a thing's address) */
 	chosen = $state.raw<string[]>([]);
 	anchor = $state<string | null>(null);
 	/** the details drawer at the panel's bottom */
 	details = $state(false);
-	browser = $state(false);
 	pick = $state.raw<PickRequest | null>(null);
-	/** a file just uploaded: its tile says so */
+	/** a file just uploaded (its address): its tile says so */
 	fresh = $state<string | null>(null);
 	/** the file of the tile being dragged (a drag's data can only be read on the drop) */
 	dragging = $state<string | null>(null);
-	/** the panel shows Items to open instead of the files; `openKind` narrows them to one kind's rows */
-	openings = $state(false);
-	openKind = $state<string | null>(null);
 
 	constructor() {
 		if (typeof localStorage !== 'undefined') Object.assign(this, readView());
 	}
 
-	/** the families by key, stacked or single as shown */
-	readonly byKey: Map<string, AssetFamily> = $derived.by(() => {
+	/** the families by their file address */
+	readonly byAddress: Map<string, AssetFamily> = $derived.by(() => {
 		void this.version;
-		return new Map((this.core?.families(this.single) ?? []).map((f) => [f.key, f]));
+		return new Map((this.core?.families(false) ?? []).map((f) => [fileAddress(f), f]));
 	});
 
-	readonly fit: SlotFit | null = $derived(this.pick ? { kinds: this.pick.kinds, square: this.pick.square } : null);
-
-	readonly view: LibraryView | null = $derived.by(() => {
-		void this.version;
-		if (!this.core) return null;
-		const q: LibraryQuery = {
-			scope: this.scope,
-			grouping: this.grouping,
-			sort: this.sort,
-			query: this.query,
-			kind: this.kind,
-			special: this.special,
-			origin: this.origin,
-			fit: this.fit,
-			single: this.single,
-			now: Date.now()
-		};
-		return this.core.view(q);
-	});
-
-	readonly selectedFamily: AssetFamily | null = $derived(this.chosen.length ? (this.byKey.get(this.chosen[this.chosen.length - 1]) ?? null) : null);
-	readonly chosenFamilies: AssetFamily[] = $derived(this.chosen.map((k) => this.byKey.get(k)).filter((f): f is AssetFamily => !!f));
+	readonly selectedFamily: AssetFamily | null = $derived(this.chosen.length ? (this.byAddress.get(this.chosen[this.chosen.length - 1]) ?? null) : null);
+	readonly chosenFamilies: AssetFamily[] = $derived(this.chosen.map((k) => this.byAddress.get(k)).filter((f): f is AssetFamily => !!f));
 
 	/** whether the open item has a use index (its editor handed one in); else its folder stands for it */
 	readonly indexed: boolean = $derived(!!this.address && this.address in this.usesBy);
 
-	folded(group: { key: string; folded: boolean }): boolean {
-		return this.folds[group.key] ?? group.folded;
-	}
-
-	toggleFold(group: { key: string; folded: boolean }) {
-		this.folds = { ...this.folds, [group.key]: !this.folded(group) };
-	}
-
 	setView(patch: Partial<Remembered>) {
-		if (patch.grouping && patch.grouping !== this.grouping) this.folds = {};
 		Object.assign(this, patch);
 		try {
-			localStorage.setItem(VIEW_KEY, JSON.stringify({ tile: this.tile, list: this.list, sort: this.sort, grouping: this.grouping, single: this.single }));
+			localStorage.setItem(VIEW_KEY, JSON.stringify({ tile: this.tile, list: this.list }));
 		} catch {
 			// storage blocked: the view holds for this visit
 		}
 	}
 
-	setScope(scope: LibraryScope) {
-		this.scope = scope;
-		this.special = null;
-		this.folds = {};
-	}
-
 	private sync() {
 		if (!this.core) return;
 		const uses = Object.values(this.usesBy).flat();
-		this.core.setContext({ open: this.address, toon: this.toon, byHome: !this.indexed, uses, casts: this.casts });
+		this.core.setContext({ open: this.address, toon: this.toon, byHome: !this.indexed, uses });
 		this.version++;
 	}
 
-	/** the front item changed: the scope goes back to what it uses */
+	/** the front item changed */
 	follow(address: string | null, toon: string | null) {
 		if (address === this.address && toon === this.toonHint) return;
 		this.address = address;
 		this.toonHint = toon;
-		this.scope = address ? 'context' : 'all';
-		this.special = null;
-		this.folds = {};
 		this.sync();
 	}
 
@@ -181,19 +124,14 @@ class Library {
 		this.sync();
 	}
 
-	/** the casts the places offer (every toon season's characters, read from the cast documents) */
-	setCasts(casts: LibraryCast[]) {
-		this.casts = casts;
-		this.sync();
-	}
-
 	usesOf(key: string): LibraryUse[] {
 		void this.version;
 		return this.core?.uses(key) ?? [];
 	}
 
+	/** the registry's files into the core – once; again only when asked (`force`), never by itself after a failure */
 	async load(force = false) {
-		if (this.status === 'loading' || (this.status === 'ready' && !force)) return;
+		if (this.status === 'loading' || ((this.status === 'ready' || this.status === 'error') && !force)) return;
 		this.status = 'loading';
 		try {
 			this.module ??= loadLibraryModule(WASM_BASE);
@@ -202,6 +140,7 @@ class Library {
 			this.core = libraryCore(mod, items as AssetSummary[]);
 			this.status = 'ready';
 			this.sync();
+			if (force) this.changed++;
 		} catch (e) {
 			this.module = null;
 			this.error = e instanceof Error ? e.message : String(e);
@@ -224,19 +163,23 @@ class Library {
 		return this.core?.takes(path, fit) ?? { ok: false, unknown: true };
 	}
 
-	/** the family holding `path` (stacked or single as shown) */
+	/** the family holding `path` */
 	familyOf(path: string): AssetFamily | null {
 		void this.version;
-		return this.core?.families(this.single).find((f) => f.versions.some((v) => v.path === path)) ?? null;
+		return this.core?.families(false).find((f) => f.versions.some((v) => v.path === path)) ?? null;
 	}
 
-	/** a click on a tile: one, Ctrl / ⌘ adds or takes one, Shift a run in the order shown */
-	click(key: string, keys: { shift?: boolean; toggle?: boolean } = {}) {
-		if (!this.core) return;
-		const next = this.core.select(this.chosen, this.anchor, key, this.view?.order ?? [], keys);
-		this.chosen = next.chosen;
-		this.anchor = next.anchor;
-		this.details = this.chosen.length > 0;
+	/** a click on a tile: one, Ctrl / ⌘ adds or takes one, Shift a run in `order` (the addresses as shown) */
+	click(address: string, keys: { shift?: boolean; toggle?: boolean } = {}, order: string[] = []) {
+		if (!this.core) {
+			this.chosen = [address];
+			this.anchor = address;
+		} else {
+			const next = this.core.select(this.chosen, this.anchor, address, order, keys);
+			this.chosen = next.chosen;
+			this.anchor = next.anchor;
+		}
+		this.details = this.chosen.length > 0 && !!this.selectedFamily;
 	}
 
 	clearSelection() {
@@ -257,28 +200,14 @@ class Library {
 		window.dispatchEvent(new CustomEvent('sc-library-use', { detail: { path, key: family.key, kind: family.kind } }));
 	}
 
-	/** a picker starts in All with the open item pinned, on the kind it picks, showing only what fits */
+	/** a picker asks the Library for the kinds its slot takes */
 	startPick(request: PickRequest) {
 		this.pick = request;
-		this.browser = false;
-		this.scope = 'all';
-		this.special = null;
-		this.folds = {};
-		this.kind = this.core?.startKind(request) ?? (request.kinds.length === 1 ? request.kinds[0] : null);
-		this.query = '';
 		this.clearSelection();
-	}
-
-	/** Items to open, only `kind`'s rows (the characters, after the old list's address) */
-	showOpenings(kind: string | null) {
-		this.openings = true;
-		this.openKind = kind;
-		this.query = '';
 	}
 
 	cancelPick() {
 		this.pick = null;
-		this.kind = null;
 	}
 
 	/** where a new file goes: the slot's own path, else the open item's folder */
@@ -294,8 +223,8 @@ class Library {
 		const path = answer.uploaded || asked;
 		await this.load(true);
 		const family = this.familyOf(path);
-		this.fresh = family?.key ?? null;
-		if (family) this.click(family.key);
+		this.fresh = family ? fileAddress(family) : null;
+		if (family) this.click(fileAddress(family));
 		if (this.pick && family && this.takes(path, this.pick).ok) this.use(family, path);
 		return { path, converted: path !== asked ? path : null };
 	}

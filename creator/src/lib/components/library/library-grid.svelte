@@ -1,155 +1,106 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
-	import type { AssetFamily, LibraryGroup } from '@scutoons/media';
+	import type { LibraryEntry } from '@scutoons/api';
 	import { library } from '$lib/editor/library.svelte.ts';
+	import { typeRuns } from '$lib/editor/library-list.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetTile from '$lib/components/library/asset-tile.svelte';
+	import LibraryTile from '$lib/components/library/library-tile.svelte';
 
 	/**
-	 * The core's groups as the grid shows them, the panel's and the browser's: in All the open item's files pinned and
-	 * framed on top, then the unused, one group per other item, the toon's – each but the first folded until a search; a
-	 * frame (a video and its subtitles, a model and its parts) draws its families together.
+	 * Entries of the Library's answer as tiles (or rows), the panel's and a stepped-into thing's: one list, or "By type"
+	 * the runs of one type or kind under its word. Drawn a page at a time as the end scrolls into view.
 	 */
-	let { tile, list = false, onmenu, onuse }: { tile: number; list?: boolean; onmenu: (x: number, y: number) => void; onuse: (family: AssetFamily) => void } = $props();
+	let {
+		entries,
+		tile,
+		list = false,
+		grouped = false,
+		label,
+		onopen,
+		onmenu
+	}: {
+		entries: readonly LibraryEntry[];
+		tile: number;
+		list?: boolean;
+		grouped?: boolean;
+		label: string;
+		onopen: (entry: LibraryEntry) => void;
+		onmenu?: (x: number, y: number) => void;
+	} = $props();
 
-	const groups = $derived(library.view?.groups ?? []);
-	const single = $derived(groups.length === 1 && !groups[0].pinned);
+	const PAGE = 120;
+	let shown = $state(PAGE);
+	let end = $state<HTMLElement>();
+	const visible = $derived(entries.slice(0, shown));
+	const order = $derived(entries.map((e) => e.address));
+	const runs = $derived(grouped ? typeRuns(visible) : [{ key: '', entries: visible }]);
 
-	/** an item's address in words: `chapter:catpope:3` → Chapter 3 */
-	function itemLabel(address: string | null): string {
-		if (!address) return '';
-		const [kind, a = '', b = ''] = address.split(':');
-		switch (kind) {
-			case 'chapter':
-			case 'storyboard':
-				return m['library.item_chapter']({ number: b });
-			case 'season':
-				return m['library.item_season']({ number: b });
-			case 'character':
-				return a.replace(/[-_]+/g, ' ');
-			case 'catalog':
-				return m['library.scope_items']();
-			case 'map':
-				return m['library.scope_map']();
-			case 'toon':
-				return a;
-		}
-		return address;
-	}
+	$effect(() => {
+		void entries;
+		shown = PAGE;
+	});
+	$effect(() => {
+		const node = end;
+		if (!node) return;
+		const io = new IntersectionObserver((seen) => {
+			if (seen.some((s) => s.isIntersecting)) shown += PAGE;
+		});
+		io.observe(node);
+		return () => io.disconnect();
+	});
 
-	function label(g: LibraryGroup): string {
-		switch (g.what) {
-			case 'open':
-				return library.indexed ? m['library.group_open']({ what: itemLabel(g.item) }) : m['library.group_home']({ what: itemLabel(g.item) });
-			case 'unused':
-				return m['library.scope_unused']();
-			case 'item':
-				return itemLabel(g.item);
-			case 'toon':
-				return m['library.group_toon']({ toon: itemLabel(g.item) });
-			case 'other':
-				return m['library.group_other']();
-			case 'kind':
-				return m[`library.kinds_${g.item as AssetFamily['kind']}`]();
-			default:
-				return m['library.group_all']();
-		}
-	}
+	const runLabel = (key: string) => (key in TYPE_WORDS ? TYPE_WORDS[key]() : m[`library.kinds_${key as 'image'}`]());
+	const TYPE_WORDS: Record<string, () => string> = {
+		toon: m['library.types_toon'],
+		character: m['library.types_character'],
+		scene: m['library.types_scene'],
+		show: m['library.types_show'],
+		place: m['library.types_place'],
+		item: m['library.types_item'],
+		module: m['library.types_module'],
+		instrument: m['library.types_instrument'],
+		rig: m['library.types_rig'],
+		generator: m['library.types_generator'],
+		kanon: m['library.types_kanon'],
+		person: m['library.types_person']
+	};
 </script>
 
-{#each groups as g (g.key)}
-	{@const folded = library.query.trim() ? false : library.folded(g)}
-	<section class="group" class:pinned={g.pinned} data-testid="library-group" data-group={g.key}>
-		{#if !single}
-			<button type="button" class="head" data-control-exempt="fold header" aria-expanded={!folded} onclick={() => library.toggleFold(g)}>
-				<Icon name={folded ? 'chevron-right' : 'chevron-down'} size="0.8rem" />
-				<span class="label">{label(g)}</span>
-				<span class="n">{g.count}</span>
-			</button>
-		{/if}
-		{#if !folded}
-			<div class="tiles" class:list role="listbox" aria-multiselectable="true" aria-label={label(g)} style:--tile="{tile}rem">
-				{#each g.cells as cell (cell.keys[0])}
-					{#if cell.frame}
-						<div class="frame" title={m['library.frame']({ kind: m[`library.kind_${cell.frame}`]() })} data-testid="library-frame">
-							{#each cell.keys as key (key)}
-								{@const f = library.byKey.get(key)}
-								{#if f}
-									<AssetTile family={f} row={list} stacked={!library.single} selected={library.chosen.includes(key)} fresh={library.fresh === key} onpress={(k) => library.click(key, k)} onuse={() => onuse(f)} {onmenu} />
-								{/if}
-							{/each}
-						</div>
-					{:else}
-						{@const f = library.byKey.get(cell.keys[0])}
-						{#if f}
-							<AssetTile family={f} row={list} stacked={!library.single} selected={library.chosen.includes(f.key)} fresh={library.fresh === f.key} onpress={(k) => library.click(f.key, k)} onuse={() => onuse(f)} {onmenu} />
-						{/if}
-					{/if}
-				{/each}
-			</div>
-		{/if}
+{#each runs as run (run.key)}
+	<section class="run" data-testid="library-run">
+		{#if run.key}<h3 class="head">{runLabel(run.key)}</h3>{/if}
+		<div class="tiles" class:list role="listbox" aria-multiselectable="true" aria-label={run.key ? runLabel(run.key) : label} style:--tile="{tile}rem">
+			{#each run.entries as e (e.address)}
+				<LibraryTile entry={e} row={list} selected={library.chosen.includes(e.address)} fresh={library.fresh === e.address} onpress={(k) => library.click(e.address, k, order)} onopen={() => onopen(e)} {onmenu} />
+			{/each}
+		</div>
 	</section>
 {/each}
+{#if shown < entries.length}<div class="end" bind:this={end} aria-hidden="true"></div>{/if}
 
 <style>
-	.group {
+	.run {
 		display: flex;
 		flex-direction: column;
 		gap: 0.3rem;
 	}
-	.group.pinned {
-		padding: 0.4rem;
-		border: var(--editor-edge) solid var(--tool-pressed);
-		border-radius: var(--editor-radius);
-	}
 	.head {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		min-height: var(--editor-tree-row);
-		padding: 0;
-		border: 0;
-		background: none;
+		margin: 0;
 		color: var(--tool-muted);
 		font-size: var(--editor-label);
+		font-weight: 400;
 		letter-spacing: var(--editor-label-spacing, 0.08em);
 		text-transform: uppercase;
-		cursor: pointer;
-	}
-	.pinned .head {
-		color: var(--tool-bright);
-	}
-	.label {
-		flex: 1 1 auto;
-		min-width: 0;
-		overflow: hidden;
-		text-align: start;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.n {
-		font-family: var(--editor-mono, ui-monospace, monospace);
 	}
 	.tiles {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
-		gap: 0.45rem;
+		gap: 0.6rem 0.45rem;
 	}
 	.tiles.list {
 		grid-template-columns: 1fr;
 		gap: 0;
 	}
-	.frame {
-		grid-column: span 2;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(calc(var(--tile) - 1rem), 1fr));
-		gap: 0.3rem;
-		padding: 0.3rem;
-		border: var(--editor-edge) dashed var(--tool-line);
-		border-radius: var(--editor-radius);
-	}
-	.list .frame {
-		grid-column: auto;
-		grid-template-columns: 1fr;
+	.end {
+		height: 1px;
 	}
 </style>
