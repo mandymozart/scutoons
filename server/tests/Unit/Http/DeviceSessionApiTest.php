@@ -98,6 +98,23 @@ final class DeviceSessionApiTest extends TestCase
         self::assertSame(2, (int) $this->db->value('SELECT COUNT(*) FROM member_sessions'));
     }
 
+    public function testAnotherAppsRowIsAskedForAndNeverOfferedToTheCreator(): void
+    {
+        [$member] = $this->session('deck@scutoons.test');
+        $this->put($member, self::STUDIO, self::STATE);
+        $this->clock->advance(60);
+        $deck = ['app' => 'deck', 'v' => 1, 'workspace' => 'stage', 'last' => ['stage' => 'scene:avatar-home']];
+        $this->put($member, 'deck-x1-0003', $deck, 'Deck · X1');
+
+        $laptop = self::json($this->request('GET', '/api/me/session?device=' . self::LAPTOP, $member));
+        self::assertSame(self::STUDIO, $laptop['other']['device']);
+        self::assertArrayNotHasKey('app', $laptop);
+        $asked = self::json($this->request('GET', '/api/me/session?device=' . self::LAPTOP . '&app=deck', $member));
+        self::assertSame([self::STUDIO, 'deck-x1-0003', $deck], [$asked['other']['device'], $asked['app']['device'], $asked['app']['state']]);
+        self::assertNull(self::json($this->request('GET', '/api/me/session?device=' . self::LAPTOP . '&app=other', $member))['app']);
+        self::assertSame('400 bad_app', self::error($this->request('GET', '/api/me/session?device=' . self::LAPTOP . '&app=Deck!', $member)));
+    }
+
     public function testAMemberSeesOnlyTheirOwn(): void
     {
         [$mira] = $this->session('mira@scutoons.test');
