@@ -8,7 +8,7 @@ Owner 2026-11-24: *"workspaces from the deck or the creator should be shown vice
 
 **2. Bringing the other app up on that workspace.**
 - **Creator → deck, the deck running:** the jump goes as a message through the account (the server, or the relay the deck already joins): "open workspace Scene with scene:avatar-home". No OS integration; works the same on Windows, macOS and Linux.
-- **Creator → deck, the deck not running:** a URL scheme the deck's installer registers, e.g. `scutoons-deck://open?workspace=scene&item=scene:avatar-home`. The browser asks once ("Open SCUTOONS Deck?").
+- **Creator → deck, the deck not running:** a URL scheme the deck's installer registers: `scutoons-deck://<workspace>[/<address>]`, e.g. `scutoons-deck://stage/scene:avatar-home` (built, #859: the grammar, the deck's cards and its device row are `server/schema/tables/deck-link.json` with `deck-link.vectors.json`; the workspace an item opens in is the core's `library::open`). The browser asks once ("Open SCUTOONS Deck?").
   - Windows: `HKCU\Software\Classes\scutoons-deck` with `URL Protocol` and `shell\open\command` = `deck-editor.exe "%1"`.
   - macOS: `CFBundleURLTypes` in the app's Info.plist; a running app gets the URL as an event.
   - Linux – **Arch Linux** (owner 2026-11-24; the deck OS and a desktop): the same freedesktop way, the deck's package ships the file; a `.desktop` file with `MimeType=x-scheme-handler/scutoons-deck`, made default with `xdg-mime`.
