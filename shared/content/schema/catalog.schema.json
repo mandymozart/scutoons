@@ -1713,11 +1713,11 @@
 				},
 				"schema": {
 					"type": "string",
-					"description": "the content schema it was written in (`5.1`)"
+					"description": "the content schema it was written in (`6.0`)"
 				},
 				"app": {
 					"type": "string",
-					"description": "the OSCT app version that wrote it (`4.1.0`)"
+					"description": "the OSCT app version that wrote it (`6.3.2`)"
 				}
 			},
 			"required": [
@@ -1736,7 +1736,7 @@
 					"properties": {
 						"schema": {
 							"type": "string",
-							"description": "the content schema (`5.1`)"
+							"description": "the content schema (`6.0`)"
 						}
 					},
 					"required": [
@@ -1771,7 +1771,7 @@
 				},
 				"api": {
 					"type": "string",
-					"description": "the plugin API it was built for (`3.1`)"
+					"description": "the plugin API it was built for (`4.0`)"
 				},
 				"code": {
 					"type": "string",
