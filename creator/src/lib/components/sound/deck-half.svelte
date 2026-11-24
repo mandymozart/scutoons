@@ -62,10 +62,12 @@
 <div class="deck" data-testid="sound-deck">
 	<div class="stage" data-theme="night">
 		<EngineStage {options} gate bind:host onmounted={(h) => (moods = h.moods)} />
-		<div class="chips">
-			<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
+		<div class="foot">
+			<div class="chips">
+				<MoodChip {moods} portrait={(md) => host?.deck?.face(md)?.path ?? ''} playing={snap.mood} value={mood} onpick={pickMood} />
+			</div>
+			<p class="perf" data-testid="sound-status" title="{m['creator.sound_perf']()}: {stats.state} · {stats.perf}">{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
 		</div>
-		<p class="perf" data-testid="sound-status" title={m['creator.sound_perf']()}>{stats.state} · <span data-testid="sound-fps">{stats.perf}</span></p>
 	</div>
 	<SignalStrip {inputs} {outputs} {reduction} knobs={columns} {signals} />
 </div>
@@ -84,24 +86,32 @@
 		position: relative;
 		background: var(--tool-ground);
 	}
-	.chips {
+	/* the mood chip and the performance in one row at the picture's foot – the engine draws its build label at the top –
+	   the performance gives way, never covers the chip */
+	.foot {
 		position: absolute;
-		left: var(--space-05);
-		top: var(--space-05);
+		inset: auto var(--space-05) var(--space-05);
 		display: flex;
-		gap: 0.25rem;
-		z-index: 2;
-	}
-	/* the performance, tiny, over the picture: it is the visual and the audio together that it measures */
-	.perf {
-		position: absolute;
-		right: var(--space-05);
-		top: var(--space-05);
-		margin: 0;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: var(--space-05);
 		z-index: 2;
 		pointer-events: none;
+	}
+	.chips {
+		display: flex;
+		flex: none;
+		gap: 0.25rem;
+		pointer-events: auto;
+	}
+	/* the performance, tiny: it is the visual and the audio together that it measures */
+	.perf {
+		min-width: 0;
+		margin: 0;
+		overflow: hidden;
 		font-size: var(--type-nav-micro-size);
 		color: var(--tool-muted);
 		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
 </style>
