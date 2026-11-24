@@ -130,7 +130,7 @@ class PublishFlow {
 		this.ticked = new Set();
 	}
 	tick(id: string, on: boolean): void {
-		this.ticked = toggled(this.ticked, id, on);
+		this.ticked = toggled(this.ticked, id, on, this.lines);
 	}
 
 	/** the primary button: the confirm first where one is needed, then it sends */
