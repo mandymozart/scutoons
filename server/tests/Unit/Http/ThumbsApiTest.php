@@ -6,6 +6,8 @@ namespace Scutoons\Tests\Http;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Thumbnails\Thumbnails;
 use Scutoons\Http\EditorTokenScope;
@@ -175,6 +177,37 @@ final class ThumbsApiTest extends TestCase
         self::assertSame(1, $this->get(Thumbnails::class)->queueMissing());
         self::assertSame(1, (int) $db->value("SELECT COUNT(*) FROM asset_jobs WHERE asset_id = ? AND kind = 'thumb'", [$old]));
         self::assertSame(0, $this->get(Thumbnails::class)->queueMissing());
+    }
+
+    /** the extended Library's `picture`: a scene's and a place's still, a model's still – made once, read by everyone */
+    public function testTheLibraryAnswersTheStills(): void
+    {
+        $store = $this->get(EntityStore::class);
+        $store->insertPublished(EntityKey::parse('toon:catpope'), '{"id":"catpope","title":{"en":"Cat Pope"}}', null);
+        $store->insertPublished(EntityKey::parse('scene:nave'), '{"format":2,"id":"nave","version":1,"toons":["catpope"],"stage":{"name":"Nave"},"node":[],"link":[]}', null);
+        $store->insertPublished(EntityKey::parse('place:dom'), '{"name":{"en":"Dome"},"toons":["catpope"]}', null);
+        $store->insertPublished(EntityKey::parse('place:garden'), '{"name":{"en":"Garden"},"toons":["catpope"],"image":"places/garden.webp"}', null);
+        [$creator] = $this->as('maker@scutoons.test', Roles::CREATOR);
+        [$reader] = $this->as('reader@scutoons.test', Roles::CREATOR);
+        $pictures = fn(): array => array_column(self::json($this->request('GET', '/api/library?limit=5000', $reader))['entries'], 'picture', 'address');
+        $before = $pictures();
+        self::assertSame([null, null], [$before['scene:nave'], $before['place:dom']], 'no still yet: null');
+
+        foreach (['scene:nave', 'place:dom', 'place:garden'] as $key) self::assertSame(200, $this->request('PUT', "/api/thumbs?key=$key", $creator, self::webp(tag: $key))->getStatusCode());
+        $glb = $this->request('PUT', '/api/assets/upload?path=catpope/3d/lantern.glb', $creator + ['Content-Type' => 'model/gltf-binary'], "glTF\x02\0\0\0\x0c\0\0\0");
+        $model = (string) self::json($glb)['asset']['id'];
+        self::assertSame(200, $this->request('PUT', "/api/thumbs?key=asset:$model", $creator, self::webp(tag: 'lantern'))->getStatusCode());
+
+        // another member's answer (another machine): the stored stills, nothing made again
+        $after = $pictures();
+        $stills = self::json($this->request('GET', '/api/thumbs?keys=scene:nave,place:dom', $reader))['thumbs'];
+        foreach (['scene:nave', 'place:dom'] as $key) {
+            self::assertIsString($after[$key]);
+            self::assertSame(strtok($stills[$key]['url'], '?'), $after[$key], $key);
+            self::assertFileExists($this->file($after[$key]));
+        }
+        self::assertSame('http://cdn.test/places/garden.webp', $after['place:garden'], 'a picture of its own comes first');
+        self::assertSame('http://cdn.test/catpope/3d/lantern.thumb.webp', $after['model:catpope/3d/lantern.glb']);
     }
 
     public function testTheEditorTokenMayUploadStills(): void

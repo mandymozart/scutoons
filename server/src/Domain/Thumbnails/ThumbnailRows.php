@@ -85,6 +85,35 @@ final class ThumbnailRows
         }
     }
 
+    /**
+     * Every shared still of an address (not an asset's: those are its `thumb` rendition), for the extended Library
+     * @return array<string, string> address → storage path
+     */
+    public function addressPaths(): array
+    {
+        try {
+            $rows = $this->db->all("SELECT thumb_key, path FROM thumbnails WHERE owner = '' AND thumb_key NOT LIKE 'asset:%'");
+        } catch (PDOException $error) {
+            if (self::missing($error)) return [];
+            throw $error;
+        }
+        $out = [];
+        foreach ($rows as $r) $out[(string) $r['thumb_key']] = (string) $r['path'];
+        return $out;
+    }
+
+    /** What the shared stills are now (count, newest), for a cache's fingerprint; null before the migration */
+    public function sharedMark(): ?string
+    {
+        try {
+            $r = $this->db->one("SELECT COUNT(*) AS n, MAX(taken_at) AS at FROM thumbnails WHERE owner = ''");
+        } catch (PDOException $error) {
+            if (self::missing($error)) return null;
+            throw $error;
+        }
+        return $r === null ? null : $r['n'] . '|' . $r['at'];
+    }
+
     /** A shared still waits to be made again (its thing changed) */
     public function markStale(string $key): void
     {

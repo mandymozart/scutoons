@@ -1183,11 +1183,12 @@ keyed on that order, so a page never repeats or skips an entry when others are a
   `<kind>:<main path>` (CDN-root path, as the Library opens it: `image:characters/catpope/catpope_avatar-neutral.webp`);
   `archive`, `document`, `font`, `other` are a `file`.
 - `name` – a thing's label (`name` / `title` / a scene's stage name), else its id; a file's title, else its slug.
-- `picture` – a thumbnail URL on the CDN or `null`: a file's smallest image rendition (an image's, a video's poster; an
-  image without renditions: its own file; audio, models, files: null); a character's first persona's default look (its
-  neutral mood, else the first: avatar › portrait › full); a toon's tile (else avatar, thumbnail); a place's image; an
-  item's `icon` (`image`, `cover`…). A path a document names is answered with the picture of its file in the registry. A
-  scene, show, module, model has no still yet: `null` (the stills of P3 fill it later, same field).
+- `picture` – a thumbnail URL on the CDN or `null`: a file's still (its `thumb` rendition, any kind – "Thumbnails"),
+  else its smallest image rendition (an image's, a video's poster; an image without renditions: its own file; audio,
+  models, files: null); a character's first persona's default look (its neutral mood, else the first: avatar › portrait ›
+  full); a toon's tile (else avatar, thumbnail); a place's image; an item's `icon` (`image`, `cover`…). A path a
+  document names is answered with the picture of its file in the registry. A thing without a picture of its own (a
+  scene, a show, a place without an image …) answers its address's still (`PUT /thumbs?key=scene:<id>`); none yet: `null`.
 - `parent` – a rig's character or item (`rig:character.catpope` → `character:catpope`), a Kanon text's subject.
 - `toons` – the toons it belongs to; `[]` = shared. A character: the casts listing it + its `own_toon`; scene / show /
   place: their `toons`; an item: its catalog `toon`; a rig, a Kanon text: their parent's; a person: the toons whose credits
