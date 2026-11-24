@@ -153,6 +153,11 @@ final class ExtendedLibraryApiTest extends TestCase
         $addresses = fn(string $q) => array_column(self::json($this->request("/api/library?$q", $creator))['entries'], 'address');
         // This item: what the thing uses – its things and its files
         self::assertSame(['rig:character.catpope', 'image:characters/catpope/catpope_avatar-neutral.webp'], $addresses('place=item:character:catpope'));
+        // a chapter and a season are no entries, but their documents' uses are This item
+        self::assertSame(['character:catpope', 'item:camera'], $addresses('toon=catpope&place=item:chapter:catpope:1'));
+        self::assertSame(['character:boy', 'character:catpope'], $addresses('toon=catpope&place=item:season:catpope:1'));
+        self::assertSame([], $addresses('toon=catpope&place=item:chapter:catpope:2'));
+        self::assertSame(404, $this->request('/api/library?toon=catpope&place=item:chapter:catpope:9', $creator)->getStatusCode());
         // a season's cast: its characters and their files
         self::assertSame(['character:boy', 'character:catpope', 'image:characters/catpope/catpope_avatar-neutral.webp'], $addresses('toon=catpope&place=cast:1'));
         self::assertSame(404, $this->request('/api/library?toon=catpope&place=cast:9', $creator)->getStatusCode());

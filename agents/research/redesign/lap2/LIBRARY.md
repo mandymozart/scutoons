@@ -71,3 +71,5 @@
 
 ## Open
 Nothing in this concept. What dropping a Toon, a Show, a Generator, a Kanon text or a person does, and where each opens, is asked in PLAN.md (P11).
+
+**Roles (#882, read from answer 1 – the owner may overrule):** roles are no type of the Library – its list names people for credits, not roles – so the credits' role chooser (`credits/role-picker.svelte`) stays a chooser of its own: one control, not a second picker.
