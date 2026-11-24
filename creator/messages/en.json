@@ -2538,6 +2538,8 @@
 		"crafts_admin": "An admin changes your crafts",
 		"ws_generate": "Generate",
 		"main_away": "{tab} is not on the stage.",
+		"ws_empty": "Nothing is open in {name}.",
+		"ws_find": "Find one to open",
 		"main_to_stage": "{tab} on the stage",
 		"gen_canvas": "Canvas",
 		"gen_canvas_about": "The spore canvas: the spores woven in and the output spore that says what the generator makes",

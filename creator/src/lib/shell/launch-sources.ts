@@ -18,7 +18,7 @@ import { tabSpecs } from './panels.ts';
 import { places, type Place } from './places.svelte.ts';
 import { shell } from './shell.svelte.ts';
 import { workspaceName } from './workspace-names.ts';
-import { workspaceRow } from './workspaces.ts';
+import { workspaceList } from './workspaces.ts';
 import { withOwn } from './layouts.ts';
 import { layouts } from './layouts.svelte.ts';
 import { canMakeOwn, newWorkspace, resetLabel, saveWorkspace } from './workspace-actions.ts';
@@ -45,7 +45,7 @@ export function typed(query: string): LaunchEntry[] {
 }
 
 export function workspaces(): LaunchEntry[] {
-	return withOwn(workspaceRow(shell.use, shell.state.tabs), layouts.state.own).map((e) => ({ id: `workspace:${e.id}`, kind: 'workspace', label: e.name ?? workspaceName(e.kind), hint: m['shell.launch_workspace'](), icon: 'layout', href: e.href }));
+	return withOwn(workspaceList(shell.use, shell.state.tabs), layouts.state.own).map((e) => ({ id: `workspace:${e.id}`, kind: 'workspace', label: e.name ?? workspaceName(e.kind), hint: m['shell.launch_workspace'](), icon: 'layout', href: e.href }));
 }
 
 /** the front workspace's views (Settings is a command) */

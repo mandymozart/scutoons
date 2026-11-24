@@ -82,7 +82,7 @@ export function startsAtTop(from: URL | null | undefined, to: URL | null | undef
 }
 
 const TOON = /^[a-z0-9][a-z0-9_-]*$/;
-const RESERVED = new Set(['characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
+const RESERVED = new Set(['workspace', 'characters', 'map', 'scenes', 'experiences', 'flow', 'guide', 'notifications', 'catalog', 'edit', 'kanon', 'generate', 'toons', 'docs', 'h', 'kit']);
 
 /**
  * The address a creator URL edits: one item per tab, so a toon's own pages (its board, script, credits,

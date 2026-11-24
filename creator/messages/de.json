@@ -2538,6 +2538,8 @@
 		"crafts_admin": "Dein Handwerk ändert ein Admin",
 		"ws_generate": "Generieren",
 		"main_away": "{tab} ist nicht auf der Bühne.",
+		"ws_empty": "In {name} ist nichts offen.",
+		"ws_find": "Etwas zum Öffnen finden",
 		"main_to_stage": "{tab} auf die Bühne",
 		"gen_canvas": "Leinwand",
 		"gen_canvas_about": "Die Sporen-Leinwand: die eingewebten Sporen und die Ausgabe-Spore, die sagt, was der Generator macht",
