@@ -135,7 +135,6 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		flex-wrap: wrap;
 	}
 	/* one line in the room the tools leave, the full text in its tooltip; where that room is narrower than the line it

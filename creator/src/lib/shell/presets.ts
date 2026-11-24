@@ -12,6 +12,8 @@ const at = (corner: PanelSpec['place']['corner'], dx: number, dy: number, more: 
 
 export type TabId =
 	| 'tree'
+	/** the open item's parts in order, each a frame (lap 2 C3): a storyboard's shots, a chapter's slices, an experience's scenes */
+	| 'filmstrip'
 	/** the character's views: its sheet (one picture), its 3D place – any of them, and Expressions, can take the stage */
 	| 'sheet'
 	| '3d'
@@ -95,8 +97,8 @@ const LOG: PresetPanel = { id: 'log', tabs: ['log'], place: at('bottom-right', 0
 export const PRESETS: Record<WorkspaceKind | 'home', Preset> = {
 	home: { panels: [library({})] },
 	toon: { panels: [left(['toon', 'tree']), right(['flow', 'log'], FOLDED), preview(FOLDED), library()] },
-	chapter: { panels: [left(['toon', 'tree']), right(['inspector', 'log', 'flow', 'weave']), preview(FOLDED), library()] },
-	storyboard: { panels: [left(['toon', 'tree']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
+	chapter: { panels: [left(['toon', 'tree', 'filmstrip']), right(['inspector', 'log', 'flow', 'weave']), preview(FOLDED), library()] },
+	storyboard: { panels: [left(['filmstrip']), right(['inspector', 'script', 'rhythm', 'generate', 'handheld', 'output', 'log']), foot(['timeline']), library()] },
 	character: { main: 'sheet', panels: [{ ...right(['kanon', 'expressions', 'rig', 'voice', 'cast', 'generations']), size: { w: 34, h: 'fill' } }, views(['sheet', '3d']), library()] },
 	catalog: { panels: [left(['tree']), right(['log'], FOLDED), library()] },
 	map: { panels: [left(['tree']), right(['log'], FOLDED), library()] },

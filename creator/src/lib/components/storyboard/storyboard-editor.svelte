@@ -9,11 +9,12 @@
 	import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Icon, Segmented } from '@scutoons/ui';
+	import { Segmented } from '@scutoons/ui';
+	import { IconButton, Pill } from '@scutoons/ui/editor';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import { shell, useTabs } from '$lib/shell/shell.svelte.ts';
+	import { freeOf, shell, useTabs } from '$lib/shell/shell.svelte.ts';
 	import { StoryboardPage } from '$lib/editor/storyboard-page.svelte.ts';
 	import { splitMessage } from '$lib/editor/storyboard-shots.ts';
 	import { PANELS, READY_STEPS, SHOT_TABS, STEPS, stepOfKey, type PanelKind } from '$lib/editor/storyboard-steps.ts';
@@ -76,7 +77,7 @@
 	/** the studio's panels are tabs (the shot's inspector is the Inspector); a step opens its own set (`sb.isOpen`) */
 	const TAB_OF: Record<PanelKind, string> = { shot: 'inspector', script: 'script', rhythm: 'rhythm', generate: 'generate', handheld: 'handheld', output: 'output' };
 	useTabs(() => ({
-		tree: shotsNav,
+		filmstrip: shotsNav,
 		timeline: sb.data ? timelineBody : null,
 		...Object.fromEntries(PANELS.map((p) => [TAB_OF[p.kind], sb.isOpen(p.kind) && (sb.sel || p.kind === 'rhythm') ? bodies[p.kind] : null]))
 	}));
@@ -128,9 +129,25 @@
 		e.preventDefault();
 	}
 	const position = $derived(sb.order.indexOf(sb.current ?? '') + 1);
+
+	// the steps, the tools and the stage's shots keep clear of the panels at the sides (lap 2 C3: they start beside the Shots)
+	let root: HTMLElement | null = $state(null);
+	let width = $state(0);
+	const inset = $derived.by(() => {
+		const floats = shell.floats;
+		if (!root || !width || !floats) return { left: 0, right: 0, bottom: 0 };
+		const free = freeOf(floats, width);
+		const rect = root.getBoundingClientRect();
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+		// a band across the lower half (the Timeline) keeps the stage's content above it
+		const band = Object.entries(floats.views)
+			.filter(([id, v]) => !floats.closed(id) && floats.shown.has(id) && v.rect.w >= width / 2 && v.rect.y > rect.top + rect.height / 2)
+			.reduce((top, [, v]) => Math.min(top, v.rect.y), rect.bottom);
+		return { left: Math.max(0, free.left - rect.left) / rem, right: Math.max(0, rect.right - free.right) / rem, bottom: Math.max(0, rect.bottom - band) / rem };
+	});
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} bind:innerWidth={width} />
 
 {#snippet shotsNav()}<ShotList {sb} />{/snippet}
 {#snippet shotTabs()}
@@ -147,13 +164,14 @@
 {#snippet stepper()}
 	{#if sb.order.length}
 		<span class="stepper">
-			<button type="button" class="sc-round" aria-label={m['storyboard.prev_shot']()} title={m['storyboard.prev_shot']()} disabled={position <= 1} onclick={() => sb.move(-1)}><Icon name="chevron-left" /></button>
+			<IconButton alone label={m['storyboard.prev_shot']()} icon="chevron-left" disabled={position <= 1} onclick={() => sb.move(-1)} />
 			<span class="count">{m['storyboard.position']({ n: position, total: sb.order.length })}</span>
-			<button type="button" class="sc-round" aria-label={m['storyboard.next_shot']()} title={m['storyboard.next_shot']()} disabled={position >= sb.order.length} onclick={() => sb.move(1)}><Icon name="chevron-right" /></button>
+			<IconButton alone label={m['storyboard.next_shot']()} icon="chevron-right" disabled={position >= sb.order.length} onclick={() => sb.move(1)} />
 		</span>
 	{/if}
 {/snippet}
 
+<div class="clear" bind:this={root} style:padding-left="{inset.left}rem" style:padding-right="{inset.right}rem" style:padding-bottom="{inset.bottom}rem">
 <MetaPage {toon} title={m['storyboard.title']()} docs={[sb.doc]} {validate} ongoto={gotoProblem} fill wide help="storyboard" actions={stepper}>
 	{#if !sb.data}
 		<div class="missing">
@@ -168,11 +186,13 @@
 						<button type="button" aria-pressed={sb.step === s.id} title="{STEP_WORD[s.id][1]()} ({s.key})" onclick={() => sb.setStep(s.id)} data-testid="step-{s.id}"><kbd>{s.key}</kbd>{STEP_WORD[s.id][0]()}</button>
 					{/each}
 				</div>
-				<div class="sc-seg" role="group" aria-label={m['storyboard.panels']()} title={m['storyboard.panels_hint']()}>
+			</div>
+			<div class="bar">
+				<Pill label={m['storyboard.panels']()} title={m['storyboard.panels_hint']()}>
 					{#each PANELS as p (p.kind)}
-						<button type="button" class="is-square" aria-pressed={sb.isOpen(p.kind)} aria-label={PANEL_WORD[p.kind]()} title={PANEL_WORD[p.kind]()} onclick={() => sb.setOpen(p.kind, !sb.isOpen(p.kind))} data-testid="toggle-{p.kind}"><Icon name={p.icon} /></button>
+						<IconButton label={PANEL_WORD[p.kind]()} icon={p.icon} pressed={sb.isOpen(p.kind)} onclick={() => sb.setOpen(p.kind, !sb.isOpen(p.kind))} data-testid="toggle-{p.kind}" />
 					{/each}
-				</div>
+				</Pill>
 				<span class="grow"></span>
 				<WorkspaceField {sb} />
 			</div>
@@ -180,22 +200,27 @@
 		</div>
 	{/if}
 </MetaPage>
+</div>
 
 <style>
+	.clear {
+		height: 100%;
+		min-height: 0;
+		box-sizing: border-box;
+	}
 	.page {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
 	}
-	/* the step row: the steps, the step's panels, the workspace folder – it wraps on narrow screens */
+	/* the steps; under them the step's panels and the workspace folder (lap 2 C3) – no line under them, the stage below */
 	.bar {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-05);
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
+		gap: var(--kit-gap, var(--space-05));
+		padding: var(--space-05) var(--space-1) 0;
 		flex: none;
 		container-type: inline-size;
 	}

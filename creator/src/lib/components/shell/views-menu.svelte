@@ -13,7 +13,7 @@
 	 */
 	let { onclose }: { onclose?: () => void } = $props();
 
-	const specs = tabSpecs();
+	const specs = $derived(tabSpecs(shell.kind));
 	const floats = $derived(shell.floats);
 	// Settings is the menu's own line
 	const views = $derived(specs.filter((t) => t.id !== 'settings' && shell.available.has(t.id)));

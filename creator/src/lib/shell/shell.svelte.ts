@@ -283,13 +283,14 @@ export function usePageStatus(status: () => Snippet | null) {
 	});
 }
 
-/** the room a workspace's shown panels leave free across the window (client px) */
+/** the room a workspace's shown panels leave free across the window (client px); a band across the window (the Timeline) narrows nothing */
 export function freeOf(floats: Floats | null, W: number): { left: number; right: number } {
 	if (!floats) return { left: 0, right: W };
 	return freeRoom(
 		Object.entries(floats.views)
 			.filter(([id]) => !floats.closed(id) && floats.shown.has(id))
-			.map(([, v]) => v.rect),
+			.map(([, v]) => v.rect)
+			.filter((r) => r.w < W / 2),
 		W
 	);
 }

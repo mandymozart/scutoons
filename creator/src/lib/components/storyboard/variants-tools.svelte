@@ -45,7 +45,6 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: var(--space-025) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--tool-text);
 		container-type: inline-size;
 	}
 	.hint {

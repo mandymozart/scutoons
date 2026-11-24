@@ -3,8 +3,9 @@
 // last clicked one – multi-select.ts clickSelect), a field set or unset on a shot, the schematic as an image. The
 // model and its logic are @scutoons/content/storyboard's; nothing here copies it.
 import type { ChapterStoryboard, Shot, StoryboardDoc } from '@scutoons/content/storyboard';
-import { aspectSlices, FORMATS, SLICE_ASPECTS } from '@scutoons/content/storyboard';
+import { aspectSlices, FORMATS, measureShot, parseAspect, SLICE_ASPECTS, textOf } from '@scutoons/content/storyboard';
 import { clickSelect } from './multi-select.ts';
+import type { FilmGroup } from './filmstrip.ts';
 
 /** a shot with its place in the document (`path` = where `doc.edit` finds it) */
 export interface ShotEntry {
@@ -148,4 +149,34 @@ export function shotOfMessage(message: string, ids: ReadonlySet<string>): string
 export function splitMessage(message: string): { place: string[]; text: string } {
 	const m = /^([^:]+?):\s(.*)$/s.exec(message);
 	return m ? { place: m[1].split(/\s+/), text: m[2] } : { place: [], text: message };
+}
+
+/** a shot's frame shape (width / height) from its aspect – a loop360's panorama is wide, a vertical slice tall */
+export function shotAspect(shot: Pick<Shot, 'aspect'>): number {
+	const a = parseAspect(shot.aspect);
+	return a && a.w > 0 && a.h > 0 ? a.w / a.h : 9 / 16;
+}
+
+/**
+ * The chapter's shots as the Filmstrip shows them (lap 2 C3): a group per scene with its number and heading, a frame per
+ * shot in its own shape – its id, its format and what it wants, its reading time (content's measureShot). `frame`
+ * gives a shot's picture; `seconds` the unit's word.
+ */
+export function shotStrip(doc: ChapterStoryboard | null | undefined, entries: readonly ShotEntry[], frame: (e: ShotEntry) => string | null, seconds: (s: string) => string): FilmGroup[] {
+	return (doc?.scenes ?? []).map((scene, si) => ({
+		key: `scene-${si}`,
+		number: scene.source?.scene !== undefined ? String(scene.source.scene) : undefined,
+		label: scene.source?.heading ?? '',
+		frames: entries
+			.filter((e) => e.sceneIndex === si)
+			.map((e) => ({
+				id: e.id,
+				label: e.id,
+				detail: [`${e.shot.format ?? '?'} ${e.shot.aspect ?? ''}`.trim(), e.shot.source?.want].filter(Boolean).join(' · '),
+				meta: seconds(measureShot(e.shot).seconds.toFixed(1)),
+				aspect: shotAspect(e.shot),
+				src: frame(e),
+				title: textOf(e.shot.action) || undefined
+			}))
+	}));
 }

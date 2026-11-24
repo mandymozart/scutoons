@@ -34,7 +34,7 @@
 	 */
 	let { kind, toon = null }: { kind: WorkspaceKind | 'home'; toon?: string | null } = $props();
 
-	const specs = tabSpecs();
+	const specs = $derived(tabSpecs(kind));
 	const filled = $derived(Object.keys(shell.tabs).sort().join(' '));
 	const available = $derived(availableTabs(filled ? filled.split(' ') : [], toon));
 	/** the workspace shown: the kind's own, or an own workspace made from it */

@@ -23,7 +23,7 @@
 	const session = getCreatorSession();
 	const roles = $derived(session?.roles ?? []);
 	const who = $derived(session?.user?.email ?? '');
-	const specs = tabSpecs();
+	const specs = $derived(tabSpecs(shell.kind));
 	// the views shown now (in a panel, on the stage, full), by name: the Views line's end
 	const shown = $derived(
 		specs
