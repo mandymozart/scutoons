@@ -39,6 +39,22 @@ Old section names in code comments (until 2026-11-03): "Backlog" = C · "Git, se
   `--fresh` forces; the full tier `deck:ci -- --full` builds release at the end of every shift and before a deck release); phones test over the LAN (`npm run dev:lan`). (2026-10-31, 2026-11-13 [deck-ci-local])
 - **A14** Naming addresses: the part before `:` says where it comes from (`sound:`, `clock:`, `being:`, a track); places (`deck:`, `scene:`, `character:`, `item:`) and sources never share a word; the part after says what it is, a whole lowercase word, the same everywhere; the address is the identity, what a person reads is a label; every reserved word is listed once in the one parser (rig/address.rs) with a reason. (2026-11-09 [names])
 
+## L · Graphics (the deck's picture; the plan and its gaps: research/RENDER-TIERS.md, proposal #921)
+- **L1** Iteratively, not ahead of time: nothing of the plan is built before a scene or a show needs it. An agent that meets a gap (RENDER-TIERS "Gaps") fills
+  that one gap in its issue, by these conventions, and files the rest (C4) – no tier, pipeline or abstraction on stock. (2026-11-25 [graphics]: "we do this one iteratively not ahead of time")
+- **L2** Three targets, named the same everywhere: **lean** (cheap hardware, Raspberry Pi), **full** (X1, PCs), **showpiece** (effect-loaded, for one named machine –
+  a latest NVIDIA RTX). A showpiece effect may need its hardware and configuration; it is never cut down to suit every platform. (2026-11-25 [graphics])
+- **L3** Build time decides what a deck carries: a tier, a pipeline or an effect is a cargo feature and a profile class (`os/profiles.toml`, `deck-scene-features`), like
+  a module; no code is compiled in that the deck does not run; what a scene needs and the build lacks is refused by its name. (2026-11-25 [graphics], 2026-10-30 [modules])
+- **L4** The picture is decoupled and always runs beside the audio engine: a frame reads the show clock, never waits on audio and never blocks it; shaders compile
+  and textures upload while a scene loads, not in a show (A4, A10; RENDER-AUDIO-BUDGET.md). (2026-11-25 [graphics])
+- **L5** Toon edges on a screen come from a prepass (depth, normal, object id) and an edge pass over it. A laser draws geometry only – lines from the core, never
+  pixels. (2026-11-25 [graphics]; 2026-10-29 [outputs])
+- **L6** Shaders are Library content, shared across scenes: WGSL is the standard; a high-end layer takes SPIR-V; a showpiece shader is shared like any other and
+  carries a flag for the tier it needs. Sound reaches a shader as uniforms (FFT bands, envelopes), not by per-scene wiring. (2026-11-25 [graphics])
+- **L7** Not decided – stop and ask, never build on a guess: pipelines behind one frame description or a second engine, goldens per tier, an own Vulkan layer
+  (#921); how a deck declares its capabilities (#922). Until then the GPU layer is wgpu, and no second GPU layer enters the repo. (2026-11-25 [graphics])
+
 ## B · Sessions, orchestration, models (workspace rules: C:\Development\agents\ORCHESTRATION.md)
 - **B1** At most TWO local sessions at a time across all projects; workers one after another; no cloud sessions. (2026-11-02 [no-cloud]: "no cloud sessions anymore please we have credits")
 - **B2** A worker: one issue, its own worktree, branch `<kind>/<issue>-<short-title>` (kind feature · fix · chore · wip; never a generated name), a brief by
