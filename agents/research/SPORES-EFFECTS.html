@@ -212,7 +212,8 @@ text{white-space:pre}
 <ul>
   <li><b>Already decided (2026-10-30):</b> visuals are data – WGSL and scenes reload; a module may hand over WGSL. OSCT plugins already carry shader files.</li>
   <li><b>The step:</b> a <code>shader:</code> kind in the Library with its knobs declared, the same way module presets become documents (#808).</li>
-  <li><b>Open:</b> one language (WGSL) for deck and XR, or OSCT's shaders stay their own kind.</li>
+  <li><b>Decided 2026-11-25:</b> WGSL is the Library's shader language; a showpiece shader is shared like any other and carries a flag for the tier it needs (RENDER-TIERS.md §6).</li>
+  <li><b>Open:</b> one language for deck and XR, or OSCT's shaders stay their own kind.</li>
 </ul>
 </section>
 
@@ -230,7 +231,7 @@ text{white-space:pre}
 </svg>
 <ul>
   <li><b>What can still disturb the sound:</b> the processor, not the GPU – compiling a shader or uploading a big texture in the middle of a show. Do both while the scene loads.</li>
-  <li><b>What limits an RTX showpiece:</b> the GPU layer (wgpu) does not hand out every RTX feature; ray tracing and mesh shaders are behind experimental switches, DLSS is outside it. A showpiece build can reach the raw Vulkan device for one effect.</li>
+  <li><b>What limits an RTX showpiece:</b> the GPU layer (wgpu) does not hand out every RTX feature; ray queries, ray tracing pipelines and mesh shaders are there but experimental (30.0.1), DLSS is outside it. A showpiece build can reach the raw Vulkan device for one effect.</li>
 </ul>
 </section>
 
