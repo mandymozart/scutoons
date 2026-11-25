@@ -69,6 +69,22 @@ Open in it: who compiles a GLSL / Slang shader (the compile service, as for modu
 
 Today the way is one: the conductor flashes, the deck drops what it has no hardware or build for. `hello` carries only `device`. With tiers and flagged shaders a conductor should know before the flash. Proposed: the deck declares (tier, features, outlets, a few GPU facts), the conductor sees it in the Flash dialog, the deck still resolves every fallback itself by the core's one rule. Options and the recommendation: #922.
 
+## Gaps (RULES L1: filled one at a time, when a scene or a show needs it – each in its own issue)
+
+| Gap | Today | Convention when it is filled |
+|---|---|---|
+| the renderer shares winit's input thread | one thread (RENDER-AUDIO-BUDGET §1) | its own thread; reads the clock (L4) |
+| tiers | `full` / `lean` are module sets, not pipelines; the governor has low / medium / high | lean · full · showpiece as features and profile classes (L2, L3) |
+| the frame description | not looked for in `deck/outlet` yet | open (#921) – ask first (L7) |
+| the prepass and toon edges | none on the deck; XR has a `toon` plugin draft | depth + normal + id, an edge pass (L5); full first |
+| lines for the laser | none; the `laser` adapter does not exist (#178) | edges as geometry from the core, the adapter orders them (L5) |
+| shaders in the Library | a `wgsl` file beside a scene | a `shader:` kind, WGSL, knobs declared, tier flag, a lean form or "required" (L6) |
+| the sound block | four knobs a–d per shader node; FFT and `follower` / `env` exist (#746) | one named uniform block: bands, envelopes, beat, time, seed (L6) |
+| SPIR-V for the high end | wgpu compiles WGSL only | open who compiles GLSL / Slang; passthrough exists in wgpu (§5) |
+| showpiece effects | none | a feature per effect, native only, on the named machine (L2) |
+| capabilities | `hello.device` only | open (#922) – ask first (L7) |
+| goldens above the base tier | one golden contract (A4) | open (#921) |
+
 ## 8 · Order to build and learn
 
 1. Measure the X1 (RENDER-AUDIO-BUDGET §4); move the frame off the input thread.
